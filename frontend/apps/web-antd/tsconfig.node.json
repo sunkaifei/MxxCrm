@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@vben/tsconfig/node.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "noEmit": false,
+    "paths": {
+      "@vben/vite-config": ["../../internal/vite-config/src/index.ts"]
+    }
+  },
+  "include": ["vite.config.ts"]
+}

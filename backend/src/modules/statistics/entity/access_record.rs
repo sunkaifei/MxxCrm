@@ -1,0 +1,68 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
+
+use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
+#[sea_orm(table_name = "mxx_statistics_access_record")]
+pub struct Model {
+    // id
+    #[sea_orm(primary_key)]
+    #[serde(skip_deserializing)]
+    pub id: i64,
+    // 是否登录访问（0-否  1-是）
+    pub is_login: Option<i32>,
+    // 登录用户id
+    pub login_user_id: Option<i64>,
+    // 登录用户名
+    pub login_user_name: Option<String>,
+    // 会话标识
+    pub session_id: Option<String>,
+    // cookie标识
+    pub cookie_id: Option<String>,
+    // 访问来源(1:PC  2:移动端H5  3:微信客户端H5 4:IOS 5:安卓 6:小程序)
+    pub access_source_client: Option<i32>,
+    // 访问网址
+    pub access_url: Option<String>,
+    // 来源网址
+    pub source_url: Option<String>,
+    // 来源域名
+    pub source_domain: Option<String>,
+    // 来源网站类型 （1-搜索引擎  2-外部链接  3-直接访问）
+    pub source_url_type: Option<i32>,
+    // 访客ip
+    pub access_ip: Option<String>,
+    // 访客设备系统（如：Win10 Mac10  Android8）
+    pub access_device: Option<String>,
+    // 访客浏览器类型
+    pub access_browser: Option<String>,
+    // 访客所属省份
+    pub access_province: Option<String>,
+    // 访客所属城市
+    pub access_city: Option<String>,
+    // 访客所属国家
+    pub access_country: Option<String>,
+    // 搜索名称
+    pub engine_name: Option<String>,
+    // 是否新访客（0:否   1:是）
+    pub is_new_visitor: Option<i32>,
+    // 设备类型
+    pub device_type: Option<i32>,
+    // 创建时间
+    pub create_time: Option<DateTime>,
+    // 删除标识
+    pub deleted: Option<i32>,
+}
+
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {}
+
+impl ActiveModelBehavior for ActiveModel {}

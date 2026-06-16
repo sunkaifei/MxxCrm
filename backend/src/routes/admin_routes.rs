@@ -1,0 +1,372 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
+
+use std::collections::HashSet;
+
+use actix_web::dev::ServiceRequest;
+use actix_web::{error, web, Error, Result};
+use actix_web_grants::GrantsMiddleware;
+
+use crate::core::kit::config;
+use crate::core::kit::jwt_util::JWTToken;
+use crate::modules::articles::controller::admin::{article_admin_controller, category_admin_controller, label_admin_controller};
+use crate::modules::search::controller::admin::search_admin_controller;
+use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller};
+use crate::modules::upload::controller::admin::{attachment_admin_controller, attachment_category_admin_controller};
+use crate::modules::user::controller::admin::{user_platform_admin_controller, user_admin_controller};
+use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller};
+use crate::modules::shop::controller::admin::shop_admin_controller;
+use crate::modules::shop::controller::admin::category_controller;
+use crate::modules::shop::controller::admin::audit_controller;
+use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller};
+use crate::modules::user::controller::user::user_level_controller;
+use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller};
+use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller};
+use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
+use crate::modules::sale::controller::admin::{order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller};
+
+async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
+    let path = req.path();
+
+    let exclude_urls = config::section::<String>("server", "permission_exclude_urls", "".to_string());
+    let exclude_list: Vec<&str> = exclude_urls.split(',').collect();
+
+    if exclude_list.iter().any(|url| path.starts_with(url.trim())) {
+        return Ok(HashSet::new());
+    }
+
+    let token = req
+        .headers()
+        .get("Authorization")
+        .map(|v| v.to_str().unwrap_or_default().to_string())
+        .unwrap_or_default()
+        .split("Bearer ")
+        .collect::<Vec<&str>>()
+        .pop()
+        .unwrap_or_default()
+        .to_string();
+    let jwt_token_e = JWTToken::verify(&config::section::<String>("server", "jwt_secret_admin", "".to_string()), &token);
+
+    match jwt_token_e {
+        Ok(data) => {
+            let set: HashSet<String> = data.permissions.into_iter().collect();
+            Ok(set)
+        },
+        Err(_err) => {
+            Err(error::ErrorUnauthorized("Authorization Not Found"))
+        }
+    }
+}
+
+pub fn configure_routes(cfg: &mut web::ServiceConfig) {
+    cfg.service(system_admin_controller::post_login)
+        .service(system_admin_controller::logout)
+        .service(
+            web::scope("/api/system")
+                .wrap(GrantsMiddleware::with_extractor(extract))
+                .service(system_admin_controller::save_admin)
+                .service(system_admin_controller::admin_batch_delete)
+                .service(system_admin_controller::admin_soft_delete)
+                .service(system_admin_controller::update_user_role)
+                .service(system_admin_controller::admin_update)
+                .service(system_admin_controller::update_password)
+                .service(system_admin_controller::update_my_password)
+                .service(system_admin_controller::update_admin_status)
+                .service(system_admin_controller::get_user_info)
+                .service(system_admin_controller::get_user_detail)
+                .service(system_admin_controller::admin_list)
+                .service(system_admin_controller::get_auth_codes)
+                .service(role_admin_controller::role_insert)
+                .service(role_admin_controller::update_role_menus)
+                .service(role_admin_controller::bath_delete_role)
+                .service(role_admin_controller::update_role)
+                .service(role_admin_controller::get_role_menu_list_by_role_id)
+                .service(role_admin_controller::role_options)
+                .service(role_admin_controller::role_list)
+                .service(role_admin_controller::get_by_detail)
+                .service(menu_admin_controller::menu_list)
+                .service(menu_admin_controller::add_menu)
+                .service(menu_admin_controller::menu_delete)
+                .service(menu_admin_controller::menu_update)
+                .service(menu_admin_controller::menu_detail)
+                .service(menu_admin_controller::get_menu_options)
+                .service(menu_admin_controller::get_user_menu)
+                .service(system_dict_controller::save_dict)
+                .service(system_dict_controller::batch_delete)
+                .service(system_dict_controller::update_dict)
+                .service(system_dict_controller::get_dict_page)
+                .service(system_dict_controller::get_dict_detail)
+                .service(system_dict_controller::save_dict_data)
+                .service(system_dict_controller::batch_delete_data)
+                .service(system_dict_controller::update_dict_data)
+                .service(system_dict_controller::get_dict_data_list_by_code)
+                .service(system_dict_controller::get_dict_data_list)
+                .service(system_dict_controller::get_dict_data_detail)
+                .service(dept_admin_controller::save_dept)
+                .service(dept_admin_controller::dept_update)
+                .service(dept_admin_controller::get_dept_tree)
+                .service(dept_admin_controller::get_dept_options)
+                .service(dept_admin_controller::get_by_detail)
+                .service(dept_admin_controller::dept_list)
+                .service(dept_admin_controller::dept_batch_delete)
+                .service(post_admin_controller::save_post)
+                .service(post_admin_controller::bath_delete_post)
+                .service(post_admin_controller::update_post)
+                .service(post_admin_controller::get_by_detail)
+                .service(post_admin_controller::get_by_page)
+                .service(config_admin_controller::insert_config)
+                .service(config_admin_controller::update_config)
+                .service(config_admin_controller::batch_delete)
+                .service(config_admin_controller::get_by_page)
+                .service(config_admin_controller::get_by_detail)
+                .service(region_admin_controller::save_region)
+                .service(region_admin_controller::batch_delete)
+                .service(region_admin_controller::update_by_id)
+                .service(region_admin_controller::get_detail)
+                .service(region_admin_controller::get_region_tree)
+                .service(website_admin_controller::add_site)
+                .service(website_admin_controller::batch_delete)
+                .service(website_admin_controller::update_site)
+                .service(website_admin_controller::update_by_status)
+                .service(website_admin_controller::update_by_default)
+                .service(website_admin_controller::get_by_detail)
+                .service(website_admin_controller::get_by_page)
+                .service(article_admin_controller::save_article)
+                .service(article_admin_controller::batch_delete)
+                .service(article_admin_controller::update_article_detail)
+                .service(article_admin_controller::get_article_detail)
+                .service(article_admin_controller::get_article_list)
+                .service(category_admin_controller::save_category)
+                .service(category_admin_controller::batch_delete)
+                .service(category_admin_controller::update_category)
+                .service(category_admin_controller::category_list_tree)
+                .service(category_admin_controller::category_option)
+                .service(category_admin_controller::get_category_detail)
+                .service(ip_admin_controller::ip_address_page)
+                .service(attachment_admin_controller::upload_attachment)
+                .service(attachment_admin_controller::delete_attachment)
+                .service(attachment_admin_controller::batch_move)
+                .service(attachment_admin_controller::update)
+                .service(attachment_admin_controller::get_detail)
+                .service(attachment_admin_controller::get_page_list)
+                .service(attachment_category_admin_controller::save_category)
+                .service(attachment_category_admin_controller::batch_delete_by_ids)
+                .service(attachment_category_admin_controller::update_category)
+                .service(attachment_category_admin_controller::get_by_tree)
+                .service(attachment_category_admin_controller::get_by_detail)
+                .service(attachment_category_admin_controller::get_by_list)
+                .service(system_log_admin_controller::get_by_page)
+                .service(template_category_admin_controller::add)
+                .service(template_category_admin_controller::batch_delete)
+                .service(template_category_admin_controller::update_by_id)
+                .service(template_category_admin_controller::get_by_detail)
+                .service(template_category_admin_controller::get_by_options)
+                .service(template_category_admin_controller::select_by_parent)
+                .service(template_category_admin_controller::get_by_list)
+                .service(template_admin_controller::add)
+                .service(template_admin_controller::batch_delete)
+                .service(template_admin_controller::update_by_id)
+                .service(template_admin_controller::get_by_detail)
+                .service(template_admin_controller::get_by_options)
+                .service(template_admin_controller::get_by_page)
+                .service(template_data_admin_controller::add)
+                .service(template_data_admin_controller::batch_delete)
+                .service(template_data_admin_controller::update_by_id)
+                .service(template_data_admin_controller::get_by_detail)
+                .service(template_data_admin_controller::get_by_page)
+                .service(my_template_admin_controller::add)
+                .service(my_template_admin_controller::batch_delete)
+                .service(my_template_admin_controller::update_by_id)
+                .service(my_template_admin_controller::get_by_tree)
+                .service(my_template_admin_controller::get_by_detail)
+                .service(my_template_admin_controller::get_by_page)
+                .service(my_template_admin_controller::get_buy_by_page)
+                .service(website_links_admin_controller::add_links)
+                .service(website_links_admin_controller::batch_delete)
+                .service(website_links_admin_controller::update_by_id)
+                .service(website_links_admin_controller::get_by_detail)
+                .service(website_links_admin_controller::get_by_page)
+                .service(label_admin_controller::add)
+                .service(label_admin_controller::batch_delete)
+                .service(label_admin_controller::update_by_id)
+                .service(label_admin_controller::get_by_detail)
+                .service(notice_admin_controller::add_notice)
+                .service(notice_admin_controller::batch_delete)
+                .service(notice_admin_controller::update_by_id)
+                .service(notice_admin_controller::revoke_notice)
+                .service(notice_admin_controller::publish_notice)
+                .service(notice_admin_controller::user_read_all)
+                .service(notice_admin_controller::get_by_detail)
+                .service(notice_admin_controller::get_by_user_detail)
+                .service(notice_admin_controller::get_by_my_page)
+                .service(notice_admin_controller::get_by_page)
+                .service(label_admin_controller::get_by_page)
+                // Tag Management
+                .service(tag_admin_controller::save_tag)
+                .service(tag_admin_controller::update_tag)
+                .service(tag_admin_controller::delete_tag)
+                .service(tag_admin_controller::batch_delete_tag)
+                .service(tag_admin_controller::get_tag_detail)
+                .service(tag_admin_controller::get_tag_list)
+                .service(tag_admin_controller::get_tag_statistics)
+                .service(tag_admin_controller::add_tags_to_entity)
+                .service(tag_admin_controller::remove_tags_from_entity)
+                .service(tag_admin_controller::get_tags_by_entity)
+                .service(tag_admin_controller::batch_tag_entity)
+                .service(search_admin_controller::create_index)
+                .service(search_admin_controller::delete_index)
+                .service(sys_statistics_admin_controller::get_visit_count)
+                .service(sys_statistics_admin_controller::get_visit_trend)
+                .service(user_platform_admin_controller::save_platform)
+                .service(user_platform_admin_controller::batch_delete)
+                .service(user_platform_admin_controller::update_platform)
+                .service(user_platform_admin_controller::get_platform_detail)
+                .service(user_platform_admin_controller::get_platform_list)
+                // Shop Management
+                .service(shop_admin_controller::save_shop)
+                .service(shop_admin_controller::batch_delete_shop)
+                .service(shop_admin_controller::update_shop)
+                .service(shop_admin_controller::get_shop_detail)
+                .service(shop_admin_controller::get_shop_list)
+                // Category Management
+                .service(category_controller::save)
+                .service(category_controller::update)
+                .service(category_controller::delete)
+                .service(category_controller::tree)
+                // Audit Management
+                .service(audit_controller::audit_apply)
+                .service(audit_controller::audit_spu)
+                // User Management
+                .service(user_admin_controller::save_user)
+                .service(user_admin_controller::user_batch_delete)
+                .service(user_admin_controller::user_update)
+                .service(user_admin_controller::get_user_detail)
+                .service(user_admin_controller::user_list)
+                .service(user_admin_controller::update_user_status)
+                .service(user_admin_controller::update_password)
+                // Member Fee Management
+                .service(member_fee_admin_controller::list)
+                .service(member_fee_admin_controller::detail)
+                .service(member_fee_admin_controller::create)
+                .service(member_fee_admin_controller::update)
+                .service(member_fee_admin_controller::delete)
+                // Payment Record Management
+                .service(payment_admin_controller::list)
+                .service(payment_admin_controller::detail)
+                .service(payment_admin_controller::create)
+                .service(payment_admin_controller::update)
+                .service(payment_admin_controller::delete)
+                // Refund Record Management
+                .service(refund_admin_controller::list)
+                .service(refund_admin_controller::detail)
+                .service(refund_admin_controller::create)
+                .service(refund_admin_controller::update)
+                .service(refund_admin_controller::delete)
+                // Finance Statistics Management
+        .service(finance_statistics_admin_controller::summary)
+        .service(finance_statistics_admin_controller::list)
+        .service(finance_statistics_admin_controller::generate_daily)
+        // Member Level Management
+        .service(user_level_controller::list_all_levels)
+        .service(user_level_controller::list_all)
+        .service(user_level_controller::get_by_id)
+        .service(user_level_controller::get_by_code)
+        .service(user_level_controller::create_level)
+        .service(user_level_controller::update_level)
+        .service(user_level_controller::delete_level)
+        // Sale Order Management
+        .service(sale_order_controller::order_insert)
+        .service(sale_order_controller::order_update)
+        .service(sale_order_controller::batch_delete_order)
+        .service(sale_order_controller::order_info)
+        .service(sale_order_controller::order_list)
+        // Sale Order Item Management
+        .service(order_item_controller::order_item_insert)
+        .service(order_item_controller::order_item_update)
+        .service(order_item_controller::bath_delete_order_item)
+        .service(order_item_controller::order_item_info)
+        .service(order_item_controller::order_item_list)
+        // Sale Payment Management
+        .service(sale_payment_controller::payment_insert)
+        .service(sale_payment_controller::payment_update)
+        .service(sale_payment_controller::bath_delete_payment)
+        .service(sale_payment_controller::payment_info)
+        .service(sale_payment_controller::payment_list)
+    )
+    // CRM Management
+    .service(
+        web::scope("/api/crm")
+            .wrap(GrantsMiddleware::with_extractor(extract))
+            .service(crm_customer_controller::customer_insert)
+            .service(crm_customer_controller::customer_update)
+            .service(crm_customer_controller::bath_delete_customer)
+            .service(crm_customer_controller::customer_info)
+            .service(crm_customer_controller::customer_list)
+            .service(lead_controller::lead_insert)
+            .service(lead_controller::lead_update)
+            .service(lead_controller::bath_delete_lead)
+            .service(lead_controller::lead_info)
+            .service(lead_controller::lead_list)
+            .service(contact_controller::contact_insert)
+            .service(contact_controller::contact_update)
+            .service(contact_controller::bath_delete_contact)
+            .service(contact_controller::contact_info)
+            .service(contact_controller::contact_list)
+            .service(opportunity_controller::opportunity_insert)
+            .service(opportunity_controller::opportunity_update)
+            .service(opportunity_controller::bath_delete_opportunity)
+            .service(opportunity_controller::opportunity_info)
+            .service(opportunity_controller::opportunity_list)
+            .service(contract_controller::contract_insert)
+            .service(contract_controller::contract_update)
+            .service(contract_controller::bath_delete_contract)
+            .service(contract_controller::contract_info)
+            .service(contract_controller::contract_list)
+            .service(followup_controller::followup_insert)
+            .service(followup_controller::followup_update)
+            .service(followup_controller::bath_delete_followup)
+            .service(followup_controller::followup_info)
+            .service(followup_controller::followup_list)
+    )
+    // Product Management
+    .service(
+        web::scope("/api/product")
+            .wrap(GrantsMiddleware::with_extractor(extract))
+            .service(product_category_controller::category_insert)
+            .service(product_category_controller::category_update)
+            .service(product_category_controller::batch_delete_category)
+            .service(product_category_controller::info_category)
+            .service(product_category_controller::list_category)
+            // Product Management
+            .service(product_controller::product_insert)
+            .service(product_controller::product_update)
+            .service(product_controller::batch_delete_product)
+            .service(product_controller::product_info)
+            .service(product_controller::product_list)
+    )
+    // Purchase Management
+    .service(
+        web::scope("/api/purchase")
+            .wrap(GrantsMiddleware::with_extractor(extract))
+            // Purchase Order Management
+            .service(purchase_order_controller::purchase_order_insert)
+            .service(purchase_order_controller::purchase_order_update)
+            .service(purchase_order_controller::batch_delete_purchase_order)
+            .service(purchase_order_controller::purchase_order_info)
+            .service(purchase_order_controller::purchase_order_list)
+            // Supplier Management
+            .service(supplier_controller::supplier_insert)
+            .service(supplier_controller::supplier_update)
+            .service(supplier_controller::bath_delete_supplier)
+            .service(supplier_controller::supplier_info)
+            .service(supplier_controller::supplier_list)
+    );
+}

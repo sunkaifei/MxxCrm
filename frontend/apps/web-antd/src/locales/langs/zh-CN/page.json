@@ -1,0 +1,403 @@
+{
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "codeLogin": "验证码登录",
+    "qrcodeLogin": "二维码登录",
+    "forgetPassword": "忘记密码",
+    "profile": "个人中心"
+  },
+  "dashboard": {
+    "title": "概览",
+    "analytics": "分析页",
+    "workspace": "工作台"
+  },
+  "user": {
+    "module": "用户",
+    "title": "用户管理",
+    "username": "用户名",
+    "nickname": "昵称",
+    "mobile": "手机号",
+    "email": "邮箱",
+    "motto": "签名",
+    "lastLoginTime": "上次登录时间",
+    "button": {
+      "create": "新增用户"
+    }
+  },
+  "system": {
+    "title": "系统管理",
+    "user": {
+      "module": "用户",
+      "title": "用户管理",
+      "username": "用户名",
+      "usernName": "用户名",
+      "nickName": "昵称",
+      "realName": "姓名",
+      "email": "邮箱",
+      "phone": "手机",
+      "authority": "权限",
+      "orgId": "所属组织",
+      "deptId": "所属部门",
+      "lastLoginIp": "上次登录IP",
+      "lastLoginTime": "上次登录时间",
+      "role": "角色",
+      "button": {
+        "create": "创建账号",
+        "delete": "删除账号",
+        "update": "修改账号",
+        "assignRole": "分配角色",
+        "assignDept": "分配部门"
+      }
+    },
+    "menu": {
+      "module": "菜单",
+      "title": "菜单管理",
+      "name": "名称",
+      "routeName": "路由名称",
+      "type": "类型",
+      "icon": "图标",
+      "path": "路由地址",
+      "component": "组件路径",
+      "show": "是否显示",
+      "isExt": "是否外链",
+      "keepAlive": "是否缓存",
+      "parentId": "上级菜单",
+      "mainDirectory": "主目录",
+      "perm": "权限标识",
+      "affixTab": "固定标签页",
+      "hideChildrenInMenu": "子级不展现",
+      "hideInBreadcrumb": "面包屑中不展现",
+      "hideInMenu": "菜单中不展现",
+      "hideInTab": "标签页中不展现",
+      "button": {
+        "create": "创建菜单",
+        "createChild": "添加子菜单",
+        "delete": "删除菜单",
+        "update": "修改菜单"
+      }
+    },
+    "role": {
+      "module": "角色",
+      "title": "角色管理",
+      "name": "角色名称",
+      "code": "角色值",
+      "show": "是否显示",
+      "apiAuth": "接口权限",
+      "menuAuth": "菜单权限",
+      "button": {
+        "create": "新增角色",
+        "auth": "分配权限",
+        "delete": "删除角色",
+        "update": "修改角色",
+        "assignMenu": "分配菜单"
+      }
+    },
+    "api": {
+      "module": "接口",
+      "title": "接口管理",
+      "description": "接口描述",
+      "parentId": "所属组",
+      "path": "接口路径",
+      "method": "请求方法",
+      "button": {
+        "create": "新增接口",
+        "delete": "删除接口",
+        "update": "修改接口"
+      }
+    },
+    "dict": {
+      "module": "字典",
+      "title": "字典管理",
+      "dictName": "字典名称",
+      "dictType": "字典类型",
+      "itemKey": "字典编码",
+      "itemValue": "字典值",
+      "button": {
+        "create": "创建条目",
+        "delete": "删除条目",
+        "update": "修改条目"
+      }
+    },
+    "record": {
+      "module": "操作日志",
+      "title": "操作日志",
+      "username": "操作者",
+      "description": "描述",
+      "method": "请求方法",
+      "path": "接口路径",
+      "statusCode": "状态码",
+      "msg": "返回信息",
+      "elapsed": "接口耗时(毫秒)",
+      "platform": "操作平台",
+      "ip": "IP",
+      "createTime": "操作时间",
+      "button": {
+        "delete": "删除日志"
+      }
+    },
+    "dept": {
+      "title": "部门管理",
+      "deptName": "部门名称",
+      "parentId": "上级部门"
+    },
+    "post": {
+      "title": "岗位管理"
+    },
+    "config": {
+      "title": "系统配置"
+    },
+    "notice": {
+      "title": "通知公告",
+      "noticeTitle": "公告标题",
+      "noticeType": "公告类型"
+    },
+    "log": {
+      "title": "系统日志"
+    },
+    "tag": {
+      "module": "标签",
+      "title": "标签管理",
+      "name": "标签名称",
+      "color": "标签颜色",
+      "group": "标签分组",
+      "global": "是否全局",
+      "ungrouped": "未分组",
+      "button": {
+        "create": "新增标签",
+        "edit": "编辑标签",
+        "delete": "删除标签"
+      }
+    }
+  },
+  "crm": {
+    "title": "客户管理",
+    "lead": {
+      "title": "线索管理",
+      "button": {
+        "create": "新增线索",
+        "edit": "编辑线索",
+        "delete": "删除线索",
+        "convert": "转为客户",
+        "assign": "分配线索"
+      }
+    },
+    "customer": {
+      "title": "客户管理",
+      "button": {
+        "create": "新增客户",
+        "edit": "编辑客户",
+        "delete": "删除客户",
+        "assign": "分配客户"
+      }
+    },
+    "contact": {
+      "title": "联系人管理"
+    },
+    "opportunity": {
+      "title": "商机管理",
+      "button": {
+        "create": "新增商机",
+        "edit": "编辑商机",
+        "delete": "删除商机"
+      }
+    },
+    "contract": {
+      "title": "合同管理",
+      "button": {
+        "create": "新增合同",
+        "edit": "编辑合同",
+        "delete": "删除合同"
+      }
+    },
+    "leadPool": {
+      "title": "线索池"
+    },
+    "followup": {
+      "title": "跟进记录"
+    }
+  },
+  "sale": {
+    "title": "销售管理",
+    "order": {
+      "title": "订单管理",
+      "button": {
+        "create": "新增订单",
+        "edit": "编辑订单",
+        "delete": "删除订单",
+        "confirm": "确认订单",
+        "ship": "发货",
+        "complete": "完成订单"
+      }
+    },
+    "orderItem": {
+      "title": "订单明细"
+    },
+    "payment": {
+      "title": "支付记录",
+      "button": {
+        "create": "新增支付",
+        "edit": "编辑支付",
+        "delete": "删除支付"
+      }
+    }
+  },
+  "product": {
+    "title": "产品管理",
+    "list": {
+      "title": "产品列表",
+      "button": {
+        "create": "新增产品",
+        "edit": "编辑产品",
+        "delete": "删除产品"
+      }
+    },
+    "category": {
+      "title": "产品分类",
+      "button": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      }
+    },
+    "inventory": {
+      "title": "库存管理"
+    },
+    "warehouse": {
+      "title": "仓库管理",
+      "button": {
+        "create": "新增仓库",
+        "edit": "编辑仓库",
+        "delete": "删除仓库"
+      }
+    }
+  },
+  "purchase": {
+    "title": "采购管理",
+    "supplier": {
+      "title": "供应商管理",
+      "button": {
+        "create": "新增供应商",
+        "edit": "编辑供应商",
+        "delete": "删除供应商"
+      }
+    },
+    "po": {
+      "title": "采购单管理",
+      "button": {
+        "create": "新增采购单",
+        "edit": "编辑采购单",
+        "delete": "删除采购单",
+        "confirm": "确认采购",
+        "receive": "入库"
+      }
+    },
+    "item": {
+      "title": "采购明细"
+    }
+  },
+  "attachment": {
+    "title": "附件管理",
+    "file": {
+      "title": "文件管理",
+      "button": {
+        "upload": "上传文件",
+        "delete": "删除文件"
+      }
+    }
+  },
+  "shop": {
+    "title": "商城管理",
+    "category": "分类管理",
+    "supplierAudit": "供货商审核",
+    "goodsAudit": "商品审核",
+    "goods": "商品管理",
+    "shopList": "店铺管理",
+    "orderList": "订单管理",
+    "settlement": "结算管理",
+    "promotion": "促销管理",
+    "commissionConfig": "佣金设置"
+  },
+  "button": {
+    "system": {
+      "admin": {
+        "create": "新增用户",
+        "edit": "编辑用户",
+        "delete": "删除用户",
+        "assignRole": "分配角色",
+        "assignDept": "分配部门"
+      },
+      "role": {
+        "create": "新增角色",
+        "edit": "编辑角色",
+        "delete": "删除角色",
+        "assignMenu": "分配菜单"
+      },
+      "menu": {
+        "create": "新增菜单",
+        "edit": "编辑菜单",
+        "delete": "删除菜单"
+      }
+    },
+    "crm": {
+      "lead": {
+        "create": "新增线索",
+        "edit": "编辑线索",
+        "delete": "删除线索",
+        "convert": "转为客户",
+        "assign": "分配线索"
+      },
+      "customer": {
+        "create": "新增客户",
+        "edit": "编辑客户",
+        "delete": "删除客户",
+        "assign": "分配客户"
+      },
+      "opportunity": {
+        "create": "新增商机",
+        "edit": "编辑商机",
+        "delete": "删除商机"
+      },
+      "contract": {
+        "create": "新增合同",
+        "edit": "编辑合同",
+        "delete": "删除合同"
+      }
+    },
+    "sale": {
+      "order": {
+        "create": "新增订单",
+        "edit": "编辑订单",
+        "delete": "删除订单",
+        "confirm": "确认订单",
+        "ship": "发货",
+        "complete": "完成订单"
+      },
+      "payment": {
+        "create": "新增支付",
+        "edit": "编辑支付",
+        "delete": "删除支付"
+      }
+    },
+    "purchase": {
+      "supplier": {
+        "create": "新增供应商",
+        "edit": "编辑供应商",
+        "delete": "删除供应商"
+      },
+      "po": {
+        "create": "新增采购单",
+        "edit": "编辑采购单",
+        "delete": "删除采购单",
+        "confirm": "确认采购",
+        "receive": "入库"
+      }
+    },
+    "attachment": {
+      "file": {
+        "upload": "上传文件",
+        "delete": "删除文件"
+      }
+    }
+  }
+}

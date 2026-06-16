@@ -1,0 +1,405 @@
+{
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "codeLogin": "Code Login",
+    "qrcodeLogin": "Qr Code Login",
+    "forgetPassword": "Forget Password",
+    "profile": "Profile"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "analytics": "Analytics",
+    "workspace": "Workspace"
+  },
+  "user": {
+    "module": "User",
+    "title": "User Management",
+    "username": "Username",
+    "nickname": "Nickname",
+    "mobile": "Mobile",
+    "email": "Email",
+    "motto": "Motto",
+    "lastLoginTime": "Last Login",
+    "button": {
+      "create": "Add User"
+    }
+  },
+  "system": {
+    "title": "System Management",
+    "user": {
+      "module": "User",
+      "title": "User Management",
+      "username": "User Name",
+      "usernName": "User Name",
+      "nickName": "Nick Name",
+      "realName": "Real Name",
+      "email": "Email",
+      "phone": "Phone",
+      "authority": "Authority",
+      "orgId": "Subordinate Organization",
+      "deptId": "Subordinate Department",
+      "lastLoginIp": "Last Login IP",
+      "lastLoginTime": "Last Login Time",
+      "role": "Role",
+      "button": {
+        "create": "Create",
+        "delete": "Delete",
+        "update": "Update",
+        "assignRole": "Assign Role",
+        "assignDept": "Assign Dept"
+      }
+    },
+    "menu": {
+      "module": "Menu",
+      "title": "Menu Management",
+      "name": "Menu Name",
+      "routeName": "Route Name",
+      "type": "Type",
+      "icon": "Icon",
+      "path": "Path",
+      "component": "Component",
+      "show": "Show",
+      "isExt": "Is Ext",
+      "keepAlive": "Keep Alive",
+      "parentId": "Parent Menu",
+      "mainDirectory": "Main Directory",
+      "perm": "Authority",
+      "affixTab": "Affix Tab",
+      "hideChildrenInMenu": "Hide Children In Menu",
+      "hideInBreadcrumb": "Hide In Breadcrumb",
+      "hideInMenu": "Hide In Menu",
+      "hideInTab": "Hide In Tab",
+      "button": {
+        "create": "Create",
+        "createChild": "Add Submenu",
+        "delete": "Delete",
+        "update": "Update"
+      }
+    },
+    "role": {
+      "module": "Role",
+      "title": "Role Management",
+      "name": "Role Name",
+      "code": "Role Code",
+      "show": "Show",
+      "apiAuth": "Api Auth",
+      "menuAuth": "Menu Auth",
+      "button": {
+        "create": "Create",
+        "auth": "Assign Permissions",
+        "delete": "Delete",
+        "update": "Update",
+        "assignMenu": "Assign Menu"
+      }
+    },
+    "api": {
+      "module": "API",
+      "title": "API Management",
+      "description": "API Description",
+      "parentId": "Parent API",
+      "path": "Path",
+      "method": "Method",
+      "button": {
+        "create": "Create",
+        "delete": "Delete",
+        "update": "Update"
+      }
+    },
+    "dict": {
+      "module": "Dict",
+      "title": "Dict Management",
+      "dictName": "Dict Name",
+      "dictType": "Dict Type",
+      "itemKey": "Item Key",
+      "itemValue": "Item Value",
+      "button": {
+        "create": "Create",
+        "delete": "Delete",
+        "update": "Update"
+      }
+    },
+    "record": {
+      "module": "Operating Record",
+      "title": "Operating Record",
+      "username": "Operating User",
+      "description": "Description",
+      "method": "Method",
+      "path": "Path",
+      "statusCode": "Status Code",
+      "msg": "Msg",
+      "elapsed": "Elapsed(ms)",
+      "platform": "Platform",
+      "ip": "IP",
+      "createTime": "Operating Time",
+      "button": {
+        "delete": "Delete"
+      }
+    },
+    "dept": {
+      "title": "Department Management",
+      "deptName": "Department Name",
+      "parentId": "Parent Department"
+    },
+    "post": {
+      "title": "Post Management"
+    },
+    "config": {
+      "title": "System Config"
+    },
+    "notice": {
+      "title": "Notice",
+      "noticeTitle": "Notice Title",
+      "noticeType": "Notice Type"
+    },
+    "log": {
+      "title": "System Log"
+    }
+  },
+  "crm": {
+    "title": "CRM Customer",
+    "lead": {
+      "title": "Lead Management",
+      "button": {
+        "create": "Add Lead",
+        "edit": "Edit Lead",
+        "delete": "Delete Lead",
+        "convert": "Convert to Customer",
+        "assign": "Assign Lead"
+      }
+    },
+    "customer": {
+      "title": "Customer Management",
+      "button": {
+        "create": "Add Customer",
+        "edit": "Edit Customer",
+        "delete": "Delete Customer",
+        "assign": "Assign Customer"
+      }
+    },
+    "contact": {
+      "title": "Contact Management"
+    },
+    "opportunity": {
+      "title": "Opportunity Management",
+      "button": {
+        "create": "Add Opportunity",
+        "edit": "Edit Opportunity",
+        "delete": "Delete Opportunity"
+      }
+    },
+    "contract": {
+      "title": "Contract Management",
+      "button": {
+        "create": "Add Contract",
+        "edit": "Edit Contract",
+        "delete": "Delete Contract"
+      }
+    },
+    "leadPool": {
+      "title": "Lead Pool"
+    },
+    "followup": {
+      "title": "Follow-up"
+    }
+  },
+  "sale": {
+    "title": "Sales Management",
+    "order": {
+      "title": "Order Management",
+      "button": {
+        "create": "Add Order",
+        "edit": "Edit Order",
+        "delete": "Delete Order",
+        "confirm": "Confirm Order",
+        "ship": "Ship",
+        "complete": "Complete Order"
+      }
+    },
+    "orderItem": {
+      "title": "Order Items"
+    },
+    "payment": {
+      "title": "Payment Records",
+      "button": {
+        "create": "Add Payment",
+        "edit": "Edit Payment",
+        "delete": "Delete Payment"
+      }
+    }
+  },
+  "product": {
+    "title": "Product Management",
+    "list": {
+      "title": "Product List",
+      "button": {
+        "create": "Add Product",
+        "edit": "Edit Product",
+        "delete": "Delete Product"
+      }
+    },
+    "category": {
+      "title": "Product Category",
+      "button": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      }
+    },
+    "inventory": {
+      "title": "Inventory Management"
+    },
+    "warehouse": {
+      "title": "Warehouse Management",
+      "button": {
+        "create": "Add Warehouse",
+        "edit": "Edit Warehouse",
+        "delete": "Delete Warehouse"
+      }
+    }
+  },
+  "purchase": {
+    "title": "Purchase Management",
+    "supplier": {
+      "title": "Supplier Management",
+      "button": {
+        "create": "Add Supplier",
+        "edit": "Edit Supplier",
+        "delete": "Delete Supplier"
+      }
+    },
+    "po": {
+      "title": "Purchase Order",
+      "button": {
+        "create": "Add PO",
+        "edit": "Edit PO",
+        "delete": "Delete PO",
+        "confirm": "Confirm PO",
+        "receive": "Receive"
+      }
+    },
+    "item": {
+      "title": "Purchase Items"
+    }
+  },
+  "attachment": {
+    "title": "Attachment",
+    "file": {
+      "title": "File Management",
+      "button": {
+        "upload": "Upload File",
+        "delete": "Delete File"
+      }
+    }
+  },
+  "shop": {
+    "title": "Shop Management",
+    "category": "Category",
+    "supplierAudit": "Supplier Audit",
+    "goodsAudit": "Goods Audit",
+    "goods": "Goods Management",
+    "shopList": "Shop List",
+    "orderList": "Order Management",
+    "settlement": "Settlement",
+    "promotion": "Promotion",
+    "commissionConfig": "Commission Config"
+  },
+  "button": {
+    "system": {
+      "admin": {
+        "create": "Add User",
+        "edit": "Edit User",
+        "delete": "Delete User",
+        "assignRole": "Assign Role",
+        "assignDept": "Assign Dept"
+      },
+      "role": {
+        "create": "Add Role",
+        "edit": "Edit Role",
+        "delete": "Delete Role",
+        "assignMenu": "Assign Menu"
+      },
+      "menu": {
+        "create": "Add Menu",
+        "edit": "Edit Menu",
+        "delete": "Delete Menu"
+      }
+    },
+    "crm": {
+      "lead": {
+        "create": "Add Lead",
+        "edit": "Edit Lead",
+        "delete": "Delete Lead",
+        "convert": "Convert",
+        "assign": "Assign"
+      },
+      "customer": {
+        "create": "Add Customer",
+        "edit": "Edit Customer",
+        "delete": "Delete Customer",
+        "assign": "Assign"
+      },
+      "opportunity": {
+        "create": "Add Opportunity",
+        "edit": "Edit Opportunity",
+        "delete": "Delete Opportunity"
+      },
+      "contract": {
+        "create": "Add Contract",
+        "edit": "Edit Contract",
+        "delete": "Delete Contract"
+      }
+    },
+    "sale": {
+      "order": {
+        "create": "Add Order",
+        "edit": "Edit Order",
+        "delete": "Delete Order",
+        "confirm": "Confirm",
+        "ship": "Ship",
+        "complete": "Complete"
+      },
+      "payment": {
+        "create": "Add Payment",
+        "edit": "Edit Payment",
+        "delete": "Delete Payment"
+      }
+    },
+    "product": {
+      "title": "Product",
+      "create": "Add Product",
+      "edit": "Edit Product",
+      "delete": "Delete Product",
+      "category": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      },
+      "warehouse": {
+        "create": "Add Warehouse",
+        "edit": "Edit Warehouse",
+        "delete": "Delete Warehouse"
+      }
+    },
+    "purchase": {
+      "supplier": {
+        "create": "Add Supplier",
+        "edit": "Edit Supplier",
+        "delete": "Delete Supplier"
+      },
+      "po": {
+        "create": "Add PO",
+        "edit": "Edit PO",
+        "delete": "Delete PO",
+        "confirm": "Confirm",
+        "receive": "Receive"
+      }
+    },
+    "attachment": {
+      "file": {
+        "upload": "Upload",
+        "delete": "Delete"
+      }
+    }
+  }
+}
