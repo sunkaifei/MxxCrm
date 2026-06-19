@@ -184,8 +184,9 @@ pub async fn menu_detail(state: web::Data<AppState>, path: web::Path<InfoId>) ->
             status: Some(req.status),
             redirect: req.redirect,
             create_time: None,
+            update_time: None,
             params: req.params,
-            children: None,
+            children: Vec::new(),
         };
 
         Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(menu_vo, "local")))

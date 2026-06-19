@@ -26,7 +26,7 @@
     }
   },
   "system": {
-    "title": "系统管理",
+    "title": "系统",
     "user": {
       "module": "用户",
       "title": "用户管理",
@@ -171,7 +171,7 @@
     }
   },
   "crm": {
-    "title": "客户管理",
+    "title": "客户",
     "lead": {
       "title": "线索管理",
       "button": {
@@ -218,7 +218,7 @@
     }
   },
   "sale": {
-    "title": "销售管理",
+    "title": "销售",
     "order": {
       "title": "订单管理",
       "button": {
@@ -243,7 +243,7 @@
     }
   },
   "product": {
-    "title": "产品管理",
+    "title": "产品",
     "list": {
       "title": "产品列表",
       "button": {
@@ -273,7 +273,7 @@
     }
   },
   "purchase": {
-    "title": "采购管理",
+    "title": "采购",
     "supplier": {
       "title": "供应商管理",
       "button": {
@@ -297,7 +297,7 @@
     }
   },
   "attachment": {
-    "title": "附件管理",
+    "title": "附件",
     "file": {
       "title": "文件管理",
       "button": {
@@ -307,7 +307,7 @@
     }
   },
   "shop": {
-    "title": "商城管理",
+    "title": "商城",
     "category": "分类管理",
     "supplierAudit": "供货商审核",
     "goodsAudit": "商品审核",

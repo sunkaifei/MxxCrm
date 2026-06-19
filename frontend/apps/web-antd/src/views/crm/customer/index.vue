@@ -5,7 +5,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -15,6 +15,7 @@ import { Button, Popconfirm } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteCustomerApi, getCustomerListApi } from '#/api';
 import { $t } from '#/locales';
+import CustomerDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
 
@@ -124,12 +125,27 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
+const [Drawer, drawerApi] = useVbenDrawer({
+  connectedComponent: CustomerDrawer,
+  onClosed() {
+    const data = drawerApi.getData();
+    if (data && data.needRefresh) {
+      gridApi.query();
+    }
+  },
+});
+
+function openDrawer(create: boolean, row?: any) {
+  drawerApi.setData({ create, row });
+  drawerApi.open();
+}
+
 function handleCreate() {
-  // TODO: open create drawer
+  openDrawer(true);
 }
 
 function handleEdit(row: any) {
-  // TODO: open edit drawer
+  openDrawer(false, row);
 }
 
 async function handleDelete(row: any) {
@@ -189,5 +205,6 @@ async function handleDelete(row: any) {
         </Popconfirm>
       </template>
     </Grid>
+    <Drawer />
   </Page>
 </template>

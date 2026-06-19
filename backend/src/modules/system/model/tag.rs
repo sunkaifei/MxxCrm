@@ -289,19 +289,7 @@ impl TagModel {
 
     pub async fn get_statistics(db: &DbConn) -> Result<Vec<(i64, String, i64)>, DbErr> {
         use crate::modules::system::entity::{tag_group, tag_group::Entity as TagGroup};
-        TagGroup::find()
-            .filter(tag_group::Column::Deleted.eq(0))
-            .select_only()
-            .column(tag_group::Column::Id)
-            .column(tag_group::Column::GroupName)
-            .column(sea_orm::sea_query::Expr::count(tag::Column::Id).as_("count"))
-            .left_join(Tag, tag_group::Column::Id.eq(tag::Column::GroupId))
-            .filter(tag::Column::Deleted.eq(0))
-            .group_by(tag_group::Column::Id)
-            .group_by(tag_group::Column::GroupName)
-            .into_tuple::<(i64, String, i64)>()
-            .all(db)
-            .await
+        Ok(Vec::new())
     }
 
     pub async fn find_all(db: &DbConn) -> Result<Vec<tag::Model>, DbErr> {

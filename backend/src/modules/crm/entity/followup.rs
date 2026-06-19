@@ -10,6 +10,7 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use crate::core::r#enum::activity_type_enum::ActivityType;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_crm_followup")]
@@ -20,12 +21,13 @@ pub struct Model {
     pub lead_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
-    pub activity_type: Option<String>,
+    pub activity_type: Option<ActivityType>,
     pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub duration_minutes: Option<i32>,
     pub result: Option<String>,
+    pub assigned_to: Option<i64>,
     pub created_by: Option<i64>,
     pub created_at: Option<DateTime>,
     pub updated_by: Option<i64>,

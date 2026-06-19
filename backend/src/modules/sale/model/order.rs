@@ -11,6 +11,7 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::modules::sale::entity::{order, order::Entity as SaleOrder};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -29,7 +30,7 @@ pub struct OrderSaveRequest {
     /// 订单金额(不含税)
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 订单总金额(含税)
@@ -84,7 +85,7 @@ pub struct OrderUpdateRequest {
     /// 订单金额(不含税)
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 订单总金额(含税)
@@ -138,7 +139,7 @@ pub struct OrderSaveDTO {
     /// 订单金额(不含税)
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 订单总金额(含税)
@@ -183,7 +184,7 @@ pub struct OrderDetailVO {
     /// 订单金额(不含税)
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 订单总金额(含税)
@@ -247,7 +248,7 @@ pub struct OrderListVO {
     /// 订单金额(不含税)
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 支付状态
     pub payment_status: Option<String>,
     /// 创建时间

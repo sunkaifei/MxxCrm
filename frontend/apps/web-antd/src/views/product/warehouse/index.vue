@@ -1,7 +1,7 @@
-<script lang="ts" setup>
+﻿﻿﻿﻿<script lang="ts" setup>
 import { h } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
@@ -12,6 +12,8 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteWarehouseApi, getWarehouseListApi } from '#/api';
 import { $t } from '#/locales';
+
+import WarehouseDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
 
@@ -95,8 +97,26 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
-async function handleEdit(row: any) {
-  window.$message.info(`编辑仓库: ${row.id}`);
+const [Drawer, drawerApi] = useVbenDrawer({
+  connectedComponent: WarehouseDrawer,
+  onClosed() {
+    const data = drawerApi.getData();
+    if (data && data.needRefresh) {
+      gridApi.query();
+    }
+  },
+});
+
+function openDrawer(create: boolean, row?: any) {
+  drawerApi.setData({
+    create,
+    row,
+  });
+  drawerApi.open();
+}
+
+function handleEdit(row: any) {
+  openDrawer(false, row);
 }
 
 async function handleDelete(row: any) {
@@ -110,8 +130,8 @@ async function handleDelete(row: any) {
   }
 }
 
-async function handleCreate() {
-  window.$message.info('新增仓库');
+function handleCreate() {
+  openDrawer(true);
 }
 </script>
 
@@ -159,5 +179,6 @@ async function handleCreate() {
         </Popconfirm>
       </template>
     </Grid>
+    <Drawer />
   </Page>
 </template>

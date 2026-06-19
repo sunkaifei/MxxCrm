@@ -11,6 +11,7 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::modules::sale::entity::{payment, payment::Entity as Payment};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -27,7 +28,7 @@ pub struct PaymentSaveRequest {
     /// 收款金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
@@ -80,7 +81,7 @@ pub struct PaymentUpdateRequest {
     /// 收款金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
@@ -134,7 +135,7 @@ pub struct PaymentSaveDTO {
     /// 收款金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
@@ -175,7 +176,7 @@ pub struct PaymentDetailVO {
     /// 收款金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
@@ -223,7 +224,7 @@ pub struct PaymentListVO {
     /// 收款金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式

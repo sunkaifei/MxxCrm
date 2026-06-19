@@ -10,9 +10,8 @@ pub async fn insert(db: &DbConn, form_data: &FollowupSaveRequest, created_by: i6
     Ok(result)
 }
 
-pub async fn update(db: &DbConn, form_data: &FollowupUpdateRequest, updated_by: i64) -> Result<i64> {
-    let mut dto: FollowupSaveDTO = form_data.clone().into();
-    dto.updated_by = Some(updated_by);
+pub async fn update(db: &DbConn, form_data: &FollowupUpdateRequest, _updated_by: i64) -> Result<i64> {
+    let dto: FollowupSaveDTO = form_data.clone().into();
     let result = FollowupModel::update_by_id(&db, &form_data.id, &dto).await?;
     Ok(result)
 }

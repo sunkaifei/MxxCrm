@@ -10,6 +10,8 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use crate::core::r#enum::contract_status_enum::ContractStatus;
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_crm_contract")]
@@ -20,13 +22,14 @@ pub struct Model {
     pub contract_no: Option<String>,
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
+    #[sea_orm(column_name = "name")]
     pub title: Option<String>,
     pub contract_type: Option<String>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub tax_amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
-    pub status: Option<String>,
+    pub status: Option<ContractStatus>,
     pub start_date: Option<Date>,
     pub end_date: Option<Date>,
     pub sign_date: Option<Date>,

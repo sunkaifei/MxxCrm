@@ -1,0 +1,97 @@
+{
+  "status": {
+    "ON": "启用",
+    "OFF": "禁用"
+  },
+  "authority": {
+    "GUEST_USER": "访客用户",
+    "CUSTOMER_USER": "客户用户",
+    "SYS_MANAGER": "系统管理员",
+    "SYS_ADMIN": "系统超级管理员"
+  },
+  "activity_type": {
+    "call": "电话",
+    "visit": "拜访",
+    "whatsapp": "WhatsApp",
+    "wechat": "微信",
+    "email": "邮件",
+    "meeting": "会议",
+    "demo": "演示"
+  },
+  "industry_type": {
+    "technology": "科技",
+    "finance": "金融",
+    "manufacturing": "制造业",
+    "retail": "零售",
+    "healthcare": "医疗",
+    "education": "教育",
+    "real_estate": "房地产",
+    "transportation": "交通运输",
+    "energy": "能源",
+    "other": "其他"
+  },
+  "customer_level": {
+    "a": "A级客户",
+    "b": "B级客户",
+    "c": "C级客户",
+    "d": "D级客户"
+  },
+  "currency_code": {
+    "CNY": "人民币",
+    "USD": "美元",
+    "EUR": "欧元",
+    "GBP": "英镑",
+    "JPY": "日元",
+    "HKD": "港币",
+    "AUD": "澳元"
+  },
+  "lead_source": {
+    "website": "网站",
+    "social_media": "社交媒体",
+    "email_marketing": "邮件营销",
+    "referral": "推荐",
+    "trade_show": "展会",
+    "cold_call": "陌生电话",
+    "direct_mail": "直邮",
+    "search_engine": "搜索引擎",
+    "partner": "合作伙伴",
+    "other": "其他"
+  },
+  "opportunity_stage": {
+    "lead": "线索",
+    "qualified": "已确认",
+    "proposal": "方案阶段",
+    "negotiation": "谈判中",
+    "won": "已成交",
+    "lost": "已流失"
+  },
+  "order_status": {
+    "pending": "待处理",
+    "confirmed": "已确认",
+    "processing": "处理中",
+    "shipped": "已发货",
+    "completed": "已完成",
+    "cancelled": "已取消"
+  },
+  "payment_status": {
+    "pending": "待付款",
+    "partial": "部分付款",
+    "paid": "已付清",
+    "overdue": "逾期"
+  },
+  "product_type": {
+    "physical": "实物产品",
+    "digital": "数字产品",
+    "service": "服务"
+  },
+  "menu_type": {
+    "directory": "目录",
+    "menu": "菜单",
+    "button": "按钮"
+  },
+  "gender": {
+    "male": "男",
+    "female": "女",
+    "other": "其他"
+  }
+}

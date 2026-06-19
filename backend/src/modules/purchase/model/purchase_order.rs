@@ -9,6 +9,7 @@
 //!
 
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::modules::purchase::entity::purchase_order::{self, Entity as PurchaseOrder};
 use crate::utils::string_utils::serialize_option_u64_to_string;
 use sea_orm::prelude::{Decimal, DateTime};
@@ -25,7 +26,7 @@ pub struct PurchaseOrderSaveRequest {
     pub order_type: Option<String>,
     pub status: Option<String>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub tax_amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub payment_status: Option<String>,
@@ -69,7 +70,7 @@ pub struct PurchaseOrderUpdateRequest {
     pub order_type: Option<String>,
     pub status: Option<String>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub tax_amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub payment_status: Option<String>,
@@ -113,7 +114,7 @@ pub struct PurchaseOrderSaveDTO {
     pub order_type: Option<String>,
     pub status: Option<String>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub tax_amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub payment_status: Option<String>,
@@ -147,7 +148,7 @@ pub struct PurchaseOrderDetailVO {
     pub order_type: Option<String>,
     pub status: Option<String>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub tax_amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub payment_status: Option<String>,

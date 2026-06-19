@@ -268,9 +268,11 @@ pub struct MenuAdminVO {
     /// 创建时间
     #[serde(skip)]
     pub create_time: Option<String>,
+    /// 更新时间
+    pub update_time: Option<String>,
     /// 路由参数
     pub params: Option<serde_json::Value>,
-    pub children: Option<Vec<MenuAdminVO>>,
+    pub children: Vec<MenuAdminVO>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -355,19 +357,18 @@ pub enum MenuEnum {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListQuery {
-    /// 菜单名称
-    pub name: Option<String>,
+    pub keywords: Option<String>,
+    pub status: Option<i32>,
 }
 
 /// 条件
 #[derive(Clone)]
 pub struct PageWhere {
-    /// 菜单名称
-    pub name: Option<String>
+    pub name: Option<String>,
+    pub status: Option<i32>,
 }
 
 impl PageWhere {
-    /// 格式化
     pub fn format(&self) -> Self {
         let mut name = None;
         if self.name != Some("".to_string()) {
@@ -376,6 +377,7 @@ impl PageWhere {
 
         Self {
             name,
+            status: self.status.clone(),
         }
     }
 }
@@ -604,6 +606,10 @@ impl MenuModel {
             .apply_if(wheres.name, |query, v| {
                 query.filter(menu::Column::Name.contains(format!("%{}%", v).as_str()))
             })
+            .apply_if(wheres.status, |query, v| {
+                query.filter(menu::Column::Status.eq(v))
+            })
+            .order_by_asc(menu::Column::Sort)
             .all(db)
             .await
     }

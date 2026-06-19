@@ -23,7 +23,7 @@ const routes: RouteRecordRaw[] = [
       {
         name: 'SaleOrderItem',
         path: '/sale/order-item',
-        component: () => import('#/views/sale/order-item/index.vue'),
+        component: () => import('#/views/sale/orderItem/index.vue'),
         meta: {
           title: $t('page.sale.orderItem.title'),
         },

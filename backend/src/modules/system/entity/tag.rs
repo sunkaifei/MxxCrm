@@ -20,6 +20,13 @@ pub struct Model {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::tag_group::Entity",
+        from = "Column::GroupId",
+        to = "super::tag_group::Column::Id"
+    )]
+    TagGroup,
+}
 
 impl ActiveModelBehavior for ActiveModel {}

@@ -10,7 +10,10 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::core::r#enum::industry_enum::IndustryType;
+use crate::core::r#enum::customer_level_enum::CustomerLevel;
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::industry_type_enum::IndustryType;
+use crate::core::r#enum::lead_source_enum::LeadSource;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_crm_customer")]
@@ -26,13 +29,13 @@ pub struct Model {
     pub address: Option<String>,
     pub website: Option<String>,
     pub industry: Option<IndustryType>,
-    pub level: Option<String>,
+    pub level: Option<CustomerLevel>,
     pub total_deal_amount: Option<Decimal>,
     pub total_deal_count: Option<i32>,
     pub last_deal_at: Option<DateTime>,
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     pub tags: Option<Vec<String>>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub credit_limit: Option<Decimal>,
     pub credit_days: Option<i32>,
     pub assigned_to: Option<i64>,

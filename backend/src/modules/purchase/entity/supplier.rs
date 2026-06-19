@@ -10,7 +10,8 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::core::r#enum::industry_enum::IndustryType;
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::industry_type_enum::IndustryType;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_purchase_supplier")]
@@ -19,23 +20,40 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub id: i64,
     pub supplier_no: Option<String>,
+    #[sea_orm(column_name = "name")]
     pub company_name: Option<String>,
     pub short_name: Option<String>,
+    #[sea_orm(column_name = "contact_person")]
+    pub contact_name: Option<String>,
+    #[sea_orm(column_name = "phone")]
+    pub contact_phone: Option<String>,
+    #[sea_orm(column_name = "email")]
+    pub contact_email: Option<String>,
     pub country: Option<String>,
     pub address: Option<String>,
     pub website: Option<String>,
     pub industry: Option<IndustryType>,
+    #[sea_orm(ignore)]
     pub region: Option<String>,
-    pub level: Option<String>,
-    pub currency: Option<String>,
+    pub level: Option<i32>,
+    #[sea_orm(ignore)]
+    pub currency: Option<CurrencyCode>,
+    #[sea_orm(ignore)]
     pub credit_limit: Option<Decimal>,
+    #[sea_orm(ignore)]
     pub credit_days: Option<i32>,
+    #[sea_orm(ignore)]
     pub bank_name: Option<String>,
+    #[sea_orm(ignore)]
     pub bank_account: Option<String>,
+    #[sea_orm(ignore)]
     pub tax_id: Option<String>,
+    #[sea_orm(ignore)]
     pub tags: Option<Vec<String>>,
-    pub status: Option<String>,
+    pub status: Option<i32>,
+    #[sea_orm(ignore)]
     pub description: Option<String>,
+    #[sea_orm(ignore)]
     pub custom_fields: Option<serde_json::Value>,
     pub created_by: Option<i64>,
     pub created_at: Option<DateTime>,

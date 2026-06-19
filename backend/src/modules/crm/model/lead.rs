@@ -1,6 +1,10 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::industry_enum::IndustryType;
+use crate::core::r#enum::lead_source_enum::LeadSource;
+use crate::core::r#enum::lead_status_enum::LeadStatus;
 use crate::modules::crm::entity::{lead, lead::Entity as Lead};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -35,7 +39,7 @@ pub struct LeadSaveRequest {
     /// 来源详情
     pub source_detail: Option<String>,
     /// 线索状态
-    pub status: Option<String>,
+    pub status: Option<LeadStatus>,
     /// 线索等级
     pub level: Option<String>,
     /// 标签列表
@@ -43,7 +47,7 @@ pub struct LeadSaveRequest {
     /// 预算金额
     pub budget: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
     /// 负责人ID
@@ -68,8 +72,8 @@ impl From<LeadSaveRequest> for LeadSaveDTO {
             region: item.region,
             address: item.address,
             website: item.website,
-            industry: item.industry,
-            source: item.source,
+            industry: item.industry.map(|i| i.to_string()),
+            source: item.source.map(|s| s.to_string()),
             source_detail: item.source_detail,
             status: item.status,
             level: item.level,
@@ -125,7 +129,7 @@ pub struct LeadUpdateRequest {
     /// 来源详情
     pub source_detail: Option<String>,
     /// 线索状态
-    pub status: Option<String>,
+    pub status: Option<LeadStatus>,
     /// 线索等级
     pub level: Option<String>,
     /// 标签列表
@@ -133,7 +137,7 @@ pub struct LeadUpdateRequest {
     /// 预算金额
     pub budget: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
     /// 负责人ID
@@ -214,7 +218,7 @@ pub struct LeadSaveDTO {
     /// 来源详情
     pub source_detail: Option<String>,
     /// 线索状态
-    pub status: Option<String>,
+    pub status: Option<LeadStatus>,
     /// 线索等级
     pub level: Option<String>,
     /// 标签列表
@@ -222,7 +226,7 @@ pub struct LeadSaveDTO {
     /// 预算金额
     pub budget: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
     /// 负责人ID
@@ -281,7 +285,7 @@ pub struct LeadDetailVO {
     /// 来源详情
     pub source_detail: Option<String>,
     /// 线索状态
-    pub status: Option<String>,
+    pub status: Option<LeadStatus>,
     /// 线索等级
     pub level: Option<String>,
     /// 标签列表
@@ -289,7 +293,7 @@ pub struct LeadDetailVO {
     /// 预算金额
     pub budget: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
     /// 负责人ID
@@ -318,8 +322,8 @@ impl From<lead::Model> for LeadDetailVO {
             region: item.region,
             address: item.address,
             website: item.website,
-            industry: item.industry,
-            source: item.source,
+            industry: item.industry.map(|i| i.to_string()),
+            source: item.source.map(|s| s.to_string()),
             source_detail: item.source_detail,
             status: item.status,
             level: item.level,
@@ -362,7 +366,7 @@ pub struct LeadListVO {
     /// 线索来源
     pub source: Option<String>,
     /// 线索状态
-    pub status: Option<String>,
+    pub status: Option<LeadStatus>,
     /// 线索等级
     pub level: Option<String>,
     /// 负责人ID
@@ -383,7 +387,7 @@ impl From<lead::Model> for LeadListVO {
             mobile: item.mobile,
             country: item.country,
             region: item.region,
-            source: item.source,
+            source: item.source.map(|s| s.to_string()),
             status: item.status,
             level: item.level,
             assigned_to: item.assigned_to,
@@ -438,8 +442,8 @@ impl LeadModel {
             region: Set(req.region.clone()),
             address: Set(req.address.clone()),
             website: Set(req.website.clone()),
-            industry: Set(req.industry.clone()),
-            source: Set(req.source.clone()),
+            industry: Set(req.industry.clone().and_then(|s| IndustryType::from_str(&s))),
+            source: Set(req.source.clone().and_then(|s| LeadSource::from_str(&s))),
             source_detail: Set(req.source_detail.clone()),
             status: Set(req.status.clone()),
             level: Set(req.level.clone()),
@@ -504,8 +508,8 @@ impl LeadModel {
             region: Set(req.region.clone()),
             address: Set(req.address.clone()),
             website: Set(req.website.clone()),
-            industry: Set(req.industry.clone()),
-            source: Set(req.source.clone()),
+            industry: Set(req.industry.clone().and_then(|s| IndustryType::from_str(&s))),
+            source: Set(req.source.clone().and_then(|s| LeadSource::from_str(&s))),
             source_detail: Set(req.source_detail.clone()),
             status: Set(req.status.clone()),
             level: Set(req.level.clone()),
@@ -576,7 +580,17 @@ impl LeadModel {
             query = query.filter(lead::Column::CompanyName.contains(k));
         }
         if let Some(s) = status {
-            query = query.filter(lead::Column::Status.eq(s));
+            let status_value: Option<LeadStatus> = match s.as_str() {
+                "new" => Some(LeadStatus::New),
+                "following" => Some(LeadStatus::Following),
+                "converted" => Some(LeadStatus::Converted),
+                "invalid" => Some(LeadStatus::Invalid),
+                "recycled" => Some(LeadStatus::Recycled),
+                _ => None,
+            };
+            if let Some(st) = status_value {
+                query = query.filter(lead::Column::Status.eq(st));
+            }
         }
         if let Some(l) = level {
             query = query.filter(lead::Column::Level.eq(l));

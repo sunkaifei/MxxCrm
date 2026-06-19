@@ -1,0 +1,97 @@
+{
+  "status": {
+    "ON": "Enabled",
+    "OFF": "Disabled"
+  },
+  "authority": {
+    "GUEST_USER": "Guest",
+    "CUSTOMER_USER": "Customer",
+    "SYS_MANAGER": "Manager",
+    "SYS_ADMIN": "Admin"
+  },
+  "activity_type": {
+    "call": "Call",
+    "visit": "Visit",
+    "whatsapp": "WhatsApp",
+    "wechat": "WeChat",
+    "email": "Email",
+    "meeting": "Meeting",
+    "demo": "Demo"
+  },
+  "industry_type": {
+    "technology": "Technology",
+    "finance": "Finance",
+    "manufacturing": "Manufacturing",
+    "retail": "Retail",
+    "healthcare": "Healthcare",
+    "education": "Education",
+    "real_estate": "Real Estate",
+    "transportation": "Transportation",
+    "energy": "Energy",
+    "other": "Other"
+  },
+  "customer_level": {
+    "a": "Level A",
+    "b": "Level B",
+    "c": "Level C",
+    "d": "Level D"
+  },
+  "currency_code": {
+    "CNY": "CNY",
+    "USD": "USD",
+    "EUR": "EUR",
+    "GBP": "GBP",
+    "JPY": "JPY",
+    "HKD": "HKD",
+    "AUD": "AUD"
+  },
+  "lead_source": {
+    "website": "Website",
+    "social_media": "Social Media",
+    "email_marketing": "Email Marketing",
+    "referral": "Referral",
+    "trade_show": "Trade Show",
+    "cold_call": "Cold Call",
+    "direct_mail": "Direct Mail",
+    "search_engine": "Search Engine",
+    "partner": "Partner",
+    "other": "Other"
+  },
+  "opportunity_stage": {
+    "lead": "Lead",
+    "qualified": "Qualified",
+    "proposal": "Proposal",
+    "negotiation": "Negotiation",
+    "won": "Won",
+    "lost": "Lost"
+  },
+  "order_status": {
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "processing": "Processing",
+    "shipped": "Shipped",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "payment_status": {
+    "pending": "Pending",
+    "partial": "Partial",
+    "paid": "Paid",
+    "overdue": "Overdue"
+  },
+  "product_type": {
+    "physical": "Physical",
+    "digital": "Digital",
+    "service": "Service"
+  },
+  "menu_type": {
+    "directory": "Directory",
+    "menu": "Menu",
+    "button": "Button"
+  },
+  "gender": {
+    "male": "Male",
+    "female": "Female",
+    "other": "Other"
+  }
+}

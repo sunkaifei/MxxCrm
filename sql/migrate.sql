@@ -793,6 +793,12 @@ COMMENT ON COLUMN mxx_purchase_supplier.updated_by IS '更新者ID';
 COMMENT ON COLUMN mxx_purchase_supplier.updated_at IS '更新时间';
 COMMENT ON COLUMN mxx_purchase_supplier.deleted IS '0未删除 1已删除';
 
+-- 迁移：新增 level 和 status 列（INT4 类型）
+ALTER TABLE mxx_purchase_supplier ADD COLUMN IF NOT EXISTS level INT4;
+ALTER TABLE mxx_purchase_supplier ADD COLUMN IF NOT EXISTS status INT4;
+COMMENT ON COLUMN mxx_purchase_supplier.level IS '供应商等级';
+COMMENT ON COLUMN mxx_purchase_supplier.status IS '供应商状态';
+
 -- 3.17 mxx_purchase_po（采购单表）
 CREATE TABLE IF NOT EXISTS mxx_purchase_po (
     id              BIGSERIAL PRIMARY KEY,

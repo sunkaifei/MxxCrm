@@ -61,16 +61,30 @@ const gridOptions: VxeGridProps = {
     parentField: 'parentId',
     childrenField: 'children',
     rowField: 'id',
-    transform: true,
+    transform: false,
   },
   proxyConfig: {
     autoLoad: true,
     ajax: {
       query: async (_, formValues) => {
-        return await getMenuTreeApi({
+        const result = await getMenuTreeApi({
           keywords: formValues.name,
           status: formValues.status,
         });
+        // 递归翻译菜单名称
+        const translateNames = (nodes: any[]) => {
+          if (!nodes) return;
+          for (const node of nodes) {
+            if (node?.meta?.name) node.meta.name = $t(node.meta.name);
+            if (node?.children) translateNames(node.children);
+          }
+        };
+        if (Array.isArray(result)) {
+          translateNames(result);
+        } else if (result?.items) {
+          translateNames(result.items);
+        }
+        return result;
       },
     },
   },
@@ -103,21 +117,23 @@ const gridOptions: VxeGridProps = {
     {
       title: $t('page.system.menu.path'),
       field: 'path',
-      width: 280,
+      width: 180,
     },
     {
       title: $t('page.system.menu.component'),
       field: 'component',
-      width: 280,
+      width: 180,
     },
     {
       title: $t('page.system.menu.perm'),
       field: 'perm',
+      width: 180,
     },
     {
       title: $t('ui.table.status'),
       field: 'status',
       slots: { default: 'status' },
+      width: 120,
     },
     {
       title: $t('ui.table.updateTime'),
@@ -130,7 +146,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 220,
+      width: 200,
     },
   ],
 };

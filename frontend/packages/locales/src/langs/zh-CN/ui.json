@@ -126,6 +126,42 @@
       "internalServerError": "内部服务器错误，请稍后再试。"
     }
   },
+  "notification": {
+    "create_success": "添加成功",
+    "update_success": "修改成功",
+    "delete_success": "删除成功"
+  },
+  "table": {
+    "seq": "序号",
+    "name": "名称",
+    "code": "编码",
+    "status": "状态",
+    "createTime": "创建时间",
+    "updateTime": "更新时间",
+    "action": "操作",
+    "password": "密码",
+    "remark": "备注"
+  },
+  "button": {
+    "ok": "确定",
+    "cancel": "取消",
+    "search": "搜索",
+    "reset": "重置"
+  },
+  "switch": {
+    "active": "启用",
+    "inactive": "禁用"
+  },
+  "modal": {
+    "create": "新增{moduleName}",
+    "update": "修改{moduleName}"
+  },
+  "placeholder": {
+    "input": "请输入",
+    "select": "请选择",
+    "upload": "点击上传",
+    "search": "请输入关键词搜索"
+  },
   "widgets": {
     "document": "文档",
     "qa": "问题 & 帮助",

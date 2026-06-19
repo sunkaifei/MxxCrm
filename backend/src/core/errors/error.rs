@@ -24,16 +24,19 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
-    /// Default Error
     E(String),
+    Database(String),
+    NotFound(String),
+    BadRequest(String),
 }
 
 impl Display for Error {
-    // IntellijRust does not understand that [non_exhaustive] applies only for downstream crates
-    // noinspection RsMatchCheck
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::E(error) => write!(f, "{}", error),
+            Error::Database(error) => write!(f, "Database error: {}", error),
+            Error::NotFound(error) => write!(f, "Not found: {}", error),
+            Error::BadRequest(error) => write!(f, "Bad request: {}", error),
         }
     }
 }

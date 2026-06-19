@@ -66,16 +66,20 @@ function convertRoutes(
 ): RouteRecordRaw[] {
   return mapTree(routes, (node) => {
     const route = node as unknown as RouteRecordRaw;
-    const { component, name } = node;
+    const { component, name, path } = node;
 
     if (!name) {
-      console.error('route name is required', route);
+      console.error('route name is required, skipping', route);
+      return null;
     }
 
-    // layout转换
+    if (!path) {
+      console.error('route path is required, skipping', route);
+      return null;
+    }
+
     if (component && layoutMap[component]) {
       route.component = layoutMap[component];
-      // 页面组件转换
     } else if (component) {
       const normalizePath = normalizeViewPath(component);
       const pageKey = normalizePath.endsWith('.vue')

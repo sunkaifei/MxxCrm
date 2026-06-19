@@ -1,6 +1,9 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::lead_source_enum::LeadSource;
+use crate::core::r#enum::opportunity_stage_enum::OpportunityStage;
 use crate::modules::crm::entity::{opportunity, opportunity::Entity as Opportunity};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -19,19 +22,19 @@ pub struct OpportunitySaveRequest {
     /// 商机描述
     pub description: Option<String>,
     /// 销售阶段
-    pub stage: Option<String>,
+    pub stage: Option<OpportunityStage>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 商机来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
@@ -83,19 +86,19 @@ pub struct OpportunityUpdateRequest {
     /// 商机描述
     pub description: Option<String>,
     /// 销售阶段
-    pub stage: Option<String>,
+    pub stage: Option<OpportunityStage>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 商机来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
@@ -146,19 +149,19 @@ pub struct OpportunitySaveDTO {
     /// 商机描述
     pub description: Option<String>,
     /// 销售阶段
-    pub stage: Option<String>,
+    pub stage: Option<OpportunityStage>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 商机来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
@@ -195,19 +198,19 @@ pub struct OpportunityDetailVO {
     /// 商机描述
     pub description: Option<String>,
     /// 销售阶段
-    pub stage: Option<String>,
+    pub stage: Option<OpportunityStage>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 商机来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
@@ -251,13 +254,13 @@ pub struct OpportunityListVO {
     /// 商机标题
     pub title: Option<String>,
     /// 销售阶段
-    pub stage: Option<String>,
+    pub stage: Option<OpportunityStage>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
@@ -293,7 +296,7 @@ pub struct OpportunityListQuery {
     /// 关键词（搜索商机标题等）
     pub keywords: Option<String>,
     /// 销售阶段
-    pub stage: Option<String>,
+    pub stage: Option<OpportunityStage>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 客户ID
@@ -316,8 +319,6 @@ impl OpportunityModel {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = opportunity::ActiveModel {
             customer_id: Set(req.customer_id.clone()),
-            contact_id: Set(req.contact_id.clone()),
-            lead_id: Set(req.lead_id.clone()),
             title: Set(req.title.clone()),
             description: Set(req.description.clone()),
             stage: Set(req.stage.clone()),
@@ -326,9 +327,6 @@ impl OpportunityModel {
             currency: Set(req.currency.clone()),
             expected_close_date: Set(req.expected_close_date.clone()),
             assigned_to: Set(req.assigned_to.clone()),
-            source: Set(req.source.clone()),
-            tags: Set(req.tags.clone()),
-            custom_fields: Set(req.custom_fields.clone()),
             created_by: Set(req.created_by.clone()),
             created_at: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
@@ -374,8 +372,6 @@ impl OpportunityModel {
     pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &OpportunitySaveDTO) -> Result<i64, DbErr> {
         let payload = opportunity::ActiveModel {
             customer_id: Set(req.customer_id.clone()),
-            contact_id: Set(req.contact_id.clone()),
-            lead_id: Set(req.lead_id.clone()),
             title: Set(req.title.clone()),
             description: Set(req.description.clone()),
             stage: Set(req.stage.clone()),
@@ -384,9 +380,6 @@ impl OpportunityModel {
             currency: Set(req.currency.clone()),
             expected_close_date: Set(req.expected_close_date.clone()),
             assigned_to: Set(req.assigned_to.clone()),
-            source: Set(req.source.clone()),
-            tags: Set(req.tags.clone()),
-            custom_fields: Set(req.custom_fields.clone()),
             updated_by: Set(req.updated_by.clone()),
             updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -434,7 +427,7 @@ impl OpportunityModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        stage: Option<String>,
+        stage: Option<OpportunityStage>,
         assigned_to: Option<i64>,
         customer_id: Option<i64>,
     ) -> Result<(Vec<opportunity::Model>, i64), DbErr> {

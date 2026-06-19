@@ -11,7 +11,10 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
-use crate::core::r#enum::industry_enum::IndustryType;
+use crate::core::r#enum::customer_level_enum::CustomerLevel;
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::industry_type_enum::IndustryType;
+use crate::core::r#enum::lead_source_enum::LeadSource;
 use crate::modules::crm::entity::{customer, customer::Entity as Customer};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -34,13 +37,13 @@ pub struct CustomerSaveRequest {
     /// 所属行业
     pub industry: Option<IndustryType>,
     /// 客户等级
-    pub level: Option<String>,
+    pub level: Option<CustomerLevel>,
     /// 客户来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -110,13 +113,13 @@ pub struct CustomerUpdateRequest {
     /// 所属行业
     pub industry: Option<IndustryType>,
     /// 客户等级
-    pub level: Option<String>,
+    pub level: Option<CustomerLevel>,
     /// 客户来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -185,13 +188,13 @@ pub struct CustomerSaveDTO {
     /// 所属行业
     pub industry: Option<IndustryType>,
     /// 客户等级
-    pub level: Option<String>,
+    pub level: Option<CustomerLevel>,
     /// 客户来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -242,13 +245,13 @@ pub struct CustomerDetailVO {
     /// 所属行业
     pub industry: Option<IndustryType>,
     /// 客户等级
-    pub level: Option<String>,
+    pub level: Option<CustomerLevel>,
     /// 客户来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -322,9 +325,9 @@ pub struct CustomerListVO {
     /// 地区/省份
     pub region: Option<String>,
     /// 客户等级
-    pub level: Option<String>,
+    pub level: Option<CustomerLevel>,
     /// 客户来源
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 累计成交金额

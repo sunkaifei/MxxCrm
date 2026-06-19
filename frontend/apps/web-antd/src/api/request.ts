@@ -143,18 +143,45 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       return response;
     },
     rejected: (error) => {
-      if (error?.response?.data instanceof ArrayBuffer) {
+      const status = error?.response?.status;
+      if (status === 403) {
+        error.response.data = {
+          code: 403,
+          msg: '权限不足，请联系管理员',
+        };
+      } else if (status === 401) {
+        error.response.data = {
+          code: 401,
+          msg: '登录已过期，请重新登录',
+        };
+      } else if (error?.response?.data instanceof ArrayBuffer) {
+        const raw = new Uint8Array(error.response.data);
         try {
-          const text = new TextDecoder('utf-8').decode(
-            new Uint8Array(error.response.data),
-          );
-          error.response.data = JSON.parse(text);
-        } catch {
-          error.response.data = {
-            code: -1,
-            msg: 'Error response decode failed',
+          const decoded = decode(raw) as {
+            code: number;
+            data: unknown;
+            meta?: unknown;
+            msg: string;
           };
+          error.response.data = decoded;
+        } catch {
+          try {
+            const text = new TextDecoder('utf-8').decode(raw);
+            error.response.data = JSON.parse(text);
+          } catch {
+            error.response.data = {
+              code: -1,
+              msg: 'Error response decode failed',
+            };
+          }
         }
+      } else if (error?.code === 'ECONNREFUSED') {
+        error.response = {
+          data: {
+            code: -1,
+            msg: '服务连接失败，请检查后端服务是否正常运行',
+          },
+        };
       }
       return Promise.reject(error);
     },
@@ -197,4 +224,6 @@ export const requestClient = createRequestClient(apiURL, {
   responseReturn: 'data',
 });
 
-export const baseRequestClient = new RequestClient({ baseURL: apiURL });
+export const baseRequestClient = createRequestClient(apiURL, {
+  responseReturn: 'data',
+});

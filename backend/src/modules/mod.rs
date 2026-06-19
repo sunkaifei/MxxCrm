@@ -52,5 +52,8 @@ pub mod product;
 /// 采购模块
 pub mod purchase;
 
+/// 库存模块
+pub mod inventory;
+
 
 

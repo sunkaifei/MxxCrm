@@ -690,6 +690,8 @@ CREATE TABLE mxx_purchase_supplier (
     industry        mxx_industry_type,
     payment_terms   VARCHAR(255),
     delivery_terms  VARCHAR(255),
+    level           INT4,
+    status          INT4,
     notes           TEXT,
     is_active       BOOLEAN DEFAULT true,
     created_by      BIGINT REFERENCES mxx_system_admin(id),

@@ -1,6 +1,8 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::industry_type_enum::IndustryType;
 use crate::modules::purchase::entity::{supplier, supplier::Entity as Supplier};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -27,11 +29,11 @@ pub struct SupplierSaveRequest {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<String>,
+    pub industry: Option<IndustryType>,
     /// 供应商等级
-    pub level: Option<String>,
+    pub level: Option<i32>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -45,7 +47,7 @@ pub struct SupplierSaveRequest {
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 供应商状态
-    pub status: Option<String>,
+    pub status: Option<i32>,
     /// 描述/备注
     pub description: Option<String>,
     /// 自定义字段（JSON格式）
@@ -113,11 +115,11 @@ pub struct SupplierUpdateRequest {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<String>,
+    pub industry: Option<IndustryType>,
     /// 供应商等级
-    pub level: Option<String>,
+    pub level: Option<i32>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -131,7 +133,7 @@ pub struct SupplierUpdateRequest {
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 供应商状态
-    pub status: Option<String>,
+    pub status: Option<i32>,
     /// 描述/备注
     pub description: Option<String>,
     /// 自定义字段（JSON格式）
@@ -200,11 +202,11 @@ pub struct SupplierSaveDTO {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<String>,
+    pub industry: Option<IndustryType>,
     /// 供应商等级
-    pub level: Option<String>,
+    pub level: Option<i32>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -218,7 +220,7 @@ pub struct SupplierSaveDTO {
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 供应商状态
-    pub status: Option<String>,
+    pub status: Option<i32>,
     /// 描述/备注
     pub description: Option<String>,
     /// 自定义字段（JSON格式）
@@ -263,11 +265,11 @@ pub struct SupplierDetailVO {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<String>,
+    pub industry: Option<IndustryType>,
     /// 供应商等级
-    pub level: Option<String>,
+    pub level: Option<i32>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -281,7 +283,7 @@ pub struct SupplierDetailVO {
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 供应商状态
-    pub status: Option<String>,
+    pub status: Option<i32>,
     /// 描述/备注
     pub description: Option<String>,
     /// 自定义字段（JSON格式）
@@ -292,7 +294,7 @@ impl From<supplier::Model> for SupplierDetailVO {
     fn from(item: supplier::Model) -> Self {
         SupplierDetailVO {
             id: Option::from(item.id),
-            supplier_code: item.supplier_code,
+            supplier_code: item.supplier_no,
             company_name: item.company_name,
             short_name: item.short_name,
             contact_name: item.contact_name,
@@ -340,16 +342,16 @@ pub struct SupplierListVO {
     /// 地区/省份
     pub region: Option<String>,
     /// 供应商等级
-    pub level: Option<String>,
+    pub level: Option<i32>,
     /// 供应商状态
-    pub status: Option<String>,
+    pub status: Option<i32>,
 }
 
 impl From<supplier::Model> for SupplierListVO {
     fn from(item: supplier::Model) -> Self {
         SupplierListVO {
             id: Option::from(item.id),
-            supplier_code: item.supplier_code,
+            supplier_code: item.supplier_no,
             company_name: item.company_name,
             short_name: item.short_name,
             contact_name: item.contact_name,
@@ -376,9 +378,9 @@ pub struct SupplierListQuery {
     /// 国家
     pub country: Option<String>,
     /// 供应商等级
-    pub level: Option<String>,
+    pub level: Option<i32>,
     /// 供应商状态
-    pub status: Option<String>,
+    pub status: Option<i32>,
 }
 
 /// 供应商数据模型操作类
@@ -402,21 +404,11 @@ impl SupplierModel {
             contact_phone: Set(req.contact_phone.clone()),
             contact_email: Set(req.contact_email.clone()),
             country: Set(req.country.clone()),
-            region: Set(req.region.clone()),
             address: Set(req.address.clone()),
             website: Set(req.website.clone()),
             industry: Set(req.industry.clone()),
             level: Set(req.level.clone()),
-            currency: Set(req.currency.clone()),
-            credit_limit: Set(req.credit_limit.clone()),
-            credit_days: Set(req.credit_days.clone()),
-            bank_name: Set(req.bank_name.clone()),
-            bank_account: Set(req.bank_account.clone()),
-            tax_id: Set(req.tax_id.clone()),
-            tags: Set(req.tags.clone()),
             status: Set(req.status.clone()),
-            description: Set(req.description.clone()),
-            custom_fields: Set(req.custom_fields.clone()),
             created_by: Set(req.created_by.clone()),
             created_at: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
@@ -467,21 +459,11 @@ impl SupplierModel {
             contact_phone: Set(req.contact_phone.clone()),
             contact_email: Set(req.contact_email.clone()),
             country: Set(req.country.clone()),
-            region: Set(req.region.clone()),
             address: Set(req.address.clone()),
             website: Set(req.website.clone()),
             industry: Set(req.industry.clone()),
             level: Set(req.level.clone()),
-            currency: Set(req.currency.clone()),
-            credit_limit: Set(req.credit_limit.clone()),
-            credit_days: Set(req.credit_days.clone()),
-            bank_name: Set(req.bank_name.clone()),
-            bank_account: Set(req.bank_account.clone()),
-            tax_id: Set(req.tax_id.clone()),
-            tags: Set(req.tags.clone()),
             status: Set(req.status.clone()),
-            description: Set(req.description.clone()),
-            custom_fields: Set(req.custom_fields.clone()),
             updated_by: Set(req.updated_by.clone()),
             updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -529,9 +511,9 @@ impl SupplierModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        level: Option<String>,
+        level: Option<i32>,
         country: Option<String>,
-        status: Option<String>,
+        status: Option<i32>,
     ) -> Result<(Vec<supplier::Model>, i64), DbErr> {
         let mut query = Supplier::find()
             .filter(supplier::Column::Deleted.eq(0));

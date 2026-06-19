@@ -38,9 +38,9 @@ pub async fn add_links(state: web::Data<AppState>, req: HttpRequest, item: web::
     let result = website_links_service::insert(&db, form_data).await?;
 
     if result > 0 {
-        Ok(HttpResponse::Ok().json(("添加成功")))
+        Ok(HttpResponse::Ok().json("添加成功"))
     } else {
-        Ok(HttpResponse::Ok().json(("添加失败".to_string())))
+        Ok(HttpResponse::Ok().json("添加失败".to_string()))
     }
 }
 
@@ -87,9 +87,9 @@ pub async fn update_by_id(state: web::Data<AppState>, id: web::Path<i64>, item: 
     let result = website_links_service::update_by_id(&db, &form_data).await?;
 
     if result > 0 {
-        Ok(HttpResponse::Ok().json(("更新成功")))
+        Ok(HttpResponse::Ok().json("更新成功"))
     } else {
-        Ok(HttpResponse::Ok().json(("更新失败".to_string())))
+        Ok(HttpResponse::Ok().json("更新失败".to_string()))
     }
 }
 #[get("/links/detail/{id}")]
@@ -114,6 +114,6 @@ pub async fn get_by_page(state: web::Data<AppState>, req: HttpRequest, query: we
         .unwrap_or(0);
     form_data.website_id = Some(website_id);
     website_links_service::get_by_page(&db, form_data).await.map(|page_data| {
-        HttpResponse::Ok().json((page_data))
+        HttpResponse::Ok().json(page_data)
     })
 }

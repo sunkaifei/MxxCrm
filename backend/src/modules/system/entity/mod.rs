@@ -19,6 +19,7 @@ pub mod post;
 pub mod dept;
 pub mod dept_menu_merge;
 pub mod region;
+pub mod area;
 pub mod system_log;
 pub mod ip_address;
 pub mod dict;

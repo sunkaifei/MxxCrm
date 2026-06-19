@@ -34,4 +34,5 @@ pub mod admin_notice_merge;
 pub mod tag;
 pub mod tag_group;
 pub mod tag_merge;
+pub mod area;
 

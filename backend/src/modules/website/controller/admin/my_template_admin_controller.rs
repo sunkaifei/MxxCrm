@@ -34,7 +34,7 @@ pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<T
     let mut form_data = TemplateDataSaveDTO::from(item.into_inner());
     form_data.template_id = website.template_id;
     let result = template_user_data_service::insert(&db, &form_data).await?;
-    Ok(HttpResponse::Ok().json((result)))
+    Ok(HttpResponse::Ok().json(result))
 }
 
 #[delete("/my_template/batch_delete")]
@@ -65,7 +65,7 @@ pub async fn update_by_id(state: web::Data<AppState>, req: HttpRequest, id: web:
         .and_then(|id_str| id_str.parse::<i64>().ok());
     form_data.template_id = website_service::find_by_id(db, &website_id).await?.template_id;
     let result = template_user_data_service::update_by_id(&db, &form_data).await?;
-    Ok(HttpResponse::Ok().json((result)))
+    Ok(HttpResponse::Ok().json(result))
 }
 
 #[get("/my_template/path_tree/{id}")]
@@ -91,7 +91,7 @@ pub async fn get_by_tree(
     let website_id = website_id.ok_or_else(|| Error::from("website_id is required"))?;
     let site = website_service::find_by_id(db, &Some(website_id)).await?;
     template_user_data_service::find_by_template_id(&db, &site.template_id).await.map(|tree| {
-        HttpResponse::Ok().json((tree))
+        HttpResponse::Ok().json(tree)
     })
 }
 
@@ -120,7 +120,7 @@ pub async fn get_by_page(state: web::Data<AppState>, req: HttpRequest, query: we
     form_data.template_id = site.template_id;
     form_data.website_id = site.id;
     template_user_data_service::get_by_page(&db, form_data).await.map(|page_data| {
-        HttpResponse::Ok().json((page_data))
+        HttpResponse::Ok().json(page_data)
     })
 }
 
@@ -139,6 +139,6 @@ pub async fn get_buy_by_page(
     let admin_token:JWTToken = get_user(&req).unwrap_or_default();
     list_query.admin_id = admin_token.id;
     template_service::get_my_list_by_page(&db, list_query).await.map(|page_data| {
-        HttpResponse::Ok().json((page_data))
+        HttpResponse::Ok().json(page_data)
     })
 }

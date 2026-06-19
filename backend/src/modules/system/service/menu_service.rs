@@ -142,43 +142,14 @@ pub async fn find_user_role_keys(db: &DbConn, is_admin: &bool, id: &Option<i64>)
 
 pub async fn all_menu_list(db: &DbConn, query : ListQuery) -> Result<Vec<MenuAdminVO>> {
     let select_where = PageWhere {
-        name: query.name,
+        name: query.keywords,
+        status: query.status,
     };
     let search_where = select_where.format();
     let list: Vec<Model> = MenuModel::select_all_list(db,search_where).await?;
     
-    // 直接将 Model 转换为 MenuAdminVO（扁平列表）
-    let vo_list: Vec<MenuAdminVO> = list.into_iter().map(|model| {
-        let meta = ListMeta {
-            name: model.name.clone(),
-            affix_tab: Some(model.affix_tab),
-            hide_children_in_menu: Some(model.hide_children_in_menu),
-            hide_in_breadcrumb: Some(model.hide_in_breadcrumb),
-            hide_in_menu: Some(model.hide_in_menu),
-            hide_in_tab: Some(model.hide_in_tab),
-            keep_alive: Some(model.keep_alive),
-            sort: model.sort,
-            icon: model.icon.clone(),
-        };
-        
-        MenuAdminVO {
-            id: model.id,
-            parent_id: Some(model.parent_id),
-            tree_path: model.tree_path,
-            name: model.name,
-            meta: Some(meta),
-            r#type: model.r#type,
-            route_name: model.route_name,
-            path: model.path,
-            component: model.component,
-            perm: model.perm,
-            status: Some(model.status),
-            redirect: model.redirect,
-            create_time: model.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
-            params: model.params,
-            children: None,
-        }
-    }).collect();
+    let mut vo_list: Vec<MenuAdminVO> = Vec::new();
+    menu_list_tree(&mut vo_list, list, Some(0));
     
     Ok(vo_list)
 }
@@ -216,8 +187,9 @@ pub fn menu_list_tree(re_list: &mut Vec<MenuAdminVO>, ori_arr: Vec<Model>, pid: 
                 status: Some(it.status),
                 redirect: it.redirect.clone(),
                 create_time: it.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
+                update_time: it.updated_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
                 params: it.params.clone(),
-                children: if children.len() > 0 { Some(children) } else { None },
+                children,
             };
             re_list.push(temp_router)
         }

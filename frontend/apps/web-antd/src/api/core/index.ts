@@ -22,6 +22,7 @@ export * from './shop';
 export * from './system/api';
 export * from './system/config';
 export * from './system/dept';
+export * from './system/area';
 export * from './system/dict';
 export * from './system/log';
 export * from './system/menu';

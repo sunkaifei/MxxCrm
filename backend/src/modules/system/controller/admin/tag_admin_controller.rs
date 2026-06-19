@@ -20,13 +20,13 @@ pub async fn save_tag(state: web::Data<AppState>, req: HttpRequest, payload: web
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
     let mut form_data = TagSaveDTO::from(tag_request);
-    form_data.created_by = Some(admin.id);
-    form_data.updated_by = Some(admin.id);
-    match tag_service::TagService::save(&db, form_data, Some(admin.id)).await {
+    form_data.created_by = admin.id;
+    form_data.updated_by = admin.id;
+    match tag_service::TagService::save(&db, form_data, admin.id).await {
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("添加标签出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -44,12 +44,12 @@ pub async fn update_tag(state: web::Data<AppState>, req: HttpRequest, payload: w
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
     let mut form_data = TagSaveDTO::from(tag_request);
-    form_data.updated_by = Some(admin.id);
-    match tag_service::TagService::save(&db, form_data, Some(admin.id)).await {
+    form_data.updated_by = admin.id;
+    match tag_service::TagService::save(&db, form_data, admin.id).await {
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("更新标签出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -62,7 +62,7 @@ pub async fn delete_tag(state: web::Data<AppState>, item: web::Path<i64>) -> Res
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("删除标签出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -74,8 +74,14 @@ pub async fn batch_delete_tag(state: web::Data<AppState>, item: web::Json<BathDe
         if ids_vec.is_empty() {
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
         } else {
-            let result = tag_service::TagService::batch_delete(&db, &ids_vec).await;
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<bool>::handle_result(result)))
+            let ids: Vec<i64> = ids_vec.into_iter().filter_map(|id| id.and_then(|s| s.parse().ok())).collect();
+            match tag_service::TagService::batch_delete(&db, &ids).await {
+                Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
+                Err(e) => {
+                    log::error!("批量删除标签出错：{:}", e);
+                    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
+                }
+            }
         }
     } else {
         Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
@@ -90,7 +96,7 @@ pub async fn get_tag_detail(state: web::Data<AppState>, item: web::Path<i64>) ->
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("获取标签详情出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -107,7 +113,7 @@ pub async fn get_tag_list(state: web::Data<AppState>, query: web::Query<TagListQ
         }
         Err(e) => {
             log::error!("获取标签列表出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -119,7 +125,7 @@ pub async fn get_tag_statistics(state: web::Data<AppState>) -> Result<HttpRespon
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("获取标签统计出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -131,7 +137,7 @@ pub async fn get_all_tags(state: web::Data<AppState>) -> Result<HttpResponse> {
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("获取所有标签出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -144,7 +150,7 @@ pub async fn get_tags_by_group(state: web::Data<AppState>, path: web::Path<i64>)
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("获取分组下标签出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -163,7 +169,7 @@ pub async fn move_tags_to_group(state: web::Data<AppState>, payload: web::Json<T
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("移动标签到分组出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -171,12 +177,12 @@ pub async fn move_tags_to_group(state: web::Data<AppState>, payload: web::Json<T
 #[get("/tag/suggest")]
 pub async fn tag_suggest(state: web::Data<AppState>, query: web::Query<(String,)>) -> Result<HttpResponse> {
     let db = &state.db;
-    let keyword = &query.0;
+    let keyword = &query.0.0;
     match tag_service::TagService::suggest(&db, keyword).await {
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("标签建议出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -188,13 +194,13 @@ pub async fn save_tag_group(state: web::Data<AppState>, req: HttpRequest, payloa
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
     let mut form_data = TagGroupSaveDTO::from(group_request);
-    form_data.created_by = Some(admin.id);
-    form_data.updated_by = Some(admin.id);
-    match tag_group_service::TagGroupService::save(&db, form_data, Some(admin.id)).await {
+    form_data.created_by = admin.id;
+    form_data.updated_by = admin.id;
+    match tag_group_service::TagGroupService::save(&db, form_data, admin.id).await {
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("保存标签分组出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -209,12 +215,12 @@ pub async fn update_tag_group(state: web::Data<AppState>, req: HttpRequest, payl
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
     let mut form_data = TagGroupSaveDTO::from(group_request);
-    form_data.updated_by = Some(admin.id);
-    match tag_group_service::TagGroupService::save(&db, form_data, Some(admin.id)).await {
+    form_data.updated_by = admin.id;
+    match tag_group_service::TagGroupService::save(&db, form_data, admin.id).await {
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("更新标签分组出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -227,7 +233,7 @@ pub async fn delete_tag_group(state: web::Data<AppState>, item: web::Path<i64>) 
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("删除标签分组出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -239,8 +245,14 @@ pub async fn batch_delete_tag_group(state: web::Data<AppState>, item: web::Json<
         if ids_vec.is_empty() {
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
         } else {
-            let result = tag_group_service::TagGroupService::batch_delete(&db, &ids_vec).await;
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<bool>::handle_result(result)))
+            let ids: Vec<i64> = ids_vec.into_iter().filter_map(|id| id.and_then(|s| s.parse().ok())).collect();
+            match tag_group_service::TagGroupService::batch_delete(&db, &ids).await {
+                Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
+                Err(e) => {
+                    log::error!("批量删除标签分组出错：{:}", e);
+                    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
+                }
+            }
         }
     } else {
         Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
@@ -254,7 +266,7 @@ pub async fn get_tag_group_list(state: web::Data<AppState>) -> Result<HttpRespon
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("获取标签分组列表出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -267,7 +279,7 @@ pub async fn get_tag_group_detail(state: web::Data<AppState>, item: web::Path<i6
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("获取标签分组详情出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -289,7 +301,7 @@ pub async fn add_tags_to_entity(state: web::Data<AppState>, payload: web::Json<T
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("添加标签到实体出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -311,7 +323,7 @@ pub async fn remove_tags_from_entity(state: web::Data<AppState>, payload: web::J
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("移除实体标签出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -324,7 +336,7 @@ pub async fn get_tags_by_entity(state: web::Data<AppState>, path: web::Path<(Str
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("获取实体标签出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }
@@ -342,7 +354,8 @@ pub async fn batch_tag_entity(state: web::Data<AppState>, payload: web::Json<Tag
     if req.tag_ids.as_ref().map_or(true, |ids| ids.is_empty()) {
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "标签ID列表不能为空", "local")));
     }
-    let action = req.action.as_ref().unwrap_or(&"add".to_string());
+    let default_action = "add".to_string();
+    let action = req.action.as_ref().unwrap_or(&default_action);
     let result = match action.as_str() {
         "add" => tag_service::TagService::batch_add_tags_to_entities(&db, req.entity_type.as_ref().unwrap(), req.entity_ids.as_ref().unwrap(), req.tag_ids.as_ref().unwrap()).await,
         "remove" => tag_service::TagService::batch_remove_tags_from_entities(&db, req.entity_type.as_ref().unwrap(), req.entity_ids.as_ref().unwrap(), req.tag_ids.as_ref().unwrap()).await,
@@ -352,7 +365,7 @@ pub async fn batch_tag_entity(state: web::Data<AppState>, payload: web::Json<Tag
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => {
             log::error!("批量操作标签出错：{:}", e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e, "local")))
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
 }

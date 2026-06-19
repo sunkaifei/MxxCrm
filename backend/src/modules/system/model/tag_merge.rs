@@ -85,7 +85,7 @@ impl TagMergeModel {
             .filter(tag_merge::Column::TagId.is_in(tag_ids.clone()))
             .exec(db)
             .await?;
-        Ok(delete_result.rows_affected)
+        Ok(delete_result.rows_affected as i64)
     }
 
     pub async fn get_tags_by_entity(
@@ -96,9 +96,7 @@ impl TagMergeModel {
         Tag::find()
             .join(
                 JoinType::InnerJoin,
-                tag::Relation::none()
-                    .from(tag::Column::Id)
-                    .to(tag_merge::Column::TagId),
+                tag_merge::Relation::Tag.def(),
             )
             .filter(tag_merge::Column::EntityType.eq(entity_type))
             .filter(tag_merge::Column::EntityId.eq(entity_id))

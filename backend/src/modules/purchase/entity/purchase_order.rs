@@ -10,6 +10,7 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
 /// 采购订单表实体
 /// 存储采购订单信息，包含订单金额、供应商状态、收货地址等
@@ -31,7 +32,7 @@ pub struct Model {
     /// 订单金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 订单总金额（含税）

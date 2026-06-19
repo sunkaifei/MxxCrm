@@ -1,8 +1,8 @@
 [package]
-name = "mxx-saas"
+name = "mxx-crm"
 version = "1.0.0"
 edition = "2021"
-default-run = "mxx-saas"
+default-run = "mxx-crm"
 authors = ["sun kaifei"]
 
 [dependencies]

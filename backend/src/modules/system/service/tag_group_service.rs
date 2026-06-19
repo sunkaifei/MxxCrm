@@ -82,6 +82,6 @@ impl TagGroupService {
             .filter(tag::Column::Deleted.eq(0))
             .count(db)
             .await?;
-        Ok(count)
+        Ok(count as i64)
     }
 }

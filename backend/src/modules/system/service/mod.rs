@@ -24,3 +24,4 @@ pub mod ip_address_service;
 pub mod notice_service;
 pub mod tag_service;
 pub mod tag_group_service;
+pub mod area_service;

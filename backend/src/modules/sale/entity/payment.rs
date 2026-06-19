@@ -10,6 +10,7 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_sale_payment")]
@@ -22,7 +23,7 @@ pub struct Model {
     pub contract_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub status: Option<String>,
     pub payment_method: Option<String>,
     pub transaction_no: Option<String>,

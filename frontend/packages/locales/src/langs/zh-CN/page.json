@@ -1,0 +1,175 @@
+{
+  "dashboard": {
+    "title": "仪表盘",
+    "analytics": "数据分析",
+    "workspace": "工作台"
+  },
+  "crm": {
+    "title": "客户管理",
+    "lead": {
+      "title": "线索管理",
+      "button": {
+        "create": "新增线索"
+      }
+    },
+    "customer": {
+      "title": "客户管理",
+      "button": {
+        "create": "新增客户"
+      }
+    },
+    "contact": {
+      "title": "联系人管理",
+      "button": {
+        "create": "新增联系人"
+      }
+    },
+    "opportunity": {
+      "title": "商机管理",
+      "button": {
+        "create": "新增商机"
+      }
+    },
+    "contract": {
+      "title": "合同管理"
+    },
+    "leadPool": {
+      "title": "线索池"
+    },
+    "followup": {
+      "title": "跟进记录"
+    }
+  },
+  "sale": {
+    "title": "销售管理",
+    "order": {
+      "title": "销售订单",
+      "button": {
+        "create": "新增订单"
+      }
+    },
+    "orderItem": {
+      "title": "订单明细"
+    },
+    "payment": {
+      "title": "收款管理",
+      "button": {
+        "create": "新增收款"
+      }
+    }
+  },
+  "purchase": {
+    "title": "采购管理",
+    "supplier": {
+      "title": "供应商管理",
+      "button": {
+        "create": "新增供应商"
+      }
+    },
+    "po": {
+      "title": "采购订单",
+      "button": {
+        "create": "新增采购单"
+      }
+    },
+    "item": {
+      "title": "采购明细"
+    }
+  },
+  "product": {
+    "title": "产品管理",
+    "list": {
+      "title": "产品列表",
+      "button": {
+        "create": "新增产品"
+      }
+    },
+    "category": {
+      "title": "产品分类",
+      "button": {
+        "create": "新增分类"
+      }
+    },
+    "inventory": {
+      "title": "库存管理"
+    },
+    "warehouse": {
+      "title": "仓库管理",
+      "button": {
+        "create": "新增仓库"
+      }
+    }
+  },
+  "system": {
+    "title": "系统管理",
+    "user": {
+      "title": "用户管理",
+      "module": "用户",
+      "button": {
+        "create": "新增用户"
+      },
+      "username": "用户名",
+      "usernName": "用户名",
+      "nickName": "昵称",
+      "email": "邮箱",
+      "role": "角色",
+      "authority": "权限",
+      "lastLoginTime": "最后登录时间",
+      "lastLoginIp": "最后登录IP"
+    },
+    "menu": {
+      "title": "菜单管理",
+      "button": {
+        "create": "新增菜单"
+      },
+      "name": "菜单名称",
+      "type": "类型",
+      "icon": "图标",
+      "path": "路由路径",
+      "component": "组件路径",
+      "sort": "排序",
+      "parent": "上级菜单"
+    },
+    "dept": {
+      "title": "部门管理"
+    },
+    "post": {
+      "title": "岗位管理"
+    },
+    "config": {
+      "title": "系统配置"
+    },
+    "notice": {
+      "title": "通知公告"
+    },
+    "log": {
+      "title": "操作日志"
+    },
+    "tag": {
+      "title": "标签管理"
+    }
+  },
+  "shop": {
+    "title": "商城管理",
+    "category": "商品分类",
+    "supplierAudit": "供应商审核",
+    "goodsAudit": "商品审核",
+    "goods": "商品管理",
+    "shopList": "店铺列表",
+    "orderList": "商城订单",
+    "settlement": "结算管理",
+    "promotion": "促销活动",
+    "commissionConfig": "佣金配置"
+  },
+  "attachment": {
+    "file": {
+      "title": "文件管理",
+      "button": {
+        "upload": "上传文件"
+      }
+    }
+  },
+  "auth": {
+    "profile": "个人中心"
+  }
+}

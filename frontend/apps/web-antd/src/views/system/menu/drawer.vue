@@ -5,7 +5,6 @@ import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
 import {
-  buildMenuTree,
   createMenuApi,
   updateMenuApi,
   getMenuTreeApi,
@@ -76,7 +75,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         placeholder: $t('ui.placeholder.select'),
         api: async () => {
-          const result = await getMenuTreeApi({ status: 1 });
+          const result = await getMenuTreeApi();
           const items = result.items ?? (Array.isArray(result) ? result : []);
           return items;
         },
@@ -84,14 +83,20 @@ const [BaseForm, baseFormApi] = useVbenForm({
         labelField: 'name',
         valueField: 'id',
         afterFetch: (fetchData: any) => {
+          const translateAndFilter = (nodes: any[]): any[] =>
+            nodes
+              .filter((n) => n.type !== 'BUTTON')
+              .map((n) => ({
+                ...n,
+                name: n.meta?.name ? $t(n.meta.name) : n.name,
+                children: n.children ? translateAndFilter(n.children) : n.children,
+              }));
           const rootNode = {
             id: 0,
             name: $t('page.system.menu.mainDirectory') || '主目录',
             parentId: -1,
-            children: [],
+            children: translateAndFilter(Array.isArray(fetchData) ? fetchData : []),
           };
-          const tree = buildMenuTree(fetchData);
-          (rootNode.children as any) = tree;
           return [rootNode];
         },
       },
@@ -304,9 +309,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
       data.value = drawerApi.getData<Record<string, any>>();
 
       const row = data.value?.row ? { ...data.value.row } : {};
-      if (String(row?.parentId) === '0') {
-        row.parentId = null;
-      }
 
       if (row.name && !row.meta?.name) {
         row.meta = row.meta || {};

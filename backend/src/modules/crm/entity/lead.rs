@@ -11,6 +11,9 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::core::r#enum::industry_enum::IndustryType;
+use crate::core::r#enum::lead_source_enum::LeadSource;
+use crate::core::r#enum::lead_status_enum::LeadStatus;
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_crm_lead")]
@@ -29,13 +32,13 @@ pub struct Model {
     pub address: Option<String>,
     pub website: Option<String>,
     pub industry: Option<IndustryType>,
-    pub source: Option<String>,
+    pub source: Option<LeadSource>,
     pub source_detail: Option<String>,
-    pub status: Option<String>,
+    pub status: Option<LeadStatus>,
     pub level: Option<String>,
     pub tags: Option<Vec<String>>,
     pub budget: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub next_follow_at: Option<DateTime>,
     pub assigned_to: Option<i64>,
     pub converted_to_customer_id: Option<i64>,

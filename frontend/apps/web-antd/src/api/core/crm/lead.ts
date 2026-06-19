@@ -1,17 +1,17 @@
 import { requestClient } from '#/api/request';
 
 export const getLeadListApi = async (params?: PageParams) => {
-  return requestClient.get('/api/crm/lead/list', { params });
+  return requestClient.get('/api/system/lead/list', { params });
 };
 export const getLeadInfoApi = async (id: number) => {
-  return requestClient.get('/api/crm/lead/info', { params: { id } });
+  return requestClient.get('/api/system/lead/info', { params: { id } });
 };
 export const createLeadApi = async (param: any) => {
-  return requestClient.post('/api/crm/lead/save', param);
+  return requestClient.post('/api/system/lead/save', param);
 };
 export const updateLeadApi = async (param: any) => {
-  return requestClient.put('/api/crm/lead/update', param);
+  return requestClient.put('/api/system/lead/update', param);
 };
 export const deleteLeadApi = async (ids: number[]) => {
-  return requestClient.delete('/api/crm/lead/bath_delete', { data: { ids } });
+  return requestClient.delete('/api/system/lead/bath_delete', { data: { ids } });
 };

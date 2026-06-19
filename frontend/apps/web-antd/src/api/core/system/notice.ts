@@ -12,7 +12,7 @@ export const createNoticeApi = async (param: any) => {
   const data = {
     title: param.noticeTitle,
     content: param.content,
-    r#type: param.noticeType,
+    type: param.noticeType,
     publishStatus: param.status,
   };
   return requestClient.post('/api/system/notice/add', data);
@@ -22,7 +22,7 @@ export const updateNoticeApi = async (id: number, param: any) => {
   const data = {
     title: param.noticeTitle,
     content: param.content,
-    r#type: param.noticeType,
+    type: param.noticeType,
     publishStatus: param.status,
   };
   return requestClient.put(`/api/system/notice/update/${id}`, data);

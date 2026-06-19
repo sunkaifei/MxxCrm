@@ -1,0 +1,171 @@
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "analytics": "Analytics",
+    "workspace": "Workspace"
+  },
+  "crm": {
+    "title": "CRM",
+    "lead": {
+      "title": "Lead Management",
+      "button": {
+        "create": "Create Lead"
+      }
+    },
+    "customer": {
+      "title": "Customer Management",
+      "button": {
+        "create": "Create Customer"
+      }
+    },
+    "contact": {
+      "title": "Contact Management",
+      "button": {
+        "create": "Create Contact"
+      }
+    },
+    "opportunity": {
+      "title": "Opportunity Management",
+      "button": {
+        "create": "Create Opportunity"
+      }
+    },
+    "contract": {
+      "title": "Contract Management"
+    },
+    "leadPool": {
+      "title": "Lead Pool"
+    },
+    "followup": {
+      "title": "Follow-up Records"
+    }
+  },
+  "sale": {
+    "title": "Sales",
+    "order": {
+      "title": "Sales Orders",
+      "button": {
+        "create": "Create Order"
+      }
+    },
+    "orderItem": {
+      "title": "Order Items"
+    },
+    "payment": {
+      "title": "Payment Management",
+      "button": {
+        "create": "Create Payment"
+      }
+    }
+  },
+  "purchase": {
+    "title": "Purchase",
+    "supplier": {
+      "title": "Supplier Management",
+      "button": {
+        "create": "Create Supplier"
+      }
+    },
+    "po": {
+      "title": "Purchase Orders",
+      "button": {
+        "create": "Create PO"
+      }
+    },
+    "item": {
+      "title": "Purchase Items"
+    }
+  },
+  "product": {
+    "title": "Products",
+    "list": {
+      "title": "Product List",
+      "button": {
+        "create": "Create Product"
+      }
+    },
+    "category": {
+      "title": "Category",
+      "button": {
+        "create": "Create Category"
+      }
+    },
+    "inventory": {
+      "title": "Inventory"
+    },
+    "warehouse": {
+      "title": "Warehouse",
+      "button": {
+        "create": "Create Warehouse"
+      }
+    }
+  },
+  "system": {
+    "title": "System",
+    "user": {
+      "title": "User Management",
+      "module": "User",
+      "button": {
+        "create": "Create User"
+      },
+      "username": "Username",
+      "usernName": "Username",
+      "nickName": "Nickname",
+      "email": "Email",
+      "role": "Role",
+      "authority": "Authority",
+      "lastLoginTime": "Last Login",
+      "lastLoginIp": "Last IP"
+    },
+    "menu": {
+      "title": "Menu Management",
+      "button": {
+        "create": "Create Menu"
+      },
+      "name": "Menu Name",
+      "type": "Type",
+      "icon": "Icon",
+      "path": "Path",
+      "component": "Component",
+      "sort": "Sort",
+      "parent": "Parent"
+    },
+    "dept": {
+      "title": "Department"
+    },
+    "post": {
+      "title": "Position"
+    },
+    "config": {
+      "title": "Settings"
+    },
+    "notice": {
+      "title": "Announcements"
+    },
+    "log": {
+      "title": "Logs"
+    },
+    "tag": {
+      "title": "Tags"
+    }
+  },
+  "shop": {
+    "title": "Shop",
+    "category": "Category",
+    "supplierAudit": "Supplier Audit",
+    "goodsAudit": "Goods Audit",
+    "goods": "Goods Management",
+    "shopList": "Shop List",
+    "orderList": "Shop Orders",
+    "settlement": "Settlement",
+    "promotion": "Promotion",
+    "commissionConfig": "Commission"
+  },
+  "attachment": {
+    "file": {
+      "title": "File Management",
+      "button": {
+        "upload": "Upload File"
+      }
+    }
+  },

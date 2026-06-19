@@ -126,6 +126,42 @@
       "internalServerError": "Internal Server Error. Something went wrong on our end. Please try again later."
     }
   },
+  "notification": {
+    "create_success": "Created successfully",
+    "update_success": "Updated successfully",
+    "delete_success": "Deleted successfully"
+  },
+  "table": {
+    "seq": "#",
+    "name": "Name",
+    "code": "Code",
+    "status": "Status",
+    "createTime": "Created At",
+    "updateTime": "Updated At",
+    "action": "Action",
+    "password": "Password",
+    "remark": "Remark"
+  },
+  "button": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "search": "Search",
+    "reset": "Reset"
+  },
+  "switch": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "modal": {
+    "create": "Create {moduleName}",
+    "update": "Update {moduleName}"
+  },
+  "placeholder": {
+    "input": "Please enter",
+    "select": "Please select",
+    "upload": "Click to upload",
+    "search": "Enter keywords to search"
+  },
   "widgets": {
     "document": "Document",
     "qa": "Q&A",

@@ -1,6 +1,8 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::core::r#enum::contract_status_enum::ContractStatus;
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::modules::crm::entity::{contract, contract::Entity as Contract};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -19,13 +21,13 @@ pub struct ContractSaveRequest {
     /// 合同金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 合同总金额（含税）
     pub total_amount: Option<Decimal>,
     /// 合同状态
-    pub status: Option<String>,
+    pub status: Option<ContractStatus>,
     /// 合同开始日期
     pub start_date: Option<Date>,
     /// 合同结束日期
@@ -86,13 +88,13 @@ pub struct ContractUpdateRequest {
     /// 合同金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 合同总金额（含税）
     pub total_amount: Option<Decimal>,
     /// 合同状态
-    pub status: Option<String>,
+    pub status: Option<ContractStatus>,
     /// 合同开始日期
     pub start_date: Option<Date>,
     /// 合同结束日期
@@ -152,13 +154,13 @@ pub struct ContractSaveDTO {
     /// 合同金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 合同总金额（含税）
     pub total_amount: Option<Decimal>,
     /// 合同状态
-    pub status: Option<String>,
+    pub status: Option<ContractStatus>,
     /// 合同开始日期
     pub start_date: Option<Date>,
     /// 合同结束日期
@@ -203,13 +205,13 @@ pub struct ContractDetailVO {
     /// 合同金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     /// 税额
     pub tax_amount: Option<Decimal>,
     /// 合同总金额（含税）
     pub total_amount: Option<Decimal>,
     /// 合同状态
-    pub status: Option<String>,
+    pub status: Option<ContractStatus>,
     /// 合同开始日期
     pub start_date: Option<Date>,
     /// 合同结束日期
@@ -268,7 +270,7 @@ pub struct ContractListVO {
     /// 合同总金额（含税）
     pub total_amount: Option<Decimal>,
     /// 合同状态
-    pub status: Option<String>,
+    pub status: Option<ContractStatus>,
     /// 合同开始日期
     pub start_date: Option<Date>,
     /// 合同结束日期
@@ -304,7 +306,7 @@ pub struct ContractListQuery {
     /// 关键词（搜索合同标题、编号等）
     pub keywords: Option<String>,
     /// 合同状态
-    pub status: Option<String>,
+    pub status: Option<ContractStatus>,
     /// 客户ID
     pub customer_id: Option<i64>,
 }
@@ -444,7 +446,7 @@ impl ContractModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        status: Option<String>,
+        status: Option<ContractStatus>,
         customer_id: Option<i64>,
     ) -> Result<(Vec<contract::Model>, i64), DbErr> {
         let mut query = Contract::find()

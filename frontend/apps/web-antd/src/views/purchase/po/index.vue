@@ -1,7 +1,7 @@
-<script lang="ts" setup>
+﻿﻿﻿﻿<script lang="ts" setup>
 import { h } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
@@ -13,6 +13,8 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deletePurchaseOrderApi, getPurchaseOrderListApi } from '#/api';
 import { $t } from '#/locales';
+
+import PurchaseOrderDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
 
@@ -111,8 +113,26 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
+const [Drawer, drawerApi] = useVbenDrawer({
+  connectedComponent: PurchaseOrderDrawer,
+  onClosed() {
+    const data = drawerApi.getData();
+    if (data && data.needRefresh) {
+      gridApi.query();
+    }
+  },
+});
+
+function openDrawer(create: boolean, row?: any) {
+  drawerApi.setData({
+    create,
+    row,
+  });
+  drawerApi.open();
+}
+
 async function handleEdit(row: any) {
-  window.$message.info(`编辑采购单: ${row.id}`);
+  openDrawer(false, row);
 }
 
 async function handleDelete(row: any) {
@@ -127,7 +147,7 @@ async function handleDelete(row: any) {
 }
 
 async function handleCreate() {
-  window.$message.info('新增采购单');
+  openDrawer(true);
 }
 
 async function handleConfirm(row: any) {
@@ -187,5 +207,6 @@ async function handleReceive(row: any) {
         </Popconfirm>
       </template>
     </Grid>
+    <Drawer />
   </Page>
 </template>

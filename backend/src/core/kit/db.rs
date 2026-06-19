@@ -13,6 +13,9 @@ use sea_orm::{ConnectOptions, Database, DatabaseConnection, DbErr};
 use crate::core::kit::{app,config};
 pub use sea_orm;
 
+// 数据库连接类型别名
+pub type DbConn = DatabaseConnection;
+
 
 // 数据库连接
 pub async fn connect() -> Result<DatabaseConnection, DbErr> {

@@ -5,7 +5,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -13,8 +13,9 @@ import { formatDateTime } from '@vben/utils';
 import { Button, Popconfirm } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteLeadApi, getLeadListApi } from '#/api';
+import { deleteCustomerApi, getCustomerListApi } from '#/api';
 import { $t } from '#/locales';
+import CustomerDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
 
@@ -26,7 +27,7 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'companyName',
-      label: '线索名称',
+      label: '公司名称',
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
@@ -34,8 +35,8 @@ const formOptions: VbenFormProps = {
     },
     {
       component: 'Input',
-      fieldName: 'contactName',
-      label: '联系人',
+      fieldName: 'level',
+      label: '等级',
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
@@ -43,28 +44,10 @@ const formOptions: VbenFormProps = {
     },
     {
       component: 'Input',
-      fieldName: 'phone',
-      label: '电话',
+      fieldName: 'industry',
+      label: '行业',
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'source',
-      label: '来源',
-      componentProps: {
-        placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'status',
-      label: '状态',
-      componentProps: {
-        placeholder: $t('ui.placeholder.select'),
         allowClear: true,
       },
     },
@@ -90,7 +73,7 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getLeadListApi({
+        return await getCustomerListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
           ...formValues,
@@ -106,24 +89,20 @@ const gridOptions: VxeGridProps = {
       width: 70,
     },
     {
-      title: '线索名称',
+      title: '公司名称',
       field: 'companyName',
     },
     {
-      title: '联系人',
-      field: 'contactName',
+      title: '等级',
+      field: 'level',
     },
     {
-      title: '电话',
-      field: 'phone',
+      title: '行业',
+      field: 'industry',
     },
     {
-      title: '来源',
-      field: 'source',
-    },
-    {
-      title: '状态',
-      field: 'status',
+      title: '国家',
+      field: 'country',
     },
     {
       title: '负责人',
@@ -146,18 +125,33 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
+const [Drawer, drawerApi] = useVbenDrawer({
+  connectedComponent: CustomerDrawer,
+  onClosed() {
+    const data = drawerApi.getData();
+    if (data && data.needRefresh) {
+      gridApi.query();
+    }
+  },
+});
+
+function openDrawer(create: boolean, row?: any) {
+  drawerApi.setData({ create, row });
+  drawerApi.open();
+}
+
 function handleCreate() {
-  // TODO: open create drawer
+  openDrawer(true);
 }
 
 function handleEdit(row: any) {
-  // TODO: open edit drawer
+  openDrawer(false, row);
 }
 
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deleteLeadApi(row.id);
+    await deleteCustomerApi(row.id);
     window.$message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;
@@ -168,15 +162,15 @@ async function handleDelete(row: any) {
 
 <template>
   <Page auto-content-height>
-    <Grid :table-title="$t('page.crm.lead.title')">
+    <Grid :table-title="$t('page.crm.customer.title')">
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('crm:lead:create')"
+          v-if="accessStore.hasAccessCode('crm:customer:create')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
         >
-          {{ $t('page.crm.lead.button.create') }}
+          {{ $t('page.crm.customer.button.create') }}
         </Button>
       </template>
 
@@ -186,7 +180,7 @@ async function handleDelete(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('crm:lead:edit')"
+          v-if="accessStore.hasAccessCode('crm:customer:edit')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
@@ -195,7 +189,7 @@ async function handleDelete(row: any) {
         <Popconfirm
           :title="
             $t('ui.text.do_you_want_delete', {
-              moduleName: $t('page.crm.lead.title'),
+              moduleName: $t('page.crm.customer.title'),
             })
           "
           :ok-text="$t('ui.button.ok')"
@@ -203,7 +197,7 @@ async function handleDelete(row: any) {
           @confirm="handleDelete(row)"
         >
           <Button
-            v-if="accessStore.hasAccessCode('crm:lead:delete')"
+            v-if="accessStore.hasAccessCode('crm:customer:delete')"
             type="link"
             danger
             :icon="h(LucideTrash2)"
@@ -211,5 +205,6 @@ async function handleDelete(row: any) {
         </Popconfirm>
       </template>
     </Grid>
+    <Drawer />
   </Page>
 </template>
