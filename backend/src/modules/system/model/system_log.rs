@@ -218,6 +218,7 @@ pub struct ListQuery {
     pub status: Option<i32>,
     pub begin_time: Option<String>,
     pub end_time: Option<String>,
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
 }

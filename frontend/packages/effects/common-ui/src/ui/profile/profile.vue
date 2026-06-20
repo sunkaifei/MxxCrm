@@ -27,7 +27,7 @@ const tabsValue = defineModel<string>('modelValue');
 <template>
   <Page auto-content-height>
     <div class="flex size-full h-full">
-      <Card class="w-72 flex-none">
+      <Card class="w-72 flex-none self-start overflow-hidden">
         <div class="mt-4 flex-col-center h-40 gap-4">
           <VbenAvatar
             :src="userInfo?.avatar ?? preferences.app.defaultAvatar"
@@ -42,7 +42,7 @@ const tabsValue = defineModel<string>('modelValue');
         </div>
         <Separator class="my-4" />
         <Tabs v-model="tabsValue" orientation="vertical" class="m-4">
-          <TabsList class="grid w-full grid-cols-1 bg-card">
+          <TabsList class="grid w-full grid-cols-1 bg-card h-auto">
             <TabsTrigger
               v-for="tab in tabs"
               :key="tab.value"

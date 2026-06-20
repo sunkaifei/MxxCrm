@@ -73,20 +73,20 @@ const gridOptions: VxeGridProps = {
       field: 'productName',
     },
     {
-      title: 'SKU',
-      field: 'sku',
+      title: '产品编码',
+      field: 'productCode',
     },
     {
       title: '仓库',
-      field: 'warehouse',
+      field: 'warehouseName',
     },
     {
       title: '库存数量',
       field: 'quantity',
     },
     {
-      title: '锁定数量',
-      field: 'lockQuantity',
+      title: '预留数量',
+      field: 'reservedQuantity',
     },
     {
       title: '可用数量',

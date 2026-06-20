@@ -371,6 +371,10 @@ pub struct LeadListVO {
     pub level: Option<String>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 创建人ID
+    pub created_by: Option<i64>,
+    /// 创建时间
+    pub created_at: Option<DateTime>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
 }
@@ -391,6 +395,8 @@ impl From<lead::Model> for LeadListVO {
             status: item.status,
             level: item.level,
             assigned_to: item.assigned_to,
+            created_by: item.created_by,
+            created_at: item.created_at,
             next_follow_at: item.next_follow_at,
         }
     }
@@ -415,6 +421,16 @@ pub struct LeadListQuery {
     pub source: Option<String>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+}
+
+/// 线索状态更新参数
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LeadStatusUpdateQuery {
+    /// 线索ID
+    pub id: Option<i64>,
+    /// 状态值
+    pub status: Option<String>,
 }
 
 /// 线索数据模型操作类
@@ -586,6 +602,9 @@ impl LeadModel {
                 "converted" => Some(LeadStatus::Converted),
                 "invalid" => Some(LeadStatus::Invalid),
                 "recycled" => Some(LeadStatus::Recycled),
+                "unchecked" => Some(LeadStatus::Unchecked),
+                "checking" => Some(LeadStatus::Checking),
+                "valid" => Some(LeadStatus::Valid),
                 _ => None,
             };
             if let Some(st) = status_value {
@@ -606,5 +625,27 @@ impl LeadModel {
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+    }
+
+    pub async fn update_status(db: &DbConn, id: i64, status: LeadStatus, updated_by: Option<i64>) -> Result<i64, DbErr> {
+        let payload = lead::ActiveModel {
+            status: Set(Some(status)),
+            updated_by: Set(updated_by),
+            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            ..Default::default()
+        };
+
+        let update_result: UpdateResult = Lead::update_many()
+            .set(payload)
+            .filter(lead::Column::Id.eq(id))
+            .filter(lead::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+
+        Ok(update_result.rows_affected as i64)
+    }
+
+    pub async fn add_to_pool(db: &DbConn, id: i64, updated_by: Option<i64>) -> Result<i64, DbErr> {
+        Self::update_status(db, id, LeadStatus::Valid, updated_by).await
     }
 }

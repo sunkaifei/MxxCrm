@@ -17,3 +17,8 @@ export const deleteCustomerApi = async (ids: number[]) => {
     data: { ids },
   });
 };
+
+// 获取客户下的联系人列表
+export const getCustomerContactsApi = async (id: number) => {
+  return requestClient.get('/api/system/customer/contacts', { params: { id } });
+};

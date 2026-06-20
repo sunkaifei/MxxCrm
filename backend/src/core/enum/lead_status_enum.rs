@@ -15,6 +15,12 @@ pub enum LeadStatus {
     Invalid,
     #[sea_orm(string_value = "recycled")]
     Recycled,
+    #[sea_orm(string_value = "unchecked")]
+    Unchecked,
+    #[sea_orm(string_value = "checking")]
+    Checking,
+    #[sea_orm(string_value = "valid")]
+    Valid,
 }
 
 impl fmt::Display for LeadStatus {
@@ -25,6 +31,9 @@ impl fmt::Display for LeadStatus {
             LeadStatus::Converted => write!(f, "converted"),
             LeadStatus::Invalid => write!(f, "invalid"),
             LeadStatus::Recycled => write!(f, "recycled"),
+            LeadStatus::Unchecked => write!(f, "unchecked"),
+            LeadStatus::Checking => write!(f, "checking"),
+            LeadStatus::Valid => write!(f, "valid"),
         }
     }
 }

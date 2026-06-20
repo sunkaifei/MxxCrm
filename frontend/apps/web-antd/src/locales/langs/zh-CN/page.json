@@ -45,7 +45,7 @@
       "button": {
         "create": "创建账号",
         "delete": "删除账号",
-        "update": "修改账号",
+        "edit": "修改账号",
         "assignRole": "分配角色",
         "assignDept": "分配部门"
       }
@@ -74,7 +74,8 @@
         "create": "创建菜单",
         "createChild": "添加子菜单",
         "delete": "删除菜单",
-        "update": "修改菜单"
+        "edit": "修改菜单",
+        "view": "查看菜单"
       }
     },
     "role": {
@@ -89,7 +90,7 @@
         "create": "新增角色",
         "auth": "分配权限",
         "delete": "删除角色",
-        "update": "修改角色",
+        "edit": "修改角色",
         "assignMenu": "分配菜单"
       }
     },
@@ -145,7 +146,15 @@
       "title": "岗位管理"
     },
     "config": {
-      "title": "系统配置"
+      "title": "系统配置",
+      "configName": "参数名称",
+      "configKey": "参数键名",
+      "configValue": "参数键值",
+      "button": {
+        "create": "新增配置",
+        "edit": "编辑配置",
+        "delete": "删除配置"
+      }
     },
     "notice": {
       "title": "通知公告",
@@ -153,7 +162,14 @@
       "noticeType": "公告类型"
     },
     "log": {
-      "title": "系统日志"
+      "title": "系统日志",
+      "module": "操作日志",
+      "logName": "操作者",
+      "requestMethod": "请求方法",
+      "path": "接口路径",
+      "statusCode": "状态码",
+      "elapsed": "接口耗时(毫秒)",
+      "ip": "IP"
     },
     "tag": {
       "module": "标签",
@@ -219,6 +235,17 @@
   },
   "sale": {
     "title": "销售",
+    "quotation": {
+      "title": "报价单管理",
+      "button": {
+        "create": "新建报价单",
+        "edit": "编辑报价单",
+        "delete": "删除报价单",
+        "send": "发送报价",
+        "accept": "转为订单",
+        "reject": "拒绝报价"
+      }
+    },
     "order": {
       "title": "订单管理",
       "button": {
@@ -234,12 +261,23 @@
       "title": "订单明细"
     },
     "payment": {
-      "title": "支付记录",
+      "title": "回款记录",
       "button": {
-        "create": "新增支付",
-        "edit": "编辑支付",
-        "delete": "删除支付"
+        "create": "新增回款",
+        "edit": "编辑回款",
+        "delete": "删除回款"
       }
+    },
+    "invoice": {
+      "title": "发票管理",
+      "button": {
+        "create": "新建发票",
+        "edit": "编辑发票",
+        "delete": "删除发票"
+      }
+    },
+    "performance": {
+      "title": "销售业绩"
     }
   },
   "product": {
@@ -336,7 +374,8 @@
       "menu": {
         "create": "新增菜单",
         "edit": "编辑菜单",
-        "delete": "删除菜单"
+        "delete": "删除菜单",
+        "view": "查看菜单"
       }
     },
     "crm": {
@@ -397,6 +436,21 @@
       "file": {
         "upload": "上传文件",
         "delete": "删除文件"
+      }
+    },
+    "product": {
+      "create": "新增产品",
+      "edit": "编辑产品",
+      "delete": "删除产品",
+      "category": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      },
+      "warehouse": {
+        "create": "新增仓库",
+        "edit": "编辑仓库",
+        "delete": "删除仓库"
       }
     }
   }

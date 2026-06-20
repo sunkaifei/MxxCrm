@@ -17,8 +17,9 @@ use actix_web_grants::protect;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::crm::model::customer::{CustomerDetailVO, CustomerListQuery, CustomerListVO, CustomerSaveRequest, CustomerUpdateRequest};
+use crate::modules::crm::model::customer::{CustomerListQuery, CustomerSaveRequest, CustomerUpdateRequest};
 use crate::modules::crm::service::customer_service;
+use crate::modules::crm::service::contact_service;
 
 #[post("/customer/save")]
 #[protect("crm:customer:save")]
@@ -102,6 +103,30 @@ pub async fn customer_list(state: web::Data<AppState>, query: web::Query<Custome
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
             HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+        },
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 获取客户下的联系人列表
+#[get("/customer/contacts")]
+#[protect("crm:customer:info")]
+pub async fn customer_contacts(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let item = item.0;
+
+    if item.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
+    }
+
+    match contact_service::find_by_customer(&db, item.id.unwrap()).await {
+        Ok((current, history)) => {
+            use serde_json::json;
+            let data = json!({
+                "current": current,
+                "history": history
+            });
+            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))
         },
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }

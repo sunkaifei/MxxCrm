@@ -99,8 +99,8 @@ const gridOptions: VxeGridProps = {
     },
     {
       title: $t('ui.table.createTime'),
-      field: 'createdAt',
-      slots: { default: 'createdAt' },
+      field: 'createTime',
+      slots: { default: 'createTime' },
     },
     {
       title: $t('ui.table.action'),

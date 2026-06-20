@@ -5,7 +5,6 @@ import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
 import { createContactApi, updateContactApi } from '#/api';
-import { statusList } from '#/store';
 
 const data = ref();
 
@@ -17,112 +16,133 @@ const getTitle = computed(() =>
 
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
+  wrapperClass: 'grid-cols-2',
+  compact: true,
   commonConfig: {
-    componentProps: {
-      class: 'w-full',
-    },
+    componentProps: { class: 'w-full' },
   },
   schema: [
+    // 基本信息
+    {
+      component: 'Divider',
+      fieldName: '_div1',
+      hideLabel: true,
+      componentProps: { orientation: 'left', plain: true },
+      renderComponentContent: () => ({ default: () => '基本信息' }),
+      formItemClass: 'col-span-2',
+    },
     {
       component: 'Input',
       fieldName: 'name',
-      label: 'Name',
+      label: '姓名',
       rules: 'required',
-      componentProps: {
-        placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-      },
+      componentProps: { placeholder: '请输入姓名', allowClear: true },
     },
     {
       component: 'Input',
       fieldName: 'title',
-      label: 'Title',
+      label: '职位',
+      componentProps: { placeholder: '如 采购经理', allowClear: true },
+    },
+    {
+      component: 'Select',
+      fieldName: 'roleType',
+      label: '角色',
       componentProps: {
-        placeholder: $t('ui.placeholder.input'),
+        placeholder: '选择角色',
         allowClear: true,
+        options: [
+          { label: '决策人', value: 'decision_maker' },
+          { label: '影响者', value: 'influencer' },
+          { label: '使用者', value: 'user' },
+          { label: '其他', value: 'other' },
+        ],
       },
+    },
+    // 联系方式
+    {
+      component: 'Divider',
+      fieldName: '_div2',
+      hideLabel: true,
+      componentProps: { orientation: 'left', plain: true },
+      renderComponentContent: () => ({ default: () => '联系方式' }),
+      formItemClass: 'col-span-2',
     },
     {
       component: 'Input',
       fieldName: 'email',
-      label: 'Email',
-      componentProps: {
-        placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-      },
+      label: '邮箱',
+      componentProps: { placeholder: 'email@example.com', allowClear: true },
+    },
+    {
+      component: 'Input',
+      fieldName: 'mobile',
+      label: '手机号',
+      componentProps: { placeholder: '手机号', allowClear: true },
     },
     {
       component: 'Input',
       fieldName: 'phone',
-      label: 'Phone',
-      rules: 'required',
-      componentProps: {
-        placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-      },
+      label: '座机',
+      componentProps: { placeholder: '座机号码', allowClear: true },
     },
     {
-      component: 'RadioGroup',
-      fieldName: 'isDecisionMaker',
-      defaultValue: 2,
-      label: 'Is Decision Maker',
-      rules: 'selectRequired',
-      componentProps: {
-        optionType: 'button',
-        class: 'flex flex-wrap',
-        options: [
-          { label: 'Yes', value: 1 },
-          { label: 'No', value: 2 },
-        ],
-      },
+      component: 'Input',
+      fieldName: 'whatsapp',
+      label: 'WhatsApp',
+      componentProps: { placeholder: 'WhatsApp 号码', allowClear: true },
     },
     {
-      component: 'RadioGroup',
-      fieldName: 'status',
-      defaultValue: 1,
-      label: $t('ui.table.status'),
-      rules: 'selectRequired',
-      componentProps: {
-        optionType: 'button',
-        class: 'flex flex-wrap',
-        options: statusList,
-      },
+      component: 'Input',
+      fieldName: 'wechat',
+      label: '微信',
+      componentProps: { placeholder: '微信号', allowClear: true },
+    },
+    // 其他信息
+    {
+      component: 'Divider',
+      fieldName: '_div3',
+      hideLabel: true,
+      componentProps: { orientation: 'left', plain: true },
+      renderComponentContent: () => ({ default: () => '其他信息' }),
+      formItemClass: 'col-span-2',
+    },
+    {
+      component: 'DatePicker',
+      fieldName: 'birthday',
+      label: '生日',
+      componentProps: { placeholder: '选择日期', class: 'w-full', allowClear: true },
+    },
+    {
+      component: 'Textarea',
+      fieldName: 'notes',
+      label: '备注',
+      formItemClass: 'col-span-2',
+      componentProps: { placeholder: '备注信息', rows: 3, allowClear: true },
     },
   ],
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  onCancel() {
-    drawerApi.close();
-  },
-
+  onCancel() { drawerApi.close(); },
   async onConfirm() {
     const validate = await baseFormApi.validate();
-    if (!validate.valid) {
-      return;
-    }
-
+    if (!validate.valid) return;
     setLoading(true);
-
     const values = await baseFormApi.getValues();
-
     try {
       await (data.value?.create
         ? createContactApi(values)
         : updateContactApi({ ...values, id: data.value.row.id }));
-
-      message.success(
-        data.value?.create
-          ? $t('ui.notification.create_success')
-          : $t('ui.notification.update_success'),
-      );
+      message.success(data.value?.create
+        ? $t('ui.notification.create_success')
+        : $t('ui.notification.update_success'));
       drawerApi.setData({ needRefresh: true });
     } finally {
       drawerApi.close();
       setLoading(false);
     }
   },
-
   onOpenChange(isOpen) {
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
@@ -139,7 +159,7 @@ function setLoading(loading: boolean) {
 </script>
 
 <template>
-  <Drawer :title="getTitle">
+  <Drawer :title="getTitle" :width="580">
     <BaseForm />
   </Drawer>
 </template>

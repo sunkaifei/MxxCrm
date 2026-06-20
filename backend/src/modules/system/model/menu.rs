@@ -494,17 +494,16 @@ impl MenuModel {
     /// 
     /// 返回值：查询到的条数
     pub async fn find_by_name_unique(db: &DbConn, name: &Option<String>, parent_id: &Option<i64>, id: &Option<i64>) -> Result<i64, DbErr> {
-        Menu::find()
-            .filter(menu::Column::Name.eq(name.clone().unwrap_or_default()))
-            .apply_if(parent_id.clone(), |query, v| {
-                query.filter(menu::Column::ParentId.eq(v))
-            })
-            .apply_if(id.clone(), |query, v| {
-                query.filter(menu::Column::Id.ne(v))
-            })
-            .count(db)
-            .await
-            .map(|c| c as i64)
+        let name_val = name.clone().unwrap_or_default();
+        let mut query = Menu::find()
+            .filter(menu::Column::Name.eq(name_val));
+        if let Some(pid) = parent_id.clone() {
+            query = query.filter(menu::Column::ParentId.eq(pid));
+        }
+        if let Some(exclude_id) = id.clone() {
+            query = query.filter(menu::Column::Id.ne(exclude_id));
+        }
+        query.count(db).await.map(|c| c as i64)
     }
     
     /// ### 校验路由路径是否唯一
@@ -515,15 +514,15 @@ impl MenuModel {
     /// 
     /// 返回值：查询到的条数
     pub async fn find_by_path_unique(db: &DbConn, path: &Option<String>, parent_id: &Option<i64>,id: &Option<i64>) -> Result<i64, DbErr> {
-        Menu::find()
-            .filter(menu::Column::Path.eq(path.clone().unwrap_or_default()))
-            .filter(menu::Column::ParentId.eq(parent_id.clone().unwrap_or_default()))
-            .apply_if(id.clone(), |query, v| {
-                query.filter(menu::Column::Id.ne(v))
-            })
-            .count(db)
-            .await
-            .map(|c| c as i64)
+        let path_val = path.clone().unwrap_or_default();
+        let pid_val = parent_id.clone().unwrap_or_default();
+        let mut query = Menu::find()
+            .filter(menu::Column::Path.eq(path_val))
+            .filter(menu::Column::ParentId.eq(pid_val));
+        if let Some(exclude_id) = id.clone() {
+            query = query.filter(menu::Column::Id.ne(exclude_id));
+        }
+        query.count(db).await.map(|c| c as i64)
     }
     
     /// ### 校验权限标识是否唯一
@@ -533,14 +532,13 @@ impl MenuModel {
     /// 
     /// 返回值：查询到的条数
     pub async fn find_by_perms_unique(db: &DbConn, perm: &Option<String>, id: &Option<i64>) -> Result<i64, DbErr> {
-        Menu::find()
-            .filter(menu::Column::Perm.eq(perm.clone().unwrap_or_default()))
-            .apply_if(id.clone(), |query, v| {
-                query.filter(menu::Column::Id.ne(v))
-            })
-            .count(db)
-            .await
-            .map(|c| c as i64)
+        let perm_val = perm.clone().unwrap_or_default();
+        let mut query = Menu::find()
+            .filter(menu::Column::Perm.eq(perm_val));
+        if let Some(exclude_id) = id.clone() {
+            query = query.filter(menu::Column::Id.ne(exclude_id));
+        }
+        query.count(db).await.map(|c| c as i64)
     }
 
     /// ### 校验路由名称是否唯一
@@ -550,14 +548,13 @@ impl MenuModel {
     /// 
     /// 返回值：查询到的条数
     pub async fn find_by_route_name_unique(db: &DbConn, route_name: &Option<String>, id: &Option<i64>) -> Result<i64, DbErr> {
-        Menu::find()
-            .filter(menu::Column::RouteName.eq(route_name.clone().unwrap_or_default()))
-            .apply_if(id.clone(), |query, v| {
-                query.filter(menu::Column::Id.ne(v))
-            })
-            .count(db)
-            .await
-            .map(|c| c as i64)
+        let route_val = route_name.clone().unwrap_or_default();
+        let mut query = Menu::find()
+            .filter(menu::Column::RouteName.eq(route_val));
+        if let Some(exclude_id) = id.clone() {
+            query = query.filter(menu::Column::Id.ne(exclude_id));
+        }
+        query.count(db).await.map(|c| c as i64)
     }
 
     /// ### 查询所有菜单
@@ -566,6 +563,7 @@ impl MenuModel {
     /// 返回值：菜单列表`Vec<menu::Model>`，如果查询失败，则返回错误信息。
     pub async fn find_all(db: &DbConn) -> Result<Vec<menu::Model>, DbErr> {
         Menu::find()
+            .order_by_asc(menu::Column::Sort)
             .all(db)
             .await
     }

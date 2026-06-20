@@ -229,7 +229,7 @@ pub async fn get_dict_data_list_by_code(state: web::Data<AppState>, dict_code: w
 }
 
 #[get("/dict/list")]
-#[protect("dict:list")]
+#[protect("system:dict:list")]
 pub async fn get_dict_page(state: web::Data<AppState>, query: web::Query<TypeListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     dict_service::get_dict_page(&db, query.into_inner()).await.map(|page_data| {

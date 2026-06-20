@@ -203,6 +203,7 @@ pub struct ListQuery{
     pub status: Option<i32>,
     /// 网站id
     pub website_id: Option<i64>,
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
 }

@@ -217,6 +217,7 @@ pub struct ListQuery{
     pub link_type: Option<i32>,
     pub link_url: Option<String>,
     pub status: Option<i32>,
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
 }

@@ -142,7 +142,7 @@ function setLoading(loading: boolean) {
         class="w-full"
       >
         <template #title="{ data: treeData }">
-          <span>{{ treeData.meta?.name || treeData.name }}</span>
+          <span>{{ $t(treeData.meta?.name || treeData.name) }}</span>
         </template>
       </Tree>
     </Space>

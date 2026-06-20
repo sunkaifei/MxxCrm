@@ -47,14 +47,34 @@
   },
   "lead_source": {
     "website": "Website",
-    "social_media": "Social Media",
-    "email_marketing": "Email Marketing",
+    "exhibition": "Exhibition",
+    "social": "Social Media",
     "referral": "Referral",
-    "trade_show": "Trade Show",
     "cold_call": "Cold Call",
-    "direct_mail": "Direct Mail",
-    "search_engine": "Search Engine",
-    "partner": "Partner",
+    "customs": "Customs Data",
+    "email": "Email Marketing",
+    "alibaba": "Alibaba",
+    "amazon": "Amazon",
+    "tiktok": "TikTok",
+    "wechat": "WeChat",
+    "other": "Other"
+  },
+  "lead_level": {
+    "hot": "Hot",
+    "warm": "Warm",
+    "cold": "Cold",
+    "a": "A",
+    "b": "B",
+    "c": "C"
+  },
+  "lead_industry": {
+    "retail": "Retail",
+    "wholesale": "Wholesale",
+    "manufacturer": "Manufacturer",
+    "trade_agent": "Trade Agent",
+    "ecommerce": "E-commerce",
+    "wechat_business": "WeChat Business",
+    "social": "Social E-commerce",
     "other": "Other"
   },
   "opportunity_stage": {

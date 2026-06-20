@@ -160,6 +160,7 @@ pub struct RoleListVO {
     pub remark: Option<String>,
     pub sort: Option<i32>,
     pub status: Option<i32>,
+    pub create_time: Option<String>,
 }
 
 impl From<role::Model> for RoleListVO {
@@ -171,6 +172,7 @@ impl From<role::Model> for RoleListVO {
             remark: item.remark,
             sort: item.sort,
             status: item.status,
+            create_time: item.create_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
 }

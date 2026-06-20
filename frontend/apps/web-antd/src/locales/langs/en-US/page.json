@@ -145,7 +145,15 @@
       "title": "Post Management"
     },
     "config": {
-      "title": "System Config"
+      "title": "System Config",
+      "configName": "Config Name",
+      "configKey": "Config Key",
+      "configValue": "Config Value",
+      "button": {
+        "create": "Add Config",
+        "edit": "Edit Config",
+        "delete": "Delete Config"
+      }
     },
     "notice": {
       "title": "Notice",
@@ -153,7 +161,14 @@
       "noticeType": "Notice Type"
     },
     "log": {
-      "title": "System Log"
+      "title": "System Log",
+      "module": "Operation Log",
+      "logName": "Operator",
+      "requestMethod": "Method",
+      "path": "Path",
+      "statusCode": "Status Code",
+      "elapsed": "Elapsed(ms)",
+      "ip": "IP"
     }
   },
   "crm": {
@@ -205,6 +220,17 @@
   },
   "sale": {
     "title": "Sales Management",
+    "quotation": {
+      "title": "Quotation",
+      "button": {
+        "create": "New Quotation",
+        "edit": "Edit Quotation",
+        "delete": "Delete Quotation",
+        "send": "Send",
+        "accept": "Convert to Order",
+        "reject": "Reject"
+      }
+    },
     "order": {
       "title": "Order Management",
       "button": {
@@ -226,6 +252,17 @@
         "edit": "Edit Payment",
         "delete": "Delete Payment"
       }
+    },
+    "invoice": {
+      "title": "Invoice",
+      "button": {
+        "create": "New Invoice",
+        "edit": "Edit Invoice",
+        "delete": "Delete Invoice"
+      }
+    },
+    "performance": {
+      "title": "Sales Performance"
     }
   },
   "product": {
@@ -322,7 +359,8 @@
       "menu": {
         "create": "Add Menu",
         "edit": "Edit Menu",
-        "delete": "Delete Menu"
+        "delete": "Delete Menu",
+        "view": "View Menu"
       }
     },
     "crm": {

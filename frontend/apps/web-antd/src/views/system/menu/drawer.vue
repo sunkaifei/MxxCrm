@@ -75,7 +75,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         placeholder: $t('ui.placeholder.select'),
         api: async () => {
-          const result = await getMenuTreeApi();
+          const result = await getMenuTreeApi({});
           const items = result.items ?? (Array.isArray(result) ? result : []);
           return items;
         },
@@ -297,7 +297,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
           ? $t('ui.notification.create_success')
           : $t('ui.notification.update_success'),
       );
-      drawerApi.setData({ needRefresh: true });
+      const onRefresh = data.value?.onRefresh;
+      if (onRefresh) onRefresh();
     } finally {
       drawerApi.close();
       setLoading(false);

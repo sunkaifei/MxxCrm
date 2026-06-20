@@ -166,6 +166,7 @@ pub struct AreaCascaderVO {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AreaListQuery {
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
     pub name: Option<String>,

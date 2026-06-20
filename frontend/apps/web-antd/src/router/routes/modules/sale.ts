@@ -13,6 +13,14 @@ const routes: RouteRecordRaw[] = [
     path: '/sale',
     children: [
       {
+        name: 'SaleQuotation',
+        path: '/sale/quotation',
+        component: () => import('#/views/sale/quotation/index.vue'),
+        meta: {
+          title: $t('page.sale.quotation.title'),
+        },
+      },
+      {
         name: 'SaleOrder',
         path: '/sale/order',
         component: () => import('#/views/sale/order/index.vue'),
@@ -34,6 +42,22 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/sale/payment/index.vue'),
         meta: {
           title: $t('page.sale.payment.title'),
+        },
+      },
+      {
+        name: 'SaleInvoice',
+        path: '/sale/invoice',
+        component: () => import('#/views/sale/invoice/index.vue'),
+        meta: {
+          title: $t('page.sale.invoice.title'),
+        },
+      },
+      {
+        name: 'SalePerformance',
+        path: '/sale/performance',
+        component: () => import('#/views/sale/performance/index.vue'),
+        meta: {
+          title: $t('page.sale.performance.title'),
         },
       },
     ],

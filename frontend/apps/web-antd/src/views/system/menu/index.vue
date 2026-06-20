@@ -14,6 +14,9 @@ import { $t } from '#/locales';
 import { MenuType, statusList } from '#/store';
 
 import MenuDrawer from './drawer.vue';
+import { useAccessStore } from '@vben/stores';
+
+const accessStore = useAccessStore();
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -67,24 +70,10 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async (_, formValues) => {
-        const result = await getMenuTreeApi({
+        return await getMenuTreeApi({
           keywords: formValues.name,
           status: formValues.status,
         });
-        // 递归翻译菜单名称
-        const translateNames = (nodes: any[]) => {
-          if (!nodes) return;
-          for (const node of nodes) {
-            if (node?.meta?.name) node.meta.name = $t(node.meta.name);
-            if (node?.children) translateNames(node.children);
-          }
-        };
-        if (Array.isArray(result)) {
-          translateNames(result);
-        } else if (result?.items) {
-          translateNames(result.items);
-        }
-        return result;
       },
     },
   },
@@ -191,6 +180,7 @@ function openDrawer(create: boolean, row?: any, parentId?: any) {
     create,
     row,
     parentId,
+    onRefresh: () => gridApi.query(),
   });
   drawerApi.open();
 }
@@ -277,6 +267,7 @@ async function handleDelete(row: any) {
       </template>
 
       <template #action="{ row }">
+        <div class="flex items-center" style="gap: 8px">
         <Button
           type="primary"
           link
@@ -288,13 +279,13 @@ async function handleDelete(row: any) {
 
         <Button
           type="primary"
-          link
           v-access:code="['system:menu:update']"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
         />
 
         <Popconfirm
+          v-if="accessStore.hasAccessCode('system:menu:delete')"
           :title="
             $t('ui.text.do_you_want_delete', {
               moduleName: $t('page.system.menu.module'),
@@ -304,15 +295,12 @@ async function handleDelete(row: any) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"
         >
-          <template #reference>
-            <Button
-              type="danger"
-              v-access:code="['system:menu:delete']"
-              link
-              :icon="h(LucideTrash2)"
-            />
-          </template>
+          <Button
+            type="danger"
+            :icon="h(LucideTrash2)"
+          />
         </Popconfirm>
+        </div>
       </template>
     </Grid>
     <Drawer />

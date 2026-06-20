@@ -395,6 +395,7 @@ pub struct FileTreeNode {
 pub struct ListQuery{
     pub keywords: Option<String>,
     pub status: Option<i32>,
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
 }
@@ -406,6 +407,7 @@ pub struct MyListQuery{
     pub admin_id: Option<i64>,
     pub keywords: Option<String>,
     pub status: Option<i32>,
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
 }

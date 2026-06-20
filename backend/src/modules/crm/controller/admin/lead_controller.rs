@@ -7,7 +7,7 @@ use actix_web_grants::protect;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadSaveRequest, LeadUpdateRequest};
+use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadSaveRequest, LeadStatusUpdateQuery, LeadUpdateRequest};
 use crate::modules::crm::service::lead_service;
 
 #[post("/lead/save")]
@@ -136,14 +136,50 @@ pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<B
     let delete_item = item.0;
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的线索ID", "local"));
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鏈幏鍙栧埌鍒犻櫎鐨勭嚎绱D", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
         .iter()
-        .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
+        .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))   
         .collect();
 
-    let result = lead_service::batch_delete_by_ids(&db, &filtered_ids).await;
+    let result = lead_service::batch_delete_by_ids(&db, &filtered_ids).await;   
+    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+}
+
+#[put("/lead/update-status")]
+#[protect("crm:lead:update")]
+pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadStatusUpdateQuery>) -> HttpResponse {
+    let db = &state.db;
+    let query = form_data.0;
+
+    if query.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "绾跨储ID涓嶈兘涓虹┖", "local"));
+    }
+
+    if query.status.is_none() || query.status.as_ref().unwrap().is_empty() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鐘舵€佷笉鑳戒负绌�", "local"));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    let result = lead_service::update_status(&db, query.id.unwrap(), query.status.unwrap().as_str(), Some(jwt_token.id.unwrap_or_default())).await;
+    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+}
+
+#[put("/lead/add-to-pool")]
+#[protect("crm:lead:update")]
+pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let query = form_data.0;
+
+    if query.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "绾跨储ID涓嶈兘涓虹┖", "local"));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    let result = lead_service::add_to_pool(&db, query.id.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }

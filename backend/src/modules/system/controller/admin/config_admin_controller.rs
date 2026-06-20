@@ -20,7 +20,7 @@ use crate::modules::system::model::config::{ConfigSaveDTO, ConfigSaveRequest, Co
 use crate::modules::system::service::{admin_service, config_service};
 
 #[post("/config/add")]
-#[protect("system:config:add")]
+#[protect("system:config:create")]
 pub async fn insert_config(state: web::Data<AppState>, req: HttpRequest, item: web::Json<ConfigSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.config_key.is_none() {
@@ -75,7 +75,7 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
 }
 
 #[put("/config/update/{id}")]
-#[protect("system:config:update")]
+#[protect("system:config:edit")]
 pub async fn update_config(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<ConfigUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let config_id = Some(id.into_inner());

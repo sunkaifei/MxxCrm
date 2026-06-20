@@ -21,7 +21,7 @@ use crate::modules::user::controller::user::user_level_controller;
 use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
-use crate::modules::sale::controller::admin::{order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller};
+use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller};
 use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller};
 
 async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
@@ -314,6 +314,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(crm_customer_controller::bath_delete_customer)
                 .service(crm_customer_controller::customer_info)
                 .service(crm_customer_controller::customer_list)
+                .service(crm_customer_controller::customer_contacts)
                 // CRM Lead Management
                 .service(lead_controller::lead_insert)
                 .service(lead_controller::lead_update)
@@ -329,6 +330,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(contact_controller::bath_delete_contact)
                 .service(contact_controller::contact_info)
                 .service(contact_controller::contact_list)
+                .service(contact_controller::contact_bind)
+                .service(contact_controller::contact_unbind)
+                .service(contact_controller::contact_set_role)
                 // CRM Opportunity Management
                 .service(opportunity_controller::opportunity_insert)
                 .service(opportunity_controller::opportunity_update)
@@ -386,6 +390,21 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(sale_payment_controller::bath_delete_payment)
                 .service(sale_payment_controller::payment_info)
                 .service(sale_payment_controller::payment_list)
+                // Sale Quotation Management
+                .service(quotation_controller::quotation_insert)
+                .service(quotation_controller::quotation_update)
+                .service(quotation_controller::bath_delete_quotation)
+                .service(quotation_controller::quotation_info)
+                .service(quotation_controller::quotation_list)
+                .service(quotation_controller::quotation_send)
+                .service(quotation_controller::quotation_accept)
+                .service(quotation_controller::quotation_reject)
+                // Sale Invoice Management
+                .service(invoice_controller::invoice_insert)
+                .service(invoice_controller::invoice_update)
+                .service(invoice_controller::bath_delete_invoice)
+                .service(invoice_controller::invoice_info)
+                .service(invoice_controller::invoice_list)
                 // Purchase Order Management
                 .service(purchase_order_controller::purchase_order_insert)
                 .service(purchase_order_controller::purchase_order_update)

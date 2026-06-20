@@ -3,8 +3,10 @@ use serde::{Deserialize, Serialize};
 
 /// 仓库列表查询参数
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WarehouseListQuery {
     /// 当前页码
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     /// 每页条数
     pub page_size: Option<i64>,
@@ -18,7 +20,7 @@ pub struct WarehouseListVO {
     /// 数据总数
     pub total: i64,
     /// 仓库列表
-    pub list: Vec<WarehouseVO>,
+    pub items: Vec<WarehouseVO>,
 }
 
 /// 仓库列表项

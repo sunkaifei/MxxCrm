@@ -327,6 +327,7 @@ impl From<user_platform::Model> for UserPlatformListVO {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListQuery {
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
     pub user_id: Option<i64>,

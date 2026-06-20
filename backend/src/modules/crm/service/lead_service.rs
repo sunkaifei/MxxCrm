@@ -51,3 +51,20 @@ pub async fn list(db: &DbConn, query: &LeadListQuery) -> Result<ResultPage<Vec<L
     let data: Vec<LeadListVO> = list.into_iter().map(|item| item.into()).collect();
     Ok(ResultPage::new(data, total, page, page_size))
 }
+
+pub async fn update_status(db: &DbConn, id: i64, status: &str, updated_by: Option<i64>) -> Result<i64> {
+    let status_enum = match status {
+        "unchecked" => crate::core::r#enum::lead_status_enum::LeadStatus::Unchecked,
+        "checking" => crate::core::r#enum::lead_status_enum::LeadStatus::Checking,
+        "invalid" => crate::core::r#enum::lead_status_enum::LeadStatus::Invalid,
+        "valid" => crate::core::r#enum::lead_status_enum::LeadStatus::Valid,
+        _ => return Err(Error::from("无效的状态值".to_string())),
+    };
+    let result = LeadModel::update_status(db, id, status_enum, updated_by).await?;
+    Ok(result)
+}
+
+pub async fn add_to_pool(db: &DbConn, id: i64, updated_by: Option<i64>) -> Result<i64> {
+    let result = LeadModel::add_to_pool(db, id, updated_by).await?;
+    Ok(result)
+}

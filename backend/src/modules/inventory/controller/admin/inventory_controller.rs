@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::response::MetaResp;
-use crate::modules::inventory::model::stock::{InventoryDetailVO, InventoryListQuery};
+use crate::modules::inventory::model::stock::{InventoryDetailVO, InventoryListData, InventoryListQuery};
 use crate::modules::inventory::service::inventory_service;
 use actix_web::{get, web, HttpRequest, HttpResponse};
 use actix_web_grants::protect;

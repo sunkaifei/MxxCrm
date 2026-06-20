@@ -1,4 +1,5 @@
 use sea_orm::entity::prelude::*;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
@@ -21,9 +22,9 @@ pub struct Model {
     /// 是否启用
     pub is_active: Option<bool>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub created_at: Option<DateTime<Utc>>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

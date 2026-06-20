@@ -272,6 +272,7 @@ impl From<shop_order_item::Model> for OrderItemVO {
 #[serde(rename_all = "camelCase")]
 pub struct OrderPageQuery {
     /// 页码
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     /// 每页数量
     pub page_size: Option<i64>,

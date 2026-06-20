@@ -75,6 +75,8 @@ pub async fn get_user_router_tree(db: &DbConn, is_admin: &bool, user_id: &Option
         }
     }
     let mut router_list = Vec::<menu::Router>::new();
+    // 按 sort 升序排序
+    list.sort_by(|a, b| a.sort.unwrap_or(0).cmp(&b.sort.unwrap_or(0)));
     router_arr_to_tree(&mut router_list, list, Some(0));
     Ok(router_list)
 }

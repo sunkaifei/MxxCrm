@@ -15,3 +15,9 @@ export const updateLeadApi = async (param: any) => {
 export const deleteLeadApi = async (ids: number[]) => {
   return requestClient.delete('/api/system/lead/bath_delete', { data: { ids } });
 };
+export const updateLeadStatusApi = async (id: number, status: string) => {
+  return requestClient.put('/api/system/lead/update-status', { id, status });
+};
+export const addLeadToPoolApi = async (id: number) => {
+  return requestClient.put('/api/system/lead/add-to-pool', { id });
+};

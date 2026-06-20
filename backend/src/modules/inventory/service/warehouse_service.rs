@@ -22,7 +22,7 @@ pub async fn get_list(db: &DatabaseConnection, query: &WarehouseListQuery) -> Re
     
     let list = models.into_iter().map(|m| m.into()).collect();
     
-    Ok(WarehouseListVO { total: total as i64, list })
+    Ok(WarehouseListVO { total: total as i64, items: list })
 }
 
 pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<WarehouseDetailVO> {

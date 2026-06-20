@@ -116,6 +116,7 @@ pub struct ListQuery {
     /// 县
     pub county: Option<String>,
     // 当前页码数
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     // 每页条数
     pub page_size: Option<i64>,

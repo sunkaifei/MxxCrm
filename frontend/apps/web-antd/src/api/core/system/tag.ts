@@ -1,61 +1,61 @@
 import { requestClient } from '#/api/request';
 
 export const getTagListApi = async (params?: any) => {
-  return requestClient.get('/api/system/admin/tag/list', { params });
+  return requestClient.get('/api/system/tag/list', { params });
 };
 
 export const getTagDetailApi = async (id: number) => {
-  return requestClient.get(`/api/system/admin/tag/detail/${id}`);
+  return requestClient.get(`/api/system/tag/detail/${id}`);
 };
 
 export const createTagApi = async (param: any) => {
-  return requestClient.post('/api/system/admin/tag/add', param);
+  return requestClient.post('/api/system/tag/add', param);
 };
 
 export const updateTagApi = async (param: any) => {
-  return requestClient.put('/api/system/admin/tag/update', param);
+  return requestClient.put('/api/system/tag/update', param);
 };
 
 export const deleteTagApi = async (id: number) => {
-  return requestClient.delete(`/api/system/admin/tag/delete/${id}`);
+  return requestClient.delete(`/api/system/tag/delete/${id}`);
 };
 
 export const batchDeleteTagApi = async (params: any) => {
-  return requestClient.delete('/api/system/admin/tag/batch_delete', { data: params });
+  return requestClient.delete('/api/system/tag/batch_delete', { data: params });
 };
 
 export const getTagStatisticsApi = async () => {
-  return requestClient.get('/api/system/admin/tag/statistics');
+  return requestClient.get('/api/system/tag/statistics');
 };
 
 export const getAllTagsApi = async () => {
-  return requestClient.get('/api/system/admin/tag/all');
+  return requestClient.get('/api/system/tag/all');
 };
 
 export const getTagsByGroupApi = async (groupId: number) => {
-  return requestClient.get(`/api/system/admin/tag/group/${groupId}`);
+  return requestClient.get(`/api/system/tag/group/${groupId}`);
 };
 
 export const moveTagsToGroupApi = async (param: any) => {
-  return requestClient.post('/api/system/admin/tag/move-to-group', param);
+  return requestClient.post('/api/system/tag/move-to-group', param);
 };
 
 export const tagSuggestApi = async (keyword: string) => {
-  return requestClient.get('/api/system/admin/tag/suggest', { params: { keyword } });
+  return requestClient.get('/api/system/tag/suggest', { params: { keyword } });
 };
 
 export const addTagsToEntityApi = async (param: any) => {
-  return requestClient.post('/api/system/admin/tag/entity/add', param);
+  return requestClient.post('/api/system/tag/entity/add', param);
 };
 
 export const removeTagsFromEntityApi = async (param: any) => {
-  return requestClient.post('/api/system/admin/tag/entity/remove', param);
+  return requestClient.post('/api/system/tag/entity/remove', param);
 };
 
 export const getTagsByEntityApi = async (entityType: string, entityId: number) => {
-  return requestClient.get(`/api/system/admin/tag/entity/${entityType}/${entityId}`);
+  return requestClient.get(`/api/system/tag/entity/${entityType}/${entityId}`);
 };
 
 export const batchTagEntityApi = async (param: any) => {
-  return requestClient.post('/api/system/admin/tag/entity/batch', param);
+  return requestClient.post('/api/system/tag/entity/batch', param);
 };

@@ -130,6 +130,7 @@ pub struct PurchaseOrderSaveDTO {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PurchaseOrderListQuery {
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
     pub keywords: Option<String>,

@@ -35,8 +35,13 @@ export const LucideEye = createIconifyIcon('lucide:eye');
 export const LucideCheck = createIconifyIcon('lucide:check');
 export const LucideX = createIconifyIcon('lucide:x');
 export const LucidePlus = createIconifyIcon('lucide:plus');
+export const LucidePlusCircle = createIconifyIcon('lucide:plus-circle');
 export const LucideEdit = createIconifyIcon('lucide:edit');
+export const LucideLoader2 = createIconifyIcon('lucide:loader-2');
+export const LucideXCircle = createIconifyIcon('lucide:x-circle');
 export const LucideCheckCircle = createIconifyIcon('lucide:check-circle');
+export const LucideMaximize2 = createIconifyIcon('lucide:maximize-2');
+export const LucideMinimize2 = createIconifyIcon('lucide:minimize-2');
 export const LucideArrowDownToLine = createIconifyIcon(
   'lucide:arrow-down-to-line',
 );
@@ -47,3 +52,30 @@ export const LucideEllipsisVertical = createIconifyIcon(
 export const LucideEllipsis = createIconifyIcon('lucide:ellipsis');
 export const LucideTag = createIconifyIcon('lucide:tag');
 export const LucideLayers = createIconifyIcon('lucide:layers');
+export const LucideLink = createIconifyIcon('lucide:link');
+export const LucideUnlink = createIconifyIcon('lucide:unlink');
+export const LucideUserPlus = createIconifyIcon('lucide:user-plus');
+
+// CRM常用图标
+export const LucideBuilding2 = createIconifyIcon('lucide:building-2');
+export const LucidePhone = createIconifyIcon('lucide:phone');
+export const LucideMail = createIconifyIcon('lucide:mail');
+export const LucideMapPin = createIconifyIcon('lucide:map-pin');
+export const LucideGlobe = createIconifyIcon('lucide:globe');
+export const LucideSmartphone = createIconifyIcon('lucide:smartphone');
+export const LucideCalendar = createIconifyIcon('lucide:calendar');
+export const LucideClock = createIconifyIcon('lucide:clock');
+export const LucideMessageCircle = createIconifyIcon('lucide:message-circle');
+export const LucideMessageSquare = createIconifyIcon('lucide:message-square');
+export const LucideMoreHorizontal = createIconifyIcon('lucide:more-horizontal');
+
+// 商机/合同详情常用
+export const LucideDollarSign = createIconifyIcon('lucide:dollar-sign');
+export const LucideTrendingUp = createIconifyIcon('lucide:trending-up');
+export const LucideUser = createIconifyIcon('lucide:user');
+export const LucideFileText = createIconifyIcon('lucide:file-text');
+
+// 线索/跟进记录详情
+export const LucideArrowRightLeft = createIconifyIcon('lucide:arrow-right-left');
+export const LucideTimer = createIconifyIcon('lucide:timer');
+export const LucideTarget = createIconifyIcon('lucide:target');

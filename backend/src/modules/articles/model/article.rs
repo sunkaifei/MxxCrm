@@ -302,6 +302,7 @@ pub struct QueryPageRequest {
     pub website_id: Option<i64>,
     pub category_id: Option<i64>,
     pub status: Option<i32>,
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
 }

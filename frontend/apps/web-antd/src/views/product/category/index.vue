@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -10,7 +10,7 @@ import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { deleteProductCategoryApi, getProductCategoryListApi } from '#/api';
+import { deleteCategoryApi, getCategoryListApi } from '#/api';
 import { $t } from '#/locales';
 
 import CategoryDrawer from './drawer.vue';
@@ -53,7 +53,7 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getProductCategoryListApi({
+        return await getCategoryListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
           categoryName: formValues.categoryName,
@@ -122,7 +122,7 @@ function handleEdit(row: any) {
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deleteProductCategoryApi(row.id);
+    await deleteCategoryApi([row.id]);
     window.$message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;

@@ -10,6 +10,34 @@
       "title": "线索管理",
       "button": {
         "create": "新增线索"
+      },
+      "fields": {
+        "companyName": "公司名称",
+        "contactName": "联系人",
+        "title": "职位",
+        "email": "邮箱",
+        "phone": "电话",
+        "mobile": "手机",
+        "country": "国家",
+        "region": "区域",
+        "address": "地址",
+        "website": "网站",
+        "industry": "行业",
+        "source": "来源",
+        "sourceDetail": "来源详情",
+        "level": "线索等级",
+        "budget": "预算",
+        "currency": "币种",
+        "nextFollowAt": "下次跟进",
+        "description": "描述",
+        "tags": "标签",
+        "assignee": "负责人"
+      },
+      "sections": {
+        "basic": "基本信息",
+        "contact": "联系方式",
+        "business": "业务信息",
+        "other": "其他信息"
       }
     },
     "customer": {
@@ -21,7 +49,9 @@
     "contact": {
       "title": "联系人管理",
       "button": {
-        "create": "新增联系人"
+        "create": "新增联系人",
+        "edit": "编辑联系人",
+        "delete": "删除联系人"
       }
     },
     "opportunity": {

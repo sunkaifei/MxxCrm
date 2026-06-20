@@ -124,6 +124,7 @@ pub struct AttachmentPageRequest {
     // 状态查询（0和空都是所有，1查询为0的数据，2查询为1的数据）
     pub r#type: Option<i32>,
     // 当前页码数
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     // 每页条数
     pub page_size: Option<i64>,

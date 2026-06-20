@@ -185,23 +185,36 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO mxx_system_menu (parent_id, name, type, route_name, path, component, perm, sort, icon, status) VALUES
 (0, 'page.sale.title', 'FOLDER', 'Sale', '/sale', '', '', 3, 'ShoppingCart', 0),
-((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.order.title', 'MENU', 'Order', '/sale/order', 'sale/order/index', 'sale:order:list', 1, 'FileText', 0),
-((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.orderItem.title', 'MENU', 'OrderItem', '/sale/orderItem', 'sale/orderItem/index', 'sale:orderItem:list', 2, 'Table', 0),
-((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.payment.title', 'MENU', 'Payment', '/sale/payment', 'sale/payment/index', 'sale:payment:list', 3, 'Wallet', 0)
+((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.quotation.title', 'MENU', 'Quotation', '/sale/quotation', 'sale/quotation/index', 'sale:quotation:list', 1, 'FileText', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.order.title', 'MENU', 'Order', '/sale/order', 'sale/order/index', 'sale:order:list', 2, 'ShoppingCart', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.orderItem.title', 'MENU', 'OrderItem', '/sale/orderItem', 'sale/orderItem/index', 'sale:orderItem:list', 3, 'Table', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.payment.title', 'MENU', 'Payment', '/sale/payment', 'sale/payment/index', 'sale:payment:list', 4, 'Wallet', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.invoice.title', 'MENU', 'Invoice', '/sale/invoice', 'sale/invoice/index', 'sale:invoice:list', 5, 'Receipt', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Sale'), 'page.sale.performance.title', 'MENU', 'Performance', '/sale/performance', 'sale/performance/index', 'sale:performance:view', 6, 'BarChart', 0)
 ON CONFLICT DO NOTHING;
 
--- 订单管理按钮权限
+-- 报价单按钮权限
 INSERT INTO mxx_system_menu (parent_id, name, type, route_name, path, component, perm, sort, icon, status) VALUES
+((SELECT id FROM mxx_system_menu WHERE route_name='Quotation'), 'button.sale.quotation.create', 'BUTTON', '', '', '', 'sale:quotation:create', 1, '', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Quotation'), 'button.sale.quotation.edit', 'BUTTON', '', '', '', 'sale:quotation:edit', 2, '', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Quotation'), 'button.sale.quotation.delete', 'BUTTON', '', '', '', 'sale:quotation:delete', 3, '', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Quotation'), 'button.sale.quotation.send', 'BUTTON', '', '', '', 'sale:quotation:send', 4, '', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Quotation'), 'button.sale.quotation.accept', 'BUTTON', '', '', '', 'sale:quotation:accept', 5, '', 0),
+-- 订单管理按钮权限
 ((SELECT id FROM mxx_system_menu WHERE route_name='Order'), 'button.sale.order.create', 'BUTTON', '', '', '', 'sale:order:create', 1, '', 0),
 ((SELECT id FROM mxx_system_menu WHERE route_name='Order'), 'button.sale.order.edit', 'BUTTON', '', '', '', 'sale:order:edit', 2, '', 0),
 ((SELECT id FROM mxx_system_menu WHERE route_name='Order'), 'button.sale.order.delete', 'BUTTON', '', '', '', 'sale:order:delete', 3, '', 0),
 ((SELECT id FROM mxx_system_menu WHERE route_name='Order'), 'button.sale.order.confirm', 'BUTTON', '', '', '', 'sale:order:confirm', 4, '', 0),
 ((SELECT id FROM mxx_system_menu WHERE route_name='Order'), 'button.sale.order.ship', 'BUTTON', '', '', '', 'sale:order:ship', 5, '', 0),
 ((SELECT id FROM mxx_system_menu WHERE route_name='Order'), 'button.sale.order.complete', 'BUTTON', '', '', '', 'sale:order:complete', 6, '', 0),
--- 支付记录按钮权限
+-- 回款记录按钮权限
 ((SELECT id FROM mxx_system_menu WHERE route_name='Payment'), 'button.sale.payment.create', 'BUTTON', '', '', '', 'sale:payment:create', 1, '', 0),
 ((SELECT id FROM mxx_system_menu WHERE route_name='Payment'), 'button.sale.payment.edit', 'BUTTON', '', '', '', 'sale:payment:edit', 2, '', 0),
-((SELECT id FROM mxx_system_menu WHERE route_name='Payment'), 'button.sale.payment.delete', 'BUTTON', '', '', '', 'sale:payment:delete', 3, '', 0)
+((SELECT id FROM mxx_system_menu WHERE route_name='Payment'), 'button.sale.payment.delete', 'BUTTON', '', '', '', 'sale:payment:delete', 3, '', 0),
+-- 发票按钮权限
+((SELECT id FROM mxx_system_menu WHERE route_name='Invoice'), 'button.sale.invoice.create', 'BUTTON', '', '', '', 'sale:invoice:create', 1, '', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Invoice'), 'button.sale.invoice.edit', 'BUTTON', '', '', '', 'sale:invoice:edit', 2, '', 0),
+((SELECT id FROM mxx_system_menu WHERE route_name='Invoice'), 'button.sale.invoice.delete', 'BUTTON', '', '', '', 'sale:invoice:delete', 3, '', 0)
 ON CONFLICT DO NOTHING;
 
 -- ================================================

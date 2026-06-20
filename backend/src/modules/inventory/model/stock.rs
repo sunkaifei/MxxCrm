@@ -10,13 +10,14 @@
 
 use crate::modules::inventory::entity::stock::Model;
 use serde::{Deserialize, Serialize};
-use sea_orm::prelude::DateTime;
+use sea_orm::prelude::{DateTime, Decimal};
 
 /// 库存列表查询参数
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct InventoryListQuery {
     /// 当前页码
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     /// 每页条数
     pub page_size: Option<i64>,
@@ -45,13 +46,23 @@ pub struct InventoryListVO {
     /// 仓库名称
     pub warehouse_name: Option<String>,
     /// 库存数量
-    pub quantity: Option<i32>,
+    pub quantity: Option<Decimal>,
     /// 预留数量
-    pub reserved_quantity: Option<i32>,
+    pub reserved_quantity: Option<Decimal>,
     /// 可用数量
-    pub available_quantity: Option<i32>,
+    pub available_quantity: Option<Decimal>,
     /// 最后更新时间
     pub last_updated_at: Option<String>,
+}
+
+/// 库存列表分页响应
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InventoryListData {
+    /// 数据总数
+    pub total: i64,
+    /// 库存列表
+    pub items: Vec<InventoryListVO>,
 }
 
 /// 库存详情响应项
@@ -77,11 +88,11 @@ pub struct InventoryDetailVO {
     /// 仓库编码
     pub warehouse_code: Option<String>,
     /// 库存数量
-    pub quantity: Option<i32>,
+    pub quantity: Option<Decimal>,
     /// 预留数量
-    pub reserved_quantity: Option<i32>,
+    pub reserved_quantity: Option<Decimal>,
     /// 可用数量
-    pub available_quantity: Option<i32>,
+    pub available_quantity: Option<Decimal>,
     /// 最后更新时间
     pub last_updated_at: Option<String>,
 }

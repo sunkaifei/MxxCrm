@@ -188,6 +188,7 @@ impl From<config::Model> for ConfigListVO {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListQuery {
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
     pub config_name: Option<String>,

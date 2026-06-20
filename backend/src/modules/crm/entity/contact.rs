@@ -17,7 +17,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     #[serde(skip_deserializing)]
     pub id: i64,
-    pub customer_id: Option<i64>,
     pub name: Option<String>,
     pub title: Option<String>,
     pub email: Option<String>,
@@ -25,9 +24,6 @@ pub struct Model {
     pub mobile: Option<String>,
     pub whatsapp: Option<String>,
     pub wechat: Option<String>,
-    pub is_primary: Option<bool>,
-    pub is_billing: Option<bool>,
-    pub is_shipping: Option<bool>,
     pub birthday: Option<Date>,
     pub notes: Option<String>,
     pub created_at: Option<DateTime>,

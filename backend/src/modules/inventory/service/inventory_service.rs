@@ -10,12 +10,12 @@
 
 use crate::core::errors::error::Result;
 use crate::modules::inventory::entity::stock::{Column, Entity};
-use crate::modules::inventory::model::stock::{InventoryDetailVO, InventoryListQuery, InventoryListVO};
+use crate::modules::inventory::model::stock::{InventoryDetailVO, InventoryListData, InventoryListQuery, InventoryListVO};
 use crate::modules::product::entity::product as product_entity;
 use crate::modules::inventory::entity::warehouse as warehouse_entity;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter};
 
-pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Result<Vec<InventoryListVO>> {
+pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Result<InventoryListData> {
     let page_num = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(10);
 
@@ -27,6 +27,7 @@ pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Re
     }
 
     let paginator = condition.paginate(db, page_size as u64);
+    let total = paginator.num_items().await?;
     let models = paginator.fetch_page((page_num - 1) as u64).await?;
 
     let mut result: Vec<InventoryListVO> = Vec::new();
@@ -66,7 +67,7 @@ pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Re
         }
     }
 
-    Ok(result)
+    Ok(InventoryListData { total: total as i64, items: result })
 }
 
 pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<InventoryDetailVO> {

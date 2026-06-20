@@ -1,23 +1,49 @@
 <script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
-
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h } from 'vue';
+import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { LucideFilePenLine, LucideTrash2, LucideEye, LucidePlusCircle, LucideMessageSquare } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm } from 'ant-design-vue';
+import { Button, Popconfirm, Drawer, Modal, Tabs, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteCustomerApi, getCustomerListApi } from '#/api';
+import { deleteLeadApi, getLeadListApi, updateLeadStatusApi, addLeadToPoolApi } from '#/api';
 import { $t } from '#/locales';
-import CustomerDrawer from './drawer.vue';
+import LeadDrawer from './drawer.vue';
+import LeadDetail from './detail.vue';
 
 const accessStore = useAccessStore();
+
+const statusTabs = [
+  { key: 'unchecked', label: '未审查' },
+  { key: 'checking', label: '审查中' },
+  { key: 'invalid', label: '无效线索' },
+];
+
+const activeTab = ref('unchecked');
+
+const sourceLabelMap: Record<string, string> = {
+  website: '官网', exhibition: '展会', social: '社交媒体', referral: '客户转介',
+  cold_call: '陌生拜访', customs: '海关数据', email: '邮件营销', alibaba: '阿里国际站',
+  amazon: 'Amazon', tiktok: 'TikTok', wechat: '微信', other: '其他',
+};
+
+const detailVisible = ref(false);
+const detailId = ref<number | null>(null);
+
+function openDetail(row: any) {
+  const id = row.id ?? row.id_;
+  if (!id) { message.error('线索ID不存在'); return; }
+  detailId.value = Number(id);
+  detailVisible.value = true;
+}
+function closeDetail() { detailVisible.value = false; detailId.value = null; }
+function handleDetailEdit(lead: any) { closeDetail(); openDrawer(false, lead); }
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -28,54 +54,51 @@ const formOptions: VbenFormProps = {
       component: 'Input',
       fieldName: 'companyName',
       label: '公司名称',
-      componentProps: {
-        placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-      },
+      componentProps: { placeholder: '输入公司名称搜索', allowClear: true },
     },
     {
-      component: 'Input',
-      fieldName: 'level',
-      label: '等级',
+      component: 'Select',
+      fieldName: 'source',
+      label: '来源',
       componentProps: {
-        placeholder: $t('ui.placeholder.input'),
+        placeholder: '全部',
         allowClear: true,
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'industry',
-      label: '行业',
-      componentProps: {
-        placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
+        options: [
+          { label: '官网', value: 'website' },
+          { label: '展会', value: 'exhibition' },
+          { label: '社交媒体', value: 'social' },
+          { label: '客户转介', value: 'referral' },
+          { label: '陌生拜访', value: 'cold_call' },
+          { label: '海关数据', value: 'customs' },
+          { label: '邮件营销', value: 'email' },
+          { label: '阿里国际站', value: 'alibaba' },
+          { label: 'Amazon', value: 'amazon' },
+          { label: 'TikTok', value: 'tiktok' },
+          { label: '微信', value: 'wechat' },
+          { label: '其他', value: 'other' },
+        ],
       },
     },
   ],
 };
 
 const gridOptions: VxeGridProps = {
-  toolbarConfig: {
-    custom: true,
-    export: true,
-    refresh: true,
-    zoom: true,
-  },
+  toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: {
-    isHover: true,
-  },
+  rowConfig: { isHover: true },
   stripe: true,
+  checkboxConfig: { checkField: 'checked', trigger: 'row' },
 
   proxyConfig: {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getCustomerListApi({
+        return await getLeadListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
+          status: activeTab.value,
           ...formValues,
         });
       },
@@ -83,128 +106,145 @@ const gridOptions: VxeGridProps = {
   },
 
   columns: [
+    { type: 'checkbox', width: 50 },
+    { title: $t('ui.table.seq'), type: 'seq', width: 60 },
+    { title: '公司名称', field: 'companyName', minWidth: 180, slots: { default: 'companyName' } },
+    { title: '联系人', field: 'contactName', width: 100 },
     {
-      title: $t('ui.table.seq'),
-      type: 'seq',
-      width: 70,
+      title: '状态', field: 'status', width: 90,
+      cellRender: {
+        name: 'Tag',
+        options: [
+          { value: 'unchecked', label: '未审查', color: 'blue' },
+          { value: 'checking', label: '审查中', color: 'cyan' },
+          { value: 'invalid', label: '无效线索', color: 'default' },
+          { value: 'valid', label: '有效', color: 'green' },
+        ],
+      },
     },
     {
-      title: '公司名称',
-      field: 'companyName',
+      title: '来源', field: 'source', width: 100,
+      formatter: ({ cellValue }: any) => sourceLabelMap[cellValue] || cellValue || '-',
+    },
+    { title: '邮箱', field: 'email', width: 160 },
+    { title: '手机', field: 'mobile', width: 130 },
+    { title: '国家', field: 'country', width: 80 },
+    { title: '负责人', field: 'assignee', width: 90 },
+    { title: '创建人', field: 'createdBy', width: 90 },
+    {
+      title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createdAt' }, width: 160,
     },
     {
-      title: '等级',
-      field: 'level',
-    },
-    {
-      title: '行业',
-      field: 'industry',
-    },
-    {
-      title: '国家',
-      field: 'country',
-    },
-    {
-      title: '负责人',
-      field: 'assignee',
-    },
-    {
-      title: $t('ui.table.createTime'),
-      field: 'createTime',
-      slots: { default: 'createdAt' },
-    },
-    {
-      title: $t('ui.table.action'),
-      field: 'action',
-      fixed: 'right',
-      slots: { default: 'action' },
-      width: 120,
+      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 280,
     },
   ],
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
-const [Drawer, drawerApi] = useVbenDrawer({
-  connectedComponent: CustomerDrawer,
-  onClosed() {
-    const data = drawerApi.getData();
-    if (data && data.needRefresh) {
-      gridApi.query();
-    }
-  },
+const [FormDrawer, drawerApi] = useVbenDrawer({
+  connectedComponent: LeadDrawer,
+  onClosed() { if (drawerApi.getData()?.needRefresh) gridApi.query(); },
 });
 
-function openDrawer(create: boolean, row?: any) {
-  drawerApi.setData({ create, row });
-  drawerApi.open();
-}
-
-function handleCreate() {
-  openDrawer(true);
-}
-
-function handleEdit(row: any) {
-  openDrawer(false, row);
-}
+function openDrawer(create: boolean, row?: any) { drawerApi.setData({ create, row }); drawerApi.open(); }
+function handleCreate() { openDrawer(true); }
+function handleEdit(row: any) { openDrawer(false, row); }
 
 async function handleDelete(row: any) {
   row.pending = true;
+  try { await deleteLeadApi([row.id]); message.success($t('ui.notification.delete_success')); }
+  finally { row.pending = false; gridApi.query(); }
+}
+
+async function handleBatchDelete() {
+  const records = gridApi.grid?.getCheckboxRecords();
+  if (!records?.length) { message.warning('请先选择要删除的线索'); return; }
+  Modal.confirm({
+    title: '批量删除',
+    content: `确定批量删除 ${records.length} 条线索？`,
+    onOk: async () => {
+      try {
+        const ids = records.map((r: any) => r.id);
+        await deleteLeadApi(ids);
+        message.success(`已删除 ${records.length} 条线索`);
+        gridApi.query();
+      } catch { /* ignore */ }
+    },
+  });
+}
+
+async function handleFollow(row: any) {
+  openDetail(row);
+}
+
+async function handleAddToPool(row: any) {
+  Modal.confirm({
+    title: '加入线索池',
+    content: `确定将线索"${row.companyName}"加入线索池吗？`,
+    onOk: async () => {
+      try {
+        await addLeadToPoolApi(row.id);
+        message.success('已加入线索池');
+        gridApi.query();
+      } catch (e) {
+        message.error('操作失败');
+      }
+    },
+  });
+}
+
+async function handleStatusChange(row: any, status: string) {
   try {
-    await deleteCustomerApi(row.id);
-    window.$message.success($t('ui.notification.delete_success'));
-  } finally {
-    row.pending = false;
+    await updateLeadStatusApi(row.id, status);
+    message.success('状态更新成功');
     gridApi.query();
+  } catch (e) {
+    message.error('操作失败');
   }
+}
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
 }
 </script>
 
 <template>
   <Page auto-content-height>
-    <Grid :table-title="$t('page.crm.customer.title')">
+    <div class="mb-4">
+      <Tabs v-model:activeKey="activeTab" @change="handleTabChange" type="card">
+        <Tabs.TabPane v-for="tab in statusTabs" :key="tab.key" :tab="tab.label" />
+      </Tabs>
+    </div>
+
+    <Grid :table-title="$t('page.crm.lead.title')">
       <template #toolbar-tools>
-        <Button
-          v-if="accessStore.hasAccessCode('crm:customer:create')"
-          type="primary"
-          class="mr-2"
-          @click="handleCreate"
-        >
-          {{ $t('page.crm.customer.button.create') }}
+        <Button v-if="accessStore.hasAccessCode('crm:lead:create')" type="primary" class="mr-2" @click="handleCreate">
+          {{ $t('page.crm.lead.button.create') }}
         </Button>
+        <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
-      <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+      <template #createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+
+      <template #companyName="{ row }">
+        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.companyName }}</a>
       </template>
 
       <template #action="{ row }">
-        <Button
-          v-if="accessStore.hasAccessCode('crm:customer:edit')"
-          type="link"
-          :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
-        />
-
-        <Popconfirm
-          :title="
-            $t('ui.text.do_you_want_delete', {
-              moduleName: $t('page.crm.customer.title'),
-            })
-          "
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="handleDelete(row)"
-        >
-          <Button
-            v-if="accessStore.hasAccessCode('crm:customer:delete')"
-            type="link"
-            danger
-            :icon="h(LucideTrash2)"
-          />
+        <Button type="link" :icon="h(LucideMessageSquare)" @click="() => handleFollow(row)" title="跟进" />
+        <Button v-if="row.status !== 'invalid'" type="link" :icon="h(LucidePlusCircle)" @click="() => handleAddToPool(row)" title="加入线索池" />
+        <Button v-if="accessStore.hasAccessCode('crm:lead:edit')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" title="编辑" />
+        <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.lead.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
+          <Button v-if="accessStore.hasAccessCode('crm:lead:delete')" type="link" danger :icon="h(LucideTrash2)" title="删除" />
         </Popconfirm>
       </template>
     </Grid>
-    <Drawer />
+    <FormDrawer />
+
+    <Drawer v-model:open="detailVisible" :width="960" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="线索详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
+      <LeadDetail v-if="detailId" :id="detailId" @edit="handleDetailEdit" />
+    </Drawer>
   </Page>
 </template>

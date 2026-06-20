@@ -46,15 +46,35 @@
     "AUD": "澳元"
   },
   "lead_source": {
-    "website": "网站",
-    "social_media": "社交媒体",
-    "email_marketing": "邮件营销",
-    "referral": "推荐",
-    "trade_show": "展会",
-    "cold_call": "陌生电话",
-    "direct_mail": "直邮",
-    "search_engine": "搜索引擎",
-    "partner": "合作伙伴",
+    "website": "官网",
+    "exhibition": "展会",
+    "social": "社交媒体",
+    "referral": "客户转介",
+    "cold_call": "陌生拜访",
+    "customs": "海关数据",
+    "email": "邮件营销",
+    "alibaba": "阿里国际站",
+    "amazon": "Amazon",
+    "tiktok": "TikTok",
+    "wechat": "微信",
+    "other": "其他"
+  },
+  "lead_level": {
+    "hot": "热门",
+    "warm": "温",
+    "cold": "冷",
+    "a": "A级",
+    "b": "B级",
+    "c": "C级"
+  },
+  "lead_industry": {
+    "retail": "零售",
+    "wholesale": "批发",
+    "manufacturer": "制造",
+    "trade_agent": "贸易代理",
+    "ecommerce": "电商",
+    "wechat_business": "微商",
+    "social": "社交电商",
     "other": "其他"
   },
   "opportunity_stage": {

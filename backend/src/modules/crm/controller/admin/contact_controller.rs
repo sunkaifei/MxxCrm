@@ -1,3 +1,13 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
+
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
@@ -7,7 +17,7 @@ use actix_web_grants::protect;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::crm::model::contact::{ContactDetailVO, ContactListQuery, ContactListVO, ContactSaveRequest, ContactUpdateRequest};
+use crate::modules::crm::model::contact::{ContactListQuery, ContactSaveRequest, ContactUpdateRequest, ContactBindRequest, ContactUnbindRequest, ContactSetRoleRequest};
 use crate::modules::crm::service::contact_service;
 
 #[post("/contact/save")]
@@ -87,4 +97,33 @@ pub async fn contact_list(state: web::Data<AppState>, query: web::Query<ContactL
         },
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
+}
+
+// ==================== 关联操作接口 ====================
+
+/// 绑定联系人到客户（入职）
+#[post("/contact/bind")]
+#[protect("crm:contact:bind")]
+pub async fn contact_bind(state: web::Data<AppState>, form_data: web::Json<ContactBindRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let result = contact_service::bind_contact(&db, &form_data.0).await;
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+}
+
+/// 解绑联系人（离职）
+#[post("/contact/unbind")]
+#[protect("crm:contact:unbind")]
+pub async fn contact_unbind(state: web::Data<AppState>, form_data: web::Json<ContactUnbindRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let result = contact_service::unbind_contact(&db, &form_data.0).await;
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+}
+
+/// 设置联系人角色/标记
+#[put("/contact/set_role")]
+#[protect("crm:contact:set_role")]
+pub async fn contact_set_role(state: web::Data<AppState>, form_data: web::Json<ContactSetRoleRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let result = contact_service::set_role(&db, &form_data.0).await;
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }

@@ -11,6 +11,7 @@
 pub mod contact;
 pub mod contract;
 pub mod customer;
+pub mod customer_contact_merge;
 pub mod followup;
 pub mod lead;
 pub mod opportunity;

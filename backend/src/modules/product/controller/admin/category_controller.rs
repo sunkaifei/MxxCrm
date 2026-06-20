@@ -73,7 +73,7 @@ pub async fn info_category(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 }
 
-#[get("/category/list")]
+#[get("/product/category/list")]
 #[protect("product:category:list")]
 pub async fn list_category(state: web::Data<AppState>, query: web::Query<CategoryListQuery>) -> HttpResponse {
     let db = &state.db;

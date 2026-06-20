@@ -241,6 +241,7 @@ pub struct DataListQuery {
     pub dict_code: Option<String>,
     pub status: Option<i32>,
     // 当前页码数
+    #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
 }
