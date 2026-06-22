@@ -1,3 +1,4 @@
+use chrono::Utc;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +11,7 @@ pub struct Model {
     pub tag_id: Option<i64>,
     pub entity_type: Option<String>,
     pub entity_id: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub created_at: Option<chrono::DateTime<Utc>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

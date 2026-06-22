@@ -62,7 +62,7 @@ impl TagMergeModel {
                     tag_id: Set(Some(tag_id)),
                     entity_type: Set(Some(entity_type.to_string())),
                     entity_id: Set(Some(entity_id)),
-                    created_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+                    created_at: Set(Option::from(chrono::Utc::now())),
                     ..Default::default()
                 };
                 TagMerge::insert(payload).exec(db).await?;
@@ -96,7 +96,7 @@ impl TagMergeModel {
         Tag::find()
             .join(
                 JoinType::InnerJoin,
-                tag_merge::Relation::Tag.def(),
+                tag_merge::Relation::Tag.def().rev(),
             )
             .filter(tag_merge::Column::EntityType.eq(entity_type))
             .filter(tag_merge::Column::EntityId.eq(entity_id))

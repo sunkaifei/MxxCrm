@@ -1,7 +1,5 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
 use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
 use actix_web_grants::protect;
 
@@ -10,21 +8,19 @@ use crate::core::web::response::MetaResp;
 use crate::modules::product::model::category::{CategoryDetailVO, CategoryListQuery, CategoryListVO, CategorySaveRequest, CategoryUpdateRequest};
 use crate::modules::product::service::category_service;
 
-#[post("/category/save")]
+#[post("/product/category/save")]
 #[protect("product:category:save")]
-pub async fn category_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CategorySaveRequest>) -> Result<HttpResponse> {
+pub async fn category_insert(state: web::Data<AppState>, form_data: web::Json<CategorySaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = category_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = category_service::insert(&db, &form_data).await;
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/category/update")]
+#[put("/product/category/update")]
 #[protect("product:category:update")]
-pub async fn category_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CategoryUpdateRequest>) -> Result<HttpResponse> {
+pub async fn category_update(state: web::Data<AppState>, form_data: web::Json<CategoryUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
 
@@ -32,13 +28,11 @@ pub async fn category_update(state: web::Data<AppState>, req: HttpRequest, form_
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "分类ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = category_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = category_service::update(&db, &form_data).await;
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/category/bath_delete")]
+#[delete("/product/category/bath_delete")]
 #[protect("product:category:delete")]
 pub async fn batch_delete_category(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
@@ -57,7 +51,7 @@ pub async fn batch_delete_category(state: web::Data<AppState>, item: web::Json<B
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/category/info")]
+#[get("/product/category/info")]
 #[protect("product:category:info")]
 pub async fn info_category(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;

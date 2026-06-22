@@ -10,3 +10,9 @@
 
 pub mod product;
 pub mod category;
+pub mod sku;
+pub mod spec;
+pub mod spec_value;
+pub mod sku_template;
+pub mod sku_template_spec;
+pub mod sku_template_spec_value;

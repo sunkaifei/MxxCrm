@@ -17,3 +17,10 @@ export const deleteDeptApi = async (ids: number[]) => {
     data: { ids },
   });
 };
+
+/**
+ * 获取部门树（用于数据权限选择）
+ */
+export const getDeptTreeApi = async () => {
+  return requestClient.get('/api/system/dept/tree');
+};

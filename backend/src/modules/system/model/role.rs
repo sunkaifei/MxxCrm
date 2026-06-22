@@ -157,6 +157,8 @@ pub struct RoleListVO {
     pub role_name: Option<String>,
     /// 角色权限字符串
     pub role_key: Option<String>,
+    /// 数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 5：仅本人数据权限）
+    pub data_scope: Option<i32>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
     pub status: Option<i32>,
@@ -169,6 +171,7 @@ impl From<role::Model> for RoleListVO {
             id: Option::from(item.id),
             role_name: item.role_name,
             role_key: item.role_key,
+            data_scope: item.data_scope,
             remark: item.remark,
             sort: item.sort,
             status: item.status,

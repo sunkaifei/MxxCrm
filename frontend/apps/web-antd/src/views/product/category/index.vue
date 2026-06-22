@@ -6,7 +6,7 @@ import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
-import { Button, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, message, Popconfirm } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -24,7 +24,7 @@ const formOptions: VbenFormProps = {
   schema: [
     {
       component: 'Input',
-      fieldName: 'categoryName',
+      fieldName: 'keywords',
       label: '分类名称',
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
@@ -56,7 +56,7 @@ const gridOptions: VxeGridProps = {
         return await getCategoryListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          categoryName: formValues.categoryName,
+          keywords: formValues.keywords,
         });
       },
     },
@@ -69,21 +69,18 @@ const gridOptions: VxeGridProps = {
       width: 70,
     },
     {
+      title: '分类图片',
+      field: 'image',
+      width: 90,
+      slots: { default: 'image' },
+    },
+    {
       title: '分类名称',
-      field: 'categoryName',
+      field: 'name',
     },
     {
-      title: '上级分类',
-      field: 'parentId',
-    },
-    {
-      title: $t('ui.table.sortId'),
-      field: 'sort',
-    },
-    {
-      title: $t('ui.table.status'),
-      field: 'status',
-      slots: { default: 'status' },
+      title: '排序号',
+      field: 'sortOrder',
     },
     {
       title: $t('ui.table.action'),
@@ -123,7 +120,7 @@ async function handleDelete(row: any) {
   row.pending = true;
   try {
     await deleteCategoryApi([row.id]);
-    window.$message.success($t('ui.notification.delete_success'));
+    message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;
     gridApi.query();
@@ -140,7 +137,7 @@ function handleCreate() {
     <Grid :table-title="$t('page.product.category.title')">
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('product:category:create')"
+          v-if="accessStore.hasAccessCode('product:category:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -149,8 +146,14 @@ function handleCreate() {
         </Button>
       </template>
 
-      <template #status="{ row }">
-        <Tag>{{ row.status }}</Tag>
+      <template #image="{ row }">
+        <img
+          v-if="row.image"
+          :src="row.image"
+          alt=""
+          class="w-10 h-10 rounded object-cover border border-gray-100"
+        />
+        <span v-else class="text-xs text-gray-300">-</span>
       </template>
 
       <template #action="{ row }">

@@ -16,30 +16,85 @@ use crate::core::r#enum::currency_code_enum::CurrencyCode;
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_crm_contract")]
 pub struct Model {
+    /// 合同ID（主键）
     #[sea_orm(primary_key)]
     #[serde(skip_deserializing)]
     pub id: i64,
+
+    /// 合同编号
     pub contract_no: Option<String>,
+
+    /// 关联客户ID
     pub customer_id: Option<i64>,
+
+    /// 关联商机ID
     pub opportunity_id: Option<i64>,
+
+    /// 合同名称
     #[sea_orm(column_name = "name")]
     pub title: Option<String>,
+
+    /// 合同类型
     pub contract_type: Option<String>,
+
+    /// 合同金额
     pub amount: Option<Decimal>,
+
+    /// 币种
     pub currency: Option<CurrencyCode>,
+
+    /// 税额
     pub tax_amount: Option<Decimal>,
+
+    /// 总金额（含税）
     pub total_amount: Option<Decimal>,
+
+    /// 合同状态
     pub status: Option<ContractStatus>,
+
+    /// 开始日期
     pub start_date: Option<Date>,
+
+    /// 结束日期
     pub end_date: Option<Date>,
+
+    /// 签订日期
     pub sign_date: Option<Date>,
+
+    /// 付款条款
     pub payment_terms: Option<String>,
+
+    /// 交付条款
+    pub delivery_terms: Option<String>,
+
+    /// 负责人ID
+    pub assigned_to: Option<i64>,
+
+    /// 描述/备注
+    pub description: Option<String>,
+
+    /// 合同文件URL
+    pub file_url: Option<String>,
+
+    /// 合同文件（备用）
     pub contract_file: Option<String>,
+
+    /// 备注
     pub remark: Option<String>,
+
+    /// 创建人ID
     pub created_by: Option<i64>,
+
+    /// 创建时间
     pub created_at: Option<DateTime>,
+
+    /// 更新人ID
     pub updated_by: Option<i64>,
+
+    /// 更新时间
     pub updated_at: Option<DateTime>,
+
+    /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
 }
 

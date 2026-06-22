@@ -11,9 +11,8 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
-use crate::core::r#enum::customer_level_enum::CustomerLevel;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
-use crate::core::r#enum::industry_type_enum::IndustryType;
+use crate::core::r#enum::industry_enum::IndustryType;
 use crate::core::r#enum::lead_source_enum::LeadSource;
 use crate::modules::crm::entity::{customer, customer::Entity as Customer};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
@@ -37,11 +36,9 @@ pub struct CustomerSaveRequest {
     /// 所属行业
     pub industry: Option<IndustryType>,
     /// 客户等级
-    pub level: Option<CustomerLevel>,
+    pub level: Option<i32>,
     /// 客户来源
     pub source: Option<LeadSource>,
-    /// 标签列表
-    pub tags: Option<Vec<String>>,
     /// 币种
     pub currency: Option<CurrencyCode>,
     /// 信用额度
@@ -73,7 +70,6 @@ impl From<CustomerSaveRequest> for CustomerSaveDTO {
             industry: item.industry,
             level: item.level,
             source: item.source,
-            tags: item.tags,
             currency: item.currency,
             credit_limit: item.credit_limit,
             credit_days: item.credit_days,
@@ -113,11 +109,9 @@ pub struct CustomerUpdateRequest {
     /// 所属行业
     pub industry: Option<IndustryType>,
     /// 客户等级
-    pub level: Option<CustomerLevel>,
+    pub level: Option<i32>,
     /// 客户来源
     pub source: Option<LeadSource>,
-    /// 标签列表
-    pub tags: Option<Vec<String>>,
     /// 币种
     pub currency: Option<CurrencyCode>,
     /// 信用额度
@@ -149,7 +143,6 @@ impl From<CustomerUpdateRequest> for CustomerSaveDTO {
             industry: item.industry,
             level: item.level,
             source: item.source,
-            tags: item.tags,
             currency: item.currency,
             credit_limit: item.credit_limit,
             credit_days: item.credit_days,
@@ -188,11 +181,9 @@ pub struct CustomerSaveDTO {
     /// 所属行业
     pub industry: Option<IndustryType>,
     /// 客户等级
-    pub level: Option<CustomerLevel>,
+    pub level: Option<i32>,
     /// 客户来源
     pub source: Option<LeadSource>,
-    /// 标签列表
-    pub tags: Option<Vec<String>>,
     /// 币种
     pub currency: Option<CurrencyCode>,
     /// 信用额度
@@ -245,11 +236,9 @@ pub struct CustomerDetailVO {
     /// 所属行业
     pub industry: Option<IndustryType>,
     /// 客户等级
-    pub level: Option<CustomerLevel>,
+    pub level: Option<i32>,
     /// 客户来源
     pub source: Option<LeadSource>,
-    /// 标签列表
-    pub tags: Option<Vec<String>>,
     /// 币种
     pub currency: Option<CurrencyCode>,
     /// 信用额度
@@ -290,7 +279,6 @@ impl From<customer::Model> for CustomerDetailVO {
             industry: item.industry,
             level: item.level,
             source: item.source,
-            tags: item.tags,
             currency: item.currency,
             credit_limit: item.credit_limit,
             credit_days: item.credit_days,
@@ -325,7 +313,7 @@ pub struct CustomerListVO {
     /// 地区/省份
     pub region: Option<String>,
     /// 客户等级
-    pub level: Option<CustomerLevel>,
+    pub level: Option<i32>,
     /// 客户来源
     pub source: Option<LeadSource>,
     /// 负责人ID
@@ -380,13 +368,6 @@ pub struct CustomerModel;
 
 impl CustomerModel {
     /// 新增客户
-    ///
-    /// # 参数
-    /// * `db` - 数据库连接
-    /// * `req` - 客户保存DTO
-    ///
-    /// # 返回
-    /// * `Result<i64, DbErr>` - 新增记录的ID
     pub async fn insert(db: &DbConn, req: &CustomerSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = customer::ActiveModel {
@@ -399,7 +380,6 @@ impl CustomerModel {
             industry: Set(req.industry.clone()),
             level: Set(req.level.clone()),
             source: Set(req.source.clone()),
-            tags: Set(req.tags.clone()),
             currency: Set(req.currency.clone()),
             credit_limit: Set(req.credit_limit.clone()),
             credit_days: Set(req.credit_days.clone()),
@@ -422,13 +402,6 @@ impl CustomerModel {
     }
 
     /// 批量删除客户(软删除)
-    ///
-    /// # 参数
-    /// * `db` - 数据库连接
-    /// * `ids` - 要删除的客户ID列表
-    ///
-    /// # 返回
-    /// * `Result<i64, DbErr>` - 删除的记录数
     pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
         Customer::update_many()
             .set(customer::ActiveModel {
@@ -442,14 +415,6 @@ impl CustomerModel {
     }
 
     /// 更新客户信息
-    ///
-    /// # 参数
-    /// * `db` - 数据库连接
-    /// * `id` - 客户ID
-    /// * `req` - 客户保存DTO
-    ///
-    /// # 返回
-    /// * `Result<i64, DbErr>` - 更新的记录数
     pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &CustomerSaveDTO) -> Result<i64, DbErr> {
         let payload = customer::ActiveModel {
             company_name: Set(req.company_name.clone()),
@@ -461,7 +426,6 @@ impl CustomerModel {
             industry: Set(req.industry.clone()),
             level: Set(req.level.clone()),
             source: Set(req.source.clone()),
-            tags: Set(req.tags.clone()),
             currency: Set(req.currency.clone()),
             credit_limit: Set(req.credit_limit.clone()),
             credit_days: Set(req.credit_days.clone()),
@@ -485,13 +449,6 @@ impl CustomerModel {
     }
 
     /// 根据ID查询客户详情
-    ///
-    /// # 参数
-    /// * `db` - 数据库连接
-    /// * `id` - 客户ID
-    ///
-    /// # 返回
-    /// * `Result<Option<customer::Model>, DbErr>` - 客户模型(未删除)
     pub async fn find_by_id(db: &DbConn, id: i64) -> Result<Option<customer::Model>, DbErr> {
         Customer::find_by_id(id)
             .filter(customer::Column::Deleted.eq(0))
@@ -500,19 +457,6 @@ impl CustomerModel {
     }
 
     /// 分页查询客户列表
-    ///
-    /// # 参数
-    /// * `db` - 数据库连接
-    /// * `page` - 页码
-    /// * `per_page` - 每页大小
-    /// * `keywords` - 关键词
-    /// * `level` - 客户等级
-    /// * `country` - 国家
-    /// * `source` - 客户来源
-    /// * `assigned_to` - 负责人ID
-    ///
-    /// # 返回
-    /// * `Result<(Vec<customer::Model>, i64), DbErr>` - (客户列表, 总页数)
     pub async fn select_in_page(
         db: &DbConn,
         page: i64,
@@ -549,17 +493,6 @@ impl CustomerModel {
     }
 
     /// 查询客户总数
-    ///
-    /// # 参数
-    /// * `db` - 数据库连接
-    /// * `keywords` - 关键词
-    /// * `level` - 客户等级
-    /// * `country` - 国家
-    /// * `source` - 客户来源
-    /// * `assigned_to` - 负责人ID
-    ///
-    /// # 返回
-    /// * `Result<i64, DbErr>` - 客户总数
     pub async fn select_count(
         db: &DbConn,
         keywords: Option<String>,

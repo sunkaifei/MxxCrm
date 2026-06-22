@@ -44,6 +44,14 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.product.warehouse.title'),
         },
       },
+      {
+        name: 'ProductSku',
+        path: '/product/sku',
+        component: () => import('#/views/product/sku/index.vue'),
+        meta: {
+          title: $t('page.product.sku.title'),
+        },
+      },
     ],
   },
 ];

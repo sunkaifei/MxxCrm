@@ -26,12 +26,12 @@ const [ContactEditDrawer, contactEditDrawerApi] = useVbenDrawer({
 });
 
 const levelColor = computed(() => {
-  const map: Record<string, string> = { VIP: 'gold', SVIP: 'red', potential: 'blue', normal: 'green', lost: 'default' };
+  const map: Record<string, string> = { 1: 'default', 2: 'red', 3: 'orange', 4: 'blue', 5: 'green' };
   return map[customer.value.level] || 'blue';
 });
 
 const levelLabel = computed(() => {
-  const map: Record<string, string> = { VIP: 'VIP', SVIP: 'SVIP', potential: '潜在', normal: '普通', lost: '流失' };
+  const map: Record<string, string> = { 1: '无级别', 2: '重点客户', 3: '优质客户', 4: '普通客户', 5: '其他' };
   return map[customer.value.level] || customer.value.level || '-';
 });
 

@@ -19,12 +19,12 @@ import CustomerDetail from './detail.vue';
 
 const accessStore = useAccessStore();
 
-// 等级颜色映射 - 对齐后端 CustomerLevel 枚举
+// 等级颜色映射 - 1:无级别 2:重点客户 3:优质客户 4:普通客户 5:其他
 const levelColorMap: Record<string, string> = {
-  vip: 'gold', svip: 'red', potential: 'blue', normal: 'green', lost: 'default',
+  1: 'default', 2: 'red', 3: 'orange', 4: 'blue', 5: 'green',
 };
 const levelLabelMap: Record<string, string> = {
-  vip: 'VIP', svip: 'SVIP', potential: '潜在', normal: '普通', lost: '流失',
+  1: '无级别', 2: '重点客户', 3: '优质客户', 4: '普通客户', 5: '其他',
 };
 
 // 行业映射 - 对齐后端 IndustryType 枚举
@@ -72,11 +72,11 @@ const formOptions: VbenFormProps = {
         placeholder: '全部',
         allowClear: true,
         options: [
-          { label: 'VIP', value: 'vip' },
-          { label: 'SVIP', value: 'svip' },
-          { label: '潜在', value: 'potential' },
-          { label: '普通', value: 'normal' },
-          { label: '流失', value: 'lost' },
+          { label: '无级别', value: 1 },
+          { label: '重点客户', value: 2 },
+          { label: '优质客户', value: 3 },
+          { label: '普通客户', value: 4 },
+          { label: '其他', value: 5 },
         ],
       },
     },
@@ -139,11 +139,11 @@ const gridOptions: VxeGridProps = {
       cellRender: {
         name: 'Tag',
         options: [
-          { value: 'vip', label: 'VIP', color: 'gold' },
-          { value: 'svip', label: 'SVIP', color: 'red' },
-          { value: 'potential', label: '潜在', color: 'blue' },
-          { value: 'normal', label: '普通', color: 'green' },
-          { value: 'lost', label: '流失', color: 'default' },
+          { value: 1, label: '无级别', color: 'default' },
+          { value: 2, label: '重点客户', color: 'red' },
+          { value: 3, label: '优质客户', color: 'orange' },
+          { value: 4, label: '普通客户', color: 'blue' },
+          { value: 5, label: '其他', color: 'green' },
         ],
       },
     },

@@ -19,7 +19,7 @@ use crate::modules::shop::controller::admin::audit_controller;
 use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller};
 use crate::modules::user::controller::user::user_level_controller;
 use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller};
-use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller};
+use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
 use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller};
 use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller};
@@ -244,6 +244,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(tag_admin_controller::remove_tags_from_entity)
                 .service(tag_admin_controller::get_tags_by_entity)
                 .service(tag_admin_controller::batch_tag_entity)
+                .service(tag_admin_controller::get_all_tags)
+                .service(tag_admin_controller::get_tag_group_list)
                 // Search Management
                 .service(search_admin_controller::create_index)
                 .service(search_admin_controller::delete_index)
@@ -363,6 +365,18 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(product_controller::batch_delete_product)
                 .service(product_controller::product_info)
                 .service(product_controller::product_list)
+                // Product Spec Management
+                .service(spec_controller::get_product_specs)
+                .service(spec_controller::save_product_specs)
+                .service(spec_controller::generate_skus)
+                .service(spec_controller::batch_save_skus)
+                // SKU Template Management
+                .service(sku_template_controller::template_list)
+                .service(sku_template_controller::template_info)
+                .service(sku_template_controller::template_save)
+                .service(sku_template_controller::template_update)
+                .service(sku_template_controller::template_delete)
+                .service(sku_template_controller::template_spec_save)
                 // Inventory Warehouse Management
                 .service(warehouse_controller::warehouse_insert)
                 .service(warehouse_controller::warehouse_update)

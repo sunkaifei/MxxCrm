@@ -1,6 +1,6 @@
 <template>
   <Cascader
-    v-model="modelValue"
+    v-model="localValue"
     :options="areaOptions"
     :placeholder="placeholder"
     :show-search="showSearch"
@@ -35,6 +35,11 @@ const emit = defineEmits<{
 }>();
 
 const areaOptions = ref<any[]>([]);
+const localValue = ref<string[] | undefined>(props.modelValue);
+
+watch(() => props.modelValue, (newVal) => {
+  localValue.value = newVal;
+});
 
 const loadAreaData = async () => {
   try {
@@ -48,15 +53,10 @@ const loadAreaData = async () => {
 };
 
 const handleChange = (value: string[]) => {
+  localValue.value = value;
   emit('update:modelValue', value);
   emit('change', value);
 };
-
-watch(() => props.modelValue, (newVal) => {
-  if (newVal) {
-    console.log('modelValue changed:', newVal);
-  }
-});
 
 onMounted(() => {
   loadAreaData();

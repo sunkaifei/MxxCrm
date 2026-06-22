@@ -287,7 +287,8 @@
       "button": {
         "create": "新增产品",
         "edit": "编辑产品",
-        "delete": "删除产品"
+        "delete": "删除产品",
+        "view": "SKU"
       }
     },
     "category": {
@@ -308,6 +309,9 @@
         "edit": "编辑仓库",
         "delete": "删除仓库"
       }
+    },
+    "sku": {
+      "title": "规格管理"
     }
   },
   "purchase": {

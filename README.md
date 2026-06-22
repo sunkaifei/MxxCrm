@@ -52,7 +52,77 @@ Mxx-CRM 是一款现代化的客户关系管理系统，采用前后端分离架
 ### 3. 销售模块
 - **订单管理**：订单创建、状态跟踪、发货管理
 - **支付管理**：支付记录、对账管理
-- **产品管理**：产品信息、分类管理、库存管理
+
+### 6. 产品模块
+- **产品管理**：产品信息管理、多SKU变体支持（动态规格）、分类管理
+- **SKU规格管理**：独立SKU配置页面，支持动态定义规格（颜色/尺寸/CPU/内存等）
+- **库存管理**：仓库管理、产品库存跟踪
+
+#### 产品SKU设计
+
+产品模块采用 **主表 + SKU变体表 + 动态规格表** 设计模式：
+
+**`mxx_product_main`（产品主表）**
+存储产品公共信息：产品名称、编号、默认SKU、条码、单位、价格、重量、尺寸、描述、主图等。
+
+**`mxx_product_spec`（规格定义表）**
+定义每个产品的规格维度（动态，不固定）：
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGSERIAL | 主键 |
+| `product_id` | BIGINT | 关联产品主表（外键CASCADE） |
+| `name` | VARCHAR(64) | 规格名称（如：颜色、尺寸、CPU型号、内存） |
+| `sort_order` | INT | 排序值 |
+
+**`mxx_product_spec_value`（规格值表）**
+存储每个规格维度的可选值：
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGSERIAL | 主键 |
+| `spec_id` | BIGINT | 关联规格定义表（外键CASCADE） |
+| `value` | VARCHAR(128) | 规格值（如：红色、S、i7-13700、16GB） |
+| `sort_order` | INT | 排序值 |
+
+**`mxx_product_sku`（SKU变体表）**
+存储每个产品的具体规格变体，使用 JSONB 字段存储动态规格：
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGSERIAL | 主键 |
+| `product_id` | BIGINT | 关联产品主表（外键CASCADE） |
+| `sku_code` | VARCHAR(64) | SKU编码 |
+| `specs` | JSONB | 动态规格键值对，如 `{"颜色":"红色","尺寸":"S"}` |
+| `price` | NUMERIC(15,2) | 销售价 |
+| `cost_price` | NUMERIC(15,2) | 成本价 |
+| `stock` | INTEGER | 库存数量 |
+| `image_url` | VARCHAR(255) | 变体图片 |
+| `is_active` | BOOLEAN | 是否启用 |
+
+**API接口**
+- `POST /api/system/product/product/save` — 创建产品（含SKU变体列表）
+- `PUT /api/system/product/product/update` — 更新产品（先删后插SKU策略）
+- `DELETE /api/system/product/product/batchDelete` — 批量删除
+- `GET /api/system/product/product/info?id=xx` — 获取产品详情（含SKU列表）
+- `GET /api/system/product/product/list` — 产品列表查询（分页/关键词/分类/状态）
+- `GET /api/system/product/spec/list?productId=xx` — 获取产品规格定义和SKU列表
+- `POST /api/system/product/spec/save` — 保存产品规格定义
+- `GET /api/system/product/sku/generate?productId=xx` — 根据规格组合自动生成SKU（笛卡尔积）
+- `POST /api/system/product/sku/batchSave` — 批量保存SKU
+
+**后端架构**
+- 实体：`product::entity::spec` / `spec_value` / `sku`（`specs` 字段使用 `serde_json::Value`）
+- 模型：`product::model::spec`（`SpecVO`、`SpecSaveItem`、`GeneratedSkuVO`、`SpecGroupVO`）
+- 服务：`spec_service`（`get_specs`、`save_specs`、`generate_skus`）
+- 控制器：`spec_controller`（4个API端点）
+
+**前端交互**
+- 产品列表每行增加 **SKU** 按钮，点击跳转至独立SKU管理页面
+- **SKU规格管理页面** (`views/product/sku/index.vue`)：
+  1. 产品搜索选择器（搜索过滤）
+  2. 规格定义区域：动态添加/删除规格，每个规格可自定义名称和逗号分隔的值
+  3. 保存规格到后端
+  4. 一键生成SKU：自动根据规格组合计算笛卡尔积，生成所有变体
+  5. SKU编辑表格：可编辑每个SKU的编码、销售价、库存
+  6. 批量保存SKU
 
 ### 4. 采购模块
 - **供应商管理**：供应商信息维护、评级管理

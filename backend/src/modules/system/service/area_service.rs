@@ -1,4 +1,3 @@
-use actix_web::web::Data;
 use sea_orm::DatabaseConnection;
 use crate::modules::system::model::area::{AreaSaveDTO, AreaDetailVO, AreaTreeVO, AreaCascaderVO, AreaListQuery, AreaModel};
 use crate::utils::response::ApiResponse;
@@ -15,8 +14,8 @@ macro_rules! api_ok {
 }
 
 impl AreaService {
-    pub async fn get_area_tree(db: Data<DatabaseConnection>) -> ApiResponse {
-        let areas = AreaModel::find_all(&db).await;
+    pub async fn get_area_tree(db: &DatabaseConnection) -> ApiResponse {
+        let areas = AreaModel::find_all(db).await;
         let areas = match areas {
             Ok(a) => a,
             Err(e) => return ApiResponse::error(500, format!("查询地区数据失败: {}", e)),
@@ -56,8 +55,8 @@ impl AreaService {
         ApiResponse::success_with_data("获取成功", tree)
     }
 
-    pub async fn get_cascader_data(db: Data<DatabaseConnection>) -> ApiResponse {
-        let areas = AreaModel::find_all(&db).await;
+    pub async fn get_cascader_data(db: &DatabaseConnection) -> ApiResponse {
+        let areas = AreaModel::find_all(db).await;
         let areas = match areas {
             Ok(a) => a,
             Err(e) => return ApiResponse::error(500, format!("查询地区数据失败: {}", e)),
@@ -82,12 +81,12 @@ impl AreaService {
         ApiResponse::success_with_data("获取成功", cascader)
     }
 
-    pub async fn get_countries(db: Data<DatabaseConnection>) -> ApiResponse {
-        api_ok!(AreaModel::find_countries(&db), "获取国家列表")
+    pub async fn get_countries(db: &DatabaseConnection) -> ApiResponse {
+        api_ok!(AreaModel::find_countries(db), "获取国家列表")
     }
 
-    pub async fn get_provinces(db: Data<DatabaseConnection>, country_code: String) -> ApiResponse {
-        let areas = AreaModel::find_by_country_code(&db, &country_code).await;
+    pub async fn get_provinces(db: &DatabaseConnection, country_code: String) -> ApiResponse {
+        let areas = AreaModel::find_by_country_code(db, &country_code).await;
         let areas = match areas {
             Ok(a) => a,
             Err(e) => return ApiResponse::error(500, format!("查询省份数据失败: {}", e)),
@@ -101,13 +100,13 @@ impl AreaService {
         ApiResponse::success_with_data("获取成功", provinces)
     }
 
-    pub async fn get_children(db: Data<DatabaseConnection>, parent_id: String) -> ApiResponse {
+    pub async fn get_children(db: &DatabaseConnection, parent_id: String) -> ApiResponse {
         let pid: i64 = match parent_id.parse() {
             Ok(id) => id,
             Err(_) => return ApiResponse::error(400, "参数错误: parent_id 格式不正确".to_string()),
         };
 
-        let children = AreaModel::find_by_parent_id(&db, pid).await;
+        let children = AreaModel::find_by_parent_id(db, pid).await;
         let children = match children {
             Ok(c) => c,
             Err(e) => return ApiResponse::error(500, format!("查询子级数据失败: {}", e)),
@@ -117,13 +116,13 @@ impl AreaService {
         ApiResponse::success_with_data("获取成功", result)
     }
 
-    pub async fn get_detail(db: Data<DatabaseConnection>, id: String) -> ApiResponse {
+    pub async fn get_detail(db: &DatabaseConnection, id: String) -> ApiResponse {
         let area_id: i64 = match id.parse() {
             Ok(id) => id,
             Err(_) => return ApiResponse::error(400, "参数错误: id 格式不正确".to_string()),
         };
 
-        let area = AreaModel::find_by_id(&db, area_id).await;
+        let area = AreaModel::find_by_id(db, area_id).await;
         let area = match area {
             Ok(a) => a,
             Err(e) => return ApiResponse::error(500, format!("查询详情失败: {}", e)),
@@ -135,12 +134,12 @@ impl AreaService {
         }
     }
 
-    pub async fn get_by_page(db: Data<DatabaseConnection>, query: AreaListQuery) -> ApiResponse {
+    pub async fn get_by_page(db: &DatabaseConnection, query: AreaListQuery) -> ApiResponse {
         let page = query.page_num.unwrap_or(1);
         let page_size = query.page_size.unwrap_or(20);
 
         let result = AreaModel::select_in_page(
-            &db, page, page_size, query.name, query.level, query.country_code,
+            db, page, page_size, query.name, query.level, query.country_code,
         ).await;
 
         let (list, total) = match result {
@@ -152,21 +151,21 @@ impl AreaService {
         ApiResponse::success_with_pagination("获取成功", result, total, page, page_size)
     }
 
-    pub async fn insert(db: Data<DatabaseConnection>, form_data: AreaSaveDTO) -> ApiResponse {
-        let result = AreaModel::insert(&db, &form_data).await;
+    pub async fn insert(db: &DatabaseConnection, form_data: AreaSaveDTO) -> ApiResponse {
+        let result = AreaModel::insert(db, &form_data).await;
         match result {
             Ok(id) => ApiResponse::success_with_data("新增成功", id),
             Err(e) => ApiResponse::error(500, format!("新增失败: {}", e)),
         }
     }
 
-    pub async fn update(db: Data<DatabaseConnection>, id: String, form_data: AreaSaveDTO) -> ApiResponse {
+    pub async fn update(db: &DatabaseConnection, id: String, form_data: AreaSaveDTO) -> ApiResponse {
         let area_id: i64 = match id.parse() {
             Ok(id) => id,
             Err(_) => return ApiResponse::error(400, "参数错误: id 格式不正确".to_string()),
         };
 
-        let affected = AreaModel::update_by_id(&db, area_id, form_data).await;
+        let affected = AreaModel::update_by_id(db, area_id, form_data).await;
         let affected = match affected {
             Ok(a) => a,
             Err(e) => return ApiResponse::error(500, format!("更新失败: {}", e)),
@@ -179,7 +178,7 @@ impl AreaService {
         }
     }
 
-    pub async fn batch_delete(db: Data<DatabaseConnection>, ids: Vec<String>) -> ApiResponse {
+    pub async fn batch_delete(db: &DatabaseConnection, ids: Vec<String>) -> ApiResponse {
         let id_list: Vec<i64> = ids.into_iter()
             .filter_map(|s| s.parse::<i64>().ok())
             .collect();
@@ -188,7 +187,7 @@ impl AreaService {
             return ApiResponse::error(400, "请选择要删除的地区".to_string());
         }
 
-        let affected = AreaModel::batch_delete_by_ids(&db, id_list).await;
+        let affected = AreaModel::batch_delete_by_ids(db, id_list).await;
         match affected {
             Ok(a) => ApiResponse::success_with_data("删除成功", a),
             Err(e) => ApiResponse::error(500, format!("删除失败: {}", e)),

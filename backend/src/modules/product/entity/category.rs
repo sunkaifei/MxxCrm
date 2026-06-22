@@ -18,14 +18,12 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub id: i64,
     pub parent_id: Option<i64>,
-    pub category_name: Option<String>,
-    pub category_code: Option<String>,
+    pub name: Option<String>,
+    pub image: Option<String>,
+    pub description: Option<String>,
     pub sort_order: Option<i32>,
-    pub status: Option<String>,
-    pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
-    pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub create_time: Option<DateTimeWithTimeZone>,
+    pub update_time: Option<DateTimeWithTimeZone>,
     pub deleted: Option<i32>,
 }
 

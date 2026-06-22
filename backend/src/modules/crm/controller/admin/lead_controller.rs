@@ -11,7 +11,7 @@ use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, 
 use crate::modules::crm::service::lead_service;
 
 #[post("/lead/save")]
-#[protect("crm:lead:save")]
+#[protect("crm:lead:create")]
 pub async fn lead_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -158,13 +158,19 @@ pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, fo
         return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "绾跨储ID涓嶈兘涓虹┖", "local"));
     }
 
-    if query.status.is_none() || query.status.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鐘舵€佷笉鑳戒负绌�", "local"));
+    let status_str = query.status.as_ref().map(|v| match v {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        _ => String::new(),
+    }).filter(|s| !s.is_empty());
+
+    if status_str.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "状态不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
-    let result = lead_service::update_status(&db, query.id.unwrap(), query.status.unwrap().as_str(), Some(jwt_token.id.unwrap_or_default())).await;
+    let result = lead_service::update_status(&db, query.id.unwrap(), &status_str.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 

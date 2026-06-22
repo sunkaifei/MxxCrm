@@ -1,5 +1,5 @@
 use sea_orm::*;
-use sea_orm::entity::prelude::DateTime;
+use chrono::{DateTime, Utc};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::system::entity::{tag_group, tag_group::Entity as TagGroup};
 use crate::utils::string_utils::{serialize_option_u64_to_string, deserialize_string_to_u64};
@@ -79,7 +79,7 @@ pub struct TagGroupListVO {
     pub sort_order: Option<i32>,
     pub description: Option<String>,
     pub is_global: Option<bool>,
-    pub created_at: Option<DateTime>,
+    pub created_at: Option<DateTime<Utc>>,
     pub tag_count: Option<i64>,
 }
 
@@ -94,9 +94,9 @@ pub struct TagGroupDetailVO {
     pub description: Option<String>,
     pub is_global: Option<bool>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub created_at: Option<DateTime<Utc>>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl From<tag_group::Model> for TagGroupDetailVO {
@@ -120,7 +120,7 @@ pub struct TagGroupModel;
 
 impl TagGroupModel {
     pub async fn insert(db: &DbConn, req: &TagGroupSaveDTO) -> Result<i64, DbErr> {
-        let now = chrono::Local::now().naive_local().to_owned();
+        let now = chrono::Utc::now();
         let payload = tag_group::ActiveModel {
             group_name: Set(req.group_name.clone()),
             group_color: Set(req.group_color.clone()),
@@ -144,7 +144,7 @@ impl TagGroupModel {
             description: Set(req.description.clone()),
             is_global: Set(req.is_global.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            updated_at: Set(Option::from(chrono::Utc::now())),
             ..Default::default()
         };
         let update_result: UpdateResult = TagGroup::update_many()
@@ -159,7 +159,7 @@ impl TagGroupModel {
     pub async fn delete_by_id(db: &DbConn, id: i64) -> Result<i64, DbErr> {
         let payload = tag_group::ActiveModel {
             deleted: Set(Some(1)),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            updated_at: Set(Option::from(chrono::Utc::now())),
             ..Default::default()
         };
         let update_result: UpdateResult = TagGroup::update_many()
@@ -174,7 +174,7 @@ impl TagGroupModel {
     pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
         let payload = tag_group::ActiveModel {
             deleted: Set(Some(1)),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            updated_at: Set(Option::from(chrono::Utc::now())),
             ..Default::default()
         };
         let update_result: UpdateResult = TagGroup::update_many()

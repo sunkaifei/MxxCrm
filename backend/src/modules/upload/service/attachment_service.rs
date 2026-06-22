@@ -85,134 +85,118 @@ pub async fn upload_image(db: &DbConn, form: ImageFormRequest) -> Result<HttpRes
     // 根据类型上传到对应服务器
     match &storage_type {
         StorageType::Local => {
-            // 判断是否有相同
+            // 判断是否有相同MD5的文件（去重）
             let attach_data = AttachmentModel::select_by_md5(&db, md5.clone()).await;
-            match attach_data {
-                Ok(attach_option) => {
-                    match attach_option {
-                        Some(attach) => {
-                            result_map.insert("fileName".to_string(), attach.name.unwrap_or_default());
-
-                            let img_url = format!(
-                                "{}{}",
-                                &storage_url,
-                                attach.upload_url.unwrap_or_default()
-                            ).to_string();
-                            result_map.insert("url".to_string(), img_url);
-                            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result_map, "local")));
-                        }
-                        _ => {
-                            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取上传服务器地址失败", "local")));
-                        }
-                    }
-                }
-                Err(err) => {
-                    let _ = Error::from(format!(
-                        "{}：{}",
-                        "查询图片信息错误".to_string(),
-                        err.to_string()
-                    ));
+            if let Ok(Some(attach)) = attach_data {
+                // 找到重复文件，直接返回已存在的URL
+                result_map.insert("fileName".to_string(), attach.name.unwrap_or_default());
+                let img_url = format!(
+                    "{}{}",
+                    &storage_url,
+                    attach.upload_url.unwrap_or_default()
+                ).to_string();
+                result_map.insert("url".to_string(), img_url);
+                return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result_map, "local")));
+            }
+            // 没有重复文件或查询失败，继续上传
+            // 上传到本地服务器
+            upload_to_local_storage(&form.file, &Some(path.clone())).await?;
+            // 保存成功后删除临时文件
+            let _ = fs::remove_file(&form.file.file);
+            // 保存附件记录
+            let id = SNOWFLAKE.generate();
+            let type_id_u64 = match text_to_u64(&type_id) {
+                Ok(number) => number,
+                Err(_) => {
+                    return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "请选择正确的类型", "local")));
                 }
             };
-            // 上传到本地服务器
-            upload_to_local_storage(&form.file, &Some(directory_url)).await
+            let create_data = AttachmentSaveDTO {
+                id,
+                user_id: None,
+                type_id: Some(type_id_u64),
+                name: Some(file_name.clone()),
+                path: Some(path.clone()),
+                upload_url: Some(url.clone()),
+                ext: Some(ext.clone()),
+                size: Some(size),
+                md5: Some(md5),
+                storage_type: config_detail.config_value
+                    .as_deref()
+                    .and_then(|s| s.parse::<i32>().ok()).clone(),
+                r#type: Some(2),
+                status: Some(1i32),
+                create_time: None,
+            };
+            let rows = AttachmentModel::insert(&db, &create_data.clone()).await?;
+            if rows > 0 {
+                result_map.insert("fileName".to_string(), file_name.clone().to_string());
+                let img_url = format!(
+                    "{}{}",
+                    &storage_url,
+                    &url.to_string()
+                ).to_string();
+                result_map.insert("url".to_string(), img_url);
+                return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result_map, "local")));
+            }
+            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "上传图片保存失败", "local")));
         },
-        StorageType::Qiniu => upload_to_qiniu_storage().await,
-        StorageType::Aliyun => upload_to_aliyun_storage().await,
-        StorageType::Tencent => upload_to_tencent_storage().await,
-    }?;
-    
-    let id = SNOWFLAKE.generate();
-    
-    let type_id_u64 = match text_to_u64(&type_id) {
-        Ok(number) => number,
-        Err(_) => {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "请选择正确的类型", "local")));
-        }
-    };
-    let create_data = AttachmentSaveDTO {
-        id,
-        user_id: None,
-        type_id: Some(type_id_u64),
-        name: Some(file_name.clone()),
-        path: Some(path.clone()),
-        upload_url: Some(url.clone()),
-        ext: Some(ext.clone()),
-        size: Some(size),
-        md5: Some(md5),
-        storage_type: config_detail.config_value
-            .as_deref()
-            .and_then(|s| s.parse::<i32>().ok()).clone(),
-        r#type: Some(2),
-        status: Some(1i32),
-        create_time: None,
-    };
-    
-    let rows = AttachmentModel::insert(&db, &create_data.clone()).await?;
-    if rows > 0 {
-        result_map.insert("fileName".to_string(), file_name.clone().to_string());
-        let img_url = format!(
-            "{}{}",
-            &storage_url,
-            &url.to_string()
-        ).to_string();
-        result_map.insert("url".to_string(), img_url);
-
-        if fs::remove_file(&path).is_err() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "保存失败，图片删除错误", "local")));
-        }
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result_map, "local")));
+        StorageType::Qiniu => upload_to_qiniu_storage(&form.file, &path, &url, &md5, &size, &ext, &file_name).await,
+        StorageType::Aliyun => upload_to_aliyun_storage(&form.file, &path, &url, &md5, &size, &ext, &file_name).await,
+        StorageType::Tencent => upload_to_tencent_storage(&form.file, &path, &url, &md5, &size, &ext, &file_name).await,
     }
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "上传图片保存失败", "local")))
 }
 
-async fn upload_to_local_storage(file: &TempFile, save_directory: &Option<String>) -> Result<bool> {
-    if save_directory.as_ref().map_or(true, |directory_name| directory_name.trim().is_empty()) {
-        return Err(Error::from("目录不能为空"))
-    }
-    
-    let directory_url = save_directory.clone().unwrap_or_default();
-    if !Path::new(directory_url.as_str()).exists() {
-        log::info!("创建目录: {}", directory_url.as_str());
-        fs::create_dir_all(directory_url.as_str()).unwrap_or_else(|err| eprintln!("创建目录失败: {}", err));
+async fn upload_to_local_storage(file: &TempFile, full_path: &Option<String>) -> Result<HttpResponse> {
+    let file_path = full_path
+        .as_ref()
+        .ok_or_else(|| Error::from("文件路径不能为空"))?;
+
+    // 创建父目录
+    let parent_dir = Path::new(file_path).parent();
+    if let Some(dir) = parent_dir {
+        if !dir.exists() {
+            log::info!("创建目录: {:?}", dir);
+            fs::create_dir_all(dir).map_err(|err| Error::from(format!("创建目录失败: {}", err)))?;
+        }
     }
 
-    fs::copy(&file.file, &directory_url).unwrap_or_default();
-    //log::info!("=============1=======logo:{:?}  ======{:?}", &form.file.file.path(),&path);
-    if !Path::new(&directory_url).exists(){
-        return Err(Error::from("上传失败"));
+    // 复制文件到目标路径
+    fs::copy(&file.file, file_path)
+        .map_err(|err| Error::from(format!("文件复制失败: {}", err)))?;
+
+    // 验证文件是否已创建
+    if !Path::new(file_path).exists() {
+        return Err(Error::from("上传失败：文件未创建成功"));
     }
-    //log::info!("==========2==========logo:{:?}", &path);
+
+    // Linux 下设置文件权限
     if cfg!(target_os = "linux") {
-        //附件根目录路径
         let target_path = &config::section::<String>("attach", "upload_path", "".to_string());
-        // 获取父级目录的权限
         let parent_permissions = match fs::metadata(&target_path) {
             Ok(metadata) => metadata.permissions(),
             Err(err) => {
-                log::error!("linux下获取父级权限失败: {:?}", err);
-                return Err(Error::from("linux下获取父级权限失败"));
+                log::error!("linux 下获取父级权限失败: {:?}", err);
+                return Err(Error::from("linux 下获取父级权限失败"));
             }
         };
-        // 设置新文件的权限
-        fs::set_permissions(&directory_url, parent_permissions).expect("父级目录权限设置给新文件失败");
+        fs::set_permissions(file_path, parent_permissions)
+            .expect("父级目录权限设置给新文件失败");
     }
-    Ok(true)
+
+    Ok(HttpResponse::Ok().finish())
 }
 
-async fn upload_to_qiniu_storage() -> Result<bool> {
-    println!("Uploading to Qiniu Storage...");
-    Ok(true)
+async fn upload_to_qiniu_storage(_file: &TempFile, _path: &str, _url: &str, _md5: &str, _size: &i64, _ext: &str, _file_name: &str) -> Result<HttpResponse> {
+    Err(Error::from("七牛云上传暂未实现"))
 }
 
-async fn upload_to_aliyun_storage() -> Result<bool> {
-    println!("Uploading to Aliyun Storage...");
-    Ok(true)
+async fn upload_to_aliyun_storage(_file: &TempFile, _path: &str, _url: &str, _md5: &str, _size: &i64, _ext: &str, _file_name: &str) -> Result<HttpResponse> {
+    Err(Error::from("阿里云上传暂未实现"))
 }
 
-async fn upload_to_tencent_storage() -> Result<bool> {
-    println!("Uploading to Tencent Storage...");
-    Ok(true)
+async fn upload_to_tencent_storage(_file: &TempFile, _path: &str, _url: &str, _md5: &str, _size: &i64, _ext: &str, _file_name: &str) -> Result<HttpResponse> {
+    Err(Error::from("腾讯云上传暂未实现"))
 }
 
 /// # 上传路径
@@ -222,10 +206,8 @@ async fn upload_to_tencent_storage() -> Result<bool> {
 /// * `file_name` 文件名称 如：123.jpg 
 #[allow(dead_code)]
 pub fn upload_path(module: &String, directory: &Option<String>, file_name: &String) -> Result<String> {
-    // 检查 module 是否为空
-    if module.is_empty() {
-        return Err(Error::from("Module cannot be empty"));
-    }
+    // module 为空时使用默认目录名 attachment
+    let module = if module.is_empty() { "attachment" } else { module };
     
     let path = &config::section::<String>("attach", "upload_path", "".to_string());
 
@@ -243,6 +225,8 @@ pub fn upload_path(module: &String, directory: &Option<String>, file_name: &Stri
 /// * `file_name` 文件名称 如：123.jpg 
 #[allow(dead_code)]
 pub fn upload_url(module: &String, directory: &Option<String>, file_name: &String) -> String {
+    // module 为空时使用默认目录名 attachment
+    let module = if module.is_empty() { "attachment" } else { module };
     let path = &config::section::<String>("attach", "upload_url", "".to_string());
     let directory_url: String = match directory {
         Some(dir) => format!("/{}/", dir),
@@ -378,7 +362,23 @@ pub async fn upload_storage_url(db: &DbConn, storage_type: &Option<i32>) -> Resu
         })
         .unwrap_or_else(|| "localStorage".to_string());
 
-    // 获取上传服务器类型
-    let config = config_service::select_by_key(db, &storage_key).await?;
-    Ok(config.config_value.unwrap_or_default())
+    // 先尝试从数据库获取配置
+    if let Ok(config) = config_service::select_by_key(db, &storage_key).await {
+        if let Some(value) = config.config_value {
+            if !value.is_empty() {
+                return Ok(value);
+            }
+        }
+    }
+
+    // 数据库配置不存在或为空时，回退到 config.ini 配置
+    match storage_key.as_str() {
+        "localStorage" => {
+            // 本地存储使用 static_url + upload_url 拼接
+            let static_url = config::section::<String>("attach", "static_url", "http://localhost:8080".to_string());
+            let upload_url = config::section::<String>("attach", "upload_url", "/upload/".to_string());
+            Ok(format!("{}{}", static_url.trim_end_matches('/'), upload_url))
+        }
+        _ => Err(Error::from(format!("未配置 {} 存储地址", storage_key))),
+    }
 }

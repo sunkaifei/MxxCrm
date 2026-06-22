@@ -138,17 +138,21 @@ where
     Ok(opt_u64)
 }
 
-///字符串转为<Option<i64>
+///字符串/数字转为<Option<i64>
 pub fn deserialize_string_to_u64<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s: Option<String> = Option::deserialize(deserializer)?;
-    match s {
-        Some(val) => match val.parse::<i64>() {
+    use serde::de::Error;
+    use serde_json::Value;
+
+    match Option::<Value>::deserialize(deserializer)? {
+        Some(Value::String(s)) => match s.parse::<i64>() {
             Ok(num) => Ok(Some(num)),
-            Err(_) => Ok(None), // 或者返回默认值 Some(0)
+            Err(_) => Ok(None),
         },
+        Some(Value::Number(n)) => Ok(n.as_i64()),
+        Some(_) => Err(D::Error::custom("expected string or number")),
         None => Ok(None),
     }
 }

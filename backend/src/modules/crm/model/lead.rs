@@ -8,6 +8,21 @@ use crate::core::r#enum::lead_status_enum::LeadStatus;
 use crate::modules::crm::entity::{lead, lead::Entity as Lead};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
+/// 将 i32 转换为 LeadStatus
+fn i32_to_lead_status(v: i32) -> Option<LeadStatus> {
+    match v {
+        1 => Some(LeadStatus::New),
+        2 => Some(LeadStatus::Following),
+        3 => Some(LeadStatus::Converted),
+        4 => Some(LeadStatus::Invalid),
+        5 => Some(LeadStatus::Recycled),
+        6 => Some(LeadStatus::Unchecked),
+        7 => Some(LeadStatus::Checking),
+        8 => Some(LeadStatus::Valid),
+        _ => None,
+    }
+}
+
 /// 线索新增请求DTO
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all(deserialize = "camelCase"))]
@@ -39,11 +54,9 @@ pub struct LeadSaveRequest {
     /// 来源详情
     pub source_detail: Option<String>,
     /// 线索状态
-    pub status: Option<LeadStatus>,
+    pub status: Option<i32>,
     /// 线索等级
-    pub level: Option<String>,
-    /// 标签列表
-    pub tags: Option<Vec<String>>,
+    pub level: Option<i32>,
     /// 预算金额
     pub budget: Option<Decimal>,
     /// 币种
@@ -75,9 +88,8 @@ impl From<LeadSaveRequest> for LeadSaveDTO {
             industry: item.industry.map(|i| i.to_string()),
             source: item.source.map(|s| s.to_string()),
             source_detail: item.source_detail,
-            status: item.status,
+            status: item.status.and_then(i32_to_lead_status),
             level: item.level,
-            tags: item.tags,
             budget: item.budget,
             currency: item.currency,
             next_follow_at: item.next_follow_at,
@@ -129,11 +141,9 @@ pub struct LeadUpdateRequest {
     /// 来源详情
     pub source_detail: Option<String>,
     /// 线索状态
-    pub status: Option<LeadStatus>,
+    pub status: Option<i32>,
     /// 线索等级
-    pub level: Option<String>,
-    /// 标签列表
-    pub tags: Option<Vec<String>>,
+    pub level: Option<i32>,
     /// 预算金额
     pub budget: Option<Decimal>,
     /// 币种
@@ -165,9 +175,8 @@ impl From<LeadUpdateRequest> for LeadSaveDTO {
             industry: item.industry,
             source: item.source,
             source_detail: item.source_detail,
-            status: item.status,
+            status: item.status.and_then(i32_to_lead_status),
             level: item.level,
-            tags: item.tags,
             budget: item.budget,
             currency: item.currency,
             next_follow_at: item.next_follow_at,
@@ -220,9 +229,7 @@ pub struct LeadSaveDTO {
     /// 线索状态
     pub status: Option<LeadStatus>,
     /// 线索等级
-    pub level: Option<String>,
-    /// 标签列表
-    pub tags: Option<Vec<String>>,
+    pub level: Option<i32>,
     /// 预算金额
     pub budget: Option<Decimal>,
     /// 币种
@@ -287,9 +294,7 @@ pub struct LeadDetailVO {
     /// 线索状态
     pub status: Option<LeadStatus>,
     /// 线索等级
-    pub level: Option<String>,
-    /// 标签列表
-    pub tags: Option<Vec<String>>,
+    pub level: Option<i32>,
     /// 预算金额
     pub budget: Option<Decimal>,
     /// 币种
@@ -327,7 +332,6 @@ impl From<lead::Model> for LeadDetailVO {
             source_detail: item.source_detail,
             status: item.status,
             level: item.level,
-            tags: item.tags,
             budget: item.budget,
             currency: item.currency,
             next_follow_at: item.next_follow_at,
@@ -368,7 +372,7 @@ pub struct LeadListVO {
     /// 线索状态
     pub status: Option<LeadStatus>,
     /// 线索等级
-    pub level: Option<String>,
+    pub level: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 创建人ID
@@ -429,8 +433,8 @@ pub struct LeadListQuery {
 pub struct LeadStatusUpdateQuery {
     /// 线索ID
     pub id: Option<i64>,
-    /// 状态值
-    pub status: Option<String>,
+    /// 状态值 (支持数字或字符串)
+    pub status: Option<serde_json::Value>,
 }
 
 /// 线索数据模型操作类
@@ -463,7 +467,6 @@ impl LeadModel {
             source_detail: Set(req.source_detail.clone()),
             status: Set(req.status.clone()),
             level: Set(req.level.clone()),
-            tags: Set(req.tags.clone()),
             budget: Set(req.budget.clone()),
             currency: Set(req.currency.clone()),
             next_follow_at: Set(req.next_follow_at.clone()),
@@ -529,7 +532,6 @@ impl LeadModel {
             source_detail: Set(req.source_detail.clone()),
             status: Set(req.status.clone()),
             level: Set(req.level.clone()),
-            tags: Set(req.tags.clone()),
             budget: Set(req.budget.clone()),
             currency: Set(req.currency.clone()),
             next_follow_at: Set(req.next_follow_at.clone()),
@@ -597,14 +599,14 @@ impl LeadModel {
         }
         if let Some(s) = status {
             let status_value: Option<LeadStatus> = match s.as_str() {
-                "new" => Some(LeadStatus::New),
-                "following" => Some(LeadStatus::Following),
-                "converted" => Some(LeadStatus::Converted),
-                "invalid" => Some(LeadStatus::Invalid),
-                "recycled" => Some(LeadStatus::Recycled),
-                "unchecked" => Some(LeadStatus::Unchecked),
-                "checking" => Some(LeadStatus::Checking),
-                "valid" => Some(LeadStatus::Valid),
+                "1" | "new" => Some(LeadStatus::New),
+                "2" | "following" => Some(LeadStatus::Following),
+                "3" | "converted" => Some(LeadStatus::Converted),
+                "4" | "invalid" => Some(LeadStatus::Invalid),
+                "5" | "recycled" => Some(LeadStatus::Recycled),
+                "6" | "unchecked" => Some(LeadStatus::Unchecked),
+                "7" | "checking" => Some(LeadStatus::Checking),
+                "8" | "valid" => Some(LeadStatus::Valid),
                 _ => None,
             };
             if let Some(st) = status_value {

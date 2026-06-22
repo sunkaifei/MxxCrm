@@ -1,3 +1,4 @@
+use chrono::Utc;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -13,9 +14,9 @@ pub struct Model {
     pub description: Option<String>,
     pub is_global: Option<bool>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub created_at: Option<chrono::DateTime<Utc>>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub updated_at: Option<chrono::DateTime<Utc>>,
     pub deleted: Option<i32>,
 }
 

@@ -1,5 +1,5 @@
 use sea_orm::*;
-use sea_orm::entity::prelude::DateTime;
+use chrono::{DateTime, Utc};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::system::entity::{tag, tag::Entity as Tag};
 use crate::utils::string_utils::{serialize_option_u64_to_string, deserialize_string_to_u64};
@@ -90,7 +90,7 @@ pub struct TagListVO {
     pub tag_color: Option<String>,
     pub description: Option<String>,
     pub is_global: Option<bool>,
-    pub created_at: Option<DateTime>,
+    pub created_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -105,9 +105,9 @@ pub struct TagDetailVO {
     pub description: Option<String>,
     pub is_global: Option<bool>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub created_at: Option<DateTime<Utc>>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl From<tag::Model> for TagDetailVO {
@@ -163,7 +163,7 @@ pub struct TagModel;
 
 impl TagModel {
     pub async fn insert(db: &DbConn, req: &TagSaveDTO) -> Result<i64, DbErr> {
-        let now = chrono::Local::now().naive_local().to_owned();
+        let now = chrono::Utc::now();
         let payload = tag::ActiveModel {
             group_id: Set(req.group_id.clone()),
             tag_name: Set(req.tag_name.clone()),
@@ -187,7 +187,7 @@ impl TagModel {
             description: Set(req.description.clone()),
             is_global: Set(req.is_global.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            updated_at: Set(Option::from(chrono::Utc::now())),
             ..Default::default()
         };
         let update_result: UpdateResult = Tag::update_many()
@@ -202,7 +202,7 @@ impl TagModel {
     pub async fn delete_by_id(db: &DbConn, id: i64) -> Result<i64, DbErr> {
         let payload = tag::ActiveModel {
             deleted: Set(Some(1)),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            updated_at: Set(Option::from(chrono::Utc::now())),
             ..Default::default()
         };
         let update_result: UpdateResult = Tag::update_many()
@@ -217,7 +217,7 @@ impl TagModel {
     pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
         let payload = tag::ActiveModel {
             deleted: Set(Some(1)),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            updated_at: Set(Option::from(chrono::Utc::now())),
             ..Default::default()
         };
         let update_result: UpdateResult = Tag::update_many()
@@ -303,7 +303,7 @@ impl TagModel {
     pub async fn move_to_group(db: &DbConn, group_id: i64, tag_ids: &Vec<i64>) -> Result<i64, DbErr> {
         let payload = tag::ActiveModel {
             group_id: Set(Some(group_id)),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            updated_at: Set(Option::from(chrono::Utc::now())),
             ..Default::default()
         };
         let update_result: UpdateResult = Tag::update_many()

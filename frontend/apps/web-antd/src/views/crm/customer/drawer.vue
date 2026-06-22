@@ -4,7 +4,7 @@ import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { Divider, message } from 'ant-design-vue';
-import { createCustomerApi, updateCustomerApi } from '#/api';
+import { createCustomerApi, updateCustomerApi, getCountriesApi } from '#/api';
 import TagSelector from '../components/TagSelector.vue';
 
 const data = ref();
@@ -56,11 +56,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: '请选择客户等级',
         allowClear: true,
         options: [
-          { label: '潜在', value: 'potential' },
-          { label: '普通', value: 'normal' },
-          { label: 'VIP', value: 'VIP' },
-          { label: 'SVIP', value: 'SVIP' },
-          { label: '流失', value: 'lost' },
+          { label: '无级别', value: 1 },
+          { label: '重点客户', value: 2 },
+          { label: '优质客户', value: 3 },
+          { label: '普通客户', value: 4 },
+          { label: '其他', value: 5 },
         ],
       },
     },
@@ -97,10 +97,29 @@ const [BaseForm, baseFormApi] = useVbenForm({
       formItemClass: 'col-span-2',
     },
     {
-      component: 'Input',
+      component: 'ApiSelect',
       fieldName: 'country',
       label: '国家',
-      componentProps: { placeholder: '国家', allowClear: true },
+      componentProps: {
+        placeholder: '请选择国家',
+        allowClear: true,
+        showSearch: true,
+        filterOption: (input: string, option: any) => {
+          return (
+            option.label?.toLowerCase().includes(input.toLowerCase()) ||
+            option.value?.toLowerCase().includes(input.toLowerCase())
+          );
+        },
+        api: async () => {
+          const result = await getCountriesApi();
+          const items = Array.isArray(result) ? result : [];
+          return items.map((item: any) => ({
+            label: item.name,
+            value: item.name,
+            labelEn: item.nameEn,
+          }));
+        },
+      },
     },
     {
       component: 'Input',

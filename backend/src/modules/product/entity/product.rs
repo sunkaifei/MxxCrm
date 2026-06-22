@@ -10,38 +10,93 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
+/// 产品主表（mxx_product_main）
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
-#[sea_orm(table_name = "mxx_product_product")]
+#[sea_orm(table_name = "mxx_product_main")]
 pub struct Model {
+    /// 产品ID（主键）
     #[sea_orm(primary_key)]
     #[serde(skip_deserializing)]
     pub id: i64,
-    pub product_code: Option<String>,
-    pub product_name: Option<String>,
-    pub spec: Option<String>,
-    pub unit: Option<String>,
+
+    /// 产品编号（唯一）
+    pub product_no: Option<String>,
+
+    /// 产品名称
+    pub name: Option<String>,
+
+    /// 分类ID
     pub category_id: Option<i64>,
-    pub brand: Option<String>,
-    pub origin: Option<String>,
-    pub material: Option<String>,
-    pub weight: Option<Decimal>,
-    pub volume: Option<Decimal>,
-    pub purchase_price: Option<Decimal>,
+
+    /// SKU模板ID
+    pub template_id: Option<i64>,
+
+    /// 默认SKU编码
+    pub sku: Option<String>,
+
+    /// 条码
+    pub barcode: Option<String>,
+
+    /// 单位（如件/箱/个）
+    pub unit: Option<String>,
+
+    /// 成本价
+    pub cost_price: Option<Decimal>,
+
+    /// 销售价
     pub sale_price: Option<Decimal>,
-    pub tax_rate: Option<Decimal>,
-    pub stock: Option<i32>,
-    pub min_stock: Option<i32>,
-    pub max_stock: Option<i32>,
-    pub status: Option<String>,
+
+    /// 币种
+    pub currency: Option<CurrencyCode>,
+
+    /// 重量（kg）
+    pub weight: Option<Decimal>,
+
+    /// 尺寸（如 30x20x10cm）
+    pub dimensions: Option<String>,
+
+    /// 产品描述/介绍
     pub description: Option<String>,
-    pub images: Option<Vec<String>>,
-    pub tags: Option<Vec<String>>,
-    pub custom_fields: Option<serde_json::Value>,
+
+    /// 产品详情（富文本/HTML）
+    pub detail: Option<String>,
+
+    /// 主图URL
+    pub image_url: Option<String>,
+
+    /// 轮播图URL数组（JSON）
+    pub carousel_images: Option<serde_json::Value>,
+
+    /// 是否启用
+    pub is_active: Option<bool>,
+
+    /// 规格类型（single-单规格，multiple-多规格）
+    pub spec_type: Option<String>,
+
+    /// 关键字
+    pub keywords: Option<String>,
+
+    /// 市场价/原价
+    pub market_price: Option<Decimal>,
+
+    /// 库存数量（单规格模式）
+    pub stock: Option<i32>,
+
+    /// 创建人ID
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+
+    /// 创建时间
+    pub create_time: Option<DateTimeWithTimeZone>,
+
+    /// 更新人ID
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+
+    /// 更新时间
+    pub update_time: Option<DateTimeWithTimeZone>,
+
+    /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
 }
 

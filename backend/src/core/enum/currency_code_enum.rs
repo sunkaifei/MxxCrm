@@ -1,6 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Deserialize, Serialize, DeriveActiveEnum)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mxx_currency_code")]
@@ -31,6 +32,23 @@ impl fmt::Display for CurrencyCode {
             CurrencyCode::JPY => write!(f, "JPY"),
             CurrencyCode::HKD => write!(f, "HKD"),
             CurrencyCode::AUD => write!(f, "AUD"),
+        }
+    }
+}
+
+impl FromStr for CurrencyCode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "CNY" => Ok(CurrencyCode::CNY),
+            "USD" => Ok(CurrencyCode::USD),
+            "EUR" => Ok(CurrencyCode::EUR),
+            "GBP" => Ok(CurrencyCode::GBP),
+            "JPY" => Ok(CurrencyCode::JPY),
+            "HKD" => Ok(CurrencyCode::HKD),
+            "AUD" => Ok(CurrencyCode::AUD),
+            _ => Err(format!("无效币种: {}", s)),
         }
     }
 }

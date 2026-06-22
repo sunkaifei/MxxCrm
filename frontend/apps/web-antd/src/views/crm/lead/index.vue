@@ -20,12 +20,13 @@ import LeadDetail from './detail.vue';
 const accessStore = useAccessStore();
 
 const statusTabs = [
-  { key: 'unchecked', label: '未审查' },
-  { key: 'checking', label: '审查中' },
-  { key: 'invalid', label: '无效线索' },
+  { key: '', label: '全部' },
+  { key: '6', label: '未审查' },
+  { key: '7', label: '审查中' },
+  { key: '4', label: '无效线索' },
 ];
 
-const activeTab = ref('unchecked');
+const activeTab = ref('');
 
 const sourceLabelMap: Record<string, string> = {
   website: '官网', exhibition: '展会', social: '社交媒体', referral: '客户转介',
@@ -115,10 +116,10 @@ const gridOptions: VxeGridProps = {
       cellRender: {
         name: 'Tag',
         options: [
-          { value: 'unchecked', label: '未审查', color: 'blue' },
-          { value: 'checking', label: '审查中', color: 'cyan' },
-          { value: 'invalid', label: '无效线索', color: 'default' },
-          { value: 'valid', label: '有效', color: 'green' },
+          { value: 6, label: '未审查', color: 'blue' },
+          { value: 7, label: '审查中', color: 'cyan' },
+          { value: 4, label: '无效线索', color: 'default' },
+          { value: 8, label: '有效', color: 'green' },
         ],
       },
     },
@@ -234,7 +235,7 @@ function handleTabChange(key: string) {
 
       <template #action="{ row }">
         <Button type="link" :icon="h(LucideMessageSquare)" @click="() => handleFollow(row)" title="跟进" />
-        <Button v-if="row.status !== 'invalid'" type="link" :icon="h(LucidePlusCircle)" @click="() => handleAddToPool(row)" title="加入线索池" />
+        <Button v-if="row.status !== 4" type="link" :icon="h(LucidePlusCircle)" @click="() => handleAddToPool(row)" title="加入线索池" />
         <Button v-if="accessStore.hasAccessCode('crm:lead:edit')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" title="编辑" />
         <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.lead.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
           <Button v-if="accessStore.hasAccessCode('crm:lead:delete')" type="link" danger :icon="h(LucideTrash2)" title="删除" />

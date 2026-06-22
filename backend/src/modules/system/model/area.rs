@@ -1,5 +1,6 @@
+use chrono::Utc;
 use sea_orm::*;
-use sea_orm::prelude::{DateTime, Decimal};
+use sea_orm::prelude::Decimal;
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::system::entity::{area, area::Entity as Area};
 use crate::utils::string_utils::{serialize_option_u64_to_string, deserialize_string_to_u64};
@@ -99,8 +100,8 @@ pub struct AreaDetailVO {
     pub country_code: Option<String>,
     pub latitude: Option<Decimal>,
     pub longitude: Option<Decimal>,
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
+    pub created_at: Option<chrono::DateTime<Utc>>,
+    pub updated_at: Option<chrono::DateTime<Utc>>,
 }
 
 impl From<area::Model> for AreaDetailVO {
@@ -178,7 +179,7 @@ pub struct AreaModel;
 
 impl AreaModel {
     pub async fn insert(db: &DbConn, form_data: &AreaSaveDTO) -> Result<i64, DbErr> {
-        let now = chrono::Local::now().naive_local().to_owned();
+        let now = chrono::Utc::now();
         let payload = area::ActiveModel {
             parent_id: Set(form_data.parent_id.to_owned()),
             name: Set(form_data.name.to_owned()),
@@ -218,7 +219,7 @@ impl AreaModel {
             country_code: Set(form_data.country_code.to_owned()),
             latitude: Set(form_data.latitude.to_owned()),
             longitude: Set(form_data.longitude.to_owned()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            updated_at: Set(Option::from(chrono::Utc::now())),
             ..Default::default()
         };
 

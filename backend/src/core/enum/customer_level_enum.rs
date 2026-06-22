@@ -3,28 +3,23 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Deserialize, Serialize, DeriveActiveEnum)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mxx_customer_level")]
+#[sea_orm(rs_type = "i32", db_type = "Integer")]
 pub enum CustomerLevel {
-    #[sea_orm(string_value = "potential")]
-    Potential,
-    #[sea_orm(string_value = "normal")]
-    Normal,
-    #[sea_orm(string_value = "vip")]
-    Vip,
-    #[sea_orm(string_value = "svip")]
-    Svip,
-    #[sea_orm(string_value = "lost")]
-    Lost,
+    None = 1,
+    Key = 2,
+    Premium = 3,
+    Normal = 4,
+    Other = 5,
 }
 
 impl fmt::Display for CustomerLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CustomerLevel::Potential => write!(f, "potential"),
-            CustomerLevel::Normal => write!(f, "normal"),
-            CustomerLevel::Vip => write!(f, "vip"),
-            CustomerLevel::Svip => write!(f, "svip"),
-            CustomerLevel::Lost => write!(f, "lost"),
+            CustomerLevel::None => write!(f, "1"),
+            CustomerLevel::Key => write!(f, "2"),
+            CustomerLevel::Premium => write!(f, "3"),
+            CustomerLevel::Normal => write!(f, "4"),
+            CustomerLevel::Other => write!(f, "5"),
         }
     }
 }

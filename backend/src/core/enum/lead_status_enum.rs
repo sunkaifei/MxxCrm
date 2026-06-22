@@ -3,37 +3,29 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Deserialize, Serialize, DeriveActiveEnum)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mxx_lead_status")]
+#[sea_orm(rs_type = "i32", db_type = "Integer")]
 pub enum LeadStatus {
-    #[sea_orm(string_value = "new")]
-    New,
-    #[sea_orm(string_value = "following")]
-    Following,
-    #[sea_orm(string_value = "converted")]
-    Converted,
-    #[sea_orm(string_value = "invalid")]
-    Invalid,
-    #[sea_orm(string_value = "recycled")]
-    Recycled,
-    #[sea_orm(string_value = "unchecked")]
-    Unchecked,
-    #[sea_orm(string_value = "checking")]
-    Checking,
-    #[sea_orm(string_value = "valid")]
-    Valid,
+    New = 1,
+    Following = 2,
+    Converted = 3,
+    Invalid = 4,
+    Recycled = 5,
+    Unchecked = 6,
+    Checking = 7,
+    Valid = 8,
 }
 
 impl fmt::Display for LeadStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LeadStatus::New => write!(f, "new"),
-            LeadStatus::Following => write!(f, "following"),
-            LeadStatus::Converted => write!(f, "converted"),
-            LeadStatus::Invalid => write!(f, "invalid"),
-            LeadStatus::Recycled => write!(f, "recycled"),
-            LeadStatus::Unchecked => write!(f, "unchecked"),
-            LeadStatus::Checking => write!(f, "checking"),
-            LeadStatus::Valid => write!(f, "valid"),
+            LeadStatus::New => write!(f, "1"),
+            LeadStatus::Following => write!(f, "2"),
+            LeadStatus::Converted => write!(f, "3"),
+            LeadStatus::Invalid => write!(f, "4"),
+            LeadStatus::Recycled => write!(f, "5"),
+            LeadStatus::Unchecked => write!(f, "6"),
+            LeadStatus::Checking => write!(f, "7"),
+            LeadStatus::Valid => write!(f, "8"),
         }
     }
 }

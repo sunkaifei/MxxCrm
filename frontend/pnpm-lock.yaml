@@ -51,12 +51,6 @@ catalogs:
     '@manypkg/get-packages':
       specifier: ^3.1.0
       version: 3.1.0
-    '@nolebase/vitepress-plugin-git-changelog':
-      specifier: ^2.18.2
-      version: 2.18.2
-    '@playwright/test':
-      specifier: ^1.59.1
-      version: 1.59.1
     '@pnpm/workspace.read-manifest':
       specifier: ^1000.3.1
       version: 1000.3.1
@@ -69,9 +63,6 @@ catalogs:
     '@tailwindcss/vite':
       specifier: ^4.2.2
       version: 4.3.0
-    '@tanstack/vue-query':
-      specifier: ^5.97.0
-      version: 5.100.9
     '@tanstack/vue-store':
       specifier: ^0.10.0
       version: 0.10.0
@@ -150,9 +141,6 @@ catalogs:
     '@vee-validate/zod':
       specifier: ^4.15.1
       version: 4.15.1
-    '@vite-pwa/vitepress':
-      specifier: ^1.1.0
-      version: 1.1.0
     '@vitejs/plugin-vue':
       specifier: ^6.0.6
       version: 6.0.6
@@ -303,9 +291,6 @@ catalogs:
     lucide-vue-next:
       specifier: ^0.577.0
       version: 0.577.0
-    medium-zoom:
-      specifier: ^1.1.0
-      version: 1.1.0
     nitropack:
       specifier: ^2.13.3
       version: 2.13.4
@@ -450,12 +435,6 @@ catalogs:
     vite-plugin-vue-devtools:
       specifier: ^8.1.1
       version: 8.1.2
-    vitepress:
-      specifier: ^1.6.4
-      version: 1.6.4
-    vitepress-plugin-group-icons:
-      specifier: ^1.7.3
-      version: 1.7.5
     vitest:
       specifier: ^4.1.4
       version: 4.1.5

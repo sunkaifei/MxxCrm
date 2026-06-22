@@ -272,7 +272,8 @@
       "button": {
         "create": "Add Product",
         "edit": "Edit Product",
-        "delete": "Delete Product"
+        "delete": "Delete Product",
+        "view": "SKU"
       }
     },
     "category": {
@@ -293,6 +294,9 @@
         "edit": "Edit Warehouse",
         "delete": "Delete Warehouse"
       }
+    },
+    "sku": {
+      "title": "SKU Management"
     }
   },
   "purchase": {

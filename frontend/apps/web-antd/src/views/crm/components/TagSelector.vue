@@ -222,13 +222,13 @@ async function removeTag(tag: TagVO) {
 }
 
 // 外部调用：保存标签到实体（用于创建模式）
-async function saveToEntity(entityId: number) {
+async function saveToEntity(entityId: number | string) {
   const ids = selectedTags.value.map((t) => t.id);
   if (ids.length === 0) return;
   try {
     await addTagsToEntityApi({
       entityType: props.entityType,
-      entityId,
+      entityId: Number(entityId),
       tagIds: ids,
     });
   } catch {

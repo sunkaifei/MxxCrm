@@ -23,25 +23,25 @@ const lead = ref<any>(null);
 const activeTab = ref('info');
 
 const statusLabelMap: Record<string, string> = {
-  unchecked: '未审查',
-  checking: '审查中',
-  invalid: '无效线索',
-  valid: '有效',
-  new: '新线索',
-  following: '跟进中',
-  converted: '已转化',
-  recycled: '已回收',
+  6: '未审查',
+  7: '审查中',
+  4: '无效线索',
+  8: '有效',
+  1: '新线索',
+  2: '跟进中',
+  3: '已转化',
+  5: '已回收',
 };
 
 const statusColorMap: Record<string, string> = {
-  unchecked: 'blue',
-  checking: 'cyan',
-  invalid: 'default',
-  valid: 'green',
-  new: 'blue',
-  following: 'cyan',
-  converted: 'green',
-  recycled: 'orange',
+  6: 'blue',
+  7: 'cyan',
+  4: 'default',
+  8: 'green',
+  1: 'blue',
+  2: 'cyan',
+  3: 'green',
+  5: 'orange',
 };
 
 const sourceLabelMap: Record<string, string> = {
@@ -71,15 +71,22 @@ const industryLabelMap: Record<string, string> = {
 };
 
 const levelLabelMap: Record<string, string> = {
-  hot: '热门',
-  warm: '温',
-  cold: '冷',
-  a: 'A级',
-  b: 'B级',
-  c: 'C级',
+  1: '无级别',
+  2: '重点客户',
+  3: '优质客户',
+  4: '普通客户',
+  5: '其他',
 };
 
-const canAddToPool = computed(() => lead.value?.status !== 'valid' && lead.value?.status !== 'invalid');
+const levelColorMap: Record<string, string> = {
+  1: 'default',
+  2: 'red',
+  3: 'orange',
+  4: 'blue',
+  5: 'green',
+};
+
+const canAddToPool = computed(() => lead.value?.status !== 8 && lead.value?.status !== 4);
 
 async function fetchDetail() {
   if (!props.id) return;
@@ -96,7 +103,7 @@ async function fetchDetail() {
 
 async function handleStartCheck() {
   try {
-    await updateLeadStatusApi(props.id, 'checking');
+    await updateLeadStatusApi(props.id, 7);
     message.success('已开始审查');
     fetchDetail();
   } catch {
@@ -106,7 +113,7 @@ async function handleStartCheck() {
 
 async function handleApprove() {
   try {
-    await updateLeadStatusApi(props.id, 'valid');
+    await updateLeadStatusApi(props.id, 8);
     message.success('审核通过，已加入线索池');
     fetchDetail();
   } catch {
@@ -116,7 +123,7 @@ async function handleApprove() {
 
 async function handleReject() {
   try {
-    await updateLeadStatusApi(props.id, 'invalid');
+    await updateLeadStatusApi(props.id, 4);
     message.success('已标记为无效线索');
     fetchDetail();
   } catch {
@@ -156,7 +163,7 @@ watch(() => props.id, fetchDetail, { immediate: true });
                 <Tag :color="statusColorMap[lead.status] || 'default'" class="text-white">
                   {{ statusLabelMap[lead.status] || lead.status }}
                 </Tag>
-                <Tag v-if="lead.level" :color="lead.level === 'hot' ? 'red' : lead.level === 'warm' ? 'orange' : 'blue'" class="text-white">
+                <Tag v-if="lead.level" :color="levelColorMap[lead.level] || 'default'" class="text-white">
                   {{ levelLabelMap[lead.level] || lead.level }}
                 </Tag>
               </div>
@@ -207,23 +214,23 @@ watch(() => props.id, fetchDetail, { immediate: true });
           </div>
         </div>
 
-        <div v-if="lead.status === 'unchecked' || lead.status === 'checking'" class="px-6 py-2 bg-yellow-50 border-b">
+        <div v-if="lead.status === 6 || lead.status === 7" class="px-6 py-2 bg-yellow-50 border-b">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <LucideLoader2 v-if="lead.status === 'checking'" class="h-3.5 w-3.5 text-yellow-600 animate-spin" />
+              <LucideLoader2 v-if="lead.status === 7" class="h-3.5 w-3.5 text-yellow-600 animate-spin" />
               <LucideClock v-else class="h-3.5 w-3.5 text-blue-600" />
               <span class="text-sm font-medium text-gray-700">
-                {{ lead.status === 'checking' ? '正在审查中...' : '等待审查' }}
+                {{ lead.status === 7 ? '正在审查中...' : '等待审查' }}
               </span>
             </div>
             <div class="flex items-center gap-2">
-              <Button v-if="lead.status === 'unchecked'" size="small" type="primary" @click="handleStartCheck">
+              <Button v-if="lead.status === 6" size="small" type="primary" @click="handleStartCheck">
                 <LucideLoader2 class="mr-1 h-3 w-3" />开始审查
               </Button>
-              <Button v-if="lead.status === 'checking'" size="small" type="success" @click="handleApprove">
+              <Button v-if="lead.status === 7" size="small" type="success" @click="handleApprove">
                 <LucideCheckCircle class="mr-1 h-3 w-3" />审核通过
               </Button>
-              <Button v-if="lead.status === 'checking'" size="small" danger @click="handleReject">
+              <Button v-if="lead.status === 7" size="small" danger @click="handleReject">
                 <LucideXCircle class="mr-1 h-3 w-3" />审核不通过
               </Button>
               <Button v-if="canAddToPool" size="small" ghost @click="handleAddToPool">

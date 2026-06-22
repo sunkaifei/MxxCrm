@@ -5,7 +5,7 @@ import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { Divider, message } from 'ant-design-vue';
 import { LucideMaximize2, LucideMinimize2 } from '@vben/icons';
-import { createLeadApi, updateLeadApi } from '#/api';
+import { createLeadApi, updateLeadApi, getCountriesApi } from '#/api';
 import TagSelector from '../components/TagSelector.vue';
 
 const data = ref();
@@ -91,12 +91,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: $t('ui.placeholder.select'),
         allowClear: true,
         options: [
-          { label: $t('enum.lead_level.hot'), value: 'hot' },
-          { label: $t('enum.lead_level.warm'), value: 'warm' },
-          { label: $t('enum.lead_level.cold'), value: 'cold' },
-          { label: $t('enum.lead_level.a'), value: 'a' },
-          { label: $t('enum.lead_level.b'), value: 'b' },
-          { label: $t('enum.lead_level.c'), value: 'c' },
+          { label: '无级别', value: 1 },
+          { label: '重点客户', value: 2 },
+          { label: '优质客户', value: 3 },
+          { label: '普通客户', value: 4 },
+          { label: '其他', value: 5 },
         ],
       },
     },
@@ -172,10 +171,29 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: { placeholder: $t('ui.placeholder.input'), allowClear: true },
     },
     {
-      component: 'Input',
+      component: 'ApiSelect',
       fieldName: 'country',
       label: $t('page.crm.lead.fields.country'),
-      componentProps: { placeholder: $t('ui.placeholder.input'), allowClear: true },
+      componentProps: {
+        placeholder: $t('ui.placeholder.select'),
+        allowClear: true,
+        showSearch: true,
+        filterOption: (input: string, option: any) => {
+          return (
+            option.label?.toLowerCase().includes(input.toLowerCase()) ||
+            option.value?.toLowerCase().includes(input.toLowerCase())
+          );
+        },
+        api: async () => {
+          const result = await getCountriesApi();
+          const items = Array.isArray(result) ? result : [];
+          return items.map((item: any) => ({
+            label: item.name,
+            value: item.name,
+            labelEn: item.nameEn,
+          }));
+        },
+      },
     },
     {
       component: 'Input',
@@ -254,9 +272,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
     setLoading(true);
     const values = await baseFormApi.getValues();
     try {
-      // 创建模式：默认状态为 unchecked
+      // 创建模式：默认状态为 6 (unchecked)
       const payload = data.value?.create
-        ? { ...values, status: 'unchecked' }
+        ? { ...values, status: 6 }
         : { ...values, id: data.value.row.id };
 
       const result = await (data.value?.create

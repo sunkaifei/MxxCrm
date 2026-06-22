@@ -1,13 +1,14 @@
-﻿﻿﻿﻿<script lang="ts" setup>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<script lang="ts" setup>
 import { h } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { LucideFilePenLine, LucideTrash2, LucideImageOff } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, message, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -17,6 +18,7 @@ import { $t } from '#/locales';
 import ProductDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
+const router = useRouter();
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -25,7 +27,7 @@ const formOptions: VbenFormProps = {
   schema: [
     {
       component: 'Input',
-      fieldName: 'productName',
+      fieldName: 'name',
       label: '产品名称',
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
@@ -38,15 +40,6 @@ const formOptions: VbenFormProps = {
       label: 'SKU',
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-      },
-    },
-    {
-      component: 'Select',
-      fieldName: 'status',
-      label: $t('ui.table.status'),
-      componentProps: {
-        placeholder: $t('ui.placeholder.select'),
         allowClear: true,
       },
     },
@@ -75,9 +68,8 @@ const gridOptions: VxeGridProps = {
         return await getProductListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          productName: formValues.productName,
+          keywords: formValues.name,
           sku: formValues.sku,
-          status: formValues.status,
         });
       },
     },
@@ -90,29 +82,42 @@ const gridOptions: VxeGridProps = {
       width: 70,
     },
     {
+      title: '商品图',
+      field: 'coverImage',
+      width: 70,
+      slots: { default: 'productImage' },
+    },
+    {
       title: '产品名称',
-      field: 'productName',
+      field: 'name',
+      minWidth: 160,
+      align: 'left',
+    },
+    {
+      title: '产品编号',
+      field: 'productNo',
+      width: 140,
     },
     {
       title: 'SKU',
       field: 'sku',
+      width: 120,
     },
     {
-      title: '产品分类',
-      field: 'category',
+      title: '单位',
+      field: 'unit',
+      width: 80,
     },
     {
-      title: '价格',
-      field: 'price',
-    },
-    {
-      title: '库存',
-      field: 'stock',
+      title: '销售价',
+      field: 'salePrice',
+      width: 100,
     },
     {
       title: $t('ui.table.status'),
-      field: 'status',
+      field: 'isActive',
       slots: { default: 'status' },
+      width: 80,
     },
     {
       title: $t('ui.table.createTime'),
@@ -149,6 +154,10 @@ function openDrawer(create: boolean, row?: any) {
   drawerApi.open();
 }
 
+function handleSkuManage(row: any) {
+  router.push(`/product/sku?productId=${row.id}`);
+}
+
 function handleEdit(row: any) {
   openDrawer(false, row);
 }
@@ -156,8 +165,8 @@ function handleEdit(row: any) {
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deleteProductApi(row.id);
-    window.$message.success($t('ui.notification.delete_success'));
+    await deleteProductApi([row.id]);
+    message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;
     gridApi.query();
@@ -174,7 +183,7 @@ function handleCreate() {
     <Grid :table-title="$t('page.product.list.title')">
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('product:list:create')"
+          v-if="accessStore.hasAccessCode('product:product:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -183,17 +192,31 @@ function handleCreate() {
         </Button>
       </template>
 
+      <template #productImage="{ row }">
+        <div v-if="row.coverImage || row.imageUrl" class="w-10 h-10 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
+          <img :src="row.coverImage || row.imageUrl" alt="产品主图" class="w-full h-full object-cover" />
+        </div>
+        <div v-else class="w-10 h-10 rounded-lg border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-50">
+          <LucideImageOff class="w-5 h-5 text-gray-400" />
+        </div>
+      </template>
+
       <template #createdAt="{ row }">
         {{ formatDateTime(row.createdAt) }}
       </template>
 
       <template #status="{ row }">
-        <Tag>{{ row.status }}</Tag>
+        <Tag :color="row.isActive ? 'green' : 'red'">{{ row.isActive ? '启用' : '停用' }}</Tag>
       </template>
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('product:list:edit')"
+          v-if="accessStore.hasAccessCode('product:product:view')"
+          type="link"
+          @click="() => handleSkuManage(row)"
+        >{{ $t('page.product.list.button.view') }}</Button>
+        <Button
+          v-if="accessStore.hasAccessCode('product:product:save')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
@@ -209,7 +232,7 @@ function handleCreate() {
           @confirm="() => handleDelete(row)"
         >
           <Button
-            v-if="accessStore.hasAccessCode('product:list:delete')"
+            v-if="accessStore.hasAccessCode('product:product:delete')"
             type="link"
             danger
             :icon="h(LucideTrash2)"

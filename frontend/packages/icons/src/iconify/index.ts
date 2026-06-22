@@ -55,6 +55,7 @@ export const LucideLayers = createIconifyIcon('lucide:layers');
 export const LucideLink = createIconifyIcon('lucide:link');
 export const LucideUnlink = createIconifyIcon('lucide:unlink');
 export const LucideUserPlus = createIconifyIcon('lucide:user-plus');
+export const LucideSettings = createIconifyIcon('lucide:settings');
 
 // CRM常用图标
 export const LucideBuilding2 = createIconifyIcon('lucide:building-2');
@@ -79,3 +80,7 @@ export const LucideFileText = createIconifyIcon('lucide:file-text');
 export const LucideArrowRightLeft = createIconifyIcon('lucide:arrow-right-left');
 export const LucideTimer = createIconifyIcon('lucide:timer');
 export const LucideTarget = createIconifyIcon('lucide:target');
+export const LucideUpload = createIconifyIcon('lucide:upload');
+export const LucideImageOff = createIconifyIcon('lucide:image-off');
+export const LucideBanknote = createIconifyIcon('lucide:banknote');
+export const LucideShoppingCart = createIconifyIcon('lucide:shopping-cart');

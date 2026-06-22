@@ -46,8 +46,8 @@ pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Re
         let mut vo = InventoryListVO {
             id: Some(stock.id),
             product_id: stock.product_id,
-            product_name: product.as_ref().and_then(|p| p.product_name.clone()),
-            product_code: product.as_ref().and_then(|p| p.product_code.clone()),
+            product_name: product.as_ref().and_then(|p| p.name.clone()),
+            product_code: product.as_ref().and_then(|p| p.product_no.clone()),
             warehouse_id: stock.warehouse_id,
             warehouse_name: warehouse.as_ref().and_then(|w| w.name.clone()),
             quantity: stock.quantity,
@@ -91,9 +91,9 @@ pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<InventoryDet
     Ok(InventoryDetailVO {
         id: Some(stock.id),
         product_id: stock.product_id,
-        product_name: product.as_ref().and_then(|p| p.product_name.clone()),
-        product_code: product.as_ref().and_then(|p| p.product_code.clone()),
-        spec: product.as_ref().and_then(|p| p.spec.clone()),
+        product_name: product.as_ref().and_then(|p| p.name.clone()),
+        product_code: product.as_ref().and_then(|p| p.product_no.clone()),
+        spec: product.as_ref().and_then(|p| p.sku.clone()),
         unit: product.as_ref().and_then(|p| p.unit.clone()),
         warehouse_id: stock.warehouse_id,
         warehouse_name: warehouse.as_ref().and_then(|w| w.name.clone()),

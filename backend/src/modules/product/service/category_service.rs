@@ -3,16 +3,14 @@ use crate::core::web::response::ResultPage;
 use crate::modules::product::model::category::{CategoryDetailVO, CategoryListQuery, CategoryListVO, CategoryModel, CategorySaveDTO, CategorySaveRequest, CategoryUpdateRequest};
 use sea_orm::DbConn;
 
-pub async fn insert(db: &DbConn, form_data: &CategorySaveRequest, created_by: i64) -> Result<i64> {
-    let mut dto: CategorySaveDTO = form_data.clone().into();
-    dto.created_by = Some(created_by);
+pub async fn insert(db: &DbConn, form_data: &CategorySaveRequest) -> Result<i64> {
+    let dto: CategorySaveDTO = form_data.clone().into();
     let result = CategoryModel::insert(&db, &dto).await?;
     Ok(result)
 }
 
-pub async fn update(db: &DbConn, form_data: &CategoryUpdateRequest, updated_by: i64) -> Result<i64> {
-    let mut dto: CategorySaveDTO = form_data.clone().into();
-    dto.updated_by = Some(updated_by);
+pub async fn update(db: &DbConn, form_data: &CategoryUpdateRequest) -> Result<i64> {
+    let dto: CategorySaveDTO = form_data.clone().into();
     let result = CategoryModel::update_by_id(&db, &form_data.id, &dto).await?;
     Ok(result)
 }
@@ -43,7 +41,6 @@ pub async fn list(db: &DbConn, query: &CategoryListQuery) -> Result<ResultPage<V
         page_size,
         query.keywords.clone(),
         query.parent_id,
-        query.status.clone(),
     ).await?;
     
     let data: Vec<CategoryListVO> = list.into_iter().map(|item| item.into()).collect();

@@ -17,35 +17,85 @@ use crate::core::r#enum::opportunity_stage_enum::OpportunityStage;
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_crm_opportunity")]
 pub struct Model {
+    /// 商机ID（主键）
     #[sea_orm(primary_key)]
     #[serde(skip_deserializing)]
     pub id: i64,
+
+    /// 商机编号
     #[sea_orm(ignore)]
     pub opportunity_no: Option<String>,
+
+    /// 关联客户ID
     pub customer_id: Option<i64>,
+
+    /// 关联联系人ID
     #[sea_orm(ignore)]
     pub contact_id: Option<i64>,
+
+    /// 关联线索ID
     #[sea_orm(ignore)]
     pub lead_id: Option<i64>,
+
+    /// 商机名称
     #[sea_orm(column_name = "name")]
     pub title: Option<String>,
+
+    /// 描述/备注
     pub description: Option<String>,
+
+    /// 销售阶段
     pub stage: Option<OpportunityStage>,
+
+    /// 成交概率（百分比）
     pub probability: Option<i32>,
+
+    /// 商机金额
     pub amount: Option<Decimal>,
+
+    /// 币种
     pub currency: Option<CurrencyCode>,
+
+    /// 预计成交日期
     pub expected_close_date: Option<Date>,
+
+    /// 实际关闭日期
+    pub actual_close_date: Option<Date>,
+
+    /// 负责人ID
     pub assigned_to: Option<i64>,
+
+    /// 商机来源
     #[sea_orm(ignore)]
     pub source: Option<LeadSource>,
+
+    /// 标签列表（仅用于展示，关联关系存于 tag_merge 表）
     #[sea_orm(ignore)]
     pub tags: Option<Vec<String>>,
+
+    /// 竞争对手信息
+    pub competitor_info: Option<String>,
+
+    /// 丢单原因
+    pub loss_reason: Option<String>,
+
+    /// 自定义字段（JSON格式）
     #[sea_orm(ignore)]
     pub custom_fields: Option<serde_json::Value>,
+
+    /// 创建人ID
     pub created_by: Option<i64>,
+
+    /// 创建时间
     pub created_at: Option<DateTime>,
+
+    /// 更新人ID
     pub updated_by: Option<i64>,
+
+    /// 更新时间
     pub updated_at: Option<DateTime>,
+
+    /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
 }
 

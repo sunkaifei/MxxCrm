@@ -11,6 +11,8 @@ export * from './menu';
 export * from './product/category';
 export * from './product/inventory';
 export * from './product/product';
+export * from './product/sku-template';
+export * from './product/spec';
 export * from './product/warehouse';
 export * from './purchase/item';
 export * from './purchase/order';

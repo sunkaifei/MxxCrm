@@ -12,6 +12,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
+use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::MetaResp;
 use crate::modules::product::model::product::{ProductDetailVO, ProductListQuery, ProductListVO, ProductSaveRequest, ProductUpdateRequest};
 use crate::modules::product::service::product_service;
@@ -30,7 +31,7 @@ pub async fn product_insert(state: web::Data<AppState>, req: HttpRequest, form_d
 }
 
 #[put("/product/product/update")]
-#[protect("product:product:update")]
+#[protect("product:product:edit")]
 pub async fn product_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ProductUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -46,9 +47,14 @@ pub async fn product_update(state: web::Data<AppState>, req: HttpRequest, form_d
 
 #[delete("/product/product/batchDelete")]
 #[protect("product:product:delete")]
-pub async fn batch_delete_product(state: web::Data<AppState>, ids: web::Json<Vec<i64>>) -> Result<HttpResponse> {
+pub async fn batch_delete_product(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let result = product_service::batch_delete(&db, &ids.0).await;
+    let item = item.0;
+    let ids: Vec<i64> = item.ids.unwrap_or_default()
+        .iter()
+        .filter_map(|id| id.as_ref().and_then(|s| s.trim().parse().ok()))
+        .collect();
+    let result = product_service::batch_delete(&db, &ids).await;
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -78,11 +84,16 @@ pub async fn product_list(state: web::Data<AppState>, req: HttpRequest) -> Resul
         page_size: query_str.split("&").find(|s| s.starts_with("pageSize=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
         keywords: query_str.split("&").find(|s| s.starts_with("keywords=")).and_then(|s| s.split("=").nth(1).map(|s| s.to_string())),
         category_id: query_str.split("&").find(|s| s.starts_with("categoryId=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
-        status: query_str.split("&").find(|s| s.starts_with("status=")).and_then(|s| s.split("=").nth(1).map(|s| s.to_string())),
+        is_active: query_str.split("&").find(|s| s.starts_with("isActive=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<bool>().ok())),
     };
     
     match product_service::get_list(&db, &query).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Ok((list, total, total_pages)) => {
+            let page = query.page_num.unwrap_or(1);
+            let page_size = query.page_size.unwrap_or(10);
+            let result = crate::core::web::response::ResultPage::new(list, total, page, page_size);
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+        },
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
