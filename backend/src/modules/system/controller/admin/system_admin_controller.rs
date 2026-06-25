@@ -408,6 +408,14 @@ pub async fn admin_list(state: web::Data<AppState>, query: web::Query<ListQuery>
     })
 }
 
+#[get("/admin/options")]
+pub async fn admin_options(state: web::Data<AppState>) -> Result<HttpResponse> {
+    let db = &state.db;
+    admin_service::get_admin_options(db).await.map(|list_data| {
+        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list_data, "local"))
+    })
+}
+
 
 // 获取权限码列表
 #[get("/auth/codes")]
@@ -432,7 +440,7 @@ pub async fn get_auth_codes(state: web::Data<AppState>, req: HttpRequest) -> Res
 }
 
 // 退出登录
-#[delete("/logout")]
+#[delete("/api/auth/logout")]
 pub async fn logout() -> HttpResponse {
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(200, "退出成功", "local"))
+    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success(String::new(), "local"))
 }

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿<script lang="ts" setup>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -25,7 +25,7 @@ const formOptions: VbenFormProps = {
   schema: [
     {
       component: 'Input',
-      fieldName: 'poNo',
+      fieldName: 'keywords',
       label: '采购单号',
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
@@ -54,7 +54,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: {
+  cellConfig: {
     isHover: true,
   },
   stripe: true,
@@ -66,7 +66,7 @@ const gridOptions: VxeGridProps = {
         return await getPurchaseOrderListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          poNo: formValues.poNo,
+          keywords: formValues.keywords,
           status: formValues.status,
         });
       },
@@ -81,15 +81,15 @@ const gridOptions: VxeGridProps = {
     },
     {
       title: '采购单号',
-      field: 'poNo',
+      field: 'purchaseNo',
     },
     {
-      title: '供应商',
-      field: 'supplierName',
+      title: '供应商ID',
+      field: 'supplierId',
     },
     {
       title: '采购金额',
-      field: 'totalAmount',
+      field: 'amount',
     },
     {
       title: $t('ui.table.status'),

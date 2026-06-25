@@ -21,7 +21,7 @@ use crate::modules::crm::model::contact::{ContactListQuery, ContactSaveRequest, 
 use crate::modules::crm::service::contact_service;
 
 #[post("/contact/save")]
-#[protect("crm:contact:save")]
+#[protect("crm:contact:create")]
 pub async fn contact_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContactSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;

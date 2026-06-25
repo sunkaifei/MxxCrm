@@ -535,7 +535,7 @@ impl SiteModel {
     /// 更新默认站点
     /// * `db` 数据库链接
     /// * `user_id` 需要重置默认站点的用户id
-    pub async fn update_by_reset_default(db: &DbConn, user_id: &Option<i64>) -> Result<i64, DbErr> {
+    pub async fn update_by_reset_default<C: ConnectionTrait>(db: &C, user_id: &Option<i64>) -> Result<i64, DbErr> {
         let payload = website::ActiveModel {
             is_default:  Set(Some(0).to_owned()),
             ..Default::default()
@@ -553,7 +553,7 @@ impl SiteModel {
     /// 更新默认站点
     /// * `db` 数据库链接
     /// * `id` 需要更新默认站点的站点id
-    pub async fn update_by_default_id(db: &DbConn, id: &Option<i64>) -> Result<i64, DbErr> {
+    pub async fn update_by_default_id<C: ConnectionTrait>(db: &C, id: &Option<i64>) -> Result<i64, DbErr> {
         let payload = website::ActiveModel {
             is_default:  Set(Some(1).to_owned()),
             ..Default::default()

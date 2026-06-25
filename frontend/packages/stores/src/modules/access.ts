@@ -76,6 +76,10 @@ export const useAccessStore = defineStore('core-access', {
       this.isLockScreen = true;
       this.lockScreenPassword = password;
     },
+    setLockScreenPassword(hash: string) {
+      // 仅设置密码哈希，状态由 lockScreen 切换
+      this.lockScreenPassword = hash;
+    },
     setAccessCodes(codes: string[]) {
       this.accessCodes = codes;
     },

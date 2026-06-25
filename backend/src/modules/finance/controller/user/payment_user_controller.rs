@@ -18,7 +18,6 @@ use crate::modules::finance::model::{
 };
 use crate::modules::finance::service::payment_record_service;
 use crate::modules::finance::service::wechat_pay_service;
-use crate::modules::user::model::user_platform::UserPlatformModel;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::config;
 
@@ -284,14 +283,9 @@ pub async fn create_member_experience_order(
 
     log::info!("[会员订单] 用户ID: {}", user_id);
 
-    let openid = match UserPlatformModel::find_openid_by_user_id(db, user_id).await {
-        Ok(Some(id)) => id,
-        Ok(None) => return Ok(HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户未绑定微信", "local"))),
-        Err(e) => return Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("查询用户微信信息失败: {}", e), "local"))),
-    };
+    return Ok(HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "微信支付功能暂不可用", "local")));
 
-    log::info!("[会员订单] 用户OpenID: {}", openid);
-
+    let openid = String::new();
     let client_ip = req.connection_info().peer_addr().unwrap_or("127.0.0.1").to_string();
 
     log::info!("[会员订单] 客户端IP: {}", client_ip);

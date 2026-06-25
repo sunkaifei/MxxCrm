@@ -1,5 +1,5 @@
 use sea_orm::*;
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::system::entity::{tag, tag::Entity as Tag};
 use crate::utils::string_utils::{serialize_option_u64_to_string, deserialize_string_to_u64};
@@ -90,7 +90,7 @@ pub struct TagListVO {
     pub tag_color: Option<String>,
     pub description: Option<String>,
     pub is_global: Option<bool>,
-    pub created_at: Option<DateTime<Utc>>,
+    pub create_time: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -105,9 +105,9 @@ pub struct TagDetailVO {
     pub description: Option<String>,
     pub is_global: Option<bool>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime<Utc>>,
+    pub create_time: Option<NaiveDateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime<Utc>>,
+    pub update_time: Option<NaiveDateTime>,
 }
 
 impl From<tag::Model> for TagDetailVO {
@@ -120,9 +120,9 @@ impl From<tag::Model> for TagDetailVO {
             description: item.description,
             is_global: item.is_global,
             created_by: item.created_by,
-            created_at: item.created_at,
+            create_time: item.create_time,
             updated_by: item.updated_by,
-            updated_at: item.updated_at,
+            update_time: item.update_time,
         }
     }
 }
@@ -163,7 +163,7 @@ pub struct TagModel;
 
 impl TagModel {
     pub async fn insert(db: &DbConn, req: &TagSaveDTO) -> Result<i64, DbErr> {
-        let now = chrono::Utc::now();
+        let now = chrono::Utc::now().naive_utc();
         let payload = tag::ActiveModel {
             group_id: Set(req.group_id.clone()),
             tag_name: Set(req.tag_name.clone()),
@@ -171,9 +171,9 @@ impl TagModel {
             description: Set(req.description.clone()),
             is_global: Set(req.is_global.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
         Tag::insert(payload).exec(db).await.map(|r| r.last_insert_id)
@@ -187,7 +187,7 @@ impl TagModel {
             description: Set(req.description.clone()),
             is_global: Set(req.is_global.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Utc::now())),
+            update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         let update_result: UpdateResult = Tag::update_many()
@@ -202,7 +202,7 @@ impl TagModel {
     pub async fn delete_by_id(db: &DbConn, id: i64) -> Result<i64, DbErr> {
         let payload = tag::ActiveModel {
             deleted: Set(Some(1)),
-            updated_at: Set(Option::from(chrono::Utc::now())),
+            update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         let update_result: UpdateResult = Tag::update_many()
@@ -217,7 +217,7 @@ impl TagModel {
     pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
         let payload = tag::ActiveModel {
             deleted: Set(Some(1)),
-            updated_at: Set(Option::from(chrono::Utc::now())),
+            update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         let update_result: UpdateResult = Tag::update_many()
@@ -254,7 +254,7 @@ impl TagModel {
         if let Some(global) = is_global {
             query = query.filter(tag::Column::IsGlobal.eq(global));
         }
-        let paginator = query.order_by_desc(tag::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(tag::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
     }
@@ -273,7 +273,7 @@ impl TagModel {
         Tag::find()
             .filter(tag::Column::GroupId.eq(group_id))
             .filter(tag::Column::Deleted.eq(0))
-            .order_by_desc(tag::Column::CreatedAt)
+            .order_by_desc(tag::Column::CreateTime)
             .all(db)
             .await
     }
@@ -295,7 +295,7 @@ impl TagModel {
     pub async fn find_all(db: &DbConn) -> Result<Vec<tag::Model>, DbErr> {
         Tag::find()
             .filter(tag::Column::Deleted.eq(0))
-            .order_by_desc(tag::Column::CreatedAt)
+            .order_by_desc(tag::Column::CreateTime)
             .all(db)
             .await
     }
@@ -303,7 +303,7 @@ impl TagModel {
     pub async fn move_to_group(db: &DbConn, group_id: i64, tag_ids: &Vec<i64>) -> Result<i64, DbErr> {
         let payload = tag::ActiveModel {
             group_id: Set(Some(group_id)),
-            updated_at: Set(Option::from(chrono::Utc::now())),
+            update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         let update_result: UpdateResult = Tag::update_many()

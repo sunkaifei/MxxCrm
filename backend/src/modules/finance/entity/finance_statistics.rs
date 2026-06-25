@@ -9,7 +9,6 @@
 //!
 
 use sea_orm::entity::prelude::*;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
@@ -19,16 +18,16 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i64,
 
-    /// 缁熻鏃ユ湡
-    pub stat_date: Option<DateTime<Utc>>,
+    /// 缁熻鏃ユ湡
+    pub stat_date: Option<DateTime>,
 
-    /// 缁熻绫诲瀷: 1=鏃ョ粺璁? 2=鍛ㄧ粺璁? 3=鏈堢粺璁?
+    /// 缁熻绫诲瀷: 1=鏃ョ粺璁? 2=鍛ㄧ粺璁? 3=鏈堢粺璁?
     pub stat_type: Option<i32>,
 
     /// 鎬绘敹鍏ラ噾棰?
     pub total_income: Decimal,
 
-    /// 鎴愬姛鏀粯閲戦
+    /// 鎴愬姛鏀粯閲戦
     pub success_amount: Decimal,
 
     /// 閫€娆鹃噾棰?
@@ -40,17 +39,17 @@ pub struct Model {
     /// 璁㈠崟鏁伴噺
     pub order_count: Option<i64>,
 
-    /// 鎴愬姛鏀粯璁㈠崟鏁?
+    /// 鎴愬姛鏀粯璁㈠崟鏁?
     pub success_count: Option<i64>,
 
-    /// 閫€娆捐鍗曟暟
+    /// 閫€娆捐鍗曟暟
     pub refund_count: Option<i64>,
 
     /// 鍒涘缓鏃堕棿
-    pub create_time: Option<DateTime<Utc>>,
+    pub create_time: Option<DateTime>,
 
     /// 鏇存柊鏃堕棿
-    pub update_time: Option<DateTime<Utc>>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -1,0 +1,2 @@
+﻿error: could not compile `mxx-crm` (bin "mxx-crm") due to 12 previous errors; 1
+80 warnings emitted

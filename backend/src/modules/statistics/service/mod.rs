@@ -10,3 +10,9 @@
 
 pub mod access_record_service;
 pub mod source_service;
+pub mod performance_target_service;
+pub mod customer_stats_service;
+pub mod employee_stats_service;
+pub mod contract_stats_service;
+pub mod payment_stats_service;
+pub mod performance_plan_service;

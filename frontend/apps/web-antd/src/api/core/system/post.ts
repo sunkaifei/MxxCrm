@@ -3,6 +3,9 @@ import { requestClient } from '#/api/request';
 export const getPostListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/post/list', { params });
 };
+export const getPostOptionsApi = async () => {
+  return requestClient.get('/api/system/post/options');
+};
 export const getPostInfoApi = async (id: number) => {
   return requestClient.get('/api/system/post/detail', { params: { id } });
 };

@@ -3,7 +3,6 @@ use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::core::r#enum::lead_source_enum::LeadSource;
-use crate::core::r#enum::opportunity_stage_enum::OpportunityStage;
 use crate::modules::crm::entity::{opportunity, opportunity::Entity as Opportunity};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -22,7 +21,7 @@ pub struct OpportunitySaveRequest {
     /// 商机描述
     pub description: Option<String>,
     /// 销售阶段
-    pub stage: Option<OpportunityStage>,
+    pub stage: Option<i32>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
@@ -61,9 +60,9 @@ impl From<OpportunitySaveRequest> for OpportunitySaveDTO {
             custom_fields: item.custom_fields,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -86,7 +85,7 @@ pub struct OpportunityUpdateRequest {
     /// 商机描述
     pub description: Option<String>,
     /// 销售阶段
-    pub stage: Option<OpportunityStage>,
+    pub stage: Option<i32>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
@@ -125,9 +124,9 @@ impl From<OpportunityUpdateRequest> for OpportunitySaveDTO {
             custom_fields: item.custom_fields,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -149,7 +148,7 @@ pub struct OpportunitySaveDTO {
     /// 商机描述
     pub description: Option<String>,
     /// 销售阶段
-    pub stage: Option<OpportunityStage>,
+    pub stage: Option<i32>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
@@ -171,11 +170,11 @@ pub struct OpportunitySaveDTO {
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新人ID
     pub updated_by: Option<i64>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 商机详情VO
@@ -198,7 +197,7 @@ pub struct OpportunityDetailVO {
     /// 商机描述
     pub description: Option<String>,
     /// 销售阶段
-    pub stage: Option<OpportunityStage>,
+    pub stage: Option<i32>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
@@ -254,7 +253,7 @@ pub struct OpportunityListVO {
     /// 商机标题
     pub title: Option<String>,
     /// 销售阶段
-    pub stage: Option<OpportunityStage>,
+    pub stage: Option<i32>,
     /// 赢单概率
     pub probability: Option<i32>,
     /// 商机金额
@@ -296,7 +295,7 @@ pub struct OpportunityListQuery {
     /// 关键词（搜索商机标题等）
     pub keywords: Option<String>,
     /// 销售阶段
-    pub stage: Option<OpportunityStage>,
+    pub stage: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 客户ID
@@ -321,16 +320,16 @@ impl OpportunityModel {
             customer_id: Set(req.customer_id.clone()),
             title: Set(req.title.clone()),
             description: Set(req.description.clone()),
-            stage: Set(req.stage.clone()),
+            stage: Set(req.stage),
             probability: Set(req.probability.clone()),
             amount: Set(req.amount.clone()),
             currency: Set(req.currency.clone()),
             expected_close_date: Set(req.expected_close_date.clone()),
             assigned_to: Set(req.assigned_to.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -374,14 +373,14 @@ impl OpportunityModel {
             customer_id: Set(req.customer_id.clone()),
             title: Set(req.title.clone()),
             description: Set(req.description.clone()),
-            stage: Set(req.stage.clone()),
+            stage: Set(req.stage),
             probability: Set(req.probability.clone()),
             amount: Set(req.amount.clone()),
             currency: Set(req.currency.clone()),
             expected_close_date: Set(req.expected_close_date.clone()),
             assigned_to: Set(req.assigned_to.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -427,7 +426,7 @@ impl OpportunityModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        stage: Option<OpportunityStage>,
+        stage: Option<i32>,
         assigned_to: Option<i64>,
         customer_id: Option<i64>,
     ) -> Result<(Vec<opportunity::Model>, i64), DbErr> {
@@ -447,7 +446,7 @@ impl OpportunityModel {
             query = query.filter(opportunity::Column::CustomerId.eq(c));
         }
 
-        let paginator = query.order_by_desc(opportunity::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(opportunity::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))

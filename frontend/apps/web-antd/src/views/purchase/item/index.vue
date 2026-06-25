@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+﻿<script lang="ts" setup>
 import { Page } from '@vben/common-ui';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -16,7 +16,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: {
+  cellConfig: {
     isHover: true,
   },
   stripe: true,

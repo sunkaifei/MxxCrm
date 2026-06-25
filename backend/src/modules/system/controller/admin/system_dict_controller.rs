@@ -21,6 +21,7 @@ use crate::modules::system::model::dict::{DictSaveDTO, DictSaveRequest, DictUpda
 use crate::modules::system::service::{admin_service, dict_service};
 
 #[post("/dict/add")]
+#[protect("system:dict:save")]
 pub async fn save_dict(state: web::Data<AppState>, req: HttpRequest, payload: web::Json<DictSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let dict_request = payload.0;
@@ -83,6 +84,7 @@ pub async fn save_dict_data(state: web::Data<AppState>, req: HttpRequest, payloa
 }
 
 #[delete("/dict/batch_delete")]
+#[protect("system:dict:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -113,6 +115,7 @@ pub async fn batch_delete_data(state: web::Data<AppState>, item: web::Json<BathD
 }
 
 #[put("/dict/update/{id}")]
+#[protect("system:dict:update")]
 pub async fn update_dict(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<DictUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.dict_name.as_ref().map_or(true, |dict_name| dict_name.trim().is_empty()) {
@@ -182,7 +185,7 @@ pub async fn update_dict_data(state: web::Data<AppState>, req: HttpRequest, id: 
 
 /// 获取字典类型详情
 #[get("/dict/{id}")]
-#[protect("dict:detail:view")]
+#[protect("system:dict:view")]
 pub async fn get_dict_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {

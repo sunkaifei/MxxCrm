@@ -114,6 +114,7 @@ pub async fn publish_notice(state: web::Data<AppState>, req: HttpRequest, item: 
 }
 
 #[get("/notice/detail/{id}")]
+#[protect("system:notice:view")]
 pub async fn get_by_detail(state: web::Data<AppState>, _req: HttpRequest, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     validate!(item.id.is_none(), t!("notice.index.id_empty", locale = "zh-CN").to_string());

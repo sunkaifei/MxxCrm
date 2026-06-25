@@ -12,7 +12,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::core::r#enum::lead_source_enum::LeadSource;
-use crate::core::r#enum::opportunity_stage_enum::OpportunityStage;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_crm_opportunity")]
@@ -45,7 +44,7 @@ pub struct Model {
     pub description: Option<String>,
 
     /// 销售阶段
-    pub stage: Option<OpportunityStage>,
+    pub stage: Option<i32>,
 
     /// 成交概率（百分比）
     pub probability: Option<i32>,
@@ -87,13 +86,13 @@ pub struct Model {
     pub created_by: Option<i64>,
 
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 
     /// 更新人ID
     pub updated_by: Option<i64>,
 
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,

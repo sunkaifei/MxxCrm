@@ -27,7 +27,7 @@ pub async fn lead_insert(state: web::Data<AppState>, req: HttpRequest, form_data
 }
 
 #[put("/lead/update")]
-#[protect("crm:lead:update")]
+#[protect("crm:lead:edit")]
 pub async fn lead_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -149,33 +149,27 @@ pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<B
 }
 
 #[put("/lead/update-status")]
-#[protect("crm:lead:update")]
+#[protect("crm:lead:edit")]
 pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadStatusUpdateQuery>) -> HttpResponse {
     let db = &state.db;
     let query = form_data.0;
 
     if query.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "绾跨储ID涓嶈兘涓虹┖", "local"));
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
-    let status_str = query.status.as_ref().map(|v| match v {
-        serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Number(n) => n.to_string(),
-        _ => String::new(),
-    }).filter(|s| !s.is_empty());
-
-    if status_str.is_none() {
+    if query.status.is_none() {
         return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "状态不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
-    let result = lead_service::update_status(&db, query.id.unwrap(), &status_str.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
+    let result = lead_service::update_status(&db, query.id.unwrap(), query.status.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
 #[put("/lead/add-to-pool")]
-#[protect("crm:lead:update")]
+#[protect("crm:lead:edit")]
 pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
     let db = &state.db;
     let query = form_data.0;
@@ -188,4 +182,22 @@ pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form
 
     let result = lead_service::add_to_pool(&db, query.id.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+}
+
+#[put("/lead/claim")]
+#[protect("crm:lead:edit")]
+pub async fn lead_claim(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let query = form_data.0;
+
+    if query.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    match lead_service::claim(&db, query.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
+        Ok(customer_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(customer_id, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
 }

@@ -10,7 +10,7 @@ use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::quotation::{QuotationListQuery, QuotationSaveRequest, QuotationUpdateRequest};
 use crate::modules::sale::service::quotation_service;
 
-#[post("/quotation/save")]
+#[post("/sale/quotation/save")]
 #[protect("sale:quotation:save")]
 pub async fn quotation_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<QuotationSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -20,7 +20,7 @@ pub async fn quotation_insert(state: web::Data<AppState>, req: HttpRequest, form
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/quotation/update")]
+#[put("/sale/quotation/update")]
 #[protect("sale:quotation:update")]
 pub async fn quotation_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<QuotationUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -33,7 +33,7 @@ pub async fn quotation_update(state: web::Data<AppState>, req: HttpRequest, form
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[post("/quotation/batch-delete")]
+#[post("/sale/quotation/batch-delete")]
 #[protect("sale:quotation:delete")]
 pub async fn bath_delete_quotation(state: web::Data<AppState>, form_data: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -49,7 +49,7 @@ pub async fn bath_delete_quotation(state: web::Data<AppState>, form_data: web::J
     }
 }
 
-#[get("/quotation/info")]
+#[get("/sale/quotation/info")]
 #[protect("sale:quotation:list")]
 pub async fn quotation_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
@@ -63,7 +63,7 @@ pub async fn quotation_info(state: web::Data<AppState>, item: web::Query<InfoId>
     }
 }
 
-#[get("/quotation/list")]
+#[get("/sale/quotation/list")]
 #[protect("sale:quotation:list")]
 pub async fn quotation_list(state: web::Data<AppState>, query: web::Query<QuotationListQuery>) -> HttpResponse {
     let db = &state.db;
@@ -78,7 +78,7 @@ pub async fn quotation_list(state: web::Data<AppState>, query: web::Query<Quotat
     }
 }
 
-#[post("/quotation/{id}/send")]
+#[post("/sale/quotation/{id}/send")]
 #[protect("sale:quotation:update")]
 pub async fn quotation_send(state: web::Data<AppState>, path: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -86,7 +86,7 @@ pub async fn quotation_send(state: web::Data<AppState>, path: web::Path<InfoId>)
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[post("/quotation/{id}/accept")]
+#[post("/sale/quotation/{id}/accept")]
 #[protect("sale:quotation:update")]
 pub async fn quotation_accept(state: web::Data<AppState>, path: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -94,7 +94,7 @@ pub async fn quotation_accept(state: web::Data<AppState>, path: web::Path<InfoId
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[post("/quotation/{id}/reject")]
+#[post("/sale/quotation/{id}/reject")]
 #[protect("sale:quotation:update")]
 pub async fn quotation_reject(state: web::Data<AppState>, path: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;

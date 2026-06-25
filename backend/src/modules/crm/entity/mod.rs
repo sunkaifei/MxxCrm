@@ -10,6 +10,7 @@
 
 pub mod contact;
 pub mod contract;
+pub mod contract_approval_log;
 pub mod customer;
 pub mod customer_contact_merge;
 pub mod followup;

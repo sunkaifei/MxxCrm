@@ -24,14 +24,16 @@ pub struct ContactSaveRequest {
     pub whatsapp: Option<String>,
     /// 微信号
     pub wechat: Option<String>,
+    /// 性别（0-男，1-女，2-未知/未指定）
+    pub gender: Option<i32>,
     /// 生日日期
     pub birthday: Option<Date>,
     /// 备注信息
     pub notes: Option<String>,
     /// 绑定客户ID（可选，创建时同时绑定）
     pub customer_id: Option<i64>,
-    /// 在客户公司的职位
-    pub role_type: Option<String>,
+    /// 在客户公司的职位（0-决策人 1-影响者 2-使用者 3-其他）
+    pub role_type: Option<i32>,
     /// 是否首要联系人
     pub is_primary: Option<bool>,
     /// 是否账单联系人
@@ -53,6 +55,7 @@ impl From<ContactSaveRequest> for ContactSaveDTO {
             mobile: item.mobile,
             whatsapp: item.whatsapp,
             wechat: item.wechat,
+            gender: item.gender,
             birthday: item.birthday,
             notes: item.notes,
             customer_id: item.customer_id,
@@ -63,9 +66,9 @@ impl From<ContactSaveRequest> for ContactSaveDTO {
             bound_at: item.bound_at,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -91,10 +94,16 @@ pub struct ContactUpdateRequest {
     pub whatsapp: Option<String>,
     /// 微信号
     pub wechat: Option<String>,
+    /// 性别（0-男，1-女，2-未知/未指定）
+    pub gender: Option<i32>,
     /// 生日日期
     pub birthday: Option<Date>,
     /// 备注信息
     pub notes: Option<String>,
+    /// 绑定客户ID
+    pub customer_id: Option<i64>,
+    /// 在客户公司的角色类型（0-决策人 1-影响者 2-使用者 3-其他）
+    pub role_type: Option<i32>,
 }
 
 impl From<ContactUpdateRequest> for ContactSaveDTO {
@@ -108,19 +117,20 @@ impl From<ContactUpdateRequest> for ContactSaveDTO {
             mobile: item.mobile,
             whatsapp: item.whatsapp,
             wechat: item.wechat,
+            gender: item.gender,
             birthday: item.birthday,
             notes: item.notes,
-            customer_id: None,
-            role_type: None,
+            customer_id: item.customer_id,
+            role_type: item.role_type,
             is_primary: None,
             is_billing: None,
             is_shipping: None,
             bound_at: None,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -145,14 +155,16 @@ pub struct ContactSaveDTO {
     pub whatsapp: Option<String>,
     /// 微信号
     pub wechat: Option<String>,
+    /// 性别（0-男，1-女，2-未知/未指定）
+    pub gender: Option<i32>,
     /// 生日日期
     pub birthday: Option<Date>,
     /// 备注信息
     pub notes: Option<String>,
     /// 绑定客户ID（创建时可选绑定）
     pub customer_id: Option<i64>,
-    /// 角色类型
-    pub role_type: Option<String>,
+    /// 角色类型（0-决策人 1-影响者 2-使用者 3-其他）
+    pub role_type: Option<i32>,
     /// 是否首要联系人
     pub is_primary: Option<bool>,
     /// 是否账单联系人
@@ -166,11 +178,11 @@ pub struct ContactSaveDTO {
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新人ID
     pub updated_by: Option<i64>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 // ==================== 联系人关联操作请求 ====================
@@ -185,8 +197,8 @@ pub struct ContactBindRequest {
     pub customer_id: i64,
     /// 在该公司的职位
     pub title: Option<String>,
-    /// 角色类型
-    pub role_type: Option<String>,
+    /// 角色类型（0-决策人 1-影响者 2-使用者 3-其他）
+    pub role_type: Option<i32>,
     /// 是否首要联系人
     pub is_primary: Option<bool>,
     /// 是否账单联系人
@@ -221,8 +233,8 @@ pub struct ContactSetRoleRequest {
     pub is_billing: Option<bool>,
     /// 是否收货联系人
     pub is_shipping: Option<bool>,
-    /// 角色类型
-    pub role_type: Option<String>,
+    /// 角色类型（0-决策人 1-影响者 2-使用者 3-其他）
+    pub role_type: Option<i32>,
 }
 
 // ==================== 联系人响应 VO ====================
@@ -248,6 +260,8 @@ pub struct ContactDetailVO {
     pub whatsapp: Option<String>,
     /// 微信号
     pub wechat: Option<String>,
+    /// 性别（0-男，1-女，2-未知/未指定）
+    pub gender: Option<i32>,
     /// 生日日期
     pub birthday: Option<Date>,
     /// 备注信息
@@ -257,9 +271,9 @@ pub struct ContactDetailVO {
     /// 职业生涯履历
     pub career_history: Option<Vec<CareerHistoryItem>>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 当前公司信息
@@ -270,7 +284,7 @@ pub struct ContactCompanyInfo {
     pub company_name: Option<String>,
     pub short_name: Option<String>,
     pub title: Option<String>,
-    pub role_type: Option<String>,
+    pub role_type: Option<i32>,
     pub is_primary: Option<bool>,
     pub bound_at: Option<DateTime>,
 }
@@ -284,7 +298,7 @@ pub struct CareerHistoryItem {
     pub company_name: Option<String>,
     pub short_name: Option<String>,
     pub title: Option<String>,
-    pub role_type: Option<String>,
+    pub role_type: Option<i32>,
     pub is_current: Option<bool>,
     pub is_primary: Option<bool>,
     pub bound_at: Option<DateTime>,
@@ -313,6 +327,10 @@ pub struct ContactListVO {
     pub customer_id: Option<i64>,
     /// 关联客户名称
     pub company_name: Option<String>,
+    /// 当前任职角色（0-决策人 1-影响者 2-使用者 3-其他）
+    pub role_type: Option<i32>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
 }
 
 /// 客户联系人VO（客户详情页中使用）
@@ -326,8 +344,8 @@ pub struct CustomerContactVO {
     pub name: Option<String>,
     /// 职位
     pub title: Option<String>,
-    /// 角色类型
-    pub role_type: Option<String>,
+    /// 角色类型（0-决策人 1-影响者 2-使用者 3-其他）
+    pub role_type: Option<i32>,
     /// 邮箱
     pub email: Option<String>,
     /// 手机号
@@ -370,7 +388,7 @@ pub struct ContactModel;
 
 impl ContactModel {
     /// 新增联系人
-    pub async fn insert(db: &DbConn, req: &ContactSaveDTO) -> Result<i64, DbErr> {
+    pub async fn insert(db: &impl ConnectionTrait, req: &ContactSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = contact::ActiveModel {
             name: Set(req.name.clone()),
@@ -380,10 +398,11 @@ impl ContactModel {
             mobile: Set(req.mobile.clone()),
             whatsapp: Set(req.whatsapp.clone()),
             wechat: Set(req.wechat.clone()),
+            gender: Set(req.gender.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
-            created_at: Set(Option::from(now)),
-            updated_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -394,7 +413,7 @@ impl ContactModel {
     }
 
     /// 插入关联记录
-    pub async fn insert_merge(db: &DbConn, customer_id: i64, contact_id: i64, req: &ContactSaveDTO) -> Result<i64, DbErr> {
+    pub async fn insert_merge(db: &impl ConnectionTrait, customer_id: i64, contact_id: i64, req: &ContactSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = customer_contact_merge::ActiveModel {
             customer_id: Set(customer_id),
@@ -406,8 +425,8 @@ impl ContactModel {
             is_billing: Set(req.is_billing.clone()),
             is_shipping: Set(req.is_shipping.clone()),
             bound_at: Set(req.bound_at.clone().or(Some(now))),
-            created_at: Set(Option::from(now)),
-            updated_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -431,7 +450,7 @@ impl ContactModel {
     }
 
     /// 更新联系人基本信息
-    pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &ContactSaveDTO) -> Result<i64, DbErr> {
+    pub async fn update_by_id(db: &impl ConnectionTrait, id: &Option<i64>, req: &ContactSaveDTO) -> Result<i64, DbErr> {
         let payload = contact::ActiveModel {
             name: Set(req.name.clone()),
             title: Set(req.title.clone()),
@@ -440,9 +459,10 @@ impl ContactModel {
             mobile: Set(req.mobile.clone()),
             whatsapp: Set(req.whatsapp.clone()),
             wechat: Set(req.wechat.clone()),
+            gender: Set(req.gender.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -502,23 +522,50 @@ impl ContactModel {
         Ok(items)
     }
 
-    /// 绑定联系人到客户（入职）
+    /// 绑定联系人到客户（入职 / 切换公司 / 更新信息）
+    /// - 如果当前已有 is_current=true 的关联：
+    ///   - 同一公司：仅更新 role/title/flags，不新增履历
+    ///   - 不同公司：把当前关联降级为历史，再插入新关联
+    /// - 如果当前无关联：直接插入新关联
     pub async fn bind_contact(db: &DbConn, req: &ContactBindRequest) -> Result<i64, DbErr> {
-        // 先解绑当前任职
         let now = chrono::Local::now().naive_local().to_owned();
-        CustomerContactMerge::update_many()
-            .set(customer_contact_merge::ActiveModel {
-                is_current: Set(Some(false)),
-                unbound_at: Set(Option::from(now)),
-                updated_at: Set(Option::from(now)),
-                ..Default::default()
-            })
+
+        // 查询当前任职
+        let current = CustomerContactMerge::find()
             .filter(customer_contact_merge::Column::ContactId.eq(req.contact_id))
             .filter(customer_contact_merge::Column::IsCurrent.eq(true))
-            .exec(db)
+            .one(db)
             .await?;
 
-        // 插入新关联
+        if let Some(current_record) = current {
+            if current_record.customer_id == req.customer_id {
+                // 同一公司：只更新信息，不新增履历
+                let update_payload = customer_contact_merge::ActiveModel {
+                    id: Set(current_record.id),
+                    title: Set(req.title.clone()),
+                    role_type: Set(req.role_type.clone()),
+                    is_primary: Set(req.is_primary.clone()),
+                    is_billing: Set(req.is_billing.clone()),
+                    is_shipping: Set(req.is_shipping.clone()),
+                    update_time: Set(Option::from(now)),
+                    ..Default::default()
+                };
+                CustomerContactMerge::update(update_payload).exec(db).await?;
+                return Ok(1);
+            }
+
+            // 不同公司：当前关联降级为历史
+            let downgrade = customer_contact_merge::ActiveModel {
+                id: Set(current_record.id),
+                is_current: Set(Some(false)),
+                unbound_at: Set(Option::from(now)),
+                update_time: Set(Option::from(now)),
+                ..Default::default()
+            };
+            CustomerContactMerge::update(downgrade).exec(db).await?;
+        }
+
+        // 插入新关联（切换公司 / 首次绑定）
         let payload = customer_contact_merge::ActiveModel {
             customer_id: Set(req.customer_id),
             contact_id: Set(req.contact_id),
@@ -529,8 +576,8 @@ impl ContactModel {
             is_billing: Set(req.is_billing.clone()),
             is_shipping: Set(req.is_shipping.clone()),
             bound_at: Set(req.bound_at.clone().or(Some(now))),
-            created_at: Set(Option::from(now)),
-            updated_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -548,7 +595,7 @@ impl ContactModel {
                 is_current: Set(Some(false)),
                 unbound_at: Set(req.unbound_at.clone().or(Some(now))),
                 notes: Set(req.notes.clone()),
-                updated_at: Set(Option::from(now)),
+                update_time: Set(Option::from(now)),
                 ..Default::default()
             })
             .filter(customer_contact_merge::Column::ContactId.eq(req.contact_id))
@@ -563,7 +610,7 @@ impl ContactModel {
     pub async fn set_role(db: &DbConn, req: &ContactSetRoleRequest) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let mut set_values = customer_contact_merge::ActiveModel {
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -624,7 +671,7 @@ impl ContactModel {
             }
         }
 
-        let paginator = query.order_by_desc(contact::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(contact::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))

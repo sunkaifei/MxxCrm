@@ -54,7 +54,6 @@ pub async fn get_list(db: &DbConn, query: &PurchaseOrderListQuery) -> Result<(Ve
         query.keywords.clone(),
         query.status.clone(),
         query.supplier_id,
-        query.order_type.clone(),
     ).await?;
     
     let total = PurchaseOrderModel::select_count(
@@ -62,7 +61,6 @@ pub async fn get_list(db: &DbConn, query: &PurchaseOrderListQuery) -> Result<(Ve
         query.keywords.clone(),
         query.status.clone(),
         query.supplier_id,
-        query.order_type.clone(),
     ).await?;
     
     let list: Vec<PurchaseOrderListVO> = list.into_iter().map(|m| m.into()).collect();

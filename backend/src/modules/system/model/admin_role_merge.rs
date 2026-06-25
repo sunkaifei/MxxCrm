@@ -53,7 +53,7 @@ impl AdminRoleMergeModel {
     }
 
     /// 按角色id删除关联id
-    pub async fn delete_by_role_id(db: &DbConn, role_id: &Option<i64>) -> Result<i64, DbErr> {
+    pub async fn delete_by_role_id<C: ConnectionTrait>(db: &C, role_id: &Option<i64>) -> Result<i64, DbErr> {
         let result = AdminRoleMerge::delete_many()
             .filter(admin_role_merge::Column::RoleId.eq(role_id.clone().unwrap_or_default()))
             .exec(db)

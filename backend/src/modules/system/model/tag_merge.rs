@@ -62,7 +62,7 @@ impl TagMergeModel {
                     tag_id: Set(Some(tag_id)),
                     entity_type: Set(Some(entity_type.to_string())),
                     entity_id: Set(Some(entity_id)),
-                    created_at: Set(Option::from(chrono::Utc::now())),
+                    create_time: Set(Option::from(chrono::Utc::now().naive_utc())),
                     ..Default::default()
                 };
                 TagMerge::insert(payload).exec(db).await?;
@@ -101,7 +101,7 @@ impl TagMergeModel {
             .filter(tag_merge::Column::EntityType.eq(entity_type))
             .filter(tag_merge::Column::EntityId.eq(entity_id))
             .filter(tag::Column::Deleted.eq(0))
-            .order_by_desc(tag_merge::Column::CreatedAt)
+            .order_by_desc(tag_merge::Column::CreateTime)
             .all(db)
             .await
     }

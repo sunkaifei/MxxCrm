@@ -1,0 +1,1 @@
+SELECT id, parent_id, name, type, route_name, path, component, perm, sort FROM mxx_system_menu WHERE deleted = 0 AND (path LIKE '%post%' OR path LIKE '%dict%' OR path LIKE '%notice%' OR perm LIKE '%post%' OR perm LIKE '%dict%' OR perm LIKE '%notice%') ORDER BY parent_id, sort;

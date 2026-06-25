@@ -24,6 +24,7 @@ export * from './sale/payment';
 export * from './sale/quotation';
 export * from './shop';
 export * from './system/api';
+export * from './system/approval';
 export * from './system/config';
 export * from './system/dept';
 export * from './system/area';

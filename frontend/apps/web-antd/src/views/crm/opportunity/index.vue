@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+﻿<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -58,12 +58,12 @@ const formOptions: VbenFormProps = {
         placeholder: '全部',
         allowClear: true,
         options: [
-          { label: '资格审查', value: 'qualification' },
-          { label: '需求分析', value: 'needs_analysis' },
-          { label: '方案报价', value: 'proposal' },
-          { label: '商务谈判', value: 'negotiation' },
-          { label: '已成交', value: 'won' },
-          { label: '已输单', value: 'lost' },
+          { label: '资格审查', value: 0 },
+          { label: '需求分析', value: 1 },
+          { label: '方案报价', value: 2 },
+          { label: '商务谈判', value: 3 },
+          { label: '已成交', value: 4 },
+          { label: '已输单', value: 5 },
         ],
       },
     },
@@ -104,7 +104,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: { isHover: true },
+  cellConfig: { isHover: true },
   stripe: true,
   checkboxConfig: { checkField: 'checked', trigger: 'row' },
 
@@ -135,12 +135,12 @@ const gridOptions: VxeGridProps = {
       cellRender: {
         name: 'Tag',
         options: [
-          { value: 'qualification', label: '资格审查', color: 'blue' },
-          { value: 'needs_analysis', label: '需求分析', color: 'cyan' },
-          { value: 'proposal', label: '方案报价', color: 'gold' },
-          { value: 'negotiation', label: '商务谈判', color: 'orange' },
-          { value: 'won', label: '已成交', color: 'green' },
-          { value: 'lost', label: '已输单', color: 'red' },
+          { value: 0, label: '资格审查', color: 'blue' },
+          { value: 1, label: '需求分析', color: 'cyan' },
+          { value: 2, label: '方案报价', color: 'gold' },
+          { value: 3, label: '商务谈判', color: 'orange' },
+          { value: 4, label: '已成交', color: 'green' },
+          { value: 5, label: '已输单', color: 'red' },
         ],
       },
     },

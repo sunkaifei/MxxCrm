@@ -10,9 +10,11 @@
 
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::purchase_status_enum::PurchaseStatus;
+use crate::core::r#enum::payment_status_enum::PaymentStatus;
 use crate::modules::purchase::entity::purchase_order::{self, Entity as PurchaseOrder};
 use crate::utils::string_utils::serialize_option_u64_to_string;
-use sea_orm::prelude::{Decimal, DateTime};
+use sea_orm::prelude::{Decimal, DateTime, Date};
 use sea_orm::{
     ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, PaginatorTrait, QueryFilter,
     QueryOrder, QuerySelect, UpdateResult,
@@ -21,40 +23,32 @@ use sea_orm::{
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PurchaseOrderSaveRequest {
-    pub order_no: Option<String>,
+    pub purchase_no: Option<String>,
     pub supplier_id: Option<i64>,
-    pub order_type: Option<String>,
-    pub status: Option<String>,
+    pub purchase_date: Option<Date>,
+    pub expected_date: Option<Date>,
     pub amount: Option<Decimal>,
     pub currency: Option<CurrencyCode>,
-    pub tax_amount: Option<Decimal>,
-    pub total_amount: Option<Decimal>,
+    pub status: Option<String>,
     pub payment_status: Option<String>,
-    pub payment_method: Option<String>,
-    pub paid_amount: Option<Decimal>,
-    pub delivery_address: Option<String>,
-    pub expected_delivery_date: Option<DateTime>,
-    pub remark: Option<String>,
+    pub notes: Option<String>,
 }
 
 impl From<PurchaseOrderSaveRequest> for PurchaseOrderSaveDTO {
     fn from(req: PurchaseOrderSaveRequest) -> Self {
+        let status = req.status.and_then(|s| serde_json::from_str::<PurchaseStatus>(&format!("\"{}\"", s)).ok());
+        let payment_status = req.payment_status.and_then(|s| serde_json::from_str::<PaymentStatus>(&format!("\"{}\"", s)).ok());
         PurchaseOrderSaveDTO {
             id: None,
-            order_no: req.order_no,
+            purchase_no: req.purchase_no,
             supplier_id: req.supplier_id,
-            order_type: req.order_type,
-            status: req.status,
+            purchase_date: req.purchase_date,
+            expected_date: req.expected_date,
             amount: req.amount,
             currency: req.currency,
-            tax_amount: req.tax_amount,
-            total_amount: req.total_amount,
-            payment_status: req.payment_status,
-            payment_method: req.payment_method,
-            paid_amount: req.paid_amount,
-            delivery_address: req.delivery_address,
-            expected_delivery_date: req.expected_delivery_date,
-            remark: req.remark,
+            status,
+            payment_status,
+            notes: req.notes,
             created_by: None,
             updated_by: None,
         }
@@ -65,40 +59,32 @@ impl From<PurchaseOrderSaveRequest> for PurchaseOrderSaveDTO {
 #[serde(rename_all = "camelCase")]
 pub struct PurchaseOrderUpdateRequest {
     pub id: Option<i64>,
-    pub order_no: Option<String>,
+    pub purchase_no: Option<String>,
     pub supplier_id: Option<i64>,
-    pub order_type: Option<String>,
-    pub status: Option<String>,
+    pub purchase_date: Option<Date>,
+    pub expected_date: Option<Date>,
     pub amount: Option<Decimal>,
     pub currency: Option<CurrencyCode>,
-    pub tax_amount: Option<Decimal>,
-    pub total_amount: Option<Decimal>,
+    pub status: Option<String>,
     pub payment_status: Option<String>,
-    pub payment_method: Option<String>,
-    pub paid_amount: Option<Decimal>,
-    pub delivery_address: Option<String>,
-    pub expected_delivery_date: Option<DateTime>,
-    pub remark: Option<String>,
+    pub notes: Option<String>,
 }
 
 impl From<PurchaseOrderUpdateRequest> for PurchaseOrderSaveDTO {
     fn from(req: PurchaseOrderUpdateRequest) -> Self {
+        let status = req.status.and_then(|s| serde_json::from_str::<PurchaseStatus>(&format!("\"{}\"", s)).ok());
+        let payment_status = req.payment_status.and_then(|s| serde_json::from_str::<PaymentStatus>(&format!("\"{}\"", s)).ok());
         PurchaseOrderSaveDTO {
             id: req.id,
-            order_no: req.order_no,
+            purchase_no: req.purchase_no,
             supplier_id: req.supplier_id,
-            order_type: req.order_type,
-            status: req.status,
+            purchase_date: req.purchase_date,
+            expected_date: req.expected_date,
             amount: req.amount,
             currency: req.currency,
-            tax_amount: req.tax_amount,
-            total_amount: req.total_amount,
-            payment_status: req.payment_status,
-            payment_method: req.payment_method,
-            paid_amount: req.paid_amount,
-            delivery_address: req.delivery_address,
-            expected_delivery_date: req.expected_delivery_date,
-            remark: req.remark,
+            status,
+            payment_status,
+            notes: req.notes,
             created_by: None,
             updated_by: None,
         }
@@ -109,20 +95,15 @@ impl From<PurchaseOrderUpdateRequest> for PurchaseOrderSaveDTO {
 #[serde(rename_all = "camelCase")]
 pub struct PurchaseOrderSaveDTO {
     pub id: Option<i64>,
-    pub order_no: Option<String>,
+    pub purchase_no: Option<String>,
     pub supplier_id: Option<i64>,
-    pub order_type: Option<String>,
-    pub status: Option<String>,
+    pub purchase_date: Option<Date>,
+    pub expected_date: Option<Date>,
     pub amount: Option<Decimal>,
     pub currency: Option<CurrencyCode>,
-    pub tax_amount: Option<Decimal>,
-    pub total_amount: Option<Decimal>,
-    pub payment_status: Option<String>,
-    pub payment_method: Option<String>,
-    pub paid_amount: Option<Decimal>,
-    pub delivery_address: Option<String>,
-    pub expected_delivery_date: Option<DateTime>,
-    pub remark: Option<String>,
+    pub status: Option<PurchaseStatus>,
+    pub payment_status: Option<PaymentStatus>,
+    pub notes: Option<String>,
     pub created_by: Option<i64>,
     pub updated_by: Option<i64>,
 }
@@ -136,7 +117,6 @@ pub struct PurchaseOrderListQuery {
     pub keywords: Option<String>,
     pub status: Option<String>,
     pub supplier_id: Option<i64>,
-    pub order_type: Option<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -144,48 +124,38 @@ pub struct PurchaseOrderListQuery {
 pub struct PurchaseOrderDetailVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
-    pub order_no: Option<String>,
+    pub purchase_no: Option<String>,
     pub supplier_id: Option<i64>,
-    pub order_type: Option<String>,
-    pub status: Option<String>,
+    pub purchase_date: Option<Date>,
+    pub expected_date: Option<Date>,
     pub amount: Option<Decimal>,
     pub currency: Option<CurrencyCode>,
-    pub tax_amount: Option<Decimal>,
-    pub total_amount: Option<Decimal>,
+    pub status: Option<String>,
     pub payment_status: Option<String>,
-    pub payment_method: Option<String>,
-    pub paid_amount: Option<Decimal>,
-    pub delivery_address: Option<String>,
-    pub expected_delivery_date: Option<DateTime>,
-    pub remark: Option<String>,
+    pub notes: Option<String>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 impl From<purchase_order::Model> for PurchaseOrderDetailVO {
     fn from(model: purchase_order::Model) -> Self {
         PurchaseOrderDetailVO {
             id: Some(model.id),
-            order_no: model.order_no,
+            purchase_no: model.purchase_no,
             supplier_id: model.supplier_id,
-            order_type: model.order_type,
-            status: model.status,
+            purchase_date: model.purchase_date,
+            expected_date: model.expected_date,
             amount: model.amount,
             currency: model.currency,
-            tax_amount: model.tax_amount,
-            total_amount: model.total_amount,
-            payment_status: model.payment_status,
-            payment_method: model.payment_method,
-            paid_amount: model.paid_amount,
-            delivery_address: model.delivery_address,
-            expected_delivery_date: model.expected_delivery_date,
-            remark: model.remark,
+            status: model.status.map(|s| s.to_string()),
+            payment_status: model.payment_status.map(|s| s.to_string()),
+            notes: model.notes,
             created_by: model.created_by,
-            created_at: model.created_at,
+            create_time: model.create_time,
             updated_by: model.updated_by,
-            updated_at: model.updated_at,
+            update_time: model.update_time,
         }
     }
 }
@@ -195,32 +165,24 @@ impl From<purchase_order::Model> for PurchaseOrderDetailVO {
 pub struct PurchaseOrderListVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
-    pub order_no: Option<String>,
+    pub purchase_no: Option<String>,
     pub supplier_id: Option<i64>,
-    pub order_type: Option<String>,
     pub status: Option<String>,
     pub amount: Option<Decimal>,
-    pub total_amount: Option<Decimal>,
     pub payment_status: Option<String>,
-    pub delivery_address: Option<String>,
-    pub expected_delivery_date: Option<DateTime>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 }
 
 impl From<purchase_order::Model> for PurchaseOrderListVO {
     fn from(model: purchase_order::Model) -> Self {
         PurchaseOrderListVO {
             id: Some(model.id),
-            order_no: model.order_no,
+            purchase_no: model.purchase_no,
             supplier_id: model.supplier_id,
-            order_type: model.order_type,
-            status: model.status,
+            status: model.status.map(|s| s.to_string()),
             amount: model.amount,
-            total_amount: model.total_amount,
-            payment_status: model.payment_status,
-            delivery_address: model.delivery_address,
-            expected_delivery_date: model.expected_delivery_date,
-            created_at: model.created_at,
+            payment_status: model.payment_status.map(|s| s.to_string()),
+            create_time: model.create_time,
         }
     }
 }
@@ -231,22 +193,22 @@ impl PurchaseOrderModel {
     pub async fn insert(db: &DatabaseConnection, req: &PurchaseOrderSaveDTO) -> std::result::Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = purchase_order::ActiveModel {
-            order_type: Set(req.order_type.clone()),
+            purchase_no: Set(req.purchase_no.clone()),
             supplier_id: Set(req.supplier_id.clone()),
+            purchase_date: Set(req.purchase_date.clone()),
+            expected_date: Set(req.expected_date.clone()),
             amount: Set(req.amount.clone()),
             currency: Set(req.currency.clone()),
-            tax_amount: Set(req.tax_amount.clone()),
-            total_amount: Set(req.total_amount.clone()),
-            delivery_address: Set(req.delivery_address.clone()),
-            expected_delivery_date: Set(req.expected_delivery_date.clone()),
-            remark: Set(req.remark.clone()),
+            status: Set(req.status.clone()),
+            payment_status: Set(req.payment_status.clone()),
+            notes: Set(req.notes.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
-        
+
         PurchaseOrder::insert(payload)
             .exec(db)
             .await
@@ -267,17 +229,17 @@ impl PurchaseOrderModel {
 
     pub async fn update_by_id(db: &DatabaseConnection, id: &Option<i64>, req: &PurchaseOrderSaveDTO) -> std::result::Result<i64, DbErr> {
         let payload = purchase_order::ActiveModel {
-            order_type: Set(req.order_type.clone()),
+            purchase_no: Set(req.purchase_no.clone()),
             supplier_id: Set(req.supplier_id.clone()),
+            purchase_date: Set(req.purchase_date.clone()),
+            expected_date: Set(req.expected_date.clone()),
             amount: Set(req.amount.clone()),
             currency: Set(req.currency.clone()),
-            tax_amount: Set(req.tax_amount.clone()),
-            total_amount: Set(req.total_amount.clone()),
-            delivery_address: Set(req.delivery_address.clone()),
-            expected_delivery_date: Set(req.expected_delivery_date.clone()),
-            remark: Set(req.remark.clone()),
+            status: Set(req.status.clone()),
+            payment_status: Set(req.payment_status.clone()),
+            notes: Set(req.notes.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
         
@@ -304,25 +266,23 @@ impl PurchaseOrderModel {
         keywords: Option<String>,
         status: Option<String>,
         supplier_id: Option<i64>,
-        order_type: Option<String>,
     ) -> std::result::Result<(Vec<purchase_order::Model>, i64), DbErr> {
         let mut query = PurchaseOrder::find()
             .filter(purchase_order::Column::Deleted.eq(0));
         
         if let Some(k) = keywords {
-            query = query.filter(purchase_order::Column::OrderNo.contains(k));
+            query = query.filter(purchase_order::Column::PurchaseNo.contains(k));
         }
         if let Some(s) = status {
-            query = query.filter(purchase_order::Column::Status.eq(s));
+            if let Ok(status_enum) = serde_json::from_str::<PurchaseStatus>(&format!("\"{}\"", s)) {
+                query = query.filter(purchase_order::Column::Status.eq(status_enum));
+            }
         }
         if let Some(s) = supplier_id {
             query = query.filter(purchase_order::Column::SupplierId.eq(s));
         }
-        if let Some(t) = order_type {
-            query = query.filter(purchase_order::Column::OrderType.eq(t));
-        }
         
-        let paginator = query.order_by_desc(purchase_order::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(purchase_order::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
@@ -333,22 +293,20 @@ impl PurchaseOrderModel {
         keywords: Option<String>,
         status: Option<String>,
         supplier_id: Option<i64>,
-        order_type: Option<String>,
     ) -> std::result::Result<i64, DbErr> {
         let mut query = PurchaseOrder::find()
             .filter(purchase_order::Column::Deleted.eq(0));
         
         if let Some(k) = keywords {
-            query = query.filter(purchase_order::Column::OrderNo.contains(k));
+            query = query.filter(purchase_order::Column::PurchaseNo.contains(k));
         }
         if let Some(s) = status {
-            query = query.filter(purchase_order::Column::Status.eq(s));
+            if let Ok(status_enum) = serde_json::from_str::<PurchaseStatus>(&format!("\"{}\"", s)) {
+                query = query.filter(purchase_order::Column::Status.eq(status_enum));
+            }
         }
         if let Some(s) = supplier_id {
             query = query.filter(purchase_order::Column::SupplierId.eq(s));
-        }
-        if let Some(t) = order_type {
-            query = query.filter(purchase_order::Column::OrderType.eq(t));
         }
         
         query.count(db).await.map(|c| c as i64)

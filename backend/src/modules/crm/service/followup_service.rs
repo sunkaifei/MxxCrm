@@ -1,12 +1,31 @@
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::model::followup::{FollowupDetailVO, FollowupListQuery, FollowupListVO, FollowupModel, FollowupSaveDTO, FollowupSaveRequest, FollowupUpdateRequest};
+use crate::modules::crm::entity::lead;
 use sea_orm::DbConn;
+use sea_orm::{EntityTrait, ActiveModelTrait, Set};
 
 pub async fn insert(db: &DbConn, form_data: &FollowupSaveRequest, created_by: i64) -> Result<i64> {
     let mut dto: FollowupSaveDTO = form_data.clone().into();
     dto.created_by = Some(created_by);
     let result = FollowupModel::insert(&db, &dto).await?;
+
+    if let Some(lead_id) = form_data.lead_id {
+        let mut lead_active: lead::ActiveModel = Default::default();
+        
+        if let Some(status_val) = form_data.lead_status {
+            lead_active.status = Set(Some(status_val));
+        }
+        
+        if let Some(next_date) = form_data.next_follow_date {
+            let next_dt = chrono::NaiveDateTime::new(next_date, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+            lead_active.next_follow_at = Set(Some(next_dt));
+        }
+        
+        lead_active.id = Set(lead_id);
+        let _ = lead::Entity::update(lead_active).exec(db).await;
+    }
+
     Ok(result)
 }
 

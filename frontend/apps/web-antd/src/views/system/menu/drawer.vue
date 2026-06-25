@@ -309,21 +309,27 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
 
-      const row = data.value?.row ? { ...data.value.row } : {};
+      if (data.value?.create) {
+        // 创建模式：重置表单到默认值，避免残留旧数据
+        baseFormApi.resetForm();
+        // 只设置上级菜单
+        if (data.value?.parentId !== undefined) {
+          baseFormApi.setFieldValue('parentId', data.value.parentId);
+        }
+      } else {
+        // 编辑模式：填充表单
+        const row = data.value?.row ? { ...data.value.row } : {};
 
-      if (row.name && !row.meta?.name) {
-        row.meta = row.meta || {};
-        row.meta.name = row.name;
-      }
+        if (row.name && !row.meta?.name) {
+          row.meta = row.meta || {};
+          row.meta.name = row.name;
+        }
 
-      if (row.meta?.title && !row.meta?.name) {
-        row.meta.name = row.meta.title;
-      }
+        if (row.meta?.title && !row.meta?.name) {
+          row.meta.name = row.meta.title;
+        }
 
-      baseFormApi.setValues(row);
-
-      if (data.value?.parentId !== undefined) {
-        baseFormApi.setFieldValue('parentId', data.value.parentId);
+        baseFormApi.setValues(row);
       }
 
       setLoading(false);

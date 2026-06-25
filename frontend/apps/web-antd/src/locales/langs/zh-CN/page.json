@@ -14,9 +14,9 @@
   },
   "user": {
     "module": "用户",
-    "title": "用户管理",
+    "title": "员工管理",
     "username": "用户名",
-    "nickname": "昵称",
+    "nickname": "姓名",
     "mobile": "手机号",
     "email": "邮箱",
     "motto": "签名",
@@ -29,13 +29,24 @@
     "title": "系统",
     "user": {
       "module": "用户",
-      "title": "用户管理",
+      "title": "员工管理",
       "username": "用户名",
       "usernName": "用户名",
-      "nickName": "昵称",
+      "nickName": "姓名",
       "realName": "姓名",
       "email": "邮箱",
+      "mobile": "手机号",
       "phone": "手机",
+      "gender": "性别",
+      "genderMale": "男",
+      "genderFemale": "女",
+      "genderUnknown": "未知",
+      "dept": "所属部门",
+      "post": "岗位",
+      "basicInfo": "基本信息",
+      "deptRoleInfo": "部门与角色",
+      "statusInfo": "状态设置",
+      "defaultPasswordTip": "默认密码: 123456",
       "authority": "权限",
       "orgId": "所属组织",
       "deptId": "所属部门",
@@ -115,9 +126,11 @@
       "itemKey": "字典编码",
       "itemValue": "字典值",
       "button": {
-        "create": "创建条目",
-        "delete": "删除条目",
-        "update": "修改条目"
+        "create": "新增字典",
+        "delete": "删除字典",
+        "edit": "编辑字典",
+        "update": "修改字典",
+        "view": "查看字典"
       }
     },
     "record": {
@@ -138,14 +151,36 @@
       }
     },
     "dept": {
+      "module": "部门",
       "title": "部门管理",
       "deptName": "部门名称",
-      "parentId": "上级部门"
+      "parentId": "上级部门",
+      "code": "部门编码",
+      "leader": "负责人",
+      "phone": "联系电话",
+      "email": "邮箱地址",
+      "topLevel": "顶级部门",
+      "button": {
+        "create": "新增部门",
+        "edit": "编辑部门",
+        "delete": "删除部门",
+        "view": "查看部门"
+      }
     },
     "post": {
-      "title": "岗位管理"
+      "module": "岗位",
+      "title": "岗位管理",
+      "postName": "岗位名称",
+      "postCode": "岗位编码",
+      "button": {
+        "create": "新增岗位",
+        "edit": "编辑岗位",
+        "delete": "删除岗位",
+        "view": "查看岗位"
+      }
     },
     "config": {
+      "module": "参数",
       "title": "系统配置",
       "configName": "参数名称",
       "configKey": "参数键名",
@@ -157,9 +192,17 @@
       }
     },
     "notice": {
+      "module": "公告",
       "title": "通知公告",
       "noticeTitle": "公告标题",
-      "noticeType": "公告类型"
+      "noticeType": "公告类型",
+      "content": "公告内容",
+      "button": {
+        "create": "新增公告",
+        "edit": "编辑公告",
+        "delete": "删除公告",
+        "view": "查看公告"
+      }
     },
     "log": {
       "title": "系统日志",
@@ -348,6 +391,15 @@
       }
     }
   },
+  "statistics": {
+    "title": "数据分析",
+    "index": "概览",
+    "performance": "业绩目标",
+    "customer": "客户转化",
+    "employee": "员工统计",
+    "contract": "合同排行",
+    "payment": "回款分析"
+  },
   "shop": {
     "title": "商城",
     "category": "分类管理",
@@ -359,6 +411,9 @@
     "settlement": "结算管理",
     "promotion": "促销管理",
     "commissionConfig": "佣金设置"
+  },
+  "company": {
+    "title": "企业"
   },
   "button": {
     "system": {

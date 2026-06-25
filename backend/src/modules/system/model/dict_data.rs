@@ -334,7 +334,8 @@ impl DictDataModel {
                 None => NotSet,
             },
             status:          Set(form_data.status.to_owned()),
-            update_by:       Set(form_data.create_by.to_owned()),
+            remark:          Set(form_data.remark.to_owned()),
+            update_by:       Set(form_data.update_by.to_owned()),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };

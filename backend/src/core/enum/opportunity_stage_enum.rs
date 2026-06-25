@@ -1,22 +1,41 @@
-use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Deserialize, Serialize, DeriveActiveEnum)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mxx_opportunity_stage")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OpportunityStage {
-    #[sea_orm(string_value = "qualification")]
     Qualification,
-    #[sea_orm(string_value = "needs_analysis")]
     NeedsAnalysis,
-    #[sea_orm(string_value = "proposal")]
     Proposal,
-    #[sea_orm(string_value = "negotiation")]
     Negotiation,
-    #[sea_orm(string_value = "won")]
     Won,
-    #[sea_orm(string_value = "lost")]
     Lost,
+}
+
+impl OpportunityStage {
+    /// 将数值转为阶段名称（用于数据库查询等）
+    pub fn from_code(code: i32) -> Option<OpportunityStage> {
+        match code {
+            0 => Some(OpportunityStage::Qualification),
+            1 => Some(OpportunityStage::NeedsAnalysis),
+            2 => Some(OpportunityStage::Proposal),
+            3 => Some(OpportunityStage::Negotiation),
+            4 => Some(OpportunityStage::Won),
+            5 => Some(OpportunityStage::Lost),
+            _ => None,
+        }
+    }
+
+    /// 将阶段转为数值
+    pub fn to_code(&self) -> i32 {
+        match self {
+            OpportunityStage::Qualification => 0,
+            OpportunityStage::NeedsAnalysis => 1,
+            OpportunityStage::Proposal => 2,
+            OpportunityStage::Negotiation => 3,
+            OpportunityStage::Won => 4,
+            OpportunityStage::Lost => 5,
+        }
+    }
 }
 
 impl fmt::Display for OpportunityStage {

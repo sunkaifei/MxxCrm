@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+﻿<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -62,7 +62,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: {
+  cellConfig: {
     isHover: true,
   },
   stripe: true,

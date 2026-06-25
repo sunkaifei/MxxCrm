@@ -196,6 +196,8 @@ pub struct Meta {
     pub icon: Option<String>,
     /// 排序
     pub sort: Option<i32>,
+    /// 是否在菜单中隐藏
+    pub hide_in_menu: Option<bool>,
 }
 
 /// 菜单下拉树形结构
@@ -411,7 +413,7 @@ impl MenuModel {
             redirect:               Set(form_data.redirect.to_owned()),
             params:                 Set(form_data.params.to_owned()),
             create_time:            Set(Option::from(Local::now().naive_utc())),
-            updated_time:           Set(Option::from(Local::now().naive_utc())),
+            update_time:           Set(Option::from(Local::now().naive_utc())),
             ..Default::default()
         };
 
@@ -447,7 +449,7 @@ impl MenuModel {
             icon:                   Set(form_data.icon.to_owned()),
             redirect:               Set(form_data.redirect.to_owned()),
             params:                 Set(form_data.params.to_owned()),
-            updated_time:           Set(Option::from(Local::now().naive_utc())),
+            update_time:           Set(Option::from(Local::now().naive_utc())),
             ..Default::default()
         };
 
@@ -563,6 +565,8 @@ impl MenuModel {
     /// 返回值：菜单列表`Vec<menu::Model>`，如果查询失败，则返回错误信息。
     pub async fn find_all(db: &DbConn) -> Result<Vec<menu::Model>, DbErr> {
         Menu::find()
+            .filter(menu::Column::Deleted.eq(0))
+            .filter(menu::Column::Status.eq(1))
             .order_by_asc(menu::Column::Sort)
             .all(db)
             .await
@@ -572,12 +576,8 @@ impl MenuModel {
         db: &DbConn,
         admin_id: &Option<i64>
     ) -> Result<Vec<menu::Model>, DbErr> {
-        let query = Menu::find()
+        Menu::find()
             .distinct()
-            .select_only()
-            .column(menu::Column::Id)
-            .column(menu::Column::Name)
-            .column(menu::Column::ParentId)
             .join_rev(
                 JoinType::LeftJoin,
                 role_menu_merge::Relation::Menu.def(),
@@ -587,12 +587,11 @@ impl MenuModel {
                 admin_role_merge::Relation::AdminRoleMerge.def(),
             )
             .filter(admin_role_merge::Column::AdminId.eq(admin_id.clone().unwrap_or_default()))
-            .order_by_asc(menu::Column::Id);
-
-        //let sql = query.build(DbBackend::MySql);
-        //log::info!("===============Generated SQL: {}", sql.to_string());
-
-        query.all(db).await
+            .filter(menu::Column::Deleted.eq(0))
+            .filter(menu::Column::Status.eq(1))
+            .order_by_asc(menu::Column::Sort)
+            .all(db)
+            .await
     }
     
     /// 查询所有菜单

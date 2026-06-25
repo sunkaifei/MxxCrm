@@ -59,7 +59,7 @@ pub async fn add_menu(
 
         validate!(
             menu_service::find_by_route_name_unique(db, &menu.route_name, &None).await?,
-            "路由名称已存在".to_string()
+            t!("system.menu.route_name_exists", locale = "zh-CN").to_string()
         );
     }
 
@@ -129,7 +129,7 @@ pub async fn menu_update(state: web::Data<AppState>, path: web::Path<i64>, _req:
 
         validate!(
             menu_service::find_by_route_name_unique(db, &sys_menu.route_name, &sys_menu.id).await?,
-            "路由名称已存在".to_string()
+            t!("system.menu.route_name_exists", locale = "zh-CN").to_string()
         );
     }
     
@@ -234,6 +234,7 @@ pub async fn get_user_menu(state: web::Data<AppState>,req: HttpRequest) -> Resul
 
     //判断是否是管理员
     let is_admin = user_info.user_type == Option::from(1);
+    log::info!("[菜单] getUserMenus: user_id={:?}, user_type={:?}, is_admin={}", jwt_token.id, user_info.user_type, is_admin);
     //根据id查询路由
     let result = get_user_router_tree(db, &is_admin, &jwt_token.id).await;
     match result {

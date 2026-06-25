@@ -10,7 +10,7 @@
 
 use crate::core::kit::global::Serialize;
 use crate::modules::system::entity::{admin, admin::Entity as Admin, admin_dept_merge, dept, dept::Entity as Dept};
-use crate::utils::string_utils::{deserialize_string_to_i32, deserialize_string_to_u64, deserialize_string_vec_to_u64_vec, serialize_option_i32_to_string, serialize_option_u64_to_string, u64_to_string};
+use crate::utils::string_utils::{deserialize_string_to_i32, deserialize_string_to_u64, deserialize_string_vec_to_u64_vec, serialize_option_u64_to_string, u64_to_string};
 use sea_orm::prelude::DateTime;
 use sea_orm::*;
 use sea_query::{CommonTableExpression, Expr, IntoTableRef, Query, UnionType};
@@ -41,18 +41,20 @@ pub struct AdminSaveRequest {
     ///手机号码
     pub mobile: Option<String>,
     ///用户性别（0男 1女 2未知）
-    #[validate(range(min = 0, max = 1))]
-    #[serde(deserialize_with = "deserialize_string_to_i32")]
+    #[validate(range(min = 0, max = 2))]
+    #[serde(default, deserialize_with = "deserialize_string_to_i32")]
     pub gender: Option<i32>,
     ///头像地址
     pub avatar: Option<String>,
     ///密码
     pub password: Option<String>,
     ///帐号状态（0正常 1停用）
+    #[serde(default)]
     pub status: Option<i32>,
     ///备注
     pub remark: Option<String>,
     ///用户排序
+    #[serde(default)]
     pub sort: Option<i32>,
 }
 
@@ -86,12 +88,13 @@ impl From<AdminSaveRequest> for AdminSaveDTO {
 #[derive(Debug, Validate, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminUpdateRequest {
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
-    #[validate(length(min = 3, max = 38))]
+    #[validate(length(min = 1, max = 38))]
     pub user_name: Option<String>,
     #[validate(range(min = 0, max = 1))]
     pub user_type: Option<i32>,
-    #[validate(length(min = 3, max = 38))]
+    #[validate(length(min = 1, max = 38))]
     pub nick_name: Option<String>,
     ///手机号码
     pub mobile: Option<String>,
@@ -109,10 +112,12 @@ pub struct AdminUpdateRequest {
     #[validate(email)]
     pub email: Option<String>,
     ///用户性别（0男 1女 2未知）
-    #[validate(range(min = 0, max = 1))]
-    #[serde(deserialize_with = "deserialize_string_to_i32")]
+    #[validate(range(min = 0, max = 2))]
+    #[serde(default, deserialize_with = "deserialize_string_to_i32")]
     pub gender: Option<i32>,
+    #[serde(default)]
     pub sort: Option<i32>,
+    #[serde(default)]
     pub status: Option<i32>,
     pub remark: Option<String>,
 }
@@ -300,6 +305,14 @@ pub struct DeptNameDTO {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct AdminOptionVO {
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub value: Option<i64>,
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct UserLoginVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
@@ -317,11 +330,13 @@ pub struct UserLoginVO {
 pub struct AdminListVO {
     #[serde(serialize_with = "u64_to_string")]
     pub id:  i64,
-    pub mobile: Option<String>,
     pub user_name: Option<String>,
-    ///用户昵称
+    ///用户姓名
     pub nick_name: Option<String>,
-
+    pub mobile: Option<String>,
+    pub email: Option<String>,
+    ///角色名称（逗号分隔）
+    pub role_name: Option<String>,
     ///所有拥有的权限组名称
     pub roles: Option<Vec<RoleNameDTO>>,
     ///所有的所在部门名称
@@ -329,6 +344,10 @@ pub struct AdminListVO {
     pub remark: Option<String>,
     pub sort:  Option<i32>,
     pub status:  Option<i32>,
+    #[serde(rename = "lastLoginIp")]
+    pub login_ip: Option<String>,
+    #[serde(rename = "lastLoginTime")]
+    pub login_date: Option<String>,
     pub create_time: Option<String>,
 }
 
@@ -355,7 +374,6 @@ pub struct AdminDetailVO {
     ///手机号码
     pub mobile: Option<String>,
     ///用户性别（0男 1女 2未知）
-    #[serde(serialize_with = "serialize_option_i32_to_string")]
     pub gender: Option<i32>,
     ///头像地址
     pub avatar: Option<String>,
@@ -545,17 +563,23 @@ impl AdminModel {
         user_id: i64,
         form_data: &AdminSaveDTO,
     ) -> Result<i64, DbErr> {
-        let payload = admin::ActiveModel{
-            nick_name:       Set(form_data.nick_name.to_owned()),
-            user_type:       Set(form_data.user_type.to_owned()),
-            email:           Set(form_data.email.to_owned()),
-            mobile:          Set(form_data.mobile.to_owned()),
-            gender:          Set(form_data.gender.to_owned()),
-            avatar:          Set(form_data.avatar.to_owned()),
-            status:          Set(form_data.status.to_owned()),
+        let mut payload = admin::ActiveModel{
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
+        if let Some(v) = form_data.user_name.clone() { payload.user_name = Set(Some(v)); }
+        if let Some(v) = form_data.nick_name.clone() { payload.nick_name = Set(Some(v)); }
+        if let Some(v) = form_data.user_type { payload.user_type = Set(Some(v)); }
+        if let Some(v) = form_data.email.clone() { payload.email = Set(Some(v)); }
+        if let Some(v) = form_data.mobile.clone() { payload.mobile = Set(Some(v)); }
+        if let Some(v) = form_data.gender { payload.gender = Set(Some(v)); }
+        if let Some(v) = form_data.avatar.clone() { payload.avatar = Set(Some(v)); }
+        if let Some(v) = form_data.status { payload.status = Set(Some(v)); }
+        if let Some(v) = form_data.remark.clone() { payload.remark = Set(Some(v)); }
+        if let Some(v) = form_data.sort { payload.sort = Set(Some(v)); }
+        if let Some(v) = form_data.password.clone() { payload.password = Set(Some(v)); }
+        if let Some(v) = form_data.deleted { payload.deleted = Set(Some(v)); }
+
         let update_result: UpdateResult = Admin::update_many()
             .set(payload)
             .filter(admin::Column::Id.eq(user_id))
@@ -707,6 +731,15 @@ impl AdminModel {
     pub async fn find_by_id_in(db: &DbConn, ids: Vec<i64>) -> Result<Vec<admin::Model>, DbErr> {
         Admin::find()
             .filter(admin::Column::Id.is_in(ids))
+            .all(db)
+            .await
+    }
+
+    pub async fn find_all_options(db: &DbConn) -> Result<Vec<admin::Model>, DbErr> {
+        Admin::find()
+            .filter(admin::Column::Deleted.eq(0))
+            .filter(admin::Column::Status.eq(0))
+            .order_by_asc(admin::Column::Sort)
             .all(db)
             .await
     }

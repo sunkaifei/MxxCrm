@@ -43,6 +43,9 @@ pub struct Model {
     /// 微信号
     pub wechat: Option<String>,
 
+    /// 性别（0-男，1-女，2-未知/未指定）
+    pub gender: Option<i32>,
+
     /// 是否主要联系人
     pub is_primary: Option<bool>,
 
@@ -59,10 +62,10 @@ pub struct Model {
     pub notes: Option<String>,
 
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,

@@ -11,6 +11,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::core::r#enum::contract_status_enum::ContractStatus;
+use crate::core::r#enum::contract_type_enum::ContractType;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
@@ -35,7 +36,7 @@ pub struct Model {
     pub title: Option<String>,
 
     /// 合同类型
-    pub contract_type: Option<String>,
+    pub contract_type: Option<ContractType>,
 
     /// 合同金额
     pub amount: Option<Decimal>,
@@ -79,6 +80,24 @@ pub struct Model {
     /// 合同文件（备用）
     pub contract_file: Option<String>,
 
+    /// 合同扫描件图片（JSON数组）
+    pub contract_images: Option<String>,
+
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+
+    /// 当前审批阶段（1-第一级审批, 2-第二级审批）
+    pub current_approval_stage: Option<i32>,
+
+    /// 下一审批人ID
+    pub next_approver_id: Option<i64>,
+
+    /// 审批金额阈值（用于分级审批）
+    pub approval_amount_limit: Option<Decimal>,
+
+    /// 审批实例ID（关联 mxx_system_approval_instance）
+    pub instance_id: Option<i64>,
+
     /// 备注
     pub remark: Option<String>,
 
@@ -86,13 +105,13 @@ pub struct Model {
     pub created_by: Option<i64>,
 
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 
     /// 更新人ID
     pub updated_by: Option<i64>,
 
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,

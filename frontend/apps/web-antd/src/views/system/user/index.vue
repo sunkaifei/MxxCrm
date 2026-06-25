@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+﻿﻿<script lang="ts" setup>
 import { h, ref } from 'vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -20,7 +20,7 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'userName',
-      label: $t('page.system.user.usernName'),
+      label: $t('page.system.user.username'),
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
@@ -48,7 +48,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: {
+  cellConfig: {
     isHover: true,
   },
   stripe: true,
@@ -60,7 +60,7 @@ const gridOptions: VxeGridProps = {
         return await getUserListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          username: formValues.username,
+          userName: formValues.userName,
           status: formValues.status,
         });
       },
@@ -125,7 +125,7 @@ async function handleStatusChanged(row: any, checked: boolean) {
   row.pending = true;
   row.status = checked ? 1 : 2;
   try {
-    await updateUserApi(row.id, row);
+    await updateUserApi({ id: row.id, status: row.status });
     window.$message.success($t('ui.notification.update_success'));
   } finally {
     row.pending = false;
@@ -186,7 +186,7 @@ async function handleDelete(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #roleName="{ row }">

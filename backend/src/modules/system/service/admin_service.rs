@@ -14,7 +14,7 @@ use sea_orm::TransactionTrait;
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::system::entity::admin;
-use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminModel, AdminSaveDTO, AdminSaveRequest, AdminUpdateRequest, DeptNameDTO, ListQuery, PageWhere, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
+use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminModel, AdminOptionVO, AdminSaveDTO, AdminSaveRequest, AdminUpdateRequest, DeptNameDTO, ListQuery, PageWhere, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
 use crate::modules::system::model::admin_dept_merge::{AdminDeptMergeModel, AdminDeptMergeSaveDTO};
 use crate::modules::system::model::admin_post_merge::{AdminPostMergeModel, AdminPostMergeSaveDTO};
 use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, AdminRolesMergeSaveDTO};
@@ -111,15 +111,20 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<Option<String>>) -> 
 
 /// 软删除用户
 pub async fn soft_delete_by_id(db: &DbConn, id: i64) -> Result<i64> {
-    // 删除关联数据
-    AdminDeptMergeModel::delete_by_admin_id(db, &Option::from(id)).await
-        .map_err(|e| Error::from(format!("删除部门关联失败: {}", e)))?;
-    AdminPostMergeModel::delete_by_admin_id(db, &Option::from(id)).await
-        .map_err(|e| Error::from(format!("删除岗位关联失败: {}", e)))?;
-    AdminRoleMergeModel::delete_by_admin_id(db, &Option::from(id)).await
-        .map_err(|e| Error::from(format!("删除角色关联失败: {}", e)))?;
-    // 软删除用户本身
-    AdminModel::soft_delete(db, id).await.map_err(|e| Error::from(format!("软删除管理员失败: {}", e)))
+    // 关联表删除与主表软删除需原子执行，避免产生孤儿关联或残留主记录
+    let result = (*db).transaction::<_, _, Error>(|tx| {
+        Box::pin(async move {
+            AdminDeptMergeModel::delete_by_admin_id(tx, &Option::from(id)).await
+                .map_err(|e| Error::from(format!("删除部门关联失败: {}", e)))?;
+            AdminPostMergeModel::delete_by_admin_id(tx, &Option::from(id)).await
+                .map_err(|e| Error::from(format!("删除岗位关联失败: {}", e)))?;
+            AdminRoleMergeModel::delete_by_admin_id(tx, &Option::from(id)).await
+                .map_err(|e| Error::from(format!("删除角色关联失败: {}", e)))?;
+            AdminModel::soft_delete(tx, id).await
+                .map_err(|e| Error::from(format!("软删除管理员失败: {}", e)))
+        })
+    }).await.map_err(|e| Error::from(format!("事务执行失败: {}", e)))?;
+    Ok(result)
 }
 
 pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result<i64> {
@@ -350,16 +355,29 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             Err(_) => {}
         }
 
+        let role_name_str = if role_data.is_empty() {
+            None
+        } else {
+            Some(role_data.iter()
+                .filter_map(|r| r.role_name.clone())
+                .collect::<Vec<_>>()
+                .join(", "))
+        };
+
         list_data.push(AdminListVO {
             id: data.id,
             user_name: data.user_name,
             nick_name: data.nick_name,
+            mobile: data.mobile,
+            email: data.email,
+            role_name: role_name_str,
             roles: Option::from(role_data),
             depts: Option::from(depts_data),
-            remark: None,
-            mobile: data.mobile,
+            remark: data.remark,
             status: data.status,
             sort: data.sort,
+            login_ip: data.login_ip,
+            login_date: data.login_date.map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string()),
             create_time: Option::from(data.create_time.unwrap_or_default().format("%Y-%m-%d %H:%M:%S").to_string()),
         });
 
@@ -370,4 +388,20 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
     let page_data = ResultPage::new_simple(list_data, count);
     
     Ok(page_data)
+}
+
+pub async fn get_admin_options(db: &DbConn) -> Result<Vec<AdminOptionVO>> {
+    let result = AdminModel::find_all_options(db).await?;
+    let mut list_data: Vec<AdminOptionVO> = Vec::new();
+    for data in result {
+        let label = data.nick_name
+            .clone()
+            .filter(|s| !s.is_empty())
+            .or(data.user_name.clone());
+        list_data.push(AdminOptionVO {
+            value: Option::from(data.id),
+            label,
+        });
+    }
+    Ok(list_data)
 }

@@ -20,6 +20,7 @@ pub mod region;
 
 pub mod role;
 pub mod role_menu_merge;
+pub mod role_dept_merge;
 
 pub mod dept;
 pub mod dept_menu_merge;

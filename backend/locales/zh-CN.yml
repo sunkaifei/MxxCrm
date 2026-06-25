@@ -1,0 +1,39 @@
+_version: 2
+system.menu.parent_id_empty:
+  zh-CN: "父级ID不能为空"
+system.menu.name_empty:
+  zh-CN: "菜单名称不能为空"
+system.menu.name_exists:
+  zh-CN: "菜单名称已存在"
+system.menu.route_name_empty:
+  zh-CN: "路由名称不能为空"
+system.menu.route_name_exists:
+  zh-CN: "路由名称已存在"
+system.menu.route_path_empty:
+  zh-CN: "路由路径不能为空"
+system.menu.route_path_exists:
+  zh-CN: "路由路径已存在"
+system.menu.permission_empty:
+  zh-CN: "权限标识不能为空"
+system.menu.permission_exists:
+  zh-CN: "权限标识已存在"
+article.index.title_empty:
+  zh-CN: "标题不能为空"
+article.index.category_id_empty:
+  zh-CN: "分类ID不能为空"
+article.index.content_empty:
+  zh-CN: "内容不能为空"
+website.template.name_empty:
+  zh-CN: "模板名称不能为空"
+website.template.name_exists:
+  zh-CN: "模板名称已存在"
+website.template.id_empty:
+  zh-CN: "模板ID不能为空"
+attachment.category.id_empty:
+  zh-CN: "分类ID不能为空"
+attachment.category.name_empty:
+  zh-CN: "分类名称不能为空"
+attachment.category.info_empty:
+  zh-CN: "分类信息不存在"
+notice.index.id_empty:
+  zh-CN: "ID不能为空"

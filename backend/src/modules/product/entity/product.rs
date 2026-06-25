@@ -12,9 +12,9 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
-/// 产品主表（mxx_product_main）
+/// 产品主表（mxx_product）
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
-#[sea_orm(table_name = "mxx_product_main")]
+#[sea_orm(table_name = "mxx_product")]
 pub struct Model {
     /// 产品ID（主键）
     #[sea_orm(primary_key)]
@@ -88,13 +88,13 @@ pub struct Model {
     pub created_by: Option<i64>,
 
     /// 创建时间
-    pub create_time: Option<DateTimeWithTimeZone>,
+    pub create_time: Option<DateTime>,
 
     /// 更新人ID
     pub updated_by: Option<i64>,
 
     /// 更新时间
-    pub update_time: Option<DateTimeWithTimeZone>,
+    pub update_time: Option<DateTime>,
 
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,

@@ -2,8 +2,11 @@ use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::contract_status_enum::ContractStatus;
+use crate::core::r#enum::contract_type_enum::ContractType;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
-use crate::modules::crm::entity::{contract, contract::Entity as Contract};
+use crate::modules::crm::entity::{contract, contract_approval_log, contract::Entity as Contract, contract_approval_log::Entity as ContractApprovalLog};
+use crate::modules::crm::entity::customer::{Entity as Customer, Column as CustomerColumn};
+use crate::modules::approval::model::approval::ApprovalInstanceVO;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
 /// 合同新增请求DTO
@@ -17,7 +20,7 @@ pub struct ContractSaveRequest {
     /// 合同标题
     pub title: Option<String>,
     /// 合同类型
-    pub contract_type: Option<String>,
+    pub contract_type: Option<ContractType>,
     /// 合同金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
@@ -36,8 +39,14 @@ pub struct ContractSaveRequest {
     pub sign_date: Option<Date>,
     /// 付款条款
     pub payment_terms: Option<String>,
+    /// 交付条款
+    pub delivery_terms: Option<String>,
+    /// 负责人ID
+    pub assigned_to: Option<i64>,
     /// 合同文件路径
     pub contract_file: Option<String>,
+    /// 合同扫描件图片（JSON数组）
+    pub contract_images: Option<String>,
     /// 备注信息
     pub remark: Option<String>,
 }
@@ -59,13 +68,21 @@ impl From<ContractSaveRequest> for ContractSaveDTO {
             end_date: item.end_date,
             sign_date: item.sign_date,
             payment_terms: item.payment_terms,
+            delivery_terms: item.delivery_terms,
+            assigned_to: item.assigned_to,
             contract_file: item.contract_file,
+            contract_images: item.contract_images,
+            approval_status: None,
+            current_approval_stage: None,
+            next_approver_id: None,
+            approval_amount_limit: None,
+            instance_id: None,
             remark: item.remark,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -84,7 +101,7 @@ pub struct ContractUpdateRequest {
     /// 合同标题
     pub title: Option<String>,
     /// 合同类型
-    pub contract_type: Option<String>,
+    pub contract_type: Option<ContractType>,
     /// 合同金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
@@ -103,8 +120,14 @@ pub struct ContractUpdateRequest {
     pub sign_date: Option<Date>,
     /// 付款条款
     pub payment_terms: Option<String>,
+    /// 交付条款
+    pub delivery_terms: Option<String>,
+    /// 负责人ID
+    pub assigned_to: Option<i64>,
     /// 合同文件路径
     pub contract_file: Option<String>,
+    /// 合同扫描件图片（JSON数组）
+    pub contract_images: Option<String>,
     /// 备注信息
     pub remark: Option<String>,
 }
@@ -126,13 +149,21 @@ impl From<ContractUpdateRequest> for ContractSaveDTO {
             end_date: item.end_date,
             sign_date: item.sign_date,
             payment_terms: item.payment_terms,
+            delivery_terms: item.delivery_terms,
+            assigned_to: item.assigned_to,
             contract_file: item.contract_file,
+            contract_images: item.contract_images,
+            approval_status: None,
+            current_approval_stage: None,
+            next_approver_id: None,
+            approval_amount_limit: None,
+            instance_id: None,
             remark: item.remark,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -150,7 +181,7 @@ pub struct ContractSaveDTO {
     /// 合同标题
     pub title: Option<String>,
     /// 合同类型
-    pub contract_type: Option<String>,
+    pub contract_type: Option<ContractType>,
     /// 合同金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
@@ -169,8 +200,24 @@ pub struct ContractSaveDTO {
     pub sign_date: Option<Date>,
     /// 付款条款
     pub payment_terms: Option<String>,
+    /// 交付条款
+    pub delivery_terms: Option<String>,
+    /// 负责人ID
+    pub assigned_to: Option<i64>,
     /// 合同文件路径
     pub contract_file: Option<String>,
+    /// 合同扫描件图片（JSON数组）
+    pub contract_images: Option<String>,
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+    /// 当前审批阶段（1-第一级审批, 2-第二级审批）
+    pub current_approval_stage: Option<i32>,
+    /// 下一审批人ID
+    pub next_approver_id: Option<i64>,
+    /// 审批金额阈值（用于分级审批）
+    pub approval_amount_limit: Option<Decimal>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     /// 备注信息
     pub remark: Option<String>,
     /// 软删除标记
@@ -178,11 +225,11 @@ pub struct ContractSaveDTO {
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新人ID
     pub updated_by: Option<i64>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 合同详情VO
@@ -201,7 +248,7 @@ pub struct ContractDetailVO {
     /// 合同标题
     pub title: Option<String>,
     /// 合同类型
-    pub contract_type: Option<String>,
+    pub contract_type: Option<ContractType>,
     /// 合同金额（不含税）
     pub amount: Option<Decimal>,
     /// 币种
@@ -220,10 +267,28 @@ pub struct ContractDetailVO {
     pub sign_date: Option<Date>,
     /// 付款条款
     pub payment_terms: Option<String>,
+    /// 交付条款
+    pub delivery_terms: Option<String>,
+    /// 负责人ID
+    pub assigned_to: Option<i64>,
     /// 合同文件路径
     pub contract_file: Option<String>,
+    /// 合同扫描件图片（JSON数组）
+    pub contract_images: Option<String>,
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+    /// 当前审批阶段（1-第一级审批, 2-第二级审批）
+    pub current_approval_stage: Option<i32>,
+    /// 下一审批人ID
+    pub next_approver_id: Option<i64>,
+    /// 审批金额阈值
+    pub approval_amount_limit: Option<Decimal>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     /// 备注信息
     pub remark: Option<String>,
+    /// 审批日志列表
+    pub approval_logs: Option<Vec<ContractApprovalLogVO>>,
 }
 
 impl From<contract::Model> for ContractDetailVO {
@@ -244,8 +309,17 @@ impl From<contract::Model> for ContractDetailVO {
             end_date: item.end_date,
             sign_date: item.sign_date,
             payment_terms: item.payment_terms,
+            delivery_terms: item.delivery_terms,
+            assigned_to: item.assigned_to,
             contract_file: item.contract_file,
+            contract_images: item.contract_images,
+            approval_status: item.approval_status,
+            current_approval_stage: item.current_approval_stage,
+            next_approver_id: item.next_approver_id,
+            approval_amount_limit: item.approval_amount_limit,
+            instance_id: item.instance_id,
             remark: item.remark,
+            approval_logs: None,
         }
     }
 }
@@ -271,6 +345,10 @@ pub struct ContractListVO {
     pub total_amount: Option<Decimal>,
     /// 合同状态
     pub status: Option<ContractStatus>,
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     /// 合同开始日期
     pub start_date: Option<Date>,
     /// 合同结束日期
@@ -284,10 +362,12 @@ impl From<contract::Model> for ContractListVO {
             contract_no: item.contract_no,
             customer_id: item.customer_id,
             title: item.title,
-            contract_type: item.contract_type,
+            contract_type: item.contract_type.map(|c| c.to_string()),
             amount: item.amount,
             total_amount: item.total_amount,
             status: item.status,
+            approval_status: item.approval_status,
+            instance_id: item.instance_id,
             start_date: item.start_date,
             end_date: item.end_date,
         }
@@ -339,12 +419,20 @@ impl ContractModel {
             end_date: Set(req.end_date.clone()),
             sign_date: Set(req.sign_date.clone()),
             payment_terms: Set(req.payment_terms.clone()),
+            delivery_terms: Set(req.delivery_terms.clone()),
+            assigned_to: Set(req.assigned_to.clone()),
             contract_file: Set(req.contract_file.clone()),
+            contract_images: Set(req.contract_images.clone()),
+            approval_status: Set(req.approval_status.clone()),
+            current_approval_stage: Set(req.current_approval_stage.clone()),
+            next_approver_id: Set(req.next_approver_id.clone()),
+            approval_amount_limit: Set(req.approval_amount_limit.clone()),
+            instance_id: Set(req.instance_id.clone()),
             remark: Set(req.remark.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -398,10 +486,18 @@ impl ContractModel {
             end_date: Set(req.end_date.clone()),
             sign_date: Set(req.sign_date.clone()),
             payment_terms: Set(req.payment_terms.clone()),
+            delivery_terms: Set(req.delivery_terms.clone()),
+            assigned_to: Set(req.assigned_to.clone()),
             contract_file: Set(req.contract_file.clone()),
+            contract_images: Set(req.contract_images.clone()),
+            approval_status: Set(req.approval_status.clone()),
+            current_approval_stage: Set(req.current_approval_stage.clone()),
+            next_approver_id: Set(req.next_approver_id.clone()),
+            approval_amount_limit: Set(req.approval_amount_limit.clone()),
+            instance_id: Set(req.instance_id.clone()),
             remark: Set(req.remark.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -466,9 +562,129 @@ impl ContractModel {
             query = query.filter(contract::Column::CustomerId.eq(c));
         }
 
-        let paginator = query.order_by_desc(contract::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(contract::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+    }
+
+    pub async fn get_approval_logs(db: &DbConn, contract_id: i64) -> Result<Vec<contract_approval_log::Model>, DbErr> {
+        ContractApprovalLog::find()
+            .filter(contract_approval_log::Column::ContractId.eq(contract_id))
+            .filter(contract_approval_log::Column::Deleted.eq(0))
+            .order_by_desc(contract_approval_log::Column::CreateTime)
+            .all(db)
+            .await
+    }
+
+    pub async fn insert_approval_log(
+        db: &DbConn,
+        contract_id: i64,
+        action: i32,
+        operator_id: i64,
+        operator_name: Option<String>,
+        reason: Option<String>,
+        previous_status: Option<i32>,
+        new_status: Option<i32>,
+        current_stage: Option<i32>,
+        next_stage: Option<i32>,
+    ) -> Result<i64, DbErr> {
+        let now = chrono::Local::now().naive_local().to_owned();
+        let payload = contract_approval_log::ActiveModel {
+            contract_id: Set(contract_id),
+            action: Set(action),
+            operator_id: Set(operator_id),
+            operator_name: Set(operator_name),
+            reason: Set(reason),
+            previous_status: Set(previous_status),
+            new_status: Set(new_status),
+            current_stage: Set(current_stage),
+            next_stage: Set(next_stage),
+            create_time: Set(Option::from(now)),
+            ..Default::default()
+        };
+
+        ContractApprovalLog::insert(payload)
+            .exec(db)
+            .await
+            .map(|r| r.last_insert_id)
+    }
+}
+
+/// 合同审批日志VO
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct ContractApprovalLogVO {
+    pub id: Option<i64>,
+    pub contract_id: Option<i64>,
+    pub action: Option<i32>,
+    pub operator_id: Option<i64>,
+    pub operator_name: Option<String>,
+    pub reason: Option<String>,
+    pub previous_status: Option<i32>,
+    pub new_status: Option<i32>,
+    pub current_stage: Option<i32>,
+    pub next_stage: Option<i32>,
+    pub create_time: Option<String>,
+}
+
+impl From<contract_approval_log::Model> for ContractApprovalLogVO {
+    fn from(item: contract_approval_log::Model) -> Self {
+        ContractApprovalLogVO {
+            id: Some(item.id),
+            contract_id: Some(item.contract_id),
+            action: Some(item.action),
+            operator_id: Some(item.operator_id),
+            operator_name: item.operator_name,
+            reason: item.reason,
+            previous_status: item.previous_status,
+            new_status: item.new_status,
+            current_stage: item.current_stage,
+            next_stage: item.next_stage,
+            create_time: item.create_time.map(|t| t.to_string()),
+        }
+    }
+}
+
+/// 合同审批请求DTO
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all(deserialize = "camelCase"))]
+pub struct ContractApprovalRequest {
+    pub contract_id: Option<i64>,
+    pub reason: Option<String>,
+}
+
+/// 合同审批详情VO（聚合合同+审批实例数据）
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct ContractApprovalDetailVO {
+    pub contract_id: Option<i64>,
+    pub contract_no: Option<String>,
+    pub title: Option<String>,
+    pub customer_name: Option<String>,
+    pub contract_type: Option<String>,
+    pub amount: Option<Decimal>,
+    pub total_amount: Option<Decimal>,
+    pub currency: Option<CurrencyCode>,
+    pub approval_status: Option<i32>,
+    pub instance: Option<ApprovalInstanceVO>,
+}
+
+/// 合同审批流程配置
+pub struct ContractApprovalConfig {
+    pub first_level_limit: Decimal,
+    pub second_level_limit: Decimal,
+    pub first_level_approver_role: String,
+    pub second_level_approver_role: String,
+}
+
+impl Default for ContractApprovalConfig {
+    fn default() -> Self {
+        ContractApprovalConfig {
+            first_level_limit: Decimal::from(5000),
+            second_level_limit: Decimal::from(100000),
+            first_level_approver_role: "manager".to_string(),
+            second_level_approver_role: "boss".to_string(),
+        }
     }
 }

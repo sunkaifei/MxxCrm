@@ -21,3 +21,9 @@ export const updateLeadStatusApi = async (id: number, status: number | string) =
 export const addLeadToPoolApi = async (id: number) => {
   return requestClient.put('/api/system/lead/add-to-pool', { id });
 };
+export const claimLeadApi = async (id: number) => {
+  return requestClient.put('/api/system/lead/claim', { id });
+};
+export const saveFollowupApi = async (params: any) => {
+  return requestClient.post('/api/system/followup/save', params);
+};

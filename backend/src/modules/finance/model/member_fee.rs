@@ -121,15 +121,13 @@ impl MemberFeeModel {
     }
 
     pub async fn insert(db: &DbConn, req: MemberFeeSaveRequest) -> Result<MemberFeeDTO, DbErr> {
-        let now = Some(Utc::now());
-        
+        let now = Some(Utc::now().naive_utc());
+
         let valid_start_time = req.valid_start_time.as_ref()
-            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok())
-            .map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc));
-        
+            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok());
+
         let valid_end_time = req.valid_end_time.as_ref()
-            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok())
-            .map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc));
+            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok());
         
         let model = member_fee::ActiveModel {
             user_id: Set(req.user_id),
@@ -163,20 +161,20 @@ impl MemberFeeModel {
         
         if let Some(start_time_str) = &req.valid_start_time {
             if let Ok(dt) = NaiveDateTime::parse_from_str(start_time_str, "%Y-%m-%d %H:%M:%S") {
-                model.valid_start_time = Set(Some(DateTime::from_naive_utc_and_offset(dt, Utc)));
+                model.valid_start_time = Set(Some(dt));
             }
         }
-        
+
         if let Some(end_time_str) = &req.valid_end_time {
             if let Ok(dt) = NaiveDateTime::parse_from_str(end_time_str, "%Y-%m-%d %H:%M:%S") {
-                model.valid_end_time = Set(Some(DateTime::from_naive_utc_and_offset(dt, Utc)));
+                model.valid_end_time = Set(Some(dt));
             }
         }
-        
+
         model.status = Set(req.status);
         model.payment_record_id = Set(req.payment_record_id);
         model.remark = Set(req.remark);
-        model.update_time = Set(Some(Utc::now()));
+        model.update_time = Set(Some(Utc::now().naive_utc()));
         
         let result = model.update(db).await?;
         

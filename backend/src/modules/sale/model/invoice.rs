@@ -46,9 +46,9 @@ impl From<InvoiceSaveRequest> for InvoiceSaveDTO {
             notes: item.notes,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -86,9 +86,9 @@ impl From<InvoiceUpdateRequest> for InvoiceSaveDTO {
             notes: item.notes,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -110,9 +110,9 @@ pub struct InvoiceSaveDTO {
     pub notes: Option<String>,
     pub deleted: Option<i32>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 发票详情VO
@@ -131,7 +131,7 @@ pub struct InvoiceDetailVO {
     pub issued_at: Option<Date>,
     pub due_date: Option<Date>,
     pub notes: Option<String>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 }
 
 impl From<invoice::Model> for InvoiceDetailVO {
@@ -148,7 +148,7 @@ impl From<invoice::Model> for InvoiceDetailVO {
             issued_at: item.issued_at,
             due_date: item.due_date,
             notes: item.notes,
-            created_at: item.created_at,
+            create_time: item.create_time,
         }
     }
 }
@@ -217,9 +217,9 @@ impl InvoiceModel {
             due_date: Set(req.due_date),
             notes: Set(req.notes.clone()),
             created_by: Set(req.created_by),
-            created_at: Set(Some(now)),
+            create_time: Set(Some(now)),
             updated_by: Set(req.updated_by),
-            updated_at: Set(Some(now)),
+            update_time: Set(Some(now)),
             ..Default::default()
         };
         Invoice::insert(payload).exec(db).await.map(|r| r.last_insert_id)
@@ -246,7 +246,7 @@ impl InvoiceModel {
             due_date: Set(req.due_date),
             notes: Set(req.notes.clone()),
             updated_by: Set(req.updated_by),
-            updated_at: Set(Some(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Some(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
         let result = Invoice::update_many()
@@ -288,7 +288,7 @@ impl InvoiceModel {
             query = query.filter(invoice::Column::CustomerId.eq(cid));
         }
 
-        let paginator = query.order_by_desc(invoice::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(invoice::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
     }

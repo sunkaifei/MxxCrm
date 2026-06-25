@@ -8,7 +8,7 @@ use crate::modules::purchase::service::purchase_order_service;
 use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
 use actix_web_grants::protect;
 
-#[post("/order/save")]
+#[post("/purchase/order/save")]
 #[protect("purchase:order:save")]
 pub async fn purchase_order_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PurchaseOrderSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -19,7 +19,7 @@ pub async fn purchase_order_insert(state: web::Data<AppState>, req: HttpRequest,
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/order/update")]
+#[put("/purchase/order/update")]
 #[protect("purchase:order:update")]
 pub async fn purchase_order_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PurchaseOrderUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -34,7 +34,7 @@ pub async fn purchase_order_update(state: web::Data<AppState>, req: HttpRequest,
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/order/bath_delete")]
+#[delete("/purchase/order/bath_delete")]
 #[protect("purchase:order:delete")]
 pub async fn batch_delete_purchase_order(state: web::Data<AppState>, ids: web::Json<Vec<i64>>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -42,7 +42,7 @@ pub async fn batch_delete_purchase_order(state: web::Data<AppState>, ids: web::J
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[get("/order/info")]
+#[get("/purchase/order/info")]
 #[protect("purchase:order:view")]
 pub async fn purchase_order_info(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
@@ -57,22 +57,12 @@ pub async fn purchase_order_info(state: web::Data<AppState>, req: HttpRequest) -
     }
 }
 
-#[get("/order/list")]
-#[protect("purchase:order:view")]
-pub async fn purchase_order_list(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
+#[get("/purchase/order/list")]
+#[protect("purchase:po:list")]
+pub async fn purchase_order_list(state: web::Data<AppState>, query: web::Query<PurchaseOrderListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
-    let query_str = req.query_string();
     
-    let query = PurchaseOrderListQuery {
-        page_num: query_str.split("&").find(|s| s.starts_with("page=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
-        page_size: query_str.split("&").find(|s| s.starts_with("pageSize=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
-        keywords: query_str.split("&").find(|s| s.starts_with("keywords=")).and_then(|s| s.split("=").nth(1).map(|s| s.to_string())),
-        status: query_str.split("&").find(|s| s.starts_with("status=")).and_then(|s| s.split("=").nth(1).map(|s| s.to_string())),
-        supplier_id: query_str.split("&").find(|s| s.starts_with("supplierId=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
-        order_type: query_str.split("&").find(|s| s.starts_with("orderType=")).and_then(|s| s.split("=").nth(1).map(|s| s.to_string())),
-    };
-    
-    match purchase_order_service::get_list(&db, &query).await {
+    match purchase_order_service::get_list(&db, &query.into_inner()).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }

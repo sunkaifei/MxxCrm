@@ -10,7 +10,6 @@ import { useWatermark } from '@vben/hooks';
 import { CircleHelp, SvgGithubIcon } from '@vben/icons';
 import {
   BasicLayout,
-  LockScreen,
   Notification,
   UserDropdown,
 } from '@vben/layouts';
@@ -187,6 +186,16 @@ watch(
     immediate: true,
   },
 );
+
+// 监听锁屏状态：变 true 时自动跳转到 /lock
+watch(
+  () => accessStore.isLockScreen,
+  (locked) => {
+    if (locked && router.currentRoute.value.path !== '/lock') {
+      router.replace('/lock');
+    }
+  },
+);
 </script>
 
 <template>
@@ -220,9 +229,6 @@ watch(
       >
         <LoginForm />
       </AuthenticationLoginExpiredModal>
-    </template>
-    <template #lock-screen>
-      <LockScreen :avatar @to-login="handleLogout" />
     </template>
   </BasicLayout>
 </template>

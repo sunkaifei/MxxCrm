@@ -65,9 +65,25 @@ const validPass = computed(
 async function handleSubmit() {
   const { valid } = await validate();
   if (valid) {
-    if (validPass.value) {
-      accessStore.unlockScreen();
-    } else {
+    const inputPwd = form?.values?.password ?? '';
+    if (!inputPwd) {
+      form.setFieldError('password', $t('authentication.passwordErrorTip'));
+      return;
+    }
+    try {
+      const buf = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(inputPwd),
+      );
+      const hash = Array.from(new Uint8Array(buf))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      if (lockScreenPassword?.value === hash) {
+        accessStore.unlockScreen();
+      } else {
+        form.setFieldError('password', $t('authentication.passwordErrorTip'));
+      }
+    } catch {
       form.setFieldError('password', $t('authentication.passwordErrorTip'));
     }
   }

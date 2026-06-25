@@ -56,11 +56,10 @@ const gridOptions: VxeGridProps = {
   pagerConfig: {
     enabled: false,
   },
-  rowConfig: {
+  cellConfig: {
     isHover: true,
     height: 56,
   },
-  stripe: true,
   treeConfig: {
     parentField: 'parentId',
     childrenField: 'children',

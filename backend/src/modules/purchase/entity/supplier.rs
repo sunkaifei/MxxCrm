@@ -51,14 +51,22 @@ pub struct Model {
     #[sea_orm(ignore)]
     pub tags: Option<Vec<String>>,
     pub status: Option<i32>,
+    /// 付款条款
+    pub payment_terms: Option<String>,
+    /// 交货条款
+    pub delivery_terms: Option<String>,
+    /// 备注
+    pub notes: Option<String>,
+    /// 是否启用
+    pub is_active: Option<bool>,
     #[sea_orm(ignore)]
     pub description: Option<String>,
     #[sea_orm(ignore)]
     pub custom_fields: Option<serde_json::Value>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }
 

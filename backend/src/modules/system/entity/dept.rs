@@ -28,6 +28,8 @@ pub struct Model {
     pub sort: Option<i32>,
     ///负责人
     pub leader: Option<String>,
+    /// 负责人用户ID
+    pub leader_id: Option<i64>,
     /// 联系电话
     pub phone: Option<String>,
     /// 邮箱

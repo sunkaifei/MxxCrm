@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+﻿<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -55,7 +55,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: {
+  cellConfig: {
     isHover: true,
   },
   stripe: true,
@@ -167,7 +167,7 @@ async function handleDelete(row: any) {
     <Grid>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('system:notice:create')"
+          v-if="accessStore.hasAccessCode('system:notice:add')"
           type="primary"
           class="mr-2"
           @click="handleCreate"

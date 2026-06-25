@@ -4,9 +4,16 @@ import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
-import { createOpportunityApi, updateOpportunityApi } from '#/api';
+import { createOpportunityApi, updateOpportunityApi, getCustomerListApi, getCustomerContactsApi } from '#/api';
 
 const data = ref();
+
+// 当前选中的客户公司名（用于 ApiSelect 编辑回显）
+const currentCompanyName = ref<string>('');
+const currentCustomerId = ref<number | null>(null);
+
+// 当前选中客户下的联系人列表
+const contactOptions = ref<{ label: string; value: number }[]>([]);
 
 const getTitle = computed(() =>
   data.value?.create
@@ -14,14 +21,14 @@ const getTitle = computed(() =>
     : $t('ui.modal.update', { moduleName: $t('page.crm.opportunity.title') }),
 );
 
-// 商机阶段 - 对齐后端 OpportunityStage 枚举
+// 商机阶段 - 数值对齐后端
 const stageOptions = [
-  { label: '资格审查', value: 'qualification', color: 'blue' },
-  { label: '需求分析', value: 'needs_analysis', color: 'cyan' },
-  { label: '方案报价', value: 'proposal', color: 'gold' },
-  { label: '商务谈判', value: 'negotiation', color: 'orange' },
-  { label: '已成交', value: 'won', color: 'green' },
-  { label: '已输单', value: 'lost', color: 'red' },
+  { label: '资格审查', value: 0, color: 'blue' },
+  { label: '需求分析', value: 1, color: 'cyan' },
+  { label: '方案报价', value: 2, color: 'gold' },
+  { label: '商务谈判', value: 3, color: 'orange' },
+  { label: '已成交', value: 4, color: 'green' },
+  { label: '已输单', value: 5, color: 'red' },
 ];
 
 // 商机来源 - 对齐后端 LeadSource 枚举
@@ -85,7 +92,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Select',
       fieldName: 'stage',
       label: '销售阶段',
-      defaultValue: 'qualification',
+      defaultValue: 0,
       rules: 'required',
       componentProps: {
         placeholder: '请选择销售阶段',
@@ -161,16 +168,81 @@ const [BaseForm, baseFormApi] = useVbenForm({
       formItemClass: 'col-span-2',
     },
     {
-      component: 'InputNumber',
+      component: 'ApiSelect',
       fieldName: 'customerId',
-      label: '客户ID',
-      componentProps: { placeholder: '关联客户ID', min: 0, class: 'w-full' },
+      label: '所属企业',
+      formItemClass: 'col-span-2',
+      componentProps: {
+        placeholder: '搜索并选择客户',
+        allowClear: true,
+        showSearch: true,
+        filterOption: false,
+        remote: true,
+        params: { companyName: '' },
+        api: async (params: any) => {
+          const res: any = await getCustomerListApi({
+            page: 1,
+            pageSize: 20,
+            ...(params?.companyName ? { companyName: params.companyName } : {}),
+          });
+          const items = res?.items || [];
+          // 编辑回显：如果当前公司不在列表中，手动加入
+          if (currentCompanyName.value && currentCustomerId.value) {
+            const exists = items.some((item: any) => String(item.id) === String(currentCustomerId.value));
+            if (!exists) {
+              items.unshift({ id: String(currentCustomerId.value), companyName: currentCompanyName.value });
+            }
+          }
+          return items;
+        },
+        labelField: 'companyName',
+        valueField: 'id',
+        onSearch(keyword: string) {
+          baseFormApi.updateSchema('customerId', {
+            componentProps: { params: { companyName: keyword } },
+          });
+        },
+        immediate: true,
+        // 客户变化时加载联系人
+        onChange: async (value: any) => {
+          contactOptions.value = [];
+          baseFormApi.setValues({ contactId: undefined });
+          if (value) {
+            currentCustomerId.value = Number(value);
+            try {
+              const res: any = await getCustomerContactsApi(Number(value));
+              const items: any[] = res?.data?.current || [];
+              contactOptions.value = items.map((c: any) => ({
+                label: c.name || c.contactName || '',
+                value: Number(c.id || c.contactId),
+              }));
+            } catch { /* ignore */ }
+          } else {
+            currentCustomerId.value = null;
+          }
+        },
+      },
     },
     {
-      component: 'InputNumber',
+      component: 'Select',
       fieldName: 'contactId',
-      label: '联系人ID',
-      componentProps: { placeholder: '关联联系人ID', min: 0, class: 'w-full' },
+      label: '联系人',
+      formItemClass: 'col-span-2',
+      componentProps: {
+        placeholder: '请先选择所属企业',
+        allowClear: true,
+        showSearch: true,
+        filterOption: (input: string, option: any) => {
+          return (option?.label ?? '').toLowerCase().includes(input.toLowerCase());
+        },
+        options: contactOptions,
+        onFocus: () => {
+          // 使用 ref 而非 getValues()（getValues 返回 Promise，无法同步读取）
+          if (!currentCustomerId.value) {
+            message.warning('请先选择所属企业');
+          }
+        },
+      },
     },
     {
       component: 'InputNumber',
@@ -204,19 +276,13 @@ const [BaseForm, baseFormApi] = useVbenForm({
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  onCancel() {
-    drawerApi.close();
-  },
+  onCancel() { drawerApi.close(); },
 
   async onConfirm() {
     const validate = await baseFormApi.validate();
-    if (!validate.valid) {
-      return;
-    }
-
+    if (!validate.valid) return;
     setLoading(true);
     const values = await baseFormApi.getValues();
-    // 编辑模式下不提交只读字段
     if (!data.value?.create) {
       delete values.opportunityNo;
     }
@@ -240,8 +306,40 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
       const row = data.value?.row ? { ...data.value.row } : {};
-      baseFormApi.setValues(row);
       setLoading(false);
+
+      // 重置表单
+      baseFormApi.resetForm();
+
+      // 设置客户回显信息
+      currentCompanyName.value = row.companyName || '';
+      currentCustomerId.value = row.customerId || null;
+
+      // 只设置 row 中存在的字段，customerId 转为 string 匹配 ApiSelect 选项
+      const definedValues = Object.fromEntries(
+        Object.entries(row).filter(([_, v]) => v !== undefined && v !== null),
+      );
+      baseFormApi.setValues({
+        ...definedValues,
+        customerId: row.customerId != null ? String(row.customerId) : undefined,
+      });
+
+      // 如果有 customerId，加载联系人列表
+      if (row.customerId) {
+        const cid = Number(row.customerId);
+        currentCustomerId.value = cid;
+        getCustomerContactsApi(cid)
+          .then((res: any) => {
+            const items: any[] = res?.data?.current || [];
+            contactOptions.value = items.map((c: any) => ({
+              label: c.name || c.contactName || '',
+              value: Number(c.id || c.contactId),
+            }));
+          })
+          .catch(() => {});
+      } else {
+        contactOptions.value = [];
+      }
     }
   },
 });

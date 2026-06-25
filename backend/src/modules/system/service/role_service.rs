@@ -11,9 +11,10 @@
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, AdminRolesMergeSaveDTO};
-use crate::modules::system::model::role::{AdminRoleByName, ListQuery, PageWhere, RoleDetailVO, RoleListVO, RoleModel, RoleOptionVO, RoleSaveDTO, UpdateRoleMenuRequest};
+use crate::modules::system::model::role::{AdminRoleByName, ListQuery, PageWhere, RoleDetailVO, RoleListVO, RoleModel, RoleOptionVO, RoleSaveDTO, UpdateRoleDeptRequest, UpdateRoleMenuRequest};
 use crate::modules::system::model::role_menu_merge::{RoleMenuMergeModel, RoleMenuMergeSaveDTO};
-use sea_orm::DbConn;
+use crate::modules::system::model::role_dept_merge::{RoleDeptMergeModel, RoleDeptMergeSaveDTO};
+use sea_orm::{DbConn, DbErr, TransactionTrait};
 use crate::modules::system::model::menu::MenuModel;
 
 pub async fn insert(db: &DbConn, form_data: &RoleSaveDTO) -> Result<i64> {
@@ -32,14 +33,24 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64>
         return Err(Error::from("不能删除超级管理员角色".to_string()));
     }
 
-    // 执行批量删除
-    let result = RoleModel::batch_delete_by_ids(&db, &ids_vec).await?;
-    if result > 0 {
-        for &role_id in ids_vec {
-            AdminRoleMergeModel::delete_by_role_id(&db, &Some(role_id)).await?;
-            RoleMenuMergeModel::delete_by_role_id(&db, &Some(role_id)).await?;
-        }
-    }
+    let ids_clone = ids_vec.clone();
+    // 角色主表与关联表需原子删除，避免产生孤儿关联数据
+    let result = db
+        .transaction::<_, i64, DbErr>(|txn| {
+            Box::pin(async move {
+                let affected = RoleModel::batch_delete_by_ids(txn, &ids_clone).await?;
+                if affected > 0 {
+                    for &role_id in &ids_clone {
+                        AdminRoleMergeModel::delete_by_role_id(txn, &Some(role_id)).await?;
+                        RoleMenuMergeModel::delete_by_role_id(txn, &Some(role_id)).await?;
+                    }
+                }
+                Ok(affected)
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+
     Ok(result)
 }
 
@@ -55,39 +66,35 @@ pub async fn batch_update_role(
         None => return Ok(0), // 如果 admin_id 为空，直接返回 0
     };
 
-    // 2. 删除旧关联
-    AdminRoleMergeModel::delete_by_admin_id(db, &Some(admin_id)).await?;
-
-    // 3. 处理 role_ids 逻辑
-    let result = match role_ids {
-        Some(role_ids) if !role_ids.is_empty() => {
-            // 过滤无效的 role_id（假设 is_one() 原本要过滤 0 或非法值）
-            let valid_role_ids: Vec<i64> = role_ids
-                .iter()
-                .filter(|&&id| id != 0) // 替换成实际需要的过滤条件
-                .copied()
-                .collect();
-
-            if valid_role_ids.is_empty() {
-                0
-            } else {
-                // 构建批量插入数据（优化数据生成逻辑）
-                let sys_role_admin_list: Vec<AdminRolesMergeSaveDTO> = valid_role_ids
-                    .into_iter()
-                    .map(|role_id| AdminRolesMergeSaveDTO {
-                        id: None,
-                        create_time: None,
-                        role_id: Some(role_id),
-                        admin_id: Some(admin_id), // 直接使用已解包的 admin_id
-                    })
-                    .collect();
-
-                AdminRoleMergeModel::insert_batch(db, &sys_role_admin_list)
-                    .await?
-            }
-        }
-        _ => 0,
+    // 预先处理 role_ids，构造插入数据
+    let sys_role_admin_list: Vec<AdminRolesMergeSaveDTO> = match role_ids {
+        Some(role_ids) if !role_ids.is_empty() => role_ids
+            .iter()
+            .filter(|&&id| id != 0)
+            .copied()
+            .map(|role_id| AdminRolesMergeSaveDTO {
+                id: None,
+                create_time: None,
+                role_id: Some(role_id),
+                admin_id: Some(admin_id),
+            })
+            .collect(),
+        _ => Vec::new(),
     };
+
+    // 删除旧关联 + 插入新关联需原子执行，避免中途失败丢失全部角色关联
+    let result = db
+        .transaction::<_, i64, DbErr>(|txn| {
+            Box::pin(async move {
+                AdminRoleMergeModel::delete_by_admin_id(txn, &Some(admin_id)).await?;
+                if sys_role_admin_list.is_empty() {
+                    return Ok(0);
+                }
+                AdminRoleMergeModel::insert_batch(txn, &sys_role_admin_list).await
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
     Ok(result)
 }
@@ -95,15 +102,12 @@ pub async fn batch_update_role(
 /// 更新角色id和菜单id进行绑定
 /// * `db` 数据库链接
 /// * `form_data` 角色id和菜单id进行绑定
-/// 
+///
 /// 范湖更新条数
 pub async fn update_role_menus(
     db: &DbConn,
     form_data: &UpdateRoleMenuRequest,
 ) -> Result<i64> {
-    // 删除旧关联
-    RoleMenuMergeModel::delete_by_role_id(db, &form_data.role_id).await?;
-
     // 构建新的关联列表
     let sys_role_menu_list: Vec<RoleMenuMergeSaveDTO> = form_data.menu_ids.clone().unwrap_or_default()
         .into_iter()
@@ -114,10 +118,22 @@ pub async fn update_role_menus(
             create_time: None,
             update_time: None,
         })
-        .collect(); // 添加 collect() 方法
+        .collect();
 
-    // 插入新的关联
-    let result = RoleMenuMergeModel::insert_batch(&db, &sys_role_menu_list).await?;
+    let role_id = form_data.role_id;
+    // 删除旧关联 + 插入新关联需原子执行，避免中途失败丢失角色全部菜单权限
+    let result = db
+        .transaction::<_, i64, DbErr>(|txn| {
+            Box::pin(async move {
+                RoleMenuMergeModel::delete_by_role_id(txn, &role_id).await?;
+                if sys_role_menu_list.is_empty() {
+                    return Ok(0);
+                }
+                RoleMenuMergeModel::insert_batch(txn, &sys_role_menu_list).await
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
     Ok(result)
 }
@@ -160,6 +176,7 @@ pub async fn select_by_admin_id(db: &DbConn, admin_id: &Option<i64>) -> Result<V
                 remark: data.remark,
                 sort: data.sort,
                 data_scope: data.data_scope,
+                dept_ids: None,
             })
         }
         Ok(role_vo)
@@ -203,7 +220,16 @@ pub async fn get_by_detail(db: &DbConn, id: &Option<i64>) -> Result<RoleDetailVO
             &id.unwrap_or_default()
         ))
     })?;
-    Ok(RoleDetailVO::from(result))
+    let mut vo = RoleDetailVO::from(result);
+    if id == &Some(1) {
+        vo.data_scope = Some(1);
+    }
+    if vo.data_scope == Some(2) {
+        let dept_result = RoleDeptMergeModel::find_by_role_id(db, id).await?;
+        let dept_ids: Vec<String> = dept_result.iter().filter_map(|merge| merge.dept_id.map(|dept_id| dept_id.to_string())).collect();
+        vo.dept_ids = Some(dept_ids);
+    }
+    Ok(vo)
 }
 
 /// 获取角色id关联的所有菜单id，菜单id为字符串类型
@@ -229,6 +255,47 @@ pub async fn find_role_menu_merge_by_role_id(db: &DbConn,role_id: &Option<i64>) 
     let result = RoleMenuMergeModel::find_by_role_id(&db,role_id).await?;
     let ids: Vec<Option<String>> = result.iter().map(|merge| merge.menu_id.map(|menu_id| menu_id.to_string())).collect();
     Ok(ids)
+}
+
+pub async fn update_role_depts(
+    db: &DbConn,
+    form_data: &UpdateRoleDeptRequest,
+) -> Result<i64> {
+    let sys_role_dept_list: Vec<RoleDeptMergeSaveDTO> = form_data.dept_ids.clone().unwrap_or_default()
+        .into_iter()
+        .map(|dept_id| RoleDeptMergeSaveDTO {
+            id: None,
+            dept_id: Some(dept_id),
+            role_id: form_data.role_id.clone(),
+            create_time: None,
+            update_time: None,
+        })
+        .collect();
+
+    let role_id = form_data.role_id;
+    let result = db
+        .transaction::<_, i64, DbErr>(|txn| {
+            Box::pin(async move {
+                RoleDeptMergeModel::delete_by_role_id(txn, &role_id).await?;
+                if sys_role_dept_list.is_empty() {
+                    return Ok(0);
+                }
+                RoleDeptMergeModel::insert_batch(txn, &sys_role_dept_list).await
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    Ok(result)
+}
+
+pub async fn get_role_dept_list_by_role_id(db: &DbConn, role_id: &Option<i64>) -> Result<Vec<String>> {
+    if role_id == &Some(1) {
+        Ok(vec![])
+    } else {
+        let result = RoleDeptMergeModel::find_by_role_id(db, role_id).await?;
+        let ids: Vec<String> = result.iter().filter_map(|merge| merge.dept_id.map(|dept_id| dept_id.to_string())).collect();
+        Ok(ids)
+    }
 }
 
 /// 获取角色下拉列表

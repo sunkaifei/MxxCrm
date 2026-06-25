@@ -1,4 +1,4 @@
-<script lang="ts" setup>import { h, ref } from 'vue';
+﻿<script lang="ts" setup>import { h, ref } from 'vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { $t } from '#/locales';
@@ -48,7 +48,7 @@ const gridOptions: VxeGridProps = {
  },
  height: 'auto',
  pagerConfig: {},
- rowConfig: {
+ cellConfig: {
  isHover: true,
  },
  stripe: true,

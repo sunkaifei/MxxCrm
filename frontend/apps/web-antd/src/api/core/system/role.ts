@@ -7,6 +7,10 @@ export const getRoleListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/role/list', { params });
 };
 
+export const getRoleOptionsApi = async () => {
+  return requestClient.get('/api/system/role/options');
+};
+
 /**
  * 获取角色详情
  */
@@ -54,5 +58,25 @@ export const updateRoleAuthApi = async (
   return requestClient.put('/api/system/role/assign_perm', {
     roleId: String(id),
     menuIds: data.authId,
+  });
+};
+
+/**
+ * 获取角色关联的部门ID列表（数据权限-自定义）
+ */
+export const getRoleDeptIdsApi = async (roleId: number) => {
+  return requestClient.get(`/api/system/role/${roleId}/deptIds`);
+};
+
+/**
+ * 更新角色数据权限部门
+ */
+export const updateRoleDeptApi = async (
+  id: number,
+  deptIds: (string | number)[],
+) => {
+  return requestClient.put('/api/system/role/assign_data_scope', {
+    roleId: String(id),
+    deptIds: deptIds.map(String),
   });
 };

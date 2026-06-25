@@ -17,3 +17,19 @@ export const deleteContractApi = async (ids: number[]) => {
     data: { ids },
   });
 };
+
+export const submitContractApi = async (contractId: number) => {
+  return requestClient.post('/api/system/contract/submit', { id: contractId });
+};
+
+export const approveContractApi = async (contractId: number, reason?: string) => {
+  return requestClient.post('/api/system/contract/approve', { contractId, reason });
+};
+
+export const rejectContractApi = async (contractId: number, reason?: string) => {
+  return requestClient.post('/api/system/contract/reject', { contractId, reason });
+};
+
+export const getContractApprovalDetailApi = async (contractId: number) => {
+  return requestClient.get(`/api/system/contract/approval-detail/${contractId}`);
+};

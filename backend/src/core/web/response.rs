@@ -111,12 +111,12 @@ where
         match result {
             Ok(data) => {
                 if data > 0 {
-                    Self::fail(200, "success", "local")
+                    MetaResp::<i64>::success(data, "local")
                 } else {
-                    Self::fail(400, "操作失败", "local")
+                    MetaResp::<()>::fail(400, "操作失败", "local")
                 }
             }
-            Err(e) => Self::fail(400, &e.to_string(), "local"),
+            Err(e) => MetaResp::<()>::fail(400, &e.to_string(), "local"),
         }
     }
 

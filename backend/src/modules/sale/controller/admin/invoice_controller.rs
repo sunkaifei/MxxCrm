@@ -10,7 +10,7 @@ use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::invoice::{InvoiceListQuery, InvoiceSaveRequest, InvoiceUpdateRequest};
 use crate::modules::sale::service::invoice_service;
 
-#[post("/invoice/save")]
+#[post("/sale/invoice/save")]
 #[protect("sale:invoice:save")]
 pub async fn invoice_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InvoiceSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -20,7 +20,7 @@ pub async fn invoice_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/invoice/update")]
+#[put("/sale/invoice/update")]
 #[protect("sale:invoice:update")]
 pub async fn invoice_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InvoiceUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -33,7 +33,7 @@ pub async fn invoice_update(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[post("/invoice/batch-delete")]
+#[post("/sale/invoice/batch-delete")]
 #[protect("sale:invoice:delete")]
 pub async fn bath_delete_invoice(state: web::Data<AppState>, form_data: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -49,7 +49,7 @@ pub async fn bath_delete_invoice(state: web::Data<AppState>, form_data: web::Jso
     }
 }
 
-#[get("/invoice/info")]
+#[get("/sale/invoice/info")]
 #[protect("sale:invoice:list")]
 pub async fn invoice_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
@@ -63,7 +63,7 @@ pub async fn invoice_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
     }
 }
 
-#[get("/invoice/list")]
+#[get("/sale/invoice/list")]
 #[protect("sale:invoice:list")]
 pub async fn invoice_list(state: web::Data<AppState>, query: web::Query<InvoiceListQuery>) -> HttpResponse {
     let db = &state.db;

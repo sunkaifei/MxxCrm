@@ -3,7 +3,7 @@ import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { LucideFilePenLine, LucideEye, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
@@ -54,20 +54,26 @@ const gridOptions: VxeGridProps = {
   },
   height: 'auto',
   exportConfig: {},
-  pagerConfig: {},
-  rowConfig: {
-    isHover: true,
+  pagerConfig: {
+    enabled: false,
   },
-  stripe: true,
+  treeConfig: {
+    parentField: 'parentId',
+    childrenField: 'children',
+    rowField: 'id',
+    transform: false,
+  },
+  cellConfig: {
+    isHover: true,
+    height: 48,
+  },
 
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }, formValues) => {
+      query: async (_, formValues) => {
         return await getDeptListApi({
-          page: page.currentPage,
-          pageSize: page.pageSize,
-          deptName: formValues.deptName,
+          keywords: formValues.deptName,
           status: formValues.status,
         });
       },
@@ -83,23 +89,44 @@ const gridOptions: VxeGridProps = {
     {
       title: $t('page.system.dept.deptName'),
       field: 'deptName',
+      minWidth: 180,
+      treeNode: true,
     },
     {
-      title: $t('page.system.dept.parentId'),
-      field: 'parentId',
+      title: $t('page.system.dept.code'),
+      field: 'code',
+      width: 120,
+    },
+    {
+      title: $t('page.system.dept.leader'),
+      field: 'leader',
+      width: 120,
+    },
+    {
+      title: $t('page.system.dept.phone'),
+      field: 'phone',
+      width: 130,
+    },
+    {
+      title: $t('page.system.dept.email'),
+      field: 'email',
+      width: 180,
     },
     {
       title: $t('ui.table.sortId'),
       field: 'sort',
+      width: 80,
     },
     {
       title: $t('ui.table.status'),
       field: 'status',
+      width: 100,
       slots: { default: 'status' },
     },
     {
       title: $t('ui.table.createTime'),
       field: 'createTime',
+      width: 170,
       slots: { default: 'createdAt' },
     },
     {
@@ -107,7 +134,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 120,
+      width: 180,
     },
   ],
 };
@@ -171,7 +198,7 @@ async function handleDelete(row: any) {
     <Grid>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('system:dept:create')"
+          v-if="accessStore.hasAccessCode('system:dept:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"

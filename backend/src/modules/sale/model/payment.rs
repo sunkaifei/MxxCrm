@@ -10,8 +10,10 @@
 
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal};
+use chrono::NaiveDate;
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::payment_method_enum::PaymentMethod;
 use crate::modules::sale::entity::{payment, payment::Entity as Payment};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -32,11 +34,11 @@ pub struct PaymentSaveRequest {
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
-    pub payment_method: Option<String>,
+    pub payment_method: Option<PaymentMethod>,
     /// 交易流水号
     pub transaction_no: Option<String>,
     /// 收款日期
-    pub payment_date: Option<DateTime>,
+    pub payment_date: Option<NaiveDate>,
     /// 备注
     pub remark: Option<String>,
 }
@@ -58,9 +60,9 @@ impl From<PaymentSaveRequest> for PaymentSaveDTO {
             remark: item.remark,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -85,11 +87,11 @@ pub struct PaymentUpdateRequest {
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
-    pub payment_method: Option<String>,
+    pub payment_method: Option<PaymentMethod>,
     /// 交易流水号
     pub transaction_no: Option<String>,
     /// 收款日期
-    pub payment_date: Option<DateTime>,
+    pub payment_date: Option<NaiveDate>,
     /// 备注
     pub remark: Option<String>,
 }
@@ -111,9 +113,9 @@ impl From<PaymentUpdateRequest> for PaymentSaveDTO {
             remark: item.remark,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -139,11 +141,11 @@ pub struct PaymentSaveDTO {
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
-    pub payment_method: Option<String>,
+    pub payment_method: Option<PaymentMethod>,
     /// 交易流水号
     pub transaction_no: Option<String>,
     /// 收款日期
-    pub payment_date: Option<DateTime>,
+    pub payment_date: Option<NaiveDate>,
     /// 备注
     pub remark: Option<String>,
     /// 软删除标识
@@ -151,11 +153,11 @@ pub struct PaymentSaveDTO {
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新人ID
     pub updated_by: Option<i64>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 收款记录详情VO
@@ -180,11 +182,11 @@ pub struct PaymentDetailVO {
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
-    pub payment_method: Option<String>,
+    pub payment_method: Option<PaymentMethod>,
     /// 交易流水号
     pub transaction_no: Option<String>,
     /// 收款日期
-    pub payment_date: Option<DateTime>,
+    pub payment_date: Option<NaiveDate>,
     /// 备注
     pub remark: Option<String>,
 }
@@ -228,9 +230,9 @@ pub struct PaymentListVO {
     /// 收款状态
     pub status: Option<String>,
     /// 收款方式
-    pub payment_method: Option<String>,
+    pub payment_method: Option<PaymentMethod>,
     /// 收款日期
-    pub payment_date: Option<DateTime>,
+    pub payment_date: Option<NaiveDate>,
 }
 
 impl From<payment::Model> for PaymentListVO {
@@ -261,7 +263,7 @@ pub struct PaymentListQuery {
     /// 关键词
     pub keywords: Option<String>,
     /// 收款方式
-    pub payment_type: Option<String>,
+    pub payment_type: Option<PaymentMethod>,
     /// 关联类型
     pub related_type: Option<String>,
     /// 关联ID
@@ -300,9 +302,9 @@ impl PaymentModel {
             payment_date: Set(req.payment_date.clone()),
             remark: Set(req.remark.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -354,7 +356,7 @@ impl PaymentModel {
             payment_date: Set(req.payment_date.clone()),
             remark: Set(req.remark.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -400,7 +402,7 @@ impl PaymentModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        payment_type: Option<String>,
+        payment_type: Option<PaymentMethod>,
         _related_type: Option<String>,
         _related_id: Option<i64>,
     ) -> Result<(Vec<payment::Model>, i64), DbErr> {
@@ -414,7 +416,7 @@ impl PaymentModel {
             query = query.filter(payment::Column::PaymentMethod.eq(p));
         }
 
-        let paginator = query.order_by_desc(payment::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(payment::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))

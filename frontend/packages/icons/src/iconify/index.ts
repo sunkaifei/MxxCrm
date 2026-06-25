@@ -84,3 +84,10 @@ export const LucideUpload = createIconifyIcon('lucide:upload');
 export const LucideImageOff = createIconifyIcon('lucide:image-off');
 export const LucideBanknote = createIconifyIcon('lucide:banknote');
 export const LucideShoppingCart = createIconifyIcon('lucide:shopping-cart');
+
+// 统计分析图标
+export const LucideUsers = createIconifyIcon('lucide:users');
+export const LucideWallet = createIconifyIcon('lucide:wallet');
+export const LucidePieChart = createIconifyIcon('lucide:pie-chart');
+export const LucideLayoutDashboard = createIconifyIcon('lucide:layout-dashboard');
+export const LucideArrowRight = createIconifyIcon('lucide:arrow-right');

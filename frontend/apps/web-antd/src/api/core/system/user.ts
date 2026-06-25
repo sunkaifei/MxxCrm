@@ -1,10 +1,24 @@
 import { requestClient } from '#/api/request';
 
 /**
+ * 获取用户下拉选项列表
+ */
+export const getAdminOptionsApi = async () => {
+  return requestClient.get('/api/system/admin/options');
+};
+
+/**
  * 获取用户列表
  */
 export const getUserListApi = async (params?: any) => {
   return requestClient.get('/api/system/admin/list', { params });
+};
+
+/**
+ * 获取用户详情
+ */
+export const getUserDetailApi = async (id: number | string) => {
+  return requestClient.get(`/api/system/admin/detail/${id}`);
 };
 
 /**
@@ -17,8 +31,8 @@ export const createUserApi = async (param: any) => {
 /**
  * 修改用户信息
  */
-export const updateUserApi = async (id: number, param: any) => {
-  return requestClient.put(`/api/system/admin/update/${id}`, param);
+export const updateUserApi = async (param: any) => {
+  return requestClient.put('/api/system/admin/update', param);
 };
 
 /**

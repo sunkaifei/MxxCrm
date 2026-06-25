@@ -32,6 +32,7 @@ Mxx-CRM 是一款现代化的客户关系管理系统，采用前后端分离架
 | TypeScript | 5.3+ | 类型语言 |
 | Ant Design Vue | 4.1+ | UI 组件库 |
 | Vite | 5.0+ | 构建工具 |
+| ECharts | 5.5+ | 数据可视化 |
 
 ## 功能模块
 
@@ -41,97 +42,40 @@ Mxx-CRM 是一款现代化的客户关系管理系统，采用前后端分离架
 - **菜单管理**：动态菜单配置、权限标识管理
 - **部门管理**：组织架构管理、部门层级设置
 - **岗位管理**：岗位信息维护
-
-### 2. CRM 客户模块
-- **线索管理**：线索录入、跟进、转化、回收
-- **客户管理**：客户信息管理、等级分类、标签管理
-- **联系人管理**：客户联系人信息维护
-- **商机管理**：商机阶段跟踪、预测分析
-- **合同管理**：合同签订、执行跟踪、归档管理
-
-### 3. 销售模块
-- **订单管理**：订单创建、状态跟踪、发货管理
-- **支付管理**：支付记录、对账管理
-
-### 6. 产品模块
-- **产品管理**：产品信息管理、多SKU变体支持（动态规格）、分类管理
-- **SKU规格管理**：独立SKU配置页面，支持动态定义规格（颜色/尺寸/CPU/内存等）
-- **库存管理**：仓库管理、产品库存跟踪
-
-#### 产品SKU设计
-
-产品模块采用 **主表 + SKU变体表 + 动态规格表** 设计模式：
-
-**`mxx_product_main`（产品主表）**
-存储产品公共信息：产品名称、编号、默认SKU、条码、单位、价格、重量、尺寸、描述、主图等。
-
-**`mxx_product_spec`（规格定义表）**
-定义每个产品的规格维度（动态，不固定）：
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | BIGSERIAL | 主键 |
-| `product_id` | BIGINT | 关联产品主表（外键CASCADE） |
-| `name` | VARCHAR(64) | 规格名称（如：颜色、尺寸、CPU型号、内存） |
-| `sort_order` | INT | 排序值 |
-
-**`mxx_product_spec_value`（规格值表）**
-存储每个规格维度的可选值：
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | BIGSERIAL | 主键 |
-| `spec_id` | BIGINT | 关联规格定义表（外键CASCADE） |
-| `value` | VARCHAR(128) | 规格值（如：红色、S、i7-13700、16GB） |
-| `sort_order` | INT | 排序值 |
-
-**`mxx_product_sku`（SKU变体表）**
-存储每个产品的具体规格变体，使用 JSONB 字段存储动态规格：
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | BIGSERIAL | 主键 |
-| `product_id` | BIGINT | 关联产品主表（外键CASCADE） |
-| `sku_code` | VARCHAR(64) | SKU编码 |
-| `specs` | JSONB | 动态规格键值对，如 `{"颜色":"红色","尺寸":"S"}` |
-| `price` | NUMERIC(15,2) | 销售价 |
-| `cost_price` | NUMERIC(15,2) | 成本价 |
-| `stock` | INTEGER | 库存数量 |
-| `image_url` | VARCHAR(255) | 变体图片 |
-| `is_active` | BOOLEAN | 是否启用 |
-
-**API接口**
-- `POST /api/system/product/product/save` — 创建产品（含SKU变体列表）
-- `PUT /api/system/product/product/update` — 更新产品（先删后插SKU策略）
-- `DELETE /api/system/product/product/batchDelete` — 批量删除
-- `GET /api/system/product/product/info?id=xx` — 获取产品详情（含SKU列表）
-- `GET /api/system/product/product/list` — 产品列表查询（分页/关键词/分类/状态）
-- `GET /api/system/product/spec/list?productId=xx` — 获取产品规格定义和SKU列表
-- `POST /api/system/product/spec/save` — 保存产品规格定义
-- `GET /api/system/product/sku/generate?productId=xx` — 根据规格组合自动生成SKU（笛卡尔积）
-- `POST /api/system/product/sku/batchSave` — 批量保存SKU
-
-**后端架构**
-- 实体：`product::entity::spec` / `spec_value` / `sku`（`specs` 字段使用 `serde_json::Value`）
-- 模型：`product::model::spec`（`SpecVO`、`SpecSaveItem`、`GeneratedSkuVO`、`SpecGroupVO`）
-- 服务：`spec_service`（`get_specs`、`save_specs`、`generate_skus`）
-- 控制器：`spec_controller`（4个API端点）
-
-**前端交互**
-- 产品列表每行增加 **SKU** 按钮，点击跳转至独立SKU管理页面
-- **SKU规格管理页面** (`views/product/sku/index.vue`)：
-  1. 产品搜索选择器（搜索过滤）
-  2. 规格定义区域：动态添加/删除规格，每个规格可自定义名称和逗号分隔的值
-  3. 保存规格到后端
-  4. 一键生成SKU：自动根据规格组合计算笛卡尔积，生成所有变体
-  5. SKU编辑表格：可编辑每个SKU的编码、销售价、库存
-  6. 批量保存SKU
-
-### 4. 采购模块
-- **供应商管理**：供应商信息维护、评级管理
-- **采购订单**：采购申请、审批、入库管理
-
-### 5. 系统配置
 - **数据字典**：系统参数配置、枚举值管理
 - **系统日志**：操作日志、登录日志记录
 - **通知管理**：系统通知、消息推送
+
+### 2. CRM 客户模块
+- **线索管理**：线索录入、跟进、转化、回收、线索公海
+- **客户管理**：客户信息管理、等级分类、标签管理、信用管理
+- **联系人管理**：客户联系人信息维护、职业生涯履历追踪
+- **商机管理**：商机阶段跟踪、预测分析、销售漏斗
+- **合同管理**：合同签订、执行跟踪、归档管理
+
+### 3. 销售管理模块
+- **业绩管理**：员工业绩统计、目标设定、业绩排行
+- **订单管理**：订单创建、状态跟踪、发货管理
+- **回款管理**：收款记录、应收管理、账龄分析、核销管理
+- **发票管理**：发票开具、状态跟踪
+
+### 4. 产品与库存模块
+- **产品管理**：产品信息管理、多SKU变体支持（动态规格）、分类管理
+- **SKU规格管理**：独立SKU配置页面，支持动态定义规格（颜色/尺寸/CPU/内存等）
+- **库存管理**：仓库管理、产品库存跟踪、出入库管理
+
+详细设计文档请参考 [docs/product-module-design.md](docs/product-module-design.md)
+
+### 5. 采购管理模块
+- **供应商管理**：供应商信息维护、评级管理
+- **采购订单**：采购申请、审批、入库管理、采购明细
+
+### 6. 数据分析模块
+- **业绩目标统计**：年度目标完成概览、月度业绩对比、员工业绩排行、部门业绩对比
+- **客户转化分析**：客户类型统计、客户来源统计、客户行业统计、客户转化漏斗
+- **员工客户量统计**：员工客户数量排行、员工跟进频次分析、员工成交率分析
+- **合同排行分析**：合同金额/数量排行、合同类型分布、合同状态分析
+- **回款分析**：回款完成率、月度回款趋势、回款状态分析、回款排行
 
 ## 项目结构
 
@@ -144,6 +88,9 @@ MxxCrm/
 │   │   │   ├── system/        # 系统管理
 │   │   │   ├── crm/           # 客户管理
 │   │   │   ├── sale/          # 销售管理
+│   │   │   ├── product/       # 产品管理
+│   │   │   ├── purchase/      # 采购管理
+│   │   │   ├── statistics/    # 数据分析
 │   │   │   └── ...
 │   │   ├── routes/            # 路由配置
 │   │   ├── utils/             # 工具函数
@@ -155,10 +102,19 @@ MxxCrm/
 │   └── apps/
 │       └── web-antd/          # Vue3 前端应用
 │           ├── src/           # 源代码
+│           │   ├── views/     # 页面组件
+│           │   ├── router/    # 路由配置
+│           │   ├── api/       # API 接口
+│           │   └── store/     # 状态管理
 │           ├── dist/          # 构建产物（已嵌入后端）
 │           └── package.json   # Node 依赖
 ├── docs/                      # 文档
-│   └── 02-数据库设计.md       # 数据库设计文档
+│   ├── 01-总体架构设计.md      # 架构设计文档
+│   ├── 02-数据库设计.md       # 数据库设计文档
+│   ├── 03-功能模块设计.md     # 功能模块设计文档
+│   ├── 04-API设计.md          # API 接口设计文档
+│   ├── 05-部署与开发指南.md    # 部署与开发指南
+│   └── product-module-design.md # 产品模块详细设计
 ├── sql/                       # SQL 脚本
 │   ├── init.sql               # 数据库表结构初始化
 │   ├── init_data.sql          # 默认数据初始化（角色、用户、菜单）
@@ -188,7 +144,7 @@ npm install
 npm run build
 ```
 
-**2. 初始化数据库
+**2. 初始化数据库**
 
 ```bash
 # 创建数据库
@@ -251,31 +207,42 @@ cargo run --release
 | product_staff | admin123 | 产品专员 | 技术部 | 产品管理、库存管理 |
 | notice_staff | admin123 | 通知专员 | 总经办 | 通知管理 |
 
-## 权限控制
+## 开发说明
 
-系统采用基于角色的访问控制（RBAC）机制：
+### 前端开发
 
-1. **用户 → 角色 → 菜单 → 权限标识**
-2. **数据范围控制**：全部/自定义/本部门/本部门及以下
-3. **控制器注解**：`#[permission("system:admin:list")]`
+```bash
+cd frontend/apps/web-antd
 
-### 菜单类型定义
+# 开发模式（热更新）
+npm run dev
 
-| 类型 | 说明 | 前端常量 |
-|------|------|----------|
-| FOLDER | 目录菜单（不可点击） | `MenuType.FOLDER` |
-| MENU | 功能菜单（可点击跳转） | `MenuType.MENU` |
-| BUTTON | 按钮权限（用于权限控制） | `MenuType.BUTTON` |
+# 此时前端会代理 API 请求到后端
+# 访问：http://localhost:5173
+```
 
-### 菜单国际化
+### 后端开发
 
-系统支持菜单名称国际化，数据库中存储国际化键，前端通过 `$t()` 函数动态加载多语言文本：
+```bash
+cd backend
 
-- **国际化键格式**：`page.{module}.{submodule}.title`（菜单）、`button.{module}.{action}`（按钮）
-- **示例**：`page.dashboard.title` → 中文"概览" / 英文"Dashboard"
-- **国际化文件位置**：`frontend/apps/web-antd/src/locales/langs/`
-  - `zh-CN/page.json` - 中文配置
-  - `en-US/page.json` - 英文配置
+# 开发模式（自动重启）
+cargo watch -x run
+```
+
+### 代码规范
+
+- **后端**：遵循 Rust 官方代码规范，使用 `cargo fmt` 格式化代码
+- **前端**：遵循 Vue 官方风格指南，使用 `prettier` 格式化代码
+
+### 数据库配置
+
+数据库连接信息通过环境变量或配置文件指定：
+
+- **环境变量方式**：`DATABASE_URL=postgres://username:password@localhost:5432/mxx_crm`
+- **配置文件方式**：`backend/config/production_config.ini`
+
+详细配置说明请参考 [docs/05-部署与开发指南.md](docs/05-部署与开发指南.md)
 
 ## 部署说明
 
@@ -303,29 +270,6 @@ export REDIS_URL=redis://localhost:6379/0
 ```
 
 **注意**：启动后无需额外启动前端服务，前端页面已嵌入在二进制文件中，直接访问端口即可。
-
-## 开发说明
-
-### 前端开发
-
-```bash
-cd frontend/apps/web-antd
-
-# 开发模式（热更新）
-npm run dev
-
-# 此时前端会代理 API 请求到后端
-# 访问：http://localhost:5173
-```
-
-### 后端开发
-
-```bash
-cd backend
-
-# 开发模式（自动重启）
-cargo watch -x run
-```
 
 ## 许可证
 

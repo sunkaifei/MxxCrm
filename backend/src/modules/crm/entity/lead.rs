@@ -12,7 +12,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::core::r#enum::industry_enum::IndustryType;
 use crate::core::r#enum::lead_source_enum::LeadSource;
-use crate::core::r#enum::lead_status_enum::LeadStatus;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
@@ -63,7 +62,7 @@ pub struct Model {
     pub source_detail: Option<String>,
 
     /// 线索状态
-    pub status: Option<LeadStatus>,
+    pub status: Option<i32>,
 
     /// 线索等级（1-无级别、2-重点客户、3-优质客户、4-普通客户、5-其他）
     pub level: Option<i32>,
@@ -96,13 +95,13 @@ pub struct Model {
     pub created_by: Option<i64>,
 
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 
     /// 更新人ID
     pub updated_by: Option<i64>,
 
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,

@@ -55,11 +55,10 @@ const gridOptions: VxeGridProps = {
   pagerConfig: {
     enabled: false,
   },
-  rowConfig: {
+  cellConfig: {
     isHover: true,
     height: 56,
   },
-  stripe: true,
   treeConfig: {
     parentField: 'parentId',
     childrenField: 'children',
@@ -269,6 +268,7 @@ async function handleDelete(row: any) {
       <template #action="{ row }">
         <div class="flex items-center" style="gap: 8px">
         <Button
+          v-if="row.type !== MenuType.BUTTON"
           type="primary"
           link
           v-access:code="['system:menu:add']"

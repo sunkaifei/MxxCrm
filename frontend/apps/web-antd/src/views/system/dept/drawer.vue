@@ -3,7 +3,12 @@ import { computed, ref } from 'vue';
 import { useVbenDrawer, z } from '@vben/common-ui';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
-import { createDeptApi, updateDeptApi } from '#/api';
+import {
+  createDeptApi,
+  getAdminOptionsApi,
+  getDeptTreeApi,
+  updateDeptApi,
+} from '#/api';
 import { statusList } from '#/store';
 
 const data = ref();
@@ -23,6 +28,27 @@ const [BaseForm, baseFormApi] = useVbenForm({
   },
   schema: [
     {
+      component: 'ApiTreeSelect',
+      fieldName: 'parentId',
+      label: $t('page.system.dept.parentId'),
+      componentProps: {
+        placeholder: $t('ui.placeholder.select'),
+        allowClear: true,
+        treeDefaultExpandAll: true,
+        api: async () => {
+          const result = await getDeptTreeApi();
+          const list = Array.isArray(result) ? result : [];
+          return [
+            {
+              value: '0',
+              label: $t('page.system.dept.topLevel') || '顶级部门',
+              children: list,
+            },
+          ];
+        },
+      },
+    },
+    {
       component: 'Input',
       fieldName: 'deptName',
       label: $t('page.system.dept.deptName'),
@@ -33,18 +59,32 @@ const [BaseForm, baseFormApi] = useVbenForm({
       rules: z.string().min(1, { message: $t('ui.formRules.required') }),
     },
     {
-      component: 'TreeSelect',
-      fieldName: 'parentId',
-      label: $t('page.system.dept.parentId'),
+      component: 'Input',
+      fieldName: 'code',
+      label: $t('page.system.dept.code'),
       componentProps: {
-        placeholder: $t('ui.placeholder.select'),
+        placeholder: $t('ui.placeholder.input'),
         allowClear: true,
       },
     },
     {
-      component: 'InputNumber',
-      fieldName: 'sort',
-      label: $t('ui.table.sortId'),
+      component: 'ApiSelect',
+      fieldName: 'leaderId',
+      label: $t('page.system.dept.leader'),
+      componentProps: {
+        placeholder: $t('ui.placeholder.select'),
+        allowClear: true,
+        showSearch: true,
+        optionFilterProp: 'label',
+        api: async () => {
+          return await getAdminOptionsApi();
+        },
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'phone',
+      label: $t('page.system.dept.phone'),
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
@@ -52,14 +92,22 @@ const [BaseForm, baseFormApi] = useVbenForm({
     },
     {
       component: 'Input',
-      fieldName: 'remark',
-      label: $t('ui.table.remark'),
+      fieldName: 'email',
+      label: $t('page.system.dept.email'),
       componentProps: {
-        type: 'textarea',
-        autosize: true,
-        rows: 5,
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
+      },
+    },
+    {
+      component: 'InputNumber',
+      fieldName: 'sort',
+      label: $t('ui.table.sortId'),
+      defaultValue: 0,
+      componentProps: {
+        placeholder: $t('ui.placeholder.input'),
+        allowClear: true,
+        min: 0,
       },
     },
     {
@@ -92,6 +140,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     const values = await baseFormApi.getValues();
 
+    if (values.parentId === null || values.parentId === undefined || values.parentId === '') {
+      values.parentId = '0';
+    }
+
     try {
       await (data.value?.create
         ? createDeptApi(values)
@@ -112,7 +164,22 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen) {
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
-      baseFormApi.setValues(data.value?.row);
+
+      if (data.value?.create) {
+        baseFormApi.resetForm();
+        baseFormApi.setValues({
+          parentId: '0',
+          status: 1,
+          sort: 0,
+        });
+      } else {
+        const row = { ...data.value?.row };
+        if (row.parentId === 0 || row.parentId === '0' || !row.parentId) {
+          row.parentId = '0';
+        }
+        baseFormApi.setValues(row);
+      }
+
       setLoading(false);
     }
   },

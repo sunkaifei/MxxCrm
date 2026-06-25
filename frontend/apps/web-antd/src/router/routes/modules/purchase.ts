@@ -28,14 +28,7 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.purchase.po.title'),
         },
       },
-      {
-        name: 'PurchaseItem',
-        path: '/purchase/item',
-        component: () => import('#/views/purchase/item/index.vue'),
-        meta: {
-          title: $t('page.purchase.item.title'),
-        },
-      },
+      
     ],
   },
 ];

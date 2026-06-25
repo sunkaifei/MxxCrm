@@ -17,7 +17,7 @@ use actix_web_grants::protect;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::system::model::role::{ListQuery, RoleSaveDTO, RoleSaveRequest, RoleUpdateRequest, UpdateRoleMenuRequest};
+use crate::modules::system::model::role::{ListQuery, RoleSaveDTO, RoleSaveRequest, RoleUpdateRequest, UpdateRoleDeptRequest, UpdateRoleMenuRequest};
 use crate::modules::system::service::menu_service::contains_all_elements;
 use crate::modules::system::service::{admin_service, menu_service, role_service};
 
@@ -100,32 +100,53 @@ pub async fn update_role(state: web::Data<AppState>, req: HttpRequest, id: web::
     let form_data = form_data.0;
     let role_id = id.into_inner();
 
-    // 检查是否为超级管理员角色
-    if role_id == 1 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "超级管理员角色不能进行修改", "local")));
-    }
-
-    // 检查角色名称是否为空
-    if form_data.role_name.as_ref().map_or(true, |name| name.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色名称不能为空", "local")));
-    }
-
-    // 检查角色名称是否唯一
-    if role_service::find_by_name_unique(&db, &form_data.role_name, &Some(role_id)).await? {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色名称已存在", "local")));
-    }
-
-    // 检查角色key是否为空
-    if form_data.role_key.as_ref().map_or(true, |name| name.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色key不能为空", "local")));
-    }
-
     // 获取用户信息
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin = match admin_service::get_by_detail(&db, &jwt_token.id).await {
         Ok(admin) => admin,
         Err(_) => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取当前管理员信息错误", "local"))),
     };
+
+    // 超级管理员角色只允许修改数据权限、备注、排序、状态，不允许修改角色名和key
+    if role_id == 1 {
+        // 构建只包含安全字段的更新数据
+        let role_data = RoleSaveDTO {
+            id: Some(role_id),
+            role_name: None,
+            role_key: None,
+            data_scope: form_data.data_scope,
+            sort: form_data.sort,
+            status: form_data.status,
+            remark: form_data.remark,
+            deleted: None,
+            create_by: None,
+            create_time: None,
+            update_by: admin.user_name,
+            update_time: None,
+        };
+        let result = role_service::update_by_id(&db, &role_data).await;
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)));
+    }
+
+    // 检查是否是部分更新（只更新dataScope等可选字段，不修改role_name/role_key）
+    let is_partial_update = form_data.role_name.is_none() && form_data.role_key.is_none();
+    
+    if !is_partial_update {
+        // 检查角色名称是否为空
+        if form_data.role_name.as_ref().map_or(true, |name| name.trim().is_empty()) {
+            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色名称不能为空", "local")));
+        }
+
+        // 检查角色名称是否唯一
+        if role_service::find_by_name_unique(&db, &form_data.role_name, &Some(role_id)).await? {
+            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色名称已存在", "local")));
+        }
+
+        // 检查角色key是否为空
+        if form_data.role_key.as_ref().map_or(true, |name| name.trim().is_empty()) {
+            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色key不能为空", "local")));
+        }
+    }
 
     // 构建角色数据
     let mut role_data = RoleSaveDTO::from(form_data);
@@ -152,9 +173,9 @@ pub async fn update_role_menus(state: web::Data<AppState>, req: HttpRequest, ite
         None => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色id不能为空", "local"))),
     };
 
-    // 检查是否为超级管理员角色
+    // 超级管理员角色无需修改菜单权限（默认拥有所有权限），直接返回成功
     if role_id == 1 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "超级管理员角色不能进行修改", "local")));
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(1i64, "local")));
     }
 
     // 检查菜单ID是否为空
@@ -202,6 +223,41 @@ pub async fn get_role_menu_list_by_role_id(state: web::Data<AppState>, role_id: 
     let detail = role_service::get_by_detail(&db,&role_id).await?;
     
     role_service::get_role_menu_list_by_role_id(&db,&detail.id).await.map(|page_data| {
+        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
+    })
+}
+
+#[put("/role/assign_data_scope")]
+pub async fn update_role_depts(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateRoleDeptRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let sys_role = item.0;
+
+    let _jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    let role_id = match sys_role.role_id {
+        Some(id) => id,
+        None => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色id不能为空", "local"))),
+    };
+
+    if role_id == 1 {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(1i64, "local")));
+    }
+
+    let result = role_service::update_role_depts(db, &sys_role).await;
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+}
+
+#[get("/role/{role_id}/deptIds")]
+pub async fn get_role_dept_list_by_role_id(state: web::Data<AppState>, role_id: web::Path<String>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let role_id_str = role_id.into_inner();
+    let role_id: Option<i64> = role_id_str.parse().ok().and_then(|id| if id > 0 { Some(id) } else { None });
+
+    if role_id.is_none() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色id参数错误", "local")));
+    }
+
+    role_service::get_role_dept_list_by_role_id(&db, &role_id).await.map(|page_data| {
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
     })
 }

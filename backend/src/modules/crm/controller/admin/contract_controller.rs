@@ -7,14 +7,14 @@ use actix_web_grants::protect;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::crm::model::contract::{ContractDetailVO, ContractListQuery, ContractListVO, ContractSaveRequest, ContractUpdateRequest};
+use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractSaveDTO, ContractSaveRequest, ContractUpdateRequest};
 use crate::modules::crm::service::contract_service;
 
 #[post("/contract/save")]
 #[protect("crm:contract:save")]
 pub async fn contract_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContractSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let form_data = form_data.0;
+    let form_data: ContractSaveDTO = form_data.0.into();
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
@@ -26,7 +26,7 @@ pub async fn contract_insert(state: web::Data<AppState>, req: HttpRequest, form_
 #[protect("crm:contract:update")]
 pub async fn contract_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContractUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let form_data = form_data.0;
+    let form_data: ContractSaveDTO = form_data.0.into();
 
     if form_data.id.is_none() {
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "合同ID不能为空", "local")));
@@ -85,6 +85,64 @@ pub async fn contract_list(state: web::Data<AppState>, query: web::Query<Contrac
             let total = page_data.total as u32;
             HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
         },
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+#[post("/contract/submit")]
+#[protect("crm:contract:submit")]
+pub async fn contract_submit(state: web::Data<AppState>, req: HttpRequest, item: web::Json<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let item = item.0;
+
+    if item.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "合同ID不能为空", "local"));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    match contract_service::submit_contract(&db, item.id.unwrap(), jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+#[post("/contract/approve")]
+#[protect("crm:contract:approve")]
+pub async fn contract_approve(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContractApprovalRequest>) -> HttpResponse {
+    let db = &state.db;
+    let form_data = form_data.0;
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    match contract_service::approve_contract(&db, &form_data, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+#[post("/contract/reject")]
+#[protect("crm:contract:reject")]
+pub async fn contract_reject(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContractApprovalRequest>) -> HttpResponse {
+    let db = &state.db;
+    let form_data = form_data.0;
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    match contract_service::reject_contract(&db, &form_data, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+#[get("/contract/approval-detail/{contract_id}")]
+#[protect("crm:contract:list")]
+pub async fn contract_approval_detail(state: web::Data<AppState>, path: web::Path<i64>) -> HttpResponse {
+    let db = &state.db;
+    let contract_id = path.into_inner();
+
+    match contract_service::get_approval_detail(&db, contract_id).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }

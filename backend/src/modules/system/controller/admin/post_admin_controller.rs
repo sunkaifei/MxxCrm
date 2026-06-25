@@ -110,3 +110,11 @@ pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
     })
 }
+
+#[get("/post/options")]
+pub async fn post_options(state: web::Data<AppState>) -> Result<HttpResponse> {
+    let db = &state.db;
+    post_service::get_post_options(db).await.map(|list_data| {
+        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list_data, "local"))
+    })
+}

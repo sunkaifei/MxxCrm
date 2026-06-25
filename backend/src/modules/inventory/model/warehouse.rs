@@ -40,7 +40,7 @@ pub struct WarehouseVO {
     /// 状态
     pub status: Option<String>,
     /// 创建时间
-    pub created_at: Option<String>,
+    pub create_time: Option<String>,
 }
 
 /// 仓库详情响应项
@@ -107,7 +107,7 @@ impl From<Model> for WarehouseVO {
             address: model.address,
             manager: model.contact_person,
             status: Some(if model.is_active.unwrap_or(true) { "启用".to_string() } else { "禁用".to_string() }),
-            created_at: model.created_at.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
+            create_time: model.create_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
 }

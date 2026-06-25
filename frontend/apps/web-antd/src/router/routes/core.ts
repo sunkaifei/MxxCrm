@@ -104,6 +104,19 @@ const coreRoutes: RouteRecordRaw[] = [
       },
     ],
   },
+  {
+    name: 'Lock',
+    path: '/lock',
+    component: () => import('#/views/lock/index.vue'),
+    meta: {
+      hideInBreadcrumb: true,
+      hideInMenu: true,
+      hideInTab: true,
+      title: '锁屏',
+      ignoreAccess: true,
+      requiresAuth: true,
+    },
+  },
 ];
 
 export { coreRoutes, fallbackNotFoundRoute };

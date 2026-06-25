@@ -10,7 +10,7 @@ use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::order_item::{OrderItemDetailVO, OrderItemListQuery, OrderItemListVO, OrderItemSaveRequest, OrderItemUpdateRequest};
 use crate::modules::sale::service::order_item_service;
 
-#[post("/order-item/save")]
+#[post("/sale/order-item/save")]
 #[protect("sale:order:item:save")]
 pub async fn order_item_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderItemSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -22,7 +22,7 @@ pub async fn order_item_insert(state: web::Data<AppState>, req: HttpRequest, for
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/order-item/update")]
+#[put("/sale/order-item/update")]
 #[protect("sale:order:item:update")]
 pub async fn order_item_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderItemUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -38,7 +38,7 @@ pub async fn order_item_update(state: web::Data<AppState>, req: HttpRequest, for
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/order-item/bath_delete")]
+#[delete("/sale/order-item/bath_delete")]
 #[protect("sale:order:item:delete")]
 pub async fn bath_delete_order_item(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
@@ -57,7 +57,7 @@ pub async fn bath_delete_order_item(state: web::Data<AppState>, item: web::Json<
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/order-item/info")]
+#[get("/sale/order-item/info")]
 #[protect("sale:order:item:info")]
 pub async fn order_item_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
@@ -73,7 +73,7 @@ pub async fn order_item_info(state: web::Data<AppState>, item: web::Query<InfoId
     }
 }
 
-#[get("/order-item/list")]
+#[get("/sale/order-item/list")]
 #[protect("sale:order:item:list")]
 pub async fn order_item_list(state: web::Data<AppState>, query: web::Query<OrderItemListQuery>) -> HttpResponse {
     let db = &state.db;

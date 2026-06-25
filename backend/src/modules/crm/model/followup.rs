@@ -3,7 +3,6 @@ use sea_orm::prelude::{DateTime, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::crm::entity::{followup, followup::Entity as Followup};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
-use crate::core::r#enum::activity_type_enum::ActivityType;
 
 /// 跟进记录新增请求DTO
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -12,13 +11,14 @@ pub struct FollowupSaveRequest {
     pub lead_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
-    pub activity_type: Option<ActivityType>,
+    pub activity_type: Option<i32>,
     pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub duration_minutes: Option<i32>,
     pub result: Option<String>,
     pub assigned_to: Option<i64>,
+    pub lead_status: Option<i32>,
 }
 
 impl From<FollowupSaveRequest> for FollowupSaveDTO {
@@ -37,9 +37,9 @@ impl From<FollowupSaveRequest> for FollowupSaveDTO {
             assigned_to: None,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -53,7 +53,7 @@ pub struct FollowupUpdateRequest {
     pub lead_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
-    pub activity_type: Option<ActivityType>,
+    pub activity_type: Option<i32>,
     pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
@@ -78,9 +78,9 @@ impl From<FollowupUpdateRequest> for FollowupSaveDTO {
             assigned_to: None,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -93,7 +93,7 @@ pub struct FollowupSaveDTO {
     pub lead_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
-    pub activity_type: Option<ActivityType>,
+    pub activity_type: Option<i32>,
     pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
@@ -102,9 +102,9 @@ pub struct FollowupSaveDTO {
     pub assigned_to: Option<i64>,
     pub deleted: Option<i32>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 跟进记录详情VO
@@ -116,7 +116,7 @@ pub struct FollowupDetailVO {
     pub lead_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
-    pub activity_type: Option<String>,
+    pub activity_type: Option<i32>,
     pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
@@ -132,7 +132,7 @@ impl From<followup::Model> for FollowupDetailVO {
             lead_id: item.lead_id,
             customer_id: item.customer_id,
             opportunity_id: item.opportunity_id,
-            activity_type: item.activity_type.map(|v| v.to_string()),
+            activity_type: item.activity_type,
             subject: item.subject,
             content: item.content,
             next_follow_date: item.next_follow_date,
@@ -152,12 +152,15 @@ pub struct FollowupListVO {
     pub lead_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
-    pub activity_type: Option<String>,
+    pub activity_type: Option<i32>,
     pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub result: Option<String>,
     pub assigned_to: Option<i64>,
+    pub created_by: Option<i64>,
+    pub created_by_name: Option<String>,
+    pub create_time: Option<DateTime>,
 }
 
 impl From<followup::Model> for FollowupListVO {
@@ -167,12 +170,15 @@ impl From<followup::Model> for FollowupListVO {
             lead_id: item.lead_id,
             customer_id: item.customer_id,
             opportunity_id: item.opportunity_id,
-            activity_type: item.activity_type.map(|v| v.to_string()),
+            activity_type: item.activity_type,
             subject: item.subject,
             content: item.content,
             next_follow_date: item.next_follow_date,
             result: item.result,
             assigned_to: item.assigned_to,
+            created_by: item.created_by,
+            created_by_name: None,
+            create_time: item.create_time,
         }
     }
 }
@@ -207,9 +213,9 @@ impl FollowupModel {
             result: Set(req.result.clone()),
             assigned_to: Set(req.assigned_to.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -243,7 +249,7 @@ impl FollowupModel {
             duration_minutes: Set(req.duration_minutes.clone()),
             result: Set(req.result.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -260,6 +266,15 @@ impl FollowupModel {
         Followup::find_by_id(id)
             .filter(followup::Column::Deleted.eq(0))
             .one(db)
+            .await
+    }
+
+    pub async fn select_by_lead_id(db: &DbConn, lead_id: i64) -> Result<Vec<followup::Model>, DbErr> {
+        Followup::find()
+            .filter(followup::Column::Deleted.eq(0))
+            .filter(followup::Column::LeadId.eq(lead_id))
+            .order_by_desc(followup::Column::CreateTime)
+            .all(db)
             .await
     }
 
@@ -284,7 +299,7 @@ impl FollowupModel {
             query = query.filter(followup::Column::OpportunityId.eq(o));
         }
 
-        let paginator = query.order_by_desc(followup::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(followup::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))

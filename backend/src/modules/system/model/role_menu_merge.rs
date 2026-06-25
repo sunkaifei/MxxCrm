@@ -31,7 +31,7 @@ pub struct RoleMenuMergeSaveDTO {
 pub struct RoleMenuMergeModel;
 
 impl RoleMenuMergeModel {
-    pub async fn insert_batch(db: &DbConn, list: &Vec<RoleMenuMergeSaveDTO>) -> Result<i64, DbErr> {
+    pub async fn insert_batch<C: ConnectionTrait>(db: &C, list: &Vec<RoleMenuMergeSaveDTO>) -> Result<i64, DbErr> {
         let result: Vec<role_menu_merge::ActiveModel> = list.iter().map(|item| role_menu_merge::ActiveModel {
             menu_id: Set(item.menu_id),
             role_id: Set(item.role_id),
@@ -47,7 +47,7 @@ impl RoleMenuMergeModel {
     }
 
     /// 按角色id删除关联id
-    pub async fn delete_by_role_id(db: &DbConn, role_id: &Option<i64>) -> Result<i64, DbErr> {
+    pub async fn delete_by_role_id<C: ConnectionTrait>(db: &C, role_id: &Option<i64>) -> Result<i64, DbErr> {
         let result = RoleMenuMerge::delete_many()
             .filter(role_menu_merge::Column::RoleId.eq(role_id.clone().unwrap_or_default()))
             .exec(db)

@@ -9,8 +9,8 @@ export const getDeptInfoApi = async (id: number) => {
 export const createDeptApi = async (param: any) => {
   return requestClient.post('/api/system/dept/save', param);
 };
-export const updateDeptApi = async (param: any) => {
-  return requestClient.put('/api/system/dept/update', param);
+export const updateDeptApi = async (id: number, param: any) => {
+  return requestClient.put(`/api/system/dept/update/${id}`, param);
 };
 export const deleteDeptApi = async (ids: number[]) => {
   return requestClient.delete('/api/system/dept/bath_delete', {

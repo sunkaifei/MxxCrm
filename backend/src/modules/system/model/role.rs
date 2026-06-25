@@ -91,6 +91,15 @@ pub struct UpdateRoleMenuRequest {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all(deserialize = "camelCase"))]
+pub struct UpdateRoleDeptRequest {
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
+    pub role_id: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_string_vec_to_u64_vec")]
+    pub dept_ids: Option<Vec<i64>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct RoleSaveDTO {
     pub id: Option<i64>,
     pub role_name: Option<String>,
@@ -126,13 +135,13 @@ pub struct RoleDetailVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
     pub role_name: Option<String>,
-    /// 角色权限字符串
     pub role_key: Option<String>,
-    /// 数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限）
     pub data_scope: Option<i32>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
     pub status: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dept_ids: Option<Vec<String>>,
 }
 
 impl From<role::Model> for RoleDetailVO {
@@ -145,6 +154,7 @@ impl From<role::Model> for RoleDetailVO {
             remark: item.remark,
             sort: item.sort,
             status: item.status,
+            dept_ids: None,
         }
     }
 }
@@ -249,7 +259,7 @@ impl RoleModel {
             .map(|r| r.last_insert_id)
     }
 
-    pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    pub async fn batch_delete_by_ids<C: ConnectionTrait>(db: &C, ids: &Vec<i64>) -> Result<i64, DbErr> {
         Role::delete_many()
             .filter(role::Column::Id.is_in(ids.clone()))
             .exec(db)
@@ -259,17 +269,18 @@ impl RoleModel {
     
     /// # 更新
     pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &RoleSaveDTO) -> Result<i64, DbErr> {
-        let payload = role::ActiveModel {
-            role_name:      Set(req.role_name.clone()),
-            role_key:       Set(req.role_key.clone()),
-            data_scope:     Set(req.data_scope.clone()),
-            sort:           Set(req.sort.clone()),
-            status:         Set(req.status.clone()),
-            remark:         Set(req.remark.clone()),
-            update_time:    Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+        let mut payload = role::ActiveModel {
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
-        
+        if let Some(v) = req.role_name.clone() { payload.role_name = Set(Some(v)); }
+        if let Some(v) = req.role_key.clone() { payload.role_key = Set(Some(v)); }
+        if let Some(v) = req.data_scope { payload.data_scope = Set(Some(v)); }
+        if let Some(v) = req.sort { payload.sort = Set(Some(v)); }
+        if let Some(v) = req.status { payload.status = Set(Some(v)); }
+        if let Some(v) = req.remark.clone() { payload.remark = Set(Some(v)); }
+        if let Some(v) = req.update_by.clone() { payload.update_by = Set(Some(v)); }
+
         let update_result: UpdateResult = Role::update_many()
             .set(payload)
             .filter(role::Column::Id.eq(id.clone().unwrap_or_default()))

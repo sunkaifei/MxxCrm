@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+﻿<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -16,9 +16,9 @@ import { $t } from '#/locales';
 import FollowupDetail from './detail.vue';
 
 // 跟进方式映射
-const activityLabelMap: Record<string, string> = {
-  call: '电话', visit: '拜访', email: '邮件', meeting: '会议',
-  demo: '演示', whatsapp: 'WhatsApp', wechat: '微信', other: '其他',
+const activityLabelMap: Record<number, string> = {
+  1: '电话', 2: '拜访', 3: '邮件', 4: '会议',
+  5: 'WhatsApp', 6: '微信', 7: '其他',
 };
 
 // 详情抽屉
@@ -52,14 +52,13 @@ const formOptions: VbenFormProps = {
         placeholder: '全部',
         allowClear: true,
         options: [
-          { label: '电话', value: 'call' },
-          { label: '拜访', value: 'visit' },
-          { label: '邮件', value: 'email' },
-          { label: '会议', value: 'meeting' },
-          { label: '演示', value: 'demo' },
-          { label: 'WhatsApp', value: 'whatsapp' },
-          { label: '微信', value: 'wechat' },
-          { label: '其他', value: 'other' },
+          { label: '电话', value: 1 },
+          { label: '拜访', value: 2 },
+          { label: '邮件', value: 3 },
+          { label: '会议', value: 4 },
+          { label: 'WhatsApp', value: 5 },
+          { label: '微信', value: 6 },
+          { label: '其他', value: 7 },
         ],
       },
     },
@@ -77,7 +76,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: { isHover: true },
+  cellConfig: { isHover: true },
   stripe: true,
   checkboxConfig: { checkField: 'checked', trigger: 'row' },
 
@@ -103,14 +102,13 @@ const gridOptions: VxeGridProps = {
       cellRender: {
         name: 'Tag',
         options: [
-          { value: 'call', label: '电话', color: 'blue' },
-          { value: 'visit', label: '拜访', color: 'cyan' },
-          { value: 'email', label: '邮件', color: 'purple' },
-          { value: 'meeting', label: '会议', color: 'orange' },
-          { value: 'demo', label: '演示', color: 'green' },
-          { value: 'whatsapp', label: 'WhatsApp', color: 'lime' },
-          { value: 'wechat', label: '微信', color: 'lime' },
-          { value: 'other', label: '其他', color: 'default' },
+          { value: 1, label: '电话', color: 'blue' },
+          { value: 2, label: '拜访', color: 'cyan' },
+          { value: 3, label: '邮件', color: 'purple' },
+          { value: 4, label: '会议', color: 'orange' },
+          { value: 5, label: 'WhatsApp', color: 'lime' },
+          { value: 6, label: '微信', color: 'lime' },
+          { value: 7, label: '其他', color: 'default' },
         ],
       },
     },

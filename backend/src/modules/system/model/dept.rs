@@ -17,13 +17,15 @@ use sea_orm::*;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct DeptSaveRequest {
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub parent_id: Option<i64>,
     pub dept_name: Option<String>,
     /// 部门编码
     pub code: Option<String>,
     pub sort: Option<i32>,
     pub leader: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
+    pub leader_id: Option<i64>,
     pub phone: Option<String>,
     pub email: Option<String>,
     pub status: Option<i32>,
@@ -39,6 +41,7 @@ impl From<DeptSaveRequest> for DeptSaveDTO {
             code: value.code,
             sort: value.sort,
             leader: value.leader,
+            leader_id: value.leader_id,
             phone: value.phone,
             email: value.email,
             status: value.status,
@@ -54,15 +57,17 @@ impl From<DeptSaveRequest> for DeptSaveDTO {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct DeptUpdateRequest {
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub parent_id: Option<i64>,
     pub dept_name: Option<String>,
     /// 部门编码
     pub code: Option<String>,
     pub sort: Option<i32>,
     pub leader: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
+    pub leader_id: Option<i64>,
     pub phone: Option<String>,
     pub email: Option<String>,
     pub status: Option<i32>,
@@ -78,6 +83,7 @@ impl From<DeptUpdateRequest> for DeptSaveDTO {
             code: value.code,
             sort: value.sort,
             leader: value.leader,
+            leader_id: value.leader_id,
             phone: value.phone,
             email: value.email,
             status: value.status,
@@ -101,6 +107,7 @@ pub struct DeptSaveDTO {
     pub sort: Option<i32>,
     ///负责人
     pub leader: Option<String>,
+    pub leader_id: Option<i64>,
     pub phone: Option<String>,
     pub email: Option<String>,
     pub status: Option<i32>,
@@ -127,6 +134,8 @@ pub struct DeptTreeListVO {
     pub sort: Option<i32>,
     ///负责人
     pub leader: Option<String>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub leader_id: Option<i64>,
     pub phone: Option<String>,
     pub email: Option<String>,
     pub status: Option<i32>,
@@ -138,7 +147,9 @@ pub struct DeptTreeListVO {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DeptDetailVO {
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub parent_id: Option<i64>,
     pub ancestors: Option<String>,
     pub dept_name: Option<String>,
@@ -148,6 +159,8 @@ pub struct DeptDetailVO {
     pub sort: Option<i32>,
     ///负责人
     pub leader: Option<String>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub leader_id: Option<i64>,
     pub phone: Option<String>,
     pub email: Option<String>,
     pub status: Option<i32>,
@@ -156,6 +169,29 @@ pub struct DeptDetailVO {
     pub create_time: Option<String>,
     pub update_by: Option<String>,
     pub update_time: Option<DateTime>,
+}
+
+impl From<dept::Model> for DeptDetailVO {
+    fn from(model: dept::Model) -> Self {
+        DeptDetailVO {
+            id: Some(model.id),
+            parent_id: model.parent_id,
+            ancestors: model.ancestors,
+            dept_name: model.dept_name,
+            code: model.code,
+            sort: model.sort,
+            leader: model.leader,
+            leader_id: model.leader_id,
+            phone: model.phone,
+            email: model.email,
+            status: model.status,
+            deleted: model.deleted,
+            create_by: model.create_by,
+            create_time: model.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
+            update_by: model.update_by,
+            update_time: model.update_time,
+        }
+    }
 }
 
 /// 菜单下拉树形结构
@@ -218,7 +254,7 @@ impl PageWhere {
         }
 
         let mut status = None;
-        if self.status == Some(1) || self.status == Some(0) {
+        if self.status == Some(0) || self.status == Some(1) || self.status == Some(2) {
             status = self.status;
         }
 
@@ -239,8 +275,10 @@ impl DeptModel {
             parent_id:         Set(form_data.parent_id.to_owned()),
             ancestors:         Set(form_data.ancestors.to_owned()),
             dept_name:         Set(form_data.dept_name.to_owned()),
+            code:              Set(form_data.code.to_owned()),
             sort:              Set(form_data.sort.to_owned()),
             leader:            Set(form_data.leader.to_owned()),
+            leader_id:         Set(form_data.leader_id.to_owned()),
             phone:             Set(form_data.phone.to_owned()),
             email:             Set(form_data.email.to_owned()),
             status:            Set(form_data.status.to_owned()),
@@ -269,8 +307,10 @@ impl DeptModel {
              parent_id:      Set(form_data.parent_id.to_owned()),
              ancestors:      Set(form_data.ancestors.to_owned()),
              dept_name:      Set(form_data.dept_name.to_owned()),
+             code:           Set(form_data.code.to_owned()),
              sort:           Set(form_data.sort.to_owned()),
              leader:         Set(form_data.leader.to_owned()),
+             leader_id:      Set(form_data.leader_id.to_owned()),
              phone:          Set(form_data.phone.to_owned()),
              email:          Set(form_data.email.to_owned()),
              status:         Set(form_data.status.to_owned()),
@@ -335,8 +375,8 @@ impl DeptModel {
             .apply_if(wheres.status, |query, v| {
                 match v {
                     0 => query.filter(dept::Column::Status.gte(0)),
-                    1 => query.filter(dept::Column::Status.eq(0)),
-                    2 => query.filter(dept::Column::Status.eq(1)),
+                    1 => query.filter(dept::Column::Status.eq(1)),
+                    2 => query.filter(dept::Column::Status.eq(2)),
                     _ => query.filter(dept::Column::Status.eq(v)),
                 }
             })

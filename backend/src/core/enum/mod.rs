@@ -9,12 +9,16 @@
 //!
 
 pub mod activity_type_enum;
+pub mod contract_status_enum;
+pub mod contract_type_enum;
 pub mod currency_code_enum;
 pub mod customer_level_enum;
 pub mod industry_enum;
 pub mod industry_type_enum;
 pub mod lead_source_enum;
 pub mod lead_status_enum;
-pub mod contract_status_enum;
 pub mod menu_enums;
 pub mod opportunity_stage_enum;
+pub mod purchase_status_enum;
+pub mod payment_status_enum;
+pub mod payment_method_enum;

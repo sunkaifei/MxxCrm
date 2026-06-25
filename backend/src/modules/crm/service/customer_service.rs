@@ -16,7 +16,7 @@ use sea_orm::DbConn;
 pub async fn insert(db: &DbConn, form_data: &CustomerSaveRequest, created_by: i64) -> Result<i64> {
     let mut dto: CustomerSaveDTO = form_data.clone().into();
     dto.created_by = Some(created_by);
-    let result = CustomerModel::insert(&db, &dto).await?;
+    let result = CustomerModel::insert(db, &dto).await?;
     Ok(result)
 }
 

@@ -14,12 +14,12 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::system::model::dept::{DeptModel, DeptSaveDTO, DeptSaveRequest, DeptUpdateRequest, ListQuery};
+use crate::modules::system::model::dept::{DeptDetailVO, DeptModel, DeptSaveDTO, DeptSaveRequest, DeptUpdateRequest, ListQuery};
 use crate::modules::system::service::{admin_service, dept_service};
 use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
 use actix_web_grants::protect;
 
-#[post("/dept/add")]
+#[post("/dept/save")]
 #[protect("system:dept:save")]
 pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::Json<DeptSaveRequest>) -> Result<HttpResponse> {
     //log::info!("dept_save params: {:?}", &item);
@@ -40,6 +40,16 @@ pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::
     let jwt_token:JWTToken = get_user(&req).unwrap_or_default();
     let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
     let mut form_data = DeptSaveDTO::from(sys_dept.clone());
+
+    if let Some(leader_id) = form_data.leader_id {
+        if leader_id > 0 {
+            if let Ok(Some(leader_admin)) = admin_service::find_by_id(&db, &Some(leader_id)).await {
+                form_data.leader = leader_admin.nick_name
+                    .filter(|s| !s.is_empty())
+                    .or(leader_admin.user_name);
+            }
+        }
+    }
 
     form_data.create_by = admin.user_name.clone();
     form_data.update_by = admin.user_name;
@@ -102,6 +112,21 @@ pub async fn dept_update(state: web::Data<AppState>, req: HttpRequest, id: web::
 
     let mut form_data = DeptSaveDTO::from(sys_dept.clone());
     form_data.id = Some(dept_id);
+
+    if let Some(leader_id) = form_data.leader_id {
+        if leader_id > 0 {
+            if let Ok(Some(leader_admin)) = admin_service::find_by_id(&db, &Some(leader_id)).await {
+                form_data.leader = leader_admin.nick_name
+                    .filter(|s| !s.is_empty())
+                    .or(leader_admin.user_name);
+            }
+        } else {
+            form_data.leader = None;
+        }
+    } else {
+        form_data.leader = None;
+    }
+
     form_data.update_by = admin.user_name;
     let result = dept_service::update_by_id(&db, &form_data).await;
     match result {
@@ -158,7 +183,8 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
                 HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门信息不存在", "local"))
             }
             Some(dept_entity) => {
-                HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(dept_entity, "local"))
+                let dept_vo = DeptDetailVO::from(dept_entity);
+                HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(dept_vo, "local"))
             }
         }
         Err(err) => {

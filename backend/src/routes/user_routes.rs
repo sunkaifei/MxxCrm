@@ -13,7 +13,6 @@ use actix_web::dev::ServiceRequest;
 
 use crate::core::kit::config;
 use crate::core::kit::jwt_util::JWTToken;
-use crate::modules::user::controller::user::{wechat_controller, upload_controller, sms_controller};
 use crate::modules::message::controller::user::chat_controller;
 use crate::modules::finance::controller::user::{payment_user_controller, member_fee_user_controller};
 use crate::modules::system::controller::user::region_user_controller;
@@ -40,13 +39,6 @@ pub async fn user_auth_middleware(req: &ServiceRequest) -> Result<i64, Error> {
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/api/user")
-            .service(wechat_controller::wechat_phone_login)
-            .service(wechat_controller::wechat_code_login)
-            .service(wechat_controller::refresh_token)
-            .service(wechat_controller::get_user_info)
-            .service(wechat_controller::update_nickname)
-            .service(wechat_controller::update_avatar)
-            .service(upload_controller::upload_avatar)
             .service(payment_user_controller::list)
             .service(payment_user_controller::detail)
             .service(payment_user_controller::create_payment)
@@ -65,9 +57,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(chat_controller::search_users_handler)
             .service(chat_controller::get_unread_count_handler)
             .service(chat_controller::start_session_handler)
-            // SMS
-            .service(sms_controller::send_sms)
-            .service(sms_controller::sms_login)
             // Mall - Shop
             .service(
                 web::scope("/mall")

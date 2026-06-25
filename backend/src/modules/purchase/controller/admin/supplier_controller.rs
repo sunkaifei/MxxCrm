@@ -10,7 +10,7 @@ use crate::core::web::response::MetaResp;
 use crate::modules::purchase::model::supplier::{SupplierDetailVO, SupplierListQuery, SupplierListVO, SupplierSaveRequest, SupplierUpdateRequest};
 use crate::modules::purchase::service::supplier_service;
 
-#[post("/supplier/save")]
+#[post("/purchase/supplier/save")]
 #[protect("purchase:supplier:save")]
 pub async fn supplier_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<SupplierSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -26,7 +26,7 @@ pub async fn supplier_insert(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/supplier/update")]
+#[put("/purchase/supplier/update")]
 #[protect("purchase:supplier:update")]
 pub async fn supplier_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<SupplierUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -46,7 +46,7 @@ pub async fn supplier_update(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/supplier/bath_delete")]
+#[delete("/purchase/supplier/bath_delete")]
 #[protect("purchase:supplier:delete")]
 pub async fn bath_delete_supplier(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
@@ -65,7 +65,7 @@ pub async fn bath_delete_supplier(state: web::Data<AppState>, item: web::Json<Ba
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/supplier/info")]
+#[get("/purchase/supplier/info")]
 #[protect("purchase:supplier:info")]
 pub async fn supplier_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
@@ -81,7 +81,7 @@ pub async fn supplier_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 }
 
-#[get("/supplier/list")]
+#[get("/purchase/supplier/list")]
 #[protect("purchase:supplier:list")]
 pub async fn supplier_list(state: web::Data<AppState>, query: web::Query<SupplierListQuery>) -> HttpResponse {
     let db = &state.db;

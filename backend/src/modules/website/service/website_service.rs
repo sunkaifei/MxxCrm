@@ -13,7 +13,7 @@ use crate::core::web::response::ResultPage;
 use crate::modules::articles::model::article::ArticleModel;
 use crate::modules::articles::model::category::CategoryModel;
 use crate::modules::website::model::website::{ListQuery, PageWhere, SiteAdminListVO, SiteDetailVO, SiteModel, SiteSaveDTO, UpdateDefaultDTO};
-use sea_orm::DbConn;
+use sea_orm::{DbConn, DbErr, TransactionTrait};
 use crate::modules::system::model::admin::AdminModel;
 use crate::modules::website::model::admin_template_merge::AdminTemplateMergeModel;
 use crate::modules::website::model::template_user_data::TemplateDataSaveDTO;
@@ -64,8 +64,16 @@ pub async fn save_site(db: &DbConn, form_data: &SiteSaveDTO) -> Result<i64> {
 
 /// 设置默认站点
 async fn set_default_site(db: &DbConn, user_id: &Option<i64>, site_id: &Option<i64>) -> Result<()> {
-    SiteModel::update_by_reset_default(db, user_id).await?;
-    SiteModel::update_by_default_id(db, site_id).await?;
+    let user_id = user_id.clone();
+    let site_id = site_id.clone();
+    // 重置旧默认 + 设置新默认需原子执行，避免出现多个或零个默认站点
+    db.transaction::<_, (), DbErr>(|txn| {
+        Box::pin(async move {
+            SiteModel::update_by_reset_default(txn, &user_id).await?;
+            SiteModel::update_by_default_id(txn, &site_id).await?;
+            Ok(())
+        })
+    }).await.map_err(|e| Error::from(e.to_string()))?;
     Ok(())
 }
 
@@ -111,7 +119,7 @@ pub async fn update_by_id(db: &DbConn, form_data: &SiteSaveDTO) -> Result<i64> {
         // 判断是否还有默认站点,没有就设置当前站点为默认
         if !find_by_default_count(db, &form_data.user_id, &Some(1)).await? {
             // 重新按ID设置默认站点
-            SiteModel::update_by_default_id(&db, &form_data.id).await?;
+            SiteModel::update_by_default_id(db, &form_data.id).await?;
         }
     }
     let rows = SiteModel::update_by_id(&db, &form_data.id, form_data).await?;
@@ -125,10 +133,18 @@ pub async fn update_by_id(db: &DbConn, form_data: &SiteSaveDTO) -> Result<i64> {
 
 pub async fn update_by_default_id(db: &DbConn, form_data: &UpdateDefaultDTO) -> Result<i64> {
     if form_data.is_default.unwrap_or_default() == 1 {
-        // 重置默认站点
-        SiteModel::update_by_reset_default(&db, &form_data.user_id).await?;
-        // 设置当前站点为默认
-        let rows = SiteModel::update_by_default_id(&db, &form_data.id).await?;
+        let user_id = form_data.user_id.clone();
+        let site_id = form_data.id.clone();
+        // 重置旧默认 + 设置新默认需原子执行，避免出现多个或零个默认站点
+        let rows = db
+            .transaction::<_, i64, DbErr>(|txn| {
+                Box::pin(async move {
+                    SiteModel::update_by_reset_default(txn, &user_id).await?;
+                    SiteModel::update_by_default_id(txn, &site_id).await
+                })
+            })
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
         if rows > 0 {
             Ok(rows)
         } else {
@@ -138,7 +154,7 @@ pub async fn update_by_default_id(db: &DbConn, form_data: &UpdateDefaultDTO) -> 
         // 检查用户是否有默认站点
         if !find_by_default_count(&db, &form_data.user_id, &Some(1)).await? {
             // 如果没有默认站点，则设置当前站点为默认
-            let rows = SiteModel::update_by_default_id(&db, &form_data.id).await?;
+            let rows = SiteModel::update_by_default_id(db, &form_data.id).await?;
             if rows > 0 {
                 Ok(rows)
             } else {

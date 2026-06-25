@@ -50,6 +50,28 @@ function setupAccessGuard(router: Router) {
     const userStore = useUserStore();
     const authStore = useAuthStore();
 
+    // 反篡改：sessionStorage 标记仍在 → 强制恢复锁屏状态
+    try {
+      if (sessionStorage.getItem('__lock_active__') === '1' && !accessStore.isLockScreen) {
+        accessStore.isLockScreen = true;
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // 锁屏守卫：锁屏状态下，除 /lock 路由外全部强制跳转到 /lock
+    if (accessStore.isLockScreen && to.path !== '/lock') {
+      return {
+        path: '/lock',
+        replace: true,
+      };
+    }
+
+    // /lock 路由不需要 token 校验（被锁屏时可能 token 已过期）
+    if (to.path === '/lock') {
+      return true;
+    }
+
     // 基本路由，这些路由不需要进入权限拦截
     if (coreRouteNames.includes(to.name as string)) {
       if (to.path === LOGIN_PATH && accessStore.accessToken) {
@@ -100,30 +122,45 @@ function setupAccessGuard(router: Router) {
 
     // 生成路由表
     // 当前登录用户拥有的角色标识列表
-    const userInfo = userStore.userInfo || (await authStore.fetchUserInfo());
-    const userRoles = userInfo.roles ?? [];
+    let userInfo = userStore.userInfo;
+    let userRoles: string[] = [];
+    
+    try {
+      if (!userInfo) {
+        userInfo = await authStore.fetchUserInfo();
+      }
+      userRoles = userInfo?.roles ?? [];
 
-    // 生成菜单和路由
-    const { accessibleMenus, accessibleRoutes } = await generateAccess({
-      roles: userRoles,
-      router,
-      // 则会在菜单中显示，但是访问会被重定向到403
-      routes: accessRoutes,
-    });
+      // 生成菜单和路由
+      const { accessibleMenus, accessibleRoutes } = await generateAccess({
+        roles: userRoles,
+        router,
+        // 则会在菜单中显示，但是访问会被重定向到403
+        routes: accessRoutes,
+      });
 
-    // 保存菜单信息和路由信息
-    accessStore.setAccessMenus(accessibleMenus);
-    accessStore.setAccessRoutes(accessibleRoutes);
-    accessStore.setIsAccessChecked(true);
-    const redirectPath = (from.query.redirect ??
-      (to.path === preferences.app.defaultHomePath
-        ? userInfo.homePath || preferences.app.defaultHomePath
-        : to.fullPath)) as string;
+      // 保存菜单信息和路由信息
+      accessStore.setAccessMenus(accessibleMenus);
+      accessStore.setAccessRoutes(accessibleRoutes);
+      accessStore.setIsAccessChecked(true);
+      const redirectPath = (from.query.redirect ??
+        (to.path === preferences.app.defaultHomePath
+          ? userInfo.homePath || preferences.app.defaultHomePath
+          : to.fullPath)) as string;
 
-    return {
-      ...router.resolve(decodeURIComponent(redirectPath)),
-      replace: true,
-    };
+      return {
+        ...router.resolve(decodeURIComponent(redirectPath)),
+        replace: true,
+      };
+    } catch (error) {
+      console.error('Failed to fetch user info or generate routes:', error);
+      accessStore.setAccessToken(null);
+      return {
+        path: LOGIN_PATH,
+        query: { redirect: encodeURIComponent(to.fullPath) },
+        replace: true,
+      };
+    }
   });
 }
 

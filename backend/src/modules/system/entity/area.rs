@@ -1,4 +1,3 @@
-use chrono::Utc;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -17,8 +16,8 @@ pub struct Model {
     pub country_code: Option<String>,
     pub latitude: Option<Decimal>,
     pub longitude: Option<Decimal>,
-    pub created_at: Option<chrono::DateTime<Utc>>,
-    pub updated_at: Option<chrono::DateTime<Utc>>,
+    pub create_time: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

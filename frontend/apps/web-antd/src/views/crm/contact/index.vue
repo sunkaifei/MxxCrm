@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+﻿<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -9,7 +9,7 @@ import { LucideFilePenLine, LucideTrash2, LucideEye } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Drawer, Modal, message } from 'ant-design-vue';
+import { Button, Popconfirm, Drawer, Modal, message, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteContactApi, getContactListApi } from '#/api';
@@ -19,12 +19,12 @@ import ContactDetail from './detail.vue';
 
 const accessStore = useAccessStore();
 
-// 角色映射 - 对齐后端 role_type
-const roleColorMap: Record<string, string> = {
-  decision_maker: 'red', influencer: 'orange', user: 'blue', other: 'default',
+// 角色映射
+const roleColorMap: Record<number, string> = {
+  0: 'red', 1: 'orange', 2: 'blue', 3: 'default',
 };
-const roleLabelMap: Record<string, string> = {
-  decision_maker: '决策人', influencer: '影响者', user: '使用者', other: '其他',
+const roleLabelMap: Record<number, string> = {
+  0: '决策人', 1: '影响者', 2: '使用者', 3: '其他',
 };
 
 // 详情抽屉
@@ -71,10 +71,10 @@ const formOptions: VbenFormProps = {
         placeholder: '全部',
         allowClear: true,
         options: [
-          { label: '决策人', value: 'decision_maker' },
-          { label: '影响者', value: 'influencer' },
-          { label: '使用者', value: 'user' },
-          { label: '其他', value: 'other' },
+          { label: '决策人', value: 0 },
+          { label: '影响者', value: 1 },
+          { label: '使用者', value: 2 },
+          { label: '其他', value: 3 },
         ],
       },
     },
@@ -83,10 +83,9 @@ const formOptions: VbenFormProps = {
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  rowConfig: { isHover: true },
+  cellConfig: { isHover: true },
   stripe: true,
   checkboxConfig: { checkField: 'checked', trigger: 'row' },
 
@@ -107,19 +106,10 @@ const gridOptions: VxeGridProps = {
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: '姓名', field: 'name', width: 120, slots: { default: 'name' } },
-    { title: '当前公司', field: 'currentCompany', minWidth: 160 },
+    { title: '当前公司', field: 'companyName', minWidth: 160, formatter: ({ cellValue }: any) => cellValue || '-' },
     { title: '职位', field: 'title', width: 120 },
     {
-      title: '角色', field: 'roleType', width: 90,
-      cellRender: {
-        name: 'Tag',
-        options: [
-          { value: 'decision_maker', label: '决策人', color: 'red' },
-          { value: 'influencer', label: '影响者', color: 'orange' },
-          { value: 'user', label: '使用者', color: 'blue' },
-          { value: 'other', label: '其他', color: 'default' },
-        ],
-      },
+      title: '角色', field: 'roleType', width: 90, slots: { default: 'roleType' },
     },
     {
       title: '首要', field: 'isPrimary', width: 60, align: 'center',
@@ -171,7 +161,7 @@ async function handleBatchDelete() {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <Grid :table-title="$t('page.crm.contact.title')">
       <template #toolbar-tools>
         <Button v-if="accessStore.hasAccessCode('crm:contact:create')" type="primary" class="mr-2" @click="handleCreate">
@@ -180,7 +170,11 @@ async function handleBatchDelete() {
         <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
-      <template #createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
+
+      <template #roleType="{ row }">
+        <Tag :color="roleColorMap[row.roleType] || 'default'">{{ roleLabelMap[row.roleType] || '-' }}</Tag>
+      </template>
 
       <template #name="{ row }">
         <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.name }}</a>
@@ -188,7 +182,7 @@ async function handleBatchDelete() {
 
       <template #action="{ row }">
         <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
-        <Button v-if="accessStore.hasAccessCode('crm:contact:edit')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
+        <Button v-if="accessStore.hasAccessCode('crm:contact:update')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
         <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.contact.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
           <Button v-if="accessStore.hasAccessCode('crm:contact:delete')" type="link" danger :icon="h(LucideTrash2)" />
         </Popconfirm>

@@ -14,11 +14,11 @@ const emit = defineEmits<{
 const loading = ref(false);
 const contact = ref<any>({});
 
-const roleTypeMap: Record<string, string> = {
-  decision_maker: '决策人', influencer: '影响者', user: '使用者', other: '其他',
+const roleTypeMap: Record<number, string> = {
+  0: '决策人', 1: '影响者', 2: '使用者', 3: '其他',
 };
-const roleColorMap: Record<string, string> = {
-  decision_maker: 'red', influencer: 'blue', user: 'green', other: 'default',
+const roleColorMap: Record<number, string> = {
+  0: 'red', 1: 'blue', 2: 'green', 3: 'default',
 };
 
 const initials = computed(() => (contact.value.name || '?').slice(0, 1).toUpperCase());

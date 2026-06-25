@@ -8,12 +8,12 @@
 //! 版权所有，侵权必究！
 //!
 
-use crate::core::errors::error::Result;
+use crate::core::errors::error::{Error, Result};
 use crate::modules::system::entity::dept::Model;
 use crate::modules::system::model::admin_dept_merge::{AdminDeptMergeModel, AdminDeptMergeSaveDTO};
 use crate::modules::system::model::dept::{DeptAdminByName, DeptDetailVO, DeptModel, DeptOptionVO, DeptOptionsTreeVO, DeptSaveDTO, DeptTreeListVO, ListQuery, PageWhere};
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
-use sea_orm::DbConn;
+use sea_orm::{DbConn, DbErr, TransactionTrait};
 use std::collections::{HashMap, HashSet};
 
 
@@ -51,40 +51,41 @@ pub async fn batch_update_dept(
         None => return Ok(0), // 或根据需求返回错误 Err(Error::BadRequest("admin_id required"))
     };
 
-    // 2. 清理旧关联
-    AdminDeptMergeModel::delete_by_admin_id(db, &Some(admin_id)).await?;
-
-    // 3. 处理 dept_ids（过滤无效值）
-    let result = match dept_ids {
+    // 2. 预处理 dept_ids，构造插入数据
+    let sys_dept_admin_list: Vec<AdminDeptMergeSaveDTO> = match dept_ids {
         Some(ids) if !ids.is_empty() => {
-            // 过滤无效部门ID（示例过滤 0 值，根据实际业务调整）
             let valid_dept_ids: Vec<i64> = ids
                 .iter()
-                .filter(|&&id| id != 0)  // 替换为实际业务逻辑
-                .copied()  // 优化：i64 是 Copy 类型，避免 clone()
+                .filter(|&&id| id != 0)
+                .copied()
                 .collect();
 
-            if valid_dept_ids.is_empty() {
-                0  // 无有效数据可插入
-            } else {
-                // 构建插入数据
-                let sys_dept_admin_list: Vec<AdminDeptMergeSaveDTO> = valid_dept_ids
-                    .into_iter()
-                    .map(|dept_id| AdminDeptMergeSaveDTO {
-                        id: None,
-                        create_time: None,
-                        dept_id: Some(dept_id),  // 直接 Some 包装
-                        admin_id: Some(admin_id), // 使用已解包的 admin_id
-                    })
-                    .collect();
-
-                // 执行批量插入
-                AdminDeptMergeModel::insert_batch(db, &sys_dept_admin_list)
-                    .await?
-            }
+            valid_dept_ids
+                .into_iter()
+                .map(|dept_id| AdminDeptMergeSaveDTO {
+                    id: None,
+                    create_time: None,
+                    dept_id: Some(dept_id),
+                    admin_id: Some(admin_id),
+                })
+                .collect()
         }
-        _ => 0,  // 空参数直接返回 0
+        _ => Vec::new(),
     };
+
+    // 3. 删除旧关联 + 插入新关联需原子执行，避免中途失败丢失全部部门关联
+    let result = db
+        .transaction::<_, i64, DbErr>(|txn| {
+            Box::pin(async move {
+                AdminDeptMergeModel::delete_by_admin_id(txn, &Some(admin_id)).await?;
+                if sys_dept_admin_list.is_empty() {
+                    return Ok(0);
+                }
+                AdminDeptMergeModel::insert_batch(txn, &sys_dept_admin_list).await
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
     Ok(result)
 }
@@ -116,6 +117,7 @@ pub async fn select_by_admin_id(db: &DbConn, admin_id: &Option<i64>) -> Result<V
                 code: dept.code,
                 sort: dept.sort,
                 leader: dept.leader,
+                leader_id: dept.leader_id,
                 phone: dept.phone,
                 email: dept.email,
                 status: dept.status,
@@ -231,6 +233,7 @@ pub fn dept_all_tree(re_list: &mut Vec<DeptTreeListVO>, ori_arr: &[Model]) {
                 code: root_node.code.clone(),
                 sort: root_node.sort,
                 leader: root_node.leader.clone(),
+                leader_id: root_node.leader_id,
                 phone: root_node.phone.clone(),
                 email: root_node.email.clone(),
                 status: root_node.status.clone(),
@@ -257,6 +260,7 @@ fn build_tree(re_list: &mut Vec<DeptTreeListVO>, id_to_node: &HashMap<i64, &Mode
                     code: child_node.code.clone(),
                     sort: child_node.sort,
                     leader: child_node.leader.clone(),
+                    leader_id: child_node.leader_id,
                     phone: child_node.phone.clone(),
                     email: child_node.email.clone(),
                     status: child_node.status.clone(),

@@ -135,9 +135,29 @@ function handleOpenLock() {
   lockModalApi.open();
 }
 
-function handleSubmitLock(lockScreenPassword: string) {
+async function handleSubmitLock(lockScreenPassword: string) {
   lockModalApi.close();
-  accessStore.lockScreen(lockScreenPassword);
+  // 在 sessionStorage 标记锁屏激活（防 F12 删 localStorage 绕过）
+  try {
+    sessionStorage.setItem('__lock_active__', '1');
+  } catch {
+    /* ignore */
+  }
+  // SHA-256 哈希前先计算（异步）— 锁屏状态等哈希完成后再切换
+  try {
+    const buf = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(lockScreenPassword),
+    );
+    const hash = Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    // 锁屏（传入已计算好的 hash，路由守卫同步跳 /lock）
+    accessStore.lockScreen(hash);
+  } catch {
+    // 哈希失败时退化为无密码锁屏（仅状态）
+    accessStore.lockScreen('');
+  }
 }
 
 function handleLogout() {

@@ -6,11 +6,15 @@ import {
   getMenuTreeApi,
   buildMenuTree,
   updateRoleAuthApi,
+  updateRoleApi,
+  getRoleInfoApi,
   getRoleMenuIdsApi,
+  getRoleDeptIdsApi,
+  updateRoleDeptApi,
   getDeptTreeApi,
 } from '#/api';
 import { $t } from '#/locales';
-import { Tree, Button, Space, Divider, Radio, Empty } from 'ant-design-vue';
+import { Tree, Button, Space, Divider, Radio, Empty, message } from 'ant-design-vue';
 
 const data = ref();
 const activeSection = ref<'menu' | 'dataScope'>('menu');
@@ -68,24 +72,20 @@ const deptTreeRef = ref<any>();
 
 const dataScopeOptions = [
   { value: 1, label: '全部数据', desc: '可查看系统中所有业务数据，不受部门和个人限制' },
+  { value: 2, label: '自定义数据', desc: '可查看指定部门及以下的业务数据' },
   { value: 3, label: '本部门数据', desc: '只能查看所在部门所有成员负责的业务数据' },
+  { value: 4, label: '本部门及以下', desc: '可查看本部门及下属部门所有成员的业务数据' },
   { value: 5, label: '仅本人数据', desc: '只能查看自己负责的业务数据' },
 ];
 
 const showDeptTree = computed(() => dataScopeValue.value === 2);
 
-const deptProps = {
-  children: 'children',
-  title: 'deptName',
-  key: 'id',
-};
-
 const getAllDeptKeys = (data: any[]): string[] => {
   const keys: string[] = [];
   const traverse = (nodes: any[]) => {
     nodes.forEach((node) => {
-      if (node.id !== undefined && node.id !== null) {
-        keys.push(String(node.id));
+      if (node.key !== undefined && node.key !== null) {
+        keys.push(String(node.key));
       }
       if (node.children?.length) {
         traverse(node.children);
@@ -96,11 +96,27 @@ const getAllDeptKeys = (data: any[]): string[] => {
   return keys;
 };
 
+const buildDeptTreeData = (nodes: any[]): any[] => {
+  return nodes.map((node) => {
+    const children = node.children && node.children.length > 0
+      ? buildDeptTreeData(node.children)
+      : undefined;
+    return {
+      title: node.label,
+      key: String(node.value),
+      children,
+    };
+  });
+};
+
 // ---------- Drawer 生命周期 ----------
 const [Drawer, drawerApi] = useVbenDrawer({
   async onOpened() {
     data.value = drawerApi.getData<Record<string, any>>();
     activeSection.value = 'menu';
+    checkedKeys.value = [];
+    deptCheckedKeys.value = [];
+    dataScopeValue.value = 5;
 
     // 加载菜单树
     const menuResult = await getMenuTreeApi(null);
@@ -112,18 +128,49 @@ const [Drawer, drawerApi] = useVbenDrawer({
     // 加载部门树
     const deptResult = await getDeptTreeApi();
     const deptList = Array.isArray(deptResult) ? deptResult : deptResult?.data || [];
-    deptTreeData.value = deptList;
-    deptExpandedKeys.value = getAllDeptKeys(deptList);
+    deptTreeData.value = buildDeptTreeData(deptList);
+    deptExpandedKeys.value = getAllDeptKeys(deptTreeData.value);
 
     if (data.value?.row?.id) {
-      // 加载已有的数据权限（从后端传递的数据）
-      dataScopeValue.value = data.value.row.dataScope !== undefined && data.value.row.dataScope !== null
-        ? data.value.row.dataScope
-        : 5;
+      const roleId = Number(data.value.row.id);
+      const isSuperAdmin = roleId === 1 || data.value.row.roleKey === 'super_admin' || data.value.row.roleKey === 'admin';
+
+      // 从API加载角色详情获取最新的dataScope
+      try {
+        const roleDetail = await getRoleInfoApi(roleId);
+        if (roleDetail) {
+          dataScopeValue.value = roleDetail.dataScope ?? (isSuperAdmin ? 1 : 5);
+          if (roleDetail.deptIds && roleDetail.deptIds.length > 0) {
+            deptCheckedKeys.value = roleDetail.deptIds.map(String);
+          }
+        }
+      } catch {
+        dataScopeValue.value = isSuperAdmin ? 1 : (data.value.row.dataScope ?? 5);
+      }
+
+      // 超级管理员默认全部数据权限
+      if (isSuperAdmin && !dataScopeValue.value) {
+        dataScopeValue.value = 1;
+      }
+
+      // 如果是自定义数据权限，加载角色关联的部门ID
+      if (dataScopeValue.value === 2 && !isSuperAdmin) {
+        try {
+          const roleDeptIds = await getRoleDeptIdsApi(roleId);
+          if (roleDeptIds) {
+            const deptKeys = (Array.isArray(roleDeptIds) ? roleDeptIds : []).map(String);
+            setTimeout(() => {
+              deptCheckedKeys.value = deptKeys;
+            }, 100);
+          }
+        } catch {
+          // ignore
+        }
+      }
 
       try {
         // 加载已有的菜单权限
-        const roleMenuIds = await getRoleMenuIdsApi(data.value.row.id);
+        const roleMenuIds = await getRoleMenuIdsApi(roleId);
         await nextTick();
 
         if (roleMenuIds) {
@@ -138,41 +185,58 @@ const [Drawer, drawerApi] = useVbenDrawer({
             checkedKeys.value = validMenuIds;
           }, 100);
         }
+
+        // 超级管理员：默认全选所有菜单
+        if (isSuperAdmin) {
+          expandedKeys.value = getAllKeys(treeData.value);
+          setTimeout(() => {
+            checkedKeys.value = getAllKeys(treeData.value);
+          }, 100);
+        }
       } catch {
-        // 角色无权限配置
+        // 角色无权限配置或超级管理员
+        if (isSuperAdmin) {
+          expandedKeys.value = getAllKeys(treeData.value);
+          setTimeout(() => {
+            checkedKeys.value = getAllKeys(treeData.value);
+          }, 100);
+        }
       }
     }
   },
 
   async onConfirm() {
+    if (!data.value?.row?.id) {
+      message.error('角色信息不存在');
+      return;
+    }
+    const roleId = Number(data.value.row.id);
+    const isSuperAdmin = roleId === 1 || data.value.row.roleKey === 'super_admin' || data.value.row.roleKey === 'admin';
     setLoading(true);
     try {
-      // 1. 保存菜单权限
+      // 保存菜单权限（超级管理员后端会直接返回成功，不做实际修改）
       let authId: string[] = [...checkedKeys.value];
       const halfChecked = treeRef.value?.getHalfCheckedKeys?.();
       if (halfChecked?.length) {
         authId = [...authId, ...halfChecked];
       }
+      await updateRoleAuthApi(roleId, { authId });
 
-      if (authId.length > 0) {
-        await updateRoleAuthApi(data.value.row.id, { authId });
-      }
-
-      // 2. 保存数据权限
-      const deptIds = [...deptCheckedKeys.value].map(Number);
-      const payload: Record<string, any> = {
-        roleId: data.value.row.id,
+      // 保存数据权限（通过角色更新接口）
+      await updateRoleApi(roleId, {
         dataScope: dataScopeValue.value,
-      };
-      if (deptIds.length > 0) {
-        payload.deptIds = deptIds;
-      }
-      // TODO: 调用 updateRoleDataScopeApi 更新数据权限
+      });
 
-      window.$message.success($t('ui.notification.update_success'));
+      // 保存自定义数据权限的部门关联
+      if (dataScopeValue.value === 2 && !isSuperAdmin) {
+        await updateRoleDeptApi(roleId, deptCheckedKeys.value);
+      }
+
+      message.success($t('ui.notification.update_success'));
       drawerApi.close();
-    } catch {
-      window.$message.error($t('ui.notification.update_error'));
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.msg || err?.message || $t('ui.notification.update_error');
+      message.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -293,13 +357,9 @@ function setLoading(loading: boolean) {
               :tree-data="deptTreeData"
               checkable
               :check-strictly="false"
-              :replace-fields="deptProps"
+              default-expand-all
               class="w-full"
-            >
-              <template #title="{ data: item }">
-                <span class="text-sm">{{ item.deptName || item.label }}</span>
-              </template>
-            </Tree>
+            />
             <div
               v-if="deptTreeData.length === 0"
               class="py-8 text-center text-gray-400"

@@ -53,7 +53,7 @@ pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Re
             quantity: stock.quantity,
             reserved_quantity: stock.reserved_quantity,
             available_quantity: stock.available_quantity,
-            last_updated_at: stock.last_updated_at.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
+            update_time: stock.update_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         };
 
         if let Some(name) = &query.product_name {
@@ -101,6 +101,6 @@ pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<InventoryDet
         quantity: stock.quantity,
         reserved_quantity: stock.reserved_quantity,
         available_quantity: stock.available_quantity,
-        last_updated_at: stock.last_updated_at.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
+        update_time: stock.update_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
     })
 }

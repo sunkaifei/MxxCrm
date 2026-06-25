@@ -29,9 +29,9 @@ pub struct Model {
     pub due_date: Option<Date>,
     pub notes: Option<String>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }
 

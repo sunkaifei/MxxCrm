@@ -34,11 +34,21 @@ pub struct Model {
     pub shipping_address: Option<String>,
     pub shipping_method: Option<String>,
     pub tracking_no: Option<String>,
+    /// 订单日期
+    pub order_date: Option<Date>,
+    /// 付款截止日期
+    pub payment_due_date: Option<Date>,
+    /// 账单地址
+    pub billing_address: Option<String>,
+    /// 备注
+    pub notes: Option<String>,
+    /// 指派给
+    pub assigned_to: Option<i64>,
     pub remark: Option<String>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }
 

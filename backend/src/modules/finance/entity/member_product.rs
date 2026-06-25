@@ -9,7 +9,6 @@
 //!
 
 use sea_orm::entity::prelude::*;
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
@@ -31,13 +30,13 @@ pub struct Model {
     /// 鏃堕暱绫诲瀷: 1=鏈堝害, 2=瀛ｅ害, 3=骞村害, 4=姘镐箙
     pub duration_type: i32,
 
-    /// 鏈堜唤鍊硷紝1灏辨槸1涓湀锛?灏辨槸2涓湀
+    /// 鏈堜唤鍊硷紝1灏辨槸1涓湀锛?灏辨槸2涓湀
     pub duration_value: i32,
 
-    /// 璐拱闄愬埗绫诲瀷: 0=鏃犻檺鍒? 1=鑷劧骞村唴闄愬埗, 2=姘镐箙闄愬埗(鏁翠釜鐢熷懡鍛ㄦ湡鍐?
+    /// 璐拱闄愬埗绫诲瀷: 0=鏃犻檺鍒? 1=鑷劧骞村唴闄愬埗, 2=姘镐箙闄愬埗(鏁翠釜鐢熷懡鍛ㄦ湡鍐?
     pub purchase_limit_type: Option<i32>,
 
-    /// 璐拱闄愬埗娆℃暟锛堝湪闄愬埗鍛ㄦ湡鍐呮渶澶氬彲璐拱鐨勬鏁帮級
+    /// 璐拱闄愬埗娆℃暟锛堝湪闄愬埗鍛ㄦ湡鍐呮渶澶氬彲璐拱鐨勬鏁帮級
     pub purchase_limit_count: Option<i32>,
 
     /// 浠锋牸
@@ -49,7 +48,7 @@ pub struct Model {
     /// 鎶樻墸
     pub discount: Option<rust_decimal::Decimal>,
 
-    /// 浼氬憳绫诲瀷: 1=鏅€氫細鍛? 2=鍏绘畺鎴? 3=鍟嗘埛
+    /// 浼氬憳绫诲瀷: 1=鏅€氫細鍛? 2=鍏绘畺鎴? 3=鍟嗘埛
     pub member_type: i32,
 
     /// 鐘舵€? 0=涓嬫灦, 1=涓婃灦
@@ -65,10 +64,10 @@ pub struct Model {
     pub features: Option<serde_json::Value>,
 
     /// 鍒涘缓鏃堕棿
-    pub create_time: Option<DateTime<Utc>>,
+    pub create_time: Option<DateTime>,
 
     /// 鏇存柊鏃堕棿
-    pub update_time: Option<DateTime<Utc>>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

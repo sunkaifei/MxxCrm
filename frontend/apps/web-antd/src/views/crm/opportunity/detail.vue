@@ -13,13 +13,13 @@ const emit = defineEmits<{
 const loading = ref(false);
 const opp = ref<any>({});
 
-const stageMap: Record<string, { label: string; color: string }> = {
-  qualification: { label: '资格审查', color: 'blue' },
-  needs_analysis: { label: '需求分析', color: 'cyan' },
-  proposal: { label: '方案报价', color: 'gold' },
-  negotiation: { label: '商务谈判', color: 'orange' },
-  won: { label: '已成交', color: 'green' },
-  lost: { label: '已输单', color: 'red' },
+const stageMap: Record<number, { label: string; color: string }> = {
+  0: { label: '资格审查', color: 'blue' },
+  1: { label: '需求分析', color: 'cyan' },
+  2: { label: '方案报价', color: 'gold' },
+  3: { label: '商务谈判', color: 'orange' },
+  4: { label: '已成交', color: 'green' },
+  5: { label: '已输单', color: 'red' },
 };
 
 const sourceMap: Record<string, string> = {
@@ -40,9 +40,9 @@ const amountText = computed(() => {
 const probabilityNum = computed(() => Number(opp.value.probability ?? 0));
 
 // 阶段进度
-const stageList = ['qualification', 'needs_analysis', 'proposal', 'negotiation', 'won'];
+const stageList = [0, 1, 2, 3, 4];
 const currentStageIndex = computed(() => {
-  if (opp.value.stage === 'lost') return -1;
+  if (opp.value.stage === 5) return -1;
   return stageList.indexOf(opp.value.stage);
 });
 

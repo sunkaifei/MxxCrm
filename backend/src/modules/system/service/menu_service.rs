@@ -52,30 +52,65 @@ pub async fn update_by_id(db: &DbConn, menu: &MenuUpdateRequest) -> Result<i64> 
 /// 查询用户路由树
 pub async fn get_user_router_tree(db: &DbConn, is_admin: &bool, user_id: &Option<i64>) -> Result<Vec<menu::Router>> {
     let mut list: Vec<Model> = Vec::<Model>::new();
-    let mut seen_ids = HashSet::new(); // 用于跟踪已经添加过的菜单 ID
+    let mut seen_ids = HashSet::new();
 
     if is_admin.clone() {
         list = MenuModel::find_all(db).await?;
+        log::info!("[菜单] 管理员获取菜单，总数: {}", list.len());
     } else {
+        log::info!("[菜单] 非管理员获取菜单，user_id={:?}", user_id);
         let result_merge = AdminRoleMergeModel::find_by_admin_id(db, user_id).await?;
         for merge in result_merge {
-            let result_role = RoleModel::find_by_id(db, merge.role_id.unwrap_or_default()).await?;
+            let role_id = merge.role_id.unwrap_or_default();
+            if role_id == 0 { continue; }
+            let result_role = RoleModel::find_by_id(db, role_id).await?;
 
-            if let Some(role) = result_role {
-                let role_menu_merge = RoleMenuMergeModel::find_by_role_id(db, &Some(role.id)).await?;
+            if result_role.is_some() {
+                let role_menu_merge = RoleMenuMergeModel::find_by_role_id(db, &Some(role_id)).await?;
                 for role_menu in role_menu_merge {
-                    let result_menu = MenuModel::find_by_id(db, &role_menu.menu_id).await?;
+                    let menu_id = role_menu.menu_id.unwrap_or_default();
+                    if menu_id == 0 { continue; }
+                    let result_menu = MenuModel::find_by_id(db, &Some(menu_id)).await?;
                     if let Some(menu) = result_menu {
-                        if seen_ids.insert(menu.id) { // 只有当菜单 ID 还未被添加过时，才添加到 list
-                            list.push(menu);
+                        if menu.deleted.unwrap_or(0) == 0 && menu.status == 1 {
+                            if seen_ids.insert(menu.id) {
+                                list.push(menu);
+                            }
                         }
                     }
                 }
             }
         }
+
+        let mut parent_ids: Vec<i64> = Vec::new();
+        for m in &list {
+            if m.parent_id != 0 {
+                parent_ids.push(m.parent_id);
+            }
+        }
+
+        let mut processed = 0;
+        while !parent_ids.is_empty() && processed < 20 {
+            processed += 1;
+            let current_ids: Vec<i64> = parent_ids.drain(..).collect();
+            for pid in current_ids {
+                if seen_ids.contains(&pid) { continue; }
+                if let Some(parent_menu) = MenuModel::find_by_id(db, &Some(pid)).await? {
+                    if parent_menu.deleted.unwrap_or(0) == 0 && parent_menu.status == 1 {
+                        if seen_ids.insert(parent_menu.id) {
+                            if parent_menu.parent_id != 0 {
+                                parent_ids.push(parent_menu.parent_id);
+                            }
+                            list.push(parent_menu);
+                        }
+                    }
+                }
+            }
+        }
+
+        log::info!("[菜单] 非管理员菜单收集完成，总数: {}", list.len());
     }
     let mut router_list = Vec::<menu::Router>::new();
-    // 按 sort 升序排序
     list.sort_by(|a, b| a.sort.unwrap_or(0).cmp(&b.sort.unwrap_or(0)));
     router_arr_to_tree(&mut router_list, list, Some(0));
     Ok(router_list)
@@ -89,6 +124,7 @@ pub fn router_arr_to_tree(re_list: &mut Vec<menu::Router>, ori_arr: Vec<Model>, 
                 title: it.name.clone(),
                 icon: it.icon.clone(),
                 sort: it.sort.clone(),
+                hide_in_menu: Some(it.hide_in_menu == 1),
             };
 
             let mut children = Vec::<menu::Router>::new();
@@ -130,11 +166,21 @@ pub async fn find_user_role_keys(db: &DbConn, is_admin: &bool, id: &Option<i64>)
     } else {
         let result_merge = AdminRoleMergeModel::find_by_admin_id(db, &id.clone()).await?;
         for merge in result_merge {
-            let role_menu_merge = RoleMenuMergeModel::find_by_role_id(db,&merge.role_id).await?;
+            let role_id = merge.role_id.unwrap_or_default();
+            if role_id == 0 { continue; }
+            let result_role = RoleModel::find_by_id(db, role_id).await?;
+            if result_role.is_none() { continue; }
+            let role_menu_merge = RoleMenuMergeModel::find_by_role_id(db, &Some(role_id)).await?;
             for role_menu in role_menu_merge {
-                let result_menu = MenuModel::find_by_id(db, &role_menu.menu_id).await?;
-                if unique_set.insert(result_menu.clone().unwrap_or_default().perm.unwrap_or_default().to_string()) {
-                    btn_menu.push(result_menu.unwrap_or_default().perm.unwrap_or_default().to_string());
+                let menu_id = role_menu.menu_id.unwrap_or_default();
+                if menu_id == 0 { continue; }
+                if let Some(menu) = MenuModel::find_by_id(db, &Some(menu_id)).await? {
+                    if menu.deleted.unwrap_or(0) == 0 && menu.status == 1 {
+                        let perm = menu.perm.unwrap_or_default();
+                        if !perm.is_empty() && unique_set.insert(perm.clone()) {
+                            btn_menu.push(perm);
+                        }
+                    }
                 }
             }
         }
@@ -189,7 +235,7 @@ pub fn menu_list_tree(re_list: &mut Vec<MenuAdminVO>, ori_arr: Vec<Model>, pid: 
                 status: Some(it.status),
                 redirect: it.redirect.clone(),
                 create_time: it.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
-                update_time: it.updated_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
+                update_time: it.update_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
                 params: it.params.clone(),
                 children,
             };

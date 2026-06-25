@@ -11,6 +11,7 @@
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::system::entity::{post, post::Entity as Post};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
+use chrono::Local;
 use sea_orm::prelude::DateTime;
 use sea_orm::*;
 
@@ -25,7 +26,7 @@ pub struct PostSaveRequest {
     /// 岗位状态
     pub status: Option<i32>,
     /// 岗位排序
-    pub sort: Option<i32>,
+    pub sort: Option<i64>,
     /// 备注
     pub remark: Option<String>,
 }
@@ -41,7 +42,7 @@ impl From<PostSaveRequest> for PostSaveDTO {
             remark: value.remark,
             create_time: None,
             update_time: None,
-            is_del: None,
+            deleted: None,
         }
     }
     
@@ -59,7 +60,7 @@ pub struct PostUpdateRequest {
     /// 岗位状态
     pub status: Option<i32>,
     /// 岗位排序
-    pub sort: Option<i32>,
+    pub sort: Option<i64>,
     /// 备注
     pub remark: Option<String>,
 }
@@ -75,7 +76,7 @@ impl From<PostUpdateRequest> for PostSaveDTO {
             remark: value.remark,
             create_time: None,
             update_time: None,
-            is_del: None,
+            deleted: None,
         }
     }
 }
@@ -91,7 +92,7 @@ pub struct PostSaveDTO {
     /// 岗位状态
     pub status: Option<i32>,
     /// 岗位排序
-    pub sort: Option<i32>,
+    pub sort: Option<i64>,
     /// 备注
     pub remark: Option<String>,
     /// 创建日期
@@ -99,7 +100,7 @@ pub struct PostSaveDTO {
     /// 更新时间
     pub update_time: Option<DateTime>,
     /// 是否删除
-    pub is_del: Option<i32>,
+    pub deleted: Option<i32>,
 }
 
 
@@ -114,7 +115,7 @@ pub struct PostDetailVO {
     /// 岗位状态
     pub status: Option<i32>,
     /// 岗位排序
-    pub sort: Option<i32>,
+    pub sort: Option<i64>,
     /// 备注
     pub remark: Option<String>,
     /// 创建日期
@@ -123,6 +124,14 @@ pub struct PostDetailVO {
     pub update_time: Option<String>,
 }
 
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PostOptionVO {
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub value: Option<i64>,
+    pub label: Option<String>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -135,7 +144,7 @@ pub struct PostListVO {
     /// 岗位状态
     pub status: Option<i32>,
     /// 岗位排序
-    pub sort:  Option<i32>,
+    pub sort:  Option<i64>,
     
     /// 备注
     pub remark: Option<String>,
@@ -238,6 +247,7 @@ impl PostModel {
             status:      Set(form_data.status.to_owned()),
             sort:        Set(form_data.sort.to_owned()),
             remark:      Set(form_data.remark).to_owned(),
+            update_time: Set(Option::from(Local::now().naive_local())),
             ..Default::default()
         };
         

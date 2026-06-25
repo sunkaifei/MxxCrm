@@ -1,10 +1,10 @@
 {
   "welcomeBack": "Welcome Back",
-  "pageTitle": "Plug-and-play Admin system",
-  "pageDesc": "Efficient, versatile frontend template",
+  "pageTitle": "Open Source CRM System",
+  "pageDesc": "Manage customers, opportunities and sales efficiently",
   "loginSuccess": "Login Successful",
   "loginSuccessDesc": "Welcome Back",
-  "loginSubtitle": "Enter your account details to manage your projects",
+  "loginSubtitle": "Enter your account details to start your CRM journey",
   "selectAccount": "Quick Select Account",
   "username": "Username",
   "password": "Password",
