@@ -10,7 +10,7 @@ use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::payment::{PaymentDetailVO, PaymentListQuery, PaymentListVO, PaymentSaveRequest, PaymentUpdateRequest};
 use crate::modules::sale::service::payment_service;
 
-#[post("/payment/save")]
+#[post("/sale/payment/save")]
 #[protect("sale:payment:save")]
 pub async fn payment_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PaymentSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -22,7 +22,7 @@ pub async fn payment_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/payment/update")]
+#[put("/sale/payment/update")]
 #[protect("sale:payment:update")]
 pub async fn payment_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PaymentUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -38,7 +38,7 @@ pub async fn payment_update(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/payment/bath_delete")]
+#[delete("/sale/payment/bath_delete")]
 #[protect("sale:payment:delete")]
 pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
@@ -57,7 +57,7 @@ pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<Bat
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/payment/info")]
+#[get("/sale/payment/info")]
 #[protect("sale:payment:info")]
 pub async fn payment_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
@@ -73,7 +73,7 @@ pub async fn payment_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
     }
 }
 
-#[get("/payment/list")]
+#[get("/sale/payment/list")]
 #[protect("sale:payment:list")]
 pub async fn payment_list(state: web::Data<AppState>, query: web::Query<PaymentListQuery>) -> HttpResponse {
     let db = &state.db;

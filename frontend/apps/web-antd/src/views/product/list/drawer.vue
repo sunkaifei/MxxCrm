@@ -13,6 +13,7 @@ import {
   getSkuTemplateListApi,
   getSkuTemplateInfoApi,
 } from '#/api';
+import { getProductSpecsApi } from '#/api/core/product/spec';
 import type { SkuTemplateListVO } from '#/api';
 const data = ref();
 const activeTab = ref('basic');
@@ -318,25 +319,38 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     setLoading(true);
 
-    const specs = specList.value.map((s) => ({
-      id: s.id,
-      specs: s.label || undefined,
-      imageUrl: s.imageUrl || null,
-      price: s.price,
-      costPrice: s.costPrice,
-      originalPrice: s.originalPrice,
-      stock: s.stock,
-      skuCode: s.skuCode,
-      weight: s.weight,
-      volume: s.volume,
-      isDefault: s.isDefault,
-      isActive: s.isActive,
-    }));
+    const specs = specList.value.map((s) => {
+      let specsValue: Record<string, string> | null = null;
+      if (specType.value === 'multiple' && s.label && templateSpecs.value.length > 0) {
+        const values = s.label.split(' / ');
+        const specsObj: Record<string, string> = {};
+        templateSpecs.value.forEach((spec, index) => {
+          if (values[index]) {
+            specsObj[spec.name] = values[index];
+          }
+        });
+        specsValue = specsObj;
+      }
+      return {
+        id: s.id,
+        specs: specsValue,
+        imageUrl: s.imageUrl || null,
+        price: s.price,
+        costPrice: s.costPrice,
+        originalPrice: s.originalPrice,
+        stock: s.stock,
+        skuCode: s.skuCode,
+        weight: s.weight,
+        volume: s.volume,
+        isDefault: s.isDefault,
+        isActive: s.isActive,
+      };
+    });
 
     const payload = {
       ...formData.value,
       currency: 'CNY',
-      coverImage: coverImageUrl.value || null,
+      imageUrl: coverImageUrl.value || null,
       carouselImages: carouselImages.value.map((img) => img.url),
       specType: specType.value,
       templateId: selectedTemplateId.value || undefined,
@@ -382,7 +396,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         detail: row.detail || '',
       };
 
-      coverImageUrl.value = row.coverImage || '';
+      coverImageUrl.value = row.imageUrl || '';
 
       if (row.carouselImages && Array.isArray(row.carouselImages)) {
         carouselKeyCounter = 0;
@@ -395,7 +409,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
 
       specType.value = row.specType || 'single';
-      selectedTemplateId.value = undefined;
+      selectedTemplateId.value = row.templateId || undefined;
       templateSpecs.value = [];
 
       // 加载模板下拉列表
@@ -440,15 +454,65 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 async function loadProductDetail(id: number) {
   try {
-    const res = await getProductInfoApi(id);
-    if (res?.skus && Array.isArray(res.skus)) {
+    const [productRes, specsRes] = await Promise.all([
+      getProductInfoApi(id),
+      getProductSpecsApi(id),
+    ]);
+
+    const productData = productRes as any;
+    const specsData = specsRes as any;
+
+    if (productData) {
+      formData.value = {
+        name: productData.name || '',
+        productNo: productData.productNo || '',
+        categoryId: productData.categoryId || undefined,
+        keywords: productData.keywords || '',
+        unit: productData.unit || '',
+        barcode: productData.barcode || '',
+        salePrice: productData.salePrice ?? 0,
+        marketPrice: productData.marketPrice ?? 0,
+        costPrice: productData.costPrice ?? 0,
+        stock: productData.stock ?? 0,
+        weight: productData.weight ?? undefined,
+        dimensions: productData.dimensions || '',
+        isActive: productData.isActive ?? true,
+        detail: productData.detail || '',
+      };
+
+      coverImageUrl.value = productData.imageUrl || '';
+
+      if (productData.carouselImages && Array.isArray(productData.carouselImages)) {
+        carouselKeyCounter = 0;
+        carouselImages.value = productData.carouselImages.map((url: string) => {
+          carouselKeyCounter++;
+          return { url, uid: carouselKeyCounter };
+        });
+      }
+
+      specType.value = productData.specType || 'single';
+      selectedTemplateId.value = productData.templateId || undefined;
+    }
+
+    const skuSource = specsData?.skus && Array.isArray(specsData.skus) ? specsData.skus :
+                      productData?.skus && Array.isArray(productData.skus) ? productData.skus : [];
+    
+    if (skuSource.length > 0) {
       specKeyCounter = 0;
-      specList.value = res.skus.map((s: any) => {
+      specList.value = skuSource.map((s: any) => {
         specKeyCounter++;
+        let label = '';
+        if (s.label) {
+          label = s.label;
+        } else if (typeof s.specs === 'string') {
+          label = s.specs;
+        } else if (s.specs && typeof s.specs === 'object' && !Array.isArray(s.specs)) {
+          label = Object.values(s.specs).join(' / ');
+        }
         return {
           _key: specKeyCounter,
           id: s.id,
-          label: s.label || (typeof s.specs === 'string' ? s.specs : '') || '',
+          label,
           imageUrl: s.imageUrl || s.image || '',
           price: s.price ?? 0,
           costPrice: s.costPrice ?? 0,
@@ -461,6 +525,28 @@ async function loadProductDetail(id: number) {
           isActive: s.isActive ?? true,
         };
       });
+    } else if (specType.value === 'single') {
+      specList.value = [{
+        _key: 1,
+        label: '',
+        imageUrl: '',
+        price: productData.salePrice ?? 0,
+        costPrice: productData.costPrice ?? 0,
+        originalPrice: productData.marketPrice ?? 0,
+        stock: productData.stock ?? 0,
+        skuCode: '',
+        weight: productData.weight ?? 0,
+        volume: 0,
+        isDefault: false,
+        isActive: productData.isActive ?? true,
+      }];
+    }
+
+    if (specsData?.specs && Array.isArray(specsData.specs)) {
+      templateSpecs.value = specsData.specs.map((s: any) => ({
+        name: s.name || '',
+        values: (s.values || []).map((v: any) => String(v.value || '')).filter(v => v !== ''),
+      }));
     }
   } catch {
     // ignore

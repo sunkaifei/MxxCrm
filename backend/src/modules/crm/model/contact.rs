@@ -63,9 +63,9 @@ impl From<ContactSaveRequest> for ContactSaveDTO {
             bound_at: item.bound_at,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -118,9 +118,9 @@ impl From<ContactUpdateRequest> for ContactSaveDTO {
             bound_at: None,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -166,11 +166,11 @@ pub struct ContactSaveDTO {
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新人ID
     pub updated_by: Option<i64>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 // ==================== 联系人关联操作请求 ====================
@@ -257,9 +257,9 @@ pub struct ContactDetailVO {
     /// 职业生涯履历
     pub career_history: Option<Vec<CareerHistoryItem>>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 当前公司信息
@@ -370,7 +370,7 @@ pub struct ContactModel;
 
 impl ContactModel {
     /// 新增联系人
-    pub async fn insert(db: &DbConn, req: &ContactSaveDTO) -> Result<i64, DbErr> {
+    pub async fn insert(db: &impl ConnectionTrait, req: &ContactSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = contact::ActiveModel {
             name: Set(req.name.clone()),
@@ -382,8 +382,8 @@ impl ContactModel {
             wechat: Set(req.wechat.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
-            created_at: Set(Option::from(now)),
-            updated_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -394,7 +394,7 @@ impl ContactModel {
     }
 
     /// 插入关联记录
-    pub async fn insert_merge(db: &DbConn, customer_id: i64, contact_id: i64, req: &ContactSaveDTO) -> Result<i64, DbErr> {
+    pub async fn insert_merge(db: &impl ConnectionTrait, customer_id: i64, contact_id: i64, req: &ContactSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = customer_contact_merge::ActiveModel {
             customer_id: Set(customer_id),
@@ -406,8 +406,8 @@ impl ContactModel {
             is_billing: Set(req.is_billing.clone()),
             is_shipping: Set(req.is_shipping.clone()),
             bound_at: Set(req.bound_at.clone().or(Some(now))),
-            created_at: Set(Option::from(now)),
-            updated_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -442,7 +442,7 @@ impl ContactModel {
             wechat: Set(req.wechat.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -510,7 +510,7 @@ impl ContactModel {
             .set(customer_contact_merge::ActiveModel {
                 is_current: Set(Some(false)),
                 unbound_at: Set(Option::from(now)),
-                updated_at: Set(Option::from(now)),
+                update_time: Set(Option::from(now)),
                 ..Default::default()
             })
             .filter(customer_contact_merge::Column::ContactId.eq(req.contact_id))
@@ -529,8 +529,8 @@ impl ContactModel {
             is_billing: Set(req.is_billing.clone()),
             is_shipping: Set(req.is_shipping.clone()),
             bound_at: Set(req.bound_at.clone().or(Some(now))),
-            created_at: Set(Option::from(now)),
-            updated_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -548,7 +548,7 @@ impl ContactModel {
                 is_current: Set(Some(false)),
                 unbound_at: Set(req.unbound_at.clone().or(Some(now))),
                 notes: Set(req.notes.clone()),
-                updated_at: Set(Option::from(now)),
+                update_time: Set(Option::from(now)),
                 ..Default::default()
             })
             .filter(customer_contact_merge::Column::ContactId.eq(req.contact_id))
@@ -563,7 +563,7 @@ impl ContactModel {
     pub async fn set_role(db: &DbConn, req: &ContactSetRoleRequest) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let mut set_values = customer_contact_merge::ActiveModel {
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -624,7 +624,7 @@ impl ContactModel {
             }
         }
 
-        let paginator = query.order_by_desc(contact::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(contact::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))

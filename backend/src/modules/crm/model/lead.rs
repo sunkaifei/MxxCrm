@@ -4,24 +4,8 @@ use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::core::r#enum::industry_enum::IndustryType;
 use crate::core::r#enum::lead_source_enum::LeadSource;
-use crate::core::r#enum::lead_status_enum::LeadStatus;
 use crate::modules::crm::entity::{lead, lead::Entity as Lead};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
-
-/// 将 i32 转换为 LeadStatus
-fn i32_to_lead_status(v: i32) -> Option<LeadStatus> {
-    match v {
-        1 => Some(LeadStatus::New),
-        2 => Some(LeadStatus::Following),
-        3 => Some(LeadStatus::Converted),
-        4 => Some(LeadStatus::Invalid),
-        5 => Some(LeadStatus::Recycled),
-        6 => Some(LeadStatus::Unchecked),
-        7 => Some(LeadStatus::Checking),
-        8 => Some(LeadStatus::Valid),
-        _ => None,
-    }
-}
 
 /// 线索新增请求DTO
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -88,7 +72,7 @@ impl From<LeadSaveRequest> for LeadSaveDTO {
             industry: item.industry.map(|i| i.to_string()),
             source: item.source.map(|s| s.to_string()),
             source_detail: item.source_detail,
-            status: item.status.and_then(i32_to_lead_status),
+            status: item.status,
             level: item.level,
             budget: item.budget,
             currency: item.currency,
@@ -100,9 +84,9 @@ impl From<LeadSaveRequest> for LeadSaveDTO {
             custom_fields: item.custom_fields,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -175,7 +159,7 @@ impl From<LeadUpdateRequest> for LeadSaveDTO {
             industry: item.industry,
             source: item.source,
             source_detail: item.source_detail,
-            status: item.status.and_then(i32_to_lead_status),
+            status: item.status,
             level: item.level,
             budget: item.budget,
             currency: item.currency,
@@ -187,9 +171,9 @@ impl From<LeadUpdateRequest> for LeadSaveDTO {
             custom_fields: item.custom_fields,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -227,7 +211,7 @@ pub struct LeadSaveDTO {
     /// 来源详情
     pub source_detail: Option<String>,
     /// 线索状态
-    pub status: Option<LeadStatus>,
+    pub status: Option<i32>,
     /// 线索等级
     pub level: Option<i32>,
     /// 预算金额
@@ -251,11 +235,11 @@ pub struct LeadSaveDTO {
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新人ID
     pub updated_by: Option<i64>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 线索详情VO
@@ -292,7 +276,7 @@ pub struct LeadDetailVO {
     /// 来源详情
     pub source_detail: Option<String>,
     /// 线索状态
-    pub status: Option<LeadStatus>,
+    pub status: Option<i32>,
     /// 线索等级
     pub level: Option<i32>,
     /// 预算金额
@@ -311,6 +295,8 @@ pub struct LeadDetailVO {
     pub description: Option<String>,
     /// 自定义字段（JSON格式）
     pub custom_fields: Option<serde_json::Value>,
+    /// 跟进记录列表
+    pub followups: Option<Vec<crate::modules::crm::model::followup::FollowupListVO>>,
 }
 
 impl From<lead::Model> for LeadDetailVO {
@@ -340,6 +326,7 @@ impl From<lead::Model> for LeadDetailVO {
             converted_at: item.converted_at,
             description: item.description,
             custom_fields: item.custom_fields,
+            followups: None,
         }
     }
 }
@@ -370,15 +357,17 @@ pub struct LeadListVO {
     /// 线索来源
     pub source: Option<String>,
     /// 线索状态
-    pub status: Option<LeadStatus>,
+    pub status: Option<i32>,
     /// 线索等级
     pub level: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 创建人ID
     pub created_by: Option<i64>,
+    /// 创建人名称
+    pub created_by_name: Option<String>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
 }
@@ -400,7 +389,8 @@ impl From<lead::Model> for LeadListVO {
             level: item.level,
             assigned_to: item.assigned_to,
             created_by: item.created_by,
-            created_at: item.created_at,
+            created_by_name: None,
+            create_time: item.create_time,
             next_follow_at: item.next_follow_at,
         }
     }
@@ -417,8 +407,8 @@ pub struct LeadListQuery {
     pub page_size: Option<i64>,
     /// 关键词（搜索公司名称、联系人等）
     pub keywords: Option<String>,
-    /// 线索状态
-    pub status: Option<String>,
+    /// 线索状态（数字：1新线索 2跟进中 3已转客户 4无效 5回收 6未审查 7审查中 8有效）
+    pub status: Option<i32>,
     /// 线索等级
     pub level: Option<String>,
     /// 线索来源
@@ -433,8 +423,8 @@ pub struct LeadListQuery {
 pub struct LeadStatusUpdateQuery {
     /// 线索ID
     pub id: Option<i64>,
-    /// 状态值 (支持数字或字符串)
-    pub status: Option<serde_json::Value>,
+    /// 状态值（数字）
+    pub status: Option<i32>,
 }
 
 /// 线索数据模型操作类
@@ -474,9 +464,9 @@ impl LeadModel {
             description: Set(req.description.clone()),
             custom_fields: Set(req.custom_fields.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -539,7 +529,7 @@ impl LeadModel {
             description: Set(req.description.clone()),
             custom_fields: Set(req.custom_fields.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -586,7 +576,7 @@ impl LeadModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        status: Option<String>,
+        status: Option<i32>,
         level: Option<String>,
         source: Option<String>,
         assigned_to: Option<i64>,
@@ -598,20 +588,14 @@ impl LeadModel {
             query = query.filter(lead::Column::CompanyName.contains(k));
         }
         if let Some(s) = status {
-            let status_value: Option<LeadStatus> = match s.as_str() {
-                "1" | "new" => Some(LeadStatus::New),
-                "2" | "following" => Some(LeadStatus::Following),
-                "3" | "converted" => Some(LeadStatus::Converted),
-                "4" | "invalid" => Some(LeadStatus::Invalid),
-                "5" | "recycled" => Some(LeadStatus::Recycled),
-                "6" | "unchecked" => Some(LeadStatus::Unchecked),
-                "7" | "checking" => Some(LeadStatus::Checking),
-                "8" | "valid" => Some(LeadStatus::Valid),
-                _ => None,
-            };
-            if let Some(st) = status_value {
-                query = query.filter(lead::Column::Status.eq(st));
+            query = query.filter(lead::Column::Status.eq(s));
+            // 线索池查询（Valid=8）时，排除已领取转客户的线索
+            if s == 8 {
+                query = query.filter(lead::Column::ConvertedToCustomerId.is_null());
             }
+        } else {
+            // 未指定状态时，排除已加入线索池（Valid=8）和已转客户（Converted=3）的线索
+            query = query.filter(lead::Column::Status.is_not_in([8, 3]));
         }
         if let Some(l) = level {
             query = query.filter(lead::Column::Level.eq(l));
@@ -623,17 +607,17 @@ impl LeadModel {
             query = query.filter(lead::Column::AssignedTo.eq(a));
         }
 
-        let paginator = query.order_by_desc(lead::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(lead::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
     }
 
-    pub async fn update_status(db: &DbConn, id: i64, status: LeadStatus, updated_by: Option<i64>) -> Result<i64, DbErr> {
+    pub async fn update_status(db: &DbConn, id: i64, status: i32, updated_by: Option<i64>) -> Result<i64, DbErr> {
         let payload = lead::ActiveModel {
             status: Set(Some(status)),
             updated_by: Set(updated_by),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -648,6 +632,29 @@ impl LeadModel {
     }
 
     pub async fn add_to_pool(db: &DbConn, id: i64, updated_by: Option<i64>) -> Result<i64, DbErr> {
-        Self::update_status(db, id, LeadStatus::Valid, updated_by).await
+        Self::update_status(db, id, 8, updated_by).await
+    }
+
+    /// 领取线索：分配负责人、转客户
+    pub async fn claim(db: &impl ConnectionTrait, id: i64, user_id: i64, customer_id: i64) -> Result<i64, DbErr> {
+        let now = chrono::Local::now().naive_local().to_owned();
+        let payload = lead::ActiveModel {
+            assigned_to: Set(Some(user_id)),
+            converted_to_customer_id: Set(Some(customer_id)),
+            converted_at: Set(Some(now.clone())),
+            status: Set(Some(3)),
+            updated_by: Set(Some(user_id)),
+            update_time: Set(Some(now)),
+            ..Default::default()
+        };
+
+        let result: UpdateResult = Lead::update_many()
+            .set(payload)
+            .filter(lead::Column::Id.eq(id))
+            .filter(lead::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+
+        Ok(result.rows_affected as i64)
     }
 }

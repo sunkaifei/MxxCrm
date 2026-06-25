@@ -38,7 +38,7 @@ pub struct Model {
     pub redirect: Option<String>,
     pub params: Option<serde_json::Value>,
     pub create_time: Option<DateTime>,
-    pub updated_time: Option<DateTime>,
+    pub update_time: Option<DateTime>,
     ///删除标志（0未删除 1已删除）
     pub deleted: Option<i32>,
 }

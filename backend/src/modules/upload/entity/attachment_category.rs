@@ -28,6 +28,10 @@ pub struct Model {
     pub en_name: Option<String>,
     /// 排序（升序）
     pub sort: Option<i32>,
+    /// 图片数量
+    pub count_pic: Option<i32>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
 }
 
 

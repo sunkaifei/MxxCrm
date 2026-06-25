@@ -149,11 +149,10 @@ impl PaymentRecordModel {
     }
 
     pub async fn insert(db: &DbConn, req: PaymentRecordSaveRequest) -> Result<PaymentRecordDTO, DbErr> {
-        let now = Some(Utc::now());
-        
+        let now = Some(Utc::now().naive_utc());
+
         let pay_time = req.pay_time.as_ref()
-            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok())
-            .map(|dt| Utc.from_utc_datetime(&dt));
+            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok());
         
         let model = payment_record::ActiveModel {
             user_id: Set(req.user_id),
@@ -194,12 +193,12 @@ impl PaymentRecordModel {
         
         if let Some(pay_time_str) = &req.pay_time {
             if let Ok(dt) = NaiveDateTime::parse_from_str(pay_time_str, "%Y-%m-%d %H:%M:%S") {
-                model.pay_time = Set(Some(DateTime::from_naive_utc_and_offset(dt, Utc)));
+                model.pay_time = Set(Some(dt));
             }
         }
         
         model.remark = Set(req.remark);
-        model.update_time = Set(Some(Utc::now()));
+        model.update_time = Set(Some(Utc::now().naive_utc()));
         
         let result = model.update(db).await?;
         
@@ -244,14 +243,14 @@ impl PaymentRecordModel {
         }
         
         if status == PAY_STATUS_SUCCESS || status == PAY_STATUS_FAILED {
-            model.pay_time = Set(Some(Utc::now()));
+            model.pay_time = Set(Some(Utc::now().naive_utc()));
         }
-        
+
         if let Some(r) = remark {
             model.remark = Set(Some(r.to_string()));
         }
-        
-        model.update_time = Set(Some(Utc::now()));
+
+        model.update_time = Set(Some(Utc::now().naive_utc()));
         
         model.update(db).await?;
         

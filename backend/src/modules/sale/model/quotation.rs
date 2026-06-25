@@ -68,9 +68,9 @@ impl From<QuotationSaveRequest> for QuotationSaveDTO {
             assigned_to: item.assigned_to,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -130,9 +130,9 @@ impl From<QuotationUpdateRequest> for QuotationSaveDTO {
             assigned_to: item.assigned_to,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -165,9 +165,9 @@ pub struct QuotationSaveDTO {
     pub assigned_to: Option<i64>,
     pub deleted: Option<i32>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 报价单详情VO
@@ -197,7 +197,7 @@ pub struct QuotationDetailVO {
     pub bank_info: Option<String>,
     pub notes: Option<String>,
     pub assigned_to: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 }
 
 impl From<quotation::Model> for QuotationDetailVO {
@@ -225,7 +225,7 @@ impl From<quotation::Model> for QuotationDetailVO {
             bank_info: item.bank_info,
             notes: item.notes,
             assigned_to: item.assigned_to,
-            created_at: item.created_at,
+            create_time: item.create_time,
         }
     }
 }
@@ -244,7 +244,7 @@ pub struct QuotationListVO {
     pub status: Option<String>,
     pub valid_until: Option<Date>,
     pub assigned_to: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 }
 
 impl From<quotation::Model> for QuotationListVO {
@@ -259,7 +259,7 @@ impl From<quotation::Model> for QuotationListVO {
             status: item.status,
             valid_until: item.valid_until,
             assigned_to: item.assigned_to,
-            created_at: item.created_at,
+            create_time: item.create_time,
         }
     }
 }
@@ -306,9 +306,9 @@ impl QuotationModel {
             notes: Set(req.notes.clone()),
             assigned_to: Set(req.assigned_to),
             created_by: Set(req.created_by),
-            created_at: Set(Some(now)),
+            create_time: Set(Some(now)),
             updated_by: Set(req.updated_by),
-            updated_at: Set(Some(now)),
+            update_time: Set(Some(now)),
             ..Default::default()
         };
         Quotation::insert(payload).exec(db).await.map(|r| r.last_insert_id)
@@ -346,7 +346,7 @@ impl QuotationModel {
             notes: Set(req.notes.clone()),
             assigned_to: Set(req.assigned_to),
             updated_by: Set(req.updated_by),
-            updated_at: Set(Some(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Some(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
         let result = Quotation::update_many()
@@ -361,7 +361,7 @@ impl QuotationModel {
         let result = Quotation::update_many()
             .set(quotation::ActiveModel {
                 status: Set(Some(status.to_string())),
-                updated_at: Set(Some(chrono::Local::now().naive_local().to_owned())),
+                update_time: Set(Some(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             })
             .filter(quotation::Column::Id.eq(id))
@@ -402,13 +402,13 @@ impl QuotationModel {
             query = query.filter(quotation::Column::Status.eq(s));
         }
         if let Some(start) = start_date {
-            query = query.filter(quotation::Column::CreatedAt.gte(start));
+            query = query.filter(quotation::Column::CreateTime.gte(start));
         }
         if let Some(end) = end_date {
-            query = query.filter(quotation::Column::CreatedAt.lte(end));
+            query = query.filter(quotation::Column::CreateTime.lte(end));
         }
 
-        let paginator = query.order_by_desc(quotation::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(quotation::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
     }

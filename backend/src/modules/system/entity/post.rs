@@ -28,12 +28,14 @@ pub struct Model {
     pub sort: Option<i32>,
     /// 备注
     pub remark: Option<String>,
+    /// 创建人
+    pub create_by: Option<String>,
     /// 创建日期
     pub create_time: Option<DateTime>,
     /// 更新时间
     pub update_time: Option<DateTime>,
     /// 是否删除
-    pub is_del: Option<i32>,
+    pub deleted: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

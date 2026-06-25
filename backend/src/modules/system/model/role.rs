@@ -249,7 +249,7 @@ impl RoleModel {
             .map(|r| r.last_insert_id)
     }
 
-    pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    pub async fn batch_delete_by_ids<C: ConnectionTrait>(db: &C, ids: &Vec<i64>) -> Result<i64, DbErr> {
         Role::delete_many()
             .filter(role::Column::Id.is_in(ids.clone()))
             .exec(db)

@@ -9,15 +9,14 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::modules::articles::controller::admin::{article_admin_controller, category_admin_controller, label_admin_controller};
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
+use crate::modules::statistics::controller::admin::performance_plan_controller;
 use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller};
 use crate::modules::upload::controller::admin::{attachment_admin_controller, attachment_category_admin_controller};
-use crate::modules::user::controller::admin::{user_platform_admin_controller, user_admin_controller};
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller};
 use crate::modules::shop::controller::admin::shop_admin_controller;
 use crate::modules::shop::controller::admin::category_controller;
 use crate::modules::shop::controller::admin::audit_controller;
 use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller};
-use crate::modules::user::controller::user::user_level_controller;
 use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
@@ -249,15 +248,34 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 // Search Management
                 .service(search_admin_controller::create_index)
                 .service(search_admin_controller::delete_index)
-                // System Statistics Management
-                .service(sys_statistics_admin_controller::get_visit_count)
-                .service(sys_statistics_admin_controller::get_visit_trend)
-                // User Platform Management
-                .service(user_platform_admin_controller::save_platform)
-                .service(user_platform_admin_controller::batch_delete)
-                .service(user_platform_admin_controller::update_platform)
-                .service(user_platform_admin_controller::get_platform_detail)
-                .service(user_platform_admin_controller::get_platform_list)
+                // Data Analysis Statistics Management
+                .service(sys_statistics_admin_controller::get_performance_target)
+                .service(sys_statistics_admin_controller::save_performance_target)
+                .service(sys_statistics_admin_controller::get_monthly_performance)
+                .service(sys_statistics_admin_controller::get_performance_ranking)
+                .service(sys_statistics_admin_controller::get_customer_type_stats)
+                .service(sys_statistics_admin_controller::get_customer_source_stats)
+                .service(sys_statistics_admin_controller::get_customer_industry_stats)
+                .service(sys_statistics_admin_controller::get_customer_funnel)
+                .service(sys_statistics_admin_controller::get_employee_customer_count)
+                .service(sys_statistics_admin_controller::get_employee_follow_up)
+                .service(sys_statistics_admin_controller::get_employee_conversion)
+                .service(sys_statistics_admin_controller::get_contract_ranking)
+                .service(sys_statistics_admin_controller::get_contract_type_distribution)
+                .service(sys_statistics_admin_controller::get_contract_status_analysis)
+                .service(sys_statistics_admin_controller::get_payment_completion)
+                .service(sys_statistics_admin_controller::get_payment_monthly_trend)
+                .service(sys_statistics_admin_controller::get_payment_status_analysis)
+                .service(sys_statistics_admin_controller::get_payment_ranking)
+                // Performance Plan Management
+                .service(performance_plan_controller::create_plan)
+                .service(performance_plan_controller::submit_plan)
+                .service(performance_plan_controller::approve_plan)
+                .service(performance_plan_controller::reject_plan)
+                .service(performance_plan_controller::modify_plan)
+                .service(performance_plan_controller::get_plan_list)
+                .service(performance_plan_controller::get_plan_detail)
+                .service(performance_plan_controller::get_plan_modify_detail)
                 // Shop Management
                 .service(shop_admin_controller::save_shop)
                 .service(shop_admin_controller::batch_delete_shop)
@@ -272,14 +290,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 // Audit Management
                 .service(audit_controller::audit_apply)
                 .service(audit_controller::audit_spu)
-                // User Management
-                .service(user_admin_controller::save_user)
-                .service(user_admin_controller::user_batch_delete)
-                .service(user_admin_controller::user_update)
-                .service(user_admin_controller::get_user_detail)
-                .service(user_admin_controller::user_list)
-                .service(user_admin_controller::update_user_status)
-                .service(user_admin_controller::update_password)
                 // Member Fee Management
                 .service(member_fee_admin_controller::list)
                 .service(member_fee_admin_controller::detail)
@@ -302,14 +312,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(finance_statistics_admin_controller::summary)
                 .service(finance_statistics_admin_controller::list)
                 .service(finance_statistics_admin_controller::generate_daily)
-                // Member Level Management
-                .service(user_level_controller::list_all_levels)
-                .service(user_level_controller::list_all)
-                .service(user_level_controller::get_by_id)
-                .service(user_level_controller::get_by_code)
-                .service(user_level_controller::create_level)
-                .service(user_level_controller::update_level)
-                .service(user_level_controller::delete_level)
                 // CRM Customer Management
                 .service(crm_customer_controller::customer_insert)
                 .service(crm_customer_controller::customer_update)
@@ -326,6 +328,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(lead_controller::lead_pool_list)
                 .service(lead_controller::lead_pool_info)
                 .service(lead_controller::bath_delete_lead_pool)
+                .service(lead_controller::lead_update_status)
+                .service(lead_controller::lead_add_to_pool)
+                .service(lead_controller::lead_claim)
                 // CRM Contact Management
                 .service(contact_controller::contact_insert)
                 .service(contact_controller::contact_update)

@@ -9,7 +9,6 @@
 //!
 
 use sea_orm::entity::prelude::*;
-use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "mxx_payment_record")]
@@ -24,35 +23,35 @@ pub struct Model {
     /// 浼氬憳浜у搧ID锛堝叧鑱斾細鍛樹骇鍝侊級
     pub member_product_id: Option<i64>,
 
-    /// 璁㈠崟ID锛堝叧鑱斾笟鍔¤鍗曪級
+    /// 璁㈠崟ID锛堝叧鑱斾笟鍔¤鍗曪級
     pub order_id: Option<String>,
 
-    /// 鏀粯绫诲瀷: 1=浼氬憳璐圭敤, 2=鍟嗗搧璐拱, 3=鍏呭€? 4=鍏朵粬
+    /// 鏀粯绫诲瀷: 1=浼氬憳璐圭敤, 2=鍟嗗搧璐拱, 3=鍏呭€? 4=鍏朵粬
     pub payment_type: Option<i32>,
 
-    /// 鏀粯閲戦
+    /// 鏀粯閲戦
     pub amount: Decimal,
 
-    /// 鏀粯鏂瑰紡: 1=寰俊鏀粯, 2=鏀粯瀹? 3=閾惰鍗?
+    /// 鏀粯鏂瑰紡: 1=寰俊鏀粯, 2=鏀粯瀹? 3=閾惰鍗?
     pub pay_method: Option<i32>,
 
-    /// 鏀粯鐘舵€? 0=寰呮敮浠? 1=鏀粯鎴愬姛, 2=鏀粯澶辫触, 3=宸查€€娆?
+    /// 鏀粯鐘舵€? 0=寰呮敮浠? 1=鏀粯鎴愬姛, 2=鏀粯澶辫触, 3=宸查€€娆?
     pub status: Option<i32>,
 
-    /// 绗笁鏂规敮浠樹氦鏄撳彿
+    /// 绗笁鏂规敮浠樹氦鏄撳彿
     pub transaction_id: Option<String>,
 
-    /// 鏀粯鏃堕棿
-    pub pay_time: Option<DateTime<Utc>>,
+    /// 鏀粯鏃堕棿
+    pub pay_time: Option<DateTime>,
 
     /// 澶囨敞
     pub remark: Option<String>,
 
     /// 鍒涘缓鏃堕棿
-    pub create_time: Option<DateTime<Utc>>,
+    pub create_time: Option<DateTime>,
 
     /// 鏇存柊鏃堕棿
-    pub update_time: Option<DateTime<Utc>>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

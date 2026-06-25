@@ -18,8 +18,8 @@ use crate::modules::message::entity::chat_session_participant;
 use crate::modules::message::entity::chat_session_participant::Entity as ChatSessionParticipantEntity;
 use crate::modules::message::entity::chat_message;
 use crate::modules::message::entity::chat_message::Entity as ChatMessageEntity;
-use crate::modules::user::entity::user::Entity as UserEntity;
-use crate::modules::user::entity::user;
+use crate::modules::system::entity::admin::Entity as UserEntity;
+use crate::modules::system::entity::admin;
 
 fn deserialize_string_or_u64<'de, D>(deserializer: D) -> Result<i64, D::Error>
 where
@@ -163,7 +163,7 @@ impl ChatModel {
 
         let session_model = chat_session::ActiveModel {
             session_type: Set(SESSION_TYPE_PRIVATE),
-            session_name: Set(other.nickname.clone()),
+            session_name: Set(other.nick_name.clone()),
             avatar_url: Set(other.avatar),
             member_count: Set(Some(2)),
             ..Default::default()
@@ -220,7 +220,7 @@ impl ChatModel {
     ) -> Result<SendMessageResponse, DbErr> {
         let sender = UserEntity::find_by_id(sender_id).one(db).await?;
         let (sender_nickname, sender_avatar) = match sender {
-            Some(s) => (s.nickname.unwrap_or_else(|| "未知用户".to_string()), s.avatar),
+            Some(s) => (s.nick_name.unwrap_or_else(|| "未知用户".to_string()), s.avatar),
             None => ("未知用户".to_string(), None),
         };
 
@@ -232,7 +232,7 @@ impl ChatModel {
             content: Set(content.clone()),
             message_type: Set(Some(message_type)),
             is_recalled: Set(Some(0)),
-            send_time: Set(Some(Utc::now())),
+            send_time: Set(Some(Utc::now().naive_utc())),
             ..Default::default()
         };
         let result = ChatMessageEntity::insert(message_model).exec(db).await?;
@@ -326,7 +326,7 @@ impl ChatModel {
                     avatar_url: session.avatar_url,
                     last_message_id: session.last_message_id,
                     last_message_content: session.last_message_content,
-                    last_message_time: session.last_message_time.map(|t| t.to_rfc3339()),
+                    last_message_time: session.last_message_time.map(|t| t.and_utc().to_rfc3339()),
                     unread_count,
                     last_message_sender: last_sender_nickname,
                 });
@@ -416,7 +416,7 @@ impl ChatModel {
                 content: m.content,
                 message_type: m.message_type.unwrap_or(MESSAGE_TYPE_USER),
                 is_recalled: m.is_recalled.unwrap_or(0) == 1,
-                send_time: m.send_time.map(|t| t.to_rfc3339()).unwrap_or_default(),
+                send_time: m.send_time.map(|t| t.and_utc().to_rfc3339()).unwrap_or_default(),
                 is_mine: m.sender_id == user_id,
             })
             .collect();
@@ -512,7 +512,7 @@ impl ChatModel {
         let offset = (page - 1) * page_size;
 
         let users = UserEntity::find()
-            .filter(user::Column::Nickname.like(format!("%{}%", keyword)))
+            .filter(admin::Column::NickName.like(format!("%{}%", keyword)))
             .offset(offset as u64)
             .limit(page_size as u64)
             .all(db)
@@ -522,7 +522,7 @@ impl ChatModel {
             .into_iter()
             .map(|u| UserSearchDTO {
                 user_id: u.id,
-                nickname: u.nickname.unwrap_or_default(),
+                nickname: u.nick_name.unwrap_or_default(),
                 avatar: u.avatar,
             })
             .collect();

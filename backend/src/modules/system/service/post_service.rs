@@ -8,7 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 
-use sea_orm::DbConn;
+use sea_orm::{DbConn, DbErr, TransactionTrait};
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::system::model::admin_post_merge::{AdminPostMergeModel, AdminPostMergeSaveDTO};
@@ -64,40 +64,41 @@ pub async fn batch_update_post(
         None => return Ok(0), // 或返回错误 Err(Error::BadRequest("admin_id required"))
     };
 
-    // 2. 清理旧关联
-    AdminPostMergeModel::delete_by_admin_id(db, &Some(admin_id)).await?;
-
-    // 3. 处理 post_ids
-    let result = match post_ids {
+    // 2. 预处理 post_ids，构造插入数据
+    let sys_post_admin_list: Vec<AdminPostMergeSaveDTO> = match post_ids {
         Some(ids) if !ids.is_empty() => {
-            // 过滤无效岗位ID（示例过滤 0 值）
             let valid_post_ids: Vec<i64> = ids
                 .iter()
-                .filter(|&&id| id != 0)  // 根据业务需求调整过滤条件
-                .copied()  // 利用 i64 的 Copy 特性优化
+                .filter(|&&id| id != 0)
+                .copied()
                 .collect();
 
-            if valid_post_ids.is_empty() {
-                0  // 没有有效数据可插入
-            } else {
-                // 构建插入数据
-                let sys_post_admin_list: Vec<AdminPostMergeSaveDTO> = valid_post_ids
-                    .into_iter()
-                    .map(|post_id| AdminPostMergeSaveDTO {
-                        id: None,
-                        create_time: None,
-                        post_id: Some(post_id),  // 直接包装 Some
-                        admin_id: Some(admin_id),  // 使用已解包的 admin_id
-                    })
-                    .collect();
-
-                // 执行批量插入
-                AdminPostMergeModel::insert_batch(db, &sys_post_admin_list)
-                    .await?
-            }
+            valid_post_ids
+                .into_iter()
+                .map(|post_id| AdminPostMergeSaveDTO {
+                    id: None,
+                    create_time: None,
+                    post_id: Some(post_id),
+                    admin_id: Some(admin_id),
+                })
+                .collect()
         }
-        _ => 0,  // 空参数直接返回 0
+        _ => Vec::new(),
     };
+
+    // 3. 删除旧关联 + 插入新关联需原子执行，避免中途失败丢失全部岗位关联
+    let result = db
+        .transaction::<_, i64, DbErr>(|txn| {
+            Box::pin(async move {
+                AdminPostMergeModel::delete_by_admin_id(txn, &Some(admin_id)).await?;
+                if sys_post_admin_list.is_empty() {
+                    return Ok(0);
+                }
+                AdminPostMergeModel::insert_batch(txn, &sys_post_admin_list).await
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
     Ok(result)
 }

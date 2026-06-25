@@ -1,5 +1,5 @@
 use sea_orm::*;
-use sea_orm::prelude::{DateTime, DateTimeWithTimeZone};
+use sea_orm::prelude::DateTime;
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::product::entity::{category, category::Entity as Category};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
@@ -90,9 +90,9 @@ pub struct CategorySaveDTO {
     /// 软删除标记
     pub deleted: Option<i32>,
     /// 创建时间
-    pub create_time: Option<DateTimeWithTimeZone>,
+    pub create_time: Option<DateTime>,
     /// 更新时间
-    pub update_time: Option<DateTimeWithTimeZone>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 产品分类详情VO
@@ -180,7 +180,7 @@ pub struct CategoryModel;
 impl CategoryModel {
     /// 新增产品分类
     pub async fn insert(db: &DbConn, req: &CategorySaveDTO) -> Result<i64, DbErr> {
-        let now = chrono::Utc::now().fixed_offset();
+        let now = chrono::Utc::now().naive_utc();
         let payload = category::ActiveModel {
             parent_id: Set(req.parent_id),
             name: Set(req.name.clone()),
@@ -219,7 +219,7 @@ impl CategoryModel {
             image: Set(req.image.clone()),
             description: Set(req.description.clone()),
             sort_order: Set(req.sort_order),
-            update_time: Set(Option::from(chrono::Utc::now().fixed_offset())),
+            update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
 

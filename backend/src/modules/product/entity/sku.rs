@@ -28,12 +28,6 @@ pub struct Model {
     /// SKU编码（唯一，如 PROD-001-BLK-M）
     pub sku_code: Option<String>,
 
-    /// 颜色/规格1
-    pub color: Option<String>,
-
-    /// 尺寸/规格2
-    pub size: Option<String>,
-
     /// 动态规格键值对，如 {"颜色": "红色", "尺寸": "S"}
     pub specs: Option<serde_json::Value>,
 
@@ -65,10 +59,10 @@ pub struct Model {
     pub is_active: Option<bool>,
 
     /// 创建时间
-    pub create_time: Option<DateTimeWithTimeZone>,
+    pub create_time: Option<DateTime>,
 
     /// 更新时间
-    pub update_time: Option<DateTimeWithTimeZone>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

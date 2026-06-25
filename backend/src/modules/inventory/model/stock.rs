@@ -52,7 +52,7 @@ pub struct InventoryListVO {
     /// 可用数量
     pub available_quantity: Option<Decimal>,
     /// 最后更新时间
-    pub last_updated_at: Option<String>,
+    pub update_time: Option<String>,
 }
 
 /// 库存列表分页响应
@@ -94,5 +94,5 @@ pub struct InventoryDetailVO {
     /// 可用数量
     pub available_quantity: Option<Decimal>,
     /// 最后更新时间
-    pub last_updated_at: Option<String>,
+    pub update_time: Option<String>,
 }

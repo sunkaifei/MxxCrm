@@ -9,7 +9,6 @@
 //!
 
 use sea_orm::entity::prelude::*;
-use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "mxx_chat_message")]
@@ -40,10 +39,10 @@ pub struct Model {
     pub is_recalled: Option<i32>,
 
     /// 发送时间
-    pub send_time: Option<DateTime<Utc>>,
+    pub send_time: Option<DateTime>,
 
     /// 创建时间
-    pub create_time: Option<DateTime<Utc>>,
+    pub create_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

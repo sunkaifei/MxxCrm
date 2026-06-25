@@ -411,7 +411,7 @@ impl MenuModel {
             redirect:               Set(form_data.redirect.to_owned()),
             params:                 Set(form_data.params.to_owned()),
             create_time:            Set(Option::from(Local::now().naive_utc())),
-            updated_time:           Set(Option::from(Local::now().naive_utc())),
+            update_time:           Set(Option::from(Local::now().naive_utc())),
             ..Default::default()
         };
 
@@ -447,7 +447,7 @@ impl MenuModel {
             icon:                   Set(form_data.icon.to_owned()),
             redirect:               Set(form_data.redirect.to_owned()),
             params:                 Set(form_data.params.to_owned()),
-            updated_time:           Set(Option::from(Local::now().naive_utc())),
+            update_time:           Set(Option::from(Local::now().naive_utc())),
             ..Default::default()
         };
 

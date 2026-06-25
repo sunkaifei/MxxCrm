@@ -9,7 +9,6 @@
 //!
 
 use sea_orm::entity::prelude::*;
-use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "mxx_chat_session_participant")]
@@ -31,10 +30,10 @@ pub struct Model {
     pub deleted: Option<i32>,
 
     /// 加入时间
-    pub joined_at: Option<DateTime<Utc>>,
+    pub joined_at: Option<DateTime>,
 
     /// 更新时间
-    pub update_time: Option<DateTime<Utc>>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

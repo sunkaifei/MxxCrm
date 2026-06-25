@@ -15,17 +15,25 @@ pub enum LeadStatus {
     Valid = 8,
 }
 
+impl TryFrom<i32> for LeadStatus {
+    type Error = String;
+    fn try_from(v: i32) -> Result<Self, Self::Error> {
+        match v {
+            1 => Ok(LeadStatus::New),
+            2 => Ok(LeadStatus::Following),
+            3 => Ok(LeadStatus::Converted),
+            4 => Ok(LeadStatus::Invalid),
+            5 => Ok(LeadStatus::Recycled),
+            6 => Ok(LeadStatus::Unchecked),
+            7 => Ok(LeadStatus::Checking),
+            8 => Ok(LeadStatus::Valid),
+            _ => Err(format!("无效的状态值: {}", v)),
+        }
+    }
+}
+
 impl fmt::Display for LeadStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LeadStatus::New => write!(f, "1"),
-            LeadStatus::Following => write!(f, "2"),
-            LeadStatus::Converted => write!(f, "3"),
-            LeadStatus::Invalid => write!(f, "4"),
-            LeadStatus::Recycled => write!(f, "5"),
-            LeadStatus::Unchecked => write!(f, "6"),
-            LeadStatus::Checking => write!(f, "7"),
-            LeadStatus::Valid => write!(f, "8"),
-        }
+        write!(f, "{}", *self as i32)
     }
 }

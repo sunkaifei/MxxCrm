@@ -8,7 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 
-use crate::core::errors::error::Result;
+use crate::core::errors::error::{Error, Result};
 use crate::modules::product::entity::{sku_template_spec, sku_template_spec_value};
 use crate::modules::product::entity::sku_template_spec::Entity as TemplateSpec;
 use crate::modules::product::entity::sku_template_spec_value::Entity as TemplateSpecValue;
@@ -91,53 +91,61 @@ pub async fn save_template_specs(
     form_data: &TemplateSpecBatchSaveRequest,
 ) -> Result<()> {
     let template_id = form_data.template_id;
+    let specs_clone = form_data.specs.clone();
 
-    // 1. 删除旧规格值
-    let old_specs = TemplateSpec::find()
-        .filter(sku_template_spec::Column::TemplateId.eq(template_id))
-        .all(db)
-        .await?;
-    let old_spec_ids: Vec<i64> = old_specs.iter().map(|s| s.id).collect();
-    if !old_spec_ids.is_empty() {
-        TemplateSpecValue::delete_many()
-            .filter(sku_template_spec_value::Column::SpecId.is_in(old_spec_ids))
-            .exec(db)
-            .await?;
-    }
+    // 跨 spec_value 与 spec 两张表的删插操作需原子执行，避免中途失败丢失模板规格定义
+    db.transaction::<_, _, DbErr>(|txn| {
+        Box::pin(async move {
+            // 1. 删除旧规格值
+            let old_specs = TemplateSpec::find()
+                .filter(sku_template_spec::Column::TemplateId.eq(template_id))
+                .all(txn)
+                .await?;
+            let old_spec_ids: Vec<i64> = old_specs.iter().map(|s| s.id).collect();
+            if !old_spec_ids.is_empty() {
+                TemplateSpecValue::delete_many()
+                    .filter(sku_template_spec_value::Column::SpecId.is_in(old_spec_ids))
+                    .exec(txn)
+                    .await?;
+            }
 
-    // 2. 删除旧规格
-    TemplateSpec::delete_many()
-        .filter(sku_template_spec::Column::TemplateId.eq(template_id))
-        .exec(db)
-        .await?;
+            // 2. 删除旧规格
+            TemplateSpec::delete_many()
+                .filter(sku_template_spec::Column::TemplateId.eq(template_id))
+                .exec(txn)
+                .await?;
 
-    // 3. 插入新的规格和规格值
-    let now = chrono::Local::now().naive_local().to_owned();
-    for spec_item in &form_data.specs {
-        let spec_am = sku_template_spec::ActiveModel {
-            template_id: Set(template_id),
-            name: Set(spec_item.name.clone()),
-            sort_order: Set(spec_item.sort_order),
-            create_time: Set(Some(now)),
-            update_time: Set(Some(now)),
-            ..Default::default()
-        };
+            // 3. 插入新的规格和规格值
+            let now = chrono::Local::now().naive_local().to_owned();
+            for spec_item in &specs_clone {
+                let spec_am = sku_template_spec::ActiveModel {
+                    template_id: Set(template_id),
+                    name: Set(spec_item.name.clone()),
+                    sort_order: Set(spec_item.sort_order),
+                    create_time: Set(Some(now.clone())),
+                    update_time: Set(Some(now.clone())),
+                    ..Default::default()
+                };
 
-        let insert_result = TemplateSpec::insert(spec_am).exec(db).await?;
-        let new_spec_id = insert_result.last_insert_id;
+                let insert_result = TemplateSpec::insert(spec_am).exec(txn).await?;
+                let new_spec_id = insert_result.last_insert_id;
 
-        for val_item in &spec_item.values {
-            let val_am = sku_template_spec_value::ActiveModel {
-                spec_id: Set(new_spec_id),
-                value: Set(val_item.value.clone()),
-                sort_order: Set(val_item.sort_order),
-                create_time: Set(Some(now)),
-                update_time: Set(Some(now)),
-                ..Default::default()
-            };
-            TemplateSpecValue::insert(val_am).exec(db).await?;
-        }
-    }
+                for val_item in &spec_item.values {
+                    let val_am = sku_template_spec_value::ActiveModel {
+                        spec_id: Set(new_spec_id),
+                        value: Set(val_item.value.clone()),
+                        sort_order: Set(val_item.sort_order),
+                        create_time: Set(Some(now.clone())),
+                        update_time: Set(Some(now.clone())),
+                        ..Default::default()
+                    };
+                    TemplateSpecValue::insert(val_am).exec(txn).await?;
+                }
+            }
+
+            Ok(())
+        })
+    }).await.map_err(|e| Error::from(e.to_string()))?;
 
     Ok(())
 }

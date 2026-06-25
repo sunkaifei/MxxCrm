@@ -18,3 +18,6 @@ pub mod lead_status_enum;
 pub mod contract_status_enum;
 pub mod menu_enums;
 pub mod opportunity_stage_enum;
+pub mod purchase_status_enum;
+pub mod payment_status_enum;
+pub mod payment_method_enum;

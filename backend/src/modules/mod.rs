@@ -28,9 +28,6 @@ pub mod storage;
 ///站点管理模块
 pub mod website;
 
-/// 用户模块
-pub mod user;
-
 /// 店铺模块
 pub mod shop;
 

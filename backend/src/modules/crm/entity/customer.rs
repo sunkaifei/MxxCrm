@@ -43,9 +43,9 @@ pub struct Model {
     pub description: Option<String>,
     pub custom_fields: Option<serde_json::Value>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }
 

@@ -432,7 +432,7 @@ pub async fn get_auth_codes(state: web::Data<AppState>, req: HttpRequest) -> Res
 }
 
 // 退出登录
-#[delete("/logout")]
+#[delete("/api/auth/logout")]
 pub async fn logout() -> HttpResponse {
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(200, "退出成功", "local"))
+    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success(String::new(), "local"))
 }

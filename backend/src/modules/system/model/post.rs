@@ -41,7 +41,7 @@ impl From<PostSaveRequest> for PostSaveDTO {
             remark: value.remark,
             create_time: None,
             update_time: None,
-            is_del: None,
+            deleted: None,
         }
     }
     
@@ -75,7 +75,7 @@ impl From<PostUpdateRequest> for PostSaveDTO {
             remark: value.remark,
             create_time: None,
             update_time: None,
-            is_del: None,
+            deleted: None,
         }
     }
 }
@@ -99,7 +99,7 @@ pub struct PostSaveDTO {
     /// 更新时间
     pub update_time: Option<DateTime>,
     /// 是否删除
-    pub is_del: Option<i32>,
+    pub deleted: Option<i32>,
 }
 
 

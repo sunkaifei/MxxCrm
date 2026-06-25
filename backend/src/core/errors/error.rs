@@ -12,11 +12,12 @@ use std::error::Error as StdError;
 use std::fmt::{self, Debug, Display};
 use std::io;
 use std::path::StripPrefixError;
-use actix_web::{ResponseError};
+use actix_web::{HttpResponse, ResponseError};
 use chrono::ParseError;
 use serde::de::Visitor;
 use serde::ser::{Serialize, Serializer};
 use serde::{Deserialize, Deserializer};
+use crate::core::web::response::MetaResp;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -110,7 +111,25 @@ impl From<StripPrefixError> for Error {
         Error::E(arg.to_string())
     }
 }
-impl ResponseError for Error {}
+impl ResponseError for Error {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        match self {
+            Error::NotFound(_) => actix_web::http::StatusCode::NOT_FOUND,
+            Error::BadRequest(_) | Error::E(_) | Error::Database(_) => {
+                actix_web::http::StatusCode::BAD_REQUEST
+            }
+        }
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        let status = self.status_code();
+        let code = status.as_u16() as i32;
+        let body = MetaResp::<()>::fail(code, &self.to_string(), "local");
+        HttpResponse::build(status)
+            .content_type("application/msgpack")
+            .body(body)
+    }
+}
 
 impl From<Box<dyn ResponseError>> for Error {
     fn from(err: Box<dyn ResponseError>) -> Self {

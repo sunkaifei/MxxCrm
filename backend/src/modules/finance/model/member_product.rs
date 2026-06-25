@@ -150,7 +150,7 @@ impl MemberProductModel {
     }
 
     pub async fn insert(db: &DbConn, req: MemberProductSaveRequest) -> Result<MemberProductDTO, DbErr> {
-        let now = Some(Utc::now());
+        let now = Some(Utc::now().naive_utc());
         
         let model = member_product::ActiveModel {
             product_id: Set(req.product_id),
@@ -200,7 +200,7 @@ impl MemberProductModel {
         model.sort_order = Set(req.sort_order.unwrap_or(0));
         model.description = Set(req.description);
         model.features = Set(req.features.map(|f| serde_json::from_str(&f).unwrap_or_default()));
-        model.update_time = Set(Some(Utc::now()));
+        model.update_time = Set(Some(Utc::now().naive_utc()));
         
         let result = model.update(db).await?;
         

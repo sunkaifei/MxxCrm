@@ -9,7 +9,7 @@
 //!
 
 use sea_orm::*;
-use sea_orm::prelude::{DateTime, DateTimeWithTimeZone, Decimal};
+use sea_orm::prelude::{DateTime, Decimal};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::modules::product::entity::{product, sku};
@@ -29,13 +29,7 @@ pub struct SkuRequest {
     /// SKU编码
     pub sku_code: Option<String>,
 
-    /// 颜色/规格1
-    pub color: Option<String>,
-
-    /// 尺寸/规格2
-    pub size: Option<String>,
-
-    /// 动态规格JSON（前端 label 会映射为 {specs: label}）
+    /// 动态规格JSON（前端 label 会映射为规格键值对）
     pub specs: Option<JsonValue>,
 
     /// 销售价
@@ -242,9 +236,9 @@ pub struct ProductSaveDTO {
     pub stock: Option<i32>,
     pub deleted: Option<i32>,
     pub created_by: Option<i64>,
-    pub create_time: Option<DateTimeWithTimeZone>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub update_time: Option<DateTimeWithTimeZone>,
+    pub update_time: Option<DateTime>,
 }
 
 /// SKU变体VO
@@ -255,8 +249,6 @@ pub struct SkuVO {
     pub id: Option<i64>,
     pub product_id: Option<i64>,
     pub sku_code: Option<String>,
-    pub color: Option<String>,
-    pub size: Option<String>,
     /// 动态规格JSON
     pub specs: Option<JsonValue>,
     /// 规格组合标签
@@ -274,14 +266,24 @@ pub struct SkuVO {
 
 impl From<sku::Model> for SkuVO {
     fn from(item: sku::Model) -> Self {
+        let label = item.specs.as_ref().and_then(|v| {
+            if let Some(s) = v.as_str() {
+                Some(s.to_string())
+            } else if v.is_object() {
+                let obj = v.as_object()?;
+                let values: Vec<String> = obj.values().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+                Some(values.join(" / "))
+            } else {
+                None
+            }
+        });
+        
         SkuVO {
             id: Some(item.id),
             product_id: Some(item.product_id),
             sku_code: item.sku_code,
-            color: item.color,
-            size: item.size,
             specs: item.specs.clone(),
-            label: item.specs.as_ref().and_then(|v| v.as_str().map(|s| s.to_string())),
+            label,
             price: item.price,
             cost_price: item.cost_price,
             original_price: item.original_price,
@@ -322,7 +324,7 @@ pub struct ProductDetailVO {
     pub spec_type: Option<String>,
     pub keywords: Option<String>,
     pub stock: Option<i32>,
-    pub create_time: Option<DateTimeWithTimeZone>,
+    pub create_time: Option<DateTime>,
     /// SKU变体列表
     pub skus: Option<Vec<SkuVO>>,
 }
@@ -373,7 +375,8 @@ pub struct ProductListVO {
     pub sale_price: Option<Decimal>,
     pub image_url: Option<String>,
     pub is_active: Option<bool>,
-    pub create_time: Option<DateTimeWithTimeZone>,
+    pub spec_type: Option<String>,
+    pub create_time: Option<DateTime>,
 }
 
 impl From<product::Model> for ProductListVO {
@@ -389,6 +392,7 @@ impl From<product::Model> for ProductListVO {
             sale_price: item.sale_price,
             image_url: item.image_url,
             is_active: item.is_active,
+            spec_type: item.spec_type,
             create_time: item.create_time,
         }
     }
@@ -409,7 +413,7 @@ pub struct ProductModel;
 
 impl ProductModel {
     pub async fn insert<C>(db: &C, req: &ProductSaveDTO) -> Result<i64, DbErr> where C: ConnectionTrait {
-        let now = chrono::Utc::now().fixed_offset();
+        let now = chrono::Utc::now().naive_utc();
         
         let product_no = match &req.product_no {
             Some(no) if !no.trim().is_empty() => no.clone(),
@@ -490,7 +494,7 @@ impl ProductModel {
             keywords: Set(req.keywords.clone()),
             stock: Set(req.stock),
             updated_by: Set(req.updated_by),
-            update_time: Set(Some(chrono::Utc::now().fixed_offset())),
+            update_time: Set(Some(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
 
@@ -535,14 +539,24 @@ impl ProductModel {
             .exec(db)
             .await?;
 
-        // 2. 插入新的SKU
-        let now = chrono::Utc::now().fixed_offset();
+        // 2. 获取产品的规格定义，用于将 label 转换为 JSON 对象
+        let specs = crate::modules::product::entity::spec::Entity::find()
+            .filter(crate::modules::product::entity::spec::Column::ProductId.eq(product_id))
+            .order_by_asc(crate::modules::product::entity::spec::Column::SortOrder)
+            .all(db)
+            .await?;
+
+        let spec_names: Vec<String> = specs.iter().map(|s| s.name.clone()).collect();
+
+        // 3. 插入新的SKU
+        let now = chrono::Utc::now().naive_utc();
         let timestamp = now.timestamp_millis();
         for (idx, s) in skus.iter().enumerate() {
-            // 前端 label 映射为 specs JSON 字符串
-            let specs = s.specs.clone().or_else(|| {
+            let specs_value = if let Some(ref specs_json) = s.specs {
+                Some(specs_json.clone())
+            } else {
                 None
-            });
+            };
             
             let sku_code = match &s.sku_code {
                 Some(code) if !code.trim().is_empty() => code.clone(),
@@ -552,9 +566,7 @@ impl ProductModel {
             let payload = sku::ActiveModel {
                 product_id: Set(product_id),
                 sku_code: Set(Some(sku_code)),
-                color: Set(s.color.clone()),
-                size: Set(s.size.clone()),
-                specs: Set(specs),
+                specs: Set(specs_value),
                 price: Set(s.price.clone()),
                 cost_price: Set(s.cost_price.clone()),
                 original_price: Set(s.original_price.clone()),

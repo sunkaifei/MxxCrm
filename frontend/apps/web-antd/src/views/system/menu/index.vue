@@ -269,6 +269,7 @@ async function handleDelete(row: any) {
       <template #action="{ row }">
         <div class="flex items-center" style="gap: 8px">
         <Button
+          v-if="row.type !== MenuType.BUTTON"
           type="primary"
           link
           v-access:code="['system:menu:add']"

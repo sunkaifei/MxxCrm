@@ -10,4 +10,3 @@
 
 pub mod captcha_controller;
 pub mod service_open_controller;
-pub mod error_controller;

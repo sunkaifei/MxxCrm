@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::NaiveDateTime;
 use sea_orm::*;
 use sea_orm::prelude::Decimal;
 use crate::core::kit::global::{Deserialize, Serialize};
@@ -100,8 +100,8 @@ pub struct AreaDetailVO {
     pub country_code: Option<String>,
     pub latitude: Option<Decimal>,
     pub longitude: Option<Decimal>,
-    pub created_at: Option<chrono::DateTime<Utc>>,
-    pub updated_at: Option<chrono::DateTime<Utc>>,
+    pub create_time: Option<NaiveDateTime>,
+    pub update_time: Option<NaiveDateTime>,
 }
 
 impl From<area::Model> for AreaDetailVO {
@@ -117,8 +117,8 @@ impl From<area::Model> for AreaDetailVO {
             country_code: model.country_code,
             latitude: model.latitude,
             longitude: model.longitude,
-            created_at: model.created_at,
-            updated_at: model.updated_at,
+            create_time: model.create_time,
+            update_time: model.update_time,
         }
     }
 }
@@ -179,7 +179,7 @@ pub struct AreaModel;
 
 impl AreaModel {
     pub async fn insert(db: &DbConn, form_data: &AreaSaveDTO) -> Result<i64, DbErr> {
-        let now = chrono::Utc::now();
+        let now = chrono::Utc::now().naive_utc();
         let payload = area::ActiveModel {
             parent_id: Set(form_data.parent_id.to_owned()),
             name: Set(form_data.name.to_owned()),
@@ -190,8 +190,8 @@ impl AreaModel {
             country_code: Set(form_data.country_code.to_owned()),
             latitude: Set(form_data.latitude.to_owned()),
             longitude: Set(form_data.longitude.to_owned()),
-            created_at: Set(Option::from(now)),
-            updated_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
         Area::insert(payload)
@@ -219,7 +219,7 @@ impl AreaModel {
             country_code: Set(form_data.country_code.to_owned()),
             latitude: Set(form_data.latitude.to_owned()),
             longitude: Set(form_data.longitude.to_owned()),
-            updated_at: Set(Option::from(chrono::Utc::now())),
+            update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
 

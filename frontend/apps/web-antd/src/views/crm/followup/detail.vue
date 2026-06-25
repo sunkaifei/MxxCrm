@@ -13,17 +13,17 @@ const loading = ref(false);
 const followup = ref<any>(null);
 
 // 跟进方式映射
-const activityLabelMap: Record<string, string> = {
-  call: '电话', visit: '拜访', email: '邮件', meeting: '会议',
-  demo: '演示', whatsapp: 'WhatsApp', wechat: '微信', other: '其他',
+const activityLabelMap: Record<number, string> = {
+  1: '电话', 2: '拜访', 3: '邮件', 4: '会议',
+  5: 'WhatsApp', 6: '微信', 7: '其他',
 };
-const activityColorMap: Record<string, string> = {
-  call: 'blue', visit: 'cyan', email: 'purple', meeting: 'orange',
-  demo: 'green', whatsapp: 'lime', wechat: 'lime', other: 'default',
+const activityColorMap: Record<number, string> = {
+  1: 'blue', 2: 'cyan', 3: 'purple', 4: 'orange',
+  5: 'lime', 6: 'lime', 7: 'default',
 };
-const activityIconMap: Record<string, any> = {
-  call: LucidePhone, visit: LucideBuilding2, email: LucideMail, meeting: LucideUser,
-  demo: LucideTarget, whatsapp: LucideMessageCircle, wechat: LucideMessageCircle, other: LucideFileText,
+const activityIconMap: Record<number, any> = {
+  1: LucidePhone, 2: LucideBuilding2, 3: LucideMail, 4: LucideUser,
+  5: LucideMessageCircle, 6: LucideMessageCircle, 7: LucideFileText,
 };
 
 async function fetchDetail() {

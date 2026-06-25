@@ -180,7 +180,8 @@
         "edit": "Edit Lead",
         "delete": "Delete Lead",
         "convert": "Convert to Customer",
-        "assign": "Assign Lead"
+        "assign": "Assign Lead",
+        "info": "View Details"
       }
     },
     "customer": {
@@ -215,7 +216,13 @@
       "title": "Lead Pool"
     },
     "followup": {
-      "title": "Follow-up"
+      "title": "Follow-up",
+      "button": {
+        "save": "Save Now",
+        "update": "Edit Follow-up",
+        "delete": "Delete Follow-up",
+        "info": "View Follow-up"
+      }
     }
   },
   "sale": {
@@ -332,6 +339,15 @@
         "delete": "Delete File"
       }
     }
+  },
+  "statistics": {
+    "title": "Data Analytics",
+    "index": "Overview",
+    "performance": "Performance Target",
+    "customer": "Customer Conversion",
+    "employee": "Employee Statistics",
+    "contract": "Contract Ranking",
+    "payment": "Payment Analysis"
   },
   "shop": {
     "title": "Shop Management",

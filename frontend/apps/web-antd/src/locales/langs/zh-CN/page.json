@@ -195,7 +195,8 @@
         "edit": "编辑线索",
         "delete": "删除线索",
         "convert": "转为客户",
-        "assign": "分配线索"
+        "assign": "分配线索",
+        "info": "查看详情"
       }
     },
     "customer": {
@@ -230,7 +231,13 @@
       "title": "线索池"
     },
     "followup": {
-      "title": "跟进记录"
+      "title": "跟进记录",
+      "button": {
+        "save": "立即保存",
+        "update": "编辑跟进",
+        "delete": "删除跟进",
+        "info": "查看跟进"
+      }
     }
   },
   "sale": {
@@ -347,6 +354,15 @@
         "delete": "删除文件"
       }
     }
+  },
+  "statistics": {
+    "title": "数据",
+    "index": "概览",
+    "performance": "业绩目标",
+    "customer": "客户转化",
+    "employee": "员工统计",
+    "contract": "合同排行",
+    "payment": "回款分析"
   },
   "shop": {
     "title": "商城",

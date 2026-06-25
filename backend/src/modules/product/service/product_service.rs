@@ -79,6 +79,20 @@ pub async fn get_detail(db: &DbConn, id: i64) -> Result<ProductDetailVO> {
     }
 }
 
+pub async fn get_detail_with_specs(db: &DbConn, id: i64) -> Result<(ProductDetailVO, crate::modules::product::model::spec::SpecGroupVO)> {
+    let result = ProductModel::find_by_id(db, id).await?;
+    match result {
+        Some(item) => {
+            let mut vo: ProductDetailVO = item.into();
+            let skus = ProductModel::find_skus_by_product_id(db, id).await?;
+            vo.skus = Some(skus.into_iter().map(|s| s.into()).collect());
+            let specs = crate::modules::product::service::spec_service::get_specs(db, id).await?;
+            Ok((vo, specs))
+        },
+        None => Err(crate::core::errors::error::Error::from("产品不存在")),
+    }
+}
+
 pub async fn get_list(db: &DbConn, query: &ProductListQuery) -> Result<(Vec<ProductListVO>, i64, i64)> {
     let page_num = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(10);

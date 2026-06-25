@@ -11,54 +11,29 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::purchase_status_enum::PurchaseStatus;
+use crate::core::r#enum::payment_status_enum::PaymentStatus;
 
-/// 采购订单表实体
-/// 存储采购订单信息，包含订单金额、供应商状态、收货地址等
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
-#[sea_orm(table_name = "mxx_purchase_order")]
+#[sea_orm(table_name = "mxx_purchase_po")]
 pub struct Model {
-    /// 主键ID
     #[sea_orm(primary_key)]
     #[serde(skip_deserializing)]
     pub id: i64,
-    /// 订单编号
-    pub order_no: Option<String>,
-    /// 供应商ID
+    pub purchase_no: Option<String>,
     pub supplier_id: Option<i64>,
-    /// 订单类型
-    pub order_type: Option<String>,
-    /// 订单状态
-    pub status: Option<String>,
-    /// 订单金额（不含税）
+    pub purchase_date: Option<Date>,
+    pub expected_date: Option<Date>,
     pub amount: Option<Decimal>,
-    /// 币种
     pub currency: Option<CurrencyCode>,
-    /// 税额
-    pub tax_amount: Option<Decimal>,
-    /// 订单总金额（含税）
-    pub total_amount: Option<Decimal>,
-    /// 付款状态
-    pub payment_status: Option<String>,
-    /// 付款方式
-    pub payment_method: Option<String>,
-    /// 已付款金额
-    pub paid_amount: Option<Decimal>,
-    /// 收货地址
-    pub delivery_address: Option<String>,
-    /// 预计到货日期
-    pub expected_delivery_date: Option<DateTime>,
-    /// 备注
-    pub remark: Option<String>,
-    /// 创建人ID
+    pub status: Option<PurchaseStatus>,
+    pub payment_status: Option<PaymentStatus>,
+    pub notes: Option<String>,
     pub created_by: Option<i64>,
-    /// 创建时间
-    pub created_at: Option<DateTime>,
-    /// 更新人ID
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    /// 更新时间
-    pub updated_at: Option<DateTime>,
-    /// 软删除标记（0未删除，1已删除）
     pub deleted: Option<i32>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

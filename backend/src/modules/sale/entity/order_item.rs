@@ -21,16 +21,24 @@ pub struct Model {
     pub product_id: Option<i64>,
     pub product_name: Option<String>,
     pub product_code: Option<String>,
+    /// SKU
+    pub sku: Option<String>,
     pub spec: Option<String>,
     pub unit: Option<String>,
     pub quantity: Option<i32>,
     pub unit_price: Option<Decimal>,
+    /// 折扣
+    pub discount: Option<Decimal>,
     pub amount: Option<Decimal>,
     pub tax_rate: Option<Decimal>,
     pub tax_amount: Option<Decimal>,
+    /// 总金额
+    pub total_amount: Option<Decimal>,
+    /// 备注
+    pub notes: Option<String>,
     pub remark: Option<String>,
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
+    pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }
 

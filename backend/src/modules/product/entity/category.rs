@@ -22,8 +22,8 @@ pub struct Model {
     pub image: Option<String>,
     pub description: Option<String>,
     pub sort_order: Option<i32>,
-    pub create_time: Option<DateTimeWithTimeZone>,
-    pub update_time: Option<DateTimeWithTimeZone>,
+    pub create_time: Option<DateTime>,
+    pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }
 

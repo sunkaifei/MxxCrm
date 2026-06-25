@@ -197,7 +197,7 @@ impl FinanceStatisticsModel {
         let member_fee_amount: Decimal = member_fee_result.iter().map(|r| r.amount).sum();
         
         let model = finance_statistics::ActiveModel {
-            stat_date: Set(Some(stat_date)),
+            stat_date: Set(Some(stat_date.naive_utc())),
             stat_type: Set(Some(1)),
             total_income: Set(total_income),
             success_amount: Set(success_amount),
@@ -206,8 +206,8 @@ impl FinanceStatisticsModel {
             order_count: Set(Some(order_count)),
             success_count: Set(Some(success_count)),
             refund_count: Set(Some(refund_count)),
-            create_time: Set(Some(Utc::now())),
-            update_time: Set(Some(Utc::now())),
+            create_time: Set(Some(Utc::now().naive_utc())),
+            update_time: Set(Some(Utc::now().naive_utc())),
             ..Default::default()
         };
         

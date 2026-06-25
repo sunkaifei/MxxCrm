@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::{Error, Result};
 use crate::modules::shop::model::order::*;
-use sea_orm::DbConn;
+use sea_orm::{DbConn, DbErr, TransactionTrait};
 use rust_decimal::prelude::FromPrimitive;
 
 pub async fn create_order(db: &DbConn, user_id: i64, req: OrderRequest) -> Result<i64> {
@@ -27,30 +27,41 @@ pub async fn create_order(db: &DbConn, user_id: i64, req: OrderRequest) -> Resul
         receiver_address: req.receiver_address.unwrap_or_default(),
         buyer_remark: req.buyer_remark,
     };
+    let items_opt = req.items;
 
-    let order_id = OrderModel::insert(db, &dto, &order_no).await
+    // 订单主表与订单明细需原子写入，避免产生无明细的空订单
+    let order_id = db
+        .transaction::<_, _, DbErr>(|txn| {
+            Box::pin(async move {
+                let order_id = OrderModel::insert(txn, &dto, &order_no).await?;
+
+                if let Some(items) = items_opt {
+                    let mut item_dtos = Vec::new();
+                    for item in items {
+                        item_dtos.push(OrderItemDTO {
+                            order_id,
+                            spu_id: item.spu_id.unwrap_or(0),
+                            sku_id: item.sku_id.unwrap_or(0),
+                            goods_title: item.goods_title.unwrap_or_default(),
+                            goods_image: item.goods_image.unwrap_or_default(),
+                            spec_desc: item.spec_desc,
+                            price: rust_decimal::Decimal::from_f64(item.price.unwrap_or(0.0)).unwrap_or_default(),
+                            quantity: item.quantity.unwrap_or(1),
+                            base_price: rust_decimal::Decimal::from_f64(item.base_price.unwrap_or(0.0)).unwrap_or_default(),
+                            commission_amount: rust_decimal::Decimal::from_f64(0.0).unwrap_or_default(),
+                            settlement_amount: rust_decimal::Decimal::from_f64(0.0).unwrap_or_default(),
+                        });
+                    }
+                    if !item_dtos.is_empty() {
+                        OrderItemModel::batch_insert(txn, &item_dtos).await?;
+                    }
+                }
+
+                Ok(order_id)
+            })
+        })
+        .await
         .map_err(|e| Error::from(format!("创建订单失败: {:?}", e)))?;
-
-    if let Some(items) = req.items {
-        let mut item_dtos = Vec::new();
-        for item in items {
-            item_dtos.push(OrderItemDTO {
-                order_id,
-                spu_id: item.spu_id.unwrap_or(0),
-                sku_id: item.sku_id.unwrap_or(0),
-                goods_title: item.goods_title.unwrap_or_default(),
-                goods_image: item.goods_image.unwrap_or_default(),
-                spec_desc: item.spec_desc,
-                price: rust_decimal::Decimal::from_f64(item.price.unwrap_or(0.0)).unwrap_or_default(),
-                quantity: item.quantity.unwrap_or(1),
-                base_price: rust_decimal::Decimal::from_f64(item.base_price.unwrap_or(0.0)).unwrap_or_default(),
-                commission_amount: rust_decimal::Decimal::from_f64(0.0).unwrap_or_default(),
-                settlement_amount: rust_decimal::Decimal::from_f64(0.0).unwrap_or_default(),
-            });
-        }
-        OrderItemModel::batch_insert(db, &item_dtos).await
-            .map_err(|e| Error::from(format!("创建订单项失败: {:?}", e)))?;
-    }
 
     Ok(order_id)
 }

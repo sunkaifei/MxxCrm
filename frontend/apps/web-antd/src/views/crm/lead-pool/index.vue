@@ -9,10 +9,10 @@ import { LucideEye } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, message } from 'ant-design-vue';
+import { Button, Drawer, Modal, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getLeadPoolListApi } from '#/api';
+import { getLeadPoolListApi, claimLeadApi } from '#/api';
 import { $t } from '#/locales';
 import LeadDetail from '../lead/detail.vue';
 
@@ -34,6 +34,22 @@ function openDetail(row: any) {
   detailVisible.value = true;
 }
 function closeDetail() { detailVisible.value = false; detailId.value = null; }
+
+async function handleClaim(row: any) {
+  Modal.confirm({
+    title: '领取线索',
+    content: `确定领取线索"${row.companyName}"吗？领取后将转为您的客户。`,
+    onOk: async () => {
+      try {
+        await claimLeadApi(row.id);
+        message.success('领取成功，已转为客户');
+        gridApi.query();
+      } catch {
+        // 错误提示由 requestClient 拦截器处理，无需重复提示
+      }
+    },
+  });
+}
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -94,7 +110,7 @@ const gridOptions: VxeGridProps = {
         return await getLeadPoolListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          status: 'valid',
+          status: 8,
           ...formValues,
         });
       },
@@ -127,12 +143,12 @@ const gridOptions: VxeGridProps = {
       title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createdAt' }, width: 160,
     },
     {
-      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 80,
+      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 120,
     },
   ],
 };
 
-const [Grid] = useVbenVxeGrid({ gridOptions, formOptions });
+const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 </script>
 
 <template>
@@ -145,7 +161,8 @@ const [Grid] = useVbenVxeGrid({ gridOptions, formOptions });
       </template>
 
       <template #action="{ row }">
-        <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
+        <Button type="link" @click="() => handleClaim(row)">领取</Button>
+        <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" title="查看" />
       </template>
     </Grid>
 

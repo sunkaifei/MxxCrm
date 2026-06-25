@@ -7,17 +7,28 @@ use crate::modules::crm::model::contact::{
     ContactUnbindRequest, ContactUpdateRequest, CustomerContactVO,
 };
 use sea_orm::DbConn;
+use sea_orm::DbErr;
 use sea_orm::EntityTrait;
+use sea_orm::TransactionTrait;
 
 pub async fn insert(db: &DbConn, form_data: &ContactSaveRequest, created_by: i64) -> Result<i64> {
     let mut dto: ContactSaveDTO = form_data.clone().into();
     dto.created_by = Some(created_by);
-    let contact_id = ContactModel::insert(&db, &dto).await?;
+    let customer_id_opt = form_data.customer_id;
 
-    // 如果创建时指定了客户ID，同时创建关联
-    if let Some(customer_id) = form_data.customer_id {
-        ContactModel::insert_merge(&db, customer_id, contact_id, &dto).await?;
-    }
+    // 联系人主表与客户关联表需原子写入，避免产生无关联的联系人
+    let contact_id = db
+        .transaction::<_, _, DbErr>(|txn| {
+            Box::pin(async move {
+                let contact_id = ContactModel::insert(txn, &dto).await?;
+                if let Some(customer_id) = customer_id_opt {
+                    ContactModel::insert_merge(txn, customer_id, contact_id, &dto).await?;
+                }
+                Ok(contact_id)
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
     Ok(contact_id)
 }
@@ -76,8 +87,8 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContactDetailVO> {
                 notes: item.notes,
                 current_company,
                 career_history: if career_history.is_empty() { None } else { Some(career_history) },
-                created_at: item.created_at,
-                updated_at: item.updated_at,
+                create_time: item.create_time,
+                update_time: item.update_time,
             })
         }
         None => Err(Error::from("联系人不存在".to_string())),

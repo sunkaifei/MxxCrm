@@ -9,8 +9,10 @@
 //!
 
 use sea_orm::entity::prelude::*;
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
+use crate::core::r#enum::payment_method_enum::PaymentMethod;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_sale_payment")]
@@ -25,14 +27,20 @@ pub struct Model {
     pub amount: Option<Decimal>,
     pub currency: Option<CurrencyCode>,
     pub status: Option<String>,
-    pub payment_method: Option<String>,
+    pub payment_method: Option<PaymentMethod>,
     pub transaction_no: Option<String>,
-    pub payment_date: Option<DateTime>,
+    pub payment_date: Option<NaiveDate>,
+    /// 银行账户
+    pub bank_account: Option<String>,
+    /// 交易ID
+    pub transaction_id: Option<String>,
+    /// 备注
+    pub notes: Option<String>,
     pub remark: Option<String>,
     pub created_by: Option<i64>,
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }
 

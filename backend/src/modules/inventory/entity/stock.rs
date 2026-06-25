@@ -9,10 +9,9 @@
 //!
 
 use sea_orm::entity::prelude::*;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Default, Debug, PartialEq, DeriveEntityModel, Deserialize, Serialize)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_inventory_stock")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -29,8 +28,10 @@ pub struct Model {
     pub reserved_quantity: Option<Decimal>,
     /// 可用数量
     pub available_quantity: Option<Decimal>,
-    /// 最后更新时间
-    pub last_updated_at: Option<DateTime<Utc>>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
+    /// 更新时间
+    pub update_time: Option<DateTime>,
     /// 删除标识（0未删除 1已删除）
     pub deleted: Option<i32>,
 }

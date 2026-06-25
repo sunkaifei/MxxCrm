@@ -82,9 +82,9 @@ impl From<SupplierSaveRequest> for SupplierSaveDTO {
             custom_fields: item.custom_fields,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -168,9 +168,9 @@ impl From<SupplierUpdateRequest> for SupplierSaveDTO {
             custom_fields: item.custom_fields,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -230,11 +230,11 @@ pub struct SupplierSaveDTO {
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新人ID
     pub updated_by: Option<i64>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 供应商详情VO
@@ -410,9 +410,9 @@ impl SupplierModel {
             level: Set(req.level.clone()),
             status: Set(req.status.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
 
@@ -465,7 +465,7 @@ impl SupplierModel {
             level: Set(req.level.clone()),
             status: Set(req.status.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
 
@@ -535,7 +535,7 @@ impl SupplierModel {
             query = query.filter(supplier::Column::Status.eq(s));
         }
 
-        let paginator = query.order_by_desc(supplier::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(supplier::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))

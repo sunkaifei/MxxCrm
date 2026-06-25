@@ -60,9 +60,9 @@ impl From<OrderSaveRequest> for OrderSaveDTO {
             remark: item.remark,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -115,9 +115,9 @@ impl From<OrderUpdateRequest> for OrderSaveDTO {
             remark: item.remark,
             deleted: None,
             created_by: None,
-            created_at: None,
+            create_time: None,
             updated_by: None,
-            updated_at: None,
+            update_time: None,
         }
     }
 }
@@ -155,11 +155,11 @@ pub struct OrderSaveDTO {
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
     /// 更新人ID
     pub updated_by: Option<i64>,
     /// 更新时间
-    pub updated_at: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 /// 销售订单详情VO
@@ -252,7 +252,7 @@ pub struct OrderListVO {
     /// 支付状态
     pub payment_status: Option<String>,
     /// 创建时间
-    pub created_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
 }
 
 impl From<order::Model> for OrderListVO {
@@ -266,7 +266,7 @@ impl From<order::Model> for OrderListVO {
             amount: item.amount,
             currency: item.currency,
             payment_status: item.payment_status,
-            created_at: item.created_at,
+            create_time: item.create_time,
         }
     }
 }
@@ -317,9 +317,9 @@ impl OrderModel {
             shipping_method: Set(req.shipping_method.clone()),
             remark: Set(req.remark.clone()),
             created_by: Set(req.created_by.clone()),
-            created_at: Set(Option::from(now)),
+            create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(now)),
+            update_time: Set(Option::from(now)),
             ..Default::default()
         };
         
@@ -372,7 +372,7 @@ impl OrderModel {
             shipping_method: Set(req.shipping_method.clone()),
             remark: Set(req.remark.clone()),
             updated_by: Set(req.updated_by.clone()),
-            updated_at: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
         
@@ -438,7 +438,7 @@ impl OrderModel {
             query = query.filter(order::Column::OrderType.eq(t));
         }
         
-        let paginator = query.order_by_desc(order::Column::CreatedAt).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(order::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))

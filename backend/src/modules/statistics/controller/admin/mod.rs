@@ -9,3 +9,4 @@
 //!
 
 pub mod statistics_admin_controller;
+pub mod performance_plan_controller;

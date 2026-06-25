@@ -3,7 +3,7 @@
 -- 说明：补齐 product/sku 表新增字段
 
 -- 产品主表新增字段
-ALTER TABLE mxx_product_main
+ALTER TABLE mxx_product
     ADD COLUMN IF NOT EXISTS detail TEXT,
     ADD COLUMN IF NOT EXISTS carousel_images JSONB,
     ADD COLUMN IF NOT EXISTS spec_type VARCHAR(16),
@@ -11,12 +11,12 @@ ALTER TABLE mxx_product_main
     ADD COLUMN IF NOT EXISTS market_price NUMERIC(12, 2),
     ADD COLUMN IF NOT EXISTS stock INT;
 
-COMMENT ON COLUMN mxx_product_main.detail IS '产品详情（富文本/HTML）';
-COMMENT ON COLUMN mxx_product_main.carousel_images IS '轮播图URL数组';
-COMMENT ON COLUMN mxx_product_main.spec_type IS '规格类型：single/multiple';
-COMMENT ON COLUMN mxx_product_main.keywords IS '关键字';
-COMMENT ON COLUMN mxx_product_main.market_price IS '市场价/原价';
-COMMENT ON COLUMN mxx_product_main.stock IS '库存数量（单规格模式）';
+COMMENT ON COLUMN mxx_product.detail IS '产品详情（富文本/HTML）';
+COMMENT ON COLUMN mxx_product.carousel_images IS '轮播图URL数组';
+COMMENT ON COLUMN mxx_product.spec_type IS '规格类型：single/multiple';
+COMMENT ON COLUMN mxx_product.keywords IS '关键字';
+COMMENT ON COLUMN mxx_product.market_price IS '市场价/原价';
+COMMENT ON COLUMN mxx_product.stock IS '库存数量（单规格模式）';
 
 -- 产品SKU表新增字段
 ALTER TABLE mxx_product_sku

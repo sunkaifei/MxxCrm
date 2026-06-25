@@ -28,8 +28,8 @@ pub struct Model {
     pub bound_at: Option<DateTime>,
     pub unbound_at: Option<DateTime>,
     pub notes: Option<String>,
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
+    pub create_time: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -68,7 +68,7 @@ pub async fn order_info(state: web::Data<AppState>, req: HttpRequest) -> Result<
 }
 
 #[get("/sale/order/list")]
-#[protect("sale:order:view")]
+#[protect("sale:order:list")]
 pub async fn order_list(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let query_str = req.query_string();

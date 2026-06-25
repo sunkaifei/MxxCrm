@@ -59,7 +59,7 @@ pub async fn add_menu(
 
         validate!(
             menu_service::find_by_route_name_unique(db, &menu.route_name, &None).await?,
-            "路由名称已存在".to_string()
+            t!("system.menu.route_name_exists", locale = "zh-CN").to_string()
         );
     }
 
@@ -129,7 +129,7 @@ pub async fn menu_update(state: web::Data<AppState>, path: web::Path<i64>, _req:
 
         validate!(
             menu_service::find_by_route_name_unique(db, &sys_menu.route_name, &sys_menu.id).await?,
-            "路由名称已存在".to_string()
+            t!("system.menu.route_name_exists", locale = "zh-CN").to_string()
         );
     }
     

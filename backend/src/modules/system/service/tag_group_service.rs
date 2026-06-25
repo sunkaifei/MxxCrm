@@ -18,7 +18,7 @@ impl TagGroupService {
                 sort_order: group.sort_order,
                 description: group.description,
                 is_global: group.is_global,
-                created_at: group.created_at,
+                create_time: group.create_time,
                 tag_count: Some(tag_count),
             });
         }

@@ -111,15 +111,20 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<Option<String>>) -> 
 
 /// 软删除用户
 pub async fn soft_delete_by_id(db: &DbConn, id: i64) -> Result<i64> {
-    // 删除关联数据
-    AdminDeptMergeModel::delete_by_admin_id(db, &Option::from(id)).await
-        .map_err(|e| Error::from(format!("删除部门关联失败: {}", e)))?;
-    AdminPostMergeModel::delete_by_admin_id(db, &Option::from(id)).await
-        .map_err(|e| Error::from(format!("删除岗位关联失败: {}", e)))?;
-    AdminRoleMergeModel::delete_by_admin_id(db, &Option::from(id)).await
-        .map_err(|e| Error::from(format!("删除角色关联失败: {}", e)))?;
-    // 软删除用户本身
-    AdminModel::soft_delete(db, id).await.map_err(|e| Error::from(format!("软删除管理员失败: {}", e)))
+    // 关联表删除与主表软删除需原子执行，避免产生孤儿关联或残留主记录
+    let result = (*db).transaction::<_, _, Error>(|tx| {
+        Box::pin(async move {
+            AdminDeptMergeModel::delete_by_admin_id(tx, &Option::from(id)).await
+                .map_err(|e| Error::from(format!("删除部门关联失败: {}", e)))?;
+            AdminPostMergeModel::delete_by_admin_id(tx, &Option::from(id)).await
+                .map_err(|e| Error::from(format!("删除岗位关联失败: {}", e)))?;
+            AdminRoleMergeModel::delete_by_admin_id(tx, &Option::from(id)).await
+                .map_err(|e| Error::from(format!("删除角色关联失败: {}", e)))?;
+            AdminModel::soft_delete(tx, id).await
+                .map_err(|e| Error::from(format!("软删除管理员失败: {}", e)))
+        })
+    }).await.map_err(|e| Error::from(format!("事务执行失败: {}", e)))?;
+    Ok(result)
 }
 
 pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result<i64> {

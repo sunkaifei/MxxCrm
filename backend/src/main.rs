@@ -11,7 +11,9 @@
 use std::sync::LazyLock;
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer, HttpRequest, HttpResponse, Result};
+use actix_web::error::InternalError;
 use utils::snowflake::Snowflake;
+use crate::core::web::response::MetaResp;
 
 #[allow(unused_imports)]
 #[macro_use]
@@ -86,10 +88,20 @@ async fn main() -> std::io::Result<()> {
             .supports_credentials()
             .max_age(36000);
 
+        let json_cfg = web::JsonConfig::default()
+            .limit(1024 * 1024 * 10)
+            .error_handler(|err, _req| {
+                let body = MetaResp::<()>::fail(400, &err.to_string(), "local");
+                let response = HttpResponse::BadRequest()
+                    .content_type("application/msgpack")
+                    .body(body);
+                InternalError::from_response(err, response).into()
+            });
+
         App::new()
             .wrap(cors)
             .app_data(web::Data::new(state.clone()), )
-            .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
+            .app_data(json_cfg)
             .configure(open_routes::configure_routes)
             .configure(admin_routes::configure_routes)
             .configure(merchant_routes::configure_routes)

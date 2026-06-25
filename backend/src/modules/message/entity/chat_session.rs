@@ -9,7 +9,6 @@
 //!
 
 use sea_orm::entity::prelude::*;
-use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "mxx_chat_session")]
@@ -34,16 +33,16 @@ pub struct Model {
     pub last_message_content: Option<String>,
 
     /// 最后消息时间
-    pub last_message_time: Option<DateTime<Utc>>,
+    pub last_message_time: Option<DateTime>,
 
     /// 成员数量
     pub member_count: Option<i32>,
 
     /// 创建时间
-    pub create_time: Option<DateTime<Utc>>,
+    pub create_time: Option<DateTime>,
 
     /// 更新时间
-    pub update_time: Option<DateTime<Utc>>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

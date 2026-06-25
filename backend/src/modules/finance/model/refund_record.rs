@@ -121,11 +121,10 @@ impl RefundRecordModel {
     }
 
     pub async fn insert(db: &DbConn, req: RefundRecordSaveRequest) -> Result<RefundRecordDTO, DbErr> {
-        let now = Some(Utc::now());
-        
+        let now = Some(Utc::now().naive_utc());
+
         let refund_time = req.refund_time.as_ref()
-            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok())
-            .map(|dt| Utc.from_utc_datetime(&dt));
+            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok());
         
         let model = refund_record::ActiveModel {
             user_id: Set(req.user_id),
@@ -161,13 +160,13 @@ impl RefundRecordModel {
         
         if let Some(refund_time_str) = &req.refund_time {
             if let Ok(dt) = NaiveDateTime::parse_from_str(refund_time_str, "%Y-%m-%d %H:%M:%S") {
-                model.refund_time = Set(Some(DateTime::from_naive_utc_and_offset(dt, Utc)));
+                model.refund_time = Set(Some(dt));
             }
         }
-        
+
         model.reason = Set(req.reason);
         model.remark = Set(req.remark);
-        model.update_time = Set(Some(Utc::now()));
+        model.update_time = Set(Some(Utc::now().naive_utc()));
         
         let result = model.update(db).await?;
         

@@ -16,6 +16,7 @@ use crate::modules::product::model::spec::{SpecBatchSaveRequest, SkuBatchSaveReq
 use crate::modules::product::service::spec_service;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use actix_web_grants::protect;
+use serde_json;
 
 /// 获取产品规格定义和SKU列表
 #[get("/product/spec/list")]
@@ -102,5 +103,66 @@ pub async fn batch_save_skus(
     match result {
         Ok(_) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("SKU保存成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("SKU保存失败: {}", e), "local"))),
+    }
+}
+
+/// 获取可用规格值（淘宝式级联选择）
+/// 根据已选择的规格，返回剩余规格的可用值
+#[post("/product/spec/availableValues")]
+#[protect("product:product:view")]
+pub async fn get_available_spec_values(
+    state: web::Data<AppState>,
+    form_data: web::Json<serde_json::Value>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let data = form_data.0;
+
+    let product_id = data.get("productId")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+
+    let selected_specs = data.get("selectedSpecs")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
+
+    if product_id <= 0 {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(
+            MetaResp::<String>::fail(400, "产品ID无效", "local"),
+        ));
+    }
+
+    match spec_service::get_available_spec_values(db, product_id, selected_specs).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 根据规格组合获取对应的SKU
+#[post("/product/sku/getBySpecs")]
+#[protect("product:product:view")]
+pub async fn get_sku_by_specs(
+    state: web::Data<AppState>,
+    form_data: web::Json<serde_json::Value>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let data = form_data.0;
+
+    let product_id = data.get("productId")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+
+    let specs = data.get("specs")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
+
+    if product_id <= 0 {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(
+            MetaResp::<String>::fail(400, "产品ID无效", "local"),
+        ));
+    }
+
+    match spec_service::get_sku_by_specs(db, product_id, specs).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

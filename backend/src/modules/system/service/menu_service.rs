@@ -189,7 +189,7 @@ pub fn menu_list_tree(re_list: &mut Vec<MenuAdminVO>, ori_arr: Vec<Model>, pid: 
                 status: Some(it.status),
                 redirect: it.redirect.clone(),
                 create_time: it.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
-                update_time: it.updated_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
+                update_time: it.update_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
                 params: it.params.clone(),
                 children,
             };
