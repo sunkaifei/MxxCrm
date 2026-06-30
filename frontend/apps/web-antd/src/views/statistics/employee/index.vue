@@ -18,39 +18,39 @@ const loadData = async () => {
     
     if (customerRes.data && customerRes.data.data) {
       customerCountData.value = customerRes.data.data.map((item: any) => ({
-        employeeName: item.employee_name,
-        departmentName: item.department_name,
-        totalCustomers: item.total_customers,
-        newCustomersThisMonth: item.new_customers_this_month,
-        contractCustomers: item.contract_customers,
-        customerConversionRate: item.customer_conversion_rate,
+        employeeName: item.employeeName,
+        departmentName: item.departmentName,
+        totalCustomers: item.totalCustomers,
+        newCustomersThisMonth: item.newCustomersThisMonth,
+        contractCustomers: item.contractCustomers,
+        customerConversionRate: item.customerConversionRate,
       }));
     }
     
     if (followRes.data && followRes.data.data) {
       followUpData.value = followRes.data.data.map((item: any) => ({
-        employeeName: item.employee_name,
-        departmentName: item.department_name,
-        totalFollowUp: item.total_follow_up,
-        customerFollowUp: item.customer_follow_up,
-        opportunityFollowUp: item.opportunity_follow_up,
-        avgFollowInterval: item.avg_follow_interval,
-        customersWithoutFollow30Days: item.customers_without_follow_30_days,
+        employeeName: item.employeeName,
+        departmentName: item.departmentName,
+        totalFollowUp: item.totalFollowUp,
+        customerFollowUp: item.customerFollowUp,
+        opportunityFollowUp: item.opportunityFollowUp,
+        avgFollowInterval: item.avgFollowInterval,
+        customersWithoutFollow30Days: item.customersWithoutFollow30Days,
       }));
     }
     
     if (conversionRes.data && conversionRes.data.data) {
       conversionData.value = conversionRes.data.data.map((item: any) => ({
-        employeeName: item.employee_name,
-        departmentName: item.department_name,
-        totalOpportunities: item.total_opportunities,
-        wonOpportunities: item.won_opportunities,
-        lostOpportunities: item.lost_opportunities,
-        opportunityWinRate: item.opportunity_win_rate,
-        totalContracts: item.total_contracts,
-        contractAmount: item.contract_amount,
-        avgContractAmount: item.avg_contract_amount,
-        avgSalesCycleDays: item.avg_sales_cycle_days,
+        employeeName: item.employeeName,
+        departmentName: item.departmentName,
+        totalOpportunities: item.totalOpportunities,
+        wonOpportunities: item.wonOpportunities,
+        lostOpportunities: item.lostOpportunities,
+        opportunityWinRate: item.opportunityWinRate,
+        totalContracts: item.totalContracts,
+        contractAmount: item.contractAmount,
+        avgContractAmount: item.avgContractAmount,
+        avgSalesCycleDays: item.avgSalesCycleDays,
       }));
     }
   } catch (e) {

@@ -42,7 +42,7 @@ pub async fn bath_delete_invoice(state: web::Data<AppState>, form_data: web::Jso
             return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids: Vec<i64> = ids_vec.into_iter().filter_map(|id| id.and_then(|s| s.parse().ok())).collect();
-        let result = invoice_service::batch_delete_by_ids(db, &ids).await;
+        let result = invoice_service::batch_delete(db, &ids).await;
         Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
@@ -57,7 +57,7 @@ pub async fn invoice_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
     if item.id.is_none() {
         return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "发票ID不能为空", "local"));
     }
-    match invoice_service::find_by_id(db, item.id.unwrap()).await {
+    match invoice_service::get_detail(db, item.id.unwrap()).await {
         Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -68,7 +68,7 @@ pub async fn invoice_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
 pub async fn invoice_list(state: web::Data<AppState>, query: web::Query<InvoiceListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    match invoice_service::list(db, &query).await {
+    match invoice_service::get_list(db, &query).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;

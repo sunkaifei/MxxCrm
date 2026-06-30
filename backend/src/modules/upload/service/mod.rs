@@ -10,4 +10,5 @@
 
 pub mod attachment_service;
 pub mod attachment_category_service;
+pub mod file_validator;
 pub mod upload_service;

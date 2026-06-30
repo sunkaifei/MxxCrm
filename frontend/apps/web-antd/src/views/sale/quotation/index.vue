@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -6,47 +6,52 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideEye, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { LucideEye, LucideFilePenLine, LucideSend, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Popconfirm, Select, Tag } from 'ant-design-vue';
+import { Button, Drawer, Modal, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteQuotationApi, getQuotationListApi } from '#/api';
+import { deleteQuotationApi, convertToOrderApi, getQuotationListApi, submitQuotationApprovalApi } from '#/api';
 import { $t } from '#/locales';
 import QuotationDetail from './detail.vue';
 import QuotationDrawer from './drawer.vue';
+import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
 
 const detailVisible = ref(false);
 const detailId = ref(0);
 
-const statusOptions = [
-  { label: '草稿', value: 'draft' },
-  { label: '已发送', value: 'sent' },
-  { label: '已接受', value: 'accepted' },
-  { label: '已拒绝', value: 'rejected' },
-  { label: '已过期', value: 'expired' },
+const approvalStatusOptions = [
+  { label: '草稿', value: 1 },
+  { label: '审批中', value: 2 },
+  { label: '已通过', value: 3 },
+  { label: '已驳回', value: 4 },
 ];
 
-const statusColorMap: Record<string, string> = {
-  draft: 'default',
-  sent: 'blue',
-  accepted: 'green',
-  rejected: 'red',
-  expired: 'orange',
-  revised: 'purple',
+const approvalStatusColorMap: Record<number, string> = {
+  1: 'default',
+  2: 'processing',
+  3: 'success',
+  4: 'error',
 };
 
-const statusLabelMap: Record<string, string> = {
-  draft: '草稿',
-  sent: '已发送',
-  accepted: '已接受',
-  rejected: '已拒绝',
-  expired: '已过期',
-  revised: '已修订',
+const approvalStatusLabelMap: Record<number, string> = {
+  1: '草稿',
+  2: '审批中',
+  3: '已通过',
+  4: '已驳回',
+};
+
+const currencySymbolMap: Record<number, string> = {
+  1: '¥',
+  2: '$',
+  3: '€',
+  4: '£',
+  5: '¥',
+  6: 'HK$',
 };
 
 const formOptions: VbenFormProps = {
@@ -62,9 +67,9 @@ const formOptions: VbenFormProps = {
     },
     {
       component: 'Select',
-      fieldName: 'status',
-      label: '状态',
-      componentProps: { placeholder: '全部', allowClear: true, options: statusOptions },
+      fieldName: 'approvalStatus',
+      label: '审批状态',
+      componentProps: { placeholder: '全部', allowClear: true, options: approvalStatusOptions },
     },
   ],
 };
@@ -90,14 +95,12 @@ const gridOptions: VxeGridProps = {
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: '报价单号', field: 'quotationNo', width: 150, slots: { default: 'quotationNo' } },
     { title: '标题', field: 'title', width: 200 },
-    { title: '客户ID', field: 'customerId', width: 100 },
-    { title: '合计金额', field: 'grandTotal', width: 140, slots: { default: 'grandTotal' } },
-    { title: '币种', field: 'currency', width: 60 },
-    { title: '状态', field: 'status', width: 90, slots: { default: 'status' } },
-    { title: '有效期', field: 'validUntil', width: 110 },
-    { title: '负责人', field: 'assignedTo', width: 80 },
-    { title: '创建时间', field: 'createdAt', width: 160, slots: { default: 'createdAt' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 140 },
+    { title: '客户名称', field: 'customerName', width: 140 },
+    { title: '报价金额', field: 'grandTotal', width: 140, slots: { default: 'grandTotal' } },
+    { title: '审批状态', field: 'approvalStatus', width: 100, slots: { default: 'approvalStatus' } },
+    { title: '报价日期', field: 'quotationDate', width: 110 },
+    { title: '创建时间', field: 'createTime', width: 160, slots: { default: 'createTime' } },
+    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 200 },
   ],
 };
 
@@ -142,6 +145,35 @@ async function handleBatchDelete() {
   gridApi.query();
 }
 
+function handleSubmitApproval(row: any) {
+  Modal.confirm({
+    title: '提交审批',
+    content: '确认提交此报价单进行审批？提交后将进入审批流程，审批期间无法修改。',
+    okText: '确认提交',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await submitQuotationApprovalApi(row.id);
+        window.$message.success('已提交审批');
+        gridApi.query();
+      } catch {
+        // error handled by interceptor
+      }
+    },
+  });
+}
+
+async function handleConvertToOrder(row: any) {
+  row.pending = true;
+  try {
+    await convertToOrderApi(row.id);
+    window.$message.success('已转为订单');
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
 function openDetail(row: any) {
   detailId.value = row.id;
   detailVisible.value = true;
@@ -156,10 +188,11 @@ function handleDetailEdit(id: string) {
 
 <template>
   <Page auto-content-height>
+    <SalesProcessGuide current-step="quotation" />
     <Grid :table-title="$t('page.sale.quotation.title')">
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('sale:quotation:create')"
+          v-if="accessStore.hasAccessCode('sale:quotation:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -180,27 +213,45 @@ function handleDetailEdit(id: string) {
       </template>
 
       <template #grandTotal="{ row }">
-        {{ row.currency }} {{ row.grandTotal?.toLocaleString?.() ?? row.grandTotal }}
+        {{ currencySymbolMap[row.currency] || '¥' }} {{ row.grandTotal?.toLocaleString?.() ?? row.grandTotal }}
       </template>
 
-      <template #status="{ row }">
-        <Tag :color="statusColorMap[row.status]">
-          {{ statusLabelMap[row.status] || row.status }}
+      <template #approvalStatus="{ row }">
+        <Tag :color="approvalStatusColorMap[row.approvalStatus]">
+          {{ approvalStatusLabelMap[row.approvalStatus] || '草稿' }}
         </Tag>
       </template>
 
-      <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+      <template #createTime="{ row }">
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #action="{ row }">
         <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
         <Button
-          v-if="accessStore.hasAccessCode('sale:quotation:edit')"
+          v-if="accessStore.hasAccessCode('sale:quotation:edit') && (row.approvalStatus === 1 || row.approvalStatus === 4)"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
         />
+        <Button
+          v-if="accessStore.hasAccessCode('sale:quotation:update') && (row.approvalStatus === 1 || row.approvalStatus === 4)"
+          type="link"
+          size="small"
+          :icon="h(LucideSend)"
+          @click="() => handleSubmitApproval(row)"
+        >
+          提交审批
+        </Button>
+        <Popconfirm
+          v-if="row.approvalStatus === 3"
+          title="确认将此报价单转为订单？"
+          ok-text="确认"
+          cancel-text="取消"
+          @confirm="handleConvertToOrder(row)"
+        >
+          <Button type="link" size="small">转订单</Button>
+        </Popconfirm>
         <Popconfirm
           :title="$t('ui.text.do_you_want_delete', { moduleName: '报价单' })"
           :ok-text="$t('ui.button.ok')"

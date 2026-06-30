@@ -587,6 +587,31 @@ impl AdminModel {
         Ok(update_result.rows_affected as i64)
     }
 
+    /// ### 更新当前登录用户头像
+    ///
+    /// 仅更新 avatar 字段与 update_time，供“个人中心-更换头像”使用。
+    /// 不经过 AdminSaveDTO，避免误改其他字段（如状态、角色、密码）。
+    ///
+    /// * db 数据库连接
+    /// * user_id 当前用户id
+    /// * avatar 头像访问地址（含缓存破坏版本号）
+    pub async fn update_avatar<C: ConnectionTrait>(
+        db: &C,
+        user_id: i64,
+        avatar: &str,
+    ) -> Result<i64, DbErr> {
+        let update_result: UpdateResult = Admin::update_many()
+            .set(admin::ActiveModel {
+                avatar: Set(Some(avatar.to_string())),
+                update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+                ..Default::default()
+            })
+            .filter(admin::Column::Id.eq(user_id))
+            .exec(db)
+            .await?;
+        Ok(update_result.rows_affected as i64)
+    }
+
     /// ### 更改密码
     /// * db 数据库连接
     /// * user_id: 用户id
@@ -738,7 +763,7 @@ impl AdminModel {
     pub async fn find_all_options(db: &DbConn) -> Result<Vec<admin::Model>, DbErr> {
         Admin::find()
             .filter(admin::Column::Deleted.eq(0))
-            .filter(admin::Column::Status.eq(0))
+            .filter(admin::Column::Status.eq(1))
             .order_by_asc(admin::Column::Sort)
             .all(db)
             .await

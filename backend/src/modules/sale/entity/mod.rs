@@ -13,3 +13,5 @@ pub mod order;
 pub mod order_item;
 pub mod payment;
 pub mod quotation;
+pub mod quotation_item;
+pub mod quotation_approval;

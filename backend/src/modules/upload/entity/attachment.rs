@@ -17,8 +17,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     #[serde(skip_deserializing)]
     pub id: i64,
-    /// 用户ID
-    pub user_id: Option<i64>,
     /// 分类id
     pub type_id: Option<i64>,
     pub name: Option<String>,
@@ -38,6 +36,22 @@ pub struct Model {
     pub count_quote: Option<i64>,
     /// 创建时间
     pub create_time: Option<DateTime>,
+    /// 原始文件名
+    pub original_name: Option<String>,
+    /// MIME类型
+    pub mime_type: Option<String>,
+    /// SHA-256哈希
+    pub file_hash: Option<String>,
+    /// 业务类型（product/contract/invoice/quotation/avatar/payment/common）
+    pub entity_type: Option<String>,
+    /// 关联业务ID
+    pub entity_id: Option<i64>,
+    /// 上传者用户ID
+    pub uploaded_by: Option<i64>,
+    /// 是否公开访问
+    pub is_public: Option<bool>,
+    /// 软删除：0未删除 1已删除
+    pub deleted: Option<i32>,
 }
 
 

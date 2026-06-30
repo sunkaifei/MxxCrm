@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -17,6 +17,7 @@ import { deleteContractApi, getContractListApi, getContractInfoApi, submitContra
 import { $t } from '#/locales';
 import ApprovalDrawer from './approval-drawer.vue';
 import ContractDrawer from './drawer.vue';
+import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -257,6 +258,7 @@ function isApproved(row: any) {
 
 <template>
   <Page auto-content-height>
+    <SalesProcessGuide current-step="contract" />
     <Grid :table-title="$t('page.crm.contract.title')">
       <template #toolbar-tools>
         <Button

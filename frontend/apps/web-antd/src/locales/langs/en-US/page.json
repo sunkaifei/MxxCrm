@@ -218,7 +218,7 @@
     }
   },
   "crm": {
-    "title": "CRM Customer",
+    "title": "Customer",
     "lead": {
       "title": "Lead Management",
       "button": {
@@ -226,7 +226,8 @@
         "edit": "Edit Lead",
         "delete": "Delete Lead",
         "convert": "Convert to Customer",
-        "assign": "Assign Lead"
+        "assign": "Assign Lead",
+        "info": "View Details"
       }
     },
     "customer": {
@@ -261,7 +262,13 @@
       "title": "Lead Pool"
     },
     "followup": {
-      "title": "Follow-up"
+      "title": "Follow-up",
+      "button": {
+        "save": "Save Now",
+        "update": "Edit Follow-up",
+        "delete": "Delete Follow-up",
+        "info": "View Follow-up"
+      }
     }
   },
   "sale": {
@@ -369,13 +376,128 @@
       "title": "Purchase Items"
     }
   },
+  "finance": {
+    "title": "Finance Management",
+    "commissionRule": {
+      "title": "Commission Rule",
+      "button": {
+        "create": "Add Rule",
+        "edit": "Edit Rule",
+        "delete": "Delete Rule",
+        "toggle": "Enable/Disable"
+      }
+    },
+    "salary": {
+      "title": "Salary Accounting",
+      "detail": "Salary Detail",
+      "button": {
+        "calculate": "Calculate",
+        "adjust": "Manual Adjust",
+        "approve": "Approve",
+        "pay": "Pay"
+      }
+    },
+    "payment": {
+      "title": "Purchase Payment",
+      "button": {
+        "apply": "Apply Payment",
+        "approve": "Approve Payment",
+        "confirm": "Confirm Payment",
+        "cancel": "Cancel Payment"
+      }
+    }
+  },
   "attachment": {
     "title": "Attachment",
     "file": {
       "title": "File Management",
       "button": {
         "upload": "Upload File",
-        "delete": "Delete File"
+        "delete": "Delete File",
+        "close": "Close"
+      },
+      "search": {
+        "placeholder": "Search file name",
+        "category": "Category",
+        "entityType": "Entity Type",
+        "allEntityTypes": "All Entity Types"
+      },
+      "tab": {
+        "all": "All Files",
+        "image": "Images",
+        "file": "Files"
+      },
+      "view": {
+        "grid": "Grid View",
+        "list": "List View"
+      },
+      "action": {
+        "preview": "Preview",
+        "copyUrl": "Copy URL",
+        "download": "Download",
+        "delete": "Delete"
+      },
+      "message": {
+        "copySuccess": "Link copied to clipboard",
+        "deleteConfirm": "Delete {name}?",
+        "empty": "No files",
+        "previewFail": "Preview failed",
+        "downloadFail": "Download failed"
+      },
+      "column": {
+        "name": "Name",
+        "type": "Type",
+        "size": "Size",
+        "createTime": "Created At",
+        "action": "Action",
+        "entityType": "Entity Type",
+        "isPublic": "Public",
+        "uploadedBy": "Uploaded By"
+      },
+      "uploadModal": {
+        "title": "Upload File"
+      },
+      "entityTypes": {
+        "product": "Product Image",
+        "avatar": "User Avatar",
+        "contract": "Contract Attachment",
+        "invoice": "Invoice File",
+        "quotation": "Quotation Attachment",
+        "payment": "Payment Voucher",
+        "common": "Common Attachment"
+      },
+      "public": "Public",
+      "private": "Private",
+      "filter": {
+        "all": "All Types",
+        "image": "Image",
+        "doc": "Document",
+        "video": "Video",
+        "other": "Other",
+        "type": "File Type"
+      }
+    },
+    "category": {
+      "title": "Category Management",
+      "description": "Manage file categories with multi-level support",
+      "button": {
+        "add": "Add Category"
+      },
+      "form": {
+        "name": "Category Name",
+        "nameRequired": "Please enter category name",
+        "namePlaceholder": "Please enter category name"
+      },
+      "modal": {
+        "add": "Add Category",
+        "edit": "Edit Category"
+      },
+      "message": {
+        "loadFail": "Failed to load categories",
+        "deleteFail": "Delete failed",
+        "submitFail": "Submit failed",
+        "deleteConfirm": "Are you sure to delete this category and all its subcategories?",
+        "empty": "No categories"
       }
     }
   },
@@ -499,6 +621,23 @@
       "file": {
         "upload": "Upload",
         "delete": "Delete"
+      },
+      "category": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      }
+    },
+    "shop": {
+      "category": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      },
+      "goods": {
+        "create": "Add Product",
+        "edit": "Edit Product",
+        "delete": "Delete Product"
       }
     }
   }

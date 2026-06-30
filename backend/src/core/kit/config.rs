@@ -11,16 +11,12 @@
 use ini::Ini;
 use std::path;
 use std::str::FromStr;
-use std::sync::{LazyLock, Mutex};
+use std::sync::LazyLock;
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "config/"]
 pub struct Config;
-
-static GLOBAL_CONF_FILE: LazyLock<Mutex<String>> = LazyLock::new(|| {
-    Mutex::new(String::from("Config.ini"))
-});
 
 static GLOBAL_CONF: LazyLock<Ini> = LazyLock::new(|| {
     let config_paths = vec![

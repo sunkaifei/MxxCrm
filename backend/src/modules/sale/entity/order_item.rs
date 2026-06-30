@@ -9,6 +9,7 @@
 //!
 
 use sea_orm::entity::prelude::*;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
@@ -21,23 +22,26 @@ pub struct Model {
     pub product_id: Option<i64>,
     pub product_name: Option<String>,
     pub product_code: Option<String>,
-    /// SKU
     pub sku: Option<String>,
     pub spec: Option<String>,
     pub unit: Option<String>,
+    pub unit_id: Option<i64>,
     pub quantity: Option<i32>,
     pub unit_price: Option<Decimal>,
-    /// 折扣
+    pub discount_rate: Option<Decimal>,
     pub discount: Option<Decimal>,
-    pub amount: Option<Decimal>,
+    pub discount_amount: Option<Decimal>,
     pub tax_rate: Option<Decimal>,
     pub tax_amount: Option<Decimal>,
-    /// 总金额
+    pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
-    /// 备注
-    pub notes: Option<String>,
+    pub delivery_date: Option<Date>,
+    pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
+    pub sort: Option<i32>,
+    pub create_by: Option<i64>,
     pub create_time: Option<DateTime>,
+    pub update_by: Option<i64>,
     pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }

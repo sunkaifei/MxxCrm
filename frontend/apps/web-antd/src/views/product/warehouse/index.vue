@@ -1,4 +1,4 @@
-﻿﻿﻿﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -27,12 +27,23 @@ const formOptions: VbenFormProps = {
       fieldName: 'warehouseName',
       label: '仓库名称',
       componentProps: {
-        placeholder: $t('ui.placeholder.input'),
+        placeholder: '请输入仓库名称',
         allowClear: true,
       },
     },
   ],
 };
+
+function getWarehouseTypeTag(type: number) {
+  const map: Record<number, { label: string; color: string }> = {
+    1: { label: '原材料仓', color: 'blue' },
+    2: { label: '成品仓', color: 'green' },
+    3: { label: '半成品仓', color: 'orange' },
+    4: { label: '退货仓', color: 'red' },
+    5: { label: '中转仓', color: 'purple' },
+  };
+  return map[type] || { label: '未知', color: 'default' };
+}
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: {
@@ -66,24 +77,60 @@ const gridOptions: VxeGridProps = {
     {
       title: $t('ui.table.seq'),
       type: 'seq',
-      width: 70,
+      width: 60,
+    },
+    {
+      title: '仓库编码',
+      field: 'code',
+      width: 110,
     },
     {
       title: '仓库名称',
       field: 'warehouseName',
+      minWidth: 140,
+    },
+    {
+      title: '仓库类型',
+      field: 'warehouseType',
+      width: 110,
+      slots: { default: 'warehouseType' },
+    },
+    {
+      title: '所在区域',
+      field: 'region',
+      width: 110,
+    },
+    {
+      title: '面积(㎡)',
+      field: 'areaSqm',
+      width: 90,
+    },
+    {
+      title: '负责人',
+      field: 'contactPerson',
+      width: 100,
+    },
+    {
+      title: '联系电话',
+      field: 'contactPhone',
+      width: 130,
     },
     {
       title: '地址',
       field: 'address',
-    },
-    {
-      title: '负责人',
-      field: 'manager',
+      minWidth: 160,
+      showOverflow: 'tooltip',
     },
     {
       title: $t('ui.table.status'),
-      field: 'status',
+      field: 'isActive',
+      width: 80,
       slots: { default: 'status' },
+    },
+    {
+      title: '创建时间',
+      field: 'createTime',
+      width: 160,
     },
     {
       title: $t('ui.table.action'),
@@ -122,7 +169,7 @@ function handleEdit(row: any) {
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deleteWarehouseApi(row.id);
+    await deleteWarehouseApi([row.id]);
     window.$message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;
@@ -149,8 +196,16 @@ function handleCreate() {
         </Button>
       </template>
 
+      <template #warehouseType="{ row }">
+        <Tag :color="getWarehouseTypeTag(row.warehouseType).color">
+          {{ getWarehouseTypeTag(row.warehouseType).label }}
+        </Tag>
+      </template>
+
       <template #status="{ row }">
-        <Tag>{{ row.status }}</Tag>
+        <Tag :color="row.isActive !== false ? 'green' : 'red'">
+          {{ row.isActive !== false ? '启用' : '停用' }}
+        </Tag>
       </template>
 
       <template #action="{ row }">

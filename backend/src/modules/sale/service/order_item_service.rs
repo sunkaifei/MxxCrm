@@ -5,14 +5,14 @@ use sea_orm::DbConn;
 
 pub async fn insert(db: &DbConn, form_data: &OrderItemSaveRequest, created_by: i64) -> Result<i64> {
     let mut dto: OrderItemSaveDTO = form_data.clone().into();
-    dto.created_by = Some(created_by);
+    dto.create_by = Some(created_by);
     let result = OrderItemModel::insert(&db, &dto).await?;
     Ok(result)
 }
 
 pub async fn update(db: &DbConn, form_data: &OrderItemUpdateRequest, updated_by: i64) -> Result<i64> {
     let mut dto: OrderItemSaveDTO = form_data.clone().into();
-    dto.updated_by = Some(updated_by);
+    dto.update_by = Some(updated_by);
     let result = OrderItemModel::update_by_id(&db, &form_data.id, &dto).await?;
     Ok(result)
 }

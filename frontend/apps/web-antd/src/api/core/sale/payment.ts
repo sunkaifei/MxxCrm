@@ -13,7 +13,5 @@ export const updatePaymentApi = async (param: any) => {
   return requestClient.put('/api/system/sale/payment/update', param);
 };
 export const deletePaymentApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/sale/payment/bath_delete', {
-    data: { ids },
-  });
+  return requestClient.post('/api/system/sale/payment/bath_delete', { ids });
 };

@@ -1,14 +1,15 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { useVbenDrawer } from '@vben/common-ui';
+import { useVbenDrawer } from '#/adapter/drawer';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { Divider, message } from 'ant-design-vue';
 import { createCustomerApi, updateCustomerApi, getCountriesApi } from '#/api';
 import TagSelector from '../components/TagSelector.vue';
 
-const data = ref();
+const data = ref<Record<string, any>>();
 const tagSelectorRef = ref<InstanceType<typeof TagSelector>>();
+const isFullscreen = ref(false);
 
 const getTitle = computed(() =>
   data.value?.create
@@ -17,6 +18,15 @@ const getTitle = computed(() =>
 );
 
 const isCreate = computed(() => data.value?.create);
+
+const drawerClass = computed(() => [
+  'customer-drawer',
+  { 'customer-drawer--fullscreen': isFullscreen.value },
+]);
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value;
+}
 
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
@@ -186,12 +196,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
       formItemClass: 'col-span-2',
     },
     {
-      component: 'Input',
-      fieldName: 'assignedTo',
-      label: '负责人',
-      componentProps: { placeholder: '负责人ID', allowClear: true },
-    },
-    {
       component: 'DatePicker',
       fieldName: 'cooperatedAt',
       label: '合作起始日期',
@@ -208,18 +212,21 @@ const [BaseForm, baseFormApi] = useVbenForm({
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  onCancel() { drawerApi.close(); },
+  onCancel() {
+    drawerApi.close();
+  },
+
   async onConfirm() {
     const validate = await baseFormApi.validate();
     if (!validate.valid) return;
-    setLoading(true);
+
+    drawerApi.setState({ loading: true });
     const values = await baseFormApi.getValues();
     try {
       const result = await (data.value?.create
         ? createCustomerApi(values)
         : updateCustomerApi({ ...values, id: data.value.row.id }));
 
-      // 创建模式：保存标签到新创建的实体
       if (data.value?.create && tagSelectorRef.value) {
         const newId = result?.id || result?.data?.id;
         if (newId) {
@@ -233,26 +240,54 @@ const [Drawer, drawerApi] = useVbenDrawer({
       drawerApi.setData({ needRefresh: true });
     } finally {
       drawerApi.close();
-      setLoading(false);
+      drawerApi.setState({ loading: false });
     }
   },
+
   onOpenChange(isOpen) {
     if (isOpen) {
+      isFullscreen.value = false;
       data.value = drawerApi.getData<Record<string, any>>();
-      const row = data.value?.row ? { ...data.value.row } : {};
-      baseFormApi.setValues(row);
-      setLoading(false);
+      baseFormApi.resetForm();
+      if (data.value?.row) {
+        baseFormApi.setValues(data.value.row);
+      }
     }
   },
 });
 
-function setLoading(loading: boolean) {
-  drawerApi.setState({ loading });
+function closeDrawer() {
+  drawerApi.close();
 }
 </script>
 
 <template>
-  <Drawer :title="getTitle" :width="620">
+  <Drawer
+    :title="getTitle"
+    :class="drawerClass"
+    :destroy-on-close="true"
+    :z-index="2000"
+  >
+    <template #extra>
+      <button
+        type="button"
+        class="customer-drawer__fs-btn"
+        @click="toggleFullscreen"
+      >
+        <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+          <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+          <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+          <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+          <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+          <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+          <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+        </svg>
+      </button>
+    </template>
     <BaseForm />
     <Divider />
     <div class="mb-2 text-sm font-medium text-gray-700">标签</div>
@@ -263,3 +298,31 @@ function setLoading(loading: boolean) {
     />
   </Drawer>
 </template>
+
+<style>
+.customer-drawer {
+  width: 75vw !important;
+}
+.customer-drawer--fullscreen {
+  width: 100vw !important;
+}
+.customer-drawer__fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-right: 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.customer-drawer__fs-btn:hover {
+  color: #1890ff;
+  background-color: rgba(0, 0, 0, 0.06);
+}
+</style>

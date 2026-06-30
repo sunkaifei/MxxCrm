@@ -133,7 +133,9 @@ export const createMenuApi = async (param: any) => {
  * 删除菜单
  */
 export const deleteMenuApi = async (id: number) => {
-  return await requestClient.delete(`/api/system/menu/delete/${id}`);
+  return await requestClient.delete('/api/system/menu/batch_delete', {
+    data: { ids: [id] },
+  });
 };
 
 export function buildMenuTree(menus: MenuApi.MenuForm[]): MenuApi.MenuForm[] {

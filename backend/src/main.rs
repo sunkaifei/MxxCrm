@@ -69,11 +69,33 @@ async fn serve_frontend(req: HttpRequest) -> HttpResponse {
     }
 }
 
+fn init_storage_dirs() {
+    use std::fs;
+    let upload_dirs = [
+        "storage/upload/product/",
+        "storage/upload/avatar/",
+        "storage/upload/contract/",
+        "storage/upload/invoice/",
+        "storage/upload/quotation/",
+        "storage/upload/payment/",
+        "storage/upload/common/",
+    ];
+    for dir in upload_dirs {
+        if let Err(e) = fs::create_dir_all(dir) {
+            log::warn!("Failed to create storage directory {}: {}", dir, e);
+        } else {
+            log::info!("Created storage directory: {}", dir);
+        }
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     log4rs::init_file("./config/log4rs.yaml", Default::default()).unwrap_or_default();
 
     log::info!("starting HTTP server at {:}",&config::section::<String>("server", "server_url", "http://127.0.0.1".to_string()));
+
+    init_storage_dirs();
 
     let conn = connect().await.unwrap_or_default();
 

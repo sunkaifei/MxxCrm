@@ -30,6 +30,10 @@ impl ApprovalService {
         ApprovalModel::toggle_flow(db, id).await
     }
 
+    pub async fn delete_flow(db: &DatabaseConnection, id: i64) -> Result<()> {
+        ApprovalModel::delete_flow(db, id).await
+    }
+
     /// 提交审批
     pub async fn submit(db: &DatabaseConnection, req: &ApprovalSubmitRequest) -> Result<i64> {
         let flow_data = ApprovalModel::find_flow_by_code(db, &req.flow_code).await?;
@@ -50,10 +54,24 @@ impl ApprovalService {
             return Err(Error::from("第一个节点必须是审批节点"));
         }
 
-        let approver_id = first_node.approver_id
-            .ok_or_else(|| Error::from("审批节点未配置审批人"))?;
+        // 解析发起人部门
+        let submitter_dept_id = ApprovalModel::find_user_dept_id(db, req.submitter_id).await?;
 
-        let instance_id = ApprovalModel::create_instance(db, req, &first_node.node_key.clone().unwrap_or_default(), approver_id).await?;
+        // 根据 approver_type 解析实际审批人
+        let approver_id = ApprovalModel::resolve_approver(
+            db,
+            first_node.approver_type,
+            first_node.approver_id,
+            req.submitter_id,
+            submitter_dept_id,
+        ).await?;
+
+        let instance_id = ApprovalModel::create_instance(
+            db,
+            req,
+            &first_node.node_key.clone().unwrap_or_default(),
+            approver_id,
+        ).await?;
 
         Ok(instance_id)
     }
@@ -88,10 +106,8 @@ impl ApprovalService {
                     .collect();
 
                 if out_edges.is_empty() {
-                    // 没有出边，直接完成
                     ApprovalModel::finish_instance(db, req.instance_id, 3).await?;
                 } else {
-                    // 评估条件，选择满足的边
                     let extra_data: serde_json::Value = instance.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
                     let mut next_node_key: Option<String> = None;
 
@@ -116,28 +132,7 @@ impl ApprovalService {
                     }
 
                     let next_key = next_node_key.unwrap();
-                    let next_node = nodes.iter().find(|n| n.node_key.as_deref() == Some(next_key.as_str()))
-                        .ok_or_else(|| Error::from("下一节点不存在"))?;
-
-                    match next_node.node_type {
-                        Some(4) => {
-                            // 结束节点
-                            ApprovalModel::finish_instance(db, req.instance_id, 3).await?;
-                        }
-                        Some(2) => {
-                            // 审批节点
-                            let approver_id = next_node.approver_id
-                                .ok_or_else(|| Error::from("下一审批节点未配置审批人"))?;
-                            ApprovalModel::update_instance_node(db, req.instance_id, &next_key, approver_id).await?;
-                        }
-                        Some(3) => {
-                            // 条件分支，继续遍历
-                            Box::pin(Self::traverse_condition(db, req.instance_id, &next_key, &nodes, &edges, &extra_data)).await?;
-                        }
-                        _ => {
-                            ApprovalModel::finish_instance(db, req.instance_id, 3).await?;
-                        }
-                    }
+                    Self::move_to_next_node(db, req.instance_id, &next_key, &nodes, &edges, instance.submitter_id, &extra_data).await?;
                 }
             }
             2 => {
@@ -162,6 +157,46 @@ impl ApprovalService {
 
     // ============ Private helpers ============
 
+    async fn move_to_next_node(
+        db: &DatabaseConnection,
+        instance_id: i64,
+        next_key: &str,
+        nodes: &[approval_flow_node::Model],
+        edges: &[approval_flow_edge::Model],
+        submitter_id: i64,
+        extra_data: &serde_json::Value,
+    ) -> Result<()> {
+        let next_node = nodes.iter().find(|n| n.node_key.as_deref() == Some(next_key))
+            .ok_or_else(|| Error::from("下一节点不存在"))?;
+
+        match next_node.node_type {
+            Some(4) => {
+                // 结束节点
+                ApprovalModel::finish_instance(db, instance_id, 3).await?;
+            }
+            Some(2) => {
+                // 审批节点 - 解析审批人
+                let submitter_dept_id = ApprovalModel::find_user_dept_id(db, submitter_id).await?;
+                let approver_id = ApprovalModel::resolve_approver(
+                    db,
+                    next_node.approver_type,
+                    next_node.approver_id,
+                    submitter_id,
+                    submitter_dept_id,
+                ).await?;
+                ApprovalModel::update_instance_node(db, instance_id, next_key, approver_id).await?;
+            }
+            Some(3) => {
+                // 条件分支，继续遍历
+                Box::pin(Self::traverse_condition(db, instance_id, next_key, nodes, edges, submitter_id, extra_data)).await?;
+            }
+            _ => {
+                ApprovalModel::finish_instance(db, instance_id, 3).await?;
+            }
+        }
+        Ok(())
+    }
+
     fn validate_flow(req: &FlowSaveRequest) -> Result<()> {
         let start_count = req.nodes.iter().filter(|n| n.node_type == 1).count();
         if start_count != 1 {
@@ -171,7 +206,6 @@ impl ApprovalService {
         if end_count == 0 {
             return Err(Error::from("必须至少有一个结束节点"));
         }
-        // 条件分支节点的出边必须配置条件
         for node in &req.nodes {
             if node.node_type == 3 {
                 for edge in &req.edges {
@@ -187,8 +221,6 @@ impl ApprovalService {
     }
 
     fn eval_condition(expr: &str, data: &serde_json::Value) -> bool {
-        // 简单条件评估，支持 "field > value", "field <= value" 等
-        // 实际项目中可使用更完善的表达式引擎
         let expr = expr.trim();
         for op in &["<=", ">=", "==", "!=", ">", "<"] {
             if let Some(pos) = expr.find(op) {
@@ -216,6 +248,7 @@ impl ApprovalService {
         node_key: &str,
         nodes: &[approval_flow_node::Model],
         edges: &[approval_flow_edge::Model],
+        submitter_id: i64,
         extra_data: &serde_json::Value,
     ) -> Result<()> {
         let out_edges: Vec<&approval_flow_edge::Model> = edges.iter()
@@ -236,14 +269,19 @@ impl ApprovalService {
                         return Ok(());
                     }
                     Some(2) => {
-                        let approver_id = target.approver_id
-                            .ok_or_else(|| Error::from("审批节点未配置审批人"))?;
+                        let submitter_dept_id = ApprovalModel::find_user_dept_id(db, submitter_id).await?;
+                        let approver_id = ApprovalModel::resolve_approver(
+                            db,
+                            target.approver_type,
+                            target.approver_id,
+                            submitter_id,
+                            submitter_dept_id,
+                        ).await?;
                         ApprovalModel::update_instance_node(db, instance_id, target_key, approver_id).await?;
                         return Ok(());
                     }
                     Some(3) => {
-                        // 继续遍历条件分支
-                        return Box::pin(Self::traverse_condition(db, instance_id, target_key, nodes, edges, extra_data)).await;
+                        return Box::pin(Self::traverse_condition(db, instance_id, target_key, nodes, edges, submitter_id, extra_data)).await;
                     }
                     _ => {}
                 }

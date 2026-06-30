@@ -6,23 +6,24 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key)]
     #[serde(skip_deserializing)]
-    /// 仓库ID
     pub id: i64,
-    /// 仓库名称
     pub name: Option<String>,
-    /// 仓库编码
     pub code: Option<String>,
-    /// 仓库地址
+    pub warehouse_type: Option<i16>,
+    pub region: Option<String>,
     pub address: Option<String>,
-    /// 联系人
+    pub area_sqm: Option<Decimal>,
+    pub manager_id: Option<i64>,
     pub contact_person: Option<String>,
-    /// 联系电话
     pub contact_phone: Option<String>,
-    /// 是否启用
+    pub backup_phone: Option<String>,
+    pub logistics_types: Option<String>,
     pub is_active: Option<bool>,
-    /// 创建时间
+    pub remark: Option<String>,
+    pub deleted: Option<i16>,
+    pub created_by: Option<i64>,
+    pub updated_by: Option<i64>,
     pub create_time: Option<DateTime>,
-    /// 更新时间
     pub update_time: Option<DateTime>,
 }
 

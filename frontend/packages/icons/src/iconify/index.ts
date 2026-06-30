@@ -20,6 +20,9 @@ export const LucideArrowLeft = createIconifyIcon('lucide:arrow-left');
 
 export const LucideChevronLeft = createIconifyIcon('lucide:chevron-left');
 
+export const LucideChevronDown = createIconifyIcon('lucide:chevron-down');
+export const LucideChevronUp = createIconifyIcon('lucide:chevron-up');
+
 export const LucideTrash = createIconifyIcon('lucide:trash');
 export const LucideTrash2 = createIconifyIcon('lucide:trash-2');
 
@@ -91,3 +94,16 @@ export const LucideWallet = createIconifyIcon('lucide:wallet');
 export const LucidePieChart = createIconifyIcon('lucide:pie-chart');
 export const LucideLayoutDashboard = createIconifyIcon('lucide:layout-dashboard');
 export const LucideArrowRight = createIconifyIcon('lucide:arrow-right');
+export const LucideFileSignature = createIconifyIcon('lucide:file-signature');
+export const LucideReceipt = createIconifyIcon('lucide:receipt');
+
+// 文件管理图标
+export const LucideGrid3x3 = createIconifyIcon('lucide:grid-3x3');
+export const LucideList = createIconifyIcon('lucide:list');
+export const LucideSearch = createIconifyIcon('lucide:search');
+export const LucideImage = createIconifyIcon('lucide:image');
+export const LucideDownload = createIconifyIcon('lucide:download');
+export const LucideCopy = createIconifyIcon('lucide:copy');
+export const LucideFolderOpen = createIconifyIcon('lucide:folder-open');
+export const LucideFilm = createIconifyIcon('lucide:film');
+export const LucideFile = createIconifyIcon('lucide:file');

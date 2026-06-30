@@ -1,18 +1,7 @@
-//!
-//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
-//!
-//! https://www.mxxshop.com
-//!
-//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
-//!
-//! 版权所有，侵权必究！
-//!
-
-use sea_orm::entity::prelude::*;
 use chrono::NaiveDate;
+use rust_decimal::Decimal;
+use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::core::r#enum::currency_code_enum::CurrencyCode;
-use crate::core::r#enum::payment_method_enum::PaymentMethod;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_sale_payment")]
@@ -21,30 +10,48 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub id: i64,
     pub payment_no: Option<String>,
-    pub order_id: Option<i64>,
     pub contract_id: Option<i64>,
+    pub order_id: Option<i64>,
+    pub plan_id: Option<i64>,
     pub customer_id: Option<i64>,
+    pub customer_name: Option<String>,
     pub amount: Option<Decimal>,
-    pub currency: Option<CurrencyCode>,
-    pub status: Option<String>,
-    pub payment_method: Option<PaymentMethod>,
-    pub transaction_no: Option<String>,
+    pub currency: Option<i32>,
+    pub payment_method: Option<i32>,
     pub payment_date: Option<NaiveDate>,
-    /// 银行账户
-    pub bank_account: Option<String>,
-    /// 交易ID
-    pub transaction_id: Option<String>,
-    /// 备注
-    pub notes: Option<String>,
+    pub payer: Option<String>,
+    pub payer_account: Option<String>,
+    pub bank_flow_no: Option<String>,
+    pub attachment: Option<String>,
+    pub status: Option<i32>,
     pub remark: Option<String>,
-    pub created_by: Option<i64>,
+    pub owner_user_id: Option<i64>,
+    pub dept_id: Option<i64>,
+    pub create_by: Option<String>,
     pub create_time: Option<DateTime>,
-    pub updated_by: Option<i64>,
+    pub update_by: Option<String>,
     pub update_time: Option<DateTime>,
+    pub confirm_time: Option<DateTime>,
+    pub confirm_by: Option<String>,
     pub deleted: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::order::Entity",
+        from = "Column::OrderId",
+        to = "super::order::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Order,
+}
+
+impl Related<super::order::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Order.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

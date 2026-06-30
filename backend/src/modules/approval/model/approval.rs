@@ -10,6 +10,10 @@ use serde::{Deserialize, Serialize};
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::system::model::admin::AdminModel;
+use crate::modules::system::entity::dept::{Column as DeptColumn, Entity as DeptEntity};
+use crate::modules::system::entity::admin_role_merge::{Column as RoleMergeColumn, Entity as RoleMergeEntity};
+use crate::modules::system::entity::admin_dept_merge::{Column as DeptMergeColumn, Entity as DeptMergeEntity};
+use crate::modules::system::entity::admin_post_merge::{Column as PostMergeColumn, Entity as PostMergeEntity};
 use crate::modules::approval::entity::approval_flow::{
     ActiveModel as FlowActiveModel, Column as FlowColumn, Entity as FlowEntity, Model as FlowModel,
 };
@@ -425,6 +429,41 @@ impl ApprovalModel {
         Ok(())
     }
 
+    pub async fn delete_flow(db: &DatabaseConnection, id: i64) -> Result<()> {
+        // 检查是否有审批实例引用了该流程
+        let instance_count = InstanceEntity::find()
+            .filter(InstanceColumn::FlowId.eq(id))
+            .count(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        if instance_count > 0 {
+            return Err(Error::from(
+                "该审批流已被使用，无法删除，请禁用",
+            ));
+        }
+
+        // 无引用，级联删除：边 → 节点 → 流程
+        EdgeEntity::delete_many()
+            .filter(EdgeColumn::FlowId.eq(id))
+            .exec(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        NodeEntity::delete_many()
+            .filter(NodeColumn::FlowId.eq(id))
+            .exec(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        FlowEntity::delete_by_id(id)
+            .exec(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        Ok(())
+    }
+
     pub async fn find_flow_by_code(
         db: &DatabaseConnection,
         code: &str,
@@ -759,6 +798,78 @@ impl ApprovalModel {
             .await
             .map_err(|e| Error::from(e.to_string()))?;
         Ok(())
+    }
+    /// 根据节点配置的 approver_type/approver_id 解析出实际审批人ID
+    /// approver_type: 1=指定用户, 2=指定角色, 3=部门主管, 4=发起人自己
+    pub async fn resolve_approver(
+        db: &DatabaseConnection,
+        approver_type: Option<i32>,
+        approver_id: Option<i64>,
+        submitter_id: i64,
+        submitter_dept_id: Option<i64>,
+    ) -> Result<i64> {
+        match approver_type.unwrap_or(1) {
+            1 => {
+                // 指定用户
+                approver_id.ok_or_else(|| Error::from("审批节点未配置审批人"))
+            }
+            2 => {
+                // 指定角色：找到该角色下任意一个启用的用户
+                let role_id = approver_id.ok_or_else(|| Error::from("审批节点未配置角色"))?;
+                let merge = RoleMergeEntity::find()
+                    .filter(RoleMergeColumn::RoleId.eq(role_id))
+                    .one(db)
+                    .await
+                    .map_err(|e| Error::from(e.to_string()))?;
+                let admin_id = merge
+                    .map(|m| m.admin_id.unwrap_or_default())
+                    .filter(|&id| id > 0)
+                    .ok_or_else(|| Error::from("该角色下未找到审批人"))?;
+                Ok(admin_id)
+            }
+            3 => {
+                // 部门主管：若节点配置了 dept_id 则用该部门，否则用发起人所在部门
+                let dept_id = approver_id.or(submitter_dept_id)
+                    .ok_or_else(|| Error::from("无法确定审批部门"))?;
+                let dept = DeptEntity::find_by_id(dept_id)
+                    .one(db)
+                    .await
+                    .map_err(|e| Error::from(e.to_string()))?
+                    .ok_or_else(|| Error::from("部门不存在"))?;
+                dept.leader_id
+                    .filter(|&id| id > 0)
+                    .ok_or_else(|| Error::from(format!("部门[{}]未配置负责人", dept.dept_name.unwrap_or_default())))
+            }
+            4 => {
+                // 发起人自己
+                Ok(submitter_id)
+            }
+            5 => {
+                // 指定岗位：找到该岗位下任意一个启用的用户
+                let post_id = approver_id.ok_or_else(|| Error::from("审批节点未配置岗位"))?;
+                let merge = PostMergeEntity::find()
+                    .filter(PostMergeColumn::PostId.eq(post_id))
+                    .one(db)
+                    .await
+                    .map_err(|e| Error::from(e.to_string()))?;
+                let admin_id = merge
+                    .map(|m| m.admin_id.unwrap_or_default())
+                    .filter(|&id| id > 0)
+                    .ok_or_else(|| Error::from("该岗位下未找到审批人"))?;
+                Ok(admin_id)
+            }
+            other => Err(Error::from(format!("不支持的审批人类型: {}", other))),
+        }
+    }
+
+    /// 查询用户的部门ID
+    pub async fn find_user_dept_id(db: &DatabaseConnection, user_id: i64) -> Result<Option<i64>> {
+        let merge = DeptMergeEntity::find()
+            .filter(DeptMergeColumn::AdminId.eq(user_id))
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        Ok(merge.and_then(|m| m.dept_id))
     }
 }
 

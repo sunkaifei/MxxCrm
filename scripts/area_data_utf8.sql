@@ -1,0 +1,731 @@
+BEGIN TRANSACTION;
+
+-- 清空现有数据
+
+DELETE FROM mxx_system_area;
+
+ALTER SEQUENCE mxx_system_area_id_seq RESTART WITH 1;
+
+
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (1, 0, '中国', 'China', 'CN', 1, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (2, 1, '北京市', 'Beijing', 'CN-BJ', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (3, 2, '东城区', 'Dongcheng', 'CN-BJ-DC', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (4, 2, '西城区', 'Xicheng', 'CN-BJ-XC', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (5, 2, '海淀区', 'Haidian', 'CN-BJ-HD', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (6, 2, '朝阳区', 'Chaoyang', 'CN-BJ-CY', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (7, 1, '上海市', 'Shanghai', 'CN-SH', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (8, 7, '浦东新区', 'Pudong', 'CN-SH-PD', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (9, 7, '静安区', 'Jing''an', 'CN-SH-JA', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (10, 7, '徐汇区', 'Xuhui', 'CN-SH-XH', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (11, 1, '广东省', 'Guangdong', 'CN-GD', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (12, 11, '广州市', 'Guangzhou', 'CN-GD-GZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (13, 11, '深圳市', 'Shenzhen', 'CN-GD-SZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (14, 11, '东莞市', 'Dongguan', 'CN-GD-DG', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (15, 1, '浙江省', 'Zhejiang', 'CN-ZJ', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (16, 15, '杭州市', 'Hangzhou', 'CN-ZJ-HZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (17, 15, '宁波市', 'Ningbo', 'CN-ZJ-NB', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (18, 1, '江苏省', 'Jiangsu', 'CN-JS', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (19, 18, '南京市', 'Nanjing', 'CN-JS-NJ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (20, 18, '苏州市', 'Suzhou', 'CN-JS-SZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (21, 1, '湖北省', 'Hubei', 'CN-HB', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (22, 21, '武汉市', 'Wuhan', 'CN-HB-WH', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (23, 1, '四川省', 'Sichuan', 'CN-SC', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (24, 23, '成都市', 'Chengdu', 'CN-SC-CD', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (25, 1, '湖南省', 'Hunan', 'CN-HN', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (26, 25, '长沙市', 'Changsha', 'CN-HN-CS', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (27, 1, '河南省', 'Henan', 'CN-HEN', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (28, 27, '郑州市', 'Zhengzhou', 'CN-HEN-ZZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (29, 1, '山东省', 'Shandong', 'CN-SD', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (30, 29, '青岛市', 'Qingdao', 'CN-SD-QD', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (31, 29, '济南市', 'Jinan', 'CN-SD-JN', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (32, 1, '天津市', 'Tianjin', 'CN-TJ', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (33, 32, '和平区', 'Heping', 'CN-TJ-HQ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (34, 1, '重庆市', 'Chongqing', 'CN-CQ', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (35, 34, '渝中区', 'Yuzhong', 'CN-CQ-YZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (36, 1, '河北省', 'Hebei', 'CN-HE', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (37, 36, '石家庄市', 'Shijiazhuang', 'CN-HE-SJZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (38, 1, '辽宁省', 'Liaoning', 'CN-LN', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (39, 38, '大连市', 'Dalian', 'CN-LN-DL', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (40, 38, '沈阳市', 'Shenyang', 'CN-LN-SY', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (41, 1, '吉林省', 'Jilin', 'CN-JL', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (42, 41, '长春市', 'Changchun', 'CN-JL-CC', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (43, 1, '黑龙江省', 'Heilongjiang', 'CN-HL', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (44, 43, '哈尔滨市', 'Harbin', 'CN-HL-HRB', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (45, 1, '安徽省', 'Anhui', 'CN-AH', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (46, 45, '合肥市', 'Hefei', 'CN-AH-HF', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (47, 1, '福建省', 'Fujian', 'CN-FJ', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (48, 47, '厦门市', 'Xiamen', 'CN-FJ-XM', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (49, 47, '福州市', 'Fuzhou', 'CN-FJ-FZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (50, 1, '江西省', 'Jiangxi', 'CN-JX', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (51, 50, '南昌市', 'Nanchang', 'CN-JX-NC', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (52, 1, '山西省', 'Shanxi', 'CN-SX1', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (53, 52, '太原市', 'Taiyuan', 'CN-SX1-TY', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (54, 1, '陕西省', 'Shaanxi', 'CN-SX2', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (55, 54, '西安市', 'Xi''an', 'CN-SX2-XA', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (56, 1, '甘肃省', 'Gansu', 'CN-GS', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (57, 56, '兰州市', 'Lanzhou', 'CN-GS-LZ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (58, 1, '青海省', 'Qinghai', 'CN-QH', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (59, 58, '西宁市', 'Xining', 'CN-QH-XN', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (60, 1, '宁夏回族自治区', 'Ningxia', 'CN-NX', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (61, 60, '银川市', 'Yinchuan', 'CN-NX-YC', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (62, 1, '新疆维吾尔自治区', 'Xinjiang', 'CN-XJ', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (63, 62, '乌鲁木齐市', 'Urumqi', 'CN-XJ-WLMQ', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (64, 1, '广西壮族自治区', 'Guangxi', 'CN-GX', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (65, 64, '南宁市', 'Nanning', 'CN-GX-NN', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (66, 1, '内蒙古自治区', 'Inner Mongolia', 'CN-NM', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (67, 66, '呼和浩特市', 'Hohhot', 'CN-NM-HHHT', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (68, 1, '台湾省', 'Taiwan', 'CN-TW', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (69, 68, '台北市', 'Taipei', 'CN-TW-TPE', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (70, 68, '高雄市', 'Kaohsiung', 'CN-TW-KHH', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (71, 1, '香港特别行政区', 'Hong Kong', 'CN-HK', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (72, 71, '香港岛', 'Hong Kong Island', 'CN-HK-HKI', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (73, 71, '九龙', 'Kowloon', 'CN-HK-KLN', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (74, 1, '澳门特别行政区', 'Macau', 'CN-MO', 2, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (75, 74, '澳门', 'Macau', 'CN-MO-MO', 3, 'CN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (76, 0, '美国', 'United States', 'US', 1, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (77, 76, '加利福尼亚州', 'California', 'US-CA', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (78, 77, '洛杉矶', 'Los Angeles', 'US-CA-LAX', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (79, 77, '旧金山', 'San Francisco', 'US-CA-SFO', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (80, 77, '圣地亚哥', 'San Diego', 'US-CA-SD', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (81, 76, '纽约州', 'New York', 'US-NY', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (82, 81, '纽约市', 'New York City', 'US-NY-NYC', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (83, 76, '得克萨斯州', 'Texas', 'US-TX', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (84, 83, '休斯顿', 'Houston', 'US-TX-HOU', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (85, 83, '奥斯汀', 'Austin', 'US-TX-AUS', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (86, 76, '佛罗里达州', 'Florida', 'US-FL', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (87, 86, '迈阿密', 'Miami', 'US-FL-MIA', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (88, 86, '奥兰多', 'Orlando', 'US-FL-ORL', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (89, 76, '伊利诺伊州', 'Illinois', 'US-IL', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (90, 89, '芝加哥', 'Chicago', 'US-IL-CHI', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (91, 76, '华盛顿州', 'Washington', 'US-WA', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (92, 91, '西雅图', 'Seattle', 'US-WA-SEA', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (93, 76, '马萨诸塞州', 'Massachusetts', 'US-MA', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (94, 93, '波士顿', 'Boston', 'US-MA-BOS', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (95, 76, '华盛顿特区', 'Washington DC', 'US-DC', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (96, 95, '华盛顿', 'Washington', 'US-DC-DC', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (97, 76, '内华达州', 'Nevada', 'US-NV', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (98, 97, '拉斯维加斯', 'Las Vegas', 'US-NV-LAS', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (99, 76, '亚利桑那州', 'Arizona', 'US-AZ', 2, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (100, 99, '凤凰城', 'Phoenix', 'US-AZ-PHX', 3, 'US');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (101, 0, '英国', 'United Kingdom', 'GB', 1, 'GB');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (102, 101, '英格兰', 'England', 'GB-ENG', 2, 'GB');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (103, 102, '伦敦', 'London', 'GB-ENG-LON', 3, 'GB');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (104, 102, '曼彻斯特', 'Manchester', 'GB-ENG-MAN', 3, 'GB');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (105, 101, '苏格兰', 'Scotland', 'GB-SCT', 2, 'GB');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (106, 105, '爱丁堡', 'Edinburgh', 'GB-SCT-EDN', 3, 'GB');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (107, 101, '威尔士', 'Wales', 'GB-WLS', 2, 'GB');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (108, 107, '加的夫', 'Cardiff', 'GB-WLS-CRD', 3, 'GB');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (109, 0, '德国', 'Germany', 'DE', 1, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (110, 109, '柏林州', 'Berlin', 'DE-BE', 2, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (111, 110, '柏林', 'Berlin', 'DE-BE-BLN', 3, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (112, 109, '巴伐利亚州', 'Bavaria', 'DE-BY', 2, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (113, 112, '慕尼黑', 'Munich', 'DE-BY-MUC', 3, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (114, 109, '汉堡州', 'Hamburg', 'DE-HH', 2, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (115, 114, '汉堡', 'Hamburg', 'DE-HH-HAM', 3, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (116, 109, '北莱茵-威斯特法伦州', 'North Rhine-Westphalia', 'DE-NW', 2, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (117, 116, '科隆', 'Cologne', 'DE-NW-COE', 3, 'DE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (118, 0, '法国', 'France', 'FR', 1, 'FR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (119, 118, '法兰西岛大区', 'Île-de-France', 'FR-IDF', 2, 'FR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (120, 119, '巴黎', 'Paris', 'FR-IDF-PAR', 3, 'FR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (121, 118, '普罗旺斯-阿尔卑斯-蓝色海岸', 'Provence-Alpes', 'FR-PAC', 2, 'FR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (122, 121, '尼斯', 'Nice', 'FR-PAC-NCE', 3, 'FR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (123, 121, '马赛', 'Marseille', 'FR-PAC-MRS', 3, 'FR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (124, 118, '奥弗涅-罗讷-阿尔卑斯大区', 'Auvergne-Rhône-Alpes', 'FR-AU', 2, 'FR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (125, 124, '里昂', 'Lyon', 'FR-AU-LYS', 3, 'FR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (126, 0, '日本', 'Japan', 'JP', 1, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (127, 126, '东京都', 'Tokyo', 'JP-TK', 2, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (128, 127, '东京', 'Tokyo', 'JP-TK-TYO', 3, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (129, 126, '大阪府', 'Osaka', 'JP-OS', 2, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (130, 129, '大阪', 'Osaka', 'JP-OS-OSA', 3, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (131, 126, '京都府', 'Kyoto', 'JP-KY', 2, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (132, 131, '京都', 'Kyoto', 'JP-KY-KYO', 3, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (133, 126, '北海道', 'Hokkaido', 'JP-HK', 2, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (134, 133, '札幌', 'Sapporo', 'JP-HK-SAP', 3, 'JP');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (135, 0, '韩国', 'South Korea', 'KR', 1, 'KR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (136, 135, '首尔特别市', 'Seoul', 'KR-SEO', 2, 'KR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (137, 136, '首尔', 'Seoul', 'KR-SEO-SEL', 3, 'KR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (138, 135, '釜山广域市', 'Busan', 'KR-BUS', 2, 'KR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (139, 138, '釜山', 'Busan', 'KR-BUS-BUS', 3, 'KR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (140, 135, '京畿道', 'Gyeonggi-do', 'KR-GYE', 2, 'KR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (141, 140, '水原', 'Suwon', 'KR-GYE-SUW', 3, 'KR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (142, 0, '澳大利亚', 'Australia', 'AU', 1, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (143, 142, '新南威尔士州', 'New South Wales', 'AU-NSW', 2, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (144, 143, '悉尼', 'Sydney', 'AU-NSW-SYD', 3, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (145, 142, '维多利亚州', 'Victoria', 'AU-VIC', 2, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (146, 145, '墨尔本', 'Melbourne', 'AU-VIC-MEL', 3, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (147, 142, '昆士兰州', 'Queensland', 'AU-Qld', 2, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (148, 147, '布里斯班', 'Brisbane', 'AU-Qld-BNE', 3, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (149, 142, '西澳大利亚州', 'Western Australia', 'AU-WA', 2, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (150, 149, '珀斯', 'Perth', 'AU-WA-PER', 3, 'AU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (151, 0, '加拿大', 'Canada', 'CA', 1, 'CA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (152, 151, '安大略省', 'Ontario', 'CA-ON', 2, 'CA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (153, 152, '多伦多', 'Toronto', 'CA-ON-TOR', 3, 'CA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (154, 152, '渥太华', 'Ottawa', 'CA-ON-OTT', 3, 'CA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (155, 151, '不列颠哥伦比亚省', 'British Columbia', 'CA-BC', 2, 'CA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (156, 155, '温哥华', 'Vancouver', 'CA-BC-VAN', 3, 'CA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (157, 151, '魁北克省', 'Quebec', 'CA-QC', 2, 'CA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (158, 157, '蒙特利尔', 'Montreal', 'CA-QC-MTL', 3, 'CA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (159, 0, '新加坡', 'Singapore', 'SG', 1, 'SG');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (160, 159, '新加坡', 'Singapore', 'SG-SG', 2, 'SG');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (161, 160, '新加坡市', 'Singapore', 'SG-SG-SIN', 3, 'SG');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (162, 0, '俄罗斯', 'Russia', 'RU', 1, 'RU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (163, 162, '莫斯科州', 'Moscow Oblast', 'RU-MOW', 2, 'RU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (164, 163, '莫斯科', 'Moscow', 'RU-MOW-MOW', 3, 'RU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (165, 162, '圣彼得堡市', 'Saint Petersburg', 'RU-SPB', 2, 'RU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (166, 165, '圣彼得堡', 'Saint Petersburg', 'RU-SPB-SPB', 3, 'RU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (167, 162, '喀山', 'Kazan', 'RU-KZN', 2, 'RU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (168, 167, '喀山', 'Kazan', 'RU-KZN-KZN', 3, 'RU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (169, 0, '巴西', 'Brazil', 'BR', 1, 'BR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (170, 169, '圣保罗州', 'São Paulo', 'BR-SP', 2, 'BR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (171, 170, '圣保罗', 'São Paulo', 'BR-SP-SPO', 3, 'BR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (172, 169, '里约热内卢州', 'Rio de Janeiro', 'BR-RJ', 2, 'BR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (173, 172, '里约热内卢', 'Rio de Janeiro', 'BR-RJ-RIO', 3, 'BR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (174, 0, '印度', 'India', 'IN', 1, 'IN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (175, 174, '马哈拉施特拉邦', 'Maharashtra', 'IN-MH', 2, 'IN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (176, 175, '孟买', 'Mumbai', 'IN-MH-MUM', 3, 'IN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (177, 174, '德里', 'Delhi', 'IN-DL', 2, 'IN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (178, 177, '新德里', 'New Delhi', 'IN-DL-NDL', 3, 'IN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (179, 174, '卡纳塔克邦', 'Karnataka', 'IN-KA', 2, 'IN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (180, 179, '班加罗尔', 'Bengaluru', 'IN-KA-BLR', 3, 'IN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (181, 0, '阿联酋', 'United Arab Emirates', 'AE', 1, 'AE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (182, 181, '迪拜', 'Dubai', 'AE-DU', 2, 'AE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (183, 182, '迪拜', 'Dubai', 'AE-DU-DXB', 3, 'AE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (184, 181, '阿布扎比', 'Abu Dhabi', 'AE-AJ', 2, 'AE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (185, 184, '阿布扎比', 'Abu Dhabi', 'AE-AJ-AUH', 3, 'AE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (186, 0, '泰国', 'Thailand', 'TH', 1, 'TH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (187, 186, '曼谷', 'Bangkok', 'TH-BKK', 2, 'TH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (188, 187, '曼谷', 'Bangkok', 'TH-BKK-BKK', 3, 'TH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (189, 186, '清迈府', 'Chiang Mai', 'TH-CHN', 2, 'TH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (190, 189, '清迈', 'Chiang Mai', 'TH-CHN-CNX', 3, 'TH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (191, 186, '普吉府', 'Phuket', 'TH-PHI', 2, 'TH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (192, 191, '普吉', 'Phuket', 'TH-PHI-HKT', 3, 'TH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (193, 0, '马来西亚', 'Malaysia', 'MY', 1, 'MY');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (194, 193, '吉隆坡', 'Kuala Lumpur', 'MY-KL', 2, 'MY');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (195, 194, '吉隆坡', 'Kuala Lumpur', 'MY-KL-KUL', 3, 'MY');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (196, 193, '雪兰莪州', 'Selangor', 'MY-PJ', 2, 'MY');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (197, 196, '八打灵再也', 'Petaling Jaya', 'MY-PJ-PET', 3, 'MY');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (198, 0, '越南', 'Vietnam', 'VN', 1, 'VN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (199, 198, '河内市', 'Hanoi', 'VN-HN', 2, 'VN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (200, 199, '河内', 'Hanoi', 'VN-HN-HAN', 3, 'VN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (201, 198, '胡志明市', 'Ho Chi Minh City', 'VN-HCM', 2, 'VN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (202, 201, '胡志明市', 'Ho Chi Minh City', 'VN-HCM-SGN', 3, 'VN');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (203, 0, '印度尼西亚', 'Indonesia', 'ID', 1, 'ID');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (204, 203, '雅加达首都特区', 'Jakarta', 'ID-JK', 2, 'ID');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (205, 204, '雅加达', 'Jakarta', 'ID-JK-JKT', 3, 'ID');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (206, 203, '巴厘省', 'Bali', 'ID-BT', 2, 'ID');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (207, 206, '登巴萨', 'Denpasar', 'ID-BT-DPS', 3, 'ID');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (208, 0, '新西兰', 'New Zealand', 'NZ', 1, 'NZ');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (209, 208, '奥克兰', 'Auckland', 'NZ-AUK', 2, 'NZ');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (210, 209, '奥克兰', 'Auckland', 'NZ-AUK-AUK', 3, 'NZ');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (211, 208, '惠灵顿', 'Wellington', 'NZ-WLG', 2, 'NZ');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (212, 211, '惠灵顿', 'Wellington', 'NZ-WLG-WLG', 3, 'NZ');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (213, 0, '南非', 'South Africa', 'ZA', 1, 'ZA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (214, 213, '豪登省', 'Gauteng', 'ZA-GP', 2, 'ZA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (215, 214, '约翰内斯堡', 'Johannesburg', 'ZA-GP-JHB', 3, 'ZA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (216, 213, '西开普省', 'Western Cape', 'ZA-WC', 2, 'ZA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (217, 216, '开普敦', 'Cape Town', 'ZA-WC-CPT', 3, 'ZA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (218, 0, '墨西哥', 'Mexico', 'MX', 1, 'MX');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (219, 218, '墨西哥城', 'Mexico City', 'MX-DF', 2, 'MX');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (220, 219, '墨西哥城', 'Mexico City', 'MX-DF-MEX', 3, 'MX');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (221, 218, '哈利斯科州', 'Jalisco', 'MX-JAL', 2, 'MX');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (222, 221, '瓜达拉哈拉', 'Guadalajara', 'MX-JAL-GDL', 3, 'MX');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (223, 0, '西班牙', 'Spain', 'ES', 1, 'ES');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (224, 223, '马德里自治区', 'Madrid', 'ES-MD', 2, 'ES');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (225, 224, '马德里', 'Madrid', 'ES-MD-MAD', 3, 'ES');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (226, 223, '加泰罗尼亚', 'Catalonia', 'ES-BA', 2, 'ES');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (227, 226, '巴塞罗那', 'Barcelona', 'ES-BA-BCN', 3, 'ES');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (228, 0, '意大利', 'Italy', 'IT', 1, 'IT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (229, 228, '拉齐奥大区', 'Lazio', 'IT-RM', 2, 'IT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (230, 229, '罗马', 'Rome', 'IT-RM-ROM', 3, 'IT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (231, 228, '伦巴第大区', 'Lombardy', 'IT-MI', 2, 'IT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (232, 231, '米兰', 'Milan', 'IT-MI-MIL', 3, 'IT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (233, 228, '威尼托大区', 'Veneto', 'IT-VE', 2, 'IT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (234, 233, '威尼斯', 'Venice', 'IT-VE-VCE', 3, 'IT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (235, 0, '荷兰', 'Netherlands', 'NL', 1, 'NL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (236, 235, '北荷兰省', 'North Holland', 'NL-NH', 2, 'NL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (237, 236, '阿姆斯特丹', 'Amsterdam', 'NL-NH-AMS', 3, 'NL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (238, 235, '南荷兰省', 'South Holland', 'NL-ZH', 2, 'NL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (239, 238, '鹿特丹', 'Rotterdam', 'NL-ZH-RTM', 3, 'NL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (240, 0, '比利时', 'Belgium', 'BE', 1, 'BE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (241, 240, '布鲁塞尔首都大区', 'Brussels', 'BE-BRU', 2, 'BE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (242, 241, '布鲁塞尔', 'Brussels', 'BE-BRU-BRU', 3, 'BE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (243, 240, '弗拉芒大区', 'Flanders', 'BE-FL', 2, 'BE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (244, 243, '安特卫普', 'Antwerp', 'BE-FL-ANT', 3, 'BE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (245, 0, '爱尔兰', 'Ireland', 'IE', 1, 'IE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (246, 245, '都柏林', 'Dublin', 'IE-DUB', 2, 'IE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (247, 246, '都柏林', 'Dublin', 'IE-DUB-DUB', 3, 'IE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (248, 0, '奥地利', 'Austria', 'AT', 1, 'AT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (249, 248, '维也纳州', 'Vienna', 'AT-W', 2, 'AT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (250, 249, '维也纳', 'Vienna', 'AT-W-VIE', 3, 'AT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (251, 248, '萨尔茨堡州', 'Salzburg', 'AT-S', 2, 'AT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (252, 251, '萨尔茨堡', 'Salzburg', 'AT-S-SZG', 3, 'AT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (253, 0, '瑞士', 'Switzerland', 'CH', 1, 'CH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (254, 253, '苏黎世州', 'Zurich', 'CH-ZH', 2, 'CH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (255, 254, '苏黎世', 'Zurich', 'CH-ZH-ZRH', 3, 'CH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (256, 253, '日内瓦州', 'Geneva', 'CH-GE', 2, 'CH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (257, 256, '日内瓦', 'Geneva', 'CH-GE-GVA', 3, 'CH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (258, 0, '挪威', 'Norway', 'NO', 1, 'NO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (259, 258, '奥斯陆郡', 'Oslo', 'NO-OS', 2, 'NO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (260, 259, '奥斯陆', 'Oslo', 'NO-OS-OSL', 3, 'NO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (261, 258, '卑尔根', 'Bergen', 'NO-BU', 2, 'NO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (262, 261, '卑尔根', 'Bergen', 'NO-BU-BGO', 3, 'NO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (263, 0, '瑞典', 'Sweden', 'SE', 1, 'SE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (264, 263, '斯德哥尔摩省', 'Stockholm', 'SE-ST', 2, 'SE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (265, 264, '斯德哥尔摩', 'Stockholm', 'SE-ST-STO', 3, 'SE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (266, 263, '哥德堡', 'Gothenburg', 'SE-GT', 2, 'SE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (267, 266, '哥德堡', 'Gothenburg', 'SE-GT-GOT', 3, 'SE');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (268, 0, '丹麦', 'Denmark', 'DK', 1, 'DK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (269, 268, '首都大区', 'Capital Region', 'DK-KBH', 2, 'DK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (270, 269, '哥本哈根', 'Copenhagen', 'DK-KBH-COP', 3, 'DK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (271, 0, '芬兰', 'Finland', 'FI', 1, 'FI');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (272, 271, '新地区', 'Uusimaa', 'FI-U', 2, 'FI');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (273, 272, '赫尔辛基', 'Helsinki', 'FI-U-HEL', 3, 'FI');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (274, 0, '波兰', 'Poland', 'PL', 1, 'PL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (275, 274, '马佐夫舍省', 'Masovian', 'PL-MZ', 2, 'PL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (276, 275, '华沙', 'Warsaw', 'PL-MZ-WAW', 3, 'PL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (277, 274, '西里西亚省', 'Silesian', 'PL-SL', 2, 'PL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (278, 277, '卡托维兹', 'Katowice', 'PL-SL-KTW', 3, 'PL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (279, 0, '匈牙利', 'Hungary', 'HU', 1, 'HU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (280, 279, '布达佩斯', 'Budapest', 'HU-BU', 2, 'HU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (281, 280, '布达佩斯', 'Budapest', 'HU-BU-BUD', 3, 'HU');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (282, 0, '捷克', 'Czech Republic', 'CZ', 1, 'CZ');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (283, 282, '布拉格', 'Prague', 'CZ-PR', 2, 'CZ');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (284, 283, '布拉格', 'Prague', 'CZ-PR-PRG', 3, 'CZ');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (285, 0, '斯洛伐克', 'Slovakia', 'SK', 1, 'SK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (286, 285, '布拉迪斯拉发州', 'Bratislava', 'SK-BR', 2, 'SK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (287, 286, '布拉迪斯拉发', 'Bratislava', 'SK-BR-BTS', 3, 'SK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (288, 0, '罗马尼亚', 'Romania', 'RO', 1, 'RO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (289, 288, '布加勒斯特', 'Bucharest', 'RO-BU', 2, 'RO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (290, 289, '布加勒斯特', 'Bucharest', 'RO-BU-BUC', 3, 'RO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (291, 0, '希腊', 'Greece', 'GR', 1, 'GR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (292, 291, '阿提卡大区', 'Attica', 'GR-AT', 2, 'GR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (293, 292, '雅典', 'Athens', 'GR-AT-ATH', 3, 'GR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (294, 291, '克里特大区', 'Crete', 'GR-CR', 2, 'GR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (295, 294, '伊拉克利翁', 'Heraklion', 'GR-CR-HER', 3, 'GR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (296, 0, '葡萄牙', 'Portugal', 'PT', 1, 'PT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (297, 296, '里斯本大区', 'Lisbon', 'PT-LS', 2, 'PT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (298, 297, '里斯本', 'Lisbon', 'PT-LS-LIS', 3, 'PT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (299, 296, '波尔图大区', 'Porto', 'PT-PO', 2, 'PT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (300, 299, '波尔图', 'Porto', 'PT-PO-OPO', 3, 'PT');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (301, 0, '智利', 'Chile', 'CL', 1, 'CL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (302, 301, '圣地亚哥首都大区', 'Santiago Metropolitan', 'CL-RM', 2, 'CL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (303, 302, '圣地亚哥', 'Santiago', 'CL-RM-SCL', 3, 'CL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (304, 0, '哥伦比亚', 'Colombia', 'CO', 1, 'CO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (305, 304, '波哥大', 'Bogotá', 'CO-BOG', 2, 'CO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (306, 305, '波哥大', 'Bogotá', 'CO-BOG-BOG', 3, 'CO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (307, 304, '麦德林', 'Medellín', 'CO-MDE', 2, 'CO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (308, 307, '麦德林', 'Medellín', 'CO-MDE-MDE', 3, 'CO');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (309, 0, '阿根廷', 'Argentina', 'AR', 1, 'AR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (310, 309, '布宜诺斯艾利斯省', 'Buenos Aires', 'AR-C', 2, 'AR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (311, 310, '布宜诺斯艾利斯', 'Buenos Aires', 'AR-C-BUE', 3, 'AR');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (312, 0, '埃及', 'Egypt', 'EG', 1, 'EG');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (313, 312, '开罗省', 'Cairo', 'EG-C', 2, 'EG');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (314, 313, '开罗', 'Cairo', 'EG-C-CAI', 3, 'EG');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (315, 312, '亚历山大省', 'Alexandria', 'EG-AL', 2, 'EG');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (316, 315, '亚历山大', 'Alexandria', 'EG-AL-ALY', 3, 'EG');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (317, 0, '沙特阿拉伯', 'Saudi Arabia', 'SA', 1, 'SA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (318, 317, '利雅得省', 'Riyadh', 'SA-RI', 2, 'SA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (319, 318, '利雅得', 'Riyadh', 'SA-RI-RUH', 3, 'SA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (320, 317, '麦加省', 'Mecca', 'SA-JD', 2, 'SA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (321, 320, '吉达', 'Jeddah', 'SA-JD-JED', 3, 'SA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (322, 0, '科威特', 'Kuwait', 'KW', 1, 'KW');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (323, 322, '科威特省', 'Kuwait', 'KW-KW', 2, 'KW');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (324, 323, '科威特城', 'Kuwait City', 'KW-KW-KWI', 3, 'KW');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (325, 0, '卡塔尔', 'Qatar', 'QA', 1, 'QA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (326, 325, '多哈', 'Doha', 'QA-DO', 2, 'QA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (327, 326, '多哈', 'Doha', 'QA-DO-DOH', 3, 'QA');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (328, 0, '巴林', 'Bahrain', 'BH', 1, 'BH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (329, 328, '麦纳麦', 'Manama', 'BH-MH', 2, 'BH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (330, 329, '麦纳麦', 'Manama', 'BH-MH-MNM', 3, 'BH');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (331, 0, '阿曼', 'Oman', 'OM', 1, 'OM');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (332, 331, '马斯喀特', 'Muscat', 'OM-MS', 2, 'OM');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (333, 332, '马斯喀特', 'Muscat', 'OM-MS-MCT', 3, 'OM');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (334, 0, '以色列', 'Israel', 'IL', 1, 'IL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (335, 334, '特拉维夫区', 'Tel Aviv', 'IL-TA', 2, 'IL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (336, 335, '特拉维夫', 'Tel Aviv', 'IL-TA-TLV', 3, 'IL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (337, 334, '耶路撒冷区', 'Jerusalem', 'IL-JM', 2, 'IL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (338, 337, '耶路撒冷', 'Jerusalem', 'IL-JM-JRS', 3, 'IL');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (339, 0, '巴基斯坦', 'Pakistan', 'PK', 1, 'PK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (340, 339, '信德省', 'Sindh', 'PK-SD', 2, 'PK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (341, 340, '卡拉奇', 'Karachi', 'PK-SD-KHI', 3, 'PK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (342, 339, '旁遮普省', 'Punjab', 'PK-PB', 2, 'PK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (343, 342, '拉合尔', 'Lahore', 'PK-PB-LHR', 3, 'PK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (344, 0, '孟加拉国', 'Bangladesh', 'BD', 1, 'BD');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (345, 344, '达卡专区', 'Dhaka Division', 'BD-DH', 2, 'BD');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (346, 345, '达卡', 'Dhaka', 'BD-DH-DAC', 3, 'BD');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (347, 0, '斯里兰卡', 'Sri Lanka', 'LK', 1, 'LK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (348, 347, '西部省', 'Western Province', 'LK-WP', 2, 'LK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (349, 348, '科伦坡', 'Colombo', 'LK-WP-CMB', 3, 'LK');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (350, 0, '马来西亚', 'Malaysia', 'MY2', 1, 'MY2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (351, 350, '砂拉越州', 'Sarawak', 'MY-KCH', 2, 'MY2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (352, 351, '古晋', 'Kuching', 'MY-KCH-KCH', 3, 'MY2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (353, 0, '新加坡', 'Singapore', 'SG2', 1, 'SG2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (354, 0, '中国台湾', 'Taiwan', 'TW2', 1, 'TW2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (355, 354, '台湾', 'Taiwan', 'TW-TW', 2, 'TW2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (356, 355, '台中市', 'Taichung', 'TW-TW-TAO', 3, 'TW2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (357, 0, '中国香港', 'Hong Kong', 'HK2', 1, 'HK2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (358, 357, '香港', 'Hong Kong', 'HK-HK', 2, 'HK2');
+
+INSERT INTO mxx_system_area (id, parent_id, name, name_en, code, level, country_code) VALUES (359, 358, '新界', 'New Territories', 'HK-HK-NT', 3, 'HK2');
+
+
+
+COMMIT;

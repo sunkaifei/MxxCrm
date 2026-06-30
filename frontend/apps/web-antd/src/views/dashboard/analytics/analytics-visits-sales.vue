@@ -5,37 +5,55 @@ import { onMounted, ref } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
+import { getCustomerTypeStatsApi } from '#/api';
+
 const chartRef = ref<EchartsUIType>();
 const { renderEcharts } = useEcharts(chartRef);
 
-onMounted(() => {
+onMounted(async () => {
+  const year = new Date().getFullYear();
+  let list: any[] = [];
+  try {
+    list = (await getCustomerTypeStatsApi({ year })) ?? [];
+  } catch {
+    // empty data
+  }
+
+  const xData = (Array.isArray(list) ? list : []).map(
+    (item: any) => item.customerType ?? '未知',
+  );
+  const countData = (Array.isArray(list) ? list : []).map((item: any) =>
+    Number(item.totalCount ?? 0),
+  );
+  const contractData = (Array.isArray(list) ? list : []).map((item: any) =>
+    Number(item.contractCount ?? 0),
+  );
+
   renderEcharts({
+    grid: { bottom: 0, containLabel: true, left: '3%', right: '4%', top: '10%' },
+    legend: { data: ['客户数', '成单数'], top: 0 },
     series: [
       {
-        animationDelay() {
-          return Math.random() * 400;
-        },
-        animationEasing: 'exponentialInOut',
-        animationType: 'scale',
-        center: ['50%', '50%'],
-        color: ['#5ab1ef', '#b6a2de', '#67e0e3', '#2ec7c9'],
-        data: [
-          { name: '外包', value: 500 },
-          { name: '定制', value: 310 },
-          { name: '技术支持', value: 274 },
-          { name: '远程', value: 400 },
-        ].toSorted((a, b) => {
-          return a.value - b.value;
-        }),
-        name: '商业占比',
-        radius: '80%',
-        roseType: 'radius',
-        type: 'pie',
+        barMaxWidth: 30,
+        data: countData,
+        name: '客户数',
+        type: 'bar',
+      },
+      {
+        barMaxWidth: 30,
+        data: contractData,
+        name: '成单数',
+        type: 'bar',
       },
     ],
-
-    tooltip: {
-      trigger: 'item',
+    tooltip: { trigger: 'axis' },
+    xAxis: {
+      data: xData.length > 0 ? xData : ['暂无数据'],
+      type: 'category',
+    },
+    yAxis: {
+      splitNumber: 4,
+      type: 'value',
     },
   });
 });

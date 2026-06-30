@@ -398,6 +398,40 @@ pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Res
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(user_info, "local")))
 }
 
+/// 更新当前登录用户头像请求体
+#[derive(serde::Deserialize)]
+pub struct UpdateAvatarRequest {
+    /// 头像访问地址（由附件上传接口返回，含缓存破坏版本号）
+    pub avatar: String,
+}
+
+/// # 更新当前登录用户头像
+///
+/// 供“个人中心-更换头像”使用：头像文件上传成功后，将返回的访问地址持久化到
+/// `mxx_system_admin.avatar`，使刷新后仍能读到最新头像。
+///
+/// - 无需权限注解（仅操作本人数据）
+/// - 用户id从 JWT 提取
+#[put("/admin/avatar")]
+pub async fn update_avatar(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateAvatarRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let admin_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = match admin_token.id {
+        Some(id) if id > 0 => id,
+        _ => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户未登录或token无效", "local"))),
+    };
+
+    let avatar = item.into_inner().avatar;
+    if avatar.trim().is_empty() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "头像地址不能为空", "local")));
+    }
+
+    match AdminModel::update_avatar(db, user_id, &avatar).await {
+        Ok(_) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(avatar, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("更新头像失败: {}", e), "local"))),
+    }
+}
+
 // 查询用户列表
 #[get("/admin/list")]
 #[protect("system:admin:list")]

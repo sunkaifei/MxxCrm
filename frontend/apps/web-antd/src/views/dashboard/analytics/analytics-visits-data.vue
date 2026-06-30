@@ -5,74 +5,49 @@ import { onMounted, ref } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
+import { getCustomerSourceStatsApi } from '#/api';
+
 const chartRef = ref<EchartsUIType>();
 const { renderEcharts } = useEcharts(chartRef);
 
-onMounted(() => {
+onMounted(async () => {
+  const year = new Date().getFullYear();
+  let list: any[] = [];
+  try {
+    list = (await getCustomerSourceStatsApi({ year })) ?? [];
+  } catch {
+    // empty data
+  }
+
+  const pieData = (Array.isArray(list) ? list : []).map((item: any) => ({
+    name: item.source ?? '未知',
+    value: Number(item.totalCount ?? 0),
+  }));
+
   renderEcharts({
-    legend: {
-      bottom: 0,
-      data: ['访问', '趋势'],
-    },
-    radar: {
-      indicator: [
-        {
-          name: '网页',
-        },
-        {
-          name: '移动端',
-        },
-        {
-          name: 'Ipad',
-        },
-        {
-          name: '客户端',
-        },
-        {
-          name: '第三方',
-        },
-        {
-          name: '其它',
-        },
-      ],
-      radius: '60%',
-      splitNumber: 8,
-    },
+    legend: { bottom: 0, orient: 'horizontal' },
     series: [
       {
-        areaStyle: {
-          opacity: 1,
-          shadowBlur: 0,
-          shadowColor: 'rgba(0,0,0,.2)',
-          shadowOffsetX: 0,
-          shadowOffsetY: 10,
+        avoidLabelOverlap: true,
+        data: pieData.length > 0 ? pieData : [{ name: '暂无数据', value: 1 }],
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)',
+          },
         },
-        data: [
-          {
-            itemStyle: {
-              color: '#b6a2de',
-            },
-            name: '访问',
-            value: [90, 50, 86, 40, 50, 20],
-          },
-          {
-            itemStyle: {
-              color: '#5ab1ef',
-            },
-            name: '趋势',
-            value: [70, 75, 70, 76, 20, 85],
-          },
-        ],
         itemStyle: {
-          // borderColor: '#fff',
-          borderRadius: 10,
+          borderRadius: 6,
+          borderColor: '#fff',
           borderWidth: 2,
         },
-        symbolSize: 0,
-        type: 'radar',
+        label: { formatter: '{b}: {c}', show: true },
+        radius: ['40%', '65%'],
+        type: 'pie',
       },
     ],
-    tooltip: {},
+    tooltip: { trigger: 'item' },
   });
 });
 </script>

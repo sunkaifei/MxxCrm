@@ -17,7 +17,7 @@ use crate::modules::website::controller::admin::{my_template_admin_controller, w
 use crate::modules::shop::controller::admin::shop_admin_controller;
 use crate::modules::shop::controller::admin::category_controller;
 use crate::modules::shop::controller::admin::audit_controller;
-use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller};
+use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller};
 use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
@@ -73,6 +73,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(system_admin_controller::update_my_password)
                 .service(system_admin_controller::update_admin_status)
                 .service(system_admin_controller::get_user_info)
+                .service(system_admin_controller::update_avatar)
                 .service(system_admin_controller::get_user_detail)
                 .service(system_admin_controller::admin_list)
                 .service(system_admin_controller::admin_options)
@@ -170,12 +171,16 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 // IP Address Management
                 .service(ip_admin_controller::ip_address_page)
                 // Attachment Management
-                .service(attachment_admin_controller::upload_attachment)
-                .service(attachment_admin_controller::delete_attachment)
-                .service(attachment_admin_controller::batch_move)
-                .service(attachment_admin_controller::update)
-                .service(attachment_admin_controller::get_detail)
-                .service(attachment_admin_controller::get_page_list)
+            .service(attachment_admin_controller::upload_attachment)
+            .service(attachment_admin_controller::delete_attachment)
+            .service(attachment_admin_controller::batch_move)
+            .service(attachment_admin_controller::update)
+            .service(attachment_admin_controller::get_detail)
+            .service(attachment_admin_controller::get_page_list)
+            .service(attachment_admin_controller::download_attachment)
+            .service(attachment_admin_controller::get_by_entity)
+            .service(attachment_admin_controller::bind_attachment)
+            .service(attachment_admin_controller::unbind_attachment)
                 .service(attachment_category_admin_controller::save_category)
                 .service(attachment_category_admin_controller::batch_delete_by_ids)
                 .service(attachment_category_admin_controller::update_category)
@@ -317,6 +322,29 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(finance_statistics_admin_controller::summary)
                 .service(finance_statistics_admin_controller::list)
                 .service(finance_statistics_admin_controller::generate_daily)
+                // Commission Rule Management
+                .service(commission_rule_controller::list)
+                .service(commission_rule_controller::detail)
+                .service(commission_rule_controller::save)
+                .service(commission_rule_controller::delete)
+                .service(commission_rule_controller::toggle)
+                // Salary Management
+                .service(salary_controller::list)
+                .service(salary_controller::detail)
+                .service(salary_controller::calculate)
+                .service(salary_controller::update)
+                .service(salary_controller::approve)
+                .service(salary_controller::batch_approve)
+                .service(salary_controller::pay)
+                .service(salary_controller::batch_pay)
+                .service(salary_controller::summary)
+                // Payment Management
+                .service(finance_payment_controller::list)
+                .service(finance_payment_controller::detail)
+                .service(finance_payment_controller::apply)
+                .service(finance_payment_controller::approve)
+                .service(finance_payment_controller::confirm)
+                .service(finance_payment_controller::cancel)
                 // CRM Customer Management
                 .service(crm_customer_controller::customer_insert)
                 .service(crm_customer_controller::customer_update)
@@ -403,6 +431,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 // Sale Order Management
                 .service(sale_order_controller::order_insert)
                 .service(sale_order_controller::order_update)
+                .service(sale_order_controller::order_update_status)
                 .service(sale_order_controller::batch_delete_order)
                 .service(sale_order_controller::order_info)
                 .service(sale_order_controller::order_list)
@@ -424,9 +453,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(quotation_controller::bath_delete_quotation)
                 .service(quotation_controller::quotation_info)
                 .service(quotation_controller::quotation_list)
-                .service(quotation_controller::quotation_send)
-                .service(quotation_controller::quotation_accept)
+                .service(quotation_controller::quotation_submit_approval)
+                .service(quotation_controller::quotation_approve)
                 .service(quotation_controller::quotation_reject)
+                .service(quotation_controller::quotation_convert_order)
                 // Sale Invoice Management
                 .service(invoice_controller::invoice_insert)
                 .service(invoice_controller::invoice_update)
@@ -450,6 +480,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(approval_controller::flow_detail)
                 .service(approval_controller::flow_list)
                 .service(approval_controller::toggle_flow)
+                .service(approval_controller::delete_flow)
                 // Approval Instance Management
                 .service(approval_controller::submit_approval)
                 .service(approval_controller::process_approval)

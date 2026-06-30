@@ -12,3 +12,6 @@ pub mod payment_admin_controller;
 pub mod member_fee_admin_controller;
 pub mod refund_admin_controller;
 pub mod statistics_admin_controller;
+pub mod commission_rule_controller;
+pub mod salary_controller;
+pub mod payment_controller;

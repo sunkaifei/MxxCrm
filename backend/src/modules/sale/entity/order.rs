@@ -9,8 +9,8 @@
 //!
 
 use sea_orm::entity::prelude::*;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_sale_order")]
@@ -19,35 +19,47 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub id: i64,
     pub order_no: Option<String>,
+    pub title: Option<String>,
+    pub order_type: Option<i32>,
+    #[sea_orm(column_name = "status")]
+    pub order_status: Option<i32>,
     pub customer_id: Option<i64>,
-    pub contract_id: Option<i64>,
+    pub customer_name: Option<String>,
+    pub contact_id: Option<i64>,
+    pub contact_name: Option<String>,
     pub opportunity_id: Option<i64>,
-    pub order_type: Option<String>,
-    pub status: Option<String>,
-    pub amount: Option<Decimal>,
-    pub currency: Option<CurrencyCode>,
-    pub tax_amount: Option<Decimal>,
-    pub total_amount: Option<Decimal>,
-    pub payment_status: Option<String>,
-    pub payment_method: Option<String>,
-    pub paid_amount: Option<Decimal>,
-    pub shipping_address: Option<String>,
-    pub shipping_method: Option<String>,
-    pub tracking_no: Option<String>,
-    /// 订单日期
+    pub quotation_id: Option<i64>,
+    pub contract_id: Option<i64>,
     pub order_date: Option<Date>,
-    /// 付款截止日期
+    pub delivery_date: Option<Date>,
+    pub currency: Option<i32>,
+    pub exchange_rate: Option<Decimal>,
+    pub product_amount: Option<Decimal>,
+    pub discount_amount: Option<Decimal>,
+    pub shipping_fee: Option<Decimal>,
+    pub tax_amount: Option<Decimal>,
+    pub other_fee: Option<Decimal>,
+    pub total_amount: Option<Decimal>,
+    pub paid_amount: Option<Decimal>,
+    pub unpaid_amount: Option<Decimal>,
+    #[sea_orm(column_name = "payment_status")]
+    pub pay_status: Option<i32>,
+    pub payment_method: Option<i32>,
     pub payment_due_date: Option<Date>,
-    /// 账单地址
+    pub shipping_method: Option<i32>,
+    pub tracking_no: Option<String>,
+    pub shipping_time: Option<DateTime>,
+    pub complete_time: Option<DateTime>,
+    pub receiver_name: Option<String>,
+    pub receiver_phone: Option<String>,
+    pub shipping_address: Option<String>,
     pub billing_address: Option<String>,
-    /// 备注
-    pub notes: Option<String>,
-    /// 指派给
-    pub assigned_to: Option<i64>,
     pub remark: Option<String>,
-    pub created_by: Option<i64>,
+    pub owner_user_id: Option<i64>,
+    pub dept_id: Option<i64>,
+    pub create_by: Option<i64>,
     pub create_time: Option<DateTime>,
-    pub updated_by: Option<i64>,
+    pub update_by: Option<i64>,
     pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }

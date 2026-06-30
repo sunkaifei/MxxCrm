@@ -9,6 +9,9 @@ import { ArrowLeft, Save } from 'lucide-vue-next';
 import { Button, Input, Select, Switch, message } from 'ant-design-vue';
 
 import { getApprovalFlowDetailApi, saveApprovalFlowApi } from '#/api';
+import { getAdminOptionsApi } from '#/api/core/system/user';
+import { getRoleOptionsApi } from '#/api/core/system/role';
+import { getPostOptionsApi } from '#/api/core/system/post';
 
 const route = useRoute();
 const router = useRouter();
@@ -33,6 +36,7 @@ const nodePalette = [
 
 const businessTypeOptions = [
   { value: 'contract', label: '合同' },
+  { value: 'quotation', label: '报价单' },
   { value: 'order', label: '订单' },
   { value: 'purchase', label: '采购' },
   { value: 'payment', label: '付款' },
@@ -45,7 +49,37 @@ const approverTypeOptions = [
   { value: 2, label: '指定角色' },
   { value: 3, label: '部门主管' },
   { value: 4, label: '发起人自己' },
+  { value: 5, label: '指定岗位(职位)' },
 ];
+
+const adminOptions = ref<{ label: string; value: number }[]>([]);
+const roleOptions = ref<{ label: string; value: number }[]>([]);
+const postOptions = ref<{ label: string; value: number }[]>([]);
+
+async function loadOptions() {
+  try {
+    const [adminsResp, rolesResp, postsResp] = await Promise.all([
+      getAdminOptionsApi(),
+      getRoleOptionsApi(),
+      getPostOptionsApi(),
+    ]);
+    const toOptions = (resp: any) => {
+      const list = resp?.data ?? resp ?? [];
+      return (Array.isArray(list) ? list : [])
+        .map((r: any) => ({
+          label: r.label ?? '',
+          value: r.value != null && r.value !== '' ? Number(r.value) : NaN,
+        }))
+        .filter((o: any) => o.label && !Number.isNaN(o.value));
+    };
+    adminOptions.value = toOptions(adminsResp);
+    roleOptions.value = toOptions(rolesResp);
+    postOptions.value = toOptions(postsResp);
+  } catch {
+    // options load failure is non-fatal
+  }
+}
+
 
 // ============ Custom node component ============
 const FlowNode = defineComponent({
@@ -166,12 +200,13 @@ function onDrop(event: DragEvent) {
     y: event.clientY,
   });
   const cfg = nodeStyleConfig[nodeType] ?? nodeStyleConfig[2];
+  const nid = genNodeId();
   const node = {
-    id: genNodeId(),
+    id: nid,
     type: 'custom',
     position,
     data: {
-      nodeKey: '',
+      nodeKey: nid,
       nodeType,
       nodeName: cfg.defaultLabel,
       approverType: null,
@@ -289,8 +324,8 @@ async function loadFlow(id: number) {
           nodeType: n.nodeType ?? n.node_type ?? 2,
           nodeName: n.nodeName ?? n.node_name ?? '',
           approverType: n.approverType ?? n.approver_type ?? null,
-          approverId: n.approverId ?? n.approver_id ?? null,
-          isFinal: n.isFinal ?? n.is_final ?? false,
+          approverId: n.approverId != null ? Number(n.approverId) : (n.approver_id != null ? Number(n.approver_id) : null),
+          isFinal: !!(n.isFinal ?? n.is_final ?? false),
         },
       };
     });
@@ -328,15 +363,16 @@ async function handleSave() {
       flowCode: flowCode.value,
       flowName: flowName.value,
       businessType: businessType.value,
-      nodes: sourceNodes.map((n: any) => ({
+      nodes: sourceNodes.map((n: any, idx: number) => ({
         nodeKey: n.data?.nodeKey || n.id,
         nodeType: n.data?.nodeType ?? 2,
         nodeName: n.data?.nodeName ?? '',
+        nodeOrder: idx + 1,
         approverType: n.data?.approverType ?? null,
-        approverId: n.data?.approverId ?? null,
-        isFinal: n.data?.isFinal ?? false,
-        positionX: n.position?.x ?? 0,
-        positionY: n.position?.y ?? 0,
+        approverId: n.data?.approverId != null ? Number(n.data.approverId) : null,
+        isFinal: n.data?.isFinal ? 1 : 0,
+        positionX: Math.round(n.position?.x ?? 0),
+        positionY: Math.round(n.position?.y ?? 0),
       })),
       edges: sourceEdges.map((e: any) => ({
         id: e.id,
@@ -361,6 +397,7 @@ function goBack() {
 }
 
 onMounted(() => {
+  void loadOptions();
   const id = route.query.id;
   if (id) {
     void loadFlow(Number(id));
@@ -449,8 +486,8 @@ onMounted(() => {
       <!-- Center: canvas -->
       <div class="flow-canvas" @drop="onDrop" @dragover="onDragOver">
         <VueFlow
-          :nodes="nodes"
-          :edges="edges"
+          v-model:nodes="nodes"
+          v-model:edges="edges"
           :node-types="nodeTypes"
           :default-edge-options="{ type: 'smoothstep' }"
           :fit-view-on-init="true"
@@ -504,14 +541,76 @@ onMounted(() => {
                   v-model:value="selectedNode.data.approverType"
                   :options="approverTypeOptions"
                   placeholder="选择类型"
+                  @change="() => { if (selectedNode?.data) selectedNode.data.approverId = null; }"
                 />
               </div>
-              <div class="props-field">
-                <label>审批人ID</label>
-                <Input
+              <div v-if="selectedNode.data.approverType === 1" class="props-field">
+                <label>选择审批人</label>
+                <Select
                   v-model:value="selectedNode.data.approverId"
-                  placeholder="审批人ID"
-                />
+                  show-search
+                  allow-clear
+                  option-filter-prop="label"
+                  option-label-prop="label"
+                  placeholder="搜索用户姓名"
+                >
+                  <Select.Option
+                    v-for="opt in adminOptions"
+                    :key="opt.value"
+                    :value="opt.value"
+                    :label="opt.label"
+                  >
+                    {{ opt.label }}
+                  </Select.Option>
+                </Select>
+              </div>
+              <div v-else-if="selectedNode.data.approverType === 2" class="props-field">
+                <label>选择角色</label>
+                <Select
+                  v-model:value="selectedNode.data.approverId"
+                  show-search
+                  allow-clear
+                  option-filter-prop="label"
+                  option-label-prop="label"
+                  placeholder="搜索角色名称"
+                >
+                  <Select.Option
+                    v-for="opt in roleOptions"
+                    :key="opt.value"
+                    :value="opt.value"
+                    :label="opt.label"
+                  >
+                    {{ opt.label }}
+                  </Select.Option>
+                </Select>
+              </div>
+              <div v-else-if="selectedNode.data.approverType === 5" class="props-field">
+                <label>选择岗位(职位)</label>
+                <Select
+                  v-model:value="selectedNode.data.approverId"
+                  show-search
+                  allow-clear
+                  option-filter-prop="label"
+                  option-label-prop="label"
+                  placeholder="搜索岗位名称"
+                >
+                  <Select.Option
+                    v-for="opt in postOptions"
+                    :key="opt.value"
+                    :value="opt.value"
+                    :label="opt.label"
+                  >
+                    {{ opt.label }}
+                  </Select.Option>
+                </Select>
+              </div>
+              <div v-else-if="selectedNode.data.approverType === 3" class="props-field hint">
+                <label>说明</label>
+                <span class="field-hint">将由提交人的直属部门主管审批</span>
+              </div>
+              <div v-else-if="selectedNode.data.approverType === 4" class="props-field hint">
+                <label>说明</label>
+                <span class="field-hint">由发起人自己确认（自动通过）</span>
               </div>
               <div class="props-field inline">
                 <label>是否终审</label>
@@ -584,7 +683,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #f5f5f5;
+  background: hsl(var(--background-deep, var(--muted) / 0.4));
+  color: hsl(var(--foreground));
 }
 
 .flow-topbar {
@@ -593,8 +693,9 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 16px;
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--card-foreground));
 }
 
 .topbar-left,
@@ -607,6 +708,7 @@ onMounted(() => {
 .topbar-title {
   font-size: 15px;
   font-weight: 600;
+  color: hsl(var(--foreground));
 }
 
 .flow-body {
@@ -618,13 +720,14 @@ onMounted(() => {
 .flow-palette {
   width: 180px;
   padding: 12px;
-  background: #fff;
-  border-right: 1px solid #e8e8e8;
+  background: hsl(var(--card));
+  border-right: 1px solid hsl(var(--border));
+  overflow-y: auto;
 }
 
 .palette-title {
   margin-bottom: 12px;
-  color: #333;
+  color: hsl(var(--foreground));
   font-weight: 600;
 }
 
@@ -635,16 +738,19 @@ onMounted(() => {
   margin-bottom: 8px;
   padding: 10px 12px;
   font-size: 13px;
-  background: #fafafa;
-  border: 1px dashed #d9d9d9;
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.4);
+  border: 1px dashed hsl(var(--border));
   border-radius: 6px;
   cursor: grab;
   user-select: none;
+  transition: all 0.15s;
 }
 
 .palette-item:hover {
-  background: #e6f7ff;
-  border-color: #1890ff;
+  background: hsl(var(--accent));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--accent-foreground));
 }
 
 .palette-dot {
@@ -656,7 +762,7 @@ onMounted(() => {
 
 .palette-hint {
   margin-top: 8px;
-  color: #999;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
 }
 
@@ -664,13 +770,14 @@ onMounted(() => {
   position: relative;
   flex: 1;
   min-width: 0;
+  background: hsl(var(--background));
 }
 
 .flow {
   width: 100%;
   height: 100%;
-  background-color: #fff;
-  background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
+  background-color: hsl(var(--background));
+  background-image: radial-gradient(hsl(var(--border)) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 
@@ -686,6 +793,15 @@ onMounted(() => {
 
 .flow-controls :deep(.ant-btn) {
   width: 36px;
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.flow-controls :deep(.ant-btn:hover) {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  border-color: hsl(var(--primary));
 }
 
 .flow-minimap {
@@ -695,14 +811,15 @@ onMounted(() => {
   z-index: 10;
   width: 160px;
   padding: 8px;
-  background: #fff;
-  border: 1px solid #e8e8e8;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
 }
 
 .minimap-title {
   margin-bottom: 6px;
-  color: #666;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
 }
 
@@ -711,7 +828,7 @@ onMounted(() => {
   width: 140px;
   height: 90px;
   overflow: hidden;
-  background: #fafafa;
+  background: hsl(var(--muted) / 0.4);
   border-radius: 4px;
 }
 
@@ -721,27 +838,39 @@ onMounted(() => {
 }
 
 .flow-props {
-  width: 300px;
+  width: 340px;
   padding: 12px;
   overflow-y: auto;
-  background: #fff;
-  border-left: 1px solid #e8e8e8;
+  background: hsl(var(--card));
+  border-left: 1px solid hsl(var(--border));
+  color: hsl(var(--card-foreground));
+}
+
+.flow-props :deep(.ant-select) {
+  width: 100%;
 }
 
 .props-title {
   margin-bottom: 12px;
-  color: #333;
+  color: hsl(var(--foreground));
   font-weight: 600;
 }
 
 .props-section {
   margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid hsl(var(--border) / 0.6);
+}
+
+.props-section:last-child {
+  border-bottom: none;
 }
 
 .props-section-title {
   margin-bottom: 8px;
   font-size: 13px;
   font-weight: 500;
+  color: hsl(var(--foreground));
 }
 
 .props-field {
@@ -757,12 +886,21 @@ onMounted(() => {
 .props-field label {
   display: block;
   margin-bottom: 4px;
-  color: #666;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
 }
 
 .props-field.inline label {
   margin-bottom: 0;
+}
+
+.props-field.hint .field-hint {
+  display: inline-block;
+  padding: 4px 8px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  background: hsl(var(--muted));
+  border-radius: 4px;
 }
 
 .props-actions {
@@ -771,8 +909,8 @@ onMounted(() => {
 
 .props-empty,
 .props-empty-hint {
-  padding: 20px 0;
-  color: #999;
+  padding: 40px 0;
+  color: hsl(var(--muted-foreground));
   font-size: 13px;
   text-align: center;
 }
@@ -780,14 +918,16 @@ onMounted(() => {
 .edge-cond {
   margin-bottom: 10px;
   padding: 8px;
-  background: #fafafa;
+  background: hsl(var(--muted) / 0.4);
   border-radius: 4px;
+  border: 1px solid hsl(var(--border) / 0.5);
 }
 
 .edge-cond-head {
   margin-bottom: 6px;
-  color: #666;
+  color: hsl(var(--foreground));
   font-size: 12px;
+  font-weight: 500;
 }
 
 .edge-cond :deep(.ant-input) {
@@ -796,6 +936,7 @@ onMounted(() => {
 </style>
 
 <style>
+/* ===== Flow nodes (global because they render via VueFlow renderer) ===== */
 .flow-node {
   display: flex;
   align-items: center;
@@ -850,7 +991,7 @@ onMounted(() => {
 
 .flow-node.selected {
   box-shadow:
-    0 0 0 3px #fff,
+    0 0 0 3px hsl(var(--background)),
     0 0 0 5px #1890ff;
 }
 
@@ -866,6 +1007,63 @@ onMounted(() => {
   width: 8px !important;
   height: 8px !important;
   background: #1890ff;
-  border: 1px solid #fff;
+  border: 1px solid hsl(var(--background));
+}
+
+/* ===== VueFlow dark mode overrides ===== */
+.dark .vue-flow {
+  background-color: hsl(var(--background));
+}
+
+.dark .vue-flow__edge-path {
+  stroke: hsl(var(--muted-foreground) / 0.6);
+}
+
+.dark .vue-flow__edge.selected .vue-flow__edge-path,
+.dark .vue-flow__edge:focus .vue-flow__edge-path,
+.dark .vue-flow__edge:focus-visible .vue-flow__edge-path {
+  stroke: #1890ff;
+}
+
+.dark .vue-flow__edge-textbg {
+  fill: hsl(var(--card));
+}
+
+.dark .vue-flow__edge-text {
+  fill: hsl(var(--foreground));
+}
+
+.dark .vue-flow__controls {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.dark .vue-flow__controls-button {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  fill: hsl(var(--foreground));
+}
+
+.dark .vue-flow__controls-button:hover {
+  background: hsl(var(--accent));
+  fill: hsl(var(--accent-foreground));
+}
+
+.dark .vue-flow__minimap {
+  background: hsl(var(--card));
+}
+
+.dark .vue-flow__selection {
+  background: hsl(var(--primary) / 0.1);
+  border: 1px dotted hsl(var(--primary));
+}
+
+.dark .vue-flow__attribution {
+  background: hsl(var(--card));
+  color: hsl(var(--muted-foreground));
+}
+
+.dark .vue-flow__attribution a {
+  color: hsl(var(--muted-foreground));
 }
 </style>

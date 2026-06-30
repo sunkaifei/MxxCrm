@@ -5,56 +5,52 @@ import { onMounted, ref } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
+import { getContractStatusAnalysisApi } from '#/api';
+
 const chartRef = ref<EchartsUIType>();
 const { renderEcharts } = useEcharts(chartRef);
 
-onMounted(() => {
+onMounted(async () => {
+  const year = new Date().getFullYear();
+  let list: any[] = [];
+  try {
+    list = (await getContractStatusAnalysisApi({ year })) ?? [];
+  } catch {
+    // empty data
+  }
+
+  const pieData = (Array.isArray(list) ? list : []).map((item: any) => ({
+    name: item.statusName ?? item.status ?? '未知',
+    value: Number(item.contractCount ?? 0),
+  }));
+
   renderEcharts({
-    legend: {
-      bottom: '2%',
-      left: 'center',
-    },
+    legend: { bottom: 0, orient: 'horizontal' },
     series: [
       {
-        animationDelay() {
-          return Math.random() * 100;
-        },
-        animationEasing: 'exponentialInOut',
-        animationType: 'scale',
-        avoidLabelOverlap: false,
-        color: ['#5ab1ef', '#b6a2de', '#67e0e3', '#2ec7c9'],
-        data: [
-          { name: '搜索引擎', value: 1048 },
-          { name: '直接访问', value: 735 },
-          { name: '邮件营销', value: 580 },
-          { name: '联盟广告', value: 484 },
-        ],
+        avoidLabelOverlap: true,
+        data: pieData.length > 0 ? pieData : [{ name: '暂无数据', value: 1 }],
         emphasis: {
-          label: {
-            fontSize: '12',
-            fontWeight: 'bold',
-            show: true,
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)',
           },
         },
         itemStyle: {
-          // borderColor: '#fff',
-          borderRadius: 10,
+          borderRadius: 6,
+          borderColor: '#fff',
           borderWidth: 2,
         },
-        label: {
-          position: 'center',
-          show: false,
-        },
-        labelLine: {
-          show: false,
-        },
-        name: '访问来源',
+        label: { formatter: '{b}: {c}', show: true },
         radius: ['40%', '65%'],
         type: 'pie',
       },
     ],
     tooltip: {
       trigger: 'item',
+      formatter: (params: any) =>
+        `${params.name}<br/>合同数: ${params.value}<br/>占比: ${params.percent}%`,
     },
   });
 });

@@ -13,7 +13,5 @@ export const updateInvoiceApi = async (param: any) => {
   return requestClient.put('/api/system/sale/invoice/update', param);
 };
 export const deleteInvoiceApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/sale/invoice/batch-delete', {
-    data: { ids },
-  });
+  return requestClient.post('/api/system/sale/invoice/batch-delete', { ids });
 };

@@ -13,16 +13,17 @@ export const updateQuotationApi = async (param: any) => {
   return requestClient.put('/api/system/sale/quotation/update', param);
 };
 export const deleteQuotationApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/sale/quotation/batch-delete', {
-    data: { ids },
-  });
+  return requestClient.post('/api/system/sale/quotation/batch-delete', { ids });
 };
-export const sendQuotationApi = async (id: number) => {
-  return requestClient.post(`/api/system/sale/quotation/${id}/send`);
+export const submitQuotationApprovalApi = async (id: number, remark?: string) => {
+  return requestClient.post(`/api/system/sale/quotation/${id}/submit-approval`, { remark });
 };
-export const acceptQuotationApi = async (id: number) => {
-  return requestClient.post(`/api/system/sale/quotation/${id}/accept`);
+export const approveQuotationApi = async (id: number, remark?: string) => {
+  return requestClient.post(`/api/system/sale/quotation/${id}/approve`, { remark });
 };
-export const rejectQuotationApi = async (id: number) => {
-  return requestClient.post(`/api/system/sale/quotation/${id}/reject`);
+export const rejectQuotationApi = async (id: number, remark?: string) => {
+  return requestClient.post(`/api/system/sale/quotation/${id}/reject`, { remark });
+};
+export const convertToOrderApi = async (id: number) => {
+  return requestClient.post(`/api/system/sale/quotation/${id}/convert-order`);
 };

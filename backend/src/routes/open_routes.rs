@@ -75,7 +75,10 @@ async fn serve_static(filepath: web::Path<String>) -> Result<HttpResponse> {
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(index)
         .service(serve_static)
-        .service(Files::new("/upload/", "storage/upload/").show_files_listing())
+        // 仅暴露公开文件目录（产品图片、用户头像），关闭目录列表
+        // 私有文件（合同/发票/报价单/回款凭证/通用附件）通过 /api/system/attachment/download/{id} 接口鉴权访问
+        .service(Files::new("/upload/product/", "storage/upload/product/"))
+        .service(Files::new("/upload/avatar/", "storage/upload/avatar/"))
          //首页
         //.service(service_open_controller::get_service_index)
         //.service(service_open_controller::get_service_detail)

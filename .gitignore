@@ -1,7 +1,11 @@
 /docs/
 /.trae/
 /backend/config/production_config.ini
-/scripts/
+/backend/scripts/
+/backend/sql/
+/backend/logs/
 /**/*.py
+/*.txt
+/lefthook.yml
 
 

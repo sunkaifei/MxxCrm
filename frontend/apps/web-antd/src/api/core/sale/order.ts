@@ -13,7 +13,8 @@ export const updateOrderApi = async (param: any) => {
   return requestClient.put('/api/system/sale/order/update', param);
 };
 export const deleteOrderApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/sale/order/batchDelete', {
-    data: { ids },
-  });
+  return requestClient.post('/api/system/sale/order/batch-delete', { ids });
+};
+export const updateOrderStatusApi = async (param: { id: number | string; orderStatus: number; trackingNo?: string }) => {
+  return requestClient.put('/api/system/sale/order/updateStatus', param);
 };

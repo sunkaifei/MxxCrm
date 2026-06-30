@@ -99,6 +99,22 @@ pub async fn toggle_flow(
     }
 }
 
+#[post("/approval/flow/delete/{id}")]
+pub async fn delete_flow(
+    state: web::Data<AppState>,
+    id: web::Path<i64>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    match ApprovalService::delete_flow(db, id.into_inner()).await {
+        Ok(_) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::success(true, "local"))),
+        Err(e) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
+    }
+}
+
 #[post("/approval/submit")]
 pub async fn submit_approval(
     state: web::Data<AppState>,

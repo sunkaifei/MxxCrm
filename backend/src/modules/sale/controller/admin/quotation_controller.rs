@@ -2,13 +2,19 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
-
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::quotation::{QuotationListQuery, QuotationSaveRequest, QuotationUpdateRequest};
 use crate::modules::sale::service::quotation_service;
+use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
+use actix_web_grants::protect;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuotationApprovalRequest {
+    pub remark: Option<String>,
+}
 
 #[post("/sale/quotation/save")]
 #[protect("sale:quotation:save")]
@@ -16,12 +22,13 @@ pub async fn quotation_insert(state: web::Data<AppState>, req: HttpRequest, form
     let db = &state.db;
     let form_data = form_data.0;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = quotation_service::insert(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let user_id = jwt_token.id.unwrap_or_default().to_string();
+    let result = quotation_service::insert(db, &form_data, user_id).await;
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
 #[put("/sale/quotation/update")]
-#[protect("sale:quotation:update")]
+#[protect("sale:quotation:edit")]
 pub async fn quotation_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<QuotationUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -29,7 +36,8 @@ pub async fn quotation_update(state: web::Data<AppState>, req: HttpRequest, form
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "报价单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = quotation_service::update(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let user_id = jwt_token.id.unwrap_or_default().to_string();
+    let result = quotation_service::update(db, &form_data, user_id).await;
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -78,26 +86,77 @@ pub async fn quotation_list(state: web::Data<AppState>, query: web::Query<Quotat
     }
 }
 
-#[post("/sale/quotation/{id}/send")]
+#[post("/sale/quotation/{id}/submit-approval")]
 #[protect("sale:quotation:update")]
-pub async fn quotation_send(state: web::Data<AppState>, path: web::Path<InfoId>) -> Result<HttpResponse> {
+pub async fn quotation_submit_approval(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<InfoId>,
+    form_data: web::Json<QuotationApprovalRequest>,
+) -> HttpResponse {
     let db = &state.db;
-    let result = quotation_service::update_status(db, path.id.unwrap_or_default(), "sent").await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    let id = path.id.unwrap_or_default();
+    if id == 0 {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "报价单ID不能为空", "local"));
+    }
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let operator_id = jwt_token.id.unwrap_or_default();
+    let operator_name = jwt_token.username.unwrap_or_default();
+    match quotation_service::submit_approval(db, id, operator_id, &operator_name, form_data.remark.clone()).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
 }
 
-#[post("/sale/quotation/{id}/accept")]
-#[protect("sale:quotation:update")]
-pub async fn quotation_accept(state: web::Data<AppState>, path: web::Path<InfoId>) -> Result<HttpResponse> {
+#[post("/sale/quotation/{id}/approve")]
+#[protect("sale:quotation:approve")]
+pub async fn quotation_approve(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<InfoId>,
+    form_data: web::Json<QuotationApprovalRequest>,
+) -> HttpResponse {
     let db = &state.db;
-    let result = quotation_service::update_status(db, path.id.unwrap_or_default(), "accepted").await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    let id = path.id.unwrap_or_default();
+    if id == 0 {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "报价单ID不能为空", "local"));
+    }
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let operator_id = jwt_token.id.unwrap_or_default();
+    let operator_name = jwt_token.username.unwrap_or_default();
+    match quotation_service::approve(db, id, operator_id, &operator_name, form_data.remark.clone()).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
 }
 
 #[post("/sale/quotation/{id}/reject")]
-#[protect("sale:quotation:update")]
-pub async fn quotation_reject(state: web::Data<AppState>, path: web::Path<InfoId>) -> Result<HttpResponse> {
+#[protect("sale:quotation:approve")]
+pub async fn quotation_reject(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<InfoId>,
+    form_data: web::Json<QuotationApprovalRequest>,
+) -> HttpResponse {
     let db = &state.db;
-    let result = quotation_service::update_status(db, path.id.unwrap_or_default(), "rejected").await;
+    let id = path.id.unwrap_or_default();
+    if id == 0 {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "报价单ID不能为空", "local"));
+    }
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let operator_id = jwt_token.id.unwrap_or_default();
+    let operator_name = jwt_token.username.unwrap_or_default();
+    match quotation_service::reject(db, id, operator_id, &operator_name, form_data.remark.clone()).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+#[post("/sale/quotation/{id}/convert-order")]
+#[protect("sale:quotation:update")]
+pub async fn quotation_convert_order(state: web::Data<AppState>, req: HttpRequest, path: web::Path<InfoId>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let result = quotation_service::convert_to_order(db, path.id.unwrap_or_default(), jwt_token.id.unwrap_or_default().to_string()).await;
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }

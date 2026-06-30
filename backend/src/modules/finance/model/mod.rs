@@ -15,6 +15,9 @@ pub mod refund_record;
 pub mod finance_statistics;
 pub mod wechat_pay;
 pub mod member_order;
+pub mod commission;
+pub mod salary;
+pub mod payment;
 
 pub use payment_record::*;
 pub use member_fee::*;

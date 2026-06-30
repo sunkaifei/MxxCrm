@@ -30,7 +30,8 @@
     "remark": "备注",
     "description": "描述",
     "password": "密码",
-    "auth": "权限分配"
+    "auth": "权限分配",
+    "total": "共 {total} 条记录"
   },
   "switch": {
     "on": "开",

@@ -14,6 +14,9 @@ export const saveApprovalFlowApi = async (data: any) =>
 export const toggleApprovalFlowApi = async (id: number) =>
   requestClient.post(`/api/system/approval/flow/toggle/${id}`);
 
+export const deleteApprovalFlowApi = async (id: number) =>
+  requestClient.post(`/api/system/approval/flow/delete/${id}`);
+
 // ============ Approval Instance ============
 
 export const submitApprovalApi = async (data: any) =>

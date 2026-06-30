@@ -20,6 +20,14 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.attachment.file.title'),
         },
       },
+      {
+        name: 'AttachmentCategory',
+        path: '/attachment/category',
+        component: () => import('#/views/attachment/category/index.vue'),
+        meta: {
+          title: $t('page.attachment.category.title'),
+        },
+      },
     ],
   },
 ];

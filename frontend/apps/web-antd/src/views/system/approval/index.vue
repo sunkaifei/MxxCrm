@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -9,12 +9,16 @@ import { Page } from '@vben/common-ui';
 import { LucideFilePenLine } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Tag, message } from 'ant-design-vue';
-import { Power, RefreshCw } from 'lucide-vue-next';
+import { Button, Modal, Tag, message } from 'ant-design-vue';
+import { Power, RefreshCw, Trash2 } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getApprovalFlowListApi, toggleApprovalFlowApi } from '#/api';
+import {
+  deleteApprovalFlowApi,
+  getApprovalFlowListApi,
+  toggleApprovalFlowApi,
+} from '#/api';
 import { $t } from '#/locales';
 
 const route = useRoute();
@@ -22,6 +26,7 @@ const router = useRouter();
 
 const businessTypeMap: Record<string, { label: string; color: string }> = {
   contract: { label: '合同', color: 'blue' },
+  quotation: { label: '报价单', color: 'green' },
   order: { label: '订单', color: 'cyan' },
   purchase: { label: '采购', color: 'purple' },
   payment: { label: '付款', color: 'gold' },
@@ -130,7 +135,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 180,
+      width: 160,
     },
   ],
 };
@@ -156,6 +161,25 @@ async function handleToggle(row: any) {
   } finally {
     row.pending = false;
   }
+}
+
+async function handleDelete(row: any) {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除审批流「${row.flowName}」吗？`,
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await deleteApprovalFlowApi(row.id);
+        message.success('删除成功');
+        gridApi.query();
+      } catch (e: any) {
+        message.error(e?.message || '删除失败');
+      }
+    },
+  });
 }
 </script>
 
@@ -190,19 +214,24 @@ async function handleToggle(row: any) {
       <template #action="{ row }">
         <Button
           type="link"
-          :icon="h(LucideFilePenLine)"
+          :icon="h(LucideFilePenLine, { size: 14 })"
+          title="设计"
           @click="goDesigner(row.id)"
-        >
-          设计
-        </Button>
+        />
         <Button
           type="link"
-          :icon="h(Power)"
+          :icon="h(Power, { size: 14 })"
           :loading="row.pending"
+          :title="row.enabled ? '禁用' : '启用'"
           @click="handleToggle(row)"
-        >
-          {{ row.enabled ? '禁用' : '启用' }}
-        </Button>
+        />
+        <Button
+          type="link"
+          danger
+          :icon="h(Trash2, { size: 14 })"
+          title="删除"
+          @click="handleDelete(row)"
+        />
       </template>
     </Grid>
   </Page>

@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -16,6 +16,7 @@ import { deleteOpportunityApi, getOpportunityListApi } from '#/api';
 import { $t } from '#/locales';
 import OpportunityDrawer from './drawer.vue';
 import OpportunityDetail from './detail.vue';
+import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
 
@@ -208,6 +209,7 @@ async function handleBatchDelete() {
 
 <template>
   <Page auto-content-height>
+    <SalesProcessGuide current-step="opportunity" />
     <Grid :table-title="$t('page.crm.opportunity.title')">
       <template #toolbar-tools>
         <Button v-if="accessStore.hasAccessCode('crm:opportunity:create')" type="primary" class="mr-2" @click="handleCreate">

@@ -1,7 +1,9 @@
 export * from './attachment/file';
+export * from './attachment/category';
 export * from './auth';
 export * from './crm/contact';
 export * from './crm/contract';
+export * from './finance';
 export * from './crm/customer';
 export * from './crm/followup';
 export * from './crm/lead';
@@ -23,6 +25,7 @@ export * from './sale/order-item';
 export * from './sale/payment';
 export * from './sale/quotation';
 export * from './shop';
+export * from './statistics';
 export * from './system/api';
 export * from './system/approval';
 export * from './system/config';

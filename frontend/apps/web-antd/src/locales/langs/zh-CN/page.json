@@ -238,7 +238,8 @@
         "edit": "编辑线索",
         "delete": "删除线索",
         "convert": "转为客户",
-        "assign": "分配线索"
+        "assign": "分配线索",
+        "info": "查看详情"
       }
     },
     "customer": {
@@ -273,7 +274,13 @@
       "title": "线索池"
     },
     "followup": {
-      "title": "跟进记录"
+      "title": "跟进记录",
+      "button": {
+        "save": "立即保存",
+        "update": "编辑跟进",
+        "delete": "删除跟进",
+        "info": "查看跟进"
+      }
     }
   },
   "sale": {
@@ -304,9 +311,9 @@
       "title": "订单明细"
     },
     "payment": {
-      "title": "回款记录",
+      "title": "回款管理",
       "button": {
-        "create": "新增回款",
+        "create": "登记回款",
         "edit": "编辑回款",
         "delete": "删除回款"
       }
@@ -381,13 +388,131 @@
       "title": "采购明细"
     }
   },
+  "finance": {
+    "title": "财务",
+    "commissionRule": {
+      "title": "提成规则",
+      "button": {
+        "create": "新增规则",
+        "edit": "编辑规则",
+        "delete": "删除规则",
+        "toggle": "启用禁用"
+      }
+    },
+    "salary": {
+      "title": "工资核算",
+      "detail": "工资详情",
+      "button": {
+        "calculate": "执行核算",
+        "adjust": "手动调整",
+        "approve": "工资审核",
+        "pay": "工资发放"
+      }
+    },
+    "payment": {
+      "title": "采购付款",
+      "button": {
+        "apply": "申请付款",
+        "approve": "付款审批",
+        "confirm": "确认付款",
+        "cancel": "取消付款"
+      }
+    }
+  },
   "attachment": {
     "title": "附件",
     "file": {
       "title": "文件管理",
       "button": {
         "upload": "上传文件",
-        "delete": "删除文件"
+        "delete": "删除文件",
+        "close": "关闭"
+      },
+      "search": {
+        "placeholder": "搜索文件名称",
+        "category": "文件分类",
+        "entityType": "业务类型",
+        "allEntityTypes": "全部业务类型"
+      },
+      "tab": {
+        "all": "全部文件",
+        "image": "图片管理",
+        "file": "文件管理"
+      },
+      "view": {
+        "grid": "网格视图",
+        "list": "列表视图"
+      },
+      "action": {
+        "preview": "预览",
+        "copyUrl": "复制链接",
+        "download": "下载",
+        "delete": "删除"
+      },
+      "message": {
+        "copySuccess": "链接已复制到剪贴板",
+        "deleteConfirm": "确定删除 {name}？",
+        "empty": "暂无文件",
+        "previewFail": "预览失败",
+        "downloadFail": "下载失败"
+      },
+      "column": {
+        "name": "文件名",
+        "type": "类型",
+        "size": "大小",
+        "createTime": "创建时间",
+        "action": "操作",
+        "entityType": "业务来源",
+        "isPublic": "是否公开",
+        "uploadedBy": "上传人"
+      },
+      "uploadModal": {
+        "title": "上传文件"
+      },
+      "entityTypes": {
+        "product": "产品图片",
+        "avatar": "用户头像",
+        "contract": "合同附件",
+        "invoice": "发票文件",
+        "quotation": "报价单附件",
+        "payment": "回款凭证",
+        "common": "通用附件"
+      },
+      "public": "公开",
+      "private": "私有",
+      "filter": {
+        "all": "全部类型",
+        "image": "图片",
+        "doc": "文档",
+        "video": "视频",
+        "other": "其他",
+        "type": "文件类型"
+      }
+    },
+    "category": {
+      "title": "分类管理",
+      "description": "管理文件分类，支持多级分类",
+      "button": {
+        "add": "新增分类",
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      },
+      "form": {
+        "name": "分类名称",
+        "nameRequired": "请输入分类名称",
+        "namePlaceholder": "请输入分类名称"
+      },
+      "modal": {
+        "add": "新增分类",
+        "edit": "编辑分类"
+      },
+      "message": {
+        "loadFail": "加载分类失败",
+        "deleteFail": "删除失败",
+        "submitFail": "提交失败",
+        "deleteConfirm": "确定删除该分类及其所有子分类吗？",
+        "empty": "暂无分类"
       }
     }
   },
@@ -510,6 +635,25 @@
         "create": "新增仓库",
         "edit": "编辑仓库",
         "delete": "删除仓库"
+      }
+    },
+    "shop": {
+      "category": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      },
+      "goods": {
+        "create": "新增商品",
+        "edit": "编辑商品",
+        "delete": "删除商品"
+      }
+    },
+    "attachment": {
+      "category": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
       }
     }
   }

@@ -1,11 +1,11 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideEye, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -15,40 +15,60 @@ import { Button, Popconfirm, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteInvoiceApi, getInvoiceListApi } from '#/api';
 import { $t } from '#/locales';
+import InvoiceDrawer from './drawer.vue';
+import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
 
 const typeOptions = [
-  { label: 'PI (形式发票)', value: 'PI' },
-  { label: 'CI (商业发票)', value: 'CI' },
-  { label: 'VAT (增值税发票)', value: 'VAT' },
+  { label: '增值税专用发票', value: 1 },
+  { label: '增值税普通发票', value: 2 },
+  { label: '形式发票(PI)', value: 3 },
+  { label: '商业发票(CI)', value: 4 },
 ];
 
 const statusOptions = [
-  { label: '草稿', value: 'draft' },
-  { label: '已开票', value: 'issued' },
-  { label: '已付款', value: 'paid' },
-  { label: '已取消', value: 'cancelled' },
+  { label: '草稿', value: 1 },
+  { label: '已开票', value: 2 },
+  { label: '已作废', value: 3 },
+  { label: '已红冲', value: 4 },
 ];
 
-const statusColorMap: Record<string, string> = {
-  draft: 'default',
-  issued: 'blue',
-  paid: 'green',
-  cancelled: 'red',
+const statusColorMap: Record<number, string> = {
+  1: 'default',
+  2: 'green',
+  3: 'red',
+  4: 'orange',
 };
 
-const statusLabelMap: Record<string, string> = {
-  draft: '草稿',
-  issued: '已开票',
-  paid: '已付款',
-  cancelled: '已取消',
+const statusLabelMap: Record<number, string> = {
+  1: '草稿',
+  2: '已开票',
+  3: '已作废',
+  4: '已红冲',
 };
 
-const typeLabelMap: Record<string, string> = {
-  PI: 'PI (形式发票)',
-  CI: 'CI (商业发票)',
-  VAT: 'VAT (增值税发票)',
+const typeColorMap: Record<number, string> = {
+  1: 'blue',
+  2: 'cyan',
+  3: 'orange',
+  4: 'purple',
+};
+
+const typeLabelMap: Record<number, string> = {
+  1: '增值税专用发票',
+  2: '增值税普通发票',
+  3: '形式发票(PI)',
+  4: '商业发票(CI)',
+};
+
+const currencySymbolMap: Record<number, string> = {
+  1: '¥',
+  2: '$',
+  3: '€',
+  4: '£',
+  5: '¥',
+  6: 'HK$',
 };
 
 const formOptions: VbenFormProps = {
@@ -59,8 +79,8 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'keywords',
-      label: '发票号',
-      componentProps: { placeholder: '请输入发票号', allowClear: true },
+      label: '关键词',
+      componentProps: { placeholder: '发票号/客户/标题', allowClear: true },
     },
     {
       component: 'Select',
@@ -97,20 +117,42 @@ const gridOptions: VxeGridProps = {
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: '发票号', field: 'invoiceNo', width: 160 },
-    { title: '类型', field: 'invoiceType', width: 100, slots: { default: 'invoiceType' } },
-    { title: '订单ID', field: 'orderId', width: 90 },
-    { title: '客户ID', field: 'customerId', width: 90 },
+    { title: '发票标题', field: 'title', minWidth: 150 },
+    { title: '类型', field: 'invoiceType', width: 140, slots: { default: 'invoiceType' } },
+    { title: '客户名称', field: 'customerName', minWidth: 120 },
     { title: '金额', field: 'amount', width: 130, slots: { default: 'amount' } },
-    { title: '币种', field: 'currency', width: 60 },
-    { title: '状态', field: 'status', width: 80, slots: { default: 'status' } },
-    { title: '开票日期', field: 'issuedAt', width: 110 },
+    { title: '状态', field: 'status', width: 90, slots: { default: 'status' } },
+    { title: '开票日期', field: 'invoiceDate', width: 110 },
     { title: '到期日', field: 'dueDate', width: 110 },
-    { title: '创建时间', field: 'createdAt', width: 160, slots: { default: 'createdAt' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 120 },
+    { title: '创建时间', field: 'createTime', width: 160, slots: { default: 'createTime' } },
+    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 150 },
   ],
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+
+const [FormDrawer, drawerApi] = useVbenDrawer({
+  connectedComponent: InvoiceDrawer,
+  onClosed() {
+    const data = drawerApi.getData();
+    if (data?.needRefresh) gridApi.query();
+  },
+});
+
+function openDrawer(create: boolean, row?: any) {
+  drawerApi.setData({ create, row });
+  drawerApi.open();
+}
+
+function handleCreate() {
+  openDrawer(true);
+}
+function handleEdit(row: any) {
+  openDrawer(false, row);
+}
+function handleView(row: any) {
+  openDrawer(false, row);
+}
 
 async function handleDelete(row: any) {
   row.pending = true;
@@ -138,12 +180,14 @@ async function handleBatchDelete() {
 
 <template>
   <Page auto-content-height>
+    <SalesProcessGuide current-step="invoice" />
     <Grid :table-title="$t('page.sale.invoice.title')">
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('sale:invoice:create')"
           type="primary"
           class="mr-2"
+          @click="handleCreate"
         >
           新建发票
         </Button>
@@ -157,11 +201,13 @@ async function handleBatchDelete() {
       </template>
 
       <template #invoiceType="{ row }">
-        <Tag>{{ typeLabelMap[row.invoiceType] || row.invoiceType }}</Tag>
+        <Tag :color="typeColorMap[row.invoiceType]">
+          {{ typeLabelMap[row.invoiceType] || row.invoiceType }}
+        </Tag>
       </template>
 
       <template #amount="{ row }">
-        {{ row.currency }} {{ row.amount?.toLocaleString?.() ?? row.amount }}
+        {{ currencySymbolMap[row.currency] || '¥' }} {{ row.amount?.toLocaleString?.() ?? row.amount }}
       </template>
 
       <template #status="{ row }">
@@ -170,16 +216,17 @@ async function handleBatchDelete() {
         </Tag>
       </template>
 
-      <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+      <template #createTime="{ row }">
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #action="{ row }">
-        <Button type="link" :icon="h(LucideEye)" />
+        <Button type="link" :icon="h(LucideEye)" @click="handleView(row)" />
         <Button
           v-if="accessStore.hasAccessCode('sale:invoice:edit')"
           type="link"
           :icon="h(LucideFilePenLine)"
+          @click="handleEdit(row)"
         />
         <Popconfirm
           :title="$t('ui.text.do_you_want_delete', { moduleName: '发票' })"
@@ -196,5 +243,6 @@ async function handleBatchDelete() {
         </Popconfirm>
       </template>
     </Grid>
+    <FormDrawer />
   </Page>
 </template>
