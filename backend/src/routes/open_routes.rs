@@ -14,9 +14,6 @@ use crate::modules::finance::controller::open::wechat_notify_controller;
 use crate::modules::system::controller::open::{captcha_controller, service_open_controller};
 use actix_files::Files;
 use actix_web::{get, web, HttpResponse};
-use std::fs;
-use std::io::Read;
-use std::path::Path;
 
 /// 首页
 #[get("/")]
@@ -58,23 +55,10 @@ async fn index() -> Result<HttpResponse> {
         "#))
 }
 
-/// 静态文件服务
-#[get("/static/{filepath:.*}")]
-async fn serve_static(filepath: web::Path<String>) -> Result<HttpResponse> {
-    let path = Path::new("./static").join(filepath.into_inner());
-    if path.is_file() {
-        let mut file = fs::File::open(path)?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf)?;
-        Ok(HttpResponse::Ok().content_type("text/css").body(buf))
-    } else {
-        Ok(HttpResponse::NotFound().body("Custom 404 Not Found"))
-    }
-}
-
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(index)
-        .service(serve_static)
+        // 静态文件服务：使用 actix_files 内置路径穿越防护（canonicalize + 边界检查）
+        .service(Files::new("/static", "./static"))
         // 仅暴露公开文件目录（产品图片、用户头像），关闭目录列表
         // 私有文件（合同/发票/报价单/回款凭证/通用附件）通过 /api/system/attachment/download/{id} 接口鉴权访问
         .service(Files::new("/upload/product/", "storage/upload/product/"))

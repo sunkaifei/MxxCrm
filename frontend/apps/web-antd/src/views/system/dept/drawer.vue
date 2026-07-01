@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import { useVbenDrawer, z } from '@vben/common-ui';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
@@ -38,11 +39,20 @@ const [BaseForm, baseFormApi] = useVbenForm({
         api: async () => {
           const result = await getDeptTreeApi();
           const list = Array.isArray(result) ? result : [];
+          // 统一将树节点 value 转为字符串，避免数字/字符串类型不匹配导致回显异常
+          const convertTree = (nodes: any[]) =>
+            nodes.map((node) => ({
+              value: String(node.value),
+              label: node.label,
+              children: node.children
+                ? convertTree(node.children)
+                : undefined,
+            }));
           return [
             {
               value: '0',
               label: $t('page.system.dept.topLevel') || '顶级部门',
-              children: list,
+              children: convertTree(list),
             },
           ];
         },
@@ -149,14 +159,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
         ? createDeptApi(values)
         : updateDeptApi(data.value.row.id, values));
 
-      window.$message.success(
+      message.success(
         data.value?.create
           ? $t('ui.notification.create_success')
           : $t('ui.notification.update_success'),
       );
       drawerApi.setData({ needRefresh: true });
-    } finally {
       drawerApi.close();
+    } catch {
+      // 错误由全局拦截器处理，保留抽屉打开以便用户修改后重试
+    } finally {
       setLoading(false);
     }
   },
@@ -176,6 +188,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
         const row = { ...data.value?.row };
         if (row.parentId === 0 || row.parentId === '0' || !row.parentId) {
           row.parentId = '0';
+        } else {
+          row.parentId = String(row.parentId);
         }
         baseFormApi.setValues(row);
       }

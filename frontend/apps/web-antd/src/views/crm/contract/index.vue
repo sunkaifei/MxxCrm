@@ -197,7 +197,7 @@ function handleEdit(row: any) {
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deleteContractApi(row.id);
+    await deleteContractApi([row.id]);
     message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;
@@ -272,7 +272,7 @@ function isApproved(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #approvalStatus="{ row }">

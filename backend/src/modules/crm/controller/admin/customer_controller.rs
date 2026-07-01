@@ -131,3 +131,56 @@ pub async fn customer_contacts(state: web::Data<AppState>, item: web::Query<Info
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
+
+/// 公海客户列表
+#[get("/customer-pool/list")]
+#[protect("crm:customer:list")]
+pub async fn customer_pool_list(state: web::Data<AppState>, query: web::Query<CustomerListQuery>) -> HttpResponse {
+    let db = &state.db;
+    let query = query.0;
+
+    match customer_service::pool_list(&db, &query).await {
+        Ok(page_data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 领取公海客户
+#[put("/customer/claim")]
+#[protect("crm:customer:edit")]
+pub async fn customer_claim(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let item = item.0;
+
+    if item.id.is_none() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = jwt_token.id.unwrap_or_default();
+
+    match customer_service::claim(&db, item.id.unwrap(), user_id).await {
+        Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 退回公海
+#[put("/customer/add-to-pool")]
+#[protect("crm:customer:edit")]
+pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let item = item.0;
+
+    if item.id.is_none() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = jwt_token.id.unwrap_or_default();
+
+    match customer_service::add_to_pool(&db, item.id.unwrap(), user_id).await {
+        Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}

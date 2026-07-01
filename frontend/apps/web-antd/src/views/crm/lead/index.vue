@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -153,7 +153,7 @@ const gridOptions: VxeGridProps = {
     { title: '手机', field: 'mobile', width: 130 },
     { title: '国家', field: 'country', width: 80 },
     { title: '负责人', field: 'assignee', width: 90 },
-    { title: '创建人', field: 'createdByName', width: 90 },
+    { title: '录入人', field: 'createdByName', width: 90 },
     {
       title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createTime' }, width: 160,
     },

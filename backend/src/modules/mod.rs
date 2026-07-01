@@ -55,5 +55,7 @@ pub mod inventory;
 /// 审批流模块
 pub mod approval;
 
+/// 企业信息模块
+pub mod company;
 
 

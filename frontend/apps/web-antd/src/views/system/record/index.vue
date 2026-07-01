@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { $t } from '#/locales';
@@ -147,7 +147,7 @@ async function handleDelete(row: any) {
   <Page auto-content-height>
     <Grid>
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #action="{ row }">

@@ -209,7 +209,7 @@ async function handleEdit(row: any) {
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deletePaymentApi(row.id);
+    await deletePaymentApi([row.id]);
     window.$message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;

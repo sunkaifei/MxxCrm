@@ -1,11 +1,28 @@
 use sea_orm::*;
 use crate::core::errors::error::{Error, Result};
-use crate::modules::system::entity::tag;
+use crate::core::web::response::ResultPage;
+use crate::modules::system::entity::{admin, tag};
 use crate::modules::system::model::tag::{TagListVO, TagDetailVO, TagSuggestVO, TagStatisticsVO, TagSaveDTO, TagModel};
 use crate::modules::system::model::tag_group::{TagGroupModel};
 use crate::modules::system::model::tag_merge::{TagEntityResult, TagMergeModel};
 
 pub struct TagService;
+
+/// 批量查询管理员 ID -> 昵称 的映射
+async fn build_admin_name_map(db: &DbConn, admin_ids: Vec<i64>) -> std::collections::HashMap<i64, String> {
+    if admin_ids.is_empty() {
+        return std::collections::HashMap::new();
+    }
+    admin::Entity::find()
+        .filter(admin::Column::Id.is_in(admin_ids))
+        .filter(admin::Column::Deleted.eq(0))
+        .all(db)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|a| (a.id, a.nick_name.unwrap_or(a.user_name.unwrap_or_default())))
+        .collect()
+}
 
 impl TagService {
     pub async fn get_list(
@@ -15,18 +32,22 @@ impl TagService {
         tag_name: Option<String>,
         group_id: Option<i64>,
         is_global: Option<bool>,
-    ) -> Result<(Vec<TagListVO>, i64)> {
-        let (tags, num_pages) = TagModel::select_in_page(db, page, per_page, tag_name, group_id, is_global).await.map_err(|e| Error::Database(e.to_string()))?;
+    ) -> Result<ResultPage<Vec<TagListVO>>> {
+        let (tags, total) = TagModel::select_in_page(db, page, per_page, tag_name, group_id, is_global).await.map_err(|e| Error::Database(e.to_string()))?;
         let groups = TagGroupModel::find_all(db).await.map_err(|e| Error::Database(e.to_string()))?;
         let group_map: std::collections::HashMap<i64, (String, String)> = groups.into_iter()
             .filter(|g| g.group_name.is_some())
             .map(|g| (g.id, (g.group_name.unwrap(), g.group_color.unwrap_or("#1890ff".to_string()))))
             .collect();
+        let admin_ids: Vec<i64> = tags.iter().filter_map(|t| t.created_by).collect();
+        let admin_map = build_admin_name_map(db, admin_ids).await;
         let vo_list: Vec<TagListVO> = tags.into_iter()
             .map(|tag| {
                 let (group_name, group_color) = tag.group_id
                     .and_then(|gid| group_map.get(&gid).cloned())
                     .unwrap_or_else(|| ("未分组".to_string(), "#d9d9d9".to_string()));
+                let created_by_name = tag.created_by
+                    .and_then(|uid| admin_map.get(&uid).cloned());
                 TagListVO {
                     id: Some(tag.id),
                     group_id: tag.group_id,
@@ -36,11 +57,15 @@ impl TagService {
                     tag_color: tag.tag_color,
                     description: tag.description,
                     is_global: tag.is_global,
+                    status: tag.status,
+                    created_by: tag.created_by,
+                    created_by_name,
                     create_time: tag.create_time,
                 }
             })
             .collect();
-        Ok((vo_list, num_pages))
+        let page_data = ResultPage::new(vo_list, total, page, per_page);
+        Ok(page_data)
     }
 
     pub async fn get_by_id(db: &DbConn, id: i64) -> Result<TagDetailVO> {
@@ -81,6 +106,15 @@ impl TagService {
     pub async fn batch_delete(db: &DbConn, ids: &Vec<i64>) -> Result<bool> {
         TagModel::batch_delete_by_ids(db, ids).await.map_err(|e| Error::Database(e.to_string()))?;
         Ok(true)
+    }
+
+    /// 修改标签状态（启用/禁用）
+    pub async fn update_status(db: &DbConn, id: i64, status: i32) -> Result<i64> {
+        let tag = TagModel::find_by_id(db, id).await.map_err(|e| Error::Database(e.to_string()))?;
+        if tag.is_none() {
+            return Err(Error::NotFound(format!("标签不存在, id={}", id)));
+        }
+        TagModel::update_status(db, id, status).await.map_err(|e| Error::Database(e.to_string()))
     }
 
     pub async fn suggest(db: &DbConn, keyword: &str) -> Result<Vec<TagSuggestVO>> {
@@ -126,17 +160,25 @@ impl TagService {
         let (group_name, group_color) = group
             .map(|g| (g.group_name.unwrap_or_default(), g.group_color.unwrap_or("#1890ff".to_string())))
             .unwrap_or_else(|| ("未分组".to_string(), "#d9d9d9".to_string()));
+        let admin_ids: Vec<i64> = tags.iter().filter_map(|t| t.created_by).collect();
+        let admin_map = build_admin_name_map(db, admin_ids).await;
         let vo_list: Vec<TagListVO> = tags.into_iter()
-            .map(|tag| TagListVO {
-                id: Some(tag.id),
-                group_id: Some(group_id),
-                group_name: Some(group_name.clone()),
-                group_color: Some(group_color.clone()),
-                tag_name: tag.tag_name,
-                tag_color: tag.tag_color,
-                description: tag.description,
-                is_global: tag.is_global,
-                create_time: tag.create_time,
+            .map(|tag| {
+                let created_by_name = tag.created_by.and_then(|uid| admin_map.get(&uid).cloned());
+                TagListVO {
+                    id: Some(tag.id),
+                    group_id: Some(group_id),
+                    group_name: Some(group_name.clone()),
+                    group_color: Some(group_color.clone()),
+                    tag_name: tag.tag_name,
+                    tag_color: tag.tag_color,
+                    description: tag.description,
+                    is_global: tag.is_global,
+                    status: tag.status,
+                    created_by: tag.created_by,
+                    created_by_name,
+                    create_time: tag.create_time,
+                }
             })
             .collect();
         Ok(vo_list)
@@ -149,11 +191,14 @@ impl TagService {
             .filter(|g| g.group_name.is_some())
             .map(|g| (g.id, (g.group_name.unwrap(), g.group_color.unwrap_or("#1890ff".to_string()))))
             .collect();
+        let admin_ids: Vec<i64> = tags.iter().filter_map(|t| t.created_by).collect();
+        let admin_map = build_admin_name_map(db, admin_ids).await;
         let vo_list: Vec<TagListVO> = tags.into_iter()
             .map(|tag| {
                 let (group_name, group_color) = tag.group_id
                     .and_then(|gid| group_map.get(&gid).cloned())
                     .unwrap_or_else(|| ("未分组".to_string(), "#d9d9d9".to_string()));
+                let created_by_name = tag.created_by.and_then(|uid| admin_map.get(&uid).cloned());
                 TagListVO {
                     id: Some(tag.id),
                     group_id: tag.group_id,
@@ -163,6 +208,9 @@ impl TagService {
                     tag_color: tag.tag_color,
                     description: tag.description,
                     is_global: tag.is_global,
+                    status: tag.status,
+                    created_by: tag.created_by,
+                    created_by_name,
                     create_time: tag.create_time,
                 }
             })
@@ -198,11 +246,14 @@ impl TagService {
             .filter(|g| g.group_name.is_some())
             .map(|g| (g.id, (g.group_name.unwrap(), g.group_color.unwrap_or("#1890ff".to_string()))))
             .collect();
+        let admin_ids: Vec<i64> = tags.iter().filter_map(|t| t.created_by).collect();
+        let admin_map = build_admin_name_map(db, admin_ids).await;
         let vo_list: Vec<TagListVO> = tags.into_iter()
             .map(|tag| {
                 let (group_name, group_color) = tag.group_id
                     .and_then(|gid| group_map.get(&gid).cloned())
                     .unwrap_or_else(|| ("未分组".to_string(), "#d9d9d9".to_string()));
+                let created_by_name = tag.created_by.and_then(|uid| admin_map.get(&uid).cloned());
                 TagListVO {
                     id: Some(tag.id),
                     group_id: tag.group_id,
@@ -212,6 +263,9 @@ impl TagService {
                     tag_color: tag.tag_color,
                     description: tag.description,
                     is_global: tag.is_global,
+                    status: tag.status,
+                    created_by: tag.created_by,
+                    created_by_name,
                     create_time: tag.create_time,
                 }
             })

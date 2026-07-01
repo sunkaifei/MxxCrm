@@ -9,6 +9,8 @@ import '@vben/styles/antd';
 
 import { useTitle } from '@vueuse/core';
 
+import { message } from 'ant-design-vue';
+
 import { $t, setupI18n } from '#/locales';
 
 import { initComponentAdapter } from './adapter/component';
@@ -17,6 +19,9 @@ import App from './app.vue';
 import { router } from './router';
 
 async function bootstrap(namespace: string) {
+  // 全局注册 ant-design-vue message 实例，供 window.$message 调用
+  window.$message = message;
+
   // 初始化组件适配器
   await initComponentAdapter();
 

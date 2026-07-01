@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -139,7 +139,7 @@ function handleEdit(row: any) { openDrawer(false, row); }
 
 async function handleDelete(row: any) {
   row.pending = true;
-  try { await deleteContactApi(row.id); message.success($t('ui.notification.delete_success')); }
+  try { await deleteContactApi([row.id]); message.success($t('ui.notification.delete_success')); }
   finally { row.pending = false; gridApi.query(); }
 }
 

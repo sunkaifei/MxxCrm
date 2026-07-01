@@ -31,8 +31,8 @@ pub struct EntityTypeConfig {
     pub is_public: bool,
 }
 
-/// product: 商品图片（公开）
-const PRODUCT_EXTS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
+/// product: 商品图片（公开）—— 不允许 svg，因 SVG 可内嵌 <script> 导致存储型 XSS
+const PRODUCT_EXTS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "webp"];
 /// avatar: 头像（公开）
 const AVATAR_EXTS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "webp"];
 /// contract: 合同
@@ -46,8 +46,8 @@ const PAYMENT_EXTS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "webp", "pdf
 /// common: 通用附件
 const COMMON_EXTS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "webp", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt"];
 
-/// 图片类扩展名集合（用于判断走图片大小限制还是文档大小限制）
-const IMAGE_EXTS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
+/// 图片类扩展名集合（用于判断走图片大小限制还是文档大小限制）—— 不含 svg
+const IMAGE_EXTS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "webp"];
 
 /// 全局 entity_type 配置表（一次性初始化）
 static ENTITY_TYPE_MAP: OnceLock<HashMap<&'static str, EntityTypeConfig>> = OnceLock::new();
@@ -133,8 +133,8 @@ fn verify_magic_number(ext: &str, head: &[u8]) -> bool {
         "doc" | "xls" | "ppt" => head[0..4] == [0xD0, 0xCF, 0x11, 0xE0],
         "bmp" => head[0..2] == [0x42, 0x4D],
         "webp" => head[0..4] == [0x52, 0x49, 0x46, 0x46],
-        // svg/txt 是文本格式，无固定魔数，跳过校验
-        "svg" | "txt" => true,
+        // txt 是文本格式，无固定魔数，跳过校验
+        "txt" => true,
         _ => true,
     }
 }
@@ -147,7 +147,6 @@ fn mime_type_by_ext(ext: &str) -> String {
         "gif" => "image/gif".to_string(),
         "bmp" => "image/bmp".to_string(),
         "webp" => "image/webp".to_string(),
-        "svg" => "image/svg+xml".to_string(),
         "pdf" => "application/pdf".to_string(),
         "doc" => "application/msword".to_string(),
         "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document".to_string(),
@@ -163,10 +162,6 @@ fn mime_type_by_ext(ext: &str) -> String {
 /// 校验图片内容：用 image crate 解码验证
 /// 仅对图片类扩展名执行；其他类型跳过
 fn verify_image_content(ext: &str, data: &[u8]) -> Result<()> {
-    // svg 是文本格式，image crate 不支持，跳过
-    if ext == "svg" {
-        return Ok(());
-    }
     if !is_image_ext(ext) {
         return Ok(());
     }

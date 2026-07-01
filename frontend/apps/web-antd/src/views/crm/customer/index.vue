@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -13,6 +13,7 @@ import { Button, Popconfirm, Drawer, Modal, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteCustomerApi, getCustomerListApi } from '#/api';
+import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { $t } from '#/locales';
 import CustomerDrawer from './drawer.vue';
 import CustomerDetail from './detail.vue';
@@ -187,7 +188,7 @@ function handleEdit(row: any) { openDrawer(false, row); }
 
 async function handleDelete(row: any) {
   row.pending = true;
-  try { await deleteCustomerApi(row.id); message.success($t('ui.notification.delete_success')); }
+  try { await deleteCustomerApi([row.id]); message.success($t('ui.notification.delete_success')); }
   finally { row.pending = false; gridApi.query(); }
 }
 
@@ -206,6 +207,22 @@ async function handleBatchDelete() {
     },
   });
 }
+
+async function handleAddToPool(row: any) {
+  Modal.confirm({
+    title: '退回公海',
+    content: `确定将客户"${row.companyName}"退回公海吗？退回后其他销售可以领取。`,
+    onOk: async () => {
+      try {
+        await addCustomerToPoolApi(Number(row.id));
+        message.success('已退回公海');
+        gridApi.query();
+      } catch {
+        // 错误提示由拦截器处理
+      }
+    },
+  });
+}
 </script>
 
 <template>
@@ -218,7 +235,7 @@ async function handleBatchDelete() {
         <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
-      <template #createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
 
       <template #companyName="{ row }">
         <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.companyName }}</a>
@@ -227,6 +244,7 @@ async function handleBatchDelete() {
       <template #action="{ row }">
         <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
         <Button v-if="accessStore.hasAccessCode('crm:customer:edit')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
+        <Button v-if="accessStore.hasAccessCode('crm:customer:edit')" type="link" @click="() => handleAddToPool(row)">退回公海</Button>
         <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.customer.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
           <Button v-if="accessStore.hasAccessCode('crm:customer:delete')" type="link" danger :icon="h(LucideTrash2)" />
         </Popconfirm>

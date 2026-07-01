@@ -322,6 +322,12 @@ pub struct CustomerListVO {
     pub total_deal_amount: Option<Decimal>,
     /// 最后成交时间
     pub last_deal_at: Option<DateTime>,
+    /// 创建人ID
+    pub created_by: Option<i64>,
+    /// 创建人名称
+    pub created_by_name: Option<String>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
 }
 
 impl From<customer::Model> for CustomerListVO {
@@ -338,6 +344,9 @@ impl From<customer::Model> for CustomerListVO {
             assigned_to: item.assigned_to,
             total_deal_amount: item.total_deal_amount,
             last_deal_at: item.last_deal_at,
+            created_by: item.created_by,
+            created_by_name: None,
+            create_time: item.create_time,
         }
     }
 }
@@ -504,7 +513,7 @@ impl CustomerModel {
     ) -> Result<i64, DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0));
-        
+
         if let Some(k) = keywords {
             query = query.filter(customer::Column::CompanyName.contains(k));
         }
@@ -520,7 +529,75 @@ impl CustomerModel {
         if let Some(a) = assigned_to {
             query = query.filter(customer::Column::AssignedTo.eq(a));
         }
-        
+
         query.count(db).await.map(|c| c as i64)
+    }
+
+    /// 分页查询公海客户（assigned_to IS NULL）
+    pub async fn select_pool_in_page(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        level: Option<String>,
+        country: Option<String>,
+        source: Option<String>,
+    ) -> Result<(Vec<customer::Model>, i64), DbErr> {
+        let mut query = Customer::find()
+            .filter(customer::Column::Deleted.eq(0))
+            .filter(customer::Column::AssignedTo.is_null());
+
+        if let Some(k) = keywords {
+            query = query.filter(customer::Column::CompanyName.contains(k));
+        }
+        if let Some(l) = level {
+            query = query.filter(customer::Column::Level.eq(l));
+        }
+        if let Some(c) = country {
+            query = query.filter(customer::Column::Country.eq(c));
+        }
+        if let Some(s) = source {
+            query = query.filter(customer::Column::Source.eq(s));
+        }
+
+        let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        let rows = paginator.fetch_page((page - 1) as u64).await?;
+        Ok((rows, total))
+    }
+
+    /// 领取公海客户（设置负责人）
+    pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64, DbErr> {
+        let payload = customer::ActiveModel {
+            assigned_to: Set(Some(user_id)),
+            updated_by: Set(Some(user_id)),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            ..Default::default()
+        };
+        let result = Customer::update_many()
+            .set(payload)
+            .filter(customer::Column::Id.eq(id))
+            .filter(customer::Column::Deleted.eq(0))
+            .filter(customer::Column::AssignedTo.is_null())
+            .exec(db)
+            .await?;
+        Ok(result.rows_affected as i64)
+    }
+
+    /// 退回公海（清除负责人）
+    pub async fn add_to_pool(db: &DbConn, id: i64, user_id: i64) -> Result<i64, DbErr> {
+        let payload = customer::ActiveModel {
+            assigned_to: Set(None),
+            updated_by: Set(Some(user_id)),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            ..Default::default()
+        };
+        let result = Customer::update_many()
+            .set(payload)
+            .filter(customer::Column::Id.eq(id))
+            .filter(customer::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+        Ok(result.rows_affected as i64)
     }
 }

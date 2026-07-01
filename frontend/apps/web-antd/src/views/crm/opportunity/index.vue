@@ -218,7 +218,7 @@ async function handleBatchDelete() {
         <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
-      <template #createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
 
       <template #title="{ row }">
         <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.title }}</a>

@@ -1,27 +1,28 @@
-﻿<script lang="ts" setup>import { h, ref } from 'vue';
+<script lang="ts" setup>
+import { h, ref } from 'vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { $t } from '#/locales';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2, LucideLayers, LucideTag } from '@vben/icons';
-import { Button, Popconfirm, Tag, Space, Select } from 'ant-design-vue';
+import { Button, Popconfirm, Tag, Space, Select, Switch } from 'ant-design-vue';
 import TagDrawer from './drawer.vue';
 import { deleteTagApi, getTagListApi, batchDeleteTagApi } from '#/api';
+import { updateTagStatusApi } from '#/api/core/system/tag';
 import { getTagGroupListApi } from '#/api/core/system/tag_group';
 import { formatDateTime } from '@vben/utils';
 const groupOptions = ref<any[]>([{ label: $t('ui.all'), value: '' }]);
 const selectedGroupId = ref('');
 async function loadGroups() {
  const res = await getTagGroupListApi();
- if (res.code === 200 && res.data) {
+ const list = Array.isArray(res) ? res : (res?.data || []);
  groupOptions.value = [
  { label: $t('ui.all'), value: '' },
- ...res.data.map((item: any) => ({
+ ...list.map((item: any) => ({
  label: item.groupName,
  value: item.id,
  })),
  ];
- }
 }
 loadGroups();
 const formOptions = {
@@ -79,8 +80,9 @@ const gridOptions: VxeGridProps = {
  },
  {
  title: $t('page.system.tag.name'),
- field: 'tagName',
- slots: { default: 'tagName' },
+  field: 'tagName',
+  width: 100,
+  slots: { default: 'tagName' },
  },
  {
  title: $t('page.system.tag.color'),
@@ -100,8 +102,20 @@ const gridOptions: VxeGridProps = {
  slots: { default: 'isGlobal' },
  },
  {
+ title: $t('page.system.tag.status'),
+ field: 'status',
+ width: 100,
+ slots: { default: 'status' },
+ },
+ {
+ title: $t('page.system.tag.owner'),
+ field: 'createdByName',
+ width: 120,
+ slots: { default: 'owner' },
+ },
+ {
  title: $t('ui.table.createTime'),
- field: 'createdAt',
+ field: 'createTime',
  width: 180,
  slots: { default: 'createdAt' },
  },
@@ -164,8 +178,19 @@ async function handleBatchDelete() {
  }
 }
 function handleGroupChange(value: any) {
- selectedGroupId.value = value;
- gridApi.query();
+  selectedGroupId.value = value;
+  gridApi.query();
+}
+async function handleStatusChange(row: any, checked: boolean) {
+  const newStatus = checked ? 1 : 0;
+  try {
+    await updateTagStatusApi({ id: Number(row.id), status: newStatus });
+    row.status = newStatus;
+  } catch {
+    // 失败时恢复原状态
+    row.status = row.status;
+    gridApi.query();
+  }
 }
 </script>
 
@@ -182,7 +207,7 @@ function handleGroupChange(value: any) {
         />
         <Button
           class="mr-2"
-          v-access:code="['system:tag:save']"
+          v-access:code="['system:tag:create']"
           type="primary"
           @click="handleCreate"
         >
@@ -194,15 +219,13 @@ function handleGroupChange(value: any) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="handleBatchDelete"
         >
-          <template #reference>
-            <Button
-              type="danger"
-              v-access:code="['system:tag:delete']"
-              :icon="h(LucideTrash2)"
-            >
-              {{ $t('ui.button.batch_delete') }}
-            </Button>
-          </template>
+          <Button
+            type="danger"
+            v-access:code="['system:tag:delete']"
+            :icon="h(LucideTrash2)"
+          >
+            {{ $t('ui.button.batch_delete') }}
+          </Button>
         </Popconfirm>
       </template>
 
@@ -234,8 +257,22 @@ function handleGroupChange(value: any) {
         </Tag>
       </template>
 
+      <template #status="{ row }">
+        <Switch
+          :checked="row.status === 1"
+          :checked-children="$t('ui.switch.active')"
+          :un-checked-children="$t('ui.switch.inactive')"
+          @change="(checked: boolean) => handleStatusChange(row, checked)"
+        />
+      </template>
+
+      <template #owner="{ row }">
+        <span v-if="row.isGlobal">{{ $t('page.system.tag.systemTag') }}</span>
+        <span v-else>{{ row.createdByName || $t('page.system.tag.unknown') }}</span>
+      </template>
+
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #action="{ row }">
@@ -253,14 +290,12 @@ function handleGroupChange(value: any) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"
         >
-          <template #reference>
-            <Button
-              type="danger"
-              v-access:code="['system:tag:delete']"
-              link
-              :icon="h(LucideTrash2)"
-            />
-          </template>
+          <Button
+            type="danger"
+            v-access:code="['system:tag:delete']"
+            link
+            :icon="h(LucideTrash2)"
+          />
         </Popconfirm>
       </template>
     </Grid>

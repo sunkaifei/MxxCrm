@@ -55,43 +55,45 @@ const tabs = ref([
 </script>
 
 <template>
-  <Profile
-    v-model:model-value="tabsValue"
-    title="个人中心"
-    :user-info="userStore.userInfo"
-    :tabs="tabs"
-  >
-    <template #avatar>
-      <div
-        class="avatar-wrapper"
-        @click="avatarModalVisible = true"
-      >
-        <img
-          :src="userStore.userInfo?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default'"
-          class="avatar-img"
-        />
-        <div class="avatar-mask">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-            <circle cx="12" cy="13" r="4"/>
-          </svg>
-          <span>更换头像</span>
+  <div class="profile-page-wrapper">
+    <Profile
+      v-model:model-value="tabsValue"
+      title="个人中心"
+      :user-info="userStore.userInfo"
+      :tabs="tabs"
+    >
+      <template #avatar>
+        <div
+          class="avatar-wrapper"
+          @click="avatarModalVisible = true"
+        >
+          <img
+            :src="userStore.userInfo?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default'"
+            class="avatar-img"
+          />
+          <div class="avatar-mask">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span>更换头像</span>
+          </div>
         </div>
-      </div>
-    </template>
-    <template #content>
-      <ProfileBase v-if="tabsValue === 'basic'" />
-      <ProfileSecuritySetting v-if="tabsValue === 'security'" />
-      <ProfilePasswordSetting v-if="tabsValue === 'password'" />
-      <ProfileNotificationSetting v-if="tabsValue === 'notice'" />
-    </template>
-  </Profile>
+      </template>
+      <template #content>
+        <ProfileBase v-if="tabsValue === 'basic'" />
+        <ProfileSecuritySetting v-if="tabsValue === 'security'" />
+        <ProfilePasswordSetting v-if="tabsValue === 'password'" />
+        <ProfileNotificationSetting v-if="tabsValue === 'notice'" />
+      </template>
+    </Profile>
 
-  <AvatarCropper
-    v-model:visible="avatarModalVisible"
-    :avatar-url="userStore.userInfo?.avatar"
-    @success="handleAvatarSuccess"
-  />
+    <AvatarCropper
+      v-model:visible="avatarModalVisible"
+      :avatar-url="userStore.userInfo?.avatar"
+      @success="handleAvatarSuccess"
+    />
+  </div>
 </template>
 
 <style scoped>

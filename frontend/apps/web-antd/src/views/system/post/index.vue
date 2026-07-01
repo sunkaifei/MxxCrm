@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -7,7 +7,7 @@ import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Switch } from 'ant-design-vue';
+import { Button, message, Popconfirm, Switch } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -118,9 +118,9 @@ async function handleStatusChanged(row: any, checked: boolean) {
   row.pending = true;
   row.status = checked ? 1 : 2;
   try {
-    await updatePostApi(row.id, row);
+    await updatePostApi(row);
 
-    window.$message.success($t('ui.notification.update_success'));
+    message.success($t('ui.notification.update_success'));
   } finally {
     row.pending = false;
     gridApi.query();
@@ -156,9 +156,9 @@ function handleEdit(row: any) {
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deletePostApi(row.id);
+    await deletePostApi([row.id]);
 
-    window.$message.success($t('ui.notification.delete_success'));
+    message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;
     gridApi.query();
@@ -181,13 +181,14 @@ async function handleDelete(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #status="{ row }">
         <Switch
           v-model:checked="row.status"
           :checked-value="1"
+          :disabled="!accessStore.hasAccessCode('system:post:update')"
           :loading="row.pending"
           :un-checked-value="2"
           @change="(checked: boolean) => handleStatusChanged(row, checked)"

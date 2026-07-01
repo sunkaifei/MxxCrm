@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -234,9 +234,7 @@ async function handleDelete(row: any) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"
         >
-          <template #reference>
-            <Button type="danger" link :icon="h(LucideTrash2)" />
-          </template>
+          <Button type="danger" link :icon="h(LucideTrash2)" />
         </Popconfirm>
       </template>
     </Grid>

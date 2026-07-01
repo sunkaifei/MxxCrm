@@ -215,6 +215,24 @@
       "statusCode": "Status Code",
       "elapsed": "Elapsed(ms)",
       "ip": "IP"
+    },
+    "tag": {
+      "module": "Tag",
+      "title": "Tag Management",
+      "name": "Tag Name",
+      "color": "Tag Color",
+      "group": "Tag Group",
+      "global": "Is Global",
+      "status": "Status",
+      "owner": "Owner",
+      "systemTag": "System Tag",
+      "unknown": "Unknown",
+      "ungrouped": "Ungrouped",
+      "button": {
+        "create": "Add Tag",
+        "edit": "Edit Tag",
+        "delete": "Delete Tag"
+      }
     }
   },
   "crm": {
@@ -238,6 +256,9 @@
         "delete": "Delete Customer",
         "assign": "Assign Customer"
       }
+    },
+    "customerPool": {
+      "title": "Customer Pool"
     },
     "contact": {
       "title": "Contact Management"

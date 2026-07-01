@@ -28,5 +28,7 @@ export interface ApplicationConfig {
 declare global {
   interface Window {
     _VBEN_ADMIN_PRO_APP_CONF_: VbenAdminProAppConfigRaw;
+    // ant-design-vue message 全局实例，供 window.$message 调用
+    $message: typeof import('ant-design-vue')['message'];
   }
 }

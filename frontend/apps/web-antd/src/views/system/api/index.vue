@@ -191,7 +191,7 @@ async function handleDelete(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #parentId="{ row }">

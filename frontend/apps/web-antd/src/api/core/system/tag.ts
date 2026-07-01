@@ -24,6 +24,10 @@ export const batchDeleteTagApi = async (params: any) => {
   return requestClient.delete('/api/system/tag/batch_delete', { data: params });
 };
 
+export const updateTagStatusApi = async (params: { id: number; status: number }) => {
+  return requestClient.put('/api/system/tag/status', params);
+};
+
 export const getTagStatisticsApi = async () => {
   return requestClient.get('/api/system/tag/statistics');
 };

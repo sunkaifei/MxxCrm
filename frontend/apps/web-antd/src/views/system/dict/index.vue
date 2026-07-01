@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
@@ -197,11 +197,12 @@ async function handleDelete(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #status="{ row }">
         <Switch
+          :disabled="!accessStore.hasAccessCode('system:dict:update')"
           v-model:checked="row.status"
           :checked-value="1"
           :loading="row.pending"

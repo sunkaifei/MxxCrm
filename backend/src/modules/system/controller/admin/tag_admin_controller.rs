@@ -5,7 +5,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::system::model::tag::{TagSaveDTO, TagSaveRequest, TagUpdateRequest, TagListQuery, TagMoveToGroupRequest};
+use crate::modules::system::model::tag::{TagSaveDTO, TagSaveRequest, TagUpdateRequest, TagListQuery, TagMoveToGroupRequest, UpdateTagStatusRequest};
 use crate::modules::system::model::tag_group::{TagGroupSaveDTO, TagGroupSaveRequest, TagGroupUpdateRequest};
 use crate::modules::system::model::tag_merge::{TagEntityRequest, TagEntityRemoveRequest, TagEntityBatchRequest};
 use crate::modules::system::service::{admin_service, tag_service, tag_group_service};
@@ -88,6 +88,28 @@ pub async fn batch_delete_tag(state: web::Data<AppState>, item: web::Json<BathDe
     }
 }
 
+/// 修改标签状态（启用/禁用）
+#[put("/tag/status")]
+pub async fn update_tag_status(state: web::Data<AppState>, payload: web::Json<UpdateTagStatusRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let req = payload.0;
+    let id = match req.id {
+        Some(id) if id > 0 => id,
+        _ => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "标签ID不能为空", "local"))),
+    };
+    let status = match req.status {
+        Some(s) => s,
+        None => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "状态不能为空", "local"))),
+    };
+    match tag_service::TagService::update_status(&db, id, status).await {
+        Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
+        Err(e) => {
+            log::error!("修改标签状态出错：{:}", e);
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
+        }
+    }
+}
+
 #[get("/tag/detail/{id}")]
 pub async fn get_tag_detail(state: web::Data<AppState>, item: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -107,9 +129,8 @@ pub async fn get_tag_list(state: web::Data<AppState>, query: web::Query<TagListQ
     let page = query.page_num.unwrap_or(1);
     let per_page = query.page_size.unwrap_or(20);
     match tag_service::TagService::get_list(&db, page, per_page, query.tag_name.clone(), query.group_id, query.is_global).await {
-        Ok((list, count)) => {
-            let page_resp = crate::core::web::entity::page::Page::with_list(list, page, per_page, count);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_resp, "local")))
+        Ok(page_data) => {
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local")))
         }
         Err(e) => {
             log::error!("获取标签列表出错：{:}", e);

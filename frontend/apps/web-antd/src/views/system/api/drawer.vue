@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import { useVbenDrawer, z } from '@vben/common-ui';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
@@ -102,14 +103,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
         ? createApiApi(values)
         : updateApiApi(data.value.row.id, values));
 
-      window.$message.success(
+      message.success(
         data.value?.create
           ? $t('ui.notification.create_success')
           : $t('ui.notification.update_success'),
       );
       drawerApi.setData({ needRefresh: true });
-    } finally {
       drawerApi.close();
+    } catch {
+      // 错误由全局拦截器处理，保留抽屉打开以便用户修改后重试
+    } finally {
       setLoading(false);
     }
   },

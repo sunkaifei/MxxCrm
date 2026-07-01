@@ -12,6 +12,7 @@ pub struct TagSaveRequest {
     pub tag_color: Option<String>,
     pub description: Option<String>,
     pub is_global: Option<bool>,
+    pub status: Option<i32>,
 }
 
 impl From<TagSaveRequest> for TagSaveDTO {
@@ -23,6 +24,7 @@ impl From<TagSaveRequest> for TagSaveDTO {
             tag_color: item.tag_color,
             description: item.description,
             is_global: item.is_global,
+            status: item.status,
             created_by: None,
             updated_by: None,
         }
@@ -39,6 +41,7 @@ pub struct TagUpdateRequest {
     pub tag_color: Option<String>,
     pub description: Option<String>,
     pub is_global: Option<bool>,
+    pub status: Option<i32>,
 }
 
 impl From<TagUpdateRequest> for TagSaveDTO {
@@ -50,6 +53,7 @@ impl From<TagUpdateRequest> for TagSaveDTO {
             tag_color: item.tag_color,
             description: item.description,
             is_global: item.is_global,
+            status: item.status,
             created_by: None,
             updated_by: None,
         }
@@ -66,6 +70,14 @@ pub struct TagMoveToGroupRequest {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateTagStatusRequest {
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    pub id: Option<i64>,
+    pub status: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TagSaveDTO {
     pub id: Option<i64>,
     pub group_id: Option<i64>,
@@ -73,6 +85,7 @@ pub struct TagSaveDTO {
     pub tag_color: Option<String>,
     pub description: Option<String>,
     pub is_global: Option<bool>,
+    pub status: Option<i32>,
     pub created_by: Option<i64>,
     pub updated_by: Option<i64>,
 }
@@ -90,6 +103,10 @@ pub struct TagListVO {
     pub tag_color: Option<String>,
     pub description: Option<String>,
     pub is_global: Option<bool>,
+    pub status: Option<i32>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub created_by: Option<i64>,
+    pub created_by_name: Option<String>,
     pub create_time: Option<NaiveDateTime>,
 }
 
@@ -104,6 +121,7 @@ pub struct TagDetailVO {
     pub tag_color: Option<String>,
     pub description: Option<String>,
     pub is_global: Option<bool>,
+    pub status: Option<i32>,
     pub created_by: Option<i64>,
     pub create_time: Option<NaiveDateTime>,
     pub updated_by: Option<i64>,
@@ -119,6 +137,7 @@ impl From<tag::Model> for TagDetailVO {
             tag_color: item.tag_color,
             description: item.description,
             is_global: item.is_global,
+            status: item.status,
             created_by: item.created_by,
             create_time: item.create_time,
             updated_by: item.updated_by,
@@ -170,6 +189,7 @@ impl TagModel {
             tag_color: Set(req.tag_color.clone()),
             description: Set(req.description.clone()),
             is_global: Set(req.is_global.clone()),
+            status: Set(req.status.clone()),
             created_by: Set(req.created_by.clone()),
             create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
@@ -186,6 +206,7 @@ impl TagModel {
             tag_color: Set(req.tag_color.clone()),
             description: Set(req.description.clone()),
             is_global: Set(req.is_global.clone()),
+            status: Set(req.status.clone()),
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
             ..Default::default()
@@ -193,6 +214,21 @@ impl TagModel {
         let update_result: UpdateResult = Tag::update_many()
             .set(payload)
             .filter(tag::Column::Id.eq(id.clone().unwrap_or_default()))
+            .filter(tag::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+        Ok(update_result.rows_affected as i64)
+    }
+
+    pub async fn update_status(db: &DbConn, id: i64, status: i32) -> Result<i64, DbErr> {
+        let payload = tag::ActiveModel {
+            status: Set(Some(status)),
+            update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
+            ..Default::default()
+        };
+        let update_result: UpdateResult = Tag::update_many()
+            .set(payload)
+            .filter(tag::Column::Id.eq(id))
             .filter(tag::Column::Deleted.eq(0))
             .exec(db)
             .await?;
@@ -255,8 +291,8 @@ impl TagModel {
             query = query.filter(tag::Column::IsGlobal.eq(global));
         }
         let paginator = query.order_by_desc(tag::Column::CreateTime).paginate(db, per_page as u64);
-        let num_pages = paginator.num_pages().await? as i64;
-        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+        let total = paginator.num_items().await? as i64;
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }
 
     pub async fn find_by_name_unique(db: &DbConn, tag_name: &Option<String>, exclude_id: &Option<i64>) -> Result<bool, DbErr> {

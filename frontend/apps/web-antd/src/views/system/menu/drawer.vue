@@ -299,8 +299,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       );
       const onRefresh = data.value?.onRefresh;
       if (onRefresh) onRefresh();
-    } finally {
       drawerApi.close();
+    } catch {
+      // 错误由全局拦截器处理，保留抽屉打开以便用户修改后重试
+    } finally {
       setLoading(false);
     }
   },

@@ -13,7 +13,7 @@ export const updateDeptApi = async (id: number, param: any) => {
   return requestClient.put(`/api/system/dept/update/${id}`, param);
 };
 export const deleteDeptApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/dept/bath_delete', {
+  return requestClient.delete('/api/system/dept/batch_delete', {
     data: { ids },
   });
 };

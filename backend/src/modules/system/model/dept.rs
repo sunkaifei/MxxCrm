@@ -364,6 +364,14 @@ impl DeptModel {
             .await
     }
 
+    /// 根据父部门ID集合查询子部门（用于删除前检查是否存在下级部门）
+    pub async fn find_by_parent_ids(db: &DbConn, parent_ids: Vec<i64>) -> Result<Vec<dept::Model>, DbErr> {
+        Dept::find()
+            .filter(dept::Column::ParentId.is_in(parent_ids))
+            .all(db)
+            .await
+    }
+
     pub async fn select_all(db: &DbConn, wheres: PageWhere) -> Result<Vec<dept::Model>, DbErr> {
         let query = Dept::find()
             .apply_if(wheres.dept_name, |query, v| {

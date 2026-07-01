@@ -13,6 +13,7 @@ pub struct Model {
     pub description: Option<String>,
     pub is_global: Option<bool>,
     pub created_by: Option<i64>,
+    pub status: Option<i32>,
     pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
     pub update_time: Option<DateTime>,

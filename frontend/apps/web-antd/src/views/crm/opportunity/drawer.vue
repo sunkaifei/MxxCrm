@@ -296,8 +296,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
           : $t('ui.notification.update_success'),
       );
       drawerApi.setData({ needRefresh: true });
-    } finally {
       drawerApi.close();
+    } catch {
+      // 错误由全局拦截器处理，保留抽屉打开以便用户修改后重试
+    } finally {
       setLoading(false);
     }
   },

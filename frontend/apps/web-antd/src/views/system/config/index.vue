@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -128,7 +128,7 @@ async function handleStatusChanged(row: any, checked: boolean) {
   row.pending = true;
   row.status = checked ? 1 : 2;
   try {
-    await updateConfigApi(row.id, row);
+    await updateConfigApi(row);
 
     window.$message.success($t('ui.notification.update_success'));
   } finally {
@@ -166,7 +166,7 @@ function handleEdit(row: any) {
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deleteConfigApi(row.id);
+    await deleteConfigApi([row.id]);
 
     window.$message.success($t('ui.notification.delete_success'));
   } finally {
@@ -191,11 +191,12 @@ async function handleDelete(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #status="{ row }">
         <Switch
+          :disabled="!accessStore.hasAccessCode('system:config:update')"
           v-model:checked="row.status"
           :checked-value="1"
           :loading="row.pending"

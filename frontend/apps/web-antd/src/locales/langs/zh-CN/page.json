@@ -221,6 +221,10 @@
       "color": "标签颜色",
       "group": "标签分组",
       "global": "是否全局",
+      "status": "状态",
+      "owner": "所属人",
+      "systemTag": "系统标签",
+      "unknown": "未知",
       "ungrouped": "未分组",
       "button": {
         "create": "新增标签",
@@ -250,6 +254,9 @@
         "delete": "删除客户",
         "assign": "分配客户"
       }
+    },
+    "customerPool": {
+      "title": "公海客户"
     },
     "contact": {
       "title": "联系人管理"
@@ -538,7 +545,23 @@
     "commissionConfig": "佣金设置"
   },
   "company": {
-    "title": "企业"
+    "title": "企业",
+    "info": {
+      "title": "企业信息",
+      "basicInfo": "企业基本信息",
+      "accountInfo": "银行账户信息",
+      "companyName": "企业名称",
+      "creditCode": "统一社会信用代码",
+      "legalPerson": "法定代表人",
+      "legalPhone": "法人电话",
+      "registerAddress": "注册地址",
+      "contactPhone": "联系电话",
+      "contactEmail": "联系邮箱",
+      "taxNumber": "税号",
+      "invoiceTitle": "发票抬头",
+      "businessScope": "经营范围",
+      "remark": "备注"
+    }
   },
   "button": {
     "system": {

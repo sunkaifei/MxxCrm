@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h } from 'vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -11,7 +11,10 @@ import RoleDrawer from './drawer.vue';
 import SetAuthDrawer from './set-auth.vue';
 import { deleteRoleApi, getRoleListApi, updateRoleApi } from '#/api';
 import { formatDateTime } from '@vben/utils';
+import { useAccessStore } from '@vben/stores';
 import { statusList } from '#/store';
+
+const accessStore = useAccessStore();
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -195,6 +198,7 @@ function handleSetAuth(row: any) {
 
       <template #status="{ row }">
         <Switch
+          :disabled="!accessStore.hasAccessCode('system:role:update')"
           :checked="row.status === 1"
           :loading="row.pending"
           :checked-children="$t('ui.switch.active')"
@@ -204,7 +208,7 @@ function handleSetAuth(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #action="{ row }">
@@ -233,14 +237,12 @@ function handleSetAuth(row: any) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"
         >
-          <template #reference>
-            <Button
-              type="danger"
-              v-access:code="['system:role:delete']"
-              link
-              :icon="h(LucideTrash2)"
-            />
-          </template>
+          <Button
+            type="danger"
+            v-access:code="['system:role:delete']"
+            link
+            :icon="h(LucideTrash2)"
+          />
         </Popconfirm>
       </template>
     </Grid>

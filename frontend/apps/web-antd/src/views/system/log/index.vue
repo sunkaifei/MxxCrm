@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page } from '@vben/common-ui';
@@ -125,7 +125,7 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deleteLogApi(row.id);
+    await deleteLogApi([row.id]);
 
     window.$message.success($t('ui.notification.delete_success'));
   } finally {
@@ -139,7 +139,7 @@ async function handleDelete(row: any) {
   <Page auto-content-height>
     <Grid>
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #action="{ row }">

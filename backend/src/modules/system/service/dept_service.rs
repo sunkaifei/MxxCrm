@@ -29,6 +29,22 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<Option<String>>) -> 
         return Ok(0);
     }
     let ids = convert_vec_option_string_to_vec_u64(ids_vec.clone());
+
+    // 1. 检查是否存在下级部门
+    let children = DeptModel::find_by_parent_ids(&db, ids.clone()).await?;
+    if !children.is_empty() {
+        let names: Vec<String> = children.iter()
+            .filter_map(|c| c.dept_name.clone())
+            .collect();
+        return Err(Error::from(format!("存在下级部门【{}】，请先删除下级部门后再删除", names.join("、"))));
+    }
+
+    // 2. 检查是否存在关联员工
+    let admin_merge_list = AdminDeptMergeModel::find_by_dept_id(&db, ids.clone()).await?;
+    if !admin_merge_list.is_empty() {
+        return Err(Error::from("该部门目前有员工，需要转移员工后才能删除"));
+    }
+
     let result = DeptModel::batch_delete_by_ids(&db, ids).await?;
     Ok(result)
 }

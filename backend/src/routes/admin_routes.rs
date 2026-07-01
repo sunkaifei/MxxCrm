@@ -23,6 +23,7 @@ use crate::modules::product::controller::admin::{product_controller, category_co
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
 use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller};
 use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller};
+use crate::modules::company::controller::admin::company_controller;
 
 async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
     let path = req.path();
@@ -246,6 +247,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(tag_admin_controller::update_tag)
                 .service(tag_admin_controller::delete_tag)
                 .service(tag_admin_controller::batch_delete_tag)
+                .service(tag_admin_controller::update_tag_status)
                 .service(tag_admin_controller::get_tag_detail)
                 .service(tag_admin_controller::get_tag_list)
                 .service(tag_admin_controller::get_tag_statistics)
@@ -352,6 +354,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(crm_customer_controller::customer_info)
                 .service(crm_customer_controller::customer_list)
                 .service(crm_customer_controller::customer_contacts)
+                .service(crm_customer_controller::customer_pool_list)
+                .service(crm_customer_controller::customer_claim)
+                .service(crm_customer_controller::customer_add_to_pool)
                 // CRM Lead Management
                 .service(lead_controller::lead_insert)
                 .service(lead_controller::lead_update)
@@ -486,5 +491,11 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(approval_controller::process_approval)
                 .service(approval_controller::approval_detail)
                 .service(approval_controller::approval_list)
+                // Company Info Management
+                .service(company_controller::get_company_info)
+                .service(company_controller::update_company_info)
+                .service(company_controller::get_account_list)
+                .service(company_controller::save_account)
+                .service(company_controller::delete_account)
         );
 }

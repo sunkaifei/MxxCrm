@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -177,11 +177,12 @@ async function handleDelete(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #status="{ row }">
         <Switch
+          :disabled="!accessStore.hasAccessCode('system:notice:update')"
           v-model:checked="row.status"
           :checked-value="1"
           :loading="row.pending"

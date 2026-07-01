@@ -1,4 +1,4 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -154,7 +154,7 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 <template>
   <Page auto-content-height>
     <Grid :table-title="$t('page.crm.leadPool.title')">
-      <template #createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
 
       <template #companyName="{ row }">
         <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.companyName }}</a>

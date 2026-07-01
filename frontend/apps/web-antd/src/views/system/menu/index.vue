@@ -257,6 +257,7 @@ async function handleDelete(row: any) {
 
       <template #status="{ row }">
         <Switch
+          :disabled="!accessStore.hasAccessCode('system:menu:update')"
           :checked="row.status === 1"
           :loading="row.pending"
           :checked-children="$t('ui.switch.active')"

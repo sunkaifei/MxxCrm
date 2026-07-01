@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { h, ref } from 'vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -11,6 +11,9 @@ import UserDrawer from './drawer.vue';
 import { deleteUserApi, getUserListApi, updateUserApi } from '#/api';
 import { statusList } from '#/store';
 import { formatDateTime } from '@vben/utils';
+import { useAccessStore } from '@vben/stores';
+
+const accessStore = useAccessStore();
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -197,6 +200,7 @@ async function handleDelete(row: any) {
 
       <template #status="{ row }">
         <Switch
+          :disabled="!accessStore.hasAccessCode('system:admin:update')"
           :checked="row.status === 1"
           :loading="row.pending"
           :checked-children="$t('ui.switch.active')"
@@ -228,14 +232,12 @@ async function handleDelete(row: any) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"
         >
-          <template #reference>
-            <Button
-              type="danger"
-              v-access:code="['system:admin:delete']"
-              link
-              :icon="h(LucideTrash2)"
-            />
-          </template>
+          <Button
+            type="danger"
+            v-access:code="['system:admin:delete']"
+            link
+            :icon="h(LucideTrash2)"
+          />
         </Popconfirm>
       </template>
     </Grid>

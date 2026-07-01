@@ -138,7 +138,7 @@ async function handleEdit(row: any) {
 async function handleDelete(row: any) {
   row.pending = true;
   try {
-    await deletePurchaseOrderApi(row.id);
+    await deletePurchaseOrderApi([row.id]);
     window.$message.success($t('ui.notification.delete_success'));
   } finally {
     row.pending = false;
@@ -174,7 +174,7 @@ async function handleReceive(row: any) {
       </template>
 
       <template #createdAt="{ row }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #status="{ row }">
