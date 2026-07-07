@@ -99,11 +99,11 @@ async function handleSaveFollowup() {
       ? dayjs(followupForm.value.nextFollowAt).format('YYYY-MM-DD')
       : null;
     await saveFollowupApi({
-      leadId: props.id,
+      leadId: Number(props.id),
       content: followupForm.value.content,
       nextFollowDate: nextDate,
-      activityType: followupForm.value.method,
-      leadStatus: followupForm.value.status,
+      activityType: Number(followupForm.value.method),
+      leadStatus: Number(followupForm.value.status),
     });
     message.success('跟进记录已保存');
     await fetchDetail();

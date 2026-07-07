@@ -36,6 +36,7 @@ pub struct Model {
     pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
+    pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,

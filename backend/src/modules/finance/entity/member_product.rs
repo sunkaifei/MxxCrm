@@ -14,60 +14,69 @@ use serde::{Serialize, Deserialize};
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "mxx_member_product")]
 pub struct Model {
-    /// 涓婚敭ID
+    /// 主键ID
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i64,
 
-    /// 浜у搧鏍囪瘑ID
+    /// 产品标识ID
     pub product_id: String,
 
-    /// 浜у搧鍚嶇О
+    /// 产品名称
     pub product_name: String,
 
-    /// 浜у搧绫诲瀷
+    /// 产品类型
     pub product_type: String,
 
-    /// 鏃堕暱绫诲瀷: 1=鏈堝害, 2=瀛ｅ害, 3=骞村害, 4=姘镐箙
+    /// 时长类型: 1=月度, 2=季度, 3=年度, 4=永久
     pub duration_type: i32,
 
-    /// 鏈堜唤鍊硷紝1灏辨槸1涓湀锛?灏辨槸2涓湀
+    /// 月份值，1就是1个月，2就是2个月
     pub duration_value: i32,
 
-    /// 璐拱闄愬埗绫诲瀷: 0=鏃犻檺鍒? 1=鑷劧骞村唴闄愬埗, 2=姘镐箙闄愬埗(鏁翠釜鐢熷懡鍛ㄦ湡鍐?
+    /// 购买限制类型: 0=无限制, 1=自然年内限制, 2=永久限制(整个生命周期内)
     pub purchase_limit_type: Option<i32>,
 
-    /// 璐拱闄愬埗娆℃暟锛堝湪闄愬埗鍛ㄦ湡鍐呮渶澶氬彲璐拱鐨勬鏁帮級
+    /// 购买限制次数（在限制周期内最多可购买的数量）
     pub purchase_limit_count: Option<i32>,
 
-    /// 浠锋牸
+    /// 价格
     pub price: rust_decimal::Decimal,
 
-    /// 鍘熶环
+    /// 原价
     pub original_price: Option<rust_decimal::Decimal>,
 
-    /// 鎶樻墸
+    /// 折扣
     pub discount: Option<rust_decimal::Decimal>,
 
-    /// 浼氬憳绫诲瀷: 1=鏅€氫細鍛? 2=鍏绘畺鎴? 3=鍟嗘埛
+    /// 会员类型: 1=普通会员, 2=养户, 3=商户
     pub member_type: i32,
 
-    /// 鐘舵€? 0=涓嬫灦, 1=涓婃灦
+    /// 状态: 0=下架, 1=上架
     pub status: i32,
 
-    /// 鎺掑簭鍊?
+    /// 排序值
     pub sort_order: i32,
 
-    /// 浜у搧鎻忚堪
+    /// 产品描述
     pub description: Option<String>,
 
-    /// 浜у搧鐗规€э紙JSON鏍煎紡锛?
+    /// 产品特性（JSON格式）
     pub features: Option<serde_json::Value>,
 
-    /// 鍒涘缓鏃堕棿
+    /// 创建人ID
+    pub created_by: Option<i64>,
+
+    /// 创建时间
     pub create_time: Option<DateTime>,
 
-    /// 鏇存柊鏃堕棿
+    /// 更新人ID
+    pub updated_by: Option<i64>,
+
+    /// 更新时间
     pub update_time: Option<DateTime>,
+
+    /// 删除标识: 0=未删除 1=已删除
+    pub deleted: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

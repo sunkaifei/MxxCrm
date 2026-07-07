@@ -16,6 +16,7 @@ use actix_web_grants::protect;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use std::time::Duration;
 
+use crate::core::kit::app::is_demo_mode;
 use crate::core::kit::config;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
@@ -178,6 +179,9 @@ pub async fn admin_soft_delete(state: web::Data<AppState>, path: web::Path<i64>)
 
 #[put("/update_user_role")]
 pub async fn update_user_role(state: web::Data<AppState>, item: web::Json<UpdateAdminRoleRequest>) -> Result<HttpResponse> {
+    if is_demo_mode() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "演示站模式下禁止修改用户角色", "local")));
+    }
     let db = &state.db;
     let user_role = item.0;
     let result = role_service::batch_update_role(&db, &Some(user_role.role_ids), &user_role.admin_id).await;
@@ -385,6 +389,11 @@ pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Res
     let permissions: Vec<String> = find_user_role_keys(&db, &is_admin, &Some(user_info.id)).await?;
     //查询用户所在权限组
     let roles: Vec<String> = role_service::user_by_role_group(&db, &Some(user_info.id)).await?;
+    //查询用户数据权限范围（取最小值，数值越小权限越大）
+    let role_details = role_service::select_by_admin_id(&db, &Some(user_info.id)).await?;
+    let data_scope = role_details.iter()
+        .filter_map(|r| r.data_scope)
+        .min();
 
     let user_info = UserLoginVO {
         id: Option::from(user_info.id),
@@ -393,6 +402,7 @@ pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Res
         avatar: user_info.avatar,
         roles,
         permissions,
+        data_scope,
     };
     
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(user_info, "local")))
@@ -414,6 +424,9 @@ pub struct UpdateAvatarRequest {
 /// - 用户id从 JWT 提取
 #[put("/admin/avatar")]
 pub async fn update_avatar(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateAvatarRequest>) -> Result<HttpResponse> {
+    if is_demo_mode() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "演示站模式下禁止修改头像", "local")));
+    }
     let db = &state.db;
     let admin_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = match admin_token.id {

@@ -1,6 +1,16 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::sale::model::order::{OrderDetailVO, OrderItemModel, OrderItemSaveDTO, OrderListQuery, OrderListVO, OrderModel, OrderSaveDTO, OrderSaveRequest, OrderStatusUpdateRequest, OrderUpdateRequest};
+use crate::modules::sale::model::shipment::ShipmentModel;
 use rust_decimal::Decimal;
 use sea_orm::{DbConn, TransactionTrait};
 
@@ -124,7 +134,8 @@ pub async fn get_detail(db: &DbConn, id: i64) -> Result<OrderDetailVO> {
     match order {
         Some(o) => {
             let items = OrderItemModel::find_by_order_id(db, id).await?;
-            Ok((&o, items).into())
+            let shipments = ShipmentModel::find_by_order_id(db, id).await?;
+            Ok((&o, items, shipments).into())
         }
         None => Err(Error::from("订单不存在")),
     }

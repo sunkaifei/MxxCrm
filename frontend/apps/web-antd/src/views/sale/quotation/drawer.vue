@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { VbenFormSchema } from '@vben/common-ui';
 
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 import { useVbenForm } from '@vben/common-ui';
 
@@ -34,6 +34,7 @@ import ProductSelectModal from '../components/ProductSelectModal.vue';
 
 const drawerData = ref<{ create?: boolean; row?: any; needRefresh?: boolean }>({ create: true });
 const isEdit = computed(() => !drawerData.value.create);
+const isReadOnly = ref(false);
 const activeTab = ref('basic');
 const isFullscreen = ref(false);
 
@@ -206,15 +207,15 @@ const summary = computed(() => {
 
 const itemColumns = [
   { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' },
-  { title: '产品信息', key: 'product', width: 240 },
-  { title: '规格', key: 'spec', width: 110 },
-  { title: '单位', key: 'unit', width: 55, align: 'center' },
-  { title: '单价(只读)', key: 'unitPrice', width: 95, align: 'right' },
-  { title: '数量', key: 'quantity', width: 80 },
-  { title: '单重(kg)', key: 'weight', width: 80, align: 'right' },
-  { title: '折扣(%)', key: 'discountRate', width: 75 },
-  { title: '折扣额', key: 'discountAmount', width: 85, align: 'right' },
-  { title: '小计', key: 'subtotal', width: 105, align: 'right' },
+  { title: '产品信息', dataIndex: 'productName', key: 'product', width: 240 },
+  { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' },
+  { title: '单价(只读)', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' },
+  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
+  { title: '单重(kg)', dataIndex: 'weight', key: 'weight', width: 80, align: 'right' },
+  { title: '折扣(%)', dataIndex: 'discountRate', key: 'discountRate', width: 75 },
+  { title: '折扣额', dataIndex: 'discountAmount', key: 'discountAmount', width: 85, align: 'right' },
+  { title: '小计', dataIndex: 'subtotal', key: 'subtotal', width: 105, align: 'right' },
   { title: '操作', key: 'action', width: 55, align: 'center' },
 ];
 
@@ -398,6 +399,10 @@ async function loadDetail(id: number) {
   try {
     const info = await getQuotationInfoApi(id);
     const data = info?.data ?? info;
+    // 审批中(approvalStatus=2)时表单只读
+    isReadOnly.value = Number(data.approvalStatus) === 2;
+    basicFormApi.setState({ commonConfig: { componentProps: { disabled: isReadOnly.value } } });
+    tradeFormApi.setState({ commonConfig: { componentProps: { disabled: isReadOnly.value } } });
     const custId = data.customerId ? Number(data.customerId) : undefined;
     const contId = data.contactId ? Number(data.contactId) : undefined;
     const oppId = data.opportunityId ? Number(data.opportunityId) : undefined;
@@ -411,12 +416,17 @@ async function loadDetail(id: number) {
     if (oppId && data.opportunityTitle) {
       opportunityOptions.value = [{ label: data.opportunityTitle, value: oppId }];
     }
+    // 等待下拉选项渲染完成后再设置表单值，确保Select能匹配到label
+    await nextTick();
     // 设置表单
     basicFormApi.setValues({
       title: data.title,
       customerId: custId,
       contactId: contId,
       opportunityId: oppId,
+      customerName: data.customerName,
+      contactName: data.contactName,
+      opportunityTitle: data.opportunityTitle,
       currency: Number(data.currency ?? 1),
       quotationDate: data.quotationDate,
       validUntil: data.validUntil,
@@ -602,6 +612,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       drawerData.value = drawerApi.getData<{ create?: boolean; row?: any }>() || { create: true };
       isFullscreen.value = false;
+      isReadOnly.value = false;
       activeTab.value = 'basic';
       quotationItems.value = [];
       approvalList.value = [];
@@ -628,10 +639,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 <template>
   <Drawer
-    :title="isEdit ? '编辑报价单' : '新建报价单'"
+    :title="isEdit ? (isReadOnly ? '查看报价单' : '编辑报价单') : '新建报价单'"
     :class="drawerClass"
     :destroy-on-close="true"
     :z-index="2000"
+    :show-footer="!isReadOnly"
   >
     <template #extra>
       <Tooltip :title="isFullscreen ? '退出全屏' : '全屏'">
@@ -685,14 +697,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
         <!-- 空状态 -->
         <div v-if="quotationItems.length === 0" class="py-12 text-center">
           <div class="mb-4 q-text-hint">暂无商品，请添加产品到报价单</div>
-          <Button type="primary" @click="openProductModal">添加产品</Button>
+          <Button v-if="!isReadOnly" type="primary" @click="openProductModal">添加产品</Button>
         </div>
 
         <!-- 商品列表（阿里巴巴采购单样式） -->
         <template v-else>
           <div class="mb-3 flex justify-between items-center">
             <span class="text-sm q-text-secondary">共 {{ quotationItems.length }} 项</span>
-            <Button type="primary" size="small" @click="openProductModal">继续添加</Button>
+            <Button v-if="!isReadOnly" type="primary" size="small" @click="openProductModal">继续添加</Button>
           </div>
           <Table
             :columns="itemColumns"
@@ -717,13 +729,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 <span class="text-center">{{ record.unit || '-' }}</span>
               </template>
               <template v-else-if="column.key === 'unitPrice'">
-                <span class="text-right q-text-secondary">¥{{ record.unitPrice.toFixed(2) }}</span>
+                <span class="text-right q-text-secondary">¥{{ Number(record.unitPrice || 0).toFixed(2) }}</span>
               </template>
               <template v-else-if="column.key === 'weight'">
-                <span class="text-right q-text-hint">{{ record.weight ? record.weight.toFixed(3) : '-' }}</span>
+                <span class="text-right q-text-hint">{{ record.weight != null ? Number(record.weight).toFixed(3) : '-' }}</span>
               </template>
               <template v-else-if="column.key === 'quantity'">
                 <InputNumber
+                  v-if="!isReadOnly"
                   v-model:value="record.quantity"
                   :min="1"
                   :precision="2"
@@ -731,9 +744,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
                   size="small"
                   @change="() => recalculateItem(index)"
                 />
+                <span v-else class="text-right">{{ record.quantity }}</span>
               </template>
               <template v-else-if="column.key === 'discountRate'">
                 <InputNumber
+                  v-if="!isReadOnly"
                   v-model:value="record.discountRate"
                   :min="0"
                   :max="100"
@@ -742,15 +757,17 @@ const [Drawer, drawerApi] = useVbenDrawer({
                   size="small"
                   @change="() => recalculateItem(index)"
                 />
+                <span v-else class="text-right">{{ record.discountRate }}%</span>
               </template>
               <template v-else-if="column.key === 'discountAmount'">
-                <span class="text-right q-text-danger">{{ record.discountAmount.toFixed(2) }}</span>
+                <span class="text-right q-text-danger">{{ Number(record.discountAmount || 0).toFixed(2) }}</span>
               </template>
               <template v-else-if="column.key === 'subtotal'">
-                <span class="text-right font-medium q-text-primary">{{ record.subtotal.toFixed(2) }}</span>
+                <span class="text-right font-medium q-text-primary">{{ Number(record.subtotal || 0).toFixed(2) }}</span>
               </template>
               <template v-else-if="column.key === 'action'">
-                <Button type="link" danger size="small" @click="removeItem(index)">删除</Button>
+                <Button v-if="!isReadOnly" type="link" danger size="small" @click="removeItem(index)">删除</Button>
+                <span v-else class="text-gray-300">-</span>
               </template>
             </template>
           </Table>
@@ -766,6 +783,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 <span class="quotation-summary__label">整体折扣</span>
                 <div class="flex items-center gap-2">
                   <InputNumber
+                    v-if="!isReadOnly"
                     v-model:value="overallDiscountRate"
                     :min="0"
                     :max="100"
@@ -773,6 +791,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
                     style="width: 80px"
                     size="small"
                   />
+                  <span v-else class="text-sm">{{ overallDiscountRate }}%</span>
                   <span class="quotation-summary__hint">%</span>
                   <span class="quotation-summary__value quotation-summary__value--danger w-20 text-right">- ¥ {{ summary.overallDiscount.toFixed(2) }}</span>
                 </div>

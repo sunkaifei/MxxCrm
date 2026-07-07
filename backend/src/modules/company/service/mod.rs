@@ -8,3 +8,4 @@
 //! 版权所有，侵权必究！
 //!
 pub mod company_service;
+pub mod code_rule_service;

@@ -118,12 +118,23 @@ const [Drawer, drawerApi] = useVbenDrawer({
     deptCheckedKeys.value = [];
     dataScopeValue.value = 5;
 
-    // 加载菜单树
+    // 加载菜单树（后端已返回树形结构）
     const menuResult = await getMenuTreeApi(null);
     const menuList = Array.isArray(menuResult)
       ? menuResult
       : menuResult?.items || [];
-    treeData.value = buildMenuTree(menuList);
+    // 递归翻译菜单名称（包含 BUTTON 类型的权限按钮）
+    const translateMenu = (items: any[]): any[] => {
+      return items.map((item) => {
+        if (item.name) item.name = $t(item.name);
+        if (item.meta?.name) item.meta.name = $t(item.meta.name);
+        if (item.children?.length) {
+          item.children = translateMenu(item.children);
+        }
+        return item;
+      });
+    };
+    treeData.value = translateMenu(menuList);
 
     // 加载部门树
     const deptResult = await getDeptTreeApi();
@@ -215,7 +226,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
     setLoading(true);
     try {
       // 保存菜单权限（超级管理员后端会直接返回成功，不做实际修改）
-      let authId: string[] = [...checkedKeys.value];
+      const checked = checkedKeys.value ?? [];
+      let checkedIds: string[] = [];
+      if (Array.isArray(checked)) {
+        checkedIds = checked;
+      } else if (checked && typeof checked === 'object' && 'checked' in checked) {
+        checkedIds = (checked as { checked: string[] }).checked || [];
+      }
+      let authId: string[] = [...checkedIds];
       const halfChecked = treeRef.value?.getHalfCheckedKeys?.();
       if (halfChecked?.length) {
         authId = [...authId, ...halfChecked];
@@ -295,7 +313,7 @@ function setLoading(loading: boolean) {
             v-model:checkedKeys="checkedKeys"
             :tree-data="treeData"
             checkable
-            :check-strictly="false"
+            :check-strictly="true"
             :replace-fields="defaultProps"
             class="w-full"
           >

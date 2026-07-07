@@ -3,6 +3,15 @@ import { unmountGlobalLoading } from '@vben/utils';
 
 import { overridesPreferences, preferencesExtension } from './preferences';
 
+// 抑制 ResizeObserver loop 警告（VxeGrid/Modal 等组件触发，非 bug）
+const resizeObserverErr = window.onerror;
+window.onerror = (message, source, lineno, colno, error) => {
+  if (message === 'ResizeObserver loop completed with undelivered notifications.') {
+    return true; // 静默吞掉
+  }
+  return resizeObserverErr?.(message, source, lineno, colno, error) ?? false;
+};
+
 /**
  * 应用初始化完成之后再进行页面加载渲染
  */

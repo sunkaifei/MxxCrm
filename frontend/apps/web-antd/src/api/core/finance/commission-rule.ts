@@ -32,3 +32,28 @@ export const toggleCommissionRuleApi = async (id: number) => {
     id,
   });
 };
+
+// 获取启用的规则列表（下拉选项）
+export const getCommissionRuleOptionsApi = async () => {
+  return requestClient.get('/api/system/finance/commission-rule/options');
+};
+
+// 设置默认方案
+export const setCommissionDefaultApi = async (id: number) => {
+  return requestClient.post('/api/system/finance/commission-rule/set-default', { id });
+};
+
+// 获取默认方案
+export const getCommissionDefaultApi = async () => {
+  return requestClient.get('/api/system/finance/commission-rule/default');
+};
+
+// 预览合同提成
+export const previewCommissionApi = async (contractId: number) => {
+  return requestClient.post('/api/system/finance/commission/preview', { id: contractId });
+};
+
+// 月度结算
+export const monthlySettleCommissionApi = async (year: number, month: number) => {
+  return requestClient.post('/api/system/finance/commission/monthly-settle', { year, month });
+};

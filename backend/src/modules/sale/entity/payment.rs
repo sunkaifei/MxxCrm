@@ -1,3 +1,12 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sea_orm::entity::prelude::*;
@@ -12,10 +21,11 @@ pub struct Model {
     pub payment_no: Option<String>,
     pub contract_id: Option<i64>,
     pub order_id: Option<i64>,
-    pub plan_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
     pub amount: Option<Decimal>,
+    pub applied_amount: Option<Decimal>,
+    pub unapplied_amount: Option<Decimal>,
     pub currency: Option<i32>,
     pub payment_method: Option<i32>,
     pub payment_date: Option<NaiveDate>,
@@ -32,7 +42,7 @@ pub struct Model {
     pub update_by: Option<String>,
     pub update_time: Option<DateTime>,
     pub confirm_time: Option<DateTime>,
-    pub confirm_by: Option<String>,
+    pub confirm_by: Option<i64>,
     pub deleted: Option<i32>,
 }
 

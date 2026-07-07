@@ -9,6 +9,7 @@ const props = defineProps<{ id?: number | string }>();
 const emit = defineEmits<{
   (e: 'edit', contact: any): void;
   (e: 'view-customer', customerId: number): void;
+  (e: 'unbind'): void;
 }>();
 
 const loading = ref(false);
@@ -19,6 +20,9 @@ const roleTypeMap: Record<number, string> = {
 };
 const roleColorMap: Record<number, string> = {
   0: 'red', 1: 'blue', 2: 'green', 3: 'default',
+};
+const genderMap: Record<number, string> = {
+  0: '男', 1: '女', 2: '未知',
 };
 
 const initials = computed(() => (contact.value.name || '?').slice(0, 1).toUpperCase());
@@ -48,6 +52,7 @@ const handleUnbind = async () => {
   try {
     await unbindContactApi({ contactId: Number(props.id) });
     message.success('解绑成功');
+    emit('unbind');
     loadData();
   } catch { /* ignore */ }
 };
@@ -144,7 +149,9 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
             <template #title>基本信息</template>
             <Descriptions :column="2" bordered size="small">
               <Descriptions.Item label="姓名">{{ contact.name }}</Descriptions.Item>
+              <Descriptions.Item label="性别">{{ genderMap[contact.gender] ?? '-' }}</Descriptions.Item>
               <Descriptions.Item label="生日">{{ contact.birthday || '-' }}</Descriptions.Item>
+              <Descriptions.Item label="QQ号">{{ contact.qq || '-' }}</Descriptions.Item>
               <Descriptions.Item label="邮箱">{{ contact.email || '-' }}</Descriptions.Item>
               <Descriptions.Item label="手机">{{ contact.mobile || '-' }}</Descriptions.Item>
               <Descriptions.Item label="座机">{{ contact.phone || '-' }}</Descriptions.Item>

@@ -1,24 +1,80 @@
 <script lang="ts" setup>
-import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2, LucideEye } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import {
+  LucideSearch,
+  LucidePlus,
+  LucideUpload,
+  LucideUsers,
+  LucideMail,
+  LucideMaximize2,
+  LucideMinimize2,
+} from '@vben/icons';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Drawer, Modal, message } from 'ant-design-vue';
+import { Button, Card, Col, Drawer, Form, Input, Popconfirm, Row, Select, Tabs, Tag, Modal, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteCustomerApi, getCustomerListApi } from '#/api';
+import { deleteCustomerApi, getCustomerListApi, saveFollowupApi } from '#/api';
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { $t } from '#/locales';
 import CustomerDrawer from './drawer.vue';
 import CustomerDetail from './detail.vue';
+import CustomerFollowupDrawer from './followup-drawer.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
+
+// data_scope 决定可见的 Tab
+// 1=全部数据 → 全部Tab  2=自定义 → my+subordinate+todayFollow
+// 3=本部门 → my+todayFollow  4=本部门及以下 → all+my+subordinate+todayFollow
+// 5=仅本人 → my+todayFollow
+const dataScope = computed(() => {
+  const scope = (userStore.userInfo as any)?.dataScope;
+  // 超级管理员或未设置时默认全部
+  const roles = userStore.userInfo?.roles ?? [];
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
+  return typeof scope === 'number' ? scope : 5;
+});
+
+const activeTab = ref('my');
+const allTabList = [
+  { key: 'all', label: '全部客户' },
+  { key: 'my', label: '我的客户' },
+  { key: 'subordinate', label: '下属客户' },
+  { key: 'todayFollow', label: '今日跟进客户' },
+];
+// 根据 data_scope 过滤可见的Tab
+const tabList = computed(() => {
+  const scope = dataScope.value;
+  let allowedKeys: string[];
+  switch (scope) {
+    case 1:
+      allowedKeys = ['all', 'my', 'subordinate', 'todayFollow'];
+      break;
+    case 2:
+    case 4:
+      allowedKeys = ['my', 'subordinate', 'todayFollow'];
+      break;
+    case 3:
+    case 5:
+    default:
+      allowedKeys = ['my', 'todayFollow'];
+      break;
+  }
+  return allTabList.filter(t => allowedKeys.includes(t.key));
+});
+// 当Tab权限变化时，确保当前激活的Tab仍然可见
+watch(tabList, (newTabs) => {
+  const keys = newTabs.map(t => t.key);
+  if (!keys.includes(activeTab.value) && keys.length > 0) {
+    activeTab.value = keys[0];
+  }
+}, { immediate: true });
 
 // 等级颜色映射 - 1:无级别 2:重点客户 3:优质客户 4:普通客户 5:其他
 const levelColorMap: Record<string, string> = {
@@ -28,17 +84,17 @@ const levelLabelMap: Record<string, string> = {
   1: '无级别', 2: '重点客户', 3: '优质客户', 4: '普通客户', 5: '其他',
 };
 
-// 行业映射 - 对齐后端 IndustryType 枚举
-const industryLabelMap: Record<string, string> = {
-  retail: '零售', wholesale: '批发', manufacturer: '制造', trade_agent: '贸易代理',
-  ecommerce: '电商', wechat_business: '微商', social: '社交电商', other: '其他',
+// 行业映射 - 后端存储数值
+const industryLabelMap: Record<number, string> = {
+  1: '零售', 2: '批发', 3: '制造', 4: '贸易代理',
+  5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
 };
 
-// 来源映射 - 对齐后端 LeadSource 枚举
-const sourceLabelMap: Record<string, string> = {
-  website: '官网', exhibition: '展会', social: '社交媒体', referral: '客户转介',
-  cold_call: '陌生拜访', customs: '海关数据', email: '邮件营销', alibaba: '阿里国际站',
-  amazon: 'Amazon', tiktok: 'TikTok', wechat: '微信', other: '其他',
+// 来源映射 - 后端存储数值
+const sourceLabelMap: Record<number, string> = {
+  1: '官网', 2: '展会', 3: '社交媒体', 4: '客户转介',
+  5: '陌生拜访', 6: '海关数据', 7: '邮件营销', 8: '阿里国际站',
+  9: 'Amazon', 10: 'TikTok', 11: '微信', 12: '其他',
 };
 
 // 详情抽屉
@@ -54,79 +110,113 @@ function openDetail(row: any) {
 function closeDetail() { detailVisible.value = false; detailId.value = null; }
 function handleDetailEdit(customer: any) { closeDetail(); openDrawer(false, customer); }
 
-const formOptions: VbenFormProps = {
-  collapsed: false,
-  showCollapseButton: false,
-  submitOnEnter: true,
-  schema: [
-    {
-      component: 'Input',
-      fieldName: 'companyName',
-      label: '公司名称',
-      componentProps: { placeholder: '输入公司名称搜索', allowClear: true },
-    },
-    {
-      component: 'Select',
-      fieldName: 'level',
-      label: '客户等级',
-      componentProps: {
-        placeholder: '全部',
-        allowClear: true,
-        options: [
-          { label: '无级别', value: 1 },
-          { label: '重点客户', value: 2 },
-          { label: '优质客户', value: 3 },
-          { label: '普通客户', value: 4 },
-          { label: '其他', value: 5 },
-        ],
-      },
-    },
-    {
-      component: 'Select',
-      fieldName: 'industry',
-      label: '行业',
-      componentProps: {
-        placeholder: '全部',
-        allowClear: true,
-        options: [
-          { label: '零售', value: 'retail' },
-          { label: '批发', value: 'wholesale' },
-          { label: '制造', value: 'manufacturer' },
-          { label: '贸易代理', value: 'trade_agent' },
-          { label: '电商', value: 'ecommerce' },
-          { label: '微商', value: 'wechat_business' },
-          { label: '社交电商', value: 'social' },
-          { label: '其他', value: 'other' },
-        ],
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'country',
-      label: '国家',
-      componentProps: { placeholder: '输入国家', allowClear: true },
-    },
-  ],
-};
+// 搜索表单
+const searchForm = ref({
+  companyName: '',
+  mobile: '',
+  phone: '',
+  dealStatus: undefined as number | undefined,
+  level: undefined as number | undefined,
+  industry: undefined as number | undefined,
+  source: undefined as number | undefined,
+  wechat: '',
+  qq: '',
+});
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
+
+function handleSearch() {
+  gridApi.query();
+}
+
+function handleReset() {
+  searchForm.value = {
+    companyName: '',
+    mobile: '',
+    phone: '',
+    dealStatus: undefined,
+    level: undefined,
+    industry: undefined,
+    source: undefined,
+    wechat: '',
+    qq: '',
+  };
+  gridApi.query();
+}
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true },
+  rowConfig: { height: 'auto' },
   stripe: true,
   checkboxConfig: { checkField: 'checked', trigger: 'row' },
 
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }, formValues) => {
-        return await getCustomerListApi({
+      query: async ({ page }) => {
+        const values = searchForm.value;
+        const result = await getCustomerListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          ...formValues,
+          keywords: values.companyName || undefined,
+          level: values.level,
+          industry: values.industry || undefined,
+          source: values.source || undefined,
+          mobile: values.mobile || undefined,
+          phone: values.phone || undefined,
+          wechat: values.wechat || undefined,
+          qq: values.qq || undefined,
+          dealStatus: values.dealStatus,
+          listType: activeTab.value,
         });
+        // 无数据 280px，有数据按内容自适应
+        const items = (result as any)?.items ?? [];
+        const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
+        if (gridEl) {
+          gridEl.style.height = items.length === 0 ? '280px' : '';
+        }
+        // 等DOM渲染完成后同步固定列行高并居中内容
+        const syncFixedColumn = (retry = 0) => {
+          const $el = gridApi.grid?.$el as HTMLElement | undefined;
+          if (!$el) return;
+          const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
+          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          if (!mainBody || !fixedRightBody) {
+            if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
+            return;
+          }
+          const rows1 = mainBody.querySelectorAll('tr.vxe-body--row');
+          const rows2 = fixedRightBody.querySelectorAll('tr.vxe-body--row');
+          const len = Math.min(rows1.length, rows2.length);
+          if (len === 0) return;
+          for (let i = 0; i < len; i++) {
+            const h = (rows1[i] as HTMLElement).offsetHeight;
+            if (h === 0) continue;
+            (rows2[i] as HTMLElement).style.height = h + 'px';
+            const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
+            tds.forEach((td: Element) => {
+              const cell = td.querySelector('.vxe-cell');
+              if (cell) {
+                (cell as HTMLElement).style.display = 'flex';
+                (cell as HTMLElement).style.alignItems = 'center';
+                (cell as HTMLElement).style.justifyContent = 'center';
+                (cell as HTMLElement).style.height = h + 'px';
+              }
+            });
+          }
+        };
+        requestAnimationFrame(() => {
+          syncFixedColumn();
+          setTimeout(() => syncFixedColumn(), 200);
+          setTimeout(() => syncFixedColumn(), 500);
+        });
+        return result;
       },
     },
   },
@@ -134,19 +224,10 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: '公司名称', field: 'companyName', minWidth: 200, slots: { default: 'companyName' } },
+    { title: '编号', field: 'customerNo', width: 150, headerAlign: 'center', align: 'center', slots: { default: 'customerNo' } },
+    { title: '公司名称', field: 'companyName', minWidth: 200, headerAlign: 'center', align: 'left', slots: { default: 'companyName' } },
     {
-      title: '等级', field: 'level', width: 80,
-      cellRender: {
-        name: 'Tag',
-        options: [
-          { value: 1, label: '无级别', color: 'default' },
-          { value: 2, label: '重点客户', color: 'red' },
-          { value: 3, label: '优质客户', color: 'orange' },
-          { value: 4, label: '普通客户', color: 'blue' },
-          { value: 5, label: '其他', color: 'green' },
-        ],
-      },
+      title: '等级', field: 'level', width: 80, slots: { default: 'level' },
     },
     {
       title: '行业', field: 'industry', width: 90,
@@ -165,31 +246,62 @@ const gridOptions: VxeGridProps = {
       title: '商机数', field: 'opportunityCount', width: 70, align: 'center',
       formatter: ({ cellValue }: any) => cellValue ?? '-',
     },
-    { title: '负责人', field: 'assignee', width: 90 },
+    {
+      title: '负责人', field: 'assigneeName', width: 90,
+      formatter: ({ cellValue }: any) => cellValue || '-',
+    },
     {
       title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createdAt' }, width: 160,
     },
     {
-      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 140,
+      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 180,
     },
   ],
 };
 
-const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
 
 const [FormDrawer, drawerApi] = useVbenDrawer({
   connectedComponent: CustomerDrawer,
   onClosed() { if (drawerApi.getData()?.needRefresh) gridApi.query(); },
 });
 
+// 跟进抽屉
+function handleFollowup(row: any) {
+  followupVisible.value = true;
+  followupCustomerId.value = undefined;
+  followupNeedRefresh.value = false;
+  // nextTick 确保组件重建后 props.id 能正确触发 fetch
+  import('vue').then(({ nextTick }) => nextTick(() => { followupCustomerId.value = row.id; }));
+}
+const followupVisible = ref(false);
+const followupCustomerId = ref<number | undefined>(undefined);
+const followupFullscreen = ref(false);
+const followupNeedRefresh = ref(false);
+function handleFollowupClose() {
+  followupVisible.value = false;
+  followupCustomerId.value = undefined;
+  if (followupNeedRefresh.value) gridApi.query();
+}
+function toggleFollowupFullscreen() {
+  followupFullscreen.value = !followupFullscreen.value;
+}
+
 function openDrawer(create: boolean, row?: any) { drawerApi.setData({ create, row }); drawerApi.open(); }
 function handleCreate() { openDrawer(true); }
-function handleEdit(row: any) { openDrawer(false, row); }
-
 async function handleDelete(row: any) {
   row.pending = true;
   try { await deleteCustomerApi([row.id]); message.success($t('ui.notification.delete_success')); }
   finally { row.pending = false; gridApi.query(); }
+}
+
+function handleEdit(row: any) { openDrawer(false, row); }
+
+async function handlePool(row: any) {
+  row.pending = true;
+  try { await addCustomerToPoolApi(Number(row.id)); message.success('已退回公海'); gridApi.query(); }
+  catch { message.error('退回公海失败'); }
+  finally { row.pending = false; }
 }
 
 async function handleBatchDelete() {
@@ -226,8 +338,115 @@ async function handleAddToPool(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
-    <Grid :table-title="$t('page.crm.customer.title')">
+  <Page>
+    <Card :bordered="false" class="mb-[15px]">
+      <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="mb-4">
+        <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+      </Tabs>
+
+      <Form :model="searchForm" layout="inline" :label-col="{ style: { width: '90px' } }" class="customer-search-form">
+        <div class="customer-search-form-wrapper">
+        <Row :gutter="[16, 12]" style="width: 100%">
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="客户名称" name="companyName">
+              <Input v-model:value="searchForm.companyName" placeholder="请输入客户名称" allow-clear style="width: 100%" />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="手机" name="mobile">
+              <Input v-model:value="searchForm.mobile" placeholder="请输入手机" allow-clear style="width: 100%" />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="电话" name="phone">
+              <Input v-model:value="searchForm.phone" placeholder="请输入电话" allow-clear style="width: 100%" />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="成交状态" name="dealStatus">
+              <Select v-model:value="searchForm.dealStatus" placeholder="请选择成交状态" allow-clear style="width: 100%">
+                <Select.Option :value="1">未成交</Select.Option>
+                <Select.Option :value="2">已成交</Select.Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="客户级别" name="level">
+              <Select v-model:value="searchForm.level" placeholder="请选择客户级别" allow-clear style="width: 100%">
+                <Select.Option :value="1">无级别</Select.Option>
+                <Select.Option :value="2">重点客户</Select.Option>
+                <Select.Option :value="3">优质客户</Select.Option>
+                <Select.Option :value="4">普通客户</Select.Option>
+                <Select.Option :value="5">其他</Select.Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="客户行业" name="industry">
+              <Select v-model:value="searchForm.industry" placeholder="请选择客户行业" allow-clear style="width: 100%">
+                <Select.Option :value="1">零售</Select.Option>
+                <Select.Option :value="2">批发</Select.Option>
+                <Select.Option :value="3">制造</Select.Option>
+                <Select.Option :value="4">贸易代理</Select.Option>
+                <Select.Option :value="5">电商</Select.Option>
+                <Select.Option :value="6">微商</Select.Option>
+                <Select.Option :value="7">社交电商</Select.Option>
+                <Select.Option :value="8">其他</Select.Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="客户来源" name="source">
+              <Select v-model:value="searchForm.source" placeholder="请选择客户来源" allow-clear style="width: 100%">
+                <Select.Option :value="1">官网</Select.Option>
+                <Select.Option :value="2">展会</Select.Option>
+                <Select.Option :value="3">社交媒体</Select.Option>
+                <Select.Option :value="4">客户转介</Select.Option>
+                <Select.Option :value="5">陌生拜访</Select.Option>
+                <Select.Option :value="6">海关数据</Select.Option>
+                <Select.Option :value="7">邮件营销</Select.Option>
+                <Select.Option :value="8">阿里国际站</Select.Option>
+                <Select.Option :value="9">Amazon</Select.Option>
+                <Select.Option :value="10">TikTok</Select.Option>
+                <Select.Option :value="11">微信</Select.Option>
+                <Select.Option :value="12">其他</Select.Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="微信" name="wechat">
+              <Input v-model:value="searchForm.wechat" placeholder="请输入微信" allow-clear style="width: 100%" />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="QQ" name="qq">
+              <Input v-model:value="searchForm.qq" placeholder="请输入QQ" allow-clear style="width: 100%" />
+            </Form.Item>
+          </Col>
+        </Row>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 mt-3">
+          <Button type="default" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+          <Button type="default" @click="handleReset">刷新</Button>
+          <Button
+            v-if="accessStore.hasAccessCode('crm:customer:create')"
+            type="primary"
+            :icon="h(LucidePlus)"
+            @click="handleCreate"
+          >
+            新增
+          </Button>
+          <Button :icon="h(LucideUpload)">导入</Button>
+          <Button :icon="h(LucideUsers)">批量转移客户</Button>
+          <Button>资料回收</Button>
+          <Button>发短信</Button>
+          <Button :icon="h(LucideMail)">发邮件</Button>
+        </div>
+      </Form>
+    </Card>
+
+    <Grid :table-title="$t('page.crm.customer.title')" style="margin-top: 15px">
       <template #toolbar-tools>
         <Button v-if="accessStore.hasAccessCode('crm:customer:create')" type="primary" class="mr-2" @click="handleCreate">
           {{ $t('page.crm.customer.button.create') }}
@@ -237,23 +456,92 @@ async function handleAddToPool(row: any) {
 
       <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
 
+      <template #customerNo="{ row }">{{ row.customerNo || '-' }}</template>
+
       <template #companyName="{ row }">
-        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.companyName }}</a>
+        <div>
+          <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">
+            {{ row.companyName }}
+          </a>
+          <div v-if="row.tags && row.tags.length" class="mt-1 flex flex-wrap gap-1">
+            <Tag
+              v-for="tag in row.tags"
+              :key="tag.id"
+              :color="tag.tagColor || 'blue'"
+              class="!mr-0 !mb-1"
+              style="font-size: 12px; line-height: 18px;"
+            >
+              {{ tag.tagName }}
+            </Tag>
+          </div>
+        </div>
+      </template>
+      <template #level="{ row }">
+        <Tag :color="levelColorMap[row.level] || 'default'">{{ levelLabelMap[row.level] || row.level || '-' }}</Tag>
       </template>
 
       <template #action="{ row }">
-        <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
-        <Button v-if="accessStore.hasAccessCode('crm:customer:edit')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
-        <Button v-if="accessStore.hasAccessCode('crm:customer:edit')" type="link" @click="() => handleAddToPool(row)">退回公海</Button>
-        <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.customer.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
-          <Button v-if="accessStore.hasAccessCode('crm:customer:delete')" type="link" danger :icon="h(LucideTrash2)" />
-        </Popconfirm>
+        <span class="action-btns">
+          <a v-if="accessStore.hasAccessCode('crm:customer:followup') && activeTab === 'my'" class="action-btn" @click="() => handleFollowup(row)">跟进</a>
+          <Popconfirm :title="'确定将该客户退回公海？'" @confirm="handlePool(row)">
+            <a class="action-btn">公海</a>
+          </Popconfirm>
+          <a v-if="accessStore.hasAccessCode('crm:customer:update')" class="action-btn" @click="() => handleEdit(row)">编辑</a>
+          <Popconfirm v-if="accessStore.hasAccessCode('crm:customer:delete')" :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.customer.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
+            <a class="action-btn">删除</a>
+          </Popconfirm>
+        </span>
       </template>
     </Grid>
     <FormDrawer />
+    <Drawer v-model:open="followupVisible" :width="followupFullscreen ? '100vw' : '75%'" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="客户跟进" :footer="null" @close="handleFollowupClose">
+      <template #extra>
+        <Button type="text" :icon="h(followupFullscreen ? LucideMinimize2 : LucideMaximize2)" @click="toggleFollowupFullscreen" />
+      </template>
+      <CustomerFollowupDrawer v-if="followupCustomerId" :id="followupCustomerId" @refresh="followupNeedRefresh = true" />
+    </Drawer>
 
     <Drawer v-model:open="detailVisible" :width="1000" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="客户详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
       <CustomerDetail v-if="detailId" :id="detailId" @edit="handleDetailEdit" />
     </Drawer>
   </Page>
 </template>
+
+<style scoped>
+.customer-search-form :deep(.ant-form-item) {
+  margin-bottom: 0;
+}
+.customer-search-form :deep(.ant-form-item-control) {
+  flex: 1;
+}
+.customer-search-form-wrapper {
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .customer-search-form-wrapper {
+    width: 75%;
+  }
+}
+.action-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 13px;
+}
+.action-btn {
+  cursor: pointer;
+  color: #1677ff;
+  line-height: 1;
+  text-decoration: none;
+}
+.action-btn:hover {
+  color: #4096ff;
+}
+/* 固定列内容垂直居中 */
+:deep(.vxe-table--fixed-right-wrapper .vxe-body--column .vxe-cell) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 100% !important;
+}
+</style>

@@ -12,6 +12,7 @@ use bcrypt::{hash, DEFAULT_COST};
 use sea_orm::DbConn;
 use sea_orm::TransactionTrait;
 use crate::core::errors::error::{Error, Result};
+use crate::core::kit::app::is_demo_mode;
 use crate::core::web::response::ResultPage;
 use crate::modules::system::entity::admin;
 use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminModel, AdminOptionVO, AdminSaveDTO, AdminSaveRequest, AdminUpdateRequest, DeptNameDTO, ListQuery, PageWhere, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
@@ -23,6 +24,9 @@ use crate::utils::string_utils::{convert_vec_option_string_to_vec_u64};
 
 /// 新增管理员
 pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
+    if is_demo_mode() {
+        return Err(Error::from("演示站模式下禁止新增用户"));
+    }
     let mut dto_data = AdminSaveDTO::from(form_data.clone());
 
     let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
@@ -85,6 +89,9 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
 }
 
 pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<Option<String>>) -> Result<i64> {
+    if is_demo_mode() {
+        return Err(Error::from("演示站模式下禁止删除用户"));
+    }
     if ids_vec.is_empty() {
         return Ok(0);
     }
@@ -111,6 +118,9 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<Option<String>>) -> 
 
 /// 软删除用户
 pub async fn soft_delete_by_id(db: &DbConn, id: i64) -> Result<i64> {
+    if is_demo_mode() {
+        return Err(Error::from("演示站模式下禁止删除用户"));
+    }
     // 关联表删除与主表软删除需原子执行，避免产生孤儿关联或残留主记录
     let result = (*db).transaction::<_, _, Error>(|tx| {
         Box::pin(async move {
@@ -128,6 +138,9 @@ pub async fn soft_delete_by_id(db: &DbConn, id: i64) -> Result<i64> {
 }
 
 pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result<i64> {
+    if is_demo_mode() {
+        return Err(Error::from("演示站模式下禁止修改用户信息"));
+    }
     let dto_data = AdminSaveDTO::from(form_data.clone());
     let admin_id = match form_data.id {
         Some(id) => id,
@@ -212,12 +225,18 @@ pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result
 /// 
 /// 返回值：受影响的行数
 pub async fn update_user_password(db: &DbConn, user_id: &Option<i64>, password: &Option<String>) -> Result<i64> {
+    if is_demo_mode() {
+        return Err(Error::from("演示站模式下禁止修改密码"));
+    }
     let result = AdminModel::update_user_password(&db, &user_id, &password).await?;
     Ok(result)
 }
 
 /// 修改管理员状态
 pub async fn update_user_status(db: &DbConn, form_data: &UpdateAdminStatusRequest) -> Result<i64> {
+    if is_demo_mode() {
+        return Err(Error::from("演示站模式下禁止修改用户状态"));
+    }
     let result = AdminModel::update_by_status(&db, &form_data.id.unwrap_or_default(), &form_data.status).await?;
     Ok(result)
 }

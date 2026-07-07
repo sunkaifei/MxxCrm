@@ -1,9 +1,20 @@
+﻿//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::core::r#enum::lead_source_enum::LeadSource;
 use crate::modules::crm::entity::{opportunity, opportunity::Entity as Opportunity};
+use crate::modules::crm::entity::customer;
+use crate::modules::system::entity::admin;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
 /// 商机新增请求DTO
@@ -26,18 +37,64 @@ pub struct OpportunitySaveRequest {
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
-    /// 币种
-    pub currency: Option<CurrencyCode>,
+    /// 币种（1=人民币, 2=美元, 3=欧元, 4=英镑, 5=日元, 6=港币, 7=澳元）
+    pub currency: Option<i32>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
-    /// 商机来源
-    pub source: Option<LeadSource>,
+    /// 商机来源（1=官网, 2=展会, 3=社交媒体, 4=客户转介, 5=陌生拜访, 6=海关数据, 7=邮件营销, 8=阿里国际站, 9=Amazon, 10=TikTok, 11=微信, 12=其他）
+    pub source: Option<i32>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
     pub custom_fields: Option<serde_json::Value>,
+}
+
+/// i32 转 CurrencyCode
+pub fn i32_to_currency_code(v: i32) -> Option<CurrencyCode> {
+    match v {
+        1 => Some(CurrencyCode::CNY),
+        2 => Some(CurrencyCode::USD),
+        3 => Some(CurrencyCode::EUR),
+        4 => Some(CurrencyCode::GBP),
+        5 => Some(CurrencyCode::JPY),
+        6 => Some(CurrencyCode::HKD),
+        7 => Some(CurrencyCode::AUD),
+        _ => None,
+    }
+}
+
+/// CurrencyCode 转 i32
+pub fn currency_code_to_i32(v: CurrencyCode) -> i32 {
+    match v {
+        CurrencyCode::CNY => 1,
+        CurrencyCode::USD => 2,
+        CurrencyCode::EUR => 3,
+        CurrencyCode::GBP => 4,
+        CurrencyCode::JPY => 5,
+        CurrencyCode::HKD => 6,
+        CurrencyCode::AUD => 7,
+    }
+}
+
+/// i32 转 LeadSource
+pub fn i32_to_lead_source(v: i32) -> Option<LeadSource> {
+    match v {
+        1 => Some(LeadSource::Website),
+        2 => Some(LeadSource::Exhibition),
+        3 => Some(LeadSource::Social),
+        4 => Some(LeadSource::Referral),
+        5 => Some(LeadSource::ColdCall),
+        6 => Some(LeadSource::Customs),
+        7 => Some(LeadSource::Email),
+        8 => Some(LeadSource::Alibaba),
+        9 => Some(LeadSource::Amazon),
+        10 => Some(LeadSource::Tiktok),
+        11 => Some(LeadSource::Wechat),
+        12 => Some(LeadSource::Other),
+        _ => None,
+    }
 }
 
 impl From<OpportunitySaveRequest> for OpportunitySaveDTO {
@@ -52,10 +109,10 @@ impl From<OpportunitySaveRequest> for OpportunitySaveDTO {
             stage: item.stage,
             probability: item.probability,
             amount: item.amount,
-            currency: item.currency,
+            currency: item.currency.and_then(i32_to_currency_code),
             expected_close_date: item.expected_close_date,
             assigned_to: item.assigned_to,
-            source: item.source,
+            source: item.source.and_then(i32_to_lead_source),
             tags: item.tags,
             custom_fields: item.custom_fields,
             deleted: None,
@@ -90,14 +147,14 @@ pub struct OpportunityUpdateRequest {
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
-    /// 币种
-    pub currency: Option<CurrencyCode>,
+    /// 币种（1=人民币, 2=美元, 3=欧元, 4=英镑, 5=日元, 6=港币, 7=澳元）
+    pub currency: Option<i32>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
-    /// 商机来源
-    pub source: Option<LeadSource>,
+    /// 商机来源（1=官网, 2=展会, 3=社交媒体, 4=客户转介, 5=陌生拜访, 6=海关数据, 7=邮件营销, 8=阿里国际站, 9=Amazon, 10=TikTok, 11=微信, 12=其他）
+    pub source: Option<i32>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
@@ -116,10 +173,10 @@ impl From<OpportunityUpdateRequest> for OpportunitySaveDTO {
             stage: item.stage,
             probability: item.probability,
             amount: item.amount,
-            currency: item.currency,
+            currency: item.currency.and_then(i32_to_currency_code),
             expected_close_date: item.expected_close_date,
             assigned_to: item.assigned_to,
-            source: item.source,
+            source: item.source.and_then(i32_to_lead_source),
             tags: item.tags,
             custom_fields: item.custom_fields,
             deleted: None,
@@ -202,14 +259,14 @@ pub struct OpportunityDetailVO {
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
-    /// 币种
-    pub currency: Option<CurrencyCode>,
+    /// 币种（1=人民币, 2=美元, 3=欧元, 4=英镑, 5=日元, 6=港币, 7=澳元）
+    pub currency: Option<i32>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
-    /// 商机来源
-    pub source: Option<LeadSource>,
+    /// 商机来源（1=官网, 2=展会, 3=社交媒体, 4=客户转介, 5=陌生拜访, 6=海关数据, 7=邮件营销, 8=阿里国际站, 9=Amazon, 10=TikTok, 11=微信, 12=其他）
+    pub source: Option<i32>,
     /// 标签列表
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
@@ -229,10 +286,10 @@ impl From<opportunity::Model> for OpportunityDetailVO {
             stage: item.stage,
             probability: item.probability,
             amount: item.amount,
-            currency: item.currency,
+            currency: item.currency.map(currency_code_to_i32),
             expected_close_date: item.expected_close_date,
             assigned_to: item.assigned_to,
-            source: item.source,
+            source: item.source.map(|s| s.to_i32()),
             tags: item.tags,
             custom_fields: item.custom_fields,
         }
@@ -250,6 +307,8 @@ pub struct OpportunityListVO {
     pub opportunity_no: Option<String>,
     /// 客户ID
     pub customer_id: Option<i64>,
+    /// 客户名称
+    pub customer_name: Option<String>,
     /// 商机标题
     pub title: Option<String>,
     /// 销售阶段
@@ -258,12 +317,18 @@ pub struct OpportunityListVO {
     pub probability: Option<i32>,
     /// 商机金额
     pub amount: Option<Decimal>,
-    /// 币种
-    pub currency: Option<CurrencyCode>,
+    /// 币种（1=人民币, 2=美元, 3=欧元, 4=英镑, 5=日元, 6=港币, 7=澳元）
+    pub currency: Option<i32>,
     /// 预计成交日期
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 创建人ID
+    pub created_by: Option<i64>,
+    /// 创建人名称（录入人）
+    pub created_by_name: Option<String>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
 }
 
 impl From<opportunity::Model> for OpportunityListVO {
@@ -272,13 +337,17 @@ impl From<opportunity::Model> for OpportunityListVO {
             id: Option::from(item.id),
             opportunity_no: item.opportunity_no,
             customer_id: item.customer_id,
+            customer_name: None,
             title: item.title,
             stage: item.stage,
             probability: item.probability,
             amount: item.amount,
-            currency: item.currency,
+            currency: item.currency.map(currency_code_to_i32),
             expected_close_date: item.expected_close_date,
             assigned_to: item.assigned_to,
+            created_by: item.created_by,
+            created_by_name: None,
+            create_time: item.create_time,
         }
     }
 }
@@ -325,6 +394,7 @@ impl OpportunityModel {
             amount: Set(req.amount.clone()),
             currency: Set(req.currency.clone()),
             expected_close_date: Set(req.expected_close_date.clone()),
+            source: Set(req.source.clone()),
             assigned_to: Set(req.assigned_to.clone()),
             created_by: Set(req.created_by.clone()),
             create_time: Set(Option::from(now)),
@@ -378,6 +448,7 @@ impl OpportunityModel {
             amount: Set(req.amount.clone()),
             currency: Set(req.currency.clone()),
             expected_close_date: Set(req.expected_close_date.clone()),
+            source: Set(req.source.clone()),
             assigned_to: Set(req.assigned_to.clone()),
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),

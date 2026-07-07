@@ -1,3 +1,12 @@
+﻿//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
@@ -12,7 +21,6 @@ pub struct FollowupSaveRequest {
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
     pub activity_type: Option<i32>,
-    pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub duration_minutes: Option<i32>,
@@ -29,7 +37,6 @@ impl From<FollowupSaveRequest> for FollowupSaveDTO {
             customer_id: item.customer_id,
             opportunity_id: item.opportunity_id,
             activity_type: item.activity_type,
-            subject: item.subject,
             content: item.content,
             next_follow_date: item.next_follow_date,
             duration_minutes: item.duration_minutes,
@@ -54,7 +61,6 @@ pub struct FollowupUpdateRequest {
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
     pub activity_type: Option<i32>,
-    pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub duration_minutes: Option<i32>,
@@ -70,7 +76,6 @@ impl From<FollowupUpdateRequest> for FollowupSaveDTO {
             customer_id: item.customer_id,
             opportunity_id: item.opportunity_id,
             activity_type: item.activity_type,
-            subject: item.subject,
             content: item.content,
             next_follow_date: item.next_follow_date,
             duration_minutes: item.duration_minutes,
@@ -94,7 +99,6 @@ pub struct FollowupSaveDTO {
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
     pub activity_type: Option<i32>,
-    pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub duration_minutes: Option<i32>,
@@ -117,12 +121,18 @@ pub struct FollowupDetailVO {
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
     pub activity_type: Option<i32>,
-    pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub duration_minutes: Option<i32>,
     pub result: Option<String>,
     pub assigned_to: Option<i64>,
+    pub created_by: Option<i64>,
+    pub created_by_name: Option<String>,
+    pub create_time: Option<DateTime>,
+    pub follow_time: Option<DateTime>,
+    pub update_time: Option<DateTime>,
+    pub customer_name: Option<String>,
+    pub assignee_name: Option<String>,
 }
 
 impl From<followup::Model> for FollowupDetailVO {
@@ -133,12 +143,18 @@ impl From<followup::Model> for FollowupDetailVO {
             customer_id: item.customer_id,
             opportunity_id: item.opportunity_id,
             activity_type: item.activity_type,
-            subject: item.subject,
             content: item.content,
             next_follow_date: item.next_follow_date,
             duration_minutes: item.duration_minutes,
             result: item.result,
             assigned_to: item.assigned_to,
+            created_by: item.created_by,
+            created_by_name: None,
+            create_time: item.create_time,
+            follow_time: item.create_time,
+            update_time: item.update_time,
+            customer_name: None,
+            assignee_name: None,
         }
     }
 }
@@ -153,7 +169,6 @@ pub struct FollowupListVO {
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
     pub activity_type: Option<i32>,
-    pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub result: Option<String>,
@@ -161,6 +176,9 @@ pub struct FollowupListVO {
     pub created_by: Option<i64>,
     pub created_by_name: Option<String>,
     pub create_time: Option<DateTime>,
+    pub follow_time: Option<DateTime>,
+    pub customer_name: Option<String>,
+    pub assignee_name: Option<String>,
 }
 
 impl From<followup::Model> for FollowupListVO {
@@ -171,7 +189,6 @@ impl From<followup::Model> for FollowupListVO {
             customer_id: item.customer_id,
             opportunity_id: item.opportunity_id,
             activity_type: item.activity_type,
-            subject: item.subject,
             content: item.content,
             next_follow_date: item.next_follow_date,
             result: item.result,
@@ -179,6 +196,9 @@ impl From<followup::Model> for FollowupListVO {
             created_by: item.created_by,
             created_by_name: None,
             create_time: item.create_time,
+            follow_time: item.create_time,
+            customer_name: None,
+            assignee_name: None,
         }
     }
 }
@@ -193,20 +213,21 @@ pub struct FollowupListQuery {
     pub customer_id: Option<i64>,
     pub lead_id: Option<i64>,
     pub opportunity_id: Option<i64>,
+    /// 仅查询客户跟进记录（customer_id IS NOT NULL）
+    pub only_customer: Option<bool>,
 }
 
 /// 跟进记录数据模型操作类
 pub struct FollowupModel;
 
 impl FollowupModel {
-    pub async fn insert(db: &DbConn, req: &FollowupSaveDTO) -> Result<i64, DbErr> {
+    pub async fn insert(db: &impl ConnectionTrait, req: &FollowupSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = followup::ActiveModel {
             lead_id: Set(req.lead_id.clone()),
             customer_id: Set(req.customer_id.clone()),
             opportunity_id: Set(req.opportunity_id.clone()),
             activity_type: Set(req.activity_type.clone()),
-            subject: Set(req.subject.clone()),
             content: Set(req.content.clone()),
             next_follow_date: Set(req.next_follow_date.clone()),
             duration_minutes: Set(req.duration_minutes.clone()),
@@ -243,7 +264,6 @@ impl FollowupModel {
             customer_id: Set(req.customer_id.clone()),
             opportunity_id: Set(req.opportunity_id.clone()),
             activity_type: Set(req.activity_type.clone()),
-            subject: Set(req.subject.clone()),
             content: Set(req.content.clone()),
             next_follow_date: Set(req.next_follow_date.clone()),
             duration_minutes: Set(req.duration_minutes.clone()),
@@ -278,6 +298,15 @@ impl FollowupModel {
             .await
     }
 
+    pub async fn select_by_customer_id(db: &DbConn, customer_id: i64) -> Result<Vec<followup::Model>, DbErr> {
+        Followup::find()
+            .filter(followup::Column::Deleted.eq(0))
+            .filter(followup::Column::CustomerId.eq(customer_id))
+            .order_by_desc(followup::Column::CreateTime)
+            .all(db)
+            .await
+    }
+
     pub async fn select_in_page(
         db: &DbConn,
         page: i64,
@@ -285,6 +314,7 @@ impl FollowupModel {
         customer_id: Option<i64>,
         lead_id: Option<i64>,
         opportunity_id: Option<i64>,
+        only_customer: Option<bool>,
     ) -> Result<(Vec<followup::Model>, i64), DbErr> {
         let mut query = Followup::find()
             .filter(followup::Column::Deleted.eq(0));
@@ -298,10 +328,13 @@ impl FollowupModel {
         if let Some(o) = opportunity_id {
             query = query.filter(followup::Column::OpportunityId.eq(o));
         }
+        if let Some(true) = only_customer {
+            query = query.filter(followup::Column::CustomerId.is_not_null());
+        }
 
         let paginator = query.order_by_desc(followup::Column::CreateTime).paginate(db, per_page as u64);
-        let num_pages = paginator.num_pages().await? as i64;
+        let total = paginator.num_items().await? as i64;
 
-        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }
 }

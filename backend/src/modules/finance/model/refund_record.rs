@@ -74,8 +74,9 @@ pub struct RefundRecordModel;
 
 impl RefundRecordModel {
     pub async fn find_list(db: &DbConn, query: RefundRecordQuery) -> Result<(Vec<RefundRecordDTO>, i64), DbErr> {
-        let mut stmt = RefundRecordEntity::find();
-        
+        let mut stmt = RefundRecordEntity::find()
+            .filter(refund_record::Column::Deleted.eq(0));
+
         if let Some(user_id) = query.user_id {
             stmt = stmt.filter(refund_record::Column::UserId.eq(user_id));
         }
@@ -114,9 +115,10 @@ impl RefundRecordModel {
 
     pub async fn find_by_id(db: &DbConn, id: i64) -> Result<Option<RefundRecordDTO>, DbErr> {
         let model = RefundRecordEntity::find_by_id(id)
+            .filter(refund_record::Column::Deleted.eq(0))
             .one(db)
             .await?;
-        
+
         Ok(model.map(RefundRecordDTO::from))
     }
 
@@ -125,7 +127,7 @@ impl RefundRecordModel {
 
         let refund_time = req.refund_time.as_ref()
             .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok());
-        
+
         let model = refund_record::ActiveModel {
             user_id: Set(req.user_id),
             payment_record_id: Set(req.payment_record_id),
@@ -137,6 +139,7 @@ impl RefundRecordModel {
             remark: Set(req.remark),
             create_time: Set(now),
             update_time: Set(now),
+            deleted: Set(Some(0)),
             ..Default::default()
         };
         
@@ -174,10 +177,17 @@ impl RefundRecordModel {
     }
 
     pub async fn delete(db: &DbConn, id: i64) -> Result<bool, DbErr> {
-        let count = RefundRecordEntity::delete_by_id(id)
-            .exec(db)
-            .await?;
-        
-        Ok(count.rows_affected > 0)
+        let mut model: refund_record::ActiveModel = RefundRecordEntity::find_by_id(id)
+            .filter(refund_record::Column::Deleted.eq(0))
+            .one(db)
+            .await?
+            .ok_or_else(|| DbErr::Custom("记录不存在".to_string()))?
+            .into();
+
+        model.deleted = Set(Some(1));
+        model.update_time = Set(Some(Utc::now().naive_utc()));
+        model.update(db).await?;
+
+        Ok(true)
     }
 }

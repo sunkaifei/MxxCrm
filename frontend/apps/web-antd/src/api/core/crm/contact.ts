@@ -30,3 +30,8 @@ export const unbindContactApi = async (param: any) => {
 export const setContactRoleApi = async (param: any) => {
   return requestClient.put('/api/system/contact/set_role', param);
 };
+
+// 联系人查重：检查手机、电话、微信、QQ、邮箱是否已存在
+export const checkContactDuplicateApi = async (param: any) => {
+  return requestClient.post('/api/system/contact/check', param);
+};

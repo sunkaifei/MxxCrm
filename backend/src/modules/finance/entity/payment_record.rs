@@ -13,45 +13,54 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "mxx_payment_record")]
 pub struct Model {
-    /// 涓婚敭ID
+    /// 主键ID
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i64,
 
-    /// 鐢ㄦ埛ID
+    /// 用户ID
     pub user_id: i64,
 
-    /// 浼氬憳浜у搧ID锛堝叧鑱斾細鍛樹骇鍝侊級
+    /// 会员产品ID（关联会员产品）
     pub member_product_id: Option<i64>,
 
-    /// 璁㈠崟ID锛堝叧鑱斾笟鍔¤鍗曪級
+    /// 订单ID（关联业务订单）
     pub order_id: Option<String>,
 
-    /// 鏀粯绫诲瀷: 1=浼氬憳璐圭敤, 2=鍟嗗搧璐拱, 3=鍏呭€? 4=鍏朵粬
+    /// 支付类型: 1=会员费用, 2=商品购买, 3=充值, 4=其他
     pub payment_type: Option<i32>,
 
-    /// 鏀粯閲戦
+    /// 支付金额
     pub amount: Decimal,
 
-    /// 鏀粯鏂瑰紡: 1=寰俊鏀粯, 2=鏀粯瀹? 3=閾惰鍗?
+    /// 支付方式: 1=微信支付, 2=支付宝, 3=银行卡
     pub pay_method: Option<i32>,
 
-    /// 鏀粯鐘舵€? 0=寰呮敮浠? 1=鏀粯鎴愬姛, 2=鏀粯澶辫触, 3=宸查€€娆?
+    /// 支付状态: 0=待支付, 1=支付成功, 2=支付失败, 3=已退款
     pub status: Option<i32>,
 
-    /// 绗笁鏂规敮浠樹氦鏄撳彿
+    /// 第三方支付交易号
     pub transaction_id: Option<String>,
 
-    /// 鏀粯鏃堕棿
+    /// 支付时间
     pub pay_time: Option<DateTime>,
 
-    /// 澶囨敞
+    /// 备注
     pub remark: Option<String>,
 
-    /// 鍒涘缓鏃堕棿
+    /// 创建人ID
+    pub created_by: Option<i64>,
+
+    /// 创建时间
     pub create_time: Option<DateTime>,
 
-    /// 鏇存柊鏃堕棿
+    /// 更新人ID
+    pub updated_by: Option<i64>,
+
+    /// 更新时间
     pub update_time: Option<DateTime>,
+
+    /// 删除标识: 0=未删除 1=已删除
+    pub deleted: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

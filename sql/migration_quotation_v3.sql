@@ -88,6 +88,8 @@ COMMENT ON COLUMN mxx_sale_quotation_approval.approval_remark IS '审批意见';
 ALTER TABLE mxx_sale_quotation ADD COLUMN IF NOT EXISTS approval_status INT DEFAULT 1;
 -- 当前版本号
 ALTER TABLE mxx_sale_quotation ADD COLUMN IF NOT EXISTS current_version INT DEFAULT 1;
+-- 审批实例ID（关联 mxx_system_approval_instance）
+ALTER TABLE mxx_sale_quotation ADD COLUMN IF NOT EXISTS instance_id BIGINT;
 -- 客户名称（冗余）
 ALTER TABLE mxx_sale_quotation ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255);
 -- 联系人名称（冗余）
@@ -99,6 +101,7 @@ ALTER TABLE mxx_sale_quotation ADD COLUMN IF NOT EXISTS quotation_date DATE;
 
 COMMENT ON COLUMN mxx_sale_quotation.approval_status IS '审批状态: 1未提交 2待审批 3已通过 4已驳回 5需修改';
 COMMENT ON COLUMN mxx_sale_quotation.current_version IS '当前版本号';
+COMMENT ON COLUMN mxx_sale_quotation.instance_id IS '审批实例ID（关联 mxx_system_approval_instance）';
 COMMENT ON COLUMN mxx_sale_quotation.customer_name IS '客户名称';
 COMMENT ON COLUMN mxx_sale_quotation.contact_name IS '联系人名称';
 COMMENT ON COLUMN mxx_sale_quotation.opportunity_title IS '商机标题';
@@ -114,4 +117,4 @@ SELECT 'mxx_sale_quotation_item' as table_name, count(*) as col_count FROM infor
 UNION ALL
 SELECT 'mxx_sale_quotation_approval', count(*) FROM information_schema.columns WHERE table_name = 'mxx_sale_quotation_approval'
 UNION ALL
-SELECT 'mxx_sale_quotation(new cols)', count(*) FROM information_schema.columns WHERE table_name = 'mxx_sale_quotation' AND column_name IN ('approval_status','current_version','customer_name','contact_name','opportunity_title','quotation_date');
+SELECT 'mxx_sale_quotation(new cols)', count(*) FROM information_schema.columns WHERE table_name = 'mxx_sale_quotation' AND column_name IN ('approval_status','current_version','instance_id','customer_name','contact_name','opportunity_title','quotation_date');

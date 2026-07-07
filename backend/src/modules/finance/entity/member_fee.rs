@@ -13,39 +13,48 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "mxx_member_fee")]
 pub struct Model {
-    /// 涓婚敭ID
+    /// 主键ID
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i64,
 
-    /// 鐢ㄦ埛ID
+    /// 用户ID
     pub user_id: i64,
 
-    /// 浼氬憳绫诲瀷: 1=鏈堝害浼氬憳, 2=瀛ｅ害浼氬憳, 3=骞村害浼氬憳
+    /// 会员类型: 1=月度会员, 2=季度会员, 3=年度会员
     pub member_type: Option<i32>,
 
-    /// 鏀粯閲戦
+    /// 支付金额
     pub amount: Decimal,
 
-    /// 浼氬憳鏈夋晥鏈熷紑濮嬫椂闂?
+    /// 会员有效期开始时间
     pub valid_start_time: Option<DateTime>,
 
-    /// 浼氬憳鏈夋晥鏈熺粨鏉熸椂闂?
+    /// 会员有效期结束时间
     pub valid_end_time: Option<DateTime>,
 
-    /// 鏀粯鐘舵€? 0=寰呮敮浠? 1=宸叉敮浠? 2=宸茶繃鏈?
+    /// 支付状态: 0=待支付, 1=已支付, 2=已过期
     pub status: Option<i32>,
 
-    /// 鍏宠仈鏀粯璁板綍ID
+    /// 关联支付记录ID
     pub payment_record_id: Option<i64>,
 
-    /// 澶囨敞
+    /// 备注
     pub remark: Option<String>,
 
-    /// 鍒涘缓鏃堕棿
+    /// 创建人ID
+    pub created_by: Option<i64>,
+
+    /// 创建时间
     pub create_time: Option<DateTime>,
 
-    /// 鏇存柊鏃堕棿
+    /// 更新人ID
+    pub updated_by: Option<i64>,
+
+    /// 更新时间
     pub update_time: Option<DateTime>,
+
+    /// 删除标识: 0=未删除 1=已删除
+    pub deleted: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

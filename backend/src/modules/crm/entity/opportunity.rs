@@ -65,7 +65,6 @@ pub struct Model {
     pub assigned_to: Option<i64>,
 
     /// 商机来源
-    #[sea_orm(ignore)]
     pub source: Option<LeadSource>,
 
     /// 标签列表（仅用于展示，关联关系存于 tag_merge 表）

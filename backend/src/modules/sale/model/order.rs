@@ -1,3 +1,12 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 //! 销售订单模型层
 //!
 //! 版权所有，侵权必究！
@@ -6,7 +15,8 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
-use crate::modules::sale::entity::{order, order::Entity as SaleOrder, order_item, order_item::Entity as SaleOrderItem};
+use crate::modules::sale::entity::{order, order::Entity as SaleOrder, order_item, order_item::Entity as SaleOrderItem, shipment};
+use crate::modules::sale::model::shipment::ShipmentListVO;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
 // ==================== 请求 DTO ====================
@@ -186,6 +196,7 @@ pub struct OrderItemSaveDTO {
     pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
+    pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
@@ -272,6 +283,7 @@ pub struct OrderDetailVO {
     pub update_by: Option<i64>,
     pub update_time: Option<DateTime>,
     pub items: Vec<OrderItemVO>,
+    pub shipments: Vec<ShipmentListVO>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -300,6 +312,7 @@ pub struct OrderItemVO {
     pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
+    pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
@@ -421,9 +434,9 @@ impl From<&order::Model> for OrderListVO {
     }
 }
 
-impl From<(&order::Model, Vec<order_item::Model>)> for OrderDetailVO {
-    fn from(data: (&order::Model, Vec<order_item::Model>)) -> Self {
-        let (model, items) = data;
+impl From<(&order::Model, Vec<order_item::Model>, Vec<shipment::Model>)> for OrderDetailVO {
+    fn from(data: (&order::Model, Vec<order_item::Model>, Vec<shipment::Model>)) -> Self {
+        let (model, items, shipments) = data;
         Self {
             id: model.id.into(),
             order_no: model.order_no.clone(),
@@ -468,6 +481,7 @@ impl From<(&order::Model, Vec<order_item::Model>)> for OrderDetailVO {
             update_by: model.update_by,
             update_time: model.update_time,
             items: items.iter().map(|i| i.into()).collect(),
+            shipments: shipments.iter().map(|s| s.into()).collect(),
         }
     }
 }
@@ -494,6 +508,7 @@ impl From<&order_item::Model> for OrderItemVO {
             amount: model.amount,
             total_amount: model.total_amount,
             delivery_date: model.delivery_date,
+            product_type: model.product_type,
             delivered_quantity: model.delivered_quantity,
             remark: model.remark.clone(),
             sort: model.sort,
@@ -634,10 +649,12 @@ impl OrderModel {
             payload.tracking_no = Set(Some(tn));
         }
 
-        if order_status == 5 {
+        // 5=部分发货，6=已发货，记录发货时间
+        if order_status == 5 || order_status == 6 {
             payload.shipping_time = Set(Some(now));
         }
-        if order_status == 6 {
+        // 6=已发货，9=已签收，10=已完成，记录完成时间
+        if order_status == 6 || order_status == 9 || order_status == 10 {
             payload.complete_time = Set(Some(now));
         }
 
@@ -773,6 +790,7 @@ impl OrderItemModel {
                 amount: Set(Some(line_amt)),
                 total_amount: Set(Some(total_amt)),
                 delivery_date: Set(item.delivery_date),
+                product_type: Set(item.product_type),
                 delivered_quantity: Set(item.delivered_quantity),
                 remark: Set(item.remark.clone()),
                 sort: Set(item.sort.or(Some(idx as i32))),

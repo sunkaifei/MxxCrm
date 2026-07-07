@@ -73,8 +73,9 @@ pub struct MemberFeeModel;
 
 impl MemberFeeModel {
     pub async fn find_list(db: &DbConn, query: MemberFeeQuery) -> Result<(Vec<MemberFeeDTO>, i64), DbErr> {
-        let mut stmt = MemberFeeEntity::find();
-        
+        let mut stmt = MemberFeeEntity::find()
+            .filter(member_fee::Column::Deleted.eq(0));
+
         if let Some(user_id) = query.user_id {
             stmt = stmt.filter(member_fee::Column::UserId.eq(user_id));
         }
@@ -103,9 +104,10 @@ impl MemberFeeModel {
 
     pub async fn find_by_id(db: &DbConn, id: i64) -> Result<Option<MemberFeeDTO>, DbErr> {
         let model = MemberFeeEntity::find_by_id(id)
+            .filter(member_fee::Column::Deleted.eq(0))
             .one(db)
             .await?;
-        
+
         Ok(model.map(MemberFeeDTO::from))
     }
 
@@ -113,10 +115,11 @@ impl MemberFeeModel {
         let model = MemberFeeEntity::find()
             .filter(member_fee::Column::UserId.eq(user_id))
             .filter(member_fee::Column::Status.eq(1))
+            .filter(member_fee::Column::Deleted.eq(0))
             .order_by_desc(member_fee::Column::CreateTime)
             .one(db)
             .await?;
-        
+
         Ok(model.map(MemberFeeDTO::from))
     }
 
@@ -140,6 +143,7 @@ impl MemberFeeModel {
             remark: Set(req.remark),
             create_time: Set(now),
             update_time: Set(now),
+            deleted: Set(Some(0)),
             ..Default::default()
         };
         
@@ -182,10 +186,17 @@ impl MemberFeeModel {
     }
 
     pub async fn delete(db: &DbConn, id: i64) -> Result<bool, DbErr> {
-        let count = MemberFeeEntity::delete_by_id(id)
-            .exec(db)
-            .await?;
-        
-        Ok(count.rows_affected > 0)
+        let mut model: member_fee::ActiveModel = MemberFeeEntity::find_by_id(id)
+            .filter(member_fee::Column::Deleted.eq(0))
+            .one(db)
+            .await?
+            .ok_or_else(|| DbErr::Custom("记录不存在".to_string()))?
+            .into();
+
+        model.deleted = Set(Some(1));
+        model.update_time = Set(Some(Utc::now().naive_utc()));
+        model.update(db).await?;
+
+        Ok(true)
     }
 }

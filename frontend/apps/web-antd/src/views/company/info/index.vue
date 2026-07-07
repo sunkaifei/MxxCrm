@@ -212,6 +212,9 @@ onMounted(() => {
         <DescriptionsItem label="企业名称">
           {{ companyInfo.companyName || '-' }}
         </DescriptionsItem>
+        <DescriptionsItem label="公司简称">
+          {{ companyInfo.companyAbbr || '-' }}
+        </DescriptionsItem>
         <DescriptionsItem label="统一社会信用代码">
           {{ companyInfo.creditCode || '-' }}
         </DescriptionsItem>
@@ -220,6 +223,9 @@ onMounted(() => {
         </DescriptionsItem>
         <DescriptionsItem label="法人电话">
           {{ maskedLegalPhone }}
+        </DescriptionsItem>
+        <DescriptionsItem label="编号显示简称">
+          {{ companyInfo.showAbbr === 1 ? '是' : '否' }}
         </DescriptionsItem>
         <DescriptionsItem label="注册地址" :span="2">
           {{ companyInfo.registerAddress || '-' }}
@@ -254,6 +260,22 @@ onMounted(() => {
           <Input
             v-model:value="companyInfo.companyName"
             placeholder="请输入企业名称"
+          />
+        </FormItem>
+        <FormItem label="公司简称">
+          <Input
+            v-model:value="companyInfo.companyAbbr"
+            placeholder="建议2-4位大写字母，如 XYH"
+          />
+        </FormItem>
+        <FormItem label="编号显示简称">
+          <Select
+            v-model:value="companyInfo.showAbbr"
+            :options="[
+              { value: 1, label: '是' },
+              { value: 0, label: '否' },
+            ]"
+            placeholder="是否在编号中显示公司简称"
           />
         </FormItem>
         <FormItem label="统一社会信用代码">

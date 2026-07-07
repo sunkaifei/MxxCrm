@@ -7,12 +7,18 @@ import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Modal, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { deletePaymentApi, getPaymentListApi } from '#/api';
+import {
+  confirmPaymentApi,
+  deletePaymentApi,
+  getPaymentListApi,
+  rejectPaymentApi,
+} from '#/api/core/sale/payment';
 import { $t } from '#/locales';
+import ApplicationDrawer from './application-drawer.vue';
 import PaymentDrawer from './drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 
@@ -28,7 +34,7 @@ const paymentMethodMap: Record<number, { label: string; color: string }> = {
 };
 
 const statusMap: Record<number, { label: string; color: string }> = {
-  1: { label: '待确认', color: 'orange' },
+  1: { label: '待确认', color: 'default' },
   2: { label: '已确认', color: 'green' },
   3: { label: '已驳回', color: 'red' },
   4: { label: '已取消', color: 'default' },
@@ -99,19 +105,19 @@ const gridOptions: VxeGridProps = {
     refresh: true,
     zoom: true,
   },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: {
     isHover: true,
   },
+  rowConfig: { height: 'auto' },
   stripe: true,
 
   proxyConfig: {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getPaymentListApi({
+        const result = await getPaymentListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
           paymentNo: formValues.paymentNo,
@@ -119,6 +125,48 @@ const gridOptions: VxeGridProps = {
           status: formValues.status,
           paymentMethod: formValues.paymentMethod,
         });
+        // 无数据 280px，有数据按内容自适应
+        const items = (result as any)?.items ?? [];
+        const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
+        if (gridEl) {
+          gridEl.style.height = items.length === 0 ? '280px' : '';
+        }
+        // 等DOM渲染完成后同步固定列行高并居中内容
+        const syncFixedColumn = (retry = 0) => {
+          const $el = gridApi.grid?.$el as HTMLElement | undefined;
+          if (!$el) return;
+          const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
+          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          if (!mainBody || !fixedRightBody) {
+            if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
+            return;
+          }
+          const rows1 = mainBody.querySelectorAll('tr.vxe-body--row');
+          const rows2 = fixedRightBody.querySelectorAll('tr.vxe-body--row');
+          const len = Math.min(rows1.length, rows2.length);
+          if (len === 0) return;
+          for (let i = 0; i < len; i++) {
+            const h = (rows1[i] as HTMLElement).offsetHeight;
+            if (h === 0) continue;
+            (rows2[i] as HTMLElement).style.height = h + 'px';
+            const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
+            tds.forEach((td: Element) => {
+              const cell = td.querySelector('.vxe-cell');
+              if (cell) {
+                (cell as HTMLElement).style.display = 'flex';
+                (cell as HTMLElement).style.alignItems = 'center';
+                (cell as HTMLElement).style.justifyContent = 'center';
+                (cell as HTMLElement).style.height = h + 'px';
+              }
+            });
+          }
+        };
+        requestAnimationFrame(() => {
+          syncFixedColumn();
+          setTimeout(() => syncFixedColumn(), 200);
+          setTimeout(() => syncFixedColumn(), 500);
+        });
+        return result;
       },
     },
   },
@@ -153,6 +201,13 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'amount' },
     },
     {
+      title: '未核销金额',
+      field: 'unappliedAmount',
+      width: 120,
+      align: 'right',
+      slots: { default: 'unappliedAmount' },
+    },
+    {
       title: '支付方式',
       field: 'paymentMethod',
       width: 100,
@@ -180,7 +235,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 120,
+      width: 260,
     },
   ],
 };
@@ -197,9 +252,24 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
+const [AppDrawer, appDrawerApi] = useVbenDrawer({
+  connectedComponent: ApplicationDrawer,
+  onClosed() {
+    const data = appDrawerApi.getData();
+    if (data && data.needRefresh) {
+      gridApi.query();
+    }
+  },
+});
+
 function openDrawer(create: boolean, row?: any) {
   drawerApi.setData({ create, row });
   drawerApi.open();
+}
+
+function openApplicationDrawer(row: any) {
+  appDrawerApi.setData({ row });
+  appDrawerApi.open();
 }
 
 async function handleEdit(row: any) {
@@ -220,10 +290,47 @@ async function handleDelete(row: any) {
 async function handleCreate() {
   openDrawer(true);
 }
+
+function handleConfirm(row: any) {
+  Modal.confirm({
+    title: '确认回款',
+    content: `确定要确认回款「${row.paymentNo || ''}」吗？确认后将联动更新订单已付金额。`,
+    okText: '确认',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await confirmPaymentApi(row.id);
+        window.$message.success('确认成功');
+        gridApi.query();
+      } catch {
+        window.$message.error('确认失败');
+      }
+    },
+  });
+}
+
+function handleReject(row: any) {
+  Modal.confirm({
+    title: '驳回回款',
+    content: `确定要驳回回款「${row.paymentNo || ''}」吗？`,
+    okText: '确认',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await rejectPaymentApi(row.id);
+        window.$message.success('驳回成功');
+        gridApi.query();
+      } catch {
+        window.$message.error('驳回失败');
+      }
+    },
+  });
+}
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <SalesProcessGuide current-step="payment" />
     <Grid :table-title="$t('page.sale.payment.title')">
       <template #toolbar-tools>
@@ -250,16 +357,22 @@ async function handleCreate() {
         </span>
       </template>
 
+      <template #unappliedAmount="{ row }">
+        <span :class="Number(row.unappliedAmount || 0) > 0 ? 'text-orange-600 font-medium' : 'text-gray-400'">
+          ¥{{ Number(row.unappliedAmount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+        </span>
+      </template>
+
       <template #paymentMethod="{ row }">
-        <Tag v-if="row.paymentMethod && paymentMethodMap[row.paymentMethod]" :color="paymentMethodMap[row.paymentMethod].color">
-          {{ paymentMethodMap[row.paymentMethod].label }}
+        <Tag v-if="row.paymentMethod && paymentMethodMap[row.paymentMethod]" :color="paymentMethodMap[row.paymentMethod]?.color">
+          {{ paymentMethodMap[row.paymentMethod]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
       </template>
 
       <template #status="{ row }">
-        <Tag v-if="row.status && statusMap[row.status]" :color="statusMap[row.status].color">
-          {{ statusMap[row.status].label }}
+        <Tag v-if="row.status && statusMap[row.status]" :color="statusMap[row.status]?.color">
+          {{ statusMap[row.status]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
       </template>
@@ -269,6 +382,31 @@ async function handleCreate() {
       </template>
 
       <template #action="{ row }">
+        <Button
+          v-if="accessStore.hasAccessCode('sale:payment:confirm') && row.status === 1"
+          type="link"
+          size="small"
+          @click="() => handleConfirm(row)"
+        >
+          确认
+        </Button>
+        <Button
+          v-if="accessStore.hasAccessCode('sale:payment:confirm') && row.status === 1"
+          type="link"
+          size="small"
+          danger
+          @click="() => handleReject(row)"
+        >
+          驳回
+        </Button>
+        <Button
+          v-if="accessStore.hasAccessCode('sale:payment:confirm') && row.status === 2"
+          type="link"
+          size="small"
+          @click="() => openApplicationDrawer(row)"
+        >
+          核销
+        </Button>
         <Button
           v-if="accessStore.hasAccessCode('sale:payment:edit')"
           type="link"
@@ -295,5 +433,6 @@ async function handleCreate() {
       </template>
     </Grid>
     <Drawer />
+    <AppDrawer />
   </Page>
 </template>

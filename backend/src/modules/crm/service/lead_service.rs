@@ -1,3 +1,12 @@
+﻿//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::model::customer::{CustomerModel, CustomerSaveDTO};
@@ -152,15 +161,16 @@ pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64> {
 
     let customer_dto = CustomerSaveDTO {
         id: None,
+        customer_no: None,
         company_name: lead.company_name.clone(),
         short_name: None,
         country: lead.country.clone(),
         region: lead.region.clone(),
         address: lead.address.clone(),
         website: lead.website.clone(),
-        industry: lead.industry.clone(),
+        industry: lead.industry.clone().map(|i| i.to_i32()),
         level: lead.level,
-        source: lead.source.clone(),
+        source: lead.source.clone().map(|s| s.to_i32()),
         currency: lead.currency.clone(),
         credit_limit: None,
         credit_days: None,

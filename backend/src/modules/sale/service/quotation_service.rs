@@ -12,6 +12,7 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::approval::model::approval::{ApprovalProcessRequest, ApprovalSubmitRequest};
 use crate::modules::approval::service::approval_service::ApprovalService;
+use crate::modules::company::service::code_rule_service;
 use crate::modules::sale::model::order::{OrderItemModel, OrderItemSaveDTO, OrderModel, OrderSaveDTO};
 use crate::modules::sale::model::quotation::{
     QuotationApprovalModel, QuotationDetailVO, QuotationItemModel, QuotationListQuery,
@@ -30,10 +31,16 @@ pub async fn insert(db: &DbConn, form_data: &QuotationSaveRequest, created_by: S
 
     let txn = db.begin().await?;
 
-    let date_prefix = format!("QT{}", chrono::Local::now().format("%Y%m%d"));
-    let max_seq = QuotationModel::get_max_quotation_no_today(&txn, &date_prefix).await?;
-    let seq = max_seq.unwrap_or(0) + 1;
-    let quotation_no = format!("{}{:04}", date_prefix, seq);
+    // 调用编码模块生成报价编号（如未配置规则则使用默认规则）
+    let quotation_no = match code_rule_service::generate_code(&txn, "quotation", None, None, None).await {
+        Ok(code) => code,
+        Err(_) => {
+            let date_prefix = format!("QT{}", chrono::Local::now().format("%Y%m%d"));
+            let max_seq = QuotationModel::get_max_quotation_no_today(&txn, &date_prefix).await?;
+            let seq = max_seq.unwrap_or(0) + 1;
+            format!("{}{:04}", date_prefix, seq)
+        }
+    };
 
     let mut dto: QuotationSaveDTO = form_data.clone().into();
     dto.quotation_no = Some(quotation_no);
@@ -62,8 +69,11 @@ pub async fn update(db: &DbConn, form_data: &QuotationUpdateRequest, updated_by:
     }
 
     let existing = QuotationModel::find_by_id(db, id).await?;
-    if existing.is_none() {
-        return Err(Error::from("报价单不存在"));
+    let existing = existing.ok_or_else(|| Error::from("报价单不存在"))?;
+
+    // 审批中(approval_status=2)不允许修改
+    if existing.approval_status == Some(2) {
+        return Err(Error::from("报价单审批中，不允许修改"));
     }
 
     let txn = db.begin().await?;
@@ -335,6 +345,7 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
             amount: item.subtotal,
             total_amount: item.subtotal,
             delivery_date: None,
+            product_type: None,
             delivered_quantity: None,
             remark: item.remark.clone(),
             sort: item.sort,

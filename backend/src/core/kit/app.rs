@@ -15,6 +15,11 @@ pub fn is_debug() -> bool {
     config::section::<bool>("app", "debug", false)
 }
 
+// 是否演示站模式
+pub fn is_demo_mode() -> bool {
+    config::section::<bool>("server", "demo_mode", false)
+}
+
 // 管理员ID
 pub fn get_admin_id() -> u32 {
     config::section::<u32>("app", "admin_id", 0)

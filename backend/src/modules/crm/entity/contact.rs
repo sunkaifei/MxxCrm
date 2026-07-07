@@ -43,6 +43,9 @@ pub struct Model {
     /// 微信号
     pub wechat: Option<String>,
 
+    /// QQ号
+    pub qq: Option<String>,
+
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
 

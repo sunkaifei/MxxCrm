@@ -33,3 +33,25 @@ export const rejectContractApi = async (contractId: number, reason?: string) => 
 export const getContractApprovalDetailApi = async (contractId: number) => {
   return requestClient.get(`/api/system/contract/approval-detail/${contractId}`);
 };
+
+// 查询合同回款计划
+export const getContractPaymentPlanApi = async (contractId: number) => {
+  return requestClient.get('/api/system/contract/payment-plan/list', {
+    params: { contractId },
+  });
+};
+
+// 保存合同回款计划（批量）
+export const saveContractPaymentPlanApi = async (data: {
+  contractId: number;
+  plans: any[];
+}) => {
+  return requestClient.post('/api/system/contract/payment-plan/save', data);
+};
+
+// 删除合同回款计划
+export const deleteContractPaymentPlanApi = async (contractId: number) => {
+  return requestClient.delete('/api/system/contract/payment-plan/delete', {
+    params: { contractId },
+  });
+};

@@ -1,11 +1,13 @@
 <script lang="ts" setup>
 import { h, ref, computed, onMounted, watch } from 'vue';
-import { Card, Descriptions, Tabs, Tag, Button, Row, Col, Space, Popconfirm, Divider, Avatar, Dropdown, Menu, MenuItem, Skeleton, Tooltip } from 'ant-design-vue';
+import { Card, Descriptions, Tabs, Tag, Button, Row, Col, Space, Popconfirm, Divider, Avatar, Dropdown, Menu, MenuItem, Skeleton, Tooltip, Timeline, Empty } from 'ant-design-vue';
 import { LucideFilePenLine, LucideUserPlus, LucideMoreHorizontal, LucideBuilding2, LucidePhone, LucideMail, LucideMapPin, LucideGlobe } from '@vben/icons';
-import { getCustomerInfoApi, getCustomerContactsApi } from '#/api';
+import { getCustomerInfoApi, getCustomerContactsApi, getCustomerAssignHistoryApi } from '#/api';
+import { getCustomerEditLogApi, type CustomerEditLogVO } from '#/api/core/crm/customer-edit-log';
 import { useVbenDrawer } from '@vben/common-ui';
 import ContactDrawer from '../contact/drawer.vue';
 import TagSelector from '../components/TagSelector.vue';
+import { formatDateTime } from '@vben/utils';
 
 const props = defineProps<{ id?: number | string }>();
 const emit = defineEmits<{
@@ -16,6 +18,7 @@ const loading = ref(true);
 const customer = ref<any>({});
 const contacts = ref<any[]>([]);
 const historyContacts = ref<any[]>([]);
+const assignHistory = ref<any[]>([]);
 const activeTab = ref('basic');
 
 const [ContactEditDrawer, contactEditDrawerApi] = useVbenDrawer({
@@ -43,6 +46,37 @@ const initials = computed(() => {
 const roleLabel: Record<number, string> = { 0: '决策人', 1: '影响者', 2: '使用者', 3: '其他' };
 const roleColor: Record<number, string> = { 0: 'red', 1: 'blue', 2: 'green', 3: 'default' };
 
+// 行业映射 - 后端存储数值
+const industryLabelMap: Record<number, string> = {
+  1: '零售', 2: '批发', 3: '制造', 4: '贸易代理',
+  5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
+};
+
+// 来源映射 - 后端存储数值
+const sourceLabelMap: Record<number, string> = {
+  1: '官网', 2: '展会', 3: '社交媒体', 4: '客户转介',
+  5: '陌生拜访', 6: '海关数据', 7: '邮件营销', 8: '阿里国际站',
+  9: 'Amazon', 10: 'TikTok', 11: '微信', 12: '其他',
+};
+
+// 等级映射
+const levelLabelMap: Record<number, string> = { 1: '无级别', 2: '重点客户', 3: '优质客户', 4: '普通客户', 5: '其他' };
+const levelColorMap: Record<number, string> = { 1: 'default', 2: 'red', 3: 'orange', 4: 'blue', 5: 'green' };
+
+// 币种映射
+const currencyLabelMap: Record<number, string> = { 1: '人民币', 2: '美元', 3: '欧元', 4: '英镑', 5: '日元', 6: '港币', 7: '澳元' };
+
+// 操作日志字段值映射：将数值或代码显示为中文名
+function getFieldValueLabel(field: string, value: string | null | undefined): string {
+  if (value == null || value === '') return '';
+  const numVal = Number(value);
+  if (field === 'level') return levelLabelMap[numVal] || value;
+  if (field === 'industry') return industryLabelMap[numVal] || value;
+  if (field === 'source') return sourceLabelMap[numVal] || value;
+  if (field === 'currency') return currencyLabelMap[numVal] || value;
+  return value;
+}
+
 const statCards = computed(() => [
   { label: '成交总额', value: customer.value.stats?.totalRevenue ? '¥' + (customer.value.stats.totalRevenue / 10000).toFixed(1) + '万' : '-', color: 'text-blue-600', bg: 'bg-blue-50' },
   { label: '成交笔数', value: customer.value.stats?.orderCount ?? 0, color: 'text-green-600', bg: 'bg-green-50' },
@@ -58,8 +92,21 @@ const loadData = async () => {
   try {
     const result = await getCustomerInfoApi(Number(props.id));
     customer.value = result || {};
-    await loadContacts();
+    await Promise.all([loadContacts(), loadAssignHistory()]);
   } finally { loading.value = false; }
+};
+
+const loadAssignHistory = async () => {
+  if (!props.id) return;
+  try {
+    const result = await getCustomerAssignHistoryApi(Number(props.id));
+    console.log('[loadAssignHistory] props.id=', props.id, 'result=', result, 'type=', typeof result);
+    // 兼容多种返回格式：直接数组、{ data: [...] }、{ code: 200, data: [...] }
+    const list = Array.isArray(result) ? result
+      : (Array.isArray(result?.data) ? result.data
+      : []);
+    assignHistory.value = list;
+  } catch (e) { console.error('[loadAssignHistory] error=', e); /* ignore */ }
 };
 
 const loadContacts = async () => {
@@ -89,6 +136,27 @@ const handleUnbind = async (contactId: number) => {
 
 const handleEdit = () => emit('edit', customer.value);
 
+const followups = computed(() => customer.value?.followups || []);
+const editLogs = ref<CustomerEditLogVO[]>([]);
+const editLogLoading = ref(false);
+
+const loadEditLogs = async () => {
+  if (!props.id) return;
+  editLogLoading.value = true;
+  try {
+    const result = await getCustomerEditLogApi({ customerId: Number(props.id), page: 1, pageSize: 50 });
+    console.log('[EditLogs] API result:', JSON.stringify(result, null, 2));
+    console.log('[EditLogs] items:', (result as any)?.items);
+    editLogs.value = (result as any)?.items || [];
+    console.log('[EditLogs] editLogs.value:', editLogs.value);
+  } catch (e) { console.error('[EditLogs] error:', e); }
+  finally { editLogLoading.value = false; }
+};
+
+watch(() => activeTab.value, (tab) => {
+  if (tab === 'logs' && editLogs.value.length === 0) loadEditLogs();
+});
+
 watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
 </script>
 
@@ -116,8 +184,8 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                 <span v-if="customer.website" class="flex items-center gap-1.5">
                   <LucideGlobe :size="14" class="text-gray-400" /><a :href="customer.website" target="_blank" class="text-blue-500 hover:text-blue-600 hover:underline">{{ customer.website }}</a>
                 </span>
-                <span v-if="customer.assignedTo?.name" class="flex items-center gap-1.5">
-                  <LucideUserPlus :size="14" class="text-gray-400" />{{ customer.assignedTo.name }}
+                <span v-if="customer.assignedToName" class="flex items-center gap-1.5">
+                  <LucideUserPlus :size="14" class="text-gray-400" />{{ customer.assignedToName }}
                 </span>
                 <span v-if="customer.cooperatedAt" class="flex items-center gap-1.5">
                   <span class="text-gray-400">合作:</span>{{ customer.cooperatedAt }}
@@ -162,30 +230,24 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
         <Tabs v-model:activeKey="activeTab" :tabBarStyle="{ paddingLeft: '30px' }" class="pt-4">
           <Tabs.TabPane key="basic" tab="基本信息">
             <div class="p-4">
-              <Descriptions :column="3" bordered size="small" class="rounded-lg">
+              <Descriptions :column="2" bordered size="small" class="rounded-lg">
                 <Descriptions.Item label="公司名称" class="text-gray-700">{{ customer.companyName }}</Descriptions.Item>
                 <Descriptions.Item label="简称" class="text-gray-700">{{ customer.shortName || '-' }}</Descriptions.Item>
                 <Descriptions.Item label="客户编号" class="text-gray-700">{{ customer.customerNo || '-' }}</Descriptions.Item>
-                <Descriptions.Item label="行业" class="text-gray-700">{{ customer.industry || '-' }}</Descriptions.Item>
+                <Descriptions.Item label="行业" class="text-gray-700">{{ industryLabelMap[customer.industry] || customer.industry || '-' }}</Descriptions.Item>
                 <Descriptions.Item label="国家" class="text-gray-700">{{ customer.country || '-' }}</Descriptions.Item>
                 <Descriptions.Item label="区域" class="text-gray-700">{{ customer.region || '-' }}</Descriptions.Item>
                 <Descriptions.Item label="地址" :span="2" class="text-gray-700">{{ customer.address || '-' }}</Descriptions.Item>
                 <Descriptions.Item label="网站" class="text-gray-700">{{ customer.website || '-' }}</Descriptions.Item>
-                <Descriptions.Item label="来源" class="text-gray-700">{{ customer.source || '-' }}</Descriptions.Item>
+                <Descriptions.Item label="来源" class="text-gray-700">{{ sourceLabelMap[customer.source] || customer.source || '-' }}</Descriptions.Item>
                 <Descriptions.Item label="等级" class="text-gray-700">
                   <Tag :color="levelColor">{{ levelLabel }}</Tag>
                 </Descriptions.Item>
-                <Descriptions.Item label="币种" class="text-gray-700">{{ customer.currency || '-' }}</Descriptions.Item>
+                <Descriptions.Item label="币种" class="text-gray-700">{{ customer.currency ? (currencyLabelMap[Number(customer.currency)] || customer.currency) : '-' }}</Descriptions.Item>
                 <Descriptions.Item label="信用额度" class="text-gray-700">{{ customer.creditLimit ? `¥${customer.creditLimit} / ${customer.creditDays || 0}天` : '-' }}</Descriptions.Item>
-                <Descriptions.Item label="负责人" class="text-gray-700">{{ customer.assignedTo?.name || '-' }}</Descriptions.Item>
+                <Descriptions.Item label="负责人" class="text-gray-700">{{ customer.assignedToName || '-' }}</Descriptions.Item>
                 <Descriptions.Item label="合作时间" class="text-gray-700">{{ customer.cooperatedAt || '-' }}</Descriptions.Item>
-                <Descriptions.Item label="标签" :span="2" class="text-gray-700">
-                  <TagSelector
-                    entity-type="customer"
-                    :entity-id="Number(props.id)"
-                  />
-                </Descriptions.Item>
-                <Descriptions.Item label="备注" :span="3" class="text-gray-700">{{ customer.description || '-' }}</Descriptions.Item>
+                <Descriptions.Item label="备注" :span="2" class="text-gray-700">{{ customer.description || '-' }}</Descriptions.Item>
               </Descriptions>
             </div>
           </Tabs.TabPane>
@@ -269,10 +331,98 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
             <div class="text-gray-400 text-center py-16 text-sm">回款模块开发中</div>
           </Tabs.TabPane>
           <Tabs.TabPane key="followups" tab="跟进记录">
-            <div class="text-gray-400 text-center py-16 text-sm">跟进记录模块开发中</div>
+            <div class="p-4">
+              <div class="mb-4">
+                <span class="text-sm font-semibold text-gray-600">跟进记录</span>
+              </div>
+              <Timeline v-if="followups.length > 0">
+                <Timeline.Item v-for="(item, index) in followups" :key="item.id || index">
+                  <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-2">
+                      <Avatar size="small">{{ item.createdByName?.charAt(0) || '?' }}</Avatar>
+                      <span class="font-medium">{{ item.createdByName || '-' }}</span>
+                    </div>
+                    <span class="text-sm text-gray-400">{{ formatDateTime(item.createTime) }}</span>
+                  </div>
+                  <p class="mt-1 text-sm text-gray-600 whitespace-pre-wrap">{{ item.content || '-' }}</p>
+                  <div v-if="item.nextFollowDate" class="mt-1 text-xs text-orange-500">
+                    下次联系：{{ item.nextFollowDate }}
+                  </div>
+                </Timeline.Item>
+              </Timeline>
+              <Empty v-else description="暂无跟进记录" />
+            </div>
+          </Tabs.TabPane>
+          <Tabs.TabPane key="assignHistory" :tab="`负责人记录 (${assignHistory.length})`">
+            <div class="p-4">
+              <Timeline v-if="assignHistory.length > 0">
+                <Timeline.Item
+                  v-for="(item, index) in assignHistory"
+                  :key="item.id || index"
+                  :color="item.endTime ? 'blue' : 'green'"
+                >
+                  <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-2">
+                      <Avatar size="small" :style="{ backgroundColor: item.endTime ? '#d9d9d9' : '#52c41a' }">
+                        {{ item.adminName?.charAt(0) || '?' }}
+                      </Avatar>
+                      <div>
+                        <span class="font-medium">{{ item.adminName || '未知' }}</span>
+                        <Tag v-if="!item.endTime" color="green" size="small" class="ml-2">服务中</Tag>
+                        <Tag v-else color="default" size="small" class="ml-2">已结束</Tag>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-2 text-sm text-gray-500">
+                    <span>{{ formatDateTime(item.startTime) }}</span>
+                    <span v-if="item.endTime"> ~ {{ formatDateTime(item.endTime) }}</span>
+                    <span v-else class="text-green-500"> ~ 至今</span>
+                  </div>
+                  <div v-if="item.remark" class="mt-1 text-xs text-gray-400">{{ item.remark }}</div>
+                </Timeline.Item>
+              </Timeline>
+              <Empty v-else description="暂无负责人记录" />
+            </div>
           </Tabs.TabPane>
           <Tabs.TabPane key="logs" tab="操作日志">
-            <div class="text-gray-400 text-center py-16 text-sm">操作日志模块开发中</div>
+            <div class="p-4">
+              <Skeleton :loading="editLogLoading" active :paragraph="{ rows: 4 }">
+                <Timeline v-if="editLogs.length > 0">
+                  <Timeline.Item v-for="log in editLogs" :key="log.id" color="blue">
+                    <div class="flex items-start justify-between mb-2">
+                      <div class="flex items-center gap-2">
+                        <Avatar size="small" :style="{ backgroundColor: '#1677ff' }">
+                          {{ log.editorName?.charAt(0) || '?' }}
+                        </Avatar>
+                        <span class="font-medium">{{ log.editorName || '未知' }}</span>
+                      </div>
+                      <span class="text-sm text-gray-400">{{ log.editTime ? formatDateTime(log.editTime) : '-' }}</span>
+                    </div>
+                    <div class="mt-2 space-y-1">
+                      <div
+                        v-for="(item, idx) in log.content"
+                        :key="idx"
+                        class="text-sm flex items-center gap-2 py-1 px-3 rounded bg-gray-50"
+                      >
+                        <Tag color="blue" size="small" class="!mr-0">{{ item.fieldLabel }}</Tag>
+                        <template v-if="item.old !== null && item.new !== null">
+                          <span class="text-gray-400 line-through">{{ getFieldValueLabel(item.field, item.old) }}</span>
+                          <span class="text-gray-400">→</span>
+                          <span class="text-green-600 font-medium">{{ getFieldValueLabel(item.field, item.new) }}</span>
+                        </template>
+                        <template v-else-if="item.new === null">
+                          <span class="text-red-500">已删除：{{ getFieldValueLabel(item.field, item.old) }}</span>
+                        </template>
+                        <template v-else>
+                          <span class="text-green-600 font-medium">{{ getFieldValueLabel(item.field, item.new) }}</span>
+                        </template>
+                      </div>
+                    </div>
+                  </Timeline.Item>
+                </Timeline>
+                <Empty v-else description="暂无修改记录" />
+              </Skeleton>
+            </div>
           </Tabs.TabPane>
         </Tabs>
       </Card>

@@ -87,6 +87,7 @@ export const LucideUpload = createIconifyIcon('lucide:upload');
 export const LucideImageOff = createIconifyIcon('lucide:image-off');
 export const LucideBanknote = createIconifyIcon('lucide:banknote');
 export const LucideShoppingCart = createIconifyIcon('lucide:shopping-cart');
+export const LucideTruck = createIconifyIcon('lucide:truck');
 
 // 统计分析图标
 export const LucideUsers = createIconifyIcon('lucide:users');

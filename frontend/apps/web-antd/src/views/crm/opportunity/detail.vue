@@ -22,10 +22,14 @@ const stageMap: Record<number, { label: string; color: string }> = {
   5: { label: '已输单', color: 'red' },
 };
 
+const currencyLabelMap: Record<number, string> = {
+  1: 'CNY', 2: 'USD', 3: 'EUR', 4: 'GBP', 5: 'JPY', 6: 'HKD', 7: 'AUD',
+};
+
 const sourceMap: Record<string, string> = {
-  website: '官网', exhibition: '展会', social: '社交媒体', referral: '客户转介',
-  cold_call: '陌生拜访', customs: '海关数据', email: '邮件营销', alibaba: '阿里国际站',
-  amazon: 'Amazon', tiktok: 'TikTok', wechat: '微信', other: '其他',
+  1: '官网', 2: '展会', 3: '社交媒体', 4: '客户转介',
+  5: '陌生拜访', 6: '海关数据', 7: '邮件营销', 8: '阿里国际站',
+  9: 'Amazon', 10: 'TikTok', 11: '微信', 12: '其他',
 };
 
 const stageInfo = computed(() => stageMap[opp.value.stage] || { label: opp.value.stage || '-', color: 'default' });
@@ -34,7 +38,8 @@ const sourceLabel = computed(() => sourceMap[opp.value.source] || opp.value.sour
 const amountText = computed(() => {
   if (opp.value.amount == null) return '-';
   const num = Number(opp.value.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${opp.value.currency || ''} ${num}`;
+  const currencyLabel = currencyLabelMap[opp.value.currency] || '';
+  return `${currencyLabel} ${num}`;
 });
 
 const probabilityNum = computed(() => Number(opp.value.probability ?? 0));

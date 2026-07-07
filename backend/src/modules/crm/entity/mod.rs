@@ -11,9 +11,12 @@
 pub mod contact;
 pub mod contract;
 pub mod contract_approval_log;
+pub mod contract_commission_member;
 pub mod contract_payment_plan;
 pub mod customer;
+pub mod customer_assign_history;
 pub mod customer_contact_merge;
+pub mod customer_edit_log;
 pub mod followup;
 pub mod lead;
 pub mod opportunity;

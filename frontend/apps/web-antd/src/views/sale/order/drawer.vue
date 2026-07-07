@@ -2,12 +2,14 @@
 import type { VbenFormSchema } from '@vben/common-ui';
 
 import { computed, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { useVbenForm } from '@vben/common-ui';
 
 import {
   Button,
   InputNumber,
+  Select,
   Tabs,
   TabPane,
   Table,
@@ -16,12 +18,19 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
-import { createOrderApi, getOrderInfoApi, updateOrderApi } from '#/api';
+import {
+  createOrderApi,
+  getContractInfoApi,
+  getOrderInfoApi,
+  updateOrderApi,
+} from '#/api';
 
 const props = withDefaults(
-  defineProps<{ create?: boolean; row?: any }>(),
-  { create: true, row: () => ({}) },
+  defineProps<{ create?: boolean; row?: any; fromQuotation?: any }>(),
+  { create: true, row: () => ({}), fromQuotation: () => null },
 );
+
+const route = useRoute();
 
 const isEdit = computed(() => !props.create);
 const activeTab = ref('basic');
@@ -31,6 +40,12 @@ const taxAmount = ref(0);
 const discountAmount = ref(0);
 const otherFee = ref(0);
 const isFullscreen = ref(false);
+
+const productTypeOptions = [
+  { label: '实物商品', value: 1 },
+  { label: '虚拟商品', value: 2 },
+  { label: '服务', value: 3 },
+];
 
 const drawerClass = computed(() => [
   'sale-order-drawer',
@@ -81,25 +96,11 @@ const basicFormSchema: VbenFormSchema[] = [
     wrapperClass: 'col-span-2',
   },
   {
-    component: 'Select',
-    fieldName: 'orderType',
-    label: '订单类型',
-    defaultValue: 1,
-    componentProps: { placeholder: '请选择', options: orderTypeOptions },
-  },
-  {
     component: 'DatePicker',
     fieldName: 'orderDate',
     label: '下单日期',
     rules: 'required',
     componentProps: { placeholder: '请选择', style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
-  },
-  {
-    component: 'InputNumber',
-    fieldName: 'customerId',
-    label: '客户ID',
-    rules: 'required',
-    componentProps: { placeholder: '请输入客户ID', style: 'width:100%', min: 1 },
   },
   {
     component: 'Input',
@@ -108,35 +109,10 @@ const basicFormSchema: VbenFormSchema[] = [
     componentProps: { placeholder: '请输入客户名称' },
   },
   {
-    component: 'InputNumber',
-    fieldName: 'contactId',
-    label: '联系人ID',
-    componentProps: { placeholder: '请输入联系人ID', style: 'width:100%', min: 1 },
-  },
-  {
     component: 'Input',
     fieldName: 'contactName',
     label: '联系人姓名',
     componentProps: { placeholder: '请输入联系人姓名' },
-  },
-  {
-    component: 'InputNumber',
-    fieldName: 'ownerUserId',
-    label: '负责人ID',
-    rules: 'required',
-    componentProps: { placeholder: '请输入负责人ID', style: 'width:100%', min: 1 },
-  },
-  {
-    component: 'InputNumber',
-    fieldName: 'deptId',
-    label: '部门ID',
-    componentProps: { placeholder: '请输入部门ID', style: 'width:100%', min: 1 },
-  },
-  {
-    component: 'InputNumber',
-    fieldName: 'opportunityId',
-    label: '商机ID',
-    componentProps: { placeholder: '请输入商机ID', style: 'width:100%', min: 1 },
   },
   {
     component: 'InputNumber',
@@ -316,6 +292,11 @@ const itemColumns = [
   { title: '规格', dataIndex: 'spec', width: 120 },
   { title: '单位', dataIndex: 'unit', width: 70 },
   {
+    title: '商品类型',
+    dataIndex: 'productType',
+    width: 120,
+  },
+  {
     title: '数量',
     dataIndex: 'quantity',
     width: 100,
@@ -345,6 +326,7 @@ function addItem() {
     productCode: '',
     spec: '',
     unit: '',
+    productType: 1,
     quantity: 1,
     unitPrice: 0,
     discountRate: 100,
@@ -396,7 +378,10 @@ watch(
           unpaidAmount: data.unpaidAmount ?? 0,
         });
         items.value = Array.isArray(data.items)
-          ? data.items.map((it: any) => ({ ...it }))
+          ? data.items.map((it: any) => ({
+              ...it,
+              productType: it.productType ?? 1,
+            }))
           : [];
         shippingFee.value = data.shippingFee ?? 0;
         taxAmount.value = data.taxAmount ?? 0;
@@ -433,6 +418,7 @@ async function handleSubmit() {
   const submitItems = items.value.map((item, idx) => ({
     ...item,
     sort: idx,
+    productType: Number(item.productType) || 1,
     quantity: Number(item.quantity) || 1,
     unitPrice: Number(item.unitPrice) || 0,
     discountRate: Number(item.discountRate) || 100,
@@ -489,16 +475,78 @@ const [Drawer, drawerApi] = useVbenDrawer({
         });
         shippingFormApi.setValues(props.row);
         paymentFormApi.setValues({ paidAmount: 0, unpaidAmount: 0, ...props.row });
+      } else if (props.fromQuotation) {
+        // 从报价单创建订单，预填充报价单信息
+        const q = props.fromQuotation;
+        basicFormApi.setValues({
+          title: q.title ? `${q.title}-订单` : '',
+          orderType: 1,
+          orderDate: new Date().toISOString().slice(0, 10),
+          customerId: q.customerId,
+          customerName: q.customerName,
+          contactId: q.contactId,
+          contactName: q.contactName,
+          opportunityId: q.opportunityId,
+          quotationId: q.id,
+          currency: q.currency ?? 1,
+          deliveryDate: q.deliveryDate,
+          remark: q.remark,
+        });
+        // 复制报价单产品明细到订单
+        items.value = Array.isArray(q.items)
+          ? q.items.map((it: any) => ({
+              productId: it.productId,
+              productName: it.productName || '',
+              productCode: it.productCode || '',
+              spec: it.spec || '',
+              unit: it.unit || '',
+              productType: 1,
+              quantity: Number(it.quantity) || 1,
+              unitPrice: Number(it.unitPrice) || 0,
+              discountRate: Number(it.discountRate) || 100,
+              taxRate: Number(it.taxRate) || 0,
+              amount: Number(it.subtotal) || calcLineAmount(it),
+              remark: it.remark || '',
+            }))
+          : [];
+        // 复制报价单金额信息
+        discountAmount.value = Number(q.discountAmount) || 0;
+        taxAmount.value = Number(q.taxAmount) || 0;
+        shippingFee.value = 0;
+        otherFee.value = 0;
       } else {
         basicFormApi.setValues({
           orderType: 1,
           currency: 1,
           orderDate: new Date().toISOString().slice(0, 10),
         });
+        // 新建订单时如果 URL 携带 contractId，自动加载合同信息填充
+        const contractIdFromRoute = route.query.contractId;
+        if (contractIdFromRoute) {
+          void loadContractInfo(Number(contractIdFromRoute));
+        }
       }
     }
   },
 });
+
+async function loadContractInfo(contractId: number) {
+  try {
+    const info: any = await getContractInfoApi(contractId);
+    const data = info || {};
+    basicFormApi.setValues({
+      title: data.title ? `${data.title}-订单` : '',
+      customerId: data.customerId,
+      opportunityId: data.opportunityId,
+      ownerUserId: data.assignedTo,
+      contractId,
+      currency: data.currency ?? 1,
+      orderDate: new Date().toISOString().slice(0, 10),
+    });
+  } catch {
+    // 加载合同信息失败时忽略，不影响新建订单流程
+  }
+}
 
 function closeDrawer() {
   drawerApi.close();
@@ -546,7 +594,7 @@ function closeDrawer() {
           bordered
           size="small"
           row-key="(_: any, index: number) => index"
-          :scroll="{ x: 1100 }"
+          :scroll="{ x: 1220 }"
         >
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.dataIndex === 'productName'">
@@ -560,6 +608,14 @@ function closeDrawer() {
             </template>
             <template v-else-if="column.dataIndex === 'unit'">
               <a-input v-model:value="record.unit" placeholder="单位" style="width: 60px" />
+            </template>
+            <template v-else-if="column.dataIndex === 'productType'">
+              <Select
+                v-model:value="record.productType"
+                :options="productTypeOptions"
+                placeholder="请选择"
+                style="width: 100%"
+              />
             </template>
             <template v-else-if="column.dataIndex === 'quantity'">
               <InputNumber

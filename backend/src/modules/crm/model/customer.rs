@@ -12,8 +12,6 @@ use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
-use crate::core::r#enum::industry_enum::IndustryType;
-use crate::core::r#enum::lead_source_enum::LeadSource;
 use crate::modules::crm::entity::{customer, customer::Entity as Customer};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -23,6 +21,8 @@ use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64
 pub struct CustomerSaveRequest {
     /// 公司名称
     pub company_name: Option<String>,
+    /// 客户编号
+    pub customer_no: Option<String>,
     /// 公司简称
     pub short_name: Option<String>,
     /// 国家
@@ -34,13 +34,13 @@ pub struct CustomerSaveRequest {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<IndustryType>,
+    pub industry: Option<i32>,
     /// 客户等级
     pub level: Option<i32>,
     /// 客户来源
-    pub source: Option<LeadSource>,
-    /// 币种
-    pub currency: Option<CurrencyCode>,
+    pub source: Option<i32>,
+    /// 币种（1=人民币, 2=美元, 3=欧元, 4=英镑, 5=日元, 6=港币, 7=澳元）
+    pub currency: Option<i32>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -61,6 +61,7 @@ impl From<CustomerSaveRequest> for CustomerSaveDTO {
     fn from(item: CustomerSaveRequest) -> Self {
         CustomerSaveDTO {
             id: None,
+            customer_no: item.customer_no,
             company_name: item.company_name,
             short_name: item.short_name,
             country: item.country,
@@ -70,7 +71,7 @@ impl From<CustomerSaveRequest> for CustomerSaveDTO {
             industry: item.industry,
             level: item.level,
             source: item.source,
-            currency: item.currency,
+            currency: item.currency.and_then(CurrencyCode::from_i32),
             credit_limit: item.credit_limit,
             credit_days: item.credit_days,
             assigned_to: item.assigned_to,
@@ -94,6 +95,8 @@ pub struct CustomerUpdateRequest {
     /// 客户ID
     #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
+    /// 客户编号
+    pub customer_no: Option<String>,
     /// 公司名称
     pub company_name: Option<String>,
     /// 公司简称
@@ -107,13 +110,13 @@ pub struct CustomerUpdateRequest {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<IndustryType>,
+    pub industry: Option<i32>,
     /// 客户等级
     pub level: Option<i32>,
     /// 客户来源
-    pub source: Option<LeadSource>,
-    /// 币种
-    pub currency: Option<CurrencyCode>,
+    pub source: Option<i32>,
+    /// 币种（1=人民币, 2=美元, 3=欧元, 4=英镑, 5=日元, 6=港币, 7=澳元）
+    pub currency: Option<i32>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
@@ -134,6 +137,7 @@ impl From<CustomerUpdateRequest> for CustomerSaveDTO {
     fn from(item: CustomerUpdateRequest) -> Self {
         CustomerSaveDTO {
             id: item.id,
+            customer_no: item.customer_no,
             company_name: item.company_name,
             short_name: item.short_name,
             country: item.country,
@@ -143,7 +147,7 @@ impl From<CustomerUpdateRequest> for CustomerSaveDTO {
             industry: item.industry,
             level: item.level,
             source: item.source,
-            currency: item.currency,
+            currency: item.currency.and_then(CurrencyCode::from_i32),
             credit_limit: item.credit_limit,
             credit_days: item.credit_days,
             assigned_to: item.assigned_to,
@@ -166,6 +170,8 @@ impl From<CustomerUpdateRequest> for CustomerSaveDTO {
 pub struct CustomerSaveDTO {
     /// 客户ID
     pub id: Option<i64>,
+    /// 客户编号
+    pub customer_no: Option<String>,
     /// 公司名称
     pub company_name: Option<String>,
     /// 公司简称
@@ -179,11 +185,11 @@ pub struct CustomerSaveDTO {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<IndustryType>,
+    pub industry: Option<i32>,
     /// 客户等级
     pub level: Option<i32>,
     /// 客户来源
-    pub source: Option<LeadSource>,
+    pub source: Option<i32>,
     /// 币种
     pub currency: Option<CurrencyCode>,
     /// 信用额度
@@ -234,19 +240,21 @@ pub struct CustomerDetailVO {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<IndustryType>,
+    pub industry: Option<i32>,
     /// 客户等级
     pub level: Option<i32>,
     /// 客户来源
-    pub source: Option<LeadSource>,
-    /// 币种
-    pub currency: Option<CurrencyCode>,
+    pub source: Option<i32>,
+    /// 币种（1=人民币, 2=美元, 3=欧元, 4=英镑, 5=日元, 6=港币, 7=澳元）
+    pub currency: Option<i32>,
     /// 信用额度
     pub credit_limit: Option<Decimal>,
     /// 信用天数
     pub credit_days: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 负责人名称
+    pub assigned_to_name: Option<String>,
     /// 合作日期
     pub cooperated_at: Option<Date>,
     /// 生日月份
@@ -263,6 +271,8 @@ pub struct CustomerDetailVO {
     pub last_deal_at: Option<DateTime>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
+    /// 跟进记录列表
+    pub followups: Option<Vec<crate::modules::crm::model::followup::FollowupListVO>>,
 }
 
 impl From<customer::Model> for CustomerDetailVO {
@@ -279,10 +289,11 @@ impl From<customer::Model> for CustomerDetailVO {
             industry: item.industry,
             level: item.level,
             source: item.source,
-            currency: item.currency,
+            currency: item.currency.map(|c| c.to_i32()),
             credit_limit: item.credit_limit,
             credit_days: item.credit_days,
             assigned_to: item.assigned_to,
+            assigned_to_name: None,
             cooperated_at: item.cooperated_at,
             birthday_month: item.birthday_month,
             description: item.description,
@@ -291,6 +302,7 @@ impl From<customer::Model> for CustomerDetailVO {
             total_deal_count: item.total_deal_count,
             last_deal_at: item.last_deal_at,
             next_follow_at: item.next_follow_at,
+            followups: None,
         }
     }
 }
@@ -315,9 +327,11 @@ pub struct CustomerListVO {
     /// 客户等级
     pub level: Option<i32>,
     /// 客户来源
-    pub source: Option<LeadSource>,
+    pub source: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 负责人名称
+    pub assignee_name: Option<String>,
     /// 累计成交金额
     pub total_deal_amount: Option<Decimal>,
     /// 最后成交时间
@@ -328,6 +342,17 @@ pub struct CustomerListVO {
     pub created_by_name: Option<String>,
     /// 创建时间
     pub create_time: Option<DateTime>,
+    /// 关联标签列表
+    pub tags: Option<Vec<CustomerTagVO>>,
+}
+
+/// 客户标签简要信息（列表展示用）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct CustomerTagVO {
+    pub id: Option<i64>,
+    pub tag_name: Option<String>,
+    pub tag_color: Option<String>,
 }
 
 impl From<customer::Model> for CustomerListVO {
@@ -342,11 +367,13 @@ impl From<customer::Model> for CustomerListVO {
             level: item.level,
             source: item.source,
             assigned_to: item.assigned_to,
+            assignee_name: None,
             total_deal_amount: item.total_deal_amount,
             last_deal_at: item.last_deal_at,
             created_by: item.created_by,
             created_by_name: None,
             create_time: item.create_time,
+            tags: None,
         }
     }
 }
@@ -364,13 +391,17 @@ pub struct CustomerListQuery {
     #[serde(alias = "companyName")]
     pub keywords: Option<String>,
     /// 客户等级
-    pub level: Option<String>,
+    pub level: Option<i32>,
     /// 国家
     pub country: Option<String>,
     /// 客户来源
-    pub source: Option<String>,
+    pub source: Option<i32>,
+    /// 行业
+    pub industry: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 列表类型：all=全部客户, my=我的客户, subordinate=下属客户, todayFollow=今日跟进客户
+    pub list_type: Option<String>,
 }
 
 /// 客户数据模型操作类
@@ -381,6 +412,7 @@ impl CustomerModel {
     pub async fn insert(db: &impl ConnectionTrait, req: &CustomerSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = customer::ActiveModel {
+            customer_no: Set(req.customer_no.clone()),
             company_name: Set(req.company_name.clone()),
             short_name: Set(req.short_name.clone()),
             country: Set(req.country.clone()),
@@ -412,7 +444,7 @@ impl CustomerModel {
     }
 
     /// 批量删除客户(软删除)
-    pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    pub async fn batch_delete_by_ids(db: &impl ConnectionTrait, ids: &Vec<i64>) -> Result<i64, DbErr> {
         Customer::update_many()
             .set(customer::ActiveModel {
                 deleted: Set(Some(1)),
@@ -425,7 +457,12 @@ impl CustomerModel {
     }
 
     /// 更新客户信息
-    pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &CustomerSaveDTO) -> Result<i64, DbErr> {
+    pub async fn update_by_id(db: &impl ConnectionTrait, id: &Option<i64>, req: &CustomerSaveDTO) -> Result<i64, DbErr> {
+        // assigned_to 为 None 时不更新，避免误将客户移入公海
+        let assigned_to_active = match req.assigned_to {
+            Some(v) => Set(Some(v)),
+            None => ActiveValue::NotSet,
+        };
         let payload = customer::ActiveModel {
             company_name: Set(req.company_name.clone()),
             short_name: Set(req.short_name.clone()),
@@ -439,7 +476,7 @@ impl CustomerModel {
             currency: Set(req.currency.clone()),
             credit_limit: Set(req.credit_limit.clone()),
             credit_days: Set(req.credit_days.clone()),
-            assigned_to: Set(req.assigned_to.clone()),
+            assigned_to: assigned_to_active,
             cooperated_at: Set(req.cooperated_at.clone()),
             birthday_month: Set(req.birthday_month.clone()),
             description: Set(req.description.clone()),
@@ -459,7 +496,7 @@ impl CustomerModel {
     }
 
     /// 根据ID查询客户详情
-    pub async fn find_by_id(db: &DbConn, id: i64) -> Result<Option<customer::Model>, DbErr> {
+    pub async fn find_by_id(db: &impl ConnectionTrait, id: i64) -> Result<Option<customer::Model>, DbErr> {
         Customer::find_by_id(id)
             .filter(customer::Column::Deleted.eq(0))
             .one(db)
@@ -472,21 +509,21 @@ impl CustomerModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        level: Option<String>,
+        level: Option<i32>,
         country: Option<String>,
-        source: Option<String>,
+        source: Option<i32>,
         assigned_to: Option<i64>,
     ) -> Result<(Vec<customer::Model>, i64), DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0));
         
-        if let Some(k) = keywords {
+        if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
             query = query.filter(customer::Column::CompanyName.contains(k));
         }
         if let Some(l) = level {
             query = query.filter(customer::Column::Level.eq(l));
         }
-        if let Some(c) = country {
+        if let Some(c) = country.filter(|v| !v.trim().is_empty()) {
             query = query.filter(customer::Column::Country.eq(c));
         }
         if let Some(s) = source {
@@ -502,25 +539,133 @@ impl CustomerModel {
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
     }
 
+    /// 分页查询客户列表（支持多负责人过滤）
+    pub async fn select_in_page_by_assigned_ids(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        level: Option<i32>,
+        country: Option<String>,
+        source: Option<i32>,
+        assigned_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<customer::Model>, i64), DbErr> {
+        let mut query = Customer::find()
+            .filter(customer::Column::Deleted.eq(0));
+        
+        if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(customer::Column::CompanyName.contains(k));
+        }
+        if let Some(l) = level {
+            query = query.filter(customer::Column::Level.eq(l));
+        }
+        if let Some(c) = country.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(customer::Column::Country.eq(c));
+        }
+        if let Some(s) = source {
+            query = query.filter(customer::Column::Source.eq(s));
+        }
+        if let Some(ids) = assigned_ids {
+            if ids.is_empty() {
+                // 没有可查看的用户，返回空结果
+                return Ok((vec![], 0));
+            }
+            query = query.filter(customer::Column::AssignedTo.is_in(ids));
+        }
+        
+        let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        let rows = paginator.fetch_page((page - 1) as u64).await?;
+        Ok((rows, total))
+    }
+
+    /// 查询今日跟进客户（关联 followup 表，按创建人和创建时间过滤）
+    /// user_ids: None 表示不过滤（全部数据权限），Some(vec) 表示按用户ID过滤
+    pub async fn select_today_follow_page(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        level: Option<i32>,
+        country: Option<String>,
+        source: Option<i32>,
+        user_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<customer::Model>, i64), DbErr> {
+        use crate::modules::crm::entity::followup;
+
+        let today = chrono::Local::now().naive_local().date();
+        let today_start = chrono::NaiveDateTime::new(today, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+        let today_end = chrono::NaiveDateTime::new(today, chrono::NaiveTime::from_hms_opt(23, 59, 59).unwrap());
+
+        // 子查询：今日有跟进记录的客户ID列表
+        let mut fq = followup::Entity::find()
+            .filter(followup::Column::Deleted.eq(0))
+            .filter(followup::Column::CustomerId.is_not_null())
+            .filter(followup::Column::CreateTime.gte(today_start))
+            .filter(followup::Column::CreateTime.lte(today_end));
+
+        if let Some(ref ids) = user_ids {
+            if ids.is_empty() {
+                return Ok((vec![], 0));
+            }
+            fq = fq.filter(followup::Column::CreatedBy.is_in(ids.clone()));
+        }
+
+        let followup_customer_ids = fq
+            .all(db)
+            .await?
+            .into_iter()
+            .filter_map(|f| f.customer_id)
+            .collect::<std::collections::HashSet<i64>>()
+            .into_iter()
+            .collect::<Vec<i64>>();
+
+        if followup_customer_ids.is_empty() {
+            return Ok((vec![], 0));
+        }
+
+        let mut query = Customer::find()
+            .filter(customer::Column::Deleted.eq(0))
+            .filter(customer::Column::Id.is_in(followup_customer_ids));
+
+        if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(customer::Column::CompanyName.contains(k));
+        }
+        if let Some(l) = level {
+            query = query.filter(customer::Column::Level.eq(l));
+        }
+        if let Some(c) = country.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(customer::Column::Country.eq(c));
+        }
+        if let Some(s) = source {
+            query = query.filter(customer::Column::Source.eq(s));
+        }
+
+        let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        let rows = paginator.fetch_page((page - 1) as u64).await?;
+        Ok((rows, total))
+    }
+
     /// 查询客户总数
     pub async fn select_count(
         db: &DbConn,
         keywords: Option<String>,
         level: Option<String>,
         country: Option<String>,
-        source: Option<String>,
+        source: Option<i32>,
         assigned_to: Option<i64>,
     ) -> Result<i64, DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0));
 
-        if let Some(k) = keywords {
+        if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
             query = query.filter(customer::Column::CompanyName.contains(k));
         }
-        if let Some(l) = level {
+        if let Some(l) = level.filter(|v| !v.trim().is_empty()) {
             query = query.filter(customer::Column::Level.eq(l));
         }
-        if let Some(c) = country {
+        if let Some(c) = country.filter(|v| !v.trim().is_empty()) {
             query = query.filter(customer::Column::Country.eq(c));
         }
         if let Some(s) = source {
@@ -539,25 +684,29 @@ impl CustomerModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        level: Option<String>,
+        level: Option<i32>,
         country: Option<String>,
-        source: Option<String>,
+        source: Option<i32>,
+        industry: Option<i32>,
     ) -> Result<(Vec<customer::Model>, i64), DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0))
             .filter(customer::Column::AssignedTo.is_null());
 
-        if let Some(k) = keywords {
+        if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
             query = query.filter(customer::Column::CompanyName.contains(k));
         }
         if let Some(l) = level {
             query = query.filter(customer::Column::Level.eq(l));
         }
-        if let Some(c) = country {
+        if let Some(c) = country.filter(|v| !v.trim().is_empty()) {
             query = query.filter(customer::Column::Country.eq(c));
         }
         if let Some(s) = source {
             query = query.filter(customer::Column::Source.eq(s));
+        }
+        if let Some(i) = industry {
+            query = query.filter(customer::Column::Industry.eq(i));
         }
 
         let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
@@ -567,7 +716,7 @@ impl CustomerModel {
     }
 
     /// 领取公海客户（设置负责人）
-    pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64, DbErr> {
+    pub async fn claim(db: &impl ConnectionTrait, id: i64, user_id: i64) -> Result<i64, DbErr> {
         let payload = customer::ActiveModel {
             assigned_to: Set(Some(user_id)),
             updated_by: Set(Some(user_id)),
@@ -585,7 +734,7 @@ impl CustomerModel {
     }
 
     /// 退回公海（清除负责人）
-    pub async fn add_to_pool(db: &DbConn, id: i64, user_id: i64) -> Result<i64, DbErr> {
+    pub async fn add_to_pool(db: &impl ConnectionTrait, id: i64, user_id: i64) -> Result<i64, DbErr> {
         let payload = customer::ActiveModel {
             assigned_to: Set(None),
             updated_by: Set(Some(user_id)),

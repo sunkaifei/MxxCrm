@@ -18,7 +18,20 @@ export const deleteCustomerApi = async (ids: number[]) => {
   });
 };
 
+// 检查公司名称是否已存在
+export const checkCustomerNameApi = async (params: {
+  companyName: string;
+  excludeId?: number;
+}) => {
+  return requestClient.get('/api/system/customer/check-name', { params });
+};
+
 // 获取客户下的联系人列表
 export const getCustomerContactsApi = async (id: number) => {
   return requestClient.get('/api/system/customer/contacts', { params: { id } });
+};
+
+// 获取客户分配历史（负责人时间轴）
+export const getCustomerAssignHistoryApi = async (id: number) => {
+  return requestClient.get('/api/system/customer/assign-history', { params: { id } });
 };

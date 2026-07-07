@@ -1,18 +1,29 @@
+﻿//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::entity::customer_contact_merge;
 use crate::modules::crm::entity::customer;
 use crate::modules::crm::model::contact::{
-    CareerHistoryItem, ContactBindRequest, ContactCompanyInfo, ContactDetailVO, ContactListQuery,
+    CareerHistoryItem, ContactBindRequest, ContactCheckRequest, ContactCheckResult, ContactCompanyInfo, ContactDetailVO, ContactListQuery,
     ContactListVO, ContactModel, ContactSaveDTO, ContactSaveRequest, ContactSetRoleRequest,
     ContactUnbindRequest, ContactUpdateRequest, CustomerContactVO,
 };
+use crate::modules::system::service::role_service;
 use sea_orm::DbConn;
 use sea_orm::DbErr;
 use sea_orm::EntityTrait;
 use sea_orm::TransactionTrait;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
+use sea_orm::Condition;
 use sea_orm::Set;
 use sea_orm::ActiveModelTrait;
 
@@ -159,6 +170,7 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContactDetailVO> {
                 mobile: item.mobile,
                 whatsapp: item.whatsapp,
                 wechat: item.wechat,
+                qq: item.qq,
                 gender: item.gender,
                 birthday: item.birthday,
                 notes: item.notes,
@@ -187,36 +199,133 @@ pub async fn set_role(db: &DbConn, req: &ContactSetRoleRequest) -> Result<i64> {
     Ok(result)
 }
 
-pub async fn list(db: &DbConn, query: &ContactListQuery) -> Result<ResultPage<Vec<ContactListVO>>> {
+pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -> Result<ResultPage<Vec<ContactListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
+    let list_type = query.list_type.as_deref().unwrap_or("my");
 
-    let (list, total) = ContactModel::select_in_page(
-        &db,
+    // 根据 list_type 获取可见的客户ID列表
+    let customer_ids = match list_type {
+        "my" => {
+            let ids: Vec<i64> = customer::Entity::find()
+                .filter(customer::Column::Deleted.eq(0))
+                .filter(customer::Column::AssignedTo.eq(current_user_id))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(e.to_string()))?
+                .iter()
+                .map(|c| c.id)
+                .collect();
+            Some(ids)
+        }
+        "subordinate" => {
+            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+            let data_scope = roles.iter()
+                .filter_map(|r| r.data_scope)
+                .min();
+
+            if data_scope == Some(5) {
+                return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
+            }
+
+            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|id| *id != current_user_id)
+                .collect::<Vec<_>>();
+
+            if user_ids.is_empty() {
+                return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
+            }
+
+            let ids: Vec<i64> = customer::Entity::find()
+                .filter(customer::Column::Deleted.eq(0))
+                .filter(customer::Column::AssignedTo.is_in(user_ids))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(e.to_string()))?
+                .iter()
+                .map(|c| c.id)
+                .collect();
+            Some(ids)
+        }
+        _ => None,
+    };
+
+    // 客户名称过滤
+    let mut final_customer_ids = customer_ids;
+    if let Some(cn) = &query.customer_name {
+        if !cn.is_empty() {
+            let name_filtered: Vec<i64> = customer::Entity::find()
+                .filter(customer::Column::Deleted.eq(0))
+                .filter(customer::Column::CompanyName.contains(cn))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(e.to_string()))?
+                .iter()
+                .map(|c| c.id)
+                .collect();
+            if let Some(existing) = final_customer_ids.take() {
+                let merged: Vec<i64> = existing.into_iter()
+                    .filter(|id| name_filtered.contains(id))
+                    .collect();
+                final_customer_ids = Some(merged);
+            } else {
+                final_customer_ids = Some(name_filtered);
+            }
+        }
+    }
+
+    // 通过客户ID获取联系人ID
+    let contact_ids = if let Some(cids) = &final_customer_ids {
+        if cids.is_empty() {
+            return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
+        }
+        let ids: Vec<i64> = customer_contact_merge::Entity::find()
+            .filter(customer_contact_merge::Column::CustomerId.is_in(cids.clone()))
+            .filter(customer_contact_merge::Column::IsCurrent.eq(true))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?
+            .iter()
+            .map(|m| m.contact_id)
+            .collect();
+        if ids.is_empty() {
+            return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
+        }
+        Some(ids)
+    } else {
+        None
+    };
+
+    let (list, total) = ContactModel::select_in_page_with_filters(
+        db,
         page,
         page_size,
-        query.keywords.clone(),
-        query.customer_id,
-    )
-    .await?;
+        contact_ids,
+        query.name.clone(),
+        query.mobile.clone(),
+        query.phone.clone(),
+        query.wechat.clone(),
+        query.email.clone(),
+    ).await?;
 
     // 批量查询当前任职公司
-    let contact_ids: Vec<i64> = list.iter().filter_map(|c| Some(c.id)).collect();
+    let contact_id_list: Vec<i64> = list.iter().filter_map(|c| Some(c.id)).collect();
     let mut company_map: std::collections::HashMap<i64, (Option<i64>, Option<String>, Option<i32>)> = std::collections::HashMap::new();
 
-    if !contact_ids.is_empty() {
+    if !contact_id_list.is_empty() {
         let merges = customer_contact_merge::Entity::find()
-            .filter(customer_contact_merge::Column::ContactId.is_in(contact_ids.clone()))
+            .filter(customer_contact_merge::Column::ContactId.is_in(contact_id_list.clone()))
             .filter(customer_contact_merge::Column::IsCurrent.eq(true))
             .all(db)
             .await
             .map_err(|e| Error::from(e.to_string()))?;
 
-        // 收集客户ID
-        let customer_ids: Vec<i64> = merges.iter().map(|m| m.customer_id).collect();
-        let customer_map = if !customer_ids.is_empty() {
+        let customer_id_list: Vec<i64> = merges.iter().map(|m| m.customer_id).collect();
+        let customer_map = if !customer_id_list.is_empty() {
             customer::Entity::find()
-                .filter(customer::Column::Id.is_in(customer_ids.clone()))
+                .filter(customer::Column::Id.is_in(customer_id_list.clone()))
                 .all(db)
                 .await
                 .map_err(|e| Error::from(e.to_string()))?
@@ -254,6 +363,95 @@ pub async fn list(db: &DbConn, query: &ContactListQuery) -> Result<ResultPage<Ve
     Ok(ResultPage::new(data, total, page, page_size))
 }
 
+async fn get_accessible_user_ids(
+    db: &DbConn,
+    current_user_id: i64,
+    data_scope: Option<i32>,
+) -> Result<Option<Vec<i64>>> {
+    use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
+    use crate::modules::system::model::dept::DeptModel;
+    use crate::modules::system::entity::dept;
+
+    match data_scope {
+        Some(1) => Ok(None),
+        Some(5) => Ok(Some(vec![current_user_id])),
+        Some(3) | Some(4) | Some(2) => {
+            let user_depts = AdminDeptMergeModel::find_by_admin_id(db, current_user_id).await
+                .map_err(|e| Error::from(format!("查询用户部门失败: {}", e)))?;
+
+            let mut target_dept_ids = Vec::new();
+
+            if data_scope == Some(2) {
+                let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+                for role in roles {
+                    if role.data_scope == Some(2) {
+                        if let Some(role_id) = role.id {
+                            let dept_result = crate::modules::system::model::role_dept_merge::RoleDeptMergeModel::find_by_role_id(db, &Some(role_id)).await
+                                .map_err(|e| Error::from(format!("查询角色部门关联失败: {}", e)))?;
+                            for merge in dept_result {
+                                if let Some(dept_id) = merge.dept_id {
+                                    target_dept_ids.push(dept_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                for merge in &user_depts {
+                    if let Some(dept_id) = merge.dept_id {
+                        target_dept_ids.push(dept_id);
+                    }
+                }
+            }
+
+            if target_dept_ids.is_empty() {
+                return Ok(Some(vec![current_user_id]));
+            }
+
+            let all_depts = DeptModel::find_all(db).await
+                .map_err(|e| Error::from(format!("查询部门列表失败: {}", e)))?;
+
+            let mut all_target_ids = Vec::new();
+            for dept_id in &target_dept_ids {
+                if data_scope == Some(4) || data_scope == Some(2) {
+                    all_target_ids.extend(collect_child_dept_ids(&all_depts, *dept_id));
+                } else {
+                    all_target_ids.push(*dept_id);
+                }
+            }
+
+            all_target_ids.sort();
+            all_target_ids.dedup();
+
+            let dept_merges = AdminDeptMergeModel::find_by_dept_id(db, all_target_ids).await
+                .map_err(|e| Error::from(format!("查询部门用户失败: {}", e)))?;
+
+            let mut user_ids: Vec<i64> = dept_merges.iter()
+                .filter_map(|m| m.admin_id)
+                .collect();
+            user_ids.sort();
+            user_ids.dedup();
+
+            if user_ids.is_empty() {
+                Ok(Some(vec![current_user_id]))
+            } else {
+                Ok(Some(user_ids))
+            }
+        }
+        _ => Ok(Some(vec![current_user_id])),
+    }
+}
+
+fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {
+    let mut ids = vec![parent_id];
+    for dept in all_depts {
+        if dept.parent_id == Some(parent_id) {
+            ids.extend(collect_child_dept_ids(all_depts, dept.id));
+        }
+    }
+    ids
+}
+
 /// 获取客户下的联系人列表
 pub async fn find_by_customer(
     db: &DbConn,
@@ -261,4 +459,55 @@ pub async fn find_by_customer(
 ) -> Result<(Vec<CustomerContactVO>, Vec<CustomerContactVO>)> {
     let result = ContactModel::find_by_customer(&db, customer_id).await?;
     Ok(result)
+}
+
+/// 联系人查重：检查手机、电话、微信、QQ、邮箱是否已存在
+pub async fn check_duplicate(db: &DbConn, req: &ContactCheckRequest) -> Result<Vec<ContactCheckResult>> {
+    use crate::modules::crm::entity::contact::{Entity as Contact, Column};
+    let mut results = Vec::new();
+
+    let exclude_id = req.id;
+
+    // 逐个字段检查（空值跳过）
+    let checks: Vec<(&str, Option<&String>, Column)> = vec![
+        ("mobile", req.mobile.as_ref(), Column::Mobile),
+        ("phone", req.phone.as_ref(), Column::Phone),
+        ("wechat", req.wechat.as_ref(), Column::Wechat),
+        ("qq", req.qq.as_ref(), Column::Qq),
+        ("email", req.email.as_ref(), Column::Email),
+    ];
+
+    for (field_name, value, column) in checks {
+        if let Some(v) = value {
+            let trimmed = v.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let mut query = Contact::find()
+                .filter(Column::Deleted.eq(0))
+                .filter(column.eq(trimmed));
+            if let Some(eid) = exclude_id {
+                query = query.filter(Column::Id.ne(eid));
+            }
+            let existing = query
+                .one(db)
+                .await
+                .map_err(|e| Error::from(e.to_string()))?;
+            if let Some(c) = existing {
+                results.push(ContactCheckResult {
+                    field: field_name.to_string(),
+                    duplicated: true,
+                    contact_name: c.name,
+                });
+            } else {
+                results.push(ContactCheckResult {
+                    field: field_name.to_string(),
+                    duplicated: false,
+                    contact_name: None,
+                });
+            }
+        }
+    }
+
+    Ok(results)
 }

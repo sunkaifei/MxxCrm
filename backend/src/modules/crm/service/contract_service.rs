@@ -1,5 +1,15 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
+use crate::core::r#enum::contract_status_enum::ContractStatus;
 use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
 use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalLogVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractModel, ContractSaveDTO};
@@ -148,11 +158,21 @@ pub async fn approve_contract(db: &DbConn, req: &ContractApprovalRequest, operat
         .ok_or_else(|| Error::from("审批实例不存在".to_string()))?;
     let new_status = if instance.status == 3 { 3 } else { 2 };
 
+    // 审批通过联动：自动将合同状态置为已签署（2），sign_date 为空时设为当前日期
+    let original_sign_date = contract.sign_date;
+    let today_date = chrono::Local::now().naive_local().date();
+
     // 更新合同表
     let txn = db.begin().await?;
     let mut active: contract::ActiveModel = contract.into_active_model();
     active.approval_status = Set(Some(new_status));
     active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
+    if new_status == 3 {
+        active.status = Set(Some(ContractStatus::Signed));
+        if original_sign_date.is_none() {
+            active.sign_date = Set(Some(today_date));
+        }
+    }
     active.update(&txn).await?;
 
     let now = chrono::Local::now().naive_local().to_owned();

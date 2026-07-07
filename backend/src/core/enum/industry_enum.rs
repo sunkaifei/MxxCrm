@@ -52,4 +52,18 @@ impl IndustryType {
             _ => None,
         }
     }
+
+    /// 转换为数值（用于 customer 表的 industry 字段，customer 表已改为 INTEGER 存储）
+    pub fn to_i32(self) -> i32 {
+        match self {
+            IndustryType::Retail => 1,
+            IndustryType::Wholesale => 2,
+            IndustryType::Manufacturer => 3,
+            IndustryType::TradeAgent => 4,
+            IndustryType::Ecommerce => 5,
+            IndustryType::WechatBusiness => 6,
+            IndustryType::Social => 7,
+            IndustryType::Other => 8,
+        }
+    }
 }

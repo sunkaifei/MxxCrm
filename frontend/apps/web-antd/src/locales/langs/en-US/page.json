@@ -91,22 +91,23 @@
       }
     },
     "role": {
-      "module": "Role",
-      "title": "Role Management",
-      "name": "Role Name",
-      "code": "Role Code",
-      "show": "Show",
-      "apiAuth": "Api Auth",
-      "menuAuth": "Menu Auth",
-      "button": {
-        "create": "Create",
-        "auth": "Assign Permissions",
-        "delete": "Delete",
-        "edit": "Edit Role",
-        "update": "Update",
-        "assignMenu": "Assign Menu"
-      }
-    },
+        "module": "Role",
+        "title": "Role Management",
+        "name": "Role Name",
+        "code": "Role Code",
+        "show": "Show",
+        "apiAuth": "Api Auth",
+        "menuAuth": "Menu Auth",
+        "button": {
+          "create": "Create",
+          "auth": "Assign Permissions",
+          "delete": "Delete",
+          "edit": "Edit Role",
+          "update": "Update",
+          "assignMenu": "Assign Menu",
+          "view": "View Role"
+        }
+      },
     "api": {
       "module": "API",
       "title": "API Management",
@@ -254,29 +255,131 @@
         "create": "Add Customer",
         "edit": "Edit Customer",
         "delete": "Delete Customer",
-        "assign": "Assign Customer"
+        "assign": "Assign Customer",
+        "view": "View Customer"
+      },
+      "tab": {
+        "all": "All Customers",
+        "my": "My Customers",
+        "subordinate": "Subordinate Customers",
+        "todayFollow": "Today Follow-up"
       }
+    },
+    "customerFollowup": {
+      "title": "Customer Follow-up"
     },
     "customerPool": {
       "title": "Customer Pool"
     },
     "contact": {
-      "title": "Contact Management"
+      "title": "Contact Management",
+      "button": {
+        "view": "View Contact"
+      }
     },
     "opportunity": {
       "title": "Opportunity Management",
       "button": {
         "create": "Add Opportunity",
         "edit": "Edit Opportunity",
-        "delete": "Delete Opportunity"
+        "delete": "Delete Opportunity",
+        "view": "View Opportunity"
       }
     },
     "contract": {
       "title": "Contract Management",
+      "detailTitle": "{moduleName} Detail",
+      "tab": {
+        "basic": "Basic Info",
+        "paymentPlan": "Payment Plan"
+      },
+      "status": {
+        "current": "Current Status",
+        "lockedTip": "🔒 Under approval process, info cannot be modified",
+        "draft": "Draft",
+        "draftDesc": "Created, pending submission for approval",
+        "pending": "Pending Approval",
+        "pendingDesc": "Submitted, waiting for approver",
+        "approving": "In Approval",
+        "approvingDesc": "Going through multi-level approval process",
+        "executing": "Executing",
+        "executingDesc": "Approved, contract is in effect",
+        "completed": "Completed",
+        "completedDesc": "Contract fully fulfilled",
+        "terminated": "Terminated",
+        "terminatedDesc": "Contract has been terminated",
+        "rejected": "Rejected",
+        "rejectedDesc": "Approval rejected, can be modified and resubmitted"
+      },
+      "paymentPlan": {
+        "title": "Payment Plan",
+        "description": "Add payment plan for smart due/overdue reminders",
+        "howToAutoGenerate": "How to auto-generate?",
+        "howToAutoGenerateTip": "System calculates receivables based on payment plans and reminds stakeholders before due dates. Supports triggers by signing, invoicing, settlement, or shipping.",
+        "generateMethod": "Generation Method",
+        "overdueRate": "Overdue Interest Rate",
+        "periodName": "Period Name",
+        "paymentType": "Payment Type",
+        "plannedAmount": "Planned Amount",
+        "percent": "% of Total",
+        "plannedDate": "Planned Date",
+        "remark": "Remark",
+        "addRow": "Add Row",
+        "delete": "Delete",
+        "planTotal": "Plan Total",
+        "contractTotal": "Contract Total",
+        "remaining": "Remaining",
+        "amountMatched": "✓ Amount Matched",
+        "exceedAmount": "⚠ Exceeds Contract Amount",
+        "distributeRemaining": "Distribute Remaining Equally",
+        "noRemaining": "No remaining amount to distribute",
+        "addRowFirst": "Please add at least one payment plan row first",
+        "distributed": "Distributed remaining equally",
+        "noPlans": "No payment plans yet",
+        "amountMismatchTitle": "Amount Mismatch",
+        "amountMismatchContent": "Payment plan total differs from contract total by {diff}. Continue saving?",
+        "continueSave": "Continue Save",
+        "goBackEdit": "Go Back & Edit",
+        "planRequired": "At least one payment plan is required for installment payment",
+        "periodNameRequired": "Row {n}: Period name is required",
+        "amountRequired": "Row {n}: Planned amount must be greater than 0",
+        "generateMethods": {
+          "manual": "Manually add payment plan when creating",
+          "sign": "Auto-generate after signing",
+          "invoice": "Auto-generate after invoicing",
+          "settle": "Auto-generate after settlement",
+          "ship": "Auto-generate after shipping"
+        }
+      },
+      "select": {
+        "customerTitle": "Select My Customer",
+        "customerPlaceholder": "Click 'Select' button to pick a customer",
+        "customerSearchPlaceholder": "Enter customer name/number to search",
+        "opportunityTitle": "Select Related Opportunity",
+        "opportunityPlaceholder": "Click 'Select' button to pick an opportunity",
+        "opportunitySearchPlaceholder": "Enter opportunity name to search",
+        "selectBtn": "Select",
+        "clearBtn": "Clear",
+        "generateNo": "Generate No.",
+        "regenerateNo": "Regenerate",
+        "noPreview": "Click 'Generate No.' to auto-generate",
+        "generateSuccess": "Contract number generated: {code}",
+        "noRuleWarning": "No contract code rule found, please configure first",
+        "generateFailed": "Failed to generate number",
+        "pleaseGenerateFirst": "⚠ Please generate first",
+        "generateTip": "Auto-generate unique contract number from code rule, must generate before saving",
+        "selectCustomer": "Please select a customer",
+        "noData": "No data",
+        "loadFailed": "Load failed"
+      },
       "button": {
         "create": "Add Contract",
         "edit": "Edit Contract",
-        "delete": "Delete Contract"
+        "delete": "Delete Contract",
+        "submit": "Submit for Approval",
+        "view": "View Contract",
+        "viewApproval": "View Approval",
+        "createOrder": "Create Order"
       }
     },
     "leadPool": {
@@ -327,6 +430,18 @@
         "delete": "Delete Payment"
       }
     },
+    "paymentPlan": {
+      "title": "Payment Plans"
+    },
+    "shipment": {
+      "title": "Shipment Management",
+      "button": {
+        "create": "New Shipment",
+        "edit": "Edit",
+        "delete": "Delete",
+        "sign": "Confirm Receipt"
+      }
+    },
     "invoice": {
       "title": "Invoice",
       "button": {
@@ -336,7 +451,10 @@
       }
     },
     "performance": {
-      "title": "Sales Performance"
+      "title": "Sales Performance",
+      "button": {
+        "export": "Export"
+      }
     }
   },
   "product": {
@@ -370,7 +488,10 @@
       }
     },
     "sku": {
-      "title": "SKU Management"
+      "title": "SKU Management",
+      "button": {
+        "create": "Create SKU"
+      }
     }
   },
   "purchase": {
@@ -544,7 +665,35 @@
     "commissionConfig": "Commission Config"
   },
   "company": {
-    "title": "Company"
+    "title": "Company",
+    "info": {
+      "title": "Company Info",
+      "button": {
+        "edit": "Edit",
+        "accountSave": "Save Account",
+        "accountDelete": "Delete Account"
+      }
+    },
+    "codeRule": {
+      "title": "Code Rule Config",
+      "module": "Code Rule",
+      "moduleCode": "Module Code",
+      "moduleName": "Module Name",
+      "ruleName": "Rule Name",
+      "bizTypeCode": "Biz Type",
+      "separator": "Separator",
+      "seqLength": "Seq Length",
+      "preview": "Preview Code",
+      "basicInfo": "Basic Info",
+      "segmentsTitle": "Segments Config",
+      "previewTitle": "Live Preview",
+      "button": {
+        "add": "Add Rule",
+        "edit": "Edit",
+        "delete": "Delete",
+        "regenerate": "Batch Regenerate"
+      }
+    }
   },
   "button": {
     "system": {
@@ -559,7 +708,8 @@
         "create": "Add Role",
         "edit": "Edit Role",
         "delete": "Delete Role",
-        "assignMenu": "Assign Menu"
+        "assignMenu": "Assign Menu",
+        "view": "View Role"
       },
       "menu": {
         "create": "Add Menu",

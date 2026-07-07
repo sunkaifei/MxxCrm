@@ -38,7 +38,7 @@ impl fmt::Display for CurrencyCode {
 
 impl FromStr for CurrencyCode {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse::<i32>() {
             Ok(1) => Ok(CurrencyCode::CNY),
@@ -50,6 +50,35 @@ impl FromStr for CurrencyCode {
             Ok(7) => Ok(CurrencyCode::AUD),
             Ok(n) => Err(format!("无效的货币代码: {}", n)),
             Err(e) => Err(format!("货币代码解析失败: {}", e)),
+        }
+    }
+}
+
+impl CurrencyCode {
+    /// 转换为数值（用于前端数据传输，遵循项目规则：不使用枚举序列化）
+    pub fn to_i32(self) -> i32 {
+        match self {
+            CurrencyCode::CNY => 1,
+            CurrencyCode::USD => 2,
+            CurrencyCode::EUR => 3,
+            CurrencyCode::GBP => 4,
+            CurrencyCode::JPY => 5,
+            CurrencyCode::HKD => 6,
+            CurrencyCode::AUD => 7,
+        }
+    }
+
+    /// 从数值转换为 CurrencyCode
+    pub fn from_i32(v: i32) -> Option<Self> {
+        match v {
+            1 => Some(CurrencyCode::CNY),
+            2 => Some(CurrencyCode::USD),
+            3 => Some(CurrencyCode::EUR),
+            4 => Some(CurrencyCode::GBP),
+            5 => Some(CurrencyCode::JPY),
+            6 => Some(CurrencyCode::HKD),
+            7 => Some(CurrencyCode::AUD),
+            _ => None,
         }
     }
 }

@@ -46,7 +46,6 @@ async fn index() -> Result<HttpResponse> {
             <h3>可用接口：</h3>
             <div class="api-item">📝 验证码：<span class="api-url">/pub/captcha/get</span></div>
             <div class="api-item">📄 文章列表：<span class="api-url">/list/{short_url}</span></div>
-            <div class="api-item">📁 静态文件：<span class="api-url">/static/{filepath}</span></div>
             <div class="api-item">📤 上传文件：<span class="api-url">/upload/{filename}</span></div>
         </div>
     </div>
@@ -57,8 +56,6 @@ async fn index() -> Result<HttpResponse> {
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(index)
-        // 静态文件服务：使用 actix_files 内置路径穿越防护（canonicalize + 边界检查）
-        .service(Files::new("/static", "./static"))
         // 仅暴露公开文件目录（产品图片、用户头像），关闭目录列表
         // 私有文件（合同/发票/报价单/回款凭证/通用附件）通过 /api/system/attachment/download/{id} 接口鉴权访问
         .service(Files::new("/upload/product/", "storage/upload/product/"))

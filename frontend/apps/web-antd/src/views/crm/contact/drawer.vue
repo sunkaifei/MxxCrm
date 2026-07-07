@@ -4,11 +4,10 @@ import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
-import { createContactApi, updateContactApi, getCustomerListApi, getContactInfoApi } from '#/api';
+import { createContactApi, updateContactApi, getCustomerListApi, getContactInfoApi, checkContactDuplicateApi } from '#/api';
 
 const data = ref();
 
-// 当前编辑的联系人所属公司信息（用于 ApiSelect 回显，绕过表单异步读取问题）
 const currentCompanyName = ref<string>('');
 const currentCustomerId = ref<number | null>(null);
 
@@ -17,6 +16,69 @@ const getTitle = computed(() =>
     ? $t('ui.modal.create', { moduleName: $t('page.crm.contact.title') })
     : $t('ui.modal.update', { moduleName: $t('page.crm.contact.title') }),
 );
+
+// 格式校验规则
+const validateMobile = (_rule: any, value: string) => {
+  if (!value) return Promise.resolve();
+  // 支持11位手机号或带国际区号格式
+  if (/^1[3-9]\d{9}$/.test(value) || /^\+\d{1,4}\s?\d{6,14}$/.test(value)) {
+    return Promise.resolve();
+  }
+  return Promise.reject('请输入正确的手机号格式');
+};
+
+const validatePhone = (_rule: any, value: string) => {
+  if (!value) return Promise.resolve();
+  // 座机格式：区号-号码，如 010-12345678
+  if (/^\d{3,4}-?\d{7,8}$/.test(value)) {
+    return Promise.resolve();
+  }
+  return Promise.reject('请输入正确的座机格式，如 010-12345678');
+};
+
+const validateEmail = (_rule: any, value: string) => {
+  if (!value) return Promise.resolve();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    return Promise.resolve();
+  }
+  return Promise.reject('请输入正确的邮箱格式');
+};
+
+const validateQq = (_rule: any, value: string) => {
+  if (!value) return Promise.resolve();
+  if (/^[1-9]\d{4,11}$/.test(value)) {
+    return Promise.resolve();
+  }
+  return Promise.reject('QQ号应为5-12位数字');
+};
+
+// 实时查重校验
+const checkDuplicate = async (field: string, valuePromise: Promise<string>) => {
+  const value = await valuePromise;
+  if (!value || !value.trim()) return Promise.resolve();
+  const editId = data.value?.create ? undefined : data.value?.row?.id;
+  try {
+    const results: any = await checkContactDuplicateApi({
+      id: editId,
+      [field]: value.trim(),
+    });
+    const item = (results as any[])?.find((r: any) => r.field === field);
+    if (item?.duplicated) {
+      return Promise.reject(`该${fieldLabelMap[field]}已被「${item.contactName || '其他联系人'}」使用`);
+    }
+    return Promise.resolve();
+  } catch {
+    return Promise.resolve();
+  }
+};
+
+const fieldLabelMap: Record<string, string> = {
+  mobile: '手机号',
+  phone: '座机',
+  wechat: '微信号',
+  qq: 'QQ号',
+  email: '邮箱',
+};
 
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
@@ -98,8 +160,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
             ...(params?.companyName ? { companyName: params.companyName } : {}),
           });
           const items = res?.items || [];
-          // 如果当前公司不在列表中，手动加入（用于编辑回显）
-          // 注意：API 序列化 id 为 string，需保持一致
           if (currentCompanyName.value && currentCustomerId.value) {
             const exists = items.some((item: any) => String(item.id) === String(currentCustomerId.value));
             if (!exists) {
@@ -110,7 +170,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
         },
         labelField: 'companyName',
         valueField: 'id',
-        // 远程搜索：输入关键词时更新params触发重新请求
         onSearch(keyword: string) {
           baseFormApi.updateSchema('customerId', {
             componentProps: {
@@ -118,7 +177,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
             },
           });
         },
-        // 初次打开时加载最近客户
         immediate: true,
       },
     },
@@ -135,18 +193,30 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Input',
       fieldName: 'email',
       label: '邮箱',
+      rules: [
+        { validator: validateEmail, trigger: 'blur' },
+        { validator: () => checkDuplicate('email', getEmailValue()), trigger: 'blur' },
+      ],
       componentProps: { placeholder: 'email@example.com', allowClear: true },
     },
     {
       component: 'Input',
       fieldName: 'mobile',
       label: '手机号',
+      rules: [
+        { validator: validateMobile, trigger: 'blur' },
+        { validator: () => checkDuplicate('mobile', getMobileValue()), trigger: 'blur' },
+      ],
       componentProps: { placeholder: '手机号', allowClear: true },
     },
     {
       component: 'Input',
       fieldName: 'phone',
       label: '座机',
+      rules: [
+        { validator: validatePhone, trigger: 'blur' },
+        { validator: () => checkDuplicate('phone', getPhoneValue()), trigger: 'blur' },
+      ],
       componentProps: { placeholder: '座机号码', allowClear: true },
     },
     {
@@ -159,7 +229,20 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Input',
       fieldName: 'wechat',
       label: '微信',
+      rules: [
+        { validator: () => checkDuplicate('wechat', getWechatValue()), trigger: 'blur' },
+      ],
       componentProps: { placeholder: '微信号', allowClear: true },
+    },
+    {
+      component: 'Input',
+      fieldName: 'qq',
+      label: 'QQ号',
+      rules: [
+        { validator: validateQq, trigger: 'blur' },
+        { validator: () => checkDuplicate('qq', getQqValue()), trigger: 'blur' },
+      ],
+      componentProps: { placeholder: 'QQ号', allowClear: true },
     },
     // 其他信息
     {
@@ -190,6 +273,23 @@ const [BaseForm, baseFormApi] = useVbenForm({
     },
   ],
 });
+
+// 获取表单值的辅助函数
+function getEmailValue() {
+  return baseFormApi.getValues().then((v: any) => v?.email || '');
+}
+function getMobileValue() {
+  return baseFormApi.getValues().then((v: any) => v?.mobile || '');
+}
+function getPhoneValue() {
+  return baseFormApi.getValues().then((v: any) => v?.phone || '');
+}
+function getWechatValue() {
+  return baseFormApi.getValues().then((v: any) => v?.wechat || '');
+}
+function getQqValue() {
+  return baseFormApi.getValues().then((v: any) => v?.qq || '');
+}
 
 const [Drawer, drawerApi] = useVbenDrawer({
   onCancel() { drawerApi.close(); },
@@ -230,14 +330,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const row = data.value?.row ? { ...data.value.row } : {};
       setLoading(false);
 
-      // 重置表单，清除上一次打开的数据
       baseFormApi.resetForm();
 
-      // 从列表行数据中直接获取公司信息，用于 ApiSelect 回显
-      // API 中 id 序列化为 string，统一使用 string 避免类型不匹配
       currentCompanyName.value = row.companyName || '';
       currentCustomerId.value = row.customerId || null;
-      // 只设置 row 中存在的字段，避免 undefined 覆盖 resetForm 的默认值
       const definedValues = Object.fromEntries(
         Object.entries(row).filter(([_, v]) => v !== undefined && v !== null),
       );
@@ -250,10 +346,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
         getContactInfoApi(row.id)
           .then((detail: any) => {
             const d = detail?.data || detail || {};
-            // 从详情 API 获取完整数据，回填列表 API 未提供的字段
             baseFormApi.setValues({
               whatsapp: d.whatsapp,
               wechat: d.wechat,
+              qq: d.qq,
               gender: d.gender,
               birthday: d.birthday,
               notes: d.notes,

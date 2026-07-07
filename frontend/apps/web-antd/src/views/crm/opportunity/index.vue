@@ -20,11 +20,16 @@ import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
 
-// 来源映射 - 对齐后端 LeadSource 枚举
+// 来源映射 - 对齐后端 LeadSource 枚举（数字值）
 const sourceLabelMap: Record<string, string> = {
-  website: '官网', exhibition: '展会', social: '社交媒体', referral: '客户转介',
-  cold_call: '陌生拜访', customs: '海关数据', email: '邮件营销', alibaba: '阿里国际站',
-  amazon: 'Amazon', tiktok: 'TikTok', wechat: '微信', other: '其他',
+  1: '官网', 2: '展会', 3: '社交媒体', 4: '客户转介',
+  5: '陌生拜访', 6: '海关数据', 7: '邮件营销', 8: '阿里国际站',
+  9: 'Amazon', 10: 'TikTok', 11: '微信', 12: '其他',
+};
+
+// 币种标签映射 - 对齐后端 CurrencyCode 枚举（数字值）
+const currencyLabelMap: Record<number, string> = {
+  1: 'CNY', 2: 'USD', 3: 'EUR', 4: 'GBP', 5: 'JPY', 6: 'HKD', 7: 'AUD',
 };
 
 // 详情抽屉
@@ -76,18 +81,18 @@ const formOptions: VbenFormProps = {
         placeholder: '全部',
         allowClear: true,
         options: [
-          { label: '官网', value: 'website' },
-          { label: '展会', value: 'exhibition' },
-          { label: '社交媒体', value: 'social' },
-          { label: '客户转介', value: 'referral' },
-          { label: '陌生拜访', value: 'cold_call' },
-          { label: '海关数据', value: 'customs' },
-          { label: '邮件营销', value: 'email' },
-          { label: '阿里国际站', value: 'alibaba' },
-          { label: 'Amazon', value: 'amazon' },
-          { label: 'TikTok', value: 'tiktok' },
-          { label: '微信', value: 'wechat' },
-          { label: '其他', value: 'other' },
+          { label: '官网', value: 1 },
+          { label: '展会', value: 2 },
+          { label: '社交媒体', value: 3 },
+          { label: '客户转介', value: 4 },
+          { label: '陌生拜访', value: 5 },
+          { label: '海关数据', value: 6 },
+          { label: '邮件营销', value: 7 },
+          { label: '阿里国际站', value: 8 },
+          { label: 'Amazon', value: 9 },
+          { label: 'TikTok', value: 10 },
+          { label: '微信', value: 11 },
+          { label: '其他', value: 12 },
         ],
       },
     },
@@ -102,10 +107,10 @@ const formOptions: VbenFormProps = {
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true },
+  rowConfig: { height: 'auto' },
   stripe: true,
   checkboxConfig: { checkField: 'checked', trigger: 'row' },
 
@@ -125,32 +130,25 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: '商机编号', field: 'opportunityNo', width: 140 },
-    { title: '商机名称', field: 'title', minWidth: 200, slots: { default: 'title' } },
+    
+    { title: '商机名称', field: 'title', minWidth: 200, align: 'left', headerAlign: 'center', slots: { default: 'title' } },
     {
       title: '客户', field: 'customerName', width: 150,
       formatter: ({ cellValue }: any) => cellValue || '-',
     },
     {
       title: '销售阶段', field: 'stage', width: 110,
-      cellRender: {
-        name: 'Tag',
-        options: [
-          { value: 0, label: '资格审查', color: 'blue' },
-          { value: 1, label: '需求分析', color: 'cyan' },
-          { value: 2, label: '方案报价', color: 'gold' },
-          { value: 3, label: '商务谈判', color: 'orange' },
-          { value: 4, label: '已成交', color: 'green' },
-          { value: 5, label: '已输单', color: 'red' },
-        ],
+      formatter: ({ cellValue }: any) => {
+        const stageMap: Record<number, string> = { 0: '资格审查', 1: '需求分析', 2: '方案报价', 3: '商务谈判', 4: '已成交', 5: '已输单' };
+        return stageMap[cellValue] ?? '-';
       },
     },
     {
-      title: '金额', field: 'amount', width: 140,
+      title: '预算金额', field: 'amount', width: 140,
       formatter: ({ cellValue, row }: any) => {
         if (cellValue == null) return '-';
-        const currency = row.currency || '';
-        return `${currency} ${Number(cellValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const currencyLabel = currencyLabelMap[row.currency] || '';
+        return `${currencyLabel} ${Number(cellValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       },
     },
     {
@@ -162,7 +160,7 @@ const gridOptions: VxeGridProps = {
       formatter: ({ cellValue }: any) => sourceLabelMap[cellValue] || cellValue || '-',
     },
     { title: '预计成交日', field: 'expectedCloseDate', width: 120 },
-    { title: '负责人', field: 'assignee', width: 90 },
+    { title: '录入人', field: 'createdByName', width: 90 },
     {
       title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createdAt' }, width: 160,
     },
@@ -208,11 +206,11 @@ async function handleBatchDelete() {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <SalesProcessGuide current-step="opportunity" />
     <Grid :table-title="$t('page.crm.opportunity.title')">
       <template #toolbar-tools>
-        <Button v-if="accessStore.hasAccessCode('crm:opportunity:create')" type="primary" class="mr-2" @click="handleCreate">
+        <Button v-if="accessStore.hasAccessCode('crm:opportunity:save')" type="primary" class="mr-2" @click="handleCreate">
           {{ $t('page.crm.opportunity.button.create') }}
         </Button>
         <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
@@ -226,7 +224,7 @@ async function handleBatchDelete() {
 
       <template #action="{ row }">
         <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
-        <Button v-if="accessStore.hasAccessCode('crm:opportunity:edit')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
+        <Button v-if="accessStore.hasAccessCode('crm:opportunity:update')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
         <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.opportunity.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
           <Button v-if="accessStore.hasAccessCode('crm:opportunity:delete')" type="link" danger :icon="h(LucideTrash2)" />
         </Popconfirm>

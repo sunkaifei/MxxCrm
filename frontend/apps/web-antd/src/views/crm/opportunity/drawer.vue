@@ -1,12 +1,17 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
-import { createOpportunityApi, updateOpportunityApi, getCustomerListApi, getCustomerContactsApi } from '#/api';
+import { createOpportunityApi, updateOpportunityApi, getCustomerListApi, getCustomerContactsApi, getOpportunityInfoApi } from '#/api';
 
 const data = ref();
+const isMaximized = ref(false);
+
+const drawerClass = computed(() =>
+  isMaximized.value ? 'w-[95vw]' : 'w-[75vw]',
+);
 
 // 当前选中的客户公司名（用于 ApiSelect 编辑回显）
 const currentCompanyName = ref<string>('');
@@ -31,31 +36,31 @@ const stageOptions = [
   { label: '已输单', value: 5, color: 'red' },
 ];
 
-// 商机来源 - 对齐后端 LeadSource 枚举
+// 商机来源 - 对齐后端 LeadSource 枚举（数字值）
 const sourceOptions = [
-  { label: '官网', value: 'website' },
-  { label: '展会', value: 'exhibition' },
-  { label: '社交媒体', value: 'social' },
-  { label: '客户转介', value: 'referral' },
-  { label: '陌生拜访', value: 'cold_call' },
-  { label: '海关数据', value: 'customs' },
-  { label: '邮件营销', value: 'email' },
-  { label: '阿里国际站', value: 'alibaba' },
-  { label: 'Amazon', value: 'amazon' },
-  { label: 'TikTok', value: 'tiktok' },
-  { label: '微信', value: 'wechat' },
-  { label: '其他', value: 'other' },
+  { label: '官网', value: 1 },
+  { label: '展会', value: 2 },
+  { label: '社交媒体', value: 3 },
+  { label: '客户转介', value: 4 },
+  { label: '陌生拜访', value: 5 },
+  { label: '海关数据', value: 6 },
+  { label: '邮件营销', value: 7 },
+  { label: '阿里国际站', value: 8 },
+  { label: 'Amazon', value: 9 },
+  { label: 'TikTok', value: 10 },
+  { label: '微信', value: 11 },
+  { label: '其他', value: 12 },
 ];
 
-// 币种 - 对齐后端 CurrencyCode 枚举
+// 币种 - 对齐后端 CurrencyCode 枚举（数字值：1=人民币, 2=美元, 3=欧元, 4=英镑, 5=日元, 6=港币, 7=澳元）
 const currencyOptions = [
-  { label: 'CNY 人民币', value: 'CNY' },
-  { label: 'USD 美元', value: 'USD' },
-  { label: 'EUR 欧元', value: 'EUR' },
-  { label: 'GBP 英镑', value: 'GBP' },
-  { label: 'JPY 日元', value: 'JPY' },
-  { label: 'HKD 港币', value: 'HKD' },
-  { label: 'AUD 澳元', value: 'AUD' },
+  { label: 'CNY 人民币', value: 1 },
+  { label: 'USD 美元', value: 2 },
+  { label: 'EUR 欧元', value: 3 },
+  { label: 'GBP 英镑', value: 4 },
+  { label: 'JPY 日元', value: 5 },
+  { label: 'HKD 港币', value: 6 },
+  { label: 'AUD 澳元', value: 7 },
 ];
 
 const [BaseForm, baseFormApi] = useVbenForm({
@@ -81,12 +86,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
       label: '商机名称',
       rules: 'required',
       componentProps: { placeholder: '请输入商机名称/标题', allowClear: true, maxlength: 100 },
-    },
-    {
-      component: 'Input',
-      fieldName: 'opportunityNo',
-      label: '商机编号',
-      componentProps: { placeholder: '保存后自动生成', disabled: true },
     },
     {
       component: 'Select',
@@ -135,7 +134,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
     {
       component: 'InputNumber',
       fieldName: 'amount',
-      label: '商机金额',
+      label: '预算金额',
       rules: 'required',
       componentProps: {
         placeholder: '请输入商机金额',
@@ -148,7 +147,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Select',
       fieldName: 'currency',
       label: '币种',
-      defaultValue: 'CNY',
+      defaultValue: 1,
       rules: 'required',
       componentProps: { options: currencyOptions, allowClear: false },
     },
@@ -244,18 +243,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
         },
       },
     },
-    {
-      component: 'InputNumber',
-      fieldName: 'leadId',
-      label: '线索ID',
-      componentProps: { placeholder: '关联线索ID', min: 0, class: 'w-full' },
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'assignedTo',
-      label: '负责人ID',
-      componentProps: { placeholder: '负责人ID', min: 0, class: 'w-full' },
-    },
     // 描述
     {
       component: 'Divider',
@@ -282,10 +269,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const validate = await baseFormApi.validate();
     if (!validate.valid) return;
     setLoading(true);
-    const values = await baseFormApi.getValues();
-    if (!data.value?.create) {
-      delete values.opportunityNo;
-    }
+    const rawValues = await baseFormApi.getValues();
+    const values = {
+      ...rawValues,
+      customerId: rawValues.customerId != null ? Number(rawValues.customerId) : undefined,
+      contactId: rawValues.contactId != null ? Number(rawValues.contactId) : undefined,
+    };
     try {
       await (data.value?.create
         ? createOpportunityApi(values)
@@ -342,6 +331,29 @@ const [Drawer, drawerApi] = useVbenDrawer({
       } else {
         contactOptions.value = [];
       }
+
+      // 编辑模式：从详情 API 回填完整数据（source、description、contactId 等列表 API 未返回的字段）
+      if (!data.value?.create && row?.id) {
+        getOpportunityInfoApi(Number(row.id))
+          .then(async (detail: any) => {
+            const d = detail?.data || detail || {};
+            // 确保下拉选项渲染后再设置表单值，避免 Select 无法匹配 label
+            await nextTick();
+            baseFormApi.setValues({
+              title: d.title,
+              stage: d.stage != null ? Number(d.stage) : undefined,
+              source: d.source != null ? Number(d.source) : undefined,
+              probability: d.probability != null ? Number(d.probability) : undefined,
+              amount: d.amount != null ? Number(d.amount) : undefined,
+              currency: d.currency != null ? Number(d.currency) : undefined,
+              expectedCloseDate: d.expectedCloseDate,
+              customerId: d.customerId != null ? String(d.customerId) : undefined,
+              contactId: d.contactId != null ? Number(d.contactId) : undefined,
+              description: d.description,
+            });
+          })
+          .catch(() => {});
+      }
     }
   },
 });
@@ -349,10 +361,25 @@ const [Drawer, drawerApi] = useVbenDrawer({
 function setLoading(loading: boolean) {
   drawerApi.setState({ loading });
 }
+
+function toggleMaximize() {
+  isMaximized.value = !isMaximized.value;
+}
 </script>
 
 <template>
-  <Drawer :title="getTitle" :width="680">
+  <Drawer :title="getTitle" :class="drawerClass">
+    <template #extra>
+      <button
+        type="button"
+        class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+        @click="toggleMaximize"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+        </svg>
+      </button>
+    </template>
     <BaseForm />
   </Drawer>
 </template>

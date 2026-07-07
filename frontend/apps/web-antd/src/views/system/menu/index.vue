@@ -1,9 +1,7 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { IconifyIcon, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 
 import { Button, Popconfirm, Switch, Tag } from 'ant-design-vue';
 
@@ -50,15 +48,14 @@ const gridOptions: VxeGridProps = {
     refresh: true,
     zoom: true,
   },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {
     enabled: false,
   },
   cellConfig: {
     isHover: true,
-    height: 56,
   },
+  rowConfig: { height: 'auto' },
   treeConfig: {
     parentField: 'parentId',
     childrenField: 'children',
@@ -69,10 +66,52 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async (_, formValues) => {
-        return await getMenuTreeApi({
+        const result = await getMenuTreeApi({
           keywords: formValues.name,
           status: formValues.status,
         });
+        // 无数据 280px，有数据按内容自适应
+        const items = Array.isArray(result) ? result : [];
+        const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
+        if (gridEl) {
+          gridEl.style.height = items.length === 0 ? '280px' : '';
+        }
+        // 等DOM渲染完成后同步固定列行高并居中内容
+        const syncFixedColumn = (retry = 0) => {
+          const $el = gridApi.grid?.$el as HTMLElement | undefined;
+          if (!$el) return;
+          const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
+          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          if (!mainBody || !fixedRightBody) {
+            if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
+            return;
+          }
+          const rows1 = mainBody.querySelectorAll('tr.vxe-body--row');
+          const rows2 = fixedRightBody.querySelectorAll('tr.vxe-body--row');
+          const len = Math.min(rows1.length, rows2.length);
+          if (len === 0) return;
+          for (let i = 0; i < len; i++) {
+            const h = (rows1[i] as HTMLElement).offsetHeight;
+            if (h === 0) continue;
+            (rows2[i] as HTMLElement).style.height = h + 'px';
+            const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
+            tds.forEach((td: Element) => {
+              const cell = td.querySelector('.vxe-cell');
+              if (cell) {
+                (cell as HTMLElement).style.display = 'flex';
+                (cell as HTMLElement).style.alignItems = 'center';
+                (cell as HTMLElement).style.justifyContent = 'center';
+                (cell as HTMLElement).style.height = h + 'px';
+              }
+            });
+          }
+        };
+        requestAnimationFrame(() => {
+          syncFixedColumn();
+          setTimeout(() => syncFixedColumn(), 200);
+          setTimeout(() => syncFixedColumn(), 500);
+        });
+        return result;
       },
     },
   },
@@ -209,7 +248,7 @@ async function handleDelete(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <Grid :table-title="$t('page.system.menu.title')">
       <template #toolbar-tools>
         <Button
@@ -267,23 +306,22 @@ async function handleDelete(row: any) {
       </template>
 
       <template #action="{ row }">
-        <div class="flex items-center" style="gap: 8px">
-        <Button
-          v-if="row.type !== MenuType.BUTTON"
-          type="primary"
-          link
-          v-access:code="['system:menu:add']"
+        <div class="flex items-center justify-center" style="gap: 12px">
+        <a
+          v-if="row.type !== MenuType.BUTTON && accessStore.hasAccessCode('system:menu:add')"
+          class="text-blue-600 cursor-pointer"
           @click="() => handleCreateChild(row)"
         >
           {{ $t('page.system.menu.button.createChild') }}
-        </Button>
+        </a>
 
-        <Button
-          type="primary"
-          v-access:code="['system:menu:update']"
-          :icon="h(LucideFilePenLine)"
+        <a
+          v-if="accessStore.hasAccessCode('system:menu:update')"
+          class="text-blue-600 cursor-pointer"
           @click="() => handleEdit(row)"
-        />
+        >
+          编辑
+        </a>
 
         <Popconfirm
           v-if="accessStore.hasAccessCode('system:menu:delete')"
@@ -296,10 +334,7 @@ async function handleDelete(row: any) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"
         >
-          <Button
-            type="danger"
-            :icon="h(LucideTrash2)"
-          />
+          <a class="text-red-500 cursor-pointer">删除</a>
         </Popconfirm>
         </div>
       </template>

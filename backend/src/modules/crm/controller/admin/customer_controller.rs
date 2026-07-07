@@ -20,15 +20,16 @@ use crate::core::web::response::MetaResp;
 use crate::modules::crm::model::customer::{CustomerListQuery, CustomerSaveRequest, CustomerUpdateRequest};
 use crate::modules::crm::service::customer_service;
 use crate::modules::crm::service::contact_service;
+use crate::modules::crm::service::assign_history_service;
 
 #[post("/customer/save")]
-#[protect("crm:customer:save")]
+#[protect("crm:customer:create")]
 pub async fn customer_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CustomerSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
 
     if form_data.company_name.as_ref().map_or(true, |name| name.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鍏徃鍚嶇О涓嶈兘涓虹┖", "local")));
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -44,11 +45,11 @@ pub async fn customer_update(state: web::Data<AppState>, req: HttpRequest, form_
     let form_data = form_data.0;
 
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "瀹㈡埛ID涓嶈兘涓虹┖", "local")));
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
     }
 
     if form_data.company_name.as_ref().map_or(true, |name| name.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鍏徃鍚嶇О涓嶈兘涓虹┖", "local")));
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -59,12 +60,14 @@ pub async fn customer_update(state: web::Data<AppState>, req: HttpRequest, form_
 
 #[delete("/customer/bath_delete")]
 #[protect("crm:customer:delete")]
-pub async fn bath_delete_customer(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
+pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = jwt_token.id.unwrap_or_default();
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鏈幏鍙栧埌鍒犻櫎鐨勫鎴稩D", "local"));
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的客户ID", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
@@ -72,7 +75,7 @@ pub async fn bath_delete_customer(state: web::Data<AppState>, item: web::Json<Ba
         .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
 
-    let result = customer_service::batch_delete_by_ids(&db, &filtered_ids).await;
+    let result = customer_service::batch_delete_by_ids(&db, &filtered_ids, user_id).await;
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -83,7 +86,7 @@ pub async fn customer_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "瀹㈡埛ID涓嶈兘涓虹┖", "local"));
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
     }
 
     match customer_service::find_by_id(&db, item.id.unwrap()).await {
@@ -94,11 +97,14 @@ pub async fn customer_info(state: web::Data<AppState>, item: web::Query<InfoId>)
 
 #[get("/customer/list")]
 #[protect("crm:customer:list")]
-pub async fn customer_list(state: web::Data<AppState>, query: web::Query<CustomerListQuery>) -> HttpResponse {
+pub async fn customer_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<CustomerListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
 
-    match customer_service::list(&db, &query).await {
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+
+    match customer_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -147,7 +153,7 @@ pub async fn customer_pool_list(state: web::Data<AppState>, query: web::Query<Cu
 
 /// 领取公海客户
 #[put("/customer/claim")]
-#[protect("crm:customer:edit")]
+#[protect("crm:customer:claim")]
 pub async fn customer_claim(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
@@ -167,7 +173,7 @@ pub async fn customer_claim(state: web::Data<AppState>, req: HttpRequest, item: 
 
 /// 退回公海
 #[put("/customer/add-to-pool")]
-#[protect("crm:customer:edit")]
+#[protect("crm:customer:return-pool")]
 pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
@@ -182,5 +188,45 @@ pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, 
     match customer_service::add_to_pool(&db, item.id.unwrap(), user_id).await {
         Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 获取客户分配历史（负责人时间轴）
+#[get("/customer/assign-history")]
+#[protect("crm:customer:info")]
+pub async fn customer_assign_history(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let item = item.0;
+
+    if item.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
+    }
+
+    match assign_history_service::list_by_customer(&db, item.id.unwrap()).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 检查公司名称是否已存在
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckNameQuery {
+    pub company_name: String,
+    pub exclude_id: Option<i64>,
+}
+
+#[get("/customer/check-name")]
+#[protect("crm:customer:list")]
+pub async fn customer_check_name(state: web::Data<AppState>, query: web::Query<CheckNameQuery>) -> HttpResponse {
+    let db = &state.db;
+    let q = query.into_inner();
+    match customer_service::check_company_name(db, q.company_name.trim(), q.exclude_id).await {
+        Ok(exists) => {
+            use serde_json::json;
+            let data = json!({ "exists": exists });
+            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))
+        }
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }

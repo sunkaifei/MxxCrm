@@ -37,6 +37,17 @@ async function initSetupVbenForm() {
         }
         return true;
       },
+      // 正整数校验
+      positiveInteger: (value, _params, ctx) => {
+        if (value === undefined || value === null || value === '') {
+          return true;
+        }
+        const num = Number(value);
+        if (!Number.isInteger(num) || num < 0) {
+          return `${ctx.label}必须为正整数`;
+        }
+        return true;
+      },
     },
   });
 }

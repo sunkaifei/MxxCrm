@@ -3,18 +3,18 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref } from 'vue';
+import { ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideEye, LucideFilePenLine, LucideSend, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Drawer, Modal, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteQuotationApi, convertToOrderApi, getQuotationListApi, submitQuotationApprovalApi } from '#/api';
+import { deleteQuotationApi, getQuotationInfoApi, getQuotationListApi, submitQuotationApprovalApi } from '#/api';
 import { $t } from '#/locales';
+import OrderDrawer from '../order/drawer.vue';
 import QuotationDetail from './detail.vue';
 import QuotationDrawer from './drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
@@ -39,6 +39,7 @@ const approvalStatusColorMap: Record<number, string> = {
 };
 
 const approvalStatusLabelMap: Record<number, string> = {
+  0: '草稿',
   1: '草稿',
   2: '审批中',
   3: '已通过',
@@ -93,14 +94,14 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: '报价单号', field: 'quotationNo', width: 150, slots: { default: 'quotationNo' } },
-    { title: '标题', field: 'title', width: 200 },
+    { title: '报价编号', field: 'quotationNo', width: 150, slots: { default: 'quotationNo' } },
+    { title: '标题', field: 'title', width: 200, slots: { default: 'title' } },
     { title: '客户名称', field: 'customerName', width: 140 },
     { title: '报价金额', field: 'grandTotal', width: 140, slots: { default: 'grandTotal' } },
     { title: '审批状态', field: 'approvalStatus', width: 100, slots: { default: 'approvalStatus' } },
     { title: '报价日期', field: 'quotationDate', width: 110 },
     { title: '创建时间', field: 'createTime', width: 160, slots: { default: 'createTime' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 200 },
+    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 240 },
   ],
 };
 
@@ -110,6 +111,14 @@ const [FormDrawer, drawerApi] = useVbenDrawer({
   connectedComponent: QuotationDrawer,
   onClosed() {
     const data = drawerApi.getData();
+    if (data?.needRefresh) gridApi.query();
+  },
+});
+
+const [OrderFormDrawer, orderDrawerApi] = useVbenDrawer({
+  connectedComponent: OrderDrawer,
+  onClosed() {
+    const data = orderDrawerApi.getData();
     if (data?.needRefresh) gridApi.query();
   },
 });
@@ -166,11 +175,15 @@ function handleSubmitApproval(row: any) {
 async function handleConvertToOrder(row: any) {
   row.pending = true;
   try {
-    await convertToOrderApi(row.id);
-    window.$message.success('已转为订单');
+    const info: any = await getQuotationInfoApi(row.id);
+    const quotationData = info?.data ?? info;
+    orderDrawerApi.setData({
+      create: true,
+      fromQuotation: quotationData,
+    });
+    orderDrawerApi.open();
   } finally {
     row.pending = false;
-    gridApi.query();
   }
 }
 
@@ -212,12 +225,16 @@ function handleDetailEdit(id: string) {
         <a class="text-blue-600 cursor-pointer" @click="openDetail(row)">{{ row.quotationNo }}</a>
       </template>
 
+      <template #title="{ row }">
+        <a class="text-blue-600 cursor-pointer" @click="openDetail(row)">{{ row.title }}</a>
+      </template>
+
       <template #grandTotal="{ row }">
         {{ currencySymbolMap[row.currency] || '¥' }} {{ row.grandTotal?.toLocaleString?.() ?? row.grandTotal }}
       </template>
 
       <template #approvalStatus="{ row }">
-        <Tag :color="approvalStatusColorMap[row.approvalStatus]">
+        <Tag :color="approvalStatusColorMap[row.approvalStatus] || 'default'">
           {{ approvalStatusLabelMap[row.approvalStatus] || '草稿' }}
         </Tag>
       </template>
@@ -227,47 +244,40 @@ function handleDetailEdit(id: string) {
       </template>
 
       <template #action="{ row }">
-        <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
-        <Button
-          v-if="accessStore.hasAccessCode('sale:quotation:edit') && (row.approvalStatus === 1 || row.approvalStatus === 4)"
-          type="link"
-          :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
-        />
-        <Button
-          v-if="accessStore.hasAccessCode('sale:quotation:update') && (row.approvalStatus === 1 || row.approvalStatus === 4)"
-          type="link"
-          size="small"
-          :icon="h(LucideSend)"
+        <a
+          v-if="accessStore.hasAccessCode('sale:quotation:edit') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+          class="text-blue-600 cursor-pointer mr-3"
           @click="() => handleSubmitApproval(row)"
         >
           提交审批
-        </Button>
-        <Popconfirm
-          v-if="row.approvalStatus === 3"
-          title="确认将此报价单转为订单？"
-          ok-text="确认"
-          cancel-text="取消"
-          @confirm="handleConvertToOrder(row)"
+        </a>
+        <a
+          v-if="accessStore.hasAccessCode('sale:quotation:edit') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+          class="text-blue-600 cursor-pointer mr-3"
+          @click="() => handleEdit(row)"
         >
-          <Button type="link" size="small">转订单</Button>
-        </Popconfirm>
+          修改
+        </a>
+        <a
+          v-if="row.approvalStatus === 3"
+          class="text-blue-600 cursor-pointer mr-3"
+          @click="handleConvertToOrder(row)"
+        >
+          加入订单
+        </a>
         <Popconfirm
+          v-if="accessStore.hasAccessCode('sale:quotation:delete') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
           :title="$t('ui.text.do_you_want_delete', { moduleName: '报价单' })"
           :ok-text="$t('ui.button.ok')"
           :cancel-text="$t('ui.button.cancel')"
           @confirm="handleDelete(row)"
         >
-          <Button
-            v-if="accessStore.hasAccessCode('sale:quotation:delete')"
-            type="link"
-            danger
-            :icon="h(LucideTrash2)"
-          />
+          <a class="text-red-500 cursor-pointer">删除</a>
         </Popconfirm>
       </template>
     </Grid>
     <FormDrawer />
+    <OrderFormDrawer />
     <Drawer
       v-model:open="detailVisible"
       placement="right"

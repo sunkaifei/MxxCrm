@@ -20,6 +20,15 @@ const routes: RouteRecordRaw[] = [
         path: '/company/info',
         component: () => import('#/views/company/info/index.vue'),
       },
+      {
+        meta: {
+          icon: 'lucide:hash',
+          title: '编号规则配置',
+        },
+        name: 'CompanyCodeRule',
+        path: '/company/code-rule',
+        component: () => import('#/views/company/code-rule/index.vue'),
+      },
     ],
   },
 ];

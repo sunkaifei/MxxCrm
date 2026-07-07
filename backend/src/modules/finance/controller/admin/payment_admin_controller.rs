@@ -9,61 +9,69 @@
 //!
 
 use actix_web::{get, post, put, delete, web, HttpResponse, Result};
+use actix_web_grants::protect;
+
 use crate::core::kit::global::AppState;
 use crate::core::web::response::{MetaResp, ResultPage};
 use crate::modules::finance::model::payment_record::{PaymentRecordSaveRequest, PaymentRecordQuery};
 use crate::modules::finance::service::payment_record_service;
 
-#[get("/payment/list")]
+#[get("/payment-record/list")]
+#[protect("finance:payment-record:list")]
 pub async fn list(
     state: web::Data<AppState>,
     query: web::Query<PaymentRecordQuery>
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let result = payment_record_service::get_list(db, query.into_inner()).await;
-    
+    let query_inner = query.into_inner();
+    let page = query_inner.page.unwrap_or(1);
+    let result = payment_record_service::get_list(db, query_inner).await;
+
     match result {
         Ok((list, total)) => {
-            let page_data = ResultPage::new(list, total, 1, 20);
+            let page_data = ResultPage::new(list, total, page, 20);
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local")))
         }
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
-#[get("/payment/detail/{id}")]
+#[get("/payment-record/detail/{id}")]
+#[protect("finance:payment-record:list")]
 pub async fn detail(
     state: web::Data<AppState>,
     path: web::Path<i64>
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let id = path.into_inner();
-    
+
     let result = payment_record_service::get_by_id(db, id).await;
-    
+
     match result {
         Ok(Some(data)) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Ok(None) => Ok(HttpResponse::NotFound().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "记录不存在", "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(None) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "记录不存在", "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
-#[post("/payment/create")]
+#[post("/payment-record/create")]
+#[protect("finance:payment-record:create")]
 pub async fn create(
     state: web::Data<AppState>,
     item: web::Json<PaymentRecordSaveRequest>
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    
+
     let result = payment_record_service::insert(db, item.into_inner()).await;
-    
+
     match result {
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
-#[put("/payment/update/{id}")]
+#[put("/payment-record/update/{id}")]
+#[protect("finance:payment-record:edit")]
 pub async fn update(
     state: web::Data<AppState>,
     path: web::Path<i64>,
@@ -71,29 +79,30 @@ pub async fn update(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let id = path.into_inner();
-    
+
     let result = payment_record_service::update(db, id, item.into_inner()).await;
-    
+
     match result {
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
-#[delete("/payment/delete/{id}")]
+#[delete("/payment-record/delete/{id}")]
+#[protect("finance:payment-record:delete")]
 pub async fn delete(
     state: web::Data<AppState>,
     path: web::Path<i64>
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let id = path.into_inner();
-    
+
     let result = payment_record_service::delete(db, id).await;
-    
+
     match result {
-        Ok(true) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(200, "删除成功", "local"))),
-        Ok(false) => Ok(HttpResponse::NotFound().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "记录不存在", "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(true) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("删除成功", "local"))),
+        Ok(false) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "记录不存在", "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 

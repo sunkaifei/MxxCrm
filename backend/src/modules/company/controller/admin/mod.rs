@@ -8,3 +8,4 @@
 //! 版权所有，侵权必究！
 //!
 pub mod company_controller;
+pub mod code_rule_controller;

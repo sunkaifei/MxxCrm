@@ -27,7 +27,22 @@ pub struct Model {
     /// 岗位ID
     pub post_id: Option<i64>,
 
-    /// 触发条件: 1=回款触发 2=合同签订触发
+    /// 规则类型/方案类型: 1=个人提成 2=团队分成 3=部门经理 4=总监 5=团队长
+    pub rule_type: Option<i32>,
+
+    /// 适用范围: 1=指定部门 2=全公司 3=指定岗位 4=指定人员
+    pub apply_scope: Option<i32>,
+
+    /// 提成目标岗位类型（经理/总监/团队长的岗位标识）
+    pub commission_target_type: Option<i32>,
+
+    /// 优先级（数字越小越先计算）
+    pub priority: Option<i32>,
+
+    /// 计算基准: 1=个人月累计 2=团队月累计 3=单笔合同 4=单笔回款
+    pub calc_base_type: Option<i32>,
+
+    /// 触发条件: 1=完全回款 2=合同签订 3=部分回款 4=发货完成 5=客户验收
     pub trigger_condition: Option<i32>,
 
     /// 生效日期
@@ -35,6 +50,9 @@ pub struct Model {
 
     /// 失效日期
     pub expiry_date: Option<chrono::NaiveDate>,
+
+    /// 是否默认方案: 0=否 1=是
+    pub is_default: Option<i32>,
 
     /// 是否启用: 0=禁用 1=启用
     pub enabled: Option<i32>,

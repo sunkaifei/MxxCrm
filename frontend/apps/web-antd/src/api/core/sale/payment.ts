@@ -15,3 +15,45 @@ export const updatePaymentApi = async (param: any) => {
 export const deletePaymentApi = async (ids: number[]) => {
   return requestClient.post('/api/system/sale/payment/bath_delete', { ids });
 };
+
+// 确认回款：status→2，联动订单 paid_amount
+export const confirmPaymentApi = async (id: number) => {
+  return requestClient.post('/api/system/sale/payment/confirm', { id });
+};
+
+// 驳回回款：status→3
+export const rejectPaymentApi = async (id: number) => {
+  return requestClient.post('/api/system/sale/payment/reject', { id });
+};
+
+// 核销：一笔回款核销多个计划
+export const applyPaymentApi = async (data: {
+  paymentId: number;
+  applications: Array<{ planId: number | null; applyAmount: number }>;
+}) => {
+  return requestClient.post(
+    '/api/system/sale/payment/application/apply',
+    data,
+  );
+};
+
+// 取消核销
+export const cancelPaymentApplicationApi = async (id: number) => {
+  return requestClient.post('/api/system/sale/payment/application/cancel', {
+    id,
+  });
+};
+
+// 查询回款未核销金额及可核销计划
+export const getPaymentUnappliedApi = async (id: number) => {
+  return requestClient.get('/api/system/sale/payment/unapplied', {
+    params: { id },
+  });
+};
+
+// 查询回款核销明细
+export const getPaymentApplicationsApi = async (paymentId: number) => {
+  return requestClient.get('/api/system/sale/payment/application/list', {
+    params: { id: paymentId },
+  });
+};

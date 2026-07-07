@@ -321,7 +321,8 @@ pub struct UserLoginVO {
     pub avatar: Option<String>,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
-
+    /// 数据权限范围（1全部 2自定义 3本部门 4本部门及以下 5仅本人）
+    pub data_scope: Option<i32>,
 }
 
 /// 管理员列表展示数据

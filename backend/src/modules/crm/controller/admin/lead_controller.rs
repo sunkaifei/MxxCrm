@@ -1,3 +1,12 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
@@ -136,7 +145,7 @@ pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<B
     let delete_item = item.0;
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鏈幏鍙栧埌鍒犻櫎鐨勭嚎绱D", "local"));
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的线索ID", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
@@ -175,7 +184,7 @@ pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form
     let query = form_data.0;
 
     if query.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "绾跨储ID涓嶈兘涓虹┖", "local"));
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();

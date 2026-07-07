@@ -68,4 +68,22 @@ impl LeadSource {
             _ => None,
         }
     }
+
+    /// 转换为数值（用于 customer 表的 source 字段，customer 表已改为 INTEGER 存储）
+    pub fn to_i32(self) -> i32 {
+        match self {
+            LeadSource::Website => 1,
+            LeadSource::Exhibition => 2,
+            LeadSource::Social => 3,
+            LeadSource::Referral => 4,
+            LeadSource::ColdCall => 5,
+            LeadSource::Customs => 6,
+            LeadSource::Email => 7,
+            LeadSource::Alibaba => 8,
+            LeadSource::Amazon => 9,
+            LeadSource::Tiktok => 10,
+            LeadSource::Wechat => 11,
+            LeadSource::Other => 12,
+        }
+    }
 }

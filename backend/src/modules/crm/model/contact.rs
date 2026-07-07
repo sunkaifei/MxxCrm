@@ -1,3 +1,12 @@
+﻿//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
@@ -24,6 +33,8 @@ pub struct ContactSaveRequest {
     pub whatsapp: Option<String>,
     /// 微信号
     pub wechat: Option<String>,
+    /// QQ号
+    pub qq: Option<String>,
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
     /// 生日日期
@@ -55,6 +66,7 @@ impl From<ContactSaveRequest> for ContactSaveDTO {
             mobile: item.mobile,
             whatsapp: item.whatsapp,
             wechat: item.wechat,
+            qq: item.qq,
             gender: item.gender,
             birthday: item.birthday,
             notes: item.notes,
@@ -71,6 +83,36 @@ impl From<ContactSaveRequest> for ContactSaveDTO {
             update_time: None,
         }
     }
+}
+
+/// 联系人查重请求
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactCheckRequest {
+    /// 排除的联系人ID（编辑时传当前ID）
+    pub id: Option<i64>,
+    /// 手机号码
+    pub mobile: Option<String>,
+    /// 固定电话
+    pub phone: Option<String>,
+    /// 微信号
+    pub wechat: Option<String>,
+    /// QQ号
+    pub qq: Option<String>,
+    /// 邮箱地址
+    pub email: Option<String>,
+}
+
+/// 联系人查重结果
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactCheckResult {
+    /// 字段名：mobile/phone/wechat/qq/email
+    pub field: String,
+    /// 是否重复
+    pub duplicated: bool,
+    /// 重复的联系人名称
+    pub contact_name: Option<String>,
 }
 
 /// 联系人更新请求DTO
@@ -94,6 +136,8 @@ pub struct ContactUpdateRequest {
     pub whatsapp: Option<String>,
     /// 微信号
     pub wechat: Option<String>,
+    /// QQ号
+    pub qq: Option<String>,
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
     /// 生日日期
@@ -117,6 +161,7 @@ impl From<ContactUpdateRequest> for ContactSaveDTO {
             mobile: item.mobile,
             whatsapp: item.whatsapp,
             wechat: item.wechat,
+            qq: item.qq,
             gender: item.gender,
             birthday: item.birthday,
             notes: item.notes,
@@ -155,6 +200,8 @@ pub struct ContactSaveDTO {
     pub whatsapp: Option<String>,
     /// 微信号
     pub wechat: Option<String>,
+    /// QQ号
+    pub qq: Option<String>,
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
     /// 生日日期
@@ -260,6 +307,8 @@ pub struct ContactDetailVO {
     pub whatsapp: Option<String>,
     /// 微信号
     pub wechat: Option<String>,
+    /// QQ号
+    pub qq: Option<String>,
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
     /// 生日日期
@@ -379,6 +428,20 @@ pub struct ContactListQuery {
     pub keywords: Option<String>,
     /// 客户ID（筛选关联特定客户的联系人）
     pub customer_id: Option<i64>,
+    /// 列表类型：all=全部, my=我的联系人, subordinate=下属联系人
+    pub list_type: Option<String>,
+    /// 客户名称搜索
+    pub customer_name: Option<String>,
+    /// 联系人姓名
+    pub name: Option<String>,
+    /// 手机
+    pub mobile: Option<String>,
+    /// 座机
+    pub phone: Option<String>,
+    /// 微信
+    pub wechat: Option<String>,
+    /// 邮箱
+    pub email: Option<String>,
 }
 
 // ==================== ContactModel ====================
@@ -398,6 +461,7 @@ impl ContactModel {
             mobile: Set(req.mobile.clone()),
             whatsapp: Set(req.whatsapp.clone()),
             wechat: Set(req.wechat.clone()),
+            qq: Set(req.qq.clone()),
             gender: Set(req.gender.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
@@ -459,6 +523,7 @@ impl ContactModel {
             mobile: Set(req.mobile.clone()),
             whatsapp: Set(req.whatsapp.clone()),
             wechat: Set(req.wechat.clone()),
+            qq: Set(req.qq.clone()),
             gender: Set(req.gender.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
@@ -671,7 +736,60 @@ impl ContactModel {
             }
         }
 
-        let paginator = query.order_by_desc(contact::Column::CreateTime).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(contact::Column::Id).paginate(db, per_page as u64);
+        let num_pages = paginator.num_pages().await? as i64;
+
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+    }
+
+    /// 分页查询联系人（带多个过滤条件）
+    pub async fn select_in_page_with_filters(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        contact_ids: Option<Vec<i64>>,
+        name: Option<String>,
+        mobile: Option<String>,
+        phone: Option<String>,
+        wechat: Option<String>,
+        email: Option<String>,
+    ) -> Result<(Vec<contact::Model>, i64), DbErr> {
+        let mut query = Contact::find()
+            .filter(contact::Column::Deleted.eq(0));
+
+        if let Some(ids) = contact_ids {
+            if ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(contact::Column::Id.is_in(ids));
+        }
+        if let Some(v) = name {
+            if !v.is_empty() {
+                query = query.filter(contact::Column::Name.contains(v));
+            }
+        }
+        if let Some(v) = mobile {
+            if !v.is_empty() {
+                query = query.filter(contact::Column::Mobile.contains(v));
+            }
+        }
+        if let Some(v) = phone {
+            if !v.is_empty() {
+                query = query.filter(contact::Column::Phone.contains(v));
+            }
+        }
+        if let Some(v) = wechat {
+            if !v.is_empty() {
+                query = query.filter(contact::Column::Wechat.contains(v));
+            }
+        }
+        if let Some(v) = email {
+            if !v.is_empty() {
+                query = query.filter(contact::Column::Email.contains(v));
+            }
+        }
+
+        let paginator = query.order_by_desc(contact::Column::Id).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))

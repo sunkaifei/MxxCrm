@@ -18,12 +18,13 @@ use crate::modules::shop::controller::admin::shop_admin_controller;
 use crate::modules::shop::controller::admin::category_controller;
 use crate::modules::shop::controller::admin::audit_controller;
 use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller};
-use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller};
+use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, contract_payment_plan_controller, followup_controller, customer_edit_log_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
-use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller};
+use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, shipment_controller};
 use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller};
 use crate::modules::company::controller::admin::company_controller;
+use crate::modules::company::controller::admin::code_rule_controller;
 
 async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
     let path = req.path();
@@ -330,6 +331,11 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(commission_rule_controller::save)
                 .service(commission_rule_controller::delete)
                 .service(commission_rule_controller::toggle)
+                .service(commission_rule_controller::set_default)
+                .service(commission_rule_controller::get_default)
+                .service(commission_rule_controller::options)
+                .service(commission_rule_controller::preview)
+                .service(commission_rule_controller::monthly_settle)
                 // Salary Management
                 .service(salary_controller::list)
                 .service(salary_controller::detail)
@@ -357,6 +363,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(crm_customer_controller::customer_pool_list)
                 .service(crm_customer_controller::customer_claim)
                 .service(crm_customer_controller::customer_add_to_pool)
+                .service(crm_customer_controller::customer_assign_history)
+                .service(crm_customer_controller::customer_check_name)
+                .service(customer_edit_log_controller::customer_edit_log_list)
                 // CRM Lead Management
                 .service(lead_controller::lead_insert)
                 .service(lead_controller::lead_update)
@@ -375,6 +384,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(contact_controller::bath_delete_contact)
                 .service(contact_controller::contact_info)
                 .service(contact_controller::contact_list)
+                .service(contact_controller::contact_check)
                 .service(contact_controller::contact_bind)
                 .service(contact_controller::contact_unbind)
                 .service(contact_controller::contact_set_role)
@@ -394,6 +404,14 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(contract_controller::contract_approve)
                 .service(contract_controller::contract_reject)
                 .service(contract_controller::contract_approval_detail)
+                .service(contract_controller::get_contract_commission_members)
+                .service(contract_controller::save_contract_commission_members)
+                .service(contract_controller::set_contract_commission_rule)
+                .service(contract_controller::preview_contract_commission)
+                // CRM Contract Payment Plan Management
+                .service(contract_payment_plan_controller::payment_plan_list)
+                .service(contract_payment_plan_controller::payment_plan_save)
+                .service(contract_payment_plan_controller::payment_plan_delete)
                 // CRM Followup Management
                 .service(followup_controller::followup_insert)
                 .service(followup_controller::followup_update)
@@ -452,6 +470,12 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(sale_payment_controller::bath_delete_payment)
                 .service(sale_payment_controller::payment_info)
                 .service(sale_payment_controller::payment_list)
+                .service(sale_payment_controller::payment_confirm)
+                .service(sale_payment_controller::payment_reject)
+                .service(sale_payment_controller::payment_apply)
+                .service(sale_payment_controller::payment_application_cancel)
+                .service(sale_payment_controller::payment_unapplied)
+                .service(sale_payment_controller::payment_application_list)
                 // Sale Quotation Management
                 .service(quotation_controller::quotation_insert)
                 .service(quotation_controller::quotation_update)
@@ -468,6 +492,13 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(invoice_controller::bath_delete_invoice)
                 .service(invoice_controller::invoice_info)
                 .service(invoice_controller::invoice_list)
+                // Sale Shipment Management
+                .service(shipment_controller::shipment_list)
+                .service(shipment_controller::shipment_info)
+                .service(shipment_controller::shipment_insert)
+                .service(shipment_controller::shipment_update)
+                .service(shipment_controller::shipment_delete)
+                .service(shipment_controller::shipment_sign)
                 // Purchase Order Management
                 .service(purchase_order_controller::purchase_order_insert)
                 .service(purchase_order_controller::purchase_order_update)
@@ -497,5 +528,16 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(company_controller::get_account_list)
                 .service(company_controller::save_account)
                 .service(company_controller::delete_account)
+                // Company Code Rule Management
+                .service(code_rule_controller::list)
+                .service(code_rule_controller::info)
+                .service(code_rule_controller::create)
+                .service(code_rule_controller::update)
+                .service(code_rule_controller::delete)
+                .service(code_rule_controller::toggle_enabled)
+                .service(code_rule_controller::preview)
+                .service(code_rule_controller::generate)
+                .service(code_rule_controller::batch_regenerate)
+                .service(code_rule_controller::batch_regenerate_progress)
         );
 }

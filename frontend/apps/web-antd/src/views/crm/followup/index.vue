@@ -62,12 +62,6 @@ const formOptions: VbenFormProps = {
         ],
       },
     },
-    {
-      component: 'Input',
-      fieldName: 'subject',
-      label: '主题',
-      componentProps: { placeholder: '输入跟进主题', allowClear: true },
-    },
   ],
 };
 
@@ -96,9 +90,11 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: '主题', field: 'subject', minWidth: 180, slots: { default: 'subject' } },
+    { title: '跟进内容', field: 'content', minWidth: 240, slots: { default: 'content' } },
+    { title: '客户', field: 'customerName', width: 150 },
     {
       title: '跟进方式', field: 'activityType', width: 90,
+      formatter: ({ cellValue }: any) => cellValue != null ? (activityLabelMap[cellValue] || cellValue) : '-',
       cellRender: {
         name: 'Tag',
         options: [
@@ -112,8 +108,6 @@ const gridOptions: VxeGridProps = {
         ],
       },
     },
-    { title: '客户', field: 'customerName', width: 150 },
-    { title: '跟进内容', field: 'content', minWidth: 200, slots: { default: 'content' } },
     {
       title: '跟进时间', field: 'followTime', slots: { default: 'followTimeSlot' }, width: 160,
     },
@@ -137,12 +131,8 @@ const [Grid] = useVbenVxeGrid({ gridOptions, formOptions });
         {{ formatDateTime(row.followTime) }}
       </template>
 
-      <template #subject="{ row }">
-        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.subject || '未命名跟进' }}</a>
-      </template>
-
       <template #content="{ row }">
-        <span class="text-gray-600">{{ row.content?.length > 50 ? row.content.slice(0, 50) + '...' : row.content }}</span>
+        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.content?.length > 60 ? row.content.slice(0, 60) + '...' : row.content || '-' }}</a>
       </template>
 
       <template #action="{ row }">

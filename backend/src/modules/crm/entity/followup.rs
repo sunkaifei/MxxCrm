@@ -21,7 +21,6 @@ pub struct Model {
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
     pub activity_type: Option<i32>,
-    pub subject: Option<String>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub duration_minutes: Option<i32>,

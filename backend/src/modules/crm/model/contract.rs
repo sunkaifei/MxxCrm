@@ -1,5 +1,15 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
+use std::str::FromStr;
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::contract_status_enum::ContractStatus;
 use crate::core::r#enum::contract_type_enum::ContractType;
@@ -13,21 +23,29 @@ use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct ContractSaveRequest {
+    /// 合同编号（不传则后端自动生成，格式 CON-yyyyMMdd-4位序号）
+    pub contract_no: Option<String>,
     /// 客户ID
+    #[serde(default, deserialize_with = "deserialize_i64_from_string")]
     pub customer_id: Option<i64>,
     /// 商机ID
+    #[serde(default, deserialize_with = "deserialize_i64_from_string")]
     pub opportunity_id: Option<i64>,
     /// 合同标题
     pub title: Option<String>,
     /// 合同类型
     pub contract_type: Option<ContractType>,
     /// 合同金额（不含税）
+    #[serde(default, deserialize_with = "deserialize_decimal_from_string")]
     pub amount: Option<Decimal>,
     /// 币种
+    #[serde(default, deserialize_with = "deserialize_currency_from_i32")]
     pub currency: Option<CurrencyCode>,
     /// 税额
+    #[serde(default, deserialize_with = "deserialize_decimal_from_string")]
     pub tax_amount: Option<Decimal>,
     /// 合同总金额（含税）
+    #[serde(default, deserialize_with = "deserialize_decimal_from_string")]
     pub total_amount: Option<Decimal>,
     /// 合同状态
     pub status: Option<ContractStatus>,
@@ -41,6 +59,8 @@ pub struct ContractSaveRequest {
     pub payment_terms: Option<String>,
     /// 交付条款
     pub delivery_terms: Option<String>,
+    /// 付款方式类型（1-一次性付款 2-分期付款 3-按里程碑付款）
+    pub payment_method_type: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 合同文件路径
@@ -49,12 +69,84 @@ pub struct ContractSaveRequest {
     pub contract_images: Option<String>,
     /// 备注信息
     pub remark: Option<String>,
+    /// 提成规则ID
+    pub commission_rule_id: Option<i64>,
+    /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
+    pub commission_mode: Option<i32>,
+}
+
+/// 从字符串反序列化 Decimal（前端传字符串金额）
+fn deserialize_decimal_from_string<'de, D>(deserializer: D) -> Result<Option<Decimal>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{Error, Unexpected};
+    let value: Option<String> = Option::deserialize(deserializer)?;
+    match value {
+        Some(s) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                Decimal::from_str(&s)
+                    .map(Some)
+                    .map_err(|_| D::Error::invalid_value(
+                        Unexpected::Str(&s),
+                        &"有效的金额格式"
+                    ))
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+/// 从 i32 反序列化 CurrencyCode（前端传数字）
+fn deserialize_currency_from_i32<'de, D>(deserializer: D) -> Result<Option<CurrencyCode>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{Error, Unexpected};
+    let value: Option<i32> = Option::deserialize(deserializer)?;
+    match value {
+        Some(n) => CurrencyCode::from_str(&n.to_string())
+            .map(Some)
+            .map_err(|_| D::Error::invalid_value(
+                Unexpected::Signed(n as i64),
+                &"有效的币种代码(1-7)"
+            )),
+        None => Ok(None),
+    }
+}
+
+/// 从字符串反序列化 i64（前端ID字段传字符串）
+fn deserialize_i64_from_string<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{Error, Unexpected};
+    // 尝试先作为字符串解析
+    let str_value: Option<String> = Option::deserialize(deserializer)?;
+    match str_value {
+        Some(s) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                s.parse::<i64>()
+                    .map(Some)
+                    .map_err(|_| D::Error::invalid_value(
+                        Unexpected::Str(&s),
+                        &"有效的整数"
+                    ))
+            }
+        }
+        None => Ok(None),
+    }
 }
 
 impl From<ContractSaveRequest> for ContractSaveDTO {
     fn from(item: ContractSaveRequest) -> Self {
         ContractSaveDTO {
             id: None,
+            contract_no: item.contract_no,
             customer_id: item.customer_id,
             opportunity_id: item.opportunity_id,
             title: item.title,
@@ -69,6 +161,7 @@ impl From<ContractSaveRequest> for ContractSaveDTO {
             sign_date: item.sign_date,
             payment_terms: item.payment_terms,
             delivery_terms: item.delivery_terms,
+            payment_method_type: item.payment_method_type,
             assigned_to: item.assigned_to,
             contract_file: item.contract_file,
             contract_images: item.contract_images,
@@ -78,6 +171,8 @@ impl From<ContractSaveRequest> for ContractSaveDTO {
             approval_amount_limit: None,
             instance_id: None,
             remark: item.remark,
+            commission_rule_id: item.commission_rule_id,
+            commission_mode: item.commission_mode,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -94,21 +189,29 @@ pub struct ContractUpdateRequest {
     /// 合同ID
     #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
+    /// 合同编号（不传则后端自动生成，格式 CON-yyyyMMdd-4位序号）
+    pub contract_no: Option<String>,
     /// 客户ID
+    #[serde(default, deserialize_with = "deserialize_i64_from_string")]
     pub customer_id: Option<i64>,
     /// 商机ID
+    #[serde(default, deserialize_with = "deserialize_i64_from_string")]
     pub opportunity_id: Option<i64>,
     /// 合同标题
     pub title: Option<String>,
     /// 合同类型
     pub contract_type: Option<ContractType>,
     /// 合同金额（不含税）
+    #[serde(default, deserialize_with = "deserialize_decimal_from_string")]
     pub amount: Option<Decimal>,
     /// 币种
+    #[serde(default, deserialize_with = "deserialize_currency_from_i32")]
     pub currency: Option<CurrencyCode>,
     /// 税额
+    #[serde(default, deserialize_with = "deserialize_decimal_from_string")]
     pub tax_amount: Option<Decimal>,
     /// 合同总金额（含税）
+    #[serde(default, deserialize_with = "deserialize_decimal_from_string")]
     pub total_amount: Option<Decimal>,
     /// 合同状态
     pub status: Option<ContractStatus>,
@@ -122,6 +225,8 @@ pub struct ContractUpdateRequest {
     pub payment_terms: Option<String>,
     /// 交付条款
     pub delivery_terms: Option<String>,
+    /// 付款方式类型（1-一次性付款 2-分期付款 3-按里程碑付款）
+    pub payment_method_type: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 合同文件路径
@@ -130,12 +235,17 @@ pub struct ContractUpdateRequest {
     pub contract_images: Option<String>,
     /// 备注信息
     pub remark: Option<String>,
+    /// 提成规则ID
+    pub commission_rule_id: Option<i64>,
+    /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
+    pub commission_mode: Option<i32>,
 }
 
 impl From<ContractUpdateRequest> for ContractSaveDTO {
     fn from(item: ContractUpdateRequest) -> Self {
         ContractSaveDTO {
             id: item.id,
+            contract_no: item.contract_no,
             customer_id: item.customer_id,
             opportunity_id: item.opportunity_id,
             title: item.title,
@@ -150,6 +260,7 @@ impl From<ContractUpdateRequest> for ContractSaveDTO {
             sign_date: item.sign_date,
             payment_terms: item.payment_terms,
             delivery_terms: item.delivery_terms,
+            payment_method_type: item.payment_method_type,
             assigned_to: item.assigned_to,
             contract_file: item.contract_file,
             contract_images: item.contract_images,
@@ -159,6 +270,8 @@ impl From<ContractUpdateRequest> for ContractSaveDTO {
             approval_amount_limit: None,
             instance_id: None,
             remark: item.remark,
+            commission_rule_id: item.commission_rule_id,
+            commission_mode: item.commission_mode,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -174,6 +287,8 @@ impl From<ContractUpdateRequest> for ContractSaveDTO {
 pub struct ContractSaveDTO {
     /// 合同ID
     pub id: Option<i64>,
+    /// 合同编号
+    pub contract_no: Option<String>,
     /// 客户ID
     pub customer_id: Option<i64>,
     /// 商机ID
@@ -202,6 +317,8 @@ pub struct ContractSaveDTO {
     pub payment_terms: Option<String>,
     /// 交付条款
     pub delivery_terms: Option<String>,
+    /// 付款方式类型（1-一次性付款 2-分期付款 3-按里程碑付款）
+    pub payment_method_type: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 合同文件路径
@@ -220,6 +337,10 @@ pub struct ContractSaveDTO {
     pub instance_id: Option<i64>,
     /// 备注信息
     pub remark: Option<String>,
+    /// 提成规则ID
+    pub commission_rule_id: Option<i64>,
+    /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
+    pub commission_mode: Option<i32>,
     /// 软删除标记
     pub deleted: Option<i32>,
     /// 创建人ID
@@ -269,6 +390,8 @@ pub struct ContractDetailVO {
     pub payment_terms: Option<String>,
     /// 交付条款
     pub delivery_terms: Option<String>,
+    /// 付款方式类型（1-一次性付款 2-分期付款 3-按里程碑付款）
+    pub payment_method_type: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
     /// 合同文件路径
@@ -287,6 +410,10 @@ pub struct ContractDetailVO {
     pub instance_id: Option<i64>,
     /// 备注信息
     pub remark: Option<String>,
+    /// 提成规则ID
+    pub commission_rule_id: Option<i64>,
+    /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
+    pub commission_mode: Option<i32>,
     /// 审批日志列表
     pub approval_logs: Option<Vec<ContractApprovalLogVO>>,
 }
@@ -310,6 +437,7 @@ impl From<contract::Model> for ContractDetailVO {
             sign_date: item.sign_date,
             payment_terms: item.payment_terms,
             delivery_terms: item.delivery_terms,
+            payment_method_type: item.payment_method_type,
             assigned_to: item.assigned_to,
             contract_file: item.contract_file,
             contract_images: item.contract_images,
@@ -319,6 +447,8 @@ impl From<contract::Model> for ContractDetailVO {
             approval_amount_limit: item.approval_amount_limit,
             instance_id: item.instance_id,
             remark: item.remark,
+            commission_rule_id: item.commission_rule_id,
+            commission_mode: item.commission_mode,
             approval_logs: None,
         }
     }
@@ -395,6 +525,32 @@ pub struct ContractListQuery {
 pub struct ContractModel;
 
 impl ContractModel {
+    /// 生成合同编号，格式 CON-yyyyMMdd-4位序号
+    /// 通过查询当日已有合同编号最大序号递增
+    async fn generate_contract_no(db: &DbConn) -> Result<String, DbErr> {
+        let today = chrono::Local::now().naive_local();
+        let date_str = today.format("%Y%m%d").to_string();
+        let prefix = format!("CON-{}-", date_str);
+
+        // 查询所有以当日前缀开头的合同编号
+        let contracts = Contract::find()
+            .filter(contract::Column::ContractNo.starts_with(&prefix))
+            .filter(contract::Column::Deleted.eq(0))
+            .all(db)
+            .await?;
+
+        // 计算最大序号
+        let max_seq = contracts.iter()
+            .filter_map(|c| c.contract_no.as_ref())
+            .filter_map(|s| s.strip_prefix(&prefix))
+            .filter_map(|s| s.parse::<u32>().ok())
+            .max()
+            .unwrap_or(0);
+
+        let next_seq = max_seq + 1;
+        Ok(format!("CON-{}-{:04}", date_str, next_seq))
+    }
+
     /// 新增合同
     ///
     /// # 参数
@@ -405,7 +561,15 @@ impl ContractModel {
     /// * `Result<i64, DbErr>` - 新增记录的ID
     pub async fn insert(db: &DbConn, req: &ContractSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
+
+        // 合同编号为空时自动生成，格式 CON-yyyyMMdd-4位序号
+        let contract_no = match &req.contract_no {
+            Some(no) if !no.trim().is_empty() => Some(no.clone()),
+            _ => Some(Self::generate_contract_no(db).await?),
+        };
+
         let payload = contract::ActiveModel {
+            contract_no: Set(contract_no),
             customer_id: Set(req.customer_id.clone()),
             opportunity_id: Set(req.opportunity_id.clone()),
             title: Set(req.title.clone()),
@@ -420,6 +584,7 @@ impl ContractModel {
             sign_date: Set(req.sign_date.clone()),
             payment_terms: Set(req.payment_terms.clone()),
             delivery_terms: Set(req.delivery_terms.clone()),
+            payment_method_type: Set(req.payment_method_type.clone()),
             assigned_to: Set(req.assigned_to.clone()),
             contract_file: Set(req.contract_file.clone()),
             contract_images: Set(req.contract_images.clone()),
@@ -429,6 +594,8 @@ impl ContractModel {
             approval_amount_limit: Set(req.approval_amount_limit.clone()),
             instance_id: Set(req.instance_id.clone()),
             remark: Set(req.remark.clone()),
+            commission_rule_id: Set(req.commission_rule_id.clone()),
+            commission_mode: Set(req.commission_mode.clone()),
             created_by: Set(req.created_by.clone()),
             create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
@@ -487,6 +654,7 @@ impl ContractModel {
             sign_date: Set(req.sign_date.clone()),
             payment_terms: Set(req.payment_terms.clone()),
             delivery_terms: Set(req.delivery_terms.clone()),
+            payment_method_type: Set(req.payment_method_type.clone()),
             assigned_to: Set(req.assigned_to.clone()),
             contract_file: Set(req.contract_file.clone()),
             contract_images: Set(req.contract_images.clone()),
@@ -496,6 +664,8 @@ impl ContractModel {
             approval_amount_limit: Set(req.approval_amount_limit.clone()),
             instance_id: Set(req.instance_id.clone()),
             remark: Set(req.remark.clone()),
+            commission_rule_id: Set(req.commission_rule_id.clone()),
+            commission_mode: Set(req.commission_mode.clone()),
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()

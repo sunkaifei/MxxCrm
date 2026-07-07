@@ -10,29 +10,34 @@ import { LucideEye, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Input, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Modal, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteOrderApi,
+  getShipmentListApi,
   getOrderListApi,
+  signShipmentApi,
   updateOrderStatusApi,
 } from '#/api';
 import { $t } from '#/locales';
 import OrderDrawer from './drawer.vue';
+import ShipmentDrawer from '../shipment/drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
 
 const orderStatusOptions = [
   { label: '草稿', value: 1 },
-  { label: '已确认', value: 2 },
-  { label: '待发货', value: 3 },
-  { label: '部分发货', value: 4 },
-  { label: '已发货', value: 5 },
-  { label: '已完成', value: 6 },
+  { label: '待确认', value: 2 },
+  { label: '已确认', value: 3 },
+  { label: '备货中', value: 4 },
+  { label: '部分发货', value: 5 },
+  { label: '已发货', value: 6 },
   { label: '已取消', value: 7 },
-  { label: '已关闭', value: 8 },
+  { label: '已交付', value: 8 },
+  { label: '已签收', value: 9 },
+  { label: '已完成', value: 10 },
 ];
 
 const paymentStatusOptions = [
@@ -45,23 +50,27 @@ const paymentStatusOptions = [
 const orderStatusColorMap: Record<number, string> = {
   1: 'default',
   2: 'blue',
-  3: 'cyan',
+  3: 'blue',
   4: 'orange',
-  5: 'purple',
-  6: 'green',
+  5: 'cyan',
+  6: 'purple',
   7: 'red',
-  8: 'default',
+  8: 'cyan',
+  9: 'green',
+  10: 'blue',
 };
 
 const orderStatusLabelMap: Record<number, string> = {
   1: '草稿',
-  2: '已确认',
-  3: '待发货',
-  4: '部分发货',
-  5: '已发货',
-  6: '已完成',
+  2: '待确认',
+  3: '已确认',
+  4: '备货中',
+  5: '部分发货',
+  6: '已发货',
   7: '已取消',
-  8: '已关闭',
+  8: '已交付',
+  9: '已签收',
+  10: '已完成',
 };
 
 const paymentStatusColorMap: Record<number, string> = {
@@ -144,10 +153,10 @@ const formOptions: VbenFormProps = {
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true },
+  rowConfig: { height: 'auto' },
   stripe: true,
   checkboxConfig: { checkMethod: () => true },
   proxyConfig: {
@@ -166,7 +175,49 @@ const gridOptions: VxeGridProps = {
           params.startDate = formValues.dateRange[0];
           params.endDate = formValues.dateRange[1];
         }
-        return await getOrderListApi(params);
+        const result = await getOrderListApi(params);
+        // 无数据 280px，有数据按内容自适应
+        const items = (result as any)?.items ?? [];
+        const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
+        if (gridEl) {
+          gridEl.style.height = items.length === 0 ? '280px' : '';
+        }
+        // 等DOM渲染完成后同步固定列行高并居中内容
+        const syncFixedColumn = (retry = 0) => {
+          const $el = gridApi.grid?.$el as HTMLElement | undefined;
+          if (!$el) return;
+          const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
+          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          if (!mainBody || !fixedRightBody) {
+            if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
+            return;
+          }
+          const rows1 = mainBody.querySelectorAll('tr.vxe-body--row');
+          const rows2 = fixedRightBody.querySelectorAll('tr.vxe-body--row');
+          const len = Math.min(rows1.length, rows2.length);
+          if (len === 0) return;
+          for (let i = 0; i < len; i++) {
+            const h = (rows1[i] as HTMLElement).offsetHeight;
+            if (h === 0) continue;
+            (rows2[i] as HTMLElement).style.height = h + 'px';
+            const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
+            tds.forEach((td: Element) => {
+              const cell = td.querySelector('.vxe-cell');
+              if (cell) {
+                (cell as HTMLElement).style.display = 'flex';
+                (cell as HTMLElement).style.alignItems = 'center';
+                (cell as HTMLElement).style.justifyContent = 'center';
+                (cell as HTMLElement).style.height = h + 'px';
+              }
+            });
+          }
+        };
+        requestAnimationFrame(() => {
+          syncFixedColumn();
+          setTimeout(() => syncFixedColumn(), 200);
+          setTimeout(() => syncFixedColumn(), 500);
+        });
+        return result;
       },
     },
   },
@@ -218,7 +269,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 220,
+      width: 320,
     },
   ],
 };
@@ -233,9 +284,22 @@ const [FormDrawer, drawerApi] = useVbenDrawer({
   },
 });
 
+const [ShipmentFormDrawer, shipmentDrawerApi] = useVbenDrawer({
+  connectedComponent: ShipmentDrawer,
+  onClosed() {
+    const data = shipmentDrawerApi.getData();
+    if (data?.needRefresh) gridApi.query();
+  },
+});
+
 function openDrawer(create: boolean, row?: any) {
   drawerApi.setData({ create, row });
   drawerApi.open();
+}
+
+function openShipmentDrawer(row: any) {
+  shipmentDrawerApi.setData({ row });
+  shipmentDrawerApi.open();
 }
 
 function handleCreate() {
@@ -271,33 +335,55 @@ async function handleBatchDelete() {
   gridApi.query();
 }
 
-async function handleShip(row: any) {
-  let trackingNo = '';
+// 备货：将订单状态从已确认(3)改为备货中(4)
+async function handleStockUp(row: any) {
   Modal.confirm({
-    title: '发货',
-    content: h('div', { style: 'margin-top:16px' }, [
-      h('div', { style: 'margin-bottom:8px' }, '请输入物流单号：'),
-      h(Input, {
-        placeholder: '物流单号',
-        value: trackingNo,
-        'onUpdate:value': (v: string) => {
-          trackingNo = v;
-        },
-      }),
-    ]),
-    okText: '确认发货',
+    title: '确认备货',
+    content: '确定要将此订单标记为备货中吗？',
+    okText: '确认',
     cancelText: '取消',
     onOk: async () => {
       try {
         await updateOrderStatusApi({
           id: row.id,
-          orderStatus: 5,
-          trackingNo,
+          orderStatus: 4,
         });
-        window.$message.success('发货成功');
+        window.$message.success('订单已标记为备货中');
         gridApi.query();
       } catch {
-        window.$message.error('发货失败');
+        window.$message.error('操作失败');
+      }
+    },
+  });
+}
+
+// 签收：逐个签收该订单下所有发货单
+async function handleSign(row: any) {
+  Modal.confirm({
+    title: '确认签收',
+    content: '确定要签收该订单的所有发货单吗？',
+    okText: '确认',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        const res: any = await getShipmentListApi({
+          orderId: row.id,
+          page: 1,
+          pageSize: 100,
+        });
+        const shipments =
+          res?.items || res?.data?.items || res?.data || res || [];
+        if (!Array.isArray(shipments) || shipments.length === 0) {
+          window.$message.warning('未查询到发货单');
+          return;
+        }
+        for (const s of shipments) {
+          await signShipmentApi(s.id);
+        }
+        window.$message.success('签收成功');
+        gridApi.query();
+      } catch {
+        window.$message.error('签收失败');
       }
     },
   });
@@ -313,7 +399,7 @@ async function handleComplete(row: any) {
       try {
         await updateOrderStatusApi({
           id: row.id,
-          orderStatus: 6,
+          orderStatus: 10,
         });
         window.$message.success('订单已完成');
         gridApi.query();
@@ -326,7 +412,7 @@ async function handleComplete(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <SalesProcessGuide current-step="order" />
     <Grid :table-title="''">
       <template #toolbar-tools>
@@ -401,18 +487,42 @@ async function handleComplete(row: any) {
         <Button
           v-if="
             accessStore.hasAccessCode('sale:order:edit') &&
-            (row.orderStatus === 2 || row.orderStatus === 3)
+            row.orderStatus === 3
           "
           type="link"
           size="small"
-          @click="() => handleShip(row)"
+          @click="() => handleStockUp(row)"
+        >
+          备货
+        </Button>
+        <Button
+          v-if="
+            accessStore.hasAccessCode('sale:order:edit') &&
+            (row.orderStatus === 3 ||
+              row.orderStatus === 4 ||
+              row.orderStatus === 5)
+          "
+          type="link"
+          size="small"
+          @click="() => openShipmentDrawer(row)"
         >
           发货
         </Button>
         <Button
           v-if="
             accessStore.hasAccessCode('sale:order:edit') &&
-            row.orderStatus === 5
+            row.orderStatus === 6
+          "
+          type="link"
+          size="small"
+          @click="() => handleSign(row)"
+        >
+          签收
+        </Button>
+        <Button
+          v-if="
+            accessStore.hasAccessCode('sale:order:edit') &&
+            row.orderStatus === 9
           "
           type="link"
           size="small"
@@ -436,5 +546,6 @@ async function handleComplete(row: any) {
       </template>
     </Grid>
     <FormDrawer />
+    <ShipmentFormDrawer />
   </Page>
 </template>

@@ -1,3 +1,12 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
@@ -26,6 +35,7 @@ pub struct OrderItemSaveRequest {
     pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
+    pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
@@ -53,6 +63,7 @@ impl From<OrderItemSaveRequest> for OrderItemSaveDTO {
             amount: item.amount,
             total_amount: item.total_amount,
             delivery_date: item.delivery_date,
+            product_type: item.product_type,
             delivered_quantity: item.delivered_quantity,
             remark: item.remark,
             sort: item.sort,
@@ -89,6 +100,7 @@ pub struct OrderItemUpdateRequest {
     pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
+    pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
@@ -116,6 +128,7 @@ impl From<OrderItemUpdateRequest> for OrderItemSaveDTO {
             amount: item.amount,
             total_amount: item.total_amount,
             delivery_date: item.delivery_date,
+            product_type: item.product_type,
             delivered_quantity: item.delivered_quantity,
             remark: item.remark,
             sort: item.sort,
@@ -151,6 +164,7 @@ pub struct OrderItemSaveDTO {
     pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
+    pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
@@ -185,6 +199,7 @@ pub struct OrderItemDetailVO {
     pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
+    pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
@@ -216,6 +231,7 @@ impl From<order_item::Model> for OrderItemDetailVO {
             amount: item.amount,
             total_amount: item.total_amount,
             delivery_date: item.delivery_date,
+            product_type: item.product_type,
             delivered_quantity: item.delivered_quantity,
             remark: item.remark,
             sort: item.sort,
@@ -251,6 +267,7 @@ pub struct OrderItemListVO {
     pub amount: Option<Decimal>,
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
+    pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
@@ -278,6 +295,7 @@ impl From<order_item::Model> for OrderItemListVO {
             amount: item.amount,
             total_amount: item.total_amount,
             delivery_date: item.delivery_date,
+            product_type: item.product_type,
             delivered_quantity: item.delivered_quantity,
             remark: item.remark,
             sort: item.sort,
@@ -321,6 +339,7 @@ impl OrderItemModel {
             amount: Set(req.amount),
             total_amount: Set(req.total_amount),
             delivery_date: Set(req.delivery_date),
+            product_type: Set(req.product_type),
             delivered_quantity: Set(req.delivered_quantity),
             remark: Set(req.remark.clone()),
             sort: Set(req.sort),
@@ -371,6 +390,7 @@ impl OrderItemModel {
             amount: Set(req.amount),
             total_amount: Set(req.total_amount),
             delivery_date: Set(req.delivery_date),
+            product_type: Set(req.product_type),
             delivered_quantity: Set(req.delivered_quantity),
             remark: Set(req.remark.clone()),
             sort: Set(req.sort),

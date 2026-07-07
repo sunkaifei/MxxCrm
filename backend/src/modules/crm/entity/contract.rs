@@ -68,6 +68,9 @@ pub struct Model {
     /// 交付条款
     pub delivery_terms: Option<String>,
 
+    /// 付款方式类型（1-一次性付款 2-分期付款 3-按里程碑付款）
+    pub payment_method_type: Option<i32>,
+
     /// 负责人ID
     pub assigned_to: Option<i64>,
 
@@ -112,6 +115,12 @@ pub struct Model {
 
     /// 更新时间
     pub update_time: Option<DateTime>,
+
+    /// 提成规则ID（为空则走默认方案）
+    pub commission_rule_id: Option<i64>,
+
+    /// 佣金计算方式
+    pub commission_mode: Option<i32>,
 
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,

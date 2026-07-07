@@ -9,6 +9,7 @@
 //!
 use crate::modules::company::entity::company_account;
 use crate::modules::company::entity::company_info::{ActiveModel, Column, Entity, Model};
+
 use sea_orm::*;
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +18,10 @@ use serde::{Deserialize, Serialize};
 pub struct CompanyInfoVO {
     pub id: i64,
     pub company_name: Option<String>,
+    /// 公司简称，用于编号段位
+    pub company_abbr: Option<String>,
+    /// 是否在编号中显示公司简称：1=是 0=否
+    pub show_abbr: Option<i16>,
     pub credit_code: Option<String>,
     pub legal_person: Option<String>,
     pub legal_phone: Option<String>,
@@ -52,6 +57,10 @@ pub struct CompanyAccountVO {
 #[serde(rename_all = "camelCase")]
 pub struct CompanyInfoSaveRequest {
     pub company_name: Option<String>,
+    /// 公司简称
+    pub company_abbr: Option<String>,
+    /// 是否在编号中显示公司简称：1=是 0=否
+    pub show_abbr: Option<i16>,
     pub credit_code: Option<String>,
     pub legal_person: Option<String>,
     pub legal_phone: Option<String>,
@@ -104,6 +113,8 @@ impl From<Model> for CompanyInfoVO {
         CompanyInfoVO {
             id: model.id,
             company_name: model.company_name,
+            company_abbr: model.company_abbr,
+            show_abbr: model.show_abbr,
             credit_code: model.credit_code,
             legal_person: model.legal_person,
             legal_phone: model.legal_phone,
@@ -152,6 +163,8 @@ pub async fn update_info(db: &DbConn, req: &CompanyInfoSaveRequest, updated_by: 
     let now = chrono::Local::now().naive_local().to_owned();
     let am = ActiveModel {
         company_name: Set(req.company_name.clone()),
+        company_abbr: Set(req.company_abbr.clone()),
+        show_abbr: Set(req.show_abbr),
         credit_code: Set(req.credit_code.clone()),
         legal_person: Set(req.legal_person.clone()),
         legal_phone: Set(req.legal_phone.clone()),
@@ -173,6 +186,7 @@ pub async fn update_info(db: &DbConn, req: &CompanyInfoSaveRequest, updated_by: 
         .filter(Column::Deleted.eq(0))
         .exec(db)
         .await?;
+
     Ok(res.rows_affected as i64)
 }
 

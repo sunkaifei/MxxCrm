@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref, watch, computed, h } from 'vue';
-import { Button, Tag, Modal, Input, Checkbox, Spin, Empty, message } from 'ant-design-vue';
+import { Button, Tag, Modal, Input, Spin, Empty, message } from 'ant-design-vue';
 import { LucidePlus } from '@vben/icons';
 import {
   getAllTagsApi,
@@ -174,15 +174,15 @@ async function confirmSelection() {
       if (toAdd.length > 0) {
         await addTagsToEntityApi({
           entityType: props.entityType,
-          entityId: props.entityId,
-          tagIds: toAdd,
+          entityId: Number(props.entityId),
+          tagIds: toAdd.map(Number),
         });
       }
       if (toRemove.length > 0) {
         await removeTagsFromEntityApi({
           entityType: props.entityType,
-          entityId: props.entityId,
-          tagIds: toRemove,
+          entityId: Number(props.entityId),
+          tagIds: toRemove.map(Number),
         });
       }
     }
@@ -209,8 +209,8 @@ async function removeTag(tag: TagVO) {
     try {
       await removeTagsFromEntityApi({
         entityType: props.entityType,
-        entityId: props.entityId,
-        tagIds: [tag.id],
+        entityId: Number(props.entityId),
+        tagIds: [Number(tag.id)],
       });
     } catch {
       message.error('移除标签失败');
@@ -299,17 +299,16 @@ defineExpose({ saveToEntity, loadEntityTags, selectedTags });
             </span>
           </div>
           <div class="flex flex-wrap gap-2">
-            <Checkbox
+            <div
               v-for="tag in group.tags"
               :key="tag.id"
-              :checked="tempSelectedIds.has(tag.id)"
-              class="!mr-0"
-              @change="toggleTag(tag.id)"
+              class="cursor-pointer select-none"
+              @click="toggleTag(tag.id)"
             >
-              <Tag :color="tag.tagColor" class="cursor-pointer">
-                {{ tag.tagName }}
+              <Tag :color="tag.tagColor">
+                {{ tag.tagName }}<span v-if="tempSelectedIds.has(tag.id)" class="ml-0.5">✓</span>
               </Tag>
-            </Checkbox>
+            </div>
           </div>
         </div>
       </Spin>

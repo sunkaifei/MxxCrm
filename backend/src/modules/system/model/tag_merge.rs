@@ -7,7 +7,9 @@ use crate::modules::system::entity::{tag, tag::Entity as Tag};
 #[serde(rename_all = "camelCase")]
 pub struct TagEntityRequest {
     pub entity_type: Option<String>,
+    #[serde(deserialize_with = "flex_i64_opt")]
     pub entity_id: Option<i64>,
+    #[serde(deserialize_with = "flex_i64_vec_opt")]
     pub tag_ids: Option<Vec<i64>>,
 }
 
@@ -15,7 +17,9 @@ pub struct TagEntityRequest {
 #[serde(rename_all = "camelCase")]
 pub struct TagEntityRemoveRequest {
     pub entity_type: Option<String>,
+    #[serde(deserialize_with = "flex_i64_opt")]
     pub entity_id: Option<i64>,
+    #[serde(deserialize_with = "flex_i64_vec_opt")]
     pub tag_ids: Option<Vec<i64>>,
 }
 
@@ -23,9 +27,65 @@ pub struct TagEntityRemoveRequest {
 #[serde(rename_all = "camelCase")]
 pub struct TagEntityBatchRequest {
     pub entity_type: Option<String>,
+    #[serde(deserialize_with = "flex_i64_vec_opt")]
     pub entity_ids: Option<Vec<i64>>,
+    #[serde(deserialize_with = "flex_i64_vec_opt")]
     pub tag_ids: Option<Vec<i64>>,
     pub action: Option<String>,
+}
+
+/// 灵活反序列化 Option<i64>：接受 JSON 数字或字符串（如 "4" 或 4），null/missing → None
+fn flex_i64_opt<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<i64>, D::Error> {
+    use serde::de;
+    struct V;
+    impl<'de> de::Visitor<'de> for V {
+        type Value = Option<i64>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("a number, a string number, or null")
+        }
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Option<i64>, E> { Ok(Some(v)) }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Option<i64>, E> { Ok(Some(v as i64)) }
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Option<i64>, E> { Ok(Some(v as i64)) }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Option<i64>, E> {
+            v.parse::<i64>().map(Some).map_err(de::Error::custom)
+        }
+        fn visit_none<E: de::Error>(self) -> Result<Option<i64>, E> { Ok(None) }
+        fn visit_unit<E: de::Error>(self) -> Result<Option<i64>, E> { Ok(None) }
+    }
+    d.deserialize_any(V)
+}
+
+/// 灵活反序列化 Option<Vec<i64>>：接受 JSON 数组元素为数字或字符串
+fn flex_i64_vec_opt<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Vec<i64>>, D::Error> {
+    use serde::de;
+    struct V;
+    impl<'de> de::Visitor<'de> for V {
+        type Value = Option<Vec<i64>>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("an array of numbers or string numbers, or null")
+        }
+        fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<Option<Vec<i64>>, A::Error> {
+            let mut vec = Vec::new();
+            while let Some(elem) = seq.next_element::<serde_json::Value>()? {
+                match elem {
+                    serde_json::Value::Number(n) => {
+                        if let Some(v) = n.as_i64() { vec.push(v); }
+                        else if let Some(v) = n.as_u64() { vec.push(v as i64); }
+                        else if let Some(v) = n.as_f64() { vec.push(v as i64); }
+                        else { return Err(de::Error::custom("invalid number in array")); }
+                    }
+                    serde_json::Value::String(s) => {
+                        vec.push(s.parse::<i64>().map_err(de::Error::custom)?);
+                    }
+                    _ => return Err(de::Error::custom("expected number or string in array")),
+                }
+            }
+            Ok(Some(vec))
+        }
+        fn visit_none<E: de::Error>(self) -> Result<Option<Vec<i64>>, E> { Ok(None) }
+        fn visit_unit<E: de::Error>(self) -> Result<Option<Vec<i64>>, E> { Ok(None) }
+    }
+    d.deserialize_any(V)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

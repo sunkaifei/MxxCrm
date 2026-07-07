@@ -98,8 +98,9 @@ pub struct PaymentRecordModel;
 
 impl PaymentRecordModel {
     pub async fn find_list(db: &DbConn, query: PaymentRecordQuery) -> Result<(Vec<PaymentRecordDTO>, i64), DbErr> {
-        let mut stmt = PaymentRecordEntity::find();
-        
+        let mut stmt = PaymentRecordEntity::find()
+            .filter(payment_record::Column::Deleted.eq(0));
+
         if let Some(user_id) = query.user_id {
             stmt = stmt.filter(payment_record::Column::UserId.eq(user_id));
         }
@@ -167,6 +168,7 @@ impl PaymentRecordModel {
             remark: Set(req.remark),
             create_time: Set(now),
             update_time: Set(now),
+            deleted: Set(Some(0)),
             ..Default::default()
         };
         
@@ -206,11 +208,18 @@ impl PaymentRecordModel {
     }
 
     pub async fn delete(db: &DbConn, id: i64) -> Result<bool, DbErr> {
-        let count = PaymentRecordEntity::delete_by_id(id)
-            .exec(db)
-            .await?;
-        
-        Ok(count.rows_affected > 0)
+        let mut model: payment_record::ActiveModel = PaymentRecordEntity::find_by_id(id)
+            .filter(payment_record::Column::Deleted.eq(0))
+            .one(db)
+            .await?
+            .ok_or_else(|| DbErr::Custom("记录不存在".to_string()))?
+            .into();
+
+        model.deleted = Set(Some(1));
+        model.update_time = Set(Some(Utc::now().naive_utc()));
+        model.update(db).await?;
+
+        Ok(true)
     }
 
     pub async fn find_by_order_id(db: &DbConn, order_id: &str) -> Result<Option<PaymentRecordDTO>, DbErr> {

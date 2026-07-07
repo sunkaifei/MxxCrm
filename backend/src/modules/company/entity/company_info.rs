@@ -17,6 +17,10 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub id: i64,
     pub company_name: Option<String>,
+    /// 公司简称，如 XYH，用于编号段位
+    pub company_abbr: Option<String>,
+    /// 是否在编号中显示公司简称：1=是 0=否
+    pub show_abbr: Option<i16>,
     pub credit_code: Option<String>,
     pub legal_person: Option<String>,
     pub legal_phone: Option<String>,

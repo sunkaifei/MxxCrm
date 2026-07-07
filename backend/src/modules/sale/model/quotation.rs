@@ -632,7 +632,7 @@ impl QuotationModel {
             query = query.filter(quotation::Column::QuotationDate.lte(end));
         }
 
-        let paginator = query.order_by_desc(quotation::Column::CreateTime).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(quotation::Column::Id).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }

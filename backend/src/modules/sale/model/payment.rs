@@ -1,3 +1,12 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 //! 销售回款模型层
 //!
 //! 版权所有，侵权必究！
@@ -9,6 +18,7 @@ use sea_orm::*;
 use sea_orm::prelude::DateTime;
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::sale::entity::{payment, payment::Entity as SalePayment, order};
+use crate::modules::sale::model::payment_application::PaymentApplicationVO;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
 // ==================== 请求 DTO ====================
@@ -20,8 +30,6 @@ pub struct PaymentSaveRequest {
     pub contract_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub order_id: Option<i64>,
-    #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
-    pub plan_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
@@ -50,8 +58,6 @@ pub struct PaymentUpdateRequest {
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub order_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
-    pub plan_id: Option<i64>,
-    #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
     pub amount: Option<Decimal>,
@@ -67,6 +73,24 @@ pub struct PaymentUpdateRequest {
     pub owner_user_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub dept_id: Option<i64>,
+}
+
+/// 核销请求中的单项
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentApplyItem {
+    #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
+    pub plan_id: Option<i64>,
+    pub apply_amount: Decimal,
+}
+
+/// 核销请求
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentApplyRequest {
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    pub payment_id: Option<i64>,
+    pub applications: Vec<PaymentApplyItem>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -92,10 +116,11 @@ pub struct PaymentSaveDTO {
     pub payment_no: Option<String>,
     pub contract_id: Option<i64>,
     pub order_id: Option<i64>,
-    pub plan_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
     pub amount: Option<Decimal>,
+    pub applied_amount: Option<Decimal>,
+    pub unapplied_amount: Option<Decimal>,
     pub currency: Option<i32>,
     pub payment_method: Option<i32>,
     pub payment_date: Option<NaiveDate>,
@@ -125,10 +150,15 @@ pub struct PaymentListVO {
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
     pub amount: Option<Decimal>,
+    pub applied_amount: Option<Decimal>,
+    pub unapplied_amount: Option<Decimal>,
     pub currency: Option<i32>,
     pub payment_method: Option<i32>,
     pub payment_date: Option<NaiveDate>,
     pub status: Option<i32>,
+    pub confirm_time: Option<DateTime>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub confirm_by: Option<i64>,
     pub create_time: Option<DateTime>,
 }
 
@@ -143,11 +173,11 @@ pub struct PaymentDetailVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub order_id: Option<i64>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
-    pub plan_id: Option<i64>,
-    #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
     pub amount: Option<Decimal>,
+    pub applied_amount: Option<Decimal>,
+    pub unapplied_amount: Option<Decimal>,
     pub currency: Option<i32>,
     pub payment_method: Option<i32>,
     pub payment_date: Option<NaiveDate>,
@@ -165,6 +195,10 @@ pub struct PaymentDetailVO {
     pub create_time: Option<DateTime>,
     pub update_by: Option<String>,
     pub update_time: Option<DateTime>,
+    pub confirm_time: Option<DateTime>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub confirm_by: Option<i64>,
+    pub applications: Vec<PaymentApplicationVO>,
 }
 
 // ==================== From 转换 ====================
@@ -175,10 +209,11 @@ impl From<PaymentSaveRequest> for PaymentSaveDTO {
             payment_no: None,
             contract_id: req.contract_id,
             order_id: req.order_id,
-            plan_id: req.plan_id,
             customer_id: req.customer_id,
             customer_name: req.customer_name,
             amount: req.amount,
+            applied_amount: None,
+            unapplied_amount: None,
             currency: req.currency,
             payment_method: req.payment_method,
             payment_date: req.payment_date,
@@ -202,10 +237,11 @@ impl From<PaymentUpdateRequest> for PaymentSaveDTO {
             payment_no: None,
             contract_id: req.contract_id,
             order_id: req.order_id,
-            plan_id: req.plan_id,
             customer_id: req.customer_id,
             customer_name: req.customer_name,
             amount: req.amount,
+            applied_amount: None,
+            unapplied_amount: None,
             currency: req.currency,
             payment_method: req.payment_method,
             payment_date: req.payment_date,
@@ -233,10 +269,14 @@ impl From<&payment::Model> for PaymentListVO {
             customer_id: model.customer_id,
             customer_name: model.customer_name.clone(),
             amount: model.amount,
+            applied_amount: model.applied_amount,
+            unapplied_amount: model.unapplied_amount,
             currency: model.currency,
             payment_method: model.payment_method,
             payment_date: model.payment_date,
             status: model.status,
+            confirm_time: model.confirm_time,
+            confirm_by: model.confirm_by,
             create_time: model.create_time,
         }
     }
@@ -249,10 +289,11 @@ impl From<&payment::Model> for PaymentDetailVO {
             payment_no: model.payment_no.clone(),
             contract_id: model.contract_id,
             order_id: model.order_id,
-            plan_id: model.plan_id,
             customer_id: model.customer_id,
             customer_name: model.customer_name.clone(),
             amount: model.amount,
+            applied_amount: model.applied_amount,
+            unapplied_amount: model.unapplied_amount,
             currency: model.currency,
             payment_method: model.payment_method,
             payment_date: model.payment_date,
@@ -268,11 +309,41 @@ impl From<&payment::Model> for PaymentDetailVO {
             create_time: model.create_time,
             update_by: model.update_by.clone(),
             update_time: model.update_time,
+            confirm_time: model.confirm_time,
+            confirm_by: model.confirm_by,
+            applications: vec![],
         }
     }
 }
 
 // ==================== 数据库操作方法 ====================
+
+/// 可核销计划 VO
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentPlanForApplyVO {
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub id: Option<i64>,
+    pub stage_name: Option<String>,
+    pub plan_amount: Option<Decimal>,
+    pub received_amount: Option<Decimal>,
+    pub unapplied_amount: Option<Decimal>,
+    pub status: Option<i32>,
+}
+
+/// 回款未核销信息 VO
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentUnappliedVO {
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub payment_id: Option<i64>,
+    pub amount: Option<Decimal>,
+    pub applied_amount: Option<Decimal>,
+    pub unapplied_amount: Option<Decimal>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub contract_id: Option<i64>,
+    pub plans: Vec<PaymentPlanForApplyVO>,
+}
 
 fn deserialize_option_string_to_u64<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
 where
@@ -296,14 +367,16 @@ pub struct PaymentModel;
 impl PaymentModel {
     pub async fn insert<C: ConnectionTrait>(db: &C, req: &PaymentSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
+        let amount = req.amount.unwrap_or(Decimal::from(0));
         let payload = payment::ActiveModel {
             payment_no: Set(req.payment_no.clone()),
             contract_id: Set(req.contract_id),
             order_id: Set(req.order_id),
-            plan_id: Set(req.plan_id),
             customer_id: Set(req.customer_id),
             customer_name: Set(req.customer_name.clone()),
-            amount: Set(req.amount.or(Some(Decimal::from(0)))),
+            amount: Set(Some(amount)),
+            applied_amount: Set(Some(Decimal::from(0))),
+            unapplied_amount: Set(Some(amount)),
             currency: Set(req.currency.or(Some(1))),
             payment_method: Set(req.payment_method.or(Some(1))),
             payment_date: Set(req.payment_date),
@@ -334,7 +407,6 @@ impl PaymentModel {
 
         if let Some(v) = req.contract_id { payload.contract_id = Set(Some(v)); }
         if let Some(v) = req.order_id { payload.order_id = Set(Some(v)); }
-        if let Some(v) = req.plan_id { payload.plan_id = Set(Some(v)); }
         if let Some(v) = req.customer_id { payload.customer_id = Set(Some(v)); }
         if let Some(v) = req.customer_name.clone() { payload.customer_name = Set(Some(v)); }
         if let Some(v) = req.amount { payload.amount = Set(Some(v)); }
@@ -459,5 +531,98 @@ impl PaymentModel {
             .filter(order::Column::Deleted.eq(0))
             .all(db)
             .await
+    }
+
+    /// 确认回款：status=2，设置 confirm_time/confirm_by
+    pub async fn update_confirm<C: ConnectionTrait>(db: &C, id: i64, confirm_by: i64) -> Result<i64, DbErr> {
+        let now = chrono::Local::now().naive_local().to_owned();
+        let result = SalePayment::update_many()
+            .set(payment::ActiveModel {
+                status: Set(Some(2)),
+                confirm_time: Set(Some(now)),
+                confirm_by: Set(Some(confirm_by)),
+                update_time: Set(Some(now)),
+                ..Default::default()
+            })
+            .filter(payment::Column::Id.eq(id))
+            .filter(payment::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+        Ok(result.rows_affected as i64)
+    }
+
+    /// 驳回回款：status=3
+    pub async fn update_reject<C: ConnectionTrait>(db: &C, id: i64) -> Result<i64, DbErr> {
+        let now = chrono::Local::now().naive_local().to_owned();
+        let result = SalePayment::update_many()
+            .set(payment::ActiveModel {
+                status: Set(Some(3)),
+                update_time: Set(Some(now)),
+                ..Default::default()
+            })
+            .filter(payment::Column::Id.eq(id))
+            .filter(payment::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+        Ok(result.rows_affected as i64)
+    }
+
+    /// 更新回款已核销/未核销金额
+    pub async fn update_amounts<C: ConnectionTrait>(
+        db: &C,
+        id: i64,
+        applied_amount: Decimal,
+        unapplied_amount: Decimal,
+    ) -> Result<i64, DbErr> {
+        let now = chrono::Local::now().naive_local().to_owned();
+        let result = SalePayment::update_many()
+            .set(payment::ActiveModel {
+                applied_amount: Set(Some(applied_amount)),
+                unapplied_amount: Set(Some(unapplied_amount)),
+                update_time: Set(Some(now)),
+                ..Default::default()
+            })
+            .filter(payment::Column::Id.eq(id))
+            .filter(payment::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+        Ok(result.rows_affected as i64)
+    }
+
+    /// 更新订单已付款金额（累加方式）
+    pub async fn update_order_paid_amount<C: ConnectionTrait>(
+        db: &C,
+        order_id: i64,
+        paid_delta: Decimal,
+    ) -> Result<i64, DbErr> {
+        let order = order::Entity::find_by_id(order_id)
+            .filter(order::Column::Deleted.eq(0))
+            .one(db)
+            .await?;
+
+        if let Some(o) = order {
+            let old_paid = o.paid_amount.unwrap_or(Decimal::from(0));
+            let total = o.total_amount.unwrap_or(Decimal::from(0));
+            let new_paid = old_paid + paid_delta;
+            let new_unpaid = if new_paid >= total { Decimal::from(0) } else { total - new_paid };
+            let new_pay_status = if new_paid >= total { 3 } else if new_paid > Decimal::from(0) { 2 } else { 1 };
+
+            let now = chrono::Local::now().naive_local().to_owned();
+            let result = order::Entity::update_many()
+                .set(order::ActiveModel {
+                    paid_amount: Set(Some(new_paid)),
+                    unpaid_amount: Set(Some(new_unpaid)),
+                    pay_status: Set(Some(new_pay_status)),
+                    update_time: Set(Some(now)),
+                    ..Default::default()
+                })
+                .filter(order::Column::Id.eq(order_id))
+                .filter(order::Column::Deleted.eq(0))
+                .exec(db)
+                .await?;
+            Ok(result.rows_affected as i64)
+        } else {
+            Ok(0)
+        }
     }
 }

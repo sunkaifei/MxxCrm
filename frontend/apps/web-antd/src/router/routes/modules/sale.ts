@@ -45,11 +45,27 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'SaleShipment',
+        path: '/sale/shipment',
+        component: () => import('#/views/sale/shipment/index.vue'),
+        meta: {
+          title: $t('page.sale.shipment.title'),
+        },
+      },
+      {
         name: 'SalePayment',
         path: '/sale/payment',
         component: () => import('#/views/sale/payment/index.vue'),
         meta: {
           title: $t('page.sale.payment.title'),
+        },
+      },
+      {
+        name: 'SalePaymentPlan',
+        path: '/sale/payment-plan',
+        component: () => import('#/views/sale/payment-plan/index.vue'),
+        meta: {
+          title: $t('page.sale.paymentPlan.title'),
         },
       },
       {

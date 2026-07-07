@@ -5,10 +5,19 @@ import { computed, ref, watch } from 'vue';
 
 import { useVbenForm } from '@vben/common-ui';
 
-import { Button, Tabs, TabPane, Tooltip, message } from 'ant-design-vue';
+import { Tabs, TabPane, Tooltip, message } from 'ant-design-vue';
+import type { UploadFile } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
-import { createPaymentApi, getPaymentInfoApi, updatePaymentApi } from '#/api';
+import {
+  createPaymentApi,
+  getPaymentInfoApi,
+  updatePaymentApi,
+} from '#/api/core/sale/payment';
+import { getContractListApi } from '#/api/core/crm/contract';
+import { getCustomerListApi } from '#/api/core/crm/customer';
+import { getOrderListApi } from '#/api/core/sale/order';
+import { uploadFileApi } from '#/api/core/attachment/file';
 
 const props = withDefaults(
   defineProps<{ create?: boolean; row?: any }>(),
@@ -19,6 +28,15 @@ const isEdit = computed(() => !props.create);
 const activeTab = ref('basic');
 const isFullscreen = ref(false);
 const displayAmount = ref(0);
+
+// 关联实体下拉数据
+const contractOptions = ref<any[]>([]);
+const orderOptions = ref<any[]>([]);
+const customerOptions = ref<any[]>([]);
+
+// 选中的附件文件（手动上传，保存时再调用上传接口）
+const attachmentFileList = ref<UploadFile[]>([]);
+const originalAttachment = ref<string>('');
 
 const drawerClass = computed(() => [
   'sale-payment-drawer',
@@ -54,6 +72,45 @@ const statusOptions = [
   { label: '已取消', value: 4, color: 'default' },
 ];
 
+async function loadContractOptions() {
+  try {
+    const result: any = await getContractListApi({ page: 1, pageSize: 1000 });
+    const list = result?.data?.items || result?.items || result?.list || [];
+    contractOptions.value = list.map((item: any) => ({
+      value: item.id,
+      label: item.contractNo || item.title || `合同#${item.id}`,
+    }));
+  } catch (e) {
+    console.error('加载合同选项失败:', e);
+  }
+}
+
+async function loadOrderOptions() {
+  try {
+    const result: any = await getOrderListApi({ page: 1, pageSize: 1000 });
+    const list = result?.data?.items || result?.items || result?.list || [];
+    orderOptions.value = list.map((item: any) => ({
+      value: item.id,
+      label: item.orderNo || `订单#${item.id}`,
+    }));
+  } catch (e) {
+    console.error('加载订单选项失败:', e);
+  }
+}
+
+async function loadCustomerOptions() {
+  try {
+    const result: any = await getCustomerListApi({ page: 1, pageSize: 1000 });
+    const list = result?.data?.items || result?.items || result?.list || [];
+    customerOptions.value = list.map((item: any) => ({
+      value: item.id,
+      label: item.companyName || item.customerName || item.name || `客户#${item.id}`,
+    }));
+  } catch (e) {
+    console.error('加载客户选项失败:', e);
+  }
+}
+
 const basicFormSchema: VbenFormSchema[] = [
   {
     component: 'Input',
@@ -73,35 +130,64 @@ const basicFormSchema: VbenFormSchema[] = [
     },
   },
   {
-    component: 'InputNumber',
+    component: 'Select',
     fieldName: 'contractId',
-    label: '合同ID',
-    componentProps: { placeholder: '请输入合同ID', style: 'width:100%', min: 1 },
+    label: '关联合同',
+    componentProps: {
+      placeholder: '请选择合同',
+      showSearch: true,
+      allowClear: true,
+      filterOption: (input: string, option: any) =>
+        String(option?.label ?? '')
+          .toLowerCase()
+          .includes(input.toLowerCase()),
+      options: contractOptions,
+      onChange: (_value: any) => {
+        // 选择合同后可触发联动（如自动加载该合同的计划），这里保持简单
+      },
+    },
   },
   {
-    component: 'InputNumber',
+    component: 'Select',
     fieldName: 'orderId',
-    label: '订单ID',
-    componentProps: { placeholder: '请输入订单ID', style: 'width:100%', min: 1 },
+    label: '关联订单',
+    componentProps: {
+      placeholder: '请选择订单',
+      showSearch: true,
+      allowClear: true,
+      filterOption: (input: string, option: any) =>
+        String(option?.label ?? '')
+          .toLowerCase()
+          .includes(input.toLowerCase()),
+      options: orderOptions,
+    },
   },
   {
-    component: 'InputNumber',
-    fieldName: 'planId',
-    label: '计划期次ID',
-    componentProps: { placeholder: '关联回款计划期次', style: 'width:100%', min: 1 },
-  },
-  {
-    component: 'InputNumber',
+    component: 'Select',
     fieldName: 'customerId',
-    label: '客户ID',
+    label: '客户',
     rules: 'required',
-    componentProps: { placeholder: '请输入客户ID', style: 'width:100%', min: 1 },
+    componentProps: {
+      placeholder: '请选择客户',
+      showSearch: true,
+      allowClear: true,
+      filterOption: (input: string, option: any) =>
+        String(option?.label ?? '')
+          .toLowerCase()
+          .includes(input.toLowerCase()),
+      options: customerOptions,
+      onChange: (_value: any, option: any) => {
+        if (option?.label) {
+          basicFormApi.setValues({ customerName: option.label });
+        }
+      },
+    },
   },
   {
     component: 'Input',
     fieldName: 'customerName',
     label: '客户名称',
-    componentProps: { placeholder: '请输入客户名称' },
+    componentProps: { placeholder: '选择客户后自动带出，可手动修改' },
   },
   {
     component: 'Select',
@@ -162,11 +248,20 @@ const paymentFormSchema: VbenFormSchema[] = [
     componentProps: { placeholder: '请输入银行流水号' },
   },
   {
-    component: 'Input',
+    component: 'Upload',
     fieldName: 'attachment',
     label: '回单附件',
-    componentProps: { placeholder: '请输入回单附件URL' },
     wrapperClass: 'col-span-2',
+    componentProps: {
+      accept: '.pdf,.jpg,.jpeg,.png',
+      maxCount: 1,
+      showUploadList: true,
+      listType: 'picture-card',
+      beforeUpload: () => false, // 手动上传，保存时再调用上传接口
+      onChange: (info: any) => {
+        attachmentFileList.value = info.fileList || [];
+      },
+    },
   },
 ];
 
@@ -228,7 +323,6 @@ watch(
           paymentDate: data.paymentDate,
           contractId: data.contractId,
           orderId: data.orderId,
-          planId: data.planId,
           customerId: data.customerId,
           customerName: data.customerName,
           currency: data.currency ?? 1,
@@ -241,8 +335,11 @@ watch(
           payer: data.payer,
           payerAccount: data.payerAccount,
           bankFlowNo: data.bankFlowNo,
-          attachment: data.attachment,
+          attachment: undefined,
         });
+        originalAttachment.value = data.attachment || '';
+        // 回显已有附件（仅展示 URL，不重建 UploadFile 列表以避免复杂度）
+        attachmentFileList.value = [];
         otherFormApi.setValues({
           ownerUserId: data.ownerUserId,
           deptId: data.deptId,
@@ -256,6 +353,34 @@ watch(
   { immediate: true },
 );
 
+async function uploadAttachment(): Promise<string> {
+  // 如果用户选择了新文件，先上传获取URL
+  if (attachmentFileList.value.length > 0) {
+    const fileItem = attachmentFileList.value[0];
+    // 来自 ant Upload 的 originFileObj 才是真实 File
+    const rawFile: File | undefined =
+      (fileItem as any).originFileObj || (fileItem as any).file || fileItem;
+    if (rawFile instanceof File) {
+      try {
+        const res: any = await uploadFileApi(rawFile, 'payment');
+        // uploadFileApi 返回 JSON: { code, msg, data: { id, url, ... } }
+        const url = res?.data?.url || res?.url;
+        if (url) {
+          return url;
+        }
+        message.warning('附件上传成功但未返回 URL，附件字段将留空');
+        return '';
+      } catch (e) {
+        console.error('附件上传失败:', e);
+        message.error('附件上传失败');
+        throw e;
+      }
+    }
+  }
+  // 没有选择新文件时，沿用原附件URL
+  return originalAttachment.value;
+}
+
 async function handleSubmit() {
   const validResult = await basicFormApi.validate();
   if (!validResult.valid) {
@@ -266,14 +391,22 @@ async function handleSubmit() {
   const paymentValues = await paymentFormApi.getValues();
   const otherValues = await otherFormApi.getValues();
 
-  const data = {
-    ...basicValues,
-    ...paymentValues,
-    ...otherValues,
-  };
-
   drawerApi.setState({ confirmLoading: true });
   try {
+    // 处理附件上传
+    const attachmentUrl = await uploadAttachment();
+
+    // 移除 attachment 字段（避免表单原值干扰），用上传后的 URL 替换
+    const { attachment: _attachment, ...restPaymentValues } = paymentValues;
+    void _attachment;
+
+    const data = {
+      ...basicValues,
+      ...restPaymentValues,
+      attachment: attachmentUrl || undefined,
+      ...otherValues,
+    };
+
     if (isEdit.value) {
       await updatePaymentApi({ ...data, id: props.row.id });
       message.success('更新成功');
@@ -295,9 +428,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       isFullscreen.value = false;
       displayAmount.value = 0;
+      attachmentFileList.value = [];
+      originalAttachment.value = '';
       basicFormApi.resetForm();
       paymentFormApi.resetForm();
       otherFormApi.resetForm();
+
+      // 加载下拉数据
+      Promise.all([
+        loadContractOptions(),
+        loadOrderOptions(),
+        loadCustomerOptions(),
+      ]);
+
       if (!props.create && props.row) {
         basicFormApi.setValues({
           currency: 1,
@@ -307,6 +450,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         });
         paymentFormApi.setValues(props.row);
         otherFormApi.setValues(props.row);
+        originalAttachment.value = props.row?.attachment || '';
       } else {
         basicFormApi.setValues({
           currency: 1,
@@ -323,11 +467,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
   onConfirm: handleSubmit,
 });
-
-function closeDrawer() {
-  drawerApi.close();
-  drawerApi.setData({ needRefresh: true });
-}
 </script>
 
 <template>
@@ -386,13 +525,22 @@ function closeDrawer() {
       </TabPane>
       <TabPane key="payment" tab="收款信息">
         <PaymentForm />
+        <div
+          v-if="originalAttachment"
+          class="mt-2 text-xs text-gray-500 break-all"
+        >
+          当前附件：
+          <a :href="originalAttachment" target="_blank" class="text-blue-500 hover:underline">
+            {{ originalAttachment }}
+          </a>
+        </div>
         <div class="mt-4 rounded-lg bg-gray-50 p-4">
           <div class="mb-2 text-sm text-gray-500">回款提示</div>
           <div class="text-xs text-gray-400 leading-6">
             1. 回款登记后状态默认为"待确认"，财务确认后变为"已确认"<br />
             2. 银行流水号用于财务对账，建议填写<br />
-            3. 如果关联了合同和回款计划期次，系统会自动更新计划的已收金额<br />
-            4. 回单附件支持上传银行回单截图或PDF文件
+            3. 回款确认后，可通过"核销"操作将回款金额分配到合同的回款计划<br />
+            4. 回单附件支持上传银行回单截图或PDF文件（手动上传，保存时自动提交）
           </div>
         </div>
       </TabPane>

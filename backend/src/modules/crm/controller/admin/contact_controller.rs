@@ -17,7 +17,7 @@ use actix_web_grants::protect;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::crm::model::contact::{ContactListQuery, ContactSaveRequest, ContactUpdateRequest, ContactBindRequest, ContactUnbindRequest, ContactSetRoleRequest};
+use crate::modules::crm::model::contact::{ContactListQuery, ContactSaveRequest, ContactUpdateRequest, ContactBindRequest, ContactUnbindRequest, ContactSetRoleRequest, ContactCheckRequest};
 use crate::modules::crm::service::contact_service;
 
 #[post("/contact/save")]
@@ -85,16 +85,28 @@ pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
 
 #[get("/contact/list")]
 #[protect("crm:contact:list")]
-pub async fn contact_list(state: web::Data<AppState>, query: web::Query<ContactListQuery>) -> HttpResponse {
+pub async fn contact_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ContactListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
-    match contact_service::list(&db, &query).await {
+    match contact_service::list(&db, &query, jwt_token.id.unwrap_or_default()).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
             HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
         },
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 联系人查重：检查手机、电话、微信、QQ、邮箱是否已存在
+#[post("/contact/check")]
+#[protect("crm:contact:list")]
+pub async fn contact_check(state: web::Data<AppState>, form_data: web::Json<ContactCheckRequest>) -> HttpResponse {
+    let db = &state.db;
+    match contact_service::check_duplicate(&db, &form_data.0).await {
+        Ok(results) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(results, "local")),
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }

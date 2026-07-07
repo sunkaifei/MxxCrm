@@ -56,7 +56,7 @@ watch(() => props.id, fetchDetail, { immediate: true });
                 class="h-5 w-5"
                 :style="{ color: activityColorMap[followup.activityType] ? `var(--ant-color-${activityColorMap[followup.activityType]})` : undefined }"
               />
-              <span class="text-xl font-bold text-gray-800">{{ followup.subject || '跟进记录' }}</span>
+              <span class="text-xl font-bold text-gray-800">跟进记录</span>
               <Tag :color="activityColorMap[followup.activityType] || 'default'">
                 {{ activityLabelMap[followup.activityType] || followup.activityType || '-' }}
               </Tag>
