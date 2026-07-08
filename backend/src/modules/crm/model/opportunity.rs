@@ -13,8 +13,6 @@ use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::core::r#enum::lead_source_enum::LeadSource;
 use crate::modules::crm::entity::{opportunity, opportunity::Entity as Opportunity};
-use crate::modules::crm::entity::customer;
-use crate::modules::system::entity::admin;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
 /// 商机新增请求DTO

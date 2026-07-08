@@ -1,1 +1,0 @@
-﻿[1m[91merror[0m: could not compile `mxx-crm` (bin "mxx-crm") due to 7 previous errors; 187 warnings emitted
