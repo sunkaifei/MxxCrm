@@ -1,9 +1,16 @@
 /docs/
 /.trae/
+/.vs/
+/.vscode/
+/.cargo/
+/.rustup/
+/.workbuddy/
 /backend/config/production_config.ini
+/backend/config/env_config.ini
 /backend/scripts/
 /backend/sql/
 /backend/logs/
+/scripts/
 /**/*.py
 /*.txt
 /lefthook.yml

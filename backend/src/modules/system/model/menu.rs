@@ -180,6 +180,8 @@ pub struct Router {
     pub component: Option<String>,
     /// 菜单名称
     pub name: Option<String>,
+    /// 重定向路径
+    pub redirect: Option<String>,
     /// 路由参数
     pub meta: Meta,
     #[serde(skip_serializing_if = "Option::is_none")]

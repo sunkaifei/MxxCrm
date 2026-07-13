@@ -62,6 +62,8 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(system_admin_controller::post_login)
         .service(system_admin_controller::logout)
+        .service(system_admin_controller::check_username)
+        .service(system_admin_controller::user_register)
         .service(
             web::scope("/api/system")
                 .wrap(GrantsMiddleware::with_extractor(extract))

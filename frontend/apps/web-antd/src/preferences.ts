@@ -16,14 +16,14 @@ interface WebAntdPreferencesExtension {
  * !!! 更改配置后请清空缓存，否则可能不生效
  */
 export const overridesPreferences = defineOverridesPreferences({
-  // overrides
   app: {
     name: import.meta.env.VITE_APP_TITLE,
     accessMode: 'backend',
-    "layout": "sidebar-mixed-nav",
+    layout: 'sidebar-mixed-nav',
+    defaultHomePath: '/dashboard',
   },
-  "theme": {
-    "mode": "light",
+  theme: {
+    mode: 'light',
   },
 });
 

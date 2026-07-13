@@ -16,6 +16,22 @@ export namespace AuthApi {
     data: string;
     status: number;
   }
+
+  /** 注册接口参数 */
+  export interface RegisterParams {
+    username?: string;
+    password?: string;
+    confirmPassword?: string;
+    email?: string;
+    mobile?: string;
+    agreePolicy?: boolean;
+  }
+
+  /** 用户名检查返回值 */
+  export interface CheckUsernameResult {
+    exists: boolean;
+    message: string;
+  }
 }
 
 /**
@@ -54,4 +70,20 @@ export async function logoutApi() {
  */
 export async function getAccessCodesApi() {
   return requestClient.get<string[]>('/api/system/auth/codes');
+}
+
+/**
+ * 注册
+ */
+export async function registerApi(data: AuthApi.RegisterParams) {
+  return baseRequestClient.post('/api/system/auth/register', data);
+}
+
+/**
+ * 检查用户名是否已存在
+ */
+export async function checkUsernameApi(username: string) {
+  return baseRequestClient.get<AuthApi.CheckUsernameResult>('/api/system/auth/check-username', {
+    params: { username },
+  });
 }

@@ -19,6 +19,7 @@ use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminMode
 use crate::modules::system::model::admin_dept_merge::{AdminDeptMergeModel, AdminDeptMergeSaveDTO};
 use crate::modules::system::model::admin_post_merge::{AdminPostMergeModel, AdminPostMergeSaveDTO};
 use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, AdminRolesMergeSaveDTO};
+use crate::modules::system::model::role::RoleModel;
 use crate::modules::system::service::{config_service, dept_service, role_service};
 use crate::utils::string_utils::{convert_vec_option_string_to_vec_u64};
 
@@ -29,10 +30,20 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
     }
     let mut dto_data = AdminSaveDTO::from(form_data.clone());
 
-    let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
-    // 初始化密码
-    let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
-    dto_data.password = Option::from(hashed);
+    if let Some(password) = &form_data.password {
+        if !password.is_empty() {
+            let hashed = hash(password, DEFAULT_COST).unwrap_or_default();
+            dto_data.password = Option::from(hashed);
+        } else {
+            let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
+            let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
+            dto_data.password = Option::from(hashed);
+        }
+    } else {
+        let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
+        let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
+        dto_data.password = Option::from(hashed);
+    }
     
     let form_data_clone = form_data.clone();
     let result = (*db).transaction::<_, _, Error>(|tx| {
@@ -86,6 +97,28 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
     }).await.map_err(|e| Error::from(format!("事务执行失败: {}", e)))?;
 
     Ok(result)
+}
+
+/// 用户注册（自动分配默认角色）
+pub async fn register(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
+    if is_demo_mode() {
+        return Err(Error::from("演示站模式下禁止注册用户"));
+    }
+    
+    let admin_id = insert(db, form_data).await?;
+    
+    let default_role = RoleModel::find_by_role_key(db, "admin").await?.unwrap_or_default();
+    if default_role.id > 0 {
+        let role_merge = vec![AdminRolesMergeSaveDTO {
+            id: None,
+            admin_id: Some(admin_id),
+            role_id: Some(default_role.id),
+            create_time: None,
+        }];
+        let _ = AdminRoleMergeModel::insert_batch(db, &role_merge).await;
+    }
+    
+    Ok(admin_id)
 }
 
 pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<Option<String>>) -> Result<i64> {
@@ -387,6 +420,7 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             id: data.id,
             user_name: data.user_name,
             nick_name: data.nick_name,
+            user_type: data.user_type,
             mobile: data.mobile,
             email: data.email,
             role_name: role_name_str,

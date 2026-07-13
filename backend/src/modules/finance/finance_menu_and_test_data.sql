@@ -6,13 +6,25 @@
 -- 1. 菜单数据（mxx_system_menu）
 -- ============================================================
 
+-- 仪表盘（顶级目录）
+INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
+VALUES (1, 0, '1', 'page.dashboard.title', 'FOLDER', 'Dashboard', '/dashboard', 'BasicLayout', 'dashboard:index', 1, -1, 'lucide:layout-dashboard', '/analytics', NULL, NOW(), NOW(), 0);
+
+-- 分析页（菜单）
+INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
+VALUES (2, 1, '', 'page.dashboard.analytics', 'MENU', 'Analytics', 'analytics', 'dashboard/analytics/index', 'dashboard:analytics', 1, 1, 'lucide:area-chart', NULL, NULL, NOW(), NOW(), 0);
+
+-- 工作台（菜单）
+INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
+VALUES (3, 1, '', 'page.dashboard.workspace', 'MENU', 'Workspace', 'workspace', 'dashboard/workspace/index', 'dashboard:workspace', 1, 2, 'carbon:workspace', NULL, NULL, NOW(), NOW(), 0);
+
 -- 财务管理（顶级目录）
 INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
-VALUES (315, 0, '315', 'page.finance.title', 'FOLDER', 'Finance', '/finance', '', 'finance:index', 1, 8, 'lucide:account-book', NULL, NULL, NOW(), NOW(), 0);
+VALUES (315, 0, '315', 'page.finance.title', 'FOLDER', 'Finance', '/finance', 'BasicLayout', 'finance:index', 1, 8, 'lucide:account-book', '/finance/commission-rule', NULL, NOW(), NOW(), 0);
 
 -- 提成规则（菜单）
 INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
-VALUES (316, 315, '', 'page.finance.commissionRule.title', 'MENU', 'CommissionRule', '/finance/commission-rule', 'finance/commission-rule/index', 'finance:commission:list', 1, 1, 'lucide:percent', NULL, NULL, NOW(), NOW(), 0);
+VALUES (316, 315, '', 'page.finance.commissionRule.title', 'MENU', 'CommissionRule', 'commission-rule', 'finance/commission-rule/index', 'finance:commission:list', 1, 1, 'lucide:percent', NULL, NULL, NOW(), NOW(), 0);
 
 -- 提成规则按钮
 INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
@@ -26,7 +38,7 @@ VALUES (320, 316, '', 'page.finance.commissionRule.button.toggle', 'BUTTON', '',
 
 -- 工资核算（菜单）
 INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
-VALUES (321, 315, '', 'page.finance.salary.title', 'MENU', 'Salary', '/finance/salary', 'finance/salary/index', 'finance:salary:list', 1, 2, 'lucide:wallet', NULL, NULL, NOW(), NOW(), 0);
+VALUES (321, 315, '', 'page.finance.salary.title', 'MENU', 'Salary', 'salary', 'finance/salary/index', 'finance:salary:list', 1, 2, 'lucide:wallet', NULL, NULL, NOW(), NOW(), 0);
 
 -- 工资核算按钮
 INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
@@ -40,11 +52,11 @@ VALUES (325, 321, '', 'page.finance.salary.button.pay', 'BUTTON', '', '', '', 'f
 
 -- 工资详情（隐藏菜单）
 INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, hide_in_menu, sort, icon, redirect, params, create_time, update_time, deleted)
-VALUES (326, 315, '', 'page.finance.salary.detail', 'MENU', 'SalaryDetail', '/finance/salary/detail/:id', 'finance/salary/detail', 'finance:salary:list', 1, 1, 3, '', NULL, NULL, NOW(), NOW(), 0);
+VALUES (326, 315, '', 'page.finance.salary.detail', 'MENU', 'SalaryDetail', 'salary/detail/:id', 'finance/salary/detail', 'finance:salary:list', 1, 1, 3, '', NULL, NULL, NOW(), NOW(), 0);
 
 -- 采购付款（菜单）
 INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
-VALUES (332, 315, '', 'page.finance.payment.title', 'MENU', 'FinancePayment', '/finance/payment', 'finance/payment/index', 'finance:payment:list', 1, 4, 'lucide:credit-card', NULL, NULL, NOW(), NOW(), 0);
+VALUES (332, 315, '', 'page.finance.payment.title', 'MENU', 'FinancePayment', 'payment', 'finance/payment/index', 'finance:payment:list', 1, 4, 'lucide:credit-card', NULL, NULL, NOW(), NOW(), 0);
 
 -- 采购付款按钮
 INSERT INTO mxx_system_menu (id, parent_id, tree_path, name, type, route_name, path, component, perm, status, sort, icon, redirect, params, create_time, update_time, deleted)
@@ -64,6 +76,9 @@ VALUES (336, 332, '', 'page.finance.payment.button.cancel', 'BUTTON', '', '', ''
 
 INSERT INTO mxx_system_role_menu_merge (menu_id, role_id, status, create_time, update_time)
 VALUES
+(1, 5, 1, NOW(), NOW()),
+(2, 5, 1, NOW(), NOW()),
+(3, 5, 1, NOW(), NOW()),
 (315, 5, 1, NOW(), NOW()),
 (316, 5, 1, NOW(), NOW()),
 (317, 5, 1, NOW(), NOW()),

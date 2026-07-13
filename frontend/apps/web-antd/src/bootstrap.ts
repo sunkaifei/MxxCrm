@@ -15,12 +15,16 @@ import { $t, setupI18n } from '#/locales';
 
 import { initComponentAdapter } from './adapter/component';
 import { initSetupVbenForm } from './adapter/form';
+import { registerLucideIcons } from './icons';
 import App from './app.vue';
 import { router } from './router';
 
 async function bootstrap(namespace: string) {
   // 全局注册 ant-design-vue message 实例，供 window.$message 调用
   window.$message = message;
+
+  // 预加载 lucide 图标，避免远程加载在火狐浏览器中失败
+  await registerLucideIcons();
 
   // 初始化组件适配器
   await initComponentAdapter();

@@ -11,67 +11,38 @@
 use crate::core::errors::error::Result;
 use crate::modules::articles::controller::open::article_open_controller;
 use crate::modules::finance::controller::open::wechat_notify_controller;
-use crate::modules::system::controller::open::{captcha_controller, service_open_controller};
+use crate::modules::system::controller::open::captcha_controller;
+use crate::modules::website::controller::open::index_open_controller;
 use actix_files::Files;
 use actix_web::{get, web, HttpResponse};
 
-/// 首页
-#[get("/")]
-async fn index() -> Result<HttpResponse> {
+/// 健康检查
+#[get("/healthz")]
+async fn healthz() -> Result<HttpResponse> {
     Ok(HttpResponse::Ok()
-        .content_type("text/html; charset=utf-8")
-        .body(r#"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Turtle Market - 服务已启动</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f5f5f5; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-        h1 { color: #2c3e50; }
-        p { color: #7f8c8d; line-height: 1.6; }
-        .api-list { text-align: left; margin-top: 30px; }
-        .api-item { padding: 10px; border-bottom: 1px solid #eee; }
-        .api-item:last-child { border-bottom: none; }
-        .api-url { font-family: monospace; color: #3498db; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🐢 Turtle Market</h1>
-        <p>服务已成功启动！</p>
-        <p>这是一个乌龟养殖市场管理系统。</p>
-
-        <div class="api-list">
-            <h3>可用接口：</h3>
-            <div class="api-item">📝 验证码：<span class="api-url">/pub/captcha/get</span></div>
-            <div class="api-item">📄 文章列表：<span class="api-url">/list/{short_url}</span></div>
-            <div class="api-item">📤 上传文件：<span class="api-url">/upload/{filename}</span></div>
-        </div>
-    </div>
-</body>
-</html>
-        "#))
+        .content_type("text/plain; charset=utf-8")
+        .body("ok"))
 }
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(index)
+    cfg
+        // 静态资源：templates / static 均在程序包外，按目录直接对外提供，方便在线编辑与切换模板
+        .service(Files::new("/static/", "static/"))
+        // 首页（官网）：由 website 模块的 site_index 渲染 templates/default/index.html
+        // 同一处理函数注册多个路径（带/无结尾斜杠、带/不带 index），覆盖常见访问方式
+        .service(web::resource("/").route(web::get().to(index_open_controller::site_index)))
+        .service(web::resource("/index").route(web::get().to(index_open_controller::site_index)))
+        .service(web::resource("/index/").route(web::get().to(index_open_controller::site_index)))
+        .service(web::resource("/index.html").route(web::get().to(index_open_controller::site_index)))
+        .service(web::resource("/index.html/").route(web::get().to(index_open_controller::site_index)))
         // 仅暴露公开文件目录（产品图片、用户头像），关闭目录列表
         // 私有文件（合同/发票/报价单/回款凭证/通用附件）通过 /api/system/attachment/download/{id} 接口鉴权访问
         .service(Files::new("/upload/product/", "storage/upload/product/"))
         .service(Files::new("/upload/avatar/", "storage/upload/avatar/"))
-         //首页
-        //.service(service_open_controller::get_service_index)
-        //.service(service_open_controller::get_service_detail)
-        //.service(service_open_controller::get_service_list)
+        // 验证码
         .service(captcha_controller::get_captcha)
-        //.service(statistics_open_controller::save_statistics_record)
-
-        //.service(article_open_controller::get_by_short_url)
+        // 文章列表
         .service(article_open_controller::get_article_list)
-        //.wrap_fn(web_open::check)
-        //.service(index_open_controller::site_index)
-
         // 微信支付回调
         .service(web::scope("/api/finance")
             .service(wechat_notify_controller::wechat_notify))

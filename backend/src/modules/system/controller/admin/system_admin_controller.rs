@@ -24,7 +24,7 @@ use crate::core::kit::CONTEXT;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserLoginVO, AdminModel};
+use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserRegisterRequest, CheckUsernameResult, UserLoginVO, AdminModel};
 use crate::modules::system::model::admin::{ListQuery, TokenVO};
 use crate::modules::system::service::menu_service::find_user_role_keys;
 use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service};
@@ -59,15 +59,11 @@ pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveReq
 pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: web::Json<UserLoginRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.username.as_ref().map_or(true, |username| username.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名不能为空", "local")));
     }
 
-    let hashed_password = hash(item.password.clone().unwrap_or_default(), DEFAULT_COST).map_err(|_| Error::from("密码哈希失败"))?;
-
-    log::info!("hashed_password: {}", hashed_password);
-
     if item.password.as_ref().map_or(true, |password| password.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码不能为空", "local")));
     }
     // if let (Some(verify_code), Some(uuid)) = (item.captcha_code.clone(), item.captcha_key.clone()) {
     //     if verify_code.is_empty() || uuid.is_empty() {
@@ -95,6 +91,10 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
     let valid = verify(&item.password.clone().unwrap_or_default(), &user_info.password.clone().unwrap_or_default()).unwrap_or_default();
     if !valid {
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码不正确", "local")));
+    }
+    
+    if user_info.status != Some(1) {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户已被禁用，无法登录", "local")));
     }
     //判断是否是管理员
     let is_admin = user_info.user_type == Option::from(1);
@@ -138,6 +138,64 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
         }
     }
+}
+
+/// 检查用户名是否已存在
+#[get("/api/system/auth/check-username")]
+pub async fn check_username(state: web::Data<AppState>, query: web::Query<UserRegisterRequest>) -> HttpResponse {
+    let db = &state.db;
+    let username = query.username.clone().unwrap_or_default();
+    if username.trim().is_empty() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(CheckUsernameResult { exists: false, message: "".to_string() }, "local"));
+    }
+    let exists = admin_service::find_by_name_unique(&db, &Some(username.clone()), &None).await.unwrap_or_default();
+    if exists {
+        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(CheckUsernameResult { exists: true, message: "用户名已存在".to_string() }, "local"))
+    } else {
+        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(CheckUsernameResult { exists: false, message: "用户名可用".to_string() }, "local"))
+    }
+}
+
+/// 用户注册
+#[post("/api/system/auth/register")]
+pub async fn user_register(state: web::Data<AppState>, item: web::Json<UserRegisterRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let username = item.username.clone().unwrap_or_default();
+    let password = item.password.clone().unwrap_or_default();
+    
+    if username.trim().is_empty() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名不能为空", "local")));
+    }
+    if password.trim().is_empty() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码不能为空", "local")));
+    }
+    if username.len() < 3 {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名至少需要3个字符", "local")));
+    }
+    if password.len() < 6 {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码至少需要6个字符", "local")));
+    }
+    
+    if admin_service::find_by_name_unique(&db, &Some(username.clone()), &None).await.unwrap_or_default() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
+    }
+    
+    if item.mobile.is_some() {
+        if admin_service::find_by_mobile_unique(&db, &item.mobile, &None).await.unwrap_or_default() {
+            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
+        }
+    }
+    
+    if item.email.is_some() {
+        if admin_service::find_by_email_unique(&db, &item.email, &None).await.unwrap_or_default() {
+            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
+        }
+    }
+    
+    let save_request: AdminSaveRequest = item.into_inner().into();
+    
+    let result = admin_service::register(&db, &save_request).await;
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
 // 删除用户信息

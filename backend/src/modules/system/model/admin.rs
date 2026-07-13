@@ -48,7 +48,7 @@ pub struct AdminSaveRequest {
     pub avatar: Option<String>,
     ///密码
     pub password: Option<String>,
-    ///帐号状态（0正常 1停用）
+    ///帐号状态（0停用 1正常）
     #[serde(default)]
     pub status: Option<i32>,
     ///备注
@@ -168,7 +168,7 @@ pub struct AdminSaveDTO {
     pub avatar: Option<String>,
     ///密码
     pub password: Option<String>,
-    ///帐号状态（0正常 1停用）
+    ///帐号状态（0停用 1正常）
     pub status: Option<i32>,
     ///删除标志（0未删除 1已删除）
     pub deleted: Option<i32>,
@@ -199,6 +199,44 @@ pub struct UserLoginRequest {
     pub captcha_code: Option<String>,
     //验证码凭证，用于验证码校验
     pub captcha_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserRegisterRequest {
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub email: Option<String>,
+    pub mobile: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckUsernameResult {
+    pub exists: bool,
+    pub message: String,
+}
+
+impl From<UserRegisterRequest> for AdminSaveRequest {
+    fn from(req: UserRegisterRequest) -> Self {
+        let username = req.username.clone().unwrap_or_default();
+        AdminSaveRequest {
+            user_name: req.username,
+            nick_name: Some(username),
+            user_type: Some(0),
+            post_ids: None,
+            role_ids: None,
+            dept_ids: None,
+            email: req.email,
+            mobile: req.mobile,
+            gender: None,
+            avatar: None,
+            password: req.password,
+            status: Some(1),
+            remark: None,
+            sort: None,
+        }
+    }
 }
 
 ///重置用户密码结构体
@@ -334,6 +372,8 @@ pub struct AdminListVO {
     pub user_name: Option<String>,
     ///用户姓名
     pub nick_name: Option<String>,
+    ///用户类型：0普通用户，1超级管理员
+    pub user_type: Option<i32>,
     pub mobile: Option<String>,
     pub email: Option<String>,
     ///角色名称（逗号分隔）
@@ -378,7 +418,7 @@ pub struct AdminDetailVO {
     pub gender: Option<i32>,
     ///头像地址
     pub avatar: Option<String>,
-    ///帐号状态（0正常 1停用）
+    ///帐号状态（0停用 1正常）
     pub status: Option<i32>,
     ///删除标志（0未删除 1已删除）
     pub deleted: Option<i32>,

@@ -135,6 +135,7 @@ pub fn router_arr_to_tree(re_list: &mut Vec<menu::Router>, ori_arr: Vec<Model>, 
                 component: it.component.clone(),
                 name: it.route_name.clone(),
                 path: it.path.clone(),
+                redirect: it.redirect.clone(),
                 children: (|| -> Option<Vec<menu::Router>> {
                     if children.len() > 0 {
                         Some(children)

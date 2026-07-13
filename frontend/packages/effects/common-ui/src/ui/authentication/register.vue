@@ -35,6 +35,10 @@ interface Props {
    * @zh_CN 按钮文本
    */
   submitButtonText?: string;
+  /**
+   * @zh_CN 提交按钮是否禁用
+   */
+  submitButtonDisabled?: boolean;
 }
 
 defineOptions({
@@ -48,6 +52,7 @@ const props = withDefaults(defineProps<Props>(), {
   submitButtonText: '',
   subTitle: '',
   title: '',
+  submitButtonDisabled: false,
 });
 
 const emit = defineEmits<{
@@ -102,6 +107,7 @@ defineExpose({
       :class="{
         'cursor-wait': loading,
       }"
+      :disabled="submitButtonDisabled"
       :loading="loading"
       aria-label="register"
       class="mt-2 w-full"

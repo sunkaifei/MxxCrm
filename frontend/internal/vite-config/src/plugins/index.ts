@@ -7,6 +7,8 @@ import type {
   LibraryPluginOptions,
 } from '../typing';
 
+import { resolve } from 'node:path';
+
 import viteVueI18nPlugin from '@intlify/unplugin-vue-i18n/vite';
 import tailwindcss from '@tailwindcss/vite';
 import viteVue from '@vitejs/plugin-vue';
@@ -127,11 +129,15 @@ async function loadApplicationPlugins(
     {
       condition: i18n,
       plugins: async () => {
+        const vueI18nPath = resolve(
+          process.cwd(),
+          '../../node_modules/.pnpm/vue-i18n@11.4.2_vue@3.5.34_typescript@6.0.3_/node_modules/vue-i18n/dist/vue-i18n.esm-bundler.js',
+        );
         return [
           viteVueI18nPlugin({
             compositionOnly: true,
             fullInstall: true,
-            runtimeOnly: true,
+            runtimeOnly: false,
           }),
         ];
       },

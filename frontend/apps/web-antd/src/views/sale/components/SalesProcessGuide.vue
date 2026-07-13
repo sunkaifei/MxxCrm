@@ -118,14 +118,6 @@ const steps: ProcessStep[] = [
     route: '/sale/quotation',
     icon: LucideFileText,
   },
-    {
-    key: 'order',
-    title: '订单',
-    desc: '创建销售订单，安排发货交付',
-    nextTip: '订单确认后，创建发货单',
-    route: '/sale/order',
-    icon: LucideShoppingCart,
-  },
   {
     key: 'contract',
     title: '合同',
@@ -133,6 +125,14 @@ const steps: ProcessStep[] = [
     nextTip: '合同签订后，根据合同创建销售订单',
     route: '/sale/contract',
     icon: LucideFileSignature,
+  },
+  {
+    key: 'order',
+    title: '订单',
+    desc: '创建销售订单，安排发货交付',
+    nextTip: '订单确认后，创建发货单',
+    route: '/sale/order',
+    icon: LucideShoppingCart,
   },
   {
     key: 'shipment',

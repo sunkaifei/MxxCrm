@@ -6,7 +6,7 @@ export * from './user';
 
 export const statusList = computed(() => [
   { value: 1, label: $t('enum.status.ON') },
-  { value: 2, label: $t('enum.status.OFF') },
+  { value: 0, label: $t('enum.status.OFF') },
 ]);
 
 export const methodList = computed(() => [

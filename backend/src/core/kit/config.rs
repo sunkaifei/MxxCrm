@@ -23,9 +23,12 @@ static GLOBAL_CONF: LazyLock<Ini> = LazyLock::new(|| {
         "production_config.ini",
         "config/production_config.ini",
         "../config/production_config.ini",
-        "Config.ini",
-        "config/Config.ini",
-        "../config/Config.ini",
+        "env_config.ini",
+        "config/env_config.ini",
+        "../config/env_config.ini",
+        "config.ini",
+        "config/config.ini",
+        "../config/config.ini",
     ];
 
     for config_path in config_paths {
@@ -49,7 +52,7 @@ static GLOBAL_CONF: LazyLock<Ini> = LazyLock::new(|| {
     }
 
     log::info!("[配置] 使用内置的默认配置");
-    let conf = match Config::get("Config.ini") {
+    let conf = match Config::get("config.ini") {
         Some(v) => v.data.into_owned(),
         None => {
             log::error!("[配置] 无法找到内置的配置文件");

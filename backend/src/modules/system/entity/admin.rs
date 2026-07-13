@@ -33,7 +33,7 @@ pub struct Model {
     pub avatar: Option<String>,
     ///密码
     pub password: Option<String>,
-    ///帐号状态（0正常 1停用）
+    ///帐号状态（0停用 1正常）
     pub status: Option<i32>,
     ///删除标志（0未删除 1已删除）
     pub deleted: Option<i32>,

@@ -12,6 +12,8 @@ Mxx-CRM 是一款现代化的客户关系管理系统，采用前后端分离架
 - ✅ **安全可靠**：JWT 认证 + RBAC 权限控制
 - ✅ **模块化设计**：清晰的模块划分，易于扩展
 
+> 🌐 **演示网站**：[https://www.mxxsaas.com/](https://www.mxxsaas.com/) — 在线体验 Mxx-CRM 完整功能
+
 ## 技术栈
 
 ### 后端技术
@@ -144,35 +146,21 @@ npm install
 npm run build
 ```
 
-**2. 初始化数据库**
+**2. 导入数据库**
 
 ```bash
 # 创建数据库
-createdb mxx_crm
+createdb -U postgres -E UTF8 mxxcrm_data
 
-# 执行初始化脚本
-psql -d mxx_crm -f sql/init.sql
-
-# 执行初始化数据脚本（包含菜单、角色、用户等）
-psql -d mxx_crm -f sql/init_data.sql
+# 导入完整数据库备份（包含表结构、初始数据、菜单、角色、用户等）
+pg_restore -U postgres -d mxxcrm_data --clean --if-exists --no-owner --no-privileges -v sql/mxxcrm_data_full.dump
 ```
 
-### 3. 数据迁移（已有数据时）
+#### 导入说明
 
-如果数据库中已有旧数据（菜单类型为 M/C/F，名称为硬编码中文），需要执行迁移脚本：
-
-```bash
-# 迁移菜单类型和国际化键
-psql -d mxx_crm -f sql/migrate_menu_data.sql
-```
-
-#### SQL脚本说明
-
-| 脚本文件 | 用途 |
-|----------|------|
-| `sql/init.sql` | 数据库表结构初始化 |
-| `sql/init_data.sql` | 默认数据初始化（角色、用户、菜单、示例数据） |
-| `sql/migrate_menu_data.sql` | 菜单类型和国际化迁移（M/C/F → FOLDER/MENU/BUTTON，名称→国际化键） |
+| 文件 | 用途 |
+|------|------|
+| `sql/mxxcrm_data_full.dump` | 完整数据库备份，包含表结构、初始数据、菜单、角色、用户等全部内容 |
 
 ### 启动服务（前后端一体）
 
@@ -180,12 +168,18 @@ psql -d mxx_crm -f sql/migrate_menu_data.sql
 cd backend
 
 # 设置环境变量
-export DATABASE_URL=postgres://username:password@localhost:5432/mxx_crm
+export DATABASE_URL=postgres://username:password@localhost:5432/mxxcrm_data
 export REDIS_URL=redis://localhost:6379/0
 
 # 编译并运行（前端已嵌入二进制）
 cargo run --release
 ```
+
+
+s杀进程：pkill mxx-crm 
+给授权：chmod +x ./mxx-crm
+启动程序：nohup ./mxx-crm > output.log 2>&1 &
+
 
 ### 访问地址
 

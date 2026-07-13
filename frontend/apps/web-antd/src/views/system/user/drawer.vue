@@ -184,6 +184,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
         optionType: 'button',
         class: 'flex flex-wrap',
         options: statusList,
+        disabled: computed(() => data.value?.row?.userType === 1),
       },
     },
     {

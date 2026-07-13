@@ -126,7 +126,7 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 async function handleStatusChanged(row: any, checked: boolean) {
   row.pending = true;
-  row.status = checked ? 1 : 2;
+  row.status = checked ? 1 : 0;
   try {
     await updateUserApi({ id: row.id, status: row.status });
     window.$message.success($t('ui.notification.update_success'));
@@ -200,7 +200,7 @@ async function handleDelete(row: any) {
 
       <template #status="{ row }">
         <Switch
-          :disabled="!accessStore.hasAccessCode('system:admin:update')"
+          :disabled="!accessStore.hasAccessCode('system:admin:update') || row.userType === 1"
           :checked="row.status === 1"
           :loading="row.pending"
           :checked-children="$t('ui.switch.active')"

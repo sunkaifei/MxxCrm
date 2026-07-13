@@ -10,7 +10,7 @@ import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { notification } from 'ant-design-vue';
 import { defineStore } from 'pinia';
 
-import { getAccessCodesApi, getUserInfoApi, loginApi, logoutApi } from '#/api';
+import { getAccessCodesApi, getUserInfoApi, loginApi, logoutApi, registerApi } from '#/api';
 import { $t } from '#/locales';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -77,6 +77,30 @@ export const useAuthStore = defineStore('auth', () => {
     };
   }
 
+  /**
+   * 异步处理注册操作
+   * Asynchronously handle the register process
+   * @param params 注册表单数据
+   */
+  async function authRegister(params: Recordable<any>) {
+    let userInfo: null | UserInfo = null;
+    try {
+      loginLoading.value = true;
+      await registerApi(params);
+
+      await authLogin({
+        username: params.username,
+        password: params.password,
+      });
+    } finally {
+      loginLoading.value = false;
+    }
+
+    return {
+      userInfo,
+    };
+  }
+
   async function logout(redirect: boolean = true) {
     try {
       await logoutApi();
@@ -110,6 +134,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     $reset,
     authLogin,
+    authRegister,
     fetchUserInfo,
     loginLoading,
     logout,

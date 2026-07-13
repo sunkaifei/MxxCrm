@@ -50,5 +50,8 @@
     "vue": "catalog:",
     "vue-advanced-cropper": "^2.8.9",
     "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@iconify/json": "catalog:"
   }
 }

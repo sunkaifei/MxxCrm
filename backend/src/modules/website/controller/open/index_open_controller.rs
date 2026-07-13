@@ -9,34 +9,24 @@
 //!
 
 use crate::core::errors::error::Result;
-
-use crate::core::kit::global::AppState;
-use crate::core::kit::template::{get_template, get_template_a};
-use crate::modules::website::service::{website_service, template_data_service, template_service, template_user_data_service};
-use crate::utils::domain_utils::get_subdomain;
+use crate::core::kit::template::get_template;
 use actix_web::http::header::ContentType;
-use actix_web::{get, web, HttpRequest, HttpResponse};
+use actix_web::HttpResponse;
 use minijinja::context;
-use crate::utils::time_utils;
 
-#[get(r#"/{path:(index|index\.html)}?/$"#)]
-pub async fn site_index(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
-    let db = &state.db;
-    log::info!("site_index================:{:?}", req);
-    let domain_name = get_subdomain(&req)?;
-    //log::info!("domain_name================:{:?}", domain_name);
-    let site = website_service::find_by_domain(&db, &domain_name).await?;
-    //log::info!("&site.template_id================:{:?}", &site.template_id);
+/// 官网首页 — 展示开源 CRM 宣传页面
+/// 固定使用默认站点信息，不依赖域名识别与数据库配置
+pub async fn site_index() -> Result<HttpResponse> {
     let ctx = context!(
-        site_id => site.id,
-        site_name => site.site_name,
-        site_domain => site.domain,
-        keywords => site.keywords,
-        description => site.description,
-
+        site_id => 0i64,
+        site_name => "MxxCRM · 开源客户管理系统",
+        keywords => "MxxCRM,开源CRM,客户关系管理,客户管理软件,私域运营,全行业CRM",
+        description => "MxxCRM 是一款通用型开源客户关系管理系统，覆盖「线索 → 客户 → 商机 → 订单 → 履约」全链路，不限行业、不限规模，支持私有化部署。",
+        site_domain => "mxxshop.com",
     );
 
-    let template_data = template_user_data_service::find_latest_by_template_and_type(db, &site.template_id, &Some(1)).await?;
-    let rendered = get_template_a(template_data.temptext.unwrap_or_default().as_str(), ctx)?;
+    // 首页模板为文件模板，位于 templates/default/index.html
+    // templates / static 均在程序包外，按目录直接读取，方便随时编辑与切换
+    let rendered = get_template("default/index.html", ctx)?;
     Ok(HttpResponse::Ok().content_type(ContentType::html()).body(rendered))
 }

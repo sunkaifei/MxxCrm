@@ -66,7 +66,7 @@ function convertRoutes(
 ): RouteRecordRaw[] {
   return mapTree(routes, (node) => {
     const route = node as unknown as RouteRecordRaw;
-    const { component, name, path } = node;
+    const { component, name, path, redirect } = node;
 
     if (!name) {
       console.error('route name is required, skipping', route);
@@ -76,6 +76,10 @@ function convertRoutes(
     if (!path) {
       console.error('route path is required, skipping', route);
       return null;
+    }
+
+    if (redirect) {
+      route.redirect = redirect;
     }
 
     if (component && layoutMap[component]) {
