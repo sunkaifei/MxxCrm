@@ -390,7 +390,13 @@
       }
     },
     "leadPool": {
-      "title": "Lead Pool"
+      "title": "Public Leads",
+      "button": {
+        "create": "Create Lead",
+        "edit": "Edit",
+        "delete": "Delete",
+        "info": "View"
+      }
     },
     "followup": {
       "title": "Follow-up",

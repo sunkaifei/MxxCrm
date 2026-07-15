@@ -321,6 +321,8 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
         remark: detail.remark.clone(),
         owner_user_id: detail.owner_user_id,
         dept_id: detail.dept_id,
+        approval_status: Some(0),
+        instance_id: None,
         create_by: Some(created_by_i64),
         update_by: None,
     };

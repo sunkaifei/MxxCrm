@@ -29,11 +29,9 @@ pub struct Model {
     pub customer_id: Option<i64>,
 
     /// 关联联系人ID
-    #[sea_orm(ignore)]
     pub contact_id: Option<i64>,
 
     /// 关联线索ID
-    #[sea_orm(ignore)]
     pub lead_id: Option<i64>,
 
     /// 商机名称
@@ -76,6 +74,30 @@ pub struct Model {
 
     /// 丢单原因
     pub loss_reason: Option<String>,
+
+    /// 需求确认内容（阶段2）
+    pub requirement_summary: Option<String>,
+
+    /// 方案沟通内容（阶段3）
+    pub solution_summary: Option<String>,
+
+    /// 报价状态（0=未报价, 1=已报价, 2=已确认）
+    pub quote_status: Option<i32>,
+
+    /// 订单状态（0=未下单, 1=已下单, 2=已完成）
+    pub order_status: Option<i32>,
+
+    /// 合同状态（0=未签, 1=已签）
+    pub contract_status: Option<i32>,
+
+    /// 发货状态（0=未发货, 1=部分发货, 2=已发货）
+    pub shipment_status: Option<i32>,
+
+    /// 回款状态（0=未回款, 1=部分回款, 2=全部回款）
+    pub payment_status: Option<i32>,
+
+    /// 发票状态（0=未开, 1=已开）
+    pub invoice_status: Option<i32>,
 
     /// 自定义字段（JSON格式）
     #[sea_orm(ignore)]

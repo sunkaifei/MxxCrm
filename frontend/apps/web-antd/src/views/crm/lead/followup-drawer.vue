@@ -32,9 +32,9 @@ const sourceLabelMap: Record<string, string> = {
   amazon: 'Amazon', tiktok: 'TikTok', wechat: '微信', other: '其他',
 };
 
-const industryLabelMap: Record<string, string> = {
-  retail: '零售', wholesale: '批发', manufacturer: '制造', trade_agent: '贸易代理',
-  ecommerce: '电商', wechat_business: '微商', social: '社交电商', other: '其他',
+const industryLabelMap: Record<number, string> = {
+  1: '零售', 2: '批发', 3: '制造', 4: '贸易代理',
+  5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
 };
 
 const levelLabelMap: Record<string, string> = {

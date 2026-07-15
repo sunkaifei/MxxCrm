@@ -2,6 +2,7 @@
 import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
+import { useRoute } from 'vue-router';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
@@ -21,6 +22,7 @@ import ShipmentDrawer from './drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
+const route = useRoute();
 
 // 发货状态映射
 const statusMap: Record<number, { label: string; color: string }> = {
@@ -104,6 +106,8 @@ const gridOptions: VxeGridProps = {
           pageSize: page.pageSize,
           keywords: formValues.keywords,
           status: formValues.status,
+          // 从合同“发货/查看发货”进入时，按合同过滤发货单
+          contractId: route.query.contractId ? Number(route.query.contractId) : undefined,
         };
         if (formValues.dateRange && formValues.dateRange.length === 2) {
           params.startDate = formValues.dateRange[0];

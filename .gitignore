@@ -5,6 +5,7 @@
 /.cargo/
 /.rustup/
 /.workbuddy/
+/.tmp-test/
 /backend/config/production_config.ini
 /backend/config/env_config.ini
 /backend/scripts/

@@ -14,14 +14,16 @@ use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
 use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalLogVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractModel, ContractSaveDTO};
 use crate::modules::crm::entity::{contract, contract_approval_log, contract::Entity as Contract, contract_approval_log::Entity as ContractApprovalLog, customer::{Entity as Customer, Column as CustomerColumn}};
-use sea_orm::{DbConn, TransactionTrait, Set, IntoActiveModel, ActiveModelTrait, EntityTrait, ColumnTrait, QueryFilter, QueryOrder, Condition};
+use sea_orm::{DbConn, TransactionTrait, Set, IntoActiveModel, ActiveModelTrait, EntityTrait, ColumnTrait, QueryFilter, QueryOrder, QuerySelect, Condition};
+use std::collections::{HashMap, HashSet};
 use sea_orm::prelude::Decimal;
+use crate::modules::sale::entity::order;
 
 pub async fn insert(db: &DbConn, form_data: &ContractSaveDTO, created_by: i64) -> Result<i64> {
     let mut dto = form_data.clone();
     dto.created_by = Some(created_by);
     dto.approval_status = Some(0);
-    let result = ContractModel::insert(&db, &dto).await?;
+    let result = ContractModel::insert(db, &dto).await?;
     Ok(result)
 }
 
@@ -48,6 +50,14 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContractDetailVO> {
             let logs = ContractModel::get_approval_logs(&db, id).await?;
             let log_vos: Vec<ContractApprovalLogVO> = logs.into_iter().map(|l| l.into()).collect();
             vo.approval_logs = Some(log_vos);
+            // 计算发货状态：存在关联订单且订单已发货(order_status>=5) 则视为已发货
+            let shipped = order::Entity::find()
+                .filter(order::Column::ContractId.eq(id))
+                .filter(order::Column::Deleted.eq(0))
+                .filter(order::Column::OrderStatus.gte(5))
+                .one(db)
+                .await?;
+            vo.ship_status = if shipped.is_some() { Some(1) } else { None };
             Ok(vo)
         },
         None => Err(Error::from("合同不存在".to_string())),
@@ -67,7 +77,61 @@ pub async fn list(db: &DbConn, query: &ContractListQuery) -> Result<ResultPage<V
         query.customer_id,
     ).await?;
     
-    let data: Vec<ContractListVO> = list.into_iter().map(|item| item.into()).collect();
+    // 收集所有客户ID，去重
+    let customer_ids: Vec<i64> = list.iter()
+        .filter_map(|c| c.customer_id)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    
+    // 批量查询客户名称（ID -> 名称）
+    let customer_name_map: HashMap<i64, String> = if !customer_ids.is_empty() {
+        Customer::find()
+            .filter(CustomerColumn::Id.is_in(customer_ids.clone()))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|c| {
+                (c.id, c.company_name.or(c.short_name).unwrap_or_default())
+            })
+            .collect()
+    } else {
+        HashMap::new()
+    };
+    
+    let mut data: Vec<ContractListVO> = list.into_iter().map(|item| {
+        let mut vo: ContractListVO = item.into();
+        if let Some(cid) = vo.customer_id {
+            vo.customer_name = customer_name_map.get(&cid).cloned();
+        }
+        vo
+    }).collect();
+
+    // 计算合同发货状态：关联订单中存在“已发货/部分发货/已签收/已完成”(order_status>=5) 即视为已发货
+    let contract_ids: Vec<i64> = data.iter().filter_map(|v| v.id).collect();
+    let ship_status_map: HashMap<i64, i32> = if !contract_ids.is_empty() {
+        let shipped_orders = order::Entity::find()
+            .filter(order::Column::ContractId.is_in(contract_ids.clone()))
+            .filter(order::Column::Deleted.eq(0))
+            .filter(order::Column::OrderStatus.gte(5))
+            .all(db)
+            .await?;
+        shipped_orders
+            .into_iter()
+            .filter_map(|o| o.contract_id)
+            .collect::<HashSet<i64>>()
+            .into_iter()
+            .map(|cid| (cid, 1i32))
+            .collect()
+    } else {
+        HashMap::new()
+    };
+    for vo in &mut data {
+        if let Some(cid) = vo.id {
+            vo.ship_status = ship_status_map.get(&cid).copied();
+        }
+    }
+
     Ok(ResultPage::new(data, total, page, page_size))
 }
 

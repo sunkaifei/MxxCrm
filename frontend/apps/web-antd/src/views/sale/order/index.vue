@@ -3,7 +3,7 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h } from 'vue';
+import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideEye, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
@@ -11,6 +11,7 @@ import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -19,13 +20,20 @@ import {
   getOrderListApi,
   signShipmentApi,
   updateOrderStatusApi,
+  submitOrderApi,
+  approveOrderApi,
+  rejectOrderApi,
+  getOrderApprovalDetailApi,
+  createContractFromOrderApi,
 } from '#/api';
 import { $t } from '#/locales';
 import OrderDrawer from './drawer.vue';
 import ShipmentDrawer from '../shipment/drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
+import OrderApprovalDrawer from './approval-drawer.vue';
 
 const accessStore = useAccessStore();
+const router = useRouter();
 
 const orderStatusOptions = [
   { label: '草稿', value: 1 },
@@ -95,6 +103,30 @@ const orderTypeColorMap: Record<number, string> = {
 const orderTypeLabelMap: Record<number, string> = {
   1: '销售订单',
   2: '退货订单',
+};
+
+const approvalStatusOptions = [
+  { label: '草稿', value: 0 },
+  { label: '待审批', value: 1 },
+  { label: '审批中', value: 2 },
+  { label: '已通过', value: 3 },
+  { label: '已驳回', value: 4 },
+];
+
+const approvalStatusColorMap: Record<number, string> = {
+  0: 'default',
+  1: 'processing',
+  2: 'warning',
+  3: 'success',
+  4: 'error',
+};
+
+const approvalStatusLabelMap: Record<number, string> = {
+  0: '草稿',
+  1: '待审批',
+  2: '审批中',
+  3: '已通过',
+  4: '已驳回',
 };
 
 const currencyLabelMap: Record<number, string> = {
@@ -259,6 +291,12 @@ const gridOptions: VxeGridProps = {
     { title: '负责人', field: 'ownerUserName', width: 90 },
     { title: '下单日期', field: 'orderDate', width: 110 },
     {
+      title: '审批状态',
+      field: 'approvalStatus',
+      width: 90,
+      slots: { default: 'approvalStatus' },
+    },
+    {
       title: '创建时间',
       field: 'createTime',
       width: 160,
@@ -409,6 +447,73 @@ async function handleComplete(row: any) {
     },
   });
 }
+
+// ========== 审批流 ==========
+
+const approvalDrawerVisible = ref(false);
+const approvalOrderId = ref<number | null>(null);
+const currentUserId = ref<number | undefined>(undefined);
+
+// 从 accessStore 中获取当前用户ID
+const userInfo = (window as any).$userInfo || {};
+currentUserId.value = userInfo.id || undefined;
+
+// 提交审批
+async function handleSubmitApproval(row: any) {
+  Modal.confirm({
+    title: '提交审批',
+    content: '确定要提交该订单进入审批流程吗？',
+    okText: '确认',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await submitOrderApi(row.id);
+        window.$message.success('已提交审批');
+        gridApi.query();
+      } catch {
+        window.$message.error('提交审批失败');
+      }
+    },
+  });
+}
+
+// 查看审批详情
+function handleViewApproval(row: any) {
+  approvalOrderId.value = row.id;
+  approvalDrawerVisible.value = true;
+}
+
+// 查看合同（跳转到合同管理页面）
+function handleViewContract(row: any) {
+  router.push({
+    path: '/crm/contract',
+    query: { viewContractId: row.contractId },
+  });
+}
+
+// 创建合同（从已审批通过的订单）
+async function handleCreateContract(row: any) {
+  Modal.confirm({
+    title: '创建合同',
+    content: '确定要基于此订单创建合同吗？客户和订单信息将自动填充且不可修改。',
+    okText: '确认',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        const result: any = await createContractFromOrderApi(row.id);
+        const contractId = result?.data?.id || result?.id || result;
+        window.$message.success('合同已创建，正在跳转...');
+        // 跳转到合同管理页面并打开编辑抽屉
+        router.push({
+          path: '/crm/contract',
+          query: { editContractId: contractId },
+        });
+      } catch {
+        window.$message.error('创建合同失败');
+      }
+    },
+  });
+}
 </script>
 
 <template>
@@ -471,81 +576,118 @@ async function handleComplete(row: any) {
         {{ formatDateTime(row.createTime) }}
       </template>
 
+      <template #approvalStatus="{ row }">
+        <Tag :color="approvalStatusColorMap[row.approvalStatus] ?? 'default'">
+          {{ approvalStatusLabelMap[row.approvalStatus] ?? '未知' }}
+        </Tag>
+      </template>
+
       <template #action="{ row }">
-        <Button
+        <a
           v-if="accessStore.hasAccessCode('sale:order:view')"
-          type="link"
-          :icon="h(LucideEye)"
+          class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleView(row)"
-        />
-        <Button
-          v-if="accessStore.hasAccessCode('sale:order:edit')"
-          type="link"
-          :icon="h(LucideFilePenLine)"
+        >查看</a>
+        <!-- 提交审批：草稿(0)或已驳回(4)状态 -->
+        <a
+          v-if="
+            accessStore.hasAccessCode('sale:order:edit') &&
+            (row.approvalStatus === 0 || row.approvalStatus === 4)
+          "
+          class="text-blue-600 cursor-pointer mx-1"
+          @click="() => handleSubmitApproval(row)"
+        >提交审批</a>
+        <!-- 编辑：草稿(0)或已驳回(4)状态，放在提交审批后 -->
+        <a
+          v-if="
+            accessStore.hasAccessCode('sale:order:edit') &&
+            (row.approvalStatus === 0 || row.approvalStatus === 4)
+          "
+          class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleEdit(row)"
-        />
-        <Button
+        >编辑</a>
+        <!-- 查看审批：待审批(1)或审批中(2)或已通过(3)或已驳回(4) -->
+        <a
+          v-if="
+            accessStore.hasAccessCode('sale:order:list') &&
+            row.approvalStatus >= 1 && row.approvalStatus <= 4
+          "
+          class="text-blue-600 cursor-pointer mx-1"
+          @click="() => handleViewApproval(row)"
+        >审批</a>
+        <!-- 查看合同：审批已通过(3)且已关联合同 -->
+        <a
+          v-if="
+            accessStore.hasAccessCode('sale:order:update') &&
+            row.approvalStatus === 3 && row.contractId
+          "
+          class="text-blue-600 cursor-pointer mx-1"
+          @click="() => handleViewContract(row)"
+        >查看合同</a>
+        <!-- 签署合同：审批已通过(3)且未关联合同 -->
+        <a
+          v-if="
+            accessStore.hasAccessCode('sale:order:update') &&
+            row.approvalStatus === 3 && !row.contractId
+          "
+          class="text-green-600 cursor-pointer mx-1 font-medium"
+          @click="() => handleCreateContract(row)"
+        >签署合同</a>
+        <a
           v-if="
             accessStore.hasAccessCode('sale:order:edit') &&
             row.orderStatus === 3
           "
-          type="link"
-          size="small"
+          class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleStockUp(row)"
-        >
-          备货
-        </Button>
-        <Button
+        >备货</a>
+        <a
           v-if="
             accessStore.hasAccessCode('sale:order:edit') &&
             (row.orderStatus === 3 ||
               row.orderStatus === 4 ||
               row.orderStatus === 5)
           "
-          type="link"
-          size="small"
+          class="text-blue-600 cursor-pointer mx-1"
           @click="() => openShipmentDrawer(row)"
-        >
-          发货
-        </Button>
-        <Button
+        >发货</a>
+        <a
           v-if="
             accessStore.hasAccessCode('sale:order:edit') &&
             row.orderStatus === 6
           "
-          type="link"
-          size="small"
+          class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleSign(row)"
-        >
-          签收
-        </Button>
-        <Button
+        >签收</a>
+        <a
           v-if="
             accessStore.hasAccessCode('sale:order:edit') &&
             row.orderStatus === 9
           "
-          type="link"
-          size="small"
+          class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleComplete(row)"
-        >
-          完成
-        </Button>
+        >完成</a>
+        <!-- 删除：仅草稿(0)或已驳回(4)允许 -->
         <Popconfirm
+          v-if="
+            accessStore.hasAccessCode('sale:order:delete') &&
+            (row.approvalStatus === 0 || row.approvalStatus === 4)
+          "
           :title="$t('ui.text.do_you_want_delete', { moduleName: '订单' })"
           :ok-text="$t('ui.button.ok')"
           :cancel-text="$t('ui.button.cancel')"
           @confirm="handleDelete(row)"
         >
-          <Button
-            v-if="accessStore.hasAccessCode('sale:order:delete')"
-            type="link"
-            danger
-            :icon="h(LucideTrash2)"
-          />
+          <a class="text-red-500 cursor-pointer mx-1">删除</a>
         </Popconfirm>
       </template>
     </Grid>
     <FormDrawer />
     <ShipmentFormDrawer />
+    <OrderApprovalDrawer
+      v-model:visible="approvalDrawerVisible"
+      :order-id="approvalOrderId"
+      @success="gridApi.query()"
+    />
   </Page>
 </template>

@@ -26,14 +26,13 @@ const getTitle = computed(() =>
     : $t('ui.modal.update', { moduleName: $t('page.crm.opportunity.title') }),
 );
 
-// 商机阶段 - 数值对齐后端
+// 商机阶段 - 数值对齐后端（1-5）
 const stageOptions = [
-  { label: '资格审查', value: 0, color: 'blue' },
-  { label: '需求分析', value: 1, color: 'cyan' },
-  { label: '方案报价', value: 2, color: 'gold' },
-  { label: '商务谈判', value: 3, color: 'orange' },
-  { label: '已成交', value: 4, color: 'green' },
-  { label: '已输单', value: 5, color: 'red' },
+  { label: '初步沟通', value: 1, color: 'blue' },
+  { label: '需求确认', value: 2, color: 'cyan' },
+  { label: '方案沟通', value: 3, color: 'gold' },
+  { label: '已报价', value: 4, color: 'orange' },
+  { label: '成交/丢单', value: 5, color: 'green' },
 ];
 
 // 商机来源 - 对齐后端 LeadSource 枚举（数字值）
@@ -91,7 +90,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Select',
       fieldName: 'stage',
       label: '销售阶段',
-      defaultValue: 0,
+      defaultValue: 1,
       rules: 'required',
       componentProps: {
         placeholder: '请选择销售阶段',

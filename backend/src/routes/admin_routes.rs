@@ -396,6 +396,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(opportunity_controller::bath_delete_opportunity)
                 .service(opportunity_controller::opportunity_info)
                 .service(opportunity_controller::opportunity_list)
+                .service(opportunity_controller::opportunity_convert_to_quotation)
                 // CRM Contract Management
                 .service(contract_controller::contract_insert)
                 .service(contract_controller::contract_update)
@@ -460,6 +461,11 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .service(sale_order_controller::batch_delete_order)
                 .service(sale_order_controller::order_info)
                 .service(sale_order_controller::order_list)
+                .service(sale_order_controller::order_submit)
+                .service(sale_order_controller::order_approve)
+                .service(sale_order_controller::order_reject)
+                .service(sale_order_controller::order_approval_detail)
+                .service(sale_order_controller::order_create_contract)
                 // Sale Order Item Management
                 .service(order_item_controller::order_item_insert)
                 .service(order_item_controller::order_item_update)

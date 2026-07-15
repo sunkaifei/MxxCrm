@@ -10,7 +10,6 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::core::r#enum::industry_enum::IndustryType;
 use crate::core::r#enum::lead_source_enum::LeadSource;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
@@ -53,7 +52,7 @@ pub struct Model {
     pub website: Option<String>,
 
     /// 所属行业
-    pub industry: Option<IndustryType>,
+    pub industry: Option<i32>,
 
     /// 线索来源
     pub source: Option<LeadSource>,

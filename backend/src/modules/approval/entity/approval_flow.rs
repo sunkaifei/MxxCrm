@@ -12,6 +12,8 @@ pub struct Model {
     pub business_type: Option<String>,
     pub description: Option<String>,
     pub enabled: Option<i32>,
+    /// 是否系统内置（1=系统内置不可删除，0=用户自定义可删除）
+    pub is_system: Option<i32>,
     pub create_by: Option<String>,
     pub create_time: Option<DateTime>,
     pub update_by: Option<String>,

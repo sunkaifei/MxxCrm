@@ -5,7 +5,7 @@ import { computed, ref } from 'vue';
 
 import { useVbenForm } from '@vben/common-ui';
 
-import { Button, InputNumber, Table, Tooltip, message } from 'ant-design-vue';
+import { Button, Descriptions, InputNumber, Table, Tag, Tooltip, message } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
 import { createShipmentApi, getOrderInfoApi } from '#/api';
@@ -14,6 +14,15 @@ const props = withDefaults(
   defineProps<{ row?: any }>(),
   { row: () => ({}) },
 );
+
+const orderStatusColorMap: Record<number, string> = {
+  1: 'default', 2: 'blue', 3: 'blue', 4: 'orange', 5: 'cyan',
+  6: 'purple', 7: 'red', 8: 'cyan', 9: 'green', 10: 'blue',
+};
+const orderStatusLabelMap: Record<number, string> = {
+  1: '草稿', 2: '待确认', 3: '已确认', 4: '备货中', 5: '部分发货',
+  6: '已发货', 7: '已取消', 8: '已交付', 9: '已签收', 10: '已完成',
+};
 
 const isFullscreen = ref(false);
 const items = ref<any[]>([]);
@@ -261,6 +270,24 @@ const [Drawer, drawerApi] = useVbenDrawer({
         </button>
       </Tooltip>
     </template>
+    <!-- 订单信息 -->
+    <div class="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <div class="text-sm font-medium text-gray-700 mb-2">订单信息</div>
+      <Descriptions :column="3" size="small">
+        <Descriptions.Item label="订单号">{{ props.row?.orderNo || '-' }}</Descriptions.Item>
+        <Descriptions.Item label="订单标题">{{ props.row?.title || '-' }}</Descriptions.Item>
+        <Descriptions.Item label="客户名称">{{ props.row?.customerName || '-' }}</Descriptions.Item>
+        <Descriptions.Item label="订单金额">
+          {{ props.row?.totalAmount?.toLocaleString?.() ?? props.row?.totalAmount ?? 0 }}
+        </Descriptions.Item>
+        <Descriptions.Item label="订单状态">
+          <Tag :color="orderStatusColorMap[props.row?.orderStatus] || 'default'">
+            {{ orderStatusLabelMap[props.row?.orderStatus] || '-' }}
+          </Tag>
+        </Descriptions.Item>
+        <Descriptions.Item label="收货人">{{ props.row?.receiverName || '-' }}</Descriptions.Item>
+      </Descriptions>
+    </div>
     <Form />
     <div class="mt-4">
       <div class="mb-2 font-medium">发货商品明细</div>
@@ -303,10 +330,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
           </div>
         </template>
       </Table>
-    </div>
-    <div class="mt-4 flex justify-end gap-2">
-      <Button @click="drawerApi.close()">取消</Button>
-      <Button type="primary" @click="handleSubmit">保存</Button>
     </div>
   </Drawer>
 </template>

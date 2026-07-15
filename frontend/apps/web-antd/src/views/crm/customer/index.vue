@@ -16,14 +16,14 @@ import {
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Card, Col, Drawer, Form, Input, Popconfirm, Row, Select, Tabs, Tag, Modal, message } from 'ant-design-vue';
+import { Button, Card, Col, Form, Input, Popconfirm, Row, Select, Tabs, Tag, Modal, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteCustomerApi, getCustomerListApi, saveFollowupApi } from '#/api';
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { $t } from '#/locales';
 import CustomerDrawer from './drawer.vue';
-import CustomerDetail from './detail.vue';
+import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import CustomerFollowupDrawer from './followup-drawer.vue';
 
 const accessStore = useAccessStore();
@@ -456,7 +456,9 @@ async function handleAddToPool(row: any) {
 
       <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
 
-      <template #customerNo="{ row }">{{ row.customerNo || '-' }}</template>
+      <template #customerNo="{ row }">
+        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.customerNo || '-' }}</a>
+      </template>
 
       <template #companyName="{ row }">
         <div>
@@ -501,9 +503,7 @@ async function handleAddToPool(row: any) {
       <CustomerFollowupDrawer v-if="followupCustomerId" :id="followupCustomerId" @refresh="followupNeedRefresh = true" />
     </Drawer>
 
-    <Drawer v-model:open="detailVisible" :width="1000" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="客户详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
-      <CustomerDetail v-if="detailId" :id="detailId" @edit="handleDetailEdit" />
-    </Drawer>
+    <CustomerDetailDrawer v-model:visible="detailVisible" :id="detailId" @edit="handleDetailEdit" />
   </Page>
 </template>
 

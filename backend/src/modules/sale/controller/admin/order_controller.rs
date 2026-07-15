@@ -14,10 +14,11 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
-use crate::modules::sale::model::order::{OrderListQuery, OrderSaveRequest, OrderStatusUpdateRequest, OrderUpdateRequest};
+use crate::modules::sale::model::order::{OrderApprovalDetailVO, OrderListQuery, OrderSaveRequest, OrderStatusUpdateRequest, OrderUpdateRequest};
 use crate::modules::sale::service::order_service;
-use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
+use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
 use actix_web_grants::protect;
+use serde::Deserialize;
 
 #[post("/sale/order/save")]
 #[protect("sale:order:save")]
@@ -99,5 +100,84 @@ pub async fn order_list(state: web::Data<AppState>, query: web::Query<OrderListQ
             HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
         },
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+// ========== 订单审批 ==========
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OrderApprovalReq {
+    order_id: i64,
+    reason: Option<String>,
+}
+
+/// 提交审批
+#[post("/sale/order/submit")]
+#[protect("sale:order:update")]
+pub async fn order_submit(state: web::Data<AppState>, req: HttpRequest, item: web::Json<InfoId>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let item = item.0;
+    if item.id.is_none() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
+    }
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match order_service::submit_order(db, item.id.unwrap(), jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 审批通过
+#[post("/sale/order/approve")]
+#[protect("sale:order:update")]
+pub async fn order_approve(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderApprovalReq>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let form_data = form_data.0;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match order_service::approve_order(db, form_data.order_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 驳回
+#[post("/sale/order/reject")]
+#[protect("sale:order:update")]
+pub async fn order_reject(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderApprovalReq>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let form_data = form_data.0;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match order_service::reject_order(db, form_data.order_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 审批详情
+#[get("/sale/order/approval-detail/{order_id}")]
+#[protect("sale:order:list")]
+pub async fn order_approval_detail(state: web::Data<AppState>, path: web::Path<i64>) -> HttpResponse {
+    let db = &state.db;
+    let order_id = path.into_inner();
+    match order_service::get_approval_detail(db, order_id).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 从订单创建合同
+#[post("/sale/order/create-contract")]
+#[protect("sale:order:update")]
+pub async fn order_create_contract(state: web::Data<AppState>, req: HttpRequest, item: web::Json<InfoId>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let item = item.0;
+    if item.id.is_none() {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
+    }
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match order_service::create_contract_from_order(db, item.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
+        Ok(contract_id) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(contract_id, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

@@ -1,4 +1,4 @@
-﻿//!
+//!
 //! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
 //!
 //! https://www.mxxshop.com
@@ -47,6 +47,22 @@ pub struct OpportunitySaveRequest {
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
     pub custom_fields: Option<serde_json::Value>,
+    /// 需求摘要
+    pub requirement_summary: Option<String>,
+    /// 解决方案摘要
+    pub solution_summary: Option<String>,
+    /// 报价状态
+    pub quote_status: Option<i32>,
+    /// 订单状态
+    pub order_status: Option<i32>,
+    /// 合同状态
+    pub contract_status: Option<i32>,
+    /// 发货状态
+    pub shipment_status: Option<i32>,
+    /// 付款状态
+    pub payment_status: Option<i32>,
+    /// 发票状态
+    pub invoice_status: Option<i32>,
 }
 
 /// i32 转 CurrencyCode
@@ -113,6 +129,14 @@ impl From<OpportunitySaveRequest> for OpportunitySaveDTO {
             source: item.source.and_then(i32_to_lead_source),
             tags: item.tags,
             custom_fields: item.custom_fields,
+            requirement_summary: item.requirement_summary,
+            solution_summary: item.solution_summary,
+            quote_status: item.quote_status,
+            order_status: item.order_status,
+            contract_status: item.contract_status,
+            shipment_status: item.shipment_status,
+            payment_status: item.payment_status,
+            invoice_status: item.invoice_status,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -157,6 +181,22 @@ pub struct OpportunityUpdateRequest {
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
     pub custom_fields: Option<serde_json::Value>,
+    /// 需求摘要
+    pub requirement_summary: Option<String>,
+    /// 解决方案摘要
+    pub solution_summary: Option<String>,
+    /// 报价状态
+    pub quote_status: Option<i32>,
+    /// 订单状态
+    pub order_status: Option<i32>,
+    /// 合同状态
+    pub contract_status: Option<i32>,
+    /// 发货状态
+    pub shipment_status: Option<i32>,
+    /// 付款状态
+    pub payment_status: Option<i32>,
+    /// 发票状态
+    pub invoice_status: Option<i32>,
 }
 
 impl From<OpportunityUpdateRequest> for OpportunitySaveDTO {
@@ -177,6 +217,14 @@ impl From<OpportunityUpdateRequest> for OpportunitySaveDTO {
             source: item.source.and_then(i32_to_lead_source),
             tags: item.tags,
             custom_fields: item.custom_fields,
+            requirement_summary: item.requirement_summary,
+            solution_summary: item.solution_summary,
+            quote_status: item.quote_status,
+            order_status: item.order_status,
+            contract_status: item.contract_status,
+            shipment_status: item.shipment_status,
+            payment_status: item.payment_status,
+            invoice_status: item.invoice_status,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -220,6 +268,22 @@ pub struct OpportunitySaveDTO {
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
     pub custom_fields: Option<serde_json::Value>,
+    /// 需求摘要
+    pub requirement_summary: Option<String>,
+    /// 解决方案摘要
+    pub solution_summary: Option<String>,
+    /// 报价状态
+    pub quote_status: Option<i32>,
+    /// 订单状态
+    pub order_status: Option<i32>,
+    /// 合同状态
+    pub contract_status: Option<i32>,
+    /// 发货状态
+    pub shipment_status: Option<i32>,
+    /// 付款状态
+    pub payment_status: Option<i32>,
+    /// 发票状态
+    pub invoice_status: Option<i32>,
     /// 软删除标记
     pub deleted: Option<i32>,
     /// 创建人ID
@@ -269,6 +333,58 @@ pub struct OpportunityDetailVO {
     pub tags: Option<Vec<String>>,
     /// 自定义字段（JSON格式）
     pub custom_fields: Option<serde_json::Value>,
+    /// 需求摘要
+    pub requirement_summary: Option<String>,
+    /// 解决方案摘要
+    pub solution_summary: Option<String>,
+    /// 报价状态
+    pub quote_status: Option<i32>,
+    /// 订单状态
+    pub order_status: Option<i32>,
+    /// 合同状态
+    pub contract_status: Option<i32>,
+    /// 发货状态
+    pub shipment_status: Option<i32>,
+    /// 付款状态
+    pub payment_status: Option<i32>,
+    /// 发票状态
+    pub invoice_status: Option<i32>,
+    /// 客户名称
+    pub customer_name: Option<String>,
+    /// 客户行业
+    pub customer_industry: Option<i32>,
+    /// 客户等级
+    pub customer_level: Option<i32>,
+    /// 客户国家
+    pub customer_country: Option<String>,
+    /// 客户地址
+    pub customer_address: Option<String>,
+    /// 客户官网
+    pub customer_website: Option<String>,
+    /// 客户编号
+    pub customer_no: Option<String>,
+    /// 客户公司简称
+    pub customer_short_name: Option<String>,
+    /// 客户信用额度
+    pub customer_credit_limit: Option<Decimal>,
+    /// 客户信用天数
+    pub customer_credit_days: Option<i32>,
+    /// 联系人姓名
+    pub contact_name: Option<String>,
+    /// 联系人职位
+    pub contact_title: Option<String>,
+    /// 联系人手机
+    pub contact_mobile: Option<String>,
+    /// 联系人邮箱
+    pub contact_email: Option<String>,
+    /// 联系人电话
+    pub contact_phone: Option<String>,
+    /// 联系人微信
+    pub contact_wechat: Option<String>,
+    /// 创建人名称
+    pub created_by_name: Option<String>,
+    /// 负责人名称
+    pub assignee: Option<String>,
 }
 
 impl From<opportunity::Model> for OpportunityDetailVO {
@@ -290,6 +406,32 @@ impl From<opportunity::Model> for OpportunityDetailVO {
             source: item.source.map(|s| s.to_i32()),
             tags: item.tags,
             custom_fields: item.custom_fields,
+            requirement_summary: item.requirement_summary,
+            solution_summary: item.solution_summary,
+            quote_status: item.quote_status,
+            order_status: item.order_status,
+            contract_status: item.contract_status,
+            shipment_status: item.shipment_status,
+            payment_status: item.payment_status,
+            invoice_status: item.invoice_status,
+            customer_name: None,
+            customer_industry: None,
+            customer_level: None,
+            customer_country: None,
+            customer_address: None,
+            customer_website: None,
+            customer_no: None,
+            customer_short_name: None,
+            customer_credit_limit: None,
+            customer_credit_days: None,
+            contact_name: None,
+            contact_title: None,
+            contact_mobile: None,
+            contact_email: None,
+            contact_phone: None,
+            contact_wechat: None,
+            created_by_name: None,
+            assignee: None,
         }
     }
 }
@@ -327,6 +469,8 @@ pub struct OpportunityListVO {
     pub created_by_name: Option<String>,
     /// 创建时间
     pub create_time: Option<DateTime>,
+    /// 报价数量
+    pub quote_count: Option<i64>,
 }
 
 impl From<opportunity::Model> for OpportunityListVO {
@@ -346,6 +490,7 @@ impl From<opportunity::Model> for OpportunityListVO {
             created_by: item.created_by,
             created_by_name: None,
             create_time: item.create_time,
+            quote_count: None,
         }
     }
 }
@@ -385,6 +530,8 @@ impl OpportunityModel {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = opportunity::ActiveModel {
             customer_id: Set(req.customer_id.clone()),
+            contact_id: Set(req.contact_id.clone()),
+            lead_id: Set(req.lead_id.clone()),
             title: Set(req.title.clone()),
             description: Set(req.description.clone()),
             stage: Set(req.stage),
@@ -398,6 +545,14 @@ impl OpportunityModel {
             create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(now)),
+            requirement_summary: Set(req.requirement_summary.clone()),
+            solution_summary: Set(req.solution_summary.clone()),
+            quote_status: Set(req.quote_status),
+            order_status: Set(req.order_status),
+            contract_status: Set(req.contract_status),
+            shipment_status: Set(req.shipment_status),
+            payment_status: Set(req.payment_status),
+            invoice_status: Set(req.invoice_status),
             ..Default::default()
         };
 
@@ -439,6 +594,8 @@ impl OpportunityModel {
     pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &OpportunitySaveDTO) -> Result<i64, DbErr> {
         let payload = opportunity::ActiveModel {
             customer_id: Set(req.customer_id.clone()),
+            contact_id: Set(req.contact_id.clone()),
+            lead_id: Set(req.lead_id.clone()),
             title: Set(req.title.clone()),
             description: Set(req.description.clone()),
             stage: Set(req.stage),
@@ -450,6 +607,14 @@ impl OpportunityModel {
             assigned_to: Set(req.assigned_to.clone()),
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            requirement_summary: Set(req.requirement_summary.clone()),
+            solution_summary: Set(req.solution_summary.clone()),
+            quote_status: Set(req.quote_status),
+            order_status: Set(req.order_status),
+            contract_status: Set(req.contract_status),
+            shipment_status: Set(req.shipment_status),
+            payment_status: Set(req.payment_status),
+            invoice_status: Set(req.invoice_status),
             ..Default::default()
         };
 

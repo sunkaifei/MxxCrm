@@ -30,6 +30,7 @@ pub async fn get_list(db: &DbConn, query: &ShipmentListQuery) -> Result<ResultPa
         query.status,
         query.order_id,
         query.customer_id,
+        query.contract_id,
         query.start_date.clone(),
         query.end_date.clone(),
     )

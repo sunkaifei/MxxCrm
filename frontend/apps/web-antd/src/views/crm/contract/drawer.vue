@@ -35,6 +35,8 @@ import UserSelectModal from '../components/UserSelectModal.vue';
 const props = defineProps<{
   /** 是否为只读模式（查看详情） */
   readonly?: boolean;
+  /** 是否从订单创建（客户和订单信息不可修改） */
+  fromOrder?: boolean;
 }>();
 
 const data = ref();
@@ -52,6 +54,9 @@ const isReadonly = computed(() => {
   }
   return false;
 });
+
+// 从订单创建时，客户和商机不可修改
+const isFromOrder = computed(() => props.fromOrder || data.value?.fromOrder);
 
 // 投影标题：编辑 vs 查看
 const getTitle = computed(() => {
@@ -904,20 +909,21 @@ function toggleMaximize() {
         <BaseForm>
           <!-- 客户选择 slot -->
           <template #_customerDisplay="{ model }">
-            <div class="flex items-center gap-2 w-full" @click="openCustomerSelect">
+            <div class="flex items-center gap-2 w-full">
               <Input
-                v-if="!isReadonly"
+                v-if="!isReadonly && !isFromOrder"
                 :value="selectedCustomer?.name || ''"
                 placeholder="点击选择客户"
                 readonly
                 class="flex-1 cursor-pointer select-modal-input"
+                @click="openCustomerSelect"
               >
                 <template #suffix>
                   <Button type="link" size="small" class="!p-0 !text-blue-600 font-medium" @click.stop="openCustomerSelect">选择</Button>
                 </template>
               </Input>
               <span v-else class="flex-1 text-gray-800 truncate">{{ selectedCustomer?.name || '-' }}</span>
-              <Button v-if="!isReadonly && selectedCustomer" type="link" danger size="small" class="shrink-0 !p-0" @click.stop="handleClearCustomer">清除</Button>
+              <Button v-if="!isReadonly && !isFromOrder && selectedCustomer" type="link" danger size="small" class="shrink-0 !p-0" @click.stop="handleClearCustomer">清除</Button>
             </div>
           </template>
 

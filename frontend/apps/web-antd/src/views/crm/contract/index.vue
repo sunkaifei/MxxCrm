@@ -1,20 +1,20 @@
-﻿<script lang="ts" setup>
+﻿﻿<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { computed, h, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Popconfirm, Tag, message } from 'ant-design-vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteContractApi,
+  getContractInfoApi,
   getContractListApi,
   submitContractApi,
 } from '#/api';
@@ -26,6 +26,7 @@ import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 const accessStore = useAccessStore();
 const userStore = useUserStore();
 const router = useRouter();
+const route = useRoute();
 
 // 当前登录用户ID
 const currentUserId = computed(() => {
@@ -80,14 +81,14 @@ function canViewApproval(row: any): boolean {
   return (row.approvalStatus >= 1 && row.approvalStatus <= 3) && !!row.instanceId;
 }
 
-/** 审批是否已通过（可创建订单等后续操作） */
+/** 审批是否已通过（可进入发货环节） */
 function isApproved(row: any): boolean {
   return row.approvalStatus === 3;
 }
 
-/** 是否可创建订单（审批通过后） */
-function canCreateOrder(row: any): boolean {
-  return isApproved(row);
+/** 是否已发货（合同关联订单已发货，后端返回 shipStatus=1） */
+function hasShipment(row: any): boolean {
+  return row.shipStatus === 1;
 }
 
 // ========== 搜索表单 ==========
@@ -287,9 +288,32 @@ function handleApprovalSuccess() {
   gridApi.query();
 }
 
-function handleCreateOrder(row: any) {
-  router.push(`/sale/order?contractId=${row.id}`);
+/** 发货：进入发货页面（按合同过滤） */
+function handleShip(row: any) {
+  router.push(`/sale/shipment?contractId=${row.id}`);
 }
+
+/** 查看发货：进入发货详细页面（按合同过滤并自动打开详情） */
+function handleViewShipment(row: any) {
+  router.push(`/sale/shipment?contractId=${row.id}&autoView=1`);
+}
+
+// 从订单创建合同后自动打开编辑抽屉
+onMounted(async () => {
+  const editContractId = route.query.editContractId;
+  if (editContractId) {
+    try {
+      const info: any = await getContractInfoApi(Number(editContractId));
+      const row = info || {};
+      drawerApi.setData({ create: false, row, fromOrder: true });
+      drawerApi.open();
+      // 清除query参数，避免刷新后重复打开
+      router.replace({ query: {} });
+    } catch {
+      message.warning('加载合同信息失败');
+    }
+  }
+});
 </script>
 
 <template>
@@ -370,24 +394,34 @@ function handleCreateOrder(row: any) {
           查看审批
         </Button>
 
-        <!-- 3. 已通过 → 创建订单 -->
-        <Button
-          v-if="canCreateOrder(row)"
-          type="link"
-          @click="() => handleCreateOrder(row)"
-        >
-          创建订单
-        </Button>
+        <!-- 3. 已通过 → 发货 / 查看发货 -->
+        <template v-if="isApproved(row)">
+          <Button
+            v-if="!hasShipment(row)"
+            type="link"
+            @click="() => handleShip(row)"
+          >
+            发货
+          </Button>
+          <Button
+            v-else
+            type="link"
+            @click="() => handleViewShipment(row)"
+          >
+            查看发货
+          </Button>
+        </template>
 
-        <!-- 4. 编辑按钮（仅草稿/驳回状态显示） -->
+        <!-- 4. 编辑按钮（仅草稿/驳回状态显示，文字） -->
         <Button
           v-if="accessStore.hasAccessCode('crm:contract:update') && canEdit(row)"
           type="link"
-          :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
-        />
+        >
+          编辑
+        </Button>
 
-        <!-- 5. 删除按钮（仅草稿/驳回状态显示） -->
+        <!-- 5. 删除按钮（仅草稿/驳回状态显示，文字） -->
         <Popconfirm
           :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.contract.title') })"
           :ok-text="$t('ui.button.ok')"
@@ -398,8 +432,9 @@ function handleCreateOrder(row: any) {
             v-if="accessStore.hasAccessCode('crm:contract:delete') && canDelete(row)"
             type="link"
             danger
-            :icon="h(LucideTrash2)"
-          />
+          >
+            删除
+          </Button>
         </Popconfirm>
       </template>
     </Grid>

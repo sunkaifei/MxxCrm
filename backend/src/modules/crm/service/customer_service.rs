@@ -12,6 +12,7 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::model::customer::{CustomerDetailVO, CustomerListQuery, CustomerListVO, CustomerModel, CustomerSaveDTO, CustomerSaveRequest, CustomerUpdateRequest};
 use crate::modules::crm::entity::customer;
+use crate::modules::crm::entity::{opportunity, opportunity::Entity as Opportunity, contact, contact::Entity as Contact};
 use crate::modules::crm::service::assign_history_service;
 use crate::modules::crm::service::customer_edit_log_service;
 use crate::modules::company::service::code_rule_service;
@@ -19,7 +20,7 @@ use crate::modules::system::entity::{admin, admin::Entity as Admin, tag, tag_mer
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::role_service;
-use sea_orm::{DbConn, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, TransactionTrait, ConnectionTrait};
+use sea_orm::{DbConn, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, ConnectionTrait};
 use std::collections::{HashMap, HashSet};
 
 /// 递归获取指定部门及其所有子部门的ID列表
@@ -335,6 +336,42 @@ async fn fill_assignee_and_creator_names(
     let customer_ids: Vec<i64> = list.iter().map(|c| c.id).collect();
     let tag_map = batch_query_customer_tags(db, &customer_ids).await?;
 
+    // 批量统计商机数量
+    let mut opportunity_count_map: HashMap<i64, i64> = HashMap::new();
+    if !customer_ids.is_empty() {
+        let opp_rows = Opportunity::find()
+            .select_only()
+            .column(opportunity::Column::CustomerId)
+            .column_as(opportunity::Column::Id.count(), "cnt")
+            .filter(opportunity::Column::CustomerId.is_in(customer_ids.clone()))
+            .filter(opportunity::Column::Deleted.eq(0))
+            .group_by(opportunity::Column::CustomerId)
+            .into_tuple::<(i64, i64)>()
+            .all(db)
+            .await?;
+        for (cid, cnt) in opp_rows {
+            opportunity_count_map.insert(cid, cnt);
+        }
+    }
+
+    // 批量统计联系人数量
+    let mut contact_count_map: HashMap<i64, i64> = HashMap::new();
+    if !customer_ids.is_empty() {
+        let contact_rows = Contact::find()
+            .select_only()
+            .column(contact::Column::CustomerId)
+            .column_as(contact::Column::Id.count(), "cnt")
+            .filter(contact::Column::CustomerId.is_in(customer_ids.clone()))
+            .filter(contact::Column::Deleted.eq(0))
+            .group_by(contact::Column::CustomerId)
+            .into_tuple::<(i64, i64)>()
+            .all(db)
+            .await?;
+        for (cid, cnt) in contact_rows {
+            contact_count_map.insert(cid, cnt);
+        }
+    }
+
     let data: Vec<CustomerListVO> = list.into_iter().map(|item| {
         let assignee_id = item.assigned_to;
         let creator_id = item.created_by;
@@ -343,6 +380,8 @@ async fn fill_assignee_and_creator_names(
         vo.assignee_name = assignee_id.and_then(|id| user_map.get(&id).cloned());
         vo.created_by_name = creator_id.and_then(|id| user_map.get(&id).cloned());
         vo.tags = tag_map.get(&cid).cloned();
+        vo.opportunity_count = opportunity_count_map.get(&cid).copied();
+        vo.contact_count = contact_count_map.get(&cid).copied();
         vo
     }).collect();
 

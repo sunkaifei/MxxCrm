@@ -6,12 +6,11 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { h } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideFilePenLine } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Modal, Tag, message } from 'ant-design-vue';
-import { Power, RefreshCw, Trash2 } from 'lucide-vue-next';
-import { useRoute, useRouter } from 'vue-router';
+import { Button, Modal, Tag, Tooltip, message } from 'ant-design-vue';
+import { RefreshCw } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -21,7 +20,6 @@ import {
 } from '#/api';
 import { $t } from '#/locales';
 
-const route = useRoute();
 const router = useRouter();
 
 const businessTypeMap: Record<string, { label: string; color: string }> = {
@@ -119,6 +117,12 @@ const gridOptions: VxeGridProps = {
       minWidth: 200,
     },
     {
+      title: '类型',
+      field: 'isSystem',
+      width: 100,
+      slots: { default: 'isSystem' },
+    },
+    {
       title: '状态',
       field: 'enabled',
       width: 100,
@@ -135,7 +139,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 160,
+      width: 210,
     },
   ],
 };
@@ -205,6 +209,11 @@ async function handleDelete(row: any) {
         </Tag>
       </template>
 
+      <template #isSystem="{ row }">
+        <Tag v-if="row.isSystem === 1" color="blue">系统内置</Tag>
+        <Tag v-else color="default">自定义</Tag>
+      </template>
+
       <template #enabled="{ row }">
         <Tag :color="row.enabled ? 'green' : 'red'">
           {{ row.enabled ? '启用' : '禁用' }}
@@ -212,26 +221,28 @@ async function handleDelete(row: any) {
       </template>
 
       <template #action="{ row }">
+        <Button type="link" @click="goDesigner(row.id)">设计</Button>
         <Button
           type="link"
-          :icon="h(LucideFilePenLine, { size: 14 })"
-          title="设计"
-          @click="goDesigner(row.id)"
-        />
-        <Button
-          type="link"
-          :icon="h(Power, { size: 14 })"
           :loading="row.pending"
-          :title="row.enabled ? '禁用' : '启用'"
           @click="handleToggle(row)"
-        />
+        >
+          {{ row.enabled ? '禁用' : '启用' }}
+        </Button>
+        <Tooltip
+          v-if="row.isSystem === 1"
+          title="系统内置审批流不可删除，如需停用请使用禁用功能"
+        >
+          <Button type="link" danger disabled>删除</Button>
+        </Tooltip>
         <Button
+          v-else
           type="link"
           danger
-          :icon="h(Trash2, { size: 14 })"
-          title="删除"
           @click="handleDelete(row)"
-        />
+        >
+          删除
+        </Button>
       </template>
     </Grid>
   </Page>

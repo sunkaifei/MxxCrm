@@ -9,9 +9,9 @@
 //!
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal};
+use std::collections::HashSet;
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
-use crate::core::r#enum::industry_enum::IndustryType;
 use crate::core::r#enum::lead_source_enum::LeadSource;
 use crate::modules::crm::entity::{lead, lead::Entity as Lead};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
@@ -41,7 +41,7 @@ pub struct LeadSaveRequest {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<String>,
+    pub industry: Option<i32>,
     /// 线索来源
     pub source: Option<String>,
     /// 来源详情
@@ -78,7 +78,7 @@ impl From<LeadSaveRequest> for LeadSaveDTO {
             region: item.region,
             address: item.address,
             website: item.website,
-            industry: item.industry.map(|i| i.to_string()),
+            industry: item.industry,
             source: item.source.map(|s| s.to_string()),
             source_detail: item.source_detail,
             status: item.status,
@@ -128,7 +128,7 @@ pub struct LeadUpdateRequest {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<String>,
+    pub industry: Option<i32>,
     /// 线索来源
     pub source: Option<String>,
     /// 来源详情
@@ -214,7 +214,7 @@ pub struct LeadSaveDTO {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<String>,
+    pub industry: Option<i32>,
     /// 线索来源
     pub source: Option<String>,
     /// 来源详情
@@ -279,7 +279,7 @@ pub struct LeadDetailVO {
     /// 公司官网
     pub website: Option<String>,
     /// 所属行业
-    pub industry: Option<String>,
+    pub industry: Option<i32>,
     /// 线索来源
     pub source: Option<String>,
     /// 来源详情
@@ -322,7 +322,7 @@ impl From<lead::Model> for LeadDetailVO {
             region: item.region,
             address: item.address,
             website: item.website,
-            industry: item.industry.map(|i| i.to_string()),
+            industry: item.industry,
             source: item.source.map(|s| s.to_string()),
             source_detail: item.source_detail,
             status: item.status,
@@ -371,6 +371,10 @@ pub struct LeadListVO {
     pub level: Option<i32>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 负责人名称
+    pub assignee: Option<String>,
+    /// 行业
+    pub industry: Option<i32>,
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建人名称
@@ -394,9 +398,11 @@ impl From<lead::Model> for LeadListVO {
             country: item.country,
             region: item.region,
             source: item.source.map(|s| s.to_string()),
+            industry: item.industry,
             status: item.status,
             level: item.level,
             assigned_to: item.assigned_to,
+            assignee: None,
             created_by: item.created_by,
             created_by_name: None,
             create_time: item.create_time,
@@ -424,6 +430,8 @@ pub struct LeadListQuery {
     pub source: Option<String>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 列表类型：my=我的线索, subordinate=下属线索, todayFollow=今日跟进线索
+    pub list_type: Option<String>,
 }
 
 /// 线索状态更新参数
@@ -461,7 +469,7 @@ impl LeadModel {
             region: Set(req.region.clone()),
             address: Set(req.address.clone()),
             website: Set(req.website.clone()),
-            industry: Set(req.industry.clone().and_then(|s| IndustryType::from_str(&s))),
+            industry: Set(req.industry),
             source: Set(req.source.clone().and_then(|s| LeadSource::from_str(&s))),
             source_detail: Set(req.source_detail.clone()),
             status: Set(req.status.clone()),
@@ -515,36 +523,42 @@ impl LeadModel {
     /// # 返回
     /// * `Result<i64, DbErr>` - 更新的记录数
     pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &LeadSaveDTO) -> Result<i64, DbErr> {
-        let payload = lead::ActiveModel {
-            company_name: Set(req.company_name.clone()),
-            contact_name: Set(req.contact_name.clone()),
-            title: Set(req.title.clone()),
-            email: Set(req.email.clone()),
-            phone: Set(req.phone.clone()),
-            mobile: Set(req.mobile.clone()),
-            country: Set(req.country.clone()),
-            region: Set(req.region.clone()),
-            address: Set(req.address.clone()),
-            website: Set(req.website.clone()),
-            industry: Set(req.industry.clone().and_then(|s| IndustryType::from_str(&s))),
-            source: Set(req.source.clone().and_then(|s| LeadSource::from_str(&s))),
-            source_detail: Set(req.source_detail.clone()),
-            status: Set(req.status.clone()),
-            level: Set(req.level.clone()),
-            budget: Set(req.budget.clone()),
-            currency: Set(req.currency.clone()),
-            next_follow_at: Set(req.next_follow_at.clone()),
-            assigned_to: Set(req.assigned_to.clone()),
-            description: Set(req.description.clone()),
-            custom_fields: Set(req.custom_fields.clone()),
-            updated_by: Set(req.updated_by.clone()),
-            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
-            ..Default::default()
-        };
+        let existing = Lead::find_by_id(id.unwrap_or_default())
+            .filter(lead::Column::Deleted.eq(0))
+            .one(db)
+            .await?
+            .ok_or_else(|| DbErr::Custom("线索不存在".to_string()))?;
+
+        let mut active: lead::ActiveModel = existing.into();
+
+        if let Some(v) = &req.company_name { active.company_name = Set(Some(v.clone())); }
+        if let Some(v) = &req.contact_name { active.contact_name = Set(Some(v.clone())); }
+        if let Some(v) = &req.title { active.title = Set(Some(v.clone())); }
+        if let Some(v) = &req.email { active.email = Set(Some(v.clone())); }
+        if let Some(v) = &req.phone { active.phone = Set(Some(v.clone())); }
+        if let Some(v) = &req.mobile { active.mobile = Set(Some(v.clone())); }
+        if let Some(v) = &req.country { active.country = Set(Some(v.clone())); }
+        if let Some(v) = &req.region { active.region = Set(Some(v.clone())); }
+        if let Some(v) = &req.address { active.address = Set(Some(v.clone())); }
+        if let Some(v) = &req.website { active.website = Set(Some(v.clone())); }
+        if let Some(v) = &req.industry { active.industry = Set(Some(*v)); }
+        if let Some(v) = &req.source { active.source = Set(LeadSource::from_str(v)); }
+        if let Some(v) = &req.source_detail { active.source_detail = Set(Some(v.clone())); }
+        if let Some(v) = &req.status { active.status = Set(Some(*v)); }
+        if let Some(v) = &req.level { active.level = Set(Some(*v)); }
+        if let Some(v) = &req.budget { active.budget = Set(Some(*v)); }
+        if let Some(v) = &req.currency { active.currency = Set(Some(*v)); }
+        if let Some(v) = &req.next_follow_at { active.next_follow_at = Set(Some(*v)); }
+        if let Some(v) = &req.assigned_to { active.assigned_to = Set(Some(*v)); }
+        if let Some(v) = &req.description { active.description = Set(Some(v.clone())); }
+        if let Some(v) = &req.custom_fields { active.custom_fields = Set(Some(v.clone())); }
+
+        active.updated_by = Set(req.updated_by);
+        active.update_time = Set(Option::from(chrono::Local::now().naive_local().to_owned()));
 
         let update_result: UpdateResult = Lead::update_many()
-            .set(payload)
-            .filter(lead::Column::Id.eq(id.clone().unwrap_or_default()))
+            .set(active)
+            .filter(lead::Column::Id.eq(id.unwrap_or_default()))
             .exec(db)
             .await?;
 
@@ -602,9 +616,6 @@ impl LeadModel {
             if s == 8 {
                 query = query.filter(lead::Column::ConvertedToCustomerId.is_null());
             }
-        } else {
-            // 未指定状态时，排除已加入线索池（Valid=8）和已转客户（Converted=3）的线索
-            query = query.filter(lead::Column::Status.is_not_in([8, 3]));
         }
         if let Some(l) = level {
             query = query.filter(lead::Column::Level.eq(l));
@@ -620,6 +631,155 @@ impl LeadModel {
         let num_pages = paginator.num_pages().await? as i64;
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+    }
+
+    /// 分页查询公海线索（未领取，assigned_to IS NULL）
+    pub async fn select_pool_page(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        level: Option<String>,
+        source: Option<String>,
+    ) -> Result<(Vec<lead::Model>, i64), DbErr> {
+        let mut query = Lead::find()
+            .filter(lead::Column::Deleted.eq(0))
+            .filter(lead::Column::AssignedTo.is_null());
+
+        if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::CompanyName.contains(k));
+        }
+        if let Some(l) = level {
+            query = query.filter(lead::Column::Level.eq(l));
+        }
+        if let Some(s) = source {
+            query = query.filter(lead::Column::Source.eq(s));
+        }
+
+        let paginator = query.order_by_desc(lead::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        let rows = paginator.fetch_page((page - 1) as u64).await?;
+        Ok((rows, total))
+    }
+
+    /// 按负责人ID列表分页查询线索（用于"下属线索"）
+    pub async fn select_in_page_by_assigned_ids(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        status: Option<i32>,
+        level: Option<String>,
+        source: Option<String>,
+        assigned_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<lead::Model>, i64), DbErr> {
+        let mut query = Lead::find()
+            .filter(lead::Column::Deleted.eq(0));
+
+        if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::CompanyName.contains(k));
+        }
+        if let Some(s) = status {
+            query = query.filter(lead::Column::Status.eq(s));
+            // 线索池查询（Valid=8）时，排除已领取转客户的线索
+            if s == 8 {
+                query = query.filter(lead::Column::ConvertedToCustomerId.is_null());
+            }
+        } else {
+            // 未指定状态时，排除已加入线索池（Valid=8）和已转客户（Converted=3）的线索
+            query = query.filter(lead::Column::Status.is_not_in([8, 3]));
+        }
+        if let Some(l) = level {
+            query = query.filter(lead::Column::Level.eq(l));
+        }
+        if let Some(s) = source {
+            query = query.filter(lead::Column::Source.eq(s));
+        }
+        if let Some(ids) = assigned_ids {
+            if ids.is_empty() {
+                // 没有可查看的用户，返回空结果
+                return Ok((vec![], 0));
+            }
+            query = query.filter(lead::Column::AssignedTo.is_in(ids));
+        }
+
+        let paginator = query.order_by_desc(lead::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        let rows = paginator.fetch_page((page - 1) as u64).await?;
+        Ok((rows, total))
+    }
+
+    /// 查询今日跟进线索（关联 followup 表，按创建人和创建时间过滤）
+    /// user_ids: None 表示不过滤（全部数据权限），Some(vec) 表示按用户ID过滤
+    pub async fn select_today_follow_page(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        status: Option<i32>,
+        level: Option<String>,
+        source: Option<String>,
+        user_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<lead::Model>, i64), DbErr> {
+        use crate::modules::crm::entity::followup;
+
+        let today = chrono::Local::now().naive_local().date();
+        let today_start = chrono::NaiveDateTime::new(today, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+        let today_end = chrono::NaiveDateTime::new(today, chrono::NaiveTime::from_hms_opt(23, 59, 59).unwrap());
+
+        // 子查询：今日有跟进记录的线索ID列表
+        let mut fq = followup::Entity::find()
+            .filter(followup::Column::Deleted.eq(0))
+            .filter(followup::Column::LeadId.is_not_null())
+            .filter(followup::Column::CreateTime.gte(today_start))
+            .filter(followup::Column::CreateTime.lte(today_end));
+
+        if let Some(ref ids) = user_ids {
+            if ids.is_empty() {
+                return Ok((vec![], 0));
+            }
+            fq = fq.filter(followup::Column::CreatedBy.is_in(ids.clone()));
+        }
+
+        let followup_lead_ids = fq
+            .all(db)
+            .await?
+            .into_iter()
+            .filter_map(|f| f.lead_id)
+            .collect::<HashSet<i64>>()
+            .into_iter()
+            .collect::<Vec<i64>>();
+
+        if followup_lead_ids.is_empty() {
+            return Ok((vec![], 0));
+        }
+
+        let mut query = Lead::find()
+            .filter(lead::Column::Deleted.eq(0))
+            .filter(lead::Column::Id.is_in(followup_lead_ids));
+
+        if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::CompanyName.contains(k));
+        }
+        if let Some(s) = status {
+            query = query.filter(lead::Column::Status.eq(s));
+            if s == 8 {
+                query = query.filter(lead::Column::ConvertedToCustomerId.is_null());
+            }
+        } else {
+            query = query.filter(lead::Column::Status.is_not_in([8, 3]));
+        }
+        if let Some(l) = level {
+            query = query.filter(lead::Column::Level.eq(l));
+        }
+        if let Some(s) = source {
+            query = query.filter(lead::Column::Source.eq(s));
+        }
+
+        let paginator = query.order_by_desc(lead::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        let rows = paginator.fetch_page((page - 1) as u64).await?;
+        Ok((rows, total))
     }
 
     pub async fn update_status(db: &DbConn, id: i64, status: i32, updated_by: Option<i64>) -> Result<i64, DbErr> {

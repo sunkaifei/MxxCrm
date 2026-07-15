@@ -7,13 +7,13 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Form, Input, Modal, Row, Col, Select, Tag, message } from 'ant-design-vue';
+import { Button, Form, Input, Modal, Row, Col, Select, Tag, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getCustomerPoolListApi, claimCustomerApi } from '#/api';
 import { $t } from '#/locales';
 import CustomerDrawer from '../customer/drawer.vue';
-import CustomerDetail from '../customer/detail.vue';
+import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 
 const accessStore = useAccessStore();
 
@@ -293,9 +293,7 @@ async function handleClaim(row: any) {
     </Grid>
     <FormDrawer />
 
-    <Drawer v-model:open="detailVisible" :width="1000" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="客户详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
-      <CustomerDetail v-if="detailId" :id="detailId" @edit="handleDetailEdit" />
-    </Drawer>
+    <CustomerDetailDrawer v-model:visible="detailVisible" :id="detailId" @edit="handleDetailEdit" />
   </Page>
 </template>
 

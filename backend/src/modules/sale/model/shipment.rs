@@ -15,8 +15,9 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Date};
 use sea_orm::sea_query::Expr;
+use sea_orm::QuerySelect;
 use crate::core::kit::global::{Deserialize, Serialize};
-use crate::modules::sale::entity::{shipment, shipment::Entity as SaleShipment, shipment_item, shipment_item::Entity as SaleShipmentItem, order_item};
+use crate::modules::sale::entity::{order, shipment, shipment::Entity as SaleShipment, shipment_item, shipment_item::Entity as SaleShipmentItem, order_item};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 use rust_decimal::Decimal;
 
@@ -72,6 +73,8 @@ pub struct ShipmentListQuery {
     pub order_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub customer_id: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
+    pub contract_id: Option<i64>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
 }
@@ -422,6 +425,7 @@ impl ShipmentModel {
         status: Option<i32>,
         order_id: Option<i64>,
         customer_id: Option<i64>,
+        contract_id: Option<i64>,
         start_date: Option<String>,
         end_date: Option<String>,
     ) -> Result<(Vec<shipment::Model>, i64), DbErr> {
@@ -446,6 +450,26 @@ impl ShipmentModel {
         }
         if let Some(c) = customer_id {
             query = query.filter(shipment::Column::CustomerId.eq(c));
+        }
+        if let Some(cid) = contract_id {
+            // 通过关联订单(contract_id)过滤该合同下的发货单
+            let order_ids: Vec<i64> = order::Entity::find()
+                .select_only()
+                .column(order::Column::Id)
+                .filter(order::Column::ContractId.eq(cid))
+                .filter(order::Column::Deleted.eq(0))
+                .into_tuple::<Option<i64>>()
+                .all(db)
+                .await?
+                .into_iter()
+                .flatten()
+                .collect();
+            if order_ids.is_empty() {
+                // 该合同无关联订单，直接返回空结果
+                query = query.filter(shipment::Column::OrderId.eq(-1));
+            } else {
+                query = query.filter(shipment::Column::OrderId.is_in(order_ids));
+            }
         }
         if let Some(sd) = start_date {
             query = query.filter(shipment::Column::ShipmentDate.gte(sd));

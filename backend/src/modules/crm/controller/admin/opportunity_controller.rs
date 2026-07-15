@@ -97,3 +97,23 @@ pub async fn opportunity_list(state: web::Data<AppState>, query: web::Query<Oppo
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
+
+#[post("/opportunity/convert_to_quotation")]
+#[protect("crm:opportunity:update")]
+pub async fn opportunity_convert_to_quotation(state: web::Data<AppState>, req: HttpRequest, item: web::Json<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let item = item.0;
+
+    if item.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = jwt_token.id.unwrap_or_default();
+    let opp_id = item.id.unwrap();
+
+    match opportunity_service::convert_to_quotation(&db, opp_id, user_id).await {
+        Ok(quotation_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(quotation_id, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}

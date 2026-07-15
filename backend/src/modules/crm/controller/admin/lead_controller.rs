@@ -92,11 +92,14 @@ pub async fn lead_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> 
 
 #[get("/lead/list")]
 #[protect("crm:lead:list")]
-pub async fn lead_list(state: web::Data<AppState>, query: web::Query<LeadListQuery>) -> HttpResponse {
+pub async fn lead_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<LeadListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
 
-    match lead_service::list(&db, &query).await {
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+
+    match lead_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -108,11 +111,14 @@ pub async fn lead_list(state: web::Data<AppState>, query: web::Query<LeadListQue
 
 #[get("/lead-pool/list")]
 #[protect("crm:lead-pool:list")]
-pub async fn lead_pool_list(state: web::Data<AppState>, query: web::Query<LeadListQuery>) -> HttpResponse {
+pub async fn lead_pool_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<LeadListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
 
-    match lead_service::list(&db, &query).await {
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+
+    match lead_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;

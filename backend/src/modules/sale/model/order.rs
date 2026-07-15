@@ -15,6 +15,7 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::modules::approval::model::approval::ApprovalInstanceVO;
 use crate::modules::sale::entity::{order, order::Entity as SaleOrder, order_item, order_item::Entity as SaleOrderItem, shipment};
 use crate::modules::sale::model::shipment::ShipmentListVO;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
@@ -171,6 +172,10 @@ pub struct OrderSaveDTO {
     pub remark: Option<String>,
     pub owner_user_id: Option<i64>,
     pub dept_id: Option<i64>,
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     pub create_by: Option<i64>,
     pub update_by: Option<i64>,
 }
@@ -224,6 +229,10 @@ pub struct OrderListVO {
     pub payment_status: Option<i32>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub owner_user_id: Option<i64>,
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     pub create_time: Option<DateTime>,
 }
 
@@ -282,8 +291,26 @@ pub struct OrderDetailVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub update_by: Option<i64>,
     pub update_time: Option<DateTime>,
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     pub items: Vec<OrderItemVO>,
     pub shipments: Vec<ShipmentListVO>,
+}
+
+/// 订单审批详情VO
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderApprovalDetailVO {
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub order_id: Option<i64>,
+    pub order_no: Option<String>,
+    pub title: Option<String>,
+    pub customer_name: Option<String>,
+    pub total_amount: Option<Decimal>,
+    pub approval_status: Option<i32>,
+    pub instance: Option<ApprovalInstanceVO>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -360,6 +387,8 @@ impl From<OrderSaveRequest> for OrderSaveDTO {
             remark: req.remark,
             owner_user_id: req.owner_user_id,
             dept_id: req.dept_id,
+            approval_status: None,
+            instance_id: None,
             create_by: None,
             update_by: None,
         }
@@ -406,6 +435,8 @@ impl From<OrderUpdateRequest> for OrderSaveDTO {
             remark: req.remark,
             owner_user_id: req.owner_user_id,
             dept_id: req.dept_id,
+            approval_status: None,
+            instance_id: None,
             create_by: None,
             update_by: None,
         }
@@ -429,6 +460,8 @@ impl From<&order::Model> for OrderListVO {
             unpaid_amount: model.unpaid_amount,
             payment_status: model.pay_status,
             owner_user_id: model.owner_user_id,
+            approval_status: model.approval_status,
+            instance_id: model.instance_id,
             create_time: model.create_time,
         }
     }
@@ -476,6 +509,8 @@ impl From<(&order::Model, Vec<order_item::Model>, Vec<shipment::Model>)> for Ord
             remark: model.remark.clone(),
             owner_user_id: model.owner_user_id,
             dept_id: model.dept_id,
+            approval_status: model.approval_status,
+            instance_id: model.instance_id,
             create_by: model.create_by,
             create_time: model.create_time,
             update_by: model.update_by,

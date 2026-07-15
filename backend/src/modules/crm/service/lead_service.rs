@@ -1,4 +1,4 @@
-﻿//!
+//!
 //! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
 //!
 //! https://www.mxxshop.com
@@ -12,6 +12,9 @@ use crate::core::web::response::ResultPage;
 use crate::modules::crm::model::customer::{CustomerModel, CustomerSaveDTO};
 use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadModel, LeadSaveDTO, LeadSaveRequest, LeadUpdateRequest};
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
+use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
+use crate::modules::system::model::dept::DeptModel;
+use crate::modules::system::service::role_service;
 use sea_orm::{DbConn, DbErr, TransactionTrait, ColumnTrait, EntityTrait, QueryFilter};
 use std::collections::{HashMap, HashSet};
 
@@ -78,24 +81,79 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<LeadDetailVO> {
     }
 }
 
-pub async fn list(db: &DbConn, query: &LeadListQuery) -> Result<ResultPage<Vec<LeadListVO>>> {
+pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> Result<ResultPage<Vec<LeadListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
 
-    let (list, total) = LeadModel::select_in_page(
-        &db,
-        page,
-        page_size,
-        query.keywords.clone(),
-        query.status.clone(),
-        query.level.clone(),
-        query.source.clone(),
-        query.assigned_to,
-    ).await?;
+    let list_type = query.list_type.as_deref().unwrap_or("my");
 
-    // 收集所有 created_by 的 id，批量查询 admin 用户名
+    let (list, total) = match list_type {
+        "subordinate" => {
+            // 下属线索：显示用户 data_scope 范围内的其他人的线索（排除自己）
+            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+            let data_scope = roles.iter().filter_map(|r| r.data_scope).min();
+
+            if data_scope == Some(5) {
+                // 仅本人数据权限的人，无法看到下属线索
+                return Ok(ResultPage::new(Vec::<LeadListVO>::new(), 0, page, page_size));
+            }
+
+            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|id| *id != current_user_id)
+                .collect::<Vec<_>>();
+
+            let assigned_ids = if user_ids.is_empty() { None } else { Some(user_ids) };
+            LeadModel::select_in_page_by_assigned_ids(
+                &db, page, page_size,
+                query.keywords.clone(), query.status, query.level.clone(), query.source.clone(),
+                assigned_ids,
+            ).await?
+        }
+        "pool" => {
+            // 公海线索：显示未领取（assigned_to IS NULL）的线索
+            LeadModel::select_pool_page(
+                &db, page, page_size,
+                query.keywords.clone(), query.level.clone(), query.source.clone(),
+            ).await?
+        }
+        "todayFollow" => {
+            // 今日跟进线索：关联 followup 表过滤
+            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+            let data_scope = roles.iter().filter_map(|r| r.data_scope).min();
+            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
+
+            LeadModel::select_today_follow_page(
+                &db, page, page_size,
+                query.keywords.clone(), query.status, query.level.clone(), query.source.clone(),
+                user_ids,
+            ).await?
+        }
+        _ => {
+            // my（默认）：只看自己负责的线索
+            LeadModel::select_in_page(
+                &db,
+                page,
+                page_size,
+                query.keywords.clone(),
+                query.status,
+                query.level.clone(),
+                query.source.clone(),
+                Some(current_user_id),
+            ).await?
+        }
+    };
+
+    // 收集所有 created_by 和 assigned_to 的 id，批量查询 admin 用户名
     let creator_ids: Vec<i64> = list.iter()
         .filter_map(|item| item.created_by)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    let assignee_ids: Vec<i64> = list.iter()
+        .filter_map(|item| item.assigned_to)
         .collect::<HashSet<_>>()
         .into_iter()
         .collect();
@@ -113,15 +171,137 @@ pub async fn list(db: &DbConn, query: &LeadListQuery) -> Result<ResultPage<Vec<L
         }
     }
 
+    let mut assignee_map: HashMap<i64, String> = HashMap::new();
+    if !assignee_ids.is_empty() {
+        let admins = Admin::find()
+            .filter(admin::Column::Id.is_in(assignee_ids))
+            .all(db)
+            .await?;
+        for a in admins {
+            if let Some(name) = a.user_name {
+                assignee_map.insert(a.id, name);
+            }
+        }
+    }
+
     let data: Vec<LeadListVO> = list.into_iter().map(|item| {
         let created_by = item.created_by;
         let created_by_name = created_by.and_then(|id| creator_map.get(&id).cloned());
+        let assigned_to = item.assigned_to;
+        let assignee = assigned_to.and_then(|id| assignee_map.get(&id).cloned());
         let mut vo: LeadListVO = item.into();
         vo.created_by_name = created_by_name;
+        vo.assignee = assignee;
         vo
     }).collect();
 
     Ok(ResultPage::new(data, total, page, page_size))
+}
+
+/// 根据当前用户的数据权限，计算可见的用户ID列表
+/// 返回 None 表示全部数据（不限制负责人）；Some(vec) 表示仅这些用户的数据
+async fn get_accessible_user_ids(
+    db: &DbConn,
+    current_user_id: i64,
+    data_scope: Option<i32>,
+) -> Result<Option<Vec<i64>>> {
+    match data_scope {
+        Some(1) => {
+            // 全部数据 - 不限制
+            Ok(None)
+        }
+        Some(5) => {
+            // 仅本人数据
+            Ok(Some(vec![current_user_id]))
+        }
+        Some(3) | Some(4) | Some(2) => {
+            // 获取用户的部门
+            let user_depts = AdminDeptMergeModel::find_by_admin_id(db, current_user_id).await
+                .map_err(|e| Error::from(format!("查询用户部门失败: {}", e)))?;
+
+            let mut target_dept_ids = Vec::new();
+
+            if data_scope == Some(2) {
+                // 自定义数据权限 - 查询角色关联的部门
+                let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+                for role in roles {
+                    if role.data_scope == Some(2) {
+                        if let Some(role_id) = role.id {
+                            let dept_result = crate::modules::system::model::role_dept_merge::RoleDeptMergeModel::find_by_role_id(db, &Some(role_id)).await
+                                .map_err(|e| Error::from(format!("查询角色部门关联失败: {}", e)))?;
+                            for merge in dept_result {
+                                if let Some(dept_id) = merge.dept_id {
+                                    target_dept_ids.push(dept_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // data_scope = 3 或 4：基于用户所在部门
+                for merge in &user_depts {
+                    if let Some(dept_id) = merge.dept_id {
+                        target_dept_ids.push(dept_id);
+                    }
+                }
+            }
+
+            if target_dept_ids.is_empty() {
+                return Ok(Some(vec![current_user_id]));
+            }
+
+            let all_depts = DeptModel::find_all(db).await
+                .map_err(|e| Error::from(format!("查询部门列表失败: {}", e)))?;
+
+            // 收集所有目标部门ID（含子部门）
+            let mut all_target_ids = Vec::new();
+            for dept_id in &target_dept_ids {
+                if data_scope == Some(4) || data_scope == Some(2) {
+                    // 本部门及以下 / 自定义：包含子部门
+                    all_target_ids.extend(collect_child_dept_ids(&all_depts, *dept_id));
+                } else {
+                    // data_scope = 3：仅本部门
+                    all_target_ids.push(*dept_id);
+                }
+            }
+
+            // 去重
+            all_target_ids.sort();
+            all_target_ids.dedup();
+
+            // 查询这些部门下的所有用户
+            let dept_merges = AdminDeptMergeModel::find_by_dept_id(db, all_target_ids).await
+                .map_err(|e| Error::from(format!("查询部门用户失败: {}", e)))?;
+
+            let mut user_ids: Vec<i64> = dept_merges.iter()
+                .filter_map(|m| m.admin_id)
+                .collect();
+            user_ids.sort();
+            user_ids.dedup();
+
+            if user_ids.is_empty() {
+                Ok(Some(vec![current_user_id]))
+            } else {
+                Ok(Some(user_ids))
+            }
+        }
+        _ => {
+            // 默认仅本人
+            Ok(Some(vec![current_user_id]))
+        }
+    }
+}
+
+/// 递归收集部门下的所有子部门ID（含自身）
+fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {
+    let mut ids = Vec::new();
+    for dept in all_depts {
+        if dept.parent_id == Some(parent_id) {
+            ids.push(dept.id);
+            ids.extend(collect_child_dept_ids(all_depts, dept.id));
+        }
+    }
+    ids
 }
 
 pub async fn update_status(db: &DbConn, id: i64, status: i32, updated_by: Option<i64>) -> Result<i64> {
@@ -168,7 +348,7 @@ pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64> {
         region: lead.region.clone(),
         address: lead.address.clone(),
         website: lead.website.clone(),
-        industry: lead.industry.clone().map(|i| i.to_i32()),
+        industry: lead.industry,
         level: lead.level,
         source: lead.source.clone().map(|s| s.to_i32()),
         currency: lead.currency.clone(),

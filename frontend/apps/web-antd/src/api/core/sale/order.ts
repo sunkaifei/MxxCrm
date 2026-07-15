@@ -18,3 +18,25 @@ export const deleteOrderApi = async (ids: number[]) => {
 export const updateOrderStatusApi = async (param: { id: number | string; orderStatus: number; trackingNo?: string }) => {
   return requestClient.put('/api/system/sale/order/updateStatus', param);
 };
+
+// ========== 订单审批 ==========
+
+export const submitOrderApi = async (orderId: number) => {
+  return requestClient.post('/api/system/sale/order/submit', { id: orderId });
+};
+
+export const approveOrderApi = async (orderId: number, reason?: string) => {
+  return requestClient.post('/api/system/sale/order/approve', { orderId, reason });
+};
+
+export const rejectOrderApi = async (orderId: number, reason?: string) => {
+  return requestClient.post('/api/system/sale/order/reject', { orderId, reason });
+};
+
+export const getOrderApprovalDetailApi = async (orderId: number) => {
+  return requestClient.get(`/api/system/sale/order/approval-detail/${orderId}`);
+};
+
+export const createContractFromOrderApi = async (orderId: number) => {
+  return requestClient.post('/api/system/sale/order/create-contract', { id: orderId });
+};

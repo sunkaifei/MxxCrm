@@ -1,15 +1,14 @@
 <script lang="ts" setup>
-import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { LucideSearch, LucidePlus, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Drawer, Modal, Tabs, Tag, message } from 'ant-design-vue';
+import { Button, Card, Col, Drawer, Form, Input, Modal, Popconfirm, Row, Select, Tabs, Tag, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteLeadApi, getLeadListApi, addLeadToPoolApi } from '#/api';
@@ -20,14 +19,36 @@ import LeadFollowupDrawer from './followup-drawer.vue';
 
 const accessStore = useAccessStore();
 
-const statusTabs = [
-  { key: 0, label: '全部' },
-  { key: 6, label: '未审查' },
-  { key: 7, label: '审查中' },
-  { key: 4, label: '无效线索' },
+// 列表类型选项卡：我的线索 / 下属线索 / 今日跟进线索
+const activeTab = ref('my');
+const tabList = [
+  { key: 'my', label: '我的线索' },
+  { key: 'subordinate', label: '下属线索' },
+  { key: 'todayFollow', label: '今日跟进线索' },
 ];
 
-const activeTab = ref(0);
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
+
+// 搜索表单
+const searchForm = ref({
+  companyName: '',
+  source: undefined as string | undefined,
+});
+
+function handleSearch() {
+  gridApi.query();
+}
+
+function handleReset() {
+  searchForm.value = {
+    companyName: '',
+    source: undefined,
+  };
+  gridApi.query();
+}
 
 const sourceLabelMap: Record<string, string> = {
   website: '官网', exhibition: '展会', social: '社交媒体', referral: '客户转介',
@@ -35,9 +56,14 @@ const sourceLabelMap: Record<string, string> = {
   amazon: 'Amazon', tiktok: 'TikTok', wechat: '微信', other: '其他',
 };
 
-const industryLabelMap: Record<string, string> = {
-  retail: '零售', wholesale: '批发', manufacturer: '制造', trade_agent: '贸易代理',
-  ecommerce: '电商', wechat_business: '微商', social: '社交电商', other: '其他',
+const industryLabelMap: Record<number, string> = {
+  1: '零售', 2: '批发', 3: '制造', 4: '贸易代理',
+  5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
+};
+
+const statusLabelMap: Record<number, string> = {
+  1: '新客', 2: '跟进中', 3: '已成交', 4: '无效线索',
+  5: '已回收', 6: '未核查', 7: '核查中', 8: '有效线索',
 };
 
 const detailVisible = ref(false);
@@ -63,43 +89,6 @@ function openFollowup(row: any) {
 }
 function closeFollowup() { followupVisible.value = false; followupId.value = null; }
 
-const formOptions: VbenFormProps = {
-  collapsed: false,
-  showCollapseButton: false,
-  submitOnEnter: true,
-  schema: [
-    {
-      component: 'Input',
-      fieldName: 'companyName',
-      label: '公司名称',
-      componentProps: { placeholder: '输入公司名称搜索', allowClear: true },
-    },
-    {
-      component: 'Select',
-      fieldName: 'source',
-      label: '来源',
-      componentProps: {
-        placeholder: '全部',
-        allowClear: true,
-        options: [
-          { label: '官网', value: 'website' },
-          { label: '展会', value: 'exhibition' },
-          { label: '社交媒体', value: 'social' },
-          { label: '客户转介', value: 'referral' },
-          { label: '陌生拜访', value: 'cold_call' },
-          { label: '海关数据', value: 'customs' },
-          { label: '邮件营销', value: 'email' },
-          { label: '阿里国际站', value: 'alibaba' },
-          { label: 'Amazon', value: 'amazon' },
-          { label: 'TikTok', value: 'tiktok' },
-          { label: '微信', value: 'wechat' },
-          { label: '其他', value: 'other' },
-        ],
-      },
-    },
-  ],
-};
-
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   height: 'auto',
@@ -112,12 +101,14 @@ const gridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }, formValues) => {
+      query: async ({ page }) => {
+        const values = searchForm.value;
         return await getLeadListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          status: activeTab.value || undefined,
-          ...formValues,
+          listType: activeTab.value,
+          companyName: values.companyName || undefined,
+          source: values.source,
         });
       },
     },
@@ -129,22 +120,7 @@ const gridOptions: VxeGridProps = {
     { title: '公司名称', field: 'companyName', minWidth: 180, slots: { default: 'companyName' } },
     { title: '所属行业', field: 'industry', width: 100, formatter: ({ cellValue }: any) => industryLabelMap[cellValue] || cellValue || '-' },
     { title: '联系人', field: 'contactName', width: 100 },
-    {
-      title: '状态', field: 'status', width: 90,
-      cellRender: {
-        name: 'Tag',
-        options: [
-          { value: 1, label: '新客', color: 'blue' },
-          { value: 2, label: '跟进中', color: 'cyan' },
-          { value: 3, label: '已成交', color: 'green' },
-          { value: 4, label: '无效线索', color: 'default' },
-          { value: 5, label: '已回收', color: 'orange' },
-          { value: 6, label: '未核查', color: 'blue' },
-          { value: 7, label: '核查中', color: 'cyan' },
-          { value: 8, label: '有效线索', color: 'green' },
-        ],
-      },
-    },
+    { title: '状态', field: 'status', width: 90, formatter: ({ cellValue }: any) => statusLabelMap[cellValue] || cellValue || '-' },
     {
       title: '来源', field: 'source', width: 100,
       formatter: ({ cellValue }: any) => sourceLabelMap[cellValue] || cellValue || '-',
@@ -152,8 +128,6 @@ const gridOptions: VxeGridProps = {
     { title: '邮箱', field: 'email', width: 160 },
     { title: '手机', field: 'mobile', width: 130 },
     { title: '国家', field: 'country', width: 80 },
-    { title: '负责人', field: 'assignee', width: 90 },
-    { title: '录入人', field: 'createdByName', width: 90 },
     {
       title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createTime' }, width: 160,
     },
@@ -163,10 +137,10 @@ const gridOptions: VxeGridProps = {
   ],
 };
 
-const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
 
 const [FormDrawer, drawerApi] = useVbenDrawer({
-    connectedComponent: LeadDrawerComp,
+  connectedComponent: LeadDrawerComp,
   onClosed() { if (drawerApi.getData()?.needRefresh) gridApi.query(); },
 });
 
@@ -203,12 +177,12 @@ async function handleFollow(row: any) {
 
 async function handleAddToPool(row: any) {
   Modal.confirm({
-    title: '加入线索池',
-    content: `确定将线索"${row.companyName}"加入线索池吗？`,
+    title: '退回公海线索',
+    content: `确定将线索"${row.companyName}"退回公海线索吗？`,
     onOk: async () => {
       try {
         await addLeadToPoolApi(row.id);
-        message.success('已加入线索池');
+        message.success('已退回公海线索');
         gridApi.query();
       } catch (e) {
         message.error('操作失败');
@@ -216,26 +190,59 @@ async function handleAddToPool(row: any) {
     },
   });
 }
-
-function handleTabChange(key: number | string) {
-  activeTab.value = Number(key);
-  gridApi.query();
-}
 </script>
 
 <template>
   <Page auto-content-height>
-    <div class="mb-4">
-      <Tabs v-model:activeKey="activeTab" @change="handleTabChange" type="card">
-        <Tabs.TabPane v-for="tab in statusTabs" :key="tab.key" :tab="tab.label" />
+    <Card :bordered="false" class="mb-[15px]">
+      <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="mb-4">
+        <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
       </Tabs>
-    </div>
 
-    <Grid :table-title="$t('page.crm.lead.title')">
+      <Form :model="searchForm" :label-col="{ style: { width: '90px' } }">
+        <Row :gutter="[16, 12]" style="width: 100%">
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="公司名称" name="companyName">
+              <Input v-model:value="searchForm.companyName" placeholder="输入公司名称搜索" allow-clear style="width: 100%" />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="来源" name="source">
+              <Select v-model:value="searchForm.source" placeholder="全部" allow-clear style="width: 100%">
+                <Select.Option value="website">官网</Select.Option>
+                <Select.Option value="exhibition">展会</Select.Option>
+                <Select.Option value="social">社交媒体</Select.Option>
+                <Select.Option value="referral">客户转介</Select.Option>
+                <Select.Option value="cold_call">陌生拜访</Select.Option>
+                <Select.Option value="customs">海关数据</Select.Option>
+                <Select.Option value="email">邮件营销</Select.Option>
+                <Select.Option value="alibaba">阿里国际站</Select.Option>
+                <Select.Option value="amazon">Amazon</Select.Option>
+                <Select.Option value="tiktok">TikTok</Select.Option>
+                <Select.Option value="wechat">微信</Select.Option>
+                <Select.Option value="other">其他</Select.Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <div class="flex flex-wrap items-center gap-2 mt-3" style="margin-left: 90px">
+          <Button type="default" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+          <Button type="default" @click="handleReset">刷新</Button>
+          <Button
+            v-if="accessStore.hasAccessCode('crm:lead:create')"
+            type="primary"
+            :icon="h(LucidePlus)"
+            @click="handleCreate"
+          >
+            新增线索
+          </Button>
+        </div>
+      </Form>
+    </Card>
+
+    <Grid :table-title="$t('page.crm.lead.title')" style="margin-top: 15px">
       <template #toolbar-tools>
-        <Button v-if="accessStore.hasAccessCode('crm:lead:create')" type="primary" class="mr-2" @click="handleCreate">
-          {{ $t('page.crm.lead.button.create') }}
-        </Button>
         <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
@@ -247,10 +254,10 @@ function handleTabChange(key: number | string) {
 
       <template #action="{ row }">
         <Button type="link" @click="() => handleFollow(row)">跟进</Button>
-        <Button v-if="row.status !== 4" type="link" @click="() => handleAddToPool(row)">加入线索池</Button>
+        <Button v-if="row.status !== 4" type="link" @click="() => handleAddToPool(row)">退回公海线索</Button>
         <Button v-if="accessStore.hasAccessCode('crm:lead:edit')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" title="编辑" />
-        <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.lead.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
-          <Button v-if="accessStore.hasAccessCode('crm:lead:delete')" type="link" danger :icon="h(LucideTrash2)" title="删除" />
+        <Popconfirm v-if="activeTab !== 'subordinate' && accessStore.hasAccessCode('crm:lead:delete')" :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.lead.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
+          <Button type="link" danger :icon="h(LucideTrash2)" title="删除" />
         </Popconfirm>
       </template>
     </Grid>

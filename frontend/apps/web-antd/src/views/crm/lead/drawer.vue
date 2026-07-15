@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
+import { useUserStore } from '@vben/stores';
 import { Divider, message } from 'ant-design-vue';
 import { LucideMaximize2, LucideMinimize2 } from '@vben/icons';
 import { createLeadApi, updateLeadApi, getCountriesApi } from '#/api';
@@ -72,14 +73,14 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: $t('ui.placeholder.select'),
         allowClear: true,
         options: [
-          { label: $t('enum.lead_industry.retail'), value: 'retail' },
-          { label: $t('enum.lead_industry.wholesale'), value: 'wholesale' },
-          { label: $t('enum.lead_industry.manufacturer'), value: 'manufacturer' },
-          { label: $t('enum.lead_industry.trade_agent'), value: 'trade_agent' },
-          { label: $t('enum.lead_industry.ecommerce'), value: 'ecommerce' },
-          { label: $t('enum.lead_industry.wechat_business'), value: 'wechat_business' },
-          { label: $t('enum.lead_industry.social'), value: 'social' },
-          { label: $t('enum.lead_industry.other'), value: 'other' },
+          { label: $t('enum.lead_industry.retail'), value: 1 },
+          { label: $t('enum.lead_industry.wholesale'), value: 2 },
+          { label: $t('enum.lead_industry.manufacturer'), value: 3 },
+          { label: $t('enum.lead_industry.trade_agent'), value: 4 },
+          { label: $t('enum.lead_industry.ecommerce'), value: 5 },
+          { label: $t('enum.lead_industry.wechat_business'), value: 6 },
+          { label: $t('enum.lead_industry.social'), value: 7 },
+          { label: $t('enum.lead_industry.other'), value: 8 },
         ],
       },
     },
@@ -212,7 +213,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'InputNumber',
       fieldName: 'budget',
       label: $t('page.crm.lead.fields.budget'),
-      componentProps: { placeholder: $t('ui.placeholder.input'), min: 0, class: 'w-full' },
+      componentProps: { placeholder: $t('ui.placeholder.input'), min: 0, class: 'w-full', style: 'width:100%' },
     },
     {
       component: 'Select',
@@ -249,12 +250,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
       formItemClass: 'col-span-2',
     },
     {
-      component: 'Input',
-      fieldName: 'assignee',
-      label: $t('page.crm.lead.fields.assignee'),
-      componentProps: { placeholder: $t('ui.placeholder.input'), allowClear: true },
-    },
-    {
       component: 'Textarea',
       fieldName: 'description',
       label: $t('page.crm.lead.fields.description'),
@@ -274,8 +269,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
     try {
       // 创建模式：默认状态为 6 (unchecked)
       const payload = data.value?.create
-        ? { ...values, status: 6 }
-        : { ...values, id: data.value.row.id };
+        ? {
+            ...values,
+            status: 6,
+            assignedTo: data.value.fromPool ? undefined : Number(useUserStore().userInfo?.userId) || undefined,
+          }
+        : { ...values, id: data.value.row.id, assignedTo: data.value.row.assignedTo || undefined };
 
       const result = await (data.value?.create
         ? createLeadApi(payload)

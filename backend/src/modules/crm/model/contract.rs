@@ -416,6 +416,8 @@ pub struct ContractDetailVO {
     pub commission_mode: Option<i32>,
     /// 审批日志列表
     pub approval_logs: Option<Vec<ContractApprovalLogVO>>,
+    /// 发货状态（0/None-未发货，1-已发货/部分发货/已签收/已完成）
+    pub ship_status: Option<i32>,
 }
 
 impl From<contract::Model> for ContractDetailVO {
@@ -450,6 +452,7 @@ impl From<contract::Model> for ContractDetailVO {
             commission_rule_id: item.commission_rule_id,
             commission_mode: item.commission_mode,
             approval_logs: None,
+            ship_status: None,
         }
     }
 }
@@ -465,6 +468,8 @@ pub struct ContractListVO {
     pub contract_no: Option<String>,
     /// 客户ID
     pub customer_id: Option<i64>,
+    /// 客户名称
+    pub customer_name: Option<String>,
     /// 合同标题
     pub title: Option<String>,
     /// 合同类型
@@ -483,6 +488,8 @@ pub struct ContractListVO {
     pub start_date: Option<Date>,
     /// 合同结束日期
     pub end_date: Option<Date>,
+    /// 发货状态（0/None-未发货，1-已发货/部分发货/已签收/已完成）
+    pub ship_status: Option<i32>,
 }
 
 impl From<contract::Model> for ContractListVO {
@@ -491,6 +498,7 @@ impl From<contract::Model> for ContractListVO {
             id: Option::from(item.id),
             contract_no: item.contract_no,
             customer_id: item.customer_id,
+            customer_name: None,
             title: item.title,
             contract_type: item.contract_type.map(|c| c.to_string()),
             amount: item.amount,
@@ -500,6 +508,7 @@ impl From<contract::Model> for ContractListVO {
             instance_id: item.instance_id,
             start_date: item.start_date,
             end_date: item.end_date,
+            ship_status: None,
         }
     }
 }
@@ -527,7 +536,7 @@ pub struct ContractModel;
 impl ContractModel {
     /// 生成合同编号，格式 CON-yyyyMMdd-4位序号
     /// 通过查询当日已有合同编号最大序号递增
-    async fn generate_contract_no(db: &DbConn) -> Result<String, DbErr> {
+    async fn generate_contract_no<C: ConnectionTrait>(db: &C) -> Result<String, DbErr> {
         let today = chrono::Local::now().naive_local();
         let date_str = today.format("%Y%m%d").to_string();
         let prefix = format!("CON-{}-", date_str);
@@ -559,7 +568,7 @@ impl ContractModel {
     ///
     /// # 返回
     /// * `Result<i64, DbErr>` - 新增记录的ID
-    pub async fn insert(db: &DbConn, req: &ContractSaveDTO) -> Result<i64, DbErr> {
+    pub async fn insert<C: ConnectionTrait>(db: &C, req: &ContractSaveDTO) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
 
         // 合同编号为空时自动生成，格式 CON-yyyyMMdd-4位序号

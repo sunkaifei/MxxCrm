@@ -17,3 +17,7 @@ export const deleteOpportunityApi = async (ids: number[]) => {
     data: { ids },
   });
 };
+
+export const convertToQuotationApi = async (id: number) => {
+  return requestClient.post('/api/system/opportunity/convert_to_quotation', { id });
+};

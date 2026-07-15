@@ -2,9 +2,9 @@
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 
-import { Page, useVbenDrawer } from '@vben/common-ui';
+import { Page } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2, LucideEye } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -14,8 +14,8 @@ import { Button, Popconfirm, Drawer, Modal, message } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteOpportunityApi, getOpportunityListApi } from '#/api';
 import { $t } from '#/locales';
-import OpportunityDrawer from './drawer.vue';
 import OpportunityDetail from './detail.vue';
+import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
@@ -35,6 +35,7 @@ const currencyLabelMap: Record<number, string> = {
 // 详情抽屉
 const detailVisible = ref(false);
 const detailId = ref<number | null>(null);
+const detailTitle = computed(() => detailId.value ? '商机详情' : '新建商机');
 
 function openDetail(row: any) {
   const id = row.id ?? row.id_;
@@ -43,7 +44,23 @@ function openDetail(row: any) {
   detailVisible.value = true;
 }
 function closeDetail() { detailVisible.value = false; detailId.value = null; }
-function handleDetailEdit(opp: any) { closeDetail(); openDrawer(false, opp); }
+// 详情页内已支持内联编辑，edit 事件仅刷新列表
+function handleDetailEdit() { gridApi.query(); }
+
+// 客户详情抽屉
+const customerDetailVisible = ref(false);
+const customerDetailId = ref<number | string | undefined>(undefined);
+
+function openCustomerDetail(row: any) {
+  const id = row.customerId ?? row.customer_id;
+  if (!id) { message.error('客户ID不存在'); return; }
+  customerDetailId.value = Number(id);
+  customerDetailVisible.value = true;
+}
+
+function handleConverted(_quotationId: number | string) {
+  gridApi.query();
+}
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -64,12 +81,11 @@ const formOptions: VbenFormProps = {
         placeholder: '全部',
         allowClear: true,
         options: [
-          { label: '资格审查', value: 0 },
-          { label: '需求分析', value: 1 },
-          { label: '方案报价', value: 2 },
-          { label: '商务谈判', value: 3 },
-          { label: '已成交', value: 4 },
-          { label: '已输单', value: 5 },
+          { label: '初步沟通', value: 1 },
+          { label: '需求确认', value: 2 },
+          { label: '方案沟通', value: 3 },
+          { label: '已报价', value: 4 },
+          { label: '成交/丢单', value: 5 },
         ],
       },
     },
@@ -132,14 +148,11 @@ const gridOptions: VxeGridProps = {
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     
     { title: '商机名称', field: 'title', minWidth: 200, align: 'left', headerAlign: 'center', slots: { default: 'title' } },
-    {
-      title: '客户', field: 'customerName', width: 150,
-      formatter: ({ cellValue }: any) => cellValue || '-',
-    },
+    { title: '客户', field: 'customerName', width: 150, align: 'left', headerAlign: 'center', slots: { default: 'customerName' } },
     {
       title: '销售阶段', field: 'stage', width: 110,
       formatter: ({ cellValue }: any) => {
-        const stageMap: Record<number, string> = { 0: '资格审查', 1: '需求分析', 2: '方案报价', 3: '商务谈判', 4: '已成交', 5: '已输单' };
+        const stageMap: Record<number, string> = { 1: '初步沟通', 2: '需求确认', 3: '方案沟通', 4: '已报价', 5: '成交/丢单' };
         return stageMap[cellValue] ?? '-';
       },
     },
@@ -151,6 +164,7 @@ const gridOptions: VxeGridProps = {
         return `${currencyLabel} ${Number(cellValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       },
     },
+    { title: '报价次数', field: 'quoteCount', width: 90, align: 'center', formatter: ({ cellValue }: any) => cellValue ?? 0 },
     {
       title: '概率', field: 'probability', width: 80, align: 'center',
       formatter: ({ cellValue }: any) => (cellValue == null ? '-' : `${cellValue}%`),
@@ -172,14 +186,18 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
-const [FormDrawer, drawerApi] = useVbenDrawer({
-  connectedComponent: OpportunityDrawer,
-  onClosed() { if (drawerApi.getData()?.needRefresh) gridApi.query(); },
-});
+function handleCreate() {
+  detailId.value = null;
+  detailVisible.value = true;
+}
 
-function openDrawer(create: boolean, row?: any) { drawerApi.setData({ create, row }); drawerApi.open(); }
-function handleCreate() { openDrawer(true); }
-function handleEdit(row: any) { openDrawer(false, row); }
+function handleCreated(id: number | string) {
+  detailId.value = Number(id);
+  gridApi.query();
+}
+
+// 编辑改为打开详情页（详情页内已有内联编辑表单）
+function handleEdit(row: any) { openDetail(row); }
 
 async function handleDelete(row: any) {
   row.pending = true;
@@ -222,6 +240,11 @@ async function handleBatchDelete() {
         <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.title }}</a>
       </template>
 
+      <template #customerName="{ row }">
+        <a v-if="row.customerId" class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openCustomerDetail(row)">{{ row.customerName || '-' }}</a>
+        <span v-else>{{ row.customerName || '-' }}</span>
+      </template>
+
       <template #action="{ row }">
         <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
         <Button v-if="accessStore.hasAccessCode('crm:opportunity:update')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
@@ -230,10 +253,11 @@ async function handleBatchDelete() {
         </Popconfirm>
       </template>
     </Grid>
-    <FormDrawer />
 
-    <Drawer v-model:open="detailVisible" :width="1000" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="商机详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
-      <OpportunityDetail v-if="detailId" :id="detailId" @edit="handleDetailEdit" />
+    <Drawer v-model:open="detailVisible" :width="1200" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" :title="detailTitle" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
+      <OpportunityDetail :id="detailId ?? undefined" @edit="handleDetailEdit" @converted="handleConverted" @created="handleCreated" />
     </Drawer>
+
+    <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
   </Page>
 </template>

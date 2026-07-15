@@ -324,6 +324,8 @@ pub struct CustomerListVO {
     pub country: Option<String>,
     /// 地区/省份
     pub region: Option<String>,
+    /// 所属行业
+    pub industry: Option<i32>,
     /// 客户等级
     pub level: Option<i32>,
     /// 客户来源
@@ -344,6 +346,10 @@ pub struct CustomerListVO {
     pub create_time: Option<DateTime>,
     /// 关联标签列表
     pub tags: Option<Vec<CustomerTagVO>>,
+    /// 商机数量
+    pub opportunity_count: Option<i64>,
+    /// 联系人数量
+    pub contact_count: Option<i64>,
 }
 
 /// 客户标签简要信息（列表展示用）
@@ -364,6 +370,7 @@ impl From<customer::Model> for CustomerListVO {
             short_name: item.short_name,
             country: item.country,
             region: item.region,
+            industry: item.industry,
             level: item.level,
             source: item.source,
             assigned_to: item.assigned_to,
@@ -374,6 +381,8 @@ impl From<customer::Model> for CustomerListVO {
             created_by_name: None,
             create_time: item.create_time,
             tags: None,
+            opportunity_count: None,
+            contact_count: None,
         }
     }
 }

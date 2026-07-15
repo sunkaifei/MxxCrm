@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { h, ref, computed, onMounted, watch } from 'vue';
-import { Card, Descriptions, Tabs, Tag, Button, Row, Col, Space, Popconfirm, Divider, Avatar, Dropdown, Menu, MenuItem, Skeleton, Tooltip, Timeline, Empty } from 'ant-design-vue';
+import { Card, Descriptions, Tabs, Tag, Button, Row, Col, Space, Popconfirm, Divider, Avatar, Dropdown, Menu, MenuItem, Skeleton, Tooltip, Timeline, Empty, Modal, message } from 'ant-design-vue';
 import { LucideFilePenLine, LucideUserPlus, LucideMoreHorizontal, LucideBuilding2, LucidePhone, LucideMail, LucideMapPin, LucideGlobe } from '@vben/icons';
 import { getCustomerInfoApi, getCustomerContactsApi, getCustomerAssignHistoryApi } from '#/api';
+import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { getCustomerEditLogApi, type CustomerEditLogVO } from '#/api/core/crm/customer-edit-log';
 import { useVbenDrawer } from '@vben/common-ui';
 import ContactDrawer from '../contact/drawer.vue';
@@ -136,6 +137,22 @@ const handleUnbind = async (contactId: number) => {
 
 const handleEdit = () => emit('edit', customer.value);
 
+const handleReturnToPool = () => {
+  Modal.confirm({
+    title: '退回公海',
+    content: `确定将客户"${customer.value.companyName}"退回公海吗？退回后其他销售可以领取。`,
+    onOk: async () => {
+      try {
+        await addCustomerToPoolApi(Number(props.id));
+        message.success('已退回公海');
+        loadData();
+      } catch {
+        message.error('退回公海失败');
+      }
+    },
+  });
+};
+
 const followups = computed(() => customer.value?.followups || []);
 const editLogs = ref<CustomerEditLogVO[]>([]);
 const editLogLoading = ref(false);
@@ -207,7 +224,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                 <Menu>
                   <MenuItem key="transfer">转移负责人</MenuItem>
                   <MenuItem key="merge">合并客户</MenuItem>
-                  <MenuItem key="delete" danger>删除客户</MenuItem>
+                  <MenuItem key="returnToPool" @click="handleReturnToPool">退回公海</MenuItem>
                 </Menu>
               </template>
             </Dropdown>

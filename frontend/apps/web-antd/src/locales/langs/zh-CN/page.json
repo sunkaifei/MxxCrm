@@ -392,7 +392,13 @@
       }
     },
     "leadPool": {
-      "title": "线索池"
+      "title": "公海线索",
+      "button": {
+        "create": "新增线索",
+        "edit": "编辑",
+        "delete": "删除",
+        "info": "查看"
+      }
     },
     "followup": {
       "title": "跟进记录",

@@ -79,6 +79,8 @@ pub struct FlowDetailVO {
     pub business_type: String,
     pub description: Option<String>,
     pub enabled: bool,
+    /// 是否系统内置（1=系统内置不可删除，0=用户自定义可删除）
+    pub is_system: Option<i32>,
     pub nodes: Vec<NodeVO>,
     pub edges: Vec<EdgeVO>,
 }
@@ -115,6 +117,8 @@ pub struct FlowListVO {
     pub business_type: String,
     pub description: Option<String>,
     pub enabled: bool,
+    /// 是否系统内置（1=系统内置不可删除，0=用户自定义可删除）
+    pub is_system: Option<i32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -220,12 +224,22 @@ impl ApprovalModel {
 
         let flow_id = if let Some(id) = req.flow_id {
             // Update existing flow
-            let mut active: FlowActiveModel = FlowEntity::find_by_id(id)
+            let existing = FlowEntity::find_by_id(id)
                 .one(db)
                 .await
                 .map_err(|e| Error::from(e.to_string()))?
-                .ok_or_else(|| Error::from("审批流不存在"))?
-                .into();
+                .ok_or_else(|| Error::from("审批流不存在"))?;
+
+            // 系统内置审批流不允许修改 flow_code 和 business_type
+            if existing.is_system == Some(1) {
+                if existing.flow_code.as_deref() != Some(&req.flow_code)
+                    || existing.business_type.as_deref() != Some(&req.business_type)
+                {
+                    return Err(Error::from("系统内置审批流不允许修改流程编码和业务类型"));
+                }
+            }
+
+            let mut active: FlowActiveModel = existing.into();
             active.flow_code = Set(Some(req.flow_code.clone()));
             active.flow_name = Set(Some(req.flow_name.clone()));
             active.business_type = Set(Some(req.business_type.clone()));
@@ -235,13 +249,14 @@ impl ApprovalModel {
             active.update(db).await.map_err(|e| Error::from(e.to_string()))?;
             id
         } else {
-            // Insert new flow
+            // Insert new flow（用户自定义，is_system = 0）
             let active = FlowActiveModel {
                 flow_code: Set(Some(req.flow_code.clone())),
                 flow_name: Set(Some(req.flow_name.clone())),
                 business_type: Set(Some(req.business_type.clone())),
                 description: Set(req.description.clone()),
                 enabled: Set(Some(1)),
+                is_system: Set(Some(0)),
                 create_by: Set(Some(operator.to_string())),
                 create_time: Set(Some(now)),
                 update_by: Set(Some(operator.to_string())),
@@ -341,6 +356,7 @@ impl ApprovalModel {
             business_type: flow.business_type.unwrap_or_default(),
             description: flow.description,
             enabled: flow.enabled.unwrap_or(0) == 1,
+            is_system: flow.is_system,
             nodes: nodes
                 .into_iter()
                 .map(|n| NodeVO {
@@ -399,6 +415,7 @@ impl ApprovalModel {
                 business_type: f.business_type.unwrap_or_default(),
                 description: f.description,
                 enabled: f.enabled.unwrap_or(0) == 1,
+                is_system: f.is_system,
             })
             .collect();
 
@@ -430,6 +447,17 @@ impl ApprovalModel {
     }
 
     pub async fn delete_flow(db: &DatabaseConnection, id: i64) -> Result<()> {
+        let flow = FlowEntity::find_by_id(id)
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?
+            .ok_or_else(|| Error::from("审批流不存在"))?;
+
+        // 系统内置审批流不允许删除
+        if flow.is_system == Some(1) {
+            return Err(Error::from("系统内置审批流不可删除，如需停用请使用启用/禁用功能"));
+        }
+
         // 检查是否有审批实例引用了该流程
         let instance_count = InstanceEntity::find()
             .filter(InstanceColumn::FlowId.eq(id))
