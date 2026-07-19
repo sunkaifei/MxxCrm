@@ -73,6 +73,15 @@ pub struct ContractSaveRequest {
     pub commission_rule_id: Option<i64>,
     /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
     pub commission_mode: Option<i32>,
+    /// 我方签署人ID（业务员）
+    #[serde(default, deserialize_with = "deserialize_i64_from_string")]
+    pub our_signer_id: Option<i64>,
+    /// 我方签署人姓名
+    pub our_signer_name: Option<String>,
+    /// 对方签署人姓名
+    pub their_signer_name: Option<String>,
+    /// 对方签署人电话
+    pub their_signer_phone: Option<String>,
 }
 
 /// 从字符串反序列化 Decimal（前端传字符串金额）
@@ -173,6 +182,11 @@ impl From<ContractSaveRequest> for ContractSaveDTO {
             remark: item.remark,
             commission_rule_id: item.commission_rule_id,
             commission_mode: item.commission_mode,
+            our_signer_id: item.our_signer_id,
+            our_signer_name: item.our_signer_name,
+            their_signer_name: item.their_signer_name,
+            their_signer_phone: item.their_signer_phone,
+            order_id: None,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -239,6 +253,15 @@ pub struct ContractUpdateRequest {
     pub commission_rule_id: Option<i64>,
     /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
     pub commission_mode: Option<i32>,
+    /// 我方签署人ID（业务员）
+    #[serde(default, deserialize_with = "deserialize_i64_from_string")]
+    pub our_signer_id: Option<i64>,
+    /// 我方签署人姓名
+    pub our_signer_name: Option<String>,
+    /// 对方签署人姓名
+    pub their_signer_name: Option<String>,
+    /// 对方签署人电话
+    pub their_signer_phone: Option<String>,
 }
 
 impl From<ContractUpdateRequest> for ContractSaveDTO {
@@ -272,6 +295,11 @@ impl From<ContractUpdateRequest> for ContractSaveDTO {
             remark: item.remark,
             commission_rule_id: item.commission_rule_id,
             commission_mode: item.commission_mode,
+            our_signer_id: item.our_signer_id,
+            our_signer_name: item.our_signer_name,
+            their_signer_name: item.their_signer_name,
+            their_signer_phone: item.their_signer_phone,
+            order_id: None,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -341,6 +369,16 @@ pub struct ContractSaveDTO {
     pub commission_rule_id: Option<i64>,
     /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
     pub commission_mode: Option<i32>,
+    /// 我方签署人ID（业务员）
+    pub our_signer_id: Option<i64>,
+    /// 我方签署人姓名
+    pub our_signer_name: Option<String>,
+    /// 对方签署人姓名
+    pub their_signer_name: Option<String>,
+    /// 对方签署人电话
+    pub their_signer_phone: Option<String>,
+    /// 关联订单ID
+    pub order_id: Option<i64>,
     /// 软删除标记
     pub deleted: Option<i32>,
     /// 创建人ID
@@ -414,6 +452,16 @@ pub struct ContractDetailVO {
     pub commission_rule_id: Option<i64>,
     /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
     pub commission_mode: Option<i32>,
+    /// 我方签署人ID（业务员）
+    pub our_signer_id: Option<i64>,
+    /// 我方签署人姓名
+    pub our_signer_name: Option<String>,
+    /// 对方签署人姓名
+    pub their_signer_name: Option<String>,
+    /// 对方签署人电话
+    pub their_signer_phone: Option<String>,
+    /// 关联订单ID
+    pub order_id: Option<i64>,
     /// 审批日志列表
     pub approval_logs: Option<Vec<ContractApprovalLogVO>>,
     /// 发货状态（0/None-未发货，1-已发货/部分发货/已签收/已完成）
@@ -451,6 +499,11 @@ impl From<contract::Model> for ContractDetailVO {
             remark: item.remark,
             commission_rule_id: item.commission_rule_id,
             commission_mode: item.commission_mode,
+            our_signer_id: item.our_signer_id,
+            our_signer_name: item.our_signer_name,
+            their_signer_name: item.their_signer_name,
+            their_signer_phone: item.their_signer_phone,
+            order_id: item.order_id,
             approval_logs: None,
             ship_status: None,
         }
@@ -528,6 +581,8 @@ pub struct ContractListQuery {
     pub status: Option<ContractStatus>,
     /// 客户ID
     pub customer_id: Option<i64>,
+    /// 列表类型：all=全部 my=我的合同 subordinate=下属合同
+    pub list_type: Option<String>,
 }
 
 /// 合同数据模型操作类
@@ -605,6 +660,11 @@ impl ContractModel {
             remark: Set(req.remark.clone()),
             commission_rule_id: Set(req.commission_rule_id.clone()),
             commission_mode: Set(req.commission_mode.clone()),
+            our_signer_id: Set(req.our_signer_id.clone()),
+            our_signer_name: Set(req.our_signer_name.clone()),
+            their_signer_name: Set(req.their_signer_name.clone()),
+            their_signer_phone: Set(req.their_signer_phone.clone()),
+            order_id: Set(req.order_id.clone()),
             created_by: Set(req.created_by.clone()),
             create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
@@ -675,6 +735,10 @@ impl ContractModel {
             remark: Set(req.remark.clone()),
             commission_rule_id: Set(req.commission_rule_id.clone()),
             commission_mode: Set(req.commission_mode.clone()),
+            our_signer_id: Set(req.our_signer_id.clone()),
+            our_signer_name: Set(req.our_signer_name.clone()),
+            their_signer_name: Set(req.their_signer_name.clone()),
+            their_signer_phone: Set(req.their_signer_phone.clone()),
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -702,6 +766,34 @@ impl ContractModel {
             .filter(contract::Column::Deleted.eq(0))
             .one(db)
             .await
+    }
+
+    /// 根据客户ID和合同标题查询合同
+    ///
+    /// # 参数
+    /// * `db` - 数据库连接
+    /// * `customer_id` - 客户ID
+    /// * `title` - 合同标题
+    /// * `exclude_id` - 排除的合同ID（用于编辑时排除自身）
+    ///
+    /// # 返回
+    /// * `Result<Option<contract::Model>, DbErr>` - 合同模型（未删除）
+    pub async fn find_by_customer_and_title(
+        db: &DbConn,
+        customer_id: i64,
+        title: &str,
+        exclude_id: Option<i64>,
+    ) -> Result<Option<contract::Model>, DbErr> {
+        let mut query = Contract::find()
+            .filter(contract::Column::CustomerId.eq(customer_id))
+            .filter(contract::Column::Title.eq(title))
+            .filter(contract::Column::Deleted.eq(0));
+
+        if let Some(exclude) = exclude_id {
+            query = query.filter(contract::Column::Id.ne(exclude));
+        }
+
+        query.one(db).await
     }
 
     /// 分页查询合同列表
@@ -742,9 +834,46 @@ impl ContractModel {
         }
 
         let paginator = query.order_by_desc(contract::Column::CreateTime).paginate(db, per_page as u64);
-        let num_pages = paginator.num_pages().await? as i64;
+        let total = paginator.num_items().await? as i64;
 
-        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
+    }
+
+    pub async fn select_in_page_by_assigned_tos(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        status: Option<ContractStatus>,
+        customer_id: Option<i64>,
+        assigned_tos: Option<Vec<i64>>,
+    ) -> Result<(Vec<contract::Model>, i64), DbErr> {
+        let mut query = Contract::find()
+            .filter(contract::Column::Deleted.eq(0));
+
+        if let Some(k) = keywords {
+            query = query.filter(
+                Condition::any()
+                    .add(contract::Column::Title.contains(k.clone()))
+                    .add(contract::Column::ContractNo.contains(k)),
+            );
+        }
+        if let Some(s) = status {
+            query = query.filter(contract::Column::Status.eq(s));
+        }
+        if let Some(c) = customer_id {
+            query = query.filter(contract::Column::CustomerId.eq(c));
+        }
+        if let Some(ids) = assigned_tos {
+            if ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(contract::Column::AssignedTo.is_in(ids));
+        }
+
+        let paginator = query.order_by_desc(contract::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }
 
     pub async fn get_approval_logs(db: &DbConn, contract_id: i64) -> Result<Vec<contract_approval_log::Model>, DbErr> {

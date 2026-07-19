@@ -11,8 +11,8 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use crate::core::web::permission_guard::require_permission;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
@@ -20,23 +20,83 @@ use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApp
 use crate::modules::crm::model::contract_commission_member::ContractCommissionMemberSaveDTO;
 use crate::modules::crm::service::contract_commission_service;
 use crate::modules::crm::service::contract_service;
+use crate::modules::crm::controller::admin::contract_payment_plan_controller;
 use crate::modules::finance::service::commission_calc_service;
+use crate::modules::system::service::edit_log_service;
+use crate::modules::system::entity::admin::Entity as Admin;
+use sea_orm::EntityTrait;
 use serde::Deserialize;
+use serde_json::json;
 
-#[post("/contract/save")]
-#[protect("crm:contract:save")]
+const CONTRACT_FIELD_LABELS: &[(&str, &str)] = &[
+    ("title", "合同标题"),
+    ("contractNo", "合同编号"),
+    ("contractType", "合同类型"),
+    ("customerName", "客户名称"),
+    ("amount", "合同金额"),
+    ("currency", "币种"),
+    ("taxAmount", "税额"),
+    ("totalAmount", "含税总额"),
+    ("startDate", "开始日期"),
+    ("endDate", "结束日期"),
+    ("signDate", "签订日期"),
+    ("paymentTerms", "付款条款"),
+    ("deliveryTerms", "交货条款"),
+    ("paymentMethodType", "收款方式"),
+    ("assignedTo", "负责人"),
+    ("ourSignerName", "我方签署人"),
+    ("theirSignerName", "对方签署人"),
+    ("theirSignerPhone", "对方签署电话"),
+    ("remark", "备注"),
+];
+
 pub async fn contract_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContractSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data: ContractSaveDTO = form_data.0.into();
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = jwt_token.id.unwrap_or_default();
 
-    let result = contract_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = contract_service::insert(&db, &form_data, user_id).await;
+
+    if let Ok(contract_id) = result {
+        let new_data = if let Ok(new) = contract_service::find_by_id(&db, contract_id).await {
+            serde_json::to_value(&new).unwrap_or_default()
+        } else {
+            json!({})
+        };
+
+        let editor_name = Admin::find_by_id(user_id)
+            .one(db)
+            .await
+            .ok()
+            .flatten()
+            .map(|admin| admin.nick_name.or(admin.user_name).unwrap_or_default());
+
+        let contract_no = new_data.get("contractNo")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let title = new_data.get("title")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let _ = edit_log_service::log_update(
+            db,
+            3,
+            contract_id,
+            contract_no,
+            title,
+            user_id,
+            editor_name,
+            &json!({}),
+            &new_data,
+            CONTRACT_FIELD_LABELS,
+        ).await;
+    }
+
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/contract/update")]
-#[protect("crm:contract:update")]
 pub async fn contract_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContractUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data: ContractSaveDTO = form_data.0.into();
@@ -46,13 +106,55 @@ pub async fn contract_update(state: web::Data<AppState>, req: HttpRequest, form_
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = jwt_token.id.unwrap_or_default();
+    let contract_id = form_data.id.unwrap();
 
-    let result = contract_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let old_data = if let Ok(old) = contract_service::find_by_id(&db, contract_id).await {
+        serde_json::to_value(&old).unwrap_or_default()
+    } else {
+        json!({})
+    };
+
+    let result = contract_service::update(&db, &form_data, user_id).await;
+
+    if result.is_ok() {
+        let new_data = if let Ok(new) = contract_service::find_by_id(&db, contract_id).await {
+            serde_json::to_value(&new).unwrap_or_default()
+        } else {
+            json!({})
+        };
+
+        let editor_name = Admin::find_by_id(user_id)
+            .one(db)
+            .await
+            .ok()
+            .flatten()
+            .map(|admin| admin.nick_name.or(admin.user_name).unwrap_or_default());
+
+        let contract_no = old_data.get("contractNo")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let title = old_data.get("title")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let _ = edit_log_service::log_update(
+            db,
+            3,
+            contract_id,
+            contract_no,
+            title,
+            user_id,
+            editor_name,
+            &old_data,
+            &new_data,
+            CONTRACT_FIELD_LABELS,
+        ).await;
+    }
+
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/contract/bath_delete")]
-#[protect("crm:contract:delete")]
 pub async fn bath_delete_contract(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -70,8 +172,6 @@ pub async fn bath_delete_contract(state: web::Data<AppState>, item: web::Json<Ba
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/contract/info")]
-#[protect("crm:contract:info")]
 pub async fn contract_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -86,13 +186,13 @@ pub async fn contract_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 }
 
-#[get("/contract/list")]
-#[protect("crm:contract:list")]
-pub async fn contract_list(state: web::Data<AppState>, query: web::Query<ContractListQuery>) -> HttpResponse {
+pub async fn contract_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ContractListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
 
-    match contract_service::list(&db, &query).await {
+    match contract_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -102,8 +202,6 @@ pub async fn contract_list(state: web::Data<AppState>, query: web::Query<Contrac
     }
 }
 
-#[post("/contract/submit")]
-#[protect("crm:contract:submit")]
 pub async fn contract_submit(state: web::Data<AppState>, req: HttpRequest, item: web::Json<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -120,8 +218,6 @@ pub async fn contract_submit(state: web::Data<AppState>, req: HttpRequest, item:
     }
 }
 
-#[post("/contract/approve")]
-#[protect("crm:contract:approve")]
 pub async fn contract_approve(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContractApprovalRequest>) -> HttpResponse {
     let db = &state.db;
     let form_data = form_data.0;
@@ -134,8 +230,6 @@ pub async fn contract_approve(state: web::Data<AppState>, req: HttpRequest, form
     }
 }
 
-#[post("/contract/reject")]
-#[protect("crm:contract:reject")]
 pub async fn contract_reject(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContractApprovalRequest>) -> HttpResponse {
     let db = &state.db;
     let form_data = form_data.0;
@@ -148,8 +242,6 @@ pub async fn contract_reject(state: web::Data<AppState>, req: HttpRequest, form_
     }
 }
 
-#[get("/contract/approval-detail/{contract_id}")]
-#[protect("crm:contract:list")]
 pub async fn contract_approval_detail(state: web::Data<AppState>, path: web::Path<i64>) -> HttpResponse {
     let db = &state.db;
     let contract_id = path.into_inner();
@@ -174,8 +266,6 @@ struct SetCommissionRuleReq {
     rule_id: Option<i64>,
 }
 
-#[get("/contract/commission-members")]
-#[protect("crm:contract:list")]
 pub async fn get_contract_commission_members(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -190,8 +280,6 @@ pub async fn get_contract_commission_members(state: web::Data<AppState>, item: w
     }
 }
 
-#[post("/contract/commission-members/save")]
-#[protect("crm:contract:edit")]
 pub async fn save_contract_commission_members(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<SaveCommissionMembersReq>) -> HttpResponse {
     let db = &state.db;
     let form_data = form_data.0;
@@ -204,8 +292,6 @@ pub async fn save_contract_commission_members(state: web::Data<AppState>, req: H
     }
 }
 
-#[post("/contract/commission-rule/set")]
-#[protect("crm:contract:edit")]
 pub async fn set_contract_commission_rule(state: web::Data<AppState>, form_data: web::Json<SetCommissionRuleReq>) -> HttpResponse {
     let db = &state.db;
     let form_data = form_data.0;
@@ -216,8 +302,6 @@ pub async fn set_contract_commission_rule(state: web::Data<AppState>, form_data:
     }
 }
 
-#[post("/contract/commission/preview")]
-#[protect("crm:contract:list")]
 pub async fn preview_contract_commission(state: web::Data<AppState>, item: web::Json<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -230,4 +314,109 @@ pub async fn preview_contract_commission(state: web::Data<AppState>, item: web::
         Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e, "local")),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册合同模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(contract_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/contract")
+            // POST /contract/save - 新建合同
+            .route(
+                "/save",
+                web::post()
+                    .to(contract_insert)
+                    .wrap(require_permission("crm:contract:save")),
+            )
+            // PUT /contract/update - 修改合同
+            .route(
+                "/update",
+                web::put()
+                    .to(contract_update)
+                    .wrap(require_permission("crm:contract:update")),
+            )
+            // DELETE /contract/bath_delete - 批量删除合同
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_contract)
+                    .wrap(require_permission("crm:contract:delete")),
+            )
+            // GET /contract/info - 合同详情
+            .route(
+                "/info",
+                web::get()
+                    .to(contract_info)
+                    .wrap(require_permission("crm:contract:info")),
+            )
+            // GET /contract/list - 合同列表
+            .route(
+                "/list",
+                web::get()
+                    .to(contract_list)
+                    .wrap(require_permission("crm:contract:list")),
+            )
+            // POST /contract/submit - 提交合同审批
+            .route(
+                "/submit",
+                web::post()
+                    .to(contract_submit)
+                    .wrap(require_permission("crm:contract:submit")),
+            )
+            // POST /contract/approve - 审批通过
+            .route(
+                "/approve",
+                web::post()
+                    .to(contract_approve)
+                    .wrap(require_permission("crm:contract:approve")),
+            )
+            // POST /contract/reject - 审批驳回
+            .route(
+                "/reject",
+                web::post()
+                    .to(contract_reject)
+                    .wrap(require_permission("crm:contract:reject")),
+            )
+            // GET /contract/approval-detail/{contract_id} - 审批详情
+            .route(
+                "/approval-detail/{contract_id}",
+                web::get()
+                    .to(contract_approval_detail)
+                    .wrap(require_permission("crm:contract:list")),
+            )
+            // GET /contract/commission-members - 获取合同提成成员
+            .route(
+                "/commission-members",
+                web::get()
+                    .to(get_contract_commission_members)
+                    .wrap(require_permission("crm:contract:list")),
+            )
+            // POST /contract/commission-members/save - 保存合同提成成员
+            .route(
+                "/commission-members/save",
+                web::post()
+                    .to(save_contract_commission_members)
+                    .wrap(require_permission("crm:contract:edit")),
+            )
+            // POST /contract/commission-rule/set - 设置合同提成规则
+            .route(
+                "/commission-rule/set",
+                web::post()
+                    .to(set_contract_commission_rule)
+                    .wrap(require_permission("crm:contract:edit")),
+            )
+            // POST /contract/commission/preview - 预览合同提成
+            .route(
+                "/commission/preview",
+                web::post()
+                    .to(preview_contract_commission)
+                    .wrap(require_permission("crm:contract:list")),
+            )
+            // 合同回款计划（注册在 /contract scope 内，避免被 /contract scope 吞掉）
+            .configure(contract_payment_plan_controller::register),
+    );
 }

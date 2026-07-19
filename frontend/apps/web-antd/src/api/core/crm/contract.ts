@@ -55,3 +55,8 @@ export const deleteContractPaymentPlanApi = async (contractId: number) => {
     params: { contractId },
   });
 };
+
+// 分页查询回款计划列表
+export const getPaymentPlanPageListApi = async (params?: PageParams) => {
+  return requestClient.get('/api/system/contract/payment-plan/page-list', { params });
+};

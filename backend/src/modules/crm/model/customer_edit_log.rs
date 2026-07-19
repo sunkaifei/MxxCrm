@@ -41,6 +41,8 @@ pub struct CustomerEditLogVO {
     pub content: Option<Vec<EditLogItem>>,
     /// 编辑时间
     pub edit_time: Option<DateTime>,
+    /// 日志类型：0=基本信息, 1=财务信息
+    pub log_type: Option<i32>,
 }
 
 impl From<customer_edit_log::Model> for CustomerEditLogVO {
@@ -55,6 +57,7 @@ impl From<customer_edit_log::Model> for CustomerEditLogVO {
             editor_name: item.editor_name,
             content,
             edit_time: item.edit_time,
+            log_type: item.log_type,
         }
     }
 }
@@ -66,6 +69,8 @@ pub struct CustomerEditLogQuery {
     pub customer_id: Option<i64>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
+    /// 日志类型：0=基本信息, 1=财务信息, None=全部
+    pub log_type: Option<i32>,
 }
 
 /// 客户字段中文标签映射
@@ -88,6 +93,13 @@ pub const FIELD_LABELS: &[(&str, &str)] = &[
     ("birthday_month", "生日月份"),
     ("description", "描述/备注"),
     ("custom_fields", "自定义字段"),
+    // 财务信息字段（camelCase）
+    ("taxId", "纳税人识别号"),
+    ("invoiceTitle", "发票抬头"),
+    ("registeredAddress", "注册地址"),
+    ("registeredPhone", "注册电话"),
+    ("financePhone", "财务电话"),
+    ("bankAccounts", "银行账户"),
 ];
 
 /// 获取字段中文标签

@@ -122,6 +122,17 @@ pub struct Model {
     /// 佣金计算方式
     pub commission_mode: Option<i32>,
 
+    /// 我方签署人ID（业务员）
+    pub our_signer_id: Option<i64>,
+    /// 我方签署人姓名
+    pub our_signer_name: Option<String>,
+    /// 对方签署人姓名
+    pub their_signer_name: Option<String>,
+    /// 对方签署人电话
+    pub their_signer_phone: Option<String>,
+    /// 关联订单ID（从订单创建合同时回填）
+    pub order_id: Option<i64>,
+
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
 }

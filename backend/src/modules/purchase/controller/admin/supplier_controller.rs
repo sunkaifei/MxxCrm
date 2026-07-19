@@ -2,16 +2,14 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
+use crate::core::web::permission_guard::require_permission;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
 use crate::modules::purchase::model::supplier::{SupplierDetailVO, SupplierListQuery, SupplierListVO, SupplierSaveRequest, SupplierUpdateRequest};
 use crate::modules::purchase::service::supplier_service;
 
-#[post("/purchase/supplier/save")]
-#[protect("purchase:supplier:save")]
 pub async fn supplier_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<SupplierSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -26,8 +24,6 @@ pub async fn supplier_insert(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/purchase/supplier/update")]
-#[protect("purchase:supplier:update")]
 pub async fn supplier_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<SupplierUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -46,8 +42,6 @@ pub async fn supplier_update(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/purchase/supplier/bath_delete")]
-#[protect("purchase:supplier:delete")]
 pub async fn bath_delete_supplier(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -65,8 +59,6 @@ pub async fn bath_delete_supplier(state: web::Data<AppState>, item: web::Json<Ba
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/purchase/supplier/info")]
-#[protect("purchase:supplier:info")]
 pub async fn supplier_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -81,8 +73,6 @@ pub async fn supplier_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 }
 
-#[get("/purchase/supplier/list")]
-#[protect("purchase:supplier:list")]
 pub async fn supplier_list(state: web::Data<AppState>, query: web::Query<SupplierListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
@@ -95,4 +85,15 @@ pub async fn supplier_list(state: web::Data<AppState>, query: web::Query<Supplie
         },
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
+}
+
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/purchase/supplier")
+            .route("/save", web::post().to(supplier_insert).wrap(require_permission("purchase:supplier:save")))
+            .route("/update", web::put().to(supplier_update).wrap(require_permission("purchase:supplier:update")))
+            .route("/bath_delete", web::delete().to(bath_delete_supplier).wrap(require_permission("purchase:supplier:delete")))
+            .route("/info", web::get().to(supplier_info).wrap(require_permission("purchase:supplier:info")))
+            .route("/list", web::get().to(supplier_list).wrap(require_permission("purchase:supplier:list"))),
+    );
 }

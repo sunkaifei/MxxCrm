@@ -11,16 +11,14 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use crate::core::web::permission_guard::require_permission;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
 use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadSaveRequest, LeadStatusUpdateQuery, LeadUpdateRequest};
 use crate::modules::crm::service::lead_service;
 
-#[post("/lead/save")]
-#[protect("crm:lead:create")]
 pub async fn lead_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -35,8 +33,6 @@ pub async fn lead_insert(state: web::Data<AppState>, req: HttpRequest, form_data
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/lead/update")]
-#[protect("crm:lead:edit")]
 pub async fn lead_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -55,8 +51,6 @@ pub async fn lead_update(state: web::Data<AppState>, req: HttpRequest, form_data
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/lead/bath_delete")]
-#[protect("crm:lead:delete")]
 pub async fn bath_delete_lead(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -74,8 +68,6 @@ pub async fn bath_delete_lead(state: web::Data<AppState>, item: web::Json<BathDe
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/lead/info")]
-#[protect("crm:lead:info")]
 pub async fn lead_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -90,8 +82,6 @@ pub async fn lead_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> 
     }
 }
 
-#[get("/lead/list")]
-#[protect("crm:lead:list")]
 pub async fn lead_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<LeadListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
@@ -109,8 +99,6 @@ pub async fn lead_list(state: web::Data<AppState>, req: HttpRequest, query: web:
     }
 }
 
-#[get("/lead-pool/list")]
-#[protect("crm:lead-pool:list")]
 pub async fn lead_pool_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<LeadListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
@@ -128,8 +116,6 @@ pub async fn lead_pool_list(state: web::Data<AppState>, req: HttpRequest, query:
     }
 }
 
-#[get("/lead-pool/info")]
-#[protect("crm:lead-pool:info")]
 pub async fn lead_pool_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -144,8 +130,6 @@ pub async fn lead_pool_info(state: web::Data<AppState>, item: web::Query<InfoId>
     }
 }
 
-#[delete("/lead-pool/bath_delete")]
-#[protect("crm:lead-pool:delete")]
 pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -163,8 +147,6 @@ pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<B
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[put("/lead/update-status")]
-#[protect("crm:lead:edit")]
 pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadStatusUpdateQuery>) -> HttpResponse {
     let db = &state.db;
     let query = form_data.0;
@@ -183,8 +165,6 @@ pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, fo
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[put("/lead/add-to-pool")]
-#[protect("crm:lead:edit")]
 pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
     let db = &state.db;
     let query = form_data.0;
@@ -199,8 +179,6 @@ pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[put("/lead/claim")]
-#[protect("crm:lead:edit")]
 pub async fn lead_claim(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
     let db = &state.db;
     let query = form_data.0;
@@ -215,4 +193,119 @@ pub async fn lead_claim(state: web::Data<AppState>, req: HttpRequest, form_data:
         Ok(customer_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(customer_id, "local")),
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
+}
+
+pub async fn lead_convert_to_customer(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let query = form_data.0;
+
+    if query.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    match lead_service::convert_to_customer(&db, query.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
+        Ok(customer_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(customer_id, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册线索模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(lead_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/lead")
+            // POST /lead/save - 新建线索
+            .route(
+                "/save",
+                web::post()
+                    .to(lead_insert)
+                    .wrap(require_permission("crm:lead:create")),
+            )
+            // PUT /lead/update - 修改线索
+            .route(
+                "/update",
+                web::put()
+                    .to(lead_update)
+                    .wrap(require_permission("crm:lead:edit")),
+            )
+            // DELETE /lead/bath_delete - 批量删除线索
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_lead)
+                    .wrap(require_permission("crm:lead:delete")),
+            )
+            // GET /lead/info - 线索详情
+            .route(
+                "/info",
+                web::get()
+                    .to(lead_info)
+                    .wrap(require_permission("crm:lead:info")),
+            )
+            // GET /lead/list - 线索列表
+            .route(
+                "/list",
+                web::get()
+                    .to(lead_list)
+                    .wrap(require_permission("crm:lead:list")),
+            )
+            // PUT /lead/update-status - 更新线索状态
+            .route(
+                "/update-status",
+                web::put()
+                    .to(lead_update_status)
+                    .wrap(require_permission("crm:lead:edit")),
+            )
+            // PUT /lead/add-to-pool - 退回公海
+            .route(
+                "/add-to-pool",
+                web::put()
+                    .to(lead_add_to_pool)
+                    .wrap(require_permission("crm:lead:edit")),
+            )
+            // PUT /lead/claim - 领取线索
+            .route(
+                "/claim",
+                web::put()
+                    .to(lead_claim)
+                    .wrap(require_permission("crm:lead:edit")),
+            )
+            // POST /lead/convert-to-customer - 线索转客户
+            .route(
+                "/convert-to-customer",
+                web::post()
+                    .to(lead_convert_to_customer)
+                    .wrap(require_permission("crm:lead:edit")),
+            ),
+    );
+    cfg.service(
+        web::scope("/lead-pool")
+            // GET /lead-pool/list - 公海线索列表
+            .route(
+                "/list",
+                web::get()
+                    .to(lead_pool_list)
+                    .wrap(require_permission("crm:lead-pool:list")),
+            )
+            // GET /lead-pool/info - 公海线索详情
+            .route(
+                "/info",
+                web::get()
+                    .to(lead_pool_info)
+                    .wrap(require_permission("crm:lead-pool:info")),
+            )
+            // DELETE /lead-pool/bath_delete - 批量删除公海线索
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_lead_pool)
+                    .wrap(require_permission("crm:lead-pool:delete")),
+            ),
+    );
 }

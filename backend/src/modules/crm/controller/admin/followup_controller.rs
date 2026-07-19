@@ -11,16 +11,14 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use crate::core::web::permission_guard::require_permission;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
 use crate::modules::crm::model::followup::{FollowupDetailVO, FollowupListQuery, FollowupListVO, FollowupSaveRequest, FollowupUpdateRequest};
 use crate::modules::crm::service::followup_service;
 
-#[post("/followup/save")]
-#[protect("crm:followup:save")]
 pub async fn followup_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<FollowupSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -31,8 +29,6 @@ pub async fn followup_insert(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/followup/update")]
-#[protect("crm:followup:update")]
 pub async fn followup_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<FollowupUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -47,8 +43,6 @@ pub async fn followup_update(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/followup/bath_delete")]
-#[protect("crm:followup:delete")]
 pub async fn bath_delete_followup(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -66,8 +60,6 @@ pub async fn bath_delete_followup(state: web::Data<AppState>, item: web::Json<Ba
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/followup/info")]
-#[protect("crm:followup:info")]
 pub async fn followup_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -82,8 +74,6 @@ pub async fn followup_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 }
 
-#[get("/followup/list")]
-#[protect("crm:followup:list")]
 pub async fn followup_list(state: web::Data<AppState>, query: web::Query<FollowupListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
@@ -96,4 +86,51 @@ pub async fn followup_list(state: web::Data<AppState>, query: web::Query<Followu
         },
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册跟进记录模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(followup_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/followup")
+            // POST /followup/save - 新建跟进记录
+            .route(
+                "/save",
+                web::post()
+                    .to(followup_insert)
+                    .wrap(require_permission("crm:followup:save")),
+            )
+            // PUT /followup/update - 修改跟进记录
+            .route(
+                "/update",
+                web::put()
+                    .to(followup_update)
+                    .wrap(require_permission("crm:followup:update")),
+            )
+            // DELETE /followup/bath_delete - 批量删除跟进记录
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_followup)
+                    .wrap(require_permission("crm:followup:delete")),
+            )
+            // GET /followup/info - 跟进记录详情
+            .route(
+                "/info",
+                web::get()
+                    .to(followup_info)
+                    .wrap(require_permission("crm:followup:info")),
+            )
+            // GET /followup/list - 跟进记录列表
+            .route(
+                "/list",
+                web::get()
+                    .to(followup_list)
+                    .wrap(require_permission("crm:followup:list")),
+            ),
+    );
 }

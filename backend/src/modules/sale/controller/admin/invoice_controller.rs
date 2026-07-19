@@ -11,16 +11,14 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::invoice::{InvoiceListQuery, InvoiceSaveRequest, InvoiceUpdateRequest};
 use crate::modules::sale::service::invoice_service;
 
-#[post("/sale/invoice/save")]
-#[protect("sale:invoice:save")]
 pub async fn invoice_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InvoiceSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -29,8 +27,6 @@ pub async fn invoice_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/sale/invoice/update")]
-#[protect("sale:invoice:update")]
 pub async fn invoice_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InvoiceUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -42,8 +38,6 @@ pub async fn invoice_update(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[post("/sale/invoice/batch-delete")]
-#[protect("sale:invoice:delete")]
 pub async fn bath_delete_invoice(state: web::Data<AppState>, form_data: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = form_data.ids.clone() {
@@ -58,8 +52,6 @@ pub async fn bath_delete_invoice(state: web::Data<AppState>, form_data: web::Jso
     }
 }
 
-#[get("/sale/invoice/info")]
-#[protect("sale:invoice:list")]
 pub async fn invoice_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -72,12 +64,12 @@ pub async fn invoice_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
     }
 }
 
-#[get("/sale/invoice/list")]
-#[protect("sale:invoice:list")]
-pub async fn invoice_list(state: web::Data<AppState>, query: web::Query<InvoiceListQuery>) -> HttpResponse {
+pub async fn invoice_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<InvoiceListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    match invoice_service::get_list(db, &query).await {
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    match invoice_service::get_list(db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -85,4 +77,52 @@ pub async fn invoice_list(state: web::Data<AppState>, query: web::Query<InvoiceL
         },
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册发票模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(invoice_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/sale/invoice")
+            // POST /sale/invoice/save - 新建发票
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/save",
+                web::post()
+                    .to(invoice_insert)
+                    .wrap(require_permission("sale:invoice:save")),
+            )
+            // PUT /sale/invoice/update - 修改发票
+            .route(
+                "/update",
+                web::put()
+                    .to(invoice_update)
+                    .wrap(require_permission("sale:invoice:update")),
+            )
+            // POST /sale/invoice/batch-delete - 批量删除发票
+            .route(
+                "/batch-delete",
+                web::post()
+                    .to(bath_delete_invoice)
+                    .wrap(require_permission("sale:invoice:delete")),
+            )
+            // GET /sale/invoice/info - 发票详情
+            .route(
+                "/info",
+                web::get()
+                    .to(invoice_info)
+                    .wrap(require_permission("sale:invoice:list")),
+            )
+            // GET /sale/invoice/list - 发票列表
+            .route(
+                "/list",
+                web::get()
+                    .to(invoice_list)
+                    .wrap(require_permission("sale:invoice:list")),
+            ),
+    );
 }

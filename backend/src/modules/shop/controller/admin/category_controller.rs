@@ -11,13 +11,11 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::InfoId;
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 /// Save category
-#[post("/category/save")]
-#[protect("system:category:save")]
 pub async fn save(
     state: web::Data<AppState>,
     _req: HttpRequest,
@@ -32,8 +30,6 @@ pub async fn save(
 }
 
 /// Update category
-#[put("/category/update")]
-#[protect("system:category:update")]
 pub async fn update(
     state: web::Data<AppState>,
     _req: HttpRequest,
@@ -47,8 +43,6 @@ pub async fn update(
 }
 
 /// Delete category
-#[delete("/category/delete")]
-#[protect("system:category:delete")]
 pub async fn delete(
     state: web::Data<AppState>,
     _req: HttpRequest,
@@ -62,8 +56,6 @@ pub async fn delete(
 }
 
 /// Get category tree
-#[get("/category/tree")]
-#[protect("system:category:list")]
 pub async fn tree(
     state: web::Data<AppState>,
 ) -> Result<HttpResponse> {
@@ -73,4 +65,44 @@ pub async fn tree(
     Ok(HttpResponse::Ok()
         .content_type("application/msgpack")
         .body(MetaResp::success(result, "local")))
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册店铺分类模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(category_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/category")
+            // POST /category/save - 保存分类
+            .route(
+                "/save",
+                web::post()
+                    .to(save)
+                    .wrap(require_permission("system:category:save")),
+            )
+            // PUT /category/update - 更新分类
+            .route(
+                "/update",
+                web::put()
+                    .to(update)
+                    .wrap(require_permission("system:category:update")),
+            )
+            // DELETE /category/delete - 删除分类
+            .route(
+                "/delete",
+                web::delete()
+                    .to(delete)
+                    .wrap(require_permission("system:category:delete")),
+            )
+            // GET /category/tree - 分类树
+            .route(
+                "/tree",
+                web::get()
+                    .to(tree)
+                    .wrap(require_permission("system:category:list")),
+            ),
+    );
 }

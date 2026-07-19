@@ -11,17 +11,15 @@
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp};
 use crate::modules::website::model::template_user_data::{ListQuery, TemplateDataSaveDTO, TemplateDataSaveRequest, TemplateDataUpdateRequest};
 use crate::modules::website::service::{website_service, template_user_data_service, template_service};
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::modules::website::model::template::MyListQuery;
 
-#[post("/my_template/add")]
-#[protect("my:template:add")]
 pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<TemplateDataSaveRequest>) -> crate::core::errors::error::Result<HttpResponse> {
     let db = &state.db;
 
@@ -37,8 +35,6 @@ pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<T
     Ok(HttpResponse::Ok().json(result))
 }
 
-#[delete("/my_template/batch_delete")]
-#[protect("my:template:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, _req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -53,8 +49,6 @@ pub async fn batch_delete(state: web::Data<AppState>, _req: HttpRequest, item: w
     }
 }
 
-#[put("/my_template/update/{id}")]
-#[protect("my:template:update")]
 pub async fn update_by_id(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<TemplateDataUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let mut form_data = TemplateDataSaveDTO::from(item.into_inner());
@@ -68,7 +62,6 @@ pub async fn update_by_id(state: web::Data<AppState>, req: HttpRequest, id: web:
     Ok(HttpResponse::Ok().json(result))
 }
 
-#[get("/my_template/path_tree/{id}")]
 pub async fn get_by_tree(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -96,8 +89,6 @@ pub async fn get_by_tree(
 }
 
 
-#[get("/my_template/detail/{id}")]
-#[protect("my:template:view")]
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
@@ -107,8 +98,6 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
 }
 
-#[get("/my_template/list")]
-#[protect("my:template:list")]
 pub async fn get_by_page(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ListQuery>,) -> Result<HttpResponse> {
     let db = &state.db;
     let mut form_data = query.0;
@@ -125,8 +114,6 @@ pub async fn get_by_page(state: web::Data<AppState>, req: HttpRequest, query: we
 }
 
 /// 获取我的模版列表
-#[get("/template/buy_list")]
-#[protect("buy:template:list")]
 pub async fn get_buy_by_page(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -141,4 +128,63 @@ pub async fn get_buy_by_page(
     template_service::get_my_list_by_page(&db, list_query).await.map(|page_data| {
         HttpResponse::Ok().json(page_data)
     })
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册我的模板模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(my_template_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/my_template")
+            // POST /my_template/add - 新增我的模板
+            .route(
+                "/add",
+                web::post()
+                    .to(add)
+                    .wrap(require_permission("my:template:add")),
+            )
+            // DELETE /my_template/batch_delete - 批量删除我的模板
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("my:template:delete")),
+            )
+            // PUT /my_template/update/{id} - 修改我的模板
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_by_id)
+                    .wrap(require_permission("my:template:update")),
+            )
+            // GET /my_template/path_tree/{id} - 模板树
+            .route("/path_tree/{id}", web::get().to(get_by_tree))
+            // GET /my_template/detail/{id} - 我的模板详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_by_detail)
+                    .wrap(require_permission("my:template:view")),
+            )
+            // GET /my_template/list - 我的模板列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_by_page)
+                    .wrap(require_permission("my:template:list")),
+            ),
+    )
+    .service(
+        web::scope("/template")
+            // GET /template/buy_list - 购买模板列表
+            .route(
+                "/buy_list",
+                web::get()
+                    .to(get_buy_by_page)
+                    .wrap(require_permission("buy:template:list")),
+            ),
+    );
 }

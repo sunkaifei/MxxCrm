@@ -2,19 +2,17 @@
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref } from 'vue';
+import { ref } from 'vue';
 
-import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideEye, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Modal, Popconfirm, message } from 'ant-design-vue';
+import { Button, Drawer, Modal, Popconfirm, Tag, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getLeadPoolListApi, claimLeadApi, deleteLeadPoolApi } from '#/api';
 import { $t } from '#/locales';
-import LeadDrawerComp from '../lead/drawer.vue';
 import LeadDetail from '../lead/detail.vue';
 
 const accessStore = useAccessStore();
@@ -30,28 +28,50 @@ const industryLabelMap: Record<number, string> = {
   5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
 };
 
-const statusOptions = [
-  { value: 1, label: '新客', color: 'blue' },
-  { value: 2, label: '跟进中', color: 'cyan' },
-  { value: 3, label: '已成交', color: 'green' },
-  { value: 4, label: '无效线索', color: 'default' },
-  { value: 5, label: '已回收', color: 'orange' },
-  { value: 6, label: '未核查', color: 'blue' },
-  { value: 7, label: '核查中', color: 'cyan' },
-  { value: 8, label: '有效线索', color: 'green' },
-];
+const statusLabelMap: Record<number, string> = {
+  1: '新客', 2: '跟进中', 3: '已成交', 4: '无效线索',
+  5: '已回收', 6: '未核查', 7: '核查中', 8: '有效线索',
+};
+const statusColorMap: Record<number, string> = {
+  1: 'blue', 2: 'cyan', 3: 'green', 4: 'default',
+  5: 'orange', 6: 'default', 7: 'processing', 8: 'success',
+};
 
+// ============ 统一详情抽屉 ============
 const detailVisible = ref(false);
 const detailId = ref<number | null>(null);
+const detailCreate = ref(false);
+const detailKey = ref(0);
 
 function openDetail(row: any) {
   const id = row.id ?? row.id_;
   if (!id) { message.error('线索ID不存在'); return; }
+  detailCreate.value = false;
   detailId.value = Number(id);
+  detailKey.value++;
   detailVisible.value = true;
 }
-function closeDetail() { detailVisible.value = false; detailId.value = null; }
-function handleDetailEdit(lead: any) { closeDetail(); openDrawer(false, lead); }
+
+function openEdit(row: any) {
+  openDetail(row);
+}
+
+function openCreate() {
+  detailCreate.value = true;
+  detailId.value = null;
+  detailKey.value++;
+  detailVisible.value = true;
+}
+
+function closeDetail() {
+  detailVisible.value = false;
+  detailId.value = null;
+  detailCreate.value = false;
+}
+
+function handleDetailSaved() {
+  gridApi.query();
+}
 
 async function handleClaim(row: any) {
   Modal.confirm({
@@ -114,10 +134,10 @@ const formOptions: VbenFormProps = {
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true },
+  rowConfig: { height: 'auto' },
   stripe: true,
   checkboxConfig: { checkField: 'checked', trigger: 'row' },
 
@@ -125,51 +145,78 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getLeadPoolListApi({
+        const result = await getLeadPoolListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
           listType: 'pool',
           ...formValues,
         });
+        // 等DOM渲染完成后同步固定列行高并居中内容
+        const syncFixedColumn = (retry = 0) => {
+          const $el = gridApi.grid?.$el as HTMLElement | undefined;
+          if (!$el) return;
+          const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
+          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          if (!mainBody || !fixedRightBody) {
+            if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
+            return;
+          }
+          const rows1 = mainBody.querySelectorAll('tr.vxe-body--row');
+          const rows2 = fixedRightBody.querySelectorAll('tr.vxe-body--row');
+          const len = Math.min(rows1.length, rows2.length);
+          if (len === 0) return;
+          for (let i = 0; i < len; i++) {
+            const h = (rows1[i] as HTMLElement).offsetHeight;
+            if (h === 0) continue;
+            (rows2[i] as HTMLElement).style.height = h + 'px';
+            const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
+            tds.forEach((td: Element) => {
+              const cell = td.querySelector('.vxe-cell');
+              if (cell) {
+                (cell as HTMLElement).style.display = 'flex';
+                (cell as HTMLElement).style.alignItems = 'center';
+                (cell as HTMLElement).style.justifyContent = 'center';
+                (cell as HTMLElement).style.height = h + 'px';
+              }
+            });
+          }
+        };
+        requestAnimationFrame(() => {
+          syncFixedColumn();
+          setTimeout(() => syncFixedColumn(), 200);
+          setTimeout(() => syncFixedColumn(), 500);
+        });
+        return result;
       },
     },
   },
 
   columns: [
     { type: 'checkbox', width: 50 },
-    { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: '公司名称', field: 'companyName', minWidth: 180, slots: { default: 'companyName' } },
-    { title: '联系人', field: 'contactName', width: 100 },
+    { title: $t('ui.table.seq'), type: 'seq', width: 60, headerAlign: 'center' },
+    { title: '公司名称', field: 'companyName', minWidth: 180, headerAlign: 'center', align: 'left', slots: { default: 'companyName' } },
+    { title: '联系人', field: 'contactName', width: 100, headerAlign: 'center' },
     {
-      title: '来源', field: 'source', width: 100,
+      title: '来源', field: 'source', width: 100, headerAlign: 'center',
       formatter: ({ cellValue }: any) => sourceLabelMap[cellValue] || cellValue || '-',
     },
     {
-      title: '状态', field: 'status', width: 90,
-      cellRender: { name: 'Tag', options: statusOptions },
+      title: '状态', field: 'status', width: 90, headerAlign: 'center',
+      slots: { default: 'status' },
     },
-    { title: '行业', field: 'industry', width: 90, formatter: ({ cellValue }: any) => industryLabelMap[cellValue] || cellValue || '-' },
-    { title: '国家', field: 'country', width: 80 },
-    { title: '创建人', field: 'createdByName', width: 90 },
+    { title: '行业', field: 'industry', width: 90, headerAlign: 'center', formatter: ({ cellValue }: any) => industryLabelMap[cellValue] || cellValue || '-' },
+    { title: '国家', field: 'country', width: 80, headerAlign: 'center' },
+    { title: '创建人', field: 'createdByName', width: 90, headerAlign: 'center' },
     {
-      title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createdAt' }, width: 160,
+      title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createdAt' }, width: 160, headerAlign: 'center',
     },
     {
-      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 240,
+      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 240, headerAlign: 'center',
     },
   ],
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
-
-const [FormDrawer, drawerApi] = useVbenDrawer({
-  connectedComponent: LeadDrawerComp,
-  onClosed() { if (drawerApi.getData()?.needRefresh) gridApi.query(); },
-});
-
-function openDrawer(create: boolean, row?: any) { drawerApi.setData({ create, row, fromPool: create }); drawerApi.open(); }
-function handleCreate() { openDrawer(true); }
-function handleEdit(row: any) { openDrawer(false, row); }
 
 async function handleDelete(row: any) {
   row.pending = true;
@@ -184,14 +231,14 @@ async function handleDelete(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <Grid :table-title="$t('page.crm.leadPool.title')">
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('crm:lead:create')"
           type="primary"
           class="mr-2"
-          @click="handleCreate"
+          @click="openCreate"
         >
           {{ $t('page.crm.leadPool.button.create') }}
         </Button>
@@ -200,40 +247,99 @@ async function handleDelete(row: any) {
       <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
 
       <template #companyName="{ row }">
-        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.companyName }}</a>
+        <div>
+          <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.companyName }}</a>
+          <div v-if="row.tags && row.tags.length" class="mt-1 flex flex-wrap gap-1">
+            <Tag
+              v-for="tag in row.tags"
+              :key="tag.id"
+              :color="tag.tagColor || 'blue'"
+              class="!mr-0 !mb-1"
+              style="font-size: 12px; line-height: 18px;"
+            >
+              {{ tag.tagName }}
+            </Tag>
+          </div>
+        </div>
+      </template>
+
+      <template #status="{ row }">
+        <Tag :color="statusColorMap[row.status] || 'default'">{{ statusLabelMap[row.status] || row.status || '-' }}</Tag>
       </template>
 
       <template #action="{ row }">
-        <Button type="link" @click="() => handleClaim(row)">领取</Button>
-        <Button
-          v-if="accessStore.hasAccessCode('crm:lead:edit')"
-          type="link"
-          :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
-          :title="$t('page.crm.leadPool.button.edit')"
-        />
-        <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" :title="$t('page.crm.leadPool.button.info')" />
-        <Popconfirm
-          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.leadPool.title') })"
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="handleDelete(row)"
-        >
-          <Button
-            v-if="accessStore.hasAccessCode('crm:lead-pool:delete')"
-            type="link"
-            danger
-            :icon="h(LucideTrash2)"
-            :title="$t('page.crm.leadPool.button.delete')"
-          />
-        </Popconfirm>
+        <span class="action-btns">
+          <a class="action-btn" @click="() => handleClaim(row)">领取</a>
+          <a
+            v-if="accessStore.hasAccessCode('crm:lead:edit')"
+            class="action-btn"
+            @click="() => openEdit(row)"
+          >编辑</a>
+          <a class="action-btn" @click="() => openDetail(row)">详情</a>
+          <Popconfirm
+            :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.leadPool.title') })"
+            :ok-text="$t('ui.button.ok')"
+            :cancel-text="$t('ui.button.cancel')"
+            @confirm="handleDelete(row)"
+          >
+            <a
+              v-if="accessStore.hasAccessCode('crm:lead-pool:delete')"
+              class="action-btn danger"
+            >删除</a>
+          </Popconfirm>
+        </span>
       </template>
     </Grid>
 
-    <FormDrawer />
-
-    <Drawer v-model:open="detailVisible" :width="960" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" :title="$t('page.crm.leadPool.button.info')" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
-      <LeadDetail v-if="detailId" :id="detailId" @edit="handleDetailEdit" />
+    <!-- 统一详情/新建/编辑/跟进 抽屉 -->
+    <Drawer
+      v-model:open="detailVisible"
+      :width="1100"
+      placement="right"
+      :destroy-on-close="false"
+      :mask-closable="false"
+      :closable="true"
+      :title="detailCreate ? '新建线索' : '线索详情'"
+      :body-style="{ padding: 0, overflow: 'auto', height: '100%' }"
+      @close="closeDetail"
+    >
+      <LeadDetail
+        v-if="detailVisible"
+        :key="detailKey"
+        :id="detailId"
+        :create="detailCreate"
+        @saved="handleDetailSaved"
+      />
     </Drawer>
   </Page>
 </template>
+
+<style scoped>
+.action-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 13px;
+}
+.action-btn {
+  cursor: pointer;
+  color: #1677ff;
+  line-height: 1;
+  text-decoration: none;
+}
+.action-btn:hover {
+  color: #4096ff;
+}
+.action-btn.danger {
+  color: #ff4d4f;
+}
+.action-btn.danger:hover {
+  color: #ff7875;
+}
+:deep(.vxe-table--fixed-right-wrapper .vxe-body--column .vxe-cell) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 100% !important;
+}
+</style>

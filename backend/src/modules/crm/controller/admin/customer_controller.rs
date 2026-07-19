@@ -12,18 +12,21 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use crate::core::web::permission_guard::require_permission;
+use actix_web::{web, HttpRequest, HttpResponse};
+use sea_orm::EntityTrait;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
 use crate::modules::crm::model::customer::{CustomerListQuery, CustomerSaveRequest, CustomerUpdateRequest};
+use crate::modules::crm::model::customer_financial::{CustomerFinancialSaveDTO, CustomerFinancialModel};
 use crate::modules::crm::service::customer_service;
 use crate::modules::crm::service::contact_service;
 use crate::modules::crm::service::assign_history_service;
+use crate::modules::crm::service::customer_edit_log_service;
+use crate::modules::system::entity::{admin, admin::Entity as Admin};
+use super::customer_edit_log_controller;
 
-#[post("/customer/save")]
-#[protect("crm:customer:create")]
 pub async fn customer_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CustomerSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -38,8 +41,6 @@ pub async fn customer_insert(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/customer/update")]
-#[protect("crm:customer:update")]
 pub async fn customer_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CustomerUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -58,8 +59,6 @@ pub async fn customer_update(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/customer/bath_delete")]
-#[protect("crm:customer:delete")]
 pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -79,8 +78,6 @@ pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, 
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/customer/info")]
-#[protect("crm:customer:info")]
 pub async fn customer_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -95,8 +92,6 @@ pub async fn customer_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 }
 
-#[get("/customer/list")]
-#[protect("crm:customer:list")]
 pub async fn customer_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<CustomerListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
@@ -115,8 +110,6 @@ pub async fn customer_list(state: web::Data<AppState>, req: HttpRequest, query: 
 }
 
 /// 获取客户下的联系人列表
-#[get("/customer/contacts")]
-#[protect("crm:customer:info")]
 pub async fn customer_contacts(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -139,8 +132,6 @@ pub async fn customer_contacts(state: web::Data<AppState>, item: web::Query<Info
 }
 
 /// 公海客户列表
-#[get("/customer-pool/list")]
-#[protect("crm:customer:list")]
 pub async fn customer_pool_list(state: web::Data<AppState>, query: web::Query<CustomerListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
@@ -152,8 +143,6 @@ pub async fn customer_pool_list(state: web::Data<AppState>, query: web::Query<Cu
 }
 
 /// 领取公海客户
-#[put("/customer/claim")]
-#[protect("crm:customer:claim")]
 pub async fn customer_claim(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
@@ -172,8 +161,6 @@ pub async fn customer_claim(state: web::Data<AppState>, req: HttpRequest, item: 
 }
 
 /// 退回公海
-#[put("/customer/add-to-pool")]
-#[protect("crm:customer:return-pool")]
 pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
@@ -192,8 +179,6 @@ pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, 
 }
 
 /// 获取客户分配历史（负责人时间轴）
-#[get("/customer/assign-history")]
-#[protect("crm:customer:info")]
 pub async fn customer_assign_history(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -216,8 +201,6 @@ pub struct CheckNameQuery {
     pub exclude_id: Option<i64>,
 }
 
-#[get("/customer/check-name")]
-#[protect("crm:customer:list")]
 pub async fn customer_check_name(state: web::Data<AppState>, query: web::Query<CheckNameQuery>) -> HttpResponse {
     let db = &state.db;
     let q = query.into_inner();
@@ -229,4 +212,185 @@ pub async fn customer_check_name(state: web::Data<AppState>, query: web::Query<C
         }
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
+}
+
+/// 查询客户财务信息
+pub async fn customer_financial_info(
+    state: web::Data<AppState>,
+    customer_id: web::Path<i64>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let customer_id = customer_id.into_inner();
+
+    match CustomerFinancialModel::find_by_customer_id(db, customer_id).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 更新客户财务信息（存在则更新，不存在则新增）
+pub async fn customer_financial_update(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    form_data: web::Json<CustomerFinancialSaveDTO>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let dto = form_data.into_inner();
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = jwt_token.id.unwrap_or_default();
+
+    // 获取操作人名称
+    let editor_name = Admin::find_by_id(user_id)
+        .one(db)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|a| a.nick_name.or(a.user_name));
+
+    // 查询旧数据（用于日志对比）
+    let old_data = CustomerFinancialModel::find_by_customer_id(db, dto.customer_id).await
+        .ok()
+        .flatten()
+        .map(|m| serde_json::to_value(m).unwrap_or_default())
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    // 执行更新或新增
+    let result = match CustomerFinancialModel::find_by_customer_id(db, dto.customer_id).await {
+        Ok(Some(_)) => {
+            CustomerFinancialModel::update_by_customer_id(db, dto.customer_id, Some(user_id), &dto).await
+                .map(|v| (v, "update"))
+        }
+        Ok(None) => {
+            CustomerFinancialModel::insert(db, &dto).await
+                .map(|v| (v, "insert"))
+        }
+        Err(e) => Err(e),
+    };
+
+    match result {
+        Ok((v, _op)) => {
+            // 查询新数据用于日志对比
+            let new_data = CustomerFinancialModel::find_by_customer_id(db, dto.customer_id).await
+                .ok()
+                .flatten()
+                .map(|m| serde_json::to_value(m).unwrap_or_default())
+                .unwrap_or_else(|| serde_json::json!({}));
+
+            // 记录编辑日志（财务信息类型 log_type=1）
+            let _ = customer_edit_log_service::log_update(
+                db, dto.customer_id, user_id, editor_name, &old_data, &new_data, Some(1),
+            ).await;
+
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local")))
+        }
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册客户模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(customer_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/customer")
+            // POST /customer/save - 新建客户
+            .route(
+                "/save",
+                web::post()
+                    .to(customer_insert)
+                    .wrap(require_permission("crm:customer:create")),
+            )
+            // PUT /customer/update - 修改客户
+            .route(
+                "/update",
+                web::put()
+                    .to(customer_update)
+                    .wrap(require_permission("crm:customer:update")),
+            )
+            // DELETE /customer/bath_delete - 批量删除客户
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_customer)
+                    .wrap(require_permission("crm:customer:delete")),
+            )
+            // GET /customer/info - 客户详情
+            .route(
+                "/info",
+                web::get()
+                    .to(customer_info)
+                    .wrap(require_permission("crm:customer:info")),
+            )
+            // GET /customer/list - 客户列表
+            .route(
+                "/list",
+                web::get()
+                    .to(customer_list)
+                    .wrap(require_permission("crm:customer:list")),
+            )
+            // GET /customer/contacts - 客户下的联系人列表
+            .route(
+                "/contacts",
+                web::get()
+                    .to(customer_contacts)
+                    .wrap(require_permission("crm:customer:info")),
+            )
+            // PUT /customer/claim - 领取公海客户
+            .route(
+                "/claim",
+                web::put()
+                    .to(customer_claim)
+                    .wrap(require_permission("crm:customer:claim")),
+            )
+            // PUT /customer/add-to-pool - 退回公海
+            .route(
+                "/add-to-pool",
+                web::put()
+                    .to(customer_add_to_pool)
+                    .wrap(require_permission("crm:customer:return-pool")),
+            )
+            // GET /customer/assign-history - 客户分配历史
+            .route(
+                "/assign-history",
+                web::get()
+                    .to(customer_assign_history)
+                    .wrap(require_permission("crm:customer:info")),
+            )
+            // GET /customer/check-name - 检查公司名称是否已存在
+            .route(
+                "/check-name",
+                web::get()
+                    .to(customer_check_name)
+                    .wrap(require_permission("crm:customer:list")),
+            )
+            // GET /customer/financial/{customer_id} - 查询客户财务信息
+            .route(
+                "/financial/{customer_id}",
+                web::get()
+                    .to(customer_financial_info)
+                    .wrap(require_permission("crm:customer:info")),
+            )
+            // PUT /customer/financial/update - 更新客户财务信息
+            .route(
+                "/financial/update",
+                web::put()
+                    .to(customer_financial_update)
+                    .wrap(require_permission("crm:customer:update")),
+            )
+            // 客户修改日志（注册在 /customer scope 内，避免被 scope 捕获导致 404）
+            .configure(customer_edit_log_controller::register),
+    );
+    cfg.service(
+        web::scope("/customer-pool")
+            // GET /customer-pool/list - 公海客户列表
+            .route(
+                "/list",
+                web::get()
+                    .to(customer_pool_list)
+                    .wrap(require_permission("crm:customer:list")),
+            ),
+    );
 }

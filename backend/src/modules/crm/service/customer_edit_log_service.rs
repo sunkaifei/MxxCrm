@@ -24,6 +24,7 @@ use serde_json::json;
 /// 记录客户修改日志
 /// 对比 old_data 和 new_data（均为 serde_json::Value 对象），
 /// 只记录有差异的字段，无差异时不写入
+/// log_type: 0=基本信息, 1=财务信息
 pub async fn log_update(
     db: &impl ConnectionTrait,
     customer_id: i64,
@@ -31,6 +32,7 @@ pub async fn log_update(
     editor_name: Option<String>,
     old_data: &serde_json::Value,
     new_data: &serde_json::Value,
+    log_type: Option<i32>,
 ) -> Result<()> {
     let changes = compare_changes(old_data, new_data);
     if changes.is_empty() {
@@ -47,6 +49,7 @@ pub async fn log_update(
         editor_name: Set(editor_name),
         content: Set(Some(content_json)),
         edit_time: Set(Some(now)),
+        log_type: Set(log_type),
         deleted: Set(Some(0)),
         ..Default::default()
     };
@@ -108,8 +111,14 @@ pub async fn query_by_customer(
 
     let mut q = CustomerEditLog::find()
         .filter(customer_edit_log::Column::CustomerId.eq(customer_id))
-        .filter(customer_edit_log::Column::Deleted.eq(0))
-        .order_by_desc(customer_edit_log::Column::EditTime);
+        .filter(customer_edit_log::Column::Deleted.eq(0));
+
+    // 按日志类型筛选
+    if let Some(lt) = query.log_type {
+        q = q.filter(customer_edit_log::Column::LogType.eq(lt));
+    }
+
+    q = q.order_by_desc(customer_edit_log::Column::EditTime);
 
     let total = q.clone().count(db).await? as i64;
     let paginator = q.paginate(db, page_size as u64);
@@ -127,6 +136,9 @@ fn compare_changes(old: &serde_json::Value, new: &serde_json::Value) -> Vec<Edit
         "updated_by", "update_time",
         "total_deal_amount", "total_deal_count",
         "assigned_to",
+        // camelCase 版本（财务信息等使用）
+        "customerId", "createdBy", "createTime", "updatedBy", "updateTime",
+        "customer_id",
     ];
     let mut changes = Vec::new();
 
@@ -151,9 +163,15 @@ fn compare_changes(old: &serde_json::Value, new: &serde_json::Value) -> Vec<Edit
         let old_val = old.get(&field);
         let new_val = new.get(&field);
 
-        // 将 Option 值转为可比较的字符串表示
-        let old_str = val_to_string(old_val);
-        let new_str = val_to_string(new_val);
+        // 银行账户数组字段特殊处理：展示账户摘要而非原始 JSON
+        let (old_str, new_str) = if field == "bankAccounts" {
+            (
+                format_bank_accounts(old_val),
+                format_bank_accounts(new_val),
+            )
+        } else {
+            (val_to_string(old_val), val_to_string(new_val))
+        };
 
         if old_str != new_str {
             changes.push(EditLogItem {
@@ -166,6 +184,50 @@ fn compare_changes(old: &serde_json::Value, new: &serde_json::Value) -> Vec<Edit
     }
 
     changes
+}
+
+/// 将银行账户数组格式化为可读摘要
+/// 输入示例: [{"accountName":"张三","accountNumber":"1234","bankName":"工行","isDefault":true}]
+/// 输出示例: "1个账户（默认: 工行-1234）"
+/// 注意：bankAccounts 可能存储为 JSON 数组，也可能存储为 JSON 字符串（内含数组）
+fn format_bank_accounts(val: Option<&serde_json::Value>) -> Option<String> {
+    match val {
+        None | Some(serde_json::Value::Null) => None,
+        Some(v) => {
+            // 如果是字符串，先解析成数组
+            let arr_val: serde_json::Value = if let Some(s) = v.as_str() {
+                serde_json::from_str::<serde_json::Value>(s).unwrap_or(serde_json::Value::Null)
+            } else {
+                v.clone()
+            };
+            let arr = match arr_val.as_array() {
+                Some(a) if !a.is_empty() => a,
+                _ => return None,
+            };
+            let count = arr.len();
+            // 找默认账户
+            let default_account = arr.iter().find(|a| {
+                a.get("isDefault").and_then(|v| v.as_bool()).unwrap_or(false)
+            }).or_else(|| arr.first());
+
+            let summary = if let Some(acc) = default_account {
+                let bank = acc.get("bankName").and_then(|v| v.as_str()).unwrap_or("");
+                let acct_no = acc.get("accountNumber").and_then(|v| v.as_str()).unwrap_or("");
+                let tail = if acct_no.len() >= 4 { &acct_no[acct_no.len()-4..] } else { acct_no };
+                let name = acc.get("accountName").and_then(|v| v.as_str()).unwrap_or("");
+                if !bank.is_empty() && !tail.is_empty() {
+                    format!("{}个账户（默认: {}-{}）", count, bank, tail)
+                } else if !name.is_empty() {
+                    format!("{}个账户（默认: {}）", count, name)
+                } else {
+                    format!("{}个账户", count)
+                }
+            } else {
+                format!("{}个账户", count)
+            };
+            Some(summary)
+        }
+    }
 }
 
 /// 将 JSON Value 转为 Option<String>，null/None 都转为 None

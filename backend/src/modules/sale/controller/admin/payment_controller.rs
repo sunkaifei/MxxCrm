@@ -11,18 +11,16 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::payment::{
     PaymentApplyRequest, PaymentListQuery, PaymentSaveRequest, PaymentUpdateRequest,
 };
 use crate::modules::sale::service::payment_service;
 
-#[post("/sale/payment/save")]
-#[protect("sale:payment:save")]
 pub async fn payment_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PaymentSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -33,8 +31,6 @@ pub async fn payment_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/sale/payment/update")]
-#[protect("sale:payment:update")]
 pub async fn payment_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PaymentUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -49,8 +45,6 @@ pub async fn payment_update(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/sale/payment/bath_delete")]
-#[protect("sale:payment:delete")]
 pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -68,8 +62,6 @@ pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<Bat
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/sale/payment/info")]
-#[protect("sale:payment:info")]
 pub async fn payment_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -84,13 +76,14 @@ pub async fn payment_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
     }
 }
 
-#[get("/sale/payment/list")]
-#[protect("sale:payment:list")]
-pub async fn payment_list(state: web::Data<AppState>, query: web::Query<PaymentListQuery>) -> HttpResponse {
+pub async fn payment_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PaymentListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
 
-    match payment_service::list(&db, &query).await {
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+
+    match payment_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -101,8 +94,6 @@ pub async fn payment_list(state: web::Data<AppState>, query: web::Query<PaymentL
 }
 
 /// 确认回款：status→2，设 confirm_time/confirm_by，联动订单 paid_amount
-#[post("/sale/payment/confirm")]
-#[protect("sale:payment:confirm")]
 pub async fn payment_confirm(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -127,8 +118,6 @@ pub async fn payment_confirm(
 }
 
 /// 驳回回款：status→3
-#[post("/sale/payment/reject")]
-#[protect("sale:payment:confirm")]
 pub async fn payment_reject(
     state: web::Data<AppState>,
     form_data: web::Json<InfoId>,
@@ -149,8 +138,6 @@ pub async fn payment_reject(
 }
 
 /// 核销：将回款金额分配到一个或多个回款计划
-#[post("/sale/payment/application/apply")]
-#[protect("sale:payment:confirm")]
 pub async fn payment_apply(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -171,8 +158,6 @@ pub async fn payment_apply(
 }
 
 /// 取消核销：回滚 payment 和 plan 金额，软删除核销记录
-#[post("/sale/payment/application/cancel")]
-#[protect("sale:payment:confirm")]
 pub async fn payment_application_cancel(
     state: web::Data<AppState>,
     form_data: web::Json<InfoId>,
@@ -193,8 +178,6 @@ pub async fn payment_application_cancel(
 }
 
 /// 查询回款未核销金额及可核销计划列表
-#[get("/sale/payment/unapplied")]
-#[protect("sale:payment:list")]
 pub async fn payment_unapplied(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -215,8 +198,6 @@ pub async fn payment_unapplied(
 }
 
 /// 查询回款的核销明细列表
-#[get("/sale/payment/application/list")]
-#[protect("sale:payment:list")]
 pub async fn payment_application_list(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -234,4 +215,94 @@ pub async fn payment_application_list(
         Err(e) => HttpResponse::Ok().content_type("application/msgpack")
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册回款模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(payment_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/sale/payment")
+            // POST /sale/payment/save - 新建回款
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/save",
+                web::post()
+                    .to(payment_insert)
+                    .wrap(require_permission("sale:payment:save")),
+            )
+            // PUT /sale/payment/update - 修改回款
+            .route(
+                "/update",
+                web::put()
+                    .to(payment_update)
+                    .wrap(require_permission("sale:payment:update")),
+            )
+            // DELETE /sale/payment/bath_delete - 批量删除回款
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_payment)
+                    .wrap(require_permission("sale:payment:delete")),
+            )
+            // GET /sale/payment/info - 回款详情
+            .route(
+                "/info",
+                web::get()
+                    .to(payment_info)
+                    .wrap(require_permission("sale:payment:info")),
+            )
+            // GET /sale/payment/list - 回款列表
+            .route(
+                "/list",
+                web::get()
+                    .to(payment_list)
+                    .wrap(require_permission("sale:payment:list")),
+            )
+            // POST /sale/payment/confirm - 确认回款
+            .route(
+                "/confirm",
+                web::post()
+                    .to(payment_confirm)
+                    .wrap(require_permission("sale:payment:confirm")),
+            )
+            // POST /sale/payment/reject - 驳回回款
+            .route(
+                "/reject",
+                web::post()
+                    .to(payment_reject)
+                    .wrap(require_permission("sale:payment:confirm")),
+            )
+            // POST /sale/payment/application/apply - 核销
+            .route(
+                "/application/apply",
+                web::post()
+                    .to(payment_apply)
+                    .wrap(require_permission("sale:payment:confirm")),
+            )
+            // POST /sale/payment/application/cancel - 取消核销
+            .route(
+                "/application/cancel",
+                web::post()
+                    .to(payment_application_cancel)
+                    .wrap(require_permission("sale:payment:confirm")),
+            )
+            // GET /sale/payment/unapplied - 查询未核销金额及可核销计划
+            .route(
+                "/unapplied",
+                web::get()
+                    .to(payment_unapplied)
+                    .wrap(require_permission("sale:payment:list")),
+            )
+            // GET /sale/payment/application/list - 查询核销明细列表
+            .route(
+                "/application/list",
+                web::get()
+                    .to(payment_application_list)
+                    .wrap(require_permission("sale:payment:list")),
+            ),
+    );
 }

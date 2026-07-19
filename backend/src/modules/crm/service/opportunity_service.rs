@@ -11,12 +11,114 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::entity::{contact, customer};
 use crate::modules::crm::model::opportunity::{OpportunityDetailVO, OpportunityListQuery, OpportunityListVO, OpportunityModel, OpportunitySaveDTO, OpportunitySaveRequest, OpportunityUpdateRequest};
-use crate::modules::system::entity::{admin, admin::Entity as Admin};
+use crate::modules::system::entity::{admin, admin::Entity as Admin, dept as dept_entity};
+use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
+use crate::modules::system::model::dept::DeptModel;
+use crate::modules::system::service::role_service;
 use crate::modules::sale::entity::{quotation, quotation::Entity as Quotation};
 use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, sea_query::Expr};
 use std::collections::HashMap;
 
+/// 获取当前用户可见的用户ID集合
+///
+/// - data_scope = 1（全部数据）：返回 None（不限制）
+/// - data_scope = 5（仅本人数据）：返回 [current_user_id]
+/// - data_scope = 3/4/2：返回所在部门（及子部门）的所有用户ID
+async fn get_accessible_user_ids(
+    db: &DbConn,
+    current_user_id: i64,
+    data_scope: Option<i32>,
+) -> Result<Option<Vec<i64>>> {
+    match data_scope {
+        Some(1) => Ok(None),
+        Some(5) => Ok(Some(vec![current_user_id])),
+        Some(3) | Some(4) | Some(2) | Some(0) | Some(_) => {
+            let user_depts = AdminDeptMergeModel::find_by_admin_id(db, current_user_id).await
+                .map_err(|e| Error::from(format!("查询用户部门失败: {}", e)))?;
+
+            let mut target_dept_ids = Vec::new();
+
+            if data_scope == Some(2) {
+                let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+                for role in roles {
+                    if role.data_scope == Some(2) {
+                        if let Some(role_id) = role.id {
+                            let dept_result = crate::modules::system::model::role_dept_merge::RoleDeptMergeModel::find_by_role_id(db, &Some(role_id)).await
+                                .map_err(|e| Error::from(format!("查询角色部门关联失败: {}", e)))?;
+                            for merge in dept_result {
+                                if let Some(dept_id) = merge.dept_id {
+                                    target_dept_ids.push(dept_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                for merge in &user_depts {
+                    if let Some(dept_id) = merge.dept_id {
+                        target_dept_ids.push(dept_id);
+                    }
+                }
+            }
+
+            if target_dept_ids.is_empty() {
+                return Ok(Some(vec![current_user_id]));
+            }
+
+            let all_depts = DeptModel::find_all(db).await
+                .map_err(|e| Error::from(format!("查询部门列表失败: {}", e)))?;
+
+            let mut all_target_ids = Vec::new();
+            for dept_id in &target_dept_ids {
+                if data_scope == Some(4) || data_scope == Some(2) {
+                    all_target_ids.extend(collect_child_dept_ids(&all_depts, *dept_id));
+                } else {
+                    all_target_ids.push(*dept_id);
+                }
+            }
+
+            all_target_ids.sort();
+            all_target_ids.dedup();
+
+            let dept_merges = AdminDeptMergeModel::find_by_dept_id(db, all_target_ids).await
+                .map_err(|e| Error::from(format!("查询部门用户失败: {}", e)))?;
+
+            let mut user_ids: Vec<i64> = dept_merges.iter()
+                .filter_map(|m| m.admin_id)
+                .collect();
+            user_ids.sort();
+            user_ids.dedup();
+
+            if user_ids.is_empty() {
+                Ok(Some(vec![current_user_id]))
+            } else {
+                Ok(Some(user_ids))
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+/// 递归收集子部门ID
+fn collect_child_dept_ids(all_depts: &[dept_entity::Model], parent_id: i64) -> Vec<i64> {
+    let mut result = vec![parent_id];
+    for dept in all_depts {
+        if dept.parent_id == Some(parent_id) {
+            result.extend(collect_child_dept_ids(all_depts, dept.id));
+        }
+    }
+    result
+}
+
 pub async fn insert(db: &DbConn, form_data: &OpportunitySaveRequest, created_by: i64) -> Result<i64> {
+    if let (Some(customer_id), Some(name)) = (form_data.customer_id, form_data.title.as_deref()) {
+        let existing = OpportunityModel::find_by_customer_and_name(db, customer_id, name, None).await
+            .map_err(|e| Error::from(format!("查询商机失败: {}", e)))?;
+        if existing.is_some() {
+            return Err(Error::from("该客户下已存在相同名称的商机".to_string()));
+        }
+    }
+
     let mut dto: OpportunitySaveDTO = form_data.clone().into();
     dto.created_by = Some(created_by);
     let result = OpportunityModel::insert(&db, &dto).await?;
@@ -24,6 +126,14 @@ pub async fn insert(db: &DbConn, form_data: &OpportunitySaveRequest, created_by:
 }
 
 pub async fn update(db: &DbConn, form_data: &OpportunityUpdateRequest, updated_by: i64) -> Result<i64> {
+    if let (Some(customer_id), Some(name)) = (form_data.customer_id, form_data.title.as_deref()) {
+        let existing = OpportunityModel::find_by_customer_and_name(db, customer_id, name, form_data.id).await
+            .map_err(|e| Error::from(format!("查询商机失败: {}", e)))?;
+        if existing.is_some() {
+            return Err(Error::from("该客户下已存在相同名称的商机".to_string()));
+        }
+    }
+
     let mut dto: OpportunitySaveDTO = form_data.clone().into();
     dto.updated_by = Some(updated_by);
     let result = OpportunityModel::update_by_id(&db, &form_data.id, &dto).await?;
@@ -87,20 +197,88 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<OpportunityDetailVO> {
     }
 }
 
-pub async fn list(db: &DbConn, query: &OpportunityListQuery) -> Result<ResultPage<Vec<OpportunityListVO>>> {
+pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i64) -> Result<ResultPage<Vec<OpportunityListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
-    
-    let (list, total) = OpportunityModel::select_in_page(
-        &db,
-        page,
-        page_size,
-        query.keywords.clone(),
-        query.stage.clone(),
-        query.assigned_to,
-        query.customer_id,
-    ).await?;
-    
+
+    let list_type = query.list_type.as_deref().unwrap_or("all");
+
+    // 计算负责人ID集合（用于 my / subordinate / all 过滤）
+    let assigned_ids_opt: Option<Vec<i64>> = match list_type {
+        "my" => {
+            // 我的商机：仅看自己负责的
+            Some(vec![current_user_id])
+        }
+        "subordinate" => {
+            // 下属商机：根据 data_scope 获取可见用户，排除自己
+            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+            let data_scope = roles.iter()
+                .filter_map(|r| r.data_scope)
+                .min();
+
+            match data_scope {
+                Some(5) => {
+                    // 仅本人数据权限，无下属
+                    Some(Vec::new())
+                }
+                Some(1) | None => {
+                    // 全部数据权限：返回 None 表示不限制（除了自己），
+                    // 但 select_in_page_by_assigned_ids 中 None 表示不过滤，
+                    // 所以这里需要传 "排除自己" 的逻辑。
+                    // 简化处理：传 None 不过滤，然后在结果中排除自己？
+                    // 更简单的方式：获取所有用户ID，排除自己
+                    let all_admins = Admin::find()
+                        .filter(admin::Column::Id.ne(current_user_id))
+                        .all(db)
+                        .await
+                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
+                    let user_ids: Vec<i64> = all_admins.iter().map(|u| u.id).collect();
+                    Some(user_ids)
+                }
+                _ => {
+                    let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter(|id| *id != current_user_id)
+                        .collect::<Vec<_>>();
+                    Some(user_ids)
+                }
+            }
+        }
+        _ => {
+            // all：按 data_scope 过滤
+            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+            let data_scope = roles.iter()
+                .filter_map(|r| r.data_scope)
+                .min();
+            get_accessible_user_ids(db, current_user_id, data_scope).await?
+        }
+    };
+
+    let (list, total) = if list_type == "my" {
+        // my：直接用 select_in_page，按 assigned_to = current_user_id 过滤
+        OpportunityModel::select_in_page(
+            &db,
+            page,
+            page_size,
+            query.keywords.clone(),
+            query.stage.clone(),
+            Some(current_user_id),
+            query.customer_id,
+        ).await?
+    } else {
+        // subordinate / all：按 assigned_ids 过滤
+        OpportunityModel::select_in_page_by_assigned_ids(
+            &db,
+            page,
+            page_size,
+            query.keywords.clone(),
+            query.stage.clone(),
+            assigned_ids_opt,
+            query.customer_id,
+        ).await?
+    };
+
     // 批量查询客户名称
     let customer_ids: Vec<i64> = list.iter()
         .filter_map(|item| item.customer_id)
@@ -117,7 +295,7 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery) -> Result<ResultPag
             }
         }
     }
-    
+
     // 批量查询创建人名称
     let creator_ids: Vec<i64> = list.iter()
         .filter_map(|item| item.created_by)
@@ -166,7 +344,7 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery) -> Result<ResultPag
         vo.quote_count = quote_count_map.get(&opp_id).copied();
         vo
     }).collect();
-    
+
     Ok(ResultPage::new(data, total, page, page_size))
 }
 

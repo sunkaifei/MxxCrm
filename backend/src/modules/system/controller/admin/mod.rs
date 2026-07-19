@@ -22,3 +22,4 @@ pub mod notice_admin_controller;
 pub mod index_admin_controller;
 pub mod tag_admin_controller;
 pub mod area_admin_controller;
+pub mod edit_log_admin_controller;

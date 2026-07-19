@@ -406,10 +406,16 @@ pub struct AdminDetailVO {
     pub user_type: Option<i32>,
     ///部门ID
     pub dept_ids: Option<Vec<Option<String>>>,
+    ///部门名称列表（与deptIds顺序对应）
+    pub dept_names: Option<Vec<Option<String>>>,
     ///岗位ID
     pub post_ids: Option<Vec<Option<String>>>,
+    ///岗位名称列表（与postIds顺序对应）
+    pub post_names: Option<Vec<Option<String>>>,
     ///角色ID
     pub role_ids: Option<Vec<Option<String>>>,
+    ///角色名称列表（与roleIds顺序对应）
+    pub role_names: Option<Vec<Option<String>>>,
     ///用户邮箱
     pub email: Option<String>,
     ///手机号码
@@ -448,8 +454,11 @@ impl From<admin::Model> for AdminDetailVO {
             nick_name: model.nick_name,
             user_type: model.user_type,
             dept_ids: None,
+            dept_names: None,
             post_ids: None,
+            post_names: None,
             role_ids: None,
+            role_names: None,
             email: model.email,
             mobile: model.mobile,
             gender: model.gender,

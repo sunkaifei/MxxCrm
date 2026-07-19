@@ -217,7 +217,7 @@ pub async fn update(db: &DbConn, form_data: &CustomerUpdateRequest, updated_by: 
         .flatten()
         .and_then(|a| a.nick_name.or(a.user_name));
     let _ = customer_edit_log_service::log_update(
-        &txn, customer_id, updated_by, editor_name, &old_json, &new_json,
+        &txn, customer_id, updated_by, editor_name, &old_json, &new_json, Some(0),
     ).await;
 
     txn.commit().await?;
@@ -466,16 +466,28 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
                 .filter_map(|r| r.data_scope)
                 .min();
 
-            if data_scope == Some(5) {
-                // 仅本人数据权限的人，无法看到下属客户
-                return Ok(ResultPage::new(Vec::<CustomerListVO>::new(), 0, page, page_size));
-            }
-
-            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|id| *id != current_user_id)
-                .collect::<Vec<_>>();
+            let user_ids = match data_scope {
+                Some(5) => {
+                    // 仅本人数据权限的人，无法看到下属客户
+                    Vec::new()
+                }
+                Some(1) | None => {
+                    // 全部数据权限：获取所有用户（排除自己）
+                    let all_admins = Admin::find()
+                        .filter(admin::Column::Id.ne(current_user_id))
+                        .all(db)
+                        .await
+                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
+                    all_admins.iter().map(|u| u.id).collect()
+                }
+                _ => {
+                    get_accessible_user_ids(db, current_user_id, data_scope).await?
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter(|id| *id != current_user_id)
+                        .collect::<Vec<_>>()
+                }
+            };
 
             let assigned_ids = if user_ids.is_empty() { None } else { Some(user_ids) };
             let (list, total) = CustomerModel::select_in_page_by_assigned_ids(

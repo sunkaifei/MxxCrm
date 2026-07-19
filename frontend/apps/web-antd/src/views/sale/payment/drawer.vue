@@ -17,6 +17,7 @@ import {
 import { getContractListApi } from '#/api/core/crm/contract';
 import { getCustomerListApi } from '#/api/core/crm/customer';
 import { getOrderListApi } from '#/api/core/sale/order';
+import { getUserListApi } from '#/api/core/system/user';
 import { uploadFileApi } from '#/api/core/attachment/file';
 
 const props = withDefaults(
@@ -33,6 +34,7 @@ const displayAmount = ref(0);
 const contractOptions = ref<any[]>([]);
 const orderOptions = ref<any[]>([]);
 const customerOptions = ref<any[]>([]);
+const userOptions = ref<any[]>([]);
 
 // 选中的附件文件（手动上传，保存时再调用上传接口）
 const attachmentFileList = ref<UploadFile[]>([]);
@@ -108,6 +110,19 @@ async function loadCustomerOptions() {
     }));
   } catch (e) {
     console.error('加载客户选项失败:', e);
+  }
+}
+
+async function loadUserOptions() {
+  try {
+    const result: any = await getUserListApi({ page: 1, pageSize: 1000 });
+    const list = result?.data?.items || result?.items || result?.list || [];
+    userOptions.value = list.map((item: any) => ({
+      value: item.id,
+      label: item.realName || item.userName || `用户#${item.id}`,
+    }));
+  } catch (e) {
+    console.error('加载用户选项失败:', e);
   }
 }
 
@@ -267,10 +282,19 @@ const paymentFormSchema: VbenFormSchema[] = [
 
 const otherFormSchema: VbenFormSchema[] = [
   {
-    component: 'InputNumber',
+    component: 'Select',
     fieldName: 'ownerUserId',
-    label: '负责人ID',
-    componentProps: { placeholder: '负责人ID', style: 'width:100%', min: 1 },
+    label: '负责人',
+    componentProps: {
+      placeholder: '请选择负责人',
+      allowClear: true,
+      showSearch: true,
+      filterOption: (input: string, option: any) =>
+        String(option?.label ?? '')
+          .toLowerCase()
+          .includes(input.toLowerCase()),
+      options: userOptions,
+    },
   },
   {
     component: 'InputNumber',
@@ -341,7 +365,7 @@ watch(
         // 回显已有附件（仅展示 URL，不重建 UploadFile 列表以避免复杂度）
         attachmentFileList.value = [];
         otherFormApi.setValues({
-          ownerUserId: data.ownerUserId,
+          ownerUserId: data.ownerUserId != null ? Number(data.ownerUserId) : undefined,
           deptId: data.deptId,
           remark: data.remark,
         });
@@ -405,6 +429,10 @@ async function handleSubmit() {
       ...restPaymentValues,
       attachment: attachmentUrl || undefined,
       ...otherValues,
+      ownerUserId:
+        otherValues.ownerUserId != null
+          ? Number(otherValues.ownerUserId)
+          : undefined,
     };
 
     if (isEdit.value) {
@@ -439,6 +467,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         loadContractOptions(),
         loadOrderOptions(),
         loadCustomerOptions(),
+        loadUserOptions(),
       ]);
 
       if (!props.create && props.row) {
@@ -449,7 +478,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
           ...props.row,
         });
         paymentFormApi.setValues(props.row);
-        otherFormApi.setValues(props.row);
+        otherFormApi.setValues({
+          ownerUserId:
+            props.row?.ownerUserId != null
+              ? Number(props.row.ownerUserId)
+              : undefined,
+          deptId: props.row?.deptId,
+          remark: props.row?.remark,
+        });
         originalAttachment.value = props.row?.attachment || '';
       } else {
         basicFormApi.setValues({

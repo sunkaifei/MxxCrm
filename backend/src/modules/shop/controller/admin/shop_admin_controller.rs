@@ -11,15 +11,13 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp};
 use crate::modules::shop::model::shop::{ListQuery, ShopSaveRequest, ShopUpdateRequest};
 use crate::modules::shop::service::shop_service;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 /// Save shop
-#[post("/shop/save")]
-#[protect("system:shop:save")]
 pub async fn save_shop(state: web::Data<AppState>, _req: HttpRequest, item: web::Json<ShopSaveRequest>) -> HttpResponse {
     let db = &state.db;
 
@@ -39,8 +37,6 @@ pub async fn save_shop(state: web::Data<AppState>, _req: HttpRequest, item: web:
 }
 
 /// Batch delete shops
-#[delete("/shop/batch_delete")]
-#[protect("system:shop:delete")]
 pub async fn batch_delete_shop(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
 
@@ -70,8 +66,6 @@ pub async fn batch_delete_shop(state: web::Data<AppState>, item: web::Json<BathD
 }
 
 /// Update shop
-#[put("/shop/update/{id}")]
-#[protect("system:shop:update")]
 pub async fn update_shop(state: web::Data<AppState>, path: web::Path<i64>, _req: HttpRequest, item: web::Json<ShopUpdateRequest>) -> HttpResponse {
     let db = &state.db;
     let mut update_data = item.into_inner();
@@ -95,8 +89,6 @@ pub async fn update_shop(state: web::Data<AppState>, path: web::Path<i64>, _req:
 }
 
 /// Get shop detail
-#[get("/shop/detail/{id}")]
-#[protect("system:shop:view")]
 pub async fn get_shop_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
 
@@ -115,12 +107,57 @@ pub async fn get_shop_detail(state: web::Data<AppState>, item: web::Path<InfoId>
 }
 
 /// Get shop list (paginated)
-#[get("/shop/list")]
-#[protect("system:shop:list")]
 pub async fn get_shop_list(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
 
     shop_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
     })
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册店铺模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(shop_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/shop")
+            // POST /shop/save - 保存店铺
+            .route(
+                "/save",
+                web::post()
+                    .to(save_shop)
+                    .wrap(require_permission("system:shop:save")),
+            )
+            // DELETE /shop/batch_delete - 批量删除店铺
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete_shop)
+                    .wrap(require_permission("system:shop:delete")),
+            )
+            // PUT /shop/update/{id} - 更新店铺
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_shop)
+                    .wrap(require_permission("system:shop:update")),
+            )
+            // GET /shop/detail/{id} - 店铺详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_shop_detail)
+                    .wrap(require_permission("system:shop:view")),
+            )
+            // GET /shop/list - 店铺列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_shop_list)
+                    .wrap(require_permission("system:shop:list")),
+            ),
+    );
 }

@@ -5,6 +5,7 @@ import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
 import { createOpportunityApi, updateOpportunityApi, getCustomerListApi, getCustomerContactsApi, getOpportunityInfoApi } from '#/api';
+import { getUserListApi } from '#/api/core/system/user';
 
 const data = ref();
 const isMaximized = ref(false);
@@ -19,6 +20,23 @@ const currentCustomerId = ref<number | null>(null);
 
 // 当前选中客户下的联系人列表
 const contactOptions = ref<{ label: string; value: number }[]>([]);
+
+// 负责人选项
+const userOptions = ref<any[]>([]);
+
+async function loadUserOptions() {
+  try {
+    const result = await getUserListApi({ page: 1, pageSize: 1000 });
+    if (result.data && result.data.items) {
+      userOptions.value = result.data.items.map((item: any) => ({
+        value: item.id,
+        label: item.realName || item.userName,
+      }));
+    }
+  } catch (e) {
+    console.error('Failed to load user options:', e);
+  }
+}
 
 const getTitle = computed(() =>
   data.value?.create
@@ -96,6 +114,19 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: '请选择销售阶段',
         allowClear: false,
         options: stageOptions,
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'assignedTo',
+      label: '负责人',
+      componentProps: {
+        placeholder: '请选择负责人',
+        allowClear: true,
+        showSearch: true,
+        filterOption: (input: string, option: any) =>
+          option.label.toLowerCase().includes(input.toLowerCase()),
+        options: userOptions,
       },
     },
     {
@@ -273,6 +304,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       ...rawValues,
       customerId: rawValues.customerId != null ? Number(rawValues.customerId) : undefined,
       contactId: rawValues.contactId != null ? Number(rawValues.contactId) : undefined,
+      assignedTo: rawValues.assignedTo != null ? Number(rawValues.assignedTo) : undefined,
     };
     try {
       await (data.value?.create
@@ -297,6 +329,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
       data.value = drawerApi.getData<Record<string, any>>();
       const row = data.value?.row ? { ...data.value.row } : {};
       setLoading(false);
+
+      // 加载负责人选项
+      loadUserOptions();
 
       // 重置表单
       baseFormApi.resetForm();
@@ -348,6 +383,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
               expectedCloseDate: d.expectedCloseDate,
               customerId: d.customerId != null ? String(d.customerId) : undefined,
               contactId: d.contactId != null ? Number(d.contactId) : undefined,
+              assignedTo: d.assignedTo != null ? Number(d.assignedTo) : undefined,
               description: d.description,
             });
           })

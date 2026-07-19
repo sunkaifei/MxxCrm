@@ -14,6 +14,7 @@ import { Button, Card, Col, Drawer, Form, Input, Popconfirm, Row, Select, Tabs, 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteContactApi, getContactListApi } from '#/api';
 import { $t } from '#/locales';
+import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import ContactDrawer from './drawer.vue';
 import ContactDetail from './detail.vue';
 
@@ -39,8 +40,31 @@ function openDetail(row: any) {
 function closeDetail() { detailVisible.value = false; detailId.value = null; }
 function handleDetailEdit(contact: any) { closeDetail(); openDrawer(false, contact); }
 
+// 客户详情抽屉
+const customerDetailVisible = ref(false);
+const customerDetailId = ref<number | string | undefined>(undefined);
+
+function openCustomerDetail(row: any) {
+  const id = row.customerId ?? row.customer_id;
+  if (!id) {
+    message.error('客户ID不存在');
+    return;
+  }
+  customerDetailId.value = Number(id);
+  customerDetailVisible.value = true;
+}
+
+function handleViewCustomer(customerId: number) {
+  if (!customerId) {
+    message.error('客户ID不存在');
+    return;
+  }
+  customerDetailId.value = customerId;
+  customerDetailVisible.value = true;
+}
+
 const dataScope = computed(() => {
-  const scope = (userStore.userInfo as any)?.dataScope;
+  const scope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
   const roles = userStore.userInfo?.roles ?? [];
   if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
   return typeof scope === 'number' ? scope : 5;
@@ -138,7 +162,7 @@ const gridOptions: VxeGridProps = {
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: '姓名', field: 'name', width: 120, slots: { default: 'name' } },
-    { title: '当前公司', field: 'companyName', minWidth: 160, formatter: ({ cellValue }: any) => cellValue || '-' },
+    { title: '当前公司', field: 'companyName', minWidth: 160, slots: { default: 'companyName' } },
     { title: '职位', field: 'title', width: 120 },
     {
       title: '角色', field: 'roleType', width: 90, slots: { default: 'roleType' },
@@ -255,6 +279,11 @@ async function handleBatchDelete() {
         <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.name }}</a>
       </template>
 
+      <template #companyName="{ row }">
+        <a v-if="row.customerId || row.customer_id" class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openCustomerDetail(row)">{{ row.companyName || '-' }}</a>
+        <span v-else class="text-gray-500">{{ row.companyName || '-' }}</span>
+      </template>
+
       <template #action="{ row }">
         <Button v-if="accessStore.hasAccessCode('crm:contact:update')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
         <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.contact.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
@@ -265,8 +294,10 @@ async function handleBatchDelete() {
     <FormDrawer />
 
     <Drawer v-model:open="detailVisible" :width="1000" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="联系人详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
-      <ContactDetail v-if="detailId" :id="detailId" @edit="handleDetailEdit" @unbind="gridApi.query()" />
+      <ContactDetail v-if="detailId" :id="detailId" @edit="handleDetailEdit" @unbind="gridApi.query()" @view-customer="handleViewCustomer" />
     </Drawer>
+
+    <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
   </Page>
 </template>
 

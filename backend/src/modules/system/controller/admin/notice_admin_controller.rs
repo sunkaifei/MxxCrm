@@ -13,15 +13,13 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::system::model::notice::{ListQuery, NoticeSaveDTO, NoticeSaveRequest, NoticeUpdateRequest};
 use crate::modules::system::service::notice_service;
 use crate::validate;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
-#[post("/notice/add")]
-#[protect("system:notice:add")]
 pub async fn add_notice(state: web::Data<AppState>, req: HttpRequest, item: web::Json<NoticeSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
 
@@ -40,8 +38,6 @@ pub async fn add_notice(state: web::Data<AppState>, req: HttpRequest, item: web:
 }
 
 
-#[delete("/notice/bath_delete")]
-#[protect("system:notice:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -56,8 +52,6 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     }
 }
 
-#[put("/notice/update/{id}")]
-#[protect("system:notice:update")]
 pub async fn update_by_id(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<NoticeUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let admin_token:JWTToken = get_user(&req).unwrap_or_default();
@@ -73,7 +67,6 @@ pub async fn update_by_id(state: web::Data<AppState>, req: HttpRequest, id: web:
     }
 }
 
-#[put("/notice/read-all")]
 pub async fn user_read_all(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let admin_token:JWTToken = get_user(&req).unwrap_or_default();
@@ -85,8 +78,6 @@ pub async fn user_read_all(state: web::Data<AppState>, req: HttpRequest) -> Resu
     }
 }
 
-#[put("/notice/{id}/revoke")]
-#[protect("system:notice:revoke")]
 pub async fn revoke_notice(state: web::Data<AppState>, req: HttpRequest, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     validate!(item.id.is_none(), t!("notice.index.id_empty", locale = "zh-CN").to_string());
@@ -99,8 +90,6 @@ pub async fn revoke_notice(state: web::Data<AppState>, req: HttpRequest, item: w
     }
 }
 
-#[put("/notice/{id}/publish")]
-#[protect("system:notice:publish")]
 pub async fn publish_notice(state: web::Data<AppState>, req: HttpRequest, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     validate!(item.id.is_none(), t!("notice.index.id_empty", locale = "zh-CN").to_string());
@@ -113,8 +102,6 @@ pub async fn publish_notice(state: web::Data<AppState>, req: HttpRequest, item: 
     }
 }
 
-#[get("/notice/detail/{id}")]
-#[protect("system:notice:view")]
 pub async fn get_by_detail(state: web::Data<AppState>, _req: HttpRequest, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     validate!(item.id.is_none(), t!("notice.index.id_empty", locale = "zh-CN").to_string());
@@ -132,7 +119,6 @@ pub async fn get_by_detail(state: web::Data<AppState>, _req: HttpRequest, item: 
 }
 
 
-#[get("/notice/user/detail-{id}")]
 pub async fn get_by_user_detail(state: web::Data<AppState>, req: HttpRequest, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     validate!(item.id.is_none(), t!("notice.index.id_empty", locale = "zh-CN").to_string());
@@ -151,7 +137,6 @@ pub async fn get_by_user_detail(state: web::Data<AppState>, req: HttpRequest, it
 }
 
 
-#[get("/notice/my-page")]
 pub async fn get_by_my_page(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let mut query = query.into_inner();
@@ -162,11 +147,77 @@ pub async fn get_by_my_page(state: web::Data<AppState>, req: HttpRequest, query:
     })
 }
 
-#[get("/notice/list")]
-#[protect("system:notice:list")]
 pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     notice_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
     })
+}
+
+// ==================== 路由注册（方案 C：单点维护）====================
+
+/// 注册公告管理模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(notice_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/notice")
+            // POST /notice/add - 添加公告
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/add",
+                web::post()
+                    .to(add_notice)
+                    .wrap(require_permission("system:notice:add")),
+            )
+            // DELETE /notice/bath_delete - 批量删除公告
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("system:notice:delete")),
+            )
+            // PUT /notice/update/{id} - 更新公告
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_by_id)
+                    .wrap(require_permission("system:notice:update")),
+            )
+            // PUT /notice/read-all - 标记全部已读
+            .route("/read-all", web::put().to(user_read_all))
+            // PUT /notice/{id}/revoke - 撤销公告
+            .route(
+                "/{id}/revoke",
+                web::put()
+                    .to(revoke_notice)
+                    .wrap(require_permission("system:notice:revoke")),
+            )
+            // PUT /notice/{id}/publish - 发布公告
+            .route(
+                "/{id}/publish",
+                web::put()
+                    .to(publish_notice)
+                    .wrap(require_permission("system:notice:publish")),
+            )
+            // GET /notice/detail/{id} - 公告详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_by_detail)
+                    .wrap(require_permission("system:notice:view")),
+            )
+            // GET /notice/user/detail-{id} - 用户公告详情
+            .route("/user/detail-{id}", web::get().to(get_by_user_detail))
+            // GET /notice/my-page - 我的公告分页
+            .route("/my-page", web::get().to(get_by_my_page))
+            // GET /notice/list - 公告列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_by_page)
+                    .wrap(require_permission("system:notice:list")),
+            ),
+    );
 }

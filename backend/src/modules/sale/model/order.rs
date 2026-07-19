@@ -55,6 +55,14 @@ pub struct OrderSaveRequest {
     pub receiver_phone: Option<String>,
     pub shipping_address: Option<String>,
     pub billing_address: Option<String>,
+    pub buyer_company_name: Option<String>,
+    pub buyer_account_name: Option<String>,
+    pub buyer_bank_name: Option<String>,
+    pub buyer_account_number: Option<String>,
+    pub seller_company_name: Option<String>,
+    pub seller_bank_name: Option<String>,
+    pub seller_account_name: Option<String>,
+    pub seller_account_number: Option<String>,
     pub remark: Option<String>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub owner_user_id: Option<i64>,
@@ -98,6 +106,14 @@ pub struct OrderUpdateRequest {
     pub receiver_phone: Option<String>,
     pub shipping_address: Option<String>,
     pub billing_address: Option<String>,
+    pub buyer_company_name: Option<String>,
+    pub buyer_account_name: Option<String>,
+    pub buyer_bank_name: Option<String>,
+    pub buyer_account_number: Option<String>,
+    pub seller_company_name: Option<String>,
+    pub seller_bank_name: Option<String>,
+    pub seller_account_name: Option<String>,
+    pub seller_account_number: Option<String>,
     pub remark: Option<String>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub owner_user_id: Option<i64>,
@@ -129,6 +145,15 @@ pub struct OrderListQuery {
     pub owner_user_id: Option<i64>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
+    pub list_type: Option<String>,
+}
+
+/// 订单审批请求（通过/驳回）
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderApprovalReq {
+    pub order_id: i64,
+    pub reason: Option<String>,
 }
 
 // ==================== 内部 DTO ====================
@@ -169,6 +194,14 @@ pub struct OrderSaveDTO {
     pub receiver_phone: Option<String>,
     pub shipping_address: Option<String>,
     pub billing_address: Option<String>,
+    pub buyer_company_name: Option<String>,
+    pub buyer_account_name: Option<String>,
+    pub buyer_bank_name: Option<String>,
+    pub buyer_account_number: Option<String>,
+    pub seller_company_name: Option<String>,
+    pub seller_bank_name: Option<String>,
+    pub seller_account_name: Option<String>,
+    pub seller_account_number: Option<String>,
     pub remark: Option<String>,
     pub owner_user_id: Option<i64>,
     pub dept_id: Option<i64>,
@@ -192,7 +225,7 @@ pub struct OrderItemSaveDTO {
     pub unit: Option<String>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub unit_id: Option<i64>,
-    pub quantity: Option<i32>,
+    pub quantity: Option<Decimal>,
     pub unit_price: Option<Decimal>,
     pub discount_rate: Option<Decimal>,
     pub discount_amount: Option<Decimal>,
@@ -280,6 +313,14 @@ pub struct OrderDetailVO {
     pub receiver_phone: Option<String>,
     pub shipping_address: Option<String>,
     pub billing_address: Option<String>,
+    pub buyer_company_name: Option<String>,
+    pub buyer_account_name: Option<String>,
+    pub buyer_bank_name: Option<String>,
+    pub buyer_account_number: Option<String>,
+    pub seller_company_name: Option<String>,
+    pub seller_bank_name: Option<String>,
+    pub seller_account_name: Option<String>,
+    pub seller_account_number: Option<String>,
     pub remark: Option<String>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub owner_user_id: Option<i64>,
@@ -329,7 +370,7 @@ pub struct OrderItemVO {
     pub unit: Option<String>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub unit_id: Option<i64>,
-    pub quantity: Option<i32>,
+    pub quantity: Option<Decimal>,
     pub unit_price: Option<Decimal>,
     pub discount_rate: Option<Decimal>,
     pub discount: Option<Decimal>,
@@ -384,6 +425,14 @@ impl From<OrderSaveRequest> for OrderSaveDTO {
             receiver_phone: req.receiver_phone,
             shipping_address: req.shipping_address,
             billing_address: req.billing_address,
+            buyer_company_name: req.buyer_company_name,
+            buyer_account_name: req.buyer_account_name,
+            buyer_bank_name: req.buyer_bank_name,
+            buyer_account_number: req.buyer_account_number,
+            seller_company_name: req.seller_company_name,
+            seller_bank_name: req.seller_bank_name,
+            seller_account_name: req.seller_account_name,
+            seller_account_number: req.seller_account_number,
             remark: req.remark,
             owner_user_id: req.owner_user_id,
             dept_id: req.dept_id,
@@ -432,6 +481,14 @@ impl From<OrderUpdateRequest> for OrderSaveDTO {
             receiver_phone: req.receiver_phone,
             shipping_address: req.shipping_address,
             billing_address: req.billing_address,
+            buyer_company_name: req.buyer_company_name,
+            buyer_account_name: req.buyer_account_name,
+            buyer_bank_name: req.buyer_bank_name,
+            buyer_account_number: req.buyer_account_number,
+            seller_company_name: req.seller_company_name,
+            seller_bank_name: req.seller_bank_name,
+            seller_account_name: req.seller_account_name,
+            seller_account_number: req.seller_account_number,
             remark: req.remark,
             owner_user_id: req.owner_user_id,
             dept_id: req.dept_id,
@@ -506,6 +563,14 @@ impl From<(&order::Model, Vec<order_item::Model>, Vec<shipment::Model>)> for Ord
             receiver_phone: model.receiver_phone.clone(),
             shipping_address: model.shipping_address.clone(),
             billing_address: model.billing_address.clone(),
+            buyer_company_name: model.buyer_company_name.clone(),
+            buyer_account_name: model.buyer_account_name.clone(),
+            buyer_bank_name: model.buyer_bank_name.clone(),
+            buyer_account_number: model.buyer_account_number.clone(),
+            seller_company_name: model.seller_company_name.clone(),
+            seller_bank_name: model.seller_bank_name.clone(),
+            seller_account_name: model.seller_account_name.clone(),
+            seller_account_number: model.seller_account_number.clone(),
             remark: model.remark.clone(),
             owner_user_id: model.owner_user_id,
             dept_id: model.dept_id,
@@ -557,15 +622,19 @@ fn deserialize_option_string_to_u64<'de, D>(deserializer: D) -> Result<Option<i6
 where
     D: serde::Deserializer<'de>,
 {
-    let opt: Option<String> = Option::deserialize(deserializer)?;
-    match opt {
-        Some(s) => {
+    use serde::de::Error;
+    use serde_json::Value;
+
+    match Option::<Value>::deserialize(deserializer)? {
+        Some(Value::String(s)) => {
             if s.is_empty() {
                 Ok(None)
             } else {
-                s.parse::<i64>().map(Some).map_err(serde::de::Error::custom)
+                s.parse::<i64>().map(Some).map_err(D::Error::custom)
             }
         }
+        Some(Value::Number(n)) => Ok(n.as_i64()),
+        Some(_) => Err(D::Error::custom("expected string or number")),
         None => Ok(None),
     }
 }
@@ -610,9 +679,18 @@ impl OrderModel {
             receiver_phone: Set(req.receiver_phone.clone()),
             shipping_address: Set(req.shipping_address.clone()),
             billing_address: Set(req.billing_address.clone()),
+            buyer_company_name: Set(req.buyer_company_name.clone()),
+            buyer_account_name: Set(req.buyer_account_name.clone()),
+            buyer_bank_name: Set(req.buyer_bank_name.clone()),
+            buyer_account_number: Set(req.buyer_account_number.clone()),
+            seller_company_name: Set(req.seller_company_name.clone()),
+            seller_bank_name: Set(req.seller_bank_name.clone()),
+            seller_account_name: Set(req.seller_account_name.clone()),
+            seller_account_number: Set(req.seller_account_number.clone()),
             remark: Set(req.remark.clone()),
             owner_user_id: Set(req.owner_user_id),
             dept_id: Set(req.dept_id),
+            approval_status: Set(Some(0)),
             create_by: Set(req.create_by),
             create_time: Set(Some(now)),
             update_by: Set(req.update_by),
@@ -658,6 +736,14 @@ impl OrderModel {
         if let Some(v) = req.receiver_phone.clone() { payload.receiver_phone = Set(Some(v)); }
         if let Some(v) = req.shipping_address.clone() { payload.shipping_address = Set(Some(v)); }
         if let Some(v) = req.billing_address.clone() { payload.billing_address = Set(Some(v)); }
+        if let Some(v) = req.buyer_company_name.clone() { payload.buyer_company_name = Set(Some(v)); }
+        if let Some(v) = req.buyer_account_name.clone() { payload.buyer_account_name = Set(Some(v)); }
+        if let Some(v) = req.buyer_bank_name.clone() { payload.buyer_bank_name = Set(Some(v)); }
+        if let Some(v) = req.buyer_account_number.clone() { payload.buyer_account_number = Set(Some(v)); }
+        if let Some(v) = req.seller_company_name.clone() { payload.seller_company_name = Set(Some(v)); }
+        if let Some(v) = req.seller_bank_name.clone() { payload.seller_bank_name = Set(Some(v)); }
+        if let Some(v) = req.seller_account_name.clone() { payload.seller_account_name = Set(Some(v)); }
+        if let Some(v) = req.seller_account_number.clone() { payload.seller_account_number = Set(Some(v)); }
         if let Some(v) = req.remark.clone() { payload.remark = Set(Some(v)); }
         if let Some(v) = req.owner_user_id { payload.owner_user_id = Set(Some(v)); }
         if let Some(v) = req.dept_id { payload.dept_id = Set(Some(v)); }
@@ -722,6 +808,24 @@ impl OrderModel {
             .await
     }
 
+    pub async fn find_by_customer_and_title<C: ConnectionTrait>(
+        db: &C,
+        customer_id: i64,
+        title: &str,
+        exclude_id: Option<i64>,
+    ) -> Result<Option<order::Model>, DbErr> {
+        let mut query = SaleOrder::find()
+            .filter(order::Column::CustomerId.eq(customer_id))
+            .filter(order::Column::Title.eq(title))
+            .filter(order::Column::Deleted.eq(0));
+
+        if let Some(id) = exclude_id {
+            query = query.filter(order::Column::Id.ne(id));
+        }
+
+        query.one(db).await
+    }
+
     pub async fn get_max_order_no_today<C: ConnectionTrait>(db: &C, date_prefix: &str) -> Result<Option<i64>, DbErr> {
         use sea_orm::QuerySelect;
         use sea_orm::prelude::Expr;
@@ -782,7 +886,59 @@ impl OrderModel {
             query = query.filter(order::Column::OrderDate.lte(ed));
         }
 
-        let paginator = query.order_by_desc(order::Column::CreateTime).paginate(db, per_page as u64);
+        let paginator = query.order_by_desc(order::Column::Id).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
+    }
+
+    pub async fn select_in_page_by_owner_user_ids<C: ConnectionTrait>(
+        db: &C,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        order_status: Option<i32>,
+        payment_status: Option<i32>,
+        customer_id: Option<i64>,
+        start_date: Option<String>,
+        end_date: Option<String>,
+        owner_user_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<order::Model>, i64), DbErr> {
+        let mut query = SaleOrder::find()
+            .filter(order::Column::Deleted.eq(0));
+
+        if let Some(k) = keywords {
+            if !k.trim().is_empty() {
+                query = query.filter(
+                    Condition::any()
+                        .add(order::Column::OrderNo.contains(k.trim()))
+                        .add(order::Column::CustomerName.contains(k.trim()))
+                        .add(order::Column::Title.contains(k.trim())),
+                );
+            }
+        }
+        if let Some(s) = order_status {
+            query = query.filter(order::Column::OrderStatus.eq(s));
+        }
+        if let Some(p) = payment_status {
+            query = query.filter(order::Column::PayStatus.eq(p));
+        }
+        if let Some(c) = customer_id {
+            query = query.filter(order::Column::CustomerId.eq(c));
+        }
+        if let Some(sd) = start_date {
+            query = query.filter(order::Column::OrderDate.gte(sd));
+        }
+        if let Some(ed) = end_date {
+            query = query.filter(order::Column::OrderDate.lte(ed));
+        }
+        if let Some(ids) = owner_user_ids {
+            if ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(order::Column::OwnerUserId.is_in(ids));
+        }
+
+        let paginator = query.order_by_desc(order::Column::Id).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }
@@ -795,12 +951,12 @@ impl OrderItemModel {
         let now = chrono::Local::now().naive_local().to_owned();
         let hundred = Decimal::from(100);
         let models: Vec<order_item::ActiveModel> = items.iter().enumerate().map(|(idx, item)| {
-            let qty = item.quantity.unwrap_or(1);
+            let qty = item.quantity.unwrap_or(Decimal::from(1));
             let price = item.unit_price.unwrap_or(Decimal::from(0));
             let disc_rate = item.discount_rate.unwrap_or(Decimal::from(100));
             let tax = item.tax_rate.unwrap_or(Decimal::from(0));
 
-            let gross = price * Decimal::from(qty);
+            let gross = price * qty;
             let disc_amt = gross * (hundred - disc_rate) / hundred;
             let tax_amt = (gross - disc_amt) * tax / hundred;
             let line_amt = gross - disc_amt + tax_amt;

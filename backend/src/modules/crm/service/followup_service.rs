@@ -143,7 +143,29 @@ pub async fn list(db: &DbConn, query: &FollowupListQuery) -> Result<ResultPage<V
             .unwrap_or_default()
     };
 
-    // 内存中填充客户名称 + 客户负责人名称
+    // 批量查询：通过 customer_id 反查对应的线索ID（lead.converted_to_customer_id）
+    // 用于客户跟进记录回填 lead_id，使前端点击客户名称可打开线索详情
+    let customer_ids_without_lead: Vec<i64> = data.iter()
+        .filter(|vo| vo.lead_id.is_none())
+        .filter_map(|vo| vo.customer_id)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    let customer_to_lead: std::collections::HashMap<i64, i64> = if customer_ids_without_lead.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        lead::Entity::find()
+            .filter(lead::Column::Deleted.eq(0))
+            .filter(lead::Column::ConvertedToCustomerId.is_in(customer_ids_without_lead))
+            .all(db).await
+            .map(|ls| ls.into_iter()
+                .filter_map(|l| l.converted_to_customer_id.map(|cid| (cid, l.id)))
+                .collect())
+            .unwrap_or_default()
+    };
+
+    // 内存中填充客户名称 + 客户负责人名称 + 回填 lead_id
     for vo in data.iter_mut() {
         if let Some(cid) = vo.customer_id {
             if let Some(c) = customers.get(&cid) {
@@ -153,6 +175,12 @@ pub async fn list(db: &DbConn, query: &FollowupListQuery) -> Result<ResultPage<V
                     if let Some(u) = admins.get(&assignee_id) {
                         vo.assignee_name = u.nick_name.clone().or(u.user_name.clone());
                     }
+                }
+            }
+            // 客户跟进记录回填对应线索ID（线索转客户后关联）
+            if vo.lead_id.is_none() {
+                if let Some(lid) = customer_to_lead.get(&cid) {
+                    vo.lead_id = Some(*lid);
                 }
             }
         }

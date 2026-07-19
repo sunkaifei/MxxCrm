@@ -6,11 +6,9 @@ use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::MetaResp;
 use crate::modules::inventory::model::warehouse::{WarehouseDetailVO, WarehouseListQuery, WarehouseSaveRequest, WarehouseUpdateRequest};
 use crate::modules::inventory::service::warehouse_service;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
+use crate::core::web::permission_guard::require_permission;
 
-#[post("/warehouse/save")]
-#[protect("product:warehouse:create")]
 pub async fn warehouse_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<WarehouseSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -20,8 +18,6 @@ pub async fn warehouse_insert(state: web::Data<AppState>, req: HttpRequest, form
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/warehouse/update")]
-#[protect("product:warehouse:edit")]
 pub async fn warehouse_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<WarehouseUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -35,8 +31,6 @@ pub async fn warehouse_update(state: web::Data<AppState>, req: HttpRequest, form
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/warehouse/bath_delete")]
-#[protect("product:warehouse:delete")]
 pub async fn batch_delete_warehouse(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let ids: Vec<i64> = item.0.ids.unwrap_or_default()
@@ -51,8 +45,6 @@ pub async fn batch_delete_warehouse(state: web::Data<AppState>, item: web::Json<
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[get("/warehouse/info")]
-#[protect("product:warehouse:edit")]
 pub async fn warehouse_info(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let id = req.query_string().split("&").find(|s| s.starts_with("id=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())).unwrap_or(0);
@@ -66,8 +58,6 @@ pub async fn warehouse_info(state: web::Data<AppState>, req: HttpRequest) -> Res
     }
 }
 
-#[get("/warehouse/list")]
-#[protect("product:warehouse:list")]
 pub async fn warehouse_list(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let query_str = req.query_string();
@@ -87,4 +77,15 @@ pub async fn warehouse_list(state: web::Data<AppState>, req: HttpRequest) -> Res
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
+}
+
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/warehouse")
+            .route("/save", web::post().to(warehouse_insert).wrap(require_permission("product:warehouse:create")))
+            .route("/update", web::put().to(warehouse_update).wrap(require_permission("product:warehouse:edit")))
+            .route("/bath_delete", web::delete().to(batch_delete_warehouse).wrap(require_permission("product:warehouse:delete")))
+            .route("/info", web::get().to(warehouse_info).wrap(require_permission("product:warehouse:edit")))
+            .route("/list", web::get().to(warehouse_list).wrap(require_permission("product:warehouse:list"))),
+    );
 }

@@ -11,12 +11,12 @@
 
 
 use crate::core::errors::error::{Error, Result};
-use actix_web::{get, HttpResponse, web, HttpRequest, post, delete, put};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp};
 use crate::modules::articles::model::article::{ArticleModel, ArticlesSaveDTO, ArticlesSaveRequest, ArticlesUpdateRequest, QueryPageRequest, QueryTitleUnique};
 use crate::modules::articles::service::article_service;
@@ -24,8 +24,6 @@ use crate::modules::articles::service::article_service::find_by_title_unique;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 use crate::validate;
 
-#[post("/article/save")]
-#[protect("content:article:add")]
 pub async fn save_article(state: web::Data<AppState>, req: HttpRequest, item: web::Json<ArticlesSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let payload = item.into_inner();
@@ -60,8 +58,6 @@ pub async fn save_article(state: web::Data<AppState>, req: HttpRequest, item: we
     }
 }
 
-#[delete("/article/batch_delete")]
-#[protect("content:article:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
@@ -78,8 +74,6 @@ pub async fn batch_delete(state: web::Data<AppState>, req: HttpRequest, item: we
     }
 }
 
-#[put("/article/update/{id}")]
-#[protect("content:article:update")]
 pub async fn update_article_detail(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<ArticlesUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
@@ -108,8 +102,6 @@ pub async fn update_article_detail(state: web::Data<AppState>, req: HttpRequest,
 
 }
 
-#[get("/article/detail/{id}")]
-#[protect("content:article:view")]
 pub async fn get_article_detail(state: web::Data<AppState>, req: HttpRequest,item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     let id = item.id;
@@ -134,8 +126,6 @@ pub async fn get_article_detail(state: web::Data<AppState>, req: HttpRequest,ite
 
 
 
-#[get("/article/list")]
-#[protect("content:article:list")]
 pub async fn get_article_list(state: web::Data<AppState>, req: HttpRequest, item: web::Query<QueryPageRequest>) -> Result<HttpResponse> {
     let mut payload = item.0;
     let db = &state.db;
@@ -144,4 +134,51 @@ pub async fn get_article_list(state: web::Data<AppState>, req: HttpRequest, item
     let result = article_service::get_by_page(&db, payload).await?;
 
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册文章模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(article_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/article")
+            // POST /article/save - 新建文章
+            .route(
+                "/save",
+                web::post()
+                    .to(save_article)
+                    .wrap(require_permission("content:article:add")),
+            )
+            // DELETE /article/batch_delete - 批量删除文章
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("content:article:delete")),
+            )
+            // PUT /article/update/{id} - 修改文章
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_article_detail)
+                    .wrap(require_permission("content:article:update")),
+            )
+            // GET /article/detail/{id} - 文章详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_article_detail)
+                    .wrap(require_permission("content:article:view")),
+            )
+            // GET /article/list - 文章列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_article_list)
+                    .wrap(require_permission("content:article:list")),
+            ),
+    );
 }

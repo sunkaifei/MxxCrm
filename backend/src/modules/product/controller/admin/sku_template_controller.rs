@@ -10,15 +10,13 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, ResultPage};
 use crate::modules::product::model::sku_template::*;
 use crate::modules::product::service::sku_template_service;
-use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 /// SKU模板列表查询
-#[get("/sku/template/list")]
-#[protect("product:product:view")]
 pub async fn template_list(
     state: web::Data<AppState>,
     query: web::Query<SkuTemplateListQuery>,
@@ -43,8 +41,6 @@ pub async fn template_list(
 }
 
 /// SKU模板详情（含规格）
-#[get("/sku/template/info")]
-#[protect("product:product:view")]
 pub async fn template_info(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -74,8 +70,6 @@ pub async fn template_info(
 }
 
 /// 保存SKU模板
-#[post("/sku/template/save")]
-#[protect("product:product:save")]
 pub async fn template_save(
     state: web::Data<AppState>,
     form_data: web::Json<SkuTemplateSaveRequest>,
@@ -92,8 +86,6 @@ pub async fn template_save(
 }
 
 /// 更新SKU模板
-#[put("/sku/template/update")]
-#[protect("product:product:save")]
 pub async fn template_update(
     state: web::Data<AppState>,
     form_data: web::Json<SkuTemplateUpdateRequest>,
@@ -119,8 +111,6 @@ pub async fn template_update(
 }
 
 /// 删除SKU模板（软删除）
-#[post("/sku/template/delete")]
-#[protect("product:product:delete")]
 pub async fn template_delete(
     state: web::Data<AppState>,
     form_data: web::Json<serde_json::Value>,
@@ -145,8 +135,6 @@ pub async fn template_delete(
 }
 
 /// 保存SKU模板规格
-#[post("/sku/template/spec/save")]
-#[protect("product:product:save")]
 pub async fn template_spec_save(
     state: web::Data<AppState>,
     form_data: web::Json<TemplateSpecBatchSaveRequest>,
@@ -161,4 +149,58 @@ pub async fn template_spec_save(
             .content_type("application/msgpack")
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册 SKU 模板模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(sku_template_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/sku/template")
+            // GET /sku/template/list - SKU模板列表查询
+            .route(
+                "/list",
+                web::get()
+                    .to(template_list)
+                    .wrap(require_permission("product:product:view")),
+            )
+            // GET /sku/template/info - SKU模板详情
+            .route(
+                "/info",
+                web::get()
+                    .to(template_info)
+                    .wrap(require_permission("product:product:view")),
+            )
+            // POST /sku/template/save - 保存SKU模板
+            .route(
+                "/save",
+                web::post()
+                    .to(template_save)
+                    .wrap(require_permission("product:product:save")),
+            )
+            // PUT /sku/template/update - 更新SKU模板
+            .route(
+                "/update",
+                web::put()
+                    .to(template_update)
+                    .wrap(require_permission("product:product:save")),
+            )
+            // POST /sku/template/delete - 删除SKU模板
+            .route(
+                "/delete",
+                web::post()
+                    .to(template_delete)
+                    .wrap(require_permission("product:product:delete")),
+            )
+            // POST /sku/template/spec/save - 保存SKU模板规格
+            .route(
+                "/spec/save",
+                web::post()
+                    .to(template_spec_save)
+                    .wrap(require_permission("product:product:save")),
+            ),
+    );
 }

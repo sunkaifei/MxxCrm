@@ -3,13 +3,13 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Drawer, Tabs, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteQuotationApi, getQuotationInfoApi, getQuotationListApi, submitQuotationApprovalApi } from '#/api';
@@ -18,11 +18,64 @@ import OrderDrawer from '../order/drawer.vue';
 import QuotationDetail from './detail.vue';
 import QuotationDrawer from './drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
+import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
+
+// 全部报价单 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
+const canViewAll = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 1;
+});
+
+// 下属报价单 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
+const canViewSubordinate = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 2 || dataScope === 3 || dataScope === 4;
+});
+
+const allTabList = [
+  { key: 'all', label: '全部报价单' },
+  { key: 'my', label: '我的报价单' },
+  { key: 'subordinate', label: '下属报价单' },
+];
+
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter(t => keys.includes(t.key));
+});
+
+const activeTab = ref('my');
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
 
 const detailVisible = ref(false);
 const detailId = ref(0);
+
+// 客户详情抽屉
+const customerDetailVisible = ref(false);
+const customerDetailId = ref<number | string | undefined>(undefined);
+
+function openCustomerDetail(row: any) {
+  const id = row.customerId ?? row.customer_id;
+  if (!id) {
+    message.error('客户ID不存在');
+    return;
+  }
+  customerDetailId.value = Number(id);
+  customerDetailVisible.value = true;
+}
 
 const approvalStatusOptions = [
   { label: '草稿', value: 1 },
@@ -87,7 +140,7 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getQuotationListApi({ page: page.currentPage, pageSize: page.pageSize, ...formValues });
+        return await getQuotationListApi({ page: page.currentPage, pageSize: page.pageSize, listType: activeTab.value, ...formValues });
       },
     },
   },
@@ -96,7 +149,7 @@ const gridOptions: VxeGridProps = {
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: '报价编号', field: 'quotationNo', width: 150, slots: { default: 'quotationNo' } },
     { title: '标题', field: 'title', width: 200, slots: { default: 'title' } },
-    { title: '客户名称', field: 'customerName', width: 140 },
+    { title: '客户名称', field: 'customerName', width: 140, slots: { default: 'customerName' } },
     { title: '报价金额', field: 'grandTotal', width: 140, slots: { default: 'grandTotal' } },
     { title: '审批状态', field: 'approvalStatus', width: 100, slots: { default: 'approvalStatus' } },
     { title: '报价日期', field: 'quotationDate', width: 110 },
@@ -203,6 +256,11 @@ function handleDetailEdit(id: string) {
   <Page auto-content-height>
     <SalesProcessGuide current-step="quotation" />
     <Grid :table-title="$t('page.sale.quotation.title')">
+      <template #form-header>
+        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('sale:quotation:save')"
@@ -227,6 +285,11 @@ function handleDetailEdit(id: string) {
 
       <template #title="{ row }">
         <a class="text-blue-600 cursor-pointer" @click="openDetail(row)">{{ row.title }}</a>
+      </template>
+
+      <template #customerName="{ row }">
+        <a v-if="row.customerId" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="() => openCustomerDetail(row)">{{ row.customerName || '-' }}</a>
+        <span v-else>{{ row.customerName || '-' }}</span>
       </template>
 
       <template #grandTotal="{ row }">
@@ -288,5 +351,6 @@ function handleDetailEdit(id: string) {
     >
       <QuotationDetail v-if="detailVisible" :id="detailId" @edit="handleDetailEdit" />
     </Drawer>
+    <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
   </Page>
 </template>

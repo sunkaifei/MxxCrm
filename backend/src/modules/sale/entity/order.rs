@@ -54,6 +54,22 @@ pub struct Model {
     pub receiver_phone: Option<String>,
     pub shipping_address: Option<String>,
     pub billing_address: Option<String>,
+    /// 付款方企业名称（买方/客户）
+    pub buyer_company_name: Option<String>,
+    /// 付款方账户名称
+    pub buyer_account_name: Option<String>,
+    /// 付款方开户行
+    pub buyer_bank_name: Option<String>,
+    /// 付款方银行账号
+    pub buyer_account_number: Option<String>,
+    /// 收款方企业名称（卖方/我方企业）
+    pub seller_company_name: Option<String>,
+    /// 收款方开户行
+    pub seller_bank_name: Option<String>,
+    /// 收款方账户名称
+    pub seller_account_name: Option<String>,
+    /// 收款方银行账号
+    pub seller_account_number: Option<String>,
     pub remark: Option<String>,
     pub owner_user_id: Option<i64>,
     pub dept_id: Option<i64>,

@@ -8,14 +8,13 @@
 //! 版权所有，侵权必究！
 //!
 
-use actix_web::{delete, get, HttpResponse, post, put, web};
+use actix_web::{HttpResponse, web};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
 use crate::modules::system::model::region::{RegionSaveRequest, RegionUpdateRequest};
 use crate::modules::system::service::region_service;
 
-#[post("/region/save")]
 pub async fn save_region(state: web::Data<AppState>, item: web::Json<RegionSaveRequest>) -> HttpResponse {
     let db = &state.db;
     let result = region_service::insert(&db, &item.0).await;
@@ -29,12 +28,11 @@ pub async fn save_region(state: web::Data<AppState>, item: web::Json<RegionSaveR
     }
 }
 
-#[delete("/region/batch_delete")]
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
         let region_list = region_service::get_by_parent_id(&db, &ids_vec).await.unwrap_or_default();
-        if region_list.len() > 0 { 
+        if region_list.len() > 0 {
             return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的地区存在子级，请先删除子级", "local"))
         }
         let result = region_service::batch_delete_by_ids(&db, &ids_vec).await;
@@ -51,7 +49,6 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     }
 }
 
-#[put("/region/update/{id}")]
 pub async fn update_by_id(state: web::Data<AppState>, id: web::Path<i64>, item: web::Json<RegionUpdateRequest>) -> HttpResponse {
     let db = &state.db;
     let mut data = item.into_inner();
@@ -67,7 +64,6 @@ pub async fn update_by_id(state: web::Data<AppState>, id: web::Path<i64>, item: 
     }
 }
 
-#[get("/region/detail/{id}")]
 pub async fn get_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> HttpResponse {
     let db = &state.db;
     if item.id.is_none() {
@@ -84,7 +80,7 @@ pub async fn get_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> 
        }
    }
 }
-#[get("/region/treelist")]
+
 pub async fn get_region_tree(state: web::Data<AppState>) -> HttpResponse {
     let db = &state.db;
     let result = region_service::get_region_tree(&db).await;
@@ -96,4 +92,26 @@ pub async fn get_region_tree(state: web::Data<AppState>) -> HttpResponse {
             HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("查询菜单异常,".to_string() + &err.to_string()), "local"))
         }
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册行政区域模块所有路由
+///
+/// 修改路径、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(region_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/region")
+            // POST /region/save - 保存行政区域
+            .route("/save", web::post().to(save_region))
+            // DELETE /region/batch_delete - 批量删除行政区域
+            .route("/batch_delete", web::delete().to(batch_delete))
+            // PUT /region/update/{id} - 修改行政区域
+            .route("/update/{id}", web::put().to(update_by_id))
+            // GET /region/detail/{id} - 行政区域详情
+            .route("/detail/{id}", web::get().to(get_detail))
+            // GET /region/treelist - 行政区域树
+            .route("/treelist", web::get().to(get_region_tree)),
+    );
 }

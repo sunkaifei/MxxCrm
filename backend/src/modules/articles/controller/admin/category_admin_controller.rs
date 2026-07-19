@@ -11,15 +11,13 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp};
 use crate::modules::articles::model::category::{CategoryModel, CategoryPageDTO, CategoryPageRequest, CategorySaveDTO, CategorySaveRequest, CategoryUpdateRequest};
 use crate::modules::articles::service::category_service;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
-#[post("/category/save")]
-#[protect("article:category:add")]
 pub async fn save_category(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -41,8 +39,6 @@ pub async fn save_category(
 }
 
 
-#[delete("/category/batch_delete")]
-#[protect("article:category:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
@@ -59,8 +55,6 @@ pub async fn batch_delete(state: web::Data<AppState>, req: HttpRequest, item: we
 
 }
 
-#[put("/category/update/{id}")]
-#[protect("article:category:update")]
 pub async fn update_category(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -81,7 +75,6 @@ pub async fn update_category(
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
 }
 
-#[get("/category/Option")]
 pub async fn category_option(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
@@ -96,8 +89,6 @@ pub async fn category_option(state: web::Data<AppState>, req: HttpRequest) -> Re
     }
 }
 
-#[get("/category/detail/{id}")]
-#[protect("article:category:view")]
 pub async fn get_category_detail(state: web::Data<AppState>, req: HttpRequest,item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     let id = item.id;
@@ -109,8 +100,6 @@ pub async fn get_category_detail(state: web::Data<AppState>, req: HttpRequest,it
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
 }
 
-#[get("/category/list")]
-#[protect("article:category:list")]
 pub async fn category_list_tree(state: web::Data<AppState>, req: HttpRequest, item: web::Query<CategoryPageRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let payload = item.0;
@@ -128,4 +117,53 @@ pub async fn category_list_tree(state: web::Data<AppState>, req: HttpRequest, it
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到文章分类列表", "local")))
         }
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册文章分类模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(category_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/category")
+            // POST /category/save - 新建分类
+            .route(
+                "/save",
+                web::post()
+                    .to(save_category)
+                    .wrap(require_permission("article:category:add")),
+            )
+            // DELETE /category/batch_delete - 批量删除分类
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("article:category:delete")),
+            )
+            // PUT /category/update/{id} - 修改分类
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_category)
+                    .wrap(require_permission("article:category:update")),
+            )
+            // GET /category/Option - 分类下拉
+            .route("/Option", web::get().to(category_option))
+            // GET /category/detail/{id} - 分类详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_category_detail)
+                    .wrap(require_permission("article:category:view")),
+            )
+            // GET /category/list - 分类列表
+            .route(
+                "/list",
+                web::get()
+                    .to(category_list_tree)
+                    .wrap(require_permission("article:category:list")),
+            ),
+    );
 }

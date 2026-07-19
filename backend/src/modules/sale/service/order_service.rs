@@ -16,6 +16,10 @@ use crate::modules::crm::model::contract::{ContractSaveDTO, ContractModel};
 use crate::modules::sale::entity::order::{self as order_entity, Entity as SaleOrder};
 use crate::modules::sale::model::order::{OrderApprovalDetailVO, OrderDetailVO, OrderItemModel, OrderItemSaveDTO, OrderListQuery, OrderListVO, OrderModel, OrderSaveDTO, OrderSaveRequest, OrderStatusUpdateRequest, OrderUpdateRequest};
 use crate::modules::sale::model::shipment::ShipmentModel;
+use crate::modules::system::entity::{admin, admin::Entity as Admin};
+use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
+use crate::modules::system::model::dept::DeptModel;
+use crate::modules::system::service::role_service;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use rust_decimal::Decimal;
 use sea_orm::{ActiveModelTrait, DbConn, TransactionTrait, EntityTrait, ColumnTrait, QueryFilter, Set};
@@ -24,12 +28,12 @@ use std::collections::{HashMap, HashSet};
 fn calculate_product_amount(items: &Vec<OrderItemSaveDTO>) -> Decimal {
     let hundred = Decimal::from(100);
     items.iter().map(|item| {
-        let qty = item.quantity.unwrap_or(1);
+        let qty = item.quantity.unwrap_or(Decimal::from(1));
         let price = item.unit_price.unwrap_or(Decimal::from(0));
         let disc_rate = item.discount_rate.unwrap_or(Decimal::from(100));
         let tax_rate = item.tax_rate.unwrap_or(Decimal::from(0));
 
-        let gross = price * Decimal::from(qty);
+        let gross = price * qty;
         let disc_amt = gross * (hundred - disc_rate) / hundred;
         let tax_amt = (gross - disc_amt) * tax_rate / hundred;
         gross - disc_amt + tax_amt
@@ -40,6 +44,13 @@ pub async fn insert(db: &DbConn, form_data: &OrderSaveRequest, created_by: i64) 
     let items = form_data.items.clone().unwrap_or_default();
     if items.is_empty() {
         return Err(Error::from("订单明细不能为空"));
+    }
+
+    if let (Some(customer_id), Some(title)) = (form_data.customer_id, form_data.title.as_ref()) {
+        let existing = OrderModel::find_by_customer_and_title(db, customer_id, title, None).await?;
+        if existing.is_some() {
+            return Err(Error::from("该客户下已存在相同标题的订单"));
+        }
     }
 
     let txn = db.begin().await?;
@@ -59,6 +70,7 @@ pub async fn insert(db: &DbConn, form_data: &OrderSaveRequest, created_by: i64) 
     let mut dto: OrderSaveDTO = form_data.clone().into();
     dto.order_no = Some(order_no);
     dto.order_status = Some(1);
+    dto.approval_status = Some(0);
     dto.product_amount = Some(product_amount);
     dto.total_amount = Some(total_amount);
     dto.paid_amount = Some(Decimal::from(0));
@@ -93,6 +105,17 @@ pub async fn update(db: &DbConn, form_data: &OrderUpdateRequest, updated_by: i64
     let approval_status = existing.as_ref().unwrap().approval_status.unwrap_or(0);
     if approval_status != 0 && approval_status != 4 {
         return Err(Error::from("当前订单审批状态不允许编辑"));
+    }
+
+    let existing_order = existing.unwrap();
+    let customer_id = form_data.customer_id.or(existing_order.customer_id);
+    let title = form_data.title.as_ref().or(existing_order.title.as_ref());
+
+    if let (Some(cid), Some(t)) = (customer_id, title) {
+        let existing_title = OrderModel::find_by_customer_and_title(db, cid, t, form_data.id).await?;
+        if existing_title.is_some() {
+            return Err(Error::from("该客户下已存在相同标题的订单"));
+        }
     }
 
     let txn = db.begin().await?;
@@ -160,28 +183,183 @@ pub async fn get_detail(db: &DbConn, id: i64) -> Result<OrderDetailVO> {
         Some(o) => {
             let items = OrderItemModel::find_by_order_id(db, id).await?;
             let shipments = ShipmentModel::find_by_order_id(db, id).await?;
-            Ok((&o, items, shipments).into())
+            let mut vo: OrderDetailVO = (&o, items, shipments).into();
+
+            // 实时查询客户名称（订单表中 customer_name 是历史快照，可能已过期）
+            if let Some(cid) = vo.customer_id {
+                if let Some(c) = Customer::find_by_id(cid).one(db).await? {
+                    let fresh_name = c.company_name.or(c.short_name).unwrap_or_default();
+                    if !fresh_name.is_empty() {
+                        vo.customer_name = Some(fresh_name);
+                    }
+                }
+            }
+
+            Ok(vo)
         }
         None => Err(Error::from("订单不存在")),
     }
 }
 
-pub async fn get_list(db: &DbConn, query: &OrderListQuery) -> Result<ResultPage<Vec<OrderListVO>>> {
+async fn get_accessible_user_ids(
+    db: &DbConn,
+    current_user_id: i64,
+    data_scope: Option<i32>,
+) -> Result<Option<Vec<i64>>> {
+    match data_scope {
+        Some(1) => Ok(None),
+        Some(5) => Ok(Some(vec![current_user_id])),
+        Some(3) | Some(4) | Some(2) | Some(0) | Some(_) => {
+            let user_depts = AdminDeptMergeModel::find_by_admin_id(db, current_user_id).await
+                .map_err(|e| Error::from(format!("查询用户部门失败: {}", e)))?;
+
+            let mut target_dept_ids = Vec::new();
+
+            if data_scope == Some(2) {
+                let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+                for role in roles {
+                    if role.data_scope == Some(2) {
+                        if let Some(role_id) = role.id {
+                            let dept_result = crate::modules::system::model::role_dept_merge::RoleDeptMergeModel::find_by_role_id(db, &Some(role_id)).await
+                                .map_err(|e| Error::from(format!("查询角色部门关联失败: {}", e)))?;
+                            for merge in dept_result {
+                                if let Some(dept_id) = merge.dept_id {
+                                    target_dept_ids.push(dept_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                for merge in &user_depts {
+                    if let Some(dept_id) = merge.dept_id {
+                        target_dept_ids.push(dept_id);
+                    }
+                }
+            }
+
+            if target_dept_ids.is_empty() {
+                return Ok(Some(vec![current_user_id]));
+            }
+
+            let all_depts = DeptModel::find_all(db).await
+                .map_err(|e| Error::from(format!("查询部门列表失败: {}", e)))?;
+
+            let mut all_target_ids = Vec::new();
+            for dept_id in &target_dept_ids {
+                if data_scope == Some(4) || data_scope == Some(2) {
+                    all_target_ids.extend(collect_child_dept_ids(&all_depts, *dept_id));
+                } else {
+                    all_target_ids.push(*dept_id);
+                }
+            }
+
+            all_target_ids.sort();
+            all_target_ids.dedup();
+
+            let dept_merges = AdminDeptMergeModel::find_by_dept_id(db, all_target_ids).await
+                .map_err(|e| Error::from(format!("查询部门用户失败: {}", e)))?;
+
+            let mut user_ids: Vec<i64> = dept_merges.iter()
+                .filter_map(|m| m.admin_id)
+                .collect();
+            user_ids.sort();
+            user_ids.dedup();
+
+            if user_ids.is_empty() {
+                Ok(Some(vec![current_user_id]))
+            } else {
+                Ok(Some(user_ids))
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {
+    let mut result = vec![parent_id];
+    for dept in all_depts {
+        if dept.parent_id == Some(parent_id) {
+            result.extend(collect_child_dept_ids(all_depts, dept.id));
+        }
+    }
+    result
+}
+
+pub async fn get_list(db: &DbConn, query: &OrderListQuery, current_user_id: i64) -> Result<ResultPage<Vec<OrderListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
 
-    let (list, total) = OrderModel::select_in_page(
-        db,
-        page,
-        page_size,
-        query.keywords.clone(),
-        query.order_status,
-        query.payment_status,
-        query.customer_id,
-        query.owner_user_id,
-        query.start_date.clone(),
-        query.end_date.clone(),
-    ).await?;
+    let list_type = query.list_type.as_deref().unwrap_or("all");
+
+    let owner_user_ids_opt: Option<Vec<i64>> = match list_type {
+        "my" => {
+            Some(vec![current_user_id])
+        }
+        "subordinate" => {
+            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+            let data_scope = roles.iter()
+                .filter_map(|r| r.data_scope)
+                .min();
+
+            match data_scope {
+                Some(5) => {
+                    Some(Vec::new())
+                }
+                Some(1) | None => {
+                    let all_admins = Admin::find()
+                        .filter(admin::Column::Id.ne(current_user_id))
+                        .all(db)
+                        .await
+                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
+                    Some(all_admins.iter().map(|u| u.id).collect())
+                }
+                _ => {
+                    let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter(|id| *id != current_user_id)
+                        .collect::<Vec<_>>();
+                    Some(user_ids)
+                }
+            }
+        }
+        _ => {
+            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+            let data_scope = roles.iter()
+                .filter_map(|r| r.data_scope)
+                .min();
+            get_accessible_user_ids(db, current_user_id, data_scope).await?
+        }
+    };
+
+    let (list, total) = if list_type == "my" {
+        OrderModel::select_in_page(
+            db,
+            page,
+            page_size,
+            query.keywords.clone(),
+            query.order_status,
+            query.payment_status,
+            query.customer_id,
+            Some(current_user_id),
+            query.start_date.clone(),
+            query.end_date.clone(),
+        ).await?
+    } else {
+        OrderModel::select_in_page_by_owner_user_ids(
+            db,
+            page,
+            page_size,
+            query.keywords.clone(),
+            query.order_status,
+            query.payment_status,
+            query.customer_id,
+            query.start_date.clone(),
+            query.end_date.clone(),
+            owner_user_ids_opt,
+        ).await?
+    };
 
     // 收集所有客户ID，去重
     let customer_ids: Vec<i64> = list.iter()
@@ -370,9 +548,22 @@ pub async fn create_contract_from_order(db: &DbConn, order_id: i64, operator_id:
         return Err(Error::from("该订单已关联合同，不能重复创建"));
     }
 
+    // 查询我方签署人姓名（订单创建人）
+    let our_signer_name = if let Some(creator_id) = order.create_by {
+        crate::modules::system::entity::admin::Entity::find_by_id(creator_id)
+            .one(db)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|a| a.nick_name.or(a.user_name))
+    } else {
+        None
+    };
+
     let txn = db.begin().await?;
 
     // 创建合同（在事务内）
+    // 我方签署人默认为订单创建人（业务员），对方签署人默认为订单联系人
     let contract_dto = ContractSaveDTO {
         id: None,
         contract_no: None,
@@ -402,6 +593,11 @@ pub async fn create_contract_from_order(db: &DbConn, order_id: i64, operator_id:
         remark: order.remark.clone(),
         commission_rule_id: None,
         commission_mode: None,
+        our_signer_id: order.create_by,
+        our_signer_name: our_signer_name.clone(),
+        their_signer_name: order.contact_name.clone(),
+        their_signer_phone: None,
+        order_id: Some(order_id),
         deleted: Some(0),
         created_by: Some(operator_id),
         create_time: None,

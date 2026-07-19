@@ -37,6 +37,9 @@ pub mod finance;
 /// 消息模块
 pub mod message;
 
+/// AI模块
+pub mod ai;
+
 /// CRM客户模块
 pub mod crm;
 

@@ -93,6 +93,7 @@ pub struct InvoiceListQuery {
     pub status: Option<i32>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub customer_id: Option<i64>,
+    pub list_type: Option<String>,
 }
 
 // ==================== 内部 DTO ====================
@@ -443,6 +444,7 @@ impl InvoiceModel {
         invoice_type: Option<i32>,
         status: Option<i32>,
         customer_id: Option<i64>,
+        owner_user_id: Option<i64>,
     ) -> Result<(Vec<invoice::Model>, i64), DbErr> {
         let mut query = SaleInvoice::find()
             .filter(invoice::Column::Deleted.eq(0));
@@ -465,6 +467,53 @@ impl InvoiceModel {
         }
         if let Some(c) = customer_id {
             query = query.filter(invoice::Column::CustomerId.eq(c));
+        }
+        if let Some(o) = owner_user_id {
+            query = query.filter(invoice::Column::OwnerUserId.eq(o));
+        }
+
+        let paginator = query.order_by_desc(invoice::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
+    }
+
+    pub async fn select_in_page_by_owner_user_ids<C: ConnectionTrait>(
+        db: &C,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        invoice_type: Option<i32>,
+        status: Option<i32>,
+        customer_id: Option<i64>,
+        owner_user_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<invoice::Model>, i64), DbErr> {
+        let mut query = SaleInvoice::find()
+            .filter(invoice::Column::Deleted.eq(0));
+
+        if let Some(k) = keywords {
+            if !k.trim().is_empty() {
+                query = query.filter(
+                    Condition::any()
+                        .add(invoice::Column::InvoiceNo.contains(k.trim()))
+                        .add(invoice::Column::CustomerName.contains(k.trim()))
+                        .add(invoice::Column::Title.contains(k.trim())),
+                );
+            }
+        }
+        if let Some(t) = invoice_type {
+            query = query.filter(invoice::Column::InvoiceType.eq(t));
+        }
+        if let Some(s) = status {
+            query = query.filter(invoice::Column::Status.eq(s));
+        }
+        if let Some(c) = customer_id {
+            query = query.filter(invoice::Column::CustomerId.eq(c));
+        }
+        if let Some(ids) = owner_user_ids {
+            if ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(invoice::Column::OwnerUserId.is_in(ids));
         }
 
         let paginator = query.order_by_desc(invoice::Column::CreateTime).paginate(db, per_page as u64);

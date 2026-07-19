@@ -11,8 +11,7 @@
 extern crate bcrypt;
 
 use crate::core::errors::error::{Error, Result};
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use std::time::Duration;
 
@@ -23,6 +22,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::kit::CONTEXT;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserRegisterRequest, CheckUsernameResult, UserLoginVO, AdminModel};
 use crate::modules::system::model::admin::{ListQuery, TokenVO};
@@ -30,7 +30,6 @@ use crate::modules::system::service::menu_service::find_user_role_keys;
 use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service};
 
 // 添加用户信息
-#[post("/admin/add")]
 pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.user_name.as_ref().map_or(true, |username| username.trim().is_empty()) {
@@ -55,7 +54,6 @@ pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveReq
 }
 
 /// 后台用户登录
-#[post("/api/system/auth/login")]
 pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: web::Json<UserLoginRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.username.as_ref().map_or(true, |username| username.trim().is_empty()) {
@@ -141,7 +139,6 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
 }
 
 /// 检查用户名是否已存在
-#[get("/api/system/auth/check-username")]
 pub async fn check_username(state: web::Data<AppState>, query: web::Query<UserRegisterRequest>) -> HttpResponse {
     let db = &state.db;
     let username = query.username.clone().unwrap_or_default();
@@ -157,7 +154,6 @@ pub async fn check_username(state: web::Data<AppState>, query: web::Query<UserRe
 }
 
 /// 用户注册
-#[post("/api/system/auth/register")]
 pub async fn user_register(state: web::Data<AppState>, item: web::Json<UserRegisterRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let username = item.username.clone().unwrap_or_default();
@@ -199,7 +195,6 @@ pub async fn user_register(state: web::Data<AppState>, item: web::Json<UserRegis
 }
 
 // 删除用户信息
-#[delete("/admin/batch_delete")]
 pub async fn admin_batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -223,8 +218,6 @@ pub async fn admin_batch_delete(state: web::Data<AppState>, item: web::Json<Bath
 }
 
 /// ### 软删除用户
-#[delete("/admin/delete/{id}")]
-#[protect("system:admin:delete")]
 pub async fn admin_soft_delete(state: web::Data<AppState>, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     let id = path.into_inner();
@@ -235,7 +228,6 @@ pub async fn admin_soft_delete(state: web::Data<AppState>, path: web::Path<i64>)
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/update_user_role")]
 pub async fn update_user_role(state: web::Data<AppState>, item: web::Json<UpdateAdminRoleRequest>) -> Result<HttpResponse> {
     if is_demo_mode() {
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "演示站模式下禁止修改用户角色", "local")));
@@ -248,7 +240,6 @@ pub async fn update_user_role(state: web::Data<AppState>, item: web::Json<Update
 
 
 // 更新用户信息
-#[put("/admin/update")]
 pub async fn admin_update(state: web::Data<AppState>, item: web::Json<AdminUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
@@ -283,7 +274,6 @@ pub async fn admin_update(state: web::Data<AppState>, item: web::Json<AdminUpdat
 }
 
 /// 更新用户密码
-#[put("/admin/update_password")]
 pub async fn update_password(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -320,7 +310,6 @@ pub async fn update_password(
 }
 
 // 登录用户更新自己的登录密码
-#[put("/admin/update_my_password")]
 pub async fn update_my_password(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateAdminPasswordRequest>) -> Result<HttpResponse>  {
     let db = &state.db;
     let user_pwd = item.into_inner();
@@ -379,7 +368,6 @@ pub async fn update_my_password(state: web::Data<AppState>, req: HttpRequest, it
     }
 }
 
-#[put("/admin/update-status")]
 pub async fn update_admin_status(state: web::Data<AppState>, item: web::Json<UpdateAdminStatusRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let admin_status = item.0;
@@ -395,7 +383,6 @@ pub async fn update_admin_status(state: web::Data<AppState>, item: web::Json<Upd
 
 
 
-#[get("/admin/detail/{id}")]
 pub async fn get_user_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
@@ -409,32 +396,46 @@ pub async fn get_user_detail(state: web::Data<AppState>, item: web::Path<InfoId>
     // 查询用户关联的角色
     let result_roles = role_service::select_by_admin_id(&db, &admin_detail.id).await.unwrap_or_default();
     let role_data: Vec<Option<String>> = result_roles
-        .into_iter()
+        .iter()
         .map(|role| role.id.map(|id| id.to_string()))
         .collect();
+    let role_name_data: Vec<Option<String>> = result_roles
+        .iter()
+        .map(|role| role.role_name.clone())
+        .collect();
     admin_detail.role_ids = Some(role_data);
-    
+    admin_detail.role_names = Some(role_name_data);
+
     // 查询用户关联的部门
     let result_depts = dept_service::select_by_admin_id(&db, &admin_detail.id).await.unwrap_or_default();
     let dept_data: Vec<Option<String>> = result_depts
-        .into_iter()
+        .iter()
         .map(|dept| dept.id.map(|id| id.to_string()))
         .collect();
+    let dept_name_data: Vec<Option<String>> = result_depts
+        .iter()
+        .map(|dept| dept.dept_name.clone())
+        .collect();
     admin_detail.dept_ids = Some(dept_data);
-    
+    admin_detail.dept_names = Some(dept_name_data);
+
     // 查询用户关联的岗位
     let result_posts = post_service::select_by_admin_id(&db, &admin_detail.id).await.unwrap_or_default();
     let post_data: Vec<Option<String>> = result_posts
-        .into_iter()
+        .iter()
         .map(|post| post.id.map(|id| id.to_string()))
         .collect();
+    let post_name_data: Vec<Option<String>> = result_posts
+        .iter()
+        .map(|post| post.post_name.clone())
+        .collect();
     admin_detail.post_ids = Some(post_data);
-    
-    
+    admin_detail.post_names = Some(post_name_data);
+
+
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(admin_detail, "local")))
 }
 
-#[get("/admin/userinfo")]
 pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Result<HttpResponse> {
     let db = &state.db;
     //获取当前用户id
@@ -480,7 +481,6 @@ pub struct UpdateAvatarRequest {
 ///
 /// - 无需权限注解（仅操作本人数据）
 /// - 用户id从 JWT 提取
-#[put("/admin/avatar")]
 pub async fn update_avatar(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateAvatarRequest>) -> Result<HttpResponse> {
     if is_demo_mode() {
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "演示站模式下禁止修改头像", "local")));
@@ -504,8 +504,6 @@ pub async fn update_avatar(state: web::Data<AppState>, req: HttpRequest, item: w
 }
 
 // 查询用户列表
-#[get("/admin/list")]
-#[protect("system:admin:list")]
 pub async fn admin_list(state: web::Data<AppState>, query: web::Query<ListQuery>,) -> Result<HttpResponse> {
     let db = &state.db;
     admin_service::get_by_page(db, query.into_inner()).await.map(|page_data| {
@@ -513,7 +511,6 @@ pub async fn admin_list(state: web::Data<AppState>, query: web::Query<ListQuery>
     })
 }
 
-#[get("/admin/options")]
 pub async fn admin_options(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     admin_service::get_admin_options(db).await.map(|list_data| {
@@ -523,7 +520,6 @@ pub async fn admin_options(state: web::Data<AppState>) -> Result<HttpResponse> {
 
 
 // 获取权限码列表
-#[get("/auth/codes")]
 pub async fn get_auth_codes(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     
@@ -545,7 +541,84 @@ pub async fn get_auth_codes(state: web::Data<AppState>, req: HttpRequest) -> Res
 }
 
 // 退出登录
-#[delete("/api/auth/logout")]
 pub async fn logout() -> HttpResponse {
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success(String::new(), "local"))
+}
+
+// ==================== 路由注册（方案 C：单点维护）====================
+
+/// 注册后台用户管理模块所有路由
+///
+/// 本函数集中管理本模块所有路由的路径、HTTP 方法、权限码。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(system_admin_controller::register)` 注册。
+///
+/// ## 路由分组
+/// - `/admin/*` — 后台用户管理（增删改查、改密码、改头像、改状态、改角色）
+/// - `/auth/*`  — 认证相关（登录、注册、检查用户名、获取权限码）
+/// - `/api/auth/logout` — 注销（绝对路径，不在 `/api/system` scope 下，用 web::resource 注册）
+///
+/// ## 重要：Route::to() 与 wrap() 的调用顺序
+/// `Route::to()` 会覆盖之前 `wrap()` 设置的中间件，所以**必须先调用 `to()`
+/// 再调用 `wrap()`**，否则权限中间件不会生效。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    // ============ /admin 路由组（后台用户管理）============
+    cfg.service(
+        web::scope("/admin")
+            // POST /admin/add - 添加用户
+            .route("/add", web::post().to(save_admin))
+            // DELETE /admin/batch_delete - 批量删除用户
+            .route("/batch_delete", web::delete().to(admin_batch_delete))
+            // PUT /admin/update - 更新用户信息
+            .route("/update", web::put().to(admin_update))
+            // PUT /admin/update_password - 管理员重置用户密码
+            .route("/update_password", web::put().to(update_password))
+            // PUT /admin/update_my_password - 用户修改自己的登录密码
+            .route("/update_my_password", web::put().to(update_my_password))
+            // PUT /admin/update-status - 更新用户状态
+            .route("/update-status", web::put().to(update_admin_status))
+            // PUT /admin/update_user_role - 更新用户角色
+            .route("/update_user_role", web::put().to(update_user_role))
+            // GET /admin/detail/{id} - 用户详情
+            .route("/detail/{id}", web::get().to(get_user_detail))
+            // GET /admin/userinfo - 获取当前登录用户信息
+            .route("/userinfo", web::get().to(get_user_info))
+            // PUT /admin/avatar - 修改头像
+            .route("/avatar", web::put().to(update_avatar))
+            // GET /admin/options - 用户下拉选项
+            .route("/options", web::get().to(admin_options))
+            // GET /admin/list - 用户列表（带权限校验）
+            .route(
+                "/list",
+                web::get()
+                    .to(admin_list)
+                    .wrap(require_permission("system:admin:list")),
+            )
+            // DELETE /admin/delete/{id} - 软删除用户（带权限校验）
+            .route(
+                "/delete/{id}",
+                web::delete()
+                    .to(admin_soft_delete)
+                    .wrap(require_permission("system:admin:delete")),
+            ),
+    );
+
+    // ============ /auth 路由组（认证相关）============
+    cfg.service(
+        web::scope("/auth")
+            // POST /auth/login - 后台用户登录
+            .route("/login", web::post().to(post_login))
+            // POST /auth/register - 用户注册
+            .route("/register", web::post().to(user_register))
+            // GET /auth/check-username - 检查用户名是否已存在
+            .route("/check-username", web::get().to(check_username))
+            // GET /auth/codes - 获取当前用户权限码列表
+            .route("/codes", web::get().to(get_auth_codes)),
+    );
+
+    // ============ logout 路径特殊处理 ============
+    // 原 logout 路径为 /api/auth/logout，不在 /api/system scope 下，
+    // 用 web::resource 的绝对路径注册。
+    cfg.service(
+        web::resource("/api/auth/logout").route(web::delete().to(logout)),
+    );
 }

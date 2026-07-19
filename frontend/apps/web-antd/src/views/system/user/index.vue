@@ -8,12 +8,21 @@ import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { Button, Popconfirm, Switch, Tag } from 'ant-design-vue';
 import UserDrawer from './drawer.vue';
+import UserDetailDrawer from '../../crm/components/UserDetailDrawer.vue';
 import { deleteUserApi, getUserListApi, updateUserApi } from '#/api';
 import { statusList } from '#/store';
 import { formatDateTime } from '@vben/utils';
 import { useAccessStore } from '@vben/stores';
 
 const accessStore = useAccessStore();
+
+const detailVisible = ref(false);
+const detailUserId = ref<number | string | null>(null);
+
+function openDetail(row: any) {
+  detailUserId.value = row.id;
+  detailVisible.value = true;
+}
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -79,10 +88,12 @@ const gridOptions: VxeGridProps = {
     {
       title: $t('page.system.user.username'),
       field: 'userName',
+      slots: { default: 'userName' },
     },
     {
       title: $t('page.system.user.nickName'),
       field: 'nickName',
+      slots: { default: 'nickName' },
     },
     {
       title: $t('page.system.user.email'),
@@ -192,6 +203,14 @@ async function handleDelete(row: any) {
         {{ formatDateTime(row.createTime) }}
       </template>
 
+      <template #userName="{ row }">
+        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.userName }}</a>
+      </template>
+
+      <template #nickName="{ row }">
+        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.nickName }}</a>
+      </template>
+
       <template #roleName="{ row }">
         <Tag color="success">
           {{ row.roleName }}
@@ -242,5 +261,6 @@ async function handleDelete(row: any) {
       </template>
     </Grid>
     <Drawer />
+    <UserDetailDrawer v-model:visible="detailVisible" :id="detailUserId ?? undefined" />
   </Page>
 </template>

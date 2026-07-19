@@ -4,7 +4,7 @@ export const getDeptListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/dept/list', { params });
 };
 export const getDeptInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/dept/detail', { params: { id } });
+  return requestClient.get(`/api/system/dept/detail/${id}`);
 };
 export const createDeptApi = async (param: any) => {
   return requestClient.post('/api/system/dept/save', param);

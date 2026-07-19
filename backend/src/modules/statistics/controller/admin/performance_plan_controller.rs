@@ -11,13 +11,13 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::statistics::model::performance_plan::{
     CreatePlanRequest, SubmitPlanRequest, ReviewPlanRequest, ModifyPlanRequest, PlanQuery,
 };
 use crate::modules::statistics::service::performance_plan_service;
-use actix_web::{get, post, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 /// 从Admin JWT中获取当前用户信息
 fn get_admin_info(req: &HttpRequest) -> (i64, String) {
@@ -40,8 +40,6 @@ fn get_admin_info(req: &HttpRequest) -> (i64, String) {
 }
 
 /// 创建草稿计划
-#[post("/statistics/performance/plan/create")]
-#[protect("statistics:performance-plan:manage")]
 pub async fn create_plan(state: web::Data<AppState>, req: web::Json<CreatePlanRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let req = req.into_inner();
@@ -54,8 +52,6 @@ pub async fn create_plan(state: web::Data<AppState>, req: web::Json<CreatePlanRe
 }
 
 /// 提交计划（草稿→待审批）
-#[post("/statistics/performance/plan/submit")]
-#[protect("statistics:performance-plan:manage")]
 pub async fn submit_plan(state: web::Data<AppState>, req: web::Json<SubmitPlanRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let req = req.into_inner();
@@ -68,8 +64,6 @@ pub async fn submit_plan(state: web::Data<AppState>, req: web::Json<SubmitPlanRe
 }
 
 /// 审批通过
-#[post("/statistics/performance/plan/approve")]
-#[protect("statistics:performance-plan:approve")]
 pub async fn approve_plan(state: web::Data<AppState>, req: web::Json<ReviewPlanRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let req = req.into_inner();
@@ -82,8 +76,6 @@ pub async fn approve_plan(state: web::Data<AppState>, req: web::Json<ReviewPlanR
 }
 
 /// 驳回
-#[post("/statistics/performance/plan/reject")]
-#[protect("statistics:performance-plan:approve")]
 pub async fn reject_plan(state: web::Data<AppState>, req: web::Json<ReviewPlanRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let req = req.into_inner();
@@ -96,8 +88,6 @@ pub async fn reject_plan(state: web::Data<AppState>, req: web::Json<ReviewPlanRe
 }
 
 /// 申请修改
-#[post("/statistics/performance/plan/modify")]
-#[protect("statistics:performance-plan:manage")]
 pub async fn modify_plan(state: web::Data<AppState>, req: web::Json<ModifyPlanRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let req = req.into_inner();
@@ -110,8 +100,6 @@ pub async fn modify_plan(state: web::Data<AppState>, req: web::Json<ModifyPlanRe
 }
 
 /// 查询计划列表
-#[get("/statistics/performance/plan/list")]
-#[protect("statistics:performance-plan:view")]
 pub async fn get_plan_list(state: web::Data<AppState>, query: web::Query<PlanQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let query = query.into_inner();
@@ -123,8 +111,6 @@ pub async fn get_plan_list(state: web::Data<AppState>, query: web::Query<PlanQue
 }
 
 /// 查询计划详情（含月度目标和审批记录）
-#[get("/statistics/performance/plan/detail")]
-#[protect("statistics:performance-plan:view")]
 pub async fn get_plan_detail(state: web::Data<AppState>, query: web::Query<SubmitPlanRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let plan_id = query.plan_id;
@@ -136,8 +122,6 @@ pub async fn get_plan_detail(state: web::Data<AppState>, query: web::Query<Submi
 }
 
 /// 获取计划修改详情（编辑回显）
-#[get("/statistics/performance/plan/modify-detail")]
-#[protect("statistics:performance-plan:view")]
 pub async fn get_plan_modify_detail(state: web::Data<AppState>, query: web::Query<SubmitPlanRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let plan_id = query.plan_id;
@@ -146,4 +130,72 @@ pub async fn get_plan_modify_detail(state: web::Data<AppState>, query: web::Quer
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册业绩计划模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(performance_plan_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/statistics/performance/plan")
+            // POST /statistics/performance/plan/create - 创建草稿计划
+            .route(
+                "/create",
+                web::post()
+                    .to(create_plan)
+                    .wrap(require_permission("statistics:performance-plan:manage")),
+            )
+            // POST /statistics/performance/plan/submit - 提交计划
+            .route(
+                "/submit",
+                web::post()
+                    .to(submit_plan)
+                    .wrap(require_permission("statistics:performance-plan:manage")),
+            )
+            // POST /statistics/performance/plan/approve - 审批通过
+            .route(
+                "/approve",
+                web::post()
+                    .to(approve_plan)
+                    .wrap(require_permission("statistics:performance-plan:approve")),
+            )
+            // POST /statistics/performance/plan/reject - 驳回
+            .route(
+                "/reject",
+                web::post()
+                    .to(reject_plan)
+                    .wrap(require_permission("statistics:performance-plan:approve")),
+            )
+            // POST /statistics/performance/plan/modify - 申请修改
+            .route(
+                "/modify",
+                web::post()
+                    .to(modify_plan)
+                    .wrap(require_permission("statistics:performance-plan:manage")),
+            )
+            // GET /statistics/performance/plan/list - 计划列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_plan_list)
+                    .wrap(require_permission("statistics:performance-plan:view")),
+            )
+            // GET /statistics/performance/plan/detail - 计划详情
+            .route(
+                "/detail",
+                web::get()
+                    .to(get_plan_detail)
+                    .wrap(require_permission("statistics:performance-plan:view")),
+            )
+            // GET /statistics/performance/plan/modify-detail - 计划修改详情
+            .route(
+                "/modify-detail",
+                web::get()
+                    .to(get_plan_modify_detail)
+                    .wrap(require_permission("statistics:performance-plan:view")),
+            ),
+    );
 }

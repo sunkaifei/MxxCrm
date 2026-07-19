@@ -16,15 +16,17 @@ import {
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Card, Col, Form, Input, Popconfirm, Row, Select, Tabs, Tag, Modal, message } from 'ant-design-vue';
+import { Button, Card, Col, Drawer, Dropdown, Form, Input, Popconfirm, Row, Select, Tabs, Tag, Modal, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteCustomerApi, getCustomerListApi, saveFollowupApi } from '#/api';
+import { createContactApi, createOpportunityApi, deleteCustomerApi, getCustomerListApi, saveFollowupApi } from '#/api';
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { $t } from '#/locales';
 import CustomerDrawer from './drawer.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import CustomerFollowupDrawer from './followup-drawer.vue';
+import ContactDrawer from '../contact/drawer.vue';
+import OpportunityDrawer from '../opportunity/drawer.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -34,7 +36,7 @@ const userStore = useUserStore();
 // 3=本部门 → my+todayFollow  4=本部门及以下 → all+my+subordinate+todayFollow
 // 5=仅本人 → my+todayFollow
 const dataScope = computed(() => {
-  const scope = (userStore.userInfo as any)?.dataScope;
+  const scope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
   // 超级管理员或未设置时默认全部
   const roles = userStore.userInfo?.roles ?? [];
   if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
@@ -175,11 +177,11 @@ const gridOptions: VxeGridProps = {
           dealStatus: values.dealStatus,
           listType: activeTab.value,
         });
-        // 无数据 280px，有数据按内容自适应
+        // 无数据 150px，有数据按内容自适应
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '280px' : '';
+          gridEl.style.height = items.length === 0 ? '150px' : '';
         }
         // 等DOM渲染完成后同步固定列行高并居中内容
         const syncFixedColumn = (retry = 0) => {
@@ -266,6 +268,16 @@ const [FormDrawer, drawerApi] = useVbenDrawer({
   onClosed() { if (drawerApi.getData()?.needRefresh) gridApi.query(); },
 });
 
+const [OppDrawer, oppDrawerApi] = useVbenDrawer({
+  connectedComponent: OpportunityDrawer,
+  onClosed() { if (oppDrawerApi.getData()?.needRefresh) gridApi.query(); },
+});
+
+const [ContactDrawerInstance, contactDrawerApi] = useVbenDrawer({
+  connectedComponent: ContactDrawer,
+  onClosed() { if (contactDrawerApi.getData()?.needRefresh) gridApi.query(); },
+});
+
 // 跟进抽屉
 function handleFollowup(row: any) {
   followupVisible.value = true;
@@ -334,6 +346,24 @@ async function handleAddToPool(row: any) {
       }
     },
   });
+}
+
+// 商机抽屉
+function handleAddOpportunity(row: any) {
+  oppDrawerApi.setData({
+    create: true,
+    row: { customerId: row.id, customerName: row.companyName },
+  });
+  oppDrawerApi.open();
+}
+
+// 联系人抽屉
+function handleAddContact(row: any) {
+  contactDrawerApi.setData({
+    create: true,
+    row: { customerId: row.id, companyName: row.companyName },
+  });
+  contactDrawerApi.open();
 }
 </script>
 
@@ -488,14 +518,30 @@ async function handleAddToPool(row: any) {
           <Popconfirm :title="'确定将该客户退回公海？'" @confirm="handlePool(row)">
             <a class="action-btn">公海</a>
           </Popconfirm>
-          <a v-if="accessStore.hasAccessCode('crm:customer:update')" class="action-btn" @click="() => handleEdit(row)">编辑</a>
-          <Popconfirm v-if="accessStore.hasAccessCode('crm:customer:delete')" :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.customer.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
-            <a class="action-btn">删除</a>
-          </Popconfirm>
+          <Dropdown :trigger="['click']">
+            <a class="action-btn more-btn">更多 ▾</a>
+            <template #overlay>
+              <div class="customer-more-menu">
+                <div class="more-menu-item" @click="() => handleAddOpportunity(row)">
+                  <span>添加商机</span>
+                </div>
+                <div class="more-menu-item" @click="() => handleAddContact(row)">
+                  <span>添加联系人</span>
+                </div>
+                <div v-if="accessStore.hasAccessCode('crm:customer:update')" class="more-menu-item" @click="() => handleEdit(row)">
+                  <span>修改</span>
+                </div>
+                <Popconfirm v-if="accessStore.hasAccessCode('crm:customer:delete')" :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.customer.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
+                  <div class="more-menu-item danger">
+                    <span>删除</span>
+                  </div>
+                </Popconfirm>
+              </div>
+            </template>
+          </Dropdown>
         </span>
       </template>
     </Grid>
-    <FormDrawer />
     <Drawer v-model:open="followupVisible" :width="followupFullscreen ? '100vw' : '75%'" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="客户跟进" :footer="null" @close="handleFollowupClose">
       <template #extra>
         <Button type="text" :icon="h(followupFullscreen ? LucideMinimize2 : LucideMaximize2)" @click="toggleFollowupFullscreen" />
@@ -504,6 +550,10 @@ async function handleAddToPool(row: any) {
     </Drawer>
 
     <CustomerDetailDrawer v-model:visible="detailVisible" :id="detailId" @edit="handleDetailEdit" />
+
+    <FormDrawer />
+    <OppDrawer />
+    <ContactDrawerInstance />
   </Page>
 </template>
 
@@ -536,6 +586,33 @@ async function handleAddToPool(row: any) {
 }
 .action-btn:hover {
   color: #4096ff;
+}
+.more-btn {
+  white-space: nowrap;
+}
+.customer-more-menu {
+  min-width: 130px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  padding: 4px 0;
+}
+.more-menu-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  transition: background 0.2s;
+}
+.more-menu-item:hover {
+  background: #f5f5f5;
+}
+.more-menu-item.danger {
+  color: #ff4d4f;
+}
+.more-menu-item.danger:hover {
+  background: #fff1f0;
 }
 /* 固定列内容垂直居中 */
 :deep(.vxe-table--fixed-right-wrapper .vxe-body--column .vxe-cell) {

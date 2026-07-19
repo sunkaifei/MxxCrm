@@ -8,16 +8,14 @@
 //! 版权所有，侵权必究！
 //!
 
-use actix_web::{get, post, put, delete, web, HttpResponse, Result};
-use actix_web_grants::protect;
+use actix_web::{web, HttpResponse, Result};
+use crate::core::web::permission_guard::require_permission;
 
 use crate::core::kit::global::AppState;
 use crate::core::web::response::{MetaResp, ResultPage};
 use crate::modules::finance::model::member_fee::{MemberFeeSaveRequest, MemberFeeQuery};
 use crate::modules::finance::service::member_fee_service;
 
-#[get("/member-fee/list")]
-#[protect("finance:member-fee:list")]
 pub async fn list(
     state: web::Data<AppState>,
     query: web::Query<MemberFeeQuery>
@@ -36,8 +34,6 @@ pub async fn list(
     }
 }
 
-#[get("/member-fee/detail/{id}")]
-#[protect("finance:member-fee:list")]
 pub async fn detail(
     state: web::Data<AppState>,
     path: web::Path<i64>
@@ -54,8 +50,6 @@ pub async fn detail(
     }
 }
 
-#[post("/member-fee/create")]
-#[protect("finance:member-fee:create")]
 pub async fn create(
     state: web::Data<AppState>,
     item: web::Json<MemberFeeSaveRequest>
@@ -70,8 +64,6 @@ pub async fn create(
     }
 }
 
-#[put("/member-fee/update/{id}")]
-#[protect("finance:member-fee:edit")]
 pub async fn update(
     state: web::Data<AppState>,
     path: web::Path<i64>,
@@ -88,8 +80,6 @@ pub async fn update(
     }
 }
 
-#[delete("/member-fee/delete/{id}")]
-#[protect("finance:member-fee:delete")]
 pub async fn delete(
     state: web::Data<AppState>,
     path: web::Path<i64>
@@ -106,10 +96,13 @@ pub async fn delete(
     }
 }
 
-pub fn routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(list);
-    cfg.service(detail);
-    cfg.service(create);
-    cfg.service(update);
-    cfg.service(delete);
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/member-fee")
+            .route("/list", web::get().to(list).wrap(require_permission("finance:member-fee:list")))
+            .route("/detail/{id}", web::get().to(detail).wrap(require_permission("finance:member-fee:list")))
+            .route("/create", web::post().to(create).wrap(require_permission("finance:member-fee:create")))
+            .route("/update/{id}", web::put().to(update).wrap(require_permission("finance:member-fee:edit")))
+            .route("/delete/{id}", web::delete().to(delete).wrap(require_permission("finance:member-fee:delete"))),
+    );
 }

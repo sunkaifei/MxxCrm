@@ -11,16 +11,14 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::order_item::{OrderItemDetailVO, OrderItemListQuery, OrderItemListVO, OrderItemSaveRequest, OrderItemUpdateRequest};
 use crate::modules::sale::service::order_item_service;
 
-#[post("/sale/order-item/save")]
-#[protect("sale:order:item:save")]
 pub async fn order_item_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderItemSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -31,8 +29,6 @@ pub async fn order_item_insert(state: web::Data<AppState>, req: HttpRequest, for
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/sale/order-item/update")]
-#[protect("sale:order:item:update")]
 pub async fn order_item_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderItemUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -47,8 +43,6 @@ pub async fn order_item_update(state: web::Data<AppState>, req: HttpRequest, for
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/sale/order-item/bath_delete")]
-#[protect("sale:order:item:delete")]
 pub async fn bath_delete_order_item(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -66,8 +60,6 @@ pub async fn bath_delete_order_item(state: web::Data<AppState>, item: web::Json<
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/sale/order-item/info")]
-#[protect("sale:order:item:info")]
 pub async fn order_item_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -82,8 +74,6 @@ pub async fn order_item_info(state: web::Data<AppState>, item: web::Query<InfoId
     }
 }
 
-#[get("/sale/order-item/list")]
-#[protect("sale:order:item:list")]
 pub async fn order_item_list(state: web::Data<AppState>, query: web::Query<OrderItemListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
@@ -96,4 +86,52 @@ pub async fn order_item_list(state: web::Data<AppState>, query: web::Query<Order
         },
         Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册订单明细模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(order_item_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/sale/order-item")
+            // POST /sale/order-item/save - 新建订单明细
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/save",
+                web::post()
+                    .to(order_item_insert)
+                    .wrap(require_permission("sale:order:item:save")),
+            )
+            // PUT /sale/order-item/update - 修改订单明细
+            .route(
+                "/update",
+                web::put()
+                    .to(order_item_update)
+                    .wrap(require_permission("sale:order:item:update")),
+            )
+            // DELETE /sale/order-item/bath_delete - 批量删除订单明细
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_order_item)
+                    .wrap(require_permission("sale:order:item:delete")),
+            )
+            // GET /sale/order-item/info - 订单明细详情
+            .route(
+                "/info",
+                web::get()
+                    .to(order_item_info)
+                    .wrap(require_permission("sale:order:item:info")),
+            )
+            // GET /sale/order-item/list - 订单明细列表
+            .route(
+                "/list",
+                web::get()
+                    .to(order_item_list)
+                    .wrap(require_permission("sale:order:item:list")),
+            ),
+    );
 }

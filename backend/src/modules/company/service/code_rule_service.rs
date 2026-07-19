@@ -599,7 +599,7 @@ pub async fn start_batch_regenerate(
                             let old_json = serde_json::json!({"customer_no": c.customer_no});
                             let new_json = serde_json::json!({"customer_no": final_no});
                             let _ = customer_edit_log_service::log_update(
-                                db, c.id, user_id, None, &old_json, &new_json,
+                                db, c.id, user_id, None, &old_json, &new_json, Some(0),
                             ).await;
 
                             // 更新客户编号

@@ -29,6 +29,8 @@ pub struct Model {
     pub content: Option<Json>,
     /// 编辑时间
     pub edit_time: Option<DateTime>,
+    /// 日志类型：0=基本信息, 1=财务信息
+    pub log_type: Option<i32>,
     /// 软删除标记
     pub deleted: Option<i32>,
 }

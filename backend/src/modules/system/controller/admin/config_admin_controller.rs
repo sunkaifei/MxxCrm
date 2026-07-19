@@ -9,18 +9,16 @@
 //!
 
 use crate::core::errors::error::Result;
-use actix_web::{delete, get, HttpResponse, post, put, web, HttpRequest};
-use actix_web_grants::protect;
+use actix_web::{HttpResponse, web, HttpRequest};
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::system::model::config::{ConfigSaveDTO, ConfigSaveRequest, ConfigUpdateRequest, ListQuery};
 use crate::modules::system::service::{admin_service, config_service};
 
-#[post("/config/add")]
-#[protect("system:config:create")]
 pub async fn insert_config(state: web::Data<AppState>, req: HttpRequest, item: web::Json<ConfigSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.config_key.is_none() {
@@ -51,8 +49,6 @@ pub async fn insert_config(state: web::Data<AppState>, req: HttpRequest, item: w
     }
 }
 
-#[delete("/config/batch_delete")]
-#[protect("system:config:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -74,8 +70,6 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     }
 }
 
-#[put("/config/update/{id}")]
-#[protect("system:config:edit")]
 pub async fn update_config(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<ConfigUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let config_id = Some(id.into_inner());
@@ -107,8 +101,6 @@ pub async fn update_config(state: web::Data<AppState>, req: HttpRequest, id: web
     }
 }
 
-#[get("/config/detail/{id}")]
-#[protect("system:config:view")]
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse>  {
     let db = &state.db;
     if item.id.is_none() {
@@ -130,11 +122,57 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
 }
 
 // 分页查询
-#[get("/config/list")]
-#[protect("system:config:list")]
 pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse>  {
     let db = &state.db;
     config_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
     })
+}
+
+// ==================== 路由注册（方案 C：单点维护）====================
+
+/// 注册系统配置管理模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(config_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/config")
+            // POST /config/add - 新增配置
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/add",
+                web::post()
+                    .to(insert_config)
+                    .wrap(require_permission("system:config:create")),
+            )
+            // DELETE /config/batch_delete - 批量删除配置
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("system:config:delete")),
+            )
+            // PUT /config/update/{id} - 更新配置
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_config)
+                    .wrap(require_permission("system:config:edit")),
+            )
+            // GET /config/detail/{id} - 配置详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_by_detail)
+                    .wrap(require_permission("system:config:view")),
+            )
+            // GET /config/list - 配置列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_by_page)
+                    .wrap(require_permission("system:config:list")),
+            ),
+    );
 }

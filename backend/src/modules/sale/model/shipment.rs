@@ -77,6 +77,7 @@ pub struct ShipmentListQuery {
     pub contract_id: Option<i64>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
+    pub list_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -288,15 +289,20 @@ fn deserialize_option_string_to_u64<'de, D>(deserializer: D) -> Result<Option<i6
 where
     D: serde::Deserializer<'de>,
 {
-    let opt: Option<String> = Option::deserialize(deserializer)?;
-    match opt {
-        Some(s) => {
+    use serde::de::Error;
+    use serde_json::Value;
+
+    match Option::<Value>::deserialize(deserializer)? {
+        Some(Value::String(s)) => {
             if s.is_empty() {
                 Ok(None)
             } else {
-                s.parse::<i64>().map(Some).map_err(serde::de::Error::custom)
+                s.parse::<i64>().map(Some).map_err(D::Error::custom)
             }
         }
+        Some(Value::Number(n)) => Ok(n.as_i64()),
+        Some(Value::Null) => Ok(None),
+        Some(_) => Err(D::Error::custom("expected string or number")),
         None => Ok(None),
     }
 }
@@ -410,11 +416,11 @@ impl ShipmentModel {
             .filter(shipment::Column::ShipmentNo.like(&pattern))
             .select_only()
             .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(shipment_no, 11) AS INTEGER))")), "max_seq")
-            .into_tuple::<Option<i64>>()
+            .into_tuple::<Option<i32>>()
             .one(db)
             .await?;
 
-        Ok(result.flatten())
+        Ok(result.flatten().map(|v| v as i64))
     }
 
     pub async fn select_in_page<C: ConnectionTrait>(
@@ -476,6 +482,92 @@ impl ShipmentModel {
         }
         if let Some(ed) = end_date {
             query = query.filter(shipment::Column::ShipmentDate.lte(ed));
+        }
+
+        let paginator = query.order_by_desc(shipment::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
+    }
+
+    pub async fn select_in_page_by_owner_user_ids<C: ConnectionTrait>(
+        db: &C,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        status: Option<i32>,
+        order_id: Option<i64>,
+        customer_id: Option<i64>,
+        contract_id: Option<i64>,
+        start_date: Option<String>,
+        end_date: Option<String>,
+        owner_user_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<shipment::Model>, i64), DbErr> {
+        let mut query = SaleShipment::find()
+            .filter(shipment::Column::Deleted.eq(0));
+
+        if let Some(k) = keywords {
+            if !k.trim().is_empty() {
+                query = query.filter(
+                    Condition::any()
+                        .add(shipment::Column::ShipmentNo.contains(k.trim()))
+                        .add(shipment::Column::ReceiverName.contains(k.trim()))
+                        .add(shipment::Column::TrackingNo.contains(k.trim())),
+                );
+            }
+        }
+        if let Some(s) = status {
+            query = query.filter(shipment::Column::Status.eq(s));
+        }
+        if let Some(o) = order_id {
+            query = query.filter(shipment::Column::OrderId.eq(o));
+        }
+        if let Some(c) = customer_id {
+            query = query.filter(shipment::Column::CustomerId.eq(c));
+        }
+        if let Some(cid) = contract_id {
+            let order_ids: Vec<i64> = order::Entity::find()
+                .select_only()
+                .column(order::Column::Id)
+                .filter(order::Column::ContractId.eq(cid))
+                .filter(order::Column::Deleted.eq(0))
+                .into_tuple::<Option<i64>>()
+                .all(db)
+                .await?
+                .into_iter()
+                .flatten()
+                .collect();
+            if order_ids.is_empty() {
+                query = query.filter(shipment::Column::OrderId.eq(-1));
+            } else {
+                query = query.filter(shipment::Column::OrderId.is_in(order_ids));
+            }
+        }
+        if let Some(sd) = start_date {
+            query = query.filter(shipment::Column::ShipmentDate.gte(sd));
+        }
+        if let Some(ed) = end_date {
+            query = query.filter(shipment::Column::ShipmentDate.lte(ed));
+        }
+
+        if let Some(ids) = owner_user_ids {
+            if ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            let order_ids: Vec<i64> = order::Entity::find()
+                .select_only()
+                .column(order::Column::Id)
+                .filter(order::Column::OwnerUserId.is_in(ids))
+                .filter(order::Column::Deleted.eq(0))
+                .into_tuple::<Option<i64>>()
+                .all(db)
+                .await?
+                .into_iter()
+                .flatten()
+                .collect();
+            if order_ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(shipment::Column::OrderId.is_in(order_ids));
         }
 
         let paginator = query.order_by_desc(shipment::Column::CreateTime).paginate(db, per_page as u64);
@@ -547,17 +639,18 @@ impl ShipmentItemModel {
             .await
     }
 
-    /// 累加更新订单明细的已发数量（delivered_quantity 为 numeric 类型）
+    /// 累加更新订单明细的已发数量（delivered_quantity 为 numeric 类型，使用 COALESCE 处理 NULL）
     pub async fn add_delivered_quantity<C: ConnectionTrait>(
         db: &C,
         order_item_id: i64,
         add_qty: i32,
     ) -> Result<i64, DbErr> {
         let add_decimal = Decimal::from(add_qty);
+        // COALESCE(delivered_quantity, 0) + add_qty 避免 NULL + qty = NULL 的问题
         let result = order_item::Entity::update_many()
             .col_expr(
                 order_item::Column::DeliveredQuantity,
-                Expr::col(order_item::Column::DeliveredQuantity).add(Expr::value(add_decimal)),
+                Expr::cust("COALESCE(delivered_quantity, 0)").add(Expr::value(add_decimal)),
             )
             .filter(order_item::Column::Id.eq(order_item_id))
             .filter(order_item::Column::Deleted.eq(0))

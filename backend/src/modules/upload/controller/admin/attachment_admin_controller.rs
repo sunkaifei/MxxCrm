@@ -16,6 +16,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::upload::model::attachment::{
     AttachmentBindRequest, AttachmentByEntityQuery, AttachmentPageRequest,
@@ -25,8 +26,7 @@ use crate::modules::upload::service::{attachment_category_service, attachment_se
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 use crate::validate;
 use actix_multipart::form::MultipartForm;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Serialize;
 
 /// JSON 业务响应体（上传接口使用）
@@ -60,8 +60,6 @@ impl<T: Serialize> JsonResp<T> {
 /// - multipart 表单字段：file / entity_type / entity_id（可选）
 /// - 从 JWT token 提取 uploaded_by
 /// - 返回 JSON（不再使用 msgpack）
-#[post("/attachment/upload")]
-#[protect("attachment:file:upload")]
 pub async fn upload_attachment(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -83,8 +81,6 @@ pub async fn upload_attachment(
 /// # 删除附件
 ///
 /// 删除规则：count_quote > 0 拒绝；软删除 + 删除物理文件
-#[delete("/attachment/batch_delete")]
-#[protect("attachment:file:delete")]
 pub async fn delete_attachment(
     state: web::Data<AppState>,
     item: web::Json<BathDeleteIdRequest>,
@@ -104,8 +100,6 @@ pub async fn delete_attachment(
 }
 
 /// # 修改附件信息
-#[put("/attachment/update/{id}")]
-#[protect("attachment:update")]
 pub async fn update(
     state: web::Data<AppState>,
     id: web::Path<i64>,
@@ -119,8 +113,6 @@ pub async fn update(
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
-#[put("/attachment/batchmove")]
-#[protect("attachment:update")]
 pub async fn batch_move(
     state: web::Data<AppState>,
     item: web::Json<BatchMoveRequest>,
@@ -146,8 +138,6 @@ pub async fn batch_move(
 }
 
 /// # 获取附件详情
-#[get("/attachment/detail/{id}")]
-#[protect("attachment:list")]
 pub async fn get_detail(
     state: web::Data<AppState>,
     item: web::Path<InfoId>,
@@ -161,8 +151,6 @@ pub async fn get_detail(
 }
 
 /// # 分页获取附件列表
-#[get("/attachment/list")]
-#[protect("attachment:list")]
 pub async fn get_page_list(
     state: web::Data<AppState>,
     query: web::Query<AttachmentPageRequest>,
@@ -182,8 +170,6 @@ pub async fn get_page_list(
 /// # 下载附件
 ///
 /// 返回二进制文件流，带 Content-Disposition 头
-#[get("/attachment/download/{id}")]
-#[protect("attachment:list")]
 pub async fn download_attachment(
     state: web::Data<AppState>,
     id: web::Path<i64>,
@@ -210,8 +196,6 @@ pub async fn download_attachment(
 }
 
 /// # 按业务实体查询附件
-#[get("/attachment/by-entity")]
-#[protect("attachment:list")]
 pub async fn get_by_entity(
     state: web::Data<AppState>,
     query: web::Query<AttachmentByEntityQuery>,
@@ -230,8 +214,6 @@ pub async fn get_by_entity(
 /// # 绑定附件到业务实体
 ///
 /// 更新附件的 entity_type / entity_id，count_quote += 1
-#[post("/attachment/bind")]
-#[protect("attachment:update")]
 pub async fn bind_attachment(
     state: web::Data<AppState>,
     item: web::Json<AttachmentBindRequest>,
@@ -246,8 +228,6 @@ pub async fn bind_attachment(
 /// # 解绑附件
 ///
 /// count_quote -= 1（最小为 0）
-#[post("/attachment/unbind")]
-#[protect("attachment:update")]
 pub async fn unbind_attachment(
     state: web::Data<AppState>,
     item: web::Json<AttachmentUnbindRequest>,
@@ -257,4 +237,86 @@ pub async fn unbind_attachment(
     Ok(HttpResponse::Ok()
         .content_type("application/msgpack")
         .body(MetaResp::<i64>::handle_result(result)))
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册附件模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(attachment_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/attachment")
+            // POST /attachment/upload - 上传附件
+            .route(
+                "/upload",
+                web::post()
+                    .to(upload_attachment)
+                    .wrap(require_permission("attachment:file:upload")),
+            )
+            // DELETE /attachment/batch_delete - 批量删除附件
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(delete_attachment)
+                    .wrap(require_permission("attachment:file:delete")),
+            )
+            // PUT /attachment/update/{id} - 修改附件
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update)
+                    .wrap(require_permission("attachment:update")),
+            )
+            // PUT /attachment/batchmove - 批量移动附件
+            .route(
+                "/batchmove",
+                web::put()
+                    .to(batch_move)
+                    .wrap(require_permission("attachment:update")),
+            )
+            // GET /attachment/detail/{id} - 附件详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_detail)
+                    .wrap(require_permission("attachment:list")),
+            )
+            // GET /attachment/list - 附件列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_page_list)
+                    .wrap(require_permission("attachment:list")),
+            )
+            // GET /attachment/download/{id} - 下载附件
+            .route(
+                "/download/{id}",
+                web::get()
+                    .to(download_attachment)
+                    .wrap(require_permission("attachment:list")),
+            )
+            // GET /attachment/by-entity - 按业务实体查询附件
+            .route(
+                "/by-entity",
+                web::get()
+                    .to(get_by_entity)
+                    .wrap(require_permission("attachment:list")),
+            )
+            // POST /attachment/bind - 绑定附件
+            .route(
+                "/bind",
+                web::post()
+                    .to(bind_attachment)
+                    .wrap(require_permission("attachment:update")),
+            )
+            // POST /attachment/unbind - 解绑附件
+            .route(
+                "/unbind",
+                web::post()
+                    .to(unbind_attachment)
+                    .wrap(require_permission("attachment:update")),
+            ),
+    );
 }

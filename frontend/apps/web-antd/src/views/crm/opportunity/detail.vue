@@ -20,9 +20,12 @@ import {
 } from '@vben/icons';
 import {
   convertToQuotationApi,
+  createFollowupApi,
   createOpportunityApi,
+  getContactListApi,
   getCustomerContactsApi,
   getCustomerListApi,
+  getFollowupListApi,
   getOpportunityInfoApi,
   updateOpportunityApi,
 } from '#/api';
@@ -103,9 +106,26 @@ const amountText = computed(() => {
 
 const probabilityNum = computed(() => Number(opp.value.probability ?? 50));
 
+const sortedFollowUpRecords = computed(() => {
+  return [...followUpRecords.value].sort((a, b) => {
+    return new Date(b.time).getTime() - new Date(a.time).getTime();
+  });
+});
+
 // 跟进记录：按设计图 4 条
 const followUpRecords = ref<any[]>([
   {
+    stage: 1,
+    stageLabel: '初步沟通',
+    time: '2024-12-15 10:30',
+    user: '张伟',
+    color: '#52c41a',
+    content: '创建商机，完善基础信息：商机名称、所属客户、预算金额、预计成交日期、商机来源、赢单概率等。',
+    tags: [{ text: '新建商机', color: 'green' }],
+  },
+  {
+    stage: 3,
+    stageLabel: '方案沟通',
     time: '2025-01-05 15:00',
     user: '张伟',
     color: '#7c3aed',
@@ -113,6 +133,8 @@ const followUpRecords = ref<any[]>([
     tags: [{ text: '演示', color: 'purple' }, { text: '方案v1', color: 'blue' }],
   },
   {
+    stage: 3,
+    stageLabel: '方案沟通',
     time: '2024-12-28 11:00',
     user: '王芳',
     color: '#5b8ff9',
@@ -120,6 +142,8 @@ const followUpRecords = ref<any[]>([
     tags: [{ text: '附件', color: 'default' }],
   },
   {
+    stage: 2,
+    stageLabel: '需求确认',
     time: '2024-12-25 16:30',
     user: '张伟',
     color: '#5b8ff9',
@@ -127,6 +151,8 @@ const followUpRecords = ref<any[]>([
     tags: [{ text: '线上版', color: 'green' }],
   },
   {
+    stage: 2,
+    stageLabel: '需求确认',
     time: '2024-12-22 10:00',
     user: '张伟',
     color: '#5b8ff9',
@@ -159,6 +185,121 @@ const contactList = ref<any[]>([
     tags: [{ text: '费用对接', color: 'purple' }],
   },
 ]);
+
+// 联系人角色选项
+const contactRoleOptions = [
+  { label: '主要', value: 'primary' },
+  { label: '技术对接', value: 'tech' },
+  { label: '费用对接', value: 'finance' },
+  { label: '商务对接', value: 'business' },
+  { label: '其他', value: 'other' },
+];
+
+// 角色颜色映射
+const contactRoleColorMap: Record<string, string> = {
+  primary: 'orange',
+  tech: 'blue',
+  finance: 'purple',
+  business: 'green',
+  other: 'default',
+};
+
+// 角色文字映射
+const contactRoleLabelMap: Record<string, string> = {
+  primary: '主要',
+  tech: '技术对接',
+  finance: '费用对接',
+  business: '商务对接',
+  other: '其他',
+};
+
+// 联系人选择弹窗
+const contactPickerVisible = ref(false);
+const contactPickerLoading = ref(false);
+const customerContactOptions = ref<any[]>([]);
+const selectedContactIds = ref<string[]>([]);
+const contactRoleMap = reactive<Record<string, string>>({});
+
+function openContactPicker() {
+  if (!opp.value.customerId) {
+    message.warning('请先选择客户');
+    return;
+  }
+  selectedContactIds.value = [];
+  Object.keys(contactRoleMap).forEach(k => delete contactRoleMap[k]);
+  loadCustomerContacts();
+  contactPickerVisible.value = true;
+}
+
+async function loadCustomerContacts() {
+  contactPickerLoading.value = true;
+  try {
+    const res: any = await getContactListApi({
+      page: 1,
+      pageSize: 100,
+      customerId: Number(opp.value.customerId),
+    });
+    const list: any[] = res?.items || res?.data?.list || res?.data?.items || [];
+    customerContactOptions.value = list.map((c: any) => ({
+      id: c.id,
+      name: c.name || c.contactName,
+      position: c.position || c.title,
+      mobile: c.mobile,
+      phone: c.phone,
+      email: c.email,
+    }));
+  } catch {
+    customerContactOptions.value = [];
+  } finally {
+    contactPickerLoading.value = false;
+  }
+}
+
+function toggleContactSelection(id: number | string) {
+  const idStr = String(id);
+  const idx = selectedContactIds.value.indexOf(idStr);
+  if (idx > -1) {
+    selectedContactIds.value.splice(idx, 1);
+  } else {
+    selectedContactIds.value.push(idStr);
+    if (!contactRoleMap[idStr]) {
+      contactRoleMap[idStr] = 'tech';
+    }
+  }
+}
+
+const avatarColors = ['#5b8ff9', '#5ad8a6', '#f6bd16', '#ff9845', '#6ec8fc', '#7262fd', '#78d3f0', '#ff99c3'];
+
+function handleConfirmAddContacts() {
+  if (selectedContactIds.value.length === 0) {
+    message.warning('请至少选择一个联系人');
+    return;
+  }
+  const existingIds = new Set(contactList.value.map((c: any) => String(c.id)));
+  let added = 0;
+  selectedContactIds.value.forEach(idStr => {
+    if (existingIds.has(idStr)) return;
+    const contact = customerContactOptions.value.find(c => String(c.id) === idStr);
+    if (!contact) return;
+    const role = contactRoleMap[idStr] || 'other';
+    const colorIdx = contactList.value.length % avatarColors.length;
+    contactList.value.push({
+      id: contact.id,
+      name: contact.name,
+      title: contact.position || '-',
+      mobile: contact.mobile,
+      avatarColor: avatarColors[colorIdx],
+      tags: [{ text: contactRoleLabelMap[role] || '其他', color: contactRoleColorMap[role] || 'default' }],
+    });
+    added++;
+  });
+  if (added > 0) {
+    message.success(`已添加 ${added} 个关键联系人`);
+  } else {
+    message.info('所选联系人已在关键联系人列表中');
+  }
+  contactPickerVisible.value = false;
+}
 
 // ============ 表单数据 ============
 const baseFormRef = ref();
@@ -300,8 +441,137 @@ const loadData = async () => {
     if (data.customerId) {
       loadContacts(Number(data.customerId));
     }
+
+    await loadFollowupRecords();
   } catch {
     /* ignore */
+  }
+};
+
+// 跟进方式颜色映射
+const activityColorMap: Record<number, string> = {
+  1: '#52c41a',
+  2: '#1890ff',
+  3: '#722ed1',
+  4: '#fa8c16',
+  5: '#25b864',
+  6: '#52c41a',
+  7: '#8c8c8c',
+};
+
+const activityLabelMap: Record<number, string> = {
+  1: '电话',
+  2: '拜访',
+  3: '邮件',
+  4: '会议',
+  5: 'WhatsApp',
+  6: '微信',
+  7: '其他',
+};
+
+// 加载跟进记录
+async function loadFollowupRecords() {
+  if (!props.id) return;
+  try {
+    const res: any = await getFollowupListApi({
+      page: 1,
+      pageSize: 50,
+      opportunityId: Number(props.id),
+    });
+    const list: any[] = res?.items || res?.data?.list || res?.data?.items || [];
+    if (list.length > 0) {
+      followUpRecords.value = list.map((item: any) => {
+        const actType = Number(item.activityType) || 7;
+        return {
+          id: item.id,
+          stage: 0,
+          stageLabel: activityLabelMap[actType] || '其他',
+          time: item.createTime ? formatDateTime(item.createTime) : '',
+          user: item.createdByName || '未知',
+          color: activityColorMap[actType] || '#8c8c8c',
+          content: item.content || '',
+          tags: [{ text: activityLabelMap[actType] || '其他', color: actType === 1 ? 'green' : actType === 2 ? 'blue' : actType === 3 ? 'purple' : actType === 4 ? 'orange' : 'default' }],
+        };
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+// 跟进方式选项
+const activityTypeOptions = [
+  { label: '电话', value: 1 },
+  { label: '拜访', value: 2 },
+  { label: '邮件', value: 3 },
+  { label: '会议', value: 4 },
+  { label: 'WhatsApp', value: 5 },
+  { label: '微信', value: 6 },
+  { label: '其他', value: 7 },
+];
+
+// 添加跟进记录弹窗
+const followupModalVisible = ref(false);
+const followupSaving = ref(false);
+const followupFormRef = ref();
+const followupForm = reactive({
+  activityType: undefined as number | undefined,
+  content: '',
+  nextFollowDate: undefined as string | undefined,
+  durationMinutes: undefined as number | undefined,
+  result: '',
+  stage: 1,
+});
+
+const stageLabelMap: Record<number, string> = {
+  1: '初步沟通',
+  2: '需求确认',
+  3: '方案沟通',
+};
+
+const followupModalTitle = computed(() => {
+  return `添加${stageLabelMap[followupForm.stage] || ''}跟进记录`;
+});
+
+function openFollowupModal(stage: number) {
+  if (isCreate.value) {
+    message.warning('请先保存商机基础信息');
+    return;
+  }
+  followupForm.stage = stage;
+  followupForm.activityType = undefined;
+  followupForm.content = '';
+  followupForm.nextFollowDate = undefined;
+  followupForm.durationMinutes = undefined;
+  followupForm.result = '';
+  followupModalVisible.value = true;
+}
+
+const handleSaveFollowup = async () => {
+  try {
+    await followupFormRef.value?.validate();
+  } catch {
+    return;
+  }
+  followupSaving.value = true;
+  try {
+    await createFollowupApi({
+      opportunityId: Number(props.id),
+      customerId: opp.value.customerId,
+      leadId: opp.value.leadId,
+      activityType: followupForm.activityType,
+      content: followupForm.content,
+      nextFollowDate: followupForm.nextFollowDate,
+      durationMinutes: followupForm.durationMinutes,
+      result: followupForm.result,
+    });
+    message.success('跟进记录添加成功');
+    followupModalVisible.value = false;
+    await loadFollowupRecords();
+  } catch {
+    /* ignore */
+  } finally {
+    followupSaving.value = false;
   }
 };
 
@@ -335,6 +605,14 @@ const handleSaveBase = async () => {
       }
     } else {
       await updateOpportunityApi({ ...payload, id: Number(props.id) });
+      try {
+        await createFollowupApi({
+          opportunityId: Number(props.id),
+          customerId: baseForm.customerId != null ? Number(baseForm.customerId) : undefined,
+          activityType: 7,
+          content: `更新初步沟通信息：商机名称、客户、预算金额、预计成交日期等基础信息`,
+        });
+      } catch { /* ignore */ }
       message.success('保存成功');
       await loadData();
     }
@@ -351,7 +629,16 @@ const handleSaveReq = async () => {
     await updateOpportunityApi({
       id: Number(props.id),
       requirementSummary: reqForm.reqDesc,
+      stage: 2,
     });
+    try {
+      await createFollowupApi({
+        opportunityId: Number(props.id),
+        customerId: opp.value.customerId,
+        activityType: 7,
+        content: `更新需求确认信息：${reqForm.reqDesc || '需求描述'}`,
+      });
+    } catch { /* ignore */ }
     message.success('保存成功');
     await loadData();
   } catch {
@@ -369,6 +656,14 @@ const handleSubmitSolution = async () => {
       solutionSummary: solForm.solutionOverview,
       stage: 3,
     });
+    try {
+      await createFollowupApi({
+        opportunityId: Number(props.id),
+        customerId: opp.value.customerId,
+        activityType: 7,
+        content: `提交方案沟通：${solForm.solutionOverview || '方案概述'}`,
+      });
+    } catch { /* ignore */ }
     message.success('方案已提交');
     await loadData();
   } catch {
@@ -379,10 +674,13 @@ const handleSubmitSolution = async () => {
 };
 
 const handleConvertToQuotation = (): void => {
-  // 商机转为报价单
+  handleStep4ToQuotation();
+};
+
+const handleStep4ToQuotation = (): void => {
   Modal.confirm({
-    title: '确认操作',
-    content: '确定要将该商机转为报价单吗？',
+    title: '转报价单',
+    content: '确定要将该商机转为报价单吗？转换后将进入报价单新建页面。',
     okText: '确定',
     cancelText: '取消',
     onOk: async () => {
@@ -490,12 +788,16 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div class="opp-step-number">3</div>
         <div class="opp-step-label">方案沟通</div>
       </div>
-      <div class="opp-step-line"></div>
-      <div class="opp-step">
+      <div class="opp-step-line">
+        <span class="opp-step-arrow">›</span>
+      </div>
+      <div class="opp-step" :class="{ 'step-clickable': !isCreate }" @click="!isCreate && handleStep4ToQuotation()">
         <div class="opp-step-number">4</div>
         <div class="opp-step-label">已报价</div>
       </div>
-      <div class="opp-step-line"></div>
+      <div class="opp-step-line">
+        <span class="opp-step-arrow">›</span>
+      </div>
       <div class="opp-step">
         <div class="opp-step-number">5</div>
         <div class="opp-step-label">成交/丢单</div>
@@ -529,7 +831,7 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div v-show="activeTab === '1'" class="opp-tab-content">
           <div class="opp-form-header">
             <span class="opp-form-title">初步沟通记录</span>
-            <Button size="small" class="opp-add-btn">+ 添加记录</Button>
+            <Button size="small" class="opp-add-btn" @click="openFollowupModal(1)">+ 添加记录</Button>
           </div>
           <Form ref="baseFormRef" :model="baseForm" layout="vertical" class="opp-form">
             <Form.Item label="商机名称" name="title" :rules="[{ required: true, message: '请输入商机名称' }]">
@@ -600,7 +902,7 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div v-show="activeTab === '2'" class="opp-tab-content">
           <div class="opp-form-header">
             <span class="opp-form-title">需求确认记录</span>
-            <Button size="small" class="opp-add-btn">+ 添加记录</Button>
+            <Button size="small" class="opp-add-btn" @click="openFollowupModal(2)">+ 添加记录</Button>
           </div>
           <Form :model="reqForm" layout="vertical" class="opp-form">
             <Form.Item label="需求类型" name="reqType">
@@ -642,7 +944,7 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div v-show="activeTab === '3'" class="opp-tab-content">
           <div class="opp-form-header">
             <span class="opp-form-title">方案沟通记录</span>
-            <Button size="small" class="opp-add-btn">+ 添加记录</Button>
+            <Button size="small" class="opp-add-btn" @click="openFollowupModal(3)">+ 添加记录</Button>
           </div>
           <Form :model="solForm" layout="vertical" class="opp-form">
             <Form.Item label="方案类型" name="solutionType">
@@ -704,10 +1006,15 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div class="opp-right-section">
           <div class="opp-right-title">跟进记录</div>
           <div class="opp-timeline">
-            <div v-for="(record, idx) in followUpRecords" :key="idx" class="opp-tl-item">
+            <div v-for="(record, idx) in sortedFollowUpRecords" :key="idx" class="opp-tl-item">
               <div class="opp-tl-dot" :style="{ backgroundColor: record.color }"></div>
               <div class="opp-tl-body">
-                <div class="opp-tl-time">{{ record.time }}</div>
+                <div class="opp-tl-time">
+                  <Tag v-if="record.stageLabel" size="small" :color="record.stage === 1 ? 'green' : record.stage === 2 ? 'blue' : 'purple'" class="opp-tl-stage-tag">
+                    {{ record.stageLabel }}
+                  </Tag>
+                  <span>{{ record.time }}</span>
+                </div>
                 <div class="opp-tl-user">
                   <Avatar :size="20" :style="{ backgroundColor: record.color, color: '#fff' }">
                     {{ record.user.charAt(0) }}
@@ -727,7 +1034,10 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
 
         <!-- 关键联系人 -->
         <div class="opp-right-section">
-          <div class="opp-right-title">关键联系人</div>
+          <div class="opp-right-title">
+            <span>关键联系人</span>
+            <a v-if="!isCreate && opp.customerId" class="opp-add-contact" @click="openContactPicker">+ 添加</a>
+          </div>
           <div>
             <div v-for="(c, idx) in contactList" :key="idx" class="opp-contact-item">
               <Avatar :size="36" :style="{ backgroundColor: c.avatarColor, color: '#fff' }">
@@ -750,6 +1060,83 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         </div>
       </div>
     </div>
+
+    <!-- 选择联系人弹窗 -->
+    <Modal
+      v-model:open="contactPickerVisible"
+      title="选择关键联系人"
+      :width="600"
+      :confirm-loading="contactPickerLoading"
+      ok-text="确定添加"
+      cancel-text="取消"
+      @ok="handleConfirmAddContacts"
+    >
+      <div class="opp-contact-picker">
+        <div class="opp-picker-tip">从「{{ opp.customerName || '该客户' }}」的联系人中选择要标记为关键联系人的人员：</div>
+        <div class="opp-picker-list">
+          <div
+            v-for="item in customerContactOptions"
+            :key="item.id"
+            class="opp-picker-item"
+            :class="{ active: selectedContactIds.includes(String(item.id)) }"
+            @click="toggleContactSelection(item.id)"
+          >
+            <div class="opp-picker-checkbox">
+              <div class="opp-picker-check-inner" v-if="selectedContactIds.includes(String(item.id))">✓</div>
+            </div>
+            <Avatar :size="32" class="opp-picker-avatar">
+              {{ item.name?.charAt(0) || '?' }}
+            </Avatar>
+            <div class="opp-picker-info">
+              <div class="opp-picker-name">{{ item.name }}</div>
+              <div class="opp-picker-meta">{{ item.position || item.title || '-' }} · {{ item.mobile || item.phone || '-' }}</div>
+            </div>
+            <Select
+              v-model:value="contactRoleMap[String(item.id)]"
+              :options="contactRoleOptions"
+              size="small"
+              placeholder="选择角色"
+              style="width: 100px"
+              @click.stop
+            />
+          </div>
+        </div>
+        <div v-if="customerContactOptions.length === 0 && !contactPickerLoading" class="opp-picker-empty">
+          该客户下暂无联系人
+        </div>
+      </div>
+    </Modal>
+
+    <!-- 添加跟进记录弹窗 -->
+    <Modal
+      v-model:open="followupModalVisible"
+      :title="followupModalTitle"
+      :width="560"
+      :confirm-loading="followupSaving"
+      ok-text="保存"
+      cancel-text="取消"
+      @ok="handleSaveFollowup"
+    >
+      <Form ref="followupFormRef" :model="followupForm" layout="vertical" class="opp-followup-form">
+        <Form.Item label="跟进方式" name="activityType" :rules="[{ required: true, message: '请选择跟进方式' }]">
+          <Select v-model:value="followupForm.activityType" placeholder="请选择跟进方式" :options="activityTypeOptions" />
+        </Form.Item>
+        <Form.Item label="跟进内容" name="content" :rules="[{ required: true, message: '请输入跟进内容' }]">
+          <Input.TextArea v-model:value="followupForm.content" :rows="5" placeholder="请输入跟进内容详情" allow-clear />
+        </Form.Item>
+        <div class="opp-form-row">
+          <Form.Item label="下次跟进日期" class="opp-form-item">
+            <DatePicker v-model:value="followupForm.nextFollowDate" placeholder="选择日期" style="width: 100%" value-format="YYYY-MM-DD" />
+          </Form.Item>
+          <Form.Item label="沟通时长（分钟）" class="opp-form-item">
+            <InputNumber v-model:value="followupForm.durationMinutes" :min="0" placeholder="分钟" style="width: 100%" />
+          </Form.Item>
+        </div>
+        <Form.Item label="沟通结果">
+          <Input.TextArea v-model:value="followupForm.result" :rows="3" placeholder="请输入沟通结果（选填）" allow-clear />
+        </Form.Item>
+      </Form>
+    </Modal>
   </div>
 </template>
 
@@ -885,6 +1272,14 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   flex-shrink: 0;
   min-width: 60px;
 }
+.opp-step.step-clickable {
+  cursor: pointer;
+}
+.opp-step.step-clickable:hover .opp-step-number {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s;
+}
 .opp-step-number {
   width: 26px;
   height: 26px;
@@ -925,6 +1320,43 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   margin-top: 12px;
   max-width: 100px;
   min-width: 40px;
+  position: relative;
+}
+.opp-step-line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    hsl(var(--border)) 0 4px,
+    transparent 4px 8px
+  );
+  opacity: 0;
+}
+.opp-step-line:not(.line-done)::after {
+  opacity: 1;
+}
+.opp-step-line:not(.line-done) {
+  background: transparent;
+}
+.opp-step-line .opp-step-arrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  color: hsl(var(--border));
+  background: hsl(var(--card));
+  padding: 0 4px;
+  line-height: 1;
+  z-index: 1;
+  display: none;
+}
+.opp-step-line:not(.line-done) .opp-step-arrow {
+  display: inline-block;
 }
 .opp-step-line.line-done {
   background: #52c41a;
@@ -1144,6 +1576,15 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   font-size: 11px;
   color: hsl(var(--muted-foreground));
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.opp-tl-stage-tag {
+  margin: 0;
+  border-radius: 3px;
+  transform: scale(0.9);
+  transform-origin: left center;
 }
 .opp-tl-user {
   display: flex;
@@ -1214,5 +1655,92 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   align-items: center;
   gap: 4px;
   justify-content: flex-end;
+}
+.opp-add-contact {
+  font-size: 12px;
+  color: #1890ff;
+  cursor: pointer;
+  float: right;
+  font-weight: normal;
+}
+.opp-add-contact:hover {
+  color: #40a9ff;
+}
+
+/* 联系人选择弹窗 */
+.opp-contact-picker {
+  max-height: 500px;
+  overflow-y: auto;
+}
+.opp-picker-tip {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 12px;
+}
+.opp-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.opp-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.opp-picker-item:hover {
+  border-color: #1890ff;
+  background: hsl(var(--primary) / 0.04);
+}
+.opp-picker-item.active {
+  border-color: #1890ff;
+  background: hsl(var(--primary) / 0.06);
+}
+.opp-picker-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid hsl(var(--border));
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.opp-picker-item.active .opp-picker-checkbox {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+.opp-picker-check-inner {
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+}
+.opp-picker-avatar {
+  flex-shrink: 0;
+}
+.opp-picker-info {
+  flex: 1;
+  min-width: 0;
+}
+.opp-picker-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--card-foreground));
+}
+.opp-picker-meta {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 2px;
+}
+.opp-picker-empty {
+  text-align: center;
+  padding: 40px 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
 }
 </style>

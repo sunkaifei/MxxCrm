@@ -128,7 +128,7 @@ async function handleStatusChanged(row: any, checked: boolean) {
   row.pending = true;
   row.status = checked ? 1 : 2;
   try {
-    await updateConfigApi(row);
+    await updateConfigApi(row.id, row);
 
     window.$message.success($t('ui.notification.update_success'));
   } finally {

@@ -679,6 +679,14 @@
   },
   "company": {
     "title": "Company",
+    "aiSettings": {
+      "title": "AI Settings",
+      "button": {
+        "create": "Add Config",
+        "edit": "Edit Config",
+        "delete": "Delete Config"
+      }
+    },
     "info": {
       "title": "Company Info",
       "button": {

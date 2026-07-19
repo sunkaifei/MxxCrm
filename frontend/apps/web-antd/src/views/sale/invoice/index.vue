@@ -3,14 +3,14 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideEye, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteInvoiceApi, getInvoiceListApi } from '#/api';
@@ -19,6 +19,42 @@ import InvoiceDrawer from './drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
+
+const canViewAll = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 1;
+});
+
+const canViewSubordinate = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 2 || dataScope === 3 || dataScope === 4;
+});
+
+const allTabList = [
+  { key: 'all', label: '全部发票' },
+  { key: 'my', label: '我的发票' },
+  { key: 'subordinate', label: '下属发票' },
+];
+
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter(t => keys.includes(t.key));
+});
+
+const activeTab = ref('my');
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
 
 const typeOptions = [
   { label: '增值税专用发票', value: 1 },
@@ -109,7 +145,15 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getInvoiceListApi({ page: page.currentPage, pageSize: page.pageSize, ...formValues });
+        const params: any = {
+          page: page.currentPage,
+          pageSize: page.pageSize,
+          listType: activeTab.value,
+        };
+        if (formValues.keywords) params.keywords = formValues.keywords;
+        if (formValues.invoiceType) params.invoiceType = formValues.invoiceType;
+        if (formValues.status) params.status = formValues.status;
+        return await getInvoiceListApi(params);
       },
     },
   },
@@ -182,6 +226,11 @@ async function handleBatchDelete() {
   <Page auto-content-height>
     <SalesProcessGuide current-step="invoice" />
     <Grid :table-title="$t('page.sale.invoice.title')">
+      <template #form-header>
+        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('sale:invoice:create')"

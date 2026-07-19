@@ -52,7 +52,9 @@ const emit = defineEmits<{
 
 const source = ref(props.startVal);
 const disabled = ref(false);
-let outputValue = useTransition(source);
+let outputValue = useTransition(source, {
+  transition: TransitionPresets.linear,
+});
 
 const value = computed(() => formatNumber(unref(outputValue)));
 

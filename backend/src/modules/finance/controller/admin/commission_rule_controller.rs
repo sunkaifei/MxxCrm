@@ -8,8 +8,8 @@
 //! 版权所有，侵权必究！
 //!
 
-use actix_web::{get, post, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
+use crate::core::web::permission_guard::require_permission;
 use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
@@ -28,8 +28,6 @@ pub struct MonthlySettleReq {
     pub month: i32,
 }
 
-#[get("/finance/commission-rule/list")]
-#[protect("finance:commission:list")]
 pub async fn list(
     state: web::Data<AppState>,
     query: web::Query<CommissionRuleQuery>,
@@ -51,8 +49,6 @@ pub async fn list(
     }
 }
 
-#[get("/finance/commission-rule/detail")]
-#[protect("finance:commission:list")]
 pub async fn detail(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -73,8 +69,6 @@ pub async fn detail(
     }
 }
 
-#[post("/finance/commission-rule/save")]
-#[protect("finance:commission:manage")]
 pub async fn save(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -100,8 +94,6 @@ pub async fn save(
     }
 }
 
-#[post("/finance/commission-rule/delete")]
-#[protect("finance:commission:manage")]
 pub async fn delete(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -122,8 +114,6 @@ pub async fn delete(
     }
 }
 
-#[post("/finance/commission-rule/toggle")]
-#[protect("finance:commission:manage")]
 pub async fn toggle(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -144,8 +134,6 @@ pub async fn toggle(
     }
 }
 
-#[post("/finance/commission-rule/set-default")]
-#[protect("finance:commission:manage")]
 pub async fn set_default(
     state: web::Data<AppState>,
     form_data: web::Json<InfoId>,
@@ -166,8 +154,6 @@ pub async fn set_default(
     }
 }
 
-#[get("/finance/commission-rule/default")]
-#[protect("finance:commission:list")]
 pub async fn get_default(
     state: web::Data<AppState>,
 ) -> HttpResponse {
@@ -181,8 +167,6 @@ pub async fn get_default(
     }
 }
 
-#[get("/finance/commission-rule/options")]
-#[protect("finance:commission:list")]
 pub async fn options(
     state: web::Data<AppState>,
 ) -> HttpResponse {
@@ -196,8 +180,6 @@ pub async fn options(
     }
 }
 
-#[post("/finance/commission/preview")]
-#[protect("finance:commission:manage")]
 pub async fn preview(
     state: web::Data<AppState>,
     form_data: web::Json<InfoId>,
@@ -218,8 +200,6 @@ pub async fn preview(
     }
 }
 
-#[post("/finance/commission/monthly-settle")]
-#[protect("finance:commission:manage")]
 pub async fn monthly_settle(
     state: web::Data<AppState>,
     form_data: web::Json<MonthlySettleReq>,
@@ -233,4 +213,20 @@ pub async fn monthly_settle(
         Err(e) => HttpResponse::Ok().content_type("application/msgpack")
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
+}
+
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/finance")
+            .route("/commission-rule/list", web::get().to(list).wrap(require_permission("finance:commission:list")))
+            .route("/commission-rule/detail", web::get().to(detail).wrap(require_permission("finance:commission:list")))
+            .route("/commission-rule/save", web::post().to(save).wrap(require_permission("finance:commission:manage")))
+            .route("/commission-rule/delete", web::post().to(delete).wrap(require_permission("finance:commission:manage")))
+            .route("/commission-rule/toggle", web::post().to(toggle).wrap(require_permission("finance:commission:manage")))
+            .route("/commission-rule/set-default", web::post().to(set_default).wrap(require_permission("finance:commission:manage")))
+            .route("/commission-rule/default", web::get().to(get_default).wrap(require_permission("finance:commission:list")))
+            .route("/commission-rule/options", web::get().to(options).wrap(require_permission("finance:commission:list")))
+            .route("/commission/preview", web::post().to(preview).wrap(require_permission("finance:commission:manage")))
+            .route("/commission/monthly-settle", web::post().to(monthly_settle).wrap(require_permission("finance:commission:manage"))),
+    );
 }

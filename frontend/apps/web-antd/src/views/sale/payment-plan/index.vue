@@ -1,307 +1,223 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { computed, h, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { useAccessStore, useUserStore } from '@vben/stores';
 
-import { Button, Card, Select, Table, Tag } from 'ant-design-vue';
-import type { TableColumnsType } from 'ant-design-vue';
+import { Tabs, Tag } from 'ant-design-vue';
 
-import {
-  getContractListApi,
-  getContractPaymentPlanApi,
-} from '#/api';
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getPaymentPlanPageListApi } from '#/api';
 import { $t } from '#/locales';
 
-interface PlanRow {
-  id: number;
-  contractId: number | null;
-  contractNo: string;
-  customerName: string;
-  stageName: string;
-  paymentType: number | null;
-  planAmount: number;
-  receivedAmount: number;
-  unappliedAmount: number;
-  planDate: string;
-  actualDate: string;
-  status: number | null;
-  remark: string;
-}
+const accessStore = useAccessStore();
+const userStore = useUserStore();
 
-const loading = ref(false);
-const planList = ref<PlanRow[]>([]);
-const contractOptions = ref<any[]>([]);
-const selectedContractId = ref<number | undefined>(undefined);
-
-const paymentTypeMap: Record<number, { label: string; color: string }> = {
-  1: { label: '预付款', color: 'blue' },
-  2: { label: '进度款', color: 'cyan' },
-  3: { label: '到货款', color: 'orange' },
-  4: { label: '验收款', color: 'purple' },
-  5: { label: '质保金', color: 'geekblue' },
-  6: { label: '尾款', color: 'magenta' },
-};
-
-const statusMap: Record<number, { label: string; color: string }> = {
-  0: { label: '未开始', color: 'default' },
-  1: { label: '部分回款', color: 'orange' },
-  4: { label: '已完成', color: 'green' },
-};
-
-const summary = computed(() => {
-  const totalPlan = planList.value.reduce(
-    (sum, row) => sum + Number(row.planAmount || 0),
-    0,
-  );
-  const totalReceived = planList.value.reduce(
-    (sum, row) => sum + Number(row.receivedAmount || 0),
-    0,
-  );
-  const totalUnapplied = planList.value.reduce(
-    (sum, row) => sum + Number(row.unappliedAmount || 0),
-    0,
-  );
-  return { totalPlan, totalReceived, totalUnapplied };
+const canViewAll = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 1;
 });
 
-async function loadContractOptions() {
-  try {
-    loading.value = true;
-    const result: any = await getContractListApi({
-      page: 1,
-      pageSize: 1000,
-    });
-    const list = result?.data?.items || result?.items || result?.list || [];
-    contractOptions.value = list.map((item: any) => ({
-      value: item.id,
-      label: item.contractNo || item.title || `合同#${item.id}`,
-      raw: item,
-    }));
-  } catch (e) {
-    console.error('加载合同列表失败:', e);
-  } finally {
-    loading.value = false;
-  }
-}
+const canViewSubordinate = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 2 || dataScope === 3 || dataScope === 4;
+});
 
-async function loadPlans(contractId: number) {
-  loading.value = true;
-  try {
-    const result: any = await getContractPaymentPlanApi(contractId);
-    const rawList = result?.data || result?.items || result || [];
-    const contractInfo = contractOptions.value.find(
-      (c) => c.value === contractId,
-    );
-    const contractNo = contractInfo?.raw?.contractNo || `合同#${contractId}`;
-    const customerName =
-      contractInfo?.raw?.customerName || contractInfo?.raw?.partyA || '';
-
-    planList.value = (Array.isArray(rawList) ? rawList : []).map(
-      (p: any) => ({
-        id: Number(p.id),
-        contractId: p.contractId ?? contractId,
-        contractNo,
-        customerName,
-        stageName: p.stageName || '',
-        paymentType: p.paymentType ?? null,
-        planAmount: Number(p.planAmount || 0),
-        receivedAmount: Number(p.receivedAmount || 0),
-        unappliedAmount:
-          Number(p.planAmount || 0) - Number(p.receivedAmount || 0),
-        planDate: p.planDate || '',
-        actualDate: p.actualDate || '',
-        status: p.status ?? null,
-        remark: p.remark || '',
-      }),
-    );
-  } catch (e) {
-    console.error('加载回款计划失败:', e);
-    planList.value = [];
-  } finally {
-    loading.value = false;
-  }
-}
-
-function handleContractChange(value: number | undefined) {
-  selectedContractId.value = value;
-  if (value) {
-    loadPlans(value);
-  } else {
-    planList.value = [];
-  }
-}
-
-const columns: TableColumnsType = [
-  { title: $t('ui.table.seq'), dataIndex: 'seq', width: 70, customRender: ({ index }: any) => index + 1 },
-  { title: '合同编号', dataIndex: 'contractNo', width: 160 },
-  { title: '客户名称', dataIndex: 'customerName', width: 140 },
-  { title: '期次名称', dataIndex: 'stageName', width: 140 },
-  {
-    title: '款项类型',
-    dataIndex: 'paymentType',
-    width: 100,
-    customRender: ({ text }: any) => {
-      const item = text != null ? paymentTypeMap[text] : undefined;
-      if (item) {
-        return h(
-          Tag,
-          { color: item.color },
-          { default: () => item.label },
-        );
-      }
-      return h('span', { class: 'text-gray-300' }, '-');
-    },
-  },
-  {
-    title: '计划金额',
-    dataIndex: 'planAmount',
-    width: 120,
-    align: 'right',
-    customRender: ({ text }: any) =>
-      `¥${Number(text || 0).toLocaleString('zh-CN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-  },
-  {
-    title: '已收金额',
-    dataIndex: 'receivedAmount',
-    width: 120,
-    align: 'right',
-    customRender: ({ text }: any) =>
-      `¥${Number(text || 0).toLocaleString('zh-CN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-  },
-  {
-    title: '未收金额',
-    dataIndex: 'unappliedAmount',
-    width: 120,
-    align: 'right',
-    customRender: ({ text }: any) => {
-      const val = Number(text || 0);
-      const cls = val > 0 ? 'text-orange-600 font-medium' : 'text-gray-400';
-      return h(
-        'span',
-        { class: cls },
-        `¥${val.toLocaleString('zh-CN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`,
-      );
-    },
-  },
-  { title: '计划日期', dataIndex: 'planDate', width: 120 },
-  { title: '实际日期', dataIndex: 'actualDate', width: 120 },
-  {
-    title: '状态',
-    dataIndex: 'status',
-    width: 100,
-    customRender: ({ text }: any) => {
-      const item = text != null ? statusMap[text] : undefined;
-      if (item) {
-        return h(
-          Tag,
-          { color: item.color },
-          { default: () => item.label },
-        );
-      }
-      return h('span', { class: 'text-gray-300' }, '-');
-    },
-  },
-  { title: '备注', dataIndex: 'remark', width: 200 },
+const allTabList = [
+  { key: 'all', label: '全部回款计划' },
+  { key: 'my', label: '我的回款计划' },
+  { key: 'subordinate', label: '下属回款计划' },
 ];
 
-// 初始化加载合同选项
-loadContractOptions();
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter(t => keys.includes(t.key));
+});
+
+const activeTab = ref('my');
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
+
+const statusOptions = [
+  { label: '未开始', value: 0 },
+  { label: '部分回款', value: 1 },
+  { label: '已完成', value: 2 },
+  { label: '已逾期', value: 3 },
+];
+
+const paymentTypeOptions = [
+  { label: '预付款', value: 1 },
+  { label: '进度款', value: 2 },
+  { label: '到货款', value: 3 },
+  { label: '验收款', value: 4 },
+  { label: '质保金', value: 5 },
+  { label: '尾款', value: 6 },
+];
+
+const statusColorMap: Record<number, string> = {
+  0: 'default',
+  1: 'orange',
+  2: 'green',
+  3: 'red',
+};
+
+const statusLabelMap: Record<number, string> = {
+  0: '未开始',
+  1: '部分回款',
+  2: '已完成',
+  3: '已逾期',
+};
+
+const paymentTypeColorMap: Record<number, string> = {
+  1: 'blue',
+  2: 'cyan',
+  3: 'orange',
+  4: 'purple',
+  5: 'geekblue',
+  6: 'magenta',
+};
+
+const paymentTypeLabelMap: Record<number, string> = {
+  1: '预付款',
+  2: '进度款',
+  3: '到货款',
+  4: '验收款',
+  5: '质保金',
+  6: '尾款',
+};
+
+const formOptions: VbenFormProps = {
+  collapsed: false,
+  showCollapseButton: false,
+  submitOnEnter: true,
+  schema: [
+    {
+      component: 'Input',
+      fieldName: 'keywords',
+      label: '关键词',
+      componentProps: { placeholder: '合同编号/期次名称', allowClear: true },
+    },
+    {
+      component: 'Select',
+      fieldName: 'status',
+      label: '状态',
+      componentProps: { placeholder: '全部', allowClear: true, options: statusOptions },
+    },
+    {
+      component: 'Input',
+      fieldName: 'contractId',
+      label: '合同ID',
+      componentProps: { placeholder: '合同ID', allowClear: true },
+    },
+    {
+      component: 'Input',
+      fieldName: 'customerId',
+      label: '客户ID',
+      componentProps: { placeholder: '客户ID', allowClear: true },
+    },
+  ],
+};
+
+const gridOptions: VxeGridProps = {
+  toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
+  height: 'auto',
+  exportConfig: {},
+  pagerConfig: {},
+  cellConfig: { isHover: true },
+  stripe: true,
+  proxyConfig: {
+    autoLoad: true,
+    ajax: {
+      query: async ({ page }, formValues) => {
+        const params: any = {
+          page: page.currentPage,
+          pageSize: page.pageSize,
+          listType: activeTab.value,
+        };
+        if (formValues.keywords) params.keywords = formValues.keywords;
+        if (formValues.status) params.status = formValues.status;
+        if (formValues.contractId) params.contractId = formValues.contractId;
+        if (formValues.customerId) params.customerId = formValues.customerId;
+        return await getPaymentPlanPageListApi(params);
+      },
+    },
+  },
+  columns: [
+    { title: $t('ui.table.seq'), type: 'seq', width: 60 },
+    { title: '合同编号', field: 'contractNo', width: 160 },
+    { title: '客户名称', field: 'customerName', minWidth: 140 },
+    { title: '期次名称', field: 'stageName', width: 140 },
+    { title: '款项类型', field: 'paymentType', width: 110, slots: { default: 'paymentType' } },
+    { title: '计划金额', field: 'planAmount', width: 130, slots: { default: 'planAmount' } },
+    { title: '已收金额', field: 'receivedAmount', width: 130, slots: { default: 'receivedAmount' } },
+    { title: '未收金额', field: 'unreceivedAmount', width: 130, slots: { default: 'unreceivedAmount' } },
+    { title: '计划日期', field: 'planDate', width: 120 },
+    { title: '实际日期', field: 'actualDate', width: 120 },
+    { title: '状态', field: 'status', width: 100, slots: { default: 'status' } },
+    { title: '备注', field: 'remark', minWidth: 150 },
+  ],
+};
+
+const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 </script>
 
 <template>
-  <Page>
-    <Card class="mb-3" :bordered="false" size="small">
-      <div class="flex items-center gap-3 flex-wrap">
-        <span class="text-sm font-medium">选择合同：</span>
-        <Select
-          v-model:value="selectedContractId"
-          :options="contractOptions"
-          :loading="loading"
-          show-search
-          allow-clear
-          placeholder="请选择合同查看回款计划"
-          style="width: 320px"
-          :filter-option="
-            (input: string, option: any) =>
-              String(option?.label ?? '')
-                .toLowerCase()
-                .includes(input.toLowerCase())
-          "
-          @change="(value: any) => handleContractChange(value ?? undefined)"
-        />
-        <Button
-          v-if="selectedContractId"
-          type="link"
-          @click="() => loadPlans(selectedContractId!)"
+  <Page auto-content-height>
+    <Grid table-title="回款计划列表">
+      <template #form-header>
+        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        </Tabs>
+      </template>
+
+      <template #paymentType="{ row }">
+        <Tag v-if="row.paymentType != null" :color="paymentTypeColorMap[row.paymentType]">
+          {{ paymentTypeLabelMap[row.paymentType] || row.paymentType }}
+        </Tag>
+        <span v-else class="text-gray-300">-</span>
+      </template>
+
+      <template #planAmount="{ row }">
+        <span class="text-right block">
+          ¥{{ Number(row.planAmount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+        </span>
+      </template>
+
+      <template #receivedAmount="{ row }">
+        <span class="text-right block">
+          ¥{{ Number(row.receivedAmount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+        </span>
+      </template>
+
+      <template #unreceivedAmount="{ row }">
+        <span
+          class="text-right block"
+          :class="(Number(row.planAmount || 0) - Number(row.receivedAmount || 0)) > 0 ? 'text-orange-600 font-medium' : 'text-gray-400'"
         >
-          刷新
-        </Button>
-        <span class="text-xs text-gray-400 ml-2">
-          说明：当前后端按合同查询回款计划，需先选择合同。
+          ¥{{ (Number(row.planAmount || 0) - Number(row.receivedAmount || 0)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
         </span>
-      </div>
-    </Card>
+      </template>
 
-    <Card :bordered="false">
-      <div class="mb-3 flex items-center justify-between">
-        <span class="font-medium">
-          回款计划列表
-          <span v-if="planList.length > 0" class="text-gray-400 text-xs ml-2">
-            （共 {{ planList.length }} 条）
-          </span>
-        </span>
-      </div>
-
-      <Table
-        :columns="columns"
-        :data-source="planList"
-        :loading="loading"
-        :pagination="false"
-        bordered
-        size="small"
-        :row-key="(record: any) => record.id"
-        :scroll="{ x: 1500 }"
-      >
-        <template #emptyText>
-          <span class="text-gray-400">
-            {{ selectedContractId ? '该合同暂无回款计划' : '请先选择合同以查看回款计划' }}
-          </span>
-        </template>
-      </Table>
-
-      <!-- 底部汇总 -->
-      <div
-        v-if="planList.length > 0"
-        class="mt-4 grid grid-cols-3 gap-3"
-      >
-        <div class="rounded-lg bg-blue-50 p-3">
-          <div class="text-xs text-gray-500">总计划金额</div>
-          <div class="text-lg font-bold text-blue-600 mt-1">
-            ¥{{ summary.totalPlan.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-          </div>
-        </div>
-        <div class="rounded-lg bg-green-50 p-3">
-          <div class="text-xs text-gray-500">总已收金额</div>
-          <div class="text-lg font-bold text-green-600 mt-1">
-            ¥{{ summary.totalReceived.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-          </div>
-        </div>
-        <div class="rounded-lg bg-orange-50 p-3">
-          <div class="text-xs text-gray-500">总未收金额</div>
-          <div class="text-lg font-bold text-orange-600 mt-1">
-            ¥{{ summary.totalUnapplied.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-          </div>
-        </div>
-      </div>
-    </Card>
+      <template #status="{ row }">
+        <Tag v-if="row.status != null" :color="statusColorMap[row.status]">
+          {{ statusLabelMap[row.status] || row.status }}
+        </Tag>
+        <span v-else class="text-gray-300">-</span>
+      </template>
+    </Grid>
   </Page>
 </template>

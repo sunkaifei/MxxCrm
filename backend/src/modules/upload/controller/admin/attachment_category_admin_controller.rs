@@ -10,14 +10,13 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::response::MetaResp;
-use actix_web::{delete, get, post, put, web, HttpResponse};
+use actix_web::{web, HttpResponse};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::modules::upload::model::attachment_category::{AttachCategoryListVO, AttachCategorySaveRequest, AttachCategoryUpdateRequest, AttachmentCategoryModel, ListQuery, PageWhere};
 use crate::modules::upload::service::{attachment_category_service};
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 use crate::validate;
 
-#[post("/attachment/category/add")]
 pub async fn save_category(state: web::Data<AppState>, item: web::Json<AttachCategorySaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
@@ -25,7 +24,6 @@ pub async fn save_category(state: web::Data<AppState>, item: web::Json<AttachCat
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
-#[put("/attachment/category/update/{id}")]
 pub async fn update_category(state: web::Data<AppState>, id: web::Path<i64>, item: web::Json<AttachCategoryUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let mut item = item.0;
@@ -34,7 +32,6 @@ pub async fn update_category(state: web::Data<AppState>, id: web::Path<i64>, ite
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
-#[delete("/attachment/category/batch_delete")]
 pub async fn batch_delete_by_ids(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -50,14 +47,12 @@ pub async fn batch_delete_by_ids(state: web::Data<AppState>, item: web::Json<Bat
     }
 }
 
-#[get("/attachment/category/tree")]
 pub async fn get_by_tree(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let tree_list = attachment_category_service::get_category_tree(&db, query.0).await?;
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(tree_list, "local")))
 }
 
-#[get("/attachment/category/detail/{id}")]
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     validate!(item.id.is_none(), t!("attachment.category.name_empty", locale = "zh-CN").to_string());
@@ -65,7 +60,6 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
 }
 
-#[get("/attachment/category/list")]
 pub async fn get_by_list(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let query = query.0;
@@ -74,7 +68,31 @@ pub async fn get_by_list(state: web::Data<AppState>, query: web::Query<ListQuery
     };
     let search_where = search_where.format();
     let list = AttachmentCategoryModel::find_all(&db, search_where).await?;
-    
+
     let list_data: Vec<AttachCategoryListVO> = list.into_iter().map(|item| AttachCategoryListVO::from(item)).collect();
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list_data, "local")))
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册附件分类模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(attachment_category_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/attachment/category")
+            // POST /attachment/category/add - 新建附件分类
+            .route("/add", web::post().to(save_category))
+            // PUT /attachment/category/update/{id} - 修改附件分类
+            .route("/update/{id}", web::put().to(update_category))
+            // DELETE /attachment/category/batch_delete - 批量删除附件分类
+            .route("/batch_delete", web::delete().to(batch_delete_by_ids))
+            // GET /attachment/category/tree - 附件分类树
+            .route("/tree", web::get().to(get_by_tree))
+            // GET /attachment/category/detail/{id} - 附件分类详情
+            .route("/detail/{id}", web::get().to(get_by_detail))
+            // GET /attachment/category/list - 附件分类列表
+            .route("/list", web::get().to(get_by_list)),
+    );
 }

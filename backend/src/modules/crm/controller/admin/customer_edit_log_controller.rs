@@ -13,10 +13,9 @@ use crate::core::kit::global::AppState;
 use crate::core::web::response::MetaResp;
 use crate::modules::crm::model::customer_edit_log::CustomerEditLogQuery;
 use crate::modules::crm::service::customer_edit_log_service;
-use actix_web::{get, web, HttpResponse};
+use actix_web::{web, HttpResponse};
 
 /// 查询客户修改日志（分页）
-#[get("/customer/edit-log")]
 pub async fn customer_edit_log_list(
     state: web::Data<AppState>,
     query: web::Query<CustomerEditLogQuery>,
@@ -31,4 +30,20 @@ pub async fn customer_edit_log_list(
             .content_type("application/msgpack")
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册客户修改日志模块所有路由
+///
+/// 注意：本路由需注册在 `/customer` scope 内部（由 customer_controller::register 调用），
+/// 否则会被 `/customer` scope 捕获导致 404。
+/// 完整路径：/api/system/customer/edit-log
+///
+/// 注意：本接口无 `#[protect]` 权限校验，原代码即如此，保持不变。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::resource("/edit-log")
+            .route(web::get().to(customer_edit_log_list)),
+    );
 }

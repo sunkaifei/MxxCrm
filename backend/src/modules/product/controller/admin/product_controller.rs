@@ -13,14 +13,12 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::BathDeleteIdRequest;
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::product::model::product::{ProductDetailVO, ProductListQuery, ProductListVO, ProductSaveRequest, ProductUpdateRequest};
 use crate::modules::product::service::product_service;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
-#[post("/product/product/save")]
-#[protect("product:product:save")]
 pub async fn product_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ProductSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -30,8 +28,6 @@ pub async fn product_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/product/product/update")]
-#[protect("product:product:edit")]
 pub async fn product_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ProductUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -45,8 +41,6 @@ pub async fn product_update(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/product/product/batchDelete")]
-#[protect("product:product:delete")]
 pub async fn batch_delete_product(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
@@ -58,8 +52,6 @@ pub async fn batch_delete_product(state: web::Data<AppState>, item: web::Json<Ba
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[get("/product/product/info")]
-#[protect("product:product:view")]
 pub async fn product_info(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let id = req.query_string().split("&").find(|s| s.starts_with("id=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())).unwrap_or(0);
@@ -73,8 +65,6 @@ pub async fn product_info(state: web::Data<AppState>, req: HttpRequest) -> Resul
     }
 }
 
-#[get("/product/product/list")]
-#[protect("product:product:view")]
 pub async fn product_list(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let query_str = req.query_string();
@@ -96,4 +86,51 @@ pub async fn product_list(state: web::Data<AppState>, req: HttpRequest) -> Resul
         },
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册产品模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(product_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/product/product")
+            // POST /product/product/save - 新建产品
+            .route(
+                "/save",
+                web::post()
+                    .to(product_insert)
+                    .wrap(require_permission("product:product:save")),
+            )
+            // PUT /product/product/update - 修改产品
+            .route(
+                "/update",
+                web::put()
+                    .to(product_update)
+                    .wrap(require_permission("product:product:edit")),
+            )
+            // DELETE /product/product/batchDelete - 批量删除产品
+            .route(
+                "/batchDelete",
+                web::delete()
+                    .to(batch_delete_product)
+                    .wrap(require_permission("product:product:delete")),
+            )
+            // GET /product/product/info - 产品详情
+            .route(
+                "/info",
+                web::get()
+                    .to(product_info)
+                    .wrap(require_permission("product:product:view")),
+            )
+            // GET /product/product/list - 产品列表
+            .route(
+                "/list",
+                web::get()
+                    .to(product_list)
+                    .wrap(require_permission("product:product:view")),
+            ),
+    );
 }

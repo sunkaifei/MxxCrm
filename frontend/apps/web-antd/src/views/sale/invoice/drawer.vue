@@ -9,6 +9,7 @@ import { Button, Tooltip, message } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
 import { createInvoiceApi, getInvoiceInfoApi, updateInvoiceApi } from '#/api';
+import { getUserListApi } from '#/api/core/system/user';
 
 const props = withDefaults(
   defineProps<{ create?: boolean; row?: any }>(),
@@ -42,6 +43,22 @@ const currencyOptions = [
   { label: 'JPY 日元', value: 5 },
   { label: 'HKD 港币', value: 6 },
 ];
+
+const userOptions = ref<any[]>([]);
+
+async function loadUserOptions() {
+  try {
+    const result = await getUserListApi({ page: 1, pageSize: 1000 });
+    if (result.data && result.data.items) {
+      userOptions.value = result.data.items.map((item: any) => ({
+        value: item.id,
+        label: item.realName || item.userName,
+      }));
+    }
+  } catch (e) {
+    console.error('Failed to load user options:', e);
+  }
+}
 
 const formSchema: VbenFormSchema[] = [
   {
@@ -90,6 +107,19 @@ const formSchema: VbenFormSchema[] = [
     fieldName: 'customerName',
     label: '客户名称',
     componentProps: { placeholder: '请输入客户名称' },
+  },
+  {
+    component: 'Select',
+    fieldName: 'ownerUserId',
+    label: '负责人',
+    componentProps: {
+      placeholder: '请选择负责人',
+      allowClear: true,
+      showSearch: true,
+      filterOption: (input: string, option: any) =>
+        option.label.toLowerCase().includes(input.toLowerCase()),
+      options: userOptions,
+    },
   },
   {
     component: 'DatePicker',
@@ -198,6 +228,7 @@ watch(
           orderId: data.orderId,
           customerId: data.customerId,
           customerName: data.customerName,
+          ownerUserId: data.ownerUserId != null ? Number(data.ownerUserId) : undefined,
           dueDate: data.dueDate,
           amount: data.amount ?? 0,
           taxRate: data.taxRate ?? 0,
@@ -222,7 +253,10 @@ async function handleSubmit() {
   const { valid, values } = await formApi.validate();
   if (!valid) return;
   try {
-    const data = { ...values };
+    const data = {
+      ...values,
+      ownerUserId: values.ownerUserId != null ? Number(values.ownerUserId) : undefined,
+    };
     if (isEdit.value) {
       await updateInvoiceApi({ ...data, id: props.row.id });
       message.success('更新成功');
@@ -248,6 +282,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       isFullscreen.value = false;
       formApi.resetForm();
+      loadUserOptions();
       if (!props.create && props.row) {
         formApi.setValues({
           invoiceType: 1,

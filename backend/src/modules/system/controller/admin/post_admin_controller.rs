@@ -11,14 +11,12 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::system::model::post::{ListQuery, PostSaveRequest, PostUpdateRequest};
 use crate::modules::system::service::post_service;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
-#[post("/post/save")]
-#[protect("system:post:save")]
 pub async fn save_post(state: web::Data<AppState>, _req: HttpRequest, item: web::Json<PostSaveRequest>) -> HttpResponse {
     let db = &state.db;
     if item.post_name.is_none() {
@@ -38,8 +36,6 @@ pub async fn save_post(state: web::Data<AppState>, _req: HttpRequest, item: web:
     }
 }
 
-#[delete("/post/bath_delete")]
-#[protect("system:post:delete")]
 pub async fn bath_delete_post(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -61,8 +57,6 @@ pub async fn bath_delete_post(state: web::Data<AppState>, item: web::Json<BathDe
     }
 }
 
-#[put("/post/update/{id}")]
-#[protect("system:post:update")]
 pub async fn update_post(state: web::Data<AppState>, _req: HttpRequest, id: web::Path<i64>, item: web::Json<PostUpdateRequest>) -> HttpResponse {
     let db = &state.db;
     let mut data = item.into_inner();
@@ -85,8 +79,6 @@ pub async fn update_post(state: web::Data<AppState>, _req: HttpRequest, id: web:
     }
 }
 
-#[get("/post/detail/{id}")]
-#[protect("system:post:view")]
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
@@ -102,8 +94,6 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
     }
 }
 
-#[get("/post/list")]
-#[protect("system:post:list")]
 pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     post_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
@@ -111,10 +101,59 @@ pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery
     })
 }
 
-#[get("/post/options")]
 pub async fn post_options(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     post_service::get_post_options(db).await.map(|list_data| {
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list_data, "local"))
     })
+}
+
+// ==================== 路由注册（方案 C：单点维护）====================
+
+/// 注册岗位管理模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(post_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/post")
+            // POST /post/save - 添加岗位
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/save",
+                web::post()
+                    .to(save_post)
+                    .wrap(require_permission("system:post:save")),
+            )
+            // DELETE /post/bath_delete - 批量删除岗位
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_post)
+                    .wrap(require_permission("system:post:delete")),
+            )
+            // PUT /post/update/{id} - 更新岗位
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_post)
+                    .wrap(require_permission("system:post:update")),
+            )
+            // GET /post/detail/{id} - 岗位详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_by_detail)
+                    .wrap(require_permission("system:post:view")),
+            )
+            // GET /post/list - 岗位列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_by_page)
+                    .wrap(require_permission("system:post:list")),
+            )
+            // GET /post/options - 岗位下拉选项
+            .route("/options", web::get().to(post_options)),
+    );
 }

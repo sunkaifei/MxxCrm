@@ -30,6 +30,7 @@ import {
   getContactListApi,
   getOpportunityListApi,
 } from '#/api';
+import { getUserListApi } from '#/api/core/system/user';
 import ProductSelectModal from '../components/ProductSelectModal.vue';
 
 const drawerData = ref<{ create?: boolean; row?: any; needRefresh?: boolean }>({ create: true });
@@ -51,6 +52,7 @@ function toggleFullscreen() {
 const customerOptions = ref<any[]>([]);
 const contactOptions = ref<any[]>([]);
 const opportunityOptions = ref<any[]>([]);
+const userOptions = ref<any[]>([]);
 const customerLoading = ref(false);
 const contactLoading = ref(false);
 const opportunityLoading = ref(false);
@@ -94,6 +96,20 @@ async function searchOpportunities(keyword: string) {
     }));
   } finally {
     opportunityLoading.value = false;
+  }
+}
+
+async function loadUserOptions() {
+  try {
+    const result = await getUserListApi({ page: 1, pageSize: 1000 });
+    if (result.data && result.data.items) {
+      userOptions.value = result.data.items.map((item: any) => ({
+        value: item.id,
+        label: item.realName || item.userName,
+      }));
+    }
+  } catch (e) {
+    console.error('Failed to load user options:', e);
   }
 }
 
@@ -258,6 +274,19 @@ const basicFormSchema: VbenFormSchema[] = [
     rules: 'required',
     componentProps: { placeholder: '如：ABC集团年度续约报价' },
     wrapperClass: 'col-span-2',
+  },
+  {
+    component: 'Select',
+    fieldName: 'ownerUserId',
+    label: '负责人',
+    componentProps: {
+      placeholder: '请选择负责人',
+      allowClear: true,
+      showSearch: true,
+      filterOption: (input: string, option: any) =>
+        option.label.toLowerCase().includes(input.toLowerCase()),
+      options: userOptions,
+    },
   },
   {
     component: 'Select',
@@ -432,6 +461,7 @@ async function loadDetail(id: number) {
       validUntil: data.validUntil,
       status: Number(data.status ?? 1),
       remark: data.remark,
+      ownerUserId: data.ownerUserId != null ? Number(data.ownerUserId) : undefined,
     });
     tradeFormApi.setValues({
       paymentTerms: data.paymentTerms,
@@ -529,6 +559,7 @@ async function handleSubmit() {
   const custId = toNumber(values.customerId);
   const contId = toNumber(values.contactId);
   const oppId = toNumber(values.opportunityId);
+  const ownerUserId = toNumber(values.ownerUserId);
 
   let data;
   try {
@@ -540,6 +571,7 @@ async function handleSubmit() {
       opportunityId: oppId,
       currency: toNumber(values.currency),
       status: toNumber(values.status),
+      ownerUserId,
       customerName: findOptionLabel(customerOptions.value, values.customerId),
       contactName: findOptionLabel(contactOptions.value, values.contactId),
       opportunityTitle: findOptionLabel(opportunityOptions.value, values.opportunityId),
@@ -622,6 +654,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       opportunityOptions.value = [];
       basicFormApi.resetForm();
       tradeFormApi.resetForm();
+      loadUserOptions();
       if (!drawerData.value.create && drawerData.value.row?.id) {
         loadDetail(drawerData.value.row.id);
       } else {

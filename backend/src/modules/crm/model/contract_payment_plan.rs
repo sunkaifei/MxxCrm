@@ -104,6 +104,66 @@ impl From<contract_payment_plan::Model> for PaymentPlanVO {
     }
 }
 
+/// 回款计划列表查询参数
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentPlanListQuery {
+    /// 页码
+    #[serde(rename = "page")]
+    pub page_num: Option<i64>,
+    /// 每页大小
+    pub page_size: Option<i64>,
+    /// 关键词（搜索阶段名称、合同编号等）
+    pub keywords: Option<String>,
+    /// 状态
+    pub status: Option<i32>,
+    /// 合同ID
+    pub contract_id: Option<i64>,
+    /// 客户ID
+    pub customer_id: Option<i64>,
+    /// 列表类型：all=全部 my=我的 subordinate=下属
+    pub list_type: Option<String>,
+}
+
+/// 回款计划列表VO（带合同编号、客户名称）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct PaymentPlanListVO {
+    /// 计划ID
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub id: Option<i64>,
+    /// 合同ID
+    pub contract_id: Option<i64>,
+    /// 合同编号
+    pub contract_no: Option<String>,
+    /// 客户ID
+    pub customer_id: Option<i64>,
+    /// 客户名称
+    pub customer_name: Option<String>,
+    /// 阶段名称
+    pub stage_name: Option<String>,
+    /// 付款类型
+    pub payment_type: Option<i32>,
+    /// 计划回款金额
+    pub plan_amount: Option<Decimal>,
+    /// 已回款金额
+    pub received_amount: Option<Decimal>,
+    /// 计划回款日期
+    pub plan_date: Option<NaiveDate>,
+    /// 实际回款日期
+    pub actual_date: Option<NaiveDate>,
+    /// 状态
+    pub status: Option<i32>,
+    /// 排序
+    pub sort: Option<i32>,
+    /// 备注
+    pub remark: Option<String>,
+    /// 负责人ID
+    pub owner_user_id: Option<i64>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
+}
+
 /// 回款计划数据模型操作类
 pub struct PaymentPlanModel;
 
@@ -208,5 +268,54 @@ impl PaymentPlanModel {
             .await?;
 
         Ok(result.rows_affected as i64)
+    }
+
+    /// 分页查询回款计划列表（按负责人ID过滤）
+    ///
+    /// # 参数
+    /// * `db` - 数据库连接
+    /// * `page` - 页码
+    /// * `per_page` - 每页大小
+    /// * `keywords` - 关键词（搜索阶段名称）
+    /// * `status` - 状态
+    /// * `contract_ids` - 合同ID列表（None表示不过滤）
+    /// * `owner_user_ids` - 负责人ID列表（None表示不过滤）
+    ///
+    /// # 返回
+    /// * `Result<(Vec<contract_payment_plan::Model>, i64), DbErr>` - (列表, 总数)
+    pub async fn select_in_page_by_owner_user_ids(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        status: Option<i32>,
+        contract_ids: Option<Vec<i64>>,
+        owner_user_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<contract_payment_plan::Model>, i64), DbErr> {
+        let mut query = PaymentPlan::find()
+            .filter(contract_payment_plan::Column::Deleted.eq(0));
+
+        if let Some(k) = keywords {
+            query = query.filter(contract_payment_plan::Column::StageName.contains(k));
+        }
+        if let Some(s) = status {
+            query = query.filter(contract_payment_plan::Column::Status.eq(s));
+        }
+        if let Some(cids) = contract_ids {
+            if cids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(contract_payment_plan::Column::ContractId.is_in(cids));
+        }
+        if let Some(ids) = owner_user_ids {
+            if ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(contract_payment_plan::Column::OwnerUserId.is_in(ids));
+        }
+
+        let paginator = query.order_by_desc(contract_payment_plan::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }
 }

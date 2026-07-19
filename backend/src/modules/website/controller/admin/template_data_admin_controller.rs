@@ -9,17 +9,15 @@
 //!
 
 use crate::core::errors::error::{Error, Result};
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp};
 use crate::modules::website::model::template_data::{ListQuery, TemplateDataSaveDTO, TemplateDataSaveRequest, TemplateDataUpdateRequest};
 use crate::modules::website::service::{template_data_service, template_user_data_service};
 
 /// 新增
-#[post("/template/data/add")]
-#[protect("template:data:add")]
 pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<TemplateDataSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let payload = item.into_inner();
@@ -43,8 +41,6 @@ pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<T
 }
 
 /// 批量删除
-#[delete("/template/data/batch_delete")]
-#[protect("template:data:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -60,8 +56,6 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
 }
 
 /// 修改
-#[put("/template/data/update/{id}")]
-#[protect("template:data:update")]
 pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web::Path<i64>, item: web::Json<TemplateDataUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let payload = item.into_inner();
@@ -78,8 +72,6 @@ pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web
 }
 
 /// 详情
-#[get("/template/data/detail/{id}")]
-#[protect("template:data:view")]
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) ->Result<HttpResponse> {
     let db = &state.db;
     let result = template_data_service::get_by_detail(&db, &item.id).await?;
@@ -87,11 +79,56 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
 }
 
 /// 分页
-#[get("/template/data/list")]
-#[protect("template:data:list")]
 pub async fn get_by_page(state: web::Data<AppState>, _req: HttpRequest, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     template_data_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
     })
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册模板数据模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(template_data_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/template/data")
+            // POST /template/data/add - 新增模板数据
+            .route(
+                "/add",
+                web::post()
+                    .to(add)
+                    .wrap(require_permission("template:data:add")),
+            )
+            // DELETE /template/data/batch_delete - 批量删除模板数据
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("template:data:delete")),
+            )
+            // PUT /template/data/update/{id} - 修改模板数据
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_by_id)
+                    .wrap(require_permission("template:data:update")),
+            )
+            // GET /template/data/detail/{id} - 模板数据详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_by_detail)
+                    .wrap(require_permission("template:data:view")),
+            )
+            // GET /template/data/list - 模板数据分页
+            .route(
+                "/list",
+                web::get()
+                    .to(get_by_page)
+                    .wrap(require_permission("template:data:list")),
+            ),
+    );
 }

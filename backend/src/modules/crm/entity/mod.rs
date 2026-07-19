@@ -15,6 +15,7 @@ pub mod contract_commission_member;
 pub mod contract_payment_plan;
 pub mod customer;
 pub mod customer_assign_history;
+pub mod customer_financial;
 pub mod customer_contact_merge;
 pub mod customer_edit_log;
 pub mod followup;

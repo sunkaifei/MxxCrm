@@ -383,6 +383,19 @@ pub struct LeadListVO {
     pub create_time: Option<DateTime>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
+    /// 已转客户ID
+    pub converted_to_customer_id: Option<i64>,
+    /// 关联标签列表
+    pub tags: Option<Vec<LeadTagVO>>,
+}
+
+/// 线索标签简要信息（列表展示用）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct LeadTagVO {
+    pub id: Option<i64>,
+    pub tag_name: Option<String>,
+    pub tag_color: Option<String>,
 }
 
 impl From<lead::Model> for LeadListVO {
@@ -407,6 +420,8 @@ impl From<lead::Model> for LeadListVO {
             created_by_name: None,
             create_time: item.create_time,
             next_follow_at: item.next_follow_at,
+            converted_to_customer_id: item.converted_to_customer_id,
+            tags: None,
         }
     }
 }
@@ -416,12 +431,13 @@ impl From<lead::Model> for LeadListVO {
 #[serde(rename_all = "camelCase")]
 pub struct LeadListQuery {
     /// 页码
-    #[serde(rename = "page")]
-    pub page_num: Option<i64>,
+    pub page: Option<i64>,
     /// 每页大小
     pub page_size: Option<i64>,
     /// 关键词（搜索公司名称、联系人等）
     pub keywords: Option<String>,
+    /// 公司名称搜索
+    pub company_name: Option<String>,
     /// 线索状态（数字：1新线索 2跟进中 3已转客户 4无效 5回收 6未审查 7审查中 8有效）
     pub status: Option<i32>,
     /// 线索等级
@@ -430,7 +446,7 @@ pub struct LeadListQuery {
     pub source: Option<String>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
-    /// 列表类型：my=我的线索, subordinate=下属线索, todayFollow=今日跟进线索
+    /// 列表类型：my=我的线索, subordinate=下属线索, todayFollow=今日跟进线索, pool=公海线索
     pub list_type: Option<String>,
 }
 

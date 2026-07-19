@@ -29,6 +29,15 @@ const routes: RouteRecordRaw[] = [
         path: '/company/code-rule',
         component: () => import('#/views/company/code-rule/index.vue'),
       },
+      {
+        meta: {
+          icon: 'lucide:bot',
+          title: 'AI设置',
+        },
+        name: 'CompanyAiSettings',
+        path: '/company/ai-settings',
+        component: () => import('#/views/crm/ai-settings/index.vue'),
+      },
     ],
   },
 ];

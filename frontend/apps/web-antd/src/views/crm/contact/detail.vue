@@ -66,7 +66,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
   <div class="p-4">
     <Skeleton :loading="loading" active>
       <!-- 头部信息卡片 -->
-      <Card class="mb-4" :body-style="{ padding: '20px 24px' }">
+      <Card :body-style="{ padding: '20px 24px' }" :style="{ marginBottom: '15px' }">
         <div class="flex items-start justify-between">
           <div class="flex items-start gap-4">
             <Avatar :size="56" :style="{ backgroundColor: '#1677ff', fontSize: '22px' }">{{ initials }}</Avatar>
@@ -106,7 +106,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
         <!-- 左侧：当前任职 + 基本信息 -->
         <Col :span="16">
           <!-- 当前任职 -->
-          <Card v-if="contact.currentCompany" size="small" class="mb-4" :body-style="{ padding: '16px 20px' }">
+          <Card v-if="contact.currentCompany" size="small" :body-style="{ padding: '16px 20px' }" :style="{ marginBottom: '15px' }">
             <template #title>
               <span class="text-blue-600 font-medium">当前任职</span>
             </template>
@@ -145,7 +145,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
           </Card>
 
           <!-- 基本信息 -->
-          <Card size="small" class="mb-4">
+          <Card size="small" :style="{ marginBottom: '15px' }">
             <template #title>基本信息</template>
             <Descriptions :column="2" bordered size="small">
               <Descriptions.Item label="姓名">{{ contact.name }}</Descriptions.Item>
@@ -165,7 +165,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
         <!-- 右侧：联系方式 + 职业生涯 -->
         <Col :span="8">
           <!-- 联系方式快速卡片 -->
-          <Card v-if="contactChannels.length > 0" size="small" class="mb-4">
+          <Card v-if="contactChannels.length > 0" size="small" :style="{ marginBottom: '15px' }">
             <template #title>联系方式</template>
             <div class="flex flex-col gap-2">
               <div v-for="ch in contactChannels" :key="ch.label" class="flex items-center gap-2 text-sm">
@@ -177,7 +177,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
           </Card>
 
           <!-- 职业生涯履历 -->
-          <Card size="small">
+          <Card size="small" :style="{ marginBottom: '15px' }">
             <template #title>职业生涯履历</template>
             <Timeline v-if="contact.careerHistory && contact.careerHistory.length > 0">
               <Timeline.Item v-for="item in contact.careerHistory" :key="item.id" :color="item.isCurrent ? 'green' : 'gray'">

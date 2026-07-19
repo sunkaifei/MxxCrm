@@ -9,14 +9,15 @@
 //!
 
 use crate::core::errors::error::{Error, Result};
+use crate::core::kit::app::is_demo_mode;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::MetaResp;
-use actix_web::{delete, get, HttpRequest, HttpResponse, post, put, web};
-use actix_web_grants::protect;
+use actix_web::{HttpRequest, HttpResponse, web};
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::modules::system::model::admin::AdminModel;
 use crate::modules::system::model::menu::{ListQuery, ListMeta, MenuAdminVO, MenuModel, MenuSaveRequest, MenuUpdateRequest, MENU_TYPE_MENU};
 use crate::modules::system::service::{menu_service};
@@ -24,8 +25,6 @@ use crate::modules::system::service::menu_service::{all_menu_list, get_user_rout
 use crate::validate;
 
 // 添加菜单
-#[post("/menu/add")]
-#[protect("system:menu:add")]
 pub async fn add_menu(
     state: web::Data<AppState>,
     _req: HttpRequest,
@@ -33,6 +32,9 @@ pub async fn add_menu(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let menu = item.into_inner(); // 使用 into_inner 获取数据
+
+    // 演示站（测试系统）模式下禁止新增菜单
+    validate!(is_demo_mode(), "演示站模式下禁止新增菜单".to_string());
 
     // 从 meta 中获取 name
     let name = menu.meta.as_ref().and_then(|m| m.name.clone());
@@ -81,10 +83,10 @@ pub async fn add_menu(
 
 
 // 删除菜单信息
-#[delete("/menu/batch_delete")]
-#[protect("system:menu:delete")]
 pub async fn menu_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
+    // 演示站（测试系统）模式下禁止删除菜单
+    validate!(is_demo_mode(), "演示站模式下禁止删除菜单".to_string());
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
@@ -98,14 +100,15 @@ pub async fn menu_delete(state: web::Data<AppState>, item: web::Json<BathDeleteI
 }
 
 ///更新菜单
-#[put("/menu/update/{id}")]
-#[protect("system:menu:update")]
 pub async fn menu_update(state: web::Data<AppState>, path: web::Path<i64>, _req: HttpRequest, item: web::Json<MenuUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let mut sys_menu = item.0;
-    
+
     // 从路径中获取 ID 并设置到请求体中
     sys_menu.id = Some(path.into_inner());
+
+    // 演示站（测试系统）模式下禁止修改菜单
+    validate!(is_demo_mode(), "演示站模式下禁止修改菜单".to_string());
 
     // 从 meta 中获取 name
     let name = sys_menu.meta.as_ref().and_then(|m| m.name.clone());
@@ -149,8 +152,6 @@ pub async fn menu_update(state: web::Data<AppState>, path: web::Path<i64>, _req:
 }
 
 
-#[get("/menu/detail/{id}")]
-#[protect("system:menu:view")]
 pub async fn menu_detail(state: web::Data<AppState>, path: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if path.id.is_none() {
@@ -195,8 +196,6 @@ pub async fn menu_detail(state: web::Data<AppState>, path: web::Path<InfoId>) ->
     }
 }
 
-#[get("/menu/list")]
-#[protect("system:menu:list")]
 pub async fn menu_list(state: web::Data<AppState>, query: web::Query<ListQuery>) -> HttpResponse {
     let db = &state.db;
     // 菜单是树形结构不需要分页
@@ -213,8 +212,6 @@ pub async fn menu_list(state: web::Data<AppState>, query: web::Query<ListQuery>)
 }
 
 /// 获取菜单下拉列表
-#[get("/menu/options")]
-#[protect("system:menu:list")]
 pub async fn get_menu_options(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     //获取用户信息
@@ -225,7 +222,6 @@ pub async fn get_menu_options(state: web::Data<AppState>, req: HttpRequest) -> R
 
 
 ///重新获取用户权限和路由
-#[get("/menu/getUserMenus")]
 pub async fn get_user_menu(state: web::Data<AppState>,req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     //获取用户信息
@@ -245,4 +241,61 @@ pub async fn get_user_menu(state: web::Data<AppState>,req: HttpRequest) -> Resul
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("查询菜单异常,".to_string() + &err.to_string()), "local")))
         }
     }
+}
+
+// ==================== 路由注册（方案 C：单点维护）====================
+
+/// 注册菜单管理模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(menu_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/menu")
+            // POST /menu/add - 添加菜单
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/add",
+                web::post()
+                    .to(add_menu)
+                    .wrap(require_permission("system:menu:add")),
+            )
+            // DELETE /menu/batch_delete - 批量删除菜单
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(menu_delete)
+                    .wrap(require_permission("system:menu:delete")),
+            )
+            // PUT /menu/update/{id} - 更新菜单
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(menu_update)
+                    .wrap(require_permission("system:menu:update")),
+            )
+            // GET /menu/detail/{id} - 菜单详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(menu_detail)
+                    .wrap(require_permission("system:menu:view")),
+            )
+            // GET /menu/list - 菜单列表
+            .route(
+                "/list",
+                web::get()
+                    .to(menu_list)
+                    .wrap(require_permission("system:menu:list")),
+            )
+            // GET /menu/options - 菜单下拉列表
+            .route(
+                "/options",
+                web::get()
+                    .to(get_menu_options)
+                    .wrap(require_permission("system:menu:list")),
+            )
+            // GET /menu/getUserMenus - 获取当前用户路由
+            .route("/getUserMenus", web::get().to(get_user_menu)),
+    );
 }

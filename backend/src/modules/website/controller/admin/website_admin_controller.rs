@@ -13,16 +13,14 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::website::model::website::{ListQuery, SiteModel, SiteSaveDTO, SiteSaveRequest, SiteUpdateRequest, UpdateDefaultDTO, UpdateDefaultRequest, UpdateStatusDTO, UpdateStatusRequest};
 use crate::modules::website::service::website_service;
 use crate::modules::website::service::website_service::can_remove_default_site;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
-#[post("/site/add")]
-#[protect("system:site:add")]
 pub async fn add_site(state: web::Data<AppState>, req: HttpRequest, item: web::Json<SiteSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let mut  payload = item.0;
@@ -70,8 +68,6 @@ pub async fn add_site(state: web::Data<AppState>, req: HttpRequest, item: web::J
 }
 
 /// 批量删除网站
-#[delete("/site/batch_delete")]
-#[protect("system:site:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -87,8 +83,6 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     }
 }
 
-#[put("/site/update/{id}")]
-#[protect("system:site:update")]
 pub async fn update_site(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<SiteUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let mut payload = item.0;
@@ -137,7 +131,6 @@ pub async fn update_site(state: web::Data<AppState>, req: HttpRequest, id: web::
     }
 }
 
-#[put("/site/update_status")]
 pub async fn update_by_status(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateStatusRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let mut  payload = item.0;
@@ -163,7 +156,6 @@ pub async fn update_by_status(state: web::Data<AppState>, req: HttpRequest, item
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("修改成功", "local")))
 }
 
-#[put("/site/update_default")]
 pub async fn update_by_default(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateDefaultRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let payload = item.0;
@@ -199,8 +191,6 @@ pub async fn update_by_default(state: web::Data<AppState>, req: HttpRequest, ite
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("修改成功", "local")))
 }
 
-#[get("/site/detail/{id}")]
-#[protect("system:site:view")]
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
@@ -210,12 +200,61 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
 }
 
-#[get("/site/list")]
-#[protect("system:website:list")]
 pub async fn get_by_page(state: web::Data<AppState>, _req: HttpRequest, query: web::Query<ListQuery>,) -> Result<HttpResponse> {
     let db = &state.db;
-    
+
     website_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
     })
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册网站模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(website_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/site")
+            // POST /site/add - 新建网站
+            .route(
+                "/add",
+                web::post()
+                    .to(add_site)
+                    .wrap(require_permission("system:site:add")),
+            )
+            // DELETE /site/batch_delete - 批量删除网站
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("system:site:delete")),
+            )
+            // PUT /site/update/{id} - 修改网站
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_site)
+                    .wrap(require_permission("system:site:update")),
+            )
+            // PUT /site/update_status - 修改网站状态
+            .route("/update_status", web::put().to(update_by_status))
+            // PUT /site/update_default - 修改默认网站
+            .route("/update_default", web::put().to(update_by_default))
+            // GET /site/detail/{id} - 网站详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_by_detail)
+                    .wrap(require_permission("system:site:view")),
+            )
+            // GET /site/list - 网站列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_by_page)
+                    .wrap(require_permission("system:website:list")),
+            ),
+    );
 }

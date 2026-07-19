@@ -112,7 +112,7 @@ export const getMenuTreeApi = async (param: any) => {
  * 获取表单内的指定数据
  */
 export const getFormMenuInfoApi = async (id: number) => {
-  return await requestClient.get(`/api/system/menu/${id}`);
+  return await requestClient.get(`/api/system/menu/detail/${id}`);
 };
 
 /**

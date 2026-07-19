@@ -26,7 +26,7 @@ pub struct Model {
     pub spec: Option<String>,
     pub unit: Option<String>,
     pub unit_id: Option<i64>,
-    pub quantity: Option<i32>,
+    pub quantity: Option<Decimal>,
     pub unit_price: Option<Decimal>,
     pub discount_rate: Option<Decimal>,
     pub discount: Option<Decimal>,

@@ -12,16 +12,14 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use crate::core::web::permission_guard::require_permission;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
 use crate::modules::crm::model::contact::{ContactListQuery, ContactSaveRequest, ContactUpdateRequest, ContactBindRequest, ContactUnbindRequest, ContactSetRoleRequest, ContactCheckRequest};
 use crate::modules::crm::service::contact_service;
 
-#[post("/contact/save")]
-#[protect("crm:contact:create")]
 pub async fn contact_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContactSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -32,8 +30,6 @@ pub async fn contact_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[put("/contact/update")]
-#[protect("crm:contact:update")]
 pub async fn contact_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContactUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
@@ -48,8 +44,6 @@ pub async fn contact_update(state: web::Data<AppState>, req: HttpRequest, form_d
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/contact/bath_delete")]
-#[protect("crm:contact:delete")]
 pub async fn bath_delete_contact(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
@@ -67,8 +61,6 @@ pub async fn bath_delete_contact(state: web::Data<AppState>, item: web::Json<Bat
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
-#[get("/contact/info")]
-#[protect("crm:contact:info")]
 pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
@@ -83,8 +75,6 @@ pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
     }
 }
 
-#[get("/contact/list")]
-#[protect("crm:contact:list")]
 pub async fn contact_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ContactListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
@@ -101,8 +91,6 @@ pub async fn contact_list(state: web::Data<AppState>, req: HttpRequest, query: w
 }
 
 /// 联系人查重：检查手机、电话、微信、QQ、邮箱是否已存在
-#[post("/contact/check")]
-#[protect("crm:contact:list")]
 pub async fn contact_check(state: web::Data<AppState>, form_data: web::Json<ContactCheckRequest>) -> HttpResponse {
     let db = &state.db;
     match contact_service::check_duplicate(&db, &form_data.0).await {
@@ -114,8 +102,6 @@ pub async fn contact_check(state: web::Data<AppState>, form_data: web::Json<Cont
 // ==================== 关联操作接口 ====================
 
 /// 绑定联系人到客户（入职）
-#[post("/contact/bind")]
-#[protect("crm:contact:bind")]
 pub async fn contact_bind(state: web::Data<AppState>, form_data: web::Json<ContactBindRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = contact_service::bind_contact(&db, &form_data.0).await;
@@ -123,8 +109,6 @@ pub async fn contact_bind(state: web::Data<AppState>, form_data: web::Json<Conta
 }
 
 /// 解绑联系人（离职）
-#[post("/contact/unbind")]
-#[protect("crm:contact:unbind")]
 pub async fn contact_unbind(state: web::Data<AppState>, form_data: web::Json<ContactUnbindRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = contact_service::unbind_contact(&db, &form_data.0).await;
@@ -132,10 +116,83 @@ pub async fn contact_unbind(state: web::Data<AppState>, form_data: web::Json<Con
 }
 
 /// 设置联系人角色/标记
-#[put("/contact/set_role")]
-#[protect("crm:contact:set_role")]
 pub async fn contact_set_role(state: web::Data<AppState>, form_data: web::Json<ContactSetRoleRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = contact_service::set_role(&db, &form_data.0).await;
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册联系人模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(contact_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/contact")
+            // POST /contact/save - 新建联系人
+            .route(
+                "/save",
+                web::post()
+                    .to(contact_insert)
+                    .wrap(require_permission("crm:contact:create")),
+            )
+            // PUT /contact/update - 修改联系人
+            .route(
+                "/update",
+                web::put()
+                    .to(contact_update)
+                    .wrap(require_permission("crm:contact:update")),
+            )
+            // DELETE /contact/bath_delete - 批量删除联系人
+            .route(
+                "/bath_delete",
+                web::delete()
+                    .to(bath_delete_contact)
+                    .wrap(require_permission("crm:contact:delete")),
+            )
+            // GET /contact/info - 联系人详情
+            .route(
+                "/info",
+                web::get()
+                    .to(contact_info)
+                    .wrap(require_permission("crm:contact:info")),
+            )
+            // GET /contact/list - 联系人列表
+            .route(
+                "/list",
+                web::get()
+                    .to(contact_list)
+                    .wrap(require_permission("crm:contact:list")),
+            )
+            // POST /contact/check - 联系人查重
+            .route(
+                "/check",
+                web::post()
+                    .to(contact_check)
+                    .wrap(require_permission("crm:contact:list")),
+            )
+            // POST /contact/bind - 绑定联系人到客户
+            .route(
+                "/bind",
+                web::post()
+                    .to(contact_bind)
+                    .wrap(require_permission("crm:contact:bind")),
+            )
+            // POST /contact/unbind - 解绑联系人
+            .route(
+                "/unbind",
+                web::post()
+                    .to(contact_unbind)
+                    .wrap(require_permission("crm:contact:unbind")),
+            )
+            // PUT /contact/set_role - 设置联系人角色
+            .route(
+                "/set_role",
+                web::put()
+                    .to(contact_set_role)
+                    .wrap(require_permission("crm:contact:set_role")),
+            ),
+    );
 }

@@ -1,3 +1,12 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
@@ -7,7 +16,7 @@ use crate::modules::approval::model::approval::{
     ApprovalProcessRequest, ApprovalSubmitRequest, FlowListQuery, FlowSaveRequest,
 };
 use crate::modules::approval::service::approval_service::ApprovalService;
-use actix_web::{get, post, web, HttpRequest, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -22,7 +31,6 @@ pub struct PageQuery {
     pub business_type: Option<String>,
 }
 
-#[post("/approval/flow/save")]
 pub async fn save_flow(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -41,7 +49,6 @@ pub async fn save_flow(
     }
 }
 
-#[get("/approval/flow/detail/{id}")]
 pub async fn flow_detail(
     state: web::Data<AppState>,
     id: web::Path<i64>,
@@ -57,7 +64,6 @@ pub async fn flow_detail(
     }
 }
 
-#[get("/approval/flow/list")]
 pub async fn flow_list(
     state: web::Data<AppState>,
     query: web::Query<PageQuery>,
@@ -83,7 +89,6 @@ pub async fn flow_list(
     }
 }
 
-#[post("/approval/flow/toggle/{id}")]
 pub async fn toggle_flow(
     state: web::Data<AppState>,
     id: web::Path<i64>,
@@ -99,7 +104,6 @@ pub async fn toggle_flow(
     }
 }
 
-#[post("/approval/flow/delete/{id}")]
 pub async fn delete_flow(
     state: web::Data<AppState>,
     id: web::Path<i64>,
@@ -115,7 +119,6 @@ pub async fn delete_flow(
     }
 }
 
-#[post("/approval/submit")]
 pub async fn submit_approval(
     state: web::Data<AppState>,
     payload: web::Json<ApprovalSubmitRequest>,
@@ -131,7 +134,6 @@ pub async fn submit_approval(
     }
 }
 
-#[post("/approval/process")]
 pub async fn process_approval(
     state: web::Data<AppState>,
     payload: web::Json<ApprovalProcessRequest>,
@@ -147,7 +149,6 @@ pub async fn process_approval(
     }
 }
 
-#[get("/approval/detail/{id}")]
 pub async fn approval_detail(
     state: web::Data<AppState>,
     id: web::Path<i64>,
@@ -163,7 +164,6 @@ pub async fn approval_detail(
     }
 }
 
-#[get("/approval/list")]
 pub async fn approval_list(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -184,4 +184,63 @@ pub async fn approval_list(
             .content_type("application/msgpack")
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册审批模块所有路由
+///
+/// 修改路径、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(approval_controller::register)` 注册。
+/// 注意：本 controller 原 handler 没有 `#[protect]` 宏，因此路由不挂权限中间件，
+/// 仅依赖外层 `GrantsMiddleware::with_extractor(extract)` 做登录鉴权。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/approval")
+            // POST /approval/flow/save - 保存审批流
+            .route(
+                "/flow/save",
+                web::post().to(save_flow),
+            )
+            // GET /approval/flow/detail/{id} - 审批流详情
+            .route(
+                "/flow/detail/{id}",
+                web::get().to(flow_detail),
+            )
+            // GET /approval/flow/list - 审批流列表
+            .route(
+                "/flow/list",
+                web::get().to(flow_list),
+            )
+            // POST /approval/flow/toggle/{id} - 启用/停用审批流
+            .route(
+                "/flow/toggle/{id}",
+                web::post().to(toggle_flow),
+            )
+            // POST /approval/flow/delete/{id} - 删除审批流
+            .route(
+                "/flow/delete/{id}",
+                web::post().to(delete_flow),
+            )
+            // POST /approval/submit - 提交审批
+            .route(
+                "/submit",
+                web::post().to(submit_approval),
+            )
+            // POST /approval/process - 处理审批
+            .route(
+                "/process",
+                web::post().to(process_approval),
+            )
+            // GET /approval/detail/{id} - 审批实例详情
+            .route(
+                "/detail/{id}",
+                web::get().to(approval_detail),
+            )
+            // GET /approval/list - 审批实例列表
+            .route(
+                "/list",
+                web::get().to(approval_list),
+            ),
+    );
 }

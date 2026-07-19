@@ -512,6 +512,8 @@ pub struct OpportunityListQuery {
     pub assigned_to: Option<i64>,
     /// 客户ID
     pub customer_id: Option<i64>,
+    /// 列表类型：all=全部 my=我的商机 subordinate=下属商机
+    pub list_type: Option<String>,
 }
 
 /// 商机数据模型操作类
@@ -642,6 +644,34 @@ impl OpportunityModel {
             .await
     }
 
+    /// 根据客户ID和商机名称查询商机
+    ///
+    /// # 参数
+    /// * `db` - 数据库连接
+    /// * `customer_id` - 客户ID
+    /// * `name` - 商机名称
+    /// * `exclude_id` - 排除的商机ID（编辑时排除自身）
+    ///
+    /// # 返回
+    /// * `Result<Option<opportunity::Model>, DbErr>` - 商机模型（未删除）
+    pub async fn find_by_customer_and_name(
+        db: &DbConn,
+        customer_id: i64,
+        name: &str,
+        exclude_id: Option<i64>,
+    ) -> Result<Option<opportunity::Model>, DbErr> {
+        let mut query = Opportunity::find()
+            .filter(opportunity::Column::CustomerId.eq(customer_id))
+            .filter(opportunity::Column::Title.eq(name))
+            .filter(opportunity::Column::Deleted.eq(0));
+
+        if let Some(exclude_id) = exclude_id {
+            query = query.filter(opportunity::Column::Id.ne(exclude_id));
+        }
+
+        query.one(db).await
+    }
+
     /// 分页查询商机列表
     ///
     /// # 参数
@@ -675,6 +705,42 @@ impl OpportunityModel {
         }
         if let Some(a) = assigned_to {
             query = query.filter(opportunity::Column::AssignedTo.eq(a));
+        }
+        if let Some(c) = customer_id {
+            query = query.filter(opportunity::Column::CustomerId.eq(c));
+        }
+
+        let paginator = query.order_by_desc(opportunity::Column::CreateTime).paginate(db, per_page as u64);
+        let num_pages = paginator.num_pages().await? as i64;
+
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+    }
+
+    /// 按负责人ID集合分页查询商机
+    pub async fn select_in_page_by_assigned_ids(
+        db: &DbConn,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        stage: Option<i32>,
+        assigned_ids: Option<Vec<i64>>,
+        customer_id: Option<i64>,
+    ) -> Result<(Vec<opportunity::Model>, i64), DbErr> {
+        let mut query = Opportunity::find()
+            .filter(opportunity::Column::Deleted.eq(0));
+
+        if let Some(k) = keywords {
+            query = query.filter(opportunity::Column::Title.contains(k));
+        }
+        if let Some(s) = stage {
+            query = query.filter(opportunity::Column::Stage.eq(s));
+        }
+        if let Some(ids) = assigned_ids {
+            if ids.is_empty() {
+                // 空集合：返回空结果
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(opportunity::Column::AssignedTo.is_in(ids));
         }
         if let Some(c) = customer_id {
             query = query.filter(opportunity::Column::CustomerId.eq(c));

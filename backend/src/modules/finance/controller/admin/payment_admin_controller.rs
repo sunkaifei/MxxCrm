@@ -8,16 +8,14 @@
 //! 版权所有，侵权必究！
 //!
 
-use actix_web::{get, post, put, delete, web, HttpResponse, Result};
-use actix_web_grants::protect;
+use actix_web::{web, HttpResponse, Result};
+use crate::core::web::permission_guard::require_permission;
 
 use crate::core::kit::global::AppState;
 use crate::core::web::response::{MetaResp, ResultPage};
 use crate::modules::finance::model::payment_record::{PaymentRecordSaveRequest, PaymentRecordQuery};
 use crate::modules::finance::service::payment_record_service;
 
-#[get("/payment-record/list")]
-#[protect("finance:payment-record:list")]
 pub async fn list(
     state: web::Data<AppState>,
     query: web::Query<PaymentRecordQuery>
@@ -36,8 +34,6 @@ pub async fn list(
     }
 }
 
-#[get("/payment-record/detail/{id}")]
-#[protect("finance:payment-record:list")]
 pub async fn detail(
     state: web::Data<AppState>,
     path: web::Path<i64>
@@ -54,8 +50,6 @@ pub async fn detail(
     }
 }
 
-#[post("/payment-record/create")]
-#[protect("finance:payment-record:create")]
 pub async fn create(
     state: web::Data<AppState>,
     item: web::Json<PaymentRecordSaveRequest>
@@ -70,8 +64,6 @@ pub async fn create(
     }
 }
 
-#[put("/payment-record/update/{id}")]
-#[protect("finance:payment-record:edit")]
 pub async fn update(
     state: web::Data<AppState>,
     path: web::Path<i64>,
@@ -88,8 +80,6 @@ pub async fn update(
     }
 }
 
-#[delete("/payment-record/delete/{id}")]
-#[protect("finance:payment-record:delete")]
 pub async fn delete(
     state: web::Data<AppState>,
     path: web::Path<i64>
@@ -106,10 +96,13 @@ pub async fn delete(
     }
 }
 
-pub fn routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(list);
-    cfg.service(detail);
-    cfg.service(create);
-    cfg.service(update);
-    cfg.service(delete);
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/payment-record")
+            .route("/list", web::get().to(list).wrap(require_permission("finance:payment-record:list")))
+            .route("/detail/{id}", web::get().to(detail).wrap(require_permission("finance:payment-record:list")))
+            .route("/create", web::post().to(create).wrap(require_permission("finance:payment-record:create")))
+            .route("/update/{id}", web::put().to(update).wrap(require_permission("finance:payment-record:edit")))
+            .route("/delete/{id}", web::delete().to(delete).wrap(require_permission("finance:payment-record:delete"))),
+    );
 }

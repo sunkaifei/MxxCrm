@@ -1,4 +1,4 @@
-﻿﻿<script lang="ts" setup>
+﻿<script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -8,7 +8,7 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Tag, message } from 'ant-design-vue';
+import { Button, Popconfirm, Tabs, Tag, message } from 'ant-design-vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -22,11 +22,63 @@ import { $t } from '#/locales';
 import ContractDrawer from './drawer.vue';
 import ApprovalDrawer from './approval-drawer.vue';
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
+import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
 const router = useRouter();
 const route = useRoute();
+
+// 全部合同 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
+const canViewAll = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 1;
+});
+
+// 下属合同 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
+const canViewSubordinate = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 2 || dataScope === 3 || dataScope === 4;
+});
+
+const allTabList = [
+  { key: 'all', label: '全部合同' },
+  { key: 'my', label: '我的合同' },
+  { key: 'subordinate', label: '下属合同' },
+];
+
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter(t => keys.includes(t.key));
+});
+
+const activeTab = ref('my');
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
+
+// 客户详情抽屉
+const customerDetailVisible = ref(false);
+const customerDetailId = ref<number | string | undefined>(undefined);
+
+function openCustomerDetail(row: any) {
+  const id = row.customerId ?? row.customer_id;
+  if (!id) {
+    message.error('客户ID不存在');
+    return;
+  }
+  customerDetailId.value = Number(id);
+  customerDetailVisible.value = true;
+}
 
 // 当前登录用户ID
 const currentUserId = computed(() => {
@@ -155,6 +207,7 @@ const gridOptions: VxeGridProps = {
         return await getContractListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
+          listType: activeTab.value,
           ...formValues,
         });
       },
@@ -183,6 +236,7 @@ const gridOptions: VxeGridProps = {
       title: '客户',
       field: 'customerName',
       minWidth: 140,
+      slots: { default: 'customerName' },
     },
     {
       title: '合同金额',
@@ -320,6 +374,11 @@ onMounted(async () => {
   <Page>
     <SalesProcessGuide current-step="contract" />
     <Grid :table-title="$t('page.crm.contract.title')">
+      <template #form-header>
+        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('crm:contract:create')"
@@ -349,6 +408,12 @@ onMounted(async () => {
         >
           {{ row.title || '-' }}
         </span>
+      </template>
+
+      <!-- 客户名称：点击打开客户详情 -->
+      <template #customerName="{ row }">
+        <a v-if="row.customerId" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="() => openCustomerDetail(row)">{{ row.customerName || '-' }}</a>
+        <span v-else>{{ row.customerName || '-' }}</span>
       </template>
 
       <!-- 金额格式化 -->
@@ -449,6 +514,9 @@ onMounted(async () => {
       :current-user-id="currentUserId"
       @success="handleApprovalSuccess"
     />
+
+    <!-- 客户详情抽屉 -->
+    <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
   </Page>
 </template>
 <style scoped>

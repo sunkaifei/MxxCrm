@@ -9,19 +9,17 @@
 //!
 
 use crate::core::errors::error::Result;
-use actix_web::{delete, get, HttpResponse, post, put, web, HttpRequest};
-use actix_web_grants::protect;
+use actix_web::{HttpResponse, web, HttpRequest};
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::system::model::dict_data::{DataListQuery, DictDataSaveDTO, DictDataSaveRequest, DictDataUpdateRequest};
 use crate::modules::system::model::dict::{DictSaveDTO, DictSaveRequest, DictUpdateRequest, TypeListQuery};
 use crate::modules::system::service::{admin_service, dict_service};
 
-#[post("/dict/add")]
-#[protect("system:dict:save")]
 pub async fn save_dict(state: web::Data<AppState>, req: HttpRequest, payload: web::Json<DictSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let dict_request = payload.0;
@@ -54,7 +52,6 @@ pub async fn save_dict(state: web::Data<AppState>, req: HttpRequest, payload: we
     }
 }
 
-#[post("/dict/data/save")]
 pub async fn save_dict_data(state: web::Data<AppState>, req: HttpRequest, payload: web::Json<DictDataSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let data_request = payload.0;
@@ -83,8 +80,6 @@ pub async fn save_dict_data(state: web::Data<AppState>, req: HttpRequest, payloa
     }
 }
 
-#[delete("/dict/batch_delete")]
-#[protect("system:dict:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -99,7 +94,6 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     }
 }
 
-#[delete("/dict/data/batch_delete")]
 pub async fn batch_delete_data(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -114,8 +108,6 @@ pub async fn batch_delete_data(state: web::Data<AppState>, item: web::Json<BathD
     }
 }
 
-#[put("/dict/update/{id}")]
-#[protect("system:dict:update")]
 pub async fn update_dict(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<DictUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.dict_name.as_ref().map_or(true, |dict_name| dict_name.trim().is_empty()) {
@@ -151,7 +143,6 @@ pub async fn update_dict(state: web::Data<AppState>, req: HttpRequest, id: web::
 }
 
 /// 更新字典数据
-#[put("/dict/data/update/{id}")]
 pub async fn update_dict_data(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<DictDataUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let dict_data_id = Some(id.into_inner());
@@ -184,8 +175,6 @@ pub async fn update_dict_data(state: web::Data<AppState>, req: HttpRequest, id: 
 }
 
 /// 获取字典类型详情
-#[get("/dict/{id}")]
-#[protect("system:dict:view")]
 pub async fn get_dict_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
@@ -202,8 +191,6 @@ pub async fn get_dict_detail(state: web::Data<AppState>, item: web::Path<InfoId>
 }
 
 /// 获取字典数据详情
-#[get("/dict/data/{id}")]
-#[protect("dict:data:detail:view")]
 pub async fn get_dict_data_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
@@ -219,7 +206,6 @@ pub async fn get_dict_data_detail(state: web::Data<AppState>, item: web::Path<In
     }
 }
 
-#[get("/dict/data/{dict_code}/options")]
 pub async fn get_dict_data_list_by_code(state: web::Data<AppState>, dict_code: web::Path<String>) -> Result<HttpResponse> {
     let db = &state.db;
     let dict_code = dict_code.into_inner();
@@ -231,8 +217,6 @@ pub async fn get_dict_data_list_by_code(state: web::Data<AppState>, dict_code: w
     })
 }
 
-#[get("/dict/list")]
-#[protect("system:dict:list")]
 pub async fn get_dict_page(state: web::Data<AppState>, query: web::Query<TypeListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     dict_service::get_dict_page(&db, query.into_inner()).await.map(|page_data| {
@@ -240,11 +224,87 @@ pub async fn get_dict_page(state: web::Data<AppState>, query: web::Query<TypeLis
     })
 }
 
-#[get("/dict/data/list")]
-#[protect("dict:data:list")]
 pub async fn get_dict_data_list(state: web::Data<AppState>, query: web::Query<DataListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     dict_service::get_dict_data_page(&db, query.into_inner()).await.map(|page_data| {
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
     })
+}
+
+// ==================== 路由注册（方案 C：单点维护）====================
+
+/// 注册字典管理模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(system_dict_controller::register)` 注册。
+///
+/// 注意：静态路径（如 /list、/add）注册在动态路径（如 /{id}）之前，
+/// actix-web 路由匹配时静态路径优先于动态路径。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/dict")
+            // ---- 字典类型相关路由 ----
+            // POST /dict/add - 新增字典
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/add",
+                web::post()
+                    .to(save_dict)
+                    .wrap(require_permission("system:dict:save")),
+            )
+            // GET /dict/list - 字典类型列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_dict_page)
+                    .wrap(require_permission("system:dict:list")),
+            )
+            // DELETE /dict/batch_delete - 批量删除字典
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("system:dict:delete")),
+            )
+            // PUT /dict/update/{id} - 更新字典
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_dict)
+                    .wrap(require_permission("system:dict:update")),
+            )
+            // GET /dict/{id} - 字典类型详情（动态路径，放后面）
+            .route(
+                "/{id}",
+                web::get()
+                    .to(get_dict_detail)
+                    .wrap(require_permission("system:dict:view")),
+            )
+            // ---- 字典数据相关路由 ----
+            // POST /dict/data/save - 新增字典数据
+            .route("/data/save", web::post().to(save_dict_data))
+            // GET /dict/data/list - 字典数据列表
+            .route(
+                "/data/list",
+                web::get()
+                    .to(get_dict_data_list)
+                    .wrap(require_permission("dict:data:list")),
+            )
+            // DELETE /dict/data/batch_delete - 批量删除字典数据
+            .route("/data/batch_delete", web::delete().to(batch_delete_data))
+            // PUT /dict/data/update/{id} - 更新字典数据
+            .route("/data/update/{id}", web::put().to(update_dict_data))
+            // GET /dict/data/{dict_code}/options - 按编码获取字典数据选项
+            .route(
+                "/data/{dict_code}/options",
+                web::get().to(get_dict_data_list_by_code),
+            )
+            // GET /dict/data/{id} - 字典数据详情（动态路径，放后面）
+            .route(
+                "/data/{id}",
+                web::get()
+                    .to(get_dict_data_detail)
+                    .wrap(require_permission("dict:data:detail:view")),
+            ),
+    );
 }

@@ -8,8 +8,8 @@
 //! 版权所有，侵权必究！
 //!
 
-use actix_web::{get, post, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
+use crate::core::web::permission_guard::require_permission;
 use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
@@ -28,8 +28,6 @@ pub struct SummaryQuery {
     pub month: i32,
 }
 
-#[get("/finance/salary/list")]
-#[protect("finance:salary:list")]
 pub async fn list(
     state: web::Data<AppState>,
     query: web::Query<SalaryQuery>,
@@ -48,8 +46,6 @@ pub async fn list(
     }
 }
 
-#[get("/finance/salary/detail")]
-#[protect("finance:salary:list")]
 pub async fn detail(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -70,8 +66,6 @@ pub async fn detail(
     }
 }
 
-#[post("/finance/salary/calculate")]
-#[protect("finance:salary:manage")]
 pub async fn calculate(
     state: web::Data<AppState>,
     form_data: web::Json<SalaryCalculateDTO>,
@@ -87,8 +81,6 @@ pub async fn calculate(
     }
 }
 
-#[post("/finance/salary/update")]
-#[protect("finance:salary:manage")]
 pub async fn update(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -108,8 +100,6 @@ pub async fn update(
     }
 }
 
-#[post("/finance/salary/approve")]
-#[protect("finance:salary:manage")]
 pub async fn approve(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -130,8 +120,6 @@ pub async fn approve(
     }
 }
 
-#[post("/finance/salary/batch-approve")]
-#[protect("finance:salary:manage")]
 pub async fn batch_approve(
     state: web::Data<AppState>,
     form_data: web::Json<SalaryBatchDTO>,
@@ -147,8 +135,6 @@ pub async fn batch_approve(
     }
 }
 
-#[post("/finance/salary/pay")]
-#[protect("finance:salary:manage")]
 pub async fn pay(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -169,8 +155,6 @@ pub async fn pay(
     }
 }
 
-#[post("/finance/salary/batch-pay")]
-#[protect("finance:salary:manage")]
 pub async fn batch_pay(
     state: web::Data<AppState>,
     form_data: web::Json<SalaryBatchDTO>,
@@ -186,8 +170,6 @@ pub async fn batch_pay(
     }
 }
 
-#[get("/finance/salary/summary")]
-#[protect("finance:salary:list")]
 pub async fn summary(
     state: web::Data<AppState>,
     query: web::Query<SummaryQuery>,
@@ -201,4 +183,19 @@ pub async fn summary(
         Err(e) => HttpResponse::Ok().content_type("application/msgpack")
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
+}
+
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/finance/salary")
+            .route("/list", web::get().to(list).wrap(require_permission("finance:salary:list")))
+            .route("/detail", web::get().to(detail).wrap(require_permission("finance:salary:list")))
+            .route("/calculate", web::post().to(calculate).wrap(require_permission("finance:salary:manage")))
+            .route("/update", web::post().to(update).wrap(require_permission("finance:salary:manage")))
+            .route("/approve", web::post().to(approve).wrap(require_permission("finance:salary:manage")))
+            .route("/batch-approve", web::post().to(batch_approve).wrap(require_permission("finance:salary:manage")))
+            .route("/pay", web::post().to(pay).wrap(require_permission("finance:salary:manage")))
+            .route("/batch-pay", web::post().to(batch_pay).wrap(require_permission("finance:salary:manage")))
+            .route("/summary", web::get().to(summary).wrap(require_permission("finance:salary:list"))),
+    );
 }

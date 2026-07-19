@@ -29,8 +29,10 @@ export const updateDictApi = async (id: number, param: any) => {
 };
 
 /**
- * 删除字典
+ * 删除字典（通过批量删除接口传单 ID）
  */
 export const deleteDictApi = async (id: number) => {
-  return requestClient.delete(`/api/system/dict/delete/${id}`);
+  return requestClient.delete('/api/system/dict/batch_delete', {
+    data: { ids: [String(id)] },
+  });
 };

@@ -13,6 +13,7 @@ import { Button, Drawer, message } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getFollowupListApi } from '#/api';
 import { $t } from '#/locales';
+import LeadDetail from '../lead/detail.vue';
 import FollowupDetail from './detail.vue';
 
 // 跟进方式映射
@@ -32,6 +33,27 @@ function openDetail(row: any) {
   detailVisible.value = true;
 }
 function closeDetail() { detailVisible.value = false; detailId.value = null; }
+
+// 线索详情抽屉（用于点击客户名称打开对应线索详情）
+const leadDetailVisible = ref(false);
+const leadDetailId = ref<number | null>(null);
+const leadDetailKey = ref(0);
+
+function openLeadDetail(row: any) {
+  const id = row.leadId ?? row.lead_id;
+  if (!id) {
+    message.error('线索ID不存在');
+    return;
+  }
+  leadDetailId.value = Number(id);
+  leadDetailKey.value++;
+  leadDetailVisible.value = true;
+}
+
+function closeLeadDetail() {
+  leadDetailVisible.value = false;
+  leadDetailId.value = null;
+}
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -91,7 +113,7 @@ const gridOptions: VxeGridProps = {
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: '跟进内容', field: 'content', minWidth: 240, slots: { default: 'content' } },
-    { title: '客户', field: 'customerName', width: 150 },
+    { title: '客户', field: 'customerName', width: 150, slots: { default: 'customerName' } },
     {
       title: '跟进方式', field: 'activityType', width: 90,
       formatter: ({ cellValue }: any) => cellValue != null ? (activityLabelMap[cellValue] || cellValue) : '-',
@@ -135,6 +157,10 @@ const [Grid] = useVbenVxeGrid({ gridOptions, formOptions });
         <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.content?.length > 60 ? row.content.slice(0, 60) + '...' : row.content || '-' }}</a>
       </template>
 
+      <template #customerName="{ row }">
+        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openLeadDetail(row)">{{ row.customerName || '-' }}</a>
+      </template>
+
       <template #action="{ row }">
         <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
       </template>
@@ -142,6 +168,10 @@ const [Grid] = useVbenVxeGrid({ gridOptions, formOptions });
 
     <Drawer v-model:open="detailVisible" :width="860" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="跟进记录详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
       <FollowupDetail v-if="detailId" :id="detailId" />
+    </Drawer>
+
+    <Drawer v-model:open="leadDetailVisible" :width="1100" placement="right" :destroy-on-close="false" :mask-closable="false" :closable="true" title="线索详情" :body-style="{ padding: 0, overflow: 'auto', height: '100%' }" @close="closeLeadDetail">
+      <LeadDetail v-if="leadDetailVisible" :key="leadDetailKey" :id="leadDetailId" />
     </Drawer>
   </Page>
 </template>

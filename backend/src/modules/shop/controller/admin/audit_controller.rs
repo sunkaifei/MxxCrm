@@ -10,13 +10,11 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
-use actix_web::{put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 /// Audit supplier application
-#[put("/supplier/audit")]
-#[protect("system:supplier:audit")]
 pub async fn audit_apply(
     state: web::Data<AppState>,
     _req: HttpRequest,
@@ -30,8 +28,6 @@ pub async fn audit_apply(
 }
 
 /// Audit SPU
-#[put("/spu/audit")]
-#[protect("system:spu:audit")]
 pub async fn audit_spu(
     state: web::Data<AppState>,
     _req: HttpRequest,
@@ -42,4 +38,38 @@ pub async fn audit_spu(
     Ok(HttpResponse::Ok()
         .content_type("application/msgpack")
         .body(MetaResp::<String>::fail(200, "success", "local")))
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册审核模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(audit_controller::register)` 注册。
+///
+/// 注意：本模块包含两个不相关的路径前缀（/supplier 和 /spu），
+/// 因此在 register 中使用两个独立的 scope。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    // 供应商审核
+    cfg.service(
+        web::scope("/supplier")
+            // PUT /supplier/audit - 审核供应商申请
+            .route(
+                "/audit",
+                web::put()
+                    .to(audit_apply)
+                    .wrap(require_permission("system:supplier:audit")),
+            ),
+    );
+    // SPU 审核
+    cfg.service(
+        web::scope("/spu")
+            // PUT /spu/audit - 审核 SPU
+            .route(
+                "/audit",
+                web::put()
+                    .to(audit_spu)
+                    .wrap(require_permission("system:spu:audit")),
+            ),
+    );
 }

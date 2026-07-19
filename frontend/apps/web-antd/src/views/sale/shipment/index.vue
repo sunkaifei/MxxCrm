@@ -1,14 +1,14 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
+import { h, ref, computed } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useRoute } from 'vue-router';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Modal, Popconfirm, Tag, message } from 'ant-design-vue';
+import { Button, Modal, Popconfirm, Tag, Tabs, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -22,7 +22,43 @@ import ShipmentDrawer from './drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
 const route = useRoute();
+
+const canViewAll = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 1;
+});
+
+const canViewSubordinate = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 2 || dataScope === 3 || dataScope === 4;
+});
+
+const allTabList = [
+  { key: 'all', label: '全部发货' },
+  { key: 'my', label: '我的发货' },
+  { key: 'subordinate', label: '下属发货' },
+];
+
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter(t => keys.includes(t.key));
+});
+
+const activeTab = ref('my');
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
 
 // 发货状态映射
 const statusMap: Record<number, { label: string; color: string }> = {
@@ -106,6 +142,7 @@ const gridOptions: VxeGridProps = {
           pageSize: page.pageSize,
           keywords: formValues.keywords,
           status: formValues.status,
+          listType: activeTab.value,
           // 从合同“发货/查看发货”进入时，按合同过滤发货单
           contractId: route.query.contractId ? Number(route.query.contractId) : undefined,
         };
@@ -128,6 +165,7 @@ const gridOptions: VxeGridProps = {
       title: '发货单号',
       field: 'shipmentNo',
       width: 180,
+      slots: { default: 'shipmentNo' },
     },
     {
       title: '订单ID',
@@ -247,9 +285,14 @@ async function handleDelete(row: any) {
   <Page auto-content-height>
     <SalesProcessGuide current-step="shipment" />
     <Grid :table-title="$t('page.sale.shipment.title')">
+      <template #form-header>
+        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('sale:order:edit')"
+          v-if="accessStore.hasAccessCode('sale:shipment:create')"
           type="primary"
           class="mr-2"
           @click="() => handleCreate()"
@@ -268,6 +311,17 @@ async function handleDelete(row: any) {
         <span v-else class="text-gray-300">-</span>
       </template>
 
+      <template #shipmentNo="{ row }">
+        <a
+          v-if="row.shipmentNo"
+          class="shipment-list__no-link"
+          @click="openDrawer(row)"
+        >
+          {{ row.shipmentNo }}
+        </a>
+        <span v-else class="text-gray-300">-</span>
+      </template>
+
       <template #status="{ row }">
         <Tag v-if="row.status && statusMap[row.status]" :color="statusMap[row.status]?.color">
           {{ statusMap[row.status]?.label }}
@@ -281,7 +335,7 @@ async function handleDelete(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('sale:order:edit') && row.status === 2"
+          v-if="accessStore.hasAccessCode('sale:shipment:sign') && row.status === 2"
           type="link"
           size="small"
           @click="() => handleSign(row)"
@@ -289,7 +343,7 @@ async function handleDelete(row: any) {
           {{ $t('page.sale.shipment.button.sign') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:order:edit')"
+          v-if="accessStore.hasAccessCode('sale:shipment:edit')"
           type="link"
           size="small"
           :icon="h(LucideFilePenLine)"
@@ -306,7 +360,7 @@ async function handleDelete(row: any) {
           @confirm="() => handleDelete(row)"
         >
           <Button
-            v-if="accessStore.hasAccessCode('sale:order:edit')"
+            v-if="accessStore.hasAccessCode('sale:shipment:delete')"
             type="link"
             danger
             :icon="h(LucideTrash2)"
@@ -317,3 +371,19 @@ async function handleDelete(row: any) {
     <Drawer />
   </Page>
 </template>
+
+<style scoped>
+.shipment-list__no-link {
+  font-family: 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: #0F2942;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.shipment-list__no-link:hover {
+  color: #F59E0B;
+}
+</style>

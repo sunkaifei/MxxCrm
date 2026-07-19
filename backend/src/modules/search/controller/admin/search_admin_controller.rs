@@ -6,14 +6,12 @@
 //! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
 //!
 //! 版权所有，侵权必究！
-//!
-use actix_web::{delete, get, HttpResponse, web};
+use actix_web::{HttpResponse, web};
 use crate::core::kit::global::AppState;
 use crate::core::web::response::MetaResp;
 #[cfg(feature = "enable-es")]
 use crate::modules::search::service::search_service;
 
-#[get("/search/index/create")]
 pub async fn create_index(state: web::Data<AppState>) -> HttpResponse {
     #[cfg(feature = "enable-es")]
     {
@@ -37,7 +35,6 @@ pub async fn create_index(state: web::Data<AppState>) -> HttpResponse {
 
 
 
-#[delete("/search/index/delete")]
 pub async fn delete_index(state: web::Data<AppState>) -> HttpResponse {
     #[cfg(feature = "enable-es")]
     {
@@ -58,4 +55,28 @@ pub async fn delete_index(state: web::Data<AppState>) -> HttpResponse {
         let _ = state;
         HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "Elasticsearch 功能未启用", "local"))
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册搜索索引模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(search_admin_controller::register)` 注册。
+///
+/// 注意：本模块原 handler 未使用 `#[protect]` 宏，因此 route 不挂 `require_permission`。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/search/index")
+            // GET /search/index/create - 创建索引
+            .route(
+                "/create",
+                web::get().to(create_index),
+            )
+            // DELETE /search/index/delete - 删除索引
+            .route(
+                "/delete",
+                web::delete().to(delete_index),
+            ),
+    );
 }

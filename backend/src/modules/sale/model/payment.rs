@@ -107,6 +107,7 @@ pub struct PaymentListQuery {
     pub customer_id: Option<i64>,
     pub status: Option<i32>,
     pub payment_method: Option<i32>,
+    pub list_type: Option<String>,
 }
 
 // ==================== 内部 DTO ====================
@@ -478,6 +479,7 @@ impl PaymentModel {
         customer_id: Option<i64>,
         status: Option<i32>,
         payment_method: Option<i32>,
+        owner_user_id: Option<i64>,
     ) -> Result<(Vec<payment::Model>, i64), DbErr> {
         let mut query = SalePayment::find()
             .filter(payment::Column::Deleted.eq(0));
@@ -515,6 +517,70 @@ impl PaymentModel {
         }
         if let Some(pm) = payment_method {
             query = query.filter(payment::Column::PaymentMethod.eq(pm));
+        }
+        if let Some(oid) = owner_user_id {
+            query = query.filter(payment::Column::OwnerUserId.eq(oid));
+        }
+
+        let paginator = query.order_by_desc(payment::Column::CreateTime).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
+    }
+
+    pub async fn select_in_page_by_owner_user_ids<C: ConnectionTrait>(
+        db: &C,
+        page: i64,
+        per_page: i64,
+        payment_no: Option<String>,
+        order_no: Option<String>,
+        contract_id: Option<i64>,
+        customer_id: Option<i64>,
+        status: Option<i32>,
+        payment_method: Option<i32>,
+        owner_user_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<payment::Model>, i64), DbErr> {
+        let mut query = SalePayment::find()
+            .filter(payment::Column::Deleted.eq(0));
+
+        if let Some(pno) = payment_no {
+            if !pno.trim().is_empty() {
+                query = query.filter(payment::Column::PaymentNo.contains(pno.trim()));
+            }
+        }
+        if let Some(ono) = order_no {
+            if !ono.trim().is_empty() {
+                let order_ids = order::Entity::find()
+                    .filter(order::Column::OrderNo.contains(ono.trim()))
+                    .filter(order::Column::Deleted.eq(0))
+                    .all(db)
+                    .await?
+                    .into_iter()
+                    .map(|o| o.id)
+                    .collect::<Vec<i64>>();
+                if !order_ids.is_empty() {
+                    query = query.filter(payment::Column::OrderId.is_in(order_ids));
+                } else {
+                    return Ok((vec![], 0));
+                }
+            }
+        }
+        if let Some(cid) = contract_id {
+            query = query.filter(payment::Column::ContractId.eq(cid));
+        }
+        if let Some(cust_id) = customer_id {
+            query = query.filter(payment::Column::CustomerId.eq(cust_id));
+        }
+        if let Some(s) = status {
+            query = query.filter(payment::Column::Status.eq(s));
+        }
+        if let Some(pm) = payment_method {
+            query = query.filter(payment::Column::PaymentMethod.eq(pm));
+        }
+        if let Some(ids) = owner_user_ids {
+            if ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(payment::Column::OwnerUserId.is_in(ids));
         }
 
         let paginator = query.order_by_desc(payment::Column::CreateTime).paginate(db, per_page as u64);

@@ -1,13 +1,13 @@
 <script lang="ts" setup>
-import { h } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, message, Modal, Popconfirm, Tag, Tabs } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -21,8 +21,59 @@ import { $t } from '#/locales';
 import ApplicationDrawer from './application-drawer.vue';
 import PaymentDrawer from './drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
+import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
+
+const canViewAll = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 1;
+});
+
+const canViewSubordinate = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 2 || dataScope === 3 || dataScope === 4;
+});
+
+const allTabList = [
+  { key: 'all', label: '全部回款' },
+  { key: 'my', label: '我的回款' },
+  { key: 'subordinate', label: '下属回款' },
+];
+
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter(t => keys.includes(t.key));
+});
+
+const activeTab = ref('my');
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
+
+// 客户详情抽屉
+const customerDetailVisible = ref(false);
+const customerDetailId = ref<number | string | undefined>(undefined);
+
+function openCustomerDetail(row: any) {
+  const id = row.customerId ?? row.customer_id;
+  if (!id) {
+    message.error('客户ID不存在');
+    return;
+  }
+  customerDetailId.value = Number(id);
+  customerDetailVisible.value = true;
+}
 
 const paymentMethodMap: Record<number, { label: string; color: string }> = {
   1: { label: '银行转账', color: 'blue' },
@@ -120,6 +171,7 @@ const gridOptions: VxeGridProps = {
         const result = await getPaymentListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
+          listType: activeTab.value,
           paymentNo: formValues.paymentNo,
           orderNo: formValues.orderNo,
           status: formValues.status,
@@ -192,6 +244,7 @@ const gridOptions: VxeGridProps = {
       title: '客户名称',
       field: 'customerName',
       width: 140,
+      slots: { default: 'customerName' },
     },
     {
       title: '回款金额',
@@ -332,7 +385,12 @@ function handleReject(row: any) {
 <template>
   <Page>
     <SalesProcessGuide current-step="payment" />
-    <Grid :table-title="$t('page.sale.payment.title')">
+    <Grid :table-title="''">
+      <template #form-header>
+        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('sale:payment:create')"
@@ -349,6 +407,11 @@ function handleReject(row: any) {
           {{ row.orderNo }}
         </a>
         <span v-else class="text-gray-300">-</span>
+      </template>
+
+      <template #customerName="{ row }">
+        <a v-if="row.customerId" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="() => openCustomerDetail(row)">{{ row.customerName || '-' }}</a>
+        <span v-else class="text-gray-300">{{ row.customerName || '-' }}</span>
       </template>
 
       <template #amount="{ row }">
@@ -434,5 +497,6 @@ function handleReject(row: any) {
     </Grid>
     <Drawer />
     <AppDrawer />
+    <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
   </Page>
 </template>

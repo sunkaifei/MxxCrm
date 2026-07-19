@@ -1,5 +1,5 @@
 use crate::core::errors::error::Result;
-use actix_web::{delete, get, HttpResponse, post, put, web, HttpRequest};
+use actix_web::{HttpResponse, web, HttpRequest};
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
@@ -10,7 +10,6 @@ use crate::modules::system::model::tag_group::{TagGroupSaveDTO, TagGroupSaveRequ
 use crate::modules::system::model::tag_merge::{TagEntityRequest, TagEntityRemoveRequest, TagEntityBatchRequest};
 use crate::modules::system::service::{admin_service, tag_service, tag_group_service};
 
-#[post("/tag/add")]
 pub async fn save_tag(state: web::Data<AppState>, req: HttpRequest, payload: web::Json<TagSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let tag_request = payload.0;
@@ -31,7 +30,6 @@ pub async fn save_tag(state: web::Data<AppState>, req: HttpRequest, payload: web
     }
 }
 
-#[put("/tag/update")]
 pub async fn update_tag(state: web::Data<AppState>, req: HttpRequest, payload: web::Json<TagUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let tag_request = payload.0;
@@ -54,7 +52,6 @@ pub async fn update_tag(state: web::Data<AppState>, req: HttpRequest, payload: w
     }
 }
 
-#[delete("/tag/delete/{id}")]
 pub async fn delete_tag(state: web::Data<AppState>, item: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     let id = item.into_inner();
@@ -67,7 +64,6 @@ pub async fn delete_tag(state: web::Data<AppState>, item: web::Path<i64>) -> Res
     }
 }
 
-#[delete("/tag/batch_delete")]
 pub async fn batch_delete_tag(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -89,7 +85,6 @@ pub async fn batch_delete_tag(state: web::Data<AppState>, item: web::Json<BathDe
 }
 
 /// 修改标签状态（启用/禁用）
-#[put("/tag/status")]
 pub async fn update_tag_status(state: web::Data<AppState>, payload: web::Json<UpdateTagStatusRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let req = payload.0;
@@ -110,7 +105,6 @@ pub async fn update_tag_status(state: web::Data<AppState>, payload: web::Json<Up
     }
 }
 
-#[get("/tag/detail/{id}")]
 pub async fn get_tag_detail(state: web::Data<AppState>, item: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     let id = item.into_inner();
@@ -123,7 +117,6 @@ pub async fn get_tag_detail(state: web::Data<AppState>, item: web::Path<i64>) ->
     }
 }
 
-#[get("/tag/list")]
 pub async fn get_tag_list(state: web::Data<AppState>, query: web::Query<TagListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let page = query.page_num.unwrap_or(1);
@@ -139,7 +132,6 @@ pub async fn get_tag_list(state: web::Data<AppState>, query: web::Query<TagListQ
     }
 }
 
-#[get("/tag/statistics")]
 pub async fn get_tag_statistics(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     match tag_service::TagService::get_statistics(&db).await {
@@ -151,7 +143,6 @@ pub async fn get_tag_statistics(state: web::Data<AppState>) -> Result<HttpRespon
     }
 }
 
-#[get("/tag/all")]
 pub async fn get_all_tags(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     match tag_service::TagService::get_all_tags(&db).await {
@@ -163,7 +154,6 @@ pub async fn get_all_tags(state: web::Data<AppState>) -> Result<HttpResponse> {
     }
 }
 
-#[get("/tag/group/{group_id}")]
 pub async fn get_tags_by_group(state: web::Data<AppState>, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     let group_id = path.into_inner();
@@ -176,7 +166,6 @@ pub async fn get_tags_by_group(state: web::Data<AppState>, path: web::Path<i64>)
     }
 }
 
-#[post("/tag/move-to-group")]
 pub async fn move_tags_to_group(state: web::Data<AppState>, payload: web::Json<TagMoveToGroupRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let req = payload.0;
@@ -195,7 +184,6 @@ pub async fn move_tags_to_group(state: web::Data<AppState>, payload: web::Json<T
     }
 }
 
-#[get("/tag/suggest")]
 pub async fn tag_suggest(state: web::Data<AppState>, query: web::Query<(String,)>) -> Result<HttpResponse> {
     let db = &state.db;
     let keyword = &query.0.0;
@@ -208,7 +196,6 @@ pub async fn tag_suggest(state: web::Data<AppState>, query: web::Query<(String,)
     }
 }
 
-#[post("/tag/group")]
 pub async fn save_tag_group(state: web::Data<AppState>, req: HttpRequest, payload: web::Json<TagGroupSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let group_request = payload.0;
@@ -226,7 +213,6 @@ pub async fn save_tag_group(state: web::Data<AppState>, req: HttpRequest, payloa
     }
 }
 
-#[put("/tag/group")]
 pub async fn update_tag_group(state: web::Data<AppState>, req: HttpRequest, payload: web::Json<TagGroupUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let group_request = payload.0;
@@ -246,7 +232,6 @@ pub async fn update_tag_group(state: web::Data<AppState>, req: HttpRequest, payl
     }
 }
 
-#[delete("/tag/group/{id}")]
 pub async fn delete_tag_group(state: web::Data<AppState>, item: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     let id = item.into_inner();
@@ -259,7 +244,6 @@ pub async fn delete_tag_group(state: web::Data<AppState>, item: web::Path<i64>) 
     }
 }
 
-#[delete("/tag/group/batch_delete")]
 pub async fn batch_delete_tag_group(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -280,7 +264,6 @@ pub async fn batch_delete_tag_group(state: web::Data<AppState>, item: web::Json<
     }
 }
 
-#[get("/tag/group/list")]
 pub async fn get_tag_group_list(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     match tag_group_service::TagGroupService::get_list(&db).await {
@@ -292,7 +275,6 @@ pub async fn get_tag_group_list(state: web::Data<AppState>) -> Result<HttpRespon
     }
 }
 
-#[get("/tag/group/detail/{id}")]
 pub async fn get_tag_group_detail(state: web::Data<AppState>, item: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     let id = item.into_inner();
@@ -305,7 +287,6 @@ pub async fn get_tag_group_detail(state: web::Data<AppState>, item: web::Path<i6
     }
 }
 
-#[post("/tag/entity/add")]
 pub async fn add_tags_to_entity(state: web::Data<AppState>, payload: web::Json<TagEntityRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let req = payload.0;
@@ -327,7 +308,6 @@ pub async fn add_tags_to_entity(state: web::Data<AppState>, payload: web::Json<T
     }
 }
 
-#[post("/tag/entity/remove")]
 pub async fn remove_tags_from_entity(state: web::Data<AppState>, payload: web::Json<TagEntityRemoveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let req = payload.0;
@@ -349,7 +329,6 @@ pub async fn remove_tags_from_entity(state: web::Data<AppState>, payload: web::J
     }
 }
 
-#[get("/tag/entity/{entity_type}/{entity_id}")]
 pub async fn get_tags_by_entity(state: web::Data<AppState>, path: web::Path<(String, i64)>) -> Result<HttpResponse> {
     let db = &state.db;
     let (entity_type, entity_id) = path.into_inner();
@@ -362,7 +341,6 @@ pub async fn get_tags_by_entity(state: web::Data<AppState>, path: web::Path<(Str
     }
 }
 
-#[post("/tag/entity/batch")]
 pub async fn batch_tag_entity(state: web::Data<AppState>, payload: web::Json<TagEntityBatchRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let req = payload.0;
@@ -389,4 +367,62 @@ pub async fn batch_tag_entity(state: web::Data<AppState>, payload: web::Json<Tag
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(500, &e.to_string(), "local")))
         }
     }
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册标签模块所有路由
+///
+/// 修改路径、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(tag_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/tag")
+            // POST /tag/add - 添加标签
+            .route("/add", web::post().to(save_tag))
+            // PUT /tag/update - 更新标签
+            .route("/update", web::put().to(update_tag))
+            // DELETE /tag/delete/{id} - 删除标签
+            .route("/delete/{id}", web::delete().to(delete_tag))
+            // DELETE /tag/batch_delete - 批量删除标签
+            .route("/batch_delete", web::delete().to(batch_delete_tag))
+            // PUT /tag/status - 修改标签状态
+            .route("/status", web::put().to(update_tag_status))
+            // GET /tag/detail/{id} - 获取标签详情
+            .route("/detail/{id}", web::get().to(get_tag_detail))
+            // GET /tag/list - 获取标签列表
+            .route("/list", web::get().to(get_tag_list))
+            // GET /tag/statistics - 获取标签统计
+            .route("/statistics", web::get().to(get_tag_statistics))
+            // GET /tag/all - 获取所有标签
+            .route("/all", web::get().to(get_all_tags))
+            // GET /tag/group/{group_id} - 获取分组下标签
+            .route("/group/{group_id}", web::get().to(get_tags_by_group))
+            // POST /tag/move-to-group - 移动标签到分组
+            .route("/move-to-group", web::post().to(move_tags_to_group))
+            // GET /tag/suggest - 标签建议
+            .route("/suggest", web::get().to(tag_suggest))
+            // POST+PUT /tag/group - 保存/更新标签分组（同一路径两种方法，使用 resource 合并）
+            .service(
+                web::resource("/group")
+                    .route(web::post().to(save_tag_group))
+                    .route(web::put().to(update_tag_group)),
+            )
+            // DELETE /tag/group/{id} - 删除标签分组
+            .route("/group/{id}", web::delete().to(delete_tag_group))
+            // DELETE /tag/group/batch_delete - 批量删除标签分组
+            .route("/group/batch_delete", web::delete().to(batch_delete_tag_group))
+            // GET /tag/group/list - 获取标签分组列表
+            .route("/group/list", web::get().to(get_tag_group_list))
+            // GET /tag/group/detail/{id} - 获取标签分组详情
+            .route("/group/detail/{id}", web::get().to(get_tag_group_detail))
+            // POST /tag/entity/add - 添加标签到实体
+            .route("/entity/add", web::post().to(add_tags_to_entity))
+            // POST /tag/entity/remove - 移除实体标签
+            .route("/entity/remove", web::post().to(remove_tags_from_entity))
+            // GET /tag/entity/{entity_type}/{entity_id} - 获取实体标签
+            .route("/entity/{entity_type}/{entity_id}", web::get().to(get_tags_by_entity))
+            // POST /tag/entity/batch - 批量操作标签
+            .route("/entity/batch", web::post().to(batch_tag_entity)),
+    );
 }

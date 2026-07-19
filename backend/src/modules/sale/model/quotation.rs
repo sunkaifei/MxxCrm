@@ -452,6 +452,7 @@ pub struct QuotationListQuery {
     pub approval_status: Option<i32>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
+    pub list_type: Option<String>,
 }
 
 /// 报价单数据模型操作类
@@ -592,6 +593,22 @@ impl QuotationModel {
             .await
     }
 
+    pub async fn find_by_customer_and_title<C: ConnectionTrait>(
+        db: &C,
+        customer_id: i64,
+        title: &str,
+        exclude_id: Option<i64>,
+    ) -> Result<Option<quotation::Model>, DbErr> {
+        let mut query = Quotation::find()
+            .filter(quotation::Column::CustomerId.eq(customer_id))
+            .filter(quotation::Column::Title.eq(title))
+            .filter(quotation::Column::Deleted.eq(0));
+        if let Some(exclude) = exclude_id {
+            query = query.filter(quotation::Column::Id.ne(exclude));
+        }
+        query.one(db).await
+    }
+
     pub async fn select_in_page<C: ConnectionTrait>(
         db: &C,
         page: i64,
@@ -630,6 +647,58 @@ impl QuotationModel {
         }
         if let Some(end) = end_date {
             query = query.filter(quotation::Column::QuotationDate.lte(end));
+        }
+
+        let paginator = query.order_by_desc(quotation::Column::Id).paginate(db, per_page as u64);
+        let total = paginator.num_items().await? as i64;
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
+    }
+
+    pub async fn select_in_page_by_owner_user_ids<C: ConnectionTrait>(
+        db: &C,
+        page: i64,
+        per_page: i64,
+        keywords: Option<String>,
+        customer_id: Option<i64>,
+        status: Option<i32>,
+        approval_status: Option<i32>,
+        start_date: Option<String>,
+        end_date: Option<String>,
+        owner_user_ids: Option<Vec<i64>>,
+    ) -> Result<(Vec<quotation::Model>, i64), DbErr> {
+        let mut query = Quotation::find().filter(quotation::Column::Deleted.eq(0));
+
+        if let Some(k) = keywords {
+            if !k.trim().is_empty() {
+                let kw = k.trim().to_string();
+                query = query.filter(
+                    Condition::any()
+                        .add(quotation::Column::QuotationNo.contains(kw.clone()))
+                        .add(quotation::Column::Title.contains(kw.clone()))
+                        .add(quotation::Column::CustomerName.contains(kw))
+                );
+            }
+        }
+        if let Some(cid) = customer_id {
+            query = query.filter(quotation::Column::CustomerId.eq(cid));
+        }
+        if let Some(s) = status {
+            query = query.filter(quotation::Column::Status.eq(s));
+        }
+        if let Some(aps) = approval_status {
+            query = query.filter(quotation::Column::ApprovalStatus.eq(aps));
+        }
+        if let Some(start) = start_date {
+            query = query.filter(quotation::Column::QuotationDate.gte(start));
+        }
+        if let Some(end) = end_date {
+            query = query.filter(quotation::Column::QuotationDate.lte(end));
+        }
+        if let Some(ids) = owner_user_ids {
+            if ids.is_empty() {
+                return Ok((Vec::new(), 0));
+            }
+            query = query.filter(quotation::Column::OwnerUserId.is_in(ids));
         }
 
         let paginator = query.order_by_desc(quotation::Column::Id).paginate(db, per_page as u64);

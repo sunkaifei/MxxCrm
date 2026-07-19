@@ -698,6 +698,14 @@
   },
   "company": {
     "title": "企业",
+    "aiSettings": {
+      "title": "AI设置",
+      "button": {
+        "create": "新增配置",
+        "edit": "编辑配置",
+        "delete": "删除配置"
+      }
+    },
     "info": {
       "title": "企业信息",
       "basicInfo": "企业基本信息",

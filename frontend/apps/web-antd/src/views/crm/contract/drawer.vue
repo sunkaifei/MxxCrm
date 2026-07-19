@@ -26,6 +26,7 @@ import {
   updateContractApi,
 } from '#/api';
 import { requestClient } from '#/api/request';
+import { getOrderInfoApi } from '#/api/core/sale/order';
 import { getCommissionRuleOptionsApi, previewCommissionApi } from '#/api/core/finance/commission-rule';
 import { getUserListApi } from '#/api/core/system/user';
 import CustomerSelectModal from '../components/CustomerSelectModal.vue';
@@ -145,6 +146,24 @@ const previewVisible = ref(false);
 const userSelectVisible = ref(false);
 const editingMemberIndex = ref<number | null>(null);
 
+// ========== 订单商品明细（从订单创建合同时展示） ==========
+const orderItems = ref<any[]>([]);
+const orderInfo = ref<any>(null);
+
+async function loadOrderInfo(orderId: number) {
+  try {
+    const res: any = await getOrderInfoApi(orderId);
+    const data = res?.data ?? res ?? null;
+    if (data) {
+      orderInfo.value = data;
+      orderItems.value = data.items || [];
+    }
+  } catch {
+    orderInfo.value = null;
+    orderItems.value = [];
+  }
+}
+
 const memberColumns = [
   { title: '序号', key: 'index', width: 60, customRender: ({ index }: any) => index + 1 },
   { title: '人员姓名', key: 'userName', dataIndex: 'userName' },
@@ -152,6 +171,17 @@ const memberColumns = [
   { title: '分成比例(%)', key: 'shareRatio', dataIndex: 'shareRatio', width: 140 },
   { title: '排序', key: 'sort', dataIndex: 'sort', width: 100 },
   { title: '操作', key: 'action', width: 80 },
+];
+
+// 订单商品明细列定义
+const orderItemColumns = [
+  { title: '商品名称', dataIndex: 'productName', width: 180 },
+  { title: '规格', dataIndex: 'spec', width: 120 },
+  { title: '单位', dataIndex: 'unit', width: 60 },
+  { title: '数量', dataIndex: 'quantity', width: 80 },
+  { title: '单价', dataIndex: 'unitPrice', width: 100 },
+  { title: '税率', dataIndex: 'taxRate', width: 80 },
+  { title: '金额', dataIndex: 'amount', width: 120 },
 ];
 
 // 回款计划汇总计算
@@ -579,6 +609,37 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
     },
     {
+      component: 'Select',
+      fieldName: 'ourSignerId',
+      label: '我方签署人',
+      componentProps: {
+        placeholder: '默认为订单创建人（业务员）',
+        allowClear: true,
+        showSearch: true,
+        filterOption: (input: string, option: any) =>
+          option.label.toLowerCase().includes(input.toLowerCase()),
+        options: userOptions,
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'theirSignerName',
+      label: '对方签署人',
+      componentProps: {
+        placeholder: '默认为订单联系人',
+        allowClear: true,
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'theirSignerPhone',
+      label: '对方签署电话',
+      componentProps: {
+        placeholder: '对方签署人联系电话',
+        allowClear: true,
+      },
+    },
+    {
       component: 'Upload',
       fieldName: 'contractFile',
       label: '合同文件',
@@ -811,6 +872,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       commissionMembers.value = [];
       previewResult.value = [];
       previewVisible.value = false;
+      orderItems.value = [];
+      orderInfo.value = null;
 
       await Promise.all([loadUserOptions(), loadCommissionRuleOptions()]);
 
@@ -856,6 +919,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
           } catch { /* ignore */ }
         }
         contractTotalAmount.value = Number(row.totalAmount) || 0;
+      }
+
+      // 如果关联了订单，加载订单商品明细
+      if (row.orderId) {
+        await loadOrderInfo(Number(row.orderId));
       }
 
       baseFormApi.setValues(row);
@@ -946,6 +1014,46 @@ function toggleMaximize() {
             </div>
           </template>
         </BaseForm>
+
+        <!-- 订单商品明细（从订单创建合同时展示） -->
+        <div v-if="orderItems.length > 0" class="order-items-section">
+          <div class="order-items-header">
+            <span class="text-sm font-semibold text-gray-700">订单商品明细</span>
+            <span v-if="orderInfo?.orderNo" class="text-xs text-gray-400 ml-2">订单号：{{ orderInfo.orderNo }}</span>
+          </div>
+          <Table
+            :columns="orderItemColumns"
+            :data-source="orderItems"
+            :pagination="false"
+            size="small"
+            bordered
+            :row-key="(_record: any, index: number) => `item_${index}`"
+            class="order-items-table"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.dataIndex === 'unitPrice'">
+                ¥{{ Number(record.unitPrice || 0).toFixed(2) }}
+              </template>
+              <template v-else-if="column.dataIndex === 'amount'">
+                ¥{{ Number(record.amount || 0).toFixed(2) }}
+              </template>
+              <template v-else-if="column.dataIndex === 'taxRate'">
+                {{ record.taxRate != null ? Number(record.taxRate).toFixed(0) + '%' : '-' }}
+              </template>
+            </template>
+          </Table>
+          <div v-if="orderInfo" class="order-items-summary">
+            <span class="text-xs text-gray-500">
+              商品总额：¥{{ Number(orderInfo.productAmount || 0).toFixed(2) }}
+            </span>
+            <span class="text-xs text-gray-500 ml-4">
+              税额：¥{{ Number(orderInfo.taxAmount || 0).toFixed(2) }}
+            </span>
+            <span class="text-xs font-semibold text-gray-700 ml-4">
+              订单总额：¥{{ Number(orderInfo.totalAmount || 0).toFixed(2) }}
+            </span>
+          </div>
+        </div>
       </TabPane>
 
       <!-- ====== Tab 2: 回款计划 ====== -->
@@ -1238,5 +1346,35 @@ function toggleMaximize() {
 /* 表格内容区域 */
 .payment-plan-table :deep(.ant-table-content) {
   min-height: auto;
+}
+
+/* 订单商品明细区域 */
+.order-items-section {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--background-color-light, #fafafa);
+  border: 1px solid var(--border-color-base, #f0f0f0);
+  border-radius: 8px;
+}
+.order-items-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color-base, #f0f0f0);
+}
+.order-items-table :deep(.ant-table) {
+  height: auto;
+}
+.order-items-table :deep(.ant-table-body) {
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+.order-items-summary {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color-base, #f0f0f0);
 }
 </style>

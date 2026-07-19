@@ -6,7 +6,6 @@
 //! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
 //!
 //! 版权所有，侵权必究！
-//!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
@@ -15,16 +14,14 @@ use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::MetaResp;
 use crate::modules::company::model::company::{CompanyAccountSaveRequest, CompanyInfoSaveRequest};
 use crate::modules::company::service::company_service;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
+use crate::core::web::permission_guard::require_permission;
 
 /// 判断当前用户是否有企业信息编辑权限（有编辑权限则不脱敏法人电话）
 fn can_edit_company(jwt_token: &JWTToken) -> bool {
     jwt_token.permissions.iter().any(|p| p == "company:info:edit")
 }
 
-#[get("/company/info")]
-#[protect("company:info:list")]
 pub async fn get_company_info(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -36,8 +33,6 @@ pub async fn get_company_info(state: web::Data<AppState>, req: HttpRequest) -> R
     }
 }
 
-#[put("/company/update")]
-#[protect("company:info:edit")]
 pub async fn update_company_info(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CompanyInfoSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -47,8 +42,6 @@ pub async fn update_company_info(state: web::Data<AppState>, req: HttpRequest, f
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[get("/company/account/list")]
-#[protect("company:info:list")]
 pub async fn get_account_list(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
 
@@ -58,8 +51,6 @@ pub async fn get_account_list(state: web::Data<AppState>) -> Result<HttpResponse
     }
 }
 
-#[post("/company/account/save")]
-#[protect("company:account:save")]
 pub async fn save_account(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CompanyAccountSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -69,8 +60,6 @@ pub async fn save_account(state: web::Data<AppState>, req: HttpRequest, form_dat
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
-#[delete("/company/account/delete")]
-#[protect("company:account:delete")]
 pub async fn delete_account(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let ids: Vec<i64> = item.0.ids.unwrap_or_default()
@@ -92,4 +81,15 @@ pub async fn delete_account(state: web::Data<AppState>, item: web::Json<BathDele
         }
     }
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(affected, "local")))
+}
+
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/company")
+            .route("/info", web::get().to(get_company_info).wrap(require_permission("company:info:list")))
+            .route("/update", web::put().to(update_company_info).wrap(require_permission("company:info:edit")))
+            .route("/account/list", web::get().to(get_account_list).wrap(require_permission("company:info:list")))
+            .route("/account/save", web::post().to(save_account).wrap(require_permission("company:account:save")))
+            .route("/account/delete", web::delete().to(delete_account).wrap(require_permission("company:account:delete"))),
+    );
 }

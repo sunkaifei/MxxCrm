@@ -262,7 +262,7 @@ const delegatedSlots = computed(() => {
 
   for (const key of Object.keys(slots)) {
     if (
-      !['empty', 'form', 'loading', TOOLBAR_ACTIONS, TOOLBAR_TOOLS].includes(
+      !['empty', 'form', 'form-header', 'loading', TOOLBAR_ACTIONS, TOOLBAR_TOOLS].includes(
         key,
       )
     ) {
@@ -432,6 +432,7 @@ onUnmounted(() => {
           "
         >
           <slot name="form">
+            <slot name="form-header"></slot>
             <Form>
               <template
                 v-for="slotName in delegatedFormSlots"

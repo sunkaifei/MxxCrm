@@ -1,4 +1,4 @@
-﻿//!
+//!
 //! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
 //!
 //! https://www.mxxshop.com
@@ -16,6 +16,7 @@ use crate::modules::crm::model::contact::{
     ContactListVO, ContactModel, ContactSaveDTO, ContactSaveRequest, ContactSetRoleRequest,
     ContactUnbindRequest, ContactUpdateRequest, CustomerContactVO,
 };
+use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::service::role_service;
 use sea_orm::DbConn;
 use sea_orm::DbErr;
@@ -224,15 +225,27 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
                 .filter_map(|r| r.data_scope)
                 .min();
 
-            if data_scope == Some(5) {
-                return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
-            }
-
-            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|id| *id != current_user_id)
-                .collect::<Vec<_>>();
+            let user_ids = match data_scope {
+                Some(5) => {
+                    Vec::new()
+                }
+                Some(1) | None => {
+                    // 全部数据权限：获取所有用户（排除自己）
+                    let all_admins = Admin::find()
+                        .filter(admin::Column::Id.ne(current_user_id))
+                        .all(db)
+                        .await
+                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
+                    all_admins.iter().map(|u| u.id).collect()
+                }
+                _ => {
+                    get_accessible_user_ids(db, current_user_id, data_scope).await?
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter(|id| *id != current_user_id)
+                        .collect::<Vec<_>>()
+                }
+            };
 
             if user_ids.is_empty() {
                 return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));

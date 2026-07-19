@@ -7,6 +7,8 @@ export interface CustomerEditLogQuery {
   customerId?: number;
   page?: number;
   pageSize?: number;
+  /** 日志类型：0=基本信息, 1=财务信息 */
+  logType?: number;
 }
 
 /**
@@ -29,6 +31,8 @@ export interface CustomerEditLogVO {
   editorName?: string;
   content?: EditLogItem[];
   editTime?: string;
+  /** 日志类型：0=基本信息, 1=财务信息 */
+  logType?: number;
 }
 
 /**

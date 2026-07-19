@@ -108,3 +108,11 @@ export const LucideCopy = createIconifyIcon('lucide:copy');
 export const LucideFolderOpen = createIconifyIcon('lucide:folder-open');
 export const LucideFilm = createIconifyIcon('lucide:film');
 export const LucideFile = createIconifyIcon('lucide:file');
+
+// AI设置相关图标
+export const LucideBot = createIconifyIcon('lucide:bot');
+export const LucideEdit3 = createIconifyIcon('lucide:edit-3');
+export const LucideSettings2 = createIconifyIcon('lucide:settings-2');
+export const LucideLock = createIconifyIcon('lucide:lock');
+export const LucideUnlock = createIconifyIcon('lucide:unlock');
+export const LucideKeyRound = createIconifyIcon('lucide:key-round');

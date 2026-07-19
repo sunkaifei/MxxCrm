@@ -3,14 +3,13 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideEye, LucideFilePenLine, LucideTrash2 } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Drawer, Tabs, Modal, Popconfirm, Tag } from 'ant-design-vue';
 import { useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -31,9 +30,48 @@ import OrderDrawer from './drawer.vue';
 import ShipmentDrawer from '../shipment/drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 import OrderApprovalDrawer from './approval-drawer.vue';
+import CustomerDetail from '../../crm/customer/detail.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
 const router = useRouter();
+
+// 全部订单 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
+const canViewAll = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 1;
+});
+
+// 下属订单 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
+const canViewSubordinate = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 2 || dataScope === 3 || dataScope === 4;
+});
+
+const allTabList = [
+  { key: 'all', label: '全部订单' },
+  { key: 'my', label: '我的订单' },
+  { key: 'subordinate', label: '下属订单' },
+];
+
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter(t => keys.includes(t.key));
+});
+
+const activeTab = ref('my');
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
 
 const orderStatusOptions = [
   { label: '草稿', value: 1 },
@@ -170,11 +208,10 @@ const formOptions: VbenFormProps = {
       },
     },
     {
-      component: 'DatePicker',
+      component: 'RangePicker',
       fieldName: 'dateRange',
       label: '日期范围',
       componentProps: {
-        type: 'daterange',
         placeholder: ['开始日期', '结束日期'],
         style: 'width:100%',
         valueFormat: 'YYYY-MM-DD',
@@ -198,6 +235,7 @@ const gridOptions: VxeGridProps = {
         const params: any = {
           page: page.currentPage,
           pageSize: page.pageSize,
+          listType: activeTab.value,
         };
         if (formValues.keywords) params.keywords = formValues.keywords;
         if (formValues.orderStatus) params.orderStatus = formValues.orderStatus;
@@ -255,57 +293,65 @@ const gridOptions: VxeGridProps = {
   },
   columns: [
     { type: 'checkbox', width: 50 },
-    { title: $t('ui.table.seq'), type: 'seq', width: 60 },
+    { title: $t('ui.table.seq'), type: 'seq', width: 60, headerAlign: 'center' },
     {
       title: '订单号',
       field: 'orderNo',
       width: 160,
+      headerAlign: 'center',
       slots: { default: 'orderNo' },
     },
-    { title: '订单标题', field: 'title', width: 200 },
-    { title: '客户名称', field: 'customerName', width: 180 },
+    { title: '订单标题', field: 'title', width: 200, headerAlign: 'center' },
+    { title: '客户名称', field: 'customerName', width: 180, headerAlign: 'center', align: 'left', slots: { default: 'customerName' } },
     {
       title: '订单类型',
       field: 'orderType',
       width: 100,
+      headerAlign: 'center',
       slots: { default: 'orderType' },
     },
     {
       title: '订单金额',
       field: 'totalAmount',
       width: 140,
+      headerAlign: 'center',
       slots: { default: 'totalAmount' },
     },
     {
       title: '订单状态',
       field: 'orderStatus',
       width: 100,
+      headerAlign: 'center',
       slots: { default: 'orderStatus' },
     },
     {
       title: '支付状态',
       field: 'paymentStatus',
       width: 100,
+      headerAlign: 'center',
       slots: { default: 'paymentStatus' },
     },
-    { title: '负责人', field: 'ownerUserName', width: 90 },
-    { title: '下单日期', field: 'orderDate', width: 110 },
+    { title: '负责人', field: 'ownerUserName', width: 90, headerAlign: 'center' },
+    { title: '下单日期', field: 'orderDate', width: 110, headerAlign: 'center' },
     {
       title: '审批状态',
       field: 'approvalStatus',
       width: 90,
+      headerAlign: 'center',
       slots: { default: 'approvalStatus' },
     },
     {
       title: '创建时间',
       field: 'createTime',
       width: 160,
+      headerAlign: 'center',
       slots: { default: 'createTime' },
     },
     {
       title: $t('ui.table.action'),
       field: 'action',
       fixed: 'right',
+      headerAlign: 'center',
       slots: { default: 'action' },
       width: 320,
     },
@@ -514,12 +560,35 @@ async function handleCreateContract(row: any) {
     },
   });
 }
+// ========== 客户详情抽屉 ==========
+const customerDetailVisible = ref(false);
+const customerDetailId = ref<number | null>(null);
+const customerDetailKey = ref(0);
+
+function openCustomerDetail(customerId: number) {
+  if (!customerId) {
+    window.$message.warning('该订单未关联客户ID');
+    return;
+  }
+  customerDetailId.value = customerId;
+  customerDetailKey.value++;
+  customerDetailVisible.value = true;
+}
+function closeCustomerDetail() {
+  customerDetailVisible.value = false;
+  customerDetailId.value = null;
+}
 </script>
 
 <template>
   <Page>
     <SalesProcessGuide current-step="order" />
     <Grid :table-title="''">
+      <template #form-header>
+        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('sale:order:create')"
@@ -540,13 +609,24 @@ async function handleCreateContract(row: any) {
 
       <template #orderNo="{ row }">
         <a
-          v-if="accessStore.hasAccessCode('sale:order:view')"
+          v-if="accessStore.hasAccessCode('sale:order:list')"
           class="text-blue-600 cursor-pointer"
           @click="handleView(row)"
         >
           {{ row.orderNo }}
         </a>
         <span v-else>{{ row.orderNo }}</span>
+      </template>
+
+      <template #customerName="{ row }">
+        <a
+          v-if="row.customerId"
+          class="text-blue-600 cursor-pointer hover:text-blue-800"
+          @click="() => openCustomerDetail(Number(row.customerId))"
+        >
+          {{ row.customerName || '-' }}
+        </a>
+        <span v-else>{{ row.customerName || '-' }}</span>
       </template>
 
       <template #orderType="{ row }">
@@ -584,14 +664,14 @@ async function handleCreateContract(row: any) {
 
       <template #action="{ row }">
         <a
-          v-if="accessStore.hasAccessCode('sale:order:view')"
+          v-if="accessStore.hasAccessCode('sale:order:list')"
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleView(row)"
         >查看</a>
         <!-- 提交审批：草稿(0)或已驳回(4)状态 -->
         <a
           v-if="
-            accessStore.hasAccessCode('sale:order:edit') &&
+            accessStore.hasAccessCode('sale:order:update') &&
             (row.approvalStatus === 0 || row.approvalStatus === 4)
           "
           class="text-blue-600 cursor-pointer mx-1"
@@ -600,7 +680,7 @@ async function handleCreateContract(row: any) {
         <!-- 编辑：草稿(0)或已驳回(4)状态，放在提交审批后 -->
         <a
           v-if="
-            accessStore.hasAccessCode('sale:order:edit') &&
+            accessStore.hasAccessCode('sale:order:update') &&
             (row.approvalStatus === 0 || row.approvalStatus === 4)
           "
           class="text-blue-600 cursor-pointer mx-1"
@@ -635,7 +715,7 @@ async function handleCreateContract(row: any) {
         >签署合同</a>
         <a
           v-if="
-            accessStore.hasAccessCode('sale:order:edit') &&
+            accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 3
           "
           class="text-blue-600 cursor-pointer mx-1"
@@ -643,7 +723,7 @@ async function handleCreateContract(row: any) {
         >备货</a>
         <a
           v-if="
-            accessStore.hasAccessCode('sale:order:edit') &&
+            accessStore.hasAccessCode('sale:order:update') &&
             (row.orderStatus === 3 ||
               row.orderStatus === 4 ||
               row.orderStatus === 5)
@@ -653,7 +733,7 @@ async function handleCreateContract(row: any) {
         >发货</a>
         <a
           v-if="
-            accessStore.hasAccessCode('sale:order:edit') &&
+            accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 6
           "
           class="text-blue-600 cursor-pointer mx-1"
@@ -661,7 +741,7 @@ async function handleCreateContract(row: any) {
         >签收</a>
         <a
           v-if="
-            accessStore.hasAccessCode('sale:order:edit') &&
+            accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 9
           "
           class="text-blue-600 cursor-pointer mx-1"
@@ -689,5 +769,22 @@ async function handleCreateContract(row: any) {
       :order-id="approvalOrderId"
       @success="gridApi.query()"
     />
+    <Drawer
+      v-model:open="customerDetailVisible"
+      :width="1100"
+      placement="right"
+      :destroy-on-close="false"
+      :mask-closable="false"
+      :closable="true"
+      title="客户详情"
+      :body-style="{ padding: 0, overflow: 'auto', height: '100%' }"
+      @close="closeCustomerDetail"
+    >
+      <CustomerDetail
+        v-if="customerDetailVisible && customerDetailId"
+        :key="customerDetailKey"
+        :id="customerDetailId"
+      />
+    </Drawer>
   </Page>
 </template>

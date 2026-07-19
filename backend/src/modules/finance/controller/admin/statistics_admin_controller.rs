@@ -8,13 +8,12 @@
 //! 版权所有，侵权必究！
 //!
 
-use actix_web::{get, post, web, HttpResponse, Result};
+use actix_web::{web, HttpResponse, Result};
 use crate::core::kit::global::AppState;
 use crate::core::web::response::MetaResp;
 use crate::modules::finance::model::finance_statistics::FinanceStatisticsQuery;
 use crate::modules::finance::service::finance_statistics_service;
 
-#[get("/statistics/summary")]
 pub async fn summary(
     state: web::Data<AppState>
 ) -> Result<HttpResponse> {
@@ -27,7 +26,6 @@ pub async fn summary(
     }
 }
 
-#[get("/statistics/list")]
 pub async fn list(
     state: web::Data<AppState>,
     query: web::Query<FinanceStatisticsQuery>
@@ -41,7 +39,6 @@ pub async fn list(
     }
 }
 
-#[post("/statistics/generate-daily")]
 pub async fn generate_daily(
     state: web::Data<AppState>
 ) -> Result<HttpResponse> {
@@ -54,8 +51,11 @@ pub async fn generate_daily(
     }
 }
 
-pub fn routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(summary);
-    cfg.service(list);
-    cfg.service(generate_daily);
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/statistics")
+            .route("/summary", web::get().to(summary))
+            .route("/list", web::get().to(list))
+            .route("/generate-daily", web::post().to(generate_daily)),
+    );
 }

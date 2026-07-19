@@ -8,8 +8,8 @@
 //! 版权所有，侵权必究！
 //!
 
-use actix_web::{get, post, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
+use crate::core::web::permission_guard::require_permission;
 
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
@@ -21,8 +21,6 @@ use crate::modules::finance::model::payment::{
 };
 use crate::modules::finance::service::payment_service;
 
-#[get("/finance/payment/list")]
-#[protect("finance:payment:list")]
 pub async fn list(
     state: web::Data<AppState>,
     query: web::Query<PaymentQuery>,
@@ -41,8 +39,6 @@ pub async fn list(
     }
 }
 
-#[get("/finance/payment/detail")]
-#[protect("finance:payment:list")]
 pub async fn detail(
     state: web::Data<AppState>,
     query: web::Query<InfoId>,
@@ -63,8 +59,6 @@ pub async fn detail(
     }
 }
 
-#[post("/finance/payment/apply")]
-#[protect("finance:payment:manage")]
 pub async fn apply(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -85,8 +79,6 @@ pub async fn apply(
     }
 }
 
-#[post("/finance/payment/approve")]
-#[protect("finance:payment:manage")]
 pub async fn approve(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -107,8 +99,6 @@ pub async fn approve(
     }
 }
 
-#[post("/finance/payment/confirm")]
-#[protect("finance:payment:manage")]
 pub async fn confirm(
     state: web::Data<AppState>,
     form_data: web::Json<PaymentConfirmDTO>,
@@ -124,8 +114,6 @@ pub async fn confirm(
     }
 }
 
-#[post("/finance/payment/cancel")]
-#[protect("finance:payment:manage")]
 pub async fn cancel(
     state: web::Data<AppState>,
     form_data: web::Json<PaymentCancelDTO>,
@@ -139,4 +127,16 @@ pub async fn cancel(
         Err(e) => HttpResponse::Ok().content_type("application/msgpack")
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
+}
+
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/finance/payment")
+            .route("/list", web::get().to(list).wrap(require_permission("finance:payment:list")))
+            .route("/detail", web::get().to(detail).wrap(require_permission("finance:payment:list")))
+            .route("/apply", web::post().to(apply).wrap(require_permission("finance:payment:manage")))
+            .route("/approve", web::post().to(approve).wrap(require_permission("finance:payment:manage")))
+            .route("/confirm", web::post().to(confirm).wrap(require_permission("finance:payment:manage")))
+            .route("/cancel", web::post().to(cancel).wrap(require_permission("finance:payment:manage"))),
+    );
 }

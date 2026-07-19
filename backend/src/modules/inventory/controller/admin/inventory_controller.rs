@@ -13,11 +13,9 @@ use crate::core::kit::global::AppState;
 use crate::core::web::response::MetaResp;
 use crate::modules::inventory::model::stock::{InventoryDetailVO, InventoryListData, InventoryListQuery};
 use crate::modules::inventory::service::inventory_service;
-use actix_web::{get, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
+use crate::core::web::permission_guard::require_permission;
 
-#[get("/inventory/list")]
-#[protect("product:inventory:list")]
 pub async fn inventory_list(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let query_str = req.query_string();
@@ -36,8 +34,6 @@ pub async fn inventory_list(state: web::Data<AppState>, req: HttpRequest) -> Res
     }
 }
 
-#[get("/inventory/info")]
-#[protect("product:inventory:view")]
 pub async fn inventory_info(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let id = req.query_string().split("&").find(|s| s.starts_with("id=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())).unwrap_or(0);
@@ -49,4 +45,12 @@ pub async fn inventory_info(state: web::Data<AppState>, req: HttpRequest) -> Res
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
+}
+
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/inventory")
+            .route("/list", web::get().to(inventory_list).wrap(require_permission("product:inventory:list")))
+            .route("/info", web::get().to(inventory_info).wrap(require_permission("product:inventory:view"))),
+    );
 }

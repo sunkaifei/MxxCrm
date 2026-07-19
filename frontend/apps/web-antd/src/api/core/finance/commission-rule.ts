@@ -49,8 +49,10 @@ export const getCommissionDefaultApi = async () => {
 };
 
 // 预览合同提成
+// 注意：使用 /contract/commission/preview（只需 crm:contract:list 权限），
+// 而非 /finance/commission/preview（需要 finance:commission:manage 权限）
 export const previewCommissionApi = async (contractId: number) => {
-  return requestClient.post('/api/system/finance/commission/preview', { id: contractId });
+  return requestClient.post('/api/system/contract/commission/preview', { id: contractId });
 };
 
 // 月度结算

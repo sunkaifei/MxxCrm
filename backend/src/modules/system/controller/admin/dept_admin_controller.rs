@@ -13,14 +13,12 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::system::model::dept::{DeptDetailVO, DeptModel, DeptSaveDTO, DeptSaveRequest, DeptUpdateRequest, ListQuery};
 use crate::modules::system::service::{admin_service, dept_service};
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 
-#[post("/dept/save")]
-#[protect("system:dept:save")]
 pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::Json<DeptSaveRequest>) -> Result<HttpResponse> {
     //log::info!("dept_save params: {:?}", &item);
     let db = &state.db;
@@ -64,8 +62,6 @@ pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::
 }
 
 // 删除部门信息
-#[delete("/dept/batch_delete")]
-#[protect("system:dept:delete")]
 pub async fn dept_batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -88,8 +84,6 @@ pub async fn dept_batch_delete(state: web::Data<AppState>, item: web::Json<BathD
 }
 
 ///更新部门信息
-#[put("/dept/update/{id}")]
-#[protect("system:dept:update")]
 pub async fn dept_update(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>, item: web::Json<DeptUpdateRequest>) ->  Result<HttpResponse> {
     let db = &state.db;
     let sys_dept = item.0;
@@ -142,7 +136,6 @@ pub async fn dept_update(state: web::Data<AppState>, req: HttpRequest, id: web::
     }
 }
 
-#[get("/dept/options")]
 pub async fn get_dept_options(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = dept_service::get_dept_options(db).await;
@@ -156,7 +149,6 @@ pub async fn get_dept_options(state: web::Data<AppState>) -> Result<HttpResponse
     }
 }
 
-#[get("/dept/tree")]
 pub async fn get_dept_tree(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = dept_service::get_dept_tree(db).await;
@@ -170,8 +162,6 @@ pub async fn get_dept_tree(state: web::Data<AppState>) -> Result<HttpResponse> {
     }
 }
 
-#[get("/dept/detail/{id}")]
-#[protect("system:dept:view")]
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> HttpResponse {
     let db = &state.db;
     if item.id.is_none() {
@@ -194,8 +184,6 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
 }
 
 // 查询用户列表
-#[get("/dept/list")]
-#[protect("system:dept:list")]
 pub async fn dept_list(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = dept_service::get_all_tree(&db,query.into_inner()).await;
@@ -207,6 +195,58 @@ pub async fn dept_list(state: web::Data<AppState>, query: web::Query<ListQuery>)
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("查询部门列表树异常,".to_string() + &err.to_string()), "local")))
         }
     }
+}
+
+// ==================== 路由注册（方案 C：单点维护）====================
+
+/// 注册部门管理模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(dept_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/dept")
+            // POST /dept/save - 添加部门
+            // 注意：Route::to() 会覆盖之前 wrap() 设置的中间件，所以必须先 to() 再 wrap()
+            .route(
+                "/save",
+                web::post()
+                    .to(save_dept)
+                    .wrap(require_permission("system:dept:save")),
+            )
+            // DELETE /dept/batch_delete - 批量删除部门
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(dept_batch_delete)
+                    .wrap(require_permission("system:dept:delete")),
+            )
+            // PUT /dept/update/{id} - 更新部门
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(dept_update)
+                    .wrap(require_permission("system:dept:update")),
+            )
+            // GET /dept/options - 部门下拉选项
+            .route("/options", web::get().to(get_dept_options))
+            // GET /dept/tree - 部门树
+            .route("/tree", web::get().to(get_dept_tree))
+            // GET /dept/detail/{id} - 部门详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_by_detail)
+                    .wrap(require_permission("system:dept:view")),
+            )
+            // GET /dept/list - 部门列表
+            .route(
+                "/list",
+                web::get()
+                    .to(dept_list)
+                    .wrap(require_permission("system:dept:list")),
+            ),
+    );
 }
 
 

@@ -9,17 +9,15 @@
 //!
 
 use crate::core::errors::error::Result;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
-use actix_web_grants::protect;
+use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp};
 use crate::modules::website::model::website_links::{LinkSaveDTO, LinkSaveRequest, LinkUpdateRequest, ListQuery};
 use crate::modules::website::service::{website_links_service};
 
 
-#[post("/links/add")]
-#[protect("website:links:add")]
 pub async fn add_links(state: web::Data<AppState>, req: HttpRequest, item: web::Json<LinkSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let payload = item.0;
@@ -44,8 +42,6 @@ pub async fn add_links(state: web::Data<AppState>, req: HttpRequest, item: web::
     }
 }
 
-#[delete("/links/batch_delete")]
-#[protect("website:links:delete")]
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
@@ -67,8 +63,6 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     }
 }
 
-#[put("/links/update/{id}")]
-#[protect("website:links:update")]
 pub async fn update_by_id(state: web::Data<AppState>, id: web::Path<i64>, item: web::Json<LinkUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let payload = item.0;
@@ -92,8 +86,6 @@ pub async fn update_by_id(state: web::Data<AppState>, id: web::Path<i64>, item: 
         Ok(HttpResponse::Ok().json("更新失败".to_string()))
     }
 }
-#[get("/links/detail/{id}")]
-#[protect("website:links:find")]
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
@@ -103,8 +95,6 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
 }
 
-#[get("/links/list")]
-#[protect("website:links:list")]
 pub async fn get_by_page(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ListQuery>,) -> Result<HttpResponse> {
     let db = &state.db;
     let mut form_data = query.0;
@@ -116,4 +106,51 @@ pub async fn get_by_page(state: web::Data<AppState>, req: HttpRequest, query: we
     website_links_service::get_by_page(&db, form_data).await.map(|page_data| {
         HttpResponse::Ok().json(page_data)
     })
+}
+
+// ==================== 路由注册（单点维护）====================
+
+/// 注册友情链接模块所有路由
+///
+/// 修改路径、权限码、HTTP 方法只需修改本函数。
+/// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(website_links_admin_controller::register)` 注册。
+pub fn register(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/links")
+            // POST /links/add - 新建友情链接
+            .route(
+                "/add",
+                web::post()
+                    .to(add_links)
+                    .wrap(require_permission("website:links:add")),
+            )
+            // DELETE /links/batch_delete - 批量删除友情链接
+            .route(
+                "/batch_delete",
+                web::delete()
+                    .to(batch_delete)
+                    .wrap(require_permission("website:links:delete")),
+            )
+            // PUT /links/update/{id} - 修改友情链接
+            .route(
+                "/update/{id}",
+                web::put()
+                    .to(update_by_id)
+                    .wrap(require_permission("website:links:update")),
+            )
+            // GET /links/detail/{id} - 友情链接详情
+            .route(
+                "/detail/{id}",
+                web::get()
+                    .to(get_by_detail)
+                    .wrap(require_permission("website:links:find")),
+            )
+            // GET /links/list - 友情链接列表
+            .route(
+                "/list",
+                web::get()
+                    .to(get_by_page)
+                    .wrap(require_permission("website:links:list")),
+            ),
+    );
 }

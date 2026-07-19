@@ -36,7 +36,7 @@ const userStore = useUserStore();
 // 1=全部数据 → my+subordinate  2=自定义 → my+subordinate
 // 3=本部门 → my  4=本部门及以下 → my+subordinate  5=仅本人 → my
 const dataScope = computed(() => {
-  const scope = (userStore.userInfo as any)?.dataScope;
+  const scope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
   const roles = userStore.userInfo?.roles ?? [];
   if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
   return typeof scope === 'number' ? scope : 5;

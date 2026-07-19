@@ -2,14 +2,14 @@
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { computed, h, ref } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2, LucideEye } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Drawer, Modal, message } from 'ant-design-vue';
+import { Button, Popconfirm, Drawer, Modal, Tabs, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteOpportunityApi, getOpportunityListApi } from '#/api';
@@ -19,6 +19,49 @@ import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
+
+// 全部商机 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
+const canViewAll = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 1;
+});
+
+// 下属商机 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
+const canViewSubordinate = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  return dataScope === 2 || dataScope === 3 || dataScope === 4;
+});
+
+const activeTab = ref('my');
+const allTabList = [
+  { key: 'all', label: '全部商机' },
+  { key: 'my', label: '我的商机' },
+  { key: 'subordinate', label: '下属商机' },
+];
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter(t => keys.includes(t.key));
+});
+// 当Tab权限变化时，确保当前激活的Tab仍然可见
+watch(tabList, (newTabs) => {
+  const keys = newTabs.map(t => t.key);
+  if (!keys.includes(activeTab.value) && keys.length > 0) {
+    activeTab.value = keys[0];
+  }
+}, { immediate: true });
+
+function handleTabChange(key: string) {
+  activeTab.value = key;
+  gridApi.query();
+}
 
 // 来源映射 - 对齐后端 LeadSource 枚举（数字值）
 const sourceLabelMap: Record<string, string> = {
@@ -137,6 +180,7 @@ const gridOptions: VxeGridProps = {
         return await getOpportunityListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
+          listType: activeTab.value,
           ...formValues,
         });
       },
@@ -227,6 +271,11 @@ async function handleBatchDelete() {
   <Page>
     <SalesProcessGuide current-step="opportunity" />
     <Grid :table-title="$t('page.crm.opportunity.title')">
+      <template #form-header>
+        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button v-if="accessStore.hasAccessCode('crm:opportunity:save')" type="primary" class="mr-2" @click="handleCreate">
           {{ $t('page.crm.opportunity.button.create') }}

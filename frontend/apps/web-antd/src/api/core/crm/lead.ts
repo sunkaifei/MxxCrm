@@ -24,6 +24,9 @@ export const addLeadToPoolApi = async (id: number) => {
 export const claimLeadApi = async (id: number) => {
   return requestClient.put('/api/system/lead/claim', { id });
 };
+export const convertLeadToCustomerApi = async (id: number) => {
+  return requestClient.post('/api/system/lead/convert-to-customer', { id });
+};
 export const saveFollowupApi = async (params: any) => {
   return requestClient.post('/api/system/followup/save', params);
 };
