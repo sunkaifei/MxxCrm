@@ -15,5 +15,5 @@
 /**/*.py
 /*.txt
 /lefthook.yml
-
-
+/token.txt
+/mxx-crm-deploy/

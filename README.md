@@ -66,8 +66,6 @@ Mxx-CRM 是一款现代化的客户关系管理系统，采用前后端分离架
 - **SKU规格管理**：独立SKU配置页面，支持动态定义规格（颜色/尺寸/CPU/内存等）
 - **库存管理**：仓库管理、产品库存跟踪、出入库管理
 
-详细设计文档请参考 [docs/product-module-design.md](docs/product-module-design.md)
-
 ### 5. 采购管理模块
 - **供应商管理**：供应商信息维护、评级管理
 - **采购订单**：采购申请、审批、入库管理、采购明细
@@ -110,17 +108,8 @@ MxxCrm/
 │           │   └── store/     # 状态管理
 │           ├── dist/          # 构建产物（已嵌入后端）
 │           └── package.json   # Node 依赖
-├── docs/                      # 文档
-│   ├── 01-总体架构设计.md      # 架构设计文档
-│   ├── 02-数据库设计.md       # 数据库设计文档
-│   ├── 03-功能模块设计.md     # 功能模块设计文档
-│   ├── 04-API设计.md          # API 接口设计文档
-│   ├── 05-部署与开发指南.md    # 部署与开发指南
-│   └── product-module-design.md # 产品模块详细设计
-├── sql/                       # SQL 脚本
-│   ├── init.sql               # 数据库表结构初始化
-│   ├── init_data.sql          # 默认数据初始化（角色、用户、菜单）
-│   └── migrate_menu_data.sql  # 菜单数据迁移脚本
+├── LICENSE                    # MIT 许可证
+├── .gitignore                 # Git 忽略规则
 └── README.md                  # 项目说明
 ```
 
@@ -167,26 +156,16 @@ pg_restore -U postgres -d mxxcrm_data --clean --if-exists --no-owner --no-privil
 ```bash
 cd backend
 
-# 设置环境变量
-export DATABASE_URL=postgres://username:password@localhost:5432/mxxcrm_data
-export REDIS_URL=redis://localhost:6379/0
-
 # 编译并运行（前端已嵌入二进制）
 cargo run --release
 ```
-
-
-s杀进程：pkill mxx-crm 
-给授权：chmod +x ./mxx-crm
-启动程序：nohup ./mxx-crm > output.log 2>&1 &
-
 
 ### 访问地址
 
 | 类型 | 地址 |
 |------|------|
-| 前端页面 | http://localhost:8088 |
-| API 接口 | http://localhost:8088/api |
+| 前端页面 | http://localhost:8080 |
+| API 接口 | http://localhost:8080/api |
 
 ### 默认账号
 
@@ -229,39 +208,83 @@ cargo watch -x run
 - **后端**：遵循 Rust 官方代码规范，使用 `cargo fmt` 格式化代码
 - **前端**：遵循 Vue 官方风格指南，使用 `prettier` 格式化代码
 
-### 数据库配置
-
-数据库连接信息通过环境变量或配置文件指定：
-
-- **环境变量方式**：`DATABASE_URL=postgres://username:password@localhost:5432/mxx_crm`
-- **配置文件方式**：`backend/config/production_config.ini`
-
-详细配置说明请参考 [docs/05-部署与开发指南.md](docs/05-部署与开发指南.md)
-
 ## 部署说明
 
-### 生产构建
+生产部署流程：**导入数据库 → 编译前端 → 编译后端 → 新建运行目录 → 复制文件 → 运行**。
+
+### 1. 导入数据库
+
+```bash
+# 创建数据库
+createdb -U postgres -E UTF8 mxxcrm_data
+
+# 导入完整数据库备份（包含表结构、初始数据、菜单、角色、用户等）
+pg_restore -U postgres -d mxxcrm_data --clean --if-exists --no-owner --no-privileges -v sql/mxxcrm_data_full.dump
+```
+
+### 2. 编译前端
+
+```bash
+cd frontend/apps/web-antd
+
+# 安装依赖（首次）
+npm install
+
+# 构建前端（产物输出到 dist 目录）
+npm run build
+```
+
+### 3. 编译后端
 
 ```bash
 cd backend
 
-# 构建独立可执行文件（包含前端）
+# 构建独立可执行文件（已嵌入前端）
 cargo build --release
-
-# 产物位置
-# target/release/mxx-saas
 ```
 
-### 运行
+编译产物位于 `backend/target/release/`：
+- Windows：`mxx-crm.exe`
+- Linux/macOS：`mxx-crm`
+
+### 4. 新建运行目录并复制文件
+
+新建一个空目录（例如 `mxx-crm-deploy`）作为运行目录，将以下文件和文件夹复制进去（注意：文件夹直接放在运行目录根下，不要保留 `backend/` 前缀）：
+
+| 来源 | 目标 | 说明 |
+|------|------|------|
+| `backend/config/` | `config/` | 配置文件目录 |
+| `backend/locales/` | `locales/` | 多语言资源 |
+| `backend/static/` | `static/` | 静态资源 |
+| `backend/storage/` | `storage/` | 上传文件存储目录 |
+| `backend/templates/` | `templates/` | 模板文件 |
+| `backend/target/release/mxx-crm.exe` | `mxx-crm.exe` | 可执行文件（Windows） |
+| `backend/target/release/mxx-crm` | `mxx-crm` | 可执行文件（Linux/macOS） |
+
+复制完成后运行目录结构如下：
+
+```
+mxx-crm-deploy/
+├── config/         # 配置文件
+├── locales/        # 多语言
+├── static/         # 静态资源
+├── storage/        # 上传存储
+├── templates/      # 模板
+└── mxx-crm.exe     # 可执行文件（Windows）
+```
+
+### 5. 运行
+
+**Windows**：双击 `mxx-crm.exe` 即可启动。
+
+**Linux/macOS**：
 
 ```bash
-# 设置数据库连接
-export DATABASE_URL=postgres://username:password@localhost:5432/mxx_crm
-export REDIS_URL=redis://localhost:6379/0
-
-# 直接运行可执行文件
-./target/release/mxx-saas
+chmod +x mxx-crm
+./mxx-crm
 ```
+
+启动后访问 http://localhost:8080 即可打开系统。
 
 **注意**：启动后无需额外启动前端服务，前端页面已嵌入在二进制文件中，直接访问端口即可。
 
