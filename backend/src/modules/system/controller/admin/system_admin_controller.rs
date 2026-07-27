@@ -83,15 +83,58 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
     //     CONTEXT.cache_service.del(&format!("captcha:cache_{}", uuid.as_str())).await.unwrap_or_default();
     // } else {
     //     return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::error_msg("验证不能为空或者参数错误".to_string())));
-    // } 
-    
-    let user_info = admin_service::find_by_name(&db, &item.username).await?.ok_or_else(|| { Error::from(format!("msg={},code={}", "未获取到用户信息".to_string(), 404))})?;
+    // }
+
+    // 提取登录请求中输入的用户名，用于审计日志记录（即便后续校验失败，也要知道是谁在尝试登录）
+    let input_username = item.username.clone().unwrap_or_default();
+    let oper_param_json = format!("{{\"username\":\"{}\"}}", input_username.replace('"', "\\\""));
+    let request_method = request.method().to_string();
+    let oper_ip = request.connection_info().realip_remote_addr().map(|s| s.to_string());
+
+    // 用户不存在
+    let user_info = match admin_service::find_by_name(&db, &item.username).await {
+        Ok(Some(u)) => u,
+        Ok(None) => {
+            record_login_log(
+                &db,
+                &request,
+                Some(input_username.clone()),
+                Some(oper_param_json.clone()),
+                Some(1),
+                Some("用户不存在".to_string()),
+                oper_ip.clone(),
+            ).await;
+            return Err(Error::from(format!("msg={},code={}", "未获取到用户信息".to_string(), 404)));
+        }
+        Err(e) => return Err(e),
+    };
+
+    // 密码校验
     let valid = verify(&item.password.clone().unwrap_or_default(), &user_info.password.clone().unwrap_or_default()).unwrap_or_default();
     if !valid {
+        record_login_log(
+            &db,
+            &request,
+            Some(input_username.clone()),
+            Some(oper_param_json.clone()),
+            Some(1),
+            Some("密码不正确".to_string()),
+            oper_ip.clone(),
+        ).await;
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码不正确", "local")));
     }
-    
+
+    // 用户被禁用
     if user_info.status != Some(1) {
+        record_login_log(
+            &db,
+            &request,
+            Some(input_username.clone()),
+            Some(oper_param_json.clone()),
+            Some(1),
+            Some("用户已被禁用，无法登录".to_string()),
+            oper_ip.clone(),
+        ).await;
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户已被禁用，无法登录", "local")));
     }
     //判断是否是管理员
@@ -100,7 +143,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
     //查询按用户关联的按钮权限
     let user_role_keys: Vec<String> = find_user_role_keys(&db, &is_admin, &Some(user_info.id)).await?;
     // let user_role_keys: Vec<String> = Vec::new();
-    
+
     // 原来的token
     let old_token = CONTEXT.cache_service.get_string(&format!("user_{}", user_info.id.to_string().as_str())).await?;
 
@@ -111,10 +154,33 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
         Ok(token) => {
             // 缓存token
             CONTEXT.cache_service.set_string(&format!("user_{}", user_info.id.to_string().as_str()), &token.clone().as_str()).await?;
-            
-            // 记录登录日志
-            let method = request.method().to_string();
-            system_log_service::save_system_log(&db, &request, Some("用户登录".to_string()), Some(0),Some("system_admin_controller::login".to_string()), Some(method.to_string()),Some(1)).await.unwrap_or_default();
+
+            // 记录登录成功日志（同步落库，登录响应延迟几毫秒可接受）
+            // json_result 字段名与 TokenVO 实际响应字段保持一致，敏感字段已脱敏
+            let json_result = format!(
+                "{{\"accessToken\":\"***\",\"tokenType\":\"Bearer\",\"refreshToken\":\"***\",\"expiresIn\":{},\"roleCount\":{}}}",
+                expire.as_secs(),
+                user_role_keys.len()
+            );
+            let ctx = system_log_service::SaveLogContext {
+                request: &request,
+                title: Some("用户登录".to_string()),
+                business_type: Some(0),
+                method: Some("system_admin_controller::post_login".to_string()),
+                request_method: Some(request_method.clone()),
+                operator_type: Some(1),
+                oper_name: user_info.user_name.clone(),
+                dept_name: None,
+                oper_param: Some(oper_param_json.clone()),
+                json_result: Some(json_result),
+                status: Some(0),
+                error_msg: None,
+                status_code: Some(200),
+                elapsed: None,
+            };
+            if let Err(e) = system_log_service::save_log_with_ip(&db, ctx, oper_ip.clone()).await {
+                log::warn!("[登录日志] 写入失败: {}", e);
+            }
 
             let update_user = UpdateLoginRequest {
                 id: Some(user_info.id),
@@ -133,8 +199,49 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(user_token, "local")))
         }
         Err(err) => {
+            // 生成 token 失败也记录日志
+            record_login_log(
+                &db,
+                &request,
+                Some(input_username.clone()),
+                Some(oper_param_json.clone()),
+                Some(1),
+                Some(format!("生成Token失败: {}", err)),
+                oper_ip.clone(),
+            ).await;
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
         }
+    }
+}
+
+/// 记录登录失败日志的辅助函数（同步落库，但失败时仅打印日志不影响主流程）
+async fn record_login_log(
+    db: &sea_orm::DbConn,
+    request: &HttpRequest,
+    oper_name: Option<String>,
+    oper_param: Option<String>,
+    status: Option<i32>,
+    error_msg: Option<String>,
+    oper_ip: Option<String>,
+) {
+    let ctx = system_log_service::SaveLogContext {
+        request,
+        title: Some("用户登录".to_string()),
+        business_type: Some(0),
+        method: Some("system_admin_controller::post_login".to_string()),
+        request_method: Some(request.method().to_string()),
+        operator_type: Some(1),
+        oper_name,
+        dept_name: None,
+        oper_param,
+        json_result: None,
+        status,
+        error_msg,
+        status_code: Some(400),
+        elapsed: None,
+    };
+    if let Err(e) = system_log_service::save_log_with_ip(db, ctx, oper_ip).await {
+        log::warn!("[登录日志] 写入失败: {}", e);
     }
 }
 

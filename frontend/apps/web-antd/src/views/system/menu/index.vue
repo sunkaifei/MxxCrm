@@ -55,12 +55,13 @@ const gridOptions: VxeGridProps = {
   cellConfig: {
     isHover: true,
   },
-  rowConfig: { height: 'auto' },
+  rowConfig: { height: 48 },
   treeConfig: {
     parentField: 'parentId',
     childrenField: 'children',
     rowField: 'id',
     transform: false,
+    accordion: true,
   },
   proxyConfig: {
     autoLoad: true,
@@ -128,6 +129,7 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'title' },
       treeNode: true,
       width: 200,
+      showOverflow: true,
     },
     {
       title: $t('page.system.menu.type'),
@@ -145,16 +147,19 @@ const gridOptions: VxeGridProps = {
       title: $t('page.system.menu.path'),
       field: 'path',
       width: 180,
+      showOverflow: true,
     },
     {
       title: $t('page.system.menu.component'),
       field: 'component',
       width: 180,
+      showOverflow: true,
     },
     {
       title: $t('page.system.menu.perm'),
       field: 'perm',
       width: 180,
+      showOverflow: true,
     },
     {
       title: $t('ui.table.status'),

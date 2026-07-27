@@ -9,3 +9,4 @@
 //!
 
 pub mod chat_controller;
+pub mod notification_controller;

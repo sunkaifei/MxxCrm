@@ -810,7 +810,7 @@ impl AdminModel {
             .await
     }
 
-    pub async fn find_all_options(db: &DbConn) -> Result<Vec<admin::Model>, DbErr> {
+    pub async fn find_all_options<C: ConnectionTrait>(db: &C) -> Result<Vec<admin::Model>, DbErr> {
         Admin::find()
             .filter(admin::Column::Deleted.eq(0))
             .filter(admin::Column::Status.eq(1))

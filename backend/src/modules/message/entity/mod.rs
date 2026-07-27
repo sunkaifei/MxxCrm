@@ -11,3 +11,5 @@
 pub mod chat_message;
 pub mod chat_session;
 pub mod chat_session_participant;
+pub mod system_notification;
+pub mod user_online;

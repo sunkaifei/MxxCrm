@@ -24,6 +24,7 @@ use crate::modules::crm::service::customer_service;
 use crate::modules::crm::service::contact_service;
 use crate::modules::crm::service::assign_history_service;
 use crate::modules::crm::service::customer_edit_log_service;
+use crate::modules::crm::service::customer_transfer_service;
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use super::customer_edit_log_controller;
 
@@ -31,10 +32,7 @@ pub async fn customer_insert(state: web::Data<AppState>, req: HttpRequest, form_
     let db = &state.db;
     let form_data = form_data.0;
 
-    if form_data.company_name.as_ref().map_or(true, |name| name.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
-    }
-
+    // 类型校验由 service 层处理（企业必填公司名，个人必填姓名）
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = customer_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
@@ -49,10 +47,7 @@ pub async fn customer_update(state: web::Data<AppState>, req: HttpRequest, form_
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
     }
 
-    if form_data.company_name.as_ref().map_or(true, |name| name.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
-    }
-
+    // 类型校验由 service 层处理
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = customer_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
@@ -193,18 +188,19 @@ pub async fn customer_assign_history(state: web::Data<AppState>, item: web::Quer
     }
 }
 
-/// 检查公司名称是否已存在
+/// 检查客户名称是否已存在（按 customerType 区分字段：1=企业按 companyName，2=个人按 personName）
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckNameQuery {
-    pub company_name: String,
+    pub customer_type: i32,
+    pub name: String,
     pub exclude_id: Option<i64>,
 }
 
 pub async fn customer_check_name(state: web::Data<AppState>, query: web::Query<CheckNameQuery>) -> HttpResponse {
     let db = &state.db;
     let q = query.into_inner();
-    match customer_service::check_company_name(db, q.company_name.trim(), q.exclude_id).await {
+    match customer_service::check_customer_name(db, q.customer_type, q.name.trim(), q.exclude_id).await {
         Ok(exists) => {
             use serde_json::json;
             let data = json!({ "exists": exists });
@@ -287,6 +283,51 @@ pub async fn customer_financial_update(
     }
 }
 
+// ==================== 客户转移 ====================
+
+/// 预览转移影响范围
+pub async fn customer_transfer_preview(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    form_data: web::Json<crate::modules::crm::service::customer_transfer_service::TransferPreviewRequest>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let _jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match customer_transfer_service::preview_transfer(db, &form_data.0).await {
+        Ok(data) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 执行客户转移
+pub async fn customer_transfer(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    form_data: web::Json<crate::modules::crm::service::customer_transfer_service::TransferRequest>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let operator_id = jwt_token.id.unwrap_or_default();
+    let operator_name = jwt_token.username.clone();
+
+    match customer_transfer_service::transfer_customer(
+        db, &form_data.0, operator_id, operator_name,
+    )
+    .await
+    {
+        Ok(data) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
 // ==================== 路由注册（单点维护）====================
 
 /// 注册客户模块所有路由
@@ -359,7 +400,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .to(customer_assign_history)
                     .wrap(require_permission("crm:customer:info")),
             )
-            // GET /customer/check-name - 检查公司名称是否已存在
+            // GET /customer/check-name - 检查客户名称是否已存在（按 customerType 区分字段）
             .route(
                 "/check-name",
                 web::get()
@@ -379,6 +420,20 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::put()
                     .to(customer_financial_update)
                     .wrap(require_permission("crm:customer:update")),
+            )
+            // POST /customer/transfer/preview - 预览转移影响范围
+            .route(
+                "/transfer/preview",
+                web::post()
+                    .to(customer_transfer_preview)
+                    .wrap(require_permission("crm:customer:transfer")),
+            )
+            // POST /customer/transfer - 执行客户转移
+            .route(
+                "/transfer",
+                web::post()
+                    .to(customer_transfer)
+                    .wrap(require_permission("crm:customer:transfer")),
             )
             // 客户修改日志（注册在 /customer scope 内，避免被 scope 捕获导致 404）
             .configure(customer_edit_log_controller::register),

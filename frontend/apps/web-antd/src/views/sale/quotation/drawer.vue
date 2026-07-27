@@ -39,6 +39,9 @@ const isReadOnly = ref(false);
 const activeTab = ref('basic');
 const isFullscreen = ref(false);
 
+// 客户字段锁定：报价单有关联商机（来源于商机）时锁定客户字段
+const isCustomerLocked = ref(false);
+
 const drawerClass = computed(() => [
   'sale-quotation-drawer',
   { 'sale-quotation-drawer--fullscreen': isFullscreen.value },
@@ -293,7 +296,7 @@ const basicFormSchema: VbenFormSchema[] = [
     fieldName: 'customerId',
     label: '客户',
     rules: 'required',
-    componentProps: {
+    componentProps: () => ({
       showSearch: true,
       filterOption: false,
       placeholder: '搜索客户名称',
@@ -301,7 +304,8 @@ const basicFormSchema: VbenFormSchema[] = [
       loading: customerLoading,
       onSearch: searchCustomers,
       onChange: onCustomerChange,
-    },
+      disabled: isReadOnly.value || isCustomerLocked.value,
+    }),
   },
   {
     component: 'Select',
@@ -321,7 +325,7 @@ const basicFormSchema: VbenFormSchema[] = [
     component: 'Select',
     fieldName: 'opportunityId',
     label: '商机',
-    componentProps: {
+    componentProps: () => ({
       showSearch: true,
       filterOption: false,
       placeholder: '搜索商机',
@@ -329,7 +333,8 @@ const basicFormSchema: VbenFormSchema[] = [
       loading: opportunityLoading,
       onSearch: searchOpportunities,
       onChange: onOpportunityChange,
-    },
+      disabled: isReadOnly.value || isCustomerLocked.value,
+    }),
   },
   {
     component: 'Select',
@@ -435,6 +440,8 @@ async function loadDetail(id: number) {
     const custId = data.customerId ? Number(data.customerId) : undefined;
     const contId = data.contactId ? Number(data.contactId) : undefined;
     const oppId = data.opportunityId ? Number(data.opportunityId) : undefined;
+    // 客户字段锁定：来源于商机（有 opportunityId）时锁定客户和商机字段
+    isCustomerLocked.value = !!oppId;
     // 预填客户下拉（必须在setValues之前，否则Select无法匹配label）
     if (custId && data.customerName) {
       customerOptions.value = [{ label: data.customerName, value: custId }];
@@ -645,6 +652,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       drawerData.value = drawerApi.getData<{ create?: boolean; row?: any }>() || { create: true };
       isFullscreen.value = false;
       isReadOnly.value = false;
+      isCustomerLocked.value = false;
       activeTab.value = 'basic';
       quotationItems.value = [];
       approvalList.value = [];

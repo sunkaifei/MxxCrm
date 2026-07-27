@@ -1,9 +1,12 @@
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue';
-import { Card, Descriptions, Tag, Button, Timeline, Popconfirm, Avatar, Row, Col, Skeleton } from 'ant-design-vue';
+import { Card, Descriptions, Tag, Button, Timeline, Popconfirm, Avatar, Row, Col, Skeleton, Tabs, Empty, Spin } from 'ant-design-vue';
 import { LucideFilePenLine, LucideUnlink, LucideMail, LucidePhone, LucideSmartphone, LucideBuilding2, LucideCalendar, LucideMessageCircle } from '@vben/icons';
 import { getContactInfoApi, unbindContactApi } from '#/api';
+import { getContactEditLogApi, type ContactEditLogVO } from '#/api/core/crm/contact-edit-log';
+import { formatDateTime } from '@vben/utils';
 import { message } from 'ant-design-vue';
+import { $t } from '#/locales';
 
 const props = defineProps<{ id?: number | string }>();
 const emit = defineEmits<{
@@ -14,6 +17,13 @@ const emit = defineEmits<{
 
 const loading = ref(false);
 const contact = ref<any>({});
+
+// 当前激活的选项卡
+const activeTab = ref('basic');
+
+// 修改记录
+const editLogs = ref<ContactEditLogVO[]>([]);
+const editLogLoading = ref(false);
 
 const roleTypeMap: Record<number, string> = {
   0: '决策人', 1: '影响者', 2: '使用者', 3: '其他',
@@ -45,6 +55,27 @@ const loadData = async () => {
   } finally { loading.value = false; }
 };
 
+// 加载修改记录
+async function loadEditLogs() {
+  if (!props.id) return;
+  editLogLoading.value = true;
+  try {
+    const result: any = await getContactEditLogApi({ contactId: Number(props.id), page: 1, pageSize: 50 });
+    editLogs.value = (result as any)?.items || [];
+  } catch {
+    editLogs.value = [];
+  } finally {
+    editLogLoading.value = false;
+  }
+}
+
+// 选项卡切换时按需加载修改记录
+function handleTabChange(tab: string | number) {
+  if (tab === 'logs' && editLogs.value.length === 0) {
+    loadEditLogs();
+  }
+}
+
 const handleEdit = () => emit('edit', contact.value);
 
 const handleUnbind = async () => {
@@ -59,7 +90,13 @@ const handleUnbind = async () => {
 
 const handleViewCustomer = (customerId: number) => emit('view-customer', customerId);
 
-watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
+watch(() => props.id, () => {
+  if (props.id) {
+    editLogs.value = [];
+    activeTab.value = 'basic';
+    loadData();
+  }
+}, { immediate: true });
 </script>
 
 <template>
@@ -113,7 +150,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
             <template #extra>
               <Popconfirm title="确认解绑该联系人？" @confirm="handleUnbind">
                 <Button size="small" danger>
-                  <template #icon><LucideUnlink /></template>解绑/离职
+                  <template #icon><LucideUnlink /></template>{{ $t('page.crm.contact.button.unbind') }}
                 </Button>
               </Popconfirm>
             </template>
@@ -144,21 +181,66 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
             </div>
           </Card>
 
-          <!-- 基本信息 -->
-          <Card size="small" :style="{ marginBottom: '15px' }">
-            <template #title>基本信息</template>
-            <Descriptions :column="2" bordered size="small">
-              <Descriptions.Item label="姓名">{{ contact.name }}</Descriptions.Item>
-              <Descriptions.Item label="性别">{{ genderMap[contact.gender] ?? '-' }}</Descriptions.Item>
-              <Descriptions.Item label="生日">{{ contact.birthday || '-' }}</Descriptions.Item>
-              <Descriptions.Item label="QQ号">{{ contact.qq || '-' }}</Descriptions.Item>
-              <Descriptions.Item label="邮箱">{{ contact.email || '-' }}</Descriptions.Item>
-              <Descriptions.Item label="手机">{{ contact.mobile || '-' }}</Descriptions.Item>
-              <Descriptions.Item label="座机">{{ contact.phone || '-' }}</Descriptions.Item>
-              <Descriptions.Item label="WhatsApp">{{ contact.whatsapp || '-' }}</Descriptions.Item>
-              <Descriptions.Item label="微信">{{ contact.wechat || '-' }}</Descriptions.Item>
-              <Descriptions.Item label="备注" :span="2">{{ contact.notes || '-' }}</Descriptions.Item>
-            </Descriptions>
+          <!-- 基本信息 + 修改记录（选项卡形式） -->
+          <Card size="small" :style="{ marginBottom: '15px' }" :body-style="{ padding: '0' }">
+            <Tabs v-model:activeKey="activeTab" :tabBarStyle="{ paddingLeft: '16px' }" @change="handleTabChange">
+              <Tabs.TabPane key="basic" tab="基本信息">
+                <div style="padding: 16px 20px;">
+                  <Descriptions :column="2" bordered size="small">
+                    <Descriptions.Item label="姓名">{{ contact.name }}</Descriptions.Item>
+                    <Descriptions.Item label="性别">{{ genderMap[contact.gender] ?? '-' }}</Descriptions.Item>
+                    <Descriptions.Item label="生日">{{ contact.birthday || '-' }}</Descriptions.Item>
+                    <Descriptions.Item label="QQ号">{{ contact.qq || '-' }}</Descriptions.Item>
+                    <Descriptions.Item label="邮箱">{{ contact.email || '-' }}</Descriptions.Item>
+                    <Descriptions.Item label="手机">{{ contact.mobile || '-' }}</Descriptions.Item>
+                    <Descriptions.Item label="座机">{{ contact.phone || '-' }}</Descriptions.Item>
+                    <Descriptions.Item label="WhatsApp">{{ contact.whatsapp || '-' }}</Descriptions.Item>
+                    <Descriptions.Item label="微信">{{ contact.wechat || '-' }}</Descriptions.Item>
+                    <Descriptions.Item label="备注" :span="2">{{ contact.notes || '-' }}</Descriptions.Item>
+                  </Descriptions>
+                </div>
+              </Tabs.TabPane>
+              <Tabs.TabPane key="logs" tab="更新记录">
+                <div style="padding: 16px 20px; min-height: 200px;">
+                  <Spin :spinning="editLogLoading">
+                    <Timeline v-if="editLogs.length > 0">
+                      <Timeline.Item v-for="log in editLogs" :key="log.id" color="blue">
+                        <div class="flex items-start justify-between mb-1">
+                          <div class="flex items-center gap-2">
+                            <Avatar size="small" :style="{ backgroundColor: '#1677ff' }">
+                              {{ log.editorName?.charAt(0) || '?' }}
+                            </Avatar>
+                            <span class="font-medium text-sm">{{ log.editorName || '未知' }}</span>
+                          </div>
+                          <span class="text-xs text-gray-400">{{ log.editTime ? formatDateTime(log.editTime) : '-' }}</span>
+                        </div>
+                        <div class="mt-1 space-y-1">
+                          <div
+                            v-for="(item, idx) in log.content"
+                            :key="idx"
+                            class="text-xs flex items-center gap-1 py-1 px-2 rounded bg-gray-50 flex-wrap"
+                          >
+                            <Tag color="blue" size="small" class="!mr-0" style="font-size: 11px;">{{ item.fieldLabel }}</Tag>
+                            <template v-if="item.old !== null && item.old !== undefined && item.new !== null && item.new !== undefined">
+                              <span class="text-gray-400 line-through">{{ item.old }}</span>
+                              <span class="text-gray-400">→</span>
+                              <span class="text-green-600 font-medium">{{ item.new }}</span>
+                            </template>
+                            <template v-else-if="item.new === null || item.new === undefined">
+                              <span class="text-red-500">删除：{{ item.old }}</span>
+                            </template>
+                            <template v-else>
+                              <span class="text-green-600 font-medium">{{ item.new }}</span>
+                            </template>
+                          </div>
+                        </div>
+                      </Timeline.Item>
+                    </Timeline>
+                    <Empty v-else-if="!editLogLoading" description="暂无修改记录" />
+                  </Spin>
+                </div>
+              </Tabs.TabPane>
+            </Tabs>
           </Card>
         </Col>
 

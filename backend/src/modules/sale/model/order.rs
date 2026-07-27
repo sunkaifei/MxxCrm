@@ -262,6 +262,7 @@ pub struct OrderListVO {
     pub payment_status: Option<i32>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub owner_user_id: Option<i64>,
+    pub owner_user_name: Option<String>,
     /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
     pub approval_status: Option<i32>,
     /// 审批实例ID
@@ -517,6 +518,7 @@ impl From<&order::Model> for OrderListVO {
             unpaid_amount: model.unpaid_amount,
             payment_status: model.pay_status,
             owner_user_id: model.owner_user_id,
+            owner_user_name: None,
             approval_status: model.approval_status,
             instance_id: model.instance_id,
             create_time: model.create_time,

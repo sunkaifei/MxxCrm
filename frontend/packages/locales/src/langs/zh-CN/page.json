@@ -86,7 +86,23 @@
       "button": {
         "create": "新增收款"
       }
+    },
+    "refund": {
+      "title": "退货单",
+      "button": {
+        "save": "新增退货单",
+        "edit": "编辑退货单",
+        "delete": "删除退货单",
+        "approve": "审批退货单",
+        "payment": "发起退款"
+      }
     }
+  },
+  "report": {
+    "title": "报表分析"
+  },
+  "company": {
+    "title": "公司设置"
   },
   "purchase": {
     "title": "采购管理",
@@ -107,7 +123,7 @@
     }
   },
   "product": {
-    "title": "产品管理",
+    "title": "仓储管理",
     "list": {
       "title": "产品列表",
       "button": {
@@ -128,7 +144,13 @@
       "button": {
         "create": "新增仓库"
       }
+    },
+    "sku": {
+      "title": "SKU管理"
     }
+  },
+  "warehouse": {
+    "title": "仓储"
   },
   "system": {
     "title": "系统管理",
@@ -190,6 +212,47 @@
     "settlement": "结算管理",
     "promotion": "促销活动",
     "commissionConfig": "佣金配置"
+  },
+  "website": {
+    "title": "网站管理",
+    "list": "网站列表",
+    "category": "栏目管理",
+    "article": "文章管理",
+    "message": "留言管理",
+    "links": "友情链接",
+    "supplierAudit": "供货商审核",
+    "goodsAudit": "商品审核",
+    "goods": "商品管理",
+    "orderList": "商城订单",
+    "settlement": "结算管理",
+    "promotion": "促销管理",
+    "commissionConfig": "佣金配置",
+    "button": {
+      "create": "新增网站",
+      "edit": "修改网站",
+      "delete": "删除网站",
+      "view": "查看网站"
+    },
+    "template": {
+      "title": "模板列表",
+      "button": {
+        "create": "新增模板",
+        "edit": "编辑模板",
+        "delete": "删除模板",
+        "view": "查看模板",
+        "preview": "预览模板",
+        "apply": "应用到网站"
+      }
+    },
+    "templateData": {
+      "title": "模板数据",
+      "button": {
+        "create": "新增模板",
+        "edit": "修改模板",
+        "delete": "删除模板",
+        "view": "查看模板"
+      }
+    }
   },
   "attachment": {
     "file": {

@@ -7,6 +7,7 @@ use crate::utils::string_utils::{serialize_option_u64_to_string, deserialize_str
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TagSaveRequest {
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub group_id: Option<i64>,
     pub tag_name: Option<String>,
     pub tag_color: Option<String>,
@@ -36,6 +37,7 @@ impl From<TagSaveRequest> for TagSaveDTO {
 pub struct TagUpdateRequest {
     #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub group_id: Option<i64>,
     pub tag_name: Option<String>,
     pub tag_color: Option<String>,
@@ -153,6 +155,7 @@ pub struct TagListQuery {
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
     pub tag_name: Option<String>,
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub group_id: Option<i64>,
     pub is_global: Option<bool>,
 }

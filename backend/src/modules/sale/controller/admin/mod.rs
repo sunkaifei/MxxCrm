@@ -12,4 +12,5 @@ pub mod order_controller;
 pub mod order_item_controller;
 pub mod payment_controller;
 pub mod quotation_controller;
+pub mod refund_controller;
 pub mod shipment_controller;

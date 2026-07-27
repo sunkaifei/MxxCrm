@@ -19,12 +19,32 @@ use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct CustomerSaveRequest {
+    /// 客户类型: 1=企业, 2=个人
+    pub customer_type: Option<i32>,
     /// 公司名称
     pub company_name: Option<String>,
     /// 客户编号
     pub customer_no: Option<String>,
     /// 公司简称
     pub short_name: Option<String>,
+    /// 个人姓名（个人客户必填）
+    pub person_name: Option<String>,
+    /// 性别: 1=男, 2=女, 0=未知
+    pub gender: Option<i32>,
+    /// 出生日期
+    pub birthday: Option<Date>,
+    /// 微信
+    pub wechat: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 个人手机号
+    pub personal_mobile: Option<String>,
+    /// 个人邮箱
+    pub personal_email: Option<String>,
+    /// 昵称/别名
+    pub nickname: Option<String>,
+    /// 职业/职务
+    pub occupation: Option<String>,
     /// 国家
     pub country: Option<String>,
     /// 地区/省份
@@ -62,8 +82,18 @@ impl From<CustomerSaveRequest> for CustomerSaveDTO {
         CustomerSaveDTO {
             id: None,
             customer_no: item.customer_no,
+            customer_type: item.customer_type,
             company_name: item.company_name,
             short_name: item.short_name,
+            person_name: item.person_name,
+            gender: item.gender,
+            birthday: item.birthday,
+            wechat: item.wechat.clone(),
+            qq: item.qq.clone(),
+            personal_mobile: item.personal_mobile,
+            personal_email: item.personal_email,
+            nickname: item.nickname,
+            occupation: item.occupation,
             country: item.country,
             region: item.region,
             address: item.address,
@@ -95,12 +125,32 @@ pub struct CustomerUpdateRequest {
     /// 客户ID
     #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
+    /// 客户类型: 1=企业, 2=个人（编辑时一般不允许变更）
+    pub customer_type: Option<i32>,
     /// 客户编号
     pub customer_no: Option<String>,
     /// 公司名称
     pub company_name: Option<String>,
     /// 公司简称
     pub short_name: Option<String>,
+    /// 个人姓名
+    pub person_name: Option<String>,
+    /// 性别: 1=男, 2=女, 0=未知
+    pub gender: Option<i32>,
+    /// 出生日期
+    pub birthday: Option<Date>,
+    /// 微信
+    pub wechat: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 个人手机号
+    pub personal_mobile: Option<String>,
+    /// 个人邮箱
+    pub personal_email: Option<String>,
+    /// 昵称/别名
+    pub nickname: Option<String>,
+    /// 职业/职务
+    pub occupation: Option<String>,
     /// 国家
     pub country: Option<String>,
     /// 地区/省份
@@ -138,8 +188,18 @@ impl From<CustomerUpdateRequest> for CustomerSaveDTO {
         CustomerSaveDTO {
             id: item.id,
             customer_no: item.customer_no,
+            customer_type: item.customer_type,
             company_name: item.company_name,
             short_name: item.short_name,
+            person_name: item.person_name,
+            gender: item.gender,
+            birthday: item.birthday,
+            wechat: item.wechat.clone(),
+            qq: item.qq.clone(),
+            personal_mobile: item.personal_mobile,
+            personal_email: item.personal_email,
+            nickname: item.nickname,
+            occupation: item.occupation,
             country: item.country,
             region: item.region,
             address: item.address,
@@ -172,10 +232,30 @@ pub struct CustomerSaveDTO {
     pub id: Option<i64>,
     /// 客户编号
     pub customer_no: Option<String>,
+    /// 客户类型: 1=企业, 2=个人
+    pub customer_type: Option<i32>,
     /// 公司名称
     pub company_name: Option<String>,
     /// 公司简称
     pub short_name: Option<String>,
+    /// 个人姓名
+    pub person_name: Option<String>,
+    /// 性别
+    pub gender: Option<i32>,
+    /// 出生日期
+    pub birthday: Option<Date>,
+    /// 微信
+    pub wechat: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 个人手机号
+    pub personal_mobile: Option<String>,
+    /// 个人邮箱
+    pub personal_email: Option<String>,
+    /// 昵称/别名
+    pub nickname: Option<String>,
+    /// 职业/职务
+    pub occupation: Option<String>,
     /// 国家
     pub country: Option<String>,
     /// 地区/省份
@@ -227,10 +307,30 @@ pub struct CustomerDetailVO {
     pub id: Option<i64>,
     /// 客户编号
     pub customer_no: Option<String>,
+    /// 客户类型: 1=企业, 2=个人
+    pub customer_type: Option<i32>,
     /// 公司名称
     pub company_name: Option<String>,
     /// 公司简称
     pub short_name: Option<String>,
+    /// 个人姓名
+    pub person_name: Option<String>,
+    /// 性别
+    pub gender: Option<i32>,
+    /// 出生日期
+    pub birthday: Option<Date>,
+    /// 微信
+    pub wechat: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 个人手机号
+    pub personal_mobile: Option<String>,
+    /// 个人邮箱
+    pub personal_email: Option<String>,
+    /// 昵称/别名
+    pub nickname: Option<String>,
+    /// 职业/职务
+    pub occupation: Option<String>,
     /// 国家
     pub country: Option<String>,
     /// 地区/省份
@@ -280,8 +380,18 @@ impl From<customer::Model> for CustomerDetailVO {
         CustomerDetailVO {
             id: Option::from(item.id),
             customer_no: item.customer_no,
+            customer_type: item.customer_type,
             company_name: item.company_name,
             short_name: item.short_name,
+            person_name: item.person_name,
+            gender: item.gender,
+            birthday: item.birthday,
+            wechat: item.wechat.clone(),
+            qq: item.qq.clone(),
+            personal_mobile: item.personal_mobile,
+            personal_email: item.personal_email,
+            nickname: item.nickname,
+            occupation: item.occupation,
             country: item.country,
             region: item.region,
             address: item.address,
@@ -316,10 +426,18 @@ pub struct CustomerListVO {
     pub id: Option<i64>,
     /// 客户编号
     pub customer_no: Option<String>,
+    /// 客户类型: 1=企业, 2=个人
+    pub customer_type: Option<i32>,
     /// 公司名称
     pub company_name: Option<String>,
     /// 公司简称
     pub short_name: Option<String>,
+    /// 个人姓名
+    pub person_name: Option<String>,
+    /// 性别
+    pub gender: Option<i32>,
+    /// 个人手机号
+    pub personal_mobile: Option<String>,
     /// 国家
     pub country: Option<String>,
     /// 地区/省份
@@ -366,8 +484,12 @@ impl From<customer::Model> for CustomerListVO {
         CustomerListVO {
             id: Option::from(item.id),
             customer_no: item.customer_no,
+            customer_type: item.customer_type,
             company_name: item.company_name,
             short_name: item.short_name,
+            person_name: item.person_name,
+            gender: item.gender,
+            personal_mobile: item.personal_mobile,
             country: item.country,
             region: item.region,
             industry: item.industry,
@@ -396,9 +518,11 @@ pub struct CustomerListQuery {
     pub page_num: Option<i64>,
     /// 每页大小
     pub page_size: Option<i64>,
-    /// 关键词(搜索公司名称、简称等)
+    /// 关键词(搜索公司名称、简称、个人姓名等)
     #[serde(alias = "companyName")]
     pub keywords: Option<String>,
+    /// 客户类型: 1=企业, 2=个人
+    pub customer_type: Option<i32>,
     /// 客户等级
     pub level: Option<i32>,
     /// 国家
@@ -422,8 +546,18 @@ impl CustomerModel {
         let now = chrono::Local::now().naive_local().to_owned();
         let payload = customer::ActiveModel {
             customer_no: Set(req.customer_no.clone()),
+            customer_type: Set(req.customer_type.or(Some(1))),
             company_name: Set(req.company_name.clone()),
             short_name: Set(req.short_name.clone()),
+            person_name: Set(req.person_name.clone()),
+            gender: Set(req.gender.clone()),
+            birthday: Set(req.birthday.clone()),
+            wechat: Set(req.wechat.clone()),
+            qq: Set(req.qq.clone()),
+            personal_mobile: Set(req.personal_mobile.clone()),
+            personal_email: Set(req.personal_email.clone()),
+            nickname: Set(req.nickname.clone()),
+            occupation: Set(req.occupation.clone()),
             country: Set(req.country.clone()),
             region: Set(req.region.clone()),
             address: Set(req.address.clone()),
@@ -445,7 +579,7 @@ impl CustomerModel {
             update_time: Set(Option::from(now)),
             ..Default::default()
         };
-        
+
         Customer::insert(payload)
             .exec(db)
             .await
@@ -472,9 +606,19 @@ impl CustomerModel {
             Some(v) => Set(Some(v)),
             None => ActiveValue::NotSet,
         };
+        // customer_type 不在更新中覆盖，避免误改类型
         let payload = customer::ActiveModel {
             company_name: Set(req.company_name.clone()),
             short_name: Set(req.short_name.clone()),
+            person_name: Set(req.person_name.clone()),
+            gender: Set(req.gender.clone()),
+            birthday: Set(req.birthday.clone()),
+            wechat: Set(req.wechat.clone()),
+            qq: Set(req.qq.clone()),
+            personal_mobile: Set(req.personal_mobile.clone()),
+            personal_email: Set(req.personal_email.clone()),
+            nickname: Set(req.nickname.clone()),
+            occupation: Set(req.occupation.clone()),
             country: Set(req.country.clone()),
             region: Set(req.region.clone()),
             address: Set(req.address.clone()),
@@ -494,7 +638,7 @@ impl CustomerModel {
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
-        
+
         let update_result: UpdateResult = Customer::update_many()
             .set(payload)
             .filter(customer::Column::Id.eq(id.clone().unwrap_or_default()))
@@ -518,6 +662,7 @@ impl CustomerModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
+        customer_type: Option<i32>,
         level: Option<i32>,
         country: Option<String>,
         source: Option<i32>,
@@ -525,9 +670,18 @@ impl CustomerModel {
     ) -> Result<(Vec<customer::Model>, i64), DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0));
-        
+
         if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
-            query = query.filter(customer::Column::CompanyName.contains(k));
+            // 关键词同时搜索公司名称、简称、个人姓名、个人手机号
+            query = query.filter(
+                customer::Column::CompanyName.contains(k.clone())
+                    .or(customer::Column::ShortName.contains(k.clone()))
+                    .or(customer::Column::PersonName.contains(k.clone()))
+                    .or(customer::Column::PersonalMobile.contains(k))
+            );
+        }
+        if let Some(t) = customer_type {
+            query = query.filter(customer::Column::CustomerType.eq(t));
         }
         if let Some(l) = level {
             query = query.filter(customer::Column::Level.eq(l));
@@ -540,8 +694,12 @@ impl CustomerModel {
         }
         if let Some(a) = assigned_to {
             query = query.filter(customer::Column::AssignedTo.eq(a));
+        } else {
+            // 未指定负责人过滤时，默认排除公海客户（assigned_to IS NULL）
+            // 公海客户有专门的 select_pool_in_page 查询
+            query = query.filter(customer::Column::AssignedTo.is_not_null());
         }
-        
+
         let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
@@ -554,6 +712,7 @@ impl CustomerModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
+        customer_type: Option<i32>,
         level: Option<i32>,
         country: Option<String>,
         source: Option<i32>,
@@ -561,9 +720,17 @@ impl CustomerModel {
     ) -> Result<(Vec<customer::Model>, i64), DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0));
-        
+
         if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
-            query = query.filter(customer::Column::CompanyName.contains(k));
+            query = query.filter(
+                customer::Column::CompanyName.contains(k.clone())
+                    .or(customer::Column::ShortName.contains(k.clone()))
+                    .or(customer::Column::PersonName.contains(k.clone()))
+                    .or(customer::Column::PersonalMobile.contains(k))
+            );
+        }
+        if let Some(t) = customer_type {
+            query = query.filter(customer::Column::CustomerType.eq(t));
         }
         if let Some(l) = level {
             query = query.filter(customer::Column::Level.eq(l));
@@ -581,7 +748,7 @@ impl CustomerModel {
             }
             query = query.filter(customer::Column::AssignedTo.is_in(ids));
         }
-        
+
         let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
         let rows = paginator.fetch_page((page - 1) as u64).await?;
@@ -595,6 +762,7 @@ impl CustomerModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
+        customer_type: Option<i32>,
         level: Option<i32>,
         country: Option<String>,
         source: Option<i32>,
@@ -638,7 +806,15 @@ impl CustomerModel {
             .filter(customer::Column::Id.is_in(followup_customer_ids));
 
         if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
-            query = query.filter(customer::Column::CompanyName.contains(k));
+            query = query.filter(
+                customer::Column::CompanyName.contains(k.clone())
+                    .or(customer::Column::ShortName.contains(k.clone()))
+                    .or(customer::Column::PersonName.contains(k.clone()))
+                    .or(customer::Column::PersonalMobile.contains(k))
+            );
+        }
+        if let Some(t) = customer_type {
+            query = query.filter(customer::Column::CustomerType.eq(t));
         }
         if let Some(l) = level {
             query = query.filter(customer::Column::Level.eq(l));
@@ -660,6 +836,7 @@ impl CustomerModel {
     pub async fn select_count(
         db: &DbConn,
         keywords: Option<String>,
+        customer_type: Option<i32>,
         level: Option<String>,
         country: Option<String>,
         source: Option<i32>,
@@ -669,7 +846,15 @@ impl CustomerModel {
             .filter(customer::Column::Deleted.eq(0));
 
         if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
-            query = query.filter(customer::Column::CompanyName.contains(k));
+            query = query.filter(
+                customer::Column::CompanyName.contains(k.clone())
+                    .or(customer::Column::ShortName.contains(k.clone()))
+                    .or(customer::Column::PersonName.contains(k.clone()))
+                    .or(customer::Column::PersonalMobile.contains(k))
+            );
+        }
+        if let Some(t) = customer_type {
+            query = query.filter(customer::Column::CustomerType.eq(t));
         }
         if let Some(l) = level.filter(|v| !v.trim().is_empty()) {
             query = query.filter(customer::Column::Level.eq(l));
@@ -693,6 +878,7 @@ impl CustomerModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
+        customer_type: Option<i32>,
         level: Option<i32>,
         country: Option<String>,
         source: Option<i32>,
@@ -703,7 +889,15 @@ impl CustomerModel {
             .filter(customer::Column::AssignedTo.is_null());
 
         if let Some(k) = keywords.filter(|v| !v.trim().is_empty()) {
-            query = query.filter(customer::Column::CompanyName.contains(k));
+            query = query.filter(
+                customer::Column::CompanyName.contains(k.clone())
+                    .or(customer::Column::ShortName.contains(k.clone()))
+                    .or(customer::Column::PersonName.contains(k.clone()))
+                    .or(customer::Column::PersonalMobile.contains(k))
+            );
+        }
+        if let Some(t) = customer_type {
+            query = query.filter(customer::Column::CustomerType.eq(t));
         }
         if let Some(l) = level {
             query = query.filter(customer::Column::Level.eq(l));

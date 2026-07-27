@@ -19,8 +19,28 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub id: i64,
     pub customer_no: Option<String>,
+    /// 客户类型: 1=企业, 2=个人
+    pub customer_type: Option<i32>,
     pub company_name: Option<String>,
     pub short_name: Option<String>,
+    /// 个人姓名（个人客户必填）
+    pub person_name: Option<String>,
+    /// 性别: 1=男, 2=女, 0=未知
+    pub gender: Option<i32>,
+    /// 出生日期
+    pub birthday: Option<Date>,
+    /// 微信
+    pub wechat: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 个人手机号
+    pub personal_mobile: Option<String>,
+    /// 个人邮箱
+    pub personal_email: Option<String>,
+    /// 昵称/别名
+    pub nickname: Option<String>,
+    /// 职业/职务
+    pub occupation: Option<String>,
     pub country: Option<String>,
     pub region: Option<String>,
     pub address: Option<String>,

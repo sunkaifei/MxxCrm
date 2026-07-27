@@ -69,12 +69,10 @@ function convertRoutes(
     const { component, name, path, redirect } = node;
 
     if (!name) {
-      console.error('route name is required, skipping', route);
       return null;
     }
 
     if (!path) {
-      console.error('route path is required, skipping', route);
       return null;
     }
 

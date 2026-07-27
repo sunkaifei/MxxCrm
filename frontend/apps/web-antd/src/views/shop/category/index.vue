@@ -82,6 +82,18 @@ const gridOptions: VxeGridProps = {
       width: 80,
     },
     {
+      title: '页面模式',
+      field: 'pageType',
+      slots: { default: 'pageType' },
+      width: 100,
+    },
+    {
+      title: '内容类型',
+      field: 'contentType',
+      slots: { default: 'contentType' },
+      width: 100,
+    },
+    {
       title: '创建时间',
       field: 'createTime',
       width: 160,
@@ -228,6 +240,18 @@ function onTreeSelect(selectedKeys: (string | number)[]) {
           <template #status="{ row }">
             <Tag :color="row.isShow === 1 ? 'success' : 'default'">
               {{ row.isShow === 1 ? '显示' : '隐藏' }}
+            </Tag>
+          </template>
+
+          <template #pageType="{ row }">
+            <Tag :color="row.pageType === 1 ? 'blue' : 'cyan'">
+              {{ row.pageType === 1 ? '封面模式' : '列表模式' }}
+            </Tag>
+          </template>
+
+          <template #contentType="{ row }">
+            <Tag :color="row.contentType === 1 ? 'green' : 'orange'">
+              {{ row.contentType === 1 ? '文章' : row.contentType === 3 ? '自定义链接' : '' }}
             </Tag>
           </template>
 

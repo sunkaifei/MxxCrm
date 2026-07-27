@@ -123,6 +123,12 @@ pub fn all_list_arr_to_tree(re_list: &mut Vec<CategoryTreeVO>, ori_arr: Vec<cate
                 create_time: it.create_time.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
                 is_show: it.is_show,
                 status: Option::from(it.status.clone().unwrap_or_default()),
+                page_type: it.page_type,
+                page_template_data_id: it.page_template_data_id,
+                banner_image: it.banner_image.clone(),
+                description: it.description.clone(),
+                content_type: it.content_type,
+                link_url: it.link_url.clone(),
                 children: (|| -> Option<Vec<CategoryTreeVO>> {
                     if children.len() > 0 {
                         Some(children)

@@ -24,31 +24,93 @@ use sea_orm::prelude::Decimal;
 use crate::modules::sale::entity::order;
 
 pub async fn insert(db: &DbConn, form_data: &ContractSaveDTO, created_by: i64) -> Result<i64> {
-    if let (Some(customer_id), Some(title)) = (form_data.customer_id, &form_data.title) {
-        let existing = ContractModel::find_by_customer_and_title(db, customer_id, title, None).await?;
-        if existing.is_some() {
-            return Err(Error::from("该客户下已存在相同标题的合同".to_string()));
+    // 数据完整性校验：客户必填、标题必填
+    let customer_id = form_data.customer_id.ok_or_else(|| Error::from("客户不能为空".to_string()))?;
+    let title = form_data.title.as_ref().ok_or_else(|| Error::from("合同标题不能为空".to_string()))?;
+
+    let txn = db.begin().await?;
+
+    // 同公司标题唯一性校验
+    let existing = ContractModel::find_by_customer_and_title(&txn, customer_id, title, None).await?;
+    if existing.is_some() {
+        txn.rollback().await?;
+        return Err(Error::from("该客户下已存在相同标题的合同".to_string()));
+    }
+
+    // 订单存在性校验：若传入 order_id，必须查询到未删除的订单
+    if let Some(oid) = form_data.order_id {
+        let ord = order::Entity::find_by_id(oid)
+            .filter(order::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询订单失败: {}", e)))?;
+        if ord.is_none() {
+            txn.rollback().await?;
+            return Err(Error::from(format!("关联的订单(id={})不存在或已删除", oid)));
         }
     }
 
     let mut dto = form_data.clone();
     dto.created_by = Some(created_by);
     dto.approval_status = Some(0);
-    let result = ContractModel::insert(db, &dto).await?;
+    let result = ContractModel::insert(&txn, &dto).await?;
+
+    txn.commit().await?;
     Ok(result)
 }
 
 pub async fn update(db: &DbConn, form_data: &ContractSaveDTO, updated_by: i64) -> Result<i64> {
-    if let (Some(customer_id), Some(title)) = (form_data.customer_id, &form_data.title) {
-        let existing = ContractModel::find_by_customer_and_title(db, customer_id, title, form_data.id).await?;
-        if existing.is_some() {
-            return Err(Error::from("该客户下已存在相同标题的合同".to_string()));
+    let id = form_data.id.unwrap_or(0);
+    if id == 0 {
+        return Err(Error::from("合同ID不能为空".to_string()));
+    }
+
+    // 数据完整性校验：客户必填、标题必填
+    let customer_id = form_data.customer_id.ok_or_else(|| Error::from("客户不能为空".to_string()))?;
+    let title = form_data.title.as_ref().ok_or_else(|| Error::from("合同标题不能为空".to_string()))?;
+
+    // 合同存在性校验
+    let existing = ContractModel::find_by_id(db, id).await?;
+    if existing.is_none() {
+        return Err(Error::from("合同不存在".to_string()));
+    }
+
+    // 审批状态校验：仅草稿(0)或已驳回(4)允许修改；审批中(2)/已签署等不可修改
+    let approval_status = existing.as_ref().unwrap().approval_status.unwrap_or(0);
+    if approval_status == 2 {
+        return Err(Error::from("合同审批中，不允许修改".to_string()));
+    }
+    if approval_status == 3 {
+        return Err(Error::from("合同已审批通过，不允许修改".to_string()));
+    }
+
+    let txn = db.begin().await?;
+
+    // 同公司标题唯一性校验（排除自身 ID）
+    let dup = ContractModel::find_by_customer_and_title(&txn, customer_id, title, form_data.id).await?;
+    if dup.is_some() {
+        txn.rollback().await?;
+        return Err(Error::from("该客户下已存在相同标题的合同".to_string()));
+    }
+
+    // 订单存在性校验：若传入 order_id，必须查询到未删除的订单
+    if let Some(oid) = form_data.order_id {
+        let ord = order::Entity::find_by_id(oid)
+            .filter(order::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询订单失败: {}", e)))?;
+        if ord.is_none() {
+            txn.rollback().await?;
+            return Err(Error::from(format!("关联的订单(id={})不存在或已删除", oid)));
         }
     }
 
     let mut dto = form_data.clone();
     dto.updated_by = Some(updated_by);
-    let result = ContractModel::update_by_id(&db, &form_data.id, &dto).await?;
+    let result = ContractModel::update_by_id(&txn, &form_data.id, &dto).await?;
+
+    txn.commit().await?;
     Ok(result)
 }
 
@@ -56,7 +118,28 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64>
     if ids_vec.is_empty() {
         return Ok(0);
     }
-    let result = ContractModel::batch_delete_by_ids(&db, &ids_vec).await?;
+
+    // 批量删除审批状态校验：审批中(2)/已通过(3)的合同不允许删除
+    let contracts_to_check = Contract::find()
+        .filter(contract::Column::Id.is_in(ids_vec.clone()))
+        .filter(contract::Column::Deleted.eq(0))
+        .all(db)
+        .await
+        .map_err(|e| Error::from(format!("查询合同失败: {}", e)))?;
+
+    for c in &contracts_to_check {
+        let status = c.approval_status.unwrap_or(0);
+        if status == 2 {
+            return Err(Error::from(format!("合同(id={})审批中，不允许删除", c.id)));
+        }
+        if status == 3 {
+            return Err(Error::from(format!("合同(id={})已审批通过，不允许删除", c.id)));
+        }
+    }
+
+    let txn = db.begin().await?;
+    let result = ContractModel::batch_delete_by_ids(&txn, &ids_vec).await?;
+    txn.commit().await?;
     Ok(result)
 }
 

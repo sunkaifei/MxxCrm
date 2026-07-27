@@ -19,7 +19,9 @@ const getTitle = computed(() =>
 
 // 格式校验规则
 const validateMobile = (_rule: any, value: string) => {
-  if (!value) return Promise.resolve();
+  if (!value || !value.trim()) {
+    return Promise.reject('请输入手机号');
+  }
   // 支持11位手机号或带国际区号格式
   if (/^1[3-9]\d{9}$/.test(value) || /^\+\d{1,4}\s?\d{6,14}$/.test(value)) {
     return Promise.resolve();
@@ -52,11 +54,21 @@ const validateQq = (_rule: any, value: string) => {
   return Promise.reject('QQ号应为5-12位数字');
 };
 
+const validateWhatsapp = (_rule: any, value: string) => {
+  if (!value) return Promise.resolve();
+  // 支持字母、数字，或两者混合；也支持常见格式字符：+ - _ . 空格
+  if (/^[a-zA-Z0-9+\-_.\s]{3,50}$/.test(value)) {
+    return Promise.resolve();
+  }
+  return Promise.reject('WhatsApp 长度应为 3-50 位，支持字母、数字及 + - _ . 空格');
+};
+
 // 实时查重校验
 const checkDuplicate = async (field: string, valuePromise: Promise<string>) => {
   const value = await valuePromise;
   if (!value || !value.trim()) return Promise.resolve();
-  const editId = data.value?.create ? undefined : data.value?.row?.id;
+  // 列表 VO 的 id 序列化为字符串，后端期望 i64，需转 Number
+  const editId = data.value?.create ? undefined : Number(data.value?.row?.id);
   try {
     const results: any = await checkContactDuplicateApi({
       id: editId,
@@ -171,11 +183,14 @@ const [BaseForm, baseFormApi] = useVbenForm({
         labelField: 'companyName',
         valueField: 'id',
         onSearch(keyword: string) {
-          baseFormApi.updateSchema('customerId', {
-            componentProps: {
-              params: { companyName: keyword },
+          baseFormApi.updateSchema([
+            {
+              fieldName: 'customerId',
+              componentProps: {
+                params: { companyName: keyword },
+              },
             },
-          });
+          ]);
         },
         immediate: true,
       },
@@ -203,6 +218,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Input',
       fieldName: 'mobile',
       label: '手机号',
+      required: true,
       rules: [
         { validator: validateMobile, trigger: 'blur' },
         { validator: () => checkDuplicate('mobile', getMobileValue()), trigger: 'blur' },
@@ -223,7 +239,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Input',
       fieldName: 'whatsapp',
       label: 'WhatsApp',
-      componentProps: { placeholder: 'WhatsApp 号码', allowClear: true },
+      rules: [
+        { validator: validateWhatsapp, trigger: 'blur' },
+      ],
+      componentProps: { placeholder: 'WhatsApp 号码或账号', allowClear: true },
     },
     {
       component: 'Input',
@@ -299,12 +318,20 @@ const [Drawer, drawerApi] = useVbenDrawer({
     setLoading(true);
     try {
       const values = await baseFormApi.getValues();
-      const { customerId, ...contactFields } = values;
+      const { customerId, _div1, _div2, _div3, ...rawFields } = values;
+
+      // 清理空值：空字符串/null/undefined 不提交，后端按 None 处理
+      const contactFields: Record<string, any> = {};
+      for (const [key, val] of Object.entries(rawFields)) {
+        if (val !== '' && val !== null && val !== undefined) {
+          contactFields[key] = val;
+        }
+      }
 
       const isCreate = data.value?.create;
-      const payload = isCreate
+      const payload: Record<string, any> = isCreate
         ? contactFields
-        : { ...contactFields, id: data.value.row.id };
+        : { ...contactFields, id: Number(data.value.row.id) };
       if (customerId) {
         payload.customerId = Number(customerId);
       }
@@ -324,43 +351,68 @@ const [Drawer, drawerApi] = useVbenDrawer({
       setLoading(false);
     }
   },
-  onOpenChange(isOpen) {
+  async onOpenChange(isOpen) {
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
       const row = data.value?.row ? { ...data.value.row } : {};
       setLoading(false);
 
-      baseFormApi.resetForm();
+      const isCreate = data.value?.create;
 
-      currentCompanyName.value = row.companyName || '';
-      currentCustomerId.value = row.customerId || null;
-      const definedValues = Object.fromEntries(
-        Object.entries(row).filter(([_, v]) => v !== undefined && v !== null),
-      );
-      baseFormApi.setValues({
-        ...definedValues,
-        customerId: row.customerId != null ? String(row.customerId) : undefined,
-      });
+      // 编辑模式下所属企业禁止修改
+      baseFormApi.updateSchema([
+        {
+          fieldName: 'customerId',
+          componentProps: { disabled: !isCreate },
+        },
+      ]);
 
-      if (!data.value?.create && row?.id) {
-        getContactInfoApi(row.id)
-          .then((detail: any) => {
-            const d = detail?.data || detail || {};
-            baseFormApi.setValues({
-              whatsapp: d.whatsapp,
-              wechat: d.wechat,
-              qq: d.qq,
-              gender: d.gender,
-              birthday: d.birthday,
-              notes: d.notes,
-              customerId: d.currentCompany?.customerId ? String(d.currentCompany.customerId) : undefined,
-            });
-            if (d.currentCompany?.customerId) {
-              currentCompanyName.value = d.currentCompany.companyName || '';
-            }
-          })
-          .catch(() => {});
+      // 新建模式先重置表单，清除上次编辑残留的数据
+      if (isCreate) {
+        await baseFormApi.resetForm();
       }
+
+      // 先设置当前公司信息，确保 ApiSelect 的选项列表包含当前选中项
+      if (row.customerId) {
+        currentCompanyName.value = row.companyName || '';
+        currentCustomerId.value = row.customerId;
+        row.customerId = String(row.customerId);
+      }
+
+      // 编辑模式：加载详情，把详情数据合并到 row 中
+      if (!isCreate && row?.id) {
+        try {
+          const detail: any = await getContactInfoApi(Number(row.id));
+          const d = detail?.data || detail || {};
+          if (d) {
+            row.name = d.name ?? row.name;
+            row.title = d.title ?? row.title;
+            row.email = d.email ?? row.email;
+            row.phone = d.phone ?? row.phone;
+            row.mobile = d.mobile ?? row.mobile;
+            row.whatsapp = d.whatsapp ?? row.whatsapp;
+            row.wechat = d.wechat ?? row.wechat;
+            row.qq = d.qq ?? row.qq;
+            row.gender = d.gender;
+            row.birthday = d.birthday;
+            row.notes = d.notes;
+            if (d.currentCompany) {
+              row.roleType = d.currentCompany.roleType ?? row.roleType;
+              if (d.currentCompany.customerId) {
+                row.customerId = String(d.currentCompany.customerId);
+                currentCompanyName.value = d.currentCompany.companyName || '';
+                currentCustomerId.value = d.currentCompany.customerId;
+              }
+            }
+          }
+        } catch {
+          // 详情加载失败忽略，用列表行数据回显
+        }
+      }
+
+      // 一次性 setValues，参考 crm/contract/drawer.vue 的模式
+      baseFormApi.setValues(row);
+      setLoading(false);
     }
   },
 });

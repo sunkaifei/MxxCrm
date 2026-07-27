@@ -109,6 +109,25 @@ pub async fn opportunity_convert_to_quotation(state: web::Data<AppState>, req: H
     }
 }
 
+/// POST /opportunity/convert_to_order - 商机直接转订单（简易流程模式 B）
+pub async fn opportunity_convert_to_order(state: web::Data<AppState>, req: HttpRequest, item: web::Json<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let item = item.0;
+
+    if item.id.is_none() {
+        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
+    }
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = jwt_token.id.unwrap_or_default();
+    let opp_id = item.id.unwrap();
+
+    match opportunity_service::convert_to_order(&db, opp_id, user_id).await {
+        Ok(order_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(order_id, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
 // ==================== 路由注册（单点维护）====================
 
 /// 注册商机模块所有路由
@@ -158,6 +177,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/convert_to_quotation",
                 web::post()
                     .to(opportunity_convert_to_quotation)
+                    .wrap(require_permission("crm:opportunity:update")),
+            )
+            // POST /opportunity/convert_to_order - 商机直接转订单（简易流程）
+            .route(
+                "/convert_to_order",
+                web::post()
+                    .to(opportunity_convert_to_order)
                     .wrap(require_permission("crm:opportunity:update")),
             ),
     );

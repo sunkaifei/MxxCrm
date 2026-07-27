@@ -59,6 +59,12 @@ const isReadonly = computed(() => {
 // 从订单创建时，客户和商机不可修改
 const isFromOrder = computed(() => props.fromOrder || data.value?.fromOrder);
 
+// 客户字段锁定：从订单创建 OR 合同有关联商机（来源上游）时锁定客户字段
+const isCustomerLocked = computed(() => {
+  if (isFromOrder.value) return true;
+  return !!selectedOpportunity.value?.id;
+});
+
 // 投影标题：编辑 vs 查看
 const getTitle = computed(() => {
   if (isReadonly.value) {
@@ -979,7 +985,7 @@ function toggleMaximize() {
           <template #_customerDisplay="{ model }">
             <div class="flex items-center gap-2 w-full">
               <Input
-                v-if="!isReadonly && !isFromOrder"
+                v-if="!isReadonly && !isCustomerLocked"
                 :value="selectedCustomer?.name || ''"
                 placeholder="点击选择客户"
                 readonly
@@ -991,26 +997,26 @@ function toggleMaximize() {
                 </template>
               </Input>
               <span v-else class="flex-1 text-gray-800 truncate">{{ selectedCustomer?.name || '-' }}</span>
-              <Button v-if="!isReadonly && !isFromOrder && selectedCustomer" type="link" danger size="small" class="shrink-0 !p-0" @click.stop="handleClearCustomer">清除</Button>
+              <Button v-if="!isReadonly && !isCustomerLocked && selectedCustomer" type="link" danger size="small" class="shrink-0 !p-0" @click.stop="handleClearCustomer">清除</Button>
             </div>
           </template>
 
           <!-- 商机选择 slot -->
           <template #_opportunityDisplay="{ model }">
-            <div class="flex items-center gap-2 w-full" @click="openOpportunitySelect">
+            <div class="flex items-center gap-2 w-full" @click="!isCustomerLocked && openOpportunitySelect()">
               <Input
                 v-if="!isReadonly"
                 :value="selectedOpportunity?.name || ''"
                 placeholder="点击选择商机"
                 readonly
-                class="flex-1 cursor-pointer select-modal-input"
+                :class="['flex-1 cursor-pointer select-modal-input', { 'select-modal-input-locked': isCustomerLocked }]"
               >
                 <template #suffix>
-                  <Button type="link" size="small" class="!p-0 !text-blue-600 font-medium" @click.stop="openOpportunitySelect">选择</Button>
+                  <Button type="link" size="small" class="!p-0 !text-blue-600 font-medium" :disabled="isCustomerLocked" @click.stop="openOpportunitySelect">选择</Button>
                 </template>
               </Input>
               <span v-else class="flex-1 text-gray-800 truncate">{{ selectedOpportunity?.name || '-' }}</span>
-              <Button v-if="!isReadonly && selectedOpportunity" type="link" danger size="small" class="shrink-0 !p-0" @click.stop="handleClearOpportunity">清除</Button>
+              <Button v-if="!isReadonly && !isCustomerLocked && selectedOpportunity" type="link" danger size="small" class="shrink-0 !p-0" @click.stop="handleClearOpportunity">清除</Button>
             </div>
           </template>
         </BaseForm>

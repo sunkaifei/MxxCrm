@@ -9,6 +9,7 @@
 //!
 
 pub mod contact;
+pub mod contact_edit_log;
 pub mod contract;
 pub mod contract_approval_log;
 pub mod contract_commission_member;

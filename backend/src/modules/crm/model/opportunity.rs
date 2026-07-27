@@ -463,6 +463,8 @@ pub struct OpportunityListVO {
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 商机来源（1=官网, 2=展会, 3=社交媒体, 4=客户转介, 5=陌生拜访, 6=海关数据, 7=邮件营销, 8=阿里国际站, 9=Amazon, 10=TikTok, 11=微信, 12=其他）
+    pub source: Option<i32>,
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建人名称（录入人）
@@ -487,6 +489,7 @@ impl From<opportunity::Model> for OpportunityListVO {
             currency: item.currency.map(currency_code_to_i32),
             expected_close_date: item.expected_close_date,
             assigned_to: item.assigned_to,
+            source: item.source.map(|s| s.to_i32()),
             created_by: item.created_by,
             created_by_name: None,
             create_time: item.create_time,
@@ -711,9 +714,9 @@ impl OpportunityModel {
         }
 
         let paginator = query.order_by_desc(opportunity::Column::CreateTime).paginate(db, per_page as u64);
-        let num_pages = paginator.num_pages().await? as i64;
+        let total = paginator.num_items().await? as i64;
 
-        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }
 
     /// 按负责人ID集合分页查询商机
@@ -747,8 +750,8 @@ impl OpportunityModel {
         }
 
         let paginator = query.order_by_desc(opportunity::Column::CreateTime).paginate(db, per_page as u64);
-        let num_pages = paginator.num_pages().await? as i64;
+        let total = paginator.num_items().await? as i64;
 
-        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
+        paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }
 }

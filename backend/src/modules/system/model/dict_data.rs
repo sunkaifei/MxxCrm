@@ -231,6 +231,8 @@ pub struct DictDataOptionVO {
     // 字典键值
     pub value: Option<String>,
     pub tag_type: Option<String>,
+    // 是否默认（1=默认）
+    pub is_default: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

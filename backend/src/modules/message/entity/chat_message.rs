@@ -35,6 +35,30 @@ pub struct Model {
     /// 消息类型: 1=系统消息, 2=用户消息
     pub message_type: Option<i32>,
 
+    /// 内容类型
+    pub content_type: Option<i32>,
+
+    /// 文件URL
+    pub file_url: Option<String>,
+
+    /// 文件名
+    pub file_name: Option<String>,
+
+    /// 文件大小
+    pub file_size: Option<i64>,
+
+    /// 业务类型
+    pub biz_type: Option<String>,
+
+    /// 业务ID
+    pub biz_id: Option<i64>,
+
+    /// 已读状态
+    pub read_status: Option<i32>,
+
+    /// 已读时间
+    pub read_time: Option<DateTime>,
+
     /// 是否撤回: 0=否, 1=是
     pub is_recalled: Option<i32>,
 

@@ -395,6 +395,7 @@ pub struct FileTreeNode {
 pub struct ListQuery{
     pub keywords: Option<String>,
     pub status: Option<i32>,
+    pub category_id: Option<i64>,
     #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
@@ -415,6 +416,7 @@ pub struct MyListQuery{
 pub struct PageWhere {
     pub name: Option<String>,
     pub status: Option<i32>,
+    pub category_id: Option<i64>,
 }
 
 impl PageWhere {
@@ -430,9 +432,15 @@ impl PageWhere {
             status = self.status;
         }
 
+        let mut category_id = None;
+        if self.category_id.is_some() && self.category_id > Some(0) {
+            category_id = self.category_id;
+        }
+
         Self {
             name,
             status,
+            category_id,
         }
     }
 }
@@ -641,6 +649,9 @@ impl TemplateModel {
             .apply_if(wheres.status, |query, v| {
                 query.filter(template::Column::Status.eq(v))
             })
+            .apply_if(wheres.category_id, |query, v| {
+                query.filter(template::Column::CategoryId.eq(v))
+            })
             .count(db)
             .await
             .map(|c| c as i64)
@@ -658,6 +669,9 @@ impl TemplateModel {
             })
             .apply_if(wheres.status, |query, v| {
                 query.filter(template::Column::Status.eq(v))
+            })
+            .apply_if(wheres.category_id, |query, v| {
+                query.filter(template::Column::CategoryId.eq(v))
             })
             .order_by_desc(template::Column::Id)
             .paginate(db, per_page as u64);

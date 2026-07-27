@@ -50,7 +50,7 @@ Open the project in Gitpod (free online dev environment for GitHub) and start co
 
 ## Documentation
 
-[Document](https://doc.vben.pro/)
+[Document](https://www.mxxshop.com/)
 
 ## Install and Use
 

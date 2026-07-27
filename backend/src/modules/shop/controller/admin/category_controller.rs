@@ -10,61 +10,240 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
+use crate::modules::articles::model::category::{CategoryModel, CategoryPageDTO, CategorySaveDTO};
+use crate::modules::articles::service::category_service;
 use actix_web::{web, HttpRequest, HttpResponse};
 
 /// Save category
 pub async fn save(
     state: web::Data<AppState>,
-    _req: HttpRequest,
+    req: HttpRequest,
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse> {
-    let _db = &state.db;
-    // TODO: call category_service::save(db, body.into_inner()).await
-    let result = serde_json::json!({ "id": 0 });
-    Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
-        .body(MetaResp::success(result, "local")))
+    let db = &state.db;
+    let body = body.into_inner();
+
+    let website_id = req
+        .headers()
+        .get("website_id")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<i64>().ok());
+
+    let dto = CategorySaveDTO {
+        id: None,
+        parent_id: body
+            .get("parentId")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<i64>().ok())
+            .or_else(|| body.get("parentId").and_then(|v| v.as_i64())),
+        short_url: body.get("shortUrl").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        website_id,
+        category_name: body
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or_else(|| {
+                body.get("categoryName")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            }),
+        sort: body
+            .get("sortOrder")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
+            .or_else(|| body.get("sort").and_then(|v| v.as_i64()).map(|v| v as i32)),
+        is_show: body.get("isShow").and_then(|v| v.as_i64()).map(|v| v as i32),
+        status: body.get("status").and_then(|v| v.as_i64()).map(|v| v as i32),
+        page_type: body.get("pageType").and_then(|v| v.as_i64()).map(|v| v as i32),
+        page_template_data_id: body
+            .get("pageTemplateDataId")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<i64>().ok())
+            .or_else(|| body.get("pageTemplateDataId").and_then(|v| v.as_i64())),
+        banner_image: body
+            .get("bannerImage")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        description: body
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        content_type: body
+            .get("contentType")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32),
+        link_url: body
+            .get("linkUrl")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+    };
+
+    match category_service::save_category(db, dto).await {
+        Ok(id) => {
+            let result = serde_json::json!({ "id": id });
+            Ok(HttpResponse::Ok()
+                .content_type("application/msgpack")
+                .body(MetaResp::success(result, "local")))
+        }
+        Err(err) => {
+            let err_msg = err.to_string();
+            Ok(HttpResponse::Ok()
+                .content_type("application/msgpack")
+                .body(MetaResp::<String>::fail(400, &err_msg, "local")))
+        }
+    }
 }
 
 /// Update category
 pub async fn update(
     state: web::Data<AppState>,
-    _req: HttpRequest,
+    req: HttpRequest,
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse> {
-    let _db = &state.db;
-    // TODO: call category_service::update(db, body.into_inner()).await
-    Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
-        .body(MetaResp::<String>::fail(200, "success", "local")))
+    let db = &state.db;
+    let body = body.into_inner();
+
+    let website_id = req
+        .headers()
+        .get("website_id")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<i64>().ok());
+
+    let dto = CategorySaveDTO {
+        id: body
+            .get("id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<i64>().ok())
+            .or_else(|| body.get("id").and_then(|v| v.as_i64())),
+        parent_id: body
+            .get("parentId")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<i64>().ok())
+            .or_else(|| body.get("parentId").and_then(|v| v.as_i64())),
+        short_url: body.get("shortUrl").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        website_id,
+        category_name: body
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or_else(|| {
+                body.get("categoryName")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            }),
+        sort: body
+            .get("sortOrder")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
+            .or_else(|| body.get("sort").and_then(|v| v.as_i64()).map(|v| v as i32)),
+        is_show: body.get("isShow").and_then(|v| v.as_i64()).map(|v| v as i32),
+        status: body.get("status").and_then(|v| v.as_i64()).map(|v| v as i32),
+        page_type: body.get("pageType").and_then(|v| v.as_i64()).map(|v| v as i32),
+        page_template_data_id: body
+            .get("pageTemplateDataId")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<i64>().ok())
+            .or_else(|| body.get("pageTemplateDataId").and_then(|v| v.as_i64())),
+        banner_image: body
+            .get("bannerImage")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        description: body
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        content_type: body
+            .get("contentType")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32),
+        link_url: body
+            .get("linkUrl")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+    };
+
+    match category_service::update_by_id(db, dto).await {
+        Ok(affected) if affected > 0 => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<String>::success("修改成功".to_string(), "local"))),
+        Ok(_) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, "更新失败", "local"))),
+        Err(err) => {
+            let err_msg = err.to_string();
+            Ok(HttpResponse::Ok()
+                .content_type("application/msgpack")
+                .body(MetaResp::<String>::fail(400, &err_msg, "local")))
+        }
+    }
 }
 
 /// Delete category
 pub async fn delete(
     state: web::Data<AppState>,
-    _req: HttpRequest,
+    req: HttpRequest,
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse> {
-    let _db = &state.db;
-    // TODO: call category_service::delete(db, body.into_inner()).await
-    Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
-        .body(MetaResp::<String>::fail(200, "success", "local")))
+    let db = &state.db;
+    let body = body.into_inner();
+
+    let website_id = req
+        .headers()
+        .get("website_id")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<i64>().ok());
+
+    let id = body
+        .get("id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<i64>().ok())
+        .or_else(|| body.get("id").and_then(|v| v.as_i64()));
+
+    if let Some(id_val) = id {
+        let result = CategoryModel::batch_delete_by_ids(db, &website_id, vec![id_val]).await?;
+        Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<i64>::handle_result(Ok(result))))
+    } else {
+        Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+    }
 }
 
 /// Get category tree
 pub async fn tree(
     state: web::Data<AppState>,
+    req: HttpRequest,
 ) -> Result<HttpResponse> {
-    let _db = &state.db;
-    // TODO: call category_service::get_tree(db).await
-    let result = serde_json::json!([]);
-    Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
-        .body(MetaResp::success(result, "local")))
+    let db = &state.db;
+
+    let website_id = req
+        .headers()
+        .get("website_id")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<i64>().ok());
+
+    let dto = CategoryPageDTO {
+        category_name: None,
+        website_id,
+        is_show: None,
+        status: None,
+    };
+
+    match category_service::select_all_list(db, dto).await {
+        Ok(list) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::success(list, "local"))),
+        Err(err) => {
+            let err_msg = err.to_string();
+            Ok(HttpResponse::Ok()
+                .content_type("application/msgpack")
+                .body(MetaResp::<String>::fail(400, &err_msg, "local")))
+        }
+    }
 }
 
 // ==================== 路由注册（单点维护）====================

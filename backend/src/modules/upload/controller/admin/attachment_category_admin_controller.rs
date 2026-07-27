@@ -81,7 +81,7 @@ pub async fn get_by_list(state: web::Data<AppState>, query: web::Query<ListQuery
 /// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(attachment_category_admin_controller::register)` 注册。
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/attachment/category")
+        web::scope("/category")
             // POST /attachment/category/add - 新建附件分类
             .route("/add", web::post().to(save_category))
             // PUT /attachment/category/update/{id} - 修改附件分类

@@ -12,14 +12,17 @@ use crate::core::web::response::ResultPage;
 use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
 use crate::modules::crm::entity::customer::{Entity as Customer, Column as CustomerColumn};
+use crate::modules::crm::entity::opportunity::{self as opp_entity, Entity as Opportunity};
 use crate::modules::crm::model::contract::{ContractSaveDTO, ContractModel};
 use crate::modules::sale::entity::order::{self as order_entity, Entity as SaleOrder};
+use crate::modules::sale::entity::quotation::{self as quo_entity, Entity as Quotation};
 use crate::modules::sale::model::order::{OrderApprovalDetailVO, OrderDetailVO, OrderItemModel, OrderItemSaveDTO, OrderListQuery, OrderListVO, OrderModel, OrderSaveDTO, OrderSaveRequest, OrderStatusUpdateRequest, OrderUpdateRequest};
 use crate::modules::sale::model::shipment::ShipmentModel;
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::role_service;
+use crate::modules::system::service::sales_flow_config_service;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use rust_decimal::Decimal;
 use sea_orm::{ActiveModelTrait, DbConn, TransactionTrait, EntityTrait, ColumnTrait, QueryFilter, Set};
@@ -46,14 +49,56 @@ pub async fn insert(db: &DbConn, form_data: &OrderSaveRequest, created_by: i64) 
         return Err(Error::from("订单明细不能为空"));
     }
 
-    if let (Some(customer_id), Some(title)) = (form_data.customer_id, form_data.title.as_ref()) {
-        let existing = OrderModel::find_by_customer_and_title(db, customer_id, title, None).await?;
-        if existing.is_some() {
-            return Err(Error::from("该客户下已存在相同标题的订单"));
+    // 数据完整性校验：客户必填、标题必填
+    let customer_id = form_data.customer_id.ok_or_else(|| Error::from("客户不能为空".to_string()))?;
+    let title = form_data.title.as_ref().ok_or_else(|| Error::from("订单标题不能为空".to_string()))?;
+
+    // 销售流程模式校验：未关联报价单时，校验企业配置允许跳过报价单
+    if form_data.quotation_id.is_none() {
+        let mode = sales_flow_config_service::get_mode(db).await;
+        if !sales_flow_config_service::can_skip_quotation(&mode) {
+            return Err(Error::from("当前企业销售流程模式要求订单必须关联报价单，请先创建报价单后再转订单"));
+        }
+        // 跳过报价单时，强制要求关联商机
+        if form_data.opportunity_id.is_none() {
+            return Err(Error::from("跳过报价单创建订单时必须关联商机"));
         }
     }
 
     let txn = db.begin().await?;
+
+    // 同公司标题唯一性校验
+    let existing = OrderModel::find_by_customer_and_title(&txn, customer_id, title, None).await?;
+    if existing.is_some() {
+        txn.rollback().await?;
+        return Err(Error::from("该客户下已存在相同标题的订单"));
+    }
+
+    // 报价单存在性校验：若传入 quotation_id，必须查询到未删除的报价单
+    if let Some(qid) = form_data.quotation_id {
+        let quo = Quotation::find_by_id(qid)
+            .filter(quo_entity::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询报价单失败: {}", e)))?;
+        if quo.is_none() {
+            txn.rollback().await?;
+            return Err(Error::from(format!("关联的报价单(id={})不存在或已删除", qid)));
+        }
+    }
+
+    // 商机存在性校验：若传入 opportunity_id，必须查询到未删除的商机
+    if let Some(opp_id) = form_data.opportunity_id {
+        let opp = Opportunity::find_by_id(opp_id)
+            .filter(opp_entity::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询商机失败: {}", e)))?;
+        if opp.is_none() {
+            txn.rollback().await?;
+            return Err(Error::from(format!("关联的商机(id={})不存在或已删除", opp_id)));
+        }
+    }
 
     let date_prefix = format!("SO{}", chrono::Local::now().format("%Y%m%d"));
     let max_seq = OrderModel::get_max_order_no_today(&txn, &date_prefix).await?;
@@ -77,6 +122,10 @@ pub async fn insert(db: &DbConn, form_data: &OrderSaveRequest, created_by: i64) 
     dto.unpaid_amount = Some(total_amount);
     dto.pay_status = Some(1);
     dto.create_by = Some(created_by);
+    // 自动绑定创建者为订单负责人（若前端未指定负责人）
+    if dto.owner_user_id.is_none() {
+        dto.owner_user_id = Some(created_by);
+    }
 
     let order_id = OrderModel::insert(&txn, &dto).await?;
     OrderItemModel::insert_batch(&txn, order_id, &items).await?;
@@ -96,6 +145,10 @@ pub async fn update(db: &DbConn, form_data: &OrderUpdateRequest, updated_by: i64
         return Err(Error::from("订单明细不能为空"));
     }
 
+    // 数据完整性校验：客户必填、标题必填
+    let customer_id = form_data.customer_id.ok_or_else(|| Error::from("客户不能为空".to_string()))?;
+    let title = form_data.title.as_ref().ok_or_else(|| Error::from("订单标题不能为空".to_string()))?;
+
     let existing = OrderModel::find_by_id(db, id).await?;
     if existing.is_none() {
         return Err(Error::from("订单不存在"));
@@ -107,18 +160,42 @@ pub async fn update(db: &DbConn, form_data: &OrderUpdateRequest, updated_by: i64
         return Err(Error::from("当前订单审批状态不允许编辑"));
     }
 
-    let existing_order = existing.unwrap();
-    let customer_id = form_data.customer_id.or(existing_order.customer_id);
-    let title = form_data.title.as_ref().or(existing_order.title.as_ref());
+    let _existing_order = existing.unwrap();
 
-    if let (Some(cid), Some(t)) = (customer_id, title) {
-        let existing_title = OrderModel::find_by_customer_and_title(db, cid, t, form_data.id).await?;
-        if existing_title.is_some() {
-            return Err(Error::from("该客户下已存在相同标题的订单"));
+    let txn = db.begin().await?;
+
+    // 同公司标题唯一性校验（排除自身 ID）
+    let existing_title = OrderModel::find_by_customer_and_title(&txn, customer_id, title, form_data.id).await?;
+    if existing_title.is_some() {
+        txn.rollback().await?;
+        return Err(Error::from("该客户下已存在相同标题的订单"));
+    }
+
+    // 报价单存在性校验：若传入 quotation_id，必须查询到未删除的报价单
+    if let Some(qid) = form_data.quotation_id {
+        let quo = Quotation::find_by_id(qid)
+            .filter(quo_entity::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询报价单失败: {}", e)))?;
+        if quo.is_none() {
+            txn.rollback().await?;
+            return Err(Error::from(format!("关联的报价单(id={})不存在或已删除", qid)));
         }
     }
 
-    let txn = db.begin().await?;
+    // 商机存在性校验：若传入 opportunity_id，必须查询到未删除的商机
+    if let Some(opp_id) = form_data.opportunity_id {
+        let opp = Opportunity::find_by_id(opp_id)
+            .filter(opp_entity::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询商机失败: {}", e)))?;
+        if opp.is_none() {
+            txn.rollback().await?;
+            return Err(Error::from(format!("关联的商机(id={})不存在或已删除", opp_id)));
+        }
+    }
 
     let product_amount = calculate_product_amount(&items);
     let discount_amount = form_data.discount_amount.unwrap_or(Decimal::from(0));
@@ -381,11 +458,22 @@ pub async fn get_list(db: &DbConn, query: &OrderListQuery, current_user_id: i64)
         HashMap::new()
     };
 
+    // 批量查询负责人名称（ID -> 名称）
+    let owner_user_ids: Vec<i64> = list.iter()
+        .filter_map(|c| c.owner_user_id)
+        .collect();
+    let owner_name_map = crate::modules::system::service::admin_service::build_admin_name_map(db, owner_user_ids).await;
+
     let data: Vec<OrderListVO> = list.iter().map(|item| {
         let mut vo: OrderListVO = item.into();
         if let Some(cid) = vo.customer_id {
             if let Some(name) = customer_name_map.get(&cid) {
                 vo.customer_name = Some(name.clone());
+            }
+        }
+        if let Some(oid) = vo.owner_user_id {
+            if let Some(name) = owner_name_map.get(&oid) {
+                vo.owner_user_name = Some(name.clone());
             }
         }
         vo

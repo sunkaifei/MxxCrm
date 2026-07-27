@@ -19,14 +19,14 @@ import { formatDateTime } from '@vben/utils';
 import { Button, Card, Col, Drawer, Dropdown, Form, Input, Popconfirm, Row, Select, Tabs, Tag, Modal, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { createContactApi, createOpportunityApi, deleteCustomerApi, getCustomerListApi, saveFollowupApi } from '#/api';
+import { createContactApi, deleteCustomerApi, getCustomerListApi, saveFollowupApi } from '#/api';
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { $t } from '#/locales';
-import CustomerDrawer from './drawer.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import CustomerFollowupDrawer from './followup-drawer.vue';
 import ContactDrawer from '../contact/drawer.vue';
-import OpportunityDrawer from '../opportunity/drawer.vue';
+import OpportunityDetail from '../opportunity/detail.vue';
+import TransferModal from '../components/TransferModal.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -99,18 +99,32 @@ const sourceLabelMap: Record<number, string> = {
   9: 'Amazon', 10: 'TikTok', 11: '微信', 12: '其他',
 };
 
-// 详情抽屉
+// 详情/新建抽屉统一使用 CustomerDetailDrawer
 const detailVisible = ref(false);
 const detailId = ref<number | null>(null);
+const detailCustomerType = ref<number | undefined>(undefined);
 
+// 打开详情/编辑（带 id）
 function openDetail(row: any) {
   const id = row.id ?? row.id_;
   if (!id) { message.error('客户ID不存在'); return; }
   detailId.value = Number(id);
+  detailCustomerType.value = undefined;
   detailVisible.value = true;
 }
-function closeDetail() { detailVisible.value = false; detailId.value = null; }
-function handleDetailEdit(customer: any) { closeDetail(); openDrawer(false, customer); }
+// 新建客户（传 customerType）
+function openCreate(customerType: number) {
+  detailId.value = null;
+  detailCustomerType.value = customerType;
+  detailVisible.value = true;
+}
+// 新建成功回调：关闭抽屉 + 刷新列表
+function handleDetailCreated() {
+  detailVisible.value = false;
+  detailId.value = null;
+  detailCustomerType.value = undefined;
+  gridApi.query();
+}
 
 // 搜索表单
 const searchForm = ref({
@@ -121,6 +135,7 @@ const searchForm = ref({
   level: undefined as number | undefined,
   industry: undefined as number | undefined,
   source: undefined as number | undefined,
+  customerType: undefined as number | undefined,
   wechat: '',
   qq: '',
 });
@@ -143,10 +158,25 @@ function handleReset() {
     level: undefined,
     industry: undefined,
     source: undefined,
+    customerType: undefined,
     wechat: '',
     qq: '',
   };
   gridApi.query();
+}
+
+// 客户类型显示：名称按类型返回（个人用 personName，企业用 companyName）
+function getCustomerDisplayName(row: any): string {
+  if (Number(row.customerType) === 2) {
+    return row.personName || row.companyName || '-';
+  }
+  return row.companyName || row.personName || '-';
+}
+function getCustomerTypeColor(type: any): string {
+  return Number(type) === 2 ? 'green' : 'blue';
+}
+function getCustomerTypeLabel(type: any): string {
+  return Number(type) === 2 ? '个人' : '企业';
 }
 
 const gridOptions: VxeGridProps = {
@@ -167,6 +197,7 @@ const gridOptions: VxeGridProps = {
           page: page.currentPage,
           pageSize: page.pageSize,
           keywords: values.companyName || undefined,
+          customerType: values.customerType || undefined,
           level: values.level,
           industry: values.industry || undefined,
           source: values.source || undefined,
@@ -227,7 +258,8 @@ const gridOptions: VxeGridProps = {
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: '编号', field: 'customerNo', width: 150, headerAlign: 'center', align: 'center', slots: { default: 'customerNo' } },
-    { title: '公司名称', field: 'companyName', minWidth: 200, headerAlign: 'center', align: 'left', slots: { default: 'companyName' } },
+    { title: '类型', field: 'customerType', width: 70, align: 'center', slots: { default: 'customerType' } },
+    { title: '客户名称', field: 'companyName', minWidth: 200, headerAlign: 'center', align: 'left', slots: { default: 'customerName' } },
     {
       title: '等级', field: 'level', width: 80, slots: { default: 'level' },
     },
@@ -263,15 +295,10 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
 
-const [FormDrawer, drawerApi] = useVbenDrawer({
-  connectedComponent: CustomerDrawer,
-  onClosed() { if (drawerApi.getData()?.needRefresh) gridApi.query(); },
-});
-
-const [OppDrawer, oppDrawerApi] = useVbenDrawer({
-  connectedComponent: OpportunityDrawer,
-  onClosed() { if (oppDrawerApi.getData()?.needRefresh) gridApi.query(); },
-});
+// 商机详情抽屉（使用 OpportunityDetail 组件）
+const oppDetailVisible = ref(false);
+const oppDetailCustomerId = ref<number | string | undefined>(undefined);
+const oppDetailCustomerName = ref<string>('');
 
 const [ContactDrawerInstance, contactDrawerApi] = useVbenDrawer({
   connectedComponent: ContactDrawer,
@@ -299,15 +326,18 @@ function toggleFollowupFullscreen() {
   followupFullscreen.value = !followupFullscreen.value;
 }
 
-function openDrawer(create: boolean, row?: any) { drawerApi.setData({ create, row }); drawerApi.open(); }
-function handleCreate() { openDrawer(true); }
+// 新建企业/个人客户
+function handleCreate() { openCreate(1); }
+function handleCreateEnterprise() { openCreate(1); }
+function handleCreatePersonal() { openCreate(2); }
+// 修改客户：直接走详情抽屉（详情 Tab 内表单可直接编辑）
+function handleEdit(row: any) { openDetail(row); }
+
 async function handleDelete(row: any) {
   row.pending = true;
   try { await deleteCustomerApi([row.id]); message.success($t('ui.notification.delete_success')); }
   finally { row.pending = false; gridApi.query(); }
 }
-
-function handleEdit(row: any) { openDrawer(false, row); }
 
 async function handlePool(row: any) {
   row.pending = true;
@@ -332,6 +362,30 @@ async function handleBatchDelete() {
   });
 }
 
+// 客户转移
+const transferVisible = ref(false);
+const transferCustomerIds = ref<number[]>([]);
+
+function handleBatchTransfer() {
+  const records = gridApi.grid?.getCheckboxRecords();
+  if (!records?.length) { message.warning('请先选择要转移的客户'); return; }
+  transferCustomerIds.value = records.map((r: any) => Number(r.id));
+  transferVisible.value = true;
+}
+
+function handleTransfer(row: any) {
+  const id = Number(row.id ?? row.id_);
+  if (!id) { message.error('客户ID不存在'); return; }
+  transferCustomerIds.value = [id];
+  transferVisible.value = true;
+}
+
+function onTransferSuccess(data: { transferredCount: number; affectedTotal: number }) {
+  transferVisible.value = false;
+  transferCustomerIds.value = [];
+  gridApi.query();
+}
+
 async function handleAddToPool(row: any) {
   Modal.confirm({
     title: '退回公海',
@@ -348,13 +402,20 @@ async function handleAddToPool(row: any) {
   });
 }
 
-// 商机抽屉
+// 商机抽屉：从客户列表点击"添加商机"打开 OpportunityDetail，预填所属企业
 function handleAddOpportunity(row: any) {
-  oppDrawerApi.setData({
-    create: true,
-    row: { customerId: row.id, customerName: row.companyName },
-  });
-  oppDrawerApi.open();
+  oppDetailCustomerId.value = row.id;
+  oppDetailCustomerName.value = row.companyName || '';
+  oppDetailVisible.value = true;
+}
+function handleOppDetailClose() {
+  oppDetailVisible.value = false;
+  oppDetailCustomerId.value = undefined;
+  oppDetailCustomerName.value = '';
+  gridApi.query();
+}
+function handleOppDetailCreated() {
+  gridApi.query();
 }
 
 // 联系人抽屉
@@ -379,7 +440,15 @@ function handleAddContact(row: any) {
         <Row :gutter="[16, 12]" style="width: 100%">
           <Col :xs="24" :sm="24" :md="12">
             <Form.Item label="客户名称" name="companyName">
-              <Input v-model:value="searchForm.companyName" placeholder="请输入客户名称" allow-clear style="width: 100%" />
+              <Input v-model:value="searchForm.companyName" placeholder="请输入客户名称/姓名" allow-clear style="width: 100%" />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="客户类型" name="customerType">
+              <Select v-model:value="searchForm.customerType" placeholder="请选择客户类型" allow-clear style="width: 100%">
+                <Select.Option :value="1">企业客户</Select.Option>
+                <Select.Option :value="2">个人客户</Select.Option>
+              </Select>
             </Form.Item>
           </Col>
           <Col :xs="24" :sm="24" :md="12">
@@ -468,7 +537,11 @@ function handleAddContact(row: any) {
             新增
           </Button>
           <Button :icon="h(LucideUpload)">导入</Button>
-          <Button :icon="h(LucideUsers)">批量转移客户</Button>
+          <Button
+            v-if="accessStore.hasAccessCode('crm:customer:transfer')"
+            :icon="h(LucideUsers)"
+            @click="handleBatchTransfer"
+          >批量转移客户</Button>
           <Button>资料回收</Button>
           <Button>发短信</Button>
           <Button :icon="h(LucideMail)">发邮件</Button>
@@ -478,9 +551,19 @@ function handleAddContact(row: any) {
 
     <Grid :table-title="$t('page.crm.customer.title')" style="margin-top: 15px">
       <template #toolbar-tools>
-        <Button v-if="accessStore.hasAccessCode('crm:customer:create')" type="primary" class="mr-2" @click="handleCreate">
-          {{ $t('page.crm.customer.button.create') }}
-        </Button>
+        <Dropdown v-if="accessStore.hasAccessCode('crm:customer:create')" :trigger="['click']">
+          <Button type="primary" class="mr-2">{{ $t('page.crm.customer.button.create') }} ▾</Button>
+          <template #overlay>
+            <div class="customer-more-menu">
+              <div class="more-menu-item" @click="handleCreateEnterprise">
+                <span>新建企业客户</span>
+              </div>
+              <div class="more-menu-item" @click="handleCreatePersonal">
+                <span>新建个人客户</span>
+              </div>
+            </div>
+          </template>
+        </Dropdown>
         <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
@@ -490,10 +573,14 @@ function handleAddContact(row: any) {
         <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.customerNo || '-' }}</a>
       </template>
 
-      <template #companyName="{ row }">
+      <template #customerType="{ row }">
+        <Tag :color="getCustomerTypeColor(row.customerType)">{{ getCustomerTypeLabel(row.customerType) }}</Tag>
+      </template>
+
+      <template #customerName="{ row }">
         <div>
           <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">
-            {{ row.companyName }}
+            {{ getCustomerDisplayName(row) }}
           </a>
           <div v-if="row.tags && row.tags.length" class="mt-1 flex flex-wrap gap-1">
             <Tag
@@ -528,6 +615,9 @@ function handleAddContact(row: any) {
                 <div class="more-menu-item" @click="() => handleAddContact(row)">
                   <span>添加联系人</span>
                 </div>
+                <div v-if="accessStore.hasAccessCode('crm:customer:transfer')" class="more-menu-item" @click="() => handleTransfer(row)">
+                  <span>转移</span>
+                </div>
                 <div v-if="accessStore.hasAccessCode('crm:customer:update')" class="more-menu-item" @click="() => handleEdit(row)">
                   <span>修改</span>
                 </div>
@@ -549,11 +639,38 @@ function handleAddContact(row: any) {
       <CustomerFollowupDrawer v-if="followupCustomerId" :id="followupCustomerId" @refresh="followupNeedRefresh = true" />
     </Drawer>
 
-    <CustomerDetailDrawer v-model:visible="detailVisible" :id="detailId" @edit="handleDetailEdit" />
+    <CustomerDetailDrawer
+      v-model:visible="detailVisible"
+      :id="detailId ?? undefined"
+      :customer-type="detailCustomerType"
+      @created="handleDetailCreated"
+    />
 
-    <FormDrawer />
-    <OppDrawer />
+    <Drawer
+      v-model:open="oppDetailVisible"
+      :width="1200"
+      placement="right"
+      :destroy-on-close="true"
+      :mask-closable="true"
+      :closable="true"
+      title="新建商机"
+      :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }"
+      @close="handleOppDetailClose"
+    >
+      <OpportunityDetail
+        :customer-id="oppDetailCustomerId"
+        :customer-name="oppDetailCustomerName"
+        @created="handleOppDetailCreated"
+      />
+    </Drawer>
+
     <ContactDrawerInstance />
+
+    <TransferModal
+      v-model:visible="transferVisible"
+      :customer-ids="transferCustomerIds"
+      @success="onTransferSuccess"
+    />
   </Page>
 </template>
 

@@ -19,6 +19,8 @@ pub struct Model {
     pub id: i64,
     /// 模板id
     pub template_id: Option<i64>,
+    /// 网站ID，用于数据隔离
+    pub website_id: Option<i64>,
     /// 模型id
     pub model_id: Option<i32>,
     /// 模板类型，1首页，2列表，3内容，4标签，5专题

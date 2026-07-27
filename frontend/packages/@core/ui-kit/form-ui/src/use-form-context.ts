@@ -51,8 +51,8 @@ export function useFormInitial(
     (unref(props).schema || []).forEach((item) => {
       if (Reflect.has(item, 'defaultValue')) {
         set(initialValues, item.fieldName, item.defaultValue);
-      } else if (item.rules && !isString(item.rules)) {
-        // 检查规则是否适合提取默认值
+      } else if (item.rules && !isString(item.rules) && !Array.isArray(item.rules)) {
+        // 检查规则是否适合提取默认值（仅 Zod schema；Ant Design Vue 的数组 validator 跳过）
         const customDefaultValue = getCustomDefaultValue(item.rules);
         zodObject[item.fieldName] = item.rules;
         if (customDefaultValue !== undefined) {

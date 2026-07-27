@@ -99,6 +99,16 @@ async fn main() -> std::io::Result<()> {
 
     let conn = connect().await.unwrap_or_default();
 
+    // 初始化消息系统表
+    match crate::modules::message::migration::init_message_tables(&conn).await {
+        Ok(_) => {
+            log::info!("[消息系统] 数据库表初始化完成");
+        }
+        Err(e) => {
+            log::error!("[消息系统] 数据库表初始化失败: {:?}", e);
+        }
+    }
+
     let state = AppState {
         db: conn,
     };

@@ -86,7 +86,23 @@
       "button": {
         "create": "Create Payment"
       }
+    },
+    "refund": {
+      "title": "Refund",
+      "button": {
+        "save": "Create Refund",
+        "edit": "Edit Refund",
+        "delete": "Delete Refund",
+        "approve": "Approve Refund",
+        "payment": "Refund Payment"
+      }
     }
+  },
+  "report": {
+    "title": "Reports"
+  },
+  "company": {
+    "title": "Settings"
   },
   "purchase": {
     "title": "Purchase",
@@ -107,7 +123,7 @@
     }
   },
   "product": {
-    "title": "Products",
+    "title": "Warehouse",
     "list": {
       "title": "Product List",
       "button": {
@@ -128,7 +144,13 @@
       "button": {
         "create": "Create Warehouse"
       }
+    },
+    "sku": {
+      "title": "SKU"
     }
+  },
+  "warehouse": {
+    "title": "Warehouse"
   },
   "system": {
     "title": "System",
@@ -190,6 +212,47 @@
     "settlement": "Settlement",
     "promotion": "Promotion",
     "commissionConfig": "Commission"
+  },
+  "website": {
+    "title": "Website",
+    "list": "Website List",
+    "category": "Category",
+    "article": "Article",
+    "message": "Messages",
+    "links": "Links",
+    "supplierAudit": "Supplier Audit",
+    "goodsAudit": "Goods Audit",
+    "goods": "Goods",
+    "orderList": "Orders",
+    "settlement": "Settlement",
+    "promotion": "Promotion",
+    "commissionConfig": "Commission",
+    "button": {
+      "create": "Add Website",
+      "edit": "Edit Website",
+      "delete": "Delete Website",
+      "view": "View Website"
+    },
+    "template": {
+      "title": "Templates",
+      "button": {
+        "create": "Add Template",
+        "edit": "Edit Template",
+        "delete": "Delete Template",
+        "view": "View Template",
+        "preview": "Preview",
+        "apply": "Apply to Site"
+      }
+    },
+    "templateData": {
+      "title": "Template Data",
+      "button": {
+        "create": "Add Template",
+        "edit": "Edit Template",
+        "delete": "Delete Template",
+        "view": "View Template"
+      }
+    }
   },
   "attachment": {
     "file": {

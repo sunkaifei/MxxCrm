@@ -20,6 +20,9 @@ use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct LinkSaveRequest {
 
+    /// 网站id
+    #[serde(default)]
+    pub website_id: Option<i64>,
     /// 链接类型：0文字链接，1logo链接
     #[serde(default)]
     pub link_type: Option<i32>,
@@ -46,7 +49,7 @@ impl From<LinkSaveRequest> for LinkSaveDTO {
     fn from(req: LinkSaveRequest) -> Self {
         LinkSaveDTO {
             id: None,
-            website_id: None,
+            website_id: req.website_id,
             link_type: req.link_type,
             link_name: req.link_name,
             link_url: req.link_url,
@@ -62,6 +65,9 @@ impl From<LinkSaveRequest> for LinkSaveDTO {
 pub struct LinkUpdateRequest {
     #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
+    /// 网站id
+    #[serde(default)]
+    pub website_id: Option<i64>,
     /// 链接类型：0文字链接，1logo链接
     #[serde(default)]
     pub link_type: Option<i32>,
@@ -86,7 +92,7 @@ impl From<LinkUpdateRequest> for LinkSaveDTO {
     fn from(req: LinkUpdateRequest) -> Self {
         LinkSaveDTO {
             id: req.id,
-            website_id: None,
+            website_id: req.website_id,
             link_type: req.link_type,
             link_name: req.link_name,
             link_url: req.link_url,
@@ -305,6 +311,7 @@ impl WebsiteLinksModel {
 
     pub async fn update_by_id(db: &DbConn, id: &Option<i64>, form_data: &LinkSaveDTO) -> Result<i64, DbErr> {
         let payload = website_links::ActiveModel {
+            website_id:       Set(form_data.website_id.to_owned()),
             link_name:        Set(form_data.link_name.to_owned()),
             link_type:        Set(form_data.link_type.to_owned()),
             link_url:         Set(form_data.link_url.to_owned()),

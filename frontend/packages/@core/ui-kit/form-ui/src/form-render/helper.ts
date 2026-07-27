@@ -17,11 +17,13 @@ export function getBaseRules<
   ChildType extends AnyZodObject | ZodTypeAny = ZodTypeAny,
 >(schema: ChildType | ZodEffects<ChildType>): ChildType | null {
   if (!schema || isString(schema)) return null;
-  if ('innerType' in schema._def)
-    return getBaseRules(schema._def.innerType as ChildType);
+  const def = (schema as any)?._def;
+  if (!def) return null;
+  if ('innerType' in def)
+    return getBaseRules(def.innerType as ChildType);
 
-  if ('schema' in schema._def)
-    return getBaseRules(schema._def.schema as ChildType);
+  if ('schema' in def)
+    return getBaseRules(def.schema as ChildType);
 
   return schema as ChildType;
 }
@@ -34,18 +36,20 @@ export function getDefaultValueInZodStack(schema: ZodTypeAny): any {
     return;
   }
   const typedSchema = schema as unknown as ZodDefault<ZodNumber | ZodString>;
+  const def = (typedSchema as any)?._def;
+  if (!def) return undefined;
 
-  if (typedSchema._def.typeName === 'ZodDefault')
-    return typedSchema._def.defaultValue();
+  if (def.typeName === 'ZodDefault')
+    return def.defaultValue();
 
-  if ('innerType' in typedSchema._def) {
+  if ('innerType' in def) {
     return getDefaultValueInZodStack(
-      typedSchema._def.innerType as unknown as ZodTypeAny,
+      def.innerType as unknown as ZodTypeAny,
     );
   }
-  if ('schema' in typedSchema._def) {
+  if ('schema' in def) {
     return getDefaultValueInZodStack(
-      (typedSchema._def as any).schema as ZodTypeAny,
+      (def as any).schema as ZodTypeAny,
     );
   }
 

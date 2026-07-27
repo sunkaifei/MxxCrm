@@ -5,14 +5,21 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { computed, h, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2, LucideEye } from '@vben/icons';
+import { LucideFilePenLine, LucideTrash2, LucideEye, LucideMoreHorizontal } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Drawer, Modal, Tabs, message } from 'ant-design-vue';
+import { Button, Popconfirm, Drawer, Dropdown, Menu, Modal, Tabs, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteOpportunityApi, getOpportunityListApi } from '#/api';
+import {
+  convertOpportunityToOrderApi,
+  convertOpportunityToQuotationApi,
+  deleteOpportunityApi,
+  getOpportunityListApi,
+  getSalesFlowModeApi,
+  type SalesFlowMode,
+} from '#/api';
 import { $t } from '#/locales';
 import OpportunityDetail from './detail.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
@@ -20,6 +27,70 @@ import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
+
+// 销售流程模式：A=仅标准(转报价单) B=仅简易(转订单) both=两种都允许
+const flowMode = ref<SalesFlowMode>('both');
+const loadFlowMode = async () => {
+  try {
+    flowMode.value = await getSalesFlowModeApi();
+  } catch {
+    flowMode.value = 'both';
+  }
+};
+// 是否显示"转报价单"入口
+const canConvertToQuotation = computed(
+  () => flowMode.value === 'A' || flowMode.value === 'both',
+);
+// 是否显示"转订单"入口
+const canConvertToOrder = computed(
+  () => flowMode.value === 'B' || flowMode.value === 'both',
+);
+// 是否显示"更多"下拉（仅当至少有一个转换入口可用时）
+const showMoreActions = computed(
+  () => canConvertToQuotation.value || canConvertToOrder.value,
+);
+
+// 转报价单
+async function handleConvertToQuotation(row: any) {
+  const id = row.id ?? row.id_;
+  if (!id) return;
+  Modal.confirm({
+    title: '转报价单',
+    content: `确定要将商机「${row.title || ''}」转为报价单吗？`,
+    okText: '确定',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await convertOpportunityToQuotationApi(Number(id));
+        message.success('已转为报价单');
+        gridApi.query();
+      } catch {
+        /* ignore */
+      }
+    },
+  });
+}
+
+// 转订单（简易流程）
+async function handleConvertToOrder(row: any) {
+  const id = row.id ?? row.id_;
+  if (!id) return;
+  Modal.confirm({
+    title: '转订单',
+    content: `确定要将商机「${row.title || ''}」直接转为订单吗？转换后将创建订单草稿，可继续完善明细。`,
+    okText: '确定',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await convertOpportunityToOrderApi(Number(id));
+        message.success('已转为订单');
+        gridApi.query();
+      } catch {
+        /* ignore */
+      }
+    },
+  });
+}
 
 // 全部商机 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
 const canViewAll = computed(() => {
@@ -265,6 +336,9 @@ async function handleBatchDelete() {
     },
   });
 }
+
+// 页面初始化时加载销售流程模式
+loadFlowMode();
 </script>
 
 <template>
@@ -300,6 +374,19 @@ async function handleBatchDelete() {
         <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.opportunity.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
           <Button v-if="accessStore.hasAccessCode('crm:opportunity:delete')" type="link" danger :icon="h(LucideTrash2)" />
         </Popconfirm>
+        <Dropdown v-if="showMoreActions && accessStore.hasAccessCode('crm:opportunity:update')" :trigger="['click']">
+          <Button type="link" :icon="h(LucideMoreHorizontal)" />
+          <template #overlay>
+            <Menu>
+              <Menu.Item v-if="canConvertToQuotation" key="toQuotation" @click="handleConvertToQuotation(row)">
+                转报价单
+              </Menu.Item>
+              <Menu.Item v-if="canConvertToOrder" key="toOrder" @click="handleConvertToOrder(row)">
+                转订单
+              </Menu.Item>
+            </Menu>
+          </template>
+        </Dropdown>
       </template>
     </Grid>
 

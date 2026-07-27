@@ -46,6 +46,10 @@ pub struct Model {
     pub status: Option<i32>,
     /// 错误消息
     pub error_msg: Option<String>,
+    /// HTTP 响应状态码
+    pub status_code: Option<i32>,
+    /// 接口耗时（毫秒）
+    pub elapsed: Option<i64>,
     /// 操作时间
     pub create_time: Option<DateTime>,
 }

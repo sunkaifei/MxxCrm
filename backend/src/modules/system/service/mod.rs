@@ -26,3 +26,4 @@ pub mod tag_service;
 pub mod tag_group_service;
 pub mod area_service;
 pub mod edit_log_service;
+pub mod sales_flow_config_service;

@@ -8,4 +8,6 @@
 //! 版权所有，侵权必究！
 //!
 
+pub mod cms_open_controller;
 pub mod index_open_controller;
+pub mod price_open_controller;

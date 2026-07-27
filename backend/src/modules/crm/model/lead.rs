@@ -438,6 +438,12 @@ pub struct LeadListQuery {
     pub keywords: Option<String>,
     /// 公司名称搜索
     pub company_name: Option<String>,
+    /// 联系人姓名搜索
+    pub contact_name: Option<String>,
+    /// 手机号搜索
+    pub mobile: Option<String>,
+    /// 行业筛选
+    pub industry: Option<i32>,
     /// 线索状态（数字：1新线索 2跟进中 3已转客户 4无效 5回收 6未审查 7审查中 8有效）
     pub status: Option<i32>,
     /// 线索等级
@@ -619,6 +625,9 @@ impl LeadModel {
         level: Option<String>,
         source: Option<String>,
         assigned_to: Option<i64>,
+        contact_name: Option<String>,
+        mobile: Option<String>,
+        industry: Option<i32>,
     ) -> Result<(Vec<lead::Model>, i64), DbErr> {
         let mut query = Lead::find()
             .filter(lead::Column::Deleted.eq(0));
@@ -641,6 +650,15 @@ impl LeadModel {
         }
         if let Some(a) = assigned_to {
             query = query.filter(lead::Column::AssignedTo.eq(a));
+        }
+        if let Some(n) = contact_name.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::ContactName.contains(n));
+        }
+        if let Some(m) = mobile.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::Mobile.contains(m));
+        }
+        if let Some(i) = industry {
+            query = query.filter(lead::Column::Industry.eq(i));
         }
 
         let paginator = query.order_by_desc(lead::Column::CreateTime).paginate(db, per_page as u64);
@@ -688,6 +706,9 @@ impl LeadModel {
         level: Option<String>,
         source: Option<String>,
         assigned_ids: Option<Vec<i64>>,
+        contact_name: Option<String>,
+        mobile: Option<String>,
+        industry: Option<i32>,
     ) -> Result<(Vec<lead::Model>, i64), DbErr> {
         let mut query = Lead::find()
             .filter(lead::Column::Deleted.eq(0));
@@ -718,6 +739,15 @@ impl LeadModel {
             }
             query = query.filter(lead::Column::AssignedTo.is_in(ids));
         }
+        if let Some(n) = contact_name.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::ContactName.contains(n));
+        }
+        if let Some(m) = mobile.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::Mobile.contains(m));
+        }
+        if let Some(i) = industry {
+            query = query.filter(lead::Column::Industry.eq(i));
+        }
 
         let paginator = query.order_by_desc(lead::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
@@ -736,6 +766,9 @@ impl LeadModel {
         level: Option<String>,
         source: Option<String>,
         user_ids: Option<Vec<i64>>,
+        contact_name: Option<String>,
+        mobile: Option<String>,
+        industry: Option<i32>,
     ) -> Result<(Vec<lead::Model>, i64), DbErr> {
         use crate::modules::crm::entity::followup;
 
@@ -790,6 +823,15 @@ impl LeadModel {
         }
         if let Some(s) = source {
             query = query.filter(lead::Column::Source.eq(s));
+        }
+        if let Some(n) = contact_name.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::ContactName.contains(n));
+        }
+        if let Some(m) = mobile.filter(|v| !v.trim().is_empty()) {
+            query = query.filter(lead::Column::Mobile.contains(m));
+        }
+        if let Some(i) = industry {
+            query = query.filter(lead::Column::Industry.eq(i));
         }
 
         let paginator = query.order_by_desc(lead::Column::CreateTime).paginate(db, per_page as u64);

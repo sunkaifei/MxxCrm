@@ -74,11 +74,14 @@ pub async fn followup_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 }
 
-pub async fn followup_list(state: web::Data<AppState>, query: web::Query<FollowupListQuery>) -> HttpResponse {
+pub async fn followup_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<FollowupListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
 
-    match followup_service::list(&db, &query).await {
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+
+    match followup_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;

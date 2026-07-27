@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 pub mod contact;
+pub mod contact_edit_log;
 pub mod contract;
 pub mod contract_commission_member;
 pub mod contract_payment_plan;

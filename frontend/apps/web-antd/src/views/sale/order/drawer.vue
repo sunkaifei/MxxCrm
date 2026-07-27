@@ -29,7 +29,9 @@ import {
   getCustomerFinancialApi,
   getCompanyInfoApi,
   getCompanyAccountListApi,
+  getSalesFlowModeApi,
   type BankAccount,
+  type SalesFlowMode,
 } from '#/api';
 
 const props = withDefaults(
@@ -51,6 +53,24 @@ const discountAmount = ref(0);
 const otherFee = ref(0);
 const isFullscreen = ref(false);
 const submitting = ref(false);
+
+// 销售流程模式：A=仅标准(必填报价单) B=仅简易(隐藏报价单/必填商机) both=两种都允许
+const flowMode = ref<SalesFlowMode>('both');
+// 是否显示"选择报价单"入口
+const showQuotationSelect = computed(
+  () => flowMode.value === 'A' || flowMode.value === 'both',
+);
+// 客户字段锁定：订单有关联商机或报价单（来源于上游）时锁定客户字段
+const isCustomerLocked = ref(false);
+// 加载销售流程模式
+const loadFlowMode = async () => {
+  try {
+    flowMode.value = await getSalesFlowModeApi();
+  } catch {
+    flowMode.value = 'both';
+  }
+};
+loadFlowMode();
 
 // 报价单选择
 const quotationModalVisible = ref(false);
@@ -180,7 +200,10 @@ const basicFormSchema: VbenFormSchema[] = [
     component: 'Input',
     fieldName: 'customerName',
     label: '客户名称',
-    componentProps: { placeholder: '请输入客户名称' },
+    componentProps: () => ({
+      placeholder: '请输入客户名称',
+      disabled: isCustomerLocked.value,
+    }),
   },
   {
     component: 'Input',
@@ -471,6 +494,8 @@ async function loadOrderDetail(orderId: number) {
     quotationInfo.value = data.quotationId
       ? { id: data.quotationId, title: data.quotationTitle || data.quotationNo || '' }
       : {};
+    // 客户字段锁定：来源于上游（有关联商机或报价单）时锁定
+    isCustomerLocked.value = !!data.opportunityId || !!data.quotationId;
     // 合同信息（只读）
     contractInfo.value = data.contractId
       ? { id: data.contractId, title: data.contractTitle || data.contractNo || '' }
@@ -568,6 +593,20 @@ async function handleSubmit() {
     const paymentValues = await paymentFormApi.getValues();
     console.log('[订单提交] 表单数据收集完成:', { basicValues, shippingValues, paymentValues });
 
+    // 销售流程模式校验：未关联报价单时，校验企业配置允许跳过 + 必填商机
+    if (!quotationInfo.value.id && !basicValues.opportunityId) {
+      if (flowMode.value === 'A') {
+        message.error('当前为标准流程模式，订单必须关联报价单');
+        activeTab.value = 'basic';
+        return;
+      }
+      if (flowMode.value === 'B') {
+        message.error('当前为简易流程模式，订单必须关联商机（请通过商机"转订单"入口创建）');
+        activeTab.value = 'basic';
+        return;
+      }
+    }
+
     const submitItems = items.value.map((item, idx) => ({
       ...item,
       sort: idx,
@@ -582,6 +621,8 @@ async function handleSubmit() {
     const data = {
       ...basicValues,
       ...shippingValues,
+      // 显式带上 quotationId（来自选择报价单弹窗，schema 中无此字段）
+      quotationId: quotationInfo.value.id || undefined,
       paymentMethod: paymentValues.paymentMethod,
       paymentDueDate: paymentValues.paymentDueDate,
       items: submitItems,
@@ -632,6 +673,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const data = drawerApi.getData() as { create?: boolean; row?: any };
       drawerData.value = { create: data?.create ?? true, row: data?.row ?? {} };
       isFullscreen.value = false;
+      isCustomerLocked.value = false;
       activeTab.value = 'basic';
       if (props.fromQuotation) {
         // 从报价单创建订单，预填充报价单信息
@@ -659,6 +701,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
           remark: q.remark,
         });
         quotationInfo.value = { id: q.id, title: q.title, quotationNo: q.quotationNo };
+        // 从报价单创建订单时锁定客户字段
+        isCustomerLocked.value = true;
         // 复制报价单产品明细到订单
         items.value = Array.isArray(q.items)
           ? q.items.map((it: any) => ({
@@ -769,8 +813,8 @@ watch(submitting, (val) => {
     <Tabs v-model:activeKey="activeTab">
       <TabPane key="basic" tab="基本信息">
         <BasicForm />
-        <!-- 报价单选择 -->
-        <div class="flex items-center gap-2 mt-2 px-1">
+        <!-- 报价单选择（模式 A 或 both 时显示，模式 B 隐藏） -->
+        <div v-if="showQuotationSelect" class="flex items-center gap-2 mt-2 px-1">
           <span class="text-sm text-gray-500 shrink-0" style="width: 82px">报价单：</span>
           <div class="flex-1">
             <a
@@ -789,6 +833,15 @@ watch(submitting, (val) => {
             </a>
           </div>
           <Button v-if="quotationInfo.id" type="link" size="small" danger @click="clearQuotation">清除</Button>
+        </div>
+        <!-- 模式 B 提示：未关联商机时给出提示 -->
+        <div v-if="flowMode === 'B' && !quotationInfo.id" class="flex items-center gap-2 mt-2 px-1">
+          <span class="text-sm text-gray-500 shrink-0" style="width: 82px">关联商机：</span>
+          <div class="flex-1">
+            <span class="text-sm text-orange-500">
+              当前为简易流程模式，请通过商机列表"转订单"入口创建订单，或先选择商机。
+            </span>
+          </div>
         </div>
         <!-- 合同信息（只读，仅编辑时显示） -->
         <div v-if="contractInfo.id" class="flex items-center gap-2 mt-2 px-1">

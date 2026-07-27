@@ -19,6 +19,7 @@ use sea_orm::{
     ColumnTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, ConnectionTrait,
 };
 use sea_orm::prelude::Json;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 /// 记录客户修改日志
@@ -96,6 +97,72 @@ pub async fn log_delete(
         .exec(db)
         .await
         .map_err(|e| Error::from(format!("插入客户删除日志失败: {}", e)))?;
+
+    Ok(())
+}
+
+/// 转移影响范围统计
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferAffected {
+    pub opportunity_count: i64,
+    pub quotation_count: i64,
+    pub order_count: i64,
+    pub contract_count: i64,
+    pub payment_plan_count: i64,
+    pub payment_count: i64,
+    pub invoice_count: i64,
+}
+
+/// 记录客户转移日志
+/// log_type = 2，content 字段存储转移详情 JSON
+pub async fn log_transfer(
+    db: &impl ConnectionTrait,
+    customer_id: i64,
+    editor_id: i64,
+    editor_name: Option<String>,
+    from_user_name: String,
+    to_user_name: String,
+    transfer_reason: &str,
+    remark: Option<String>,
+    affected: &TransferAffected,
+) -> Result<()> {
+    let content = json!({
+        "操作类型": "客户转移",
+        "原负责人": from_user_name,
+        "新负责人": to_user_name,
+        "交接原因": transfer_reason,
+        "备注": remark.unwrap_or_default(),
+        "受影响资源": {
+            "商机": affected.opportunity_count,
+            "报价单": affected.quotation_count,
+            "订单": affected.order_count,
+            "合同": affected.contract_count,
+            "回款计划": affected.payment_plan_count,
+            "回款": affected.payment_count,
+            "发票": affected.invoice_count,
+        }
+    });
+
+    let content_json = serde_json::to_value(&content)
+        .map_err(|e| Error::from(format!("序列化转移日志失败: {}", e)))?;
+
+    let now = chrono::Local::now().naive_local();
+    let am = customer_edit_log::ActiveModel {
+        customer_id: Set(Some(customer_id)),
+        editor_id: Set(Some(editor_id)),
+        editor_name: Set(editor_name),
+        content: Set(Some(content_json)),
+        edit_time: Set(Some(now)),
+        log_type: Set(Some(2)), // 2=客户转移
+        deleted: Set(Some(0)),
+        ..Default::default()
+    };
+
+    CustomerEditLog::insert(am)
+        .exec(db)
+        .await
+        .map_err(|e| Error::from(format!("插入客户转移日志失败: {}", e)))?;
 
     Ok(())
 }

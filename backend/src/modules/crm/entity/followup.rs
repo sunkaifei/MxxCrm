@@ -21,6 +21,8 @@ pub struct Model {
     pub customer_id: Option<i64>,
     pub opportunity_id: Option<i64>,
     pub activity_type: Option<i32>,
+    /// 跟进来源类型：1=线索跟进, 2=客户跟进, 3=商机跟进
+    pub source_type: Option<i16>,
     pub content: Option<String>,
     pub next_follow_date: Option<Date>,
     pub duration_minutes: Option<i32>,

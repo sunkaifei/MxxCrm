@@ -12,7 +12,7 @@ use crate::modules::statistics::controller::admin::statistics_admin_controller a
 use crate::modules::statistics::controller::admin::performance_plan_controller;
 use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller};
 use crate::modules::approval::controller::admin::approval_controller;
-use crate::modules::upload::controller::admin::{attachment_admin_controller, attachment_category_admin_controller};
+use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller};
 use crate::modules::shop::controller::admin::shop_admin_controller;
 use crate::modules::shop::controller::admin::category_controller;
@@ -22,10 +22,14 @@ use crate::modules::ai::controller::admin::{ai_config_controller, background_che
 use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
-use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, shipment_controller};
+use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, refund_controller, shipment_controller};
 use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller};
 use crate::modules::company::controller::admin::company_controller;
 use crate::modules::company::controller::admin::code_rule_controller;
+use crate::modules::message::controller::admin::notification_admin_controller;
+use crate::modules::message::controller::admin::my_notification_controller;
+use crate::modules::message::controller::admin::chat_admin_controller;
+use crate::modules::message::websocket;
 
 async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
     let path = req.path();
@@ -91,9 +95,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(category_admin_controller::register)
             // IP Address Management
             .configure(ip_admin_controller::register)
-            // Attachment Management
+            // Attachment Management (含 attachment/category 子路由，注册在 /attachment scope 内)
             .configure(attachment_admin_controller::register)
-            .configure(attachment_category_admin_controller::register)
             // System Log Management
             .configure(system_log_admin_controller::register)
             // Edit Log Management
@@ -172,6 +175,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(sale_order_controller::register)
             // Sale Order Item Management
             .configure(order_item_controller::register)
+            // Sale Refund Management
+            .configure(refund_controller::register)
             // Sale Payment Management
             .configure(sale_payment_controller::register)
             // Sale Quotation Management
@@ -190,5 +195,17 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(company_controller::register)
             // Company Code Rule Management
             .configure(code_rule_controller::register)
+            // Message Notification Management
+            .configure(notification_admin_controller::register)
+            // My Notification (admin user's own notifications)
+            .configure(my_notification_controller::register)
+            // Chat Management (admin user's chat)
+            .configure(chat_admin_controller::register)
+    );
+
+    // WebSocket 路由（独立 scope，不经过 GrantsMiddleware，握手时通过 query token 认证）
+    cfg.service(
+        web::resource("/ws/message")
+            .route(web::get().to(websocket::ws_handler))
     );
 }

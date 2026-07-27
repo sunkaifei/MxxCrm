@@ -269,6 +269,33 @@ where
     }
 }
 
+/// 将数组元素（字符串或数字）反序列化为 Vec<i64>
+/// 用于兼容前端传入 ["6", "7"] 或 [6, 7] 两种格式
+pub fn deserialize_string_or_num_vec_to_i64_vec<'de, D>(
+    deserializer: D,
+) -> Result<Vec<i64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let values: Vec<serde_json::Value> = Vec::deserialize(deserializer)?;
+    values
+        .into_iter()
+        .map(|v| {
+            if let Some(n) = v.as_i64() {
+                Ok(n)
+            } else if let Some(s) = v.as_str() {
+                s.parse::<i64>()
+                    .map_err(|e| serde::de::Error::custom(format!("字符串转 i64 失败: {}", e)))
+            } else {
+                Err(serde::de::Error::custom(format!(
+                    "无法将 {:?} 转换为 i64",
+                    v
+                )))
+            }
+        })
+        .collect()
+}
+
 
 /// 将 Vec<Option<String>> 转换为 Vec<i64>
 pub fn convert_vec_option_string_to_vec_u64(input: Vec<Option<String>>) -> Vec<i64> {

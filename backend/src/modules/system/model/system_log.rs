@@ -65,6 +65,10 @@ pub struct SystemLogSaveDTO {
     pub status: Option<i32>,
     /// 错误消息
     pub error_msg: Option<String>,
+    /// HTTP 响应状态码
+    pub status_code: Option<i32>,
+    /// 接口耗时（毫秒）
+    pub elapsed: Option<i64>,
 }
 
 impl From<SystemLogSaveRequest> for SystemLogSaveDTO {
@@ -85,6 +89,8 @@ impl From<SystemLogSaveRequest> for SystemLogSaveDTO {
             json_result: None,
             status: None,
             error_msg: None,
+            status_code: None,
+            elapsed: None,
         }
     }
 }
@@ -122,6 +128,10 @@ pub struct LogListVO {
     pub status: Option<i32>,
     /// 错误消息
     pub error_msg: Option<String>,
+    /// HTTP 响应状态码
+    pub status_code: Option<i32>,
+    /// 接口耗时（毫秒）
+    pub elapsed: Option<i64>,
     /// 操作时间
     pub create_time: Option<String>,
 }
@@ -144,6 +154,8 @@ impl From<system_log::Model> for LogListVO {
             json_result: model.json_result,
             status: model.status,
             error_msg: model.error_msg,
+            status_code: model.status_code,
+            elapsed: model.elapsed,
             create_time: model.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
@@ -182,6 +194,10 @@ pub struct LogDetailVO {
     pub status: Option<i32>,
     /// 错误消息
     pub error_msg: Option<String>,
+    /// HTTP 响应状态码
+    pub status_code: Option<i32>,
+    /// 接口耗时（毫秒）
+    pub elapsed: Option<i64>,
     /// 操作时间
     pub create_time: Option<String>,
 }
@@ -204,6 +220,8 @@ impl From<system_log::Model> for LogDetailVO {
             json_result: model.json_result,
             status: model.status,
             error_msg: model.error_msg,
+            status_code: model.status_code,
+            elapsed: model.elapsed,
             create_time: model.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
@@ -215,6 +233,7 @@ pub struct ListQuery {
     pub title: Option<String>,
     pub business_type: Option<i32>,
     pub operator_type: Option<i32>,
+    pub oper_name: Option<String>,
     pub status: Option<i32>,
     pub begin_time: Option<String>,
     pub end_time: Option<String>,
@@ -229,41 +248,36 @@ pub struct PageWhere {
     pub title: Option<String>,
     pub business_type: Option<i32>,
     pub operator_type: Option<i32>,
+    pub oper_name: Option<String>,
     pub status: Option<i32>,
     pub begin_time: Option<String>,
     pub end_time: Option<String>,
 }
 
 impl PageWhere {
-    /// 格式化
+    /// 格式化：清理空字符串与无效值
     pub fn format(&self) -> Self {
-        let mut title = None;
-        if self.title != Some("".to_string()) {
-            title = self.title.clone();
-        }
+        let title = self.title.as_ref().filter(|s| !s.is_empty()).cloned();
 
-        let mut business_type = None;
-        if self.business_type == Some(1) || self.business_type == Some(0) {
-            business_type = self.business_type;
-        }
+        let business_type = self.business_type.filter(|v| (0..=3).contains(v));
 
-        let mut operator_type = None;
-        if self.operator_type == Some(1) || self.operator_type == Some(0) {
-            operator_type = self.operator_type;
-        }
+        let operator_type = self.operator_type.filter(|v| (0..=2).contains(v));
 
-        let mut status = None;
-        if self.status == Some(1) || self.status == Some(0) {
-            status = self.status;
-        }
+        let oper_name = self.oper_name.as_ref().filter(|s| !s.is_empty()).cloned();
+
+        let status = self.status.filter(|v| (0..=1).contains(v));
+
+        let begin_time = self.begin_time.as_ref().filter(|s| !s.is_empty()).cloned();
+        let end_time = self.end_time.as_ref().filter(|s| !s.is_empty()).cloned();
 
         Self {
             title,
             business_type,
             status,
             operator_type,
-            begin_time: None,
-            end_time: None,
+            oper_name,
+            begin_time,
+            end_time,
         }
     }
 }
@@ -283,6 +297,17 @@ impl SystemLogModel{
             method:            Set(form_data.method.to_owned()),
             request_method:    Set(form_data.request_method.to_owned()),
             operator_type:     Set(form_data.operator_type.to_owned()),
+            oper_name:         Set(form_data.oper_name.to_owned()),
+            dept_name:         Set(form_data.dept_name.to_owned()),
+            oper_url:          Set(form_data.oper_url.to_owned()),
+            oper_ip:           Set(form_data.oper_ip.to_owned()),
+            oper_location:     Set(form_data.oper_location.to_owned()),
+            oper_param:        Set(form_data.oper_param.to_owned()),
+            json_result:       Set(form_data.json_result.to_owned()),
+            status:            Set(form_data.status.to_owned()),
+            error_msg:         Set(form_data.error_msg.to_owned()),
+            status_code:       Set(form_data.status_code.to_owned()),
+            elapsed:           Set(form_data.elapsed.to_owned()),
             create_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
@@ -292,8 +317,8 @@ impl SystemLogModel{
             .await
             .map(|r| r.last_insert_id)
     }
-    
-    
+
+
     pub async fn batch_delete_by_ids(db: &DbConn, ids: Vec<i64>) -> Result<i64, DbErr> {
         SystemLog::delete_many()
             .filter(system_log::Column::Id.is_in(ids))
@@ -323,8 +348,17 @@ impl SystemLogModel{
             .apply_if(wheres.operator_type, |query, v| {
                 query.filter(system_log::Column::OperatorType.eq(v))
             })
+            .apply_if(wheres.oper_name, |query, v| {
+                query.filter(system_log::Column::OperName.contains(format!("%{}%", v).as_str()))
+            })
             .apply_if(wheres.status, |query, v| {
                 query.filter(system_log::Column::Status.eq(v))
+            })
+            .apply_if(wheres.begin_time, |query, v| {
+                query.filter(system_log::Column::CreateTime.gte(parse_naive_from_str(&v)))
+            })
+            .apply_if(wheres.end_time, |query, v| {
+                query.filter(system_log::Column::CreateTime.lte(parse_naive_from_str(&v)))
             })
             .count(db)
             .await
@@ -347,8 +381,17 @@ impl SystemLogModel{
             .apply_if(wheres.operator_type, |query, v| {
                 query.filter(system_log::Column::OperatorType.eq(v))
             })
+            .apply_if(wheres.oper_name, |query, v| {
+                query.filter(system_log::Column::OperName.contains(format!("%{}%", v).as_str()))
+            })
             .apply_if(wheres.status, |query, v| {
                 query.filter(system_log::Column::Status.eq(v))
+            })
+            .apply_if(wheres.begin_time, |query, v| {
+                query.filter(system_log::Column::CreateTime.gte(parse_naive_from_str(&v)))
+            })
+            .apply_if(wheres.end_time, |query, v| {
+                query.filter(system_log::Column::CreateTime.lte(parse_naive_from_str(&v)))
             })
             .order_by_desc(system_log::Column::Id)
             .paginate(db, per_page as u64);
@@ -356,5 +399,25 @@ impl SystemLogModel{
 
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, num_pages))
     }
-    
+
+}
+
+/// 将 "yyyy-MM-dd HH:mm:ss" 或 "yyyy-MM-dd" 字符串解析为 NaiveDateTime
+/// 解析失败时返回 chrono::Local::now()（保证 filter 不会 panic，但仍是有效约束）
+fn parse_naive_from_str(s: &str) -> chrono::NaiveDateTime {
+    let formats = [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
+        "%Y/%m/%d %H:%M:%S",
+        "%Y/%m/%d",
+    ];
+    for fmt in formats {
+        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, fmt) {
+            return dt;
+        }
+        if let Ok(d) = chrono::NaiveDate::parse_from_str(s, fmt) {
+            return d.and_hms_opt(0, 0, 0).unwrap_or_else(|| chrono::Local::now().naive_local());
+        }
+    }
+    chrono::Local::now().naive_local()
 }

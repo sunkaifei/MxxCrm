@@ -18,9 +18,10 @@ export const deleteCustomerApi = async (ids: number[]) => {
   });
 };
 
-// 检查公司名称是否已存在
+// 检查客户名称是否已存在（按 customerType 区分字段：1=企业按 companyName，2=个人按 personName）
 export const checkCustomerNameApi = async (params: {
-  companyName: string;
+  customerType: number;
+  name: string;
   excludeId?: number;
 }) => {
   return requestClient.get('/api/system/customer/check-name', { params });

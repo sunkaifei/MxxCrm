@@ -95,12 +95,19 @@ const handleClear = () => {
                 ></span>
 
                 <span
+                  v-if="item.avatar"
                   class="relative flex size-10 shrink-0 overflow-hidden rounded-full"
                 >
                   <img
                     :src="item.avatar"
                     class="aspect-square size-full object-cover"
                   />
+                </span>
+                <span
+                  v-else
+                  class="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent"
+                >
+                  <Bell class="size-4 text-muted-foreground" />
                 </span>
                 <div class="flex flex-col gap-1 leading-none">
                   <p class="font-semibold">{{ item.title }}</p>

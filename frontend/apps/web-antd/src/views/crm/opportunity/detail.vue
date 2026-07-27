@@ -11,6 +11,7 @@ import {
   Modal,
   Radio,
   Select,
+  Spin,
   Tag,
   Upload,
 } from 'ant-design-vue';
@@ -19,7 +20,8 @@ import {
   LucidePlus,
 } from '@vben/icons';
 import {
-  convertToQuotationApi,
+  convertOpportunityToOrderApi,
+  convertOpportunityToQuotationApi,
   createFollowupApi,
   createOpportunityApi,
   getContactListApi,
@@ -27,11 +29,17 @@ import {
   getCustomerListApi,
   getFollowupListApi,
   getOpportunityInfoApi,
+  getSalesFlowModeApi,
   updateOpportunityApi,
+  type SalesFlowMode,
 } from '#/api';
 import { formatDateTime } from '@vben/utils';
 
-const props = defineProps<{ id?: number | string }>();
+const props = defineProps<{ 
+  id?: number | string;
+  customerId?: number | string;
+  customerName?: string;
+}>();
 const emit = defineEmits<{
   (e: 'converted', quotationId: number | string): void;
   (e: 'created', id: number | string): void;
@@ -41,8 +49,31 @@ const isCreate = computed(() => !props.id);
 const saving = ref(false);
 const converting = ref(false);
 const opp = ref<any>({});
-// 默认展示在「方案沟通」选项卡（与设计图一致）
-const activeTab = ref<string>('3');
+
+// 销售流程模式：A=仅标准(转报价单) B=仅简易(转订单) both=两种都允许
+const flowMode = ref<SalesFlowMode>('both');
+const loadFlowMode = async () => {
+  try {
+    flowMode.value = await getSalesFlowModeApi();
+  } catch {
+    flowMode.value = 'both';
+  }
+};
+// 第 4 步显示文案与点击行为根据模式联动
+const step4Label = computed(() => {
+  if (flowMode.value === 'A') return '已报价';
+  if (flowMode.value === 'B') return '已下单';
+  return '已报价/下单';
+});
+const canStep4ToQuotation = computed(
+  () => flowMode.value === 'A' || flowMode.value === 'both',
+);
+const canStep4ToOrder = computed(
+  () => flowMode.value === 'B' || flowMode.value === 'both',
+);
+loadFlowMode();
+// 新建模式下默认展示在「初步沟通」选项卡；编辑模式按数据加载
+const activeTab = ref<string>(isCreate.value ? '1' : '3');
 
 const currencyLabelMap: Record<number, string> = {
   1: '¥', 2: '$', 3: '€', 4: '£', 5: '¥', 6: 'HK$', 7: 'A$',
@@ -358,6 +389,7 @@ function handleCustomerSearch(value: string) {
 
 function handleCustomerChange(value: any) {
   baseForm.contactId = undefined;
+  selectedContactName.value = '';
   contactOptions.value = [];
   if (value) {
     loadContacts(Number(value));
@@ -369,7 +401,7 @@ const contactOptions = ref<{ label: string; value: number }[]>([]);
 async function loadContacts(customerId: number) {
   try {
     const res: any = await getCustomerContactsApi(customerId);
-    const items: any[] = res?.data?.current || [];
+    const items: any[] = res?.current || res?.data?.current || [];
     contactOptions.value = items.map((c: any) => ({
       label: c.name || c.contactName || '',
       value: Number(c.id || c.contactId),
@@ -379,12 +411,105 @@ async function loadContacts(customerId: number) {
   }
 }
 
+// 联系人选择弹窗（基本信息表单专用）
+const contactPickerBasicVisible = ref(false);
+const contactPickerBasicLoading = ref(false);
+const contactPickerBasicOptions = ref<any[]>([]);
+const selectedContactName = ref('');
+
+function openContactPickerBasic() {
+  if (!baseForm.customerId) {
+    message.warning('请先选择所属企业');
+    return;
+  }
+  contactPickerBasicLoading.value = true;
+  contactPickerBasicVisible.value = true;
+  getCustomerContactsApi(Number(baseForm.customerId))
+    .then((res: any) => {
+      const items: any[] = res?.current || res?.data?.current || [];
+      contactPickerBasicOptions.value = items.map((c: any) => ({
+        id: c.id || c.contactId,
+        name: c.name || c.contactName || '',
+        position: c.position || c.title || '',
+        mobile: c.mobile || '',
+        phone: c.phone || '',
+        email: c.email || '',
+      }));
+    })
+    .catch(() => { contactPickerBasicOptions.value = []; })
+    .finally(() => { contactPickerBasicLoading.value = false; });
+}
+
+function selectContactFromPicker(contact: any) {
+  baseForm.contactId = Number(contact.id);
+  selectedContactName.value = contact.name;
+  contactPickerBasicVisible.value = false;
+}
+
+function clearSelectedContact() {
+  baseForm.contactId = undefined;
+  selectedContactName.value = '';
+}
+
+// ============ 所属企业选择弹窗 ============
+const customerPickerVisible = ref(false);
+const customerPickerKeyword = ref('');
+const customerPickerOptions = ref<any[]>([]);
+const customerPickerLoading = ref(false);
+
+async function loadCustomerPickerOptions(keyword?: string) {
+  customerPickerLoading.value = true;
+  try {
+    const res: any = await getCustomerListApi({
+      page: 1,
+      pageSize: 20,
+      ...(keyword ? { companyName: keyword } : {}),
+    });
+    customerPickerOptions.value = res?.items || [];
+  } catch {
+    customerPickerOptions.value = [];
+  } finally {
+    customerPickerLoading.value = false;
+  }
+}
+
+function openCustomerPicker() {
+  customerPickerVisible.value = true;
+  customerPickerKeyword.value = '';
+  loadCustomerPickerOptions('');
+}
+
+function handleCustomerPickerSearch() {
+  loadCustomerPickerOptions(customerPickerKeyword.value);
+}
+
+function selectCustomerFromPicker(customer: any) {
+  baseForm.customerId = customer.id;
+  opp.value.customerName = customer.companyName;
+  opp.value.customerId = customer.id;
+  baseForm.contactId = undefined;
+  contactOptions.value = [];
+  if (customer.id) {
+    loadContacts(Number(customer.id));
+  }
+  customerPickerVisible.value = false;
+}
+
+function clearSelectedCustomer() {
+  baseForm.customerId = undefined;
+  opp.value.customerName = '';
+  opp.value.customerId = undefined;
+  baseForm.contactId = undefined;
+  contactOptions.value = [];
+}
+
 const resetForm = () => {
   opp.value = {};
-  activeTab.value = '3';
+  activeTab.value = isCreate.value ? '1' : '3';
   baseForm.title = '';
   baseForm.customerId = undefined;
   baseForm.contactId = undefined;
+  selectedContactName.value = '';
   baseForm.amount = undefined;
   baseForm.currency = 1;
   baseForm.probability = undefined;
@@ -404,8 +529,13 @@ const resetForm = () => {
   solForm.demoDate = undefined;
   solForm.demoType = undefined;
   contactOptions.value = [];
-  customerOptions.value = [];
-  loadCustomerOptions('');
+  // 从客户列表新建：预填充所属企业
+  if (isCreate.value && props.customerId) {
+    baseForm.customerId = Number(props.customerId);
+    opp.value.customerId = Number(props.customerId);
+    opp.value.customerName = props.customerName || '';
+    loadContacts(Number(props.customerId));
+  }
 };
 
 const loadData = async () => {
@@ -686,7 +816,7 @@ const handleStep4ToQuotation = (): void => {
     onOk: async () => {
       converting.value = true;
       try {
-        const res: any = await convertToQuotationApi(Number(props.id));
+        const res: any = await convertOpportunityToQuotationApi(Number(props.id));
         message.success('已转为报价单');
         const quotationId = res?.data?.id || res?.id || res?.data?.quotationId || res?.quotationId;
         if (quotationId != null) {
@@ -702,6 +832,47 @@ const handleStep4ToQuotation = (): void => {
   });
 };
 
+const handleStep4ToOrder = (): void => {
+  Modal.confirm({
+    title: '转订单',
+    content: '确定要将该商机直接转为订单吗？转换后将创建订单草稿，可在订单页面继续完善明细。',
+    okText: '确定',
+    cancelText: '取消',
+    onOk: async () => {
+      converting.value = true;
+      try {
+        const res: any = await convertOpportunityToOrderApi(Number(props.id));
+        message.success('已转为订单');
+        const orderId = res?.data?.id || res?.id || res?.data?.orderId || res?.orderId;
+        if (orderId != null) {
+          emit('converted', orderId);
+        }
+        await loadData();
+      } catch {
+        /* ignore */
+      } finally {
+        converting.value = false;
+      }
+    },
+  });
+};
+
+// 第 4 步点击：根据模式决定行为
+const handleStep4Click = (): void => {
+  if (isCreate.value) return;
+  if (canStep4ToQuotation.value) {
+    handleStep4ToQuotation();
+  } else if (canStep4ToOrder.value) {
+    handleStep4ToOrder();
+  }
+};
+
+// 客户字段锁定：商机已转报价单或已转订单时锁定客户字段
+const isCustomerLocked = computed(() => {
+  if (isCreate.value) return false;
+  return opp.value?.quoteStatus === 1 || opp.value?.orderStatus === 1;
+});
+
 // 引用以避免 noUnusedLocals 警告
 void handleConvertToQuotation;
 
@@ -710,8 +881,8 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
 
 <template>
   <div class="opp-detail">
-    <!-- 商机信息卡（整合标题、客户信息与商机详情） -->
-    <div class="opp-info-card">
+    <!-- 商机信息卡（编辑模式才显示，新建时隐藏） -->
+    <div v-if="!isCreate" class="opp-info-card">
       <div class="opp-info-main">
         <div class="opp-info-title-row">
           <span class="opp-company">{{ opp.customerName || 'XX科技' }}</span>
@@ -772,8 +943,8 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
       </div>
     </div>
 
-    <!-- 5步进度条 -->
-    <div class="opp-steps">
+    <!-- 5步进度条（编辑模式才显示，新建时隐藏） -->
+    <div v-if="!isCreate" class="opp-steps">
       <div class="opp-step step-done">
         <div class="opp-step-number">1</div>
         <div class="opp-step-label">初步沟通</div>
@@ -791,9 +962,9 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
       <div class="opp-step-line">
         <span class="opp-step-arrow">›</span>
       </div>
-      <div class="opp-step" :class="{ 'step-clickable': !isCreate }" @click="!isCreate && handleStep4ToQuotation()">
+      <div class="opp-step" :class="{ 'step-clickable': !isCreate && (canStep4ToQuotation || canStep4ToOrder) }" @click="handleStep4Click">
         <div class="opp-step-number">4</div>
-        <div class="opp-step-label">已报价</div>
+        <div class="opp-step-label">{{ step4Label }}</div>
       </div>
       <div class="opp-step-line">
         <span class="opp-step-arrow">›</span>
@@ -802,6 +973,12 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div class="opp-step-number">5</div>
         <div class="opp-step-label">成交/丢单</div>
       </div>
+    </div>
+
+    <!-- 新建模式下的标题 -->
+    <div v-if="isCreate" class="opp-create-header">
+      <span class="opp-create-title">新建商机</span>
+      <span class="opp-create-subtitle">填写商机基础信息，保存后可继续完善需求、方案等阶段内容</span>
     </div>
 
     <!-- 阶段 Tab 切换 -->
@@ -837,34 +1014,37 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
             <Form.Item label="商机名称" name="title" :rules="[{ required: true, message: '请输入商机名称' }]">
               <Input v-model:value="baseForm.title" placeholder="请输入商机名称" />
             </Form.Item>
-            <Form.Item label="所属企业" name="customerId">
-              <Select
-                v-model:value="baseForm.customerId"
-                show-search
-                placeholder="搜索并选择客户"
-                allow-clear
-                :filter-option="false"
-                :loading="customerLoading"
-                :options="customerOptions"
-                :field-names="{ label: 'companyName', value: 'id' }"
-                @search="handleCustomerSearch"
-                @change="handleCustomerChange"
-              >
-                <template #option="{ item }">
-                  <div>{{ item.companyName }}</div>
-                </template>
-              </Select>
+            <Form.Item label="所属企业" name="customerId" :rules="[{ required: true, message: '请选择所属企业' }]">
+              <div class="opp-customer-picker">
+                <Input
+                  :value="baseForm.customerId ? (opp.customerName || '') : ''"
+                  :placeholder="isCustomerLocked ? '已转下游单据，客户不可修改' : '点击右侧按钮选择客户'"
+                  readonly
+                  class="opp-customer-picker-input"
+                />
+                <Button type="primary" size="small" class="opp-customer-picker-btn" :disabled="isCustomerLocked" @click="openCustomerPicker">
+                  选择客户
+                </Button>
+                <Button v-if="baseForm.customerId && !isCustomerLocked" type="link" size="small" danger class="opp-customer-picker-clear" @click="clearSelectedCustomer">
+                  清除
+                </Button>
+              </div>
             </Form.Item>
-            <Form.Item label="联系人" name="contactId">
-              <Select
-                v-model:value="baseForm.contactId"
-                placeholder="请先选择所属企业"
-                allow-clear
-                show-search
-                :options="contactOptions"
-                :filter-option="(input: string, option: any) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())"
-                @focus="() => { if (!baseForm.customerId) message.warning('请先选择所属企业') }"
-              />
+            <Form.Item label="联系人" name="contactId" :rules="[{ required: true, message: '请选择联系人' }]">
+              <div class="opp-customer-picker">
+                <Input
+                  :value="baseForm.contactId ? selectedContactName : ''"
+                  :placeholder="baseForm.customerId ? '点击右侧按钮选择联系人' : '请先选择所属企业'"
+                  readonly
+                  class="opp-customer-picker-input"
+                />
+                <Button type="primary" size="small" class="opp-customer-picker-btn" :disabled="!baseForm.customerId" @click="openContactPickerBasic">
+                  选择联系人
+                </Button>
+                <Button v-if="baseForm.contactId" type="link" size="small" danger class="opp-customer-picker-clear" @click="clearSelectedContact">
+                  清除
+                </Button>
+              </div>
             </Form.Item>
             <div class="opp-form-row">
               <Form.Item label="商机金额" name="amount" class="opp-form-item">
@@ -1107,6 +1287,44 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
       </div>
     </Modal>
 
+    <!-- 联系人选择弹窗（基本信息表单） -->
+    <Modal
+      v-model:open="contactPickerBasicVisible"
+      title="选择联系人"
+      :width="600"
+      :footer="null"
+      :destroy-on-close="true"
+    >
+      <Spin :spinning="contactPickerBasicLoading">
+        <div class="opp-customer-picker-modal">
+          <div class="opp-picker-tip">从「{{ opp.customerName || '该企业' }}」中选择联系人：</div>
+          <div class="opp-customer-picker-list">
+            <div
+              v-for="item in contactPickerBasicOptions"
+              :key="item.id"
+              class="opp-customer-picker-row"
+              :class="{ active: String(baseForm.contactId) === String(item.id) }"
+              @click="selectContactFromPicker(item)"
+            >
+              <div class="opp-customer-picker-info">
+                <div class="opp-customer-picker-name">{{ item.name || '未命名' }}</div>
+                <div class="opp-customer-picker-meta">
+                  <span v-if="item.position">职位: {{ item.position }}</span>
+                  <span v-if="item.mobile">手机: {{ item.mobile }}</span>
+                  <span v-if="item.phone">电话: {{ item.phone }}</span>
+                  <span v-if="item.email">邮箱: {{ item.email }}</span>
+                </div>
+              </div>
+              <Tag v-if="String(baseForm.contactId) === String(item.id)" color="green" class="opp-customer-picker-checked">已选</Tag>
+            </div>
+            <div v-if="contactPickerBasicOptions.length === 0 && !contactPickerBasicLoading" class="opp-customer-picker-empty">
+              该企业下暂无联系人
+            </div>
+          </div>
+        </div>
+      </Spin>
+    </Modal>
+
     <!-- 添加跟进记录弹窗 -->
     <Modal
       v-model:open="followupModalVisible"
@@ -1136,6 +1354,52 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
           <Input.TextArea v-model:value="followupForm.result" :rows="3" placeholder="请输入沟通结果（选填）" allow-clear />
         </Form.Item>
       </Form>
+    </Modal>
+
+    <!-- 所属企业选择弹窗 -->
+    <Modal
+      v-model:open="customerPickerVisible"
+      title="选择所属企业"
+      :width="640"
+      :footer="null"
+      :destroy-on-close="true"
+    >
+      <div class="opp-customer-picker-modal">
+        <div class="opp-customer-picker-search">
+          <Input
+            v-model:value="customerPickerKeyword"
+            placeholder="输入客户名称搜索"
+            allow-clear
+            class="opp-customer-picker-search-input"
+            @press-enter="handleCustomerPickerSearch"
+          />
+          <Button type="primary" @click="handleCustomerPickerSearch">搜索</Button>
+        </div>
+        <Spin :spinning="customerPickerLoading">
+          <div class="opp-customer-picker-list">
+            <div
+              v-for="item in customerPickerOptions"
+              :key="item.id"
+              class="opp-customer-picker-row"
+              :class="{ active: String(baseForm.customerId) === String(item.id) }"
+              @click="selectCustomerFromPicker(item)"
+            >
+              <div class="opp-customer-picker-info">
+                <div class="opp-customer-picker-name">{{ item.companyName || '未命名客户' }}</div>
+                <div class="opp-customer-picker-meta">
+                  <span v-if="item.contactName">联系人: {{ item.contactName }}</span>
+                  <span v-if="item.mobile">手机: {{ item.mobile }}</span>
+                  <span v-if="item.industry">行业: {{ industryLabelMap[Number(item.industry)] || item.industry || '-' }}</span>
+                </div>
+              </div>
+              <Tag v-if="String(baseForm.customerId) === String(item.id)" color="green" class="opp-customer-picker-checked">已选</Tag>
+            </div>
+            <div v-if="customerPickerOptions.length === 0 && !customerPickerLoading" class="opp-customer-picker-empty">
+              暂无客户数据
+            </div>
+          </div>
+        </Spin>
+      </div>
     </Modal>
   </div>
 </template>
@@ -1740,6 +2004,118 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
 .opp-picker-empty {
   text-align: center;
   padding: 40px 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+/* 新建模式标题 */
+.opp-create-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 16px 24px 0;
+  padding: 16px 20px;
+  background: hsl(var(--card));
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  border-left: 3px solid #1890ff;
+}
+.opp-create-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: hsl(var(--card-foreground));
+}
+.opp-create-subtitle {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* 所属企业选择器（表单内） */
+.opp-customer-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.opp-customer-picker-input {
+  flex: 1;
+}
+.opp-customer-picker-input :deep(.ant-input-affix-wrapper-disabled),
+.opp-customer-picker-input :deep(input[readonly]) {
+  background: hsl(var(--muted) / 40%);
+  cursor: not-allowed;
+}
+.opp-customer-picker-btn {
+  flex-shrink: 0;
+}
+.opp-customer-picker-clear {
+  flex-shrink: 0;
+  padding: 0 4px !important;
+}
+
+/* 所属企业选择弹窗 */
+.opp-customer-picker-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.opp-customer-picker-search {
+  display: flex;
+  gap: 8px;
+}
+.opp-customer-picker-search-input {
+  flex: 1;
+}
+.opp-customer-picker-list {
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.opp-customer-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.opp-customer-picker-row:hover {
+  border-color: #1890ff;
+  background: hsl(var(--primary) / 0.04);
+}
+.opp-customer-picker-row.active {
+  border-color: #52c41a;
+  background: hsl(122 80% 50% / 0.06);
+}
+.opp-customer-picker-info {
+  flex: 1;
+  min-width: 0;
+}
+.opp-customer-picker-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--card-foreground));
+  margin-bottom: 4px;
+}
+.opp-customer-picker-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+.opp-customer-picker-checked {
+  flex-shrink: 0;
+  margin: 0;
+}
+.opp-customer-picker-empty {
+  text-align: center;
+  padding: 60px 0;
   color: hsl(var(--muted-foreground));
   font-size: 13px;
 }

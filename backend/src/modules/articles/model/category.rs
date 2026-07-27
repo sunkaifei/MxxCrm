@@ -30,6 +30,18 @@ pub struct CategorySaveRequest {
     pub is_show: Option<i32>,
     //审核状态，0未审核，1已审核
     pub status: Option<i32>,
+    // 页面模式：1=封面模式，2=列表模式
+    pub page_type: Option<i32>,
+    // 封面模板数据ID
+    pub page_template_data_id: Option<i64>,
+    // 栏目Banner图片
+    pub banner_image: Option<String>,
+    // 栏目简介
+    pub description: Option<String>,
+    // 内容类型：1=文章，2=产品(预留)，3=自定义链接
+    pub content_type: Option<i32>,
+    // 自定义链接URL
+    pub link_url: Option<String>,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -50,6 +62,18 @@ pub struct CategorySaveDTO {
     pub is_show: Option<i32>,
     //审核状态，0未审核，1已审核
     pub status: Option<i32>,
+    // 页面模式：1=封面模式，2=列表模式
+    pub page_type: Option<i32>,
+    // 封面模板数据ID
+    pub page_template_data_id: Option<i64>,
+    // 栏目Banner图片
+    pub banner_image: Option<String>,
+    // 栏目简介
+    pub description: Option<String>,
+    // 内容类型：1=文章，2=产品(预留)，3=自定义链接
+    pub content_type: Option<i32>,
+    // 自定义链接URL
+    pub link_url: Option<String>,
 }
 
 impl From<CategorySaveRequest> for CategorySaveDTO {
@@ -62,7 +86,13 @@ impl From<CategorySaveRequest> for CategorySaveDTO {
             category_name: value.category_name,
             sort: value.sort,
             is_show: value.is_show,
-            status: value.status
+            status: value.status,
+            page_type: value.page_type,
+            page_template_data_id: value.page_template_data_id,
+            banner_image: value.banner_image,
+            description: value.description,
+            content_type: value.content_type,
+            link_url: value.link_url,
         }
     }
 
@@ -87,6 +117,18 @@ pub struct CategoryUpdateRequest {
     pub is_show: Option<i32>,
     //审核状态，0未审核，1已审核
     pub status: Option<i32>,
+    // 页面模式：1=封面模式，2=列表模式
+    pub page_type: Option<i32>,
+    // 封面模板数据ID
+    pub page_template_data_id: Option<i64>,
+    // 栏目Banner图片
+    pub banner_image: Option<String>,
+    // 栏目简介
+    pub description: Option<String>,
+    // 内容类型：1=文章，2=产品(预留)，3=自定义链接
+    pub content_type: Option<i32>,
+    // 自定义链接URL
+    pub link_url: Option<String>,
 }
 
 impl From<CategoryUpdateRequest> for CategorySaveDTO {
@@ -99,7 +141,13 @@ impl From<CategoryUpdateRequest> for CategorySaveDTO {
             category_name: value.category_name,
             sort: value.sort,
             is_show: value.is_show,
-            status: value.status
+            status: value.status,
+            page_type: value.page_type,
+            page_template_data_id: value.page_template_data_id,
+            banner_image: value.banner_image,
+            description: value.description,
+            content_type: value.content_type,
+            link_url: value.link_url,
         }
     }
 }
@@ -129,6 +177,18 @@ pub struct CategoryDetailVO {
     pub is_show: Option<i32>,
     // 审核状态，0未审核，1已审核
     pub status: Option<i32>,
+    // 页面模式：1=封面模式，2=列表模式
+    pub page_type: Option<i32>,
+    // 封面模板数据ID
+    pub page_template_data_id: Option<i64>,
+    // 栏目Banner图片
+    pub banner_image: Option<String>,
+    // 栏目简介
+    pub description: Option<String>,
+    // 内容类型：1=文章，2=产品(预留)，3=自定义链接
+    pub content_type: Option<i32>,
+    // 自定义链接URL
+    pub link_url: Option<String>,
     // 添加时间
     pub create_time: Option<String>,
     // 更新时间
@@ -146,6 +206,12 @@ impl From<category::Model> for CategoryDetailVO {
             sort: value.sort,
             is_show: value.is_show,
             status: value.status,
+            page_type: value.page_type,
+            page_template_data_id: value.page_template_data_id,
+            banner_image: value.banner_image,
+            description: value.description,
+            content_type: value.content_type,
+            link_url: value.link_url,
             count_topic: value.count_topic,
             create_time: value.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
             update_time: value.update_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
@@ -225,6 +291,18 @@ pub struct CategoryTreeVO {
     pub is_show: Option<i32>,
     // 审核状态，0未审核，1已审核
     pub status: Option<i32>,
+    // 页面模式：1=封面模式，2=列表模式
+    pub page_type: Option<i32>,
+    // 封面模板数据ID
+    pub page_template_data_id: Option<i64>,
+    // 栏目Banner图片
+    pub banner_image: Option<String>,
+    // 栏目简介
+    pub description: Option<String>,
+    // 内容类型：1=文章，2=产品(预留)，3=自定义链接
+    pub content_type: Option<i32>,
+    // 自定义链接URL
+    pub link_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub children: Option<Vec<CategoryTreeVO>>,
 }
@@ -244,6 +322,12 @@ impl CategoryModel {
             sort: Set(form_data.sort.to_owned()),
             is_show: Set(form_data.is_show.to_owned()),
             status: Set(form_data.status.to_owned()),
+            page_type: Set(form_data.page_type.to_owned()),
+            page_template_data_id: Set(form_data.page_template_data_id.to_owned()),
+            banner_image: Set(form_data.banner_image.to_owned()),
+            description: Set(form_data.description.to_owned()),
+            content_type: Set(form_data.content_type.to_owned()),
+            link_url: Set(form_data.link_url.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -283,6 +367,12 @@ impl CategoryModel {
                 sort:          Set(form_data.sort.to_owned()),
                 is_show:       Set(form_data.is_show.to_owned()),
                 status:        Set(form_data.status.to_owned()),
+                page_type:     Set(form_data.page_type.to_owned()),
+                page_template_data_id: Set(form_data.page_template_data_id.to_owned()),
+                banner_image:  Set(form_data.banner_image.to_owned()),
+                description:   Set(form_data.description.to_owned()),
+                content_type:  Set(form_data.content_type.to_owned()),
+                link_url:      Set(form_data.link_url.to_owned()),
                 update_time:   Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             }

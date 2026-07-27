@@ -396,8 +396,6 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/statistics", web::get().to(get_tag_statistics))
             // GET /tag/all - 获取所有标签
             .route("/all", web::get().to(get_all_tags))
-            // GET /tag/group/{group_id} - 获取分组下标签
-            .route("/group/{group_id}", web::get().to(get_tags_by_group))
             // POST /tag/move-to-group - 移动标签到分组
             .route("/move-to-group", web::post().to(move_tags_to_group))
             // GET /tag/suggest - 标签建议
@@ -408,21 +406,23 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .route(web::post().to(save_tag_group))
                     .route(web::put().to(update_tag_group)),
             )
-            // DELETE /tag/group/{id} - 删除标签分组
-            .route("/group/{id}", web::delete().to(delete_tag_group))
-            // DELETE /tag/group/batch_delete - 批量删除标签分组
-            .route("/group/batch_delete", web::delete().to(batch_delete_tag_group))
-            // GET /tag/group/list - 获取标签分组列表
+            // GET /tag/group/list - 获取标签分组列表（精确路由，必须放在参数化路由 /group/{id} 之前）
             .route("/group/list", web::get().to(get_tag_group_list))
-            // GET /tag/group/detail/{id} - 获取标签分组详情
+            // DELETE /tag/group/batch_delete - 批量删除标签分组（精确路由，必须放在参数化路由 /group/{id} 之前）
+            .route("/group/batch_delete", web::delete().to(batch_delete_tag_group))
+            // GET /tag/group/detail/{id} - 获取标签分组详情（参数化路由，放在精确路由之后）
             .route("/group/detail/{id}", web::get().to(get_tag_group_detail))
+            // GET /tag/group/{group_id} - 获取分组下标签（参数化路由，放在精确路由之后，避免误匹配 list/batch_delete）
+            .route("/group/{group_id}", web::get().to(get_tags_by_group))
+            // DELETE /tag/group/{id} - 删除标签分组（参数化路由，放在精确路由之后）
+            .route("/group/{id}", web::delete().to(delete_tag_group))
             // POST /tag/entity/add - 添加标签到实体
             .route("/entity/add", web::post().to(add_tags_to_entity))
             // POST /tag/entity/remove - 移除实体标签
             .route("/entity/remove", web::post().to(remove_tags_from_entity))
-            // GET /tag/entity/{entity_type}/{entity_id} - 获取实体标签
-            .route("/entity/{entity_type}/{entity_id}", web::get().to(get_tags_by_entity))
             // POST /tag/entity/batch - 批量操作标签
-            .route("/entity/batch", web::post().to(batch_tag_entity)),
+            .route("/entity/batch", web::post().to(batch_tag_entity))
+            // GET /tag/entity/{entity_type}/{entity_id} - 获取实体标签（参数化路由，放在最后）
+            .route("/entity/{entity_type}/{entity_id}", web::get().to(get_tags_by_entity)),
     );
 }

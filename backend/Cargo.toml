@@ -9,6 +9,7 @@ authors = ["sun kaifei"]
 tokio = { version = "1.52.1", features = ["full"] }
 tokio-stream = "0.1"
 actix-web = { version = "4.13.0", default-features = false, features = ["cookies","macros"] }
+actix-ws = "0.3"
 actix-service = "2.0.3"
 actix-web-lab = "0.26.0"
 actix-http = "3.12.1"

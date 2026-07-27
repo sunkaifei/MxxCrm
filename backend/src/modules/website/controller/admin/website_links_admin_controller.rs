@@ -18,7 +18,7 @@ use crate::modules::website::model::website_links::{LinkSaveDTO, LinkSaveRequest
 use crate::modules::website::service::{website_links_service};
 
 
-pub async fn add_links(state: web::Data<AppState>, req: HttpRequest, item: web::Json<LinkSaveRequest>) -> Result<HttpResponse> {
+pub async fn add_links(state: web::Data<AppState>, _req: HttpRequest, item: web::Json<LinkSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let payload = item.0;
     if payload.link_name.is_none() {
@@ -30,9 +30,7 @@ pub async fn add_links(state: web::Data<AppState>, req: HttpRequest, item: web::
     if website_links_service::find_by_link_url_unique(&db, &payload.link_url, &None).await?{
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "链接地址已存在", "local")));
     }
-    let mut form_data = LinkSaveDTO::from(payload);
-    let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
-    form_data.website_id = website_id.map(|s| s.parse::<i64>().unwrap_or_default());
+    let form_data = LinkSaveDTO::from(payload);
     let result = website_links_service::insert(&db, form_data).await?;
 
     if result > 0 {
@@ -95,14 +93,9 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
 }
 
-pub async fn get_by_page(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ListQuery>,) -> Result<HttpResponse> {
+pub async fn get_by_page(state: web::Data<AppState>, _req: HttpRequest, query: web::Query<ListQuery>,) -> Result<HttpResponse> {
     let db = &state.db;
-    let mut form_data = query.0;
-    let website_id = req.headers().get("website_id")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|s| s.parse::<i64>().ok())
-        .unwrap_or(0);
-    form_data.website_id = Some(website_id);
+    let form_data = query.0;
     website_links_service::get_by_page(&db, form_data).await.map(|page_data| {
         HttpResponse::Ok().json(page_data)
     })

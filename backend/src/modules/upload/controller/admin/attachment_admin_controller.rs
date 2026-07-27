@@ -22,6 +22,7 @@ use crate::modules::upload::model::attachment::{
     AttachmentBindRequest, AttachmentByEntityQuery, AttachmentPageRequest,
     AttachmentUnbindRequest, AttachmentUpdateRequest, BatchMoveRequest, ImageFormRequest,
 };
+use crate::modules::upload::controller::admin::attachment_category_admin_controller;
 use crate::modules::upload::service::{attachment_category_service, attachment_service};
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 use crate::validate;
@@ -317,6 +318,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::post()
                     .to(unbind_attachment)
                     .wrap(require_permission("attachment:update")),
-            ),
+            )
+            // 附件分类管理（注册在 /attachment scope 内，避免 /attachment scope 吞掉 /attachment/category 路由）
+            .configure(attachment_category_admin_controller::register),
     );
 }

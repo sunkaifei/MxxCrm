@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 pub mod contact_controller;
+pub mod contact_edit_log_controller;
 pub mod contract_controller;
 pub mod contract_payment_plan_controller;
 pub mod customer_controller;

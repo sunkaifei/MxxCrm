@@ -133,16 +133,6 @@ const paymentStatusLabelMap: Record<number, string> = {
   4: '已退款',
 };
 
-const orderTypeColorMap: Record<number, string> = {
-  1: 'blue',
-  2: 'red',
-};
-
-const orderTypeLabelMap: Record<number, string> = {
-  1: '销售订单',
-  2: '退货订单',
-};
-
 const approvalStatusOptions = [
   { label: '草稿', value: 0 },
   { label: '待审批', value: 1 },
@@ -303,13 +293,6 @@ const gridOptions: VxeGridProps = {
     },
     { title: '订单标题', field: 'title', width: 200, headerAlign: 'center' },
     { title: '客户名称', field: 'customerName', width: 180, headerAlign: 'center', align: 'left', slots: { default: 'customerName' } },
-    {
-      title: '订单类型',
-      field: 'orderType',
-      width: 100,
-      headerAlign: 'center',
-      slots: { default: 'orderType' },
-    },
     {
       title: '订单金额',
       field: 'totalAmount',
@@ -627,12 +610,6 @@ function closeCustomerDetail() {
           {{ row.customerName || '-' }}
         </a>
         <span v-else>{{ row.customerName || '-' }}</span>
-      </template>
-
-      <template #orderType="{ row }">
-        <Tag :color="orderTypeColorMap[row.orderType]">
-          {{ orderTypeLabelMap[row.orderType] || row.orderType }}
-        </Tag>
       </template>
 
       <template #totalAmount="{ row }">

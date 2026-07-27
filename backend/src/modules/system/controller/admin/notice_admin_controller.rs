@@ -31,7 +31,8 @@ pub async fn add_notice(state: web::Data<AppState>, req: HttpRequest, item: web:
     form_data.update_by = admin_token.id;
     let result = notice_service::insert(db, &form_data).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("添加成功", "local")))
+        // 返回新创建的公告 ID，前端"保存并发布"流程依赖此 ID 调用发布接口
+        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
     } else {
         Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "添加失败", "local")))
     }
@@ -96,7 +97,7 @@ pub async fn publish_notice(state: web::Data<AppState>, req: HttpRequest, item: 
     let admin_token:JWTToken = get_user(&req).unwrap_or_default();
     let result=notice_service::update_by_id_publish(&db, &item.id, &admin_token.id).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(200, "发布成功", "local")))
+        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("发布成功", "local")))
     } else {
         Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "发布失败", "local")))
     }
@@ -131,6 +132,29 @@ pub async fn get_by_user_detail(state: web::Data<AppState>, req: HttpRequest, it
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "该公告信息不存在或者已删除", "local")))
         }
         Err(err) => {
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
+        }
+    }
+}
+
+/// 标记公告为已读（专用接口，PUT /notice/user/{id}/read）
+pub async fn read_notice(state: web::Data<AppState>, req: HttpRequest, item: web::Path<InfoId>) -> Result<HttpResponse> {
+    let db = &state.db;
+    log::info!("[read_notice] 收到请求, path_info={:?}, item.id={:?}", req.match_info().get("id"), item.id);
+    validate!(item.id.is_none(), t!("notice.index.id_empty", locale = "zh-CN").to_string());
+    let admin_token: JWTToken = get_user(&req).unwrap_or_default();
+    log::info!("[read_notice] user_id={:?}", admin_token.id);
+    match notice_service::mark_notice_read(&db, &item.id, &admin_token.id).await {
+        Ok(result) if result > 0 => {
+            log::info!("[read_notice] 标记成功, result={}", result);
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("标记已读成功", "local")))
+        }
+        Ok(_) => {
+            log::warn!("[read_notice] 未找到公告关联记录, result=0");
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未找到公告关联记录", "local")))
+        }
+        Err(err) => {
+            log::error!("[read_notice] 错误: {:?}", err);
             Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
         }
     }
@@ -210,6 +234,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             )
             // GET /notice/user/detail-{id} - 用户公告详情
             .route("/user/detail-{id}", web::get().to(get_by_user_detail))
+            // PUT /notice/user/{id}/read - 标记公告为已读（专用接口）
+            .route("/user/{id}/read", web::put().to(read_notice))
             // GET /notice/my-page - 我的公告分页
             .route("/my-page", web::get().to(get_by_my_page))
             // GET /notice/list - 公告列表

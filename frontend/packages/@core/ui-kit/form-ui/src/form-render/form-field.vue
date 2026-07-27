@@ -41,6 +41,12 @@ import { isEventObjectLike } from './helper';
 
 interface Props extends FormFieldProps {}
 
+const props = defineProps<
+  Props & {
+    commonComponentProps: MaybeComponentProps;
+  }
+>();
+
 const {
   colon,
   commonComponentProps,
@@ -64,11 +70,7 @@ const {
   help,
   collapsible,
   defaultCollapsed = false,
-} = defineProps<
-  Props & {
-    commonComponentProps: MaybeComponentProps;
-  }
->();
+} = props;
 
 const { componentBindEventMap, componentMap, isVertical } = useFormContext();
 const formRenderProps = injectRenderFormProps();
@@ -129,16 +131,28 @@ const shouldRequired = computed(() => {
     return false;
   }
 
+  const isSchemaRequired = props.required === true;
+
   if (!currentRules.value) {
-    return isRequired.value;
+    return isRequired.value || isSchemaRequired;
   }
 
   if (isRequired.value) {
     return true;
   }
 
+  if (isSchemaRequired) {
+    return true;
+  }
+
   if (isString(currentRules.value)) {
     return ['required', 'selectRequired'].includes(currentRules.value);
+  }
+
+  // 数组形式的规则（如 Ant Design Vue 的 [{ validator, trigger }]）
+  // 默认不视为必填，是否必填由 schema.required 或 isRequired 决定
+  if (Array.isArray(currentRules.value)) {
+    return isRequired.value || isSchemaRequired;
   }
 
   let isOptional = currentRules?.value?.isOptional?.();
@@ -167,6 +181,29 @@ const fieldRules = computed(() => {
 
   if (isString(rules)) {
     return rules;
+  }
+
+  // 数组形式的规则（如 Ant Design Vue 的 [{ validator, trigger }]）适配为
+  // vee-validate 兼容的函数，依次执行每个 validator
+  // Ant Design Vue validator: (rule, value) => Promise<void> | Promise.reject(msg)
+  // vee-validate rule: (value, ctx) => true | string | Promise<true | string>
+  if (Array.isArray(rules)) {
+    return (value: any) => {
+      const validators = rules
+        .map((r: any) => (isFunction(r) ? r : r?.validator))
+        .filter(Boolean) as Array<(rule: any, value: any) => Promise<any>>;
+      return validators.reduce(async (prev, validator) => {
+        const prevResult = await prev;
+        if (prevResult !== true) return prevResult;
+        try {
+          await validator(undefined, value);
+          return true as const;
+        } catch (err: any) {
+          if (typeof err === 'string') return err;
+          return err?.message || '校验失败';
+        }
+      }, Promise.resolve(true as const));
+    };
   }
 
   if (!isObject(rules)) {

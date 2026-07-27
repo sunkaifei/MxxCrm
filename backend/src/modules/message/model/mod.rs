@@ -9,3 +9,4 @@
 //!
 
 pub mod chat;
+pub mod notification;

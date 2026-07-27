@@ -39,6 +39,8 @@ pub struct SiteSaveRequest {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
+    /// 站点类型，1=企业官网，2=商城，3=其他
+    pub site_type: Option<i32>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
@@ -47,6 +49,60 @@ pub struct SiteSaveRequest {
     pub sort: Option<i32>,
     /// 站点备注，代理商给网站的备注，方便代理商记录这个网站干嘛的
     pub remark: Option<String>,
+    /// 是否开启水印
+    pub watermark_enable: Option<i32>,
+    /// 水印类型 1=文字 2=图片
+    pub watermark_type: Option<i32>,
+    /// 水印文字
+    pub watermark_text: Option<String>,
+    /// 水印图片
+    pub watermark_image: Option<String>,
+    /// 水印位置 1-9
+    pub watermark_position: Option<i32>,
+    /// 水印透明度
+    pub watermark_opacity: Option<i32>,
+    /// 允许上传类型
+    pub upload_allowed_types: Option<String>,
+    /// 最大上传大小MB
+    pub upload_max_size: Option<i32>,
+    /// 公司名称
+    pub company_name: Option<String>,
+    /// 联系电话
+    pub company_phone: Option<String>,
+    /// 联系邮箱
+    pub company_email: Option<String>,
+    /// 公司地址
+    pub company_address: Option<String>,
+    /// 上班时间
+    pub work_time_start: Option<String>,
+    /// 下班时间
+    pub work_time_end: Option<String>,
+    /// 工作日期
+    pub work_days: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 微信号
+    pub wechat: Option<String>,
+    /// 微信二维码
+    pub wechat_qrcode: Option<String>,
+    /// 备案号
+    pub icp: Option<String>,
+    /// 版权信息
+    pub copyright: Option<String>,
+    /// 统计代码
+    pub statistics_code: Option<String>,
+    /// 自定义CSS
+    pub custom_css: Option<String>,
+    /// 自定义JS
+    pub custom_js: Option<String>,
+    /// 关闭原因
+    pub close_reason: Option<String>,
+    /// 分享标题
+    pub share_title: Option<String>,
+    /// 分享描述
+    pub share_desc: Option<String>,
+    /// 分享图片
+    pub share_image: Option<String>,
     /// 创建时间
     pub create_time: Option<DateTime>,
     /// 更新时间
@@ -67,10 +123,38 @@ impl From<SiteSaveRequest> for SiteSaveDTO {
             keywords: request.keywords,
             description: request.description,
             bind_domain: request.bind_domain,
+            site_type: request.site_type,
             status: request.status,
             is_default: request.is_default,
             sort: request.sort,
             remark: request.remark,
+            watermark_enable: request.watermark_enable,
+            watermark_type: request.watermark_type,
+            watermark_text: request.watermark_text,
+            watermark_image: request.watermark_image,
+            watermark_position: request.watermark_position,
+            watermark_opacity: request.watermark_opacity,
+            upload_allowed_types: request.upload_allowed_types,
+            upload_max_size: request.upload_max_size,
+            company_name: request.company_name,
+            company_phone: request.company_phone,
+            company_email: request.company_email,
+            company_address: request.company_address,
+            work_time_start: request.work_time_start,
+            work_time_end: request.work_time_end,
+            work_days: request.work_days,
+            qq: request.qq,
+            wechat: request.wechat,
+            wechat_qrcode: request.wechat_qrcode,
+            icp: request.icp,
+            copyright: request.copyright,
+            statistics_code: request.statistics_code,
+            custom_css: request.custom_css,
+            custom_js: request.custom_js,
+            close_reason: request.close_reason,
+            share_title: request.share_title,
+            share_desc: request.share_desc,
+            share_image: request.share_image,
         }
     }
 }
@@ -101,6 +185,8 @@ pub struct SiteUpdateRequest {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
+    /// 站点类型，1=企业官网，2=商城，3=其他
+    pub site_type: Option<i32>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
@@ -109,6 +195,60 @@ pub struct SiteUpdateRequest {
     pub sort: Option<i32>,
     /// 站点备注，代理商给网站的备注，方便代理商记录这个网站干嘛的
     pub remark: Option<String>,
+    /// 水印开关
+    pub watermark_enable: Option<i32>,
+    /// 水印类型
+    pub watermark_type: Option<i32>,
+    /// 水印文字
+    pub watermark_text: Option<String>,
+    /// 水印图片
+    pub watermark_image: Option<String>,
+    /// 水印位置
+    pub watermark_position: Option<i32>,
+    /// 水印透明度
+    pub watermark_opacity: Option<i32>,
+    /// 允许上传类型
+    pub upload_allowed_types: Option<String>,
+    /// 最大上传大小
+    pub upload_max_size: Option<i32>,
+    /// 公司名称
+    pub company_name: Option<String>,
+    /// 联系电话
+    pub company_phone: Option<String>,
+    /// 联系邮箱
+    pub company_email: Option<String>,
+    /// 公司地址
+    pub company_address: Option<String>,
+    /// 上班时间
+    pub work_time_start: Option<String>,
+    /// 下班时间
+    pub work_time_end: Option<String>,
+    /// 工作日期
+    pub work_days: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 微信号
+    pub wechat: Option<String>,
+    /// 微信二维码
+    pub wechat_qrcode: Option<String>,
+    /// 备案号
+    pub icp: Option<String>,
+    /// 版权信息
+    pub copyright: Option<String>,
+    /// 统计代码
+    pub statistics_code: Option<String>,
+    /// 自定义CSS
+    pub custom_css: Option<String>,
+    /// 自定义JS
+    pub custom_js: Option<String>,
+    /// 关闭原因
+    pub close_reason: Option<String>,
+    /// 分享标题
+    pub share_title: Option<String>,
+    /// 分享描述
+    pub share_desc: Option<String>,
+    /// 分享图片
+    pub share_image: Option<String>,
 }
 
 impl From<SiteUpdateRequest> for SiteSaveDTO {
@@ -125,10 +265,38 @@ impl From<SiteUpdateRequest> for SiteSaveDTO {
             keywords: request.keywords,
             description: request.description,
             bind_domain: request.bind_domain,
+            site_type: request.site_type,
             status: request.status,
             is_default: request.is_default,
             sort: request.sort,
             remark: request.remark,
+            watermark_enable: request.watermark_enable,
+            watermark_type: request.watermark_type,
+            watermark_text: request.watermark_text,
+            watermark_image: request.watermark_image,
+            watermark_position: request.watermark_position,
+            watermark_opacity: request.watermark_opacity,
+            upload_allowed_types: request.upload_allowed_types,
+            upload_max_size: request.upload_max_size,
+            company_name: request.company_name,
+            company_phone: request.company_phone,
+            company_email: request.company_email,
+            company_address: request.company_address,
+            work_time_start: request.work_time_start,
+            work_time_end: request.work_time_end,
+            work_days: request.work_days,
+            qq: request.qq,
+            wechat: request.wechat,
+            wechat_qrcode: request.wechat_qrcode,
+            icp: request.icp,
+            copyright: request.copyright,
+            statistics_code: request.statistics_code,
+            custom_css: request.custom_css,
+            custom_js: request.custom_js,
+            close_reason: request.close_reason,
+            share_title: request.share_title,
+            share_desc: request.share_desc,
+            share_image: request.share_image,
         }
     }
 }
@@ -156,16 +324,71 @@ pub struct SiteSaveDTO {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
+    /// 站点类型，1=企业官网，2=商城，3=其他
+    pub site_type: Option<i32>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
     pub is_default: Option<i32>,
     /// 排序
     pub sort: Option<i32>,
-    /// 站点备注，代理商给网站的备注，方便代理商记录这个网站干嘛的
+    /// 站点备注
     pub remark: Option<String>,
+    /// 水印开关
+    pub watermark_enable: Option<i32>,
+    /// 水印类型
+    pub watermark_type: Option<i32>,
+    /// 水印文字
+    pub watermark_text: Option<String>,
+    /// 水印图片
+    pub watermark_image: Option<String>,
+    /// 水印位置
+    pub watermark_position: Option<i32>,
+    /// 水印透明度
+    pub watermark_opacity: Option<i32>,
+    /// 允许上传类型
+    pub upload_allowed_types: Option<String>,
+    /// 最大上传大小
+    pub upload_max_size: Option<i32>,
+    /// 公司名称
+    pub company_name: Option<String>,
+    /// 联系电话
+    pub company_phone: Option<String>,
+    /// 联系邮箱
+    pub company_email: Option<String>,
+    /// 公司地址
+    pub company_address: Option<String>,
+    /// 上班时间
+    pub work_time_start: Option<String>,
+    /// 下班时间
+    pub work_time_end: Option<String>,
+    /// 工作日期
+    pub work_days: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 微信号
+    pub wechat: Option<String>,
+    /// 微信二维码
+    pub wechat_qrcode: Option<String>,
+    /// 备案号
+    pub icp: Option<String>,
+    /// 版权信息
+    pub copyright: Option<String>,
+    /// 统计代码
+    pub statistics_code: Option<String>,
+    /// 自定义CSS
+    pub custom_css: Option<String>,
+    /// 自定义JS
+    pub custom_js: Option<String>,
+    /// 关闭原因
+    pub close_reason: Option<String>,
+    /// 分享标题
+    pub share_title: Option<String>,
+    /// 分享描述
+    pub share_desc: Option<String>,
+    /// 分享图片
+    pub share_image: Option<String>,
 }
-
 
 /// 管理员查看站点信息实体
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -188,6 +411,8 @@ pub struct SiteAdminListVO {
     pub logo: Option<String>,
     /// 客户端类型，1:PC，  2:WAP，3:CMS
     pub client: Option<i32>,
+    /// 站点类型，1=企业官网，2=商城，3=其他
+    pub site_type: Option<i32>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 排序
@@ -211,6 +436,7 @@ impl From<website::Model> for SiteAdminListVO {
             template_id: model.template_id,
             logo: model.logo,
             client: model.client,
+            site_type: model.site_type,
             status: model.status,
             sort: model.sort,
             is_default: model.is_default,
@@ -249,14 +475,70 @@ pub struct SiteDetailVO {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
+    /// 站点类型，1=企业官网，2=商城，3=其他
+    pub site_type: Option<i32>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
     pub is_default: Option<i32>,
     /// 排序
     pub sort: Option<i32>,
-    /// 站点备注，代理商给网站的备注，方便代理商记录这个网站干嘛的
+    /// 站点备注
     pub remark: Option<String>,
+    /// 水印开关
+    pub watermark_enable: Option<i32>,
+    /// 水印类型
+    pub watermark_type: Option<i32>,
+    /// 水印文字
+    pub watermark_text: Option<String>,
+    /// 水印图片
+    pub watermark_image: Option<String>,
+    /// 水印位置
+    pub watermark_position: Option<i32>,
+    /// 水印透明度
+    pub watermark_opacity: Option<i32>,
+    /// 允许上传类型
+    pub upload_allowed_types: Option<String>,
+    /// 最大上传大小
+    pub upload_max_size: Option<i32>,
+    /// 公司名称
+    pub company_name: Option<String>,
+    /// 联系电话
+    pub company_phone: Option<String>,
+    /// 联系邮箱
+    pub company_email: Option<String>,
+    /// 公司地址
+    pub company_address: Option<String>,
+    /// 上班时间
+    pub work_time_start: Option<String>,
+    /// 下班时间
+    pub work_time_end: Option<String>,
+    /// 工作日期
+    pub work_days: Option<String>,
+    /// QQ
+    pub qq: Option<String>,
+    /// 微信号
+    pub wechat: Option<String>,
+    /// 微信二维码
+    pub wechat_qrcode: Option<String>,
+    /// 备案号
+    pub icp: Option<String>,
+    /// 版权信息
+    pub copyright: Option<String>,
+    /// 统计代码
+    pub statistics_code: Option<String>,
+    /// 自定义CSS
+    pub custom_css: Option<String>,
+    /// 自定义JS
+    pub custom_js: Option<String>,
+    /// 关闭原因
+    pub close_reason: Option<String>,
+    /// 分享标题
+    pub share_title: Option<String>,
+    /// 分享描述
+    pub share_desc: Option<String>,
+    /// 分享图片
+    pub share_image: Option<String>,
     /// 创建时间
     pub create_time: Option<String>,
 }
@@ -275,10 +557,38 @@ impl From<website::Model> for SiteDetailVO {
             keywords: arg.keywords,
             description: arg.description,
             bind_domain: arg.bind_domain,
+            site_type: arg.site_type,
             status: arg.status,
             is_default: arg.is_default,
             sort: arg.sort,
             remark: arg.remark,
+            watermark_enable: arg.watermark_enable,
+            watermark_type: arg.watermark_type,
+            watermark_text: arg.watermark_text,
+            watermark_image: arg.watermark_image,
+            watermark_position: arg.watermark_position,
+            watermark_opacity: arg.watermark_opacity,
+            upload_allowed_types: arg.upload_allowed_types,
+            upload_max_size: arg.upload_max_size,
+            company_name: arg.company_name,
+            company_phone: arg.company_phone,
+            company_email: arg.company_email,
+            company_address: arg.company_address,
+            work_time_start: arg.work_time_start,
+            work_time_end: arg.work_time_end,
+            work_days: arg.work_days,
+            qq: arg.qq,
+            wechat: arg.wechat,
+            wechat_qrcode: arg.wechat_qrcode,
+            icp: arg.icp,
+            copyright: arg.copyright,
+            statistics_code: arg.statistics_code,
+            custom_css: arg.custom_css,
+            custom_js: arg.custom_js,
+            close_reason: arg.close_reason,
+            share_title: arg.share_title,
+            share_desc: arg.share_desc,
+            share_image: arg.share_image,
             create_time: arg.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
@@ -435,10 +745,38 @@ impl SiteModel {
             keywords:        Set(form_data.keywords.to_owned()),
             description:     Set(form_data.description.to_owned()),
             show_banner:     Set(form_data.show_banner.to_owned()),
+            site_type:       Set(form_data.site_type.to_owned()),
             is_default:      Set(form_data.is_default.to_owned()),
             sort:            Set(form_data.sort.to_owned()),
             status:          Set(form_data.status.to_owned()),
             remark:          Set(form_data.remark.to_owned()),
+            watermark_enable:     Set(form_data.watermark_enable.to_owned()),
+            watermark_type:       Set(form_data.watermark_type.to_owned()),
+            watermark_text:       Set(form_data.watermark_text.to_owned()),
+            watermark_image:      Set(form_data.watermark_image.to_owned()),
+            watermark_position:   Set(form_data.watermark_position.to_owned()),
+            watermark_opacity:    Set(form_data.watermark_opacity.to_owned()),
+            upload_allowed_types: Set(form_data.upload_allowed_types.to_owned()),
+            upload_max_size:      Set(form_data.upload_max_size.to_owned()),
+            company_name:    Set(form_data.company_name.to_owned()),
+            company_phone:   Set(form_data.company_phone.to_owned()),
+            company_email:   Set(form_data.company_email.to_owned()),
+            company_address: Set(form_data.company_address.to_owned()),
+            work_time_start: Set(form_data.work_time_start.to_owned()),
+            work_time_end:   Set(form_data.work_time_end.to_owned()),
+            work_days:       Set(form_data.work_days.to_owned()),
+            qq:              Set(form_data.qq.to_owned()),
+            wechat:          Set(form_data.wechat.to_owned()),
+            wechat_qrcode:   Set(form_data.wechat_qrcode.to_owned()),
+            icp:             Set(form_data.icp.to_owned()),
+            copyright:       Set(form_data.copyright.to_owned()),
+            statistics_code: Set(form_data.statistics_code.to_owned()),
+            custom_css:      Set(form_data.custom_css.to_owned()),
+            custom_js:       Set(form_data.custom_js.to_owned()),
+            close_reason:    Set(form_data.close_reason.to_owned()),
+            share_title:     Set(form_data.share_title.to_owned()),
+            share_desc:      Set(form_data.share_desc.to_owned()),
+            share_image:     Set(form_data.share_image.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -484,9 +822,37 @@ impl SiteModel {
             keywords:        Set(form_data.keywords.to_owned()),
             description:     Set(form_data.description.to_owned()),
             show_banner:     Set(form_data.show_banner.to_owned()),
+            site_type:       Set(form_data.site_type.to_owned()),
             sort:            Set(form_data.sort.to_owned()),
             status:          Set(form_data.status.to_owned()),
             remark:          Set(form_data.remark.to_owned()),
+            watermark_enable:     Set(form_data.watermark_enable.to_owned()),
+            watermark_type:       Set(form_data.watermark_type.to_owned()),
+            watermark_text:       Set(form_data.watermark_text.to_owned()),
+            watermark_image:      Set(form_data.watermark_image.to_owned()),
+            watermark_position:   Set(form_data.watermark_position.to_owned()),
+            watermark_opacity:    Set(form_data.watermark_opacity.to_owned()),
+            upload_allowed_types: Set(form_data.upload_allowed_types.to_owned()),
+            upload_max_size:      Set(form_data.upload_max_size.to_owned()),
+            company_name:    Set(form_data.company_name.to_owned()),
+            company_phone:   Set(form_data.company_phone.to_owned()),
+            company_email:   Set(form_data.company_email.to_owned()),
+            company_address: Set(form_data.company_address.to_owned()),
+            work_time_start: Set(form_data.work_time_start.to_owned()),
+            work_time_end:   Set(form_data.work_time_end.to_owned()),
+            work_days:       Set(form_data.work_days.to_owned()),
+            qq:              Set(form_data.qq.to_owned()),
+            wechat:          Set(form_data.wechat.to_owned()),
+            wechat_qrcode:   Set(form_data.wechat_qrcode.to_owned()),
+            icp:             Set(form_data.icp.to_owned()),
+            copyright:       Set(form_data.copyright.to_owned()),
+            statistics_code: Set(form_data.statistics_code.to_owned()),
+            custom_css:      Set(form_data.custom_css.to_owned()),
+            custom_js:       Set(form_data.custom_js.to_owned()),
+            close_reason:    Set(form_data.close_reason.to_owned()),
+            share_title:     Set(form_data.share_title.to_owned()),
+            share_desc:      Set(form_data.share_desc.to_owned()),
+            share_image:     Set(form_data.share_image.to_owned()),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };

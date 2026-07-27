@@ -290,6 +290,7 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
                 template_id: item.template_id,
                 logo: item.logo,
                 client: item.client,
+                site_type: item.site_type,
                 status: item.status,
                 sort: item.sort,
                 is_default: item.is_default,

@@ -9,8 +9,9 @@
 //!
 
 use bcrypt::{hash, DEFAULT_COST};
-use sea_orm::DbConn;
+use sea_orm::{ColumnTrait, ConnectionTrait, DbConn, EntityTrait, QueryFilter};
 use sea_orm::TransactionTrait;
+use std::collections::{HashMap, HashSet};
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::app::is_demo_mode;
 use crate::core::web::response::ResultPage;
@@ -22,6 +23,42 @@ use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, Admin
 use crate::modules::system::model::role::RoleModel;
 use crate::modules::system::service::{config_service, dept_service, role_service};
 use crate::utils::string_utils::{convert_vec_option_string_to_vec_u64};
+
+/// 批量查询 admin 用户名映射：admin_id -> 显示名（nick_name 优先，回退 user_name）
+///
+/// 统一所有列表/详情查询中"用户名回填"的实现，避免循环 N+1 查询。
+///
+/// - 入参 `admin_ids` 无需调用方去重（内部用 HashSet 去重）
+/// - 空 `Vec` 直接返回空 HashMap，不发 SQL
+/// - 自动过滤 `deleted=0`
+/// - 名称解析统一为 `nick_name.or(user_name).unwrap_or_default()`
+/// - 泛型 `ConnectionTrait`，兼容 `&DbConn` 和事务 `&txn`
+///
+/// # 示例
+/// ```ignore
+/// let ids: Vec<i64> = list.iter().flat_map(|c| [c.assigned_to, c.created_by]).flatten().collect();
+/// let name_map = build_admin_name_map(db, ids).await;
+/// vo.assignee = assigned_to.and_then(|id| name_map.get(&id).cloned());
+/// ```
+pub async fn build_admin_name_map<C: ConnectionTrait>(
+    db: &C,
+    admin_ids: Vec<i64>,
+) -> HashMap<i64, String> {
+    if admin_ids.is_empty() {
+        return HashMap::new();
+    }
+    // 内部去重，避免 IN 列表过大或重复
+    let unique_ids: Vec<i64> = admin_ids.into_iter().collect::<HashSet<_>>().into_iter().collect();
+    admin::Entity::find()
+        .filter(admin::Column::Id.is_in(unique_ids))
+        .filter(admin::Column::Deleted.eq(0))
+        .all(db)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|a| (a.id, a.nick_name.or(a.user_name).unwrap_or_default()))
+        .collect()
+}
 
 /// 新增管理员
 pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {

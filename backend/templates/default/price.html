@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_name }} · 服务报价</title>
+    <meta name="description" content="MxxCRM 开源免费，本页列出安装部署、二次开发、技术支持等服务项目的参考报价。">
+    <link rel="stylesheet" href="/static/default/css/bootstrap.min.css">
+    <style>
+        :root{
+            --mxx-primary:#2563eb;
+            --mxx-primary-dark:#1d4ed8;
+            --mxx-accent:#7c3aed;
+            --mxx-ink:#0f172a;
+            --mxx-muted:#64748b;
+            --mxx-soft:#f8fafc;
+            --mxx-line:#e2e8f0;
+            --mxx-glow:rgba(37,99,235,0.15);
+            --mxx-success:#16a34a;
+            --mxx-warning:#d97706;
+        }
+        *{scroll-behavior:smooth;}
+        body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;color:var(--mxx-ink);-webkit-font-smoothing:antialiased;}
+        a{text-decoration:none;}
+
+        /* ── 导航 ── */
+        .navbar{transition:all .3s cubic-bezier(.4,0,.2,1);}
+        .navbar.scrolled{background:rgba(255,255,255,.85)!important;backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);box-shadow:0 1px 0 var(--mxx-line);}
+        .navbar .brand{font-weight:800;font-size:1.35rem;letter-spacing:-.02em;}
+        .navbar .brand .dot{color:var(--mxx-primary);}
+        .nav-link{font-weight:500;color:#334155!important;position:relative;padding:.5rem .75rem!important;}
+        .nav-link::after{content:'';position:absolute;left:.75rem;right:.75rem;bottom:2px;height:2px;background:var(--mxx-primary);border-radius:1px;transform:scaleX(0);transition:transform .25s ease;}
+        .nav-link:hover{color:var(--mxx-primary)!important;}
+        .nav-link:hover::after,.nav-link.active::after{transform:scaleX(1);}
+
+        /* ── Hero ── */
+        .hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#f0f5ff 0%,#faf5ff 50%,#ffffff 100%);padding:7rem 0 4rem;}
+        .hero::before{content:'';position:absolute;top:-30%;left:-10%;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.05),transparent 70%);pointer-events:none;}
+        .hero h1{font-weight:800;letter-spacing:-.025em;line-height:1.15;}
+        .hero .lead{color:var(--mxx-muted);font-size:1.05rem;max-width:580px;}
+
+        /* ── 通用区块 ── */
+        .section{padding:5rem 0;}
+        .section-title{font-weight:800;letter-spacing:-.025em;}
+        .section-sub{color:var(--mxx-muted);max-width:640px;margin:0 auto;}
+
+        /* ── 免费声明条 ── */
+        .free-banner{background:linear-gradient(135deg,var(--mxx-primary),var(--mxx-accent));color:#fff;border-radius:16px;position:relative;overflow:hidden;}
+        .free-banner::before{content:'';position:absolute;top:-40%;right:-20%;width:250px;height:250px;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none;}
+        .free-banner h3{font-weight:700;}
+        .free-banner p{opacity:.9;max-width:560px;}
+
+        /* ── 服务卡片 ── */
+        .service-card{border:1px solid var(--mxx-line);border-radius:16px;overflow:hidden;background:#fff;transition:transform .3s cubic-bezier(.4,0,.2,1),box-shadow .3s ease;height:100%;}
+        .service-card:hover{transform:translateY(-4px);box-shadow:0 20px 48px -18px rgba(15,23,42,.22);}
+        .service-card .card-head{padding:1.5rem 1.5rem .75rem;border-bottom:1px solid var(--mxx-line);}
+        .service-card .card-head .cat-icon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:1.2rem;color:#fff;margin-bottom:.6rem;box-shadow:0 4px 12px rgba(0,0,0,.1);}
+        .service-card .card-head h3{font-size:1.05rem;font-weight:700;margin:0;}
+        .service-card .card-head p{color:var(--mxx-muted);font-size:.85rem;margin:.15rem 0 0;}
+        .service-card .card-body{padding:1.25rem 1.5rem;}
+
+        /* ── 服务项列表 ── */
+        .service-item{display:flex;justify-content:space-between;align-items:flex-start;padding:.7rem 0;border-bottom:1px dashed var(--mxx-line);gap:1rem;}
+        .service-item:last-child{border-bottom:none;}
+        .service-item .info{flex:1;min-width:0;}
+        .service-item .name{font-weight:600;font-size:.92rem;margin-bottom:.1rem;}
+        .service-item .desc{color:var(--mxx-muted);font-size:.82rem;line-height:1.45;}
+        .service-item .price{flex-shrink:0;font-weight:700;font-size:.95rem;color:var(--mxx-primary);text-align:right;white-space:nowrap;}
+        .service-item .price .unit{font-weight:400;font-size:.75rem;color:var(--mxx-muted);}
+
+        /* ── 场景卡片 (安装方案) ── */
+        .plan-card{border:1px solid var(--mxx-line);border-radius:16px;padding:1.75rem;height:100%;background:#fff;transition:all .3s ease;position:relative;overflow:hidden;}
+        .plan-card:hover{transform:translateY(-4px);box-shadow:0 20px 48px -18px rgba(15,23,42,.22);border-color:rgba(37,99,235,.3);}
+        .plan-card .badge{position:absolute;top:.8rem;right:.8rem;font-size:.7rem;font-weight:600;padding:.2rem .7rem;border-radius:999px;}
+        .plan-card .badge.hot{background:linear-gradient(135deg,#dc2626,#f87171);color:#fff;}
+        .plan-card .badge.pop{background:linear-gradient(135deg,var(--mxx-primary),#60a5fa);color:#fff;}
+        .plan-card .plan-icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:1.3rem;color:#fff;margin-bottom:.8rem;}
+        .plan-card h4{font-weight:700;font-size:1.05rem;margin-bottom:.2rem;}
+        .plan-card .plan-sub{color:var(--mxx-muted);font-size:.85rem;margin-bottom:1rem;}
+        .plan-card .plan-price{font-size:1.5rem;font-weight:800;color:var(--mxx-ink);margin-bottom:.6rem;}
+        .plan-card .plan-price span{font-weight:400;font-size:.85rem;color:var(--mxx-muted);}
+        .plan-card ul{list-style:none;padding:0;margin:0;}
+        .plan-card li{padding:.28rem 0;font-size:.88rem;color:#334155;line-height:1.5;display:flex;align-items:flex-start;gap:.4rem;}
+        .plan-card li::before{content:'✓';color:var(--mxx-success);font-weight:700;flex-shrink:0;}
+
+        /* ── 可展开的FAQ ── */
+        .faq-item{border:1px solid var(--mxx-line);border-radius:12px;margin-bottom:.6rem;overflow:hidden;background:#fff;transition:border-color .2s;}
+        .faq-item:hover{border-color:rgba(37,99,235,.3);}
+        .faq-item .faq-q{width:100%;text-align:left;padding:1rem 1.15rem;background:none;border:none;font-weight:600;font-size:.95rem;color:var(--mxx-ink);display:flex;justify-content:space-between;align-items:center;gap:.5rem;cursor:pointer;transition:color .2s;}
+        .faq-item .faq-q:hover{color:var(--mxx-primary);}
+        .faq-item .faq-q .arrow{font-size:.75rem;transition:transform .3s ease;color:var(--mxx-muted);}
+        .faq-item .faq-q[aria-expanded="true"] .arrow{transform:rotate(180deg);}
+        .faq-item .faq-a{padding:0 1.15rem 1rem;color:#475569;font-size:.9rem;line-height:1.6;}
+
+        /* ── CTA ── */
+        .cta{background:linear-gradient(135deg,var(--mxx-primary),var(--mxx-accent));color:#fff;border-radius:24px;position:relative;overflow:hidden;}
+        .cta::before{content:'';position:absolute;top:-50%;right:-30%;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none;}
+        .cta::after{content:'';position:absolute;bottom:-30%;left:-20%;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none;}
+
+        .footer{border-top:1px solid var(--mxx-line);background:var(--mxx-soft);color:var(--mxx-muted);}
+        .footer a{color:var(--mxx-muted);transition:color .2s ease;}
+        .footer a:hover{color:var(--mxx-primary);}
+
+        /* ── 滚动渐入 ── */
+        .reveal{opacity:0;transform:translateY(30px);transition:opacity .6s cubic-bezier(.25,.46,.45,.94),transform .6s cubic-bezier(.25,.46,.45,.94);}
+        .reveal.visible{opacity:1;transform:translateY(0);}
+        .reveal-d1{transition-delay:.1s;}
+        .reveal-d2{transition-delay:.2s;}
+        .reveal-d3{transition-delay:.3s;}
+        .reveal-d4{transition-delay:.4s;}
+        .reveal-d5{transition-delay:.5s;}
+        
+        @media (max-width:768px){
+            .hero{padding:5.5rem 0 2.5rem;}
+            .section{padding:3rem 0;}
+        }
+    </style>
+</head>
+<body>
+
+<!-- 导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-light fixed-top py-2" id="mainNav">
+    <div class="container">
+        <a class="navbar-brand brand" href="/">{{ site_name }}<span class="dot">.</span></a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navContent" aria-controls="navContent" aria-expanded="false" aria-label="切换导航">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navContent">
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center gap-lg-1">
+                <li class="nav-item"><a class="nav-link" href="/">首页</a></li>
+                <li class="nav-item"><a class="nav-link" href="#install">安装方案</a></li>
+                <li class="nav-item"><a class="nav-link" href="#dev">开发服务</a></li>
+                <li class="nav-item"><a class="nav-link" href="#support">技术支持</a></li>
+                <li class="nav-item"><a class="nav-link" href="#faq">常见问题</a></li>
+            </ul>
+            <a class="btn btn-primary ms-lg-3 mt-2 mt-lg-0" href="#contact">咨询报价</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="container">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-7">
+                <span class="d-inline-flex align-items-center gap-1 mb-3 px-3 py-1 rounded-5" style="font-size:.8rem;font-weight:600;color:var(--mxx-primary-dark);background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);">🆓 软件永久免费 · 按需付费获得服务</span>
+                <h1 class="display-5">程序免费，<br>为专业服务付费</h1>
+                <p class="lead mt-3">MxxCRM 源代码完全开源，任何人都可以免费下载、安装、使用。本页列出我们提供的安装部署、二次开发、技术支持等配套服务参考报价，让需要专业支持的团队快速落地。</p>
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                    <a href="#install" class="btn btn-primary btn-lg px-4">查看安装方案</a>
+                    <a href="#faq" class="btn btn-outline-secondary btn-lg px-4">常见问题</a>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="free-banner p-4">
+                    <h3>🆓 软件本身永久免费</h3>
+                    <p>MxxCRM 以 MIT 开源协议发布，您可以自由下载、安装、使用、修改。无论个人还是企业，无需为软件本身支付任何费用。</p>
+                    <div class="d-flex align-items-center gap-3 mt-3 flex-wrap">
+                        <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-2" style="background:rgba(255,255,255,.15);font-size:.82rem;">✅ 无用户数限制</span>
+                        <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-2" style="background:rgba(255,255,255,.15);font-size:.82rem;">✅ 无功能阉割</span>
+                        <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-2" style="background:rgba(255,255,255,.15);font-size:.82rem;">✅ 无隐藏收费</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== 安装部署方案 ========== -->
+<section class="section" id="install">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title h2 reveal">安装部署方案</h2>
+            <p class="section-sub mt-2 reveal reveal-d1">配套环境准备、系统安装、基础配置、安全加固一条龙服务。按场景选择最适合你的方案。</p>
+        </div>
+
+        <div class="row g-4 justify-content-center">
+            <!-- 方案1：本地局域网 -->
+            <div class="col-lg-4 col-md-6 reveal reveal-d1">
+                <div class="plan-card">
+                    <span class="badge pop">最经济</span>
+                    <div class="plan-icon" style="background:linear-gradient(135deg,#2563eb,#60a5fa);">🏢</div>
+                    <h4>局域网部署</h4>
+                    <div class="plan-sub">适合公司内部使用，无需公网访问</div>
+                    <div class="plan-price">￥1,800 <span>/ 次</span></div>
+                    <ul>
+                        <li>服务器运行环境搭建（Windows / Linux）</li>
+                        <li>PostgreSQL + Redis 安装与配置</li>
+                        <li>MxxCRM 安装部署与基础配置</li>
+                        <li>内网访问测试，确保系统正常运行</li>
+                        <li>管理员账号初始化 + 基础设置</li>
+                        <li>1 次远程协助</li>
+                    </ul>
+                    <div class="mt-3 pt-2" style="border-top:1px dashed var(--mxx-line);font-size:.82rem;color:var(--mxx-muted);">
+                        📌 适用场景：企业内部管理、不涉及外网访问、数据完全内网封闭
+                    </div>
+                </div>
+            </div>
+
+            <!-- 方案2：公网部署（推荐） -->
+            <div class="col-lg-4 col-md-6 reveal reveal-d2">
+                <div class="plan-card" style="border-color:rgba(37,99,235,.3);box-shadow:0 4px 20px -8px rgba(37,99,235,.15);">
+                    <span class="badge hot">🔥 推荐</span>
+                    <div class="plan-icon" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);">☁️</div>
+                    <h4>公网服务器部署</h4>
+                    <div class="plan-sub">用户自备云服务器 + 域名（已备案）</div>
+                    <div class="plan-price">￥3,800 <span>/ 次</span></div>
+                    <ul>
+                        <li>云服务器环境初始化（安全组 / 防火墙配置）</li>
+                        <li>PostgreSQL + Redis 安装与优化</li>
+                        <li>MxxCRM 安装部署与生产配置</li>
+                        <li>Nginx 反向代理 + HTTPS 证书配置</li>
+                        <li>域名绑定与公网访问调试</li>
+                        <li>系统安全加固（防注入 / 防暴力破解）</li>
+                        <li>数据定时备份脚本配置</li>
+                        <li>1 次远程协助 + 部署文档交付</li>
+                    </ul>
+                    <div class="mt-3 pt-2" style="border-top:1px dashed var(--mxx-line);font-size:.82rem;color:var(--mxx-muted);">
+                        📌 前置条件：用户需自备云服务器（2C4G 以上）、已备案域名<br>
+                        📌 适用场景：远程办公、客户在外网访问CRM、移动端使用
+                    </div>
+                </div>
+            </div>
+
+            <!-- 方案3：Docker 部署 -->
+            <div class="col-lg-4 col-md-6 reveal reveal-d3">
+                <div class="plan-card">
+                    <span class="badge pop">现代化</span>
+                    <div class="plan-icon" style="background:linear-gradient(135deg,#0891b2,#22d3ee);">🐳</div>
+                    <h4>Docker 容器化部署</h4>
+                    <div class="plan-sub">基于 Docker Compose，一键编排</div>
+                    <div class="plan-price">￥5,800 <span>/ 次</span></div>
+                    <ul>
+                        <li>Docker + Docker Compose 环境安装</li>
+                        <li>MxxCRM 容器化编排（含 DB / Redis / App）</li>
+                        <li>数据卷持久化配置（数据不随容器丢失）</li>
+                        <li>Nginx 反向代理 + HTTPS 证书配置</li>
+                        <li>容器健康检查 / 自动重启策略配置</li>
+                        <li>日志轮转与资源限制配置</li>
+                        <li>数据定时备份（含容器化备份脚本）</li>
+                        <li>部署文档 + 运维手册交付</li>
+                    </ul>
+                    <div class="mt-3 pt-2" style="border-top:1px dashed var(--mxx-line);font-size:.82cm;color:var(--mxx-muted);">
+                        📌 适用场景：运维团队管理、CI/CD 流水线、多环境快速部署
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 增值服务 -->
+        <div class="row g-3 mt-3 justify-content-center">
+            <div class="col-lg-4 col-md-6 reveal reveal-d3">
+                <div class="service-card">
+                    <div class="card-head d-flex align-items-center gap-2">
+                        <span style="font-size:1.2rem;">➕</span>
+                        <div><h3 style="font-size:.95rem;">额外节点部署</h3><p>每增加一个服务节点</p></div>
+                    </div>
+                    <div class="card-body text-center py-3">
+                        <span style="font-size:1.2rem;font-weight:800;color:var(--mxx-primary);">￥800</span>
+                        <span style="font-size:.8rem;color:var(--mxx-muted);"> / 节点</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6 reveal reveal-d4">
+                <div class="service-card">
+                    <div class="card-head d-flex align-items-center gap-2">
+                        <span style="font-size:1.2rem;">🔄</span>
+                        <div><h3 style="font-size:.95rem;">数据迁移（从其他系统）</h3><p>从 Excel / 其他 CRM / 旧系统导入</p></div>
+                    </div>
+                    <div class="card-body text-center py-3">
+                        <span style="font-size:1.2rem;font-weight:800;color:var(--mxx-primary);">￥2,000</span>
+                        <span style="font-size:.8rem;color:var(--mxx-muted);"> 起</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6 reveal reveal-d5">
+                <div class="service-card">
+                    <div class="card-head d-flex align-items-center gap-2">
+                        <span style="font-size:1.2rem;">🔧</span>
+                        <div><h3 style="font-size:.95rem;">代备案服务</h3><p>公网部署如需代备案（仅限部分地区）</p></div>
+                    </div>
+                    <div class="card-body text-center py-3">
+                        <span style="font-size:1.2rem;font-weight:800;color:var(--mxx-primary);">￥500</span>
+                        <span style="font-size:.8rem;color:var(--mxx-muted);"> / 次</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== 二次开发服务 ========== -->
+<section class="section bg-light" id="dev">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title h2 reveal">二次开发服务</h2>
+            <p class="section-sub mt-2 reveal reveal-d1">基于 MxxCRM 现有架构，按需定制功能扩展。以下价格为参考区间，实际按需求复杂度评估。</p>
+        </div>
+
+        <div class="row g-3">
+            <!-- 开发服务项已分组为卡片 -->
+            <div class="col-lg-6 reveal reveal-d1">
+                <div class="service-card">
+                    <div class="card-head">
+                        <div class="cat-icon" style="background:linear-gradient(135deg,#2563eb,#60a5fa);">👥</div>
+                        <h3>客户与销售模块定制</h3>
+                        <p>线索 → 客户 → 商机 → 订单全链路扩展</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="service-item">
+                            <div class="info"><div class="name">客户字段自定义</div><div class="desc">增加企业专属字段（行业代码、客户等级、自定义标签等）</div></div>
+                            <div class="price">￥800<span class="unit"> / 组</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">跟进流程定制</div><div class="desc">自定义跟进阶段、自动分配规则、超时提醒</div></div>
+                            <div class="price">￥3,000<span class="unit"> 起</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">报价单/合同模板定制</div><div class="desc">自定义 PDF/HTML 模板，嵌入企业 Logo 和条款</div></div>
+                            <div class="price">￥1,500<span class="unit"> / 套</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">销售业绩看板定制</div><div class="desc">按团队/个人/时间段多维度统计销售数据</div></div>
+                            <div class="price">￥4,000<span class="unit"> 起</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 reveal reveal-d1">
+                <div class="service-card">
+                    <div class="card-head">
+                        <div class="cat-icon" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);">🔗</div>
+                        <h3>第三方系统集成</h3>
+                        <p>打通企业现有系统，消除数据孤岛</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="service-item">
+                            <div class="info"><div class="name">微信 / 企业微信集成</div><div class="desc">企微客户同步、消息推送、审批流程对接</div></div>
+                            <div class="price">￥5,000<span class="unit"> 起</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">钉钉 / 飞书集成</div><div class="desc">组织架构同步、审批流对接、消息通知</div></div>
+                            <div class="price">￥5,000<span class="unit"> 起</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">跨境电商平台对接</div><div class="desc">Amazon / 阿里国际站 / Shopify 订单与客户同步</div></div>
+                            <div class="price">￥8,000<span class="unit"> 起</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">开放 API 定制</div><div class="desc">提供或对接 RESTful API，连接 ERP / WMS / 财务系统</div></div>
+                            <div class="price">￥6,000<span class="unit"> 起</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 reveal reveal-d2">
+                <div class="service-card">
+                    <div class="card-head">
+                        <div class="cat-icon" style="background:linear-gradient(135deg,#0891b2,#22d3ee);">📊</div>
+                        <h3>报表与数据分析</h3>
+                        <p>把数据变成决策依据</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="service-item">
+                            <div class="info"><div class="name">定制统计报表</div><div class="desc">销售漏斗分析、客户转化率、回款预测等自定义报表</div></div>
+                            <div class="price">￥3,000<span class="unit"> / 张</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">BI 看板定制</div><div class="desc">管理层驾驶舱，关键指标(KPI)实时大屏展示</div></div>
+                            <div class="price">￥6,000<span class="unit"> 起</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">数据导出与同步</div><div class="desc">定时导出到 Excel / BI 工具，数据仓库对接</div></div>
+                            <div class="price">￥2,500<span class="unit"> 起</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 reveal reveal-d2">
+                <div class="service-card">
+                    <div class="card-head">
+                        <div class="cat-icon" style="background:linear-gradient(135deg,#d97706,#fbbf24);">🛠️</div>
+                        <h3>功能扩展与运维</h3>
+                        <p>企业专属功能、自动化流程与运维支持</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="service-item">
+                            <div class="info"><div class="name">自定义审批流程</div><div class="desc">按企业组织架构配置多级审批流</div></div>
+                            <div class="price">￥2,500<span class="unit"> / 条</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">短信 / 邮件网关对接</div><div class="desc">集成第三方短信平台、邮件服务商</div></div>
+                            <div class="price">￥2,000<span class="unit"> 起</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">支付接口对接</div><div class="desc">微信支付 / 支付宝 / 银行对账接口集成</div></div>
+                            <div class="price">￥4,000<span class="unit"> 起</span></div>
+                        </div>
+                        <div class="service-item">
+                            <div class="info"><div class="name">自动化脚本定制</div><div class="desc">定时任务、数据清洗、自动提醒等</div></div>
+                            <div class="price">￥1,500<span class="unit"> 起</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 整体外包 -->
+        <div class="reveal reveal-d3 mt-5">
+            <div class="p-4 rounded-4 d-flex flex-wrap align-items-center justify-content-between gap-3" style="background:linear-gradient(135deg,#f0f5ff,#faf5ff);border:1px solid rgba(37,99,235,.2);">
+                <div>
+                    <h4 class="fw-bold mb-1">📋 整体二次开发外包</h4>
+                    <p class="mb-0" style="color:var(--mxx-muted);">如果有多个定制需求，可以打包整体发包，按项目整体报价，更经济实惠。</p>
+                </div>
+                <div class="text-end flex-shrink-0">
+                    <div style="font-size:1.5rem;font-weight:800;color:var(--mxx-primary);">按项目评估</div>
+                    <div style="font-size:.82rem;color:var(--mxx-muted);">欢迎联系沟通需求</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== 技术支持与培训 ========== -->
+<section class="section" id="support">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title h2 reveal">技术支持与培训</h2>
+            <p class="section-sub mt-2 reveal reveal-d1">持续保障系统稳定运行，帮助团队快速上手、高效使用。</p>
+        </div>
+
+        <div class="row g-4 justify-content-center">
+            <div class="col-lg-4 col-md-6 reveal reveal-d1">
+                <div class="plan-card">
+                    <div class="plan-icon" style="background:linear-gradient(135deg,#16a34a,#4ade80);">🎫</div>
+                    <h4>单次技术支持</h4>
+                    <div class="plan-sub">按需购买，解决具体问题</div>
+                    <div class="plan-price">￥300 <span>/ 次</span></div>
+                    <ul>
+                        <li>远程协助解决技术问题</li>
+                        <li>系统配置与参数调整</li>
+                        <li>运行故障排查与恢复</li>
+                        <li>使用操作咨询</li>
+                        <li>限 1 小时内</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6 reveal reveal-d2">
+                <div class="plan-card" style="border-color:rgba(37,99,235,.3);">
+                    <span class="badge pop">省心</span>
+                    <div class="plan-icon" style="background:linear-gradient(135deg,#2563eb,#60a5fa);">🛡️</div>
+                    <h4>年度运维保障</h4>
+                    <div class="plan-sub">整年无忧，优先响应</div>
+                    <div class="plan-price">￥8,000 <span>/ 年</span></div>
+                    <ul>
+                        <li>5×8 小时技术支持</li>
+                        <li>紧急故障 2 小时响应</li>
+                        <li>系统安全更新与补丁</li>
+                        <li>数据备份检查与恢复演练</li>
+                        <li>季度健康巡检报告</li>
+                        <li>最多 10 次远程协助</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6 reveal reveal-d3">
+                <div class="plan-card">
+                    <div class="plan-icon" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);">🎓</div>
+                    <h4>培训服务</h4>
+                    <div class="plan-sub">让团队用好系统</div>
+                    <div class="plan-price">￥2,000 <span>/ 次</span></div>
+                    <ul>
+                        <li>系统使用培训（管理员 + 普通用户）</li>
+                        <li>涵盖核心模块操作流程</li>
+                        <li>最佳实践与注意事项</li>
+                        <li>线上培训（约 2 小时）</li>
+                        <li>培训手册 / 操作视频交付</li>
+                        <li>上门培训另议</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== 常见问题 ========== -->
+<section class="section bg-light" id="faq">
+    <div class="container" style="max-width:720px;">
+        <div class="text-center mb-5">
+            <h2 class="section-title h2 reveal">常见问题</h2>
+        </div>
+
+        <div class="reveal reveal-d1">
+            <div class="faq-item">
+                <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+                    <span>程序不是免费开源吗，为什么安装还要收费？</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="faq-a" style="display:none;">
+                    程序本身完全免费，任何人都可以自行下载、安装、使用。<strong>安装服务费是为"不想自己折腾技术环境"的用户准备的</strong>——我们帮你搞定服务器环境、数据库配置、HTTPS 证书、安全加固等一系列技术活，让你开箱即用。如果你有技术能力，完全可以自己免费部署。
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+                    <span>安装部署需要用户准备什么？</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="faq-a" style="display:none;">
+                    这取决于你选择的方案：<br>
+                    • <strong>局域网部署</strong>：自备一台服务器或 PC（建议 4G 内存以上）<br>
+                    • <strong>公网部署</strong>：自备云服务器（建议 2C4G 以上）+ 已备案域名<br>
+                    • <strong>Docker 部署</strong>：服务器需支持 Docker 环境<br>
+                    如果以上条件暂时不具备，我们也可以提供代购服务器等辅助服务。
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+                    <span>公网部署为什么需要已备案域名？</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="faq-a" style="display:none;">
+                    根据中国大陆法律法规，面向公众提供互联网信息服务的网站必须完成 ICP 备案。公网部署的 CRM 系统需要绑定一个已备案的域名才能正常通过浏览器访问。备案通常由云服务器提供商协助完成，一般需要 3-10 个工作日。如果急需使用，可以先通过 IP + 端口的方式临时访问。
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+                    <span>二次开发的价格是固定的吗？</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="faq-a" style="display:none;">
+                    以上价格为参考区间，实际价格根据需求复杂度、开发工作量、时间要求综合评估。<strong>建议先联系我们沟通需求，我们可以提供免费的需求评估和报价方案</strong>。一次性打包多个需求通常可以获得更优惠的整体报价。
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+                    <span>付费后提供发票吗？服务有保障吗？</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="faq-a" style="display:none;">
+                    所有付费服务均提供正规增值税发票（普票或专票）。服务交付完成后有 7 天质保期，如出现交付范围内的问题免费修复。年度运维保障客户享受合同约定的 SLA 标准。
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+                    <span>我可以自己二次开发，再找你们帮忙部署吗？</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="faq-a" style="display:none;">
+                    当然可以。你自行开发或修改后的版本，我们提供部署服务。不过需要注意：<strong>部署服务仅覆盖环境搭建和系统安装</strong>，不包含对你自行修改代码的兼容性测试和问题排查。如需同时提供开发+部署一体化服务，建议走"整体二次开发外包"方案，由我们统一评估和交付。
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+                    <span>你们的报价和市场价比怎么样？</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="faq-a" style="display:none;">
+                    相比商业 CRM 按年收费（通常每人每月几十到几百元），MxxCRM 软件本身永久免费，我们只收取技术服务费。<strong>一次部署，永久使用</strong>。以 10 人团队为例，商业 SaaS 三年需支付数万元；而 MxxCRM 部署到位后，后续只有按需购买的运维和开发费用。相比之下，长期使用成本大幅降低。
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="section pt-0">
+    <div class="container">
+        <div class="cta p-5 text-center reveal">
+            <h2 class="h2 fw-bold mb-3">不确定选哪个方案？</h2>
+            <p class="mb-4" style="opacity:.9;max-width:600px;margin-left:auto;margin-right:auto;">联系我们，免费评估你的需求场景，推荐最合适的方案，并提供详细报价。</p>
+            <div class="d-flex flex-wrap justify-content-center gap-3">
+                <a href="mailto:sales@mxxshop.com" class="btn btn-light btn-lg px-4 fw-semibold">📧 邮件咨询</a>
+                <a href="https://github.com/sunkaifei/MxxCrm/issues" target="_blank" rel="noopener" class="btn btn-outline-light btn-lg px-4 fw-semibold">🐛 GitHub Issues</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 页脚 -->
+<footer class="footer py-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="brand fw-bold fs-4">{{ site_name }}<span style="color:var(--mxx-primary);">.</span></div>
+                <p class="mt-2" style="max-width:340px;">通用型开源客户关系管理系统，覆盖「线索 → 客户 → 商机 → 订单 → 履约」全链路。</p>
+            </div>
+            <div class="col-6 col-lg-2">
+                <h6 class="fw-bold">服务</h6>
+                <ul class="list-unstyled">
+                    <li><a href="#install">安装方案</a></li>
+                    <li><a href="#dev">开发服务</a></li>
+                    <li><a href="#support">技术支持</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-lg-2">
+                <h6 class="fw-bold">资源</h6>
+                <ul class="list-unstyled">
+                    <li><a href="/">首页</a></li>
+                    <li><a href="https://github.com/sunkaifei/MxxCrm" target="_blank" rel="noopener">GitHub</a></li>
+                    <li><a href="#faq">常见问题</a></li>
+                </ul>
+            </div>
+            <div class="col-lg-4">
+                <h6 class="fw-bold">关于</h6>
+                <p style="max-width:320px;">由北京心月狐科技有限公司维护。未经许可不能去掉 MxxShop 相关版权，版权所有，侵权必究。</p>
+            </div>
+        </div>
+        <hr class="my-4" style="border-color:var(--mxx-line);">
+        <div class="d-flex flex-wrap justify-content-between align-items-center" style="font-size:.88rem;">
+            <span>© 2024-2999 北京心月狐科技有限公司 版权所有</span>
+            <span>官网域名：{{ site_domain }}</span>
+        </div>
+    </div>
+</footer>
+
+<script>
+(function(){
+    'use strict';
+
+    // ── 导航栏 ──
+    var nav = document.getElementById('mainNav');
+    function onScrollNav(){
+        if(window.scrollY > 20) nav.classList.add('scrolled');
+        else nav.classList.remove('scrolled');
+    }
+    window.addEventListener('scroll', onScrollNav);
+    onScrollNav();
+
+    // ── ScrollReveal ──
+    var observer = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+            if(entry.isIntersecting){
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    },{threshold:0.12});
+    document.querySelectorAll('.reveal').forEach(function(el){ observer.observe(el); });
+
+    // ── FAQ 切换 ──
+    window.toggleFaq = function(btn){
+        var answer = btn.nextElementSibling;
+        var expanded = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', !expanded);
+        answer.style.display = expanded ? 'none' : 'block';
+    };
+})();
+</script>
+</body>
+</html>

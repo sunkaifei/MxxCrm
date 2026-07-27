@@ -204,6 +204,7 @@ pub async fn get_dict_data_list_by_code(db: &DbConn, dict_code: &Option<String>)
         label: dict.dict_label,
         value: dict.dict_value,
         tag_type: dict.list_class,
+        is_default: dict.is_default,
     }).collect();
     Ok(dict_vo)
 }

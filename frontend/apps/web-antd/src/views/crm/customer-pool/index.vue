@@ -3,7 +3,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { reactive, ref } from 'vue';
 
-import { Page, useVbenDrawer } from '@vben/common-ui';
+import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
@@ -12,7 +12,6 @@ import { Button, Form, Input, Modal, Row, Col, Select, Tag, message } from 'ant-
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getCustomerPoolListApi, claimCustomerApi } from '#/api';
 import { $t } from '#/locales';
-import CustomerDrawer from '../customer/drawer.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 
 const accessStore = useAccessStore();
@@ -44,8 +43,12 @@ function openDetail(row: any) {
   detailId.value = Number(id);
   detailVisible.value = true;
 }
-function closeDetail() { detailVisible.value = false; detailId.value = null; }
-function handleDetailEdit(customer: any) { closeDetail(); openDrawer(false, customer); }
+// 客户详情抽屉内基本信息 Tab 可直接编辑，无需单独编辑抽屉
+function handleDetailCreated() {
+  detailVisible.value = false;
+  detailId.value = null;
+  gridApi.query();
+}
 
 const searchForm = reactive({
   companyName: '',
@@ -156,13 +159,6 @@ const gridOptions: VxeGridProps = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
-
-const [FormDrawer, drawerApi] = useVbenDrawer({
-  connectedComponent: CustomerDrawer,
-  onClosed() { if (drawerApi.getData()?.needRefresh) gridApi.query(); },
-});
-
-function openDrawer(create: boolean, row?: any) { drawerApi.setData({ create, row }); drawerApi.open(); }
 
 async function handleClaim(row: any) {
   Modal.confirm({
@@ -291,9 +287,8 @@ async function handleClaim(row: any) {
         </span>
       </template>
     </Grid>
-    <FormDrawer />
 
-    <CustomerDetailDrawer v-model:visible="detailVisible" :id="detailId" @edit="handleDetailEdit" />
+    <CustomerDetailDrawer v-model:visible="detailVisible" :id="detailId ?? undefined" @created="handleDetailCreated" />
   </Page>
 </template>
 

@@ -17,6 +17,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
+use crate::modules::crm::controller::admin::contact_edit_log_controller;
 use crate::modules::crm::model::contact::{ContactListQuery, ContactSaveRequest, ContactUpdateRequest, ContactBindRequest, ContactUnbindRequest, ContactSetRoleRequest, ContactCheckRequest};
 use crate::modules::crm::service::contact_service;
 
@@ -193,6 +194,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::put()
                     .to(contact_set_role)
                     .wrap(require_permission("crm:contact:set_role")),
-            ),
+            )
+            // 联系人修改日志子路由：/contact/edit-log
+            .configure(contact_edit_log_controller::register),
     );
 }

@@ -271,6 +271,8 @@ interface FormSchemaBody extends Omit<FormCommonConfig, 'componentProps'> {
   label?: CustomRenderType;
   // 自定义组件内部渲染
   renderComponentContent?: RenderComponentContentType;
+  /** 是否必填 */
+  required?: boolean;
   /** 字段规则 */
   rules?: FormSchemaRuleType;
   /** 后缀 */

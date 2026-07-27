@@ -14,6 +14,8 @@ use crate::modules::approval::model::approval::{ApprovalProcessRequest, Approval
 use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::company::service::code_rule_service;
 use crate::modules::crm::entity::customer;
+use crate::modules::crm::entity::opportunity::{self as opp_entity, Entity as Opportunity};
+use crate::modules::sale::entity::quotation::{self as quo_entity, Entity as Quotation};
 use crate::modules::sale::model::order::{OrderItemModel, OrderItemSaveDTO, OrderModel, OrderSaveDTO};
 use crate::modules::sale::model::quotation::{
     QuotationApprovalModel, QuotationDetailVO, QuotationItemModel, QuotationListQuery,
@@ -35,13 +37,29 @@ pub async fn insert(db: &DbConn, form_data: &QuotationSaveRequest, created_by: S
         return Err(Error::from("报价单明细不能为空"));
     }
 
+    // 数据完整性校验：客户必填、标题必填
+    let customer_id = form_data.customer_id.ok_or_else(|| Error::from("客户不能为空".to_string()))?;
+    let title = form_data.title.as_deref().ok_or_else(|| Error::from("报价单标题不能为空".to_string()))?;
+
     let txn = db.begin().await?;
 
-    if let (Some(customer_id), Some(title)) = (form_data.customer_id, form_data.title.as_deref()) {
-        let existing = QuotationModel::find_by_customer_and_title(&txn, customer_id, title, None).await?;
-        if existing.is_some() {
+    // 同公司标题唯一性校验
+    let existing = QuotationModel::find_by_customer_and_title(&txn, customer_id, title, None).await?;
+    if existing.is_some() {
+        txn.rollback().await?;
+        return Err(Error::from("该客户下已存在相同标题的报价单"));
+    }
+
+    // 商机存在性校验：若传入 opportunity_id，必须查询到未删除的商机
+    if let Some(opp_id) = form_data.opportunity_id {
+        let opp = Opportunity::find_by_id(opp_id)
+            .filter(opp_entity::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询商机失败: {}", e)))?;
+        if opp.is_none() {
             txn.rollback().await?;
-            return Err(Error::from("该客户下已存在相同标题的报价单"));
+            return Err(Error::from(format!("关联的商机(id={})不存在或已删除", opp_id)));
         }
     }
 
@@ -82,6 +100,10 @@ pub async fn update(db: &DbConn, form_data: &QuotationUpdateRequest, updated_by:
         return Err(Error::from("报价单明细不能为空"));
     }
 
+    // 数据完整性校验：客户必填、标题必填
+    let customer_id = form_data.customer_id.ok_or_else(|| Error::from("客户不能为空".to_string()))?;
+    let title = form_data.title.as_deref().ok_or_else(|| Error::from("报价单标题不能为空".to_string()))?;
+
     let existing = QuotationModel::find_by_id(db, id).await?;
     let existing = existing.ok_or_else(|| Error::from("报价单不存在"))?;
 
@@ -92,11 +114,23 @@ pub async fn update(db: &DbConn, form_data: &QuotationUpdateRequest, updated_by:
 
     let txn = db.begin().await?;
 
-    if let (Some(customer_id), Some(title)) = (form_data.customer_id, form_data.title.as_deref()) {
-        let duplicate = QuotationModel::find_by_customer_and_title(&txn, customer_id, title, form_data.id).await?;
-        if duplicate.is_some() {
+    // 同公司标题唯一性校验（排除自身 ID）
+    let duplicate = QuotationModel::find_by_customer_and_title(&txn, customer_id, title, form_data.id).await?;
+    if duplicate.is_some() {
+        txn.rollback().await?;
+        return Err(Error::from("该客户下已存在相同标题的报价单"));
+    }
+
+    // 商机存在性校验：若传入 opportunity_id，必须查询到未删除的商机
+    if let Some(opp_id) = form_data.opportunity_id {
+        let opp = Opportunity::find_by_id(opp_id)
+            .filter(opp_entity::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询商机失败: {}", e)))?;
+        if opp.is_none() {
             txn.rollback().await?;
-            return Err(Error::from("该客户下已存在相同标题的报价单"));
+            return Err(Error::from(format!("关联的商机(id={})不存在或已删除", opp_id)));
         }
     }
 

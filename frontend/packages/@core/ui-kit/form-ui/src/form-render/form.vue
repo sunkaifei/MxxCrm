@@ -64,7 +64,7 @@ const shapes = computed(() => {
 
     let typeName = '';
     if (rules && !isString(rules)) {
-      typeName = rules._def.typeName;
+      typeName = rules._def?.typeName ?? '';
     }
 
     const baseRules = getBaseRules(rules) as ZodTypeAny;

@@ -686,7 +686,7 @@ impl ContractModel {
     ///
     /// # 返回
     /// * `Result<i64, DbErr>` - 删除的记录数
-    pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    pub async fn batch_delete_by_ids<C: ConnectionTrait>(db: &C, ids: &Vec<i64>) -> Result<i64, DbErr> {
         Contract::update_many()
             .set(contract::ActiveModel {
                 deleted: Set(Some(1)),
@@ -707,7 +707,7 @@ impl ContractModel {
     ///
     /// # 返回
     /// * `Result<i64, DbErr>` - 更新的记录数
-    pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &ContractSaveDTO) -> Result<i64, DbErr> {
+    pub async fn update_by_id<C: ConnectionTrait>(db: &C, id: &Option<i64>, req: &ContractSaveDTO) -> Result<i64, DbErr> {
         let payload = contract::ActiveModel {
             customer_id: Set(req.customer_id.clone()),
             opportunity_id: Set(req.opportunity_id.clone()),
@@ -778,8 +778,8 @@ impl ContractModel {
     ///
     /// # 返回
     /// * `Result<Option<contract::Model>, DbErr>` - 合同模型（未删除）
-    pub async fn find_by_customer_and_title(
-        db: &DbConn,
+    pub async fn find_by_customer_and_title<C: ConnectionTrait>(
+        db: &C,
         customer_id: i64,
         title: &str,
         exclude_id: Option<i64>,

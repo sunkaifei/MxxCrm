@@ -5,24 +5,9 @@ use crate::modules::system::entity::{admin, tag};
 use crate::modules::system::model::tag::{TagListVO, TagDetailVO, TagSuggestVO, TagStatisticsVO, TagSaveDTO, TagModel};
 use crate::modules::system::model::tag_group::{TagGroupModel};
 use crate::modules::system::model::tag_merge::{TagEntityResult, TagMergeModel};
+use crate::modules::system::service::admin_service::build_admin_name_map;
 
 pub struct TagService;
-
-/// 批量查询管理员 ID -> 昵称 的映射
-async fn build_admin_name_map(db: &DbConn, admin_ids: Vec<i64>) -> std::collections::HashMap<i64, String> {
-    if admin_ids.is_empty() {
-        return std::collections::HashMap::new();
-    }
-    admin::Entity::find()
-        .filter(admin::Column::Id.is_in(admin_ids))
-        .filter(admin::Column::Deleted.eq(0))
-        .all(db)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|a| (a.id, a.nick_name.unwrap_or(a.user_name.unwrap_or_default())))
-        .collect()
-}
 
 impl TagService {
     pub async fn get_list(

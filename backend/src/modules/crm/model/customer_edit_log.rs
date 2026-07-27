@@ -27,6 +27,9 @@ pub struct EditLogItem {
 }
 
 /// 客户修改日志 VO（前端展示用）
+/// content 字段为通用 JSON：
+/// - log_type=0/1: Vec<EditLogItem>（字段级变更）
+/// - log_type=2: 转移日志对象（含原/新负责人、原因、受影响资源等）
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomerEditLogVO {
@@ -37,25 +40,23 @@ pub struct CustomerEditLogVO {
     pub editor_id: Option<i64>,
     /// 编辑人姓名
     pub editor_name: Option<String>,
-    /// 变更内容
-    pub content: Option<Vec<EditLogItem>>,
+    /// 变更内容（结构根据 log_type 不同而不同）
+    pub content: Option<serde_json::Value>,
     /// 编辑时间
     pub edit_time: Option<DateTime>,
-    /// 日志类型：0=基本信息, 1=财务信息
+    /// 日志类型：0=基本信息, 1=财务信息, 2=客户转移
     pub log_type: Option<i32>,
 }
 
 impl From<customer_edit_log::Model> for CustomerEditLogVO {
     fn from(item: customer_edit_log::Model) -> Self {
-        let content = item.content.as_ref().and_then(|j| {
-            serde_json::from_value::<Vec<EditLogItem>>(j.clone()).ok()
-        });
+        // 保留原始 JSON，由前端按 log_type 解析
         CustomerEditLogVO {
             id: Option::from(item.id),
             customer_id: item.customer_id,
             editor_id: item.editor_id,
             editor_name: item.editor_name,
-            content,
+            content: item.content,
             edit_time: item.edit_time,
             log_type: item.log_type,
         }
@@ -69,7 +70,7 @@ pub struct CustomerEditLogQuery {
     pub customer_id: Option<i64>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
-    /// 日志类型：0=基本信息, 1=财务信息, None=全部
+    /// 日志类型：0=基本信息, 1=财务信息, 2=客户转移, None=全部
     pub log_type: Option<i32>,
 }
 

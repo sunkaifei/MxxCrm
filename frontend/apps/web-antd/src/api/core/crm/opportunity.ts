@@ -18,6 +18,10 @@ export const deleteOpportunityApi = async (ids: number[]) => {
   });
 };
 
-export const convertToQuotationApi = async (id: number) => {
+export const convertOpportunityToQuotationApi = async (id: number) => {
   return requestClient.post('/api/system/opportunity/convert_to_quotation', { id });
+};
+
+export const convertOpportunityToOrderApi = async (id: number) => {
+  return requestClient.post('/api/system/opportunity/convert_to_order', { id });
 };

@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize, de::Error as SerdeError};
 use serde_json;
-use sea_orm::{EntityTrait, QuerySelect, QueryFilter, QueryOrder, ColumnTrait, PaginatorTrait, DbErr, DbConn, Set};
+use sea_orm::{EntityTrait, QuerySelect, QueryFilter, QueryOrder, ColumnTrait, PaginatorTrait, DbErr, DbConn, Set, Condition};
 use chrono::Utc;
 use crate::modules::message::entity::chat_session;
 use crate::modules::message::entity::chat_session::Entity as ChatSessionEntity;
@@ -39,19 +39,14 @@ pub const MESSAGE_TYPE_SYSTEM: i32 = 1;
 pub const MESSAGE_TYPE_USER: i32 = 2;
 
 #[derive(Debug, Deserialize)]
-pub struct SendChatMessageRequest {
-    pub session_id: Option<i64>,
-    pub receiver_id: Option<i64>,
-    pub content: String,
-}
-
-#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetSessionListParams {
     pub page: Option<i32>,
     pub page_size: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetChatMessagesParams {
     pub session_id: i64,
     pub page: Option<i32>,
@@ -59,25 +54,55 @@ pub struct GetChatMessagesParams {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MarkReadRequest {
     #[serde(deserialize_with = "deserialize_string_or_u64")]
     pub session_id: i64,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeleteSessionRequest {
     #[serde(deserialize_with = "deserialize_string_or_u64")]
     pub session_id: i64,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchUserParams {
     pub keyword: String,
     pub page: Option<i32>,
     pub page_size: Option<i32>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColleagueListParams {
+    pub keyword: Option<String>,
+    pub page: Option<i32>,
+    pub page_size: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartSessionRequest {
+    #[serde(deserialize_with = "deserialize_string_or_u64")]
+    pub receiver_id: i64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendChatMessageRequest {
+    pub session_id: Option<i64>,
+    pub receiver_id: Option<i64>,
+    pub content: String,
+    pub content_type: Option<i32>,
+    pub file_url: Option<String>,
+    pub file_name: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatSessionDTO {
     pub session_id: i64,
     pub session_type: i32,
@@ -91,6 +116,7 @@ pub struct ChatSessionDTO {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatMessageDTO {
     pub message_id: i64,
     pub session_id: i64,
@@ -99,25 +125,85 @@ pub struct ChatMessageDTO {
     pub sender_avatar: Option<String>,
     pub content: String,
     pub message_type: i32,
+    pub content_type: Option<i32>,
+    pub file_url: Option<String>,
+    pub file_name: Option<String>,
+    pub file_size: Option<i64>,
     pub is_recalled: bool,
     pub send_time: String,
     pub is_mine: bool,
+    /// 已读状态：0=未读，1=已读（仅对用户消息有意义）
+    pub read_status: i32,
+    /// 已读时间（RFC3339 字符串，未读时为空）
+    pub read_time: String,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SendMessageResponse {
     pub session_id: i64,
     pub message_id: i64,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserSearchDTO {
     pub user_id: i64,
     pub nickname: String,
     pub avatar: Option<String>,
 }
 
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DeptNameDTO {
+    pub dept_name: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColleagueVO {
+    pub id: i64,
+    pub user_name: Option<String>,
+    pub nick_name: Option<String>,
+    pub avatar: Option<String>,
+    pub depts: Option<Vec<DeptNameDTO>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionDetailDTO {
+    pub session_id: i64,
+    pub session_type: i32,
+    pub session_name: String,
+    pub avatar_url: Option<String>,
+    pub other_user_id: Option<i64>,
+    pub other_nickname: Option<String>,
+    pub other_avatar: Option<String>,
+    pub online_status: Option<i32>,
+    pub is_pinned: bool,
+    pub is_muted: bool,
+    pub unread_count: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RecallMessageRequest {
+    pub message_id: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TogglePinRequest {
+    pub session_id: i64,
+    pub is_pinned: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ToggleMuteRequest {
+    pub session_id: i64,
+    pub is_muted: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PageResponse<T> {
     pub list: Vec<T>,
     pub total: i64,
@@ -217,6 +303,9 @@ impl ChatModel {
         session_id: i64,
         content: String,
         message_type: i32,
+        content_type: Option<i32>,
+        file_url: Option<String>,
+        file_name: Option<String>,
     ) -> Result<SendMessageResponse, DbErr> {
         let sender = UserEntity::find_by_id(sender_id).one(db).await?;
         let (sender_nickname, sender_avatar) = match sender {
@@ -231,6 +320,9 @@ impl ChatModel {
             sender_avatar: Set(sender_avatar.clone()),
             content: Set(content.clone()),
             message_type: Set(Some(message_type)),
+            content_type: Set(content_type),
+            file_url: Set(file_url.clone()),
+            file_name: Set(file_name.clone()),
             is_recalled: Set(Some(0)),
             send_time: Set(Some(Utc::now().naive_utc())),
             ..Default::default()
@@ -319,11 +411,36 @@ impl ChatModel {
                     participant.unread_count.unwrap_or(0)
                 };
 
+                // 私聊会话：session_name 是创建者视角的"对方昵称"，对当前用户可能是错的
+                // 这里根据当前 user_id 重新查询会话中"另一个参与者"的信息作为展示
+                let (display_name, display_avatar) = if session.session_type == SESSION_TYPE_PRIVATE {
+                    let other_participant = ChatSessionParticipantEntity::find()
+                        .filter(chat_session_participant::Column::SessionId.eq(session.id))
+                        .filter(chat_session_participant::Column::UserId.ne(user_id))
+                        .filter(chat_session_participant::Column::Deleted.eq(0))
+                        .one(db)
+                        .await?;
+                    if let Some(op) = other_participant {
+                        if let Some(other_user) = UserEntity::find_by_id(op.user_id).one(db).await? {
+                            (
+                                other_user.nick_name.unwrap_or_else(|| other_user.user_name.unwrap_or_else(|| "未知用户".to_string())),
+                                other_user.avatar,
+                            )
+                        } else {
+                            (session.session_name.clone().unwrap_or_else(|| "未知会话".to_string()), session.avatar_url.clone())
+                        }
+                    } else {
+                        (session.session_name.clone().unwrap_or_else(|| "未知会话".to_string()), session.avatar_url.clone())
+                    }
+                } else {
+                    (session.session_name.clone().unwrap_or_else(|| "未知会话".to_string()), session.avatar_url.clone())
+                };
+
                 sessions.push(ChatSessionDTO {
                     session_id: session.id,
                     session_type: session.session_type,
-                    session_name: session.session_name.unwrap_or_else(|| "未知会话".to_string()),
-                    avatar_url: session.avatar_url,
+                    session_name: display_name,
+                    avatar_url: display_avatar,
                     last_message_id: session.last_message_id,
                     last_message_content: session.last_message_content,
                     last_message_time: session.last_message_time.map(|t| t.and_utc().to_rfc3339()),
@@ -415,9 +532,15 @@ impl ChatModel {
                 sender_avatar: m.sender_avatar,
                 content: m.content,
                 message_type: m.message_type.unwrap_or(MESSAGE_TYPE_USER),
+                content_type: m.content_type,
+                file_url: m.file_url,
+                file_name: m.file_name,
+                file_size: m.file_size,
                 is_recalled: m.is_recalled.unwrap_or(0) == 1,
                 send_time: m.send_time.map(|t| t.and_utc().to_rfc3339()).unwrap_or_default(),
                 is_mine: m.sender_id == user_id,
+                read_status: m.read_status.unwrap_or(0),
+                read_time: m.read_time.map(|t| t.and_utc().to_rfc3339()).unwrap_or_default(),
             })
             .collect();
 
@@ -438,10 +561,10 @@ impl ChatModel {
         db: &DbConn,
         user_id: i64,
         session_id: i64,
-    ) -> Result<(), DbErr> {
+    ) -> Result<Vec<i64>, DbErr> {
         let session = ChatSessionEntity::find_by_id(session_id).one(db).await?;
         if session.is_none() {
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         let session_info = session.unwrap();
@@ -476,16 +599,60 @@ impl ChatModel {
                 };
                 ChatSessionParticipantEntity::insert(new_participant).exec(db).await?;
             }
-        } else {
+            return Ok(Vec::new());
+        }
+
+        // 私聊会话：查询当前用户最后已读的消息 ID，用于增量更新
+        let participant = ChatSessionParticipantEntity::find()
+            .filter(chat_session_participant::Column::SessionId.eq(session_id))
+            .filter(chat_session_participant::Column::UserId.eq(user_id))
+            .filter(chat_session_participant::Column::Deleted.eq(0))
+            .one(db)
+            .await?;
+
+        let prev_last_read_id = participant
+            .as_ref()
+            .and_then(|p| p.last_read_message_id)
+            .unwrap_or(0);
+
+        // 找出当前用户尚未读的、对方发来的消息（id 大于上次已读位置，且不是自己发的）
+        let newly_read_messages: Vec<chat_message::Model> = ChatMessageEntity::find()
+            .filter(chat_message::Column::SessionId.eq(session_id))
+            .filter(chat_message::Column::IsRecalled.eq(0))
+            .filter(chat_message::Column::SenderId.ne(user_id))
+            .filter(chat_message::Column::ReadStatus.eq(0))
+            .filter(chat_message::Column::Id.gt(prev_last_read_id))
+            .all(db)
+            .await?;
+
+        let newly_read_ids: Vec<i64> = newly_read_messages.iter().map(|m| m.id).collect();
+
+        // 更新这些消息为已读状态
+        if !newly_read_ids.is_empty() {
+            let now = Utc::now().naive_utc();
+            ChatMessageEntity::update_many()
+                .col_expr(chat_message::Column::ReadStatus, sea_orm::sea_query::Expr::value(1))
+                .col_expr(chat_message::Column::ReadTime, sea_orm::sea_query::Expr::value(now))
+                .filter(chat_message::Column::Id.is_in(newly_read_ids.clone()))
+                .exec(db)
+                .await?;
+        }
+
+        // 取最大消息 ID 作为 last_read_message_id（若没有新已读消息，保留原值）
+        let max_id = newly_read_ids.iter().copied().max().unwrap_or(prev_last_read_id);
+
+        // 更新参与者的未读数和最后已读消息 ID
+        if participant.is_some() {
             ChatSessionParticipantEntity::update_many()
                 .col_expr(chat_session_participant::Column::UnreadCount, sea_orm::sea_query::Expr::value(0))
+                .col_expr(chat_session_participant::Column::LastReadMessageId, sea_orm::sea_query::Expr::value(max_id))
                 .filter(chat_session_participant::Column::SessionId.eq(session_id))
                 .filter(chat_session_participant::Column::UserId.eq(user_id))
                 .exec(db)
                 .await?;
         }
 
-        Ok(())
+        Ok(newly_read_ids)
     }
 
     pub async fn delete_session(
@@ -530,6 +697,43 @@ impl ChatModel {
         Ok(result)
     }
 
+    pub async fn get_colleague_list(
+        db: &DbConn,
+        current_user_id: i64,
+        keyword: Option<String>,
+        page: i32,
+        page_size: i32,
+    ) -> Result<Vec<admin::Model>, DbErr> {
+        let offset = (page - 1) * page_size;
+
+        let mut query = UserEntity::find()
+            .filter(admin::Column::Status.eq(1))
+            .filter(admin::Column::Deleted.eq(0));
+
+        if current_user_id > 0 {
+            query = query.filter(admin::Column::Id.ne(current_user_id));
+        }
+
+        if let Some(kw) = keyword {
+            if !kw.trim().is_empty() {
+                query = query.filter(
+                    Condition::any()
+                        .add(admin::Column::NickName.like(format!("%{}%", kw)))
+                        .add(admin::Column::UserName.like(format!("%{}%", kw))),
+                );
+            }
+        }
+
+        let users = query
+            .order_by_asc(admin::Column::Id)
+            .offset(offset as u64)
+            .limit(page_size as u64)
+            .all(db)
+            .await?;
+
+        Ok(users)
+    }
+
     pub async fn get_total_unread_count(db: &DbConn, user_id: i64) -> Result<i32, DbErr> {
         let participants = ChatSessionParticipantEntity::find()
             .filter(chat_session_participant::Column::UserId.eq(user_id))
@@ -543,5 +747,131 @@ impl ChatModel {
             .sum();
 
         Ok(total)
+    }
+
+    pub async fn recall_message(
+        db: &DbConn,
+        user_id: i64,
+        message_id: i64,
+    ) -> Result<bool, DbErr> {
+        let message = ChatMessageEntity::find_by_id(message_id).one(db).await?;
+        let msg = match message {
+            Some(m) => m,
+            None => return Ok(false),
+        };
+
+        if msg.sender_id != user_id {
+            return Ok(false);
+        }
+
+        if msg.is_recalled.unwrap_or(0) == 1 {
+            return Ok(false);
+        }
+
+        let send_time = msg.send_time.unwrap_or_else(|| Utc::now().naive_utc());
+        let now = Utc::now().naive_utc();
+        let duration = now.signed_duration_since(send_time);
+        if duration.num_minutes() > 2 {
+            return Ok(false);
+        }
+
+        let result = ChatMessageEntity::update_many()
+            .col_expr(chat_message::Column::IsRecalled, sea_orm::sea_query::Expr::value(1))
+            .filter(chat_message::Column::Id.eq(message_id))
+            .exec(db)
+            .await?;
+
+        Ok(result.rows_affected > 0)
+    }
+
+    pub async fn toggle_pin(
+        db: &DbConn,
+        user_id: i64,
+        session_id: i64,
+        is_pinned: bool,
+    ) -> Result<(), DbErr> {
+        let pin_val = if is_pinned { 1 } else { 0 };
+        ChatSessionParticipantEntity::update_many()
+            .col_expr(chat_session_participant::Column::IsPinned, sea_orm::sea_query::Expr::value(pin_val))
+            .filter(chat_session_participant::Column::SessionId.eq(session_id))
+            .filter(chat_session_participant::Column::UserId.eq(user_id))
+            .exec(db)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn toggle_mute(
+        db: &DbConn,
+        user_id: i64,
+        session_id: i64,
+        is_muted: bool,
+    ) -> Result<(), DbErr> {
+        let mute_val = if is_muted { 1 } else { 0 };
+        ChatSessionParticipantEntity::update_many()
+            .col_expr(chat_session_participant::Column::IsMuted, sea_orm::sea_query::Expr::value(mute_val))
+            .filter(chat_session_participant::Column::SessionId.eq(session_id))
+            .filter(chat_session_participant::Column::UserId.eq(user_id))
+            .exec(db)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_session_detail(
+        db: &DbConn,
+        user_id: i64,
+        session_id: i64,
+    ) -> Result<SessionDetailDTO, DbErr> {
+        let session = ChatSessionEntity::find_by_id(session_id).one(db).await?;
+        let sess = match session {
+            Some(s) => s,
+            None => return Err(DbErr::RecordNotFound("会话不存在".to_string())),
+        };
+
+        let participant = ChatSessionParticipantEntity::find()
+            .filter(chat_session_participant::Column::SessionId.eq(session_id))
+            .filter(chat_session_participant::Column::UserId.eq(user_id))
+            .filter(chat_session_participant::Column::Deleted.eq(0))
+            .one(db)
+            .await?;
+
+        let part = match participant {
+            Some(p) => p,
+            None => return Err(DbErr::RecordNotFound("会话不存在或已删除".to_string())),
+        };
+
+        let mut other_user_id: Option<i64> = None;
+        let mut other_nickname: Option<String> = None;
+        let mut other_avatar: Option<String> = None;
+
+        if sess.session_type == SESSION_TYPE_PRIVATE {
+            let other_participant = ChatSessionParticipantEntity::find()
+                .filter(chat_session_participant::Column::SessionId.eq(session_id))
+                .filter(chat_session_participant::Column::UserId.ne(user_id))
+                .one(db)
+                .await?;
+
+            if let Some(op) = other_participant {
+                other_user_id = Some(op.user_id);
+                let user = UserEntity::find_by_id(op.user_id).one(db).await?;
+                if let Some(u) = user {
+                    other_nickname = u.nick_name.clone();
+                    other_avatar = u.avatar.clone();
+                }
+            }
+        }
+
+        Ok(SessionDetailDTO {
+            session_id: sess.id,
+            session_type: sess.session_type,
+            session_name: sess.session_name.unwrap_or_else(|| "未知会话".to_string()),
+            avatar_url: sess.avatar_url.clone(),
+            other_user_id,
+            other_nickname,
+            other_avatar,
+            online_status: None,
+            is_pinned: part.is_pinned.unwrap_or(0) == 1,
+            is_muted: part.is_muted.unwrap_or(0) == 1,
+            unread_count: part.unread_count.unwrap_or(0),
+        })
     }
 }

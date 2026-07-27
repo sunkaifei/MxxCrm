@@ -11,6 +11,8 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::entity::customer_contact_merge;
 use crate::modules::crm::entity::customer;
+use crate::modules::crm::entity::contact;
+use crate::modules::crm::service::contact_edit_log_service;
 use crate::modules::crm::model::contact::{
     CareerHistoryItem, ContactBindRequest, ContactCheckRequest, ContactCheckResult, ContactCompanyInfo, ContactDetailVO, ContactListQuery,
     ContactListVO, ContactModel, ContactSaveDTO, ContactSaveRequest, ContactSetRoleRequest,
@@ -61,7 +63,33 @@ pub async fn update(db: &DbConn, form_data: &ContactUpdateRequest, updated_by: i
     let result = db
         .transaction::<_, _, DbErr>(|txn| {
             Box::pin(async move {
+                // 更新前先获取旧数据，用于记录修改日志
+                let old_model = contact::Entity::find_by_id(contact_id.unwrap_or_default())
+                    .one(txn)
+                    .await?;
+
                 let result = ContactModel::update_by_id(txn, &contact_id, &dto).await?;
+
+                // 记录修改日志（如有差异）
+                if let Some(old) = &old_model {
+                    let old_json = serde_json::to_value(old).unwrap_or_default();
+                    let new_json = serde_json::to_value(&dto).unwrap_or_default();
+                    let editor_name = crate::modules::system::entity::admin::Entity::find_by_id(updated_by)
+                        .one(txn)
+                        .await
+                        .ok()
+                        .flatten()
+                        .and_then(|a| a.nick_name.or(a.user_name));
+                    let _ = contact_edit_log_service::log_update(
+                        txn,
+                        contact_id.unwrap_or_default(),
+                        updated_by,
+                        editor_name,
+                        &old_json,
+                        &new_json,
+                    ).await;
+                }
+
                 if let Some(cid) = contact_id {
                     if let Some(customer_id) = customer_id_opt {
                         // 查询当前任职

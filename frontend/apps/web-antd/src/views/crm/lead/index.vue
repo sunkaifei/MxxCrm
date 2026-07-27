@@ -4,7 +4,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { h, ref, computed, onMounted, onUnmounted, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideSearch, LucidePlus, LucideTrash2 } from '@vben/icons';
+import { LucideSearch, LucidePlus, LucideTrash2, LucideUsers } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
@@ -14,6 +14,7 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteLeadApi, getLeadListApi, addLeadToPoolApi, convertLeadToCustomerApi, performBackgroundCheckApi } from '#/api';
 import { $t } from '#/locales';
 import LeadDetail from './detail.vue';
+import LeadTransferModal from '../components/LeadTransferModal.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -29,9 +30,10 @@ const dataScope = computed(() => {
   return typeof scope === 'number' ? scope : 5;
 });
 
-// 列表类型选项卡：我的线索 / 下属线索 / 今日跟进线索
+// 列表类型选项卡：全部线索 / 我的线索 / 下属线索 / 今日跟进线索
 const activeTab = ref('my');
 const allTabList = [
+  { key: 'all', label: '全部线索' },
   { key: 'my', label: '我的线索' },
   { key: 'subordinate', label: '下属线索' },
   { key: 'todayFollow', label: '今日跟进线索' },
@@ -42,6 +44,8 @@ const tabList = computed(() => {
   let allowedKeys: string[];
   switch (scope) {
     case 1:
+      allowedKeys = ['all', 'my', 'subordinate', 'todayFollow'];
+      break;
     case 2:
     case 4:
       allowedKeys = ['my', 'subordinate', 'todayFollow'];
@@ -70,6 +74,10 @@ function handleTabChange(key: string) {
 // 搜索表单
 const searchForm = ref({
   companyName: '',
+  contactName: '',
+  mobile: '',
+  industry: undefined as number | undefined,
+  status: undefined as number | undefined,
   source: undefined as string | undefined,
 });
 
@@ -80,6 +88,10 @@ function handleSearch() {
 function handleReset() {
   searchForm.value = {
     companyName: '',
+    contactName: '',
+    mobile: '',
+    industry: undefined,
+    status: undefined,
     source: undefined,
   };
   gridApi.query();
@@ -178,6 +190,10 @@ const gridOptions: VxeGridProps = {
           pageSize: page.pageSize,
           listType: activeTab.value,
           companyName: values.companyName || undefined,
+          contactName: values.contactName || undefined,
+          mobile: values.mobile || undefined,
+          industry: values.industry,
+          status: values.status,
           source: values.source,
         });
         const syncFixedColumn = (retry = 0) => {
@@ -269,6 +285,30 @@ async function handleBatchDelete() {
       } catch { /* ignore */ }
     },
   });
+}
+
+// ===== 线索转移 =====
+const transferVisible = ref(false);
+const transferLeadIds = ref<number[]>([]);
+
+function handleBatchTransfer() {
+  const records = gridApi.grid?.getCheckboxRecords();
+  if (!records?.length) {
+    message.warning('请先选择要转移的线索');
+    return;
+  }
+  transferLeadIds.value = records.map((r: any) => r.id);
+  transferVisible.value = true;
+}
+
+function handleTransfer(row: any) {
+  transferLeadIds.value = [row.id];
+  transferVisible.value = true;
+}
+
+function onTransferSuccess({ transferredCount, affectedTotal }: { transferredCount: number; affectedTotal: number }) {
+  message.success(`转移成功：${transferredCount} 条线索，影响 ${affectedTotal} 条关联数据`);
+  gridApi.query();
 }
 
 async function handleAddToPool(row: any) {
@@ -395,44 +435,67 @@ function handleDeleteConfirm(row: any) {
 
 <template>
   <Page auto-content-height>
-    <Card :bordered="false" class="mb-[15px]">
-      <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="mb-4">
+    <Card :bordered="false" class="lead-filter-card mb-[15px]">
+      <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="lead-tabs">
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
       </Tabs>
 
-      <Form :model="searchForm" :label-col="{ style: { width: '90px' } }">
-        <Row :gutter="[16, 12]" style="width: 100%">
-          <Col :xs="24" :sm="24" :md="12">
-            <Form.Item label="公司名称" name="companyName">
-              <Input v-model:value="searchForm.companyName" placeholder="输入公司名称搜索" allow-clear style="width: 100%" />
-            </Form.Item>
-          </Col>
-          <Col :xs="24" :sm="24" :md="12">
-            <Form.Item label="来源" name="source">
-              <Select v-model:value="searchForm.source" placeholder="全部" allow-clear style="width: 100%">
-                <Select.Option value="website">官网</Select.Option>
-                <Select.Option value="exhibition">展会</Select.Option>
-                <Select.Option value="social">社交媒体</Select.Option>
-                <Select.Option value="referral">客户转介</Select.Option>
-                <Select.Option value="cold_call">陌生拜访</Select.Option>
-                <Select.Option value="customs">海关数据</Select.Option>
-                <Select.Option value="email">邮件营销</Select.Option>
-                <Select.Option value="alibaba">阿里国际站</Select.Option>
-                <Select.Option value="amazon">Amazon</Select.Option>
-                <Select.Option value="tiktok">TikTok</Select.Option>
-                <Select.Option value="wechat">微信</Select.Option>
-                <Select.Option value="other">其他</Select.Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
+      <Form :model="searchForm" layout="inline" :label-col="{ style: { width: '80px' } }" class="lead-filter-form">
+        <div class="lead-filter-grid">
+          <Row :gutter="[20, 14]" style="width: 100%">
+            <Col :xs="24" :sm="24" :md="12">
+              <Form.Item label="公司名称" name="companyName">
+                <Input v-model:value="searchForm.companyName" placeholder="请输入公司名称" allow-clear style="width: 100%" />
+              </Form.Item>
+            </Col>
+            <Col :xs="24" :sm="24" :md="12">
+              <Form.Item label="联系人" name="contactName">
+                <Input v-model:value="searchForm.contactName" placeholder="请输入联系人姓名" allow-clear style="width: 100%" />
+              </Form.Item>
+            </Col>
+            <Col :xs="24" :sm="24" :md="12">
+              <Form.Item label="手机" name="mobile">
+                <Input v-model:value="searchForm.mobile" placeholder="请输入手机号" allow-clear style="width: 100%" />
+              </Form.Item>
+            </Col>
+            <Col :xs="24" :sm="24" :md="12">
+              <Form.Item label="行业" name="industry">
+                <Select v-model:value="searchForm.industry" placeholder="请选择行业" allow-clear style="width: 100%">
+                  <Select.Option v-for="(label, key) in industryLabelMap" :key="key" :value="Number(key)">
+                    {{ label }}
+                  </Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col :xs="24" :sm="24" :md="12">
+              <Form.Item label="状态" name="status">
+                <Select v-model:value="searchForm.status" placeholder="请选择状态" allow-clear style="width: 100%">
+                  <Select.Option v-for="(label, key) in statusLabelMap" :key="key" :value="Number(key)">
+                    {{ label }}
+                  </Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col :xs="24" :sm="24" :md="12">
+              <Form.Item label="来源" name="source">
+                <Select v-model:value="searchForm.source" placeholder="请选择来源" allow-clear style="width: 100%">
+                  <Select.Option v-for="(label, key) in sourceLabelMap" :key="key" :value="key">
+                    {{ label }}
+                  </Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+        </div>
 
-        <div class="flex flex-wrap items-center gap-2 mt-3" style="margin-left: 90px">
-          <Button type="default" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
-          <Button type="default" @click="handleReset">刷新</Button>
+        <div class="lead-filter-actions">
+          <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+          <Button type="default" @click="handleReset">重置</Button>
+          <span class="lead-filter-divider"></span>
           <Button
             v-if="accessStore.hasAccessCode('crm:lead:create')"
             type="primary"
+            ghost
             :icon="h(LucidePlus)"
             @click="openCreate"
           >
@@ -444,6 +507,12 @@ function handleDeleteConfirm(row: any) {
 
     <Grid :table-title="$t('page.crm.lead.title')" style="margin-top: 15px">
       <template #toolbar-tools>
+        <Button
+          v-if="accessStore.hasAccessCode('crm:lead:transfer')"
+          :icon="h(LucideUsers)"
+          class="mr-2"
+          @click="handleBatchTransfer"
+        >批量转移线索</Button>
         <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
@@ -493,6 +562,9 @@ function handleDeleteConfirm(row: any) {
                 >
                   <span>退回到公海</span>
                 </div>
+                <div v-if="accessStore.hasAccessCode('crm:lead:transfer')" class="more-menu-item" @click="() => handleTransfer(row)">
+                  <span>转移</span>
+                </div>
                 <div v-if="activeTab !== 'subordinate' && accessStore.hasAccessCode('crm:lead:delete')" class="more-menu-divider" />
                 <div
                   v-if="activeTab !== 'subordinate' && accessStore.hasAccessCode('crm:lead:delete')"
@@ -528,10 +600,117 @@ function handleDeleteConfirm(row: any) {
         @saved="handleDetailSaved"
       />
     </Drawer>
+
+    <!-- 线索转移弹窗 -->
+    <LeadTransferModal
+      v-model:visible="transferVisible"
+      :lead-ids="transferLeadIds"
+      @success="onTransferSuccess"
+    />
   </Page>
 </template>
 
 <style scoped>
+/* ============ 筛选卡片：精致 CRM 风格 ============ */
+.lead-filter-card {
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  box-shadow: 0 1px 3px rgba(22, 119, 255, 0.04), 0 4px 12px rgba(0, 21, 71, 0.04);
+  transition: box-shadow 0.3s ease;
+}
+.lead-filter-card:hover {
+  box-shadow: 0 2px 6px rgba(22, 119, 255, 0.06), 0 6px 18px rgba(0, 21, 71, 0.06);
+}
+.lead-filter-card :deep(.ant-card-body) {
+  padding: 18px 20px 20px;
+}
+/* Tab 选项卡：更克制的下划线与字距 */
+.lead-tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 16px;
+}
+.lead-tabs :deep(.ant-tabs-tab) {
+  padding: 8px 4px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: #595959;
+  transition: color 0.2s ease;
+}
+.lead-tabs :deep(.ant-tabs-tab-active .ant-tabs-tab-btn) {
+  color: #1677ff;
+  font-weight: 600;
+}
+.lead-tabs :deep(.ant-tabs-ink-bar) {
+  background: linear-gradient(90deg, #1677ff, #4096ff);
+  height: 2.5px;
+  border-radius: 2px;
+}
+/* 表单：去除 inline 布局带来的底部留白 */
+.lead-filter-form :deep(.ant-form-item) {
+  margin-bottom: 0;
+  align-items: center;
+}
+.lead-filter-form :deep(.ant-form-item-label) {
+  padding-bottom: 0;
+}
+.lead-filter-form :deep(.ant-form-item-label > label) {
+  font-size: 13px;
+  color: #595959;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+.lead-filter-form :deep(.ant-input),
+.lead-filter-form :deep(.ant-select .ant-select-selector) {
+  border-radius: 7px;
+  transition: all 0.2s ease;
+}
+.lead-filter-form :deep(.ant-input:hover),
+.lead-filter-form :deep(.ant-select:hover .ant-select-selector) {
+  border-color: #91caff;
+}
+.lead-filter-form :deep(.ant-input:focus),
+.lead-filter-form :deep(.ant-select-focused .ant-select-selector) {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+}
+/* 筛选区容器：PC 端 70% 宽度，居中且留白 */
+.lead-filter-grid {
+  width: 100%;
+}
+@media (min-width: 992px) {
+  .lead-filter-grid {
+    width: 70%;
+  }
+}
+/* 操作按钮行：左对齐 + 细分隔线 */
+.lead-filter-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed #e8eaf0;
+}
+.lead-filter-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: #e8eaf0;
+}
+.lead-filter-actions :deep(.ant-btn-primary) {
+  border-radius: 7px;
+  box-shadow: 0 2px 4px rgba(22, 119, 255, 0.16);
+}
+.lead-filter-actions :deep(.ant-btn-primary:hover) {
+  box-shadow: 0 3px 8px rgba(22, 119, 255, 0.24);
+}
+.lead-filter-actions :deep(.ant-btn-default) {
+  border-radius: 7px;
+}
+
+/* ============ 表格操作区 ============ */
 .action-btns {
   display: inline-flex;
   align-items: center;

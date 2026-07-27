@@ -5,48 +5,48 @@ import { $t } from '#/locales';
 const routes: RouteRecordRaw[] = [
   {
     meta: {
-      icon: 'lucide:package',
+      icon: 'lucide:warehouse',
       order: 20,
-      title: $t('page.product.title'),
+      title: $t('page.warehouse.title'),
     },
-    name: 'Product',
-    path: '/product',
+    name: 'Warehouse',
+    path: '/warehouse',
     children: [
       {
-        name: 'ProductList',
-        path: '/product/list',
+        name: 'WarehouseList',
+        path: '/warehouse/list',
         component: () => import('#/views/product/list/index.vue'),
         meta: {
           title: $t('page.product.list.title'),
         },
       },
       {
-        name: 'ProductCategory',
-        path: '/product/category',
+        name: 'WarehouseCategory',
+        path: '/warehouse/category',
         component: () => import('#/views/product/category/index.vue'),
         meta: {
           title: $t('page.product.category.title'),
         },
       },
       {
-        name: 'ProductInventory',
-        path: '/product/inventory',
+        name: 'WarehouseInventory',
+        path: '/warehouse/inventory',
         component: () => import('#/views/product/inventory/index.vue'),
         meta: {
           title: $t('page.product.inventory.title'),
         },
       },
       {
-        name: 'ProductWarehouse',
-        path: '/product/warehouse',
+        name: 'WarehouseManage',
+        path: '/warehouse/warehouse',
         component: () => import('#/views/product/warehouse/index.vue'),
         meta: {
           title: $t('page.product.warehouse.title'),
         },
       },
       {
-        name: 'ProductSku',
-        path: '/product/sku',
+        name: 'WarehouseSku',
+        path: '/warehouse/sku',
         component: () => import('#/views/product/sku/index.vue'),
         meta: {
           title: $t('page.product.sku.title'),

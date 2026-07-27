@@ -36,9 +36,9 @@ pub struct AdminNoticeMergeModel;
 impl AdminNoticeMergeModel {
 
     /// ### 批量插入
-    /// * `db`: 数据库连接
+    /// * `db`: 数据库连接（支持事务）
     /// * `list`: 批量插入数据
-    pub async fn insert_batch(db: &DbConn, list: &Vec<AdminNoticeMergeSaveDTO>) -> Result<i64, DbErr> {
+    pub async fn insert_batch<C: ConnectionTrait>(db: &C, list: &Vec<AdminNoticeMergeSaveDTO>) -> Result<i64, DbErr> {
         let result: Vec<admin_notice_merge::ActiveModel> = list.iter().map(|item| admin_notice_merge::ActiveModel {
             notice_id:      Set(item.notice_id),
             user_id:        Set(item.user_id),
@@ -77,13 +77,17 @@ impl AdminNoticeMergeModel {
             ..Default::default()
         };
 
+        log::info!("[update_by_read] notice_id={:?}, user_id={:?}", notice_id, user_id);
+
         let update_result: UpdateResult = AdminNoticeMerge::update_many()
             .set(payload)
             .filter(admin_notice_merge::Column::NoticeId.eq(notice_id.clone()))
             .filter(admin_notice_merge::Column::UserId.eq(user_id.clone()))
+            .filter(admin_notice_merge::Column::Deleted.eq(0))
             .exec(db)
             .await?;
 
+        log::info!("[update_by_read] rows_affected={}", update_result.rows_affected);
         Ok(update_result.rows_affected as i64)
     }
 
@@ -134,7 +138,7 @@ impl AdminNoticeMergeModel {
     /// * `db`: 数据库连接
     /// * `notice_id`: 通知id
     /// * `user_id`: 用户id
-    /// 
+    ///
     /// 返回值: 用户关联通知信息
     pub async fn find_merge_by_notice_and_user(db: &DbConn, notice_id: &Option<i64>, user_id: &Option<i64>) -> Result<Option<admin_notice_merge::Model>, DbErr> {
         let result = AdminNoticeMerge::find()
@@ -144,5 +148,44 @@ impl AdminNoticeMergeModel {
             .one(db)
             .await?;
         Ok(result)
+    }
+
+    /// ### 查询某条通知下已存在的所有 merge 记录（未假删除）
+    /// 用于发布通知时进行幂等检查，避免重复创建。
+    ///
+    /// * `db`: 数据库连接（支持事务）
+    /// * `notice_id`: 通知id
+    ///
+    /// 返回值: 该通知下所有未删除的 merge 记录
+    pub async fn find_by_notice_id<C: ConnectionTrait>(db: &C, notice_id: &Option<i64>) -> Result<Vec<admin_notice_merge::Model>, DbErr> {
+        let result = AdminNoticeMerge::find()
+            .filter(admin_notice_merge::Column::NoticeId.eq(notice_id.clone()))
+            .filter(admin_notice_merge::Column::Deleted.eq(0))
+            .all(db)
+            .await?;
+        Ok(result)
+    }
+
+    /// ### 将某条通知下所有 merge 记录重置为未读
+    /// 用于撤回后重新发布时让所有用户再次看到未读提醒。
+    ///
+    /// * `db`: 数据库连接（支持事务）
+    /// * `notice_id`: 通知id
+    ///
+    /// 返回值: 受影响行数
+    pub async fn reset_read_by_notice_id<C: ConnectionTrait>(db: &C, notice_id: &Option<i64>) -> Result<i64, DbErr> {
+        let payload = admin_notice_merge::ActiveModel {
+            is_read:   Set(Some(0)),
+            read_time: Set(None),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            ..Default::default()
+        };
+        let update_result: UpdateResult = AdminNoticeMerge::update_many()
+            .set(payload)
+            .filter(admin_notice_merge::Column::NoticeId.eq(notice_id.clone()))
+            .filter(admin_notice_merge::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+        Ok(update_result.rows_affected as i64)
     }
 }

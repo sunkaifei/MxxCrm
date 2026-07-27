@@ -217,12 +217,35 @@
     "log": {
       "title": "System Log",
       "module": "Operation Log",
-      "logName": "Operator",
-      "requestMethod": "Method",
-      "path": "Path",
+      "moduleTitle": "Module",
+      "businessType": "Business Type",
+      "businessTypeOther": "Other",
+      "businessTypeInsert": "Insert",
+      "businessTypeUpdate": "Update",
+      "businessTypeDelete": "Delete",
+      "method": "Method",
+      "requestMethod": "Request Method",
+      "operatorType": "Operator Type",
+      "operatorTypeOther": "Other",
+      "operatorTypeAdmin": "Admin User",
+      "operatorTypeUser": "Mobile User",
+      "operName": "Operator",
+      "deptName": "Department",
+      "operUrl": "Request URL",
+      "operIp": "IP Address",
+      "operLocation": "Location",
+      "operParam": "Request Params",
+      "jsonResult": "Response Result",
+      "status": "Status",
+      "statusNormal": "Normal",
+      "statusException": "Exception",
+      "errorMsg": "Error Message",
       "statusCode": "Status Code",
       "elapsed": "Elapsed(ms)",
-      "ip": "IP"
+      "createTime": "Operation Time",
+      "beginTime": "Begin Time",
+      "endTime": "End Time",
+      "viewDetail": "View Detail"
     },
     "tag": {
       "module": "Tag",
@@ -281,7 +304,8 @@
     "contact": {
       "title": "Contact Management",
       "button": {
-        "view": "View Contact"
+        "view": "View Contact",
+        "unbind": "Unbind/Resign"
       }
     },
     "opportunity": {
@@ -677,6 +701,47 @@
     "promotion": "Promotion",
     "commissionConfig": "Commission Config"
   },
+  "website": {
+    "title": "Website",
+    "list": "Website List",
+    "category": "Category",
+    "article": "Article",
+    "message": "Messages",
+    "links": "Links",
+    "supplierAudit": "Supplier Audit",
+    "goodsAudit": "Goods Audit",
+    "goods": "Goods",
+    "orderList": "Orders",
+    "settlement": "Settlement",
+    "promotion": "Promotion",
+    "commissionConfig": "Commission Config",
+    "button": {
+      "create": "Add Website",
+      "edit": "Edit Website",
+      "delete": "Delete Website",
+      "view": "View Website"
+    },
+    "template": {
+      "title": "Templates",
+      "button": {
+        "create": "Add Template",
+        "edit": "Edit Template",
+        "delete": "Delete Template",
+        "view": "View Template",
+        "preview": "Preview",
+        "apply": "Apply to Site"
+      }
+    },
+    "templateData": {
+      "title": "Template Data",
+      "button": {
+        "create": "Add Template",
+        "edit": "Edit Template",
+        "delete": "Delete Template",
+        "view": "View Template"
+      }
+    }
+  },
   "company": {
     "title": "Company",
     "aiSettings": {
@@ -686,6 +751,32 @@
         "edit": "Edit Config",
         "delete": "Delete Config"
       }
+    },
+    "salesFlow": {
+      "title": "Sales Flow",
+      "edit": "Edit Sales Flow",
+      "modeA": "Standard Flow",
+      "modeB": "Simple Flow",
+      "modeBoth": "Both Allowed",
+      "currentMode": "Current Mode",
+      "modeValue": "Mode {value}",
+      "save": "Save",
+      "cancel": "Cancel",
+      "unsavedTip": "Unsaved changes",
+      "standardBadge": "Strict",
+      "simpleBadge": "Quick",
+      "bothBadge": "Recommended",
+      "standardFlow": "Customer → Opportunity → Quotation → Order → Contract",
+      "simpleFlow": "Customer → Opportunity → Order → Contract",
+      "bothFlow": "Opportunity shows both \"To Quotation\" and \"To Order\" actions",
+      "standardDesc": "For large orders requiring formal quotation and competitive bidding. All orders must come from quotations.",
+      "simpleDesc": "For repeat customers and small orders without quotation. Opportunity can convert directly to order, but must link an opportunity.",
+      "bothDesc": "Default recommended. Sales reps can choose standard or simple flow per case, offering maximum flexibility.",
+      "tipsTitle": "Notes",
+      "tipStandard": "Standard Flow: All orders must be converted from quotations. The opportunity \"More\" menu only shows \"To Quotation\".",
+      "tipSimple": "Simple Flow: Opportunity can convert directly to order. The \"Related Quotation\" field is hidden in order form, and \"Related Opportunity\" becomes required.",
+      "tipBoth": "Both Allowed: The opportunity \"More\" menu shows both \"To Quotation\" and \"To Order\". Sales reps decide per case.",
+      "tipGeneral": "Configuration changes do not affect existing data. Validation only applies to new/converted records."
     },
     "info": {
       "title": "Company Info",
@@ -714,6 +805,22 @@
         "delete": "Delete",
         "regenerate": "Batch Regenerate"
       }
+    },
+    "message": {
+      "title": "My Messages",
+      "notification": "Notifications",
+      "colleague": "Colleagues",
+      "searchPlaceholder": "Search colleagues",
+      "markAllRead": "Mark all read",
+      "noNotification": "No notifications",
+      "noColleague": "No colleagues",
+      "selectColleagueTip": "Select a colleague to start chatting",
+      "inputPlaceholder": "Type a message, press Enter to send",
+      "send": "Send",
+      "systemNotification": "System Notification",
+      "totalMessages": "Total {total} messages",
+      "unread": "Unread",
+      "viewDetail": "View detail"
     }
   },
   "button": {

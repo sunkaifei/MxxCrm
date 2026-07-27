@@ -35,6 +35,9 @@ pub async fn send_message_handler(
         request.session_id,
         request.receiver_id,
         request.content.clone(),
+        request.content_type,
+        request.file_url.clone(),
+        request.file_name.clone(),
     ).await;
 
     match result {
@@ -200,6 +203,36 @@ pub async fn search_users_handler(
     }
 }
 
+#[get("/chat/colleague-list")]
+pub async fn get_colleague_list_handler(
+    req: HttpRequest,
+    state: web::Data<AppState>,
+    params: web::Query<ColleagueListParams>,
+) -> HttpResponse {
+    let user_id = match get_user_id_from_request(&req).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+    let db = &state.db;
+    log::info!("[同事列表] 用户ID: {}, 关键词: {:?}", user_id, params.keyword);
+
+    let page = params.page.unwrap_or(1);
+    let page_size = params.page_size.unwrap_or(200);
+
+    let result = ChatService::get_colleague_list(db, user_id, params.keyword.clone(), page, page_size).await;
+
+    match result {
+        Ok(users) => {
+            log::info!("[同事列表] 成功: 共{}个同事", users.len());
+            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(users, "local"))
+        }
+        Err(e) => {
+            log::error!("[同事列表] 失败: {}", format_error(&e));
+            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取同事列表失败", "local"))
+        }
+    }
+}
+
 #[get("/chat/unread-count")]
 pub async fn get_unread_count_handler(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     let user_id = match get_user_id_from_request(&req).await {
@@ -228,15 +261,15 @@ pub async fn get_unread_count_handler(req: HttpRequest, state: web::Data<AppStat
 pub async fn start_session_handler(
     req: HttpRequest,
     state: web::Data<AppState>,
-    request: web::Json<serde_json::Value>,
+    request: web::Json<StartSessionRequest>,
 ) -> HttpResponse {
     let user_id = match get_user_id_from_request(&req).await {
         Ok(id) => id,
         Err(resp) => return resp,
     };
     let db = &state.db;
+    let receiver_id = request.receiver_id;
 
-    let receiver_id = request["receiver_id"].as_i64().unwrap_or(0);
     if receiver_id == 0 {
         return HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "接收人ID不能为空", "local"));
     }
@@ -248,7 +281,7 @@ pub async fn start_session_handler(
     match result {
         Ok(session_id) => {
             log::info!("[开始会话] 成功: session_id={}", session_id);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"session_id": session_id}), "local"))
+            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"sessionId": session_id}), "local"))
         }
         Err(e) => {
             log::error!("[开始会话] 失败: {}", format_error(&e));

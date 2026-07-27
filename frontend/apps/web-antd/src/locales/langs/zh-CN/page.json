@@ -215,12 +215,35 @@
     "log": {
       "title": "系统日志",
       "module": "操作日志",
-      "logName": "操作者",
+      "moduleTitle": "模块标题",
+      "businessType": "业务类型",
+      "businessTypeOther": "其它",
+      "businessTypeInsert": "新增",
+      "businessTypeUpdate": "修改",
+      "businessTypeDelete": "删除",
+      "method": "方法名称",
       "requestMethod": "请求方法",
-      "path": "接口路径",
+      "operatorType": "操作类别",
+      "operatorTypeOther": "其它",
+      "operatorTypeAdmin": "后台用户",
+      "operatorTypeUser": "手机端用户",
+      "operName": "操作人员",
+      "deptName": "部门名称",
+      "operUrl": "请求URL",
+      "operIp": "主机地址",
+      "operLocation": "操作地点",
+      "operParam": "请求参数",
+      "jsonResult": "返回参数",
+      "status": "操作状态",
+      "statusNormal": "正常",
+      "statusException": "异常",
+      "errorMsg": "错误消息",
       "statusCode": "状态码",
       "elapsed": "接口耗时(毫秒)",
-      "ip": "IP"
+      "createTime": "操作时间",
+      "beginTime": "开始时间",
+      "endTime": "结束时间",
+      "viewDetail": "查看详情"
     },
     "tag": {
       "module": "标签",
@@ -283,7 +306,8 @@
         "create": "新增联系人",
         "edit": "编辑联系人",
         "delete": "删除联系人",
-        "view": "查看联系人"
+        "view": "查看联系人",
+        "unbind": "解绑/离职"
       }
     },
     "opportunity": {
@@ -696,6 +720,77 @@
     "promotion": "促销管理",
     "commissionConfig": "佣金设置"
   },
+  "website": {
+    "title": "网站",
+    "list": "网站列表",
+    "categoryTitle": "栏目管理",
+    "articleTitle": "文章管理",
+    "messageTitle": "留言管理",
+    "linksTitle": "友情链接",
+    "templateTitle": "模板市场",
+    "templateDataTitle": "模板数据管理",
+    "supplierAudit": "供货商审核",
+    "goodsAudit": "商品审核",
+    "goods": "商品管理",
+    "orderList": "商城订单",
+    "settlement": "结算管理",
+    "promotion": "促销管理",
+    "commissionConfig": "佣金设置",
+    "button": {
+      "create": "新增网站",
+      "edit": "修改网站",
+      "delete": "删除网站",
+      "view": "查看网站"
+    },
+    "template": {
+      "button": {
+        "create": "新增模板",
+        "edit": "编辑模板",
+        "delete": "删除模板",
+        "view": "查看模板",
+        "preview": "预览模板",
+        "apply": "应用到网站"
+      }
+    },
+    "templateData": {
+      "button": {
+        "create": "新增模板数据",
+        "edit": "编辑模板数据",
+        "delete": "删除模板数据",
+        "view": "查看模板数据"
+      }
+    },
+    "category": {
+      "button": {
+        "create": "新增栏目",
+        "edit": "编辑栏目",
+        "delete": "删除栏目",
+        "view": "查看栏目"
+      }
+    },
+    "article": {
+      "button": {
+        "create": "新增文章",
+        "edit": "编辑文章",
+        "delete": "删除文章",
+        "view": "查看文章"
+      }
+    },
+    "message": {
+      "button": {
+        "delete": "删除留言",
+        "view": "查看留言"
+      }
+    },
+    "links": {
+      "button": {
+        "create": "新增链接",
+        "edit": "编辑链接",
+        "delete": "删除链接",
+        "view": "查看链接"
+      }
+    }
+  },
   "company": {
     "title": "企业",
     "aiSettings": {
@@ -705,6 +800,32 @@
         "edit": "编辑配置",
         "delete": "删除配置"
       }
+    },
+    "salesFlow": {
+      "title": "销售流程",
+      "edit": "编辑销售流程",
+      "modeA": "标准流程",
+      "modeB": "简易流程",
+      "modeBoth": "两种都允许",
+      "currentMode": "当前模式",
+      "modeValue": "模式 {value}",
+      "save": "保存",
+      "cancel": "取消",
+      "unsavedTip": "有未保存的修改",
+      "standardBadge": "严格",
+      "simpleBadge": "快捷",
+      "bothBadge": "推荐",
+      "standardFlow": "客户 → 商机 → 报价单 → 订单 → 合同",
+      "simpleFlow": "客户 → 商机 → 订单 → 合同",
+      "bothFlow": "商机处同时显示\"转报价单\"和\"转订单\"两个入口",
+      "standardDesc": "适用于大额订单、需要正式报价、需要比价/竞争的项目。所有订单必须经过报价单。",
+      "simpleDesc": "适用于老客户复购、小额订单、无需报价环节。商机可直接转订单，但必须关联商机。",
+      "bothDesc": "默认推荐。业务员可根据实际情况自行选择走标准流程或简易流程，灵活性最高。",
+      "tipsTitle": "说明",
+      "tipStandard": "标准流程：所有订单必须从报价单转化而来，商机列表\"更多\"操作只显示\"转报价单\"。",
+      "tipSimple": "简易流程：商机可直接转订单，订单表单中\"关联报价单\"字段隐藏，\"关联商机\"改为必填。",
+      "tipBoth": "两种都允许：商机列表\"更多\"操作同时显示\"转报价单\"和\"转订单\"，业务员自行选择。",
+      "tipGeneral": "配置变更不影响已有数据，仅在新建/转单时按当前模式校验。"
     },
     "info": {
       "title": "企业信息",
@@ -746,6 +867,22 @@
         "delete": "删除",
         "regenerate": "一键更新"
       }
+    },
+    "message": {
+      "title": "我的消息",
+      "notification": "系统消息",
+      "colleague": "同事",
+      "searchPlaceholder": "搜索同事",
+      "markAllRead": "全部已读",
+      "noNotification": "暂无系统消息",
+      "noColleague": "暂无同事",
+      "selectColleagueTip": "选择一位同事开始聊天",
+      "inputPlaceholder": "输入消息，按 Enter 发送",
+      "send": "发送",
+      "systemNotification": "系统通知",
+      "totalMessages": "共 {total} 条消息",
+      "unread": "未读",
+      "viewDetail": "查看详情"
     }
   },
   "button": {

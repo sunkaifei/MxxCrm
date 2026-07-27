@@ -10,8 +10,11 @@
 pub mod assign_history_service;
 pub mod customer_edit_log_service;
 pub mod customer_service;
+pub mod customer_transfer_service;
 pub mod lead_service;
+pub mod lead_transfer_service;
 pub mod contact_service;
+pub mod contact_edit_log_service;
 pub mod opportunity_service;
 pub mod contract_service;
 pub mod contract_payment_plan_service;

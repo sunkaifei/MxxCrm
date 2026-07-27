@@ -11,6 +11,7 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::entity::customer;
 use crate::modules::crm::model::customer::{CustomerModel, CustomerSaveDTO};
+use crate::modules::crm::model::followup::FollowupModel;
 use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadModel, LeadSaveDTO, LeadSaveRequest, LeadTagVO, LeadUpdateRequest};
 use crate::modules::system::entity::{admin, admin::Entity as Admin, tag, tag_merge};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
@@ -48,24 +49,11 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<LeadDetailVO> {
             let mut vo: LeadDetailVO = item.into();
             let followups = crate::modules::crm::model::followup::FollowupModel::select_by_lead_id(&db, id).await?;
 
+            // 批量查询跟进人名称（统一调用共用方法）
             let creator_ids: Vec<i64> = followups.iter()
                 .filter_map(|f| f.created_by)
-                .collect::<HashSet<_>>()
-                .into_iter()
                 .collect();
-
-            let mut creator_map: HashMap<i64, String> = HashMap::new();
-            if !creator_ids.is_empty() {
-                let admins = Admin::find()
-                    .filter(admin::Column::Id.is_in(creator_ids))
-                    .all(db)
-                    .await?;
-                for a in admins {
-                    if let Some(name) = a.user_name {
-                        creator_map.insert(a.id, name);
-                    }
-                }
-            }
+            let creator_map = crate::modules::system::service::admin_service::build_admin_name_map(db, creator_ids).await;
 
             let followup_vo_list: Vec<crate::modules::crm::model::followup::FollowupListVO> = followups.into_iter().map(|f| {
                 let mut followup_vo: crate::modules::crm::model::followup::FollowupListVO = f.into();
@@ -92,6 +80,32 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
     let search_keywords = query.company_name.clone().or_else(|| query.keywords.clone());
 
     let (list, total) = match list_type {
+        "all" => {
+            // 全部线索：根据 data_scope 过滤（管理员/总经理/老板查看所有已分配数据）
+            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
+            let data_scope = roles.iter().filter_map(|r| r.data_scope).min();
+
+            match get_accessible_user_ids(db, current_user_id, data_scope).await? {
+                None => {
+                    // 全部数据权限 - 不过滤负责人
+                    LeadModel::select_in_page(
+                        &db, page, page_size,
+                        search_keywords, query.status, query.level.clone(), query.source.clone(),
+                        None,
+                        query.contact_name.clone(), query.mobile.clone(), query.industry,
+                    ).await?
+                }
+                Some(user_ids) => {
+                    let assigned_ids = if user_ids.is_empty() { None } else { Some(user_ids) };
+                    LeadModel::select_in_page_by_assigned_ids(
+                        &db, page, page_size,
+                        search_keywords, query.status, query.level.clone(), query.source.clone(),
+                        assigned_ids,
+                        query.contact_name.clone(), query.mobile.clone(), query.industry,
+                    ).await?
+                }
+            }
+        }
         "subordinate" => {
             // 下属线索：显示用户 data_scope 范围内的其他人的线索（排除自己）
             let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
@@ -125,6 +139,7 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
                 &db, page, page_size,
                 search_keywords, query.status, query.level.clone(), query.source.clone(),
                 assigned_ids,
+                query.contact_name.clone(), query.mobile.clone(), query.industry,
             ).await?
         }
         "pool" => {
@@ -144,6 +159,7 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
                 &db, page, page_size,
                 search_keywords, query.status, query.level.clone(), query.source.clone(),
                 user_ids,
+                query.contact_name.clone(), query.mobile.clone(), query.industry,
             ).await?
         }
         _ => {
@@ -157,48 +173,17 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
                 query.level.clone(),
                 query.source.clone(),
                 Some(current_user_id),
+                query.contact_name.clone(), query.mobile.clone(), query.industry,
             ).await?
         }
     };
 
-    // 收集所有 created_by 和 assigned_to 的 id，批量查询 admin 用户名
-    let creator_ids: Vec<i64> = list.iter()
-        .filter_map(|item| item.created_by)
-        .collect::<HashSet<_>>()
-        .into_iter()
+    // 收集所有 created_by + assigned_to 的 id，合并为一次 IN 查询 admin 用户名
+    let user_ids: Vec<i64> = list.iter()
+        .flat_map(|item| [item.created_by, item.assigned_to])
+        .flatten()
         .collect();
-
-    let assignee_ids: Vec<i64> = list.iter()
-        .filter_map(|item| item.assigned_to)
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect();
-
-    let mut creator_map: HashMap<i64, String> = HashMap::new();
-    if !creator_ids.is_empty() {
-        let admins = Admin::find()
-            .filter(admin::Column::Id.is_in(creator_ids))
-            .all(db)
-            .await?;
-        for a in admins {
-            if let Some(name) = a.user_name {
-                creator_map.insert(a.id, name);
-            }
-        }
-    }
-
-    let mut assignee_map: HashMap<i64, String> = HashMap::new();
-    if !assignee_ids.is_empty() {
-        let admins = Admin::find()
-            .filter(admin::Column::Id.is_in(assignee_ids))
-            .all(db)
-            .await?;
-        for a in admins {
-            if let Some(name) = a.user_name {
-                assignee_map.insert(a.id, name);
-            }
-        }
-    }
+    let user_map = crate::modules::system::service::admin_service::build_admin_name_map(db, user_ids).await;
 
     // 批量查询线索标签
     let lead_ids: Vec<i64> = list.iter().map(|l| l.id).collect();
@@ -207,9 +192,9 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
 
     let data: Vec<LeadListVO> = list.into_iter().map(|item| {
         let created_by = item.created_by;
-        let created_by_name = created_by.and_then(|id| creator_map.get(&id).cloned());
+        let created_by_name = created_by.and_then(|id| user_map.get(&id).cloned());
         let assigned_to = item.assigned_to;
-        let assignee = assigned_to.and_then(|id| assignee_map.get(&id).cloned());
+        let assignee = assigned_to.and_then(|id| user_map.get(&id).cloned());
         let lid = item.id;
         let mut vo: LeadListVO = item.into();
         vo.created_by_name = created_by_name;
@@ -420,8 +405,18 @@ pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64> {
     let customer_dto = CustomerSaveDTO {
         id: None,
         customer_no: None,
+        customer_type: Some(1),
         company_name: lead.company_name.clone(),
         short_name: None,
+        person_name: None,
+        gender: None,
+        birthday: None,
+        wechat: None,
+        qq: None,
+        personal_mobile: None,
+        personal_email: None,
+        nickname: None,
+        occupation: None,
         country: lead.country.clone(),
         region: lead.region.clone(),
         address: lead.address.clone(),
@@ -538,8 +533,18 @@ pub async fn convert_to_customer(db: &DbConn, id: i64, user_id: i64) -> Result<i
     let customer_dto = CustomerSaveDTO {
         id: None,
         customer_no: None,
+        customer_type: Some(1),
         company_name: Some(company_name.to_string()),
         short_name: None,
+        person_name: None,
+        gender: None,
+        birthday: None,
+        wechat: None,
+        qq: None,
+        personal_mobile: None,
+        personal_email: None,
+        nickname: None,
+        occupation: None,
         country: lead.country.clone(),
         region: lead.region.clone(),
         address: lead.address.clone(),
@@ -622,6 +627,10 @@ pub async fn convert_to_customer(db: &DbConn, id: i64, user_id: i64) -> Result<i
         .exec(&txn)
         .await
         .ok();
+
+    // 同步该线索下的所有跟进记录到新客户（保留 lead_id 用于追溯）
+    // source_type 升级为 2（客户跟进），但 lead_id 保留可识别原线索来源
+    let _ = FollowupModel::inherit_to_customer(&txn, id, customer_id).await;
 
     // 更新线索状态为已成交，标记已转客户
     LeadModel::claim(&txn, id, user_id, customer_id)

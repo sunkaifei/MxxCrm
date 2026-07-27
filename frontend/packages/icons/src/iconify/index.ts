@@ -116,3 +116,19 @@ export const LucideSettings2 = createIconifyIcon('lucide:settings-2');
 export const LucideLock = createIconifyIcon('lucide:lock');
 export const LucideUnlock = createIconifyIcon('lucide:unlock');
 export const LucideKeyRound = createIconifyIcon('lucide:key-round');
+
+// 模板管理图标
+export const LucideDisplay = createIconifyIcon('lucide:display');
+export const LucideLayoutGrid = createIconifyIcon('lucide:layout-grid');
+export const LucideMonitor = createIconifyIcon('lucide:monitor');
+export const LucideTablet = createIconifyIcon('lucide:tablet');
+
+// 通知公告图标
+export const LucideSend = createIconifyIcon('lucide:send');
+export const LucideUndo2 = createIconifyIcon('lucide:undo-2');
+export const LucideMegaphone = createIconifyIcon('lucide:megaphone');
+
+// 客户转移图标
+export const LucidePackage = createIconifyIcon('lucide:package');
+export const LucideScrollText = createIconifyIcon('lucide:scroll-text');
+export const LucideUserCheck = createIconifyIcon('lucide:user-check');

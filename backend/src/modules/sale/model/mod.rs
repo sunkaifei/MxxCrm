@@ -13,4 +13,5 @@ pub mod order_item;
 pub mod payment;
 pub mod payment_application;
 pub mod quotation;
+pub mod refund;
 pub mod shipment;

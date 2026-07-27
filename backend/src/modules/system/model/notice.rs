@@ -153,11 +153,11 @@ pub struct NoticeListVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
     /// 通知标题
-    pub notice_title: Option<String>,
+    pub title: Option<String>,
     /// 通知内容
     pub content: Option<String>,
     /// 通知类型（关联字典编码：notice_type）
-    pub notice_type: Option<i32>,
+    pub r#type: Option<i32>,
     /// 通知等级（字典code：notice_level）
     pub level: Option<String>,
     /// 目标类型（1: 全体, 2: 指定）
@@ -167,9 +167,9 @@ pub struct NoticeListVO {
     /// 发布人ID
     pub publisher_id: Option<i64>,
     /// 发布人名称
-    pub publish_name: Option<String>,
+    pub publisher_name: Option<String>,
     /// 发布状态（0: 未发布, 1: 已发布, -1: 已撤回）
-    pub status: Option<i32>,
+    pub publish_status: Option<i32>,
     /// 发布时间
     pub publish_time: Option<String>,
     /// 撤回时间
@@ -188,15 +188,15 @@ impl From<notice::Model> for NoticeListVO {
     fn from(model: notice::Model) -> Self {
         Self {
             id: Option::from(model.id),
-            notice_title: model.title,
+            title: model.title,
             content: model.content,
-            notice_type: model.r#type,
+            r#type: model.r#type,
             level: model.level,
             target_type: model.target_type,
             target_user_ids: model.target_user_ids,
             publisher_id: model.publisher_id,
-            publish_name: None,
-            status: model.publish_status,
+            publisher_name: None,
+            publish_status: model.publish_status,
             publish_time: model.publish_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
             revoke_time: model.revoke_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
             create_by: model.create_by,
@@ -495,7 +495,7 @@ impl NoticeModel {
     /// * `user_id` - 操作人id
     ///
     /// 返回值: 更新数量
-    pub async fn update_by_id_publish(db: &DbConn, id: &Option<i64>, user_id: &Option<i64>) -> Result<i64, DbErr> {
+    pub async fn update_by_id_publish<C: ConnectionTrait>(db: &C, id: &Option<i64>, user_id: &Option<i64>) -> Result<i64, DbErr> {
         let payload = notice::ActiveModel {
             publisher_id:     Set(user_id.to_owned()),
             publish_status:   Set(Some(1).to_owned()),
@@ -514,11 +514,11 @@ impl NoticeModel {
     }
 
     /// ### 根据id查询通知信息
-    /// * `db` - 数据库连接
+    /// * `db` - 数据库连接（支持事务）
     /// * `id` - 通知id
     ///
     /// 返回值: Option<notice::Model>
-    pub async fn find_by_id(db: &DbConn, id: &Option<i64>) -> Result<Option<notice::Model>, DbErr> {
+    pub async fn find_by_id<C: ConnectionTrait>(db: &C, id: &Option<i64>) -> Result<Option<notice::Model>, DbErr> {
         let model = Notice::find_by_id(id.clone().unwrap_or_default())
             .filter(notice::Column::Deleted.eq(Some(0)))
             .one(db)

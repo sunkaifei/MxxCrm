@@ -18,6 +18,7 @@ use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::MetaResp;
 use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadSaveRequest, LeadStatusUpdateQuery, LeadUpdateRequest};
 use crate::modules::crm::service::lead_service;
+use crate::modules::crm::service::lead_transfer_service;
 
 pub async fn lead_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -211,6 +212,54 @@ pub async fn lead_convert_to_customer(state: web::Data<AppState>, req: HttpReque
     }
 }
 
+// ==================== 线索转移 ====================
+
+/// 预览线索转移影响范围
+pub async fn lead_transfer_preview(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    form_data: web::Json<crate::modules::crm::service::lead_transfer_service::LeadTransferPreviewRequest>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let _jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match lead_transfer_service::preview_transfer(db, &form_data.0).await {
+        Ok(data) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 执行线索转移
+pub async fn lead_transfer(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    form_data: web::Json<crate::modules::crm::service::lead_transfer_service::LeadTransferRequest>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let operator_id = jwt_token.id.unwrap_or_default();
+    let operator_name = jwt_token.username.clone();
+
+    match lead_transfer_service::transfer_lead(
+        db,
+        &form_data.0,
+        operator_id,
+        operator_name,
+    )
+    .await
+    {
+        Ok(data) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok()
+            .content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
 // ==================== 路由注册（单点维护）====================
 
 /// 注册线索模块所有路由
@@ -282,6 +331,20 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::post()
                     .to(lead_convert_to_customer)
                     .wrap(require_permission("crm:lead:edit")),
+            )
+            // POST /lead/transfer/preview - 预览线索转移影响范围
+            .route(
+                "/transfer/preview",
+                web::post()
+                    .to(lead_transfer_preview)
+                    .wrap(require_permission("crm:lead:transfer")),
+            )
+            // POST /lead/transfer - 执行线索转移
+            .route(
+                "/transfer",
+                web::post()
+                    .to(lead_transfer)
+                    .wrap(require_permission("crm:lead:transfer")),
             ),
     );
     cfg.service(

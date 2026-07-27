@@ -14,6 +14,7 @@ use actix_web::dev::ServiceRequest;
 use crate::core::kit::config;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::modules::message::controller::user::chat_controller;
+use crate::modules::message::controller::user::notification_controller;
 use crate::modules::finance::controller::user::{payment_user_controller, member_fee_user_controller};
 use crate::modules::system::controller::user::region_user_controller;
 use crate::modules::shop::controller as shop_controller;
@@ -57,6 +58,12 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(chat_controller::search_users_handler)
             .service(chat_controller::get_unread_count_handler)
             .service(chat_controller::start_session_handler)
+            // Notification
+            .service(notification_controller::get_notification_list_handler)
+            .service(notification_controller::mark_read_handler)
+            .service(notification_controller::mark_all_read_handler)
+            .service(notification_controller::get_unread_count_handler)
+            .service(notification_controller::delete_notification_handler)
             // Mall - Shop
             .service(
                 web::scope("/mall")

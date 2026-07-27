@@ -30,10 +30,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
     },
     {
       component: 'Input',
-      fieldName: 'icon',
-      label: '分类图标',
+      fieldName: 'shortUrl',
+      label: '短链接',
       componentProps: {
-        placeholder: '请输入图标URL',
+        placeholder: '请输入短链接',
         allowClear: true,
       },
     },
@@ -58,6 +58,62 @@ const [BaseForm, baseFormApi] = useVbenForm({
           { label: '显示', value: 1 },
           { label: '隐藏', value: 0 },
         ],
+      },
+    },
+    {
+      component: 'RadioGroup',
+      fieldName: 'pageType',
+      label: '页面模式',
+      defaultValue: 2,
+      componentProps: {
+        optionType: 'button',
+        options: [
+          { label: '封面模式', value: 1 },
+          { label: '列表模式', value: 2 },
+        ],
+      },
+    },
+    {
+      component: 'RadioGroup',
+      fieldName: 'contentType',
+      label: '内容类型',
+      defaultValue: 1,
+      componentProps: {
+        optionType: 'button',
+        options: [
+          { label: '文章', value: 1 },
+          { label: '自定义链接', value: 3 },
+        ],
+      },
+      ifVisible: ({ values }) => values.pageType === 2,
+    },
+    {
+      component: 'Input',
+      fieldName: 'linkUrl',
+      label: '自定义链接URL',
+      componentProps: {
+        placeholder: '请输入链接URL',
+        allowClear: true,
+      },
+      ifVisible: ({ values }) => values.pageType === 2 && values.contentType === 3,
+    },
+    {
+      component: 'Input',
+      fieldName: 'bannerImage',
+      label: '栏目Banner',
+      componentProps: {
+        placeholder: '请输入Banner图片URL',
+        allowClear: true,
+      },
+    },
+    {
+      component: 'Textarea',
+      fieldName: 'description',
+      label: '栏目简介',
+      componentProps: {
+        placeholder: '请输入栏目简介',
+        allowClear: true,
+        rows: 3,
       },
     },
   ],

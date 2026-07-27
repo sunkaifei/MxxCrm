@@ -109,6 +109,50 @@ pub async fn get_user_router_tree(db: &DbConn, is_admin: &bool, user_id: &Option
         }
 
         log::info!("[菜单] 非管理员菜单收集完成，总数: {}", list.len());
+
+        // 添加全员可见的公共菜单（消息中心）
+        let public_menu_ids = vec![500i64, 501, 502];
+        for pid in public_menu_ids {
+            if !seen_ids.contains(&pid) {
+                if let Some(public_menu) = MenuModel::find_by_id(db, &Some(pid)).await? {
+                    if public_menu.deleted.unwrap_or(0) == 0 && public_menu.status == 1 {
+                        if seen_ids.insert(public_menu.id) {
+                            list.push(public_menu);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 添加公司消息菜单（全员可见）
+        use crate::modules::system::entity::menu::Entity as MenuEntity;
+        use crate::modules::system::entity::menu::Column as MenuColumn;
+        use sea_orm::EntityTrait;
+        use sea_orm::QueryFilter;
+        use sea_orm::ColumnTrait;
+
+        let company_msg_menu = MenuEntity::find()
+            .filter(MenuColumn::Name.eq("page.company.message.title"))
+            .one(db)
+            .await?;
+        if let Some(msg_menu) = company_msg_menu {
+            if msg_menu.deleted.unwrap_or(0) == 0 && msg_menu.status == 1 {
+                if seen_ids.insert(msg_menu.id) {
+                    list.push(msg_menu.clone());
+                }
+                // 确保父菜单（公司菜单）也在列表中
+                let parent_id = msg_menu.parent_id;
+                if parent_id != 0 && !seen_ids.contains(&parent_id) {
+                    if let Some(parent_menu) = MenuModel::find_by_id(db, &Some(parent_id)).await? {
+                        if parent_menu.deleted.unwrap_or(0) == 0 && parent_menu.status == 1 {
+                            if seen_ids.insert(parent_menu.id) {
+                                list.push(parent_menu);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     let mut router_list = Vec::<menu::Router>::new();
     list.sort_by(|a, b| a.sort.unwrap_or(0).cmp(&b.sort.unwrap_or(0)));
@@ -183,6 +227,18 @@ pub async fn find_user_role_keys(db: &DbConn, is_admin: &bool, id: &Option<i64>)
                         }
                     }
                 }
+            }
+        }
+
+        // 添加全员公共权限码（消息中心）
+        let public_perms = vec![
+            "message:index".to_string(),
+            "message:chat".to_string(),
+            "message:chat:send".to_string(),
+        ];
+        for perm in public_perms {
+            if unique_set.insert(perm.clone()) {
+                btn_menu.push(perm);
             }
         }
     }

@@ -111,28 +111,28 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/add",
                 web::post()
                     .to(add)
-                    .wrap(require_permission("system:template:add")),
+                    .wrap(require_permission("template:add")),
             )
             // DELETE /template/batch_delete - 批量删除模板
             .route(
                 "/batch_delete",
                 web::delete()
                     .to(batch_delete)
-                    .wrap(require_permission("system:template:delete")),
+                    .wrap(require_permission("template:delete")),
             )
             // POST /template/update - 修改模板
             .route(
                 "/update",
                 web::post()
                     .to(update_by_id)
-                    .wrap(require_permission("system:template:update")),
+                    .wrap(require_permission("template:update")),
             )
             // GET /template/detail/{id} - 模板详情
             .route(
                 "/detail/{id}",
                 web::get()
                     .to(get_by_detail)
-                    .wrap(require_permission("system:template:view")),
+                    .wrap(require_permission("template:view")),
             )
             // GET /template/common_options - 模板下拉
             .route("/common_options", web::get().to(get_by_options))
@@ -141,7 +141,46 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/list",
                 web::get()
                     .to(get_by_page)
-                    .wrap(require_permission("system:template:list")),
+                    .wrap(require_permission("template:list")),
+            )
+            // ========== 模板数据子路由（嵌套避免 scope 前缀冲突）==========
+            .service(
+                web::scope("/data")
+                    // POST /template/data/add - 新增模板数据
+                    .route(
+                        "/add",
+                        web::post()
+                            .to(crate::modules::website::controller::admin::template_data_admin_controller::add)
+                            .wrap(require_permission("template:data:add")),
+                    )
+                    // DELETE /template/data/batch_delete - 批量删除模板数据
+                    .route(
+                        "/batch_delete",
+                        web::delete()
+                            .to(crate::modules::website::controller::admin::template_data_admin_controller::batch_delete)
+                            .wrap(require_permission("template:data:delete")),
+                    )
+                    // PUT /template/data/update/{id} - 修改模板数据
+                    .route(
+                        "/update/{id}",
+                        web::put()
+                            .to(crate::modules::website::controller::admin::template_data_admin_controller::update_by_id)
+                            .wrap(require_permission("template:data:update")),
+                    )
+                    // GET /template/data/detail/{id} - 模板数据详情
+                    .route(
+                        "/detail/{id}",
+                        web::get()
+                            .to(crate::modules::website::controller::admin::template_data_admin_controller::get_by_detail)
+                            .wrap(require_permission("template:data:view")),
+                    )
+                    // GET /template/data/list - 模板数据分页
+                    .route(
+                        "/list",
+                        web::get()
+                            .to(crate::modules::website::controller::admin::template_data_admin_controller::get_by_page)
+                            .wrap(require_permission("template:data:list")),
+                    ),
             ),
     );
 }

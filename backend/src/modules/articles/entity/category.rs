@@ -39,6 +39,18 @@ pub struct Model {
     pub is_show: Option<i32>,
     // 审核状态，0未审核，1已审核
     pub status: Option<i32>,
+    // 页面模式：1=封面模式，2=列表模式
+    pub page_type: Option<i32>,
+    // 封面模板数据ID
+    pub page_template_data_id: Option<i64>,
+    // 栏目Banner图片
+    pub banner_image: Option<String>,
+    // 栏目简介
+    pub description: Option<String>,
+    // 内容类型：1=文章，2=产品(预留)，3=自定义链接
+    pub content_type: Option<i32>,
+    // 自定义链接URL（content_type=3时使用）
+    pub link_url: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

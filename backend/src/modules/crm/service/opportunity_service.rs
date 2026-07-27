@@ -14,9 +14,12 @@ use crate::modules::crm::model::opportunity::{OpportunityDetailVO, OpportunityLi
 use crate::modules::system::entity::{admin, admin::Entity as Admin, dept as dept_entity};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
+use crate::modules::system::service::admin_service::build_admin_name_map;
 use crate::modules::system::service::role_service;
+use crate::modules::system::service::sales_flow_config_service;
 use crate::modules::sale::entity::{quotation, quotation::Entity as Quotation};
-use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, sea_query::Expr};
+use crate::modules::sale::model::order::{OrderModel, OrderSaveDTO};
+use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, sea_query::Expr, TransactionTrait};
 use std::collections::HashMap;
 
 /// 获取当前用户可见的用户ID集合
@@ -119,6 +122,18 @@ pub async fn insert(db: &DbConn, form_data: &OpportunitySaveRequest, created_by:
         }
     }
 
+    // 校验联系人存在性
+    if let Some(contact_id) = form_data.contact_id {
+        let contact_exists = contact::Entity::find_by_id(contact_id)
+            .one(db)
+            .await
+            .map_err(|e| Error::from(format!("查询联系人失败: {}", e)))?
+            .is_some();
+        if !contact_exists {
+            return Err(Error::from("选择的联系人不存在".to_string()));
+        }
+    }
+
     let mut dto: OpportunitySaveDTO = form_data.clone().into();
     dto.created_by = Some(created_by);
     let result = OpportunityModel::insert(&db, &dto).await?;
@@ -131,6 +146,18 @@ pub async fn update(db: &DbConn, form_data: &OpportunityUpdateRequest, updated_b
             .map_err(|e| Error::from(format!("查询商机失败: {}", e)))?;
         if existing.is_some() {
             return Err(Error::from("该客户下已存在相同名称的商机".to_string()));
+        }
+    }
+
+    // 校验联系人存在性
+    if let Some(contact_id) = form_data.contact_id {
+        let contact_exists = contact::Entity::find_by_id(contact_id)
+            .one(db)
+            .await
+            .map_err(|e| Error::from(format!("查询联系人失败: {}", e)))?
+            .is_some();
+        if !contact_exists {
+            return Err(Error::from("选择的联系人不存在".to_string()));
         }
     }
 
@@ -181,15 +208,14 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<OpportunityDetailVO> {
                     vo.contact_wechat = ct.wechat;
                 }
             }
+            // 批量查询 created_by + assigned_to 用户名（合并为一次 IN 查询）
+            let user_ids: Vec<i64> = vec![created_by, assigned_to].into_iter().flatten().collect();
+            let name_map = build_admin_name_map(db, user_ids).await;
             if let Some(uid) = created_by {
-                if let Ok(Some(u)) = Admin::find_by_id(uid).one(db).await {
-                    vo.created_by_name = u.user_name;
-                }
+                vo.created_by_name = name_map.get(&uid).cloned();
             }
             if let Some(uid) = assigned_to {
-                if let Ok(Some(u)) = Admin::find_by_id(uid).one(db).await {
-                    vo.assignee = u.user_name;
-                }
+                vo.assignee = name_map.get(&uid).cloned();
             }
             Ok(vo)
         },
@@ -266,6 +292,17 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
             Some(current_user_id),
             query.customer_id,
         ).await?
+    } else if list_type == "customer" {
+        // customer：客户详情页使用，不过滤数据权限，按 customer_id 查询该客户下所有商机
+        OpportunityModel::select_in_page_by_assigned_ids(
+            &db,
+            page,
+            page_size,
+            query.keywords.clone(),
+            query.stage.clone(),
+            None,
+            query.customer_id,
+        ).await?
     } else {
         // subordinate / all：按 assigned_ids 过滤
         OpportunityModel::select_in_page_by_assigned_ids(
@@ -296,22 +333,11 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
         }
     }
 
-    // 批量查询创建人名称
+    // 批量查询创建人名称（统一调用共用方法）
     let creator_ids: Vec<i64> = list.iter()
         .filter_map(|item| item.created_by)
         .collect();
-    let mut creator_map: HashMap<i64, String> = HashMap::new();
-    if !creator_ids.is_empty() {
-        let admins = Admin::find()
-            .filter(admin::Column::Id.is_in(creator_ids))
-            .all(db)
-            .await?;
-        for a in admins {
-            if let Some(name) = a.nick_name.or(a.user_name) {
-                creator_map.insert(a.id, name);
-            }
-        }
-    }
+    let creator_map = build_admin_name_map(db, creator_ids).await;
 
     // 批量统计报价次数（关联 mxx_sale_quotation 表）
     let opp_ids: Vec<i64> = list.iter().map(|item| item.id).collect();
@@ -351,17 +377,38 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
 /// 商机转报价单
 ///
 /// 根据商机信息创建报价单草稿，并将商机阶段推进到"已报价"
+/// 使用事务保证一致性
 pub async fn convert_to_quotation(db: &DbConn, opportunity_id: i64, user_id: i64) -> Result<i64> {
     use crate::modules::sale::entity::quotation::{self, ActiveModel as QuotationActiveModel};
     use crate::modules::crm::entity::opportunity::{self as opp_entity, ActiveModel as OppActiveModel};
     use sea_orm::ActiveValue::Set;
 
-    // 1. 查询商机
+    // 1. 校验企业配置：模式 A 或 both 才允许走标准流程
+    let mode = sales_flow_config_service::get_mode(db).await;
+    if !sales_flow_config_service::allows_standard_flow(&mode) {
+        return Err(Error::from(
+            "当前企业销售流程模式不允许走标准流程（需经过报价单），请联系管理员修改配置".to_string(),
+        ));
+    }
+
+    // 2. 查询商机
     let opp = OpportunityModel::find_by_id(&db, opportunity_id)
         .await?
         .ok_or_else(|| Error::from("商机不存在".to_string()))?;
 
-    // 2. 创建报价单草稿
+    // 3. 校验：未删除且尚未转报价单
+    if opp.quote_status.unwrap_or(0) == 1 {
+        return Err(Error::from("该商机已转报价单，请勿重复操作".to_string()));
+    }
+
+    // 3.1 校验：商机客户必填（保证数据完整性）
+    if opp.customer_id.is_none() {
+        return Err(Error::from("商机缺少客户信息，请先完善商机客户字段后再转报价单".to_string()));
+    }
+
+    // 4. 开启事务
+    let txn = db.begin().await?;
+
     let now = chrono::Local::now().naive_local().to_owned();
     let quotation_no = format!("QT{}{:06}", now.format("%Y%m%d"), opportunity_id);
 
@@ -390,12 +437,12 @@ pub async fn convert_to_quotation(db: &DbConn, opportunity_id: i64, user_id: i64
     };
 
     let quotation_result = Quotation::insert(quotation_model)
-        .exec(db)
+        .exec(&txn)
         .await?;
 
     let quotation_id = quotation_result.last_insert_id;
 
-    // 3. 更新商机阶段为"已报价"（4）和报价状态
+    // 5. 更新商机阶段为"已报价"（4）和报价状态
     let _ = opp_entity::Entity::update_many()
         .set(opp_entity::ActiveModel {
             stage: Set(Some(4)),
@@ -404,8 +451,137 @@ pub async fn convert_to_quotation(db: &DbConn, opportunity_id: i64, user_id: i64
             ..Default::default()
         })
         .filter(opp_entity::Column::Id.eq(opportunity_id))
-        .exec(db)
+        .exec(&txn)
         .await?;
 
+    // 6. 提交事务
+    txn.commit().await?;
+
     Ok(quotation_id)
+}
+
+/// 商机直接转订单（简易流程模式 B）
+///
+/// 跳过报价单，直接创建订单草稿，并将商机阶段推进到"已下单"
+/// 使用事务保证一致性
+pub async fn convert_to_order(db: &DbConn, opportunity_id: i64, user_id: i64) -> Result<i64> {
+    use crate::modules::crm::entity::opportunity::{self as opp_entity, ActiveModel as OppActiveModel};
+    use sea_orm::ActiveValue::Set;
+    use rust_decimal::Decimal;
+
+    // 1. 校验企业配置：模式 B 或 both 才允许跳过报价单
+    let mode = sales_flow_config_service::get_mode(db).await;
+    if !sales_flow_config_service::can_skip_quotation(&mode) {
+        return Err(Error::from(
+            "当前企业销售流程模式不允许跳过报价单，请先转报价单再转订单".to_string(),
+        ));
+    }
+
+    // 2. 查询商机
+    let opp = OpportunityModel::find_by_id(&db, opportunity_id)
+        .await?
+        .ok_or_else(|| Error::from("商机不存在".to_string()))?;
+
+    // 3. 校验：尚未转订单
+    if opp.order_status.unwrap_or(0) == 1 {
+        return Err(Error::from("该商机已转订单，请勿重复操作".to_string()));
+    }
+
+    // 3.1 校验：商机客户必填（保证数据完整性）
+    if opp.customer_id.is_none() {
+        return Err(Error::from("商机缺少客户信息，请先完善商机客户字段后再转订单".to_string()));
+    }
+
+    // 4. 开启事务
+    let txn = db.begin().await?;
+
+    // 5. 生成订单编号：SO{YYYYMMDD}{4位序号}
+    let date_prefix = format!("SO{}", chrono::Local::now().format("%Y%m%d"));
+    let max_seq = OrderModel::get_max_order_no_today(&txn, &date_prefix).await?;
+    let seq = max_seq.unwrap_or(0) + 1;
+    let order_no = format!("{}{:04}", date_prefix, seq);
+
+    // 6. 构造订单 DTO（从商机带出客户、金额等，无商品明细）
+    let opp_amount = opp.amount.unwrap_or_else(|| Decimal::from(0));
+    let currency_i32 = opp.currency.map(|c| match c {
+        crate::core::r#enum::currency_code_enum::CurrencyCode::CNY => 1,
+        crate::core::r#enum::currency_code_enum::CurrencyCode::USD => 2,
+        crate::core::r#enum::currency_code_enum::CurrencyCode::EUR => 3,
+        crate::core::r#enum::currency_code_enum::CurrencyCode::GBP => 4,
+        crate::core::r#enum::currency_code_enum::CurrencyCode::JPY => 5,
+        crate::core::r#enum::currency_code_enum::CurrencyCode::HKD => 6,
+        crate::core::r#enum::currency_code_enum::CurrencyCode::AUD => 7,
+    });
+
+    let order_dto = OrderSaveDTO {
+        order_no: Some(order_no),
+        title: opp.title.clone(),
+        order_type: Some(1),
+        order_status: Some(1), // 已确认
+        customer_id: opp.customer_id,
+        customer_name: None,
+        contact_id: opp.contact_id,
+        contact_name: None,
+        opportunity_id: Some(opportunity_id),
+        quotation_id: None,  // 跳过报价单
+        contract_id: None,
+        order_date: Some(chrono::Local::now().naive_local().date()),
+        delivery_date: None,
+        currency: currency_i32,
+        exchange_rate: Some(Decimal::from(1)),
+        product_amount: Some(opp_amount),
+        discount_amount: Some(Decimal::from(0)),
+        shipping_fee: Some(Decimal::from(0)),
+        tax_amount: Some(Decimal::from(0)),
+        other_fee: Some(Decimal::from(0)),
+        total_amount: Some(opp_amount),
+        paid_amount: Some(Decimal::from(0)),
+        unpaid_amount: Some(opp_amount),
+        pay_status: Some(1), // 未支付
+        payment_method: None,
+        payment_due_date: None,
+        shipping_method: None,
+        tracking_no: None,
+        shipping_time: None,
+        complete_time: None,
+        receiver_name: None,
+        receiver_phone: None,
+        shipping_address: None,
+        billing_address: None,
+        buyer_company_name: None,
+        buyer_account_name: None,
+        buyer_bank_name: None,
+        buyer_account_number: None,
+        seller_company_name: None,
+        seller_bank_name: None,
+        seller_account_name: None,
+        seller_account_number: None,
+        remark: opp.description.clone(),
+        owner_user_id: Some(user_id),
+        dept_id: None,
+        approval_status: Some(0), // 草稿
+        instance_id: None,
+        create_by: Some(user_id),
+        update_by: None,
+    };
+
+    let order_id = OrderModel::insert(&txn, &order_dto).await?;
+
+    // 7. 更新商机阶段为"已报价"（4，等同于已下单阶段）和订单状态
+    let now = chrono::Local::now().naive_local();
+    let _ = opp_entity::Entity::update_many()
+        .set(opp_entity::ActiveModel {
+            stage: Set(Some(4)),
+            order_status: Set(Some(1)),
+            update_time: Set(Some(now)),
+            ..Default::default()
+        })
+        .filter(opp_entity::Column::Id.eq(opportunity_id))
+        .exec(&txn)
+        .await?;
+
+    // 8. 提交事务
+    txn.commit().await?;
+
+    Ok(order_id)
 }

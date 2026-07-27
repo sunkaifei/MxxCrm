@@ -83,6 +83,32 @@ pub async fn delete_account(state: web::Data<AppState>, item: web::Json<BathDele
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(affected, "local")))
 }
 
+// ============ 销售流程模式配置 ============
+
+/// GET /company/sales-flow/mode - 获取当前销售流程模式
+pub async fn get_sales_flow_mode(state: web::Data<AppState>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let mode = crate::modules::system::service::sales_flow_config_service::get_mode(&db).await;
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(mode, "local")))
+}
+
+/// PUT /company/sales-flow/mode - 设置销售流程模式
+pub async fn set_sales_flow_mode(state: web::Data<AppState>, item: web::Json<SalesFlowModeReq>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let mode = item.0.mode;
+
+    match crate::modules::system::service::sales_flow_config_service::set_mode(&db, &mode).await {
+        Ok(_) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(true, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SalesFlowModeReq {
+    pub mode: String,
+}
+
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/company")
@@ -90,6 +116,9 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/update", web::put().to(update_company_info).wrap(require_permission("company:info:edit")))
             .route("/account/list", web::get().to(get_account_list).wrap(require_permission("company:info:list")))
             .route("/account/save", web::post().to(save_account).wrap(require_permission("company:account:save")))
-            .route("/account/delete", web::delete().to(delete_account).wrap(require_permission("company:account:delete"))),
+            .route("/account/delete", web::delete().to(delete_account).wrap(require_permission("company:account:delete")))
+            // 销售流程模式：所有登录用户可读（前端需要根据模式动态显示按钮），仅授权用户可改
+            .route("/sales-flow/mode", web::get().to(get_sales_flow_mode))
+            .route("/sales-flow/mode", web::put().to(set_sales_flow_mode).wrap(require_permission("company:sales-flow:edit"))),
     );
 }

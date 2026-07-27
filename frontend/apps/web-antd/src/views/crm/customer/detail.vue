@@ -4,6 +4,7 @@ import {
   Card, Descriptions, Tabs, Tag, Button, Row, Col, Space, Popconfirm, Divider,
   Avatar, Dropdown, Menu, MenuItem, Skeleton, Tooltip, Timeline, Empty, Modal,
   message, Form, Input, Select, InputNumber, Spin, DatePicker, Table, Pagination,
+  Drawer, Cascader,
 } from 'ant-design-vue';
 import { createFollowupApi } from '#/api/core/crm/followup';
 import {
@@ -13,8 +14,11 @@ import {
 } from '@vben/icons';
 import {
   getCustomerInfoApi, getCustomerContactsApi, getCustomerAssignHistoryApi,
-  updateCustomerApi, getCountriesApi,
+  createCustomerApi, updateCustomerApi, getCountriesApi,
+  checkCustomerNameApi,
 } from '#/api';
+import { requestClient } from '#/api/request';
+import { useDebounceFn } from '@vueuse/core';
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { getCustomerEditLogApi, type CustomerEditLogVO } from '#/api/core/crm/customer-edit-log';
 import {
@@ -40,7 +44,7 @@ import {
   getOrderListApi,
   getContractListApi,
 } from '#/api';
-import OpportunityDrawer from '../opportunity/drawer.vue';
+import OpportunityDetail from '../opportunity/detail.vue';
 
 function toCamelCase(obj: any): any {
   if (obj === null || obj === undefined) return obj;
@@ -73,9 +77,12 @@ function normalizeBgReport(rawReportData: any): any {
   return normalized;
 }
 
-const props = defineProps<{ id?: number | string }>();
+const props = defineProps<{
+  id?: number | string;
+  customerType?: number; // 新建模式时传入：1=企业, 2=个人
+}>();
 const emit = defineEmits<{
-  (e: 'edit', customer: any): void;
+  (e: 'created', id: number | string): void;
 }>();
 
 const loading = ref(true);
@@ -244,12 +251,20 @@ const [ContactEditDrawer, contactEditDrawerApi] = useVbenDrawer({
   },
 });
 
-const [OpportunityEditDrawer, opportunityEditDrawerApi] = useVbenDrawer({
-  connectedComponent: OpportunityDrawer,
-  onClosed() {
-    if (opportunityEditDrawerApi.getData()?.needRefresh) loadOpportunities();
-  },
-});
+// 商机详情抽屉（新建/编辑共用 OpportunityDetail 组件）
+const oppDetailVisible = ref(false);
+const oppDetailId = ref<number | string | undefined>(undefined);
+const oppDetailCustomerId = ref<number | string | undefined>(undefined);
+const oppDetailCustomerName = ref<string>('');
+const oppDetailTitle = computed(() => oppDetailId.value ? '编辑商机' : '新建商机');
+
+function closeOppDetail() {
+  oppDetailVisible.value = false;
+  oppDetailId.value = undefined;
+  oppDetailCustomerId.value = undefined;
+  oppDetailCustomerName.value = '';
+  loadOpportunities();
+}
 
 const levelColor = computed(() => {
   const map: Record<string, string> = { 1: 'default', 2: 'red', 3: 'orange', 4: 'blue', 5: 'green' };
@@ -261,8 +276,23 @@ const levelLabel = computed(() => {
   return map[customer.value.level] || customer.value.level || '-';
 });
 
+// 客户类型：1=企业 2=个人
+const isPersonal = computed(() => Number(customer.value?.customerType) === 2);
+const displayName = computed(() => {
+  if (isPersonal.value) {
+    return customer.value?.personName || customer.value?.companyName || '-';
+  }
+  return customer.value?.companyName || customer.value?.personName || '-';
+});
+
+// 新建模式：无 id 时为新建
+const isCreate = computed(() => !props.id);
+
+// 名称查重错误持久化（防止 Zod 通过后被清除）
+const nameDuplicateError = ref<string | undefined>(undefined);
+
 const initials = computed(() => {
-  const name = customer.value.companyName || customer.value.shortName || '?';
+  const name = displayName.value || customer.value?.shortName || '?';
   return name.slice(0, 2).toUpperCase();
 });
 
@@ -285,6 +315,74 @@ const levelColorMap: Record<number, string> = { 1: 'default', 2: 'red', 3: 'oran
 const currencyLabelMap: Record<number, string> = { 1: '人民币', 2: '美元', 3: '欧元', 4: '英镑', 5: '日元', 6: '港币', 7: '澳元' };
 
 const countryOptions = ref<{ label: string; value: string }[]>([]);
+
+// 中国省市区三级联动数据（Cascader 格式）
+const chinaAreaOptions = ref<any[]>([]);
+// Cascader 选中路径（数组形式：[省, 市, 区]）
+const regionPath = ref<string[]>([]);
+
+// 是否中国：country 字段存的是国家名称
+const isChina = computed(() => {
+  const c = (form.country || '').trim();
+  return c === '中国' || c === 'China' || c === 'CN';
+});
+
+// 将"省/市/区"文本回填到 regionPath（编辑模式回显）
+function syncRegionPathFromText() {
+  if (!form.region) {
+    regionPath.value = [];
+    return;
+  }
+  // 兼容 " / "、"/" 分隔符
+  regionPath.value = form.region.split(/\s*\/\s*/).filter(Boolean);
+}
+
+// Cascader 选中变化时同步到 form.region（存为"省/市/区"文本）
+function handleRegionCascaderChange(value: any) {
+  if (Array.isArray(value) && value.length > 0) {
+    form.region = value.join('/');
+  } else {
+    form.region = '';
+  }
+}
+
+// 加载中国省市区三级联动数据
+// 使用 /api/system/region/treelist 接口（数据量小，响应快）
+async function loadChinaArea() {
+  if (chinaAreaOptions.value.length > 0) return; // 已加载则跳过
+  try {
+    const result = await requestClient.get('/api/system/region/treelist');
+    const tree = Array.isArray(result) ? result : (result as any)?.data ?? [];
+    // RegionTreeVO { id, parentId, title, regionName, sort, status, children }
+    // → Cascader { value, label, children }
+    chinaAreaOptions.value = convertRegionTreeToCascader(tree);
+  } catch { /* ignore */ }
+}
+
+// 将 region 树转为 Cascader 选项（value/label 用 regionName，便于回填"省/市/区"文本）
+function convertRegionTreeToCascader(nodes: any[]): any[] {
+  if (!Array.isArray(nodes)) return [];
+  return nodes
+    .filter((n) => n && (n.regionName || n.title))
+    .map((n) => {
+      const label = n.regionName || n.title || '';
+      const node: any = { value: label, label };
+      if (Array.isArray(n.children) && n.children.length > 0) {
+        node.children = convertRegionTreeToCascader(n.children);
+      }
+      return node;
+    });
+}
+
+// 国家选择变化时处理 region 字段
+function handleCountryChange() {
+  // 国家切换后清空省/州，避免与新国家不匹配
+  form.region = '';
+  regionPath.value = [];
+  if (isChina.value) {
+    loadChinaArea();
+  }
+}
 
 const industryOptions = [
   { label: '零售', value: 1 }, { label: '批发', value: 2 }, { label: '制造', value: 3 },
@@ -310,7 +408,15 @@ const currencyOptions = [
   { label: '澳元', value: 7 },
 ];
 
+// 个人客户相关选项
+const genderOptions = [
+  { label: '男', value: 1 },
+  { label: '女', value: 2 },
+  { label: '未知', value: 0 },
+];
+
 const form = reactive({
+  customerType: 1 as number,
   companyName: '',
   shortName: '',
   customerNo: '',
@@ -326,17 +432,34 @@ const form = reactive({
   creditDays: undefined as number | undefined,
   cooperatedAt: undefined as string | undefined,
   description: '',
+  // 个人客户字段
+  personName: '',
+  gender: undefined as number | undefined,
+  birthday: undefined as string | undefined,
+  wechat: '',
+  qq: '',
+  personalMobile: '',
+  personalEmail: '',
+  nickname: '',
+  occupation: '',
 });
 
 function fillFormFromCustomer() {
+  form.customerType = Number(customer.value.customerType) || 1;
   form.companyName = customer.value.companyName || '';
   form.shortName = customer.value.shortName || '';
   form.customerNo = customer.value.customerNo || '';
-  form.level = customer.value.level;
-  form.source = customer.value.source;
-  form.industry = customer.value.industry;
+  form.level = customer.value.level != null ? Number(customer.value.level) : undefined;
+  form.source = customer.value.source != null ? Number(customer.value.source) : undefined;
+  form.industry = customer.value.industry != null ? Number(customer.value.industry) : undefined;
   form.country = customer.value.country || '';
   form.region = customer.value.region || '';
+  // 回显 Cascader 选中路径（中国时生效）
+  syncRegionPathFromText();
+  // 编辑模式若为国家为中国，预加载中国省市区数据
+  if (isChina.value) {
+    loadChinaArea();
+  }
   form.address = customer.value.address || '';
   form.website = customer.value.website || '';
   form.currency = customer.value.currency || 1;
@@ -344,6 +467,16 @@ function fillFormFromCustomer() {
   form.creditDays = customer.value.creditDays;
   form.cooperatedAt = customer.value.cooperatedAt;
   form.description = customer.value.description || '';
+  // 个人客户字段
+  form.personName = customer.value.personName || '';
+  form.gender = customer.value.gender;
+  form.birthday = customer.value.birthday;
+  form.wechat = customer.value.wechat || '';
+  form.qq = customer.value.qq || '';
+  form.personalMobile = customer.value.personalMobile || '';
+  form.personalEmail = customer.value.personalEmail || '';
+  form.nickname = customer.value.nickname || '';
+  form.occupation = customer.value.occupation || '';
 }
 
 function getFieldValueLabel(field: string, value: string | null | undefined): string {
@@ -360,7 +493,7 @@ const statCards = computed(() => [
   { label: '成交总额', value: '¥' + ((customer.value.stats?.totalRevenue ?? 0) / 10000).toFixed(1) + '万', color: 'text-blue-600', bg: 'bg-blue-50' },
   { label: '成交笔数', value: customer.value.stats?.orderCount ?? 0, color: 'text-green-600', bg: 'bg-green-50' },
   { label: '联系人', value: contacts.value.length, color: 'text-purple-600', bg: 'bg-purple-50' },
-  { label: '商机数', value: customer.value.stats?.opportunityCount ?? 0, color: 'text-orange-600', bg: 'bg-orange-50' },
+  { label: '商机数', value: oppPagination.total ?? 0, color: 'text-orange-600', bg: 'bg-orange-50' },
   { label: '信用额度', value: '¥' + ((customer.value.creditLimit ?? 0) / 10000).toFixed(1) + '万', color: 'text-red-500', bg: 'bg-red-50' },
   { label: '账期', value: (customer.value.creditDays ?? 0) + '天', color: 'text-cyan-600', bg: 'bg-cyan-50' },
 ]);
@@ -542,13 +675,21 @@ async function handleCorrectCompanyName() {
 }
 
 const loadData = async () => {
-  if (!props.id) return;
+  // 新建模式：初始化空数据 + 按 prop 设置客户类型 + 加载国家选项
+  if (!props.id) {
+    const initType = Number(props.customerType) === 2 ? 2 : 1;
+    customer.value = { customerType: initType };
+    form.customerType = initType;
+    loading.value = false;
+    await loadCountries();
+    return;
+  }
   loading.value = true;
   try {
     const result = await getCustomerInfoApi(Number(props.id));
     customer.value = result || {};
     fillFormFromCustomer();
-    await Promise.all([loadContacts(), loadAssignHistory(), fetchBackgroundCheck(), loadCountries(), loadEditLogs()]);
+    await Promise.all([loadContacts(), loadAssignHistory(), fetchBackgroundCheck(), loadCountries(), loadEditLogs(), loadOpportunities()]);
   } finally { loading.value = false; }
 };
 
@@ -593,7 +734,8 @@ const handleUnbind = async (contactId: number) => {
   loadContacts();
 };
 
-const handleEdit = () => emit('edit', customer.value);
+// 切换到基本信息 Tab（替代原"编辑"按钮，基本信息 Tab 内表单可直接编辑）
+const handleEdit = () => { activeTab.value = 'basic'; };
 
 const handleReturnToPool = () => {
   Modal.confirm({
@@ -675,7 +817,8 @@ const loadEditLogs = async () => {
   if (!props.id) return;
   editLogLoading.value = true;
   try {
-    const result = await getCustomerEditLogApi({ customerId: Number(props.id), page: 1, pageSize: 50, logType: 0 });
+    // 不过滤 logType，加载全部日志（基本信息 logType=0 + 转移日志 logType=2）
+    const result = await getCustomerEditLogApi({ customerId: Number(props.id), page: 1, pageSize: 50 });
     editLogs.value = (result as any)?.items || [];
   } catch (e) { /* ignore */ }
   finally { editLogLoading.value = false; }
@@ -691,18 +834,86 @@ const loadFinancialEditLogs = async () => {
   finally { financialEditLogLoading.value = false; }
 };
 
-async function handleSaveForm() {
-  if (!form.companyName?.trim()) {
-    message.error('请输入公司名称');
+// 防抖查重（提交时使用）
+const checkNameDebounced = useDebounceFn(async (
+  val: string,
+  type: 1 | 2,
+  excludeId?: number,
+): Promise<boolean> => {
+  try {
+    const res = await checkCustomerNameApi({ customerType: type, name: val, excludeId });
+    return !!(res as any)?.exists;
+  } catch {
+    return false;
+  }
+}, 400);
+
+// 公司名称输入时实时查重（防抖）
+const checkCompanyNameOnInput = useDebounceFn(async (val: string) => {
+  if (!val?.trim()) {
+    nameDuplicateError.value = undefined;
     return;
+  }
+  try {
+    const res = await checkCustomerNameApi({ customerType: 1, name: val, excludeId: props.id ? Number(props.id) : undefined });
+    nameDuplicateError.value = !!(res as any)?.exists ? '该公司名称已存在' : undefined;
+  } catch { /* ignore */ }
+}, 500);
+
+// 个人姓名输入时实时查重（防抖）
+const checkPersonNameOnInput = useDebounceFn(async (val: string) => {
+  if (!val?.trim()) {
+    nameDuplicateError.value = undefined;
+    return;
+  }
+  try {
+    const res = await checkCustomerNameApi({ customerType: 2, name: val, excludeId: props.id ? Number(props.id) : undefined });
+    nameDuplicateError.value = !!(res as any)?.exists ? '该个人姓名已存在' : undefined;
+  } catch { /* ignore */ }
+}, 500);
+
+async function handleSaveForm() {
+  if (isPersonal.value) {
+    if (!form.personName?.trim()) {
+      message.error('请输入姓名');
+      return;
+    }
+    // 个人姓名查重
+    const excludeId = props.id ? Number(props.id) : undefined;
+    const exists = await checkNameDebounced(form.personName.trim(), 2, excludeId);
+    if (exists) {
+      message.error('该个人姓名已存在');
+      return;
+    }
+  } else {
+    if (!form.companyName?.trim()) {
+      message.error('请输入公司名称');
+      return;
+    }
+    // 公司名称查重
+    const excludeId = props.id ? Number(props.id) : undefined;
+    const exists = await checkNameDebounced(form.companyName.trim(), 1, excludeId);
+    if (exists) {
+      message.error('该公司名称已存在');
+      return;
+    }
   }
   formSaving.value = true;
   try {
-    const payload = { ...form, id: Number(props.id) };
-    await updateCustomerApi(payload);
-    Object.assign(customer.value, payload);
-    message.success('保存成功');
-    loadEditLogs();
+    const payload = { ...form, customerType: Number(customer.value?.customerType) || 1 };
+    if (isCreate.value) {
+      // 新建客户
+      const res: any = await createCustomerApi(payload);
+      const newId = res?.id ?? res?.data?.id;
+      message.success('创建成功');
+      if (newId) emit('created', newId);
+    } else {
+      // 更新客户
+      await updateCustomerApi({ ...payload, id: Number(props.id) });
+      Object.assign(customer.value, payload);
+      message.success('保存成功');
+      loadEditLogs();
+    }
   } catch {
     // 全局拦截处理
   } finally {
@@ -862,10 +1073,11 @@ async function loadOpportunities() {
       page: oppPagination.page,
       pageSize: oppPagination.pageSize,
       customerId: Number(props.id),
+      listType: 'customer',
     });
     const items = resp?.items || resp?.data?.items || [];
     opportunities.value = items;
-    oppPagination.total = resp?.total || resp?.data?.total || items.length || 0;
+    oppPagination.total = resp?.total ?? resp?.data?.total ?? items.length;
   } catch {
     opportunities.value = [];
   } finally {
@@ -879,13 +1091,17 @@ function handleOppPageChange(page: number) {
 }
 
 function openCreateOpportunity() {
-  opportunityEditDrawerApi.setData({ create: true, row: { customerId: Number(props.id), companyName: customer.value?.companyName } });
-  opportunityEditDrawerApi.open();
+  oppDetailId.value = undefined;
+  oppDetailCustomerId.value = Number(props.id);
+  oppDetailCustomerName.value = customer.value?.companyName || '';
+  oppDetailVisible.value = true;
 }
 
 function openEditOpportunity(row: any) {
-  opportunityEditDrawerApi.setData({ create: false, row });
-  opportunityEditDrawerApi.open();
+  oppDetailId.value = row.id;
+  oppDetailCustomerId.value = undefined;
+  oppDetailCustomerName.value = '';
+  oppDetailVisible.value = true;
 }
 
 async function handleDeleteOpportunity(row: any) {
@@ -911,37 +1127,56 @@ watch(() => activeTab.value, (tab) => {
   if (tab === 'contracts') loadContractList();
 });
 
-watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
+watch(() => props.id, () => { loadData(); }, { immediate: true });
 </script>
 
 <template>
   <div class="p-4">
     <Skeleton :loading="loading" active>
-      <!-- 头部信息卡片 -->
-      <Card class="rounded-lg shadow-sm" :body-style="{ padding: '24px' }" style="margin-bottom: 16px;">
+      <!-- 头部信息卡片（仅编辑模式） -->
+      <Card v-if="!isCreate" class="rounded-lg shadow-sm" :body-style="{ padding: '24px' }" style="margin-bottom: 16px;">
         <div class="flex items-start justify-between">
           <div class="flex items-start gap-5">
-            <Avatar :size="64" :style="{ backgroundColor: '#1677ff', fontSize: '24px', fontWeight: 600 }">{{ initials }}</Avatar>
+            <Avatar :size="64" :style="{ backgroundColor: isPersonal ? (customer.gender === 2 ? '#eb2f96' : '#1677ff') : '#1677ff', fontSize: '24px', fontWeight: 600 }">{{ initials }}</Avatar>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-3 mb-3">
-                <h2 class="text-xl font-bold text-gray-800 m-0">{{ customer.companyName }}</h2>
+                <Tag :color="isPersonal ? 'green' : 'blue'" class="text-sm">{{ isPersonal ? '个人' : '企业' }}</Tag>
+                <h2 class="text-xl font-bold text-gray-800 m-0">{{ displayName }}</h2>
                 <Tag :color="levelColor" class="text-sm">{{ levelLabel }}</Tag>
                 <Tag v-if="customer.customerNo" color="default" class="text-xs text-gray-400">{{ customer.customerNo }}</Tag>
               </div>
               <div class="flex items-center gap-5 text-sm text-gray-500 flex-wrap mb-3">
-                <span v-if="customer.industry" class="flex items-center gap-1.5">
-                  <LucideBuilding2 :size="14" class="text-gray-400" />{{ industryLabelMap[customer.industry] || customer.industry }}
-                </span>
-                <span v-if="customer.country" class="flex items-center gap-1.5">
-                  <LucideMapPin :size="14" class="text-gray-400" />{{ customer.country }}
-                </span>
-                <span v-if="customer.website" class="flex items-center gap-1.5">
-                  <LucideGlobe :size="14" class="text-gray-400" /><a :href="customer.website" target="_blank" class="text-blue-500 hover:text-blue-600 hover:underline">{{ customer.website }}</a>
-                </span>
+                <!-- 企业客户副信息 -->
+                <template v-if="!isPersonal">
+                  <span v-if="customer.industry" class="flex items-center gap-1.5">
+                    <LucideBuilding2 :size="14" class="text-gray-400" />{{ industryLabelMap[customer.industry] || customer.industry }}
+                  </span>
+                  <span v-if="customer.country" class="flex items-center gap-1.5">
+                    <LucideMapPin :size="14" class="text-gray-400" />{{ customer.country }}
+                  </span>
+                  <span v-if="customer.website" class="flex items-center gap-1.5">
+                    <LucideGlobe :size="14" class="text-gray-400" /><a :href="customer.website" target="_blank" class="text-blue-500 hover:text-blue-600 hover:underline">{{ customer.website }}</a>
+                  </span>
+                </template>
+                <!-- 个人客户副信息 -->
+                <template v-else>
+                  <span v-if="customer.personalMobile" class="flex items-center gap-1.5">
+                    <LucidePhone :size="14" class="text-gray-400" />{{ customer.personalMobile }}
+                  </span>
+                  <span v-if="customer.personalEmail" class="flex items-center gap-1.5">
+                    <LucideMail :size="14" class="text-gray-400" />{{ customer.personalEmail }}
+                  </span>
+                  <span v-if="customer.occupation" class="flex items-center gap-1.5">
+                    <LucideBuilding2 :size="14" class="text-gray-400" />{{ customer.occupation }}
+                  </span>
+                  <span v-if="customer.country" class="flex items-center gap-1.5">
+                    <LucideMapPin :size="14" class="text-gray-400" />{{ customer.country }}
+                  </span>
+                </template>
                 <span v-if="customer.assignedToName" class="flex items-center gap-1.5">
                   <LucideUserPlus :size="14" class="text-gray-400" />{{ customer.assignedToName }}
                 </span>
-                <span v-if="customer.cooperatedAt" class="flex items-center gap-1.5">
+                <span v-if="!isPersonal && customer.cooperatedAt" class="flex items-center gap-1.5">
                   <span class="text-gray-400">合作:</span>{{ customer.cooperatedAt }}
                 </span>
               </div>
@@ -954,7 +1189,8 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <Tooltip :title="bgExpanded ? '收起工商信息' : '展开工商信息'">
+            <!-- 工商背调仅企业客户显示 -->
+            <Tooltip v-if="!isPersonal" :title="bgExpanded ? '收起工商信息' : '展开工商信息'">
               <Button
                 :icon="h(bgExpanded ? LucideChevronUp : LucideChevronDown)"
                 @click="bgExpanded = !bgExpanded"
@@ -974,9 +1210,9 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
           </div>
         </div>
 
-        <!-- 工商信息展开面板 -->
+        <!-- 工商信息展开面板（仅企业客户） -->
         <Transition name="bg-expand">
-          <div v-if="bgExpanded" class="mt-5 pt-5" style="border-top: 1px solid var(--border-color-base, #f0f0f0);">
+          <div v-if="!isPersonal && bgExpanded" class="mt-5 pt-5" style="border-top: 1px solid var(--border-color-base, #f0f0f0);">
             <Spin :spinning="bgLoading">
               <div v-if="!bgReport" class="text-center py-8">
                 <div class="text-gray-400 mb-3">暂无企业工商背调信息</div>
@@ -1079,8 +1315,8 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
         </Transition>
       </Card>
 
-      <!-- KPI 统计卡片 -->
-      <Row :gutter="16" style="margin-bottom: 16px;">
+      <!-- KPI 统计卡片（仅编辑模式） -->
+      <Row v-if="!isCreate" :gutter="16" style="margin-bottom: 16px;">
         <Col v-for="stat in statCards" :key="stat.label" :span="4">
           <Card size="small" class="text-center rounded-lg hover:shadow-md transition-shadow" :body-style="{ padding: '20px 16px', backgroundColor: stat.bg }">
             <div class="text-2xl font-bold" :class="stat.color">{{ stat.value }}</div>
@@ -1094,23 +1330,55 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
         <Tabs v-model:activeKey="activeTab" :tabBarStyle="{ paddingLeft: '30px' }" class="pt-4">
           <Tabs.TabPane key="basic" tab="基本信息">
             <div class="p-4" style="display: flex; gap: 16px; min-height: 500px;">
-              <!-- 左侧：修改记录时间轴 -->
-              <div class="basic-left">
+              <!-- 左侧：修改记录时间轴（仅编辑模式） -->
+              <div v-if="!isCreate" class="basic-left">
                 <div class="basic-left-header">修改记录</div>
                 <Skeleton :loading="editLogLoading" active :paragraph="{ rows: 3 }">
                   <div class="basic-timeline-wrap">
                     <Timeline v-if="editLogs.length > 0">
-                      <Timeline.Item v-for="log in editLogs" :key="log.id" color="blue">
+                      <Timeline.Item v-for="log in editLogs" :key="log.id" :color="log.logType === 2 ? 'purple' : 'blue'">
                         <div class="flex items-start justify-between mb-1">
                           <div class="flex items-center gap-2">
-                            <Avatar size="small" :style="{ backgroundColor: '#1677ff' }">
+                            <Avatar size="small" :style="{ backgroundColor: log.logType === 2 ? '#722ed1' : '#1677ff' }">
                               {{ log.editorName?.charAt(0) || '?' }}
                             </Avatar>
                             <span class="font-medium text-sm">{{ log.editorName || '未知' }}</span>
+                            <Tag v-if="log.logType === 2" color="purple" size="small" style="font-size: 11px; margin: 0;">转移</Tag>
                           </div>
                           <span class="text-xs text-gray-400">{{ log.editTime ? formatDateTime(log.editTime) : '-' }}</span>
                         </div>
-                        <div class="mt-1 space-y-1">
+                        <!-- 转移日志（logType=2）：content 是 JSON 对象 -->
+                        <div v-if="log.logType === 2" class="mt-1 space-y-2">
+                          <div class="transfer-log-card">
+                            <div class="transfer-flow">
+                              <Tag color="default" size="small">{{ (log as any).content?.['原负责人'] || '-' }}</Tag>
+                              <span class="transfer-arrow">→</span>
+                              <Tag color="purple" size="small">{{ (log as any).content?.['新负责人'] || '-' }}</Tag>
+                            </div>
+                            <div class="transfer-reason">
+                              <span class="reason-label">交接原因：</span>
+                              <span class="reason-value">{{ (log as any).content?.['交接原因'] || '-' }}</span>
+                            </div>
+                            <div v-if="(log as any).content?.['备注']" class="transfer-remark">
+                              <span class="remark-label">备注：</span>
+                              <span class="remark-value">{{ (log as any).content?.['备注'] }}</span>
+                            </div>
+                            <div v-if="(log as any).content?.['受影响资源']" class="transfer-affected">
+                              <span class="affected-label">受影响资源：</span>
+                              <div class="affected-tags">
+                                <Tag
+                                  v-for="(val, key) in (log as any).content?.['受影响资源']"
+                                  :key="key"
+                                  :color="val > 0 ? 'blue' : 'default'"
+                                  size="small"
+                                  style="font-size: 11px; margin: 2px 4px 2px 0;"
+                                >{{ key }} × {{ val }}</Tag>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- 普通修改日志（logType=0）：content 是 EditLogItem 数组 -->
+                        <div v-else class="mt-1 space-y-1">
                           <div
                             v-for="(item, idx) in log.content"
                             :key="idx"
@@ -1148,9 +1416,26 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                   class="customer-basic-form"
                 >
                   <Row :gutter="16">
-                    <Col :span="12">
-                      <Form.Item label="公司名称" required>
-                        <Input v-model:value="form.companyName" placeholder="请输入公司名称" allow-clear />
+                    <!-- 企业客户：公司名称（必填） -->
+                    <Col v-if="!isPersonal" :span="12">
+                      <Form.Item label="公司名称" required :validate-status="nameDuplicateError ? 'error' : ''" :help="nameDuplicateError">
+                        <Input
+                          v-model:value="form.companyName"
+                          placeholder="请输入公司名称"
+                          allow-clear
+                          @change="(e: any) => isCreate && checkCompanyNameOnInput(e?.target?.value || '')"
+                        />
+                      </Form.Item>
+                    </Col>
+                    <!-- 个人客户：姓名（必填） -->
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="姓名" required :validate-status="nameDuplicateError ? 'error' : ''" :help="nameDuplicateError">
+                        <Input
+                          v-model:value="form.personName"
+                          placeholder="请输入姓名"
+                          allow-clear
+                          @change="(e: any) => isCreate && checkPersonNameOnInput(e?.target?.value || '')"
+                        />
                       </Form.Item>
                     </Col>
                     <Col :span="12">
@@ -1158,7 +1443,63 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                         <Input v-model:value="form.customerNo" placeholder="保存时自动生成" disabled />
                       </Form.Item>
                     </Col>
-                    <Col :span="12">
+                    <!-- 个人客户：性别 / 出生日期 -->
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="性别">
+                        <Select
+                          v-model:value="form.gender"
+                          :options="genderOptions"
+                          placeholder="请选择性别"
+                          allow-clear
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="出生日期">
+                        <DatePicker
+                          v-model:value="form.birthday"
+                          placeholder="选择日期"
+                          style="width: 100%;"
+                          value-format="YYYY-MM-DD"
+                          allow-clear
+                        />
+                      </Form.Item>
+                    </Col>
+                    <!-- 个人客户：手机号 / 邮箱 -->
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="手机号">
+                        <Input v-model:value="form.personalMobile" placeholder="请输入手机号" allow-clear />
+                      </Form.Item>
+                    </Col>
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="个人邮箱">
+                        <Input v-model:value="form.personalEmail" placeholder="请输入邮箱" allow-clear />
+                      </Form.Item>
+                    </Col>
+                    <!-- 个人客户：微信 / QQ -->
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="微信">
+                        <Input v-model:value="form.wechat" placeholder="请输入微信号" allow-clear />
+                      </Form.Item>
+                    </Col>
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="QQ">
+                        <Input v-model:value="form.qq" placeholder="请输入QQ号" allow-clear />
+                      </Form.Item>
+                    </Col>
+                    <!-- 个人客户：职业 / 昵称 -->
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="职业">
+                        <Input v-model:value="form.occupation" placeholder="请输入职业" allow-clear />
+                      </Form.Item>
+                    </Col>
+                    <Col v-if="isPersonal" :span="12">
+                      <Form.Item label="昵称">
+                        <Input v-model:value="form.nickname" placeholder="请输入昵称" allow-clear />
+                      </Form.Item>
+                    </Col>
+                    <!-- 企业客户：简称 / 等级 -->
+                    <Col v-if="!isPersonal" :span="12">
                       <Form.Item label="简称">
                         <Input v-model:value="form.shortName" placeholder="请输入公司简称" allow-clear />
                       </Form.Item>
@@ -1173,7 +1514,8 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                         <Select v-model:value="form.source" :options="sourceOptions" placeholder="请选择来源" allow-clear />
                       </Form.Item>
                     </Col>
-                    <Col :span="12">
+                    <!-- 企业客户：行业 -->
+                    <Col v-if="!isPersonal" :span="12">
                       <Form.Item label="行业">
                         <Select v-model:value="form.industry" :options="industryOptions" placeholder="请选择行业" allow-clear />
                       </Form.Item>
@@ -1187,12 +1529,22 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                           allow-clear
                           show-search
                           :filter-option="(input: string, option: any) => option.label?.toLowerCase().includes(input.toLowerCase())"
+                          @change="handleCountryChange"
                         />
                       </Form.Item>
                     </Col>
                     <Col :span="12">
                       <Form.Item label="省/州">
-                        <Input v-model:value="form.region" placeholder="省/州" allow-clear />
+                        <Cascader
+                          v-if="isChina"
+                          v-model:value="regionPath"
+                          :options="chinaAreaOptions"
+                          placeholder="请选择省/市/区"
+                          change-on-select
+                          allow-clear
+                          @change="handleRegionCascaderChange"
+                        />
+                        <Input v-else v-model:value="form.region" placeholder="省/州" allow-clear />
                       </Form.Item>
                     </Col>
                     <Col :span="24">
@@ -1200,7 +1552,8 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                         <Input v-model:value="form.address" placeholder="详细地址" allow-clear />
                       </Form.Item>
                     </Col>
-                    <Col :span="12">
+                    <!-- 企业客户：网站 -->
+                    <Col v-if="!isPersonal" :span="12">
                       <Form.Item label="网站">
                         <Input v-model:value="form.website" placeholder="https://" allow-clear />
                       </Form.Item>
@@ -1210,17 +1563,18 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                         <Select v-model:value="form.currency" :options="currencyOptions" placeholder="请选择币种" />
                       </Form.Item>
                     </Col>
-                    <Col :span="12">
+                    <!-- 企业客户：信用额度 / 账期 / 合作起始 -->
+                    <Col v-if="!isPersonal" :span="12">
                       <Form.Item label="信用额度">
                         <InputNumber v-model:value="form.creditLimit" placeholder="信用额度" :min="0" style="width: 100%;" />
                       </Form.Item>
                     </Col>
-                    <Col :span="12">
+                    <Col v-if="!isPersonal" :span="12">
                       <Form.Item label="账期（天）">
                         <InputNumber v-model:value="form.creditDays" placeholder="账期天数" :min="0" style="width: 100%;" />
                       </Form.Item>
                     </Col>
-                    <Col :span="12">
+                    <Col v-if="!isPersonal" :span="12">
                       <Form.Item label="合作起始日期">
                         <DatePicker
                           v-model:value="form.cooperatedAt"
@@ -1239,12 +1593,12 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                   </Row>
                 </Form>
                 <div class="basic-right-footer">
-                  <Button type="primary" :loading="formSaving" @click="handleSaveForm">保存</Button>
+                  <Button type="primary" :loading="formSaving" @click="handleSaveForm">{{ isCreate ? '创建客户' : '保存' }}</Button>
                 </div>
               </div>
             </div>
           </Tabs.TabPane>
-          <Tabs.TabPane key="financial" tab="财务信息">
+          <Tabs.TabPane v-if="!isCreate" key="financial" tab="财务信息">
             <div class="p-4" style="display: flex; gap: 16px; min-height: 500px;">
               <!-- 左侧：修改记录时间轴（只显示财务字段变更，不显示时间） -->
               <div class="basic-left">
@@ -1291,11 +1645,14 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
               <!-- 右侧：编辑表单 -->
               <div class="basic-right">
                 <div class="basic-right-header">
-                  <span class="text-sm font-semibold text-gray-700">税务信息</span>
+                  <span class="text-sm font-semibold text-gray-700">
+                    {{ isPersonal ? '个人银行卡' : '税务信息' }}
+                  </span>
                 </div>
                 <Spin :spinning="financialLoading">
                   <Form layout="vertical" class="customer-basic-form">
-                    <Row :gutter="16">
+                    <!-- 企业客户：税务信息字段 -->
+                    <Row v-if="!isPersonal" :gutter="16">
                       <Col :span="12">
                         <Form.Item label="纳税人识别号">
                           <Input v-model:value="financialForm.taxId" placeholder="统一社会信用代码" allow-clear />
@@ -1324,8 +1681,12 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                     </Row>
 
                     <div class="flex items-center justify-between mt-5 mb-3">
-                      <span class="text-sm font-semibold text-gray-700">银行账户信息</span>
-                      <Button size="small" type="dashed" :icon="h(LucidePlus)" @click="addBankAccount">添加账户</Button>
+                      <span class="text-sm font-semibold text-gray-700">
+                        {{ isPersonal ? '银行卡信息' : '银行账户信息' }}
+                      </span>
+                      <Button size="small" type="dashed" :icon="h(LucidePlus)" @click="addBankAccount">
+                        {{ isPersonal ? '添加银行卡' : '添加账户' }}
+                      </Button>
                     </div>
 
                     <div v-for="(acct, idx) in financialForm.bankAccounts" :key="idx" class="bank-account-card">
@@ -1345,17 +1706,17 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                         </Space>
                       </div>
                       <Row :gutter="16">
-                        <Col :span="8">
+                        <Col :span="24">
                           <Form.Item label="账户名称">
                             <Input v-model:value="acct.accountName" placeholder="如：北京心月狐科技有限公司" allow-clear />
                           </Form.Item>
                         </Col>
-                        <Col :span="8">
+                        <Col :span="24">
                           <Form.Item label="开户行">
                             <Input v-model:value="acct.bankName" placeholder="如：中国银行北京分行" allow-clear />
                           </Form.Item>
                         </Col>
-                        <Col :span="8">
+                        <Col :span="24">
                           <Form.Item label="银行账号">
                             <Input v-model:value="acct.accountNumber" placeholder="银行账号" allow-clear />
                           </Form.Item>
@@ -1373,7 +1734,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
             </div>
           </Tabs.TabPane>
 
-          <Tabs.TabPane key="contacts" :tab="`联系人 (${contacts.length})`">
+          <Tabs.TabPane v-if="!isCreate" key="contacts" :tab="`联系人 (${contacts.length})`">
             <div class="flex items-center justify-between mb-4 mt-2 px-2">
               <span class="text-sm font-semibold text-gray-600">当前在职</span>
               <Button size="small" type="primary" ghost :icon="h(LucideUserPlus)" @click="handleAddContact">添加联系人</Button>
@@ -1442,7 +1803,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
             </template>
           </Tabs.TabPane>
 
-          <Tabs.TabPane key="opportunities" :tab="`商机 (${opportunities.length || 0})`">
+          <Tabs.TabPane v-if="!isCreate" key="opportunities" :tab="`商机 (${oppPagination.total || 0})`">
             <div class="opp-container">
               <!-- 头部操作栏 -->
               <div class="opp-header">
@@ -1502,7 +1863,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
                         </div>
                         <div class="opp-detail-item">
                           <span class="opp-detail-label">来源</span>
-                          <span class="opp-detail-value">{{ sourceLabelMap[opp.source] || '-' }}</span>
+                          <span class="opp-detail-value">{{ sourceLabelMap[Number(opp.source)] || '-' }}</span>
                         </div>
                         <div class="opp-detail-item">
                           <span class="opp-detail-label">负责人</span>
@@ -1533,7 +1894,63 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
               </div>
             </div>
           </Tabs.TabPane>
-          <Tabs.TabPane key="contracts" :tab="`合同 (${contractTotal || 0})`">
+          <Tabs.TabPane v-if="!isCreate" key="orders" :tab="`订单 (${customer.stats?.orderCount || 0})`">
+            <div class="order-list-wrap">
+              <Spin :spinning="orderLoading">
+                <div v-if="orderList.length > 0" class="order-cards">
+                  <div
+                    v-for="order in orderList"
+                    :key="order.id"
+                    class="order-card"
+                  >
+                    <div class="order-card-header">
+                      <div class="order-card-header-left">
+                        <span class="order-no">{{ order.orderNo || `#${order.id}` }}</span>
+                        <Tag :color="getOrderStatusInfo(order.orderStatus).color" class="!mr-0">
+                          {{ getOrderStatusInfo(order.orderStatus).label }}
+                        </Tag>
+                        <Tag :color="getPaymentStatusInfo(order.paymentStatus).color" class="!mr-0">
+                          {{ getPaymentStatusInfo(order.paymentStatus).label }}
+                        </Tag>
+                      </div>
+                      <span class="order-date">{{ formatDateTime(order.orderDate) }}</span>
+                    </div>
+                    <div class="order-card-body">
+                      <div class="order-title">{{ order.title || '—' }}</div>
+                      <div class="order-meta">
+                        <span class="order-meta-item">
+                          <span class="order-meta-label">订单金额</span>
+                          <span class="order-amount">{{ formatMoney(order.totalAmount) }}</span>
+                        </span>
+                        <span class="order-meta-item">
+                          <span class="order-meta-label">已付</span>
+                          <span class="order-paid">{{ formatMoney(order.paidAmount) }}</span>
+                        </span>
+                        <span class="order-meta-item">
+                          <span class="order-meta-label">未付</span>
+                          <span class="order-unpaid">{{ formatMoney(order.unpaidAmount) }}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <Empty v-else description="暂无订单记录" />
+                <div v-if="orderTotal > 0" class="order-pagination">
+                  <Pagination
+                    v-model:current="orderPage"
+                    v-model:pageSize="orderPageSize"
+                    :total="orderTotal"
+                    :page-size-options="['10', '20', '50']"
+                    show-size-changer
+                    show-quick-jumper
+                    :show-total="(t: number) => `共 ${t} 条`"
+                    @change="handleOrderPageChange"
+                  />
+                </div>
+              </Spin>
+            </div>
+          </Tabs.TabPane>
+          <Tabs.TabPane v-if="!isCreate" key="contracts" :tab="`合同 (${contractTotal || 0})`">
             <div class="contract-list-wrap">
               <Spin :spinning="contractLoading">
                 <div v-if="contractList.length > 0" class="contract-cards">
@@ -1591,66 +2008,10 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
               </Spin>
             </div>
           </Tabs.TabPane>
-          <Tabs.TabPane key="orders" :tab="`订单 (${customer.stats?.orderCount || 0})`">
-            <div class="order-list-wrap">
-              <Spin :spinning="orderLoading">
-                <div v-if="orderList.length > 0" class="order-cards">
-                  <div
-                    v-for="order in orderList"
-                    :key="order.id"
-                    class="order-card"
-                  >
-                    <div class="order-card-header">
-                      <div class="order-card-header-left">
-                        <span class="order-no">{{ order.orderNo || `#${order.id}` }}</span>
-                        <Tag :color="getOrderStatusInfo(order.orderStatus).color" class="!mr-0">
-                          {{ getOrderStatusInfo(order.orderStatus).label }}
-                        </Tag>
-                        <Tag :color="getPaymentStatusInfo(order.paymentStatus).color" class="!mr-0">
-                          {{ getPaymentStatusInfo(order.paymentStatus).label }}
-                        </Tag>
-                      </div>
-                      <span class="order-date">{{ formatDateTime(order.orderDate) }}</span>
-                    </div>
-                    <div class="order-card-body">
-                      <div class="order-title">{{ order.title || '—' }}</div>
-                      <div class="order-meta">
-                        <span class="order-meta-item">
-                          <span class="order-meta-label">订单金额</span>
-                          <span class="order-amount">{{ formatMoney(order.totalAmount) }}</span>
-                        </span>
-                        <span class="order-meta-item">
-                          <span class="order-meta-label">已付</span>
-                          <span class="order-paid">{{ formatMoney(order.paidAmount) }}</span>
-                        </span>
-                        <span class="order-meta-item">
-                          <span class="order-meta-label">未付</span>
-                          <span class="order-unpaid">{{ formatMoney(order.unpaidAmount) }}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <Empty v-else description="暂无订单记录" />
-                <div v-if="orderTotal > 0" class="order-pagination">
-                  <Pagination
-                    v-model:current="orderPage"
-                    v-model:pageSize="orderPageSize"
-                    :total="orderTotal"
-                    :page-size-options="['10', '20', '50']"
-                    show-size-changer
-                    show-quick-jumper
-                    :show-total="(t: number) => `共 ${t} 条`"
-                    @change="handleOrderPageChange"
-                  />
-                </div>
-              </Spin>
-            </div>
-          </Tabs.TabPane>
-          <Tabs.TabPane key="payments" tab="回款">
+          <Tabs.TabPane v-if="!isCreate" key="payments" tab="回款">
             <div class="text-gray-400 text-center py-16 text-sm">回款模块开发中</div>
           </Tabs.TabPane>
-          <Tabs.TabPane key="followups" tab="跟进记录">
+          <Tabs.TabPane v-if="!isCreate" key="followups" tab="跟进记录">
             <div class="followup-layout">
               <!-- 左侧：跟进记录时间轴 -->
               <div class="followup-list">
@@ -1724,7 +2085,7 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
               </div>
             </div>
           </Tabs.TabPane>
-          <Tabs.TabPane key="assignHistory" :tab="`负责人记录 (${assignHistory.length})`">
+          <Tabs.TabPane v-if="!isCreate" key="assignHistory" :tab="`负责人记录 (${assignHistory.length})`">
             <div class="p-4">
               <Timeline v-if="assignHistory.length > 0">
                 <Timeline.Item
@@ -1758,7 +2119,24 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
         </Tabs>
       </Card>
       <ContactEditDrawer />
-      <OpportunityEditDrawer />
+      <Drawer
+        v-model:open="oppDetailVisible"
+        :width="1200"
+        placement="right"
+        :destroy-on-close="true"
+        :mask-closable="true"
+        :closable="true"
+        :title="oppDetailTitle"
+        :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }"
+        @close="closeOppDetail"
+      >
+        <OpportunityDetail
+          :id="oppDetailId"
+          :customer-id="oppDetailCustomerId"
+          :customer-name="oppDetailCustomerName"
+          @created="loadOpportunities"
+        />
+      </Drawer>
     </Skeleton>
   </div>
 </template>
@@ -1872,6 +2250,57 @@ watch(() => props.id, () => { if (props.id) loadData(); }, { immediate: true });
   border-top: 1px solid var(--border-color-base, #f0f0f0);
   text-align: center;
   background-color: var(--component-background, #fff);
+}
+
+/* 转移日志卡片样式 */
+.transfer-log-card {
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #f9f0ff 0%, #f5f0ff 100%);
+  border: 1px solid #d3adf7;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.transfer-flow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.transfer-arrow {
+  color: #722ed1;
+  font-size: 14px;
+  font-weight: 600;
+}
+.transfer-reason,
+.transfer-remark {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.reason-label,
+.remark-label,
+.affected-label {
+  color: #8c8c8c;
+  font-size: 11px;
+}
+.reason-value,
+.remark-value {
+  color: #262626;
+  font-size: 12px;
+}
+.transfer-affected {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px;
+}
+.affected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
 }
 
 .basic-right {

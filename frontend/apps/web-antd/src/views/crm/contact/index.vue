@@ -134,7 +134,8 @@ const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: { height: 40 },
+  cellConfig: { isHover: true },
+  rowConfig: { height: 'auto' },
   stripe: true,
   checkboxConfig: { checkField: 'checked', trigger: 'row' },
 
@@ -148,11 +149,47 @@ const gridOptions: VxeGridProps = {
           listType: activeTab.value,
           ...searchForm.value,
         });
+        // 无数据 150px，有数据按内容自适应
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '280px' : '';
+          gridEl.style.height = items.length === 0 ? '150px' : '';
         }
+        // 等DOM渲染完成后同步固定列行高并居中内容
+        const syncFixedColumn = (retry = 0) => {
+          const $el = gridApi.grid?.$el as HTMLElement | undefined;
+          if (!$el) return;
+          const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
+          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          if (!mainBody || !fixedRightBody) {
+            if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
+            return;
+          }
+          const rows1 = mainBody.querySelectorAll('tr.vxe-body--row');
+          const rows2 = fixedRightBody.querySelectorAll('tr.vxe-body--row');
+          const len = Math.min(rows1.length, rows2.length);
+          if (len === 0) return;
+          for (let i = 0; i < len; i++) {
+            const h = (rows1[i] as HTMLElement).offsetHeight;
+            if (h === 0) continue;
+            (rows2[i] as HTMLElement).style.height = h + 'px';
+            const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
+            tds.forEach((td: Element) => {
+              const cell = td.querySelector('.vxe-cell');
+              if (cell) {
+                (cell as HTMLElement).style.display = 'flex';
+                (cell as HTMLElement).style.alignItems = 'center';
+                (cell as HTMLElement).style.justifyContent = 'center';
+                (cell as HTMLElement).style.height = h + 'px';
+              }
+            });
+          }
+        };
+        requestAnimationFrame(() => {
+          syncFixedColumn();
+          setTimeout(() => syncFixedColumn(), 200);
+          setTimeout(() => syncFixedColumn(), 500);
+        });
         return result;
       },
     },

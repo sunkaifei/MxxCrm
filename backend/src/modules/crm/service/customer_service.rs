@@ -40,7 +40,7 @@ fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Mod
 /// - data_scope = 3（本部门数据）：返回所在部门的所有用户
 /// - data_scope = 4（本部门及以下）：返回所在部门及所有子部门的用户
 /// - data_scope = 2（自定义部门）：返回指定部门的所有用户
-async fn get_accessible_user_ids(
+pub async fn get_accessible_user_ids(
     db: &DbConn,
     current_user_id: i64,
     data_scope: Option<i32>,
@@ -134,13 +134,24 @@ async fn get_accessible_user_ids(
     }
 }
 
-/// 检查公司名称是否已存在
-/// name: 公司名称
+/// 检查客户名称是否已存在（按 customer_type 区分查重字段）
+/// customer_type: 1=企业（按 company_name 查重），2=个人（按 person_name 查重）
+/// name: 名称
 /// exclude_id: 排除的客户ID（编辑时传入当前客户ID，新建时传 None）
-pub async fn check_company_name(db: &impl ConnectionTrait, name: &str, exclude_id: Option<i64>) -> Result<bool> {
+pub async fn check_customer_name(
+    db: &impl ConnectionTrait,
+    customer_type: i32,
+    name: &str,
+    exclude_id: Option<i64>,
+) -> Result<bool> {
     let mut query = customer::Entity::find()
         .filter(customer::Column::Deleted.eq(0))
-        .filter(customer::Column::CompanyName.eq(name));
+        .filter(customer::Column::CustomerType.eq(customer_type));
+    query = match customer_type {
+        1 => query.filter(customer::Column::CompanyName.eq(name)),
+        2 => query.filter(customer::Column::PersonName.eq(name)),
+        _ => return Err(Error::from("无效的客户类型，仅支持 1=企业, 2=个人")),
+    };
     if let Some(id) = exclude_id {
         query = query.filter(customer::Column::Id.ne(id));
     }
@@ -154,26 +165,74 @@ pub async fn check_company_name(db: &impl ConnectionTrait, name: &str, exclude_i
 pub async fn insert(db: &DbConn, form_data: &CustomerSaveRequest, created_by: i64) -> Result<i64> {
     let txn = db.begin().await?;
 
-    // 检查公司名称是否已存在
-    let name = form_data.company_name.as_deref().unwrap_or("").trim();
-    if !name.is_empty() {
-        if check_company_name(&txn, name, None).await? {
-            txn.rollback().await?;
-            return Err(Error::from(format!("公司名称「{}」已存在", name)));
+    // 1. 客户类型默认值
+    let customer_type = form_data.customer_type.unwrap_or(1);
+    if customer_type != 1 && customer_type != 2 {
+        txn.rollback().await?;
+        return Err(Error::from("无效的客户类型，仅支持 1=企业, 2=个人"));
+    }
+
+    // 2. 按类型校验必填字段与查重
+    match customer_type {
+        1 => {
+            // 企业客户：公司名称必填且不重复
+            let name = form_data.company_name.as_deref().unwrap_or("").trim();
+            if name.is_empty() {
+                txn.rollback().await?;
+                return Err(Error::from("企业客户必须填写公司名称"));
+            }
+            if check_customer_name(&txn, 1, name, None).await? {
+                txn.rollback().await?;
+                return Err(Error::from(format!("公司名称「{}」已存在", name)));
+            }
         }
+        2 => {
+            // 个人客户：姓名必填且不重复
+            let pname = form_data.person_name.as_deref().unwrap_or("").trim();
+            if pname.is_empty() {
+                txn.rollback().await?;
+                return Err(Error::from("个人客户必须填写姓名"));
+            }
+            if check_customer_name(&txn, 2, pname, None).await? {
+                txn.rollback().await?;
+                return Err(Error::from(format!("个人姓名「{}」已存在", pname)));
+            }
+        }
+        _ => unreachable!(),
     }
 
     let mut dto: CustomerSaveDTO = form_data.clone().into();
+    dto.customer_type = Some(customer_type);
     dto.created_by = Some(created_by);
+    // 新建客户时，若未指定负责人，默认归属当前登录用户（当前销售）
+    if dto.assigned_to.is_none() {
+        dto.assigned_to = Some(created_by);
+    }
 
-    // 调用编码模块自动生成客户编号（如未配置规则则忽略）
+    // 3. 客户编号：优先使用编码规则；若无规则，按类型生成简易编号（ENT- / PER-）
     if let Ok(code) = code_rule_service::generate_code(&txn, "customer", None, None, None).await {
         dto.customer_no = Some(code);
+    } else if dto.customer_no.as_deref().unwrap_or("").trim().is_empty() {
+        let prefix = if customer_type == 2 { "PER" } else { "ENT" };
+        let date_part = chrono::Local::now().format("%Y%m%d").to_string();
+        // 用计数方式生成尾号（同日同类型数量+1）
+        let today_count = customer::Entity::find()
+            .filter(customer::Column::CustomerType.eq(customer_type))
+            .filter(customer::Column::CreateTime.gte(
+                chrono::NaiveDateTime::parse_from_str(
+                    &format!("{} 00:00:00", chrono::Local::now().format("%Y-%m-%d")),
+                    "%Y-%m-%d %H:%M:%S"
+                ).ok()
+            ))
+            .count(&txn)
+            .await
+            .unwrap_or(0);
+        dto.customer_no = Some(format!("{}-{}-{:04}", prefix, date_part, today_count + 1));
     }
 
     let result = CustomerModel::insert(&txn, &dto).await?;
 
-    // 新建客户时，如果有负责人，记录初始分配历史
+    // 4. 新建客户时，如果有负责人，记录初始分配历史
     if let Some(aid) = dto.assigned_to {
         let _ = assign_history_service::record_claim(&txn, result, aid).await;
     }
@@ -193,21 +252,44 @@ pub async fn update(db: &DbConn, form_data: &CustomerUpdateRequest, updated_by: 
         .await?
         .ok_or_else(|| Error::from("客户不存在"))?;
 
-    // 2. 检查公司名称是否与其他客户重复
-    let name = form_data.company_name.as_deref().unwrap_or("").trim();
-    if !name.is_empty() {
-        if check_company_name(&txn, name, Some(customer_id)).await? {
-            txn.rollback().await?;
-            return Err(Error::from(format!("公司名称「{}」已存在", name)));
+    // 2. 类型以旧数据为准，禁止通过 update 修改类型
+    let customer_type = old_model.customer_type.unwrap_or(1);
+
+    // 3. 按类型校验必填字段与查重
+    match customer_type {
+        1 => {
+            let name = form_data.company_name.as_deref().unwrap_or("").trim();
+            if name.is_empty() {
+                txn.rollback().await?;
+                return Err(Error::from("企业客户必须填写公司名称"));
+            }
+            if check_customer_name(&txn, 1, name, Some(customer_id)).await? {
+                txn.rollback().await?;
+                return Err(Error::from(format!("公司名称「{}」已存在", name)));
+            }
         }
+        2 => {
+            let pname = form_data.person_name.as_deref().unwrap_or("").trim();
+            if pname.is_empty() {
+                txn.rollback().await?;
+                return Err(Error::from("个人客户必须填写姓名"));
+            }
+            if check_customer_name(&txn, 2, pname, Some(customer_id)).await? {
+                txn.rollback().await?;
+                return Err(Error::from(format!("个人姓名「{}」已存在", pname)));
+            }
+        }
+        _ => {}
     }
 
-    // 3. 执行更新
+    // 4. 执行更新
     let mut dto: CustomerSaveDTO = form_data.clone().into();
+    // 强制保持原类型，防止前端传值覆盖
+    dto.customer_type = Some(customer_type);
     dto.updated_by = Some(updated_by);
     let result = CustomerModel::update_by_id(&txn, &form_data.id, &dto).await?;
 
-    // 4. 记录修改日志（如有差异）
+    // 5. 记录修改日志（如有差异）
     let old_json = serde_json::to_value(&old_model).unwrap_or_default();
     let new_json = serde_json::to_value(&dto).unwrap_or_default();
     let editor_name = Admin::find_by_id(updated_by)
@@ -260,42 +342,34 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<CustomerDetailVO> {
     match result {
         Some(item) => {
             let mut vo: CustomerDetailVO = item.into();
-
-            // 查询负责人名称
-            if let Some(assignee_id) = vo.assigned_to {
-                if let Some(admin) = Admin::find_by_id(assignee_id).one(db).await? {
-                    vo.assigned_to_name = admin.nick_name.or(admin.user_name);
-                }
-            }
+            let assignee_id = vo.assigned_to;
 
             // 查询客户的跟进记录
             let followups = crate::modules::crm::model::followup::FollowupModel::select_by_customer_id(&db, id).await?;
-            
-            let creator_ids: Vec<i64> = followups.iter()
+
+            // 合并 客户负责人 + 所有跟进记录创建人 一次 IN 查询用户名
+            let mut user_ids: Vec<i64> = followups.iter()
                 .filter_map(|f| f.created_by)
                 .collect::<HashSet<_>>()
                 .into_iter()
                 .collect();
-            
-            let mut creator_map: HashMap<i64, String> = HashMap::new();
-            if !creator_ids.is_empty() {
-                let admins = Admin::find()
-                    .filter(admin::Column::Id.is_in(creator_ids))
-                    .all(db)
-                    .await?;
-                for a in admins {
-                    creator_map.insert(a.id, a.nick_name.clone().or(a.user_name.clone()).unwrap_or_default());
-                }
+            if let Some(aid) = assignee_id {
+                user_ids.push(aid);
             }
-            
+            let name_map = crate::modules::system::service::admin_service::build_admin_name_map(db, user_ids).await;
+
+            if let Some(aid) = assignee_id {
+                vo.assigned_to_name = name_map.get(&aid).cloned();
+            }
+
             let followup_vo_list: Vec<crate::modules::crm::model::followup::FollowupListVO> = followups.into_iter().map(|f| {
                 let mut f_vo: crate::modules::crm::model::followup::FollowupListVO = f.into();
                 if let Some(created_by) = f_vo.created_by {
-                    f_vo.created_by_name = creator_map.get(&created_by).cloned();
+                    f_vo.created_by_name = name_map.get(&created_by).cloned();
                 }
                 f_vo
             }).collect();
-            
+
             vo.followups = Some(followup_vo_list);
             Ok(vo)
         },
@@ -315,22 +389,10 @@ async fn fill_assignee_and_creator_names(
     let user_ids: Vec<i64> = list.iter()
         .flat_map(|c| [c.assigned_to, c.created_by])
         .flatten()
-        .collect::<HashSet<_>>()
-        .into_iter()
         .collect();
 
-    let mut user_map: HashMap<i64, String> = HashMap::new();
-    if !user_ids.is_empty() {
-        let admins = Admin::find()
-            .filter(admin::Column::Id.is_in(user_ids))
-            .all(db)
-            .await?;
-        for a in admins {
-            if let Some(name) = a.nick_name.or(a.user_name) {
-                user_map.insert(a.id, name);
-            }
-        }
-    }
+    // 统一调用共用方法（内部已去重 + deleted=0 过滤）
+    let user_map = crate::modules::system::service::admin_service::build_admin_name_map(db, user_ids).await;
 
     // 批量查询客户标签（IN 查询，避免 N+1）
     let customer_ids: Vec<i64> = list.iter().map(|c| c.id).collect();
@@ -454,7 +516,8 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
             // 我的客户：只看自己负责的
             let (list, total) = CustomerModel::select_in_page(
                 &db, page, page_size,
-                query.keywords.clone(), query.level.clone(), query.country.clone(), query.source.clone(),
+                query.keywords.clone(), query.customer_type.clone(),
+                query.level.clone(), query.country.clone(), query.source.clone(),
                 Some(current_user_id),
             ).await?;
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
@@ -492,7 +555,8 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
             let assigned_ids = if user_ids.is_empty() { None } else { Some(user_ids) };
             let (list, total) = CustomerModel::select_in_page_by_assigned_ids(
                 &db, page, page_size,
-                query.keywords.clone(), query.level.clone(), query.country.clone(), query.source.clone(),
+                query.keywords.clone(), query.customer_type.clone(),
+                query.level.clone(), query.country.clone(), query.source.clone(),
                 assigned_ids,
             ).await?;
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
@@ -508,7 +572,8 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
 
             let (list, total) = CustomerModel::select_today_follow_page(
                 &db, page, page_size,
-                query.keywords.clone(), query.level.clone(), query.country.clone(), query.source.clone(),
+                query.keywords.clone(), query.customer_type.clone(),
+                query.level.clone(), query.country.clone(), query.source.clone(),
                 user_ids,
             ).await?;
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
@@ -527,7 +592,8 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
                     // 全部数据 - 不过滤负责人
                     let (list, total) = CustomerModel::select_in_page(
                         &db, page, page_size,
-                        query.keywords.clone(), query.level.clone(), query.country.clone(), query.source.clone(),
+                        query.keywords.clone(), query.customer_type.clone(),
+                        query.level.clone(), query.country.clone(), query.source.clone(),
                         None,
                     ).await?;
                     fill_assignee_and_creator_names(db, list, total, page, page_size).await
@@ -536,7 +602,8 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
                     let assigned_ids = if user_ids.is_empty() { None } else { Some(user_ids) };
                     let (list, total) = CustomerModel::select_in_page_by_assigned_ids(
                         &db, page, page_size,
-                        query.keywords.clone(), query.level.clone(), query.country.clone(), query.source.clone(),
+                        query.keywords.clone(), query.customer_type.clone(),
+                        query.level.clone(), query.country.clone(), query.source.clone(),
                         assigned_ids,
                     ).await?;
                     fill_assignee_and_creator_names(db, list, total, page, page_size).await
@@ -556,29 +623,18 @@ pub async fn pool_list(db: &DbConn, query: &CustomerListQuery) -> Result<ResultP
         page,
         page_size,
         query.keywords.clone(),
+        query.customer_type.clone(),
         query.level.clone(),
         query.country.clone(),
         query.source.clone(),
         query.industry.clone(),
     ).await?;
 
-    // 批量查询创建人名称
+    // 批量查询创建人名称（统一调用共用方法）
     let creator_ids: Vec<i64> = list.iter()
         .filter_map(|item| item.created_by)
-        .collect::<HashSet<_>>()
-        .into_iter()
         .collect();
-
-    let mut creator_map: HashMap<i64, String> = HashMap::new();
-    if !creator_ids.is_empty() {
-        let admins = Admin::find()
-            .filter(admin::Column::Id.is_in(creator_ids))
-            .all(db)
-            .await?;
-        for a in admins {
-            creator_map.insert(a.id, a.nick_name.clone().or(a.user_name.clone()).unwrap_or_default());
-        }
-    }
+    let creator_map = crate::modules::system::service::admin_service::build_admin_name_map(db, creator_ids).await;
 
     // 批量查询客户标签
     let customer_ids: Vec<i64> = list.iter().map(|c| c.id).collect();
