@@ -380,7 +380,7 @@ pub async fn sign(db: &DbConn, id: i64) -> Result<i64> {
         let all_signed = !shipments.is_empty()
             && shipments.iter().all(|s| s.status.unwrap_or(0) == 3);
         if all_signed {
-            OrderModel::update_status(&txn, order_id, 9, None).await?;
+            OrderModel::update_status(&txn, order_id, 9, None, None).await?;
         }
     }
 
@@ -430,7 +430,7 @@ async fn update_order_ship_status<C: ConnectionTrait>(db: &C, order_id: i64) -> 
     if let Some(o) = order {
         let current = o.order_status.unwrap_or(0);
         if current < 5 && current != new_status {
-            OrderModel::update_status(db, order_id, new_status, None).await?;
+            OrderModel::update_status(db, order_id, new_status, None, None).await?;
         }
     }
 

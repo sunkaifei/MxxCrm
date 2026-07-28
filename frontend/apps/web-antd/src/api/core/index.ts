@@ -42,6 +42,7 @@ export * from './system/area';
 export * from './system/dict';
 export * from './system/log';
 export * from './system/edit-log';
+export * from './system/mail';
 export * from './system/menu';
 export * from './system/notice';
 export * from './system/post';

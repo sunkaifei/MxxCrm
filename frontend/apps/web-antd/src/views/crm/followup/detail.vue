@@ -17,7 +17,6 @@ import {
 } from '@vben/icons';
 
 import {
-  Descriptions,
   Tag,
   Card,
   Spin,
@@ -59,7 +58,7 @@ const loading = ref(false);
 const followup = ref<any>(null);
 const subject = ref<any>(null);
 const submitting = ref(false);
-const activeTab = ref('lead-basic');
+const activeTab = ref('followup');
 
 const sourceType = computed(() => followup.value?.sourceType ?? 0);
 const isLead = computed(() => sourceType.value === 1);
@@ -184,12 +183,6 @@ async function fetchDetail() {
         loadContacts();
         loadOpportunities();
       }
-      // 根据来源类型设置默认激活的选项卡
-      if (isLead.value) {
-        activeTab.value = 'lead-basic';
-      } else if (isCustomer.value) {
-        activeTab.value = 'customer-basic';
-      }
     }
   } catch {
     message.error('获取跟进详情失败');
@@ -204,12 +197,27 @@ async function loadContacts() {
   try {
     const res: any = await getCustomerContactsApi(subject.value.id);
     // 后端返回 { current: [...], history: [...] } 结构
+    // current 与 history 可能包含同一联系人（解绑后重新绑定），按 id 去重，优先保留 current
     if (Array.isArray(res)) {
       contacts.value = res;
     } else if (res && (res.current || res.history)) {
       const current = Array.isArray(res.current) ? res.current : [];
       const history = Array.isArray(res.history) ? res.history : [];
-      contacts.value = [...current, ...history];
+      const seen = new Set<unknown>();
+      const merged: any[] = [];
+      for (const c of current) {
+        const key = c?.id;
+        if (key != null && seen.has(key)) continue;
+        if (key != null) seen.add(key);
+        merged.push(c);
+      }
+      for (const c of history) {
+        const key = c?.id;
+        if (key != null && seen.has(key)) continue;
+        if (key != null) seen.add(key);
+        merged.push(c);
+      }
+      contacts.value = merged;
     } else if (res && Array.isArray(res.items)) {
       contacts.value = res.items;
     } else {
@@ -453,6 +461,27 @@ watch(() => props.id, fetchDetail, { immediate: true });
                 <div class="profile-grid-value">{{ subject?.createTime || subject?.createdAt || '-' }}</div>
               </div>
             </div>
+
+            <!-- 全长行：地址、官网、描述 -->
+            <div v-if="subject?.address" class="profile-full-row">
+              <span class="profile-full-label">详细地址</span>
+              <span class="profile-full-value">{{ subject.address }}</span>
+            </div>
+            <div v-if="subject?.website" class="profile-full-row">
+              <span class="profile-full-label">官网</span>
+              <a class="profile-full-link" :href="subject.website" target="_blank" rel="noopener noreferrer">{{ subject.website }}</a>
+            </div>
+            <div v-if="subject?.description" class="profile-full-row">
+              <span class="profile-full-label">描述</span>
+              <span class="profile-full-value">{{ subject.description }}</span>
+            </div>
+
+            <!-- 创建人 -->
+            <div class="profile-footer-row">
+              <LucideUser class="profile-footer-icon" />
+              <span class="profile-footer-label">创建人</span>
+              <span class="profile-footer-value">{{ subject?.createdByName || '-' }}</span>
+            </div>
           </div>
 
           <div class="profile-extra">
@@ -516,12 +545,22 @@ watch(() => props.id, fetchDetail, { immediate: true });
               </div>
               <div class="profile-grid-item">
                 <div class="profile-grid-label">负责人</div>
-                <div class="profile-grid-value">{{ subject?.createdByName || subject?.ownerUserName || '-' }}</div>
+                <div class="profile-grid-value">{{ subject?.assignedToName || subject?.ownerUserName || '-' }}</div>
               </div>
               <div class="profile-grid-item">
                 <div class="profile-grid-label">创建时间</div>
                 <div class="profile-grid-value">{{ subject?.createTime || subject?.createdAt || '-' }}</div>
               </div>
+            </div>
+
+            <!-- 全长行：详细地址、描述 -->
+            <div v-if="subject?.address" class="profile-full-row">
+              <span class="profile-full-label">详细地址</span>
+              <span class="profile-full-value">{{ subject.country ? subject.country + ' · ' : '' }}{{ subject.region ? subject.region + ' · ' : '' }}{{ subject.address }}</span>
+            </div>
+            <div v-if="subject?.description" class="profile-full-row">
+              <span class="profile-full-label">描述</span>
+              <span class="profile-full-value">{{ subject.description }}</span>
             </div>
           </div>
 
@@ -559,121 +598,6 @@ watch(() => props.id, fetchDetail, { immediate: true });
         <!-- ============ 选项卡区域 ============ -->
         <Card :bordered="false" class="content-card">
           <Tabs v-model:activeKey="activeTab" class="workbench-tabs" :tabbarstyle="{ marginBottom: '16px' }">
-            <!-- ====== 线索：基本信息 ====== -->
-            <Tabs.TabPane v-if="isLead" key="lead-basic" tab="基本信息">
-              <div class="info-section">
-                <div class="section-header">
-                  <LucideBuilding2 class="section-icon" />
-                  <span class="section-title">公司信息</span>
-                </div>
-                <Descriptions :column="2" size="small" :colon="false" class="info-desc">
-                  <Descriptions.Item label="公司名称">{{ subject?.companyName || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="所属行业">
-                    {{ subject?.industry ? (industryLabelMap[subject.industry] || subject.industry) : '-' }}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="线索来源">
-                    {{ getSourceLabel(subject?.source) }}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="线索状态">
-                    <Tag v-if="subject?.status" :color="leadStatusColorMap[subject.status] || 'default'">
-                      {{ leadStatusLabelMap[subject.status] || subject.status }}
-                    </Tag>
-                    <span v-else>-</span>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="国家">{{ subject?.country || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="地区">{{ subject?.region || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="详细地址" :span="2">{{ subject?.address || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="官网" :span="2">{{ subject?.website || '-' }}</Descriptions.Item>
-                </Descriptions>
-              </div>
-
-              <div class="info-section">
-                <div class="section-header">
-                  <LucideUser class="section-icon" />
-                  <span class="section-title">联系人信息</span>
-                  <Tag color="blue" size="small">线索联系人</Tag>
-                </div>
-                <div class="contact-quick-card">
-                  <Avatar class="contact-avatar-lg" :size="48">
-                    <LucideUser class="contact-avatar-icon" />
-                  </Avatar>
-                  <div class="contact-quick-info">
-                    <div class="contact-quick-name">
-                      {{ subject?.contactName || '-' }}
-                      <Tag v-if="subject?.title" color="default" size="small">{{ subject.title }}</Tag>
-                    </div>
-                    <div class="contact-quick-detail">
-                      <span v-if="subject?.mobile" class="detail-item">
-                        <LucidePhone class="detail-icon" />{{ subject.mobile }}
-                      </span>
-                      <span v-if="subject?.email" class="detail-item">
-                        <LucideMail class="detail-icon" />{{ subject.email }}
-                      </span>
-                      <span v-if="subject?.phone" class="detail-item">
-                        <span class="detail-icon">☎</span>{{ subject.phone }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="info-section">
-                <div class="section-header">
-                  <LucideFilePenLine class="section-icon" />
-                  <span class="section-title">其他信息</span>
-                </div>
-                <Descriptions :column="2" size="small" :colon="false" class="info-desc">
-                  <Descriptions.Item label="创建时间">{{ subject?.createTime || subject?.createdAt || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="创建人">{{ subject?.createdByName || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="描述" :span="2">{{ subject?.description || '-' }}</Descriptions.Item>
-                </Descriptions>
-              </div>
-
-              <div v-if="!subject?.convertedToCustomerId" class="convert-action-card">
-                <div class="convert-action-info">
-                  <div class="convert-action-title">线索转化</div>
-                  <div class="convert-action-desc">确认线索信息无误后，可将线索转为正式客户，系统将自动创建客户和联系人记录。</div>
-                </div>
-                <Button type="primary" size="large" @click="handleConvertToCustomer">
-                  <template #icon><LucideArrowRight :size="16" /></template>
-                  立即转成客户
-                </Button>
-              </div>
-            </Tabs.TabPane>
-
-            <!-- ====== 客户：基本信息 ====== -->
-            <Tabs.TabPane v-if="isCustomer" key="customer-basic" tab="基本信息">
-              <div class="info-section">
-                <div class="section-header">
-                  <LucideBuilding2 class="section-icon" />
-                  <span class="section-title">基本信息</span>
-                </div>
-                <Descriptions :column="2" size="small" :colon="false" class="info-desc">
-                  <template v-if="subject?.customerType === 1">
-                    <Descriptions.Item label="公司名称">{{ subject?.companyName || '-' }}</Descriptions.Item>
-                    <Descriptions.Item label="客户编号">{{ subject?.customerNo || '-' }}</Descriptions.Item>
-                  </template>
-                  <template v-else-if="subject?.customerType === 2">
-                    <Descriptions.Item label="姓名">{{ subject?.personName || '-' }}</Descriptions.Item>
-                    <Descriptions.Item label="客户编号">{{ subject?.customerNo || '-' }}</Descriptions.Item>
-                  </template>
-                  <Descriptions.Item label="客户来源">
-                    {{ getSourceLabel(subject?.source) }}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="所属行业">
-                    {{ subject?.industry ? (industryLabelMap[subject.industry] || subject.industry) : '-' }}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="国家">{{ subject?.country || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="地区">{{ subject?.region || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="详细地址" :span="2">{{ subject?.address || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="官网" :span="2">{{ subject?.website || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="创建时间">{{ subject?.createTime || subject?.createdAt || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="创建人">{{ subject?.createdByName || '-' }}</Descriptions.Item>
-                  <Descriptions.Item label="描述" :span="2">{{ subject?.description || '-' }}</Descriptions.Item>
-                </Descriptions>
-              </div>
-            </Tabs.TabPane>
-
             <!-- ====== 跟进记录（左右分栏）====== -->
             <Tabs.TabPane key="followup" :tab="`跟进记录${followupHistory.length > 0 ? ' (' + followupHistory.length + ')' : ''}`">
               <div class="followup-layout">
@@ -1149,6 +1073,66 @@ watch(() => props.id, fetchDetail, { immediate: true });
 .profile-bell-icon {
   width: 12px;
   height: 12px;
+}
+
+/* 全长行：地址、官网、描述 */
+.profile-full-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.profile-full-label {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  min-width: 48px;
+  padding-top: 1px;
+}
+.profile-full-value {
+  color: hsl(var(--card-foreground));
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+.profile-full-link {
+  color: hsl(var(--primary));
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.profile-full-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+/* 创建人/页脚行 */
+.profile-footer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  margin-top: 6px;
+  border-top: 1px solid hsl(var(--border) / 50%);
+  font-size: 12px;
+}
+.profile-footer-icon {
+  width: 12px;
+  height: 12px;
+  color: hsl(var(--muted-foreground));
+}
+.profile-footer-label {
+  color: hsl(var(--muted-foreground));
+}
+.profile-footer-value {
+  color: hsl(var(--card-foreground));
+  font-weight: 500;
 }
 
 /* 右侧操作区 */

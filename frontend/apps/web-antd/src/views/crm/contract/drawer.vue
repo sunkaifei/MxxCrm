@@ -27,10 +27,10 @@ import {
 } from '#/api';
 import { requestClient } from '#/api/request';
 import { getOrderInfoApi } from '#/api/core/sale/order';
+import { getContactListApi } from '#/api/core/crm/contact';
 import { getCommissionRuleOptionsApi, previewCommissionApi } from '#/api/core/finance/commission-rule';
 import { getUserListApi } from '#/api/core/system/user';
-import CustomerSelectModal from '../components/CustomerSelectModal.vue';
-import OpportunitySelectModal from '../components/OpportunitySelectModal.vue';
+import OrderSelectModal from '../components/OrderSelectModal.vue';
 import UserSelectModal from '../components/UserSelectModal.vue';
 
 const props = defineProps<{
@@ -59,11 +59,8 @@ const isReadonly = computed(() => {
 // 从订单创建时，客户和商机不可修改
 const isFromOrder = computed(() => props.fromOrder || data.value?.fromOrder);
 
-// 客户字段锁定：从订单创建 OR 合同有关联商机（来源上游）时锁定客户字段
-const isCustomerLocked = computed(() => {
-  if (isFromOrder.value) return true;
-  return !!selectedOpportunity.value?.id;
-});
+// 客户字段锁定：客户信息来自订单，始终锁定
+const isCustomerLocked = computed(() => true);
 
 // 投影标题：编辑 vs 查看
 const getTitle = computed(() => {
@@ -78,13 +75,14 @@ const getTitle = computed(() => {
 const userOptions = ref<any[]>([]);
 
 // ========== 选择器状态 ==========
-// 已选中的客户（显示用）
+// 已选中的客户（显示用，客户信息从订单继承）
 const selectedCustomer = ref<{ id: number; name: string } | null>(null);
-// 已选中的商机（显示用）
-const selectedOpportunity = ref<{ id: number; name: string } | null>(null);
+// 已选中的订单（显示用）
+const selectedOrder = ref<{ id: number; name: string } | null>(null);
 // 弹窗可见状态
-const customerSelectVisible = ref(false);
-const opportunitySelectVisible = ref(false);
+const orderSelectVisible = ref(false);
+// 联系人下拉选项（根据客户加载）
+const contactOptions = ref<any[]>([]);
 
 // ========== 回款计划相关 ==========
 const paymentPlans = ref<any[]>([]);
@@ -422,60 +420,60 @@ const currencyList = computed(() => [
   { value: 7, label: 'AUD - 澳元' },
 ]);
 
-const paymentMethodTypeList = computed(() => [
-  { value: 1, label: '一次性收款' },
-  { value: 2, label: '分期收款' },
-]);
 
-// ========== 客户/商机选择 ==========
-function openCustomerSelect() {
+// ========== 订单选择 ==========
+function openOrderSelect() {
   if (isReadonly.value) return;
-  customerSelectVisible.value = true;
+  orderSelectVisible.value = true;
 }
 
-/** 客户选择回调 */
-async function handleSelectCustomer(row: any) {
-  selectedCustomer.value = { id: row.id, name: row.companyName || row.name };
+/** 订单选择回调：自动填充客户信息，加载联系人列表，设置默认签署人 */
+async function handleSelectOrder(row: any) {
+  selectedOrder.value = { id: row.id, name: row.orderNo || row.title || '' };
+  // 自动填充客户信息（从订单继承）
+  if (row.customerId) {
+    selectedCustomer.value = { id: row.customerId, name: row.customerName || '' };
+    await baseFormApi.setValues({ _customerDisplay: row.customerName || '' });
+    // 加载该客户的联系人列表
+    await loadContactsByCustomer(row.customerId);
+  }
   // 同步设置表单字段值，用于验证
-  await baseFormApi.setValues({ _customerDisplay: row.companyName || row.name });
-  // 清除之前选择的商机（因为换了客户）
-  selectedOpportunity.value = null;
-  await baseFormApi.setValues({ _opportunityDisplay: '' });
-  customerSelectVisible.value = false;
-}
-
-async function handleClearCustomer() {
-  selectedCustomer.value = null;
-  selectedOpportunity.value = null;
-  // 清除表单字段值
-  await baseFormApi.setValues({ _customerDisplay: '', _opportunityDisplay: '' });
-}
-
-function openOpportunitySelect() {
-  if (isReadonly.value) return;
-  opportunitySelectVisible.value = true;
-}
-
-/** 商机选择回调 */
-async function handleSelectOpportunity(row: any) {
-  selectedOpportunity.value = { id: row.id, name: row.title || row.name };
-  // 同步设置表单字段值，用于验证
-  await baseFormApi.setValues({ _opportunityDisplay: row.title || row.name });
-  // 选择商机后自动填充金额信息
-  if (row.amount) {
-    const v = await baseFormApi.getValues();
-    if (!v.amount) {
-      await baseFormApi.setValues({ amount: row.amount });
-      calculateTotalAmount();
+  await baseFormApi.setValues({ _orderDisplay: row.orderNo || row.title || '' });
+  // 设置默认对方签署人为订单联系人
+  if (row.contactName) {
+    // 若订单联系人不在联系人列表中，则补充为可选项
+    const exists = contactOptions.value.some((c: any) => c.value === row.contactName);
+    if (!exists) {
+      contactOptions.value.push({ value: row.contactName, label: row.contactName, phone: '' });
+    }
+    await baseFormApi.setValues({ theirSignerName: row.contactName });
+    // 同时填充联系电话（从联系人列表中查找）
+    const contact = contactOptions.value.find((c: any) => c.value === row.contactName);
+    if (contact && contact.phone) {
+      await baseFormApi.setValues({ theirSignerPhone: contact.phone });
     }
   }
-  opportunitySelectVisible.value = false;
+  orderSelectVisible.value = false;
 }
 
-async function handleClearOpportunity() {
-  selectedOpportunity.value = null;
-  // 清除表单字段值
-  await baseFormApi.setValues({ _opportunityDisplay: '' });
+/** 根据客户ID加载联系人列表并填充到 contactOptions */
+async function loadContactsByCustomer(customerId: number) {
+  try {
+    const res: any = await getContactListApi({ customerId, page: 1, pageSize: 100 });
+    const list = res?.items || res?.data?.items || res?.data || [];
+    if (Array.isArray(list)) {
+      contactOptions.value = list.map((c: any) => ({
+        value: c.name,
+        label: c.name,
+        phone: c.mobile || c.phone || '',
+      }));
+    } else {
+      contactOptions.value = [];
+    }
+  } catch (e) {
+    console.error('Failed to load contacts by customer:', e);
+    contactOptions.value = [];
+  }
 }
 
 async function loadUserOptions() {
@@ -528,8 +526,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
     },
     {
       component: 'Input',
-      fieldName: '_opportunityDisplay',
-      label: '关联商机',
+      fieldName: '_orderDisplay',
+      label: '关联订单',
+      rules: 'required',
     },
 
     // ---- 财务信息区 ----
@@ -557,24 +556,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         placeholder: $t('ui.placeholder.select'),
         options: currencyList,
-      },
-    },
-
-    // ---- 收款方式 ----
-    {
-      component: 'RadioGroup',
-      fieldName: 'paymentMethodType',
-      defaultValue: 1,
-      label: '收款方式',
-      formItemClass: 'col-span-2',
-      componentProps: {
-        optionType: 'button',
-        class: 'flex flex-wrap',
-        options: paymentMethodTypeList,
-        onChange: async (val: number) => {
-          if (val === 2) activeTabKey.value = 'paymentPlan';
-          await syncContractTotal();
-        },
       },
     },
 
@@ -628,12 +609,22 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
     },
     {
-      component: 'Input',
+      component: 'Select',
       fieldName: 'theirSignerName',
       label: '对方签署人',
       componentProps: {
-        placeholder: '默认为订单联系人',
+        placeholder: '选择联系人',
         allowClear: true,
+        showSearch: true,
+        filterOption: (input: string, option: any) =>
+          (option?.label || '').toLowerCase().includes(input.toLowerCase()),
+        options: contactOptions,
+        onChange: async (val: string) => {
+          const contact = contactOptions.value.find((c: any) => c.value === val);
+          if (contact) {
+            await baseFormApi.setValues({ theirSignerPhone: contact.phone || '' });
+          }
+        },
       },
     },
     {
@@ -641,8 +632,8 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: 'theirSignerPhone',
       label: '对方签署电话',
       componentProps: {
-        placeholder: '对方签署人联系电话',
-        allowClear: true,
+        placeholder: '选择联系人后自动填充',
+        disabled: true,
       },
     },
     {
@@ -710,7 +701,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       return;
     }
 
-    // 校验必填：客户和合同编号
+    // 校验必填：订单和合同编号
     const values = await baseFormApi.getValues();
 
     if (!values.title?.trim()) {
@@ -718,28 +709,22 @@ const [Drawer, drawerApi] = useVbenDrawer({
       activeTabKey.value = 'basic';
       return;
     }
-    if (!selectedCustomer.value?.id) {
-      message.warning('请选择客户');
+    if (!selectedOrder.value?.id) {
+      message.warning('请选择关联订单');
       activeTabKey.value = 'basic';
       return;
     }
 
-    // 将客户ID和商机ID从 ref 同步到提交数据
-    values.customerId = selectedCustomer.value.id;
-    values.customerName = selectedCustomer.value.name;
-    if (selectedOpportunity.value) {
-      values.opportunityId = selectedOpportunity.value.id;
-      values.opportunityName = selectedOpportunity.value.name;
+    // 将客户ID（从订单继承）和订单ID从 ref 同步到提交数据
+    if (selectedCustomer.value) {
+      values.customerId = selectedCustomer.value.id;
+      values.customerName = selectedCustomer.value.name;
     }
+    values.orderId = selectedOrder.value.id;
+    values.orderName = selectedOrder.value.name;
 
-    // 分期收款校验
-    const paymentMethodType = values.paymentMethodType ?? 1;
-    if (paymentMethodType === 2) {
-      if (paymentPlans.value.length === 0) {
-        message.warning('分期收款模式下请至少添加一条回款计划');
-        activeTabKey.value = 'paymentPlan';
-        return;
-      }
+    // 回款计划校验（只要有回款计划就校验完整性）
+    if (paymentPlans.value.length > 0) {
       for (let i = 0; i < paymentPlans.value.length; i++) {
         const p = paymentPlans.value[i];
         if (!p.periodName?.trim()) {
@@ -812,21 +797,21 @@ const [Drawer, drawerApi] = useVbenDrawer({
         ? result?.data?.id || result?.data?.data?.id || result?.id
         : data.value.row.id;
 
-      if (paymentMethodType === 2) {
-        if (contractId && paymentPlans.value.length > 0) {
-          await saveContractPaymentPlanApi({
-            contractId,
-            plans: paymentPlans.value.map((plan) => ({
-              stageName: plan.periodName,
-              paymentType: plan.paymentType,
-              plannedAmount: Number(plan.plannedAmount) || 0,
-              plannedDate: plan.plannedDate,
-              remark: plan.remark,
-              sort: plan.sort,
-            })),
-          });
-        }
-      } else if (paymentMethodType === 1 && !isCreate && contractId) {
+      // 保存回款计划（只要有回款计划就保存，不再受 paymentMethodType 控制）
+      if (contractId && paymentPlans.value.length > 0) {
+        await saveContractPaymentPlanApi({
+          contractId,
+          plans: paymentPlans.value.map((plan) => ({
+            stageName: plan.periodName,
+            paymentType: plan.paymentType,
+            plannedAmount: Number(plan.plannedAmount) || 0,
+            plannedDate: plan.plannedDate,
+            remark: plan.remark,
+            sort: plan.sort,
+          })),
+        });
+      } else if (contractId && paymentPlans.value.length === 0 && !isCreate) {
+        // 编辑时若已清空回款计划，则删除原有计划
         await deleteContractPaymentPlanApi(contractId);
       }
 
@@ -871,7 +856,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       overdueRate.value = undefined;
       contractTotalAmount.value = 0;
       selectedCustomer.value = null;
-      selectedOpportunity.value = null;
+      selectedOrder.value = null;
+      contactOptions.value = [];
       commissionRuleOptions.value = [];
       selectedRuleId.value = null;
       commissionMode.value = 1;
@@ -883,21 +869,33 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       await Promise.all([loadUserOptions(), loadCommissionRuleOptions()]);
 
-      // 恢复已选择的客户和商机显示
+      // 恢复已选择的客户和订单显示
       if (row.customerId) {
         selectedCustomer.value = { id: row.customerId, name: row.customerName || '' };
         // 同步到表单字段用于验证
         row._customerDisplay = row.customerName || '';
+        // 加载该客户的联系人列表（用于对方签署人下拉）
+        await loadContactsByCustomer(Number(row.customerId));
+        // 若已有对方签署人不在联系人列表中，则补充为可选项
+        if (row.theirSignerName) {
+          const exists = contactOptions.value.some((c: any) => c.value === row.theirSignerName);
+          if (!exists) {
+            contactOptions.value.push({
+              value: row.theirSignerName,
+              label: row.theirSignerName,
+              phone: row.theirSignerPhone || '',
+            });
+          }
+        }
       }
-      if (row.opportunityId) {
-        selectedOpportunity.value = { id: row.opportunityId, name: row.opportunityName || row.opportunityTitle || '' };
+      if (row.orderId) {
+        selectedOrder.value = { id: row.orderId, name: row.orderNo || row.orderTitle || '' };
         // 同步到表单字段用于验证
-        row._opportunityDisplay = row.opportunityName || row.opportunityTitle || '';
+        row._orderDisplay = row.orderNo || row.orderTitle || '';
       }
 
       if (data.value?.create) {
         row.status = 1; // 默认草稿
-        row.paymentMethodType = 1;
       } else {
         // 加载已有回款计划
         if (row.id) {
@@ -914,7 +912,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 remark: plan.remark || '',
                 sort: plan.sort ?? 0,
               }));
-              row.paymentMethodType = 2;
             }
           } catch { /* ignore */ }
         }
@@ -981,42 +978,28 @@ function toggleMaximize() {
       <!-- ====== Tab 1: 基本信息 ====== -->
       <TabPane key="basic" tab="基本信息" force-render>
         <BaseForm>
-          <!-- 客户选择 slot -->
+          <!-- 客户显示 slot（只读，客户信息从订单继承） -->
           <template #_customerDisplay="{ model }">
             <div class="flex items-center gap-2 w-full">
-              <Input
-                v-if="!isReadonly && !isCustomerLocked"
-                :value="selectedCustomer?.name || ''"
-                placeholder="点击选择客户"
-                readonly
-                class="flex-1 cursor-pointer select-modal-input"
-                @click="openCustomerSelect"
-              >
-                <template #suffix>
-                  <Button type="link" size="small" class="!p-0 !text-blue-600 font-medium" @click.stop="openCustomerSelect">选择</Button>
-                </template>
-              </Input>
-              <span v-else class="flex-1 text-gray-800 truncate">{{ selectedCustomer?.name || '-' }}</span>
-              <Button v-if="!isReadonly && !isCustomerLocked && selectedCustomer" type="link" danger size="small" class="shrink-0 !p-0" @click.stop="handleClearCustomer">清除</Button>
+              <span class="flex-1 text-gray-800 truncate">{{ selectedCustomer?.name || '-' }}</span>
             </div>
           </template>
 
-          <!-- 商机选择 slot -->
-          <template #_opportunityDisplay="{ model }">
-            <div class="flex items-center gap-2 w-full" @click="!isCustomerLocked && openOpportunitySelect()">
+          <!-- 订单选择 slot -->
+          <template #_orderDisplay="{ model }">
+            <div class="flex items-center gap-2 w-full" @click="openOrderSelect()">
               <Input
                 v-if="!isReadonly"
-                :value="selectedOpportunity?.name || ''"
-                placeholder="点击选择商机"
+                :value="selectedOrder?.name || ''"
+                placeholder="点击选择订单"
                 readonly
-                :class="['flex-1 cursor-pointer select-modal-input', { 'select-modal-input-locked': isCustomerLocked }]"
+                class="flex-1 cursor-pointer select-modal-input"
               >
                 <template #suffix>
-                  <Button type="link" size="small" class="!p-0 !text-blue-600 font-medium" :disabled="isCustomerLocked" @click.stop="openOpportunitySelect">选择</Button>
+                  <Button type="link" size="small" class="!p-0 !text-blue-600 font-medium" @click.stop="openOrderSelect">选择</Button>
                 </template>
               </Input>
-              <span v-else class="flex-1 text-gray-800 truncate">{{ selectedOpportunity?.name || '-' }}</span>
-              <Button v-if="!isReadonly && !isCustomerLocked && selectedOpportunity" type="link" danger size="small" class="shrink-0 !p-0" @click.stop="handleClearOpportunity">清除</Button>
+              <span v-else class="flex-1 text-gray-800 truncate">{{ selectedOrder?.name || '-' }}</span>
             </div>
           </template>
         </BaseForm>
@@ -1250,17 +1233,10 @@ function toggleMaximize() {
       </TabPane>
     </Tabs>
 
-    <!-- ====== 客户选择弹窗（独立组件） ====== -->
-    <CustomerSelectModal
-      v-model:visible="customerSelectVisible"
-      @select="handleSelectCustomer"
-    />
-
-    <!-- ====== 商机选择弹窗（独立组件） ====== -->
-    <OpportunitySelectModal
-      v-model:visible="opportunitySelectVisible"
-      :customer-id="selectedCustomer?.id"
-      @select="handleSelectOpportunity"
+    <!-- ====== 订单选择弹窗（独立组件） ====== -->
+    <OrderSelectModal
+      v-model:visible="orderSelectVisible"
+      @select="handleSelectOrder"
     />
 
     <!-- ====== 员工选择弹窗（独立组件） ====== -->

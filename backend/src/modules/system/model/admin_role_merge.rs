@@ -79,5 +79,14 @@ impl AdminRoleMergeModel {
             .await?;
         Ok(result)
     }
+
+    /// 按角色ID查询关联的所有用户ID（用于权限缓存失效）
+    pub async fn find_admin_ids_by_role_id(db: &DbConn, role_id: &Option<i64>) -> Result<Vec<i64>, DbErr> {
+        let result = AdminRoleMerge::find()
+            .filter(admin_role_merge::Column::RoleId.eq(role_id.unwrap_or_default()))
+            .all(db)
+            .await?;
+        Ok(result.into_iter().filter_map(|m| m.admin_id).collect())
+    }
 }
 

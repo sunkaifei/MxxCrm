@@ -230,7 +230,19 @@ pub async fn update_status(db: &DbConn, form_data: &OrderStatusUpdateRequest) ->
         return Err(Error::from("订单不存在"));
     }
 
-    let result = OrderModel::update_status(db, id, order_status, form_data.tracking_no.clone()).await?;
+    // 订单作废校验：审批通过(3)且未签合同才能作废
+    if order_status == 11 {
+        let order = existing.as_ref().unwrap();
+        let approval_status = order.approval_status.unwrap_or(0);
+        if approval_status != 3 {
+            return Err(Error::from("只有审批通过的订单才能作废"));
+        }
+        if order.contract_id.is_some() {
+            return Err(Error::from("已签合同的订单不能作废"));
+        }
+    }
+
+    let result = OrderModel::update_status(db, id, order_status, form_data.tracking_no.clone(), form_data.remark.clone()).await?;
     Ok(result)
 }
 

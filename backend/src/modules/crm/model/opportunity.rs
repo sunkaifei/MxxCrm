@@ -473,6 +473,10 @@ pub struct OpportunityListVO {
     pub create_time: Option<DateTime>,
     /// 报价数量
     pub quote_count: Option<i64>,
+    /// 联系人ID
+    pub contact_id: Option<i64>,
+    /// 联系人姓名
+    pub contact_name: Option<String>,
 }
 
 impl From<opportunity::Model> for OpportunityListVO {
@@ -494,6 +498,8 @@ impl From<opportunity::Model> for OpportunityListVO {
             created_by_name: None,
             create_time: item.create_time,
             quote_count: None,
+            contact_id: item.contact_id,
+            contact_name: None,
         }
     }
 }

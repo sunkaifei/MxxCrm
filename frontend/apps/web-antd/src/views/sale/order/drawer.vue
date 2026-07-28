@@ -21,6 +21,8 @@ import {
 import { useVbenDrawer } from '#/adapter/drawer';
 import ProductSelectModal from '../components/ProductSelectModal.vue';
 import QuotationSelectModal from '../components/QuotationSelectModal.vue';
+import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
+import ContactSelectModal from '../../crm/components/ContactSelectModal.vue';
 import {
   createOrderApi,
   getContractInfoApi,
@@ -33,6 +35,7 @@ import {
   type BankAccount,
   type SalesFlowMode,
 } from '#/api';
+import { getQuotationInfoApi } from '#/api/core/sale/quotation';
 
 const props = withDefaults(
   defineProps<{ fromQuotation?: any }>(),
@@ -60,8 +63,29 @@ const flowMode = ref<SalesFlowMode>('both');
 const showQuotationSelect = computed(
   () => flowMode.value === 'A' || flowMode.value === 'both',
 );
-// 客户字段锁定：订单有关联商机或报价单（来源于上游）时锁定客户字段
-const isCustomerLocked = ref(false);
+// both 模式下用户选择的销售路径：standard=标准(报价单) simple=简易(商机)
+const salesMode = ref<'standard' | 'simple'>('standard');
+// both 模式下是否显示模式选择器
+const showModeSelector = computed(
+  () => flowMode.value === 'both' && !drawerData.value.create ? false : flowMode.value === 'both',
+);
+// 是否显示报价单选择入口
+const showQuotationEntry = computed(() => {
+  if (flowMode.value === 'A') return true;
+  if (flowMode.value === 'B') return false;
+  // both 模式
+  if (isEdit.value) return !!quotationInfo.value.id;
+  return salesMode.value === 'standard';
+});
+// 是否显示商机选择入口
+const showOpportunityEntry = computed(() => {
+  if (flowMode.value === 'A') return false;
+  if (flowMode.value === 'B') return true;
+  // both 模式
+  if (isEdit.value) return !!opportunityInfo.value.id && !quotationInfo.value.id;
+  return salesMode.value === 'simple';
+});
+// 客户名称字段始终禁用，由商机/报价单自动带入
 // 加载销售流程模式
 const loadFlowMode = async () => {
   try {
@@ -75,6 +99,110 @@ loadFlowMode();
 // 报价单选择
 const quotationModalVisible = ref(false);
 const quotationInfo = ref<{ id?: number; title?: string; quotationNo?: string }>({});
+
+// 商机选择
+const opportunityModalVisible = ref(false);
+const opportunityInfo = ref<{ id?: number; name?: string; customerName?: string }>({});
+
+// 联系人选择
+const contactModalVisible = ref(false);
+const contactInfo = ref<{ id?: number; name?: string }>({});
+// 当前客户ID（用于联系人弹窗按客户过滤）
+const contactFilterCustomerId = ref<number | undefined>(undefined);
+// 报价单模式：产品明细一比一来源于报价单，不可增删改
+const isQuotationMode = computed(() => !!quotationInfo.value.id);
+
+function onOpportunitySelect(item: any) {
+  // 记录切换前的客户ID，用于判断客户是否变化
+  const previousCustomerId = contactFilterCustomerId.value;
+  opportunityInfo.value = { id: item.id, name: item.opportunityName || item.title || '' };
+  basicFormApi.setValues({ opportunityId: item.id });
+  // 自动填充客户信息
+  if (item.customerName) {
+    basicFormApi.setValues({ customerName: item.customerName });
+  }
+  if (item.customerId) {
+    basicFormApi.setValues({ customerId: item.customerId });
+    contactFilterCustomerId.value = item.customerId;
+    void loadBuyerFinancialInfo(item.customerId, item.customerName);
+  }
+  // 客户变更时重置联系人，避免残留上一个客户的联系人
+  if (item.customerId !== previousCustomerId) {
+    clearContact();
+  }
+  // 继承商机关联的联系人信息（客户未变或新商机自带联系人时填充）
+  if (item.contactId) {
+    contactInfo.value = { id: item.contactId, name: item.contactName || '' };
+    basicFormApi.setValues({ contactId: item.contactId, contactName: item.contactName || '' });
+  }
+  // 选择商机后清除报价单
+  clearQuotation();
+}
+
+function onContactSelect(item: any) {
+  contactInfo.value = { id: item.id, name: item.name || '' };
+  basicFormApi.setValues({ contactId: item.id, contactName: item.name || '' });
+}
+
+function clearContact() {
+  contactInfo.value = {};
+  basicFormApi.setValues({ contactId: undefined, contactName: undefined });
+}
+
+function openContactModal() {
+  // 联系人必须根据客户ID过滤，未选择商机/报价单时提示用户
+  if (!contactFilterCustomerId.value) {
+    message.warning('请先选择商机或报价单，客户信息会自动带入');
+    return;
+  }
+  contactModalVisible.value = true;
+}
+
+function clearOpportunity() {
+  opportunityInfo.value = {};
+  basicFormApi.setValues({ opportunityId: undefined });
+}
+
+function selectSalesMode(mode: 'standard' | 'simple') {
+  if (isEdit.value) return;
+  salesMode.value = mode;
+  // 切换模式时清空另一方的选择
+  if (mode === 'standard') {
+    clearOpportunity();
+  } else {
+    clearQuotation();
+  }
+}
+
+// 统一来源字段：根据模式显示"关联报价单"或"关联商机"
+const sourceLabel = computed(() => {
+  if (showOpportunityEntry.value) return '关联商机';
+  return '关联报价单';
+});
+const sourceValue = computed(() => {
+  if (showOpportunityEntry.value) {
+    return opportunityInfo.value.name || '';
+  }
+  return quotationInfo.value.title || quotationInfo.value.quotationNo || '';
+});
+const sourceFilled = computed(() => {
+  if (showOpportunityEntry.value) return !!opportunityInfo.value.id;
+  return !!quotationInfo.value.id;
+});
+function openSourceModal() {
+  if (showOpportunityEntry.value) {
+    opportunityModalVisible.value = true;
+  } else {
+    quotationModalVisible.value = true;
+  }
+}
+function clearSource() {
+  if (showOpportunityEntry.value) {
+    clearOpportunity();
+  } else {
+    clearQuotation();
+  }
+}
 
 // 合同信息（只读）
 const contractInfo = ref<{ id?: number; title?: string; contractNo?: string }>({});
@@ -109,7 +237,9 @@ function openProductModal() {
   productModalVisible.value = true;
 }
 
-function onQuotationSelect(item: any) {
+async function onQuotationSelect(item: any) {
+  // 记录切换前的客户ID，用于判断客户是否变化
+  const previousCustomerId = contactFilterCustomerId.value;
   quotationInfo.value = { id: item.id, title: item.title, quotationNo: item.quotationNo };
   basicFormApi.setValues({ quotationId: item.id });
   // 自动填充客户信息
@@ -118,13 +248,63 @@ function onQuotationSelect(item: any) {
   }
   // 重新加载买方财务信息
   if (item.customerId) {
+    basicFormApi.setValues({ customerId: item.customerId });
+    contactFilterCustomerId.value = item.customerId;
     void loadBuyerFinancialInfo(item.customerId, item.customerName);
+  }
+  // 客户变更时重置联系人，避免残留上一个客户的联系人
+  if (item.customerId !== previousCustomerId) {
+    clearContact();
+  }
+  // 拉取报价单详情，一比一复制产品明细（含完整SKU信息）
+  try {
+    const resp: any = await getQuotationInfoApi(item.id);
+    const detail = resp?.data ?? resp ?? {};
+    // 继承报价单关联的联系人信息
+    if (detail.contactId) {
+      contactInfo.value = { id: detail.contactId, name: detail.contactName || '' };
+      basicFormApi.setValues({ contactId: detail.contactId, contactName: detail.contactName || '' });
+    }
+    // 复制报价单产品明细到订单（一比一，含SKU/规格/单位/数量/单价/折扣/税率）
+    items.value = Array.isArray(detail.items)
+      ? detail.items.map((it: any) => ({
+          productId: it.productId,
+          productName: it.productName || '',
+          productCode: it.productCode || '',
+          spec: it.spec || '',
+          unit: it.unit || '',
+          productType: 1,
+          quantity: Number(it.quantity) || 1,
+          unitPrice: Number(it.unitPrice) || 0,
+          discountRate: Number(it.discountRate) || 100,
+          taxRate: Number(it.taxRate) || 0,
+          amount: Number(it.subtotal) || calcLineAmount(it),
+          remark: it.remark || '',
+        }))
+      : [];
+    // 同步报价单的金额字段
+    discountAmount.value = Number(detail.discountAmount) || 0;
+    taxAmount.value = Number(detail.taxAmount) || 0;
+    shippingFee.value = 0;
+    otherFee.value = 0;
+  } catch (e) {
+    console.error('[订单] 加载报价单详情失败:', e);
+    items.value = [];
   }
 }
 
 function clearQuotation() {
+  // 清除报价单时同步清空其带来的产品明细和金额
+  const wasQuotationMode = !!quotationInfo.value.id;
   quotationInfo.value = {};
   basicFormApi.setValues({ quotationId: undefined });
+  if (wasQuotationMode) {
+    items.value = [];
+    discountAmount.value = 0;
+    taxAmount.value = 0;
+    shippingFee.value = 0;
+    otherFee.value = 0;
+  }
 }
 
 function onProductSelect(selectedItems: any[]) {
@@ -200,16 +380,24 @@ const basicFormSchema: VbenFormSchema[] = [
     component: 'Input',
     fieldName: 'customerName',
     label: '客户名称',
+    rules: 'required',
     componentProps: () => ({
-      placeholder: '请输入客户名称',
-      disabled: isCustomerLocked.value,
+      placeholder: '由商机/报价单自动带入',
+      disabled: true,
     }),
   },
   {
     component: 'Input',
     fieldName: 'contactName',
-    label: '联系人姓名',
-    componentProps: { placeholder: '请输入联系人姓名' },
+    label: '联系人',
+    rules: 'required',
+    componentProps: () => ({
+      placeholder: '点击选择联系人（必填）',
+      readOnly: true,
+      style: 'cursor: pointer',
+      onClick: () => openContactModal(),
+      suffix: '点击选择',
+    }),
   },
   {
     component: 'Select',
@@ -280,12 +468,14 @@ const paymentFormSchema: VbenFormSchema[] = [
     fieldName: 'paymentMethod',
     label: '支付方式',
     componentProps: { placeholder: '请选择', options: paymentMethodOptions, allowClear: true },
+    rules: 'required',
   },
   {
     component: 'DatePicker',
     fieldName: 'paymentDueDate',
     label: '付款截止日期',
     componentProps: { placeholder: '请选择', style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+    rules: 'required',
   },
   {
     component: 'InputNumber',
@@ -494,8 +684,19 @@ async function loadOrderDetail(orderId: number) {
     quotationInfo.value = data.quotationId
       ? { id: data.quotationId, title: data.quotationTitle || data.quotationNo || '' }
       : {};
-    // 客户字段锁定：来源于上游（有关联商机或报价单）时锁定
-    isCustomerLocked.value = !!data.opportunityId || !!data.quotationId;
+    // 商机信息
+    opportunityInfo.value = data.opportunityId
+      ? { id: data.opportunityId, name: data.opportunityName || '' }
+      : {};
+    // both 模式下恢复 salesMode
+    if (flowMode.value === 'both') {
+      salesMode.value = data.quotationId ? 'standard' : 'simple';
+    }
+    // 联系人信息恢复
+    contactInfo.value = data.contactId
+      ? { id: data.contactId, name: data.contactName || '' }
+      : {};
+    contactFilterCustomerId.value = data.customerId;
     // 合同信息（只读）
     contractInfo.value = data.contractId
       ? { id: data.contractId, title: data.contractTitle || data.contractNo || '' }
@@ -593,7 +794,7 @@ async function handleSubmit() {
     const paymentValues = await paymentFormApi.getValues();
     console.log('[订单提交] 表单数据收集完成:', { basicValues, shippingValues, paymentValues });
 
-    // 销售流程模式校验：未关联报价单时，校验企业配置允许跳过 + 必填商机
+    // 销售流程模式校验
     if (!quotationInfo.value.id && !basicValues.opportunityId) {
       if (flowMode.value === 'A') {
         message.error('当前为标准流程模式，订单必须关联报价单');
@@ -601,10 +802,43 @@ async function handleSubmit() {
         return;
       }
       if (flowMode.value === 'B') {
-        message.error('当前为简易流程模式，订单必须关联商机（请通过商机"转订单"入口创建）');
+        message.error('当前为简易流程模式，订单必须关联商机');
         activeTab.value = 'basic';
         return;
       }
+      // both 模式：标准和简易都没选
+      if (flowMode.value === 'both') {
+        message.error('请选择报价单或商机来创建订单');
+        activeTab.value = 'basic';
+        return;
+      }
+    }
+
+    // 4. 财务信息校验：支付账户名称、开户行、开户账号、支付方式、支付截止日期不能为空
+    if (!buyerInfo.accountName || !buyerInfo.accountName.trim()) {
+      message.error('请填写支付账户名称');
+      activeTab.value = 'payment';
+      return;
+    }
+    if (!buyerInfo.bankName || !buyerInfo.bankName.trim()) {
+      message.error('请填写开户行');
+      activeTab.value = 'payment';
+      return;
+    }
+    if (!buyerInfo.accountNumber || !buyerInfo.accountNumber.trim()) {
+      message.error('请填写开户账号');
+      activeTab.value = 'payment';
+      return;
+    }
+    if (!paymentValues.paymentMethod) {
+      message.error('请选择支付方式');
+      activeTab.value = 'payment';
+      return;
+    }
+    if (!paymentValues.paymentDueDate) {
+      message.error('请选择支付截止日期');
+      activeTab.value = 'payment';
+      return;
     }
 
     const submitItems = items.value.map((item, idx) => ({
@@ -623,6 +857,9 @@ async function handleSubmit() {
       ...shippingValues,
       // 显式带上 quotationId（来自选择报价单弹窗，schema 中无此字段）
       quotationId: quotationInfo.value.id || undefined,
+      // 显式带上 contactId（来自联系人选择，schema 中无此字段）
+      contactId: contactInfo.value.id || undefined,
+      contactName: contactInfo.value.name || undefined,
       paymentMethod: paymentValues.paymentMethod,
       paymentDueDate: paymentValues.paymentDueDate,
       items: submitItems,
@@ -673,8 +910,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const data = drawerApi.getData() as { create?: boolean; row?: any };
       drawerData.value = { create: data?.create ?? true, row: data?.row ?? {} };
       isFullscreen.value = false;
-      isCustomerLocked.value = false;
       activeTab.value = 'basic';
+      // 重置商机信息
+      opportunityInfo.value = {};
+      // 重置联系人信息
+      contactInfo.value = {};
+      contactFilterCustomerId.value = undefined;
+      salesMode.value = 'standard';
       if (props.fromQuotation) {
         // 从报价单创建订单，预填充报价单信息
         basicFormApi.resetForm();
@@ -701,8 +943,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
           remark: q.remark,
         });
         quotationInfo.value = { id: q.id, title: q.title, quotationNo: q.quotationNo };
-        // 从报价单创建订单时锁定客户字段
-        isCustomerLocked.value = true;
+        // 继承报价单联系人信息
+        contactFilterCustomerId.value = q.customerId;
+        contactInfo.value = q.contactId
+          ? { id: q.contactId, name: q.contactName || '' }
+          : {};
         // 复制报价单产品明细到订单
         items.value = Array.isArray(q.items)
           ? q.items.map((it: any) => ({
@@ -812,57 +1057,136 @@ watch(submitting, (val) => {
     </template>
     <Tabs v-model:activeKey="activeTab">
       <TabPane key="basic" tab="基本信息">
+        <!-- 销售模式选择器（仅 both 模式 + 新建时显示） -->
+        <div v-if="showModeSelector" class="sales-mode-selector">
+          <div
+            class="mode-card"
+            :class="{ 'mode-card--active': salesMode === 'standard' }"
+            @click="selectSalesMode('standard')"
+          >
+            <div class="mode-card__icon mode-card__icon--standard">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+            </div>
+            <div class="mode-card__content">
+              <div class="mode-card__title">标准模式</div>
+              <div class="mode-card__desc">从报价单转订单，完整流程</div>
+            </div>
+            <div class="mode-card__check" v-if="salesMode === 'standard'">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="mode-card__divider">
+            <span>或</span>
+          </div>
+
+          <div
+            class="mode-card"
+            :class="{ 'mode-card--active': salesMode === 'simple' }"
+            @click="selectSalesMode('simple')"
+          >
+            <div class="mode-card__icon mode-card__icon--simple">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+            <div class="mode-card__content">
+              <div class="mode-card__title">简易模式</div>
+              <div class="mode-card__desc">从商机直接转订单，快捷开单</div>
+            </div>
+            <div class="mode-card__check" v-if="salesMode === 'simple'">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 来源选择字段（必填，在客户表单前） -->
+        <div class="source-field-row">
+          <label class="source-field-label">
+            <span class="source-field-required">*</span>{{ sourceLabel }}
+          </label>
+          <div class="source-field-control">
+            <div
+              class="source-field-input"
+              :class="{ 'source-field-input--filled': sourceFilled }"
+              @click="openSourceModal"
+            >
+              <span v-if="sourceFilled" class="source-field-value">{{ sourceValue }}</span>
+              <span v-else class="source-field-placeholder">请选择{{ sourceLabel }}</span>
+              <div class="source-field-actions" v-if="sourceFilled && !isEdit">
+                <button type="button" class="source-field-btn" @click.stop="clearSource">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="source-field-arrow" v-else>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <BasicForm />
-        <!-- 报价单选择（模式 A 或 both 时显示，模式 B 隐藏） -->
-        <div v-if="showQuotationSelect" class="flex items-center gap-2 mt-2 px-1">
-          <span class="text-sm text-gray-500 shrink-0" style="width: 82px">报价单：</span>
-          <div class="flex-1">
-            <a
-              v-if="quotationInfo.id"
-              class="text-blue-600 cursor-pointer"
-              @click="quotationModalVisible = true"
-            >
-              {{ quotationInfo.title || quotationInfo.quotationNo || `报价单 #${quotationInfo.id}` }}
-            </a>
-            <a
-              v-else
-              class="text-blue-600 cursor-pointer"
-              @click="quotationModalVisible = true"
-            >
-              选择报价单
-            </a>
-          </div>
-          <Button v-if="quotationInfo.id" type="link" size="small" danger @click="clearQuotation">清除</Button>
-        </div>
-        <!-- 模式 B 提示：未关联商机时给出提示 -->
-        <div v-if="flowMode === 'B' && !quotationInfo.id" class="flex items-center gap-2 mt-2 px-1">
-          <span class="text-sm text-gray-500 shrink-0" style="width: 82px">关联商机：</span>
-          <div class="flex-1">
-            <span class="text-sm text-orange-500">
-              当前为简易流程模式，请通过商机列表"转订单"入口创建订单，或先选择商机。
-            </span>
-          </div>
-        </div>
+
         <!-- 合同信息（只读，仅编辑时显示） -->
-        <div v-if="contractInfo.id" class="flex items-center gap-2 mt-2 px-1">
-          <span class="text-sm text-gray-500 shrink-0" style="width: 82px">关联合同：</span>
+        <div v-if="contractInfo.id" class="source-select-row">
+          <span class="source-select-label">关联合同：</span>
           <div class="flex-1">
             <span class="text-sm">{{ contractInfo.title || contractInfo.contractNo || `合同 #${contractInfo.id}` }}</span>
           </div>
         </div>
+
+        <!-- 报价单选择弹窗 -->
+        <QuotationSelectModal
+          v-model:visible="quotationModalVisible"
+          @select="onQuotationSelect"
+        />
+
+        <!-- 商机选择弹窗 -->
+        <OpportunitySelectModal
+          v-model:visible="opportunityModalVisible"
+          @select="onOpportunitySelect"
+        />
+
+        <!-- 联系人选择弹窗 -->
+        <ContactSelectModal
+          v-model:visible="contactModalVisible"
+          :customer-id="contactFilterCustomerId"
+          @select="onContactSelect"
+        />
       </TabPane>
       <TabPane key="items" tab="商品明细">
+        <!-- 报价单模式提示 -->
+        <div v-if="isQuotationMode" class="mb-3 px-3 py-2 rounded text-xs" style="background: hsl(var(--primary) / 0.06); color: hsl(var(--primary)); border: 1px solid hsl(var(--primary) / 0.2);">
+          当前为报价单模式，产品明细一比一来源于报价单，不可增删改
+        </div>
+
         <!-- 空状态 -->
         <div v-if="items.length === 0" class="py-12 text-center">
-          <div class="mb-4 text-gray-400">暂无商品，请添加产品到订单</div>
-          <Button type="primary" @click="openProductModal">添加产品</Button>
+          <div class="mb-4" style="color: hsl(var(--muted-foreground))">暂无商品，请添加产品到订单</div>
+          <Button v-if="!isQuotationMode" type="primary" @click="openProductModal">添加产品</Button>
         </div>
 
         <!-- 商品列表 -->
         <template v-else>
           <div class="mb-3 flex justify-between items-center">
-            <span class="text-sm text-gray-500">共 {{ items.length }} 项</span>
-            <Button type="primary" size="small" @click="openProductModal">继续添加</Button>
+            <span class="text-sm" style="color: hsl(var(--muted-foreground))">共 {{ items.length }} 项</span>
+            <Button v-if="!isQuotationMode" type="primary" size="small" @click="openProductModal">继续添加</Button>
           </div>
           <Table
             :columns="itemColumns"
@@ -877,7 +1201,7 @@ watch(submitting, (val) => {
               <template v-if="column.key === 'product'">
                 <div class="flex flex-col">
                   <span class="font-medium">{{ record.productName || '-' }}</span>
-                  <span class="text-xs text-gray-400">{{ record.productCode || '' }}</span>
+                  <span class="text-xs" style="color: hsl(var(--muted-foreground))">{{ record.productCode || '' }}</span>
                 </div>
               </template>
               <template v-else-if="column.key === 'spec'">
@@ -893,6 +1217,7 @@ watch(submitting, (val) => {
                   :precision="0"
                   style="width: 80px"
                   size="small"
+                  :disabled="isQuotationMode"
                   @change="() => updateLineAmount(index)"
                 />
               </template>
@@ -903,6 +1228,7 @@ watch(submitting, (val) => {
                   :precision="2"
                   style="width: 90px"
                   size="small"
+                  :disabled="isQuotationMode"
                   @change="() => updateLineAmount(index)"
                 />
               </template>
@@ -914,6 +1240,7 @@ watch(submitting, (val) => {
                   :precision="1"
                   style="width: 70px"
                   size="small"
+                  :disabled="isQuotationMode"
                   @change="() => updateLineAmount(index)"
                 />
               </template>
@@ -925,6 +1252,7 @@ watch(submitting, (val) => {
                   :precision="1"
                   style="width: 70px"
                   size="small"
+                  :disabled="isQuotationMode"
                   @change="() => updateLineAmount(index)"
                 />
               </template>
@@ -932,7 +1260,8 @@ watch(submitting, (val) => {
                 <span class="font-medium">{{ (record.amount || 0).toFixed(2) }}</span>
               </template>
               <template v-else-if="column.key === 'action'">
-                <Button type="link" danger size="small" @click="removeItem(index)">删除</Button>
+                <Button v-if="!isQuotationMode" type="link" danger size="small" @click="removeItem(index)">删除</Button>
+                <span v-else style="color: hsl(var(--muted-foreground))">—</span>
               </template>
             </template>
           </Table>
@@ -941,11 +1270,11 @@ watch(submitting, (val) => {
         <!-- 金额汇总（始终显示） -->
         <div class="mt-4 flex flex-col items-end gap-2 pr-4">
           <div class="flex items-center gap-2">
-            <span class="w-32 text-right text-gray-500">商品金额合计：</span>
+            <span class="w-32 text-right" style="color: hsl(var(--muted-foreground))">商品金额合计：</span>
             <span class="w-32 text-right">{{ productAmount.toFixed(2) }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-24 text-right text-gray-500">整单折扣：</span>
+            <span class="w-24 text-right" style="color: hsl(var(--muted-foreground))">整单折扣：</span>
             <InputNumber
               v-model:value="discountAmount"
               :min="0"
@@ -954,7 +1283,7 @@ watch(submitting, (val) => {
             />
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-24 text-right text-gray-500">运费：</span>
+            <span class="w-24 text-right" style="color: hsl(var(--muted-foreground))">运费：</span>
             <InputNumber
               v-model:value="shippingFee"
               :min="0"
@@ -963,7 +1292,7 @@ watch(submitting, (val) => {
             />
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-24 text-right text-gray-500">税额：</span>
+            <span class="w-24 text-right" style="color: hsl(var(--muted-foreground))">税额：</span>
             <InputNumber
               v-model:value="taxAmount"
               :min="0"
@@ -972,7 +1301,7 @@ watch(submitting, (val) => {
             />
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-24 text-right text-gray-500">其他费用：</span>
+            <span class="w-24 text-right" style="color: hsl(var(--muted-foreground))">其他费用：</span>
             <InputNumber
               v-model:value="otherFee"
               :min="0"
@@ -982,7 +1311,7 @@ watch(submitting, (val) => {
           </div>
           <div class="flex items-center gap-2 border-t pt-2">
             <span class="w-24 text-right font-medium">订单总金额：</span>
-            <span class="w-32 text-right text-lg font-bold text-red-500">
+            <span class="w-32 text-right text-lg font-bold" style="color: hsl(0 84% 60%)">
               {{ totalAmount.toFixed(2) }}
             </span>
           </div>
@@ -992,12 +1321,6 @@ watch(submitting, (val) => {
         <ProductSelectModal
           v-model:visible="productModalVisible"
           @select="onProductSelect"
-        />
-
-        <!-- 报价单选择弹窗 -->
-        <QuotationSelectModal
-          v-model:visible="quotationModalVisible"
-          @select="onQuotationSelect"
         />
       </TabPane>
       <TabPane key="shipping" tab="收货信息">
@@ -1041,7 +1364,7 @@ watch(submitting, (val) => {
                   />
                 </div>
                 <div class="fin-item">
-                  <span class="fin-label">开户行</span>
+                  <span class="fin-label"><span class="fin-required">*</span>开户行</span>
                   <Input
                     v-model:value="buyerInfo.bankName"
                     class="fin-input"
@@ -1050,7 +1373,7 @@ watch(submitting, (val) => {
                   />
                 </div>
                 <div class="fin-item">
-                  <span class="fin-label">账户名称</span>
+                  <span class="fin-label"><span class="fin-required">*</span>账户名称</span>
                   <Input
                     v-model:value="buyerInfo.accountName"
                     class="fin-input"
@@ -1059,7 +1382,7 @@ watch(submitting, (val) => {
                   />
                 </div>
                 <div class="fin-item">
-                  <span class="fin-label">银行账号</span>
+                  <span class="fin-label"><span class="fin-required">*</span>银行账号</span>
                   <Input
                     v-model:value="buyerInfo.accountNumber"
                     class="fin-input mono"
@@ -1178,6 +1501,252 @@ watch(submitting, (val) => {
 </template>
 
 <style>
+/* ========== 销售模式选择器 ========== */
+.sales-mode-selector {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: hsl(var(--muted));
+  border-radius: 14px;
+  border: 1px solid hsl(var(--border));
+}
+
+.mode-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  border: 2px solid transparent;
+  background: transparent;
+}
+
+.mode-card:hover {
+  background: hsl(var(--background) / 0.7);
+}
+
+.mode-card--active {
+  background: hsl(var(--background));
+  border-color: hsl(var(--primary));
+  box-shadow: 0 4px 14px hsl(var(--primary) / 0.12);
+}
+
+.mode-card--active:hover {
+  background: hsl(var(--background));
+}
+
+.mode-card__icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.mode-card__icon--standard {
+  background: hsl(217 92% 90%);
+  color: hsl(217 91% 45%);
+}
+
+.mode-card__icon--simple {
+  background: hsl(38 92% 86%);
+  color: hsl(32 95% 44%);
+}
+
+.mode-card--active .mode-card__icon--standard {
+  background: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 45%));
+  color: #fff;
+  box-shadow: 0 4px 12px hsl(217 91% 60% / 0.35);
+}
+
+.mode-card--active .mode-card__icon--simple {
+  background: linear-gradient(135deg, hsl(38 92% 50%), hsl(32 95% 44%));
+  color: #fff;
+  box-shadow: 0 4px 12px hsl(38 92% 50% / 0.35);
+}
+
+.mode-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mode-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  line-height: 1.4;
+}
+
+.mode-card__desc {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.mode-card__check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: checkPop 0.3s ease;
+}
+
+.mode-card--active .mode-card__check {
+  background: hsl(var(--primary));
+}
+
+@keyframes checkPop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.mode-card__divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* ========== 来源选择行 ========== */
+.source-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.source-select-label {
+  flex-shrink: 0;
+  width: 82px;
+  font-size: 14px;
+  color: hsl(var(--muted-foreground));
+  text-align: right;
+}
+
+/* ========== 来源选择字段（表单样式） ========== */
+.source-field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.source-field-label {
+  flex-shrink: 0;
+  width: 80px;
+  text-align: right;
+  font-size: 14px;
+  color: hsl(var(--foreground));
+  line-height: 32px;
+  white-space: nowrap;
+}
+
+.source-field-required {
+  color: hsl(0 84% 60%);
+  margin-right: 4px;
+}
+
+.source-field-control {
+  flex: 1;
+  min-width: 0;
+}
+
+.source-field-input {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: hsl(var(--background));
+}
+
+.source-field-input:hover {
+  border-color: hsl(var(--primary) / 0.6);
+}
+
+.source-field-input--filled {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.06);
+}
+
+.source-field-input--filled:hover {
+  border-color: hsl(var(--primary));
+}
+
+.source-field-value {
+  flex: 1;
+  font-size: 14px;
+  color: hsl(var(--primary));
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-field-placeholder {
+  flex: 1;
+  font-size: 14px;
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+
+.source-field-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.source-field-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: hsl(var(--muted-foreground) / 0.15);
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.source-field-btn:hover {
+  background: hsl(0 84% 60%);
+  color: #fff;
+}
+
+.source-field-arrow {
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground) / 0.6);
+  display: flex;
+  align-items: center;
+}
+
 .sale-order-drawer {
   width: 75vw !important;
 }
@@ -1197,14 +1766,14 @@ watch(submitting, (val) => {
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: rgba(0, 0, 0, 0.45);
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .sale-order-drawer__fs-btn:hover {
-  color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  color: hsl(var(--primary));
+  background-color: hsl(var(--accent));
 }
 
 /* ========== 财务信息样式 ========== */
@@ -1233,23 +1802,23 @@ watch(submitting, (val) => {
 }
 
 .buyer-card {
-  background: linear-gradient(135deg, #f0f7ff 0%, #e6f4ff 100%);
-  border: 1px solid #bae0ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.08);
+  background: hsl(210 100% 96% / 0.5);
+  border: 1px solid hsl(210 100% 80% / 0.4);
+  box-shadow: 0 2px 8px hsl(210 100% 50% / 0.08);
 }
 
 .buyer-card:hover {
-  box-shadow: 0 6px 20px rgba(24, 144, 255, 0.15);
+  box-shadow: 0 6px 20px hsl(210 100% 50% / 0.15);
 }
 
 .seller-card {
-  background: linear-gradient(135deg, #f6ffed 0%, #f0ffe8 100%);
-  border: 1px solid #b7eb8f;
-  box-shadow: 0 2px 8px rgba(82, 196, 26, 0.08);
+  background: hsl(120 60% 95% / 0.5);
+  border: 1px solid hsl(120 60% 70% / 0.4);
+  box-shadow: 0 2px 8px hsl(120 60% 40% / 0.08);
 }
 
 .seller-card:hover {
-  box-shadow: 0 6px 20px rgba(82, 196, 26, 0.15);
+  box-shadow: 0 6px 20px hsl(120 60% 40% / 0.15);
 }
 
 .financial-card-header {
@@ -1258,7 +1827,7 @@ watch(submitting, (val) => {
   gap: 14px;
   margin-bottom: 18px;
   padding-bottom: 16px;
-  border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+  border-bottom: 1px dashed hsl(var(--border));
 }
 
 .financial-account-select {
@@ -1276,27 +1845,27 @@ watch(submitting, (val) => {
 }
 
 .buyer-icon {
-  background: linear-gradient(135deg, #1890ff, #40a9ff);
+  background: linear-gradient(135deg, hsl(210 100% 45%), hsl(210 100% 55%));
   color: #fff;
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+  box-shadow: 0 4px 12px hsl(210 100% 50% / 0.3);
 }
 
 .seller-icon {
-  background: linear-gradient(135deg, #52c41a, #73d13d);
+  background: linear-gradient(135deg, hsl(120 60% 35%), hsl(120 60% 45%));
   color: #fff;
-  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.3);
+  box-shadow: 0 4px 12px hsl(120 60% 40% / 0.3);
 }
 
 .financial-card-title .title-main {
   font-size: 16px;
   font-weight: 600;
-  color: #262626;
+  color: hsl(var(--foreground));
   line-height: 1.3;
 }
 
 .financial-card-title .title-sub {
   font-size: 12px;
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
   margin-top: 2px;
 }
 
@@ -1316,15 +1885,21 @@ watch(submitting, (val) => {
   flex-shrink: 0;
   width: 80px;
   font-size: 13px;
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
   line-height: 1.6;
   padding-top: 5px;
+}
+
+.fin-required {
+  color: hsl(0 84% 60%);
+  margin-right: 2px;
+  font-weight: 600;
 }
 
 .fin-value {
   flex: 1;
   font-size: 13px;
-  color: #262626;
+  color: hsl(var(--foreground));
   font-weight: 500;
   line-height: 1.6;
   word-break: break-all;
@@ -1343,7 +1918,7 @@ watch(submitting, (val) => {
   margin: 0 -8px;
   font-size: 13px;
   font-weight: 500;
-  color: #262626;
+  color: hsl(var(--foreground));
   background: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -1351,14 +1926,14 @@ watch(submitting, (val) => {
 }
 
 .fin-input.ant-input:hover {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: #d9d9d9;
+  background: hsl(var(--accent) / 0.5);
+  border-color: hsl(var(--border));
 }
 
 .fin-input.ant-input:focus {
-  background: #fff;
-  border-color: #1890ff;
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+  background: hsl(var(--background));
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
 }
 
 .fin-input.mono.ant-input {
@@ -1367,7 +1942,7 @@ watch(submitting, (val) => {
 }
 
 .fin-input.ant-input::placeholder {
-  color: #bfbfbf;
+  color: hsl(var(--muted-foreground) / 0.6);
   font-weight: 400;
 }
 
@@ -1375,7 +1950,7 @@ watch(submitting, (val) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #bfbfbf;
+  color: hsl(var(--muted-foreground) / 0.6);
   padding: 0 4px;
   flex-shrink: 0;
   animation: arrowPulse 2s ease-in-out infinite;
@@ -1388,21 +1963,21 @@ watch(submitting, (val) => {
 
 /* 支付汇总卡片 */
 .payment-summary-card {
-  background: #fff;
+  background: hsl(var(--background));
   border-radius: 12px;
   padding: 20px 24px;
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid hsl(var(--border) / 0.5);
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.04);
   margin-bottom: 20px;
 }
 
 .payment-summary-title {
   font-size: 15px;
   font-weight: 600;
-  color: #262626;
+  color: hsl(var(--foreground));
   margin-bottom: 16px;
   padding-left: 10px;
-  border-left: 3px solid #1890ff;
+  border-left: 3px solid hsl(var(--primary));
 }
 
 .payment-summary-grid {
@@ -1416,57 +1991,57 @@ watch(submitting, (val) => {
   flex-direction: column;
   gap: 6px;
   padding: 12px 16px;
-  background: #fafafa;
+  background: hsl(var(--muted));
   border-radius: 8px;
   transition: background 0.2s;
 }
 
 .pay-item:hover {
-  background: #f5f5f5;
+  background: hsl(var(--accent));
 }
 
 .pay-item.amount-item {
-  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+  background: hsl(var(--muted));
 }
 
 .pay-item.highlight {
-  background: linear-gradient(135deg, #fff2e8 0%, #ffe7ba 100%);
-  border: 1px solid #ffd591;
+  background: hsl(30 100% 92% / 0.5);
+  border: 1px solid hsl(30 100% 75% / 0.4);
 }
 
 .pay-label {
   font-size: 12px;
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
 }
 
 .pay-value {
   font-size: 14px;
   font-weight: 600;
-  color: #262626;
+  color: hsl(var(--foreground));
 }
 
 .amount-total {
   font-size: 16px;
-  color: #262626;
+  color: hsl(var(--foreground));
 }
 
 .amount-paid {
   font-size: 16px;
-  color: #52c41a;
+  color: hsl(120 60% 40%);
 }
 
 .amount-unpaid {
   font-size: 18px;
-  color: #fa8c16;
+  color: hsl(30 90% 50%);
   font-weight: 700;
 }
 
 .payment-form-section {
-  background: #fff;
+  background: hsl(var(--background));
   border-radius: 12px;
   padding: 20px 24px;
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid hsl(var(--border) / 0.5);
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.04);
 }
 
 @media (max-width: 1200px) {

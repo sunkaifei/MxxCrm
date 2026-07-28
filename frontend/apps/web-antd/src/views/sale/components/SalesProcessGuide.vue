@@ -3,11 +3,11 @@
     <!-- 头部：标题 + 提示 + 操作按钮（独立一行） -->
     <div class="sales-process-header">
       <div class="flex items-center gap-2 flex-shrink-0">
-        <LucideInfo class="text-blue-500 process-icon-info" />
-        <span class="font-medium text-sm">销售流程</span>
+        <LucideInfo class="process-icon-info" style="color: hsl(var(--primary))" />
+        <span class="font-medium text-sm" style="color: hsl(var(--foreground))">销售流程</span>
       </div>
       <div class="flex items-center gap-2 flex-1 min-w-0 process-tip-wrapper">
-        <span v-if="tipText" class="text-gray-500 text-xs process-tip-text">{{ tipText }}</span>
+        <span v-if="tipText" class="text-xs process-tip-text" style="color: hsl(var(--muted-foreground))">{{ tipText }}</span>
       </div>
       <Button type="link" size="small" @click="expanded = !expanded" class="!p-0 !h-auto flex-shrink-0">
         {{ expanded ? '收起' : '详细说明' }}
@@ -49,12 +49,12 @@
                 <span class="step-detail-index-num">{{ idx + 1 }}</span>
               </div>
               <div class="flex items-center gap-1.5 flex-1 min-w-0">
-                <component :is="step.icon" class="step-detail-icon" :class="getStepIconColorClass(step.key)" />
-                <span class="font-medium text-sm truncate" :class="getStepTitleColor(step.key)">{{ step.title }}</span>
+                <component :is="step.icon" class="step-detail-icon" :style="getStepIconColor(step.key)" />
+                <span class="font-medium text-sm truncate" :style="getStepTitleColor(step.key)">{{ step.title }}</span>
               </div>
             </div>
-            <div class="text-gray-500 text-xs leading-relaxed step-detail-desc">{{ step.desc }}</div>
-            <div v-if="step.nextTip && isCurrentStep(step.key)" class="mt-2 text-xs flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-1 rounded inline-flex step-detail-tip">
+            <div class="text-xs leading-relaxed step-detail-desc" style="color: hsl(var(--muted-foreground))">{{ step.desc }}</div>
+            <div v-if="step.nextTip && isCurrentStep(step.key)" class="mt-2 text-xs flex items-center gap-1 px-2 py-1 rounded inline-flex step-detail-tip" style="color: hsl(var(--primary)); background: hsl(var(--primary) / 0.08);">
               <LucideArrowRight class="tip-arrow-icon" />
               <span>{{ step.nextTip }}</span>
             </div>
@@ -204,16 +204,16 @@ function getStepCardClass(key: StepKey) {
 }
 
 // 展开态步骤图标颜色
-function getStepIconColorClass(key: StepKey) {
-  if (isCurrentStep(key)) return 'text-blue-600';
-  if (isPastStep(key)) return 'text-green-600';
-  return 'text-gray-400';
+function getStepIconColor(key: StepKey) {
+  if (isCurrentStep(key)) return { color: 'hsl(var(--primary))' };
+  if (isPastStep(key)) return { color: 'hsl(142 71% 45%)' };
+  return { color: 'hsl(var(--muted-foreground) / 0.6)' };
 }
 
 function getStepTitleColor(key: StepKey) {
-  if (isCurrentStep(key)) return 'text-blue-700';
-  if (isPastStep(key)) return 'text-green-700';
-  return 'text-gray-600';
+  if (isCurrentStep(key)) return { color: 'hsl(var(--primary))' };
+  if (isPastStep(key)) return { color: 'hsl(142 71% 35%)' };
+  return { color: 'hsl(var(--muted-foreground))' };
 }
 
 function goToStep(key: StepKey) {
@@ -227,11 +227,11 @@ function goToStep(key: StepKey) {
 <style scoped>
 /* ========== 外层统一卡片 ========== */
 .sales-process-wrapper {
-  background: #ffffff;
-  border: 1px solid #f0f0f0;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 10px;
   padding: 10px 14px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.03);
   margin-bottom: 12px;
 }
 
@@ -241,7 +241,7 @@ function goToStep(key: StepKey) {
   gap: 12px;
   min-height: 32px;
   padding-bottom: 8px;
-  border-bottom: 1px dashed #e8e8e8;
+  border-bottom: 1px dashed hsl(var(--border));
   margin-bottom: 10px;
 }
 
@@ -328,51 +328,51 @@ function goToStep(key: StepKey) {
 
 /* 折叠态：当前步骤 */
 .step-bar-current {
-  background: #e6f4ff;
+  background: hsl(var(--primary) / 0.08);
 }
 
 .step-bar-current .step-bar-title {
-  color: #1677ff;
+  color: hsl(var(--primary));
   font-weight: 600;
 }
 
 .step-bar-current .step-bar-index {
-  background: #1677ff;
-  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12);
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
 }
 
 .step-bar-current:hover {
-  background: #bae0ff;
+  background: hsl(var(--primary) / 0.15);
 }
 
 /* 折叠态：已完成步骤 */
 .step-bar-past .step-bar-title {
-  color: #389e0d;
+  color: hsl(142 71% 45%);
 }
 
 .step-bar-past .step-bar-index {
-  background: #52c41a;
+  background: hsl(142 71% 45%);
 }
 
 .step-bar-past:hover {
-  background: #f6ffed;
+  background: hsl(142 71% 45% / 0.08);
 }
 
 /* 折叠态：未开始步骤 */
 .step-bar-default .step-bar-title {
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
 }
 
 .step-bar-default .step-bar-index {
-  background: #d9d9d9;
+  background: hsl(var(--muted-foreground) / 0.25);
 }
 
 .step-bar-default:hover {
-  background: #fafafa;
+  background: hsl(var(--muted) / 0.5);
 }
 
 .step-bar-default:hover .step-bar-index {
-  background: #8c8c8c;
+  background: hsl(var(--muted-foreground) / 0.4);
 }
 
 /* 步骤之间的分隔箭头 */
@@ -382,7 +382,7 @@ function goToStep(key: StepKey) {
   justify-content: center;
   flex-shrink: 0;
   padding: 0 4px;
-  color: #c0c4cc;
+  color: hsl(var(--muted-foreground) / 0.4);
 }
 
 .step-bar-separator-text {
@@ -427,8 +427,8 @@ function goToStep(key: StepKey) {
 }
 
 .step-detail-card {
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
+  background: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -437,8 +437,8 @@ function goToStep(key: StepKey) {
 }
 
 .step-detail-card:hover {
-  border-color: #d9d9d9;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-color: hsl(var(--muted-foreground) / 0.3);
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.06);
 }
 
 .step-detail-index {
@@ -476,40 +476,40 @@ function goToStep(key: StepKey) {
 
 /* 徽章：当前 */
 .badge-current {
-  background: #1677ff;
-  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12);
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
 }
 
 /* 徽章：已完成 */
 .badge-past {
-  background: #52c41a;
+  background: hsl(142 71% 45%);
 }
 
 /* 徽章：未开始 */
 .badge-default {
-  background: #d9d9d9;
+  background: hsl(var(--muted-foreground) / 0.25);
 }
 
 /* 展开卡片：当前 */
 .step-card-current {
-  background: #e6f4ff;
-  border-color: #91caff;
+  background: hsl(var(--primary) / 0.06);
+  border-color: hsl(var(--primary) / 0.3);
 }
 
 .step-card-current:hover {
-  border-color: #4096ff;
-  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.12);
+  border-color: hsl(var(--primary) / 0.5);
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.12);
 }
 
 /* 展开卡片：已完成 */
 .step-card-past {
-  background: #f6ffed;
-  border-color: #b7eb8f;
+  background: hsl(142 71% 45% / 0.06);
+  border-color: hsl(142 71% 45% / 0.3);
 }
 
 .step-card-past:hover {
-  border-color: #95de64;
-  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.12);
+  border-color: hsl(142 71% 45% / 0.5);
+  box-shadow: 0 4px 12px hsl(142 71% 45% / 0.12);
 }
 
 /* ========== 响应式 ========== */
@@ -528,7 +528,7 @@ function goToStep(key: StepKey) {
   }
   .step-bar-item {
     flex: 0 0 calc(25% - 0px);
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid hsl(var(--border));
   }
   .step-bar-item:nth-last-child(-n+3) {
     border-bottom: none;
@@ -543,7 +543,7 @@ function goToStep(key: StepKey) {
 @media (max-width: 768px) {
   .step-bar-item {
     flex: 0 0 calc(33.333% - 0px);
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid hsl(var(--border));
   }
   .step-bar-item:nth-last-child(-n+3) {
     border-bottom: none;
@@ -572,7 +572,7 @@ function goToStep(key: StepKey) {
 @media (max-width: 576px) {
   .step-bar-item {
     flex: 0 0 calc(50% - 0px);
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid hsl(var(--border));
   }
   .step-bar-item:nth-last-child(-n+2) {
     border-bottom: none;

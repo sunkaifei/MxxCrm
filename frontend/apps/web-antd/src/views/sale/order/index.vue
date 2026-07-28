@@ -9,7 +9,7 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Tabs, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Drawer, Tabs, Modal, Popconfirm, Tag, Dropdown, Input, Menu } from 'ant-design-vue';
 import { useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -84,6 +84,7 @@ const orderStatusOptions = [
   { label: '已交付', value: 8 },
   { label: '已签收', value: 9 },
   { label: '已完成', value: 10 },
+  { label: '已作废', value: 11 },
 ];
 
 const paymentStatusOptions = [
@@ -104,6 +105,7 @@ const orderStatusColorMap: Record<number, string> = {
   8: 'cyan',
   9: 'green',
   10: 'blue',
+  11: 'red',
 };
 
 const orderStatusLabelMap: Record<number, string> = {
@@ -117,6 +119,7 @@ const orderStatusLabelMap: Record<number, string> = {
   8: '已交付',
   9: '已签收',
   10: '已完成',
+  11: '已作废',
 };
 
 const paymentStatusColorMap: Record<number, string> = {
@@ -477,6 +480,59 @@ async function handleComplete(row: any) {
   });
 }
 
+// ========== 订单作废 ==========
+
+const voidRemarkVisible = ref(false);
+const voidRemarkText = ref('');
+const voidOrderRow = ref<any>(null);
+
+function openVoidModal(row: any) {
+  voidOrderRow.value = row;
+  voidRemarkText.value = '';
+  voidRemarkVisible.value = true;
+}
+
+function cancelVoidModal() {
+  voidRemarkVisible.value = false;
+  voidOrderRow.value = null;
+  voidRemarkText.value = '';
+}
+
+async function submitVoidOrder() {
+  if (!voidOrderRow.value) return;
+  if (!voidRemarkText.value.trim()) {
+    window.$message.warning('请填写作废备注');
+    return;
+  }
+  try {
+    await updateOrderStatusApi({
+      id: voidOrderRow.value.id,
+      orderStatus: 11,
+      remark: voidRemarkText.value.trim(),
+    });
+    window.$message.success('订单已作废');
+    voidRemarkVisible.value = false;
+    voidOrderRow.value = null;
+    voidRemarkText.value = '';
+    gridApi.query();
+  } catch {
+    window.$message.error('操作失败');
+  }
+}
+
+function handleVoidOrder(row: any) {
+  Modal.confirm({
+    title: '确认订单作废',
+    content: '订单作废后将不可恢复，确定要作废该订单吗？',
+    okText: '确认作废',
+    okButtonProps: { danger: true },
+    cancelText: '取消',
+    onOk: () => {
+      openVoidModal(row);
+    },
+  });
+}
+
 // ========== 审批流 ==========
 
 const approvalDrawerVisible = ref(false);
@@ -593,7 +649,8 @@ function closeCustomerDetail() {
       <template #orderNo="{ row }">
         <a
           v-if="accessStore.hasAccessCode('sale:order:list')"
-          class="text-blue-600 cursor-pointer"
+          class="cursor-pointer"
+          style="color: hsl(var(--primary))"
           @click="handleView(row)"
         >
           {{ row.orderNo }}
@@ -604,7 +661,8 @@ function closeCustomerDetail() {
       <template #customerName="{ row }">
         <a
           v-if="row.customerId"
-          class="text-blue-600 cursor-pointer hover:text-blue-800"
+          class="cursor-pointer hover:underline"
+          style="color: hsl(var(--primary))"
           @click="() => openCustomerDetail(Number(row.customerId))"
         >
           {{ row.customerName || '-' }}
@@ -640,45 +698,80 @@ function closeCustomerDetail() {
       </template>
 
       <template #action="{ row }">
-        <a
-          v-if="accessStore.hasAccessCode('sale:order:list')"
-          class="text-blue-600 cursor-pointer mx-1"
-          @click="() => handleView(row)"
-        >查看</a>
         <!-- 提交审批：草稿(0)或已驳回(4)状态 -->
         <a
           v-if="
             accessStore.hasAccessCode('sale:order:update') &&
             (row.approvalStatus === 0 || row.approvalStatus === 4)
           "
-          class="text-blue-600 cursor-pointer mx-1"
+          class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))"
           @click="() => handleSubmitApproval(row)"
         >提交审批</a>
-        <!-- 编辑：草稿(0)或已驳回(4)状态，放在提交审批后 -->
-        <a
-          v-if="
-            accessStore.hasAccessCode('sale:order:update') &&
-            (row.approvalStatus === 0 || row.approvalStatus === 4)
-          "
-          class="text-blue-600 cursor-pointer mx-1"
-          @click="() => handleEdit(row)"
-        >编辑</a>
         <!-- 查看审批：待审批(1)或审批中(2)或已通过(3)或已驳回(4) -->
         <a
           v-if="
             accessStore.hasAccessCode('sale:order:list') &&
             row.approvalStatus >= 1 && row.approvalStatus <= 4
           "
-          class="text-blue-600 cursor-pointer mx-1"
+          class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))"
           @click="() => handleViewApproval(row)"
         >审批</a>
+        <!-- 更多操作：编辑/删除/订单作废 -->
+        <Dropdown v-if="
+          (accessStore.hasAccessCode('sale:order:update') &&
+            (row.approvalStatus === 0 || row.approvalStatus === 4)) ||
+          (accessStore.hasAccessCode('sale:order:delete') &&
+            (row.approvalStatus === 0 || row.approvalStatus === 4)) ||
+          (accessStore.hasAccessCode('sale:order:update') &&
+            row.approvalStatus === 3 && !row.contractId)
+        ">
+          <a class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))">更多<span class="text-xs">▾</span></a>
+          <template #overlay>
+            <Menu>
+              <!-- 编辑：草稿(0)或已驳回(4)，审批中(2)/已通过(3)不可编辑 -->
+              <Menu.Item
+                v-if="
+                  accessStore.hasAccessCode('sale:order:update') &&
+                  (row.approvalStatus === 0 || row.approvalStatus === 4)
+                "
+                @click="() => handleEdit(row)"
+              >
+                编辑
+              </Menu.Item>
+              <!-- 订单作废：审批通过(3)且未签合同 -->
+              <Menu.Item
+                v-if="
+                  accessStore.hasAccessCode('sale:order:update') &&
+                  row.approvalStatus === 3 && !row.contractId
+                "
+                @click="() => handleVoidOrder(row)"
+              >
+                <span style="color: hsl(0 84% 60%)">订单作废</span>
+              </Menu.Item>
+              <!-- 删除：草稿(0)或已驳回(4)允许，审批中(2)/已通过(3)不可删除 -->
+              <Menu.Item
+                v-if="
+                  accessStore.hasAccessCode('sale:order:delete') &&
+                  (row.approvalStatus === 0 || row.approvalStatus === 4)
+                "
+                @click="() => handleDelete(row)"
+              >
+                <span style="color: hsl(0 84% 60%)">删除</span>
+              </Menu.Item>
+            </Menu>
+          </template>
+        </Dropdown>
         <!-- 查看合同：审批已通过(3)且已关联合同 -->
         <a
           v-if="
             accessStore.hasAccessCode('sale:order:update') &&
             row.approvalStatus === 3 && row.contractId
           "
-          class="text-blue-600 cursor-pointer mx-1"
+          class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))"
           @click="() => handleViewContract(row)"
         >查看合同</a>
         <!-- 签署合同：审批已通过(3)且未关联合同 -->
@@ -687,7 +780,8 @@ function closeCustomerDetail() {
             accessStore.hasAccessCode('sale:order:update') &&
             row.approvalStatus === 3 && !row.contractId
           "
-          class="text-green-600 cursor-pointer mx-1 font-medium"
+          class="cursor-pointer mx-1 font-medium"
+          style="color: hsl(142 71% 45%)"
           @click="() => handleCreateContract(row)"
         >签署合同</a>
         <a
@@ -695,7 +789,8 @@ function closeCustomerDetail() {
             accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 3
           "
-          class="text-blue-600 cursor-pointer mx-1"
+          class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))"
           @click="() => handleStockUp(row)"
         >备货</a>
         <a
@@ -705,7 +800,8 @@ function closeCustomerDetail() {
               row.orderStatus === 4 ||
               row.orderStatus === 5)
           "
-          class="text-blue-600 cursor-pointer mx-1"
+          class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))"
           @click="() => openShipmentDrawer(row)"
         >发货</a>
         <a
@@ -713,7 +809,8 @@ function closeCustomerDetail() {
             accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 6
           "
-          class="text-blue-600 cursor-pointer mx-1"
+          class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))"
           @click="() => handleSign(row)"
         >签收</a>
         <a
@@ -721,22 +818,10 @@ function closeCustomerDetail() {
             accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 9
           "
-          class="text-blue-600 cursor-pointer mx-1"
+          class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))"
           @click="() => handleComplete(row)"
         >完成</a>
-        <!-- 删除：仅草稿(0)或已驳回(4)允许 -->
-        <Popconfirm
-          v-if="
-            accessStore.hasAccessCode('sale:order:delete') &&
-            (row.approvalStatus === 0 || row.approvalStatus === 4)
-          "
-          :title="$t('ui.text.do_you_want_delete', { moduleName: '订单' })"
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="handleDelete(row)"
-        >
-          <a class="text-red-500 cursor-pointer mx-1">删除</a>
-        </Popconfirm>
       </template>
     </Grid>
     <FormDrawer />
@@ -763,5 +848,26 @@ function closeCustomerDetail() {
         :id="customerDetailId"
       />
     </Drawer>
+    <!-- 订单作废备注弹窗 -->
+    <Modal
+      v-model:open="voidRemarkVisible"
+      title="订单作废备注"
+      :ok-text="'确认作废'"
+      :cancel-text="'取消'"
+      :ok-button-props="{ danger: true }"
+      @ok="submitVoidOrder"
+      @cancel="cancelVoidModal"
+    >
+      <div class="py-2">
+        <p class="mb-3" style="color: hsl(var(--muted-foreground))">请填写作废原因（必填）：</p>
+        <Input.TextArea
+          v-model:value="voidRemarkText"
+          :rows="4"
+          placeholder="请输入作废原因..."
+          :max-length="500"
+          show-count
+        />
+      </div>
+    </Modal>
   </Page>
 </template>

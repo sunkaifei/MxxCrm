@@ -1014,38 +1014,40 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
             <Form.Item label="商机名称" name="title" :rules="[{ required: true, message: '请输入商机名称' }]">
               <Input v-model:value="baseForm.title" placeholder="请输入商机名称" />
             </Form.Item>
-            <Form.Item label="所属企业" name="customerId" :rules="[{ required: true, message: '请选择所属企业' }]">
-              <div class="opp-customer-picker">
-                <Input
-                  :value="baseForm.customerId ? (opp.customerName || '') : ''"
-                  :placeholder="isCustomerLocked ? '已转下游单据，客户不可修改' : '点击右侧按钮选择客户'"
-                  readonly
-                  class="opp-customer-picker-input"
-                />
-                <Button type="primary" size="small" class="opp-customer-picker-btn" :disabled="isCustomerLocked" @click="openCustomerPicker">
-                  选择客户
-                </Button>
-                <Button v-if="baseForm.customerId && !isCustomerLocked" type="link" size="small" danger class="opp-customer-picker-clear" @click="clearSelectedCustomer">
-                  清除
-                </Button>
-              </div>
-            </Form.Item>
-            <Form.Item label="联系人" name="contactId" :rules="[{ required: true, message: '请选择联系人' }]">
-              <div class="opp-customer-picker">
-                <Input
-                  :value="baseForm.contactId ? selectedContactName : ''"
-                  :placeholder="baseForm.customerId ? '点击右侧按钮选择联系人' : '请先选择所属企业'"
-                  readonly
-                  class="opp-customer-picker-input"
-                />
-                <Button type="primary" size="small" class="opp-customer-picker-btn" :disabled="!baseForm.customerId" @click="openContactPickerBasic">
-                  选择联系人
-                </Button>
-                <Button v-if="baseForm.contactId" type="link" size="small" danger class="opp-customer-picker-clear" @click="clearSelectedContact">
-                  清除
-                </Button>
-              </div>
-            </Form.Item>
+            <div class="opp-form-row">
+              <Form.Item label="所属企业" name="customerId" class="opp-form-item" :rules="[{ required: true, message: '请选择所属企业' }]">
+                <div class="opp-customer-picker">
+                  <Input
+                    :value="baseForm.customerId ? (opp.customerName || '') : ''"
+                    :placeholder="isCustomerLocked ? '已转下游单据，客户不可修改' : '点击右侧按钮选择客户'"
+                    readonly
+                    class="opp-customer-picker-input"
+                  />
+                  <Button type="primary" size="small" class="opp-customer-picker-btn" :disabled="isCustomerLocked" @click="openCustomerPicker">
+                    选择客户
+                  </Button>
+                  <Button v-if="baseForm.customerId && !isCustomerLocked" type="link" size="small" danger class="opp-customer-picker-clear" @click="clearSelectedCustomer">
+                    清除
+                  </Button>
+                </div>
+              </Form.Item>
+              <Form.Item label="联系人" name="contactId" class="opp-form-item" :rules="[{ required: true, message: '请选择联系人' }]">
+                <div class="opp-customer-picker">
+                  <Input
+                    :value="baseForm.contactId ? selectedContactName : ''"
+                    :placeholder="baseForm.customerId ? '点击右侧按钮选择联系人' : '请先选择所属企业'"
+                    readonly
+                    class="opp-customer-picker-input"
+                  />
+                  <Button type="primary" size="small" class="opp-customer-picker-btn" :disabled="!baseForm.customerId" @click="openContactPickerBasic">
+                    选择联系人
+                  </Button>
+                  <Button v-if="baseForm.contactId" type="link" size="small" danger class="opp-customer-picker-clear" @click="clearSelectedContact">
+                    清除
+                  </Button>
+                </div>
+              </Form.Item>
+            </div>
             <div class="opp-form-row">
               <Form.Item label="商机金额" name="amount" class="opp-form-item">
                 <InputNumber v-model:value="baseForm.amount" :min="0" :precision="2" placeholder="请输入商机金额" style="width: 100%" />

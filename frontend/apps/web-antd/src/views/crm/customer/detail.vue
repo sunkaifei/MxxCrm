@@ -15,7 +15,7 @@ import {
 import {
   getCustomerInfoApi, getCustomerContactsApi, getCustomerAssignHistoryApi,
   createCustomerApi, updateCustomerApi, getCountriesApi,
-  checkCustomerNameApi,
+  checkCustomerNameApi, getCustomerMailLogApi,
 } from '#/api';
 import { requestClient } from '#/api/request';
 import { useDebounceFn } from '@vueuse/core';
@@ -45,6 +45,7 @@ import {
   getContractListApi,
 } from '#/api';
 import OpportunityDetail from '../opportunity/detail.vue';
+import SendMailModal from '../components/SendMailModal.vue';
 
 function toCamelCase(obj: any): any {
   if (obj === null || obj === undefined) return obj;
@@ -737,6 +738,32 @@ const handleUnbind = async (contactId: number) => {
 // 切换到基本信息 Tab（替代原"编辑"按钮，基本信息 Tab 内表单可直接编辑）
 const handleEdit = () => { activeTab.value = 'basic'; };
 
+// 发邮件
+const sendMailVisible = ref(false);
+const handleSendMail = () => { sendMailVisible.value = true; };
+
+// 邮件记录
+const mailLogs = ref<any[]>([]);
+const mailLogsLoading = ref(false);
+async function loadMailLogs() {
+  if (!props.id) return;
+  mailLogsLoading.value = true;
+  try {
+    const res: any = await getCustomerMailLogApi(Number(props.id));
+    if (Array.isArray(res)) {
+      mailLogs.value = res;
+    } else if (res && Array.isArray(res.items)) {
+      mailLogs.value = res.items;
+    } else {
+      mailLogs.value = [];
+    }
+  } catch {
+    mailLogs.value = [];
+  } finally {
+    mailLogsLoading.value = false;
+  }
+}
+
 const handleReturnToPool = () => {
   Modal.confirm({
     title: '退回公海',
@@ -1125,6 +1152,7 @@ watch(() => activeTab.value, (tab) => {
   if (tab === 'opportunities') loadOpportunities();
   if (tab === 'orders') loadOrderList();
   if (tab === 'contracts') loadContractList();
+  if (tab === 'mailLogs') loadMailLogs();
 });
 
 watch(() => props.id, () => { loadData(); }, { immediate: true });
@@ -1197,6 +1225,7 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
               />
             </Tooltip>
             <Button type="primary" :icon="h(LucideFilePenLine)" @click="handleEdit">编辑</Button>
+            <Button :icon="h(LucideMail)" @click="handleSendMail">发邮件</Button>
             <Dropdown>
               <Button :icon="h(LucideMoreHorizontal)" />
               <template #overlay>
@@ -2116,6 +2145,47 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
               <Empty v-else description="暂无负责人记录" />
             </div>
           </Tabs.TabPane>
+          <Tabs.TabPane v-if="!isCreate" key="mailLogs" :tab="`邮件记录 (${mailLogs.length})`">
+            <div class="p-4">
+              <Spin :spinning="mailLogsLoading">
+                <Timeline v-if="mailLogs.length > 0">
+                  <Timeline.Item
+                    v-for="(item, index) in mailLogs"
+                    :key="item.id || index"
+                    :color="item.status === 1 ? 'green' : 'red'"
+                  >
+                    <div class="flex items-start justify-between flex-wrap gap-2">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="font-medium">{{ item.subject || '(无主题)' }}</span>
+                          <Tag :color="item.status === 1 ? 'success' : 'error'">
+                            {{ item.status === 1 ? '成功' : '失败' }}
+                          </Tag>
+                        </div>
+                        <div class="mt-1 text-sm text-gray-600">
+                          <span class="text-gray-400">收件人：</span>
+                          <span>{{ Array.isArray(item.toEmails) ? item.toEmails.join('; ') : (item.toEmails || '-') }}</span>
+                        </div>
+                        <div v-if="item.ccEmails && (Array.isArray(item.ccEmails) ? item.ccEmails.length : item.ccEmails)" class="mt-1 text-sm text-gray-600">
+                          <span class="text-gray-400">抄送：</span>
+                          <span>{{ Array.isArray(item.ccEmails) ? item.ccEmails.join('; ') : item.ccEmails }}</span>
+                        </div>
+                        <div v-if="item.errorMsg" class="mt-1 text-xs text-red-500">
+                          错误：{{ item.errorMsg }}
+                        </div>
+                      </div>
+                      <div class="text-right text-xs text-gray-400 whitespace-nowrap">
+                        <div v-if="item.senderName">发送人：{{ item.senderName }}</div>
+                        <div v-if="item.sendTime">发送时间：{{ formatDateTime(item.sendTime) }}</div>
+                        <div v-else-if="item.createTime">创建时间：{{ formatDateTime(item.createTime) }}</div>
+                      </div>
+                    </div>
+                  </Timeline.Item>
+                </Timeline>
+                <Empty v-else description="暂无邮件记录" />
+              </Spin>
+            </div>
+          </Tabs.TabPane>
         </Tabs>
       </Card>
       <ContactEditDrawer />
@@ -2137,6 +2207,13 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
           @created="loadOpportunities"
         />
       </Drawer>
+
+      <SendMailModal
+        v-model:visible="sendMailVisible"
+        :customer-id="Number(props.id)"
+        :customer-name="customer?.companyName"
+        @success="() => { if (activeTab === 'mailLogs') loadMailLogs(); }"
+      />
     </Skeleton>
   </div>
 </template>

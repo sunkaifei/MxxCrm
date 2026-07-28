@@ -57,7 +57,6 @@ const gridOptions: VxeGridProps = {
     refresh: true,
     zoom: true,
   },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: {
@@ -88,39 +87,52 @@ const gridOptions: VxeGridProps = {
     {
       title: $t('page.system.user.username'),
       field: 'userName',
+      width: 140,
       slots: { default: 'userName' },
     },
     {
       title: $t('page.system.user.nickName'),
       field: 'nickName',
+      width: 140,
       slots: { default: 'nickName' },
+    },
+    {
+      title: '手机',
+      field: 'mobile',
+      width: 120,
     },
     {
       title: $t('page.system.user.email'),
       field: 'email',
+      width: 180,
     },
     {
       title: $t('page.system.user.role'),
       field: 'roleName',
+      width: 120,
       slots: { default: 'roleName' },
     },
     {
       title: $t('ui.table.status'),
       field: 'status',
+      width: 80,
       slots: { default: 'status' },
     },
     {
       title: $t('page.system.user.lastLoginTime'),
       field: 'lastLoginTime',
+      width: 140,
       slots: { default: 'lastLoginTime' },
     },
     {
       title: $t('page.system.user.lastLoginIp'),
       field: 'lastLoginIp',
+      width: 120,
     },
     {
       title: $t('ui.table.createTime'),
       field: 'createTime',
+      width: 140,
       slots: { default: 'createdAt' },
     },
     {
@@ -186,7 +198,7 @@ async function handleDelete(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <Grid :table-title="$t('page.system.user.title')">
       <template #toolbar-tools>
         <Button
@@ -264,3 +276,13 @@ async function handleDelete(row: any) {
     <UserDetailDrawer v-model:visible="detailVisible" :id="detailUserId ?? undefined" />
   </Page>
 </template>
+
+<style scoped>
+:deep(.vxe-table--empty-block) {
+  min-height: 150px;
+}
+
+:deep(.vxe-grid) {
+  overflow: hidden;
+}
+</style>

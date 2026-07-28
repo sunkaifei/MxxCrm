@@ -129,6 +129,7 @@ pub struct OrderStatusUpdateRequest {
     pub id: Option<i64>,
     pub order_status: Option<i32>,
     pub tracking_no: Option<String>,
+    pub remark: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -254,6 +255,11 @@ pub struct OrderListVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub contact_id: Option<i64>,
+    pub contact_name: Option<String>,
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub contract_id: Option<i64>,
     pub order_date: Option<Date>,
     pub delivery_date: Option<Date>,
     pub total_amount: Option<Decimal>,
@@ -511,6 +517,9 @@ impl From<&order::Model> for OrderListVO {
             order_status: model.order_status,
             customer_id: model.customer_id,
             customer_name: model.customer_name.clone(),
+            contact_id: model.contact_id,
+            contact_name: model.contact_name.clone(),
+            contract_id: model.contract_id,
             order_date: model.order_date,
             delivery_date: model.delivery_date,
             total_amount: model.total_amount,
@@ -760,7 +769,7 @@ impl OrderModel {
         Ok(result.rows_affected as i64)
     }
 
-    pub async fn update_status<C: ConnectionTrait>(db: &C, id: i64, order_status: i32, tracking_no: Option<String>) -> Result<i64, DbErr> {
+    pub async fn update_status<C: ConnectionTrait>(db: &C, id: i64, order_status: i32, tracking_no: Option<String>, remark: Option<String>) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let mut payload = order::ActiveModel {
             order_status: Set(Some(order_status)),
@@ -770,6 +779,13 @@ impl OrderModel {
 
         if let Some(tn) = tracking_no {
             payload.tracking_no = Set(Some(tn));
+        }
+
+        // 订单作废时保存备注
+        if order_status == 11 {
+            if let Some(r) = remark {
+                payload.remark = Set(Some(r));
+            }
         }
 
         // 5=部分发货，6=已发货，记录发货时间

@@ -296,6 +296,12 @@ pub struct LeadDetailVO {
     pub next_follow_at: Option<DateTime>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 创建人ID
+    pub created_by: Option<i64>,
+    /// 创建人名称
+    pub created_by_name: Option<String>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
     /// 转换为客户的ID
     pub converted_to_customer_id: Option<i64>,
     /// 转换时间
@@ -331,6 +337,9 @@ impl From<lead::Model> for LeadDetailVO {
             currency: item.currency,
             next_follow_at: item.next_follow_at,
             assigned_to: item.assigned_to,
+            created_by: item.created_by,
+            created_by_name: None,
+            create_time: item.create_time,
             converted_to_customer_id: item.converted_to_customer_id,
             converted_at: item.converted_at,
             description: item.description,

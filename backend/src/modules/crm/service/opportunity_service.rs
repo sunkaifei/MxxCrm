@@ -339,6 +339,23 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
         .collect();
     let creator_map = build_admin_name_map(db, creator_ids).await;
 
+    // 批量查询联系人姓名
+    let contact_ids: Vec<i64> = list.iter()
+        .filter_map(|item| item.contact_id)
+        .collect();
+    let mut contact_map: HashMap<i64, String> = HashMap::new();
+    if !contact_ids.is_empty() {
+        let contacts = contact::Entity::find()
+            .filter(contact::Column::Id.is_in(contact_ids))
+            .all(db)
+            .await?;
+        for ct in contacts {
+            if let Some(name) = ct.name {
+                contact_map.insert(ct.id, name);
+            }
+        }
+    }
+
     // 批量统计报价次数（关联 mxx_sale_quotation 表）
     let opp_ids: Vec<i64> = list.iter().map(|item| item.id).collect();
     let mut quote_count_map: HashMap<i64, i64> = HashMap::new();
@@ -364,10 +381,12 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
         let customer_id = item.customer_id;
         let created_by = item.created_by;
         let opp_id = item.id;
+        let ct_id = item.contact_id;
         let mut vo: OpportunityListVO = item.into();
         vo.customer_name = customer_id.and_then(|id| customer_map.get(&id).cloned());
         vo.created_by_name = created_by.and_then(|id| creator_map.get(&id).cloned());
         vo.quote_count = quote_count_map.get(&opp_id).copied();
+        vo.contact_name = ct_id.and_then(|id| contact_map.get(&id).cloned());
         vo
     }).collect();
 

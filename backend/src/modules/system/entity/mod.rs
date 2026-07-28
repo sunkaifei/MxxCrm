@@ -31,4 +31,7 @@ pub mod tag;
 pub mod tag_group;
 pub mod tag_merge;
 pub mod edit_log;
+pub mod mail_config;
+pub mod mail_template;
+pub mod mail_log;
 

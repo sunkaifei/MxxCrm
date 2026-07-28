@@ -19,7 +19,7 @@ use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::system::model::role::{ListQuery, RoleSaveDTO, RoleSaveRequest, RoleUpdateRequest, UpdateRoleDeptRequest, UpdateRoleMenuRequest};
 use crate::modules::system::service::menu_service::contains_all_elements;
-use crate::modules::system::service::{admin_service, menu_service, role_service};
+use crate::modules::system::service::{admin_service, menu_service, role_service, permission_cache_service};
 
 // 添加角色信息
 pub async fn role_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<RoleSaveRequest>) -> Result<HttpResponse> {
@@ -85,6 +85,12 @@ pub async fn bath_delete_role(state: web::Data<AppState>, item: web::Json<BathDe
 
     // 执行批量删除
     let result = role_service::batch_delete_by_ids(&db, &filtered_ids).await;
+    // v2.0: 角色删除后，清除该角色所有用户的权限缓存
+    if result.is_ok() {
+        for role_id in &filtered_ids {
+            permission_cache_service::invalidate_by_role_id(&db, *role_id).await;
+        }
+    }
     HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -187,6 +193,10 @@ pub async fn update_role_menus(state: web::Data<AppState>, req: HttpRequest, ite
 
     // 更新角色菜单
     let result = role_service::update_role_menus(db, &sys_role).await;
+    // v2.0: 角色菜单权限变更后，清除该角色所有用户的权限缓存
+    if result.is_ok() {
+        permission_cache_service::invalidate_by_role_id(db, role_id).await;
+    }
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {

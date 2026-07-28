@@ -347,7 +347,7 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<CustomerDetailVO> {
             // 查询客户的跟进记录
             let followups = crate::modules::crm::model::followup::FollowupModel::select_by_customer_id(&db, id).await?;
 
-            // 合并 客户负责人 + 所有跟进记录创建人 一次 IN 查询用户名
+            // 合并 客户负责人 + 创建人 + 所有跟进记录创建人 一次 IN 查询用户名
             let mut user_ids: Vec<i64> = followups.iter()
                 .filter_map(|f| f.created_by)
                 .collect::<HashSet<_>>()
@@ -356,10 +356,16 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<CustomerDetailVO> {
             if let Some(aid) = assignee_id {
                 user_ids.push(aid);
             }
+            if let Some(cbid) = vo.created_by {
+                user_ids.push(cbid);
+            }
             let name_map = crate::modules::system::service::admin_service::build_admin_name_map(db, user_ids).await;
 
             if let Some(aid) = assignee_id {
                 vo.assigned_to_name = name_map.get(&aid).cloned();
+            }
+            if let Some(cbid) = vo.created_by {
+                vo.created_by_name = name_map.get(&cbid).cloned();
             }
 
             let followup_vo_list: Vec<crate::modules::crm::model::followup::FollowupListVO> = followups.into_iter().map(|f| {

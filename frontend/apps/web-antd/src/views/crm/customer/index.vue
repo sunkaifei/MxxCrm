@@ -27,6 +27,7 @@ import CustomerFollowupDrawer from './followup-drawer.vue';
 import ContactDrawer from '../contact/drawer.vue';
 import OpportunityDetail from '../opportunity/detail.vue';
 import TransferModal from '../components/TransferModal.vue';
+import SendMailModal from '../components/SendMailModal.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -366,6 +367,20 @@ async function handleBatchDelete() {
 const transferVisible = ref(false);
 const transferCustomerIds = ref<number[]>([]);
 
+// 发邮件
+const sendMailVisible = ref(false);
+const sendMailCustomer = ref<any>(null);
+
+function handleSendMail() {
+  const records = gridApi.grid?.getCheckboxRecords();
+  if (!records?.length) {
+    message.warning('请先选择客户');
+    return;
+  }
+  sendMailCustomer.value = records[0];
+  sendMailVisible.value = true;
+}
+
 function handleBatchTransfer() {
   const records = gridApi.grid?.getCheckboxRecords();
   if (!records?.length) { message.warning('请先选择要转移的客户'); return; }
@@ -544,7 +559,7 @@ function handleAddContact(row: any) {
           >批量转移客户</Button>
           <Button>资料回收</Button>
           <Button>发短信</Button>
-          <Button :icon="h(LucideMail)">发邮件</Button>
+          <Button :icon="h(LucideMail)" @click="handleSendMail">发邮件</Button>
         </div>
       </Form>
     </Card>
@@ -670,6 +685,12 @@ function handleAddContact(row: any) {
       v-model:visible="transferVisible"
       :customer-ids="transferCustomerIds"
       @success="onTransferSuccess"
+    />
+
+    <SendMailModal
+      v-model:visible="sendMailVisible"
+      :customer-id="sendMailCustomer?.id"
+      :customer-name="sendMailCustomer?.companyName"
     />
   </Page>
 </template>

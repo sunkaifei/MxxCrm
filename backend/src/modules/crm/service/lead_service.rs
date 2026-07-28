@@ -49,11 +49,18 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<LeadDetailVO> {
             let mut vo: LeadDetailVO = item.into();
             let followups = crate::modules::crm::model::followup::FollowupModel::select_by_lead_id(&db, id).await?;
 
-            // 批量查询跟进人名称（统一调用共用方法）
-            let creator_ids: Vec<i64> = followups.iter()
+            // 批量查询跟进人名称 + 线索创建人名称（统一调用共用方法）
+            let mut creator_ids: Vec<i64> = followups.iter()
                 .filter_map(|f| f.created_by)
                 .collect();
+            if let Some(cbid) = vo.created_by {
+                creator_ids.push(cbid);
+            }
             let creator_map = crate::modules::system::service::admin_service::build_admin_name_map(db, creator_ids).await;
+
+            if let Some(cbid) = vo.created_by {
+                vo.created_by_name = creator_map.get(&cbid).cloned();
+            }
 
             let followup_vo_list: Vec<crate::modules::crm::model::followup::FollowupListVO> = followups.into_iter().map(|f| {
                 let mut followup_vo: crate::modules::crm::model::followup::FollowupListVO = f.into();

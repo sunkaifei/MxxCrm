@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 /**
- * 报价单选择弹窗组件
- * 用于在订单等场景中选择关联报价单
+ * 联系人选择弹窗组件
+ * 用于在订单/合同等场景中选择联系人
  *
  * 用法：
- * <QuotationSelectModal v-model:visible="visible" @select="onSelect" />
+ * <ContactSelectModal v-model:visible="visible" :customer-id="customerId" @select="onSelect" />
  */
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -21,11 +21,13 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getQuotationListApi } from '#/api';
+import { getContactListApi } from '#/api/core/crm/contact';
 
 const props = withDefaults(defineProps<{
   /** 弹窗是否可见 */
   visible: boolean;
+  /** 按客户ID过滤联系人（可选） */
+  customerId?: number | undefined;
   /** 弹窗宽度 */
   width?: string | number;
 }>(), {
@@ -46,17 +48,12 @@ const innerVisible = computed({
 // 搜索表单
 const keywords = ref('');
 
-// 币种符号映射
-const currencySymbolMap: Record<number, string> = {
-  1: '¥', 2: '$', 3: '€', 4: '£', 5: '¥', 6: 'HK$', 7: 'A$',
+// 角色映射
+const roleLabelMap: Record<number, string> = {
+  1: '首要', 2: '普通', 3: '其他',
 };
-
-// 审批状态映射
-const approvalStatusLabelMap: Record<number, string> = {
-  0: '草稿', 1: '草稿', 2: '审批中', 3: '已通过', 4: '已驳回',
-};
-const approvalStatusColorMap: Record<number, string> = {
-  0: 'default', 1: 'default', 2: 'processing', 3: 'success', 4: 'error',
+const roleColorMap: Record<number, string> = {
+  1: 'success', 2: 'default', 3: 'default',
 };
 
 const gridOptions: VxeGridProps = {
@@ -75,26 +72,23 @@ const gridOptions: VxeGridProps = {
           page: page.currentPage,
           pageSize: page.pageSize,
           keywords: keywords.value || undefined,
-          // 只展示当前用户负责的报价单
-          listType: 'my',
         };
-        return await getQuotationListApi(params);
+        if (props.customerId) params.customerId = props.customerId;
+        return await getContactListApi(params);
       },
     },
   },
 
   columns: [
     { title: '#', type: 'seq', width: 50 },
-    { title: '报价编号', field: 'quotationNo', width: 150, align: 'left', slots: { default: 'quotationNoSlot' } },
-    { title: '标题', field: 'title', minWidth: 200, align: 'left' },
-    { title: '客户名称', field: 'customerName', width: 150 },
+    { title: '姓名', field: 'name', width: 120, align: 'left', slots: { default: 'nameSlot' } },
+    { title: '当前公司', field: 'companyName', minWidth: 180, align: 'left' },
+    { title: '职位', field: 'title', width: 120 },
     {
-      title: '报价金额', field: 'grandTotal', width: 130, align: 'right', slots: { default: 'amountSlot' },
+      title: '角色', field: 'roleType', width: 80, align: 'center', slots: { default: 'roleSlot' },
     },
-    {
-      title: '审批状态', field: 'approvalStatus', width: 100, align: 'center', slots: { default: 'statusSlot' },
-    },
-    { title: '报价日期', field: 'quotationDate', width: 120 },
+    { title: '手机', field: 'mobile', width: 130 },
+    { title: '邮箱', field: 'email', width: 180 },
     { title: '创建时间', field: 'createTime', width: 150, slots: { default: 'createdAt' } },
     {
       title: '操作', field: 'action', fixed: 'right', slots: { default: 'action' }, width: 80,
@@ -115,7 +109,7 @@ function handleReset() {
   gridApi.query();
 }
 
-/** 选择报价单 */
+/** 选择联系人 */
 function handleSelect(row: any) {
   emit('select', row);
   innerVisible.value = false;
@@ -126,9 +120,9 @@ function handleRowDblClick({ row }: { row: any }) {
   handleSelect(row);
 }
 
-// 弹窗打开时自动加载数据
-watch(() => props.visible, (val) => {
-  if (val) {
+// 弹窗打开时自动加载数据；customerId 变化时也刷新
+watch([() => props.visible, () => props.customerId], ([visible]) => {
+  if (visible) {
     keywords.value = '';
     setTimeout(() => gridApi.query(), 100);
   }
@@ -138,7 +132,7 @@ watch(() => props.visible, (val) => {
 <template>
   <Modal
     :open="innerVisible"
-    title="选择关联报价单"
+    :title="customerId ? '选择该客户的联系人' : '选择联系人'"
     :width="width"
     :footer="null"
     :destroy-on-close="true"
@@ -148,7 +142,7 @@ watch(() => props.visible, (val) => {
     <div class="flex items-center gap-2 mb-3">
       <Input
         v-model:value="keywords"
-        placeholder="输入报价单号/标题搜索"
+        placeholder="输入联系人姓名/手机/邮箱搜索"
         allow-clear
         class="flex-1"
         @press-enter="handleSearch"
@@ -161,22 +155,15 @@ watch(() => props.visible, (val) => {
       <Button @click="handleReset">重置</Button>
     </div>
 
-    <!-- 报价单列表表格 -->
+    <!-- 联系人列表表格 -->
     <Grid @row-dblclick="handleRowDblClick">
-      <template #quotationNoSlot="{ row }">
-        <span style="color: hsl(var(--primary))" class="font-medium">{{ row.quotationNo || '-' }}</span>
+      <template #nameSlot="{ row }">
+        <span style="color: hsl(var(--primary))" class="font-medium">{{ row.name || '-' }}</span>
       </template>
 
-      <template #amountSlot="{ row }">
-        <span v-if="row.grandTotal != null" class="font-medium">
-          {{ currencySymbolMap[row.currency] || '¥' }} {{ Number(row.grandTotal).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}
-        </span>
-        <span v-else style="color: hsl(var(--muted-foreground) / 0.5)">-</span>
-      </template>
-
-      <template #statusSlot="{ row }">
-        <Tag :color="approvalStatusColorMap[row.approvalStatus] || 'default'" size="small">
-          {{ approvalStatusLabelMap[row.approvalStatus] || '草稿' }}
+      <template #roleSlot="{ row }">
+        <Tag :color="roleColorMap[row.roleType] || 'default'" size="small">
+          {{ roleLabelMap[row.roleType] || row.roleType || '-' }}
         </Tag>
       </template>
 

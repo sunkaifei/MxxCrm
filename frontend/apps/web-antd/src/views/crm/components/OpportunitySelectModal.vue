@@ -83,6 +83,8 @@ const gridOptions: VxeGridProps = {
           page: page.currentPage,
           pageSize: page.pageSize,
           keywords: keywords.value || undefined,
+          // 只展示当前用户负责的商机，不可选择他人商机
+          listType: 'my',
         };
         if (props.customerId) params.customerId = props.customerId;
         return await getOpportunityListApi(params);
@@ -132,6 +134,7 @@ function handleReset() {
 /** 选择商机 */
 function handleSelect(row: any) {
   emit('select', row);
+  innerVisible.value = false;
 }
 
 /** 双击行也触发选择 */

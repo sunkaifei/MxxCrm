@@ -2,19 +2,19 @@
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { computed, h, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2, LucideEye, LucideMoreHorizontal } from '@vben/icons';
+import { LucideMoreHorizontal } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Popconfirm, Drawer, Dropdown, Menu, Modal, Tabs, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { useVbenDrawer } from '#/adapter/drawer';
 import {
   convertOpportunityToOrderApi,
-  convertOpportunityToQuotationApi,
   deleteOpportunityApi,
   getOpportunityListApi,
   getSalesFlowModeApi,
@@ -22,6 +22,7 @@ import {
 } from '#/api';
 import { $t } from '#/locales';
 import OpportunityDetail from './detail.vue';
+import QuotationDrawer from '../../sale/quotation/drawer.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 
@@ -50,25 +51,10 @@ const showMoreActions = computed(
   () => canConvertToQuotation.value || canConvertToOrder.value,
 );
 
-// 转报价单
-async function handleConvertToQuotation(row: any) {
-  const id = row.id ?? row.id_;
-  if (!id) return;
-  Modal.confirm({
-    title: '转报价单',
-    content: `确定要将商机「${row.title || ''}」转为报价单吗？`,
-    okText: '确定',
-    cancelText: '取消',
-    onOk: async () => {
-      try {
-        await convertOpportunityToQuotationApi(Number(id));
-        message.success('已转为报价单');
-        gridApi.query();
-      } catch {
-        /* ignore */
-      }
-    },
-  });
+// 转报价单：打开报价单新建页，自动带入商机信息（商机、客户、联系人）
+function handleConvertToQuotation(row: any) {
+  quotationDrawerApi.setData({ create: true, fromOpportunity: row });
+  quotationDrawerApi.open();
 }
 
 // 转订单（简易流程）
@@ -301,6 +287,15 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
+// 报价单抽屉（从商机转入）
+const [QuotationFormDrawer, quotationDrawerApi] = useVbenDrawer({
+  connectedComponent: QuotationDrawer,
+  onClosed() {
+    const data = quotationDrawerApi.getData();
+    if (data?.needRefresh) gridApi.query();
+  },
+});
+
 function handleCreate() {
   detailId.value = null;
   detailVisible.value = true;
@@ -369,20 +364,40 @@ loadFlowMode();
       </template>
 
       <template #action="{ row }">
-        <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
-        <Button v-if="accessStore.hasAccessCode('crm:opportunity:update')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
-        <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.opportunity.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
-          <Button v-if="accessStore.hasAccessCode('crm:opportunity:delete')" type="link" danger :icon="h(LucideTrash2)" />
+        <a
+          v-if="accessStore.hasAccessCode('crm:opportunity:update')"
+          class="text-blue-600 cursor-pointer mr-3"
+          @click="() => handleEdit(row)"
+        >
+          修改
+        </a>
+        <Popconfirm
+          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.opportunity.title') })"
+          :ok-text="$t('ui.button.ok')"
+          :cancel-text="$t('ui.button.cancel')"
+          @confirm="handleDelete(row)"
+        >
+          <a
+            v-if="accessStore.hasAccessCode('crm:opportunity:delete')"
+            class="text-red-500 cursor-pointer mr-3"
+          >
+            删除
+          </a>
         </Popconfirm>
-        <Dropdown v-if="showMoreActions && accessStore.hasAccessCode('crm:opportunity:update')" :trigger="['click']">
-          <Button type="link" :icon="h(LucideMoreHorizontal)" />
+        <Dropdown
+          v-if="showMoreActions && accessStore.hasAccessCode('crm:opportunity:update')"
+          :trigger="['click']"
+        >
+          <a class="text-blue-600 cursor-pointer" @click.prevent>
+            更多<LucideMoreHorizontal class="inline-block ml-0.5" :size="12" />
+          </a>
           <template #overlay>
             <Menu>
               <Menu.Item v-if="canConvertToQuotation" key="toQuotation" @click="handleConvertToQuotation(row)">
-                转报价单
+                一键转报价单
               </Menu.Item>
               <Menu.Item v-if="canConvertToOrder" key="toOrder" @click="handleConvertToOrder(row)">
-                转订单
+                一键转订单
               </Menu.Item>
             </Menu>
           </template>
@@ -395,5 +410,6 @@ loadFlowMode();
     </Drawer>
 
     <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
+    <QuotationFormDrawer />
   </Page>
 </template>

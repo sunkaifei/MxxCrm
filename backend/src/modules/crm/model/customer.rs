@@ -355,6 +355,12 @@ pub struct CustomerDetailVO {
     pub assigned_to: Option<i64>,
     /// 负责人名称
     pub assigned_to_name: Option<String>,
+    /// 创建人ID
+    pub created_by: Option<i64>,
+    /// 创建人名称
+    pub created_by_name: Option<String>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
     /// 合作日期
     pub cooperated_at: Option<Date>,
     /// 生日月份
@@ -404,6 +410,9 @@ impl From<customer::Model> for CustomerDetailVO {
             credit_days: item.credit_days,
             assigned_to: item.assigned_to,
             assigned_to_name: None,
+            created_by: item.created_by,
+            created_by_name: None,
+            create_time: item.create_time,
             cooperated_at: item.cooperated_at,
             birthday_month: item.birthday_month,
             description: item.description,

@@ -416,6 +416,7 @@ pub struct QuotationListVO {
     pub quotation_date: Option<Date>,
     pub valid_until: Option<Date>,
     pub owner_user_id: Option<i64>,
+    pub owner_user_name: Option<String>,
     pub create_time: Option<DateTime>,
 }
 
@@ -434,6 +435,7 @@ impl From<quotation::Model> for QuotationListVO {
             quotation_date: item.quotation_date,
             valid_until: item.valid_until,
             owner_user_id: item.owner_user_id,
+            owner_user_name: None,
             create_time: item.create_time,
         }
     }

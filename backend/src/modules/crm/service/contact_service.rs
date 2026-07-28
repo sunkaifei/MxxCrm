@@ -317,6 +317,14 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
         }
     }
 
+    // 指定客户ID过滤：直接锁定到该客户，覆盖 list_type/customer_name 的过滤结果
+    // 用于订单/合同等场景选择特定客户下的联系人
+    if let Some(cid) = query.customer_id {
+        if cid > 0 {
+            final_customer_ids = Some(vec![cid]);
+        }
+    }
+
     // 通过客户ID获取联系人ID
     let contact_ids = if let Some(cids) = &final_customer_ids {
         if cids.is_empty() {

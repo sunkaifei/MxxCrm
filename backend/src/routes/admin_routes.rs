@@ -6,11 +6,12 @@ use actix_web_grants::GrantsMiddleware;
 
 use crate::core::kit::config;
 use crate::core::kit::jwt_util::JWTToken;
+use crate::core::kit::global::AppState;
 use crate::modules::articles::controller::admin::{article_admin_controller, category_admin_controller, label_admin_controller};
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller};
@@ -30,6 +31,7 @@ use crate::modules::message::controller::admin::notification_admin_controller;
 use crate::modules::message::controller::admin::my_notification_controller;
 use crate::modules::message::controller::admin::chat_admin_controller;
 use crate::modules::message::websocket;
+use crate::modules::system::service::permission_cache_service;
 
 async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
     let path = req.path();
@@ -54,9 +56,29 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
     let jwt_token_e = JWTToken::verify(&config::section::<String>("server", "jwt_secret_admin", "".to_string()), &token);
 
     match jwt_token_e {
-        Ok(data) => {
-            let set: HashSet<String> = data.permissions.into_iter().collect();
-            Ok(set)
+        Ok(jwt_data) => {
+            // v2.0: 权限从缓存读取（缓存miss时回查DB），实现权限实时生效
+            let user_id = jwt_data.id.unwrap_or_default();
+            if user_id > 0 {
+                // v2.0: 验证Token是否仍然有效（用户禁用/删除时会被清除）
+                if !permission_cache_service::validate_user_token(user_id, &token).await {
+                    return Err(error::ErrorUnauthorized("登录状态已失效，请重新登录"));
+                }
+
+                // 从请求中获取数据库连接
+                if let Some(app_state) = req.app_data::<web::Data<AppState>>() {
+                    let permissions = permission_cache_service::get_or_load_permissions(&app_state.db, user_id).await;
+                    let set: HashSet<String> = permissions.into_iter().collect();
+                    Ok(set)
+                } else {
+                    // 无法获取DB连接，降级为从JWT读取（兼容旧逻辑）
+                    log::warn!("[extract] 无法获取AppState, 降级使用JWT内权限, user_id={}", user_id);
+                    let set: HashSet<String> = jwt_data.permissions.into_iter().collect();
+                    Ok(set)
+                }
+            } else {
+                Err(error::ErrorUnauthorized("无效的用户身份"))
+            }
         },
         Err(_err) => {
             Err(error::ErrorUnauthorized("Authorization Not Found"))
@@ -201,6 +223,13 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(my_notification_controller::register)
             // Chat Management (admin user's chat)
             .configure(chat_admin_controller::register)
+            // Mail Management (邮箱配置/模板/发送/日志)
+            .configure(mail_controller::register)
+    );
+
+    // logout 路由独立注册（不在 /api/system scope 下，避免前缀冲突）
+    cfg.service(
+        web::resource("/api/auth/logout").route(web::delete().to(system_admin_controller::logout)),
     );
 
     // WebSocket 路由（独立 scope，不经过 GrantsMiddleware，握手时通过 query token 认证）

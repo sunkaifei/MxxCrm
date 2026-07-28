@@ -9,7 +9,8 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Tabs, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Drawer, Dropdown, Menu, Tabs, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { LucideMoreHorizontal } from '@vben/icons';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteQuotationApi, getQuotationInfoApi, getQuotationListApi, submitQuotationApprovalApi } from '#/api';
@@ -147,12 +148,13 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: '报价编号', field: 'quotationNo', width: 150, slots: { default: 'quotationNo' } },
-    { title: '标题', field: 'title', width: 200, slots: { default: 'title' } },
-    { title: '客户名称', field: 'customerName', width: 140, slots: { default: 'customerName' } },
+    { title: '报价编号', field: 'quotationNo', width: 150, headerAlign: 'center', align: 'left', slots: { default: 'quotationNo' } },
+    { title: '标题', field: 'title', width: 200, headerAlign: 'center', align: 'left', slots: { default: 'title' } },
+    { title: '客户名称', field: 'customerName', width: 140, headerAlign: 'center', align: 'left', slots: { default: 'customerName' } },
     { title: '报价金额', field: 'grandTotal', width: 140, slots: { default: 'grandTotal' } },
     { title: '审批状态', field: 'approvalStatus', width: 100, slots: { default: 'approvalStatus' } },
     { title: '报价日期', field: 'quotationDate', width: 110 },
+    { title: '负责人', field: 'ownerUserName', width: 100, headerAlign: 'center', align: 'left' },
     { title: '创建时间', field: 'createTime', width: 160, slots: { default: 'createTime' } },
     { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 240 },
   ],
@@ -314,29 +316,38 @@ function handleDetailEdit(id: string) {
         >
           提交审批
         </a>
-        <a
-          v-if="accessStore.hasAccessCode('sale:quotation:edit') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
-          class="text-blue-600 cursor-pointer mr-3"
-          @click="() => handleEdit(row)"
-        >
-          修改
-        </a>
-        <a
-          v-if="row.approvalStatus === 3"
-          class="text-blue-600 cursor-pointer mr-3"
-          @click="handleConvertToOrder(row)"
-        >
-          加入订单
-        </a>
-        <Popconfirm
-          v-if="accessStore.hasAccessCode('sale:quotation:delete') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
-          :title="$t('ui.text.do_you_want_delete', { moduleName: '报价单' })"
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="handleDelete(row)"
-        >
-          <a class="text-red-500 cursor-pointer">删除</a>
-        </Popconfirm>
+        <Dropdown :trigger="['click']">
+          <a class="text-blue-600 cursor-pointer" @click.prevent>
+            更多<LucideMoreHorizontal class="inline-block ml-0.5" :size="12" />
+          </a>
+          <template #overlay>
+            <Menu>
+              <Menu.Item
+                v-if="row.approvalStatus === 3"
+                key="toOrder"
+                @click="handleConvertToOrder(row)"
+              >
+                一键转订单
+              </Menu.Item>
+              <Menu.Item
+                v-if="accessStore.hasAccessCode('sale:quotation:edit') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+                key="edit"
+                @click="() => handleEdit(row)"
+              >
+                修改
+              </Menu.Item>
+              <Popconfirm
+                v-if="accessStore.hasAccessCode('sale:quotation:delete') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+                :title="$t('ui.text.do_you_want_delete', { moduleName: '报价单' })"
+                :ok-text="$t('ui.button.ok')"
+                :cancel-text="$t('ui.button.cancel')"
+                @confirm="handleDelete(row)"
+              >
+                <Menu.Item key="delete" danger>删除</Menu.Item>
+              </Popconfirm>
+            </Menu>
+          </template>
+        </Dropdown>
       </template>
     </Grid>
     <FormDrawer />

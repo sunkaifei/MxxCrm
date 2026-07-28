@@ -27,7 +27,7 @@ use crate::core::web::response::MetaResp;
 use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserRegisterRequest, CheckUsernameResult, UserLoginVO, AdminModel};
 use crate::modules::system::model::admin::{ListQuery, TokenVO};
 use crate::modules::system::service::menu_service::find_user_role_keys;
-use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service};
+use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service, permission_cache_service};
 
 // 添加用户信息
 pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveRequest>) -> Result<HttpResponse> {
@@ -143,6 +143,11 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
     //查询按用户关联的按钮权限
     let user_role_keys: Vec<String> = find_user_role_keys(&db, &is_admin, &Some(user_info.id)).await?;
     // let user_role_keys: Vec<String> = Vec::new();
+
+    // v2.0: 将权限码写入缓存，实现权限实时生效
+    if let Err(e) = permission_cache_service::set_permissions(user_info.id, &user_role_keys).await {
+        log::warn!("[登录] 权限缓存写入失败 user_id={}, err={}", user_info.id, e);
+    }
 
     // 原来的token
     let old_token = CONTEXT.cache_service.get_string(&format!("user_{}", user_info.id.to_string().as_str())).await?;
@@ -341,7 +346,14 @@ pub async fn update_user_role(state: web::Data<AppState>, item: web::Json<Update
     }
     let db = &state.db;
     let user_role = item.0;
-    let result = role_service::batch_update_role(&db, &Some(user_role.role_ids), &user_role.admin_id).await;
+    let admin_id = user_role.admin_id;
+    let result = role_service::batch_update_role(&db, &Some(user_role.role_ids), &admin_id).await;
+    // v2.0: 用户角色变更后，清除该用户的权限缓存
+    if result.is_ok() {
+        if let Some(uid) = admin_id {
+            permission_cache_service::invalidate_by_user_id(uid).await;
+        }
+    }
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -377,6 +389,18 @@ pub async fn admin_update(state: web::Data<AppState>, item: web::Json<AdminUpdat
         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户信息不存在", "local")));
     }
     let result = admin_service::update_admin(&db, &item).await;
+    // v2.0: 用户信息变更后清除缓存
+    if result.is_ok() {
+        if let Some(uid) = item.id {
+            if item.status == Some(0) {
+                // 用户被禁用：清除Token + 权限缓存，立即踢下线
+                permission_cache_service::invalidate_user_session(uid).await;
+            } else {
+                // 其他变更：仅清除权限缓存
+                permission_cache_service::invalidate_by_user_id(uid).await;
+            }
+        }
+    }
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -720,12 +744,5 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/check-username", web::get().to(check_username))
             // GET /auth/codes - 获取当前用户权限码列表
             .route("/codes", web::get().to(get_auth_codes)),
-    );
-
-    // ============ logout 路径特殊处理 ============
-    // 原 logout 路径为 /api/auth/logout，不在 /api/system scope 下，
-    // 用 web::resource 的绝对路径注册。
-    cfg.service(
-        web::resource("/api/auth/logout").route(web::delete().to(logout)),
     );
 }

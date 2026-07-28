@@ -24,23 +24,20 @@ import {
   createQuotationApi,
   getQuotationInfoApi,
   updateQuotationApi,
+  getOpportunityInfoApi,
 } from '#/api';
 import {
   getCustomerListApi,
   getContactListApi,
-  getOpportunityListApi,
 } from '#/api';
-import { getUserListApi } from '#/api/core/system/user';
 import ProductSelectModal from '../components/ProductSelectModal.vue';
+import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
 
 const drawerData = ref<{ create?: boolean; row?: any; needRefresh?: boolean }>({ create: true });
 const isEdit = computed(() => !drawerData.value.create);
 const isReadOnly = ref(false);
 const activeTab = ref('basic');
 const isFullscreen = ref(false);
-
-// 客户字段锁定：报价单有关联商机（来源于商机）时锁定客户字段
-const isCustomerLocked = ref(false);
 
 const drawerClass = computed(() => [
   'sale-quotation-drawer',
@@ -54,11 +51,8 @@ function toggleFullscreen() {
 // ============ 下拉搜索数据 ============
 const customerOptions = ref<any[]>([]);
 const contactOptions = ref<any[]>([]);
-const opportunityOptions = ref<any[]>([]);
-const userOptions = ref<any[]>([]);
 const customerLoading = ref(false);
 const contactLoading = ref(false);
-const opportunityLoading = ref(false);
 
 async function searchCustomers(keyword: string) {
   customerLoading.value = true;
@@ -75,9 +69,17 @@ async function searchCustomers(keyword: string) {
 }
 
 async function searchContacts(keyword: string) {
+  // 联系人严格按当前绑定客户过滤，无客户则不加载
+  const custId = boundCustomerId.value;
+  if (!custId) {
+    contactOptions.value = [];
+    return;
+  }
   contactLoading.value = true;
   try {
-    const res = await getContactListApi({ page: 1, pageSize: 50, keywords: keyword });
+    const params: any = { page: 1, pageSize: 50, customerId: custId };
+    if (keyword) params.keywords = keyword;
+    const res = await getContactListApi(params);
     contactOptions.value = (res?.list || res?.items || res || []).map((c: any) => ({
       label: c.contactName || c.name,
       value: c.id,
@@ -88,36 +90,63 @@ async function searchContacts(keyword: string) {
   }
 }
 
-async function searchOpportunities(keyword: string) {
-  opportunityLoading.value = true;
+// 下拉打开时自动加载当前客户下的联系人（避免显示旧数据或其他企业联系人）
+async function onContactDropdownVisibleChange(open: boolean) {
+  if (!open) return;
+  if (!boundCustomerId.value) {
+    contactOptions.value = [];
+    return;
+  }
+  // 已有选项且全部属于当前客户时不重复加载
+  await searchContacts('');
+}
+
+// 按指定客户ID加载联系人选项（商机选中后自动调用）
+async function loadContactsByCustomer(customerId: number | undefined) {
+  if (!customerId) {
+    contactOptions.value = [];
+    return;
+  }
+  contactLoading.value = true;
   try {
-    const res = await getOpportunityListApi({ page: 1, pageSize: 50, keywords: keyword });
-    opportunityOptions.value = (res?.list || res?.items || res || []).map((c: any) => ({
-      label: c.opportunityName || c.title || c.name,
+    const res = await getContactListApi({ page: 1, pageSize: 50, customerId });
+    contactOptions.value = (res?.list || res?.items || res || []).map((c: any) => ({
+      label: c.contactName || c.name,
       value: c.id,
       raw: c,
     }));
   } finally {
-    opportunityLoading.value = false;
-  }
-}
-
-async function loadUserOptions() {
-  try {
-    const result = await getUserListApi({ page: 1, pageSize: 1000 });
-    if (result.data && result.data.items) {
-      userOptions.value = result.data.items.map((item: any) => ({
-        value: item.id,
-        label: item.realName || item.userName,
-      }));
-    }
-  } catch (e) {
-    console.error('Failed to load user options:', e);
+    contactLoading.value = false;
   }
 }
 
 // ============ 产品选择弹窗 ============
 const productModalVisible = ref(false);
+
+// ============ 商机选择弹窗 ============
+const opportunitySelectVisible = ref(false);
+// 当前选中的商机ID（表单只展示标题，ID单独存储用于提交）
+const selectedOpportunityId = ref<number | undefined>(undefined);
+
+function openOpportunitySelect() {
+  if (isReadOnly.value) return;
+  opportunitySelectVisible.value = true;
+}
+
+// 商机弹窗选择回调（row 为列表完整数据）
+async function handleSelectOpportunity(row: any) {
+  if (!row) return;
+  opportunitySelectVisible.value = false;
+  const oppId = row.id ? Number(row.id) : undefined;
+  const oppTitle = row.title || row.opportunityName || row.name || '';
+
+  selectedOpportunityId.value = oppId;
+  await nextTick();
+  basicFormApi.setValues({ opportunityTitle: oppTitle });
+
+  // 复用 onOpportunityChange 逻辑：通过详情接口获取客户和联系人
+  await onOpportunityChange(oppId, { raw: row });
+}
 
 function openProductModal() {
   productModalVisible.value = true;
@@ -161,11 +190,59 @@ function onContactChange(val: any, option: any) {
   }
 }
 
-function onOpportunityChange(val: any, option: any) {
-  if (option?.raw) {
+// 当前绑定客户ID（用于锁定客户字段和加载联系人）
+const boundCustomerId = ref<number | undefined>(undefined);
+
+async function onOpportunityChange(val: any, option: any) {
+  if (!val) {
+    // 清空商机时清空继承字段
+    boundCustomerId.value = undefined;
+    selectedOpportunityId.value = undefined;
     basicFormApi.setValues({
-      opportunityTitle: option.raw.opportunityName || option.raw.title || '',
+      opportunityTitle: '',
+      customerId: undefined,
+      customerName: '',
+      contactId: undefined,
+      contactName: '',
     });
+    contactOptions.value = [];
+    return;
+  }
+
+  // 调用详情接口获取客户和联系人信息
+  try {
+    const res: any = await getOpportunityInfoApi(val);
+    const detail = res?.data ?? res;
+    const custId = detail?.customerId ? Number(detail.customerId) : undefined;
+    const custName = detail?.customerName || '';
+    const contId = detail?.contactId ? Number(detail.contactId) : undefined;
+    const contName = detail?.contactName || '';
+
+    boundCustomerId.value = custId;
+
+    // 预填客户下拉并锁定
+    if (custId) {
+      customerOptions.value = [{ label: custName, value: custId }];
+    }
+    // 加载该客户下的联系人选项
+    await loadContactsByCustomer(custId);
+    // 联系人若存在于选项中则预选，否则补充一条
+    if (contId) {
+      const exists = contactOptions.value.some((o) => o.value === contId);
+      if (!exists && contName) {
+        contactOptions.value = [{ label: contName, value: contId }, ...contactOptions.value];
+      }
+    }
+
+    await nextTick();
+    basicFormApi.setValues({
+      customerId: custId,
+      customerName: custName,
+      contactId: contId,
+      contactName: contName,
+    });
+  } catch (e) {
+    console.error('[报价单] 加载商机详情失败:', e);
   }
 }
 
@@ -258,17 +335,6 @@ const currencyOptions = [
   { label: 'HKD 港币', value: 6 },
 ];
 
-const statusOptions = [
-  { label: '草稿', value: 1 },
-  { label: '待审批', value: 2 },
-  { label: '已审批', value: 3 },
-  { label: '已发送', value: 4 },
-  { label: '已接受', value: 5 },
-  { label: '已拒绝', value: 6 },
-  { label: '已过期', value: 7 },
-  { label: '已转订单', value: 8 },
-];
-
 const basicFormSchema: VbenFormSchema[] = [
   {
     component: 'Input',
@@ -279,17 +345,21 @@ const basicFormSchema: VbenFormSchema[] = [
     wrapperClass: 'col-span-2',
   },
   {
-    component: 'Select',
-    fieldName: 'ownerUserId',
-    label: '负责人',
-    componentProps: {
-      placeholder: '请选择负责人',
-      allowClear: true,
-      showSearch: true,
-      filterOption: (input: string, option: any) =>
-        option.label.toLowerCase().includes(input.toLowerCase()),
-      options: userOptions,
-    },
+    component: 'Input',
+    fieldName: 'opportunityTitle',
+    label: '商机',
+    rules: 'required',
+    componentProps: () => ({
+      placeholder: '点击右侧按钮选择商机（必填）',
+      readOnly: true,
+      disabled: isReadOnly.value,
+      // 点击输入框也可以打开弹窗
+      onClick: () => {
+        if (!isReadOnly.value) openOpportunitySelect();
+      },
+      suffix: '点击选择',
+    }),
+    wrapperClass: 'col-span-2',
   },
   {
     component: 'Select',
@@ -299,41 +369,30 @@ const basicFormSchema: VbenFormSchema[] = [
     componentProps: () => ({
       showSearch: true,
       filterOption: false,
-      placeholder: '搜索客户名称',
+      placeholder: '由商机自动带出，不可修改',
       options: customerOptions,
       loading: customerLoading,
       onSearch: searchCustomers,
       onChange: onCustomerChange,
-      disabled: isReadOnly.value || isCustomerLocked.value,
+      // 客户由商机继承，始终锁定不可修改
+      disabled: true,
     }),
   },
   {
     component: 'Select',
     fieldName: 'contactId',
     label: '联系人',
-    componentProps: {
+    rules: 'required',
+    componentProps: () => ({
       showSearch: true,
       filterOption: false,
-      placeholder: '搜索联系人',
+      placeholder: '请选择当前客户下的联系人',
       options: contactOptions,
       loading: contactLoading,
       onSearch: searchContacts,
       onChange: onContactChange,
-    },
-  },
-  {
-    component: 'Select',
-    fieldName: 'opportunityId',
-    label: '商机',
-    componentProps: () => ({
-      showSearch: true,
-      filterOption: false,
-      placeholder: '搜索商机',
-      options: opportunityOptions,
-      loading: opportunityLoading,
-      onSearch: searchOpportunities,
-      onChange: onOpportunityChange,
-      disabled: isReadOnly.value || isCustomerLocked.value,
+      onDropdownVisibleChange: onContactDropdownVisibleChange,
+      disabled: isReadOnly.value || !boundCustomerId.value,
     }),
   },
   {
@@ -354,13 +413,6 @@ const basicFormSchema: VbenFormSchema[] = [
     fieldName: 'validUntil',
     label: '有效期至',
     componentProps: { style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
-  },
-  {
-    component: 'Select',
-    fieldName: 'status',
-    label: '状态',
-    defaultValue: 1,
-    componentProps: { options: statusOptions },
   },
   {
     component: 'Input',
@@ -429,6 +481,66 @@ const [TradeForm, tradeFormApi] = useVbenForm({
 });
 
 // ============ 数据加载 ============
+// 从商机初始化报价单表单（一键转报价单）
+// 入参 opp 可为商机列表 row 或商机详情 detail
+async function initFromOpportunity(opp: any) {
+  if (!opp) return;
+  const oppId = opp.id ? Number(opp.id) : undefined;
+  const oppTitle = opp.title || opp.opportunityName || '';
+  selectedOpportunityId.value = oppId;
+
+  // 默认值
+  basicFormApi.setValues({
+    currency: Number(opp.currency ?? 1),
+    quotationDate: new Date().toISOString().slice(0, 10),
+    opportunityTitle: oppTitle,
+  });
+
+  // 若列表 row 已含客户和联系人信息，直接预填；否则调用详情接口获取
+  let custId = opp.customerId ? Number(opp.customerId) : undefined;
+  let custName = opp.customerName || '';
+  let contId = opp.contactId ? Number(opp.contactId) : undefined;
+  let contName = opp.contactName || '';
+
+  if ((!custId || !contId) && oppId) {
+    try {
+      const res: any = await getOpportunityInfoApi(oppId);
+      const detail = res?.data ?? res;
+      if (!custId && detail?.customerId) custId = Number(detail.customerId);
+      if (!custName) custName = detail?.customerName || '';
+      if (!contId && detail?.contactId) contId = Number(detail.contactId);
+      if (!contName) contName = detail?.contactName || '';
+    } catch (e) {
+      console.error('[报价单] 加载商机详情失败:', e);
+    }
+  }
+
+  boundCustomerId.value = custId;
+
+  // 预填客户下拉并锁定
+  if (custId && custName) {
+    customerOptions.value = [{ label: custName, value: custId }];
+  }
+  // 加载该客户下的联系人选项
+  await loadContactsByCustomer(custId);
+  // 联系人若不在选项中则补充一条
+  if (contId && contName) {
+    const exists = contactOptions.value.some((o: any) => o.value === contId);
+    if (!exists) {
+      contactOptions.value = [{ label: contName, value: contId }, ...contactOptions.value];
+    }
+  }
+
+  await nextTick();
+  basicFormApi.setValues({
+    opportunityTitle: oppTitle,
+    customerId: custId,
+    customerName: custName,
+    contactId: contId,
+    contactName: contName,
+  });
+}
+
 async function loadDetail(id: number) {
   try {
     const info = await getQuotationInfoApi(id);
@@ -440,35 +552,39 @@ async function loadDetail(id: number) {
     const custId = data.customerId ? Number(data.customerId) : undefined;
     const contId = data.contactId ? Number(data.contactId) : undefined;
     const oppId = data.opportunityId ? Number(data.opportunityId) : undefined;
-    // 客户字段锁定：来源于商机（有 opportunityId）时锁定客户和商机字段
-    isCustomerLocked.value = !!oppId;
+
+    // 客户由商机继承，绑定客户ID用于锁定和加载联系人
+    boundCustomerId.value = custId;
+    // 商机ID单独存储（表单只展示标题）
+    selectedOpportunityId.value = oppId;
+
     // 预填客户下拉（必须在setValues之前，否则Select无法匹配label）
     if (custId && data.customerName) {
       customerOptions.value = [{ label: data.customerName, value: custId }];
     }
+    // 按当前客户加载联系人选项（编辑模式回显）
+    await loadContactsByCustomer(custId);
+    // 联系人若不在选项中则补充一条以保证回显
     if (contId && data.contactName) {
-      contactOptions.value = [{ label: data.contactName, value: contId }];
-    }
-    if (oppId && data.opportunityTitle) {
-      opportunityOptions.value = [{ label: data.opportunityTitle, value: oppId }];
+      const exists = contactOptions.value.some((o: any) => o.value === contId);
+      if (!exists) {
+        contactOptions.value = [{ label: data.contactName, value: contId }, ...contactOptions.value];
+      }
     }
     // 等待下拉选项渲染完成后再设置表单值，确保Select能匹配到label
     await nextTick();
-    // 设置表单
+    // 设置表单（负责人由后端自动绑定当前登录用户，状态由审批流控制，不在表单中展示）
     basicFormApi.setValues({
       title: data.title,
       customerId: custId,
       contactId: contId,
-      opportunityId: oppId,
       customerName: data.customerName,
       contactName: data.contactName,
       opportunityTitle: data.opportunityTitle,
       currency: Number(data.currency ?? 1),
       quotationDate: data.quotationDate,
       validUntil: data.validUntil,
-      status: Number(data.status ?? 1),
       remark: data.remark,
-      ownerUserId: data.ownerUserId != null ? Number(data.ownerUserId) : undefined,
     });
     tradeFormApi.setValues({
       paymentTerms: data.paymentTerms,
@@ -534,6 +650,13 @@ async function handleSubmit() {
     message.warning('请添加至少一个产品');
     return false;
   }
+  // 校验每行必须选择产品（productId 不能为空）
+  const emptyProductIndex = quotationItems.value.findIndex((it: any) => !it.productId);
+  if (emptyProductIndex >= 0) {
+    activeTab.value = 'items';
+    message.warning(`第 ${emptyProductIndex + 1} 行未选择产品，请选择产品或删除该行`);
+    return false;
+  }
   console.log('[报价单提交] 4. 获取表单值...');
   let values, tradeValues;
   try {
@@ -565,8 +688,15 @@ async function handleSubmit() {
 
   const custId = toNumber(values.customerId);
   const contId = toNumber(values.contactId);
-  const oppId = toNumber(values.opportunityId);
-  const ownerUserId = toNumber(values.ownerUserId);
+  // 商机ID从独立ref获取（表单只展示标题）
+  const oppId = selectedOpportunityId.value;
+
+  // 商机必填校验
+  if (!oppId) {
+    activeTab.value = 'basic';
+    message.warning('请选择商机');
+    return false;
+  }
 
   let data;
   try {
@@ -577,11 +707,9 @@ async function handleSubmit() {
       contactId: contId,
       opportunityId: oppId,
       currency: toNumber(values.currency),
-      status: toNumber(values.status),
-      ownerUserId,
       customerName: findOptionLabel(customerOptions.value, values.customerId),
       contactName: findOptionLabel(contactOptions.value, values.contactId),
-      opportunityTitle: findOptionLabel(opportunityOptions.value, values.opportunityId),
+      opportunityTitle: values.opportunityTitle,
       items: quotationItems.value.map((item, index) => ({
         productId: toNumber(item.productId),
         productName: item.productName,
@@ -646,32 +774,33 @@ function closeDrawer() {
 }
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  onOpenChange(isOpen) {
-    console.log('[报价单抽屉] onOpenChange:', isOpen);
-    if (isOpen) {
-      drawerData.value = drawerApi.getData<{ create?: boolean; row?: any }>() || { create: true };
-      isFullscreen.value = false;
-      isReadOnly.value = false;
-      isCustomerLocked.value = false;
-      activeTab.value = 'basic';
-      quotationItems.value = [];
-      approvalList.value = [];
-      overallDiscountRate.value = 100;
-      customerOptions.value = [];
-      contactOptions.value = [];
-      opportunityOptions.value = [];
-      basicFormApi.resetForm();
-      tradeFormApi.resetForm();
-      loadUserOptions();
-      if (!drawerData.value.create && drawerData.value.row?.id) {
-        loadDetail(drawerData.value.row.id);
-      } else {
-        basicFormApi.setValues({
-          currency: 1,
-          status: 1,
-          quotationDate: new Date().toISOString().slice(0, 10),
-        });
-      }
+  async onOpenChange(isOpen) {
+    if (!isOpen) return;
+    drawerData.value = drawerApi.getData<{ create?: boolean; row?: any; fromOpportunity?: any }>() || { create: true };
+    isFullscreen.value = false;
+    isReadOnly.value = false;
+    boundCustomerId.value = undefined;
+    selectedOpportunityId.value = undefined;
+    activeTab.value = 'basic';
+    quotationItems.value = [];
+    approvalList.value = [];
+    overallDiscountRate.value = 100;
+    customerOptions.value = [];
+    contactOptions.value = [];
+    basicFormApi.resetForm();
+    tradeFormApi.resetForm();
+
+    if (!drawerData.value.create && drawerData.value.row?.id) {
+      // 编辑模式：加载报价单详情
+      loadDetail(drawerData.value.row.id);
+    } else if (drawerData.value.fromOpportunity) {
+      // 从商机转入：预填商机、客户、联系人
+      await initFromOpportunity(drawerData.value.fromOpportunity);
+    } else {
+      basicFormApi.setValues({
+        currency: 1,
+        quotationDate: new Date().toISOString().slice(0, 10),
+      });
     }
   },
   onConfirm: handleSubmit,
@@ -899,6 +1028,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
         <TradeForm />
       </TabPane>
     </Tabs>
+
+    <!-- 商机选择弹窗 -->
+    <OpportunitySelectModal
+      v-model:visible="opportunitySelectVisible"
+      @select="handleSelectOpportunity"
+    />
   </Drawer>
 </template>
 

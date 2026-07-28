@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 /**
- * 报价单选择弹窗组件
- * 用于在订单等场景中选择关联报价单
+ * 订单选择弹窗组件
+ * 用于在合同签署等场景中选择关联订单（只显示当前用户负责的订单）
  *
  * 用法：
- * <QuotationSelectModal v-model:visible="visible" @select="onSelect" />
+ * <OrderSelectModal v-model:visible="visible" @select="onSelect" />
  */
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
@@ -21,7 +21,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getQuotationListApi } from '#/api';
+import { getOrderListApi } from '#/api/core/sale/order';
 
 const props = withDefaults(defineProps<{
   /** 弹窗是否可见 */
@@ -29,7 +29,7 @@ const props = withDefaults(defineProps<{
   /** 弹窗宽度 */
   width?: string | number;
 }>(), {
-  width: '860px',
+  width: '900px',
 });
 
 const emit = defineEmits<{
@@ -46,17 +46,16 @@ const innerVisible = computed({
 // 搜索表单
 const keywords = ref('');
 
-// 币种符号映射
-const currencySymbolMap: Record<number, string> = {
-  1: '¥', 2: '$', 3: '€', 4: '£', 5: '¥', 6: 'HK$', 7: 'A$',
+// 订单状态映射
+const orderStatusLabelMap: Record<number, string> = {
+  1: '草稿', 2: '待确认', 3: '已确认', 4: '备货中',
+  5: '部分发货', 6: '已发货', 7: '已取消', 8: '已交付',
+  9: '已签收', 10: '已完成', 11: '已作废',
 };
-
-// 审批状态映射
-const approvalStatusLabelMap: Record<number, string> = {
-  0: '草稿', 1: '草稿', 2: '审批中', 3: '已通过', 4: '已驳回',
-};
-const approvalStatusColorMap: Record<number, string> = {
-  0: 'default', 1: 'default', 2: 'processing', 3: 'success', 4: 'error',
+const orderStatusColorMap: Record<number, string> = {
+  1: 'default', 2: 'blue', 3: 'blue', 4: 'orange',
+  5: 'cyan', 6: 'purple', 7: 'red', 8: 'cyan',
+  9: 'green', 10: 'blue', 11: 'red',
 };
 
 const gridOptions: VxeGridProps = {
@@ -75,26 +74,27 @@ const gridOptions: VxeGridProps = {
           page: page.currentPage,
           pageSize: page.pageSize,
           keywords: keywords.value || undefined,
-          // 只展示当前用户负责的报价单
+          // 只展示当前用户负责的订单
           listType: 'my',
         };
-        return await getQuotationListApi(params);
+        return await getOrderListApi(params);
       },
     },
   },
 
   columns: [
     { title: '#', type: 'seq', width: 50 },
-    { title: '报价编号', field: 'quotationNo', width: 150, align: 'left', slots: { default: 'quotationNoSlot' } },
-    { title: '标题', field: 'title', minWidth: 200, align: 'left' },
-    { title: '客户名称', field: 'customerName', width: 150 },
+    { title: '订单编号', field: 'orderNo', width: 160 },
+    { title: '订单标题', field: 'title', minWidth: 180, align: 'left', slots: { default: 'titleSlot' } },
+    { title: '客户', field: 'customerName', width: 150 },
+    { title: '联系人', field: 'contactName', width: 100 },
     {
-      title: '报价金额', field: 'grandTotal', width: 130, align: 'right', slots: { default: 'amountSlot' },
+      title: '订单状态', field: 'orderStatus', width: 100, slots: { default: 'statusSlot' },
     },
     {
-      title: '审批状态', field: 'approvalStatus', width: 100, align: 'center', slots: { default: 'statusSlot' },
+      title: '订单金额', field: 'totalAmount', width: 130, align: 'right', slots: { default: 'amountSlot' },
     },
-    { title: '报价日期', field: 'quotationDate', width: 120 },
+    { title: '下单日期', field: 'orderDate', width: 120 },
     { title: '创建时间', field: 'createTime', width: 150, slots: { default: 'createdAt' } },
     {
       title: '操作', field: 'action', fixed: 'right', slots: { default: 'action' }, width: 80,
@@ -115,10 +115,9 @@ function handleReset() {
   gridApi.query();
 }
 
-/** 选择报价单 */
+/** 选择订单 */
 function handleSelect(row: any) {
   emit('select', row);
-  innerVisible.value = false;
 }
 
 /** 双击行也触发选择 */
@@ -127,8 +126,8 @@ function handleRowDblClick({ row }: { row: any }) {
 }
 
 // 弹窗打开时自动加载数据
-watch(() => props.visible, (val) => {
-  if (val) {
+watch(() => props.visible, (visible) => {
+  if (visible) {
     keywords.value = '';
     setTimeout(() => gridApi.query(), 100);
   }
@@ -138,7 +137,7 @@ watch(() => props.visible, (val) => {
 <template>
   <Modal
     :open="innerVisible"
-    title="选择关联报价单"
+    title="选择关联订单"
     :width="width"
     :footer="null"
     :destroy-on-close="true"
@@ -148,36 +147,36 @@ watch(() => props.visible, (val) => {
     <div class="flex items-center gap-2 mb-3">
       <Input
         v-model:value="keywords"
-        placeholder="输入报价单号/标题搜索"
+        placeholder="输入订单名称搜索"
         allow-clear
         class="flex-1"
         @press-enter="handleSearch"
       >
         <template #prefix>
-          <LucideSearch class="w-4 h-4" style="color: hsl(var(--muted-foreground))" />
+          <LucideSearch class="w-4 h-4 text-gray-400" />
         </template>
       </Input>
       <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
       <Button @click="handleReset">重置</Button>
     </div>
 
-    <!-- 报价单列表表格 -->
+    <!-- 订单列表表格 -->
     <Grid @row-dblclick="handleRowDblClick">
-      <template #quotationNoSlot="{ row }">
-        <span style="color: hsl(var(--primary))" class="font-medium">{{ row.quotationNo || '-' }}</span>
-      </template>
-
-      <template #amountSlot="{ row }">
-        <span v-if="row.grandTotal != null" class="font-medium">
-          {{ currencySymbolMap[row.currency] || '¥' }} {{ Number(row.grandTotal).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}
-        </span>
-        <span v-else style="color: hsl(var(--muted-foreground) / 0.5)">-</span>
+      <template #titleSlot="{ row }">
+        <span class="text-blue-600 font-medium">{{ row.title || '-' }}</span>
       </template>
 
       <template #statusSlot="{ row }">
-        <Tag :color="approvalStatusColorMap[row.approvalStatus] || 'default'" size="small">
-          {{ approvalStatusLabelMap[row.approvalStatus] || '草稿' }}
+        <Tag :color="orderStatusColorMap[row.orderStatus] || 'default'" size="small">
+          {{ orderStatusLabelMap[row.orderStatus] || row.orderStatus || '-' }}
         </Tag>
+      </template>
+
+      <template #amountSlot="{ row }">
+        <span v-if="row.totalAmount != null" class="font-medium">
+          ¥{{ Number(row.totalAmount).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}
+        </span>
+        <span v-else class="text-gray-300">-</span>
       </template>
 
       <template #createdAt="{ row }">
@@ -189,18 +188,18 @@ watch(() => props.visible, (val) => {
       </template>
     </Grid>
 
-    <div class="mt-2 text-xs text-right" style="color: hsl(var(--muted-foreground) / 0.6)">
+    <div class="mt-2 text-xs text-gray-400 text-right">
       提示：双击行可快速选择
     </div>
   </Modal>
 </template>
 
 <style scoped>
-/* 行悬停高亮 */
+/* 行悬停高亮 - 可选择状态 */
 :deep(.vxe-table--body-wrapper) {
   cursor: pointer;
 }
 :deep(.vxe-table--body-wrapper .vxe-body--row:hover td) {
-  background-color: hsl(var(--primary) / 0.06) !important;
+  background-color: #e6f4ff !important;
 }
 </style>

@@ -450,6 +450,50 @@ impl FollowupModel {
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))
     }
 
+    /// 查询全部跟进记录（不分页），用于分组去重场景
+    /// 筛选条件与 select_in_page_internal 一致，但不分页
+    pub async fn select_all_internal(
+        db: &DbConn,
+        customer_id: Option<i64>,
+        lead_id: Option<i64>,
+        opportunity_id: Option<i64>,
+        only_customer: Option<bool>,
+        source_type: Option<i16>,
+        creator_ids: Option<Vec<i64>>,
+        time_range: Option<(chrono::NaiveDateTime, chrono::NaiveDateTime)>,
+    ) -> Result<Vec<followup::Model>, DbErr> {
+        let mut query = Followup::find()
+            .filter(followup::Column::Deleted.eq(0));
+
+        if let Some(c) = customer_id {
+            query = query.filter(followup::Column::CustomerId.eq(c));
+        }
+        if let Some(l) = lead_id {
+            query = query.filter(followup::Column::LeadId.eq(l));
+        }
+        if let Some(o) = opportunity_id {
+            query = query.filter(followup::Column::OpportunityId.eq(o));
+        }
+        if let Some(true) = only_customer {
+            query = query.filter(followup::Column::CustomerId.is_not_null());
+        }
+        if let Some(s) = source_type {
+            query = query.filter(followup::Column::SourceType.eq(s));
+        }
+        if let Some(ids) = creator_ids {
+            if ids.is_empty() {
+                return Ok(vec![]);
+            }
+            query = query.filter(followup::Column::CreatedBy.is_in(ids));
+        }
+        if let Some((start, end)) = time_range {
+            query = query.filter(followup::Column::CreateTime.gte(start))
+                .filter(followup::Column::CreateTime.lte(end));
+        }
+
+        query.order_by_desc(followup::Column::CreateTime).all(db).await
+    }
+
     /// 线索转客户时，把该线索的跟进记录继承到新客户
     /// - 设置 customer_id 为新客户ID
     /// - 保留 lead_id（便于追溯原线索）

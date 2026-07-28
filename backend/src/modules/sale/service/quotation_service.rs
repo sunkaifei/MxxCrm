@@ -81,6 +81,15 @@ pub async fn insert(db: &DbConn, form_data: &QuotationSaveRequest, created_by: S
     dto.current_version = Some(1);
     dto.create_by = Some(created_by.clone());
 
+    // 负责人未指定时自动绑定为当前登录用户（创建人）
+    if dto.owner_user_id.is_none() {
+        if let Ok(uid) = created_by.parse::<i64>() {
+            if uid > 0 {
+                dto.owner_user_id = Some(uid);
+            }
+        }
+    }
+
     let quotation_id = QuotationModel::insert(&txn, &dto).await?;
     QuotationItemModel::insert_batch(&txn, quotation_id, &items).await?;
     recalculate_amounts(&txn, quotation_id).await?;
@@ -136,6 +145,9 @@ pub async fn update(db: &DbConn, form_data: &QuotationUpdateRequest, updated_by:
 
     let mut dto: QuotationSaveDTO = form_data.clone().into();
     dto.update_by = Some(updated_by.clone());
+
+    // 编辑时保留原有负责人：前端表单已移除负责人字段，不覆盖已有值
+    dto.owner_user_id = existing.owner_user_id;
 
     QuotationModel::update_by_id(&txn, &form_data.id, &dto).await?;
     QuotationItemModel::delete_by_quotation_id(&txn, id).await?;
@@ -347,11 +359,23 @@ pub async fn list(db: &DbConn, query: &QuotationListQuery, current_user_id: i64)
         }
     }
 
+    // 批量查询负责人名称（ID -> 名称）
+    let owner_user_ids: Vec<i64> = list.iter()
+        .filter_map(|c| c.owner_user_id)
+        .collect();
+    let owner_name_map = crate::modules::system::service::admin_service::build_admin_name_map(db, owner_user_ids).await;
+
     let data: Vec<QuotationListVO> = list.into_iter().map(|item| {
         let cid = item.customer_id;
+        let oid = item.owner_user_id;
         let mut vo: QuotationListVO = item.into();
         if let Some(c) = cid {
             vo.customer_name = customer_map.get(&c).cloned();
+        }
+        if let Some(o) = oid {
+            if let Some(name) = owner_name_map.get(&o) {
+                vo.owner_user_name = Some(name.clone());
+            }
         }
         vo
     }).collect();

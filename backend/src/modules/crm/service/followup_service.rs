@@ -10,7 +10,7 @@
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::model::followup::{FollowupDetailVO, FollowupListQuery, FollowupListVO, FollowupModel, FollowupSaveDTO, FollowupSaveRequest, FollowupUpdateRequest};
-use crate::modules::crm::entity::{customer, lead};
+use crate::modules::crm::entity::{customer, followup, lead};
 use crate::modules::crm::service::customer_service::get_accessible_user_ids;
 use crate::modules::system::entity::admin;
 use crate::modules::system::service::admin_service::build_admin_name_map;
@@ -105,6 +105,15 @@ pub async fn list(db: &DbConn, query: &FollowupListQuery, current_user_id: i64) 
     let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
     let data_scope = roles.iter().filter_map(|r| r.data_scope).min();
 
+    // 当没有指定具体客户/线索/商机筛选时，按公司分组去重，每个公司只显示最新一条跟进
+    let needs_grouping = query.customer_id.is_none()
+        && query.lead_id.is_none()
+        && query.opportunity_id.is_none();
+
+    if needs_grouping {
+        return list_grouped(db, query, current_user_id, data_scope, page, page_size, list_type).await;
+    }
+
     let (list, total) = match list_type {
         "my" => {
             // 我的跟进：仅查询自己创建的跟进记录
@@ -180,6 +189,92 @@ pub async fn list(db: &DbConn, query: &FollowupListQuery, current_user_id: i64) 
     };
 
     let mut data: Vec<FollowupListVO> = list.into_iter().map(|item| item.into()).collect();
+    fill_followup_vo_relations(db, &mut data).await?;
+    Ok(ResultPage::new(data, total, page, page_size))
+}
+
+/// 按公司分组去重查询：每个公司只保留最新一条跟进记录
+/// - 线索转客户后，原线索的跟进记录已继承 customer_id，与客户跟进记录合并为同一公司
+/// - 未转客户的线索，按 lead_id 独立分组
+async fn list_grouped(
+    db: &DbConn,
+    query: &FollowupListQuery,
+    current_user_id: i64,
+    data_scope: Option<i32>,
+    page: i64,
+    page_size: i64,
+    list_type: &str,
+) -> Result<ResultPage<Vec<FollowupListVO>>> {
+    // 构建与普通查询一致的筛选参数
+    let (creator_ids, time_range) = match list_type {
+        "my" => (Some(vec![current_user_id]), None),
+        "subordinate" => {
+            let user_ids = match data_scope {
+                Some(5) => Vec::new(),
+                Some(1) | None => {
+                    let all_admins = admin::Entity::find()
+                        .filter(admin::Column::Id.ne(current_user_id))
+                        .all(db).await
+                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
+                    all_admins.iter().map(|u| u.id).collect()
+                }
+                _ => {
+                    get_accessible_user_ids(db, current_user_id, data_scope).await?
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter(|id| *id != current_user_id)
+                        .collect::<Vec<_>>()
+                }
+            };
+            (Some(user_ids), None)
+        }
+        "todayFollow" => {
+            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
+            let today = chrono::Local::now().naive_local().date();
+            let today_start = chrono::NaiveDateTime::new(today, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+            let today_end = chrono::NaiveDateTime::new(today, chrono::NaiveTime::from_hms_opt(23, 59, 59).unwrap());
+            (user_ids, Some((today_start, today_end)))
+        }
+        _ => {
+            // all：根据 data_scope 过滤
+            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
+            (user_ids, None)
+        }
+    };
+
+    // 查询全部符合条件的跟进记录（不分页）
+    let all_list = FollowupModel::select_all_internal(
+        &db, None, None, None,
+        query.only_customer, query.source_type,
+        creator_ids, time_range,
+    ).await?;
+
+    // 按公司分组：COALESCE(customer_id, -lead_id)
+    // - customer_id 不为空：按 customer_id 分组（含线索转客户后继承的记录）
+    // - customer_id 为空：按 lead_id 分组（未转客户的线索）
+    let mut grouped: std::collections::HashMap<i64, followup::Model> = std::collections::HashMap::new();
+    for item in all_list {
+        let key = item.customer_id.unwrap_or(-item.lead_id.unwrap_or(item.id));
+        // 已按 create_time DESC 排序，第一条即最新，只保留最新记录
+        grouped.entry(key).or_insert(item);
+    }
+
+    let mut data: Vec<FollowupListVO> = grouped.into_values()
+        .map(|item| item.into())
+        .collect();
+
+    // 按创建时间降序排列
+    data.sort_by(|a, b| b.create_time.cmp(&a.create_time));
+
+    let total = data.len() as i64;
+
+    // 内存分页
+    let start = ((page - 1) * page_size) as usize;
+    let mut data: Vec<FollowupListVO> = data.into_iter()
+        .skip(start)
+        .take(page_size as usize)
+        .collect();
+
     fill_followup_vo_relations(db, &mut data).await?;
     Ok(ResultPage::new(data, total, page, page_size))
 }
