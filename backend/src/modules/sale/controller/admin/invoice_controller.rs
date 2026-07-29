@@ -16,7 +16,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
-use crate::modules::sale::model::invoice::{InvoiceListQuery, InvoiceSaveRequest, InvoiceUpdateRequest};
+use crate::modules::sale::model::invoice::{InvoiceApprovalReq, InvoiceListQuery, InvoiceSaveRequest, InvoiceUpdateRequest};
 use crate::modules::sale::service::invoice_service;
 
 pub async fn invoice_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InvoiceSaveRequest>) -> Result<HttpResponse> {
@@ -79,6 +79,53 @@ pub async fn invoice_list(state: web::Data<AppState>, req: HttpRequest, query: w
     }
 }
 
+// ==================== 发票审批 ===================
+
+/// 提交审批
+pub async fn invoice_submit(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let invoice_id = path.into_inner();
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match invoice_service::submit_invoice(db, invoice_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 审批通过
+pub async fn invoice_approve(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>, form_data: web::Json<InvoiceApprovalReq>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let invoice_id = path.into_inner();
+    let form_data = form_data.0;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match invoice_service::approve_invoice(db, invoice_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 驳回
+pub async fn invoice_reject(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>, form_data: web::Json<InvoiceApprovalReq>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let invoice_id = path.into_inner();
+    let form_data = form_data.0;
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match invoice_service::reject_invoice(db, invoice_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 审批详情
+pub async fn invoice_approval_detail(state: web::Data<AppState>, path: web::Path<i64>) -> HttpResponse {
+    let db = &state.db;
+    let invoice_id = path.into_inner();
+    match invoice_service::get_invoice_approval_detail(db, invoice_id).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
 // ==================== 路由注册（单点维护）====================
 
 /// 注册发票模块所有路由
@@ -122,6 +169,34 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/list",
                 web::get()
                     .to(invoice_list)
+                    .wrap(require_permission("sale:invoice:list")),
+            )
+            // POST /sale/invoice/{id}/submit - 提交审批
+            .route(
+                "/{id}/submit",
+                web::post()
+                    .to(invoice_submit)
+                    .wrap(require_permission("sale:invoice:update")),
+            )
+            // POST /sale/invoice/{id}/approve - 审批通过
+            .route(
+                "/{id}/approve",
+                web::post()
+                    .to(invoice_approve)
+                    .wrap(require_permission("sale:invoice:update")),
+            )
+            // POST /sale/invoice/{id}/reject - 驳回
+            .route(
+                "/{id}/reject",
+                web::post()
+                    .to(invoice_reject)
+                    .wrap(require_permission("sale:invoice:update")),
+            )
+            // GET /sale/invoice/{id}/approval-detail - 审批详情
+            .route(
+                "/{id}/approval-detail",
+                web::get()
+                    .to(invoice_approval_detail)
                     .wrap(require_permission("sale:invoice:list")),
             ),
     );

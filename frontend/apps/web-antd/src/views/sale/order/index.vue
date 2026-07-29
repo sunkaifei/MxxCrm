@@ -30,6 +30,7 @@ import OrderDrawer from './drawer.vue';
 import ShipmentDrawer from '../shipment/drawer.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 import OrderApprovalDrawer from './approval-drawer.vue';
+import OrderViewDrawer from './view-drawer.vue';
 import CustomerDetail from '../../crm/customer/detail.vue';
 
 const accessStore = useAccessStore();
@@ -294,7 +295,7 @@ const gridOptions: VxeGridProps = {
       headerAlign: 'center',
       slots: { default: 'orderNo' },
     },
-    { title: '订单标题', field: 'title', width: 200, headerAlign: 'center' },
+    { title: '订单标题', field: 'title', width: 200, headerAlign: 'center', slots: { default: 'title' } },
     { title: '客户名称', field: 'customerName', width: 180, headerAlign: 'center', align: 'left', slots: { default: 'customerName' } },
     {
       title: '订单金额',
@@ -363,6 +364,7 @@ const [ShipmentFormDrawer, shipmentDrawerApi] = useVbenDrawer({
 });
 
 function openDrawer(create: boolean, row?: any) {
+  drawerApi.setState({ width: undefined });
   drawerApi.setData({ create, row });
   drawerApi.open();
 }
@@ -379,7 +381,58 @@ function handleEdit(row: any) {
   openDrawer(false, row);
 }
 function handleView(row: any) {
-  openDrawer(false, row);
+  viewDrawerOrderId.value = row.id;
+  viewDrawerVisible.value = true;
+}
+
+// 详情抽屉底部操作动作分发（关闭详情抽屉 → 调用对应 handler）
+function handleViewDrawerAction(type: string, row: any) {
+  viewDrawerVisible.value = false;
+  switch (type) {
+    case 'edit': {
+      handleEdit(row);
+      break;
+    }
+    case 'submitApproval': {
+      handleSubmitApproval(row);
+      break;
+    }
+    case 'viewApproval': {
+      approvalOrderId.value = row.id;
+      approvalDrawerVisible.value = true;
+      break;
+    }
+    case 'signContract': {
+      handleCreateContract(row);
+      break;
+    }
+    case 'viewContract': {
+      handleViewContract(row);
+      break;
+    }
+    case 'viewOpportunity': {
+      if (row.opportunityId) {
+        router.push({
+          path: '/crm/opportunity',
+          query: { viewOpportunityId: row.opportunityId },
+        });
+      }
+      break;
+    }
+    case 'viewQuotation': {
+      if (row.quotationId) {
+        router.push({
+          path: '/sale/quotation',
+          query: { viewQuotationId: row.quotationId },
+        });
+      }
+      break;
+    }
+    case 'ship': {
+      openShipmentDrawer(row);
+      break;
+    }
+  }
 }
 
 async function handleDelete(row: any) {
@@ -539,6 +592,11 @@ const approvalDrawerVisible = ref(false);
 const approvalOrderId = ref<number | null>(null);
 const currentUserId = ref<number | undefined>(undefined);
 
+// ========== 详情抽屉 ==========
+
+const viewDrawerVisible = ref(false);
+const viewDrawerOrderId = ref<number | null>(null);
+
 // 从 accessStore 中获取当前用户ID
 const userInfo = (window as any).$userInfo || {};
 currentUserId.value = userInfo.id || undefined;
@@ -658,6 +716,16 @@ function closeCustomerDetail() {
         <span v-else>{{ row.orderNo }}</span>
       </template>
 
+      <template #title="{ row }">
+        <a
+          class="cursor-pointer hover:underline"
+          style="color: hsl(var(--primary))"
+          @click="() => handleView(row)"
+        >
+          {{ row.title || '-' }}
+        </a>
+      </template>
+
       <template #customerName="{ row }">
         <a
           v-if="row.customerId"
@@ -698,6 +766,13 @@ function closeCustomerDetail() {
       </template>
 
       <template #action="{ row }">
+        <!-- 详情：所有状态都可查看 -->
+        <a
+          v-if="accessStore.hasAccessCode('sale:order:list')"
+          class="cursor-pointer mx-1"
+          style="color: hsl(var(--primary))"
+          @click="() => handleView(row)"
+        >详情</a>
         <!-- 提交审批：草稿(0)或已驳回(4)状态 -->
         <a
           v-if="
@@ -826,6 +901,12 @@ function closeCustomerDetail() {
     </Grid>
     <FormDrawer />
     <ShipmentFormDrawer />
+    <OrderViewDrawer
+      v-model:visible="viewDrawerVisible"
+      :order-id="viewDrawerOrderId"
+      @refresh="gridApi.query()"
+      @action="handleViewDrawerAction"
+    />
     <OrderApprovalDrawer
       v-model:visible="approvalDrawerVisible"
       :order-id="approvalOrderId"

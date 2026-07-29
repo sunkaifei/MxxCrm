@@ -14,6 +14,7 @@ export * from './crm/lead';
 export * from './crm/lead-pool';
 export * from './crm/lead-transfer';
 export * from './crm/opportunity';
+export * from './crm/todo';
 export * from './menu';
 export * from './product/category';
 export * from './product/inventory';

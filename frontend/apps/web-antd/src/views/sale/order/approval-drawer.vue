@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, h, ref, watch } from 'vue';
 
+import { useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -31,6 +32,9 @@ const props = defineProps<{
   visible: boolean;
   orderId: number | null;
 }>();
+
+const userStore = useUserStore();
+const currentUserId = computed(() => userStore.userInfo?.userId);
 
 const emit = defineEmits<{
   'update:visible': [val: boolean];
@@ -77,17 +81,29 @@ const nodeTypeMap: Record<number, string> = {
   4: '结束',
 };
 
-// 是否可审批（当前用户是审批人且状态为进行中）
+// 审批模式映射
+const approveModeMap: Record<number, { label: string; color: string }> = {
+  1: { label: '或签', color: 'blue' },
+  2: { label: '会签', color: 'purple' },
+  3: { label: '依次审批', color: 'orange' },
+};
+
+// 是否可审批（当前用户在候选审批人池中且状态为进行中）
 const canApprove = computed(() => {
   if (!instance.value) return false;
   if (instance.value.status !== 1 && instance.value.status !== 2) return false;
-  return true;
+  if (!currentUserId.value) return false;
+  const candidates = instance.value.candidateApprovers || [];
+  if (candidates.length > 0) {
+    return candidates.includes(currentUserId.value);
+  }
+  return instance.value.currentApproverId === currentUserId.value;
 });
 
 // 是否是发起人
 const isSubmitter = computed(() => {
-  if (!instance.value) return false;
-  return true;
+  if (!instance.value || !currentUserId.value) return false;
+  return instance.value.submitterId === currentUserId.value;
 });
 
 // 流程节点（按node_order排序，排除条件分支节点，用于流程图和流转记录）
@@ -351,11 +367,30 @@ watch(
                     </div>
                   </div>
                   <div class="flex-1 pt-1">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                       <span class="font-semibold text-blue-600">审批人</span>
                       <Tag color="processing" class="m-0">待审批</Tag>
+                      <Tag v-if="approveModeMap[instance.approveMode]" :color="approveModeMap[instance.approveMode].color" class="m-0">
+                        {{ approveModeMap[instance.approveMode].label }}
+                      </Tag>
                     </div>
-                    <div class="text-sm text-blue-500 mt-0.5">{{ instance.currentApproverName || '未分配' }}</div>
+                    <!-- 候选审批人列表 -->
+                    <div v-if="instance.candidateApproverNames?.length > 0" class="mt-1.5 flex flex-wrap gap-1.5">
+                      <span
+                        v-for="(name, idx) in instance.candidateApproverNames"
+                        :key="idx"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                        :class="instance.processedApprovers?.includes(instance.candidateApprovers?.[idx]) ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'"
+                      >
+                        <svg v-if="instance.processedApprovers?.includes(instance.candidateApprovers?.[idx])" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        {{ name }}
+                      </span>
+                    </div>
+                    <div v-else class="text-sm text-blue-500 mt-0.5">{{ instance.currentApproverName || '未分配' }}</div>
+                    <!-- 进度提示 -->
+                    <div v-if="instance.candidateApprovers?.length > 1 && instance.approveMode !== 1" class="text-xs text-gray-400 mt-1">
+                      已处理 {{ instance.processedApprovers?.length || 0 }} / {{ instance.candidateApprovers?.length || 0 }} 人
+                    </div>
                   </div>
                 </div>
 

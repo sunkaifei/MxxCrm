@@ -31,6 +31,15 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.dashboard.workspace'),
         },
       },
+      {
+        name: 'TodoCenter',
+        path: '/dashboard/todo',
+        component: () => import('#/views/dashboard/todo/index.vue'),
+        meta: {
+          icon: 'lucide:check-square',
+          title: '待办中心',
+        },
+      },
     ],
   },
 ];

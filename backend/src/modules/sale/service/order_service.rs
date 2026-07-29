@@ -284,6 +284,37 @@ pub async fn get_detail(db: &DbConn, id: i64) -> Result<OrderDetailVO> {
                 }
             }
 
+            // 实时查询关联商机名称（用于编辑时回显）
+            if let Some(opp_id) = vo.opportunity_id {
+                if let Some(opp) = Opportunity::find_by_id(opp_id)
+                    .filter(opp_entity::Column::Deleted.eq(0))
+                    .one(db)
+                    .await?
+                {
+                    vo.opportunity_name = opp.title.clone();
+                }
+            }
+
+            // 实时查询关联报价单标题与编号（用于编辑时回显）
+            if let Some(qid) = vo.quotation_id {
+                if let Some(q) = Quotation::find_by_id(qid)
+                    .filter(quo_entity::Column::Deleted.eq(0))
+                    .one(db)
+                    .await?
+                {
+                    vo.quotation_title = q.title.clone();
+                    vo.quotation_no = q.quotation_no.clone();
+                }
+            }
+
+            // 实时查询关联合同标题与编号（用于编辑时回显）
+            if let Some(ctid) = vo.contract_id {
+                if let Ok(Some(ct)) = ContractModel::find_by_id(db, ctid).await {
+                    vo.contract_title = ct.title.clone();
+                    vo.contract_no = ct.contract_no.clone();
+                }
+            }
+
             Ok(vo)
         }
         None => Err(Error::from("订单不存在")),

@@ -57,8 +57,8 @@ impl ApprovalService {
         // 解析发起人部门
         let submitter_dept_id = ApprovalModel::find_user_dept_id(db, req.submitter_id).await?;
 
-        // 根据 approver_type 解析实际审批人
-        let approver_id = ApprovalModel::resolve_approver(
+        // 解析候选审批人列表（支持多审批人场景：角色/岗位下所有用户）
+        let candidates = ApprovalModel::resolve_approvers(
             db,
             first_node.approver_type,
             first_node.approver_id,
@@ -66,13 +66,18 @@ impl ApprovalService {
             submitter_dept_id,
         ).await?;
 
+        // 当前审批人取候选列表的第一个（或签/会签模式下所有人可见，依次审批按顺序）
+        let primary_approver = candidates[0];
+
         let instance_id = ApprovalModel::create_instance(
             db,
             req,
             &first_node.node_key.clone().unwrap_or_default(),
-            approver_id,
+            primary_approver,
+            &candidates,
         ).await?;
 
+        let _ = flow; // flow 已使用
         Ok(instance_id)
     }
 
@@ -83,6 +88,23 @@ impl ApprovalService {
 
         if instance.status != 1 && instance.status != 2 {
             return Err(Error::from("该审批实例已处理完成"));
+        }
+
+        // 权限校验：审批人必须在候选审批人池中
+        if !instance.candidate_approvers.contains(&req.approver_id) {
+            return Err(Error::from("您不是当前节点的审批人"));
+        }
+
+        let approve_mode = instance.approve_mode;
+
+        // 依次审批：必须轮到当前审批人
+        if approve_mode == 3 && instance.current_approver_id != Some(req.approver_id) {
+            return Err(Error::from("当前还未轮到您审批，请等待前序审批人处理"));
+        }
+
+        // 会签/依次审批：不允许重复审批
+        if (approve_mode == 2 || approve_mode == 3) && instance.processed_approvers.contains(&req.approver_id) {
+            return Err(Error::from("您已审批过该节点"));
         }
 
         let flow_data = ApprovalModel::find_flow_by_code(db, &instance.flow_code).await?;
@@ -98,45 +120,46 @@ impl ApprovalService {
 
         ApprovalModel::insert_log(db, req.instance_id, current_node_key, &node_name, req).await?;
 
+        let submitter_id = instance.submitter_id;
+        let extra_data = instance.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
+
         match req.action {
             1 => {
-                // 通过，查找下一节点
-                let out_edges: Vec<&approval_flow_edge::Model> = edges.iter()
-                    .filter(|e| e.source_node_key.as_deref() == Some(current_node_key))
-                    .collect();
-
-                if out_edges.is_empty() {
-                    ApprovalModel::finish_instance(db, req.instance_id, 3).await?;
-                } else {
-                    let extra_data: serde_json::Value = instance.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
-                    let mut next_node_key: Option<String> = None;
-
-                    for edge in &out_edges {
-                        if let Some(cond) = &edge.condition_expr {
-                            if !cond.is_empty() {
-                                if Self::eval_condition(cond, &extra_data) {
-                                    next_node_key = edge.target_node_key.clone();
-                                    break;
-                                }
-                            } else {
-                                next_node_key = edge.target_node_key.clone();
-                            }
+                // 通过
+                match approve_mode {
+                    1 => {
+                        // 或签：任一通过即流转到下一节点
+                        Self::advance_to_next_node(db, req.instance_id, current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
+                    }
+                    2 => {
+                        // 会签：全部通过才流转
+                        let processed = ApprovalModel::append_processed_approver(db, req.instance_id, req.approver_id).await?;
+                        if processed.len() >= instance.candidate_approvers.len() {
+                            // 所有候选审批人均已通过，流转到下一节点
+                            Self::advance_to_next_node(db, req.instance_id, current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
+                        }
+                        // 否则等待其他审批人处理
+                    }
+                    3 => {
+                        // 依次审批：按候选池顺序逐个审批
+                        let processed = ApprovalModel::append_processed_approver(db, req.instance_id, req.approver_id).await?;
+                        if processed.len() >= instance.candidate_approvers.len() {
+                            // 全部审批完成，流转到下一节点
+                            Self::advance_to_next_node(db, req.instance_id, current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
                         } else {
-                            next_node_key = edge.target_node_key.clone();
+                            // 更新当前审批人为候选池中下一个未处理的人
+                            let next_approver = instance.candidate_approvers[processed.len()];
+                            ApprovalModel::update_current_approver(db, req.instance_id, next_approver).await?;
                         }
                     }
-
-                    if next_node_key.is_none() {
-                        ApprovalModel::finish_instance(db, req.instance_id, 3).await?;
-                        return Ok(());
+                    _ => {
+                        // 默认按或签处理
+                        Self::advance_to_next_node(db, req.instance_id, current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
                     }
-
-                    let next_key = next_node_key.unwrap();
-                    Self::move_to_next_node(db, req.instance_id, &next_key, &nodes, &edges, instance.submitter_id, &extra_data).await?;
                 }
             }
             2 => {
-                // 驳回
+                // 驳回：直接结束实例（无论何种审批模式）
                 ApprovalModel::finish_instance(db, req.instance_id, 4).await?;
             }
             _ => return Err(Error::from("无效的操作类型")),
@@ -157,6 +180,51 @@ impl ApprovalService {
 
     // ============ Private helpers ============
 
+    /// 从当前节点查找下一节点并推进实例（处理条件分支）
+    async fn advance_to_next_node(
+        db: &DatabaseConnection,
+        instance_id: i64,
+        current_node_key: &str,
+        nodes: &[approval_flow_node::Model],
+        edges: &[approval_flow_edge::Model],
+        submitter_id: i64,
+        extra_data: &serde_json::Value,
+    ) -> Result<()> {
+        let out_edges: Vec<&approval_flow_edge::Model> = edges.iter()
+            .filter(|e| e.source_node_key.as_deref() == Some(current_node_key))
+            .collect();
+
+        if out_edges.is_empty() {
+            // 没有出边，直接完成实例
+            ApprovalModel::finish_instance(db, instance_id, 3).await?;
+            return Ok(());
+        }
+
+        let mut next_node_key: Option<String> = None;
+        for edge in &out_edges {
+            if let Some(cond) = &edge.condition_expr {
+                if !cond.is_empty() {
+                    if Self::eval_condition(cond, extra_data) {
+                        next_node_key = edge.target_node_key.clone();
+                        break;
+                    }
+                } else {
+                    next_node_key = edge.target_node_key.clone();
+                }
+            } else {
+                next_node_key = edge.target_node_key.clone();
+            }
+        }
+
+        if next_node_key.is_none() {
+            ApprovalModel::finish_instance(db, instance_id, 3).await?;
+            return Ok(());
+        }
+
+        let next_key = next_node_key.unwrap();
+        Self::move_to_next_node(db, instance_id, &next_key, nodes, edges, submitter_id, extra_data).await
+    }
+
     async fn move_to_next_node(
         db: &DatabaseConnection,
         instance_id: i64,
@@ -175,16 +243,17 @@ impl ApprovalService {
                 ApprovalModel::finish_instance(db, instance_id, 3).await?;
             }
             Some(2) => {
-                // 审批节点 - 解析审批人
+                // 审批节点 - 解析候选审批人列表
                 let submitter_dept_id = ApprovalModel::find_user_dept_id(db, submitter_id).await?;
-                let approver_id = ApprovalModel::resolve_approver(
+                let candidates = ApprovalModel::resolve_approvers(
                     db,
                     next_node.approver_type,
                     next_node.approver_id,
                     submitter_id,
                     submitter_dept_id,
                 ).await?;
-                ApprovalModel::update_instance_node(db, instance_id, next_key, approver_id).await?;
+                let primary_approver = candidates[0];
+                ApprovalModel::update_instance_node(db, instance_id, next_key, primary_approver, &candidates).await?;
             }
             Some(3) => {
                 // 条件分支，继续遍历
@@ -270,14 +339,15 @@ impl ApprovalService {
                     }
                     Some(2) => {
                         let submitter_dept_id = ApprovalModel::find_user_dept_id(db, submitter_id).await?;
-                        let approver_id = ApprovalModel::resolve_approver(
+                        let candidates = ApprovalModel::resolve_approvers(
                             db,
                             target.approver_type,
                             target.approver_id,
                             submitter_id,
                             submitter_dept_id,
                         ).await?;
-                        ApprovalModel::update_instance_node(db, instance_id, target_key, approver_id).await?;
+                        let primary_approver = candidates[0];
+                        ApprovalModel::update_instance_node(db, instance_id, target_key, primary_approver, &candidates).await?;
                         return Ok(());
                     }
                     Some(3) => {

@@ -383,7 +383,8 @@ const basicFormSchema: VbenFormSchema[] = [
     rules: 'required',
     componentProps: () => ({
       placeholder: '由商机/报价单自动带入',
-      disabled: true,
+      readOnly: true,
+      style: 'cursor: not-allowed',
     }),
   },
   {
@@ -855,6 +856,9 @@ async function handleSubmit() {
     const data = {
       ...basicValues,
       ...shippingValues,
+      // 显式带上 customerId/customerName（来自商机/报价单选择，确保 disabled 字段值不丢失）
+      customerId: basicValues.customerId ?? contactFilterCustomerId.value,
+      customerName: basicValues.customerName || undefined,
       // 显式带上 quotationId（来自选择报价单弹窗，schema 中无此字段）
       quotationId: quotationInfo.value.id || undefined,
       // 显式带上 contactId（来自联系人选择，schema 中无此字段）

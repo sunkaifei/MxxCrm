@@ -17,7 +17,7 @@ use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::sale::model::payment::{
-    PaymentApplyRequest, PaymentListQuery, PaymentSaveRequest, PaymentUpdateRequest,
+    PaymentApplyRequest, PaymentApprovalReq, PaymentListQuery, PaymentSaveRequest, PaymentUpdateRequest,
 };
 use crate::modules::sale::service::payment_service;
 
@@ -217,6 +217,76 @@ pub async fn payment_application_list(
     }
 }
 
+// ==================== 回款审批 ====================
+
+/// 提交审批
+pub async fn payment_submit(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<i64>,
+) -> HttpResponse {
+    let db = &state.db;
+    let payment_id = path.into_inner();
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match payment_service::submit_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+            .body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 审批通过
+pub async fn payment_approve(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<i64>,
+    form_data: web::Json<PaymentApprovalReq>,
+) -> HttpResponse {
+    let db = &state.db;
+    let payment_id = path.into_inner();
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match payment_service::approve_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.0.reason).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+            .body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 驳回
+pub async fn payment_approval_reject(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<i64>,
+    form_data: web::Json<PaymentApprovalReq>,
+) -> HttpResponse {
+    let db = &state.db;
+    let payment_id = path.into_inner();
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    match payment_service::reject_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.0.reason).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+            .body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 审批详情
+pub async fn payment_approval_detail(
+    state: web::Data<AppState>,
+    path: web::Path<i64>,
+) -> HttpResponse {
+    let db = &state.db;
+    let payment_id = path.into_inner();
+    match payment_service::get_payment_approval_detail(db, payment_id).await {
+        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+            .body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
 // ==================== 路由注册（单点维护）====================
 
 /// 注册回款模块所有路由
@@ -303,6 +373,34 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::get()
                     .to(payment_application_list)
                     .wrap(require_permission("sale:payment:list")),
+            )
+            // POST /sale/payment/{id}/submit - 提交审批
+            .route(
+                "/{id}/submit",
+                web::post()
+                    .to(payment_submit)
+                    .wrap(require_permission("sale:payment:confirm")),
+            )
+            // POST /sale/payment/{id}/approve - 审批通过
+            .route(
+                "/{id}/approve",
+                web::post()
+                    .to(payment_approve)
+                    .wrap(require_permission("sale:payment:confirm")),
+            )
+            // POST /sale/payment/{id}/reject - 驳回
+            .route(
+                "/{id}/reject",
+                web::post()
+                    .to(payment_approval_reject)
+                    .wrap(require_permission("sale:payment:confirm")),
+            )
+            // GET /sale/payment/{id}/approval-detail - 审批详情
+            .route(
+                "/{id}/approval-detail",
+                web::get()
+                    .to(payment_approval_detail)
+                    .wrap(require_permission("sale:payment:info")),
             ),
     );
 }

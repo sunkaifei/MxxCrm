@@ -52,6 +52,12 @@ const approverTypeOptions = [
   { value: 5, label: '指定岗位(职位)' },
 ];
 
+const approveModeOptions = [
+  { value: 1, label: '或签（任一通过）' },
+  { value: 2, label: '会签（全部通过）' },
+  { value: 3, label: '依次审批' },
+];
+
 const adminOptions = ref<{ label: string; value: number }[]>([]);
 const roleOptions = ref<{ label: string; value: number }[]>([]);
 const postOptions = ref<{ label: string; value: number }[]>([]);
@@ -211,6 +217,7 @@ function onDrop(event: DragEvent) {
       nodeName: cfg.defaultLabel,
       approverType: null,
       approverId: null,
+      approveMode: 1,
       isFinal: false,
     },
   };
@@ -325,6 +332,7 @@ async function loadFlow(id: number) {
           nodeName: n.nodeName ?? n.node_name ?? '',
           approverType: n.approverType ?? n.approver_type ?? null,
           approverId: n.approverId != null ? Number(n.approverId) : (n.approver_id != null ? Number(n.approver_id) : null),
+          approveMode: n.approveMode ?? n.approve_mode ?? 1,
           isFinal: !!(n.isFinal ?? n.is_final ?? false),
         },
       };
@@ -370,6 +378,7 @@ async function handleSave() {
         nodeOrder: idx + 1,
         approverType: n.data?.approverType ?? null,
         approverId: n.data?.approverId != null ? Number(n.data.approverId) : null,
+        approveMode: n.data?.approveMode ?? 1,
         isFinal: n.data?.isFinal ? 1 : 0,
         positionX: Math.round(n.position?.x ?? 0),
         positionY: Math.round(n.position?.y ?? 0),
@@ -611,6 +620,14 @@ onMounted(() => {
               <div v-else-if="selectedNode.data.approverType === 4" class="props-field hint">
                 <label>说明</label>
                 <span class="field-hint">由发起人自己确认（自动通过）</span>
+              </div>
+              <div class="props-field">
+                <label>审批模式</label>
+                <Select
+                  v-model:value="selectedNode.data.approveMode"
+                  :options="approveModeOptions"
+                  placeholder="选择审批模式"
+                />
               </div>
               <div class="props-field inline">
                 <label>是否终审</label>

@@ -10,7 +10,8 @@
   "dashboard": {
     "title": "概览",
     "analytics": "分析页",
-    "workspace": "工作台"
+    "workspace": "工作台",
+    "todo": "待办中心"
   },
   "user": {
     "module": "用户",
@@ -266,8 +267,22 @@
     "mail": {
       "config": {
         "title": "邮箱设置"
+      },
+      "template": "邮件模板",
+      "send": "发送邮件",
+      "log": "邮件日志"
+    },
+    "approval": {
+      "title": "审批流管理",
+      "todo": "审批待办",
+      "designer": "审批流设计器",
+      "button": {
+        "create": "新增审批流",
+        "edit": "编辑审批流",
+        "toggle": "启用/禁用"
       }
-    }
+    },
+    "editLog": "修改日志"
   },
   "crm": {
     "title": "客户",
@@ -303,7 +318,11 @@
       "title": "客户跟进管理"
     },
     "customerPool": {
-      "title": "公海客户"
+      "title": "公海客户",
+      "button": {
+        "return": "退回公海",
+        "claim": "认领"
+      }
     },
     "contact": {
       "title": "联系人管理",
@@ -803,7 +822,8 @@
       "button": {
         "create": "新增配置",
         "edit": "编辑配置",
-        "delete": "删除配置"
+        "delete": "删除配置",
+        "view": "查看配置"
       }
     },
     "salesFlow": {

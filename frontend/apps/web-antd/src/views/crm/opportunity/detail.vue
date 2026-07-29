@@ -1008,7 +1008,6 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div v-show="activeTab === '1'" class="opp-tab-content">
           <div class="opp-form-header">
             <span class="opp-form-title">初步沟通记录</span>
-            <Button size="small" class="opp-add-btn" @click="openFollowupModal(1)">+ 添加记录</Button>
           </div>
           <Form ref="baseFormRef" :model="baseForm" layout="vertical" class="opp-form">
             <Form.Item label="商机名称" name="title" :rules="[{ required: true, message: '请输入商机名称' }]">
@@ -1084,7 +1083,6 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div v-show="activeTab === '2'" class="opp-tab-content">
           <div class="opp-form-header">
             <span class="opp-form-title">需求确认记录</span>
-            <Button size="small" class="opp-add-btn" @click="openFollowupModal(2)">+ 添加记录</Button>
           </div>
           <Form :model="reqForm" layout="vertical" class="opp-form">
             <Form.Item label="需求类型" name="reqType">
@@ -1126,7 +1124,6 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div v-show="activeTab === '3'" class="opp-tab-content">
           <div class="opp-form-header">
             <span class="opp-form-title">方案沟通记录</span>
-            <Button size="small" class="opp-add-btn" @click="openFollowupModal(3)">+ 添加记录</Button>
           </div>
           <Form :model="solForm" layout="vertical" class="opp-form">
             <Form.Item label="方案类型" name="solutionType">

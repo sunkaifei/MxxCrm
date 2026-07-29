@@ -10,7 +10,8 @@
   "dashboard": {
     "title": "Dashboard",
     "analytics": "Analytics",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "todo": "Todo Center"
   },
   "user": {
     "module": "User",
@@ -264,7 +265,26 @@
         "edit": "Edit Tag",
         "delete": "Delete Tag"
       }
-    }
+    },
+    "mail": {
+      "config": {
+        "title": "Mail Settings"
+      },
+      "template": "Email Template",
+      "send": "Send Email",
+      "log": "Email Log"
+    },
+    "approval": {
+      "title": "Approval Flow Management",
+      "todo": "Approval Tasks",
+      "designer": "Approval Flow Designer",
+      "button": {
+        "create": "Create Approval Flow",
+        "edit": "Edit Approval Flow",
+        "toggle": "Enable/Disable"
+      }
+    },
+    "editLog": "Edit Log"
   },
   "crm": {
     "title": "Customer",
@@ -299,7 +319,11 @@
       "title": "Customer Follow-up"
     },
     "customerPool": {
-      "title": "Customer Pool"
+      "title": "Customer Pool",
+      "button": {
+        "return": "Return to Pool",
+        "claim": "Claim"
+      }
     },
     "contact": {
       "title": "Contact Management",
@@ -749,7 +773,8 @@
       "button": {
         "create": "Add Config",
         "edit": "Edit Config",
-        "delete": "Delete Config"
+        "delete": "Delete Config",
+        "view": "View Config"
       }
     },
     "salesFlow": {

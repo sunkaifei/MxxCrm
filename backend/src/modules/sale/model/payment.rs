@@ -17,6 +17,7 @@ use rust_decimal::Decimal;
 use sea_orm::*;
 use sea_orm::prelude::DateTime;
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::modules::approval::model::approval::ApprovalInstanceVO;
 use crate::modules::sale::entity::{payment, payment::Entity as SalePayment, order};
 use crate::modules::sale::model::payment_application::PaymentApplicationVO;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
@@ -110,6 +111,13 @@ pub struct PaymentListQuery {
     pub list_type: Option<String>,
 }
 
+/// 回款审批请求（通过/驳回）
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentApprovalReq {
+    pub reason: Option<String>,
+}
+
 // ==================== 内部 DTO ====================
 
 #[derive(Debug, Clone)]
@@ -157,6 +165,10 @@ pub struct PaymentListVO {
     pub payment_method: Option<i32>,
     pub payment_date: Option<NaiveDate>,
     pub status: Option<i32>,
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     pub confirm_time: Option<DateTime>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub confirm_by: Option<i64>,
@@ -187,6 +199,10 @@ pub struct PaymentDetailVO {
     pub bank_flow_no: Option<String>,
     pub attachment: Option<String>,
     pub status: Option<i32>,
+    /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
+    pub approval_status: Option<i32>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     pub remark: Option<String>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub owner_user_id: Option<i64>,
@@ -200,6 +216,19 @@ pub struct PaymentDetailVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub confirm_by: Option<i64>,
     pub applications: Vec<PaymentApplicationVO>,
+}
+
+/// 回款审批详情VO
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentApprovalDetailVO {
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub payment_id: Option<i64>,
+    pub payment_no: Option<String>,
+    pub customer_name: Option<String>,
+    pub amount: Option<Decimal>,
+    pub approval_status: Option<i32>,
+    pub instance: Option<ApprovalInstanceVO>,
 }
 
 // ==================== From 转换 ====================
@@ -276,6 +305,8 @@ impl From<&payment::Model> for PaymentListVO {
             payment_method: model.payment_method,
             payment_date: model.payment_date,
             status: model.status,
+            approval_status: model.approval_status,
+            instance_id: model.instance_id,
             confirm_time: model.confirm_time,
             confirm_by: model.confirm_by,
             create_time: model.create_time,
@@ -303,6 +334,8 @@ impl From<&payment::Model> for PaymentDetailVO {
             bank_flow_no: model.bank_flow_no.clone(),
             attachment: model.attachment.clone(),
             status: model.status,
+            approval_status: model.approval_status,
+            instance_id: model.instance_id,
             remark: model.remark.clone(),
             owner_user_id: model.owner_user_id,
             dept_id: model.dept_id,
@@ -386,6 +419,7 @@ impl PaymentModel {
             bank_flow_no: Set(req.bank_flow_no.clone()),
             attachment: Set(req.attachment.clone()),
             status: Set(req.status.or(Some(1))),
+            approval_status: Set(Some(0)),
             remark: Set(req.remark.clone()),
             owner_user_id: Set(req.owner_user_id),
             dept_id: Set(req.dept_id),

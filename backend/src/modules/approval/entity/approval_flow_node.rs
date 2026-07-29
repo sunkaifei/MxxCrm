@@ -14,6 +14,8 @@ pub struct Model {
     pub node_name: Option<String>,
     pub approver_type: Option<i32>,
     pub approver_id: Option<i64>,
+    /// 审批模式：1=或签(任一通过)，2=会签(全通过)，3=依次审批
+    pub approve_mode: Option<i32>,
     pub is_final: Option<i32>,
     pub position_x: Option<i32>,
     pub position_y: Option<i32>,

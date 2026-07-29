@@ -23,11 +23,13 @@ import { $t } from '#/locales';
 const userStore = useUserStore();
 
 const businessTypeMap: Record<string, { label: string; color: string }> = {
-  contract: { label: '合同', color: 'blue' },
+  quotation: { label: '报价单', color: 'blue' },
   order: { label: '订单', color: 'cyan' },
-  purchase: { label: '采购', color: 'purple' },
-  payment: { label: '付款', color: 'gold' },
-  expense: { label: '报销', color: 'magenta' },
+  contract: { label: '合同', color: 'geekblue' },
+  payment: { label: '回款', color: 'gold' },
+  invoice: { label: '发票', color: 'purple' },
+  purchase: { label: '采购', color: 'magenta' },
+  expense: { label: '报销', color: 'volcano' },
   leave: { label: '请假', color: 'orange' },
 };
 
@@ -39,9 +41,8 @@ const approvalStatusList: Record<number, { label: string; color: string }> = {
 };
 
 const logActionText: Record<number, string> = {
-  1: '提交',
-  2: '审批通过',
-  3: '驳回',
+  1: '审批通过',
+  2: '驳回',
 };
 
 const detailVisible = ref(false);
@@ -196,7 +197,7 @@ function openProcess(row: any, action: 'approve' | 'reject') {
     async onOk() {
       await processApprovalApi({
         instanceId: row.id,
-        action,
+        action: action === 'approve' ? 1 : 2,
         approverId: userInfo?.userId,
         approverName: userInfo?.realName || userInfo?.username,
         comment: commentRef.value,
@@ -282,6 +283,27 @@ function openProcess(row: any, action: 'approve' | 'reject') {
           <Tag :color="approvalStatusList[detailData.status]?.color || 'default'">
             {{ approvalStatusList[detailData.status]?.label || '未知' }}
           </Tag>
+        </div>
+
+        <!-- 候选审批人列表 -->
+        <div v-if="detailData.candidateApproverNames?.length > 0 && (detailData.status === 1 || detailData.status === 2)">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-gray-500">候选审批人：</span>
+            <div class="flex flex-wrap gap-1.5 justify-end max-w-[70%]">
+              <span
+                v-for="(name, idx) in detailData.candidateApproverNames"
+                :key="idx"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                :class="detailData.processedApprovers?.includes(detailData.candidateApprovers?.[idx]) ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'"
+              >
+                <svg v-if="detailData.processedApprovers?.includes(detailData.candidateApprovers?.[idx])" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                {{ name }}
+              </span>
+            </div>
+          </div>
+          <div v-if="detailData.candidateApprovers?.length > 1" class="text-right text-xs text-gray-400">
+            已处理 {{ detailData.processedApprovers?.length || 0 }} / {{ detailData.candidateApprovers?.length || 0 }} 人
+          </div>
         </div>
 
         <div v-if="detailData.approvalLogs && detailData.approvalLogs.length > 0">

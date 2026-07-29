@@ -19,5 +19,6 @@ pub mod customer_edit_log;
 pub mod followup;
 pub mod lead;
 pub mod opportunity;
+pub mod todo;
 
 pub use contract_commission_member::*;

@@ -2,8 +2,8 @@ use chrono::Utc;
 use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder,
+    ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -56,6 +56,8 @@ pub struct NodeDTO {
     pub node_order: i32,
     pub approver_type: Option<i32>,
     pub approver_id: Option<i64>,
+    /// 审批模式：1=或签(任一通过)，2=会签(全通过)，3=依次审批
+    pub approve_mode: Option<i32>,
     pub is_final: Option<i32>,
     pub position_x: Option<i32>,
     pub position_y: Option<i32>,
@@ -94,6 +96,8 @@ pub struct NodeVO {
     pub node_order: i32,
     pub approver_type: Option<i32>,
     pub approver_id: Option<i64>,
+    /// 审批模式：1=或签(任一通过)，2=会签(全通过)，3=依次审批
+    pub approve_mode: Option<i32>,
     pub is_final: Option<i32>,
     pub position_x: Option<i32>,
     pub position_y: Option<i32>,
@@ -169,6 +173,14 @@ pub struct ApprovalInstanceVO {
     pub current_node_key: Option<String>,
     pub current_approver_id: Option<i64>,
     pub current_approver_name: Option<String>,
+    /// 当前节点候选审批人ID列表
+    pub candidate_approvers: Vec<i64>,
+    /// 候选审批人姓名列表（与 ID 一一对应）
+    pub candidate_approver_names: Vec<String>,
+    /// 当前节点已处理审批人ID列表
+    pub processed_approvers: Vec<i64>,
+    /// 当前节点审批模式：1=或签, 2=会签, 3=依次审批
+    pub approve_mode: i32,
     pub status: i32,
     pub submitted_at: Option<String>,
     pub finished_at: Option<String>,
@@ -188,6 +200,8 @@ pub struct ApprovalFlowNodeVO {
     pub node_order: i32,
     pub approver_id: Option<i64>,
     pub approver_name: Option<String>,
+    /// 审批模式：1=或签, 2=会签, 3=依次审批
+    pub approve_mode: i32,
     pub node_status: i32,
     pub label: Option<String>,
 }
@@ -293,6 +307,7 @@ impl ApprovalModel {
                 node_name: Set(Some(node.node_name.clone())),
                 approver_type: Set(node.approver_type),
                 approver_id: Set(node.approver_id),
+                approve_mode: Set(node.approve_mode),
                 is_final: Set(node.is_final),
                 position_x: Set(node.position_x),
                 position_y: Set(node.position_y),
@@ -366,6 +381,7 @@ impl ApprovalModel {
                     node_order: n.node_order.unwrap_or(0),
                     approver_type: n.approver_type,
                     approver_id: n.approver_id,
+                    approve_mode: n.approve_mode,
                     is_final: n.is_final,
                     position_x: n.position_x,
                     position_y: n.position_y,
@@ -529,8 +545,21 @@ impl ApprovalModel {
         req: &ApprovalSubmitRequest,
         first_node_key: &str,
         approver_id: i64,
+        candidate_approvers: &[i64],
     ) -> Result<i64> {
         let now = Utc::now().naive_utc();
+        // 候选审批人列表（去重，保留顺序）；若为空则退化为 [approver_id]
+        let candidates: Vec<i64> = {
+            let mut v: Vec<i64> = if candidate_approvers.is_empty() {
+                vec![approver_id]
+            } else {
+                candidate_approvers.to_vec()
+            };
+            v.dedup();
+            v
+        };
+        let candidates_json: serde_json::Value =
+            serde_json::Value::Array(candidates.iter().map(|id| serde_json::json!(id)).collect());
         let active = InstanceActiveModel {
             flow_code: Set(Some(req.flow_code.clone())),
             business_type: Set(Some(req.business_type.clone())),
@@ -540,6 +569,8 @@ impl ApprovalModel {
             submitter_name: Set(req.submitter_name.clone()),
             current_node_key: Set(Some(first_node_key.to_string())),
             current_approver_id: Set(Some(approver_id)),
+            candidate_approvers: Set(Some(candidates_json)),
+            processed_approvers: Set(Some(serde_json::Value::Array(vec![]))),
             status: Set(Some(1)),
             submitted_at: Set(Some(now)),
             create_time: Set(Some(now)),
@@ -645,6 +676,7 @@ impl ApprovalModel {
                     node_order: n.node_order.unwrap_or(0),
                     approver_id,
                     approver_name,
+                    approve_mode: n.approve_mode.unwrap_or(1),
                     node_status,
                     label: None,
                 });
@@ -697,6 +729,50 @@ impl ApprovalModel {
             })
             .collect();
 
+        // 解析候选审批人ID列表
+        let candidate_approvers: Vec<i64> = inst
+            .candidate_approvers
+            .as_ref()
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_i64())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        // 解析已处理审批人ID列表
+        let processed_approvers: Vec<i64> = inst
+            .processed_approvers
+            .as_ref()
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_i64())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        // 查询候选审批人姓名（与ID一一对应）
+        let mut candidate_approver_names: Vec<String> = Vec::with_capacity(candidate_approvers.len());
+        for cid in &candidate_approvers {
+            let name = AdminModel::find_by_id(db, &Some(*cid))
+                .await
+                .ok()
+                .flatten()
+                .and_then(|a| a.nick_name.or(a.user_name))
+                .unwrap_or_default();
+            candidate_approver_names.push(name);
+        }
+
+        // 从流程节点中获取当前节点的审批模式
+        let current_node_key = inst.current_node_key.clone().unwrap_or_default();
+        let approve_mode = flow_nodes
+            .iter()
+            .find(|n| n.node_key == current_node_key)
+            .map(|n| n.approve_mode)
+            .unwrap_or(1);
+
         Ok(Some(ApprovalInstanceVO {
             id: inst.id,
             flow_code: inst.flow_code.unwrap_or_default(),
@@ -708,6 +784,10 @@ impl ApprovalModel {
             current_node_key: inst.current_node_key,
             current_approver_id: inst.current_approver_id,
             current_approver_name,
+            candidate_approvers,
+            candidate_approver_names,
+            processed_approvers,
+            approve_mode,
             status: inst.status.unwrap_or(1),
             submitted_at: inst.submitted_at.map(|t| t.to_string()),
             finished_at: inst.finished_at.map(|t| t.to_string()),
@@ -724,9 +804,47 @@ impl ApprovalModel {
         page_num: u64,
         page_size: u64,
     ) -> Result<ResultPage<Vec<ApprovalInstanceVO>>> {
-        let paginator = InstanceEntity::find()
-            .filter(InstanceColumn::CurrentApproverId.eq(approver_id))
-            .filter(InstanceColumn::Status.is_in(vec![1, 2]))
+        Self::find_instance_list_filtered(db, approver_id, None, None, None, page_num, page_size).await
+    }
+
+    pub async fn find_instance_list_filtered(
+        db: &DatabaseConnection,
+        approver_id: i64,
+        business_type: Option<&str>,
+        status: Option<i32>,
+        business_title: Option<&str>,
+        page_num: u64,
+        page_size: u64,
+    ) -> Result<ResultPage<Vec<ApprovalInstanceVO>>> {
+        // 查询条件：当前审批人是指定用户 OR 候选审批人池包含该用户（支持或签/会签多审批人场景）
+        let candidate_filter = Expr::cust(format!(
+            r#""candidate_approvers" @> '[{}]'"#,
+            approver_id
+        ));
+        let mut query = InstanceEntity::find()
+            .filter(
+                Condition::any()
+                    .add(InstanceColumn::CurrentApproverId.eq(approver_id))
+                    .add(candidate_filter),
+            );
+
+        // 按 status 过滤（默认只看待审批/审批中，传了 status 就按传的查）
+        if let Some(s) = status {
+            query = query.filter(InstanceColumn::Status.eq(s));
+        } else {
+            query = query.filter(InstanceColumn::Status.is_in(vec![1, 2]));
+        }
+
+        if let Some(bt) = business_type {
+            query = query.filter(InstanceColumn::BusinessType.eq(bt));
+        }
+
+        if let Some(title) = business_title {
+            query = query.filter(InstanceColumn::BusinessTitle.like(format!("%{}%", title)));
+        }
+
+        let paginator = query
+            .order_by_desc(InstanceColumn::SubmittedAt)
             .paginate(db, page_size);
 
         let total = paginator
@@ -740,24 +858,50 @@ impl ApprovalModel {
 
         let list: Vec<ApprovalInstanceVO> = items
             .into_iter()
-            .map(|inst| ApprovalInstanceVO {
-                id: inst.id,
-                flow_code: inst.flow_code.unwrap_or_default(),
-                business_type: inst.business_type.unwrap_or_default(),
-                business_id: inst.business_id.unwrap_or_default(),
-                business_title: inst.business_title,
-                submitter_id: inst.submitter_id.unwrap_or_default(),
-                submitter_name: inst.submitter_name,
-                current_node_key: inst.current_node_key,
-                current_approver_id: inst.current_approver_id,
-                current_approver_name: None,
-                status: inst.status.unwrap_or(1),
-                submitted_at: inst.submitted_at.map(|t| t.to_string()),
-                finished_at: inst.finished_at.map(|t| t.to_string()),
-                extra_data: inst.extra_data,
-                flow_nodes: vec![],
-                flow_edges: vec![],
-                logs: vec![],
+            .map(|inst| {
+                let candidate_approvers: Vec<i64> = inst
+                    .candidate_approvers
+                    .as_ref()
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|x| x.as_i64())
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let processed_approvers: Vec<i64> = inst
+                    .processed_approvers
+                    .as_ref()
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|x| x.as_i64())
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                ApprovalInstanceVO {
+                    id: inst.id,
+                    flow_code: inst.flow_code.unwrap_or_default(),
+                    business_type: inst.business_type.unwrap_or_default(),
+                    business_id: inst.business_id.unwrap_or_default(),
+                    business_title: inst.business_title,
+                    submitter_id: inst.submitter_id.unwrap_or_default(),
+                    submitter_name: inst.submitter_name,
+                    current_node_key: inst.current_node_key,
+                    current_approver_id: inst.current_approver_id,
+                    current_approver_name: None,
+                    candidate_approvers,
+                    candidate_approver_names: vec![],
+                    processed_approvers,
+                    approve_mode: 1,
+                    status: inst.status.unwrap_or(1),
+                    submitted_at: inst.submitted_at.map(|t| t.to_string()),
+                    finished_at: inst.finished_at.map(|t| t.to_string()),
+                    extra_data: inst.extra_data,
+                    flow_nodes: vec![],
+                    flow_edges: vec![],
+                    logs: vec![],
+                }
             })
             .collect();
 
@@ -775,11 +919,26 @@ impl ApprovalModel {
         instance_id: i64,
         node_key: &str,
         approver_id: i64,
+        candidate_approvers: &[i64],
     ) -> Result<()> {
         let now = Utc::now().naive_utc();
+        // 候选审批人列表（去重；若为空则退化为 [approver_id]）
+        let candidates: Vec<i64> = {
+            let mut v: Vec<i64> = if candidate_approvers.is_empty() {
+                vec![approver_id]
+            } else {
+                candidate_approvers.to_vec()
+            };
+            v.dedup();
+            v
+        };
+        let candidates_json: serde_json::Value =
+            serde_json::Value::Array(candidates.iter().map(|id| serde_json::json!(id)).collect());
         InstanceEntity::update_many()
             .col_expr(InstanceColumn::CurrentNodeKey, Expr::value(node_key.to_string()))
             .col_expr(InstanceColumn::CurrentApproverId, Expr::value(approver_id))
+            .col_expr(InstanceColumn::CandidateApprovers, Expr::value(candidates_json.clone()))
+            .col_expr(InstanceColumn::ProcessedApprovers, Expr::value(serde_json::Value::Array(vec![])))
             .col_expr(InstanceColumn::Status, Expr::value(2))
             .col_expr(InstanceColumn::UpdateTime, Expr::value(now))
             .filter(InstanceColumn::Id.eq(instance_id))
@@ -789,11 +948,71 @@ impl ApprovalModel {
         Ok(())
     }
 
+    /// 追加已处理审批人到 processed_approvers JSON 数组（幂等：已存在则不重复添加）
+    /// 返回追加后的已处理列表
+    pub async fn append_processed_approver(
+        db: &DatabaseConnection,
+        instance_id: i64,
+        approver_id: i64,
+    ) -> Result<Vec<i64>> {
+        // 读取当前 processed_approvers
+        let inst = InstanceEntity::find_by_id(instance_id)
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?
+            .ok_or_else(|| Error::from("审批实例不存在"))?;
+
+        let mut processed: Vec<i64> = inst
+            .processed_approvers
+            .as_ref()
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_i64())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        if !processed.contains(&approver_id) {
+            processed.push(approver_id);
+        }
+
+        let processed_json: serde_json::Value =
+            serde_json::Value::Array(processed.iter().map(|id| serde_json::json!(id)).collect());
+        let now = Utc::now().naive_utc();
+        InstanceEntity::update_many()
+            .col_expr(InstanceColumn::ProcessedApprovers, Expr::value(processed_json))
+            .col_expr(InstanceColumn::UpdateTime, Expr::value(now))
+            .filter(InstanceColumn::Id.eq(instance_id))
+            .exec(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        Ok(processed)
+    }
+
     pub async fn finish_instance(db: &DatabaseConnection, instance_id: i64, status: i32) -> Result<()> {
         let now = Utc::now().naive_utc();
         InstanceEntity::update_many()
             .col_expr(InstanceColumn::Status, Expr::value(status))
             .col_expr(InstanceColumn::FinishedAt, Expr::value(now))
+            .col_expr(InstanceColumn::UpdateTime, Expr::value(now))
+            .filter(InstanceColumn::Id.eq(instance_id))
+            .exec(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        Ok(())
+    }
+
+    /// 仅更新当前审批人（用于依次审批模式下同节点内流转，不重置候选池/已处理池）
+    pub async fn update_current_approver(
+        db: &DatabaseConnection,
+        instance_id: i64,
+        approver_id: i64,
+    ) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        InstanceEntity::update_many()
+            .col_expr(InstanceColumn::CurrentApproverId, Expr::value(approver_id))
+            .col_expr(InstanceColumn::Status, Expr::value(2))
             .col_expr(InstanceColumn::UpdateTime, Expr::value(now))
             .filter(InstanceColumn::Id.eq(instance_id))
             .exec(db)
@@ -827,36 +1046,44 @@ impl ApprovalModel {
             .map_err(|e| Error::from(e.to_string()))?;
         Ok(())
     }
-    /// 根据节点配置的 approver_type/approver_id 解析出实际审批人ID
-    /// approver_type: 1=指定用户, 2=指定角色, 3=部门主管, 4=发起人自己
-    pub async fn resolve_approver(
+    /// 根据节点配置的 approver_type/approver_id 解析出实际审批人ID列表
+    /// approver_type: 1=指定用户, 2=指定角色, 3=部门主管, 4=发起人自己, 5=指定岗位
+    /// 返回候选审批人列表（或签/会签模式下均为全部候选；依次审批时按返回顺序处理）
+    pub async fn resolve_approvers(
         db: &DatabaseConnection,
         approver_type: Option<i32>,
         approver_id: Option<i64>,
         submitter_id: i64,
         submitter_dept_id: Option<i64>,
-    ) -> Result<i64> {
+    ) -> Result<Vec<i64>> {
         match approver_type.unwrap_or(1) {
             1 => {
                 // 指定用户
-                approver_id.ok_or_else(|| Error::from("审批节点未配置审批人"))
+                let uid = approver_id
+                    .ok_or_else(|| Error::from("审批节点未配置审批人"))?;
+                Ok(vec![uid])
             }
             2 => {
-                // 指定角色：找到该角色下任意一个启用的用户
-                let role_id = approver_id.ok_or_else(|| Error::from("审批节点未配置角色"))?;
-                let merge = RoleMergeEntity::find()
+                // 指定角色：返回该角色下所有启用用户
+                let role_id = approver_id
+                    .ok_or_else(|| Error::from("审批节点未配置角色"))?;
+                let merges = RoleMergeEntity::find()
                     .filter(RoleMergeColumn::RoleId.eq(role_id))
-                    .one(db)
+                    .all(db)
                     .await
                     .map_err(|e| Error::from(e.to_string()))?;
-                let admin_id = merge
-                    .map(|m| m.admin_id.unwrap_or_default())
+                let admin_ids: Vec<i64> = merges
+                    .into_iter()
+                    .filter_map(|m| m.admin_id)
                     .filter(|&id| id > 0)
-                    .ok_or_else(|| Error::from("该角色下未找到审批人"))?;
-                Ok(admin_id)
+                    .collect();
+                if admin_ids.is_empty() {
+                    return Err(Error::from("该角色下未找到审批人"));
+                }
+                Ok(admin_ids)
             }
             3 => {
-                // 部门主管：若节点配置了 dept_id 则用该部门，否则用发起人所在部门
+                // 部门主管：单个人（部门负责人）
                 let dept_id = approver_id.or(submitter_dept_id)
                     .ok_or_else(|| Error::from("无法确定审批部门"))?;
                 let dept = DeptEntity::find_by_id(dept_id)
@@ -864,30 +1091,59 @@ impl ApprovalModel {
                     .await
                     .map_err(|e| Error::from(e.to_string()))?
                     .ok_or_else(|| Error::from("部门不存在"))?;
-                dept.leader_id
+                let leader_id = dept.leader_id
                     .filter(|&id| id > 0)
-                    .ok_or_else(|| Error::from(format!("部门[{}]未配置负责人", dept.dept_name.unwrap_or_default())))
+                    .ok_or_else(|| Error::from(format!("部门[{}]未配置负责人", dept.dept_name.unwrap_or_default())))?;
+                Ok(vec![leader_id])
             }
             4 => {
                 // 发起人自己
-                Ok(submitter_id)
+                Ok(vec![submitter_id])
             }
             5 => {
-                // 指定岗位：找到该岗位下任意一个启用的用户
-                let post_id = approver_id.ok_or_else(|| Error::from("审批节点未配置岗位"))?;
-                let merge = PostMergeEntity::find()
+                // 指定岗位：返回该岗位下所有启用用户
+                let post_id = approver_id
+                    .ok_or_else(|| Error::from("审批节点未配置岗位"))?;
+                let merges = PostMergeEntity::find()
                     .filter(PostMergeColumn::PostId.eq(post_id))
-                    .one(db)
+                    .all(db)
                     .await
                     .map_err(|e| Error::from(e.to_string()))?;
-                let admin_id = merge
-                    .map(|m| m.admin_id.unwrap_or_default())
+                let admin_ids: Vec<i64> = merges
+                    .into_iter()
+                    .filter_map(|m| m.admin_id)
                     .filter(|&id| id > 0)
-                    .ok_or_else(|| Error::from("该岗位下未找到审批人"))?;
-                Ok(admin_id)
+                    .collect();
+                if admin_ids.is_empty() {
+                    return Err(Error::from("该岗位下未找到审批人"));
+                }
+                Ok(admin_ids)
             }
             other => Err(Error::from(format!("不支持的审批人类型: {}", other))),
         }
+    }
+
+    /// 兼容旧调用：解析单个审批人（返回候选列表的第一个）
+    /// 新代码应直接使用 resolve_approvers
+    pub async fn resolve_approver(
+        db: &DatabaseConnection,
+        approver_type: Option<i32>,
+        approver_id: Option<i64>,
+        submitter_id: i64,
+        submitter_dept_id: Option<i64>,
+    ) -> Result<i64> {
+        let mut list = Self::resolve_approvers(
+            db,
+            approver_type,
+            approver_id,
+            submitter_id,
+            submitter_dept_id,
+        )
+        .await?;
+        if list.is_empty() {
+            return Err(Error::from("未解析到审批人"));
+        }
+        Ok(list.remove(0))
     }
 
     /// 查询用户的部门ID

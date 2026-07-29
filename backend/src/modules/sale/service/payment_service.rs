@@ -9,10 +9,13 @@
 //!
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
+use crate::modules::approval::service::approval_service::ApprovalService;
+use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
 use crate::modules::crm::entity::contract_payment_plan;
 use crate::modules::crm::entity::customer::{Entity as Customer, Column as CustomerColumn};
+use crate::modules::sale::entity::payment as payment_entity;
 use crate::modules::sale::model::payment::{
-    PaymentApplyRequest, PaymentDetailVO, PaymentListQuery, PaymentListVO,
+    PaymentApplyRequest, PaymentApprovalDetailVO, PaymentDetailVO, PaymentListQuery, PaymentListVO,
     PaymentModel, PaymentPlanForApplyVO, PaymentSaveDTO, PaymentSaveRequest,
     PaymentUnappliedVO, PaymentUpdateRequest,
 };
@@ -24,7 +27,7 @@ use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::role_service;
 use rust_decimal::Decimal;
-use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait};
 use std::collections::{HashMap, HashSet};
 
 pub async fn insert(db: &DbConn, form_data: &PaymentSaveRequest, created_by: i64) -> Result<i64> {
@@ -536,3 +539,155 @@ pub async fn get_applications(db: &DbConn, payment_id: i64) -> Result<Vec<Paymen
     let list = PaymentApplicationModel::find_by_payment(db, payment_id).await?;
     Ok(list.iter().map(|m| m.into()).collect())
 }
+
+// ==================== 回款审批 ====================
+
+/// 提交回款审批
+pub async fn submit_payment(db: &DbConn, payment_id: i64, operator_id: i64, operator_name: &str) -> Result<PaymentDetailVO> {
+    let payment = PaymentModel::find_by_id(db, payment_id).await?
+        .ok_or_else(|| Error::from("回款记录不存在"))?;
+
+    if payment.approval_status != Some(0) && payment.approval_status != Some(4) {
+        return Err(Error::from("当前状态不允许提交，仅草稿或已驳回状态可提交"));
+    }
+
+    let business_title = payment.payment_no.clone()
+        .or_else(|| payment.customer_name.clone());
+    let amount = payment.amount.unwrap_or(Decimal::from(0));
+
+    // 调用审批引擎提交
+    let submit_req = ApprovalSubmitRequest {
+        flow_code: "payment_approval".to_string(),
+        business_type: "payment".to_string(),
+        business_id: payment_id,
+        business_title,
+        submitter_id: operator_id,
+        submitter_name: Some(operator_name.to_string()),
+        extra_data: Some(serde_json::json!({ "amount": amount })),
+    };
+    let instance_id = ApprovalService::submit(db, &submit_req).await?;
+
+    // 事务更新回款表
+    let txn = db.begin().await?;
+    let mut active: payment_entity::ActiveModel = payment.into_active_model();
+    active.approval_status = Set(Some(1));
+    active.instance_id = Set(Some(instance_id));
+    active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
+    active.update(&txn).await?;
+    txn.commit().await?;
+
+    find_by_id(db, payment_id).await
+}
+
+/// 审批通过回款
+pub async fn approve_payment(db: &DbConn, payment_id: i64, operator_id: i64, operator_name: &str, reason: Option<String>) -> Result<PaymentDetailVO> {
+    let payment = PaymentModel::find_by_id(db, payment_id).await?
+        .ok_or_else(|| Error::from("回款记录不存在"))?;
+
+    if payment.approval_status != Some(1) && payment.approval_status != Some(2) {
+        return Err(Error::from("仅待审批或审批中状态可进行审批操作"));
+    }
+
+    let instance_id = payment.instance_id
+        .ok_or_else(|| Error::from("审批实例不存在，请重新提交审批"))?;
+
+    // 调用审批引擎处理（通过）
+    let process_req = ApprovalProcessRequest {
+        instance_id,
+        action: 1,
+        approver_id: operator_id,
+        approver_name: Some(operator_name.to_string()),
+        comment: reason,
+    };
+    ApprovalService::process(db, &process_req).await?;
+
+    // 查询实例最新状态，判断审批是否完成
+    let instance = ApprovalService::find_instance_by_id(db, instance_id).await?
+        .ok_or_else(|| Error::from("审批实例不存在"))?;
+    let new_status = if instance.status == 3 { 3 } else { 2 };
+
+    // 审批完成时需联动订单 paid_amount，提前保存原值
+    let order_id = payment.order_id;
+    let amount = payment.amount.unwrap_or(Decimal::from(0));
+
+    // 事务更新回款表
+    let txn = db.begin().await?;
+    let mut active: payment_entity::ActiveModel = payment.into_active_model();
+    active.approval_status = Set(Some(new_status));
+    active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
+
+    // 审批完成时执行确认联动：更新订单 paid_amount
+    if new_status == 3 {
+        active.status = Set(Some(2));
+        active.confirm_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
+        active.confirm_by = Set(Some(operator_id));
+    }
+    active.update(&txn).await?;
+
+    if new_status == 3 {
+        if let Some(oid) = order_id {
+            if amount > Decimal::from(0) {
+                PaymentModel::update_order_paid_amount(&txn, oid, amount).await?;
+            }
+        }
+    }
+
+    txn.commit().await?;
+
+    find_by_id(db, payment_id).await
+}
+
+/// 驳回回款
+pub async fn reject_payment(db: &DbConn, payment_id: i64, operator_id: i64, operator_name: &str, reason: Option<String>) -> Result<PaymentDetailVO> {
+    let payment = PaymentModel::find_by_id(db, payment_id).await?
+        .ok_or_else(|| Error::from("回款记录不存在"))?;
+
+    if payment.approval_status != Some(1) && payment.approval_status != Some(2) {
+        return Err(Error::from("仅待审批或审批中状态可进行驳回操作"));
+    }
+
+    let instance_id = payment.instance_id
+        .ok_or_else(|| Error::from("审批实例不存在，请重新提交审批"))?;
+
+    // 调用审批引擎处理（驳回）
+    let process_req = ApprovalProcessRequest {
+        instance_id,
+        action: 2,
+        approver_id: operator_id,
+        approver_name: Some(operator_name.to_string()),
+        comment: reason,
+    };
+    ApprovalService::process(db, &process_req).await?;
+
+    // 事务更新回款表
+    let txn = db.begin().await?;
+    let mut active: payment_entity::ActiveModel = payment.into_active_model();
+    active.approval_status = Set(Some(4));
+    active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
+    active.update(&txn).await?;
+    txn.commit().await?;
+
+    find_by_id(db, payment_id).await
+}
+
+/// 获取回款审批详情
+pub async fn get_payment_approval_detail(db: &DbConn, payment_id: i64) -> Result<PaymentApprovalDetailVO> {
+    let payment = PaymentModel::find_by_id(db, payment_id).await?
+        .ok_or_else(|| Error::from("回款记录不存在"))?;
+
+    let instance = if let Some(iid) = payment.instance_id {
+        ApprovalService::find_instance_by_id(db, iid).await?
+    } else {
+        None
+    };
+
+    Ok(PaymentApprovalDetailVO {
+        payment_id: Some(payment.id),
+        payment_no: payment.payment_no,
+        customer_name: payment.customer_name,
+        amount: payment.amount,
+        approval_status: payment.approval_status,
+        instance,
+    })
+}
+

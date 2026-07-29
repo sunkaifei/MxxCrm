@@ -9,14 +9,19 @@
 //!
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
+use crate::modules::approval::service::approval_service::ApprovalService;
+use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
 use crate::modules::crm::entity::customer::{Entity as Customer, Column as CustomerColumn};
-use crate::modules::sale::model::invoice::{InvoiceDetailVO, InvoiceListQuery, InvoiceListVO, InvoiceModel, InvoiceSaveDTO, InvoiceSaveRequest, InvoiceUpdateRequest};
+use crate::modules::sale::entity::invoice as invoice_entity;
+use crate::modules::sale::model::invoice::{InvoiceApprovalDetailVO, InvoiceDetailVO, InvoiceListQuery, InvoiceListVO, InvoiceModel, InvoiceSaveDTO, InvoiceSaveRequest, InvoiceUpdateRequest};
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::role_service;
 use rust_decimal::Decimal;
-use sea_orm::{DbConn, TransactionTrait, EntityTrait, ColumnTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, DbConn, TransactionTrait, EntityTrait, ColumnTrait, QueryFilter};
+use sea_orm::ActiveValue::Set;
+use sea_orm::IntoActiveModel;
 use std::collections::{HashMap, HashSet};
 
 pub async fn insert(db: &DbConn, form_data: &InvoiceSaveRequest, created_by: i64) -> Result<i64> {
@@ -270,4 +275,141 @@ pub async fn get_list(db: &DbConn, query: &InvoiceListQuery, current_user_id: i6
         vo
     }).collect();
     Ok(ResultPage { items: data, total, current_page: page, page_size, total_pages: 0 })
+}
+
+// ==================== 发票审批 ====================
+
+/// 提交发票审批
+pub async fn submit_invoice(db: &DbConn, invoice_id: i64, operator_id: i64, operator_name: &str) -> Result<InvoiceDetailVO> {
+    let invoice = InvoiceModel::find_by_id(db, invoice_id).await?
+        .ok_or_else(|| Error::from("发票不存在"))?;
+
+    if invoice.approval_status != Some(0) && invoice.approval_status != Some(4) {
+        return Err(Error::from("当前状态不允许提交，仅草稿或已驳回状态可提交"));
+    }
+
+    let business_title = invoice.title.clone()
+        .or_else(|| invoice.invoice_no.clone())
+        .unwrap_or_default();
+    let amount = invoice.amount.unwrap_or(Decimal::from(0));
+
+    // 调用审批引擎提交
+    let submit_req = ApprovalSubmitRequest {
+        flow_code: "invoice_approval".to_string(),
+        business_type: "invoice".to_string(),
+        business_id: invoice_id,
+        business_title: Some(business_title),
+        submitter_id: operator_id,
+        submitter_name: Some(operator_name.to_string()),
+        extra_data: Some(serde_json::json!({ "amount": amount })),
+    };
+    let instance_id = ApprovalService::submit(db, &submit_req).await?;
+
+    // 事务更新发票表
+    let txn = db.begin().await?;
+    let mut active: invoice_entity::ActiveModel = invoice.into_active_model();
+    active.approval_status = Set(Some(1));
+    active.instance_id = Set(Some(instance_id));
+    active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
+    active.update(&txn).await?;
+    txn.commit().await?;
+
+    get_detail(db, invoice_id).await
+}
+
+/// 审批发票通过
+pub async fn approve_invoice(db: &DbConn, invoice_id: i64, operator_id: i64, operator_name: &str, reason: Option<String>) -> Result<InvoiceDetailVO> {
+    let invoice = InvoiceModel::find_by_id(db, invoice_id).await?
+        .ok_or_else(|| Error::from("发票不存在"))?;
+
+    if invoice.approval_status != Some(1) && invoice.approval_status != Some(2) {
+        return Err(Error::from("仅待审批或审批中状态可进行审批操作"));
+    }
+
+    let instance_id = invoice.instance_id
+        .ok_or_else(|| Error::from("审批实例不存在，请重新提交审批"))?;
+
+    // 调用审批引擎处理（通过）
+    let process_req = ApprovalProcessRequest {
+        instance_id,
+        action: 1,
+        approver_id: operator_id,
+        approver_name: Some(operator_name.to_string()),
+        comment: reason,
+    };
+    ApprovalService::process(db, &process_req).await?;
+
+    // 查询实例最新状态，判断审批是否完成
+    let instance = ApprovalService::find_instance_by_id(db, instance_id).await?
+        .ok_or_else(|| Error::from("审批实例不存在"))?;
+    let new_status = if instance.status == 3 { 3 } else { 2 };
+
+    // 事务更新发票表
+    let txn = db.begin().await?;
+    let mut active: invoice_entity::ActiveModel = invoice.into_active_model();
+    active.approval_status = Set(Some(new_status));
+    // 审批通过且审批完成时，更新发票状态为已开票（status=2）
+    if new_status == 3 {
+        active.status = Set(Some(2));
+    }
+    active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
+    active.update(&txn).await?;
+    txn.commit().await?;
+
+    get_detail(db, invoice_id).await
+}
+
+/// 驳回发票
+pub async fn reject_invoice(db: &DbConn, invoice_id: i64, operator_id: i64, operator_name: &str, reason: Option<String>) -> Result<InvoiceDetailVO> {
+    let invoice = InvoiceModel::find_by_id(db, invoice_id).await?
+        .ok_or_else(|| Error::from("发票不存在"))?;
+
+    if invoice.approval_status != Some(1) && invoice.approval_status != Some(2) {
+        return Err(Error::from("仅待审批或审批中状态可进行驳回操作"));
+    }
+
+    let instance_id = invoice.instance_id
+        .ok_or_else(|| Error::from("审批实例不存在，请重新提交审批"))?;
+
+    // 调用审批引擎处理（驳回）
+    let process_req = ApprovalProcessRequest {
+        instance_id,
+        action: 2,
+        approver_id: operator_id,
+        approver_name: Some(operator_name.to_string()),
+        comment: reason,
+    };
+    ApprovalService::process(db, &process_req).await?;
+
+    // 事务更新发票表
+    let txn = db.begin().await?;
+    let mut active: invoice_entity::ActiveModel = invoice.into_active_model();
+    active.approval_status = Set(Some(4));
+    active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
+    active.update(&txn).await?;
+    txn.commit().await?;
+
+    get_detail(db, invoice_id).await
+}
+
+/// 获取发票审批详情
+pub async fn get_invoice_approval_detail(db: &DbConn, invoice_id: i64) -> Result<InvoiceApprovalDetailVO> {
+    let invoice = InvoiceModel::find_by_id(db, invoice_id).await?
+        .ok_or_else(|| Error::from("发票不存在"))?;
+
+    let instance = if let Some(iid) = invoice.instance_id {
+        ApprovalService::find_instance_by_id(db, iid).await?
+    } else {
+        None
+    };
+
+    Ok(InvoiceApprovalDetailVO {
+        invoice_id: Some(invoice.id),
+        invoice_no: invoice.invoice_no,
+        title: invoice.title,
+        customer_name: invoice.customer_name,
+        amount: invoice.amount,
+        approval_status: invoice.approval_status,
+        instance,
+    })
 }

@@ -33,6 +33,10 @@ pub struct Model {
     pub tax_amount: Option<Decimal>,
     pub currency: Option<i32>,
     pub status: Option<i32>,
+    /// 审批状态：0=草稿, 1=待审批, 2=审批中, 3=已通过, 4=已驳回
+    pub approval_status: Option<i32>,
+    /// 审批实例ID（关联 mxx_system_approval_instance）
+    pub instance_id: Option<i64>,
     pub buyer_name: Option<String>,
     pub buyer_tax_no: Option<String>,
     pub buyer_address: Option<String>,

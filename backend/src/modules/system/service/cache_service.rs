@@ -89,9 +89,14 @@ impl CacheService {
     where
         T: DeserializeOwned + Sync,
     {
-        let mut r = self.get_string(k).await?;
+        let r = self.get_string(k).await?;
+        // 空字符串表示缓存未命中，直接返回错误，由调用方走回源逻辑
+        // （旧实现把空串替换为 "null" 再解析为 Vec<T> 会触发
+        //   "invalid type: null, expected a sequence" 反序列化错误）
         if r.is_empty() {
-            r = "null".to_string();
+            return Err(crate::core::errors::error::Error::from(
+                "MemCacheService GET fail: cache miss (empty value)",
+            ));
         }
         let data: serde_json::Result<T> = serde_json::from_str(r.as_str());
         if data.is_err() {

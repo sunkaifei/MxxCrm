@@ -5,7 +5,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { computed, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideMoreHorizontal } from '@vben/icons';
+import { LucideMoreHorizontal, LucideChevronDown } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
@@ -389,7 +389,7 @@ loadFlowMode();
           :trigger="['click']"
         >
           <a class="text-blue-600 cursor-pointer" @click.prevent>
-            更多<LucideMoreHorizontal class="inline-block ml-0.5" :size="12" />
+            更多<LucideChevronDown class="inline-block ml-0.5" :size="12" />
           </a>
           <template #overlay>
             <Menu>

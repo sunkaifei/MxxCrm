@@ -22,6 +22,7 @@
 //! - [`invalidate_by_role_id`]：清除角色关联的所有用户权限缓存
 //!
 
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use sea_orm::DbConn;
@@ -41,6 +42,9 @@ const USER_TOKEN_KEY_PREFIX: &str = "user_";
 /// 默认缓存TTL（秒）
 const DEFAULT_PERM_CACHE_TTL: u64 = 300;
 
+/// 缓存TTL（启动后只读一次配置，避免每次写入都触发配置未找到的warn日志）
+static PERM_CACHE_TTL: OnceLock<u64> = OnceLock::new();
+
 /// 构建权限缓存的键
 fn perm_key(user_id: i64) -> String {
     format!("{}{}", PERM_KEY_PREFIX, user_id)
@@ -51,9 +55,11 @@ fn user_token_key(user_id: i64) -> String {
     format!("{}{}", USER_TOKEN_KEY_PREFIX, user_id)
 }
 
-/// 获取缓存TTL（秒），优先读配置，无配置则用默认值
+/// 获取缓存TTL（秒），首次调用读配置，后续直接返回缓存值
 fn cache_ttl() -> Duration {
-    let ttl = config::section::<u64>("server", "permission_cache_ttl", DEFAULT_PERM_CACHE_TTL);
+    let ttl = *PERM_CACHE_TTL.get_or_init(|| {
+        config::section::<u64>("server", "permission_cache_ttl", DEFAULT_PERM_CACHE_TTL)
+    });
     Duration::from_secs(ttl)
 }
 

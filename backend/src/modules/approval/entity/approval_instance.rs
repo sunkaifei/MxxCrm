@@ -16,6 +16,12 @@ pub struct Model {
     pub submitter_name: Option<String>,
     pub current_node_key: Option<String>,
     pub current_approver_id: Option<i64>,
+    /// 当前节点候选审批人ID列表（JSON数组，如 [1,2,3]）
+    #[sea_orm(column_type = "JsonBinary", nullable)]
+    pub candidate_approvers: Option<serde_json::Value>,
+    /// 当前节点已处理审批人ID列表（JSON数组）
+    #[sea_orm(column_type = "JsonBinary", nullable)]
+    pub processed_approvers: Option<serde_json::Value>,
     pub status: Option<i32>,
     pub submitted_at: Option<DateTime>,
     pub finished_at: Option<DateTime>,

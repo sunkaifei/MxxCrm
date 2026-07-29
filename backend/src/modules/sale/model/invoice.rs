@@ -15,6 +15,7 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::modules::approval::model::approval::ApprovalInstanceVO;
 use crate::modules::sale::entity::{invoice, invoice::Entity as SaleInvoice};
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
@@ -96,6 +97,13 @@ pub struct InvoiceListQuery {
     pub list_type: Option<String>,
 }
 
+/// 发票审批请求（通过/驳回）
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InvoiceApprovalReq {
+    pub reason: Option<String>,
+}
+
 // ==================== 内部 DTO ====================
 
 #[derive(Debug, Clone)]
@@ -145,6 +153,10 @@ pub struct InvoiceListVO {
     pub tax_amount: Option<Decimal>,
     pub currency: Option<i32>,
     pub status: Option<i32>,
+    /// 审批状态（0=草稿, 1=待审批, 2=审批中, 3=已通过, 4=已驳回）
+    pub approval_status: Option<i32>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     pub create_time: Option<DateTime>,
 }
 
@@ -171,6 +183,10 @@ pub struct InvoiceDetailVO {
     pub tax_amount: Option<Decimal>,
     pub currency: Option<i32>,
     pub status: Option<i32>,
+    /// 审批状态（0=草稿, 1=待审批, 2=审批中, 3=已通过, 4=已驳回）
+    pub approval_status: Option<i32>,
+    /// 审批实例ID
+    pub instance_id: Option<i64>,
     pub buyer_name: Option<String>,
     pub buyer_tax_no: Option<String>,
     pub buyer_address: Option<String>,
@@ -184,6 +200,19 @@ pub struct InvoiceDetailVO {
     pub create_time: Option<DateTime>,
     pub update_by: Option<String>,
     pub update_time: Option<DateTime>,
+}
+
+/// 发票审批详情VO
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct InvoiceApprovalDetailVO {
+    pub invoice_id: Option<i64>,
+    pub invoice_no: Option<String>,
+    pub title: Option<String>,
+    pub customer_name: Option<String>,
+    pub amount: Option<Decimal>,
+    pub approval_status: Option<i32>,
+    pub instance: Option<ApprovalInstanceVO>,
 }
 
 // ==================== From 转换 ====================
@@ -265,6 +294,8 @@ impl From<&invoice::Model> for InvoiceListVO {
             tax_amount: model.tax_amount,
             currency: model.currency,
             status: model.status,
+            approval_status: model.approval_status,
+            instance_id: model.instance_id,
             create_time: model.create_time,
         }
     }
@@ -289,6 +320,8 @@ impl From<&invoice::Model> for InvoiceDetailVO {
             tax_amount: model.tax_amount,
             currency: model.currency,
             status: model.status,
+            approval_status: model.approval_status,
+            instance_id: model.instance_id,
             buyer_name: model.buyer_name.clone(),
             buyer_tax_no: model.buyer_tax_no.clone(),
             buyer_address: model.buyer_address.clone(),
