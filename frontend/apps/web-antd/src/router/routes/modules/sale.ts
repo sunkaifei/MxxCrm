@@ -77,14 +77,6 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        name: 'SalePerformance',
-        path: '/sale/performance',
-        component: () => import('#/views/sale/performance/index.vue'),
-        meta: {
-          title: $t('page.sale.performance.title'),
-        },
-      },
-      {
         name: 'SaleRefund',
         path: '/sale/refund',
         component: () => import('#/views/sale/refund/index.vue'),

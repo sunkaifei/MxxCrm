@@ -237,6 +237,8 @@ pub struct RefundDetailVO {
     pub update_time: Option<DateTime>,
     pub items: Vec<RefundItemVO>,
     pub payments: Vec<RefundPaymentVO>,
+    /// 提示信息（如已开票订单退货需红冲处理等）
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

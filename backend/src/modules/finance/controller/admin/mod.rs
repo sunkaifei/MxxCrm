@@ -15,3 +15,4 @@ pub mod statistics_admin_controller;
 pub mod commission_rule_controller;
 pub mod salary_controller;
 pub mod payment_controller;
+pub mod expense_controller;

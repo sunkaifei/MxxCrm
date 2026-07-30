@@ -15,9 +15,11 @@ use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::statistics::model::performance_plan::{
     CreatePlanRequest, SubmitPlanRequest, ReviewPlanRequest, ModifyPlanRequest, PlanQuery,
+    UpdatePlanTargetsRequest,
 };
 use crate::modules::statistics::service::performance_plan_service;
 use actix_web::{web, HttpRequest, HttpResponse};
+use chrono::Datelike;
 
 /// 从Admin JWT中获取当前用户信息
 fn get_admin_info(req: &HttpRequest) -> (i64, String) {
@@ -100,11 +102,14 @@ pub async fn modify_plan(state: web::Data<AppState>, req: web::Json<ModifyPlanRe
 }
 
 /// 查询计划列表
-pub async fn get_plan_list(state: web::Data<AppState>, query: web::Query<PlanQuery>) -> Result<HttpResponse> {
+pub async fn get_plan_list(state: web::Data<AppState>, query: web::Query<PlanQuery>, http_req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let query = query.into_inner();
+    let (current_user_id, _) = get_admin_info(&http_req);
 
-    match performance_plan_service::get_plan_list(db, query.employee_id, query.year, query.status).await {
+    match performance_plan_service::get_plan_list(
+        db, query.employee_id, query.year, query.status, query.pending_my_approval, current_user_id
+    ).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -127,6 +132,30 @@ pub async fn get_plan_modify_detail(state: web::Data<AppState>, query: web::Quer
     let plan_id = query.plan_id;
 
     match performance_plan_service::get_plan_modify_detail(db, plan_id).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 更新草稿/驳回状态的月度目标（不走审批流）
+pub async fn update_plan_targets(state: web::Data<AppState>, req: web::Json<UpdatePlanTargetsRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
+    let db = &state.db;
+    let req = req.into_inner();
+    let (user_id, user_name) = get_admin_info(&http_req);
+
+    match performance_plan_service::update_plan_targets(db, &req, user_id, &user_name).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 获取进度汇总（个人 + 团队，自下而上汇总）
+pub async fn get_plan_progress_summary(state: web::Data<AppState>, http_req: HttpRequest, query: web::Query<PlanQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let (user_id, _) = get_admin_info(&http_req);
+    let year = query.year.unwrap_or_else(|| chrono::Local::now().year());
+
+    match performance_plan_service::get_plan_progress_summary(db, user_id, year).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -195,6 +224,20 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/modify-detail",
                 web::get()
                     .to(get_plan_modify_detail)
+                    .wrap(require_permission("statistics:performance-plan:view")),
+            )
+            // POST /statistics/performance/plan/update-targets - 更新草稿/驳回状态的月度目标
+            .route(
+                "/update-targets",
+                web::post()
+                    .to(update_plan_targets)
+                    .wrap(require_permission("statistics:performance-plan:manage")),
+            )
+            // GET /statistics/performance/plan/progress-summary - 进度汇总（个人+团队）
+            .route(
+                "/progress-summary",
+                web::get()
+                    .to(get_plan_progress_summary)
                     .wrap(require_permission("statistics:performance-plan:view")),
             ),
     );

@@ -22,3 +22,4 @@ pub mod customer_edit_log;
 pub mod followup;
 pub mod lead;
 pub mod opportunity;
+pub mod work_log;

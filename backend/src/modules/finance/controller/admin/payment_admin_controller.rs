@@ -8,11 +8,15 @@
 //! 版权所有，侵权必究！
 //!
 
-use actix_web::{web, HttpResponse, Result};
+use actix_web::{web, HttpRequest, HttpResponse, Result};
 use crate::core::web::permission_guard::require_permission;
 
 use crate::core::kit::global::AppState;
+use crate::core::kit::jwt_util::JWTToken;
+use crate::core::web::base_controller::get_user;
 use crate::core::web::response::{MetaResp, ResultPage};
+use crate::modules::crm::model::work_log::WorkLogCreateDTO;
+use crate::modules::crm::service::work_log_service;
 use crate::modules::finance::model::payment_record::{PaymentRecordSaveRequest, PaymentRecordQuery};
 use crate::modules::finance::service::payment_record_service;
 
@@ -52,14 +56,36 @@ pub async fn detail(
 
 pub async fn create(
     state: web::Data<AppState>,
+    req: HttpRequest,
     item: web::Json<PaymentRecordSaveRequest>
 ) -> Result<HttpResponse> {
     let db = &state.db;
+    let req_data = item.into_inner();
 
-    let result = payment_record_service::insert(db, item.into_inner()).await;
+    let result = payment_record_service::insert(db, req_data).await;
 
     match result {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Ok(data) => {
+            // 工作日志埋点（回款登记），不影响主业务
+            let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+            let operator_id = jwt_token.id.unwrap_or_default();
+            if operator_id > 0 {
+                let log_dto = WorkLogCreateDTO {
+                    user_id: operator_id,
+                    user_name: jwt_token.username,
+                    action_type: Some(3),
+                    action_name: Some("回款登记".to_string()),
+                    business_type: Some("payment".to_string()),
+                    business_id: Some(data.id),
+                    business_title: data.order_id.clone(),
+                    description: data.remark.clone(),
+                    result: Some(1),
+                    work_date: Some(chrono::Local::now().naive_local().date()),
+                };
+                let _ = work_log_service::insert(db, &log_dto).await;
+            }
+            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")))
+        }
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

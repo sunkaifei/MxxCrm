@@ -13,3 +13,4 @@ pub mod performance_target;
 pub mod performance_plan;
 pub mod plan_monthly_target;
 pub mod plan_approval_log;
+pub mod plan_approval_node;

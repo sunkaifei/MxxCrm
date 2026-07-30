@@ -13,7 +13,7 @@ import {
   message,
 } from 'ant-design-vue';
 
-import { applyPaymentApi } from '#/api/core/finance';
+import { applyFinancePaymentApi } from '#/api/core/finance';
 
 const props = defineProps<{
   visible: boolean;
@@ -75,7 +75,7 @@ async function handleSubmit() {
   }
   loading.value = true;
   try {
-    await applyPaymentApi(formData);
+    await applyFinancePaymentApi(formData);
     message.success('申请成功');
     emit('close', true);
   } catch (e: any) {

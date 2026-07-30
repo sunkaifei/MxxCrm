@@ -109,6 +109,28 @@ export const getMenuTreeApi = async (param: any) => {
 };
 
 /**
+ * 获取当前用户可授权的菜单树（按用户权限过滤）
+ * 后端 /api/system/menu/options 仅返回当前用户拥有的菜单，
+ * 用于角色授权抽屉，避免勾选到用户无权授权的菜单导致提交失败
+ */
+export const getMenuOptionsApi = async () => {
+  const list = await requestClient.get<any[]>('/api/system/menu/options');
+  // 将 MenuOptionsVO 映射为 MenuForm 结构，保持与原 treeData 用法兼容
+  const mapNode = (node: any): any => {
+    const children = node.children?.length
+      ? node.children.map(mapNode)
+      : undefined;
+    return {
+      id: node.value,
+      name: node.label,
+      meta: node.label ? { name: node.label } : undefined,
+      children,
+    };
+  };
+  return Array.isArray(list) ? list.map(mapNode) : [];
+};
+
+/**
  * 获取表单内的指定数据
  */
 export const getFormMenuInfoApi = async (id: number) => {

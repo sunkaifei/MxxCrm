@@ -18,6 +18,7 @@ pub mod member_order;
 pub mod commission_rule;
 pub mod salary;
 pub mod payment;
+pub mod expense;
 
 pub use payment_record::*;
 pub use member_fee::*;

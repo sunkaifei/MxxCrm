@@ -16,3 +16,4 @@ pub mod employee_stats_service;
 pub mod contract_stats_service;
 pub mod payment_stats_service;
 pub mod performance_plan_service;
+pub mod performance_overview_service;

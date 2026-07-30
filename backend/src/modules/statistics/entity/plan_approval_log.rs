@@ -26,6 +26,10 @@ pub struct Model {
     pub new_status: Option<i32>,
     pub create_time: Option<DateTime>,
     pub deleted: Option<i32>,
+    /// 月度目标快照（JSON 字符串，仅修改申请时记录原数据）
+    pub snapshot: Option<String>,
+    /// 当前审批层级
+    pub current_level: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

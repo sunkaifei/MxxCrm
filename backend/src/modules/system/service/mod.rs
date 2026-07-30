@@ -9,6 +9,7 @@
 //!
 
 pub mod admin_service;
+pub mod admin_preference_service;
 pub mod menu_service;
 pub mod role_service;
 pub mod dept_service;
@@ -32,3 +33,4 @@ pub mod mail_config_service;
 pub mod mail_template_service;
 pub mod mail_log_service;
 pub mod mail_service;
+pub mod data_scope_service;

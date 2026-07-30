@@ -53,6 +53,8 @@ pub struct Model {
     pub remark: Option<String>,
     ///用户排序
     pub sort: Option<i32>,
+    ///直属上级用户ID（用于审批流向上查找领导，NULL 表示无上级/顶层决策人）
+    pub direct_manager_id: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

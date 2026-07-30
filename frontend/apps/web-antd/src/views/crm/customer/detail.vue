@@ -43,6 +43,10 @@ import {
   deleteOpportunityApi,
   getOrderListApi,
   getContractListApi,
+  getPaymentListApi,
+  getRefundListApi,
+  getExpenseListApi,
+  getExpenseTypeListApi,
 } from '#/api';
 import OpportunityDetail from '../opportunity/detail.vue';
 import SendMailModal from '../components/SendMailModal.vue';
@@ -244,6 +248,236 @@ function handleContractPageChange(page: number, pageSize: number) {
   contractPageSize.value = pageSize;
   loadContractList();
 }
+
+// ========== 回款列表 ==========
+const paymentList = ref<any[]>([]);
+const paymentLoading = ref(false);
+const paymentPage = ref(1);
+const paymentPageSize = ref(10);
+const paymentTotal = ref(0);
+
+// 回款付款方式：1=银行转账, 2=支付宝, 3=微信支付, 4=现金, 5=支票, 6=其他
+const paymentMethodMap: Record<number, { label: string; color: string }> = {
+  1: { label: '银行转账', color: 'blue' },
+  2: { label: '支付宝', color: 'cyan' },
+  3: { label: '微信支付', color: 'green' },
+  4: { label: '现金', color: 'orange' },
+  5: { label: '支票', color: 'purple' },
+  6: { label: '其他', color: 'default' },
+};
+
+// 回款状态：1=待确认, 2=已确认, 3=已驳回, 4=已取消
+const paymentConfirmStatusMap: Record<number, { label: string; color: string }> = {
+  1: { label: '待确认', color: 'default' },
+  2: { label: '已确认', color: 'green' },
+  3: { label: '已驳回', color: 'red' },
+  4: { label: '已取消', color: 'default' },
+};
+
+function getPaymentMethodInfo(v: number) {
+  return paymentMethodMap[v] || { label: '未知', color: 'default' };
+}
+function getPaymentConfirmStatusInfo(v: number) {
+  return paymentConfirmStatusMap[v] || { label: '未知', color: 'default' };
+}
+
+async function loadPaymentList() {
+  if (!props.id) return;
+  paymentLoading.value = true;
+  try {
+    const result: any = await getPaymentListApi({
+      customerId: Number(props.id),
+      page: paymentPage.value,
+      pageSize: paymentPageSize.value,
+    } as any);
+    const data = result?.data ?? result ?? {};
+    paymentList.value = data?.list ?? data?.items ?? [];
+    paymentTotal.value = data?.total ?? 0;
+  } catch (e) {
+    paymentList.value = [];
+    paymentTotal.value = 0;
+  } finally {
+    paymentLoading.value = false;
+  }
+}
+
+function handlePaymentPageChange(page: number, pageSize: number) {
+  paymentPage.value = page;
+  paymentPageSize.value = pageSize;
+  loadPaymentList();
+}
+
+// ========== 退货记录列表 ==========
+const refundList = ref<any[]>([]);
+const refundLoading = ref(false);
+const refundPage = ref(1);
+const refundPageSize = ref(10);
+const refundTotal = ref(0);
+
+// 退货状态：1=草稿,2=待审批,3=审批通过,4=待收货,5=已收货,6=质检中,7=已完成,8=已驳回,9=已取消
+const refundStatusMap: Record<number, { label: string; color: string }> = {
+  1: { label: '草稿', color: 'default' },
+  2: { label: '待审批', color: 'processing' },
+  3: { label: '审批通过', color: 'success' },
+  4: { label: '待收货', color: 'warning' },
+  5: { label: '已收货', color: 'cyan' },
+  6: { label: '质检中', color: 'orange' },
+  7: { label: '已完成', color: 'green' },
+  8: { label: '已驳回', color: 'error' },
+  9: { label: '已取消', color: 'default' },
+};
+
+// 审批状态：0=草稿,1=待审批,2=审批中,3=已通过,4=已驳回
+const refundApprovalStatusMap: Record<number, { label: string; color: string }> = {
+  0: { label: '草稿', color: 'default' },
+  1: { label: '待审批', color: 'processing' },
+  2: { label: '审批中', color: 'warning' },
+  3: { label: '已通过', color: 'success' },
+  4: { label: '已驳回', color: 'error' },
+};
+
+// 退货类型：1=整单退货, 2=部分退货
+const refundTypeMap: Record<number, { label: string; color: string }> = {
+  1: { label: '整单退货', color: 'orange' },
+  2: { label: '部分退货', color: 'blue' },
+};
+
+function getRefundStatusInfo(v: number) {
+  return refundStatusMap[v] || { label: '未知', color: 'default' };
+}
+function getRefundApprovalStatusInfo(v: number) {
+  return refundApprovalStatusMap[v] || { label: '未知', color: 'default' };
+}
+function getRefundTypeInfo(v: number) {
+  return refundTypeMap[v] || { label: '未知', color: 'default' };
+}
+
+async function loadRefundList() {
+  if (!props.id) return;
+  refundLoading.value = true;
+  try {
+    const result: any = await getRefundListApi({
+      customerId: Number(props.id),
+      pageNum: refundPage.value,
+      pageSize: refundPageSize.value,
+    });
+    const data = result?.data ?? result ?? {};
+    refundList.value = data?.list ?? data?.items ?? [];
+    refundTotal.value = data?.total ?? 0;
+  } catch (e) {
+    refundList.value = [];
+    refundTotal.value = 0;
+  } finally {
+    refundLoading.value = false;
+  }
+}
+
+function handleRefundPageChange(page: number, pageSize: number) {
+  refundPage.value = page;
+  refundPageSize.value = pageSize;
+  loadRefundList();
+}
+
+// ========== 费用记录列表 ==========
+const expenseList = ref<any[]>([]);
+const expenseLoading = ref(false);
+const expensePage = ref(1);
+const expensePageSize = ref(10);
+const expenseTotal = ref(0);
+const expenseTypeMap = ref<Record<number, { name: string; color: string }>>({});
+
+// 费用状态：1=草稿,2=待审批,3=审批中,4=已通过,5=已驳回,6=已打款
+const expenseStatusMap: Record<number, { label: string; color: string }> = {
+  1: { label: '草稿', color: 'default' },
+  2: { label: '待审批', color: 'processing' },
+  3: { label: '审批中', color: 'warning' },
+  4: { label: '已通过', color: 'success' },
+  5: { label: '已驳回', color: 'error' },
+  6: { label: '已打款', color: 'green' },
+};
+
+function getExpenseStatusInfo(v: number) {
+  return expenseStatusMap[v] || { label: '未知', color: 'default' };
+}
+
+async function loadExpenseTypes() {
+  if (Object.keys(expenseTypeMap.value).length > 0) return;
+  try {
+    const res: any = await getExpenseTypeListApi({ page: 1, pageSize: 100, enabled: 1 });
+    const data = res?.data ?? res ?? {};
+    const list = data.list || data.items || data.rows || data || [];
+    const arr = Array.isArray(list) ? list : [];
+    const map: Record<number, { name: string; color: string }> = {};
+    arr.forEach((t: any) => {
+      map[t.id] = {
+        name: t.typeName || t.name || '',
+        color: t.color || 'blue',
+      };
+    });
+    expenseTypeMap.value = map;
+  } catch (e) {
+    expenseTypeMap.value = {};
+  }
+}
+
+async function loadExpenseList() {
+  if (!props.id) return;
+  expenseLoading.value = true;
+  try {
+    await loadExpenseTypes();
+    const result: any = await getExpenseListApi({
+      customerId: Number(props.id),
+      pageNum: expensePage.value,
+      pageSize: expensePageSize.value,
+    });
+    const data = result?.data ?? result ?? {};
+    expenseList.value = data?.list ?? data?.items ?? [];
+    expenseTotal.value = data?.total ?? 0;
+  } catch (e) {
+    expenseList.value = [];
+    expenseTotal.value = 0;
+  } finally {
+    expenseLoading.value = false;
+  }
+}
+
+function handleExpensePageChange(page: number, pageSize: number) {
+  expensePage.value = page;
+  expensePageSize.value = pageSize;
+  loadExpenseList();
+}
+
+// 三个只读列表的表格列定义
+const paymentColumns = [
+  { title: '回款编号', dataIndex: 'paymentNo', width: 180, ellipsis: true },
+  { title: '回款日期', dataIndex: 'paymentDate', width: 120 },
+  { title: '回款金额', dataIndex: 'amount', width: 130, align: 'right' as const },
+  { title: '已核销金额', dataIndex: 'appliedAmount', width: 130, align: 'right' as const },
+  { title: '付款方式', dataIndex: 'paymentMethod', width: 110 },
+  { title: '状态', dataIndex: 'status', width: 100 },
+  { title: '确认时间', dataIndex: 'confirmTime', width: 170 },
+];
+
+const refundColumns = [
+  { title: '退货编号', dataIndex: 'refundNo', width: 170, ellipsis: true },
+  { title: '标题', dataIndex: 'title', width: 200, ellipsis: true },
+  { title: '退货类型', dataIndex: 'refundType', width: 100 },
+  { title: '退货金额', dataIndex: 'refundAmount', width: 120, align: 'right' as const },
+  { title: '退款金额', dataIndex: 'refundedAmount', width: 120, align: 'right' as const },
+  { title: '状态', dataIndex: 'refundStatus', width: 100 },
+  { title: '审批状态', dataIndex: 'approvalStatus', width: 100 },
+  { title: '创建时间', dataIndex: 'createTime', width: 170 },
+];
+
+const expenseColumns = [
+  { title: '费用编号', dataIndex: 'expenseNo', width: 170, ellipsis: true },
+  { title: '标题', dataIndex: 'title', width: 200, ellipsis: true },
+  { title: '费用类型', dataIndex: 'expenseType', width: 120 },
+  { title: '金额', dataIndex: 'totalAmount', width: 130, align: 'right' as const },
+  { title: '申请人', dataIndex: 'applicantName', width: 100 },
+  { title: '状态', dataIndex: 'status', width: 100 },
+  { title: '申请日期', dataIndex: 'applyDate', width: 120 },
+];
 
 const [ContactEditDrawer, contactEditDrawerApi] = useVbenDrawer({
   connectedComponent: ContactDrawer,
@@ -1152,6 +1386,9 @@ watch(() => activeTab.value, (tab) => {
   if (tab === 'opportunities') loadOpportunities();
   if (tab === 'orders') loadOrderList();
   if (tab === 'contracts') loadContractList();
+  if (tab === 'payments') loadPaymentList();
+  if (tab === 'refunds') loadRefundList();
+  if (tab === 'expenses') loadExpenseList();
   if (tab === 'mailLogs') loadMailLogs();
 });
 
@@ -2037,8 +2274,148 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
               </Spin>
             </div>
           </Tabs.TabPane>
-          <Tabs.TabPane v-if="!isCreate" key="payments" tab="回款">
-            <div class="text-gray-400 text-center py-16 text-sm">回款模块开发中</div>
+          <Tabs.TabPane v-if="!isCreate" key="payments" :tab="`回款 (${paymentTotal || 0})`">
+            <div class="record-list-wrap">
+              <Spin :spinning="paymentLoading">
+                <Table
+                  :columns="paymentColumns"
+                  :data-source="paymentList"
+                  :pagination="false"
+                  row-key="id"
+                  size="middle"
+                  :scroll="{ x: 940 }"
+                >
+                  <template #bodyCell="{ column, record }">
+                    <template v-if="column.dataIndex === 'amount'">
+                      <span class="font-medium text-blue-600">¥{{ Number(record.amount || 0).toFixed(2) }}</span>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'appliedAmount'">
+                      <span :class="Number(record.appliedAmount || 0) > 0 ? 'text-green-600 font-medium' : 'text-gray-400'">¥{{ Number(record.appliedAmount || 0).toFixed(2) }}</span>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'paymentMethod'">
+                      <Tag :color="getPaymentMethodInfo(record.paymentMethod).color">
+                        {{ getPaymentMethodInfo(record.paymentMethod).label }}
+                      </Tag>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'status'">
+                      <Tag :color="getPaymentConfirmStatusInfo(record.status).color">
+                        {{ getPaymentConfirmStatusInfo(record.status).label }}
+                      </Tag>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'confirmTime'">
+                      {{ record.confirmTime ? formatDateTime(record.confirmTime) : '—' }}
+                    </template>
+                  </template>
+                </Table>
+                <div v-if="paymentTotal > 0" class="record-pagination">
+                  <Pagination
+                    v-model:current="paymentPage"
+                    v-model:pageSize="paymentPageSize"
+                    :total="paymentTotal"
+                    :page-size-options="['10', '20', '50']"
+                    show-size-changer
+                    show-quick-jumper
+                    :show-total="(t: number) => `共 ${t} 条`"
+                    @change="handlePaymentPageChange"
+                  />
+                </div>
+              </Spin>
+            </div>
+          </Tabs.TabPane>
+          <Tabs.TabPane v-if="!isCreate" key="refunds" :tab="`退货记录 (${refundTotal || 0})`">
+            <div class="record-list-wrap">
+              <Spin :spinning="refundLoading">
+                <Table
+                  :columns="refundColumns"
+                  :data-source="refundList"
+                  :pagination="false"
+                  row-key="id"
+                  size="middle"
+                  :scroll="{ x: 1080 }"
+                >
+                  <template #bodyCell="{ column, record }">
+                    <template v-if="column.dataIndex === 'refundType'">
+                      <Tag :color="getRefundTypeInfo(record.refundType).color">
+                        {{ getRefundTypeInfo(record.refundType).label }}
+                      </Tag>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'refundAmount'">
+                      <span class="font-medium text-red-500">¥{{ Number(record.refundAmount || 0).toFixed(2) }}</span>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'refundedAmount'">
+                      <span :class="Number(record.refundedAmount || 0) > 0 ? 'text-orange-600 font-medium' : 'text-gray-400'">¥{{ Number(record.refundedAmount || 0).toFixed(2) }}</span>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'refundStatus'">
+                      <Tag :color="getRefundStatusInfo(record.refundStatus).color">
+                        {{ getRefundStatusInfo(record.refundStatus).label }}
+                      </Tag>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'approvalStatus'">
+                      <Tag :color="getRefundApprovalStatusInfo(record.approvalStatus).color">
+                        {{ getRefundApprovalStatusInfo(record.approvalStatus).label }}
+                      </Tag>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'createTime'">
+                      {{ record.createTime ? formatDateTime(record.createTime) : '—' }}
+                    </template>
+                  </template>
+                </Table>
+                <div v-if="refundTotal > 0" class="record-pagination">
+                  <Pagination
+                    v-model:current="refundPage"
+                    v-model:pageSize="refundPageSize"
+                    :total="refundTotal"
+                    :page-size-options="['10', '20', '50']"
+                    show-size-changer
+                    show-quick-jumper
+                    :show-total="(t: number) => `共 ${t} 条`"
+                    @change="handleRefundPageChange"
+                  />
+                </div>
+              </Spin>
+            </div>
+          </Tabs.TabPane>
+          <Tabs.TabPane v-if="!isCreate" key="expenses" :tab="`费用记录 (${expenseTotal || 0})`">
+            <div class="record-list-wrap">
+              <Spin :spinning="expenseLoading">
+                <Table
+                  :columns="expenseColumns"
+                  :data-source="expenseList"
+                  :pagination="false"
+                  row-key="id"
+                  size="middle"
+                  :scroll="{ x: 940 }"
+                >
+                  <template #bodyCell="{ column, record }">
+                    <template v-if="column.dataIndex === 'expenseType'">
+                      <Tag :color="expenseTypeMap[record.expenseType]?.color || 'blue'">
+                        {{ expenseTypeMap[record.expenseType]?.name || record.expenseTypeName || '-' }}
+                      </Tag>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'totalAmount'">
+                      <span class="font-medium text-red-500">¥{{ Number(record.totalAmount ?? record.amount ?? 0).toFixed(2) }}</span>
+                    </template>
+                    <template v-else-if="column.dataIndex === 'status'">
+                      <Tag :color="getExpenseStatusInfo(record.status).color">
+                        {{ getExpenseStatusInfo(record.status).label }}
+                      </Tag>
+                    </template>
+                  </template>
+                </Table>
+                <div v-if="expenseTotal > 0" class="record-pagination">
+                  <Pagination
+                    v-model:current="expensePage"
+                    v-model:pageSize="expensePageSize"
+                    :total="expenseTotal"
+                    :page-size-options="['10', '20', '50']"
+                    show-size-changer
+                    show-quick-jumper
+                    :show-total="(t: number) => `共 ${t} 条`"
+                    @change="handleExpensePageChange"
+                  />
+                </div>
+              </Spin>
+            </div>
           </Tabs.TabPane>
           <Tabs.TabPane v-if="!isCreate" key="followups" tab="跟进记录">
             <div class="followup-layout">
@@ -2962,6 +3339,18 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   color: #722ed1;
 }
 .contract-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* ========== 回款/退货/费用 只读列表样式 ========== */
+.record-list-wrap {
+  padding: 16px 24px;
+}
+.record-pagination {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;

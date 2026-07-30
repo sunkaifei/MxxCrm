@@ -122,6 +122,10 @@ lettre = { version = "0.11", default-features = false, features = ["builder", "h
 default = []
 enable-es = ["elasticsearch"]
 
+[[bin]]
+name = "check_api_conflicts"
+path = "src/bin/check_api_conflicts.rs"
+
 [profile.release]
 opt-level = "z"
 debug = false

@@ -90,11 +90,13 @@ const canApprove = computed(() => {
   if (!instance.value) return false;
   if (instance.value.status !== 1 && instance.value.status !== 2) return false;
   if (!props.currentUserId) return false;
+  // currentUserId 可能是 string，candidateApprovers 是 number[]，统一转 number 比较
+  const uidNum = Number(props.currentUserId);
   const candidates = instance.value.candidateApprovers || [];
   if (candidates.length > 0) {
-    return candidates.includes(props.currentUserId);
+    return candidates.includes(uidNum);
   }
-  return instance.value.currentApproverId === props.currentUserId;
+  return instance.value.currentApproverId === uidNum;
 });
 
 // 是否是发起人

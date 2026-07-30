@@ -382,7 +382,11 @@ export class FormApi {
   }
 
   updateSchema(schema: Partial<FormSchema>[]) {
-    const updated: Partial<FormSchema>[] = [...schema];
+    // 防御性过滤：剔除 undefined/null 等非对象元素，避免 Reflect.has 崩溃
+    const updated: Partial<FormSchema>[] = [...schema].filter(
+      (item) => item && typeof item === 'object',
+    );
+    if (updated.length === 0) return;
     const hasField = updated.every(
       (item) => Reflect.has(item, 'fieldName') && item.fieldName,
     );

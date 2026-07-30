@@ -52,6 +52,14 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.crm.followup.title'),
         },
       },
+      {
+        name: 'CrmVisit',
+        path: '/crm/visit',
+        component: () => import('#/views/crm/visit/index.vue'),
+        meta: {
+          title: $t('page.crm.visit.title'),
+        },
+      },
     ],
   },
 ];

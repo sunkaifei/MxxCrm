@@ -12,9 +12,13 @@
 
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
+use crate::modules::approval::model::approval::ApprovalSubmitRequest;
+use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::crm::entity::customer::{Entity as Customer, Column as CustomerColumn};
+use crate::modules::sale::entity::invoice::{self as invoice_entity, Entity as SaleInvoice};
 use crate::modules::sale::entity::order::{self as order_entity, Entity as SaleOrder};
 use crate::modules::sale::entity::order_item::{self as order_item_entity, Entity as SaleOrderItem};
+use crate::modules::sale::entity::payment::{self as payment_entity, Entity as SalePayment};
 use crate::modules::sale::entity::refund::{self as refund_entity, Entity as SaleRefund};
 use crate::modules::sale::entity::refund_item::{self as refund_item_entity, Entity as SaleRefundItem};
 use crate::modules::sale::model::refund::{
@@ -28,7 +32,7 @@ use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::role_service;
 use rust_decimal::Decimal;
-use sea_orm::{ColumnTrait, ConnectionTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, Set, TransactionTrait};
+use sea_orm::{ColumnTrait, ConnectionTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, TransactionTrait};
 use std::collections::{HashMap, HashSet};
 
 /// 计算退货明细金额合计
@@ -342,6 +346,7 @@ pub async fn get_detail(db: &DbConn, id: i64) -> Result<RefundDetailVO> {
         update_time: refund.update_time,
         items: items.iter().map(|i| i.into()).collect(),
         payments: payments.iter().map(|p| p.into()).collect(),
+        warning: None,
     };
 
     // 实时查询客户名称
@@ -403,79 +408,16 @@ pub async fn get_existing_refunded_qty_by_order(db: &DbConn, order_id: i64) -> R
     Ok(map)
 }
 
+/// 根据用户ID获取其数据权限范围内的所有用户ID
+///
+/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
+/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
 async fn get_accessible_user_ids(
     db: &DbConn,
     current_user_id: i64,
-    data_scope: Option<i32>,
+    _data_scope: Option<i32>,
 ) -> Result<Option<Vec<i64>>> {
-    match data_scope {
-        Some(1) => Ok(None),
-        Some(5) => Ok(Some(vec![current_user_id])),
-        Some(3) | Some(4) | Some(2) | Some(0) | Some(_) => {
-            let user_depts = AdminDeptMergeModel::find_by_admin_id(db, current_user_id).await
-                .map_err(|e| Error::from(format!("查询用户部门失败: {}", e)))?;
-
-            let mut target_dept_ids = Vec::new();
-
-            if data_scope == Some(2) {
-                let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-                for role in roles {
-                    if role.data_scope == Some(2) {
-                        if let Some(role_id) = role.id {
-                            let dept_result = crate::modules::system::model::role_dept_merge::RoleDeptMergeModel::find_by_role_id(db, &Some(role_id)).await
-                                .map_err(|e| Error::from(format!("查询角色部门关联失败: {}", e)))?;
-                            for merge in dept_result {
-                                if let Some(dept_id) = merge.dept_id {
-                                    target_dept_ids.push(dept_id);
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                for merge in &user_depts {
-                    if let Some(dept_id) = merge.dept_id {
-                        target_dept_ids.push(dept_id);
-                    }
-                }
-            }
-
-            if target_dept_ids.is_empty() {
-                return Ok(Some(vec![current_user_id]));
-            }
-
-            let all_depts = DeptModel::find_all(db).await
-                .map_err(|e| Error::from(format!("查询部门列表失败: {}", e)))?;
-
-            let mut all_target_ids = Vec::new();
-            for dept_id in &target_dept_ids {
-                if data_scope == Some(4) || data_scope == Some(2) {
-                    all_target_ids.extend(collect_child_dept_ids(&all_depts, *dept_id));
-                } else {
-                    all_target_ids.push(*dept_id);
-                }
-            }
-
-            all_target_ids.sort();
-            all_target_ids.dedup();
-
-            let dept_merges = AdminDeptMergeModel::find_by_dept_id(db, all_target_ids).await
-                .map_err(|e| Error::from(format!("查询部门用户失败: {}", e)))?;
-
-            let mut user_ids: Vec<i64> = dept_merges.iter()
-                .filter_map(|m| m.admin_id)
-                .collect();
-            user_ids.sort();
-            user_ids.dedup();
-
-            if user_ids.is_empty() {
-                Ok(Some(vec![current_user_id]))
-            } else {
-                Ok(Some(user_ids))
-            }
-        }
-        None => Ok(None),
-    }
+    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
 }
 
 fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {
@@ -631,6 +573,7 @@ pub async fn get_list(db: &DbConn, query: &RefundListQuery, current_user_id: i64
 }
 
 /// 提交审批
+/// 提交审批（接入审批引擎）
 pub async fn submit_refund(db: &DbConn, refund_id: i64, operator_id: i64, operator_name: &str) -> Result<RefundDetailVO> {
     let refund = RefundModel::find_by_id(db, refund_id).await?
         .ok_or_else(|| Error::from("退货单不存在"))?;
@@ -640,17 +583,46 @@ pub async fn submit_refund(db: &DbConn, refund_id: i64, operator_id: i64, operat
         return Err(Error::from("仅草稿或已驳回状态可提交审批"));
     }
 
+    // 已开票订单退货提示（不阻止提交，仅提示）
+    let mut warning: Option<String> = None;
+    if let Some(order_id) = refund.order_id {
+        let invoiced = SaleInvoice::find()
+            .filter(invoice_entity::Column::OrderId.eq(order_id))
+            .filter(invoice_entity::Column::Status.eq(2)) // 已开票
+            .filter(invoice_entity::Column::Deleted.eq(0))
+            .one(db)
+            .await?;
+        if invoiced.is_some() {
+            warning = Some("该订单已开票，退货后需进行红冲处理".to_string());
+        }
+    }
+
+    // 接入审批引擎：提交退货审批流
+    let submit_req = ApprovalSubmitRequest {
+        flow_code: "refund_approval".to_string(),
+        business_type: "refund".to_string(),
+        business_id: refund_id,
+        business_title: refund.title.clone(),
+        submitter_id: operator_id,
+        submitter_name: Some(operator_name.to_string()),
+        extra_data: Some(serde_json::json!({
+            "amount": refund.total_amount.unwrap_or(Decimal::from(0)),
+        })),
+    };
+    let instance_id = ApprovalService::submit(db, &submit_req).await?;
+
+    // 更新退货单状态为审批中，记录审批实例ID
     let txn = db.begin().await?;
-    RefundModel::update_approval(&txn, refund_id, 1, None).await?;
+    RefundModel::update_approval(&txn, refund_id, 2, Some(instance_id)).await?;
     RefundModel::update_status(&txn, refund_id, 2).await?; // 待审批
     txn.commit().await?;
 
-    // 注：此处简化审批流程，不接入 ApprovalService（如需接入审批引擎可参考 order_service::submit_order）
-    let _ = (operator_id, operator_name);
-    get_detail(db, refund_id).await
+    let mut vo = get_detail(db, refund_id).await?;
+    vo.warning = warning;
+    Ok(vo)
 }
 
-/// 审批通过
+/// 审批通过（审批引擎处理，此函数由 controller 在审批引擎回调后调用）
 pub async fn approve_refund(db: &DbConn, refund_id: i64, operator_id: i64, _reason: Option<String>) -> Result<RefundDetailVO> {
     let refund = RefundModel::find_by_id(db, refund_id).await?
         .ok_or_else(|| Error::from("退货单不存在"))?;
@@ -669,7 +641,7 @@ pub async fn approve_refund(db: &DbConn, refund_id: i64, operator_id: i64, _reas
     get_detail(db, refund_id).await
 }
 
-/// 审批驳回
+/// 审批驳回（审批引擎处理，此函数由 controller 在审批引擎回调后调用）
 pub async fn reject_refund(db: &DbConn, refund_id: i64, operator_id: i64, _reason: Option<String>) -> Result<RefundDetailVO> {
     let refund = RefundModel::find_by_id(db, refund_id).await?
         .ok_or_else(|| Error::from("退货单不存在"))?;
@@ -795,6 +767,106 @@ pub async fn create_payment(db: &DbConn, req: &RefundPaymentRequest, operator_id
     if new_refunded >= refund_amount {
         RefundModel::update_status(&txn, req.refund_id, 7).await?;
     }
+
+    // ===== 对冲逻辑开始 =====
+    let now = chrono::Local::now().naive_local().to_owned();
+
+    // 1. 冲减回款已核销额（applied_amount）
+    if let Some(order_id) = refund.order_id {
+        let mut remaining_deduct = payment_amount;
+
+        // 查询关联订单的回款记录（有已核销额的），按 id 升序依次冲减
+        let payments = SalePayment::find()
+            .filter(payment_entity::Column::OrderId.eq(order_id))
+            .filter(payment_entity::Column::Deleted.eq(0))
+            .filter(payment_entity::Column::AppliedAmount.gt(Decimal::from(0)))
+            .order_by_asc(payment_entity::Column::Id)
+            .all(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询回款记录失败: {}", e)))?;
+
+        for pm in &payments {
+            if remaining_deduct <= Decimal::from(0) {
+                break;
+            }
+
+            let old_applied = pm.applied_amount.unwrap_or(Decimal::from(0));
+            let old_unapplied = pm.unapplied_amount.unwrap_or(Decimal::from(0));
+            let deduct = if old_applied >= remaining_deduct {
+                remaining_deduct
+            } else {
+                old_applied
+            };
+            let new_applied = old_applied - deduct;
+            let new_unapplied = old_unapplied + deduct;
+            // applied_amount 减到 0 时，回款状态回到已确认(2)
+            let new_status = if new_applied <= Decimal::from(0) {
+                2
+            } else {
+                pm.status.unwrap_or(2)
+            };
+
+            SalePayment::update_many()
+                .set(payment_entity::ActiveModel {
+                    applied_amount: Set(Some(new_applied)),
+                    unapplied_amount: Set(Some(new_unapplied)),
+                    status: Set(Some(new_status)),
+                    update_time: Set(Some(now)),
+                    ..Default::default()
+                })
+                .filter(payment_entity::Column::Id.eq(pm.id))
+                .filter(payment_entity::Column::Deleted.eq(0))
+                .exec(&txn)
+                .await
+                .map_err(|e| Error::from(format!("更新回款已核销额失败: {}", e)))?;
+
+            remaining_deduct -= deduct;
+        }
+
+        // 2. 更新订单支付状态
+        let order = SaleOrder::find_by_id(order_id)
+            .filter(order_entity::Column::Deleted.eq(0))
+            .one(&txn)
+            .await
+            .map_err(|e| Error::from(format!("查询订单失败: {}", e)))?;
+
+        if let Some(o) = order {
+            let old_paid = o.paid_amount.unwrap_or(Decimal::from(0));
+            let total = o.total_amount.unwrap_or(Decimal::from(0));
+            let mut new_paid = old_paid - payment_amount;
+            if new_paid < Decimal::from(0) {
+                new_paid = Decimal::from(0);
+            }
+            let new_unpaid = if new_paid >= total {
+                Decimal::from(0)
+            } else {
+                total - new_paid
+            };
+            // pay_status: 1=未支付, 2=部分支付, 3=已支付, 4=已退款
+            let new_pay_status = if new_paid <= Decimal::from(0) {
+                4
+            } else if new_paid < total {
+                2
+            } else {
+                3
+            };
+
+            SaleOrder::update_many()
+                .set(order_entity::ActiveModel {
+                    paid_amount: Set(Some(new_paid)),
+                    unpaid_amount: Set(Some(new_unpaid)),
+                    pay_status: Set(Some(new_pay_status)),
+                    update_time: Set(Some(now)),
+                    ..Default::default()
+                })
+                .filter(order_entity::Column::Id.eq(order_id))
+                .filter(order_entity::Column::Deleted.eq(0))
+                .exec(&txn)
+                .await
+                .map_err(|e| Error::from(format!("更新订单支付状态失败: {}", e)))?;
+        }
+    }
+    // ===== 对冲逻辑结束 =====
 
     txn.commit().await?;
 

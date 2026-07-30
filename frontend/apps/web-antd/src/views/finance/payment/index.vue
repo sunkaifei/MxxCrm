@@ -22,10 +22,10 @@ import { RefreshCw } from 'lucide-vue-next';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
-  approvePaymentApi,
-  cancelPaymentApi,
-  confirmPaymentApi,
-  getPaymentListApi,
+  approveFinancePaymentApi,
+  cancelFinancePaymentApi,
+  confirmFinancePaymentApi,
+  getFinancePaymentListApi,
 } from '#/api/core/finance';
 import { $t } from '#/locales';
 
@@ -116,7 +116,7 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getPaymentListApi({
+        return await getFinancePaymentListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
           ...formValues,
@@ -218,7 +218,7 @@ function openApprove(row: any) {
 async function handleApproveSubmit() {
   approveLoading.value = true;
   try {
-    await approvePaymentApi({
+    await approveFinancePaymentApi({
       id: approveForm.id,
       approved: approveForm.approved,
       remark: approveForm.remark,
@@ -254,7 +254,7 @@ async function handleConfirmSubmit() {
   }
   confirmLoading.value = true;
   try {
-    await confirmPaymentApi({
+    await confirmFinancePaymentApi({
       id: confirmForm.id,
       paymentDate: confirmForm.paymentDate,
     });
@@ -289,7 +289,7 @@ async function handleCancelSubmit() {
   }
   cancelLoading.value = true;
   try {
-    await cancelPaymentApi({ id: cancelForm.id, remark: cancelForm.remark });
+    await cancelFinancePaymentApi({ id: cancelForm.id, remark: cancelForm.remark });
     message.success('取消成功');
     cancelVisible.value = false;
     gridApi.query();

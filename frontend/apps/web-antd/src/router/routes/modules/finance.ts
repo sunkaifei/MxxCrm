@@ -46,6 +46,22 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.finance.payment.title'),
         },
       },
+      {
+        name: 'FinanceExpense',
+        path: '/finance/expense',
+        component: () => import('#/views/finance/expense/index.vue'),
+        meta: {
+          title: $t('page.finance.expense.title'),
+        },
+      },
+      {
+        name: 'FinanceExpenseType',
+        path: '/finance/expense-type',
+        component: () => import('#/views/finance/expense-type/index.vue'),
+        meta: {
+          title: $t('page.finance.expenseType.title'),
+        },
+      },
     ],
   },
 ];

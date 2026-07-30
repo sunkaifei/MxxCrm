@@ -1,0 +1,1289 @@
+   Compiling mxx-crm v1.0.0 (C:\codework\MxxCrm\backend)
+warning: unused import: `Result`
+  --> src\main.rs:13:66
+   |
+13 | use actix_web::{web, App, HttpServer, HttpRequest, HttpResponse, Result};
+   |                                                                  ^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::collections::HashMap`
+  --> src\core\web\tags\i18n_tags.rs:13:5
+   |
+13 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `serde_json::Value`
+  --> src\core\web\tags\i18n_tags.rs:14:5
+   |
+14 | use serde_json::Value;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::collections::HashSet`
+  --> src\core\web\permission_guard.rs:48:5
+   |
+48 | use std::collections::HashSet;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `InfoId`
+ --> src\modules\system\controller\admin\tag_admin_controller.rs:6:61
+  |
+6 | use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
+  |                                                             ^^^^^^
+
+warning: unused import: `get`
+  --> src\modules\system\controller\open\service_open_controller.rs:12:17
+   |
+12 | use actix_web::{get, HttpResponse, routes, web};
+   |                 ^^^
+
+warning: unused imports: `deserialize_string_to_u64`, `serialize_option_u64_to_string`, and `u64_to_string`
+  --> src\modules\system\entity\admin_post_merge.rs:13:34
+   |
+13 | use crate::utils::string_utils::{u64_to_string,serialize_option_u64_to_string,deserialize_string_to_u64};
+   |                                  ^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `CommonTableExpression`, `Expr`, `IntoTableRef`, `Query`, and `UnionType`
+  --> src\modules\system\model\admin.rs:16:17
+   |
+16 | use sea_query::{CommonTableExpression, Expr, IntoTableRef, Query, UnionType};
+   |                 ^^^^^^^^^^^^^^^^^^^^^  ^^^^  ^^^^^^^^^^^^  ^^^^^  ^^^^^^^^^
+
+warning: unused import: `crate::modules::website::model::website::WebSiteVO`
+  --> src\modules\system\model\admin.rs:19:5
+   |
+19 | use crate::modules::website::model::website::WebSiteVO;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::DateTime`
+  --> src\modules\system\model\menu.rs:15:5
+   |
+15 | use sea_orm::prelude::DateTime;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `u64_to_string`
+  --> src\modules\system\model\ip_address.rs:15:34
+   |
+15 | use crate::utils::string_utils::{u64_to_string, serialize_option_u64_to_string, deserialize_string_to_u64};
+   |                                  ^^^^^^^^^^^^^
+
+warning: unused import: `dict`
+  --> src\modules\system\model\dict_data.rs:12:38
+   |
+12 | use crate::modules::system::entity::{dict, dict_data, dict_data::Entity as DictData};
+   |                                      ^^^^
+
+warning: unused imports: `tag_group::Entity as TagGroup` and `tag_group`
+   --> src\modules\system\model\tag.rs:330:46
+    |
+330 |         use crate::modules::system::entity::{tag_group, tag_group::Entity as TagGroup};
+    |                                              ^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `UpdateAdminPasswordRequest`
+  --> src\modules\system\service\admin_service.rs:19:199
+   |
+19 | ...t, DeptNameDTO, ListQuery, PageWhere, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Error`
+  --> src\modules\system\service\ip_address_service.rs:12:34
+   |
+12 | use crate::core::errors::error::{Error, Result};
+   |                                  ^^^^^
+
+warning: unused imports: `admin` and `tag`
+ --> src\modules\system\service\tag_service.rs:4:38
+  |
+4 | use crate::modules::system::entity::{admin, tag};
+  |                                      ^^^^^  ^^^
+
+warning: unused import: `crate::modules::system::entity::tag_group`
+ --> src\modules\system\service\tag_group_service.rs:3:5
+  |
+3 | use crate::modules::system::entity::tag_group;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `actix_http::header::q`
+  --> src\modules\upload\service\attachment_category_service.rs:11:5
+   |
+11 | use actix_http::header::q;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `AttachCategoryVO`
+  --> src\modules\upload\service\attachment_category_service.rs:16:137
+   |
+16 | ...AttachCategorySaveRequest, AttachCategoryUpdateRequest, AttachCategoryVO, AttachmentCategoryModel, CategoryTreeVO, ListQuery, Pag...
+   |                                                            ^^^^^^^^^^^^^^^^
+
+warning: unused import: `Error`
+  --> src\modules\articles\controller\admin\article_admin_controller.rs:13:34
+   |
+13 | use crate::core::errors::error::{Error, Result};
+   |                                  ^^^^^
+
+warning: unused import: `BathIdRequest`
+  --> src\modules\articles\controller\admin\article_admin_controller.rs:18:61
+   |
+18 | use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
+   |                                                             ^^^^^^^^^^^^^
+
+warning: unused import: `BathIdRequest`
+  --> src\modules\articles\controller\admin\category_admin_controller.rs:13:61
+   |
+13 | use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
+   |                                                             ^^^^^^^^^^^^^
+
+warning: unused import: `Error`
+  --> src\modules\articles\controller\admin\label_admin_controller.rs:11:34
+   |
+11 | use crate::core::errors::error::{Error, Result};
+   |                                  ^^^^^
+
+warning: unused import: `ArticleModel`
+  --> src\modules\articles\controller\open\article_open_controller.rs:19:48
+   |
+19 | use crate::modules::articles::model::article::{ArticleModel, QueryPageRequest};
+   |                                                ^^^^^^^^^^^^
+
+warning: unused import: `crate::modules::website::model::website::SiteModel`
+  --> src\modules\articles\controller\open\article_open_controller.rs:21:5
+   |
+21 | use crate::modules::website::model::website::SiteModel;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `DatabaseConnection`
+  --> src\modules\articles\service\label_service.rs:11:15
+   |
+11 | use sea_orm::{DatabaseConnection, DbConn};
+   |               ^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ArticleModel` and `QueryShortUrlUnique`
+  --> src\modules\articles\service\label_service.rs:15:48
+   |
+15 | use crate::modules::articles::model::article::{ArticleModel, QueryShortUrlUnique};
+   |                                                ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `NaiveDateTime`
+  --> src\modules\articles\model\article.rs:12:21
+   |
+12 | use chrono::{Local, NaiveDateTime};
+   |                     ^^^^^^^^^^^^^
+
+warning: unused imports: `Expr` and `Query`
+  --> src\modules\articles\model\article.rs:14:24
+   |
+14 | use sea_query::{Alias, Expr, Query};
+   |                        ^^^^  ^^^^^
+
+warning: unused import: `deserialize_string_to_i32`
+  --> src\modules\articles\model\article.rs:18:93
+   |
+18 | use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string, deserialize_string_to_i32};
+   |                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `deserialize_string_to_i32`
+  --> src\modules\articles\model\category.rs:15:108
+   |
+15 | use crate::utils::string_utils::{u64_to_string, deserialize_string_to_u64, serialize_option_u64_to_string, deserialize_string_to_i32};
+   |                                                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `QuerySelect`
+ --> src\modules\statistics\service\performance_target_service.rs:6:30
+  |
+6 | use sea_orm::{DbConn, DbErr, QuerySelect, ColumnTrait, QueryFilter, EntityTrait, QueryOrder, ActiveModelTrait, Set, IntoActiveModel, ...
+  |                              ^^^^^^^^^^^
+
+warning: unused import: `crate::core::errors::error::Error`
+  --> src\modules\statistics\service\performance_plan_service.rs:11:5
+   |
+11 | use crate::core::errors::error::Error;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `MonthlyTargetInput`
+  --> src\modules\statistics\service\performance_plan_service.rs:18:24
+   |
+18 |     CreatePlanRequest, MonthlyTargetInput, ReviewPlanRequest, ModifyPlanRequest,
+   |                        ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Entity as PerformanceTarget`
+ --> src\modules\statistics\model\performance_target.rs:3:68
+  |
+3 | use crate::modules::statistics::entity::performance_target::{self, Entity as PerformanceTarget};
+  |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `deserialize_string_to_u64`
+ --> src\modules\statistics\model\performance_target.rs:4:34
+  |
+4 | use crate::utils::string_utils::{deserialize_string_to_u64, deserialize_string_to_i64};
+  |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `TemplateDataSaveRequest`
+  --> src\modules\website\service\template_user_data_service.rs:14:143
+   |
+14 | ...taDetailVO, TemplateDataListVO, TemplateDataSaveDTO, TemplateDataSaveRequest, TemplateUserDataModel};
+   |                                                         ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `BathIdRequest`
+  --> src\modules\website\controller\admin\website_admin_controller.rs:15:61
+   |
+15 | use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
+   |                                                             ^^^^^^^^^^^^^
+
+warning: unused import: `Error`
+  --> src\modules\website\controller\admin\template_admin_controller.rs:11:34
+   |
+11 | use crate::core::errors::error::{Error, Result};
+   |                                  ^^^^^
+
+warning: unused imports: `template_user_data_service` and `website_service`
+  --> src\modules\website\controller\admin\template_admin_controller.rs:20:40
+   |
+20 | use crate::modules::website::service::{website_service, template_service, template_user_data_service};
+   |                                        ^^^^^^^^^^^^^^^                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `BathIdRequest`
+  --> src\modules\website\controller\admin\template_category_admin_controller.rs:14:61
+   |
+14 | use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
+   |                                                             ^^^^^^^^^^^^^
+
+warning: unused import: `Error`
+  --> src\modules\website\controller\admin\template_data_admin_controller.rs:11:34
+   |
+11 | use crate::core::errors::error::{Error, Result};
+   |                                  ^^^^^
+
+warning: unused import: `ArticleModel`
+  --> src\modules\website\controller\open\cms_open_controller.rs:19:48
+   |
+19 | use crate::modules::articles::model::article::{ArticleModel, QueryPageRequest};
+   |                                                ^^^^^^^^^^^^
+
+warning: unused import: `crate::modules::articles::service::category_service`
+  --> src\modules\website\controller\open\cms_open_controller.rs:22:5
+   |
+22 | use crate::modules::articles::service::category_service;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `HttpRequest`
+  --> src\modules\shop\controller\user\spu_controller.rs:14:27
+   |
+14 | use actix_web::{get, web, HttpRequest, HttpResponse};
+   |                           ^^^^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::DateTime`
+  --> src\modules\shop\model\supplier_apply.rs:14:5
+   |
+14 | use sea_orm::prelude::DateTime;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::DateTime`
+  --> src\modules\shop\model\category.rs:14:5
+   |
+14 | use sea_orm::prelude::DateTime;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `DateTime`
+  --> src\modules\shop\model\spu.rs:18:24
+   |
+18 | use sea_orm::prelude::{DateTime, Decimal, Json};
+   |                        ^^^^^^^^
+
+warning: unused import: `crate::modules::shop::entity::shop_spu::Entity as SpuEntity`
+  --> src\modules\shop\model\cart.rs:13:5
+   |
+13 | use crate::modules::shop::entity::shop_spu::Entity as SpuEntity;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::modules::shop::entity::shop_sku::Entity as SkuEntity`
+  --> src\modules\shop\model\cart.rs:14:5
+   |
+14 | use crate::modules::shop::entity::shop_sku::Entity as SkuEntity;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `rust_decimal::prelude::ToPrimitive`
+  --> src\modules\shop\model\cart.rs:16:5
+   |
+16 | use rust_decimal::prelude::ToPrimitive;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::DateTime`
+  --> src\modules\shop\model\cart.rs:17:5
+   |
+17 | use sea_orm::prelude::DateTime;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `DateTime`
+  --> src\modules\shop\model\order.rs:16:24
+   |
+16 | use sea_orm::prelude::{DateTime, Decimal};
+   |                        ^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::DateTime`
+  --> src\modules\shop\model\delivery.rs:14:5
+   |
+14 | use sea_orm::prelude::DateTime;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `DateTime`
+  --> src\modules\shop\model\review.rs:14:24
+   |
+14 | use sea_orm::prelude::{DateTime, Json};
+   |                        ^^^^^^^^
+
+warning: unused import: `DateTime`
+  --> src\modules\shop\model\refund.rs:15:24
+   |
+15 | use sea_orm::prelude::{DateTime, Decimal};
+   |                        ^^^^^^^^
+
+warning: unused import: `MetaResp`
+  --> src\modules\shop\service\shop_service.rs:12:46
+   |
+12 | use crate::core::web::response::{ResultPage, MetaResp};
+   |                                              ^^^^^^^^
+
+warning: unused import: `DateTime`
+  --> src\modules\finance\model\member_fee.rs:18:14
+   |
+18 | use chrono::{DateTime, NaiveDateTime, Utc};
+   |              ^^^^^^^^
+
+warning: unused import: `NaiveDateTime`
+  --> src\modules\finance\model\member_product.rs:19:24
+   |
+19 | use chrono::{DateTime, NaiveDateTime, Utc};
+   |                        ^^^^^^^^^^^^^
+
+warning: unused import: `post`
+  --> src\modules\finance\service\salary_service.rs:23:87
+   |
+23 | use crate::modules::system::entity::{admin, admin_dept_merge, admin_post_merge, dept, post};
+   |                                                                                       ^^^^
+
+warning: ambiguous glob re-exports
+  --> src\modules\finance\service\mod.rs:21:9
+   |
+21 | pub use payment_record_service::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^ the name `get_list` in the value namespace is first re-exported here
+22 | pub use member_fee_service::*;
+23 | pub use finance_statistics_service::*;
+   |         ----------------------------- but the name `get_list` in the value namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: ambiguous glob re-exports
+  --> src\modules\finance\service\mod.rs:21:9
+   |
+21 | pub use payment_record_service::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^ the name `get_by_id` in the value namespace is first re-exported here
+22 | pub use member_fee_service::*;
+   |         --------------------- but the name `get_by_id` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> src\modules\finance\service\mod.rs:21:9
+   |
+21 | pub use payment_record_service::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^ the name `insert` in the value namespace is first re-exported here
+22 | pub use member_fee_service::*;
+   |         --------------------- but the name `insert` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> src\modules\finance\service\mod.rs:21:9
+   |
+21 | pub use payment_record_service::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^ the name `update` in the value namespace is first re-exported here
+22 | pub use member_fee_service::*;
+   |         --------------------- but the name `update` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> src\modules\finance\service\mod.rs:21:9
+   |
+21 | pub use payment_record_service::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^ the name `delete` in the value namespace is first re-exported here
+22 | pub use member_fee_service::*;
+   |         --------------------- but the name `delete` in the value namespace is also re-exported here
+
+warning: unused import: `MemberOrderResponse`
+  --> src\modules\finance\controller\user\payment_user_controller.rs:17:40
+   |
+17 |     member_order::{MemberOrderRequest, MemberOrderResponse},
+   |                                        ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `WechatNotifyResponse` and `WechatV3Resource`
+  --> src\modules\finance\controller\open\wechat_notify_controller.rs:17:5
+   |
+17 |     WechatNotifyResponse, WechatV3Notify, WechatV3Resource, WechatV3PaymentResult,
+   |     ^^^^^^^^^^^^^^^^^^^^                  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::modules::message::service::notification_service::NotificationService`
+  --> src\modules\message\controller\admin\notification_admin_controller.rs:17:5
+   |
+17 | use crate::modules::message::service::notification_service::NotificationService;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `chrono::Utc`
+  --> src\modules\message\service\chat_service.rs:16:5
+   |
+16 | use chrono::Utc;
+   |     ^^^^^^^^^^^
+
+warning: unused imports: `MessageStream` and `Session`
+  --> src\modules\message\websocket\session.rs:14:25
+   |
+14 | use actix_ws::{Message, MessageStream, Session};
+   |                         ^^^^^^^^^^^^^  ^^^^^^^
+
+warning: unused imports: `ContractApprovalDetailVO`, `ContractDetailVO`, and `ContractListVO`
+  --> src\modules\crm\controller\admin\contract_controller.rs:19:44
+   |
+19 | ...::contract::{ContractApprovalDetailVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractSave...
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^                           ^^^^^^^^^^^^^^^^                     ^^^^^^^^^^^^^^
+
+warning: unused import: `admin`
+  --> src\modules\crm\controller\admin\customer_controller.rs:28:38
+   |
+28 | use crate::modules::system::entity::{admin, admin::Entity as Admin};
+   |                                      ^^^^^
+
+warning: unused imports: `FollowupDetailVO` and `FollowupListVO`
+  --> src\modules\crm\controller\admin\followup_controller.rs:19:44
+   |
+19 | use crate::modules::crm::model::followup::{FollowupDetailVO, FollowupListQuery, FollowupListVO, FollowupSaveRequest, FollowupUpdateR...
+   |                                            ^^^^^^^^^^^^^^^^                     ^^^^^^^^^^^^^^
+
+warning: unused imports: `LeadDetailVO` and `LeadListVO`
+  --> src\modules\crm\controller\admin\lead_controller.rs:19:40
+   |
+19 | use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadSaveRequest, LeadStatusUpdateQuery, LeadUpdateRe...
+   |                                        ^^^^^^^^^^^^                 ^^^^^^^^^^
+
+warning: unused imports: `OpportunityDetailVO` and `OpportunityListVO`
+  --> src\modules\crm\controller\admin\opportunity_controller.rs:19:47
+   |
+19 | use crate::modules::crm::model::opportunity::{OpportunityDetailVO, OpportunityListQuery, OpportunityListVO, OpportunitySaveRequest, ...
+   |                                               ^^^^^^^^^^^^^^^^^^^                        ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Column as CustomerColumn` and `Entity as Customer`
+  --> src\modules\crm\model\contract.rs:18:45
+   |
+18 | use crate::modules::crm::entity::customer::{Entity as Customer, Column as CustomerColumn};
+   |                                             ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::Json`
+  --> src\modules\crm\service\customer_edit_log_service.rs:21:5
+   |
+21 | use sea_orm::prelude::Json;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::ConnectionTrait`
+   --> src\modules\crm\service\lead_service.rs:479:9
+    |
+479 |     use sea_orm::ConnectionTrait;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `admin`
+  --> src\modules\crm\service\lead_transfer_service.rs:26:38
+   |
+26 | use crate::modules::system::entity::{admin, admin::Entity as Admin};
+   |                                      ^^^^^
+
+warning: unused import: `ConnectionTrait`
+  --> src\modules\crm\service\lead_transfer_service.rs:31:18
+   |
+31 |     ColumnTrait, ConnectionTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter,
+   |                  ^^^^^^^^^^^^^^^
+
+warning: unused import: `CareerHistoryItem`
+  --> src\modules\crm\service\contact_service.rs:17:5
+   |
+17 |     CareerHistoryItem, ContactBindRequest, ContactCheckRequest, ContactCheckResult, ContactCompanyInfo, ContactDetailVO, ContactList...
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::Condition`
+  --> src\modules\crm\service\contact_service.rs:29:5
+   |
+29 | use sea_orm::Condition;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::modules::system::entity::dept`
+   --> src\modules\crm\service\contact_service.rs:422:9
+    |
+422 |     use crate::modules::system::entity::dept;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::Json`
+  --> src\modules\crm\service\contact_edit_log_service.rs:21:5
+   |
+21 | use sea_orm::prelude::Json;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_query::Expr`
+  --> src\modules\crm\service\opportunity_service.rs:22:75
+   |
+22 | use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, sea_query::Expr, TransactionTrait};
+   |                                                                           ^^^^^^^^^^^^^^^
+
+warning: unused import: `self`
+   --> src\modules\crm\service\opportunity_service.rs:401:51
+    |
+401 |     use crate::modules::sale::entity::quotation::{self, ActiveModel as QuotationActiveModel};
+    |                                                   ^^^^
+
+warning: unused import: `ActiveModel as OppActiveModel`
+   --> src\modules\crm\service\opportunity_service.rs:402:72
+    |
+402 |     use crate::modules::crm::entity::opportunity::{self as opp_entity, ActiveModel as OppActiveModel};
+    |                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ActiveModel as OppActiveModel`
+   --> src\modules\crm\service\opportunity_service.rs:487:72
+    |
+487 |     use crate::modules::crm::entity::opportunity::{self as opp_entity, ActiveModel as OppActiveModel};
+    |                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Condition`, `QueryOrder`, and `QuerySelect`
+  --> src\modules\crm\service\contract_service.rs:21:120
+   |
+21 | ...lTrait, EntityTrait, ColumnTrait, QueryFilter, QueryOrder, QuerySelect, Condition};
+   |                                                   ^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `Condition`
+  --> src\modules\crm\service\contract_payment_plan_service.rs:18:87
+   |
+18 | use sea_orm::{DbConn, DbErr, TransactionTrait, EntityTrait, ColumnTrait, QueryFilter, Condition};
+   |                                                                                       ^^^^^^^^^
+
+warning: unused import: `rust_decimal::Decimal`
+ --> src\modules\crm\service\todo_service.rs:2:5
+  |
+2 | use rust_decimal::Decimal;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Error`
+  --> src\modules\crm\service\work_log_service.rs:17:34
+   |
+17 | use crate::core::errors::error::{Error, Result};
+   |                                  ^^^^^
+
+warning: unused import: `Entity as SaleOrder`
+  --> src\modules\sale\service\order_service.rs:17:65
+   |
+17 | use crate::modules::sale::entity::order::{self as order_entity, Entity as SaleOrder};
+   |                                                                 ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `QuerySelect`
+  --> src\modules\sale\service\payment_service.rs:30:109
+   |
+30 | use sea_orm::{ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set, Transa...
+   |                                                                                                             ^^^^^^^^^^^
+
+warning: unused imports: `Entity as Quotation` and `self as quo_entity`
+  --> src\modules\sale\service\quotation_service.rs:18:47
+   |
+18 | use crate::modules::sale::entity::quotation::{self as quo_entity, Entity as Quotation};
+   |                                               ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `rust_decimal::prelude::ToPrimitive`
+  --> src\modules\sale\service\quotation_service.rs:30:5
+   |
+30 | use rust_decimal::prelude::ToPrimitive;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `RefundApprovalReq`, `RefundItemVO`, and `RefundPaymentVO`
+  --> src\modules\sale\service\refund_service.rs:21:5
+   |
+21 |     RefundApprovalReq, RefundItemModel, RefundItemSaveDTO, RefundListQuery, RefundListVO,
+   |     ^^^^^^^^^^^^^^^^^
+...
+24 |     RefundItemVO, RefundPaymentVO,
+   |     ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused imports: `ConnectionTrait`, `PaginatorTrait`, and `Set`
+  --> src\modules\sale\service\refund_service.rs:31:28
+   |
+31 | use sea_orm::{ColumnTrait, ConnectionTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, Set, TransactionTrait};
+   |                            ^^^^^^^^^^^^^^^                       ^^^^^^^^^^^^^^               ^^^
+
+warning: unused import: `std::collections::HashSet`
+  --> src\modules\sale\service\shipment_service.rs:24:5
+   |
+24 | use std::collections::HashSet;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `OrderApprovalDetailVO`
+  --> src\modules\sale\controller\admin\order_controller.rs:18:42
+   |
+18 | use crate::modules::sale::model::order::{OrderApprovalDetailVO, OrderApprovalReq, OrderListQuery, OrderSaveRequest, OrderStatusUpdat...
+   |                                          ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `OrderItemDetailVO` and `OrderItemListVO`
+  --> src\modules\sale\controller\admin\order_item_controller.rs:19:47
+   |
+19 | use crate::modules::sale::model::order_item::{OrderItemDetailVO, OrderItemListQuery, OrderItemListVO, OrderItemSaveRequest, OrderIte...
+   |                                               ^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::*`
+  --> src\modules\product\service\spec_service.rs:19:5
+   |
+19 | use sea_orm::prelude::*;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::prelude::*`
+  --> src\modules\product\service\sku_template_service.rs:17:5
+   |
+17 | use sea_orm::prelude::*;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `CategoryDetailVO` and `CategoryListVO`
+ --> src\modules\product\controller\admin\category_controller.rs:7:48
+  |
+7 | use crate::modules::product::model::category::{CategoryDetailVO, CategoryListQuery, CategoryListVO, CategorySaveRequest, CategoryUpda...
+  |                                                ^^^^^^^^^^^^^^^^                     ^^^^^^^^^^^^^^
+
+warning: unused imports: `ProductDetailVO` and `ProductListVO`
+  --> src\modules\product\controller\admin\product_controller.rs:18:47
+   |
+18 | use crate::modules::product::model::product::{ProductDetailVO, ProductListQuery, ProductListVO, ProductSaveRequest, ProductUpdateReq...
+   |                                               ^^^^^^^^^^^^^^^                    ^^^^^^^^^^^^^
+
+warning: unused import: `QuerySelect`
+  --> src\modules\purchase\model\purchase_order.rs:20:17
+   |
+20 |     QueryOrder, QuerySelect, UpdateResult,
+   |                 ^^^^^^^^^^^
+
+warning: unused imports: `PurchaseOrderDetailVO` and `PurchaseOrderListVO`
+ --> src\modules\purchase\controller\admin\purchase_order_controller.rs:6:55
+  |
+6 | use crate::modules::purchase::model::purchase_order::{PurchaseOrderDetailVO, PurchaseOrderListQuery, PurchaseOrderListVO, PurchaseOrd...
+  |                                                       ^^^^^^^^^^^^^^^^^^^^^                          ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `SupplierDetailVO` and `SupplierListVO`
+  --> src\modules\purchase\controller\admin\supplier_controller.rs:10:49
+   |
+10 | use crate::modules::purchase::model::supplier::{SupplierDetailVO, SupplierListQuery, SupplierListVO, SupplierSaveRequest, SupplierUp...
+   |                                                 ^^^^^^^^^^^^^^^^                     ^^^^^^^^^^^^^^
+
+warning: unused import: `WarehouseDetailVO`
+ --> src\modules\inventory\controller\admin\warehouse_controller.rs:7:51
+  |
+7 | use crate::modules::inventory::model::warehouse::{WarehouseDetailVO, WarehouseListQuery, WarehouseSaveRequest, WarehouseUpdateRequest};
+  |                                                   ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `InventoryDetailVO` and `InventoryListData`
+  --> src\modules\inventory\controller\admin\inventory_controller.rs:14:47
+   |
+14 | use crate::modules::inventory::model::stock::{InventoryDetailVO, InventoryListData, InventoryListQuery};
+   |                                               ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::modules::inventory::entity::stock::Model`
+  --> src\modules\inventory\model\stock.rs:11:5
+   |
+11 | use crate::modules::inventory::entity::stock::Model;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `DateTime`
+  --> src\modules\inventory\model\stock.rs:13:24
+   |
+13 | use sea_orm::prelude::{DateTime, Decimal};
+   |                        ^^^^^^^^
+
+warning: unused import: `Column as DeptColumn`
+  --> src\modules\approval\model\approval.rs:13:44
+   |
+13 | use crate::modules::system::entity::dept::{Column as DeptColumn, Entity as DeptEntity};
+   |                                            ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Model as InstanceModel`
+  --> src\modules\approval\model\approval.rs:30:5
+   |
+30 |     Model as InstanceModel,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `customer_edit_log_controller`
+  --> src\routes\admin_routes.rs:23:197
+   |
+23 | ...roller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, work_log_controller};
+   |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::modules::website::controller::open::index_open_controller`
+  --> src\routes\open_routes.rs:16:5
+   |
+16 | use crate::modules::website::controller::open::index_open_controller;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+  --> src\modules\crm\service\work_log_service.rs:25:75
+   |
+25 | pub async fn insert(db: &impl ConnectionTrait, dto: &WorkLogCreateDTO) -> Result<i64, sea_orm::DbErr> {
+   |                                                                           ^^^^^^    ---------------- help: remove the unnecessary generic argument
+   |                                                                           |
+   |                                                                           expected 1 generic argument
+   |
+note: type alias defined here, with 1 generic parameter: `T`
+  --> src\core\errors\error.rs:22:10
+   |
+22 | pub type Result<T> = std::result::Result<T, Error>;
+   |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+  --> src\modules\crm\service\work_log_service.rs:50:6
+   |
+50 | ) -> Result<Vec<WorkLogVO>, sea_orm::DbErr> {
+   |      ^^^^^^               ---------------- help: remove the unnecessary generic argument
+   |      |
+   |      expected 1 generic argument
+   |
+note: type alias defined here, with 1 generic parameter: `T`
+  --> src\core\errors\error.rs:22:10
+   |
+22 | pub type Result<T> = std::result::Result<T, Error>;
+   |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+  --> src\modules\crm\service\work_log_service.rs:83:6
+   |
+83 | ) -> Result<Vec<WeekWorkloadVO>, sea_orm::DbErr> {
+   |      ^^^^^^                    ---------------- help: remove the unnecessary generic argument
+   |      |
+   |      expected 1 generic argument
+   |
+note: type alias defined here, with 1 generic parameter: `T`
+  --> src\core\errors\error.rs:22:10
+   |
+22 | pub type Result<T> = std::result::Result<T, Error>;
+   |          ^^^^^^ -
+
+warning: unreachable statement
+   --> src\modules\finance\controller\user\payment_user_controller.rs:288:5
+    |
+286 |     return Ok(HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "微信支付功能暂不可用", "local")));
+    |     ---------------------------------------------------------------------------------------------------------------------------------------------- any code following this expression is unreachable
+287 |
+288 |     let openid = String::new();
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^ unreachable statement
+    |
+    = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src\modules\sale\service\payment_service.rs:280:9
+    |
+280 |     let mut data: Vec<PaymentListVO> = list.iter().map(|item| {
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: use of deprecated method `chrono::NaiveDateTime::timestamp_millis`: use `.and_utc().timestamp_millis()` instead
+   --> src\modules\product\model\product.rs:423:37
+    |
+423 |                 let timestamp = now.timestamp_millis();
+    |                                     ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated method `chrono::NaiveDateTime::timestamp_millis`: use `.and_utc().timestamp_millis()` instead
+   --> src\modules\product\model\product.rs:555:29
+    |
+555 |         let timestamp = now.timestamp_millis();
+    |                             ^^^^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+  --> src\modules\inventory\service\inventory_service.rs:46:13
+   |
+46 |         let mut vo = InventoryListVO {
+   |             ----^^
+   |             |
+   |             help: remove this `mut`
+
+warning: unused import: `ActiveModelTrait`
+  --> src\modules\crm\service\followup_service.rs:21:41
+   |
+21 | use sea_orm::{ColumnTrait, EntityTrait, ActiveModelTrait, QueryFilter, Set, TransactionTrait};
+   |                                         ^^^^^^^^^^^^^^^^
+
+warning: unused import: `ActiveModelTrait`
+  --> src\modules\crm\service\work_log_service.rs:13:5
+   |
+13 |     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `PaginatorTrait`
+  --> src\modules\crm\service\work_log_service.rs:13:86
+   |
+13 |     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
+   |                                                                                      ^^^^^^^^^^^^^^
+
+warning: unused import: `sea_orm::ActiveModelTrait`
+  --> src\modules\crm\service\contact_service.rs:31:5
+   |
+31 | use sea_orm::ActiveModelTrait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `full`
+  --> src\core\kit\sensitive.rs:98:27
+   |
+98 |                 replace: |full, caps| {
+   |                           ^^^^ help: if this is intentional, prefix it with an underscore: `_full`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+  --> src\core\middleware\operation_log.rs:87:20
+   |
+87 |     fn call(&self, mut req: ServiceRequest) -> Self::Future {
+   |                    ----^^^
+   |                    |
+   |                    help: remove this `mut`
+
+warning: unused variable: `db`
+   --> src\modules\system\model\tag.rs:329:33
+    |
+329 |     pub async fn get_statistics(db: &DbConn) -> Result<Vec<(i64, String, i64)>, DbErr> {
+    |                                 ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `month`
+   --> src\modules\statistics\service\performance_target_service.rs:148:70
+    |
+148 | ...DbConn, year: Option<i32>, month: Option<i32>, order_by: Option<String>, _department_id: Option<i64>) -> Result<Vec<PerformanceR...
+    |                               ^^^^^ help: if this is intentional, prefix it with an underscore: `_month`
+
+warning: unused variable: `contract_actual`
+   --> src\modules\statistics\service\performance_target_service.rs:168:47
+    |
+168 |         let (contract_target, payment_target, contract_actual, payment_actual) = 
+    |                                               ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_contract_actual`
+
+warning: unused variable: `payment_actual`
+   --> src\modules\statistics\service\performance_target_service.rs:168:64
+    |
+168 |         let (contract_target, payment_target, contract_actual, payment_actual) = 
+    |                                                                ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_payment_actual`
+
+warning: unused variable: `db`
+ --> src\modules\statistics\service\customer_stats_service.rs:6:38
+  |
+6 | pub async fn get_customer_type_stats(db: &DbConn, _year: Option<i32>, _month: Option<i32>) -> Result<Vec<CustomerTypeStatsVO>> {
+  |                                      ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\customer_stats_service.rs:37:40
+   |
+37 | pub async fn get_customer_source_stats(db: &DbConn, _year: Option<i32>, _month: Option<i32>) -> Result<Vec<CustomerSourceStatsVO>> {
+   |                                        ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\customer_stats_service.rs:68:42
+   |
+68 | pub async fn get_customer_industry_stats(db: &DbConn, _year: Option<i32>, _month: Option<i32>) -> Result<Vec<CustomerIndustryStatsVO...
+   |                                          ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\customer_stats_service.rs:96:34
+   |
+96 | pub async fn get_customer_funnel(db: &DbConn, _year: Option<i32>, _month: Option<i32>) -> Result<CustomerFunnelStatsVO> {
+   |                                  ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+ --> src\modules\statistics\service\employee_stats_service.rs:6:42
+  |
+6 | pub async fn get_employee_customer_count(db: &DbConn, _department_id: Option<i64>) -> Result<Vec<EmployeeCustomerCountVO>> {
+  |                                          ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\employee_stats_service.rs:31:37
+   |
+31 | pub async fn get_employee_follow_up(db: &DbConn, _year: Option<i32>, _month: Option<i32>, _department_id: Option<i64>) -> Result<Vec...
+   |                                     ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\employee_stats_service.rs:58:38
+   |
+58 | pub async fn get_employee_conversion(db: &DbConn, _year: Option<i32>, _month: Option<i32>, _department_id: Option<i64>) -> Result<Ve...
+   |                                      ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+ --> src\modules\statistics\service\contract_stats_service.rs:6:35
+  |
+6 | pub async fn get_contract_ranking(db: &DbConn, _year: Option<i32>, _month: Option<i32>, order_by: Option<String>, _order_type: Option...
+  |                                   ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\contract_stats_service.rs:55:45
+   |
+55 | pub async fn get_contract_type_distribution(db: &DbConn, _year: Option<i32>, _month: Option<i32>) -> Result<Vec<ContractTypeDistribu...
+   |                                             ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\contract_stats_service.rs:80:43
+   |
+80 | pub async fn get_contract_status_analysis(db: &DbConn, _year: Option<i32>, _month: Option<i32>) -> Result<Vec<ContractStatusAnalysis...
+   |                                           ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+ --> src\modules\statistics\service\payment_stats_service.rs:7:37
+  |
+7 | pub async fn get_payment_completion(db: &DbConn, year: Option<i32>, _month: Option<i32>) -> Result<PaymentCompletionVO> {
+  |                                     ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\payment_stats_service.rs:22:40
+   |
+22 | pub async fn get_payment_monthly_trend(db: &DbConn, year: Option<i32>) -> Result<PaymentMonthlyTrendStatsVO> {
+   |                                        ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\payment_stats_service.rs:55:42
+   |
+55 | pub async fn get_payment_status_analysis(db: &DbConn, _year: Option<i32>, _month: Option<i32>) -> Result<Vec<PaymentStatusAnalysisVO...
+   |                                          ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `db`
+  --> src\modules\statistics\service\payment_stats_service.rs:94:34
+   |
+94 | pub async fn get_payment_ranking(db: &DbConn, _year: Option<i32>, _month: Option<i32>, order_by: Option<String>, _limit: Option<i64>...
+   |                                  ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\admin\audit_controller.rs:21:5
+   |
+21 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\admin\audit_controller.rs:34:5
+   |
+34 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\shop_controller.rs:20:5
+   |
+20 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\shop_controller.rs:34:5
+   |
+34 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\merchant\shop_controller.rs:35:5
+   |
+35 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:20:5
+   |
+20 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:21:5
+   |
+21 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:35:5
+   |
+35 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:36:5
+   |
+36 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:49:5
+   |
+49 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:50:5
+   |
+50 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:70:5
+   |
+70 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:84:5
+   |
+84 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:85:5
+   |
+85 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:98:5
+   |
+98 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\merchant\spu_controller.rs:99:5
+   |
+99 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\order_controller.rs:20:5
+   |
+20 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\merchant\order_controller.rs:21:5
+   |
+21 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\merchant\order_controller.rs:41:5
+   |
+41 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\order_controller.rs:55:5
+   |
+55 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\merchant\order_controller.rs:56:5
+   |
+56 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\refund_controller.rs:20:5
+   |
+20 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\merchant\refund_controller.rs:21:5
+   |
+21 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\merchant\refund_controller.rs:41:5
+   |
+41 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\refund_controller.rs:55:5
+   |
+55 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\merchant\refund_controller.rs:56:5
+   |
+56 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\refund_controller.rs:69:5
+   |
+69 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\merchant\refund_controller.rs:70:5
+   |
+70 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `req`
+  --> src\modules\shop\controller\merchant\settlement_controller.rs:20:5
+   |
+20 |     req: HttpRequest,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_req`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\merchant\settlement_controller.rs:21:5
+   |
+21 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\merchant\settlement_controller.rs:41:5
+   |
+41 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\user\spu_controller.rs:20:5
+   |
+20 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\user\spu_controller.rs:40:5
+   |
+40 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\cart_controller.rs:22:5
+   |
+22 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\cart_controller.rs:53:5
+   |
+53 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\cart_controller.rs:68:5
+   |
+68 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\order_controller.rs:22:5
+   |
+22 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\order_controller.rs:38:5
+   |
+38 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\user\order_controller.rs:53:5
+   |
+53 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\user\order_controller.rs:75:5
+   |
+75 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\order_controller.rs:91:5
+   |
+91 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `body`
+   --> src\modules\shop\controller\user\order_controller.rs:106:5
+    |
+106 |     body: web::Json<serde_json::Value>,
+    |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\review_controller.rs:22:5
+   |
+22 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\user\review_controller.rs:37:5
+   |
+37 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\user\review_controller.rs:57:5
+   |
+57 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\refund_controller.rs:22:5
+   |
+22 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\user\refund_controller.rs:38:5
+   |
+38 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `body`
+  --> src\modules\shop\controller\user\refund_controller.rs:54:5
+   |
+54 |     body: web::Json<serde_json::Value>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_body`
+
+warning: unused variable: `query`
+  --> src\modules\shop\controller\user\refund_controller.rs:69:5
+   |
+69 |     query: web::Query<serde_json::Value>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `client_ip`
+   --> src\modules\finance\service\wechat_pay_service.rs:210:5
+    |
+210 |     client_ip: &str,
+    |     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_client_ip`
+
+warning: unused variable: `db`
+   --> src\modules\finance\controller\user\payment_user_controller.rs:233:9
+    |
+233 |     let db = &state.db;
+    |         ^^ help: if this is intentional, prefix it with an underscore: `_db`
+
+warning: unused variable: `sender_id`
+   --> src\modules\message\service\chat_service.rs:292:5
+    |
+292 |     sender_id: i64,
+    |     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_sender_id`
+
+warning: unused variable: `user_id`
+  --> src\modules\ai\service\background_check_service.rs:14:5
+   |
+14 |     user_id: i64,
+   |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
+
+warning: unused variable: `spec_names`
+   --> src\modules\product\model\product.rs:551:13
+    |
+551 |         let spec_names: Vec<String> = specs.iter().map(|s| s.name.clone()).collect();
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_spec_names`
+
+warning: variable does not need to be mutable
+   --> src\modules\product\service\spec_service.rs:360:22
+    |
+360 |         for (labels, mut map) in results {
+    |                      ----^^^
+    |                      |
+    |                      help: remove this `mut`
+
+warning: unused variable: `total_pages`
+  --> src\modules\product\controller\admin\product_controller.rs:81:26
+   |
+81 |         Ok((list, total, total_pages)) => {
+   |                          ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_total_pages`
+
+For more information about this error, try `rustc --explain E0107`.
+warning: `mxx-crm` (bin "mxx-crm") generated 201 warnings
+error: could not compile `mxx-crm` (bin "mxx-crm") due to 3 previous errors; 201 warnings emitted

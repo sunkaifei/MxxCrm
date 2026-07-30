@@ -15,3 +15,4 @@ pub mod employee_stats;
 pub mod contract_stats;
 pub mod payment_stats;
 pub mod performance_plan;
+pub mod performance_overview;

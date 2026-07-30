@@ -60,6 +60,12 @@ pub struct Model {
     pub next_follow_at: Option<DateTime>,
     pub description: Option<String>,
     pub custom_fields: Option<serde_json::Value>,
+    /// 纬度
+    pub latitude: Option<Decimal>,
+    /// 经度
+    pub longitude: Option<Decimal>,
+    /// 详细地址
+    pub address_detail: Option<String>,
     pub created_by: Option<i64>,
     pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,

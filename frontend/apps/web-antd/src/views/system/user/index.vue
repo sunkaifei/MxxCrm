@@ -113,6 +113,11 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'roleName' },
     },
     {
+      title: '直属上级',
+      field: 'directManagerName',
+      width: 120,
+    },
+    {
       title: $t('ui.table.status'),
       field: 'status',
       width: 80,

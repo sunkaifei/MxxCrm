@@ -3,6 +3,13 @@ import { VbenAvatar } from '@vben-core/shadcn-ui';
 
 interface Props {
   avatar?: string;
+  /** 待办：已处理数/总数 */
+  todoProcessed?: number;
+  todoTotal?: number;
+  /** 客户数 */
+  customerCount?: number;
+  /** 商机数 */
+  opportunityCount?: number;
 }
 
 defineOptions({
@@ -11,6 +18,10 @@ defineOptions({
 
 withDefaults(defineProps<Props>(), {
   avatar: '',
+  customerCount: 0,
+  opportunityCount: 0,
+  todoProcessed: 0,
+  todoTotal: 0,
 });
 </script>
 <template>
@@ -30,16 +41,16 @@ withDefaults(defineProps<Props>(), {
     <div class="mt-4 flex flex-1 justify-end md:mt-0">
       <div class="flex flex-col justify-center text-right">
         <span class="text-foreground/80"> 待办 </span>
-        <span class="text-2xl">2/10</span>
+        <span class="text-2xl">{{ todoProcessed }}/{{ todoTotal }}</span>
       </div>
 
       <div class="mx-12 flex flex-col justify-center text-right md:mx-16">
-        <span class="text-foreground/80"> 项目 </span>
-        <span class="text-2xl">8</span>
+        <span class="text-foreground/80"> 客户 </span>
+        <span class="text-2xl">{{ customerCount }}</span>
       </div>
       <div class="mr-4 flex flex-col justify-center text-right md:mr-10">
-        <span class="text-foreground/80"> 团队 </span>
-        <span class="text-2xl">300</span>
+        <span class="text-foreground/80"> 商机 </span>
+        <span class="text-2xl">{{ opportunityCount }}</span>
       </div>
     </div>
   </div>

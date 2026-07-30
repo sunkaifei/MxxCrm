@@ -25,6 +25,18 @@ pub struct Model {
     pub create_time: Option<DateTime>,
     pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
+    /// 当前审批人 ID（逐级审批流转时更新）
+    pub current_approver_id: Option<i64>,
+    /// 当前审批人姓名
+    pub current_approver_name: Option<String>,
+    /// 当前审批层级（1=一级，2=二级...）
+    pub approval_level: Option<i32>,
+    /// 总审批层级数
+    pub total_levels: Option<i32>,
+    /// 提交审批时间（用于超时计算）
+    pub submit_time: Option<DateTime>,
+    /// 是否已冻结（年底后禁止修改）
+    pub is_frozen: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

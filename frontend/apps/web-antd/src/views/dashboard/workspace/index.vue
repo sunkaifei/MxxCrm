@@ -1,224 +1,445 @@
 <script lang="ts" setup>
-import type {
-  WorkbenchProjectItem,
-  WorkbenchQuickNavItem,
-  WorkbenchTodoItem,
-  WorkbenchTrendItem,
-} from '@vben/common-ui';
+import type { WorkbenchQuickNavItem } from '@vben/common-ui';
 
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import {
-  AnalysisChartCard,
-  WorkbenchHeader,
-  WorkbenchProject,
-  WorkbenchQuickNav,
-  WorkbenchTodo,
-  WorkbenchTrends,
-} from '@vben/common-ui';
+import { WorkbenchHeader, WorkbenchQuickNav } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
 import { useUserStore } from '@vben/stores';
 import { openWindow } from '@vben/utils';
 
-import AnalyticsVisitsSource from '../analytics/analytics-visits-source.vue';
+import { Card, Empty, Spin, Tag } from 'ant-design-vue';
 
-const userStore = useUserStore();
+import {
+  getCustomerListApi,
+  getMenusRouterApi,
+  getOpportunityListApi,
+  getQuickNavPreferenceApi,
+  getSaleSimpleModeApi,
+  getTodaySummaryApi,
+  getTodoApprovalListApi,
+  getTodoFollowUpListApi,
+  getTodoPaymentListApi,
+  getWeekWorkloadApi,
+} from '#/api';
+import type { QuickNavItem } from '#/api';
+import { $t } from '#/locales';
 
-// 这是一个示例数据，实际项目中需要根据实际情况进行调整
-// url 也可以是内部路由，在 navTo 方法中识别处理，进行内部跳转
-// 例如：url: /dashboard/workspace
-const projectItems: WorkbenchProjectItem[] = [
-  {
-    color: '',
-    content: '不要等待机会，而要创造机会。',
-    date: '2021-04-01',
-    group: '开源组',
-    icon: 'carbon:logo-github',
-    title: 'Github',
-    url: 'https://github.com',
-  },
-  {
-    color: '#3fb27f',
-    content: '现在的你决定将来的你。',
-    date: '2021-04-01',
-    group: '算法组',
-    icon: 'ion:logo-vue',
-    title: 'Vue',
-    url: 'https://vuejs.org',
-  },
-  {
-    color: '#e18525',
-    content: '没有什么才能比努力更重要。',
-    date: '2021-04-01',
-    group: '上班摸鱼',
-    icon: 'ion:logo-html5',
-    title: 'Html5',
-    url: 'https://developer.mozilla.org/zh-CN/docs/Web/HTML',
-  },
-  {
-    color: '#bf0c2c',
-    content: '热情和欲望可以突破一切难关。',
-    date: '2021-04-01',
-    group: 'UI',
-    icon: 'ion:logo-angular',
-    title: 'Angular',
-    url: 'https://angular.io',
-  },
-  {
-    color: '#00d8ff',
-    content: '健康的身体是实现目标的基石。',
-    date: '2021-04-01',
-    group: '技术牛',
-    icon: 'bx:bxl-react',
-    title: 'React',
-    url: 'https://reactjs.org',
-  },
-  {
-    color: '#EBD94E',
-    content: '路是走出来的，而不是空想出来的。',
-    date: '2021-04-01',
-    group: '架构组',
-    icon: 'ion:logo-javascript',
-    title: 'Js',
-    url: 'https://developer.mozilla.org/zh-CN/docs/Web/JavaScript',
-  },
-];
-
-// 同样，这里的 url 也可以使用以 http 开头的外部链接
-const quickNavItems: WorkbenchQuickNavItem[] = [
-  {
-    color: '#1fdaca',
-    icon: 'ion:home-outline',
-    title: '首页',
-    url: '/',
-  },
-  {
-    color: '#bf0c2c',
-    icon: 'ion:grid-outline',
-    title: '仪表盘',
-    url: '/dashboard',
-  },
-  {
-    color: '#e18525',
-    icon: 'ion:layers-outline',
-    title: '系统管理',
-    url: '/system/user',
-  },
-  {
-    color: '#3fb27f',
-    icon: 'ion:settings-outline',
-    title: '菜单管理',
-    url: '/system/menu',
-  },
-  {
-    color: '#4daf1bc9',
-    icon: 'ion:key-outline',
-    title: '角色管理',
-    url: '/system/role',
-  },
-  {
-    color: '#00d8ff',
-    icon: 'ion:bar-chart-outline',
-    title: '图表',
-    url: '/analytics',
-  },
-];
-
-const todoItems = ref<WorkbenchTodoItem[]>([
-  {
-    completed: false,
-    content: `审查最近提交到Git仓库的前端代码，确保代码质量和规范。`,
-    date: '2024-07-30 11:00:00',
-    title: '审查前端代码提交',
-  },
-  {
-    completed: true,
-    content: `检查并优化系统性能，降低CPU使用率。`,
-    date: '2024-07-30 11:00:00',
-    title: '系统性能优化',
-  },
-  {
-    completed: false,
-    content: `进行系统安全检查，确保没有安全漏洞或未授权的访问。 `,
-    date: '2024-07-30 11:00:00',
-    title: '安全检查',
-  },
-  {
-    completed: false,
-    content: `更新项目中的所有npm依赖包，确保使用最新版本。`,
-    date: '2024-07-30 11:00:00',
-    title: '更新项目依赖',
-  },
-  {
-    completed: false,
-    content: `修复用户报告的页面UI显示问题，确保在不同浏览器中显示一致。 `,
-    date: '2024-07-30 11:00:00',
-    title: '修复UI显示问题',
-  },
-]);
-const trendItems: WorkbenchTrendItem[] = [
-  {
-    avatar: 'svg:avatar-1',
-    content: `在 <a>开源组</a> 创建了项目 <a>Vue</a>`,
-    date: '刚刚',
-    title: '威廉',
-  },
-  {
-    avatar: 'svg:avatar-2',
-    content: `关注了 <a>威廉</a> `,
-    date: '1个小时前',
-    title: '艾文',
-  },
-  {
-    avatar: 'svg:avatar-3',
-    content: `发布了 <a>个人动态</a> `,
-    date: '1天前',
-    title: '克里斯',
-  },
-  {
-    avatar: 'svg:avatar-4',
-    content: `发表文章 <a>如何编写一个Vite插件</a> `,
-    date: '2天前',
-    title: 'Vben',
-  },
-  {
-    avatar: 'svg:avatar-1',
-    content: `回复了 <a>杰克</a> 的问题 <a>如何进行项目优化？</a>`,
-    date: '3天前',
-    title: '皮特',
-  },
-  {
-    avatar: 'svg:avatar-2',
-    content: `关闭了问题 <a>如何运行项目</a> `,
-    date: '1周前',
-    title: '杰克',
-  },
-  {
-    avatar: 'svg:avatar-3',
-    content: `发布了 <a>个人动态</a> `,
-    date: '1周前',
-    title: '威廉',
-  },
-  {
-    avatar: 'svg:avatar-4',
-    content: `推送了代码到 <a>Github</a>`,
-    date: '2021-04-01 20:00',
-    title: '威廉',
-  },
-  {
-    avatar: 'svg:avatar-4',
-    content: `发表文章 <a>如何编写使用 Admin Vben</a> `,
-    date: '2021-03-01 20:00',
-    title: 'Vben',
-  },
-];
+import TodoOverviewCard from '../components/TodoOverviewCard.vue';
+import WorkLogCard from '../components/WorkLogCard.vue';
+import QuickNavSettingsModal from '../components/QuickNavSettingsModal.vue';
+import QuickProcessModal from '../components/QuickProcessModal.vue';
+// 审批流抽屉组件（复用业务模块现有组件，工作台内嵌打开）
+import OrderApprovalDrawer from '../../sale/order/approval-drawer.vue';
+import ContractApprovalDrawer from '../../crm/contract/approval-drawer.vue';
 
 const router = useRouter();
+const userStore = useUserStore();
 
-// 这是一个示例方法，实际项目中需要根据实际情况进行调整
-// This is a sample method, adjust according to the actual project requirements
-function navTo(nav: WorkbenchProjectItem | WorkbenchQuickNavItem) {
+// ===== 内嵌审批抽屉 =====
+const approvalDrawerOrderId = ref<number | null>(null);
+const approvalDrawerContractId = ref<number | null>(null);
+const orderApprovalVisible = ref(false);
+const contractApprovalVisible = ref(false);
+const approvalCurrentUserId = computed(() => userStore.userInfo?.userId);
+
+// 处理 QuickProcessModal 的查看审批流详情事件：在工作台内嵌打开抽屉
+function handleViewApproval(payload: {
+  businessType: string;
+  businessId: number;
+  instanceId: number;
+}) {
+  const { businessType, businessId } = payload;
+  switch (businessType) {
+    case 'order': {
+      approvalDrawerOrderId.value = businessId;
+      orderApprovalVisible.value = true;
+      break;
+    }
+    case 'contract': {
+      approvalDrawerContractId.value = businessId;
+      contractApprovalVisible.value = true;
+      break;
+    }
+    default: {
+      // 报价单/回款/发票等其他业务暂无独立审批抽屉，跳转审批待办页
+      router
+        .push(`/system/approval/todo?instanceId=${payload.instanceId}`)
+        .catch(() => {});
+      break;
+    }
+  }
+}
+
+// 审批抽屉操作成功后刷新待办列表
+function handleApprovalSuccess() {
+  loadSmartTodos();
+  workLogRefreshKey.value++;
+}
+
+// ===== 工作日志刷新 key =====
+const workLogRefreshKey = ref(0);
+
+// ===== 快捷导航 =====
+const quickNavItems = ref<WorkbenchQuickNavItem[]>([]);
+const navSettingsVisible = ref(false);
+// 销售简易模式开关
+const saleSimpleMode = ref(false);
+
+// 标准模式默认快捷导航（按销售流程排序：客户→商机→报价单→订单→合同→回款）
+const defaultQuickNavStandard: WorkbenchQuickNavItem[] = [
+  {
+    color: '#1890ff',
+    icon: 'lucide:users',
+    title: $t('page.crm.customer.title'),
+    url: '/crm/customer',
+  },
+  {
+    color: '#52c41a',
+    icon: 'lucide:target',
+    title: $t('page.crm.opportunity.title'),
+    url: '/sale/opportunity',
+  },
+  {
+    color: '#722ed1',
+    icon: 'lucide:file-text',
+    title: $t('page.sale.quotation.title'),
+    url: '/sale/quotation',
+  },
+  {
+    color: '#faad14',
+    icon: 'lucide:shopping-cart',
+    title: $t('page.sale.order.title'),
+    url: '/sale/order',
+  },
+  {
+    color: '#13c2c2',
+    icon: 'lucide:file-text',
+    title: $t('page.crm.contract.title'),
+    url: '/sale/contract',
+  },
+  {
+    color: '#eb2f96',
+    icon: 'lucide:wallet',
+    title: $t('page.sale.payment.title'),
+    url: '/sale/payment',
+  },
+];
+
+// 简易模式默认快捷导航（按销售流程排序：线索→客户→商机→报价单→订单→合同）
+const defaultQuickNavSimple: WorkbenchQuickNavItem[] = [
+  {
+    color: '#1890ff',
+    icon: 'lucide:contact',
+    title: $t('page.crm.lead.title'),
+    url: '/crm/lead',
+  },
+  {
+    color: '#52c41a',
+    icon: 'lucide:users',
+    title: $t('page.crm.customer.title'),
+    url: '/crm/customer',
+  },
+  {
+    color: '#722ed1',
+    icon: 'lucide:target',
+    title: $t('page.crm.opportunity.title'),
+    url: '/sale/opportunity',
+  },
+  {
+    color: '#faad14',
+    icon: 'lucide:file-text',
+    title: $t('page.sale.quotation.title'),
+    url: '/sale/quotation',
+  },
+  {
+    color: '#13c2c2',
+    icon: 'lucide:shopping-cart',
+    title: $t('page.sale.order.title'),
+    url: '/sale/order',
+  },
+  {
+    color: '#eb2f96',
+    icon: 'lucide:file-text',
+    title: $t('page.crm.contract.title'),
+    url: '/sale/contract',
+  },
+];
+
+// 根据简易模式返回默认导航
+function getDefaultQuickNavItems(): WorkbenchQuickNavItem[] {
+  return saleSimpleMode.value
+    ? defaultQuickNavSimple
+    : defaultQuickNavStandard;
+}
+
+// 展平菜单树，只保留有 path 的叶子节点
+function flattenMenus(menus: any[]): any[] {
+  const result: any[] = [];
+  const traverse = (list: any[]) => {
+    if (!Array.isArray(list)) return;
+    for (const menu of list) {
+      if (!menu) continue;
+      const children = menu.children || [];
+      if (menu.path && children.length === 0) {
+        result.push(menu);
+      }
+      if (children.length > 0) {
+        traverse(children);
+      }
+    }
+  };
+  traverse(menus);
+  return result;
+}
+
+async function loadQuickNav() {
+  try {
+    // 并行加载简易模式开关和快捷导航配置
+    const [simpleMode, prefResp]: any = await Promise.all([
+      getSaleSimpleModeApi().catch(() => false),
+      getQuickNavPreferenceApi().catch(() => null),
+    ]);
+    saleSimpleMode.value = !!simpleMode;
+
+    const savedPref: QuickNavItem[] = Array.isArray(prefResp)
+      ? prefResp
+      : prefResp?.items || [];
+
+    if (!savedPref || savedPref.length === 0) {
+      // 无自定义配置，使用简易模式/标准模式默认导航
+      quickNavItems.value = getDefaultQuickNavItems();
+      return;
+    }
+
+    const menuResp: any = await getMenusRouterApi({});
+    const allMenus = flattenMenus(menuResp?.items || menuResp || []);
+
+    // 按 sort 顺序匹配前 6 个
+    const sortedPref = [...savedPref].sort(
+      (a, b) => (a.sort ?? 0) - (b.sort ?? 0),
+    );
+    const items: WorkbenchQuickNavItem[] = [];
+    for (const pref of sortedPref) {
+      if (items.length >= 6) break;
+      const menu = allMenus.find((m) => m.id === pref.menuId);
+      if (!menu) continue;
+      const meta = menu.meta || {};
+      const rawTitle = meta.title || menu.name || menu.path;
+      const title =
+        typeof rawTitle === 'string' && rawTitle.startsWith('page.')
+          ? $t(rawTitle)
+          : rawTitle;
+      items.push({
+        color: '#1890ff',
+        icon: meta.icon || 'lucide:menu',
+        title: typeof title === 'string' ? title : String(title || ''),
+        url: menu.path,
+      });
+    }
+    quickNavItems.value =
+      items.length > 0 ? items : getDefaultQuickNavItems();
+  } catch {
+    quickNavItems.value = getDefaultQuickNavItems();
+  }
+}
+
+// ===== 智能待办 =====
+interface SmartTodoItem {
+  id: number;
+  type: 'approval' | 'followUp' | 'payment';
+  title: string;
+  meta: string;
+  color: string;
+  badge?: number;
+  raw: any;
+}
+
+const todoLoading = ref(false);
+const todoItems = ref<SmartTodoItem[]>([]);
+const todoTotalCount = ref(0);
+const quickProcessVisible = ref(false);
+const currentTodoItem = ref<any>(null);
+
+// ===== WorkbenchHeader 动态数据 =====
+// 今日已处理数（来自 mxx_work_log 持久化，由后端聚合接口返回）
+const todoProcessed = ref(0);
+// 今日待办总数（= 已处理数 + 剩余待办数，由后端聚合接口返回）
+const todoTotal = ref(0);
+const customerCount = ref(0);
+const opportunityCount = ref(0);
+
+const todoCount = computed(() => todoTotalCount.value);
+
+// 审批业务类型中文映射
+const businessTypeMap: Record<string, string> = {
+  order: '订单',
+  quotation: '报价单',
+  contract: '合同',
+  payment: '回款',
+  invoice: '发票',
+  opportunity: '商机',
+  customer: '客户',
+};
+
+async function loadSmartTodos() {
+  todoLoading.value = true;
+  try {
+    const [approvalResp, followUpResp, paymentResp]: any[] =
+      await Promise.all([
+        getTodoApprovalListApi({ pageNum: 1, pageSize: 2 }).catch(
+          () => ({ items: [], total: 0 }),
+        ),
+        getTodoFollowUpListApi({
+          pageNum: 1,
+          pageSize: 2,
+          rangeType: 'overdue',
+        }).catch(() => ({ items: [], total: 0 })),
+        getTodoPaymentListApi({ pageNum: 1, pageSize: 2, days: 7 }).catch(
+          () => ({ items: [], total: 0 }),
+        ),
+      ]);
+
+    const items: SmartTodoItem[] = [];
+
+    // 审批待办
+    const approvalItems = approvalResp?.items || [];
+    approvalItems.forEach((item: any) => {
+      const bizName = businessTypeMap[item.businessType] || '业务';
+      const submitter = item.submitterName || '某人';
+      const bizTitle = item.businessTitle || '';
+      items.push({
+        id: item.id,
+        type: 'approval',
+        title: bizTitle || `${bizName}审批`,
+        meta: `由 ${submitter} 发起的${bizName} ${bizTitle} 审批流程，请尽快审核`,
+        color: '#1890ff',
+        raw: item,
+      });
+    });
+
+    // 跟进待办
+    const followUpItems = followUpResp?.items || [];
+    followUpItems.forEach((item: any) => {
+      const overdueDays = item.overdueDays || 0;
+      const itemTypeText = item.itemType === 'lead' ? '线索' : '客户';
+      items.push({
+        id: item.id,
+        type: 'followUp',
+        title: item.name || `${itemTypeText}跟进`,
+        meta: `该${itemTypeText}已逾期 ${overdueDays} 天未跟进，请尽快联系`,
+        color: '#ff4d4f',
+        raw: item,
+      });
+    });
+
+    // 待回款
+    const paymentItems = paymentResp?.items || [];
+    paymentItems.forEach((item: any) => {
+      const planAmount = item.planAmount || 0;
+      const remainingDays = item.remainingDays ?? 0;
+      const contractTitle = item.contractTitle || '';
+      const stageName = item.stageName || '回款阶段';
+      const timeDesc =
+        remainingDays < 0
+          ? `已逾期 ${Math.abs(remainingDays)} 天`
+          : remainingDays === 0
+            ? '今日到期'
+            : `还有 ${remainingDays} 天到期`;
+      items.push({
+        id: item.id,
+        type: 'payment',
+        title: `${stageName} - ${contractTitle || '回款提醒'}`,
+        meta: `计划回款 ¥${planAmount}，${timeDesc}，请尽快跟进回款`,
+        color: '#13c2c2',
+        raw: item,
+      });
+    });
+
+    // 汇总总数
+    todoTotalCount.value =
+      (approvalResp?.total || 0) +
+      (followUpResp?.total || 0) +
+      (paymentResp?.total || 0);
+
+    // 最多显示 5 条
+    todoItems.value = items.slice(0, 5);
+  } catch {
+    todoItems.value = [];
+    todoTotalCount.value = 0;
+  } finally {
+    todoLoading.value = false;
+  }
+}
+
+function handleTodoClick(item: SmartTodoItem) {
+  const raw = item.raw || {};
+  currentTodoItem.value = {
+    ...raw,
+    type: item.type,
+    // 审批类型：raw.businessId 是业务ID（如订单ID），raw.id 是审批实例ID，不能覆盖
+    // 其他类型：raw.id 即为业务ID，作为 businessId 传给快速处理弹窗
+    businessId:
+      item.type === 'approval' ? raw.businessId : raw.id,
+    businessTitle: item.title,
+  };
+  quickProcessVisible.value = true;
+}
+
+function handleProcessed() {
+  loadSmartTodos();
+  loadTodaySummary();
+  workLogRefreshKey.value++;
+}
+
+// ===== 待办概览卡片点击 =====
+const overviewRouteMap: Record<string, string> = {
+  approval: '/system/approval/todo',
+  followUp: '/crm/customer',
+  payment: '/sale/payment',
+  contract: '/sale/contract',
+  opportunity: '/sale/opportunity',
+};
+
+function handleOverviewClick(tabKey: string) {
+  // 跳转到对应业务列表页
+  const path = overviewRouteMap[tabKey];
+  if (path) {
+    router.push(path).catch(() => {
+      // 跳转失败忽略
+    });
+  }
+}
+
+// ===== 本周工作负载 =====
+const weekLoading = ref(false);
+const weekWorkload = ref<Array<{ day: string; count: number }>>([]);
+
+const weekMaxCount = computed(() => {
+  return Math.max(1, ...weekWorkload.value.map((w) => w.count || 0));
+});
+
+async function loadWeekWorkload() {
+  weekLoading.value = true;
+  try {
+    const res: any = await getWeekWorkloadApi();
+    if (Array.isArray(res)) {
+      weekWorkload.value = res;
+    } else if (Array.isArray(res?.items)) {
+      weekWorkload.value = res.items;
+    } else {
+      weekWorkload.value = [];
+    }
+  } catch {
+    weekWorkload.value = [];
+  } finally {
+    weekLoading.value = false;
+  }
+}
+
+// ===== 快捷导航点击跳转 =====
+function navTo(nav: WorkbenchQuickNavItem) {
   if (nav.url?.startsWith('http')) {
     openWindow(nav.url);
     return;
@@ -231,36 +452,244 @@ function navTo(nav: WorkbenchProjectItem | WorkbenchQuickNavItem) {
     console.warn(`Unknown URL for navigation item: ${nav.title} -> ${nav.url}`);
   }
 }
+
+// ===== WorkbenchHeader 动态数据加载 =====
+// 加载客户总数
+async function loadCustomerCount() {
+  try {
+    const res: any = await getCustomerListApi({ pageNum: 1, pageSize: 1 });
+    customerCount.value = res?.total || 0;
+  } catch {
+    customerCount.value = 0;
+  }
+}
+
+// 加载商机总数（自己的商机数量）
+async function loadOpportunityCount() {
+  try {
+    const res: any = await getOpportunityListApi({ pageNum: 1, pageSize: 1 });
+    opportunityCount.value = res?.total || 0;
+  } catch {
+    opportunityCount.value = 0;
+  }
+}
+
+// 加载今日待办汇总（已处理数 + 总数 + 完成率，来自后端聚合接口）
+// 已处理数来自 mxx_work_log 持久化，剩余数实时查询，总数 = 已处理 + 剩余
+async function loadTodaySummary() {
+  try {
+    const res: any = await getTodaySummaryApi();
+    todoProcessed.value = res?.todoProcessed || 0;
+    todoTotal.value = res?.todoTotal || 0;
+  } catch {
+    todoProcessed.value = 0;
+    todoTotal.value = 0;
+  }
+}
+
+onMounted(() => {
+  loadQuickNav();
+  loadSmartTodos();
+  loadWeekWorkload();
+  loadCustomerCount();
+  loadOpportunityCount();
+  loadTodaySummary();
+});
 </script>
 
 <template>
   <div class="p-5">
     <WorkbenchHeader
       :avatar="userStore.userInfo?.avatar || preferences.app.defaultAvatar"
+      :customer-count="customerCount"
+      :opportunity-count="opportunityCount"
+      :todo-processed="todoProcessed"
+      :todo-total="todoTotal"
     >
       <template #title>
         早安, {{ userStore.userInfo?.realName }}, 开始您一天的工作吧！
       </template>
-      <template #description> 今日晴，20℃ - 32℃！ </template>
+      <template #description>
+        {{ $t('page.dashboard.todoList') }} {{ todoCount }} 项
+      </template>
     </WorkbenchHeader>
 
-    <div class="mt-5 flex flex-col lg:flex-row">
-      <div class="mr-4 w-full lg:w-3/5">
-        <WorkbenchProject :items="projectItems" title="项目" @click="navTo" />
-        <WorkbenchTrends :items="trendItems" class="mt-5" title="最新动态" />
+    <div class="mt-5 flex flex-col gap-5 lg:flex-row">
+      <!-- 左列 3/5 -->
+      <div class="flex w-full flex-col gap-5 lg:w-3/5">
+        <TodoOverviewCard @click-card="handleOverviewClick" />
+        <WorkLogCard :refresh-key="workLogRefreshKey" />
       </div>
-      <div class="w-full lg:w-2/5">
-        <WorkbenchQuickNav
-          :items="quickNavItems"
-          class="mt-5 lg:mt-0"
-          title="快捷导航"
-          @click="navTo"
-        />
-        <WorkbenchTodo :items="todoItems" class="mt-5" title="待办事项" />
-        <AnalysisChartCard class="mt-5" title="访问来源">
-          <AnalyticsVisitsSource />
-        </AnalysisChartCard>
+      <!-- 右列 2/5 -->
+      <div class="flex w-full flex-col gap-5 lg:w-2/5">
+        <!-- 快捷导航 + 设置图标 -->
+        <div class="relative">
+          <WorkbenchQuickNav
+            :items="quickNavItems"
+            :title="$t('page.dashboard.quickNav')"
+            @click="navTo"
+          />
+          <button
+            class="settings-btn absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-600"
+            type="button"
+            :title="$t('page.dashboard.settings')"
+            @click="navSettingsVisible = true"
+          >
+            <svg
+              class="size-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- 智能待办 -->
+        <Card>
+          <template #title>
+            <div class="flex items-center gap-2">
+              <span
+                class="inline-block size-2 rounded-full bg-red-500"
+                aria-hidden="true"
+              ></span>
+              <span>{{ $t('page.dashboard.todoList') }}</span>
+            </div>
+          </template>
+          <Spin :spinning="todoLoading">
+            <div v-if="todoItems.length > 0" class="todo-list">
+              <div
+                v-for="item in todoItems"
+                :key="`${item.type}-${item.id}`"
+                class="todo-item flex cursor-pointer items-start gap-3 py-3 transition hover:bg-gray-50"
+                @click="handleTodoClick(item)"
+              >
+                <span
+                  class="mt-1.5 inline-block size-2 shrink-0 rounded-full"
+                  :style="{ background: item.color }"
+                  aria-hidden="true"
+                ></span>
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-sm font-medium text-gray-800">
+                    {{ item.title }}
+                  </div>
+                  <div class="mt-0.5 truncate text-xs text-gray-500">
+                    {{ item.meta }}
+                  </div>
+                </div>
+                <Tag v-if="item.badge" color="red" class="ml-2 shrink-0">
+                  {{ item.badge }}
+                </Tag>
+              </div>
+            </div>
+            <Empty
+              v-else
+              :image="Empty.PRESENTED_IMAGE_SIMPLE"
+              description="暂无待办"
+              class="py-8"
+            />
+          </Spin>
+        </Card>
+
+        <!-- 本周工作负载 -->
+        <Card>
+          <template #title>
+            <div class="flex items-center gap-2">
+              <span
+                class="inline-block size-2 rounded-full bg-blue-500"
+                aria-hidden="true"
+              ></span>
+              <span>{{ $t('page.dashboard.weekWorkload') }}</span>
+            </div>
+          </template>
+          <Spin :spinning="weekLoading">
+            <div
+              v-if="weekWorkload.length > 0"
+              class="week-chart flex h-40 items-end justify-between gap-2 px-2"
+            >
+              <div
+                v-for="(w, idx) in weekWorkload"
+                :key="idx"
+                class="flex flex-1 flex-col items-center gap-1"
+              >
+                <div class="text-xs text-gray-500">{{ w.count || 0 }}</div>
+                <div
+                  class="w-full rounded-t transition-all duration-300"
+                  :style="{
+                    height: `${Math.max(
+                      4,
+                      ((w.count || 0) / weekMaxCount) * 110,
+                    )}px`,
+                    background: 'linear-gradient(180deg, #1890ff, #69c0ff)',
+                  }"
+                ></div>
+                <div class="text-xs text-gray-600">{{ w.day }}</div>
+              </div>
+            </div>
+            <Empty
+              v-else
+              :image="Empty.PRESENTED_IMAGE_SIMPLE"
+              description="暂无数据"
+              class="py-8"
+            />
+          </Spin>
+        </Card>
       </div>
     </div>
+
+    <!-- 快速处理弹窗 -->
+    <QuickProcessModal
+      v-model:visible="quickProcessVisible"
+      :todo-item="currentTodoItem"
+      @processed="handleProcessed"
+      @view-approval="handleViewApproval"
+    />
+    <!-- 快捷导航设置弹窗 -->
+    <QuickNavSettingsModal
+      v-model:visible="navSettingsVisible"
+      @saved="loadQuickNav"
+    />
+
+    <!-- 内嵌审批流抽屉：复用业务模块组件，避免跳转 -->
+    <!-- 始终挂载（visible 初始 false 不显示），确保 watch visible 能正常触发 loadDetail -->
+    <OrderApprovalDrawer
+      v-model:visible="orderApprovalVisible"
+      :order-id="approvalDrawerOrderId"
+      :current-user-id="approvalCurrentUserId"
+      @success="handleApprovalSuccess"
+    />
+    <ContractApprovalDrawer
+      v-model:visible="contractApprovalVisible"
+      :contract-id="approvalDrawerContractId"
+      :current-user-id="approvalCurrentUserId"
+      @success="handleApprovalSuccess"
+    />
   </div>
 </template>
+
+<style scoped>
+.todo-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.todo-item + .todo-item {
+  border-top: 1px dashed #f0f0f0;
+}
+
+/* 设置按钮：父级 hover 时显示 */
+.relative:hover .settings-btn {
+  opacity: 1;
+}
+</style>

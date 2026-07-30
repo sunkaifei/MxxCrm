@@ -70,79 +70,16 @@ pub async fn delete(db: &DbConn, contract_id: i64) -> Result<i64> {
     Ok(result)
 }
 
+/// 根据用户ID获取其数据权限范围内的所有用户ID
+///
+/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
+/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
 async fn get_accessible_user_ids(
     db: &DbConn,
     current_user_id: i64,
-    data_scope: Option<i32>,
+    _data_scope: Option<i32>,
 ) -> Result<Option<Vec<i64>>> {
-    match data_scope {
-        Some(1) => Ok(None),
-        Some(5) => Ok(Some(vec![current_user_id])),
-        Some(3) | Some(4) | Some(2) | Some(0) | Some(_) => {
-            let user_depts = AdminDeptMergeModel::find_by_admin_id(db, current_user_id).await
-                .map_err(|e| Error::from(format!("查询用户部门失败: {}", e)))?;
-
-            let mut target_dept_ids = Vec::new();
-
-            if data_scope == Some(2) {
-                let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-                for role in roles {
-                    if role.data_scope == Some(2) {
-                        if let Some(role_id) = role.id {
-                            let dept_result = crate::modules::system::model::role_dept_merge::RoleDeptMergeModel::find_by_role_id(db, &Some(role_id)).await
-                                .map_err(|e| Error::from(format!("查询角色部门关联失败: {}", e)))?;
-                            for merge in dept_result {
-                                if let Some(dept_id) = merge.dept_id {
-                                    target_dept_ids.push(dept_id);
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                for merge in &user_depts {
-                    if let Some(dept_id) = merge.dept_id {
-                        target_dept_ids.push(dept_id);
-                    }
-                }
-            }
-
-            if target_dept_ids.is_empty() {
-                return Ok(Some(vec![current_user_id]));
-            }
-
-            let all_depts = DeptModel::find_all(db).await
-                .map_err(|e| Error::from(format!("查询部门列表失败: {}", e)))?;
-
-            let mut all_target_ids = Vec::new();
-            for dept_id in &target_dept_ids {
-                if data_scope == Some(4) || data_scope == Some(2) {
-                    all_target_ids.extend(collect_child_dept_ids(&all_depts, *dept_id));
-                } else {
-                    all_target_ids.push(*dept_id);
-                }
-            }
-
-            all_target_ids.sort();
-            all_target_ids.dedup();
-
-            let dept_merges = AdminDeptMergeModel::find_by_dept_id(db, all_target_ids).await
-                .map_err(|e| Error::from(format!("查询部门用户失败: {}", e)))?;
-
-            let mut user_ids: Vec<i64> = dept_merges.iter()
-                .filter_map(|m| m.admin_id)
-                .collect();
-            user_ids.sort();
-            user_ids.dedup();
-
-            if user_ids.is_empty() {
-                Ok(Some(vec![current_user_id]))
-            } else {
-                Ok(Some(user_ids))
-            }
-        }
-        None => Ok(None),
-    }
+    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
 }
 
 fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {

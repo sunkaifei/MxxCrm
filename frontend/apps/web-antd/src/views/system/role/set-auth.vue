@@ -3,7 +3,7 @@ import { useVbenDrawer } from '@vben/common-ui';
 import { ref, computed, nextTick } from 'vue';
 import {
   MenuApi,
-  getMenuTreeApi,
+  getMenuOptionsApi,
   buildMenuTree,
   updateRoleAuthApi,
   updateRoleApi,
@@ -118,11 +118,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
     deptCheckedKeys.value = [];
     dataScopeValue.value = 5;
 
-    // 加载菜单树（后端已返回树形结构）
-    const menuResult = await getMenuTreeApi(null);
-    const menuList = Array.isArray(menuResult)
-      ? menuResult
-      : menuResult?.items || [];
+    // 加载当前用户可授权的菜单树（后端 /menu/options 已按用户权限过滤）
+    const menuList = await getMenuOptionsApi();
     // 递归翻译菜单名称（包含 BUTTON 类型的权限按钮）
     const translateMenu = (items: any[]): any[] => {
       return items.map((item) => {
@@ -252,9 +249,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       message.success($t('ui.notification.update_success'));
       drawerApi.close();
-    } catch (err: any) {
-      const errMsg = err?.response?.data?.msg || err?.message || $t('ui.notification.update_error');
-      message.error(errMsg);
+    } catch {
+      // 错误提示由 request.ts 拦截器统一处理，此处不再重复弹出
     } finally {
       setLoading(false);
     }

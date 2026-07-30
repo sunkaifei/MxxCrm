@@ -30,3 +30,57 @@ export const getApprovalDetailApi = async (id: number) =>
 
 export const getApprovalListApi = async (params?: any) =>
   requestClient.get('/api/system/approval/list', { params });
+
+// ============ 审批增强：取消/退回/转办/委派/加签/抄送 ============
+
+/** 发起人撤回审批 */
+export const cancelApprovalApi = async (data: {
+  instanceId: number;
+  cancelReason?: string;
+}) => requestClient.post('/api/system/approval/cancel', data);
+
+/** 退回（退回到发起人修改 或 指定节点） */
+export const rejectToApprovalApi = async (data: {
+  instanceId: number;
+  rejectToNodeKey?: string;
+  comment?: string;
+}) => requestClient.post('/api/system/approval/reject-to', data);
+
+/** 转办（当前审批人转给他人，责任转移） */
+export const transferApprovalApi = async (data: {
+  instanceId: number;
+  targetUserId: number;
+  targetUserName?: string;
+  comment?: string;
+}) => requestClient.post('/api/system/approval/transfer', data);
+
+/** 委派（委托他人处理，责任仍归原审批人） */
+export const delegateApprovalApi = async (data: {
+  instanceId: number;
+  targetUserId: number;
+  targetUserName?: string;
+  comment?: string;
+}) => requestClient.post('/api/system/approval/delegate', data);
+
+/** 加签（1=前加签,2=后加签,3=并加签） */
+export const addSignApprovalApi = async (data: {
+  instanceId: number;
+  addSignType: number;
+  targetUserIds: number[];
+  comment?: string;
+}) => requestClient.post('/api/system/approval/add-sign', data);
+
+/** 添加抄送 */
+export const addCcApprovalApi = async (data: {
+  instanceId: number;
+  userIds: number[];
+  ccReason?: string;
+}) => requestClient.post('/api/system/approval/cc/add', data);
+
+/** 我的抄送列表 */
+export const getCcListApi = async (params?: any) =>
+  requestClient.get('/api/system/approval/cc/list', { params });
+
+/** 标记抄送已读 */
+export const markCcReadApi = async (id: number) =>
+  requestClient.post(`/api/system/approval/cc/read/${id}`);

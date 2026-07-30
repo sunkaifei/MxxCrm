@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 pub mod admin;
+pub mod admin_preference;
 pub mod admin_role_merge;
 
 pub mod admin_post_merge;

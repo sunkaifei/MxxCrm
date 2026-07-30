@@ -6,6 +6,7 @@ import { $t } from '#/locales';
 import { useVbenForm } from '#/adapter/form';
 import {
   createUserApi,
+  getAdminOptionsApi,
   getDeptTreeApi,
   getPostOptionsApi,
   getRoleOptionsApi,
@@ -135,6 +136,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
         },
       },
       formItemClass: 'col-span-2',
+      rules: z
+        .array(z.any(), { required_error: $t('ui.formRules.required') })
+        .min(1, { message: '部门为必选项，请至少选择一个部门' }),
     },
     {
       component: 'ApiSelect',
@@ -150,6 +154,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
           return await getRoleOptionsApi();
         },
       },
+      rules: z
+        .array(z.any(), { required_error: $t('ui.formRules.required') })
+        .min(1, { message: '角色为必选项，请至少选择一个角色' }),
     },
     {
       component: 'ApiSelect',
@@ -163,6 +170,24 @@ const [BaseForm, baseFormApi] = useVbenForm({
         optionFilterProp: 'label',
         api: async () => {
           return await getPostOptionsApi();
+        },
+      },
+      rules: z
+        .array(z.any(), { required_error: $t('ui.formRules.required') })
+        .min(1, { message: '岗位为必选项，请至少选择一个岗位' }),
+    },
+    {
+      component: 'ApiSelect',
+      fieldName: 'directManagerId',
+      label: '直属上级',
+      help: '用于审批流向上查找领导，未配置则视为顶层决策人（审批自动通过）',
+      componentProps: {
+        placeholder: '请选择直属上级（可选）',
+        allowClear: true,
+        showSearch: true,
+        optionFilterProp: 'label',
+        api: async () => {
+          return await getAdminOptionsApi();
         },
       },
     },
@@ -228,6 +253,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
     setLoading(true);
 
     const values = await baseFormApi.getValues();
+
+    // 直属上级：清空时显式传 0，后端据此清除 direct_manager_id
+    // 否则 undefined 会被 JSON 序列化时丢弃，导致后端无法区分"不更新"和"清空"
+    if (values.directManagerId === null || values.directManagerId === undefined || values.directManagerId === '') {
+      values.directManagerId = 0;
+    }
 
     try {
       if (isCreate.value) {

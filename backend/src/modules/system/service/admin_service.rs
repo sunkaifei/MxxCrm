@@ -65,6 +65,31 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
     if is_demo_mode() {
         return Err(Error::from("演示站模式下禁止新增用户"));
     }
+    // 部门必选校验：所有用户必须归属至少一个部门（用于审批流向上查找领导和数据权限隔离）
+    if form_data.dept_ids.as_ref().map_or(true, |ids| ids.is_empty()) {
+        return Err(Error::from("部门为必选项，请至少选择一个部门"));
+    }
+    // 角色必选校验：所有用户必须分配至少一个角色（用于功能权限控制）
+    if form_data.role_ids.as_ref().map_or(true, |ids| ids.is_empty()) {
+        return Err(Error::from("角色为必选项，请至少选择一个角色"));
+    }
+    // 岗位必选校验：所有用户必须分配至少一个岗位（用于审批流按岗位解析审批人）
+    if form_data.post_ids.as_ref().map_or(true, |ids| ids.is_empty()) {
+        return Err(Error::from("岗位为必选项，请至少选择一个岗位"));
+    }
+    // 直属上级自引用校验
+    if let Some(mid) = form_data.direct_manager_id {
+        if mid > 0 {
+            // 新增时无用户ID，跳过自引用检查；调用方应保证不会自引用
+            // 校验上级用户是否存在且启用
+            let manager = AdminModel::find_by_id(db, &Some(mid)).await
+                .map_err(|e| Error::from(format!("查询直属上级失败: {}", e)))?
+                .ok_or_else(|| Error::from("直属上级用户不存在"))?;
+            if manager.status.unwrap_or(0) != 1 {
+                return Err(Error::from("直属上级用户已停用，请选择其他用户"));
+            }
+        }
+    }
     let mut dto_data = AdminSaveDTO::from(form_data.clone());
 
     if let Some(password) = &form_data.password {
@@ -211,11 +236,43 @@ pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result
     if is_demo_mode() {
         return Err(Error::from("演示站模式下禁止修改用户信息"));
     }
-    let dto_data = AdminSaveDTO::from(form_data.clone());
     let admin_id = match form_data.id {
         Some(id) => id,
         None => return Err(Error::from("管理员ID不能为空")),
     };
+    // 部门必选校验：若前端显式传入 dept_ids（包括空数组），不允许清空所有部门
+    if let Some(ref ids) = form_data.dept_ids {
+        if ids.is_empty() {
+            return Err(Error::from("部门为必选项，不能清空所有部门"));
+        }
+    }
+    // 角色必选校验：若前端显式传入 role_ids（包括空数组），不允许清空所有角色
+    if let Some(ref ids) = form_data.role_ids {
+        if ids.is_empty() {
+            return Err(Error::from("角色为必选项，不能清空所有角色"));
+        }
+    }
+    // 岗位必选校验：若前端显式传入 post_ids（包括空数组），不允许清空所有岗位
+    if let Some(ref ids) = form_data.post_ids {
+        if ids.is_empty() {
+            return Err(Error::from("岗位为必选项，不能清空所有岗位"));
+        }
+    }
+    // 直属上级自引用校验：不允许将自己设为直属上级
+    if let Some(mid) = form_data.direct_manager_id {
+        if mid > 0 {
+            if mid == admin_id {
+                return Err(Error::from("不能将自己设为直属上级"));
+            }
+            let manager = AdminModel::find_by_id(db, &Some(mid)).await
+                .map_err(|e| Error::from(format!("查询直属上级失败: {}", e)))?
+                .ok_or_else(|| Error::from("直属上级用户不存在"))?;
+            if manager.status.unwrap_or(0) != 1 {
+                return Err(Error::from("直属上级用户已停用，请选择其他用户"));
+            }
+        }
+    }
+    let dto_data = AdminSaveDTO::from(form_data.clone());
     
     let result = (*db).transaction::<_, _, Error>(|tx| {
         let dept_ids = form_data.dept_ids.clone();
@@ -389,7 +446,15 @@ pub async fn get_by_detail(db: &DbConn, id: &Option<i64>) -> Result<AdminDetailV
                 &id.unwrap_or_default()
             ))
         })?;
-    let result = AdminDetailVO::from(result_data);
+    let mut result = AdminDetailVO::from(result_data);
+    // 补充直属上级姓名
+    if let Some(mid) = result.direct_manager_id {
+        if mid > 0 {
+            if let Some(manager) = AdminModel::find_by_id(db, &Some(mid)).await? {
+                result.direct_manager_name = manager.nick_name.or(manager.user_name);
+            }
+        }
+    }
     Ok(result)
 }
 
@@ -469,8 +534,30 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             login_ip: data.login_ip,
             login_date: data.login_date.map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string()),
             create_time: Option::from(data.create_time.unwrap_or_default().format("%Y-%m-%d %H:%M:%S").to_string()),
+            direct_manager_id: data.direct_manager_id,
+            direct_manager_name: None,
         });
 
+    }
+
+    // 批量查询直属上级姓名，避免 N+1
+    let manager_ids: Vec<i64> = list_data.iter()
+        .filter_map(|v| v.direct_manager_id.filter(|&id| id > 0))
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    if !manager_ids.is_empty() {
+        let managers = AdminModel::find_by_id_in(db, manager_ids).await.unwrap_or_default();
+        let manager_map: std::collections::HashMap<i64, String> = managers.into_iter()
+            .map(|m| (m.id, m.nick_name.or(m.user_name).unwrap_or_default()))
+            .collect();
+        for item in list_data.iter_mut() {
+            if let Some(mid) = item.direct_manager_id {
+                if let Some(name) = manager_map.get(&mid) {
+                    item.direct_manager_name = Some(name.clone());
+                }
+            }
+        }
     }
 
     let count = AdminModel::select_count(db, select_where.clone()).await.unwrap_or(0);

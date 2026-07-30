@@ -29,6 +29,19 @@ pub struct Model {
     pub update_time: Option<DateTime>,
     #[sea_orm(column_type = "JsonBinary", nullable)]
     pub extra_data: Option<serde_json::Value>,
+    /// 取消原因（发起人撤回时填写）
+    pub cancel_reason: Option<String>,
+    /// 转办来源人ID（记录转办链）
+    pub transfer_from_id: Option<i64>,
+    /// 委派来源人ID（委派时记录原审批人）
+    pub delegate_from_id: Option<i64>,
+    /// 加签类型：1=前加签,2=后加签,3=并加签
+    pub add_sign_type: Option<i32>,
+    /// 加签用户ID列表（JSON数组）
+    #[sea_orm(column_type = "JsonBinary", nullable)]
+    pub add_sign_user_ids: Option<serde_json::Value>,
+    /// 是否需要重新提交：0=否,1=是（退回到发起人时置1）
+    pub needs_resubmit: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

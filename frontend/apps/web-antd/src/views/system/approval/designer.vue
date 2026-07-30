@@ -50,6 +50,14 @@ const approverTypeOptions = [
   { value: 3, label: '部门主管' },
   { value: 4, label: '发起人自己' },
   { value: 5, label: '指定岗位(职位)' },
+  { value: 6, label: '直属上级' },
+];
+
+// 直属上级层级选项：approverId 字段在 type=6 时作为层级使用
+const directManagerLevelOptions = [
+  { value: 1, label: '直属上级（1级）' },
+  { value: 2, label: '上级的上级（2级）' },
+  { value: 3, label: '三级上级（3级）' },
 ];
 
 const approveModeOptions = [
@@ -550,7 +558,11 @@ onMounted(() => {
                   v-model:value="selectedNode.data.approverType"
                   :options="approverTypeOptions"
                   placeholder="选择类型"
-                  @change="() => { if (selectedNode?.data) selectedNode.data.approverId = null; }"
+                  @change="(val: any) => {
+                    if (!selectedNode?.data) return;
+                    // type=6 直属上级：默认层级为 1；其他类型清空 approverId
+                    selectedNode.data.approverId = val === 6 ? 1 : null;
+                  }"
                 />
               </div>
               <div v-if="selectedNode.data.approverType === 1" class="props-field">
@@ -620,6 +632,15 @@ onMounted(() => {
               <div v-else-if="selectedNode.data.approverType === 4" class="props-field hint">
                 <label>说明</label>
                 <span class="field-hint">由发起人自己确认（自动通过）</span>
+              </div>
+              <div v-else-if="selectedNode.data.approverType === 6" class="props-field">
+                <label>上级层级</label>
+                <Select
+                  v-model:value="selectedNode.data.approverId"
+                  :options="directManagerLevelOptions"
+                  placeholder="选择上级层级"
+                />
+                <span class="field-hint">沿用户直属上级链向上查找；到达组织顶层时系统自动通过（自审回避）</span>
               </div>
               <div class="props-field">
                 <label>审批模式</label>

@@ -24,7 +24,7 @@ pub struct Model {
     pub role_key: Option<String>,
     /// 显示顺序
     pub sort: Option<i32>,
-    /// 数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限）
+    /// 数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限 5：仅本人数据权限）
     pub data_scope: Option<i32>,
     /// 角色状态（0停用 1正常）
     pub status: Option<i32>,

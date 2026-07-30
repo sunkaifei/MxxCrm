@@ -20,6 +20,9 @@ pub mod salary_record;
 pub mod commission_detail;
 pub mod payment;
 pub mod commission_result;
+pub mod expense;
+pub mod expense_item;
+pub mod expense_type;
 
 pub use payment_record::Entity as PaymentRecord;
 pub use member_fee::Entity as MemberFee;
@@ -33,3 +36,6 @@ pub use salary_record::Entity as SalaryRecord;
 pub use commission_detail::Entity as CommissionDetail;
 pub use payment::Entity as Payment;
 pub use commission_result::Entity as CommissionResult;
+pub use expense::Entity as Expense;
+pub use expense_item::Entity as ExpenseItem;
+pub use expense_type::Entity as ExpenseType;

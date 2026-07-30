@@ -1,14 +1,18 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
+use crate::core::kit::jwt_util::JWTToken;
+use crate::core::web::base_controller::get_user;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::MetaResp;
 use crate::modules::statistics::model::performance_target::{PerformanceTargetQuery, PerformanceTargetBatchSaveRequest, PerformanceRankingQuery};
+use crate::modules::statistics::model::performance_overview::PerformanceOverviewQuery;
 use crate::modules::statistics::model::customer_stats::CustomerStatsQuery;
 use crate::modules::statistics::model::employee_stats::EmployeeStatsQuery;
 use crate::modules::statistics::model::contract_stats::ContractStatsQuery;
 use crate::modules::statistics::model::payment_stats::PaymentStatsQuery;
-use crate::modules::statistics::service::{performance_target_service, customer_stats_service, employee_stats_service, contract_stats_service, payment_stats_service};
-use actix_web::{web, HttpResponse};
+use crate::modules::statistics::service::{performance_target_service, customer_stats_service, employee_stats_service, contract_stats_service, payment_stats_service, performance_overview_service};
+use crate::modules::system::service::data_scope_service;
+use actix_web::{web, HttpRequest, HttpResponse};
 
 pub async fn get_performance_target(state: web::Data<AppState>, query: web::Query<PerformanceTargetQuery>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -39,21 +43,177 @@ pub async fn save_performance_target(state: web::Data<AppState>, form_data: web:
     }
 }
 
-pub async fn get_monthly_performance(state: web::Data<AppState>, query: web::Query<PerformanceRankingQuery>) -> Result<HttpResponse> {
+pub async fn get_monthly_performance(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceRankingQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let query = query.into_inner();
-    
-    match performance_target_service::get_monthly_performance(db, query.year, query.department_id).await {
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_target_service::get_monthly_performance(db, query.year, query.department_id, accessible_user_ids).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
-pub async fn get_performance_ranking(state: web::Data<AppState>, query: web::Query<PerformanceRankingQuery>) -> Result<HttpResponse> {
+pub async fn get_performance_ranking(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceRankingQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let query = query.into_inner();
-    
-    match performance_target_service::get_performance_ranking(db, query.year, query.month, query.order_by, query.department_id).await {
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_target_service::get_performance_ranking(db, query.year, query.month, query.order_by, query.department_id, accessible_user_ids).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+// ==================== 业绩概览扩展接口（15项补充功能）====================
+
+/// GET /statistics/performance/comparison - 业绩对比（同比/环比）
+pub async fn get_performance_comparison(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_overview_service::get_comparison(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// GET /statistics/performance/forecast - 业绩预测
+pub async fn get_performance_forecast(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_overview_service::get_forecast(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// GET /statistics/performance/funnel - 销售漏斗
+pub async fn get_sales_funnel(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_overview_service::get_funnel(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// GET /statistics/performance/customer-breakdown - 客户维度拆解
+pub async fn get_customer_breakdown(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_overview_service::get_customer_breakdown(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// GET /statistics/performance/product-breakdown - 产品维度拆解
+pub async fn get_product_breakdown(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_overview_service::get_product_breakdown(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// GET /statistics/performance/behavior - 行为指标
+pub async fn get_behavior_metrics(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_overview_service::get_behavior_metrics(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// GET /statistics/performance/region-breakdown - 区域维度拆解
+pub async fn get_region_breakdown(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
+
+    match performance_overview_service::get_region_breakdown(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// GET /statistics/performance/personal-growth - 个人成长档案
+pub async fn get_personal_growth(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 个人成长档案：未指定 employee_id 时使用当前用户ID
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let employee_id = q.employee_id.unwrap_or(current_user_id);
+
+    match performance_overview_service::get_personal_growth(db, Some(employee_id)).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// GET /statistics/performance/milestone - 业绩里程碑
+pub async fn get_performance_milestone(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceOverviewQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+
+    // 业绩里程碑：未指定 employee_id 时使用当前用户ID
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let current_user_id = jwt_token.id.unwrap_or_default();
+    let employee_id = q.employee_id.unwrap_or(current_user_id);
+
+    match performance_overview_service::get_milestone(db, q.year, Some(employee_id), current_user_id).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -238,6 +398,69 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/ranking",
                 web::get()
                     .to(get_performance_ranking)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/comparison - 业绩对比（同比/环比）
+            .route(
+                "/comparison",
+                web::get()
+                    .to(get_performance_comparison)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/forecast - 业绩预测
+            .route(
+                "/forecast",
+                web::get()
+                    .to(get_performance_forecast)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/funnel - 销售漏斗
+            .route(
+                "/funnel",
+                web::get()
+                    .to(get_sales_funnel)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/customer-breakdown - 客户维度拆解
+            .route(
+                "/customer-breakdown",
+                web::get()
+                    .to(get_customer_breakdown)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/product-breakdown - 产品维度拆解
+            .route(
+                "/product-breakdown",
+                web::get()
+                    .to(get_product_breakdown)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/behavior - 行为指标
+            .route(
+                "/behavior",
+                web::get()
+                    .to(get_behavior_metrics)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/region-breakdown - 区域维度拆解
+            .route(
+                "/region-breakdown",
+                web::get()
+                    .to(get_region_breakdown)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/personal-growth - 个人成长档案
+            .route(
+                "/personal-growth",
+                web::get()
+                    .to(get_personal_growth)
+                    .wrap(require_permission("statistics:performance:view")),
+            )
+            // GET /statistics/performance/milestone - 业绩里程碑
+            .route(
+                "/milestone",
+                web::get()
+                    .to(get_performance_milestone)
                     .wrap(require_permission("statistics:performance:view")),
             ),
     );

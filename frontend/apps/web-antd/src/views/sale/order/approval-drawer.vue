@@ -92,12 +92,15 @@ const approveModeMap: Record<number, { label: string; color: string }> = {
 const canApprove = computed(() => {
   if (!instance.value) return false;
   if (instance.value.status !== 1 && instance.value.status !== 2) return false;
-  if (!currentUserId.value) return false;
+  const uid = currentUserId.value;
+  if (!uid) return false;
+  // userId 可能是 string，candidateApprovers 是 number[]，统一转 number 比较
+  const uidNum = Number(uid);
   const candidates = instance.value.candidateApprovers || [];
   if (candidates.length > 0) {
-    return candidates.includes(currentUserId.value);
+    return candidates.includes(uidNum);
   }
-  return instance.value.currentApproverId === currentUserId.value;
+  return instance.value.currentApproverId === uidNum;
 });
 
 // 是否是发起人

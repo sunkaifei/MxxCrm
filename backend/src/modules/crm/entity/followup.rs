@@ -33,6 +33,26 @@ pub struct Model {
     pub updated_by: Option<i64>,
     pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
+    /// 签到地址
+    pub visit_address: Option<String>,
+    /// 纬度
+    pub visit_latitude: Option<Decimal>,
+    /// 经度
+    pub visit_longitude: Option<Decimal>,
+    /// 定位精度(米)
+    pub visit_accuracy: Option<Decimal>,
+    /// 现场照片(URL数组)
+    pub visit_photos: Option<serde_json::Value>,
+    /// 距客户距离(米)
+    pub visit_distance: Option<Decimal>,
+    /// 签到时间
+    pub check_in_time: Option<DateTime>,
+    /// 签退时间
+    pub check_out_time: Option<DateTime>,
+    /// 客户坐标(签到时快照)-纬度
+    pub visit_customer_lat: Option<Decimal>,
+    /// 客户坐标(签到时快照)-经度
+    pub visit_customer_lng: Option<Decimal>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

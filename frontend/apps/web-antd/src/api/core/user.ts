@@ -4,9 +4,17 @@ import { requestClient } from '#/api/request';
 
 /**
  * 获取用户信息
+ *
+ * 后端 UserLoginVO 返回字段为 id/nickname，
+ * 前端 BasicUserInfo 期望 userId/realName，在此做字段映射。
  */
 export async function getUserInfoApi() {
-  return requestClient.get<UserInfo>('/api/system/admin/userinfo');
+  const res: any = await requestClient.get('/api/system/admin/userinfo');
+  return {
+    ...res,
+    userId: res?.userId ?? String(res?.id ?? ''),
+    realName: res?.realName ?? res?.nickname ?? res?.username ?? '',
+  } as UserInfo;
 }
 
 /**

@@ -11,7 +11,40 @@
     "title": "Dashboard",
     "analytics": "Analytics",
     "workspace": "Workspace",
-    "todo": "Todo Center"
+    "todo": "Todo Center",
+    "todoOverview": "Today's Todo Overview",
+    "workLog": "Today's Work Log",
+    "quickNav": "Quick Nav",
+    "todoList": "Todo List",
+    "weekWorkload": "Weekly Workload",
+    "noWorkLog": "No work records today",
+    "viewDetail": "View Full Details",
+    "settings": "Settings",
+    "customQuickNav": "Custom Quick Nav",
+    "selectedModules": "Selected Modules (drag to sort, top 6 shown)",
+    "availableModules": "Available Modules",
+    "saleSimpleMode": "Simple Sales Mode",
+    "saleSimpleModeDesc": "Replace payment with lead management in default nav, focus on acquisition",
+    "show": "Show",
+    "hide": "Hide",
+    "add": "Add",
+    "remove": "Remove",
+    "save": "Save",
+    "cancel": "Cancel",
+    "overdueFollowUp": "Overdue Follow-up",
+    "todayFollowUp": "Today's Follow-up",
+    "pendingApproval": "Pending Approval",
+    "pendingPayment": "Pending Payment",
+    "expiringContract": "Expiring Contract",
+    "stagnantOpportunity": "Stagnant Opportunity",
+    "quickProcess": "Quick Process",
+    "quickProcessApproval": "Approval Process",
+    "quickProcessFollowUp": "Follow-up Process",
+    "quickProcessPayment": "Payment Register",
+    "quickProcessContract": "Contract Details",
+    "quickProcessOpportunity": "Opportunity Details",
+    "successTag": "Processed",
+    "rejectTag": "Rejected"
   },
   "user": {
     "module": "User",
@@ -278,6 +311,7 @@
       "title": "Approval Flow Management",
       "todo": "Approval Tasks",
       "designer": "Approval Flow Designer",
+      "cc": "CC To Me",
       "button": {
         "create": "Create Approval Flow",
         "edit": "Edit Approval Flow",
@@ -454,6 +488,13 @@
         "delete": "Delete Follow-up",
         "info": "View Follow-up"
       }
+    },
+    "visit": {
+      "title": "Field Visit",
+      "button": {
+        "add": "Add Visit",
+        "export": "Export"
+      }
     }
   },
   "sale": {
@@ -515,6 +556,16 @@
       "title": "Sales Performance",
       "button": {
         "export": "Export"
+      }
+    },
+    "refund": {
+      "title": "Refund",
+      "button": {
+        "save": "Add Refund",
+        "edit": "Edit Refund",
+        "delete": "Delete Refund",
+        "approve": "Approve",
+        "payment": "Payment"
       }
     }
   },
@@ -608,6 +659,12 @@
         "confirm": "Confirm Payment",
         "cancel": "Cancel Payment"
       }
+    },
+    "expense": {
+      "title": "Expense Request"
+    },
+    "expenseType": {
+      "title": "Expense Type"
     }
   },
   "attachment": {
@@ -707,7 +764,8 @@
   "statistics": {
     "title": "Data Analytics",
     "index": "Overview",
-    "performance": "Performance Target",
+    "performance": "Performance Overview",
+    "performanceOverview": "Performance Overview",
     "customer": "Customer Conversion",
     "employee": "Employee Statistics",
     "contract": "Contract Ranking",

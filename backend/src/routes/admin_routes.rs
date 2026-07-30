@@ -11,16 +11,16 @@ use crate::modules::articles::controller::admin::{article_admin_controller, cate
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller};
 use crate::modules::shop::controller::admin::shop_admin_controller;
 use crate::modules::shop::controller::admin::category_controller;
 use crate::modules::shop::controller::admin::audit_controller;
-use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller};
+use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller, expense_controller as finance_expense_controller};
 use crate::modules::ai::controller::admin::{ai_config_controller, background_check_controller};
-use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller};
+use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, visit_controller, work_log_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
 use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, refund_controller, shipment_controller};
@@ -141,10 +141,12 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(tag_admin_controller::register)
             // Search Management
             .configure(search_admin_controller::register)
+            // Performance Plan Management (MUST be before sys_statistics_admin_controller:
+            // /statistics/performance/plan scope is more specific than /statistics/performance,
+            // actix-web matches scopes in registration order, first match wins)
+            .configure(performance_plan_controller::register)
             // Data Analysis Statistics Management
             .configure(sys_statistics_admin_controller::register)
-            // Performance Plan Management
-            .configure(performance_plan_controller::register)
             // Shop Management
             .configure(shop_admin_controller::register)
             // Shop Category Management
@@ -165,6 +167,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(salary_controller::register)
             // Payment Management
             .configure(finance_payment_controller::register)
+            // Finance Expense Management（费用申请）
+            .configure(finance_expense_controller::register)
             // CRM Customer Management（含 customer_edit_log，注册在 /customer scope 内）
             .configure(crm_customer_controller::register)
             // CRM Lead Management
@@ -177,8 +181,12 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(contract_controller::register)
             // CRM Followup Management
             .configure(followup_controller::register)
+            // CRM Visit Management (外勤拜访签到)
+            .configure(visit_controller::register)
             // CRM Todo Center
             .configure(todo_controller::register)
+            // CRM Work Log
+            .configure(work_log_controller::register)
             // AI Config Management
             .configure(ai_config_controller::register)
             // Background Check Management
@@ -227,6 +235,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(chat_admin_controller::register)
             // Mail Management (邮箱配置/模板/发送/日志)
             .configure(mail_controller::register)
+            // Admin Preference Management (快捷导航/仪表盘布局)
+            .configure(admin_preference_controller::register)
     );
 
     // logout 路由独立注册（不在 /api/system scope 下，避免前缀冲突）

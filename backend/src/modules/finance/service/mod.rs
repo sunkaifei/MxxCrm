@@ -17,6 +17,7 @@ pub mod commission_rule_service;
 pub mod salary_service;
 pub mod payment_service;
 pub mod commission_calc_service;
+pub mod expense_service;
 
 pub use payment_record_service::*;
 pub use member_fee_service::*;

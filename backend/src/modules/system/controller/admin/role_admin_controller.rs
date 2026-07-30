@@ -307,7 +307,12 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .wrap(require_permission("system:role:update")),
             )
             // PUT /role/assign_perm - 更新角色关联的菜单
-            .route("/assign_perm", web::put().to(update_role_menus))
+            .route(
+                "/assign_perm",
+                web::put()
+                    .to(update_role_menus)
+                    .wrap(require_permission("system:role:update")),
+            )
             // GET /role/detail/{id} - 角色详情
             .route(
                 "/detail/{id}",
@@ -321,7 +326,12 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::get().to(get_role_menu_list_by_role_id),
             )
             // PUT /role/assign_data_scope - 更新角色数据权限
-            .route("/assign_data_scope", web::put().to(update_role_depts))
+            .route(
+                "/assign_data_scope",
+                web::put()
+                    .to(update_role_depts)
+                    .wrap(require_permission("system:role:update")),
+            )
             // GET /role/{role_id}/deptIds - 获取角色部门ID列表
             .route(
                 "/{role_id}/deptIds",

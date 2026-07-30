@@ -11,7 +11,40 @@
     "title": "概览",
     "analytics": "分析页",
     "workspace": "工作台",
-    "todo": "待办中心"
+    "todo": "待办中心",
+    "todoOverview": "今日待办概览",
+    "workLog": "今日工作日志",
+    "quickNav": "快捷导航",
+    "todoList": "待办事项",
+    "weekWorkload": "本周工作负载",
+    "noWorkLog": "今日暂无工作记录",
+    "viewDetail": "查看完整详情",
+    "settings": "设置",
+    "customQuickNav": "自定义快捷导航",
+    "selectedModules": "已选模块（拖拽排序，前6个显示）",
+    "availableModules": "可添加模块",
+    "saleSimpleMode": "销售简易模式",
+    "saleSimpleModeDesc": "开启后默认导航用线索管理替换回款，侧重前端获客",
+    "show": "显示",
+    "hide": "隐藏",
+    "add": "添加",
+    "remove": "移除",
+    "save": "保存",
+    "cancel": "取消",
+    "overdueFollowUp": "逾期跟进",
+    "todayFollowUp": "今日待跟进",
+    "pendingApproval": "待我审批",
+    "pendingPayment": "待回款提醒",
+    "expiringContract": "即将到期合同",
+    "stagnantOpportunity": "停滞商机",
+    "quickProcess": "快速处理",
+    "quickProcessApproval": "审批处理",
+    "quickProcessFollowUp": "跟进处理",
+    "quickProcessPayment": "回款登记",
+    "quickProcessContract": "合同详情",
+    "quickProcessOpportunity": "商机详情",
+    "successTag": "已处理",
+    "rejectTag": "已驳回"
   },
   "user": {
     "module": "用户",
@@ -276,6 +309,7 @@
       "title": "审批流管理",
       "todo": "审批待办",
       "designer": "审批流设计器",
+      "cc": "抄送我的",
       "button": {
         "create": "新增审批流",
         "edit": "编辑审批流",
@@ -456,6 +490,13 @@
         "delete": "删除跟进",
         "info": "查看跟进"
       }
+    },
+    "visit": {
+      "title": "外勤拜访",
+      "button": {
+        "add": "新增拜访",
+        "export": "导出"
+      }
     }
   },
   "sale": {
@@ -517,6 +558,16 @@
       "title": "销售业绩",
       "button": {
         "export": "导出"
+      }
+    },
+    "refund": {
+      "title": "退货退款",
+      "button": {
+        "save": "新增退货",
+        "edit": "编辑退货",
+        "delete": "删除退货",
+        "approve": "审批",
+        "payment": "退款"
       }
     }
   },
@@ -610,6 +661,12 @@
         "confirm": "确认付款",
         "cancel": "取消付款"
       }
+    },
+    "expense": {
+      "title": "费用申请"
+    },
+    "expenseType": {
+      "title": "费用类型"
     }
   },
   "attachment": {
@@ -712,7 +769,8 @@
   "statistics": {
     "title": "数据分析",
     "index": "概览",
-    "performance": "业绩目标",
+    "performance": "业绩概览",
+    "performanceOverview": "业绩概览",
     "customer": "客户转化",
     "employee": "员工统计",
     "contract": "合同排行",

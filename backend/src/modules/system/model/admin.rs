@@ -56,6 +56,9 @@ pub struct AdminSaveRequest {
     ///用户排序
     #[serde(default)]
     pub sort: Option<i32>,
+    ///直属上级用户ID（用于审批流向上查找领导，NULL 表示无上级/顶层决策人）
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
+    pub direct_manager_id: Option<i64>,
 }
 
 
@@ -81,6 +84,7 @@ impl From<AdminSaveRequest> for AdminSaveDTO {
             update_time: None,
             remark: req.remark,
             sort: req.sort,
+            direct_manager_id: req.direct_manager_id,
         }
     }
 }
@@ -120,6 +124,9 @@ pub struct AdminUpdateRequest {
     #[serde(default)]
     pub status: Option<i32>,
     pub remark: Option<String>,
+    ///直属上级用户ID（用于审批流向上查找领导，NULL 表示无上级/顶层决策人）
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
+    pub direct_manager_id: Option<i64>,
 }
 
 impl From<AdminUpdateRequest> for AdminSaveDTO {
@@ -144,6 +151,7 @@ impl From<AdminUpdateRequest> for AdminSaveDTO {
             update_time: None,
             remark: req.remark,
             sort: req.sort,
+            direct_manager_id: req.direct_manager_id,
         }
     }
 }
@@ -188,6 +196,8 @@ pub struct AdminSaveDTO {
     pub remark: Option<String>,
     ///用户排序
     pub sort: Option<i32>,
+    ///直属上级用户ID（用于审批流向上查找领导，NULL 表示无上级/顶层决策人）
+    pub direct_manager_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -235,6 +245,7 @@ impl From<UserRegisterRequest> for AdminSaveRequest {
             status: Some(1),
             remark: None,
             sort: None,
+            direct_manager_id: None,
         }
     }
 }
@@ -294,6 +305,7 @@ impl From<UpdateLoginRequest> for AdminSaveDTO {
             update_time: None,
             remark: None,
             sort: None,
+            direct_manager_id: None,
         }
     }
 }
@@ -390,6 +402,11 @@ pub struct AdminListVO {
     #[serde(rename = "lastLoginTime")]
     pub login_date: Option<String>,
     pub create_time: Option<String>,
+    ///直属上级用户ID
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub direct_manager_id: Option<i64>,
+    ///直属上级姓名
+    pub direct_manager_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -444,6 +461,11 @@ pub struct AdminDetailVO {
     pub remark: Option<String>,
     ///用户排序
     pub sort: Option<i32>,
+    ///直属上级用户ID（用于审批流向上查找领导，NULL 表示无上级/顶层决策人）
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub direct_manager_id: Option<i64>,
+    ///直属上级姓名（用于前端展示）
+    pub direct_manager_name: Option<String>,
 }
 
 impl From<admin::Model> for AdminDetailVO {
@@ -473,6 +495,8 @@ impl From<admin::Model> for AdminDetailVO {
             update_time: model.update_time,
             remark: model.remark,
             sort: model.sort,
+            direct_manager_id: model.direct_manager_id,
+            direct_manager_name: None,
         }
     }
 }
@@ -568,6 +592,7 @@ impl AdminModel {
             avatar:          Set(form_data.avatar.to_owned()),
             password:        Set(form_data.password.to_owned()),
             status:          Set(form_data.status.to_owned()),
+            direct_manager_id: Set(form_data.direct_manager_id.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -629,6 +654,14 @@ impl AdminModel {
         if let Some(v) = form_data.sort { payload.sort = Set(Some(v)); }
         if let Some(v) = form_data.password.clone() { payload.password = Set(Some(v)); }
         if let Some(v) = form_data.deleted { payload.deleted = Set(Some(v)); }
+        // 直属上级：前端传正数表示设置上级，传 0/null 表示清除上级，字段缺失表示不更新
+        if let Some(v) = form_data.direct_manager_id {
+            if v > 0 {
+                payload.direct_manager_id = Set(Some(v));
+            } else {
+                payload.direct_manager_id = Set(None);
+            }
+        }
 
         let update_result: UpdateResult = Admin::update_many()
             .set(payload)
@@ -881,6 +914,7 @@ impl AdminModel {
             .column(admin::Column::UpdateTime)
             .column(admin::Column::Remark)
             .column(admin::Column::Sort)
+            .column(admin::Column::DirectManagerId)
             .join_rev(
                 JoinType::LeftJoin,
                 admin_dept_merge::Relation::Admin.def(),
