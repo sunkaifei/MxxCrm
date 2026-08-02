@@ -73,15 +73,7 @@ const routes: RouteRecordRaw[] = [
         path: '/website/template',
         component: () => import('#/views/website/template/index.vue'),
         meta: {
-          title: $t('page.website.templateTitle'),
-        },
-      },
-      {
-        name: 'WebsiteTemplateData',
-        path: '/website/template-data',
-        component: () => import('#/views/website/template-data/index.vue'),
-        meta: {
-          title: $t('page.website.templateDataTitle'),
+          title: $t('page.website.templateManageTitle'),
         },
       },
       {

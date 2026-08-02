@@ -135,6 +135,20 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
 }
 
+/// 根据模板ID查询所有模板数据（不分页，用于前端页面列表抽屉）
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListByTemplateQuery {
+    #[serde(rename = "templateId")]
+    pub template_id: i64,
+}
+
+pub async fn list_by_template(state: web::Data<AppState>, query: web::Query<ListByTemplateQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+    let result = template_data_service::select_by_template_id(&db, &Some(q.template_id)).await?;
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+}
+
 /// 分页
 pub async fn get_by_page(state: web::Data<AppState>, _req: HttpRequest, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -209,6 +223,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/list",
                 web::get()
                     .to(get_by_page)
+                    .wrap(require_permission("template:data:list")),
+            )
+            // GET /template/data/list_by_template - 按模板ID查询（不分页）
+            .route(
+                "/list_by_template",
+                web::get()
+                    .to(list_by_template)
                     .wrap(require_permission("template:data:list")),
             )
             // GET /template/data/export/{template_id} - 导出模板方案（JSON 下载）

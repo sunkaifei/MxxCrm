@@ -11,16 +11,17 @@ import {
   LucideEye,
   LucideSearch,
   LucideLayoutGrid,
-  LucideSettings,
   LucideTag,
   LucideUser,
   LucideTrash2,
+  LucideFile,
+  LucideUpload,
+  LucideDownload,
 } from '@vben/icons';
 import {
   Button,
   message,
   Modal,
-  Pagination,
   Tag,
   Skeleton,
   Empty,
@@ -37,8 +38,10 @@ const NO_PREVIEW_IMG =
     '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="#f0f0f0"/><text x="300" y="200" font-family="sans-serif" font-size="24" fill="#bfbfbf" text-anchor="middle" dominant-baseline="middle">No Preview</text></svg>',
   );
 import type { TemplateListVO } from '#/api/core/website/template';
-import TemplateDrawer from './drawer.vue';
 import { requestClient } from '#/api/request';
+import TemplateDrawer from './drawer.vue';
+import PagesDrawer from './pages-drawer.vue';
+import PageEditor from './page-editor.vue';
 
 const accessStore = useAccessStore();
 
@@ -63,6 +66,65 @@ const previewMode = ref<'large' | 'site'>('large'); // 大图预览 / 站点预�
 const applyVisible = ref(false);
 const applyTemplate = ref<TemplateListVO | null>(null);
 const applying = ref(false);
+
+// 页面管理の状态
+const selectedTemplate = ref<TemplateListVO | null>(null);
+const editingPage = ref<{ templateId: number; row?: any } | null>(null);
+
+// --- 页面管理抽屉 ---
+const [PagesDrawerInstance, pagesDrawerApi] = useVbenDrawer({
+  connectedComponent: PagesDrawer,
+  onClosed() {
+    selectedTemplate.value = null;
+  },
+});
+
+// 页面编辑器抽屉
+const [PageEditorInstance, pageEditorApi] = useVbenDrawer({
+  connectedComponent: PageEditor,
+  onClosed() {
+    editingPage.value = null;
+    loadTemplates();
+  },
+});
+
+// 页面列表抽屉
+function openPagesDrawer(item: TemplateListVO) {
+  selectedTemplate.value = item;
+  pagesDrawerApi.setData({
+    templateId: Number(item.id),
+    templateName: item.name || '',
+    onEditPage: (data: { templateId: number; row?: any }) => {
+      pagesDrawerApi.close();
+      openPageEditor(data);
+    },
+    onRefreshTemplates: () => {
+      loadTemplates();
+    },
+  });
+  pagesDrawerApi.open();
+}
+
+// 页面编辑器
+function openPageEditor(data: { templateId: number; row?: any }) {
+  editingPage.value = data;
+  pageEditorApi.setData(data);
+  pageEditorApi.open();
+}
+
+// --- 模板主题编辑抽屉（旧模板市场） ---
+const [TemplateDrawerInstance, templateDrawerApi] = useVbenDrawer({
+  connectedComponent: TemplateDrawer,
+  onClosed() {
+    const d = templateDrawerApi.getData();
+    if (d?.needRefresh) loadTemplates();
+  },
+});
+
+function handleCreateTemplate() {
+  templateDrawerApi.setData({ create: true });
+  templateDrawerApi.open();
+}
 
 // --- 分类加载 ---
 async function loadCategories() {
@@ -195,20 +257,7 @@ async function confirmApply() {
   }
 }
 
-// --- Drawer & 删除 ---
-const [Drawer, drawerApi] = useVbenDrawer({
-  connectedComponent: TemplateDrawer,
-  onClosed() {
-    const d = drawerApi.getData();
-    if (d?.needRefresh) loadTemplates();
-  },
-});
-
-function openDrawer(create: boolean, row?: any) {
-  drawerApi.setData({ create, row });
-  drawerApi.open();
-}
-
+// --- 删除 ---
 async function handleDelete(item: TemplateListVO) {
   Modal.confirm({
     title: '确认删除',
@@ -220,6 +269,43 @@ async function handleDelete(item: TemplateListVO) {
       loadTemplates();
     },
   });
+}
+
+// --- 导出模板 ---
+async function handleExport(item: TemplateListVO) {
+  try {
+    const blob = await templateApi.exportTemplate(Number(item.id));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${item.name || 'template'}.mtp`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    message.success('导出成功');
+  } catch {
+    message.error('导出失败');
+  }
+}
+
+// --- 导入模板 ---
+function handleImportTemplate() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.mtp,.zip';
+  input.onchange = async (e: any) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    try {
+      await templateApi.importTemplate(file);
+      message.success('模板导入成功');
+      loadTemplates();
+    } catch (err: any) {
+      message.error(err?.message || '导入失败');
+    }
+  };
+  input.click();
 }
 </script>
 
@@ -268,14 +354,14 @@ async function handleDelete(item: TemplateListVO) {
           </div>
 
           <div
-            v-if="accessStore.hasAccessCode('template:data:add')"
+            v-if="accessStore.hasAccessCode('template:add')"
             class="sidebar-footer"
           >
             <Button
               type="primary"
               block
               :icon="h(LucidePlus)"
-              @click="openDrawer(true)"
+              @click="handleCreateTemplate"
             >
               新增模板
             </Button>
@@ -295,11 +381,18 @@ async function handleDelete(item: TemplateListVO) {
           </div>
           <div class="topbar-actions">
             <Button
-              v-if="accessStore.hasAccessCode('template:data:add')"
-              :icon="h(LucideSettings)"
-              @click="openDrawer(true)"
+              type="primary"
+              @click="handleImportTemplate"
             >
-              管理模板
+              <template #icon><component :is="LucideUpload" /></template>
+              导入模板
+            </Button>
+            <Button
+              v-if="accessStore.hasAccessCode('template:add')"
+              :icon="h(LucidePlus)"
+              @click="handleCreateTemplate"
+            >
+              新增模板
             </Button>
           </div>
         </div>
@@ -404,12 +497,27 @@ async function handleDelete(item: TemplateListVO) {
                     <span>官方</span>
                   </div>
                   <div class="card-actions">
-                    <Tooltip title="编辑">
+                    <Tooltip title="管理页面">
+                      <Button
+                        type="primary"
+                        size="small"
+                        :icon="h(LucideFile)"
+                        @click="openPagesDrawer(item)"
+                      >
+                        页面
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="导出模板">
+                      <Button size="small" @click="handleExport(item)">
+                        <template #icon><component :is="LucideDownload" /></template>
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="应用到网站">
                       <Button
                         type="link"
                         size="small"
-                        :icon="h(LucideSettings)"
-                        @click="openDrawer(false, item)"
+                        :icon="h(LucideTag)"
+                        @click="handleApply(item)"
                       />
                     </Tooltip>
                     <Tooltip title="删除">
@@ -420,16 +528,6 @@ async function handleDelete(item: TemplateListVO) {
                         :icon="h(LucideTrash2)"
                         @click="handleDelete(item)"
                       />
-                    </Tooltip>
-                    <Tooltip title="应用到网站">
-                      <Button
-                        type="primary"
-                        size="small"
-                        :icon="h(LucideTag)"
-                        @click="handleApply(item)"
-                      >
-                        应用
-                      </Button>
                     </Tooltip>
                   </div>
                 </div>
@@ -573,8 +671,12 @@ async function handleDelete(item: TemplateListVO) {
       </div>
     </Modal>
 
-    <!-- 编辑抽屉 -->
-    <Drawer />
+    <!-- 模板主题编辑抽屉 -->
+    <TemplateDrawerInstance />
+    <!-- 页面列表抽屉（75%） -->
+    <PagesDrawerInstance />
+    <!-- 页面编辑器抽屉（75%，可全屏） -->
+    <PageEditorInstance />
   </Page>
 </template>
 

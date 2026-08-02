@@ -353,7 +353,7 @@ impl TemplateDataModel {
     ) -> Result<Vec<template_data::Model>, DbErr> {
         let query = template_data::Entity::find()
             .filter(template_data::Column::TemplateId.eq(template_id.clone().unwrap_or_default()))
-            .filter(template_data::Column::Status.eq(1))
+            .filter(template_data::Column::Deleted.eq(0))
             .order_by_asc(template_data::Column::Sort);
             
         let sql = query.build(DbBackend::Postgres);

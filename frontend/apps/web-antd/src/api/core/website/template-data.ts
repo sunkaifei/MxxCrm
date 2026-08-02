@@ -54,6 +54,13 @@ export const deleteTemplateDataApi = async (ids: number[]) => {
   });
 };
 
+/** 按模板 ID 查询所有模板数据（不分页，用于抽屉页面列表） */
+export const getTemplateDataListByTemplateApi = async (templateId: number) => {
+  return requestClient.get('/api/system/template/data/list_by_template', {
+    params: { templateId },
+  });
+};
+
 /**
  * TPL-6: 模板预览
  * 不保存模板内容，直接渲染返回 HTML

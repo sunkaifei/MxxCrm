@@ -27,7 +27,7 @@ pub struct Model {
     /// 自定义url地址
     pub web_url: Option<String>,
     /// 数据 id
-    pub value: Option<u32>,
+    pub value: Option<i64>,
     /// 数据类型（custom:自定义导航, article_class:文章分类, customview:自定义页面）
     pub data_type: Option<String>,
     /// 导航类型（header:顶部导航, footer:底部导航）

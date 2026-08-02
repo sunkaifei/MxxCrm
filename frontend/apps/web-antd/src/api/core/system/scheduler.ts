@@ -1,8 +1,8 @@
 import { requestClient } from '#/api/request';
 
-// 路由 scope 为 /system/scheduler，注册在 /api/system 下，
-// 完整路径为 /api/system/system/scheduler/...
-const BASE = '/api/system/system/scheduler';
+// 路由 scope 为 /scheduler，注册在 /api/system 下，
+// 完整路径为 /api/system/scheduler/...
+const BASE = '/api/system/scheduler';
 
 export const getSchedulerJobListApi = async (params?: any) => {
   return requestClient.get(`${BASE}/list`, { params });

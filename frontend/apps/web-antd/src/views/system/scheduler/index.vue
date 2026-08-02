@@ -210,30 +210,31 @@ onMounted(() => {
 
 <template>
   <Page auto-content-height>
-    <!-- 顶部搜索区 -->
-    <Card :bordered="false" class="mb-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <Input
-          v-model:value="queryParams.jobCode"
-          :placeholder="$t('page.system.scheduler.column.jobCode')"
-          style="width: 200px"
-          allow-clear
-          @press-enter="loadList"
-        />
-        <Input
-          v-model:value="queryParams.jobName"
-          :placeholder="$t('page.system.scheduler.column.jobName')"
-          style="width: 200px"
-          allow-clear
-          @press-enter="loadList"
-        />
-        <Button type="primary" @click="loadList">{{ $t('page.system.common.query') }}</Button>
-        <Button @click="handleReset">{{ $t('page.system.common.reset') }}</Button>
-      </div>
-    </Card>
+    <div class="flex flex-col gap-4">
+      <!-- 顶部搜索区 -->
+      <Card :bordered="false">
+        <div class="flex flex-wrap items-center gap-3">
+          <Input
+            v-model:value="queryParams.jobCode"
+            :placeholder="$t('page.system.scheduler.column.jobCode')"
+            style="width: 200px"
+            allow-clear
+            @press-enter="loadList"
+          />
+          <Input
+            v-model:value="queryParams.jobName"
+            :placeholder="$t('page.system.scheduler.column.jobName')"
+            style="width: 200px"
+            allow-clear
+            @press-enter="loadList"
+          />
+          <Button type="primary" @click="loadList">{{ $t('page.system.common.query') }}</Button>
+          <Button @click="handleReset">{{ $t('page.system.common.reset') }}</Button>
+        </div>
+      </Card>
 
-    <!-- 任务列表 -->
-    <Card :bordered="false">
+      <!-- 任务列表 -->
+      <Card :bordered="false">
       <div class="mb-3 flex items-center justify-between">
         <span class="text-base font-semibold">{{ $t('page.system.scheduler.listTitle') }}</span>
         <Button @click="loadList">
@@ -396,5 +397,6 @@ onMounted(() => {
         </template>
       </Table>
     </Drawer>
+    </div>
   </Page>
 </template>
