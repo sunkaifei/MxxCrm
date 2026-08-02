@@ -37,6 +37,7 @@
     "pendingPayment": "Pending Payment",
     "expiringContract": "Expiring Contract",
     "stagnantOpportunity": "Stagnant Opportunity",
+    "pendingPlanApproval": "Plan Approval",
     "quickProcess": "Quick Process",
     "quickProcessApproval": "Approval Process",
     "quickProcessFollowUp": "Follow-up Process",
@@ -318,7 +319,13 @@
         "toggle": "Enable/Disable"
       }
     },
-    "editLog": "Edit Log"
+    "editLog": "Edit Log",
+    "scheduler": {
+      "title": "Scheduled Tasks",
+      "button": {
+        "manage": "Manage"
+      }
+    }
   },
   "crm": {
     "title": "Customer",
@@ -331,6 +338,19 @@
         "convert": "Convert to Customer",
         "assign": "Assign Lead",
         "info": "View Details"
+      },
+      "guide": {
+        "title": "Lead Management Guide",
+        "brief": "Leads are the sales funnel entry, multi-channel input then converted to customers. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Lead Sources", "desc": "Supports form submission, Excel import, manual entry; auto-tags source channel." },
+          { "title": "Assignment & Follow-up", "desc": "Assigned to sales staff, enters follow-up status; log calls/visits/emails." },
+          { "title": "Status Flow", "desc": "Unassigned → Assigned → Following → Converted/Abandoned; auto-recycled if overdue." },
+          { "title": "Convert to Customer", "desc": "Qualified leads convert to customers, auto-carrying contact info and follow-up history." },
+          { "title": "Pool Recycling", "desc": "Overdue leads auto-recycle to the public pool; other sales can reclaim." }
+        ]
       }
     },
     "customer": {
@@ -357,6 +377,19 @@
       "button": {
         "return": "Return to Pool",
         "claim": "Claim"
+      },
+      "guide": {
+        "title": "Customer Pool Guide",
+        "brief": "The pool stores overdue or inactive customers for re-claiming or reassignment. Expand for rules.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Recycling Rules", "desc": "Customers with overdue follow-ups (default 30 days) or no deals auto-recycle to pool." },
+          { "title": "Claim Mechanism", "desc": "Sales staff can actively claim customers from the pool; claimed customers move to their roster." },
+          { "title": "Assignment", "desc": "Administrators can reassign pool customers to specific sales staff." },
+          { "title": "Protection Period", "desc": "Claimed customers have a protection period (default 15 days) during which they won't be recycled." },
+          { "title": "Policy Config", "desc": "Different recycle periods and protection lengths can be configured by customer tier." }
+        ]
       }
     },
     "contact": {
@@ -373,6 +406,19 @@
         "edit": "Edit Opportunity",
         "delete": "Delete Opportunity",
         "view": "View Opportunity"
+      },
+      "guide": {
+        "title": "Opportunity Management Guide",
+        "brief": "Opportunities are the core of the sales pipeline, from lead conversion to deal close. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Create Opportunity", "desc": "Converted from lead or created directly; link customer/contact, fill expected amount and win probability." },
+          { "title": "Stage Progression", "desc": "Initial contact → Need confirmation → Proposal/quote → Negotiation → Won/Lost, log follow-ups per stage." },
+          { "title": "Linked Entities", "desc": "Link customers, contacts, quotes, competitors to form a complete sales record." },
+          { "title": "Deal Conversion", "desc": "Won opportunities can generate contracts with auto-filled amount and customer info." },
+          { "title": "Commission Linkage", "desc": "Contract payment triggers commission rules; opportunity amount serves as commission base." }
+        ]
       }
     },
     "contract": {
@@ -469,6 +515,19 @@
         "view": "View Contract",
         "viewApproval": "View Approval",
         "createOrder": "Create Order"
+      },
+      "guide": {
+        "title": "Contract Management Guide",
+        "brief": "Contracts formalize won deals, link to payment plans, and trigger commission. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Create Contract", "desc": "Created from won opportunity; link customer/opportunity, fill amount, sign date, payment method." },
+          { "title": "Approval Flow", "desc": "Submitted contracts go through multi-level approval; info is locked during approval." },
+          { "title": "Status Flow", "desc": "Draft → Pending → Approving → Executing → Completed; can be rejected for revision or terminated." },
+          { "title": "Payment Plan", "desc": "Attach payment plans after execution; due reminders by node, reconcile on payment registration." },
+          { "title": "Commission Trigger", "desc": "Payment completion auto-triggers commission rules, generating results for sales staff." }
+        ]
       }
     },
     "leadPool": {
@@ -533,7 +592,20 @@
       }
     },
     "paymentPlan": {
-      "title": "Payment Plans"
+      "title": "Payment Plans",
+      "guide": {
+        "title": "Payment Plan Guide",
+        "brief": "Generated by contract payment nodes, with due reminders and commission triggers. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Plan Generation", "desc": "Auto-generated by contract payment nodes (deposit/balance/installments) on signing." },
+          { "title": "Trigger Methods", "desc": "Supports triggers by signing, invoicing, settlement, or shipping." },
+          { "title": "Due Reminders", "desc": "Auto-reminds sales staff and customers before due dates to avoid missed collections." },
+          { "title": "Payment Registration", "desc": "Register and reconcile actual payments; record bank reference and arrival date." },
+          { "title": "Commission Linkage", "desc": "Payment completion auto-triggers commission rules, calculated by payment amount." }
+        ]
+      }
     },
     "shipment": {
       "title": "Shipment Management",
@@ -566,6 +638,19 @@
         "delete": "Delete Refund",
         "approve": "Approve",
         "payment": "Payment"
+      },
+      "guide": {
+        "title": "Sales Refund Guide",
+        "brief": "Refunds based on sales orders, multi-level approval then executed. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Initiate Refund", "desc": "Based on shipped or paid sales orders; fill refund reason and amount." },
+          { "title": "Refund Review", "desc": "Multi-level approval by amount; approvers can view order details and refund reason." },
+          { "title": "Item Recovery", "desc": "If return is needed, generate a return warehousing order; stock auto-increases." },
+          { "title": "Refund Method", "desc": "Supports original route (WeChat/Alipay) and offline (bank transfer/cash)." },
+          { "title": "Status Flow", "desc": "Pending → Approving → Approved → Refunding → Completed / Rejected." }
+        ]
       }
     }
   },
@@ -632,13 +717,298 @@
   },
   "finance": {
     "title": "Finance Management",
+    "common": {
+      "action": "Action",
+      "status": "Status",
+      "remark": "Remark",
+      "createTime": "Created At",
+      "updateTime": "Updated At",
+      "year": "Year",
+      "month": "Month",
+      "yearMonth": "Period",
+      "employee": "Employee",
+      "employeeId": "Employee ID",
+      "employeeName": "Employee Name",
+      "department": "Department",
+      "query": "Query",
+      "reset": "Reset",
+      "refresh": "Refresh",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "save": "Save",
+      "edit": "Edit",
+      "delete": "Delete",
+      "view": "View",
+      "create": "Create",
+      "submit": "Submit",
+      "back": "Back to List",
+      "total": "Total {count} records",
+      "all": "All",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "yes": "Yes",
+      "no": "No",
+      "success": "Operation succeeded",
+      "failed": "Operation failed",
+      "loadFailed": "Load failed",
+      "saveSuccess": "Saved successfully",
+      "saveFailed": "Save failed",
+      "deleteConfirm": "Confirm to delete this record?",
+      "deleteSuccess": "Deleted successfully",
+      "deleteFailed": "Delete failed",
+      "noData": "No data",
+      "viewDetail": "View Detail",
+      "send": "Send",
+      "export": "Export",
+      "exportSalary": "Export Salary",
+      "exportTax": "Export Tax",
+      "filter": "Filter",
+      "employeePlaceholder": "Enter employee name",
+      "statusPlaceholder": "Select status",
+      "yearPlaceholder": "Select year",
+      "monthPlaceholder": "Select month",
+      "seq": "No."
+    },
     "commissionRule": {
       "title": "Commission Rule",
+      "manageTitle": "Commission Plan Management",
+      "defaultTag": "Default",
       "button": {
         "create": "Add Rule",
         "edit": "Edit Rule",
         "delete": "Delete Rule",
-        "toggle": "Enable/Disable"
+        "toggle": "Enable/Disable",
+        "createPlan": "Add Commission Plan",
+        "setDefault": "Set as Default",
+        "cancelDefault": "Cancel Default"
+      },
+      "column": {
+        "ruleName": "Plan Name",
+        "ruleType": "Plan Type",
+        "applyScope": "Scope",
+        "triggerCondition": "Trigger",
+        "effectiveDate": "Effective From",
+        "expiryDate": "Expires On",
+        "priority": "Priority",
+        "calcBaseField": "Base Field",
+        "tierMode": "Tier Mode",
+        "isDefault": "Default"
+      },
+      "ruleType": {
+        "personal": "Personal Performance",
+        "team": "Team Share",
+        "manager": "Department Manager",
+        "director": "Director",
+        "leader": "Team Leader"
+      },
+      "triggerCondition": {
+        "contractSign": "Contract Signed",
+        "paymentReceived": "Payment Received",
+        "orderComplete": "Order Completed",
+        "invoiceIssued": "Invoice Issued"
+      },
+      "calcBaseField": {
+        "paymentAmount": "Payment Amount",
+        "contractAmount": "Contract Amount",
+        "profit": "Gross Profit",
+        "netProfit": "Net Profit"
+      },
+      "tierMode": {
+        "single": "Single Tier",
+        "progressive": "Progressive",
+        "excessIncrease": "Excess Increasing"
+      },
+      "applyScope": {
+        "department": "Specific Department",
+        "company": "Whole Company",
+        "post": "Specific Position",
+        "employee": "Specific Employee",
+        "designatedDept": "Specific Department",
+        "designatedPost": "Specific Position",
+        "designatedMember": "Specific Employee"
+      },
+      "calcBaseType": {
+        "personalMonthly": "Personal Monthly",
+        "teamMonthly": "Team Monthly",
+        "singleContract": "Single Contract",
+        "singlePayment": "Single Payment"
+      },
+      "roleType": {
+        "signer": "Signer",
+        "participant": "Participant",
+        "techSupport": "Tech Support",
+        "manager": "Manager",
+        "other": "Other"
+      },
+      "memberType": {
+        "salesman": "Salesman",
+        "directManager": "Direct Manager",
+        "deptDirector": "Dept Director",
+        "other": "Other"
+      },
+      "distributionType": {
+        "fixedRate": "Fixed Rate"
+      },
+      "drawer": {
+        "titleCreate": "Add Commission Plan",
+        "titleEdit": "Edit Commission Plan",
+        "baseInfo": "Basic Info",
+        "tierConfig": "Tier Configuration",
+        "ruleName": "Plan Name",
+        "ruleNamePlaceholder": "Enter plan name",
+        "ruleType": "Plan Type",
+        "ruleTypePlaceholder": "Select plan type",
+        "applyScope": "Scope",
+        "applyScopePlaceholder": "Select scope",
+        "department": "Department",
+        "departmentPlaceholder": "Select department",
+        "post": "Position",
+        "postIdPlaceholder": "Enter position ID",
+        "triggerCondition": "Trigger Condition",
+        "triggerConditionPlaceholder": "Select trigger",
+        "calcBaseType": "Calc Base",
+        "calcBaseField": "Base Field",
+        "calcBaseTypePlaceholder": "Select calc base",
+        "calcBaseTypeRequired": "Please select calc base",
+        "triggerConditionRequired": "Please select trigger condition",
+        "tierMode": "Tier Mode",
+        "priority": "Priority",
+        "priorityPlaceholder": "Enter priority",
+        "effectiveDate": "Effective Date",
+        "effectiveDatePlaceholder": "Select effective date",
+        "expiryDate": "Expiry Date",
+        "expiryDatePlaceholder": "Select expiry date",
+        "isDefault": "Is Default",
+        "description": "Description",
+        "descriptionPlaceholder": "Enter description",
+        "tierMinAmount": "Min Amount",
+        "tierMaxAmount": "Max Amount",
+        "tierRate": "Commission Rate",
+        "tierSort": "Sort",
+        "addTier": "Add Tier",
+        "tierEmpty": "Please add at least one tier",
+        "memberConfig": "Member Configuration",
+        "addMember": "Add Member",
+        "memberType": "Member Type",
+        "memberName": "Member Name",
+        "distributionType": "Distribution Type",
+        "fixedRate": "Fixed Rate",
+        "roleName": "Role Name",
+        "defaultRatio": "Default Ratio",
+        "required": "Required",
+        "ruleNameRequired": "Please enter plan name",
+        "ruleTypeRequired": "Please select plan type",
+        "updateSuccess": "Updated successfully",
+        "createSuccess": "Created successfully",
+        "commissionCategory": "Commission Category",
+        "beneficiaryRole": "Beneficiary Role",
+        "calcMethod": "Calc Method",
+        "filterConditions": "Filter Conditions (Optional)",
+        "productLine": "Product Line",
+        "region": "Region",
+        "customerType": "Customer Type",
+        "effectiveSettings": "Effective Settings",
+        "poolRequired": "Please select a linked pool"
+      },
+      "message": {
+        "unknown": "Unknown",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "setDefaultSuccess": "Set as default",
+        "cancelDefaultTitle": "Confirm Cancel Default",
+        "cancelDefaultContent": "Cancel default status of \"{name}\"?",
+        "cancelDefaultSuccess": "Default canceled",
+        "deleteTitle": "Confirm Delete",
+        "deleteContent": "Delete commission plan \"{name}\"?"
+      },
+      "guide": {
+        "title": "Commission Rule Configuration Guide",
+        "brief": "Configure sales commission rules with tiered and multi-dimensional support. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Rule Dimensions", "desc": "Configure differentiated rates by product line, region, or customer type for fine-grained management." },
+          { "title": "Calculation Method", "desc": "Supports fixed rate, tiered progressive (by amount/quantity), and fixed amount." },
+          { "title": "Member Binding", "desc": "Select applicable sales personnel; one person can bind multiple rules (different dimensions don't conflict)." },
+          { "title": "Trigger Timing", "desc": "Auto-triggered on contract payment completion, generating commission result records." },
+          { "title": "Team Sharing", "desc": "Managers can share subordinates' commissions by configured ratio; view summary in team commission page." }
+        ]
+      },
+      "category": {
+        "personal": "Personal Commission",
+        "management": "Multi-level Management Share",
+        "teamBonus": "Team Bonus",
+        "poolFund": "Team Building Pool",
+        "reallocation": "Total Commission Reallocation",
+        "profit": "Profit Commission"
+      },
+      "beneficiary": {
+        "sales": "Sales Person",
+        "supervisor": "Direct Supervisor",
+        "manager": "Department Manager",
+        "director": "Director",
+        "gm": "General Manager",
+        "custom": "Custom Role"
+      },
+      "calcMethod": {
+        "rate": "By Rate",
+        "fixed": "Fixed Amount (On Target)",
+        "tiered": "Tiered Progressive",
+        "progressive": "Excess Incremental"
+      },
+      "field": {
+        "bonusTarget": "Target Threshold",
+        "bonusFixedAmount": "Fixed Bonus Amount",
+        "commissionCap": "Per-deal Cap",
+        "commissionFloor": "Monthly Floor",
+        "customerCategory": "Customer Category",
+        "deferMonths": "Deferred Months",
+        "pool": "Linked Pool",
+        "calcBaseField": "Calc Base Field",
+        "customerCategoryAll": "All",
+        "customerCategoryNew": "New Customers Only",
+        "customerCategoryOld": "Existing Customers Only"
+      },
+      "limit": {
+        "title": "Limit Rules",
+        "capPlaceholder": "Leave empty for no cap",
+        "floorPlaceholder": "Leave empty for no floor",
+        "deferPlaceholder": "0=pay this month"
+      },
+      "preview": {
+        "title": "Scheme Preview",
+        "personalDesc": "Sales person earns commission from their own deals",
+        "managementDesc": "Managers share from team revenue by level coefficient",
+        "teamBonusDesc": "One-time bonus when team monthly revenue reaches target",
+        "poolFundDesc": "Extract team building fund, not paid to salary",
+        "reallocationDesc": "System collects total commission, manager allocates manually",
+        "profitDesc": "Calculate commission by gross profit instead of revenue",
+        "payment": "Payment",
+        "teamPayment": "Team Revenue",
+        "rate": "Rate",
+        "amount": "Amount",
+        "target": "Target",
+        "bonus": "Bonus",
+        "cost": "Cost",
+        "profit": "Profit",
+        "commission": "Commission",
+        "share": "Share",
+        "totalCollected": "Total Collected",
+        "deposit": "Deposit",
+        "poolBalance": "Pool Balance",
+        "pool": "Pool",
+        "expense": "Expense",
+        "teamBuilding": "Team Building",
+        "dinnerActivity": "Dinner/Activity",
+        "pending": "Pending",
+        "toSalary": "To Salary",
+        "notToSalary": "Not to Salary",
+        "personalCommission": "Personal Commission",
+        "notAffected": "Not Affected",
+        "notReached": "Not Reached ¥0",
+        "byPerformance": "By Performance",
+        "sales": "Sales",
+        "member": "Member"
       }
     },
     "salary": {
@@ -648,7 +1018,327 @@
         "calculate": "Calculate",
         "adjust": "Manual Adjust",
         "approve": "Approve",
-        "pay": "Pay"
+        "pay": "Pay",
+        "batchApprove": "Batch Approve",
+        "batchPay": "Batch Pay",
+        "config": "Base Salary Config",
+        "calcLog": "Calc Log",
+        "pendingConfirm": "Pending Appeals",
+        "confirm": "Confirm Salary",
+        "applyRecalc": "Request Recalculation",
+        "submitApproval": "Submit Approval",
+        "syncApproval": "Sync Approval"
+      },
+      "column": {
+        "employeeName": "Employee",
+        "department": "Department",
+        "yearMonth": "Period",
+        "baseSalary": "Base Salary",
+        "positionAllowance": "Position Allowance",
+        "commissionAmount": "Commission",
+        "teamCommission": "Team Commission",
+        "teamCommissionAmount": "Team Sharing",
+        "bonusAmount": "Team Bonus",
+        "allocatedCommission": "Allocated Commission",
+        "deferredCommission": "Deferred Commission",
+        "performanceBonus": "Performance Bonus",
+        "deductionAmount": "Deduction",
+        "socialInsurancePersonal": "SI (Personal)",
+        "housingFundPersonal": "HF (Personal)",
+        "taxAmount": "Tax",
+        "totalSalary": "Gross Salary",
+        "netSalary": "Net Salary",
+        "status": "Status",
+        "employeeConfirmed": "Employee Confirmed"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "paid": "Paid"
+      },
+      "confirmStatus": {
+        "unconfirmed": "Unconfirmed",
+        "confirmed": "Confirmed",
+        "recalcRequested": "Recalc Requested",
+        "appealing": "Appealing"
+      },
+      "action": {
+        "detail": "Detail",
+        "approve": "Approve",
+        "adjust": "Adjust",
+        "pay": "Pay",
+        "handleAppeal": "Handle Appeal"
+      },
+      "summary": {
+        "title": "Salary Summary - {year}/{month}",
+        "baseSalaryTotal": "Base Salary Total",
+        "commissionTotal": "Commission Total",
+        "performanceTotal": "Performance Total",
+        "deductionTotal": "Deduction Total",
+        "taxTotal": "Tax Total",
+        "netSalaryTotal": "Net Salary Total",
+        "recordCount": "Records",
+        "baseSalaryGrandTotal": "Base Salary Total",
+        "commissionGrandTotal": "Commission Total",
+        "performanceGrandTotal": "Performance Total",
+        "deductionGrandTotal": "Deduction Total",
+        "totalSalaryGrandTotal": "Gross Total",
+        "socialInsuranceTotal": "SI Total",
+        "refresh": "Refresh Summary"
+      },
+      "tooltip": {
+        "calculate": "Manually calculate salary for a specified month (system also auto-calculates last month's salary on the 1st at 02:00)",
+        "refreshSummary": "Refresh salary summary data",
+        "refreshList": "Refresh salary list"
+      },
+      "label": {
+        "employee": "Employee: ",
+        "yearMonth": "Period: ",
+        "totalSalary": "Gross Salary: "
+      },
+      "format": {
+        "year": "{year}",
+        "month": "{month}",
+        "monthShort": "{month}",
+        "yi": "¥{value}B",
+        "wan": "¥{value}W"
+      },
+      "export": {
+        "xlsx": "Excel format (.xlsx)",
+        "csv": "CSV format (.csv)"
+      },
+      "modal": {
+        "calcTitle": "Run Salary Calculation",
+        "calcContent": "System will auto-calculate last month's salary on the 1st of each month at 02:00. You can also run it manually.",
+        "calcContentManual": "Manual calculation will immediately generate salary records for the specified month. Existing records will be overwritten.",
+        "calcYear": "Year",
+        "calcYearShort": "Year",
+        "calcMonth": "Month",
+        "calcMonthShort": "Month",
+        "calcSuccess": "Done. Generated {count} salary records",
+        "adjustTitle": "Manual Adjust",
+        "approveTitle": "Approve Salary",
+        "payTitle": "Pay Salary",
+        "confirmTitle": "Confirm Salary",
+        "confirmContent": "Confirm this month's salary is correct?",
+        "confirmAlertMessage": "Please review the salary details carefully. After confirmation, you cannot request recalculation.",
+        "recalcTitle": "Request Recalculation",
+        "recalcReason": "Reason",
+        "recalcReasonPlaceholder": "Please fill in the reason for recalculation",
+        "recalcReasonPlaceholderLong": "Please describe the reason for recalculation in detail (required, max 500 chars)",
+        "recalcReasonRequired": "Please fill in the reason",
+        "recalcAlertMessage": "After submission, finance will review your request. Salary payment will be held during review.",
+        "handleAppealTitle": "Handle Appeal",
+        "handleAction": "Action",
+        "approveRecalc": "Approve Recalculation",
+        "rejectRecalc": "Reject",
+        "handleRemark": "Remark",
+        "approveRecalcTitle": "Approve Recalculation",
+        "approveRecalcContent": "Approving will trigger recalculation for this employee. Existing records will be overwritten. Confirm?",
+        "approveRecalcRemark": "Finance approved recalculation",
+        "approveRecalcSuccess": "Recalculation approved. Salary will be recalculated.",
+        "rejectAppealTitle": "Reject Request",
+        "rejectAppealContent": "After rejection, salary will be paid per original calculation. Confirm?",
+        "rejectAppealRemark": "Finance rejected recalculation request",
+        "rejectAppealSuccess": "Recalculation request rejected",
+        "handleFailed": "Handle failed",
+        "submitApprovalTitle": "Submit Salary Approval",
+        "submitApprovalContent": "Submit all pending salary records for {year}/{month} to approval flow. Approvers will review each record. Confirm?"
+      },
+      "message": {
+        "loadFailed": "Load failed",
+        "calcFailed": "Calculation failed",
+        "approveFailed": "Approve failed",
+        "approveSuccess": "Approved successfully",
+        "payFailed": "Pay failed",
+        "paySuccess": "Paid successfully",
+        "confirmFailed": "Confirm failed",
+        "confirmSuccess": "Confirmed successfully",
+        "noSelectedRows": "Please select records",
+        "batchApproveSelectRequired": "Please select salary records to approve",
+        "batchApproveSuccess": "Batch approve succeeded",
+        "batchApproveFailed": "Batch approve failed",
+        "batchPaySelectRequired": "Please select salary records to pay",
+        "batchPaySuccess": "Batch pay succeeded",
+        "batchPayFailed": "Batch pay failed",
+        "recalcRequested": "Recalculation request submitted",
+        "recalcSubmitted": "Recalculation request submitted. Please wait for finance review.",
+        "submitFailed": "Submit failed",
+        "appealHandled": "Appeal handled",
+        "adjustSuccess": "Adjusted successfully",
+        "adjustFailed": "Adjust failed"
+      },
+      "config": {
+        "title": "Base Salary Config",
+        "info": "Configure monthly base salary, position allowance, and performance base. Empty month means full-year.",
+        "addButton": "Add Config",
+        "editTitle": "Edit Base Salary Config",
+        "createTitle": "Add Base Salary Config",
+        "fullYear": "Full Year",
+        "auto": "Auto",
+        "label": {
+          "employeeId": "Employee ID",
+          "year": "Year",
+          "month": "Month (optional)",
+          "baseSalary": "Base Salary",
+          "positionAllowance": "Position Allowance",
+          "performanceBase": "Performance Base",
+          "performanceCoefficient": "Performance Coefficient"
+        },
+        "placeholder": {
+          "employeeId": "Enter employee ID",
+          "month": "Empty means full-year",
+          "performanceCoefficient": "Empty means auto"
+        },
+        "column": {
+          "employeeId": "Employee ID",
+          "year": "Year",
+          "month": "Month",
+          "baseSalary": "Base Salary",
+          "positionAllowance": "Position Allowance",
+          "performanceBase": "Performance Base",
+          "performanceCoefficient": "Performance Coefficient",
+          "action": "Action"
+        },
+        "message": {
+          "employeeIdRequired": "Please enter employee ID",
+          "baseSalaryNegative": "Base salary cannot be negative",
+          "deleteTitle": "Delete Base Salary Config",
+          "deleteContent": "Confirm delete this config? This cannot be undone."
+        }
+      },
+      "log": {
+        "title": "Calculation Log",
+        "info": "Records each salary calculation execution, including manual and scheduled triggers.",
+        "empty": "No calculation logs",
+        "trigger": {
+          "manual": "Manual",
+          "auto": "Scheduled"
+        },
+        "result": {
+          "success": "Success",
+          "failed": "Failed"
+        },
+        "column": {
+          "yearMonth": "Period",
+          "triggerType": "Trigger",
+          "result": "Result",
+          "generatedCount": "Generated",
+          "elapsed": "Elapsed",
+          "operator": "Operator",
+          "errorMessage": "Error",
+          "executeTime": "Execute Time"
+        }
+      },
+      "pending": {
+        "title": "Pending Appeals",
+        "empty": "No pending appeals",
+        "approveRecalc": "Approve",
+        "reject": "Reject",
+        "column": {
+          "employee": "Employee",
+          "yearMonth": "Period",
+          "reason": "Reason",
+          "createTime": "Submitted At",
+          "action": "Action"
+        }
+      },
+      "detail": {
+        "salaryInfo": "Salary Info",
+        "commissionDetail": "Commission Detail",
+        "adjustPerformance": "Adjust Performance/Deduction",
+        "performanceBonus": "Performance Bonus",
+        "deductionAmount": "Deduction Amount",
+        "approveButton": "Approve",
+        "payButton": "Pay",
+        "column": {
+          "contractName": "Contract Name",
+          "contractAmount": "Contract Amount",
+          "paymentAmount": "Payment Amount",
+          "commissionRate": "Commission Rate",
+          "commissionAmount": "Commission Amount",
+          "ruleName": "Applied Rule"
+        }
+      },
+      "guide": {
+        "title": "Salary Calculation Guide",
+        "brief": "Monthly salary calculation integrating attendance, social insurance, tax, commission and adjustments. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Prerequisites", "desc": "Configure salary items, social insurance policies, tax rules, attendance records, and commission rules first." },
+          { "title": "Trigger Calculation", "desc": "Trigger the monthly calculation engine; system auto-aggregates base pay, performance, commission, and attendance deductions." },
+          { "title": "Calculation Logic", "desc": "Gross = base + performance + commission + overtime; Net = gross - social insurance - housing fund - tax - other deductions." },
+          { "title": "Employee Confirmation", "desc": "Payslips are generated after calculation; employees can view, confirm, or file appeals." },
+          { "title": "Bank Disbursement", "desc": "Export bank payment files and optionally push payslip notifications to employees." }
+        ]
+      }
+    },
+    "salaryAnalysis": {
+      "title": "Salary Trend Analysis",
+      "button": {
+        "refresh": "Refresh"
+      },
+      "filter": {
+        "yearStart": "Year From",
+        "yearEnd": "Year To",
+        "monthStart": "Month From",
+        "monthEnd": "Month To",
+        "monthPlaceholder": "Select month",
+        "department": "Department",
+        "departmentPlaceholder": "Enter department name",
+        "employee": "Employee",
+        "employeePlaceholder": "Enter employee name"
+      },
+      "summary": {
+        "totalGross": "Gross Total",
+        "totalNet": "Net Total",
+        "totalCommission": "Commission Total",
+        "totalTax": "Tax Total",
+        "totalHeadcount": "Headcount",
+        "avgMonthlyNet": "Avg Monthly Net"
+      },
+      "metric": {
+        "totalGross": "Gross Salary",
+        "totalNet": "Net Salary",
+        "totalBase": "Base Salary",
+        "totalCommission": "Commission",
+        "totalPerformance": "Performance Bonus",
+        "totalTeamCommission": "Team Commission",
+        "totalTax": "Tax",
+        "avgNet": "Avg Net"
+      },
+      "chart": {
+        "monthlyTitle": "Monthly Salary Trend",
+        "metricPlaceholder": "Select metrics",
+        "deptTitle": "Department Comparison",
+        "empTitle": "Employee Ranking",
+        "empty": "Please select at least one metric"
+      },
+      "table": {
+        "deptTitle": "Department Salary Detail",
+        "empTitle": "Employee Ranking Detail"
+      },
+      "column": {
+        "rank": "Rank",
+        "employeeName": "Employee",
+        "department": "Department",
+        "headcount": "Headcount",
+        "months": "Months",
+        "totalBase": "Base Total",
+        "totalCommission": "Commission Total",
+        "totalGross": "Gross Total",
+        "totalNet": "Net Total",
+        "avgNet": "Avg Net",
+        "avgMonthlyNet": "Avg Monthly Net"
+      },
+      "message": {
+        "loadFailed": "Load failed",
+        "empty": "No data"
+      },
+      "unit": {
+        "month": "",
+        "person": ""
       }
     },
     "payment": {
@@ -656,15 +1346,1247 @@
       "button": {
         "apply": "Apply Payment",
         "approve": "Approve Payment",
+        "approveAction": "Approve",
         "confirm": "Confirm Payment",
         "cancel": "Cancel Payment"
+      },
+      "column": {
+        "paymentNo": "Payment No",
+        "purchaseOrderNo": "PO Number",
+        "supplierName": "Supplier",
+        "paymentType": "Payment Type",
+        "paymentAmount": "Amount",
+        "paymentMethod": "Method",
+        "status": "Status",
+        "applyTime": "Apply Time"
+      },
+      "paymentType": {
+        "prepay": "Prepay",
+        "final": "Final",
+        "full": "Full"
+      },
+      "paymentMethod": {
+        "bankTransfer": "Bank Transfer",
+        "cash": "Cash",
+        "check": "Check",
+        "other": "Other"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "paid": "Paid",
+        "canceled": "Canceled"
+      },
+      "drawer": {
+        "titleApply": "Apply Payment",
+        "purchaseOrderNo": "Purchase Order",
+        "purchaseOrderPlaceholder": "Enter PO number",
+        "supplierName": "Supplier Name",
+        "paymentType": "Payment Type",
+        "paymentAmount": "Payment Amount",
+        "paymentMethod": "Payment Method",
+        "bankAccount": "Bank Account",
+        "remark": "Remark",
+        "applySuccess": "Applied successfully",
+        "applyFailed": "Apply failed",
+        "purchaseOrderRequired": "Please enter purchase order number",
+        "paymentTypePlaceholder": "Please select payment type",
+        "paymentTypeRequired": "Please select payment type",
+        "paymentAmountPlaceholder": "Please enter payment amount",
+        "paymentAmountRequired": "Please enter payment amount",
+        "paymentMethodPlaceholder": "Please select payment method",
+        "paymentMethodRequired": "Please select payment method",
+        "bankAccountPlaceholder": "Please enter bank account",
+        "remarkPlaceholder": "Please enter remark"
+      },
+      "modal": {
+        "approveResult": "Approve Result",
+        "approvePass": "Pass",
+        "approveReject": "Reject",
+        "approveRemarkPlaceholder": "Enter approve remark",
+        "paymentDate": "Payment Date",
+        "paymentDatePlaceholder": "Select payment date",
+        "cancelReason": "Cancel Reason",
+        "cancelReasonPlaceholder": "Enter cancel reason"
+      },
+      "message": {
+        "approveSuccess": "Approved",
+        "approveFailed": "Approve failed",
+        "paymentDateRequired": "Please select payment date",
+        "confirmSuccess": "Payment confirmed",
+        "confirmFailed": "Confirm failed",
+        "cancelReasonRequired": "Please enter cancel reason",
+        "cancelSuccess": "Canceled",
+        "cancelFailed": "Cancel failed"
       }
     },
     "expense": {
-      "title": "Expense Request"
+      "title": "Expense Request",
+      "button": {
+        "create": "New Expense",
+        "submit": "Submit for Approval",
+        "approve": "Approve",
+        "reject": "Reject",
+        "payment": "Pay",
+        "add": "Add",
+        "update": "Update",
+        "delete": "Delete",
+        "export": "Export"
+      },
+      "tab": {
+        "all": "All Expenses",
+        "my": "My Expenses",
+        "subordinate": "Subordinate Expenses"
+      },
+      "search": {
+        "keywordsPlaceholder": "Expense No/Title",
+        "startDate": "Start Date",
+        "endDate": "End Date"
+      },
+      "column": {
+        "expenseNo": "Expense No",
+        "expenseTitle": "Title",
+        "expenseType": "Type",
+        "amount": "Amount",
+        "applicant": "Applicant",
+        "status": "Status",
+        "approvalStatus": "Approval Status",
+        "applyTime": "Apply Time",
+        "applyDate": "Apply Date"
+      },
+      "status": {
+        "draft": "Draft",
+        "pending": "Pending",
+        "approving": "Approving",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "paid": "Paid"
+      },
+      "drawer": {
+        "titleCreate": "New Expense",
+        "titleEdit": "Edit Expense",
+        "titleDetail": "Expense Detail",
+        "baseInfo": "Basic Info",
+        "expenseDetail": "Expense Items",
+        "attachment": "Attachments",
+        "expenseTitle": "Title",
+        "expenseTitlePlaceholder": "Enter expense title",
+        "expenseType": "Type",
+        "amount": "Amount",
+        "occurTime": "Occur Time",
+        "remark": "Remark",
+        "improveBaseInfo": "Please complete basic info",
+        "updateSuccess": "Updated successfully",
+        "createSuccess": "Created successfully",
+        "totalItems": "{count} items, total:"
+      },
+      "message": {
+        "selectToDelete": "Please select expense requests to delete",
+        "batchDelete": "Batch Delete",
+        "unknown": "Unknown",
+        "submitted": "Submitted for approval",
+        "submitFailed": "Submit approval failed",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "paid": "Payment successful"
+      },
+      "modal": {
+        "submitTitle": "Submit for Approval",
+        "submitContent": "Submit this expense request for approval?",
+        "approveTitle": "Approve",
+        "approveContent": "Approve this expense request?",
+        "rejectTitle": "Reject",
+        "rejectContent": "Reject this expense request?",
+        "rejectReasonPlaceholder": "Enter reject reason",
+        "confirmReject": "Confirm Reject",
+        "paymentTitle": "Expense Payment",
+        "paymentAmount": "Payment Amount:",
+        "paymentDate": "Payment Date:",
+        "paymentAccount": "Payee Account:",
+        "paymentAccountPlaceholder": "Payee account (optional)",
+        "transactionNo": "Transaction No:",
+        "transactionNoPlaceholder": "Third-party transaction no (optional)",
+        "remarkPlaceholder": "Remark (optional)",
+        "confirmPayment": "Confirm Payment"
+      },
+      "guide": {
+        "title": "Expense Reimbursement Guide",
+        "brief": "Employees submit expenses, multi-level approval, then finance pays. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Submit Expense", "desc": "Fill in expense type, amount, date, upload receipts; multiple line items supported." },
+          { "title": "Approval Flow", "desc": "Auto-matches approval flow by type and amount; supports multi-level and counter-signing." },
+          { "title": "Finance Review", "desc": "After approval, finance verifies receipt authenticity and amount accuracy; can reject for supplement." },
+          { "title": "Payment Registration", "desc": "Register payment info (bank reference, payment date) after review to complete reimbursement." },
+          { "title": "Status Tracking", "desc": "Status flow: draft → pending → approving → approved → paid / rejected." }
+        ]
+      }
     },
     "expenseType": {
-      "title": "Expense Type"
+      "title": "Expense Type",
+      "manageTitle": "Expense Type Management",
+      "column": {
+        "typeName": "Type Name",
+        "typeCode": "Type Code",
+        "sort": "Sort",
+        "status": "Status",
+        "isSystem": "System Built-in"
+      },
+      "status": {
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "tag": {
+        "system": "System"
+      },
+      "drawer": {
+        "titleCreate": "Add Expense Type",
+        "titleEdit": "Edit Expense Type",
+        "typeName": "Type Name",
+        "typeNamePlaceholder": "Type name",
+        "typeNameRequired": "Please enter type name",
+        "typeCodeRequired": "Please enter type code",
+        "sortPlaceholder": "Sort value (smaller comes first)",
+        "deleteConfirm": "Delete expense type \"{name}\"?"
+      },
+      "message": {
+        "updateSuccess": "Updated successfully",
+        "createSuccess": "Created successfully",
+        "systemBuiltinNoDelete": "System built-in type cannot be deleted"
+      }
+    },
+    "tax": {
+      "title": "Tax Management",
+      "button": {
+        "list": "View",
+        "manage": "Manage",
+        "create": "Add Tax Rate",
+        "edit": "Edit Tax Rate",
+        "delete": "Delete",
+        "createEmpConfig": "Add Employee Tax Config",
+        "editEmpConfig": "Edit Employee Tax Config"
+      },
+      "tab": {
+        "rateTable": "Tax Rate Table",
+        "empConfig": "Employee Tax Config"
+      },
+      "taxType": {
+        "cumulative": "Cumulative",
+        "annualBonus": "Annual Bonus"
+      },
+      "column": {
+        "level": "Level",
+        "taxType": "Tax Type",
+        "minAmount": "Min Taxable",
+        "maxAmount": "Max Taxable",
+        "above": "Above",
+        "rate": "Rate(%)",
+        "quickDeduction": "Quick Deduction",
+        "employee": "Employee",
+        "year": "Year",
+        "taxThreshold": "Threshold",
+        "childrenEducation": "Children Education",
+        "continuingEducation": "Continuing Education",
+        "housingLoan": "Housing Loan",
+        "housingRent": "Housing Rent",
+        "supportingElderly": "Supporting Elderly",
+        "infantCare": "Infant Care",
+        "seriousIllness": "Serious Illness",
+        "otherDeduction": "Other Deduction",
+        "foreignerAllowance": "Foreigner Allowance",
+        "cumulativeIncome": "Cumulative Income",
+        "cumulativeTaxPaid": "Cumulative Tax Paid"
+      },
+      "drawer": {
+        "titleRateCreate": "Add Tax Rate",
+        "titleRateEdit": "Edit Tax Rate",
+        "titleEmpConfigCreate": "Add Employee Tax Config",
+        "titleEmpConfigEdit": "Edit Employee Tax Config",
+        "level": "Level",
+        "taxType": "Tax Type",
+        "minAmount": "Min Amount",
+        "maxAmount": "Max Amount",
+        "rate": "Rate",
+        "quickDeduction": "Quick Deduction",
+        "effectiveDate": "Effective Date",
+        "expiryDate": "Expiry Date",
+        "employee": "Employee",
+        "year": "Year",
+        "taxThreshold": "Threshold",
+        "specialDeduction": "Special Additional Deduction",
+        "childrenEducation": "Children Education",
+        "continuingEducation": "Continuing Education",
+        "housingLoan": "Housing Loan",
+        "housingRent": "Housing Rent",
+        "supportingElderly": "Supporting Elderly",
+        "infantCare": "Infant Care",
+        "seriousIllness": "Serious Illness",
+        "otherDeduction": "Other Deduction",
+        "foreignerAllowance": "Foreigner Allowance"
+      },
+      "message": {
+        "loadFailed": "Load failed",
+        "saveSuccess": "Saved successfully",
+        "deleteSuccess": "Deleted successfully",
+        "deleteConfirm": "Delete this tax rate?"
+      },
+      "guide": {
+        "title": "Tax Management Guide",
+        "brief": "Maintain progressive tax rates and employee deductions; auto-calculates cumulative withholding. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Tax Rate Config", "desc": "Maintain seven-level progressive tax table, set threshold and quick deduction." },
+          { "title": "Special Deductions", "desc": "Configure employee special additional deductions: children's education, continuing education, medical, housing loan, rent, elderly care." },
+          { "title": "Cumulative Withholding", "desc": "Calculate annual cumulative tax, monthly progressive withholding, year-end reconciliation." },
+          { "title": "Employee Config", "desc": "Bind tax scheme to employees, set deduction details and exemption limits." },
+          { "title": "Salary Linkage", "desc": "Auto-calculates current period tax during salary calculation, generates tax detail report." }
+        ]
+      }
+    },
+    "insurance": {
+      "title": "Social Insurance",
+      "button": {
+        "list": "View",
+        "manage": "Manage",
+        "createPolicy": "Add City Policy",
+        "editPolicy": "Edit City Policy",
+        "createEmpConfig": "Add Employee Insurance Config",
+        "editEmpConfig": "Edit Employee Insurance Config",
+        "createPolicyShort": "Add Policy"
+      },
+      "tab": {
+        "policy": "City Policy Library",
+        "empConfig": "Employee Insurance Config"
+      },
+      "placeholder": {
+        "allYears": "All Years"
+      },
+      "column": {
+        "cityCode": "City Code",
+        "cityName": "City Name",
+        "year": "Year",
+        "baseLower": "Base Lower",
+        "baseUpper": "Base Upper",
+        "pensionCompany": "Pension (Co.)",
+        "pensionPersonal": "Pension (Emp.)",
+        "medicalCompany": "Medical (Co.)",
+        "medicalPersonal": "Medical (Emp.)",
+        "unemploymentCompany": "Unemployment (Co.)",
+        "unemploymentPersonal": "Unemployment (Emp.)",
+        "workinjuryCompany": "Work Injury (Co.)",
+        "maternityCompany": "Maternity (Co.)",
+        "housingFundCompany": "HF (Co.)",
+        "housingFundPersonal": "HF (Emp.)",
+        "pension": "Pension",
+        "medical": "Medical",
+        "unemployment": "Unemployment",
+        "workinjury": "Work Injury",
+        "maternity": "Maternity",
+        "housingFund": "HF",
+        "employee": "Employee",
+        "baseAmount": "Base Amount",
+        "housingFundBase": "HF Base",
+        "status": "Status"
+      },
+      "status": {
+        "notParticipated": "Not Participated",
+        "participated": "Participated"
+      },
+      "drawer": {
+        "titlePolicyCreate": "Add City Policy",
+        "titlePolicyEdit": "Edit City Policy",
+        "titleEmpConfigCreate": "Add Employee Insurance Config",
+        "titleEmpConfigEdit": "Edit Employee Insurance Config",
+        "cityCode": "City Code",
+        "cityName": "City Name",
+        "year": "Year",
+        "baseLower": "Base Lower",
+        "baseUpper": "Base Upper",
+        "pensionCompanyRate": "Pension Co. Rate",
+        "pensionPersonalRate": "Pension Emp. Rate",
+        "medicalCompanyRate": "Medical Co. Rate",
+        "medicalPersonalRate": "Medical Emp. Rate",
+        "unemploymentCompanyRate": "Unemployment Co. Rate",
+        "unemploymentPersonalRate": "Unemployment Emp. Rate",
+        "workinjuryCompanyRate": "Work Injury Co. Rate",
+        "maternityCompanyRate": "Maternity Co. Rate",
+        "housingFundCompanyRate": "HF Co. Rate",
+        "housingFundPersonalRate": "HF Emp. Rate",
+        "employee": "Employee",
+        "cityCode": "Participating City",
+        "baseAmount": "Base Amount",
+        "housingFundBase": "HF Base",
+        "participatePension": "Pension",
+        "participateMedical": "Medical",
+        "participateUnemployment": "Unemployment",
+        "participateWorkinjury": "Work Injury",
+        "participateMaternity": "Maternity",
+        "participateHousingFund": "Housing Fund",
+        "effectiveDate": "Effective Date",
+        "expiryDate": "Stop Date",
+        "pensionInsurance": "Pension Insurance",
+        "medicalInsurance": "Medical Insurance",
+        "unemploymentInsurance": "Unemployment Insurance",
+        "workinjuryInsurance": "Work Injury Insurance",
+        "maternityInsurance": "Maternity Insurance",
+        "housingFundLabel": "Housing Provident Fund",
+        "cityCodePlaceholder": "e.g. BJ, SH",
+        "cityNamePlaceholder": "e.g. Beijing",
+        "employeeIdPlaceholder": "Enter employee ID",
+        "rateTip": "Rates (%, e.g. 16 means 16%)",
+        "participateTitle": "Insurance Types"
+      },
+      "message": {
+        "loadPolicyFailed": "Failed to load city policies",
+        "loadEmpConfigFailed": "Failed to load employee insurance config",
+        "cityCodeRequired": "Please fill in city code",
+        "cityNameRequired": "Please fill in city name",
+        "employeeIdRequired": "Please fill in employee ID",
+        "deleteFailed": "Delete failed",
+        "deletePolicyConfirm": "Delete this city policy?"
+      },
+      "guide": {
+        "title": "Social Insurance & Housing Fund Guide",
+        "brief": "Configure base and rates by region; auto-deducted from salary after enrollment. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Policy Config", "desc": "Set social insurance (pension/medical/unemployment/injury/maternity) and housing fund base ranges and rates by region." },
+          { "title": "Employee Enrollment", "desc": "Configure enrollment scheme: region, contribution base, start month." },
+          { "title": "Effective Rules", "desc": "Starts from the enrolled month; base adjusted annually (usually July), changes effective next month." },
+          { "title": "Salary Linkage", "desc": "Auto-calculates and deducts employee portions (pension/medical/unemployment/fund) during salary calculation." },
+          { "title": "Employer Portion", "desc": "Employer contributions are tracked separately, not deducted from net pay but counted as labor cost." }
+        ]
+      }
+    },
+    "payslip": {
+      "title": "Payslip Distribution",
+      "button": {
+        "list": "View",
+        "manage": "Manage",
+        "generate": "Generate Payslip",
+        "send": "Send Payslip",
+        "batchSend": "Batch Send",
+        "withdraw": "Withdraw",
+        "sendAction": "Send"
+      },
+      "statistic": {
+        "total": "Total",
+        "sent": "Sent",
+        "read": "Read",
+        "unread": "Unread"
+      },
+      "column": {
+        "employeeId": "Employee ID",
+        "employeeName": "Employee",
+        "yearMonth": "Period",
+        "totalSalary": "Gross Salary",
+        "socialInsurancePersonal": "SI (Personal)",
+        "taxAmount": "Tax",
+        "netSalary": "Net Salary",
+        "sendStatus": "Send Status",
+        "sendChannels": "Channels",
+        "sendTime": "Send Time",
+        "readTime": "Read Time"
+      },
+      "sendStatus": {
+        "unsent": "Unsent",
+        "sent": "Sent",
+        "read": "Read",
+        "confirmed": "Confirmed",
+        "withdrawn": "Withdrawn"
+      },
+      "channel": {
+        "inbox": "Inbox",
+        "email": "Email",
+        "sms": "SMS",
+        "wechat": "WeCom",
+        "dingtalk": "DingTalk",
+        "feishu": "Feishu"
+      },
+      "detail": {
+        "title": "Payslip Detail",
+        "itemsTitle": "Salary Items",
+        "itemColumn": "Item",
+        "amountColumn": "Amount",
+        "noDetailData": "No detail data",
+        "baseSalary": "Base Salary",
+        "positionAllowance": "Position Allowance",
+        "commission": "Commission",
+        "performanceBonus": "Performance Bonus",
+        "teamCommission": "Team Commission",
+        "bonusAmount": "Team Bonus",
+        "allocatedCommission": "Allocated Commission",
+        "deferredCommission": "Deferred Commission",
+        "deduction": "Deduction",
+        "socialInsurancePersonal": "SI (Personal)",
+        "housingFundPersonal": "HF (Personal)",
+        "tax": "Tax",
+        "totalSalary": "Gross Salary",
+        "netSalary": "Net Salary"
+      },
+      "modal": {
+        "generateTitle": "Generate Payslip",
+        "sendTitle": "Send Payslip",
+        "batchSendTitle": "Batch Send Payslips",
+        "selectChannel": "Select Channel",
+        "selectEmployee": "Select Employees",
+        "selectChannelTip": "Select channels (multi-select), notifications will be sent to:",
+        "sendSuccess": "Sent successfully",
+        "withdrawConfirm": "Withdraw sent unread payslips?",
+        "withdrawSuccess": "Withdrawn successfully"
+      },
+      "message": {
+        "generateSuccess": "Payslips generated successfully",
+        "generateFailed": "Generate failed",
+        "sendFailed": "Send failed",
+        "batchSendSuccess": "Batch sent successfully",
+        "selectFirst": "Please select payslips to send first",
+        "selectChannelRequired": "Please select at least one channel",
+        "noData": "No payslip data"
+      },
+      "guide": {
+        "title": "Payslip Distribution Guide",
+        "brief": "Generate monthly payslips and distribute to employees via multiple channels with read tracking and withdrawal. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Generate Payslip", "desc": "Select year and month to generate payslips; system pulls details from salary calculation results into employee-readable slips." },
+          { "title": "Select Channel", "desc": "Supports inbox, email, SMS, WeCom, DingTalk and Feishu channels; multi-select allowed." },
+          { "title": "Single / Batch", "desc": "Send a single payslip or select multiple for batch sending; status becomes Sent after delivery." },
+          { "title": "Read Tracking", "desc": "Status updates to Read after employee views; backend shows sent/read/unread statistics." },
+          { "title": "Withdrawal", "desc": "Sent but unread payslips can be withdrawn; they become invisible to employees after withdrawal." }
+        ]
+      }
+    },
+    "bankExport": {
+      "title": "Bank Export",
+      "button": {
+        "list": "View",
+        "manage": "Manage",
+        "export": "Export File",
+        "download": "Download",
+        "invalidate": "Invalidate",
+        "generate": "Generate Payment File",
+        "downloadFile": "Download File"
+      },
+      "bankType": {
+        "icbc": "ICBC",
+        "ccb": "CCB",
+        "cmb": "CMB",
+        "boc": "BOC",
+        "abc": "ABC"
+      },
+      "fileFormat": {
+        "xls": "Excel",
+        "txt": "TXT",
+        "csv": "CSV"
+      },
+      "status": {
+        "generating": "Generating",
+        "success": "Success",
+        "failed": "Failed",
+        "invalidated": "Invalidated"
+      },
+      "column": {
+        "yearMonth": "Period",
+        "bankType": "Bank",
+        "fileName": "File Name",
+        "fileFormat": "Format",
+        "totalCount": "Count",
+        "totalAmount": "Total Amount",
+        "status": "Status",
+        "createTime": "Created At",
+        "operator": "Operator"
+      },
+      "modal": {
+        "title": "Bank Payment File",
+        "exportTitle": "Export Bank Payment File",
+        "yearMonth": "Period",
+        "bankType": "Bank Type",
+        "bankTypePlaceholder": "Select bank type",
+        "fileFormat": "File Format",
+        "employeeScope": "Employee Scope",
+        "allEmployee": "All Employees",
+        "exportSuccess": "Exported successfully",
+        "invalidateConfirm": "Invalidate this file?",
+        "generateTitle": "Generate Bank Payment File",
+        "resultTitle": "Payment File Generation Result",
+        "previewTitle": "File Content Preview",
+        "bankShort": "Bank"
+      },
+      "message": {
+        "loadFailed": "Load failed",
+        "generateFailed": "Generate failed",
+        "bankTypeRequired": "Please select bank type",
+        "noData": "No bank payment file records"
+      },
+      "guide": {
+        "title": "Bank Export Guide",
+        "brief": "Generate monthly bank payment files (TXT/Excel) per bank for salary disbursement. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Prerequisites", "desc": "Salary calculation must be completed and approved; employee bank account info must be maintained." },
+          { "title": "Select Parameters", "desc": "Choose year, month, bank type (ICBC/CCB/CMB/BOC/ABC) and file format (TXT or Excel)." },
+          { "title": "Generate File", "desc": "System aggregates monthly net salary per bank specification and generates the file; status: Generating → Success/Failed." },
+          { "title": "Preview & Download", "desc": "TXT format allows content preview and download; Excel format downloads the binary file directly." },
+          { "title": "Submit to Bank", "desc": "Download and submit the payment file to the corresponding bank's online banking system to complete disbursement." }
+        ]
+      }
+    },
+    "attendance": {
+      "title": "Attendance Deduction",
+      "button": {
+        "list": "View",
+        "manage": "Manage",
+        "create": "Add Attendance Record",
+        "edit": "Edit Attendance Record",
+        "import": "Batch Import",
+        "confirmImport": "Confirm Import",
+        "calc": "Calculate Deduction"
+      },
+      "column": {
+        "employeeId": "Employee ID",
+        "employeeName": "Employee Name",
+        "yearMonth": "Period",
+        "workDays": "Work Days",
+        "actualWorkDays": "Actual Days",
+        "lateCount": "Late (count)",
+        "earlyLeaveCount": "Early Leave (count)",
+        "absentCount": "Absent (count)",
+        "personalLeaveDays": "Personal Leave (days)",
+        "sickLeaveDays": "Sick Leave (days)",
+        "annualLeaveDays": "Annual Leave (days)",
+        "overtimeWeekday": "Weekday OT (h)",
+        "overtimeWeekend": "Weekend OT (h)",
+        "overtimeHoliday": "Holiday OT (h)",
+        "deductionAmount": "Deduction"
+      },
+      "drawer": {
+        "titleCreate": "Add Attendance Record",
+        "titleEdit": "Edit Attendance Record",
+        "employeeId": "Employee ID",
+        "employeeIdPlaceholder": "Enter employee ID",
+        "year": "Year",
+        "month": "Month",
+        "workDays": "Work Days",
+        "actualWorkDays": "Actual Work Days",
+        "lateCount": "Late Count",
+        "earlyLeaveCount": "Early Leave Count",
+        "absentCount": "Absent Count",
+        "personalLeaveDays": "Personal Leave Days",
+        "sickLeaveDays": "Sick Leave Days",
+        "annualLeaveDays": "Annual Leave Days",
+        "overtimeWeekday": "Weekday Overtime",
+        "overtimeWeekend": "Weekend Overtime",
+        "overtimeHoliday": "Holiday Overtime",
+        "overtimeSection": "Overtime Hours (h)"
+      },
+      "import": {
+        "title": "Batch Import Attendance",
+        "selectFile": "Select Excel File",
+        "selectedFile": "Selected file: {name}, click \"Confirm Import\" to submit",
+        "uploadFirst": "Please upload an Excel file first",
+        "importSuccess": "Imported successfully",
+        "tip": "Please upload an Excel file containing: Employee ID, Year, Month, Work Days, Actual Work Days, etc.",
+        "selected": "Selected: {name}"
+      },
+      "search": {
+        "yearLabel": "Year",
+        "yearPlaceholder": "Year",
+        "monthLabel": "Month",
+        "allMonths": "All Months"
+      },
+      "calc": {
+        "title": "Attendance Deduction Detail - Employee {employeeId}",
+        "calculating": "Calculating...",
+        "lateDeduction": "Late Deduction",
+        "earlyLeaveDeduction": "Early Leave Deduction",
+        "absentDeduction": "Absent Deduction",
+        "leaveDeduction": "Leave Deduction",
+        "overtimePay": "Overtime Pay",
+        "fullAttendanceBonus": "Full Attendance Bonus",
+        "netAdjustment": "Net Adjustment"
+      },
+      "message": {
+        "monthOption": "Month {n}",
+        "calcFailed": "Calculate deduction failed",
+        "importSuccess": "Batch import succeeded",
+        "importFailed": "Batch import failed"
+      },
+      "guide": {
+        "title": "Attendance Deduction Guide",
+        "brief": "Record monthly attendance data and calculate deductions/overtime pay, linked with salary calculation. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Data Entry", "desc": "Enter work days, actual days, late/early-leave/absent counts, leave days and overtime hours per employee per month." },
+          { "title": "Batch Import", "desc": "Supports Excel batch import; template must include Employee ID, Year, Month, Work Days and other fields." },
+          { "title": "Deduction Calculation", "desc": "System calculates late/early-leave/absent/leave deductions plus overtime pay and full-attendance bonus to get net adjustment." },
+          { "title": "Linked Calculation", "desc": "Attendance deductions and overtime pay participate in monthly salary calculation, affecting gross and net pay." },
+          { "title": "Query & Manage", "desc": "Filter attendance records by year and month; supports editing corrections and recalculating deductions." }
+        ]
+      }
+    },
+    "adjustment": {
+      "title": "Salary Adjustment",
+      "button": {
+        "list": "View",
+        "manage": "Manage",
+        "create": "Add Adjustment Record",
+        "edit": "Edit Adjustment Record",
+        "viewHistory": "Adjustment History",
+        "approve": "Approve",
+        "reject": "Reject",
+        "detail": "Detail",
+        "history": "History",
+        "approveAction": "Approve"
+      },
+      "column": {
+        "employeeId": "Employee ID",
+        "employeeName": "Employee Name",
+        "adjustmentDate": "Adjustment Date",
+        "adjustmentType": "Type",
+        "oldBaseSalary": "Old Base",
+        "newBaseSalary": "New Base",
+        "oldPositionAllowance": "Old Allowance",
+        "newPositionAllowance": "New Allowance",
+        "oldPerformanceBase": "Old Perf Base",
+        "newPerformanceBase": "New Perf Base",
+        "status": "Approval Status",
+        "reason": "Reason"
+      },
+      "adjustmentType": {
+        "regularization": "Regularization",
+        "annual": "Annual Adjustment",
+        "promotion": "Promotion",
+        "transfer": "Transfer",
+        "special": "Special Adjustment"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "drawer": {
+        "titleCreate": "Add Adjustment Record",
+        "titleEdit": "Edit Adjustment Record",
+        "employeeId": "Employee ID",
+        "employeeIdPlaceholder": "Enter employee ID",
+        "employeeIdInputPlaceholder": "Enter employee ID",
+        "adjustmentDate": "Adjustment Date",
+        "adjustmentDatePlaceholder": "Select date",
+        "adjustmentType": "Adjustment Type",
+        "oldBaseSalary": "Old Base Salary",
+        "newBaseSalary": "New Base Salary",
+        "oldPositionAllowance": "Old Position Allowance",
+        "newPositionAllowance": "New Position Allowance",
+        "oldPerformanceBase": "Old Performance Base",
+        "newPerformanceBase": "New Performance Base",
+        "reason": "Reason",
+        "reasonPlaceholder": "Please explain the reason",
+        "rejectReason": "Reject Reason",
+        "rejectReasonPlaceholder": "Please fill in the reject reason",
+        "approver": "Approver",
+        "approveTime": "Approve Time",
+        "historyTitle": "Adjustment History - Employee {employeeId}"
+      },
+      "modal": {
+        "titleReject": "Reject Adjustment",
+        "titleDetail": "Adjustment Detail",
+        "approveConfirm": "Confirm to approve this adjustment?"
+      },
+      "message": {
+        "loadFailed": "Failed to load adjustment records",
+        "dateRequired": "Please select adjustment date",
+        "reasonRequired": "Please fill in the reason",
+        "createSuccess": "Created successfully",
+        "createFailed": "Create failed",
+        "approveSuccess": "Approved",
+        "approveFailed": "Approve failed",
+        "rejectReasonRequired": "Please fill in the reject reason",
+        "rejectSuccess": "Rejected",
+        "rejectFailed": "Reject failed",
+        "loadHistoryFailed": "Failed to load history"
+      },
+      "history": {
+        "loading": "Loading...",
+        "empty": "No history records",
+        "baseSalary": "Base Salary",
+        "positionAllowance": "Position Allowance",
+        "reason": "Reason",
+        "rejectLabel": "Reject"
+      },
+      "guide": {
+        "title": "Salary Adjustment Guide",
+        "brief": "Manage employee base salary, position allowance and performance base adjustments with approval flow and history. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Add Adjustment", "desc": "Select employee, adjustment type (regularization/annual/promotion/transfer/special) and fill in old/new salary and reason." },
+          { "title": "Submit Approval", "desc": "After creation, the record enters pending approval; approver can approve or reject with a reject reason." },
+          { "title": "Effective Linkage", "desc": "Once approved, the new base/allowance/performance base syncs to salary calculation; next month uses the new standard." },
+          { "title": "History Tracking", "desc": "View an employee's full adjustment history including salary amounts, reasons and approval results." },
+          { "title": "Status Flow", "desc": "Status flow: Pending → Approved / Rejected; approved records cannot be re-approved." }
+        ]
+      }
+    },
+    "salaryItem": {
+      "title": "Salary Items",
+      "button": {
+        "list": "View",
+        "manage": "Manage",
+        "create": "Add Salary Item",
+        "edit": "Edit Salary Item",
+        "delete": "Delete"
+      },
+      "column": {
+        "itemCode": "Item Code",
+        "itemName": "Item Name",
+        "itemType": "Type",
+        "calcMode": "Calc Mode",
+        "formula": "Formula",
+        "defaultValue": "Default Value",
+        "isTaxable": "Taxable",
+        "sort": "Sort",
+        "enabled": "Enabled"
+      },
+      "itemType": {
+        "addition": "Addition",
+        "deduction": "Deduction"
+      },
+      "calcMode": {
+        "fixed": "Fixed",
+        "formula": "Formula",
+        "manual": "Manual"
+      },
+      "drawer": {
+        "titleCreate": "Add Salary Item",
+        "titleEdit": "Edit Salary Item",
+        "itemCode": "Item Code",
+        "itemName": "Item Name",
+        "itemType": "Item Type",
+        "calcMode": "Calc Mode",
+        "formula": "Formula",
+        "formulaPlaceholder": "e.g. {example}",
+        "defaultValue": "Default Value",
+        "isTaxable": "Taxable",
+        "isPretax": "Pretax Deduction",
+        "sort": "Sort",
+        "enabled": "Enabled",
+        "itemCodePlaceholder": "e.g. baseSalary, commission",
+        "itemNamePlaceholder": "Please enter item name",
+        "formulaExtra": "Supports variables like {example}",
+        "defaultValueExtra": "Default amount in fixed value mode",
+        "isPretaxExtra": "Whether deduction is taken before tax",
+        "deleteConfirm": "Delete salary item \"{name}\"?"
+      },
+      "manageTitle": "Salary Item Management",
+      "alert": "Salary items customize salary details; formula mode supports variables like {example}",
+      "message": {
+        "itemCodeRequired": "Please enter item code",
+        "itemNameRequired": "Please enter item name",
+        "formulaRequired": "Please enter the formula in formula mode",
+        "updateSuccess": "Updated successfully",
+        "createSuccess": "Created successfully",
+        "confirmDeleteTitle": "Confirm Delete"
+      },
+      "guide": {
+        "title": "Salary Items Guide",
+        "brief": "Maintain salary detail items (additions/deductions) and calc modes; formula mode supports variable references. Expand for details.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Item Type", "desc": "Additions count toward gross salary (e.g. base, commission, performance); deductions reduce gross (e.g. social insurance, tax, attendance deduction)." },
+          { "title": "Calc Mode", "desc": "Fixed: use default amount; Formula: auto-calc via variable expression; Manual: enter per record during calculation." },
+          { "title": "Formula Variables", "desc": "Formulas can reference defined item variables like {baseSalary}, {commission}; system parses and replaces them during calculation." },
+          { "title": "Tax Settings", "desc": "Items marked taxable participate in tax calculation; deductions can be set as pretax (e.g. social insurance/housing fund) or post-tax." },
+          { "title": "Sort & Enable", "desc": "Sort controls payslip display order; disabled items do not participate in calculation or display." }
+        ]
+      }
+    },
+    "teamCommission": {
+      "title": "Team Commission",
+      "button": {
+        "calculate": "Calculate Team Commission",
+        "query": "Query",
+        "manage": "Manage"
+      },
+      "tab": {
+        "list": "Commission Details",
+        "summary": "Summary by Manager",
+        "pending": "Pending Allocation",
+        "pool": "Team Building Pool",
+        "allocationLog": "Allocation Log"
+      },
+      "allocate": {
+        "title": "Allocate Team Commission",
+        "method": "Allocation Method",
+        "average": "Average",
+        "byPerformance": "By Performance",
+        "manual": "Manual",
+        "total": "Total Pending",
+        "allocatedTotal": "Allocated",
+        "remaining": "Remaining",
+        "confirm": "Confirm Allocation",
+        "overLimit": "Allocated total exceeds pending amount",
+        "success": "Allocation successful",
+        "member": "Member",
+        "payment": "Payment",
+        "amount": "Amount",
+        "selectMember": "Please select members",
+        "noMember": "No available members",
+        "btn": "Allocate",
+        "methodAverage": "Average",
+        "methodByPerformance": "By Performance",
+        "methodManual": "Manual"
+      },
+      "statistic": {
+        "managerCount": "Manager Count",
+        "managerCountSuffix": "",
+        "totalTeamPayment": "Total Team Payment",
+        "totalCommission": "Total Commission"
+      },
+      "column": {
+        "employee": "Employee",
+        "department": "Department",
+        "yearMonth": "Period",
+        "baseSalary": "Base Salary",
+        "teamCommissionAmount": "Team Commission",
+        "totalSalary": "Gross Salary",
+        "status": "Status",
+        "manager": "Manager",
+        "teamTotalPayment": "Team Total Payment",
+        "commissionAmount": "Commission Amount",
+        "subordinatesCount": "Subordinates",
+        "rate": "Rate",
+        "pendingTotal": "Pending Total",
+        "allocatedAmount": "Allocated Amount",
+        "allocator": "Allocator",
+        "allocateMethod": "Method",
+        "allocateStatus": "Allocate Status",
+        "allocateTime": "Allocate Time",
+        "ruleName": "Rule Name",
+        "beneficiary": "Beneficiary"
+      },
+      "allocateStatus": {
+        "pending": "Pending",
+        "allocated": "Allocated"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "paid": "Paid"
+      },
+      "empty": {
+        "list": "No team commission data. Please click \"Calculate Team Commission\" first.",
+        "summary": "No summary data",
+        "pending": "No pending commission data",
+        "allocationLog": "No allocation records"
+      },
+      "modal": {
+        "calcTitle": "Calculate Team Commission",
+        "calcContent": "Will calculate team commission for managers up the org chart based on payment data of {year}-{month}.",
+        "calcLogic": "Logic: Query paid contracts in the month → Find employees by contract owner → Walk up direct_manager_id up to 3 levels → Calculate commission by position coefficient (default 5%).",
+        "calcSuccess": "Done. Updated {count} records."
+      },
+      "message": {
+        "loadFailed": "Load failed",
+        "calcFailed": "Calculation failed"
+      },
+      "monthLabel": "{month}",
+      "yearLabel": "{year}",
+      "guide": {
+        "title": "Team Commission Guide",
+        "brief": "Auto-calculates manager commission sharing from subordinates based on org structure, summarized monthly. Expand for logic.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Hierarchy", "desc": "Auto-identifies superior-subordinate relationships from department org structure; no manual hierarchy maintenance." },
+          { "title": "Sharing Rules", "desc": "Managers share direct subordinates' commissions by configured ratio; supports multi-level cascading." },
+          { "title": "Monthly Summary", "desc": "Monthly aggregation of manager sharing totals, including direct and indirect subordinates." },
+          { "title": "Data Source", "desc": "Sharing is based on generated subordinate commission results, reflecting real-time team performance." },
+          { "title": "Usage", "desc": "Used for manager performance calculation and salary disbursement; details exportable." }
+        ]
+      }
+    },
+    "pool": {
+      "title": "Team Building Pool",
+      "create": "Create Pool",
+      "edit": "Edit Pool",
+      "name": "Pool Name",
+      "namePlaceholder": "Enter pool name",
+      "balance": "Balance",
+      "total": "Total Deposited",
+      "used": "Used",
+      "manager": "Manager",
+      "status": "Status",
+      "statusActive": "Active",
+      "statusFrozen": "Frozen",
+      "statusClosed": "Closed",
+      "description": "Description",
+      "descriptionPlaceholder": "Enter description",
+      "expense": "Register Expense",
+      "expenseAmount": "Expense Amount",
+      "expenseDate": "Expense Date",
+      "expenseReason": "Expense Reason",
+      "expenseReasonPlaceholder": "Enter reason (e.g., Q1 team dinner)",
+      "log": "Transaction Log",
+      "logType": "Type",
+      "logDeposit": "Deposit",
+      "logExpense": "Expense",
+      "logSource": "Source",
+      "logAmount": "Amount",
+      "logDate": "Date",
+      "logReason": "Reason",
+      "column": {
+        "name": "Pool Name",
+        "balance": "Balance",
+        "total": "Total Deposited",
+        "used": "Used",
+        "manager": "Manager",
+        "status": "Status"
+      },
+      "saveSuccess": "Saved successfully",
+      "expenseSuccess": "Expense registered",
+      "deleteConfirm": "Delete pool \"{name}\"?",
+      "deleteSuccess": "Deleted successfully",
+      "empty": "No pool data"
+    },
+    "statistics": {
+      "title": "Finance Statistics",
+      "listTitle": "Statistics Details",
+      "summary": {
+        "totalIncome": "Total Income",
+        "successAmount": "Success Amount",
+        "refundAmount": "Refund Amount",
+        "memberFeeAmount": "Member Fee Amount",
+        "orderCount": "Orders",
+        "successCount": "Success Count",
+        "refundCount": "Refund Count"
+      },
+      "statType": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly"
+      },
+      "column": {
+        "statDate": "Stat Date",
+        "statType": "Stat Type",
+        "totalIncome": "Total Income",
+        "successAmount": "Success Amount",
+        "refundAmount": "Refund Amount",
+        "memberFeeAmount": "Member Fee",
+        "orderCount": "Orders",
+        "successCount": "Success Count",
+        "refundCount": "Refund Count"
+      },
+      "placeholder": {
+        "statType": "Stat Type",
+        "startDate": "Start Date",
+        "endDate": "End Date"
+      },
+      "button": {
+        "generate": "Generate Yesterday Stats"
+      },
+      "message": {
+        "loadFailed": "Load failed",
+        "generateSuccess": "Generated successfully",
+        "generateFailed": "Generation failed",
+        "empty": "No statistics data"
+      }
+    },
+    "refundRecord": {
+      "title": "Refund Records",
+      "button": {
+        "add": "Add Refund"
+      },
+      "column": {
+        "userId": "User ID",
+        "paymentRecordId": "Payment Record ID",
+        "amount": "Refund Amount",
+        "status": "Status",
+        "transactionId": "Transaction ID",
+        "refundTime": "Refund Time",
+        "reason": "Reason",
+        "remark": "Remark",
+        "createTime": "Create Time"
+      },
+      "status": {
+        "pending": "Pending",
+        "success": "Refunded",
+        "failed": "Failed"
+      },
+      "placeholder": {
+        "userId": "Enter user ID",
+        "paymentRecordId": "Enter payment record id",
+        "amount": "Enter refund amount",
+        "transactionId": "Enter transaction id",
+        "refundTime": "Format: YYYY-MM-DD HH:mm:ss",
+        "reason": "Enter refund reason",
+        "remark": "Enter remark"
+      },
+      "drawer": {
+        "titleCreate": "Add Refund Record",
+        "titleEdit": "Edit Refund Record"
+      },
+      "message": {
+        "required": "User ID and Payment Record ID are required",
+        "createSuccess": "Created successfully",
+        "updateSuccess": "Updated successfully",
+        "deleteSuccess": "Deleted successfully",
+        "saveFailed": "Save failed",
+        "deleteFailed": "Delete failed",
+        "deleteConfirm": "Are you sure to delete this refund record?"
+      },
+      "guide": {
+        "title": "Refund Record Guide",
+        "brief": "Refunds based on payment records, reviewed then sent to payment channel. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Initiate Refund", "desc": "Based on existing payment records; fill refund amount and reason." },
+          { "title": "Review Process", "desc": "Refund applications enter pending review; finance reviews reasonableness." },
+          { "title": "Channel Interaction", "desc": "After approval, system calls payment channel refund API (WeChat/Alipay original route)." },
+          { "title": "Status Sync", "desc": "On success, original payment record is updated to refunded status for consistency." },
+          { "title": "Financial Impact", "desc": "Refund amount is counted in financial statistics, affecting revenue reports." }
+        ]
+      }
+    },
+    "paymentRecord": {
+      "title": "Payment Records",
+      "button": {
+        "add": "Add Payment"
+      },
+      "column": {
+        "userId": "User ID",
+        "memberProductId": "Member Product ID",
+        "orderId": "Order ID",
+        "paymentType": "Payment Type",
+        "amount": "Amount",
+        "payMethod": "Pay Method",
+        "status": "Status",
+        "transactionId": "Transaction ID",
+        "payTime": "Pay Time",
+        "remark": "Remark",
+        "createTime": "Create Time"
+      },
+      "paymentType": {
+        "member": "Member Fee",
+        "product": "Product",
+        "recharge": "Recharge",
+        "other": "Other"
+      },
+      "payMethod": {
+        "wechat": "WeChat Pay",
+        "alipay": "Alipay",
+        "bank": "Bank Card"
+      },
+      "status": {
+        "pending": "Pending",
+        "success": "Success",
+        "failed": "Failed",
+        "refunded": "Refunded"
+      },
+      "placeholder": {
+        "userId": "Enter user id",
+        "memberProductId": "Enter member product id",
+        "orderId": "Enter order id",
+        "amount": "Enter amount",
+        "transactionId": "Enter transaction id",
+        "payTime": "Format: YYYY-MM-DD HH:mm:ss",
+        "remark": "Enter remark"
+      },
+      "drawer": {
+        "titleCreate": "Add Payment Record",
+        "titleEdit": "Edit Payment Record"
+      },
+      "message": {
+        "userIdRequired": "Please enter user id",
+        "createSuccess": "Created successfully",
+        "updateSuccess": "Updated successfully",
+        "deleteSuccess": "Deleted successfully",
+        "saveFailed": "Save failed",
+        "deleteFailed": "Delete failed",
+        "deleteConfirm": "Are you sure to delete this payment record?"
+      },
+      "guide": {
+        "title": "Payment Record Guide",
+        "brief": "Records C-end user online payment transactions, linked with member fees and orders. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Source", "desc": "Auto-generated after C-end user pays in mini-program; records order ID, amount, payment method." },
+          { "title": "Payment Methods", "desc": "Supports WeChat Pay, Alipay, bank card and other channels." },
+          { "title": "Status Flow", "desc": "Pending → Success / Failed / Refunded, driven by payment channel callbacks." },
+          { "title": "Linkage", "desc": "On success, auto-generates member fee record, linked to order and user." },
+          { "title": "Refund Processing", "desc": "Refunds are initiated from the refund record page; status syncs back on success." }
+        ]
+      }
+    },
+    "memberFee": {
+      "title": "Member Fee",
+      "button": {
+        "add": "Add Member Fee"
+      },
+      "column": {
+        "userId": "User ID",
+        "memberType": "Member Type",
+        "amount": "Amount",
+        "validStartTime": "Valid Start",
+        "validEndTime": "Valid End",
+        "status": "Status",
+        "paymentRecordId": "Payment Record ID",
+        "remark": "Remark",
+        "createTime": "Create Time"
+      },
+      "memberType": {
+        "monthly": "Monthly",
+        "yearly": "Yearly",
+        "lifetime": "Lifetime"
+      },
+      "status": {
+        "inactive": "Inactive",
+        "active": "Active",
+        "expired": "Expired"
+      },
+      "placeholder": {
+        "userId": "Enter user id",
+        "amount": "Enter amount",
+        "validStartTime": "Format: YYYY-MM-DD HH:mm:ss",
+        "validEndTime": "Format: YYYY-MM-DD HH:mm:ss",
+        "paymentRecordId": "Enter payment record id",
+        "remark": "Enter remark"
+      },
+      "drawer": {
+        "titleCreate": "Add Member Fee",
+        "titleEdit": "Edit Member Fee"
+      },
+      "message": {
+        "userIdRequired": "Please enter user id",
+        "createSuccess": "Created successfully",
+        "updateSuccess": "Updated successfully",
+        "deleteSuccess": "Deleted successfully",
+        "saveFailed": "Save failed",
+        "deleteFailed": "Delete failed",
+        "deleteConfirm": "Are you sure to delete this member fee record?"
+      },
+      "guide": {
+        "title": "Member Fee Usage Guide",
+        "brief": "Member fee records C-end subscriptions, linked with payment records and member products. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          { "title": "Member Product Setup", "desc": "Configure pricing, duration and purchase limits for monthly/quarterly/yearly plans in member products." },
+          { "title": "C-end Order & Payment", "desc": "User selects a plan in the mini-program; system creates a payment record and invokes WeChat Pay; callback updates status on success." },
+          { "title": "Member Fee Generation", "desc": "On successful payment, a member fee record is auto-generated with validity period, linked payment record ID and member type." },
+          { "title": "Backend Management", "desc": "This page is for backend adjustment or querying. Normally fees are auto-generated by the C-end payment flow; manual creation is rarely needed." },
+          { "title": "Status Flow", "desc": "Inactive → Active (paid) → Expired (end of validity). Refunds will sync the payment record to refunded status." }
+        ]
+      }
     }
   },
   "attachment": {
@@ -785,11 +2707,24 @@
   },
   "website": {
     "title": "Website",
-    "list": "Website List",
-    "category": "Category",
-    "article": "Article",
-    "message": "Messages",
-    "links": "Links",
+    "list": "Website Settings",
+    "categoryTitle": "Category",
+    "articleTitle": "Article",
+    "articleFieldTitle": "Custom Fields",
+    "messageTitle": "Messages",
+    "navigationTitle": "Navigation",
+    "linksTitle": "Links",
+    "templateTitle": "Templates",
+    "templateDataTitle": "Template Data",
+    "contentModelTitle": "Content Model",
+    "templateVarTitle": "Template Variables",
+    "mediaTitle": "Media Library",
+    "bannerTitle": "Banner",
+    "blockTitle": "Block",
+    "pageTitle": "Custom Page",
+    "orderTitle": "Orders",
+    "refundTitle": "Refunds",
+    "userTitle": "Frontend Users",
     "supplierAudit": "Supplier Audit",
     "goodsAudit": "Goods Audit",
     "goods": "Goods",
@@ -821,6 +2756,37 @@
         "edit": "Edit Template",
         "delete": "Delete Template",
         "view": "View Template"
+      }
+    },
+    "orderTitle": "Orders",
+    "order": {
+      "button": {
+        "view": "View Order",
+        "edit": "Edit Order",
+        "ship": "Ship Order",
+        "delete": "Delete Order",
+        "deliveryList": "Delivery List",
+        "deliveryView": "View Delivery"
+      }
+    },
+    "refundTitle": "Refunds",
+    "refund": {
+      "button": {
+        "view": "View Refund",
+        "handle": "Handle Refund",
+        "markRefunded": "Mark Refunded",
+        "delete": "Delete Refund"
+      }
+    },
+    "userTitle": "Website Users",
+    "user": {
+      "button": {
+        "view": "View User",
+        "create": "Add User",
+        "edit": "Edit User",
+        "resetPassword": "Reset Password",
+        "status": "Toggle Status",
+        "delete": "Delete User"
       }
     }
   },

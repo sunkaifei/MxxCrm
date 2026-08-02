@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { h, onMounted, ref } from 'vue';
+import { h } from 'vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { Page, useVbenDrawer } from '@vben/common-ui';
@@ -7,52 +7,13 @@ import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucidePlus } from '@vben/icons';
 import { Button, Tag, Modal, message } from 'ant-design-vue';
 import LinksDrawer from './drawer.vue';
-import { linksApi, siteApi } from '#/api';
-
-const siteOptions = ref<any[]>([]);
-const siteMap = ref<Record<number, string>>({});
-
-// 加载网站列表
-async function loadSiteOptions() {
-  try {
-    const res: any = await siteApi.list({ page: 1, pageSize: 9999 });
-    const list = res?.rows || res?.data?.rows || res?.list || [];
-    const mapping: Record<number, string> = {};
-    siteOptions.value = list.map((item: any) => {
-      const id = Number(item.id);
-      mapping[id] = item.siteName;
-      return { label: item.siteName, value: id };
-    });
-    siteMap.value = mapping;
-  } catch {
-    siteOptions.value = [];
-    siteMap.value = {};
-  }
-}
-
-onMounted(() => {
-  loadSiteOptions();
-});
+import { linksApi } from '#/api';
 
 const formOptions: VbenFormProps = {
   collapsed: false,
   showCollapseButton: false,
   submitOnEnter: true,
   schema: [
-    {
-      component: 'Select',
-      fieldName: 'websiteId',
-      label: '所属网站',
-      componentProps: {
-        options: siteOptions,
-        placeholder: '请选择网站',
-        allowClear: true,
-        showSearch: true,
-        filterOption: (input: string, option: any) => {
-          return option.label?.toLowerCase().includes(input.toLowerCase());
-        },
-      },
-    },
     {
       component: 'Select',
       fieldName: 'status',
@@ -101,7 +62,6 @@ const gridOptions: VxeGridProps = {
         return await linksApi.list({
           page: page.currentPage,
           pageSize: page.pageSize,
-          websiteId: formValues.websiteId || undefined,
           status: formValues.status || undefined,
           keyword: formValues.keyword,
         });
@@ -127,12 +87,6 @@ const gridOptions: VxeGridProps = {
       title: '链接地址',
       field: 'linkUrl',
       width: 180,
-    },
-    {
-      title: '所属网站',
-      field: 'websiteId',
-      width: 150,
-      slots: { default: 'websiteId' },
     },
     {
       title: '链接类型',
@@ -219,10 +173,6 @@ async function handleDelete(row: any) {
         >
           新增链接
         </Button>
-      </template>
-
-      <template #websiteId="{ row }">
-        <span>{{ siteMap[row.websiteId] || '—' }}</span>
       </template>
 
       <template #linkType="{ row }">

@@ -489,6 +489,53 @@ const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', 
 
       <!-- 月度目标设置表 -->
       <div class="p-4">
+        <!-- approved 状态只读锁定提示 -->
+        <Alert
+          v-if="planStatus === 'approved'"
+          message="计划已审批通过，数据已锁定"
+          description="审批通过的计划不可直接编辑。如需调整目标，请点击底部「申请修改」按钮发起变更审批，经上级审批通过后方可修改。"
+          type="warning"
+          show-icon
+          class="mb-4"
+        />
+
+        <!-- 审批节点链（展示完整审批流程） -->
+        <Card
+          v-if="planDetail?.approvalNodes?.length"
+          size="small"
+          class="mb-4"
+        >
+          <template #title>
+            <div class="flex items-center gap-2">
+              <IconifyIcon icon="lucide:git-branch" />
+              <span>审批流程</span>
+            </div>
+          </template>
+          <Timeline>
+            <TimelineItem
+              v-for="node in planDetail.approvalNodes"
+              :key="node.id"
+              :color="node.status === 1 ? 'green' : node.status === 2 ? 'red' : 'blue'"
+            >
+              <div class="flex items-center gap-2">
+                <span class="font-medium">第{{ node.level }}级</span>
+                <span>{{ node.approverName }}</span>
+                <Tag
+                  v-if="node.status === 0"
+                  color="processing"
+                  size="small"
+                >待审批</Tag>
+                <Tag v-else-if="node.status === 1" color="success" size="small">已通过</Tag>
+                <Tag v-else-if="node.status === 2" color="error" size="small">已驳回</Tag>
+                <Tag v-else-if="node.status === 3" color="default" size="small">已跳过</Tag>
+              </div>
+              <div v-if="node.comment" class="mt-1 text-xs text-gray-500">
+                意见：{{ node.comment }}
+              </div>
+            </TimelineItem>
+          </Timeline>
+        </Card>
+
         <Card size="small" class="mb-4">
           <template #title>
             <div class="flex items-center gap-2">

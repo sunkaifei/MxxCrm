@@ -11,6 +11,7 @@
 use actix_web::{web, HttpResponse, Result};
 use crate::core::kit::global::AppState;
 use crate::core::web::response::MetaResp;
+use crate::core::web::permission_guard::require_permission;
 use crate::modules::finance::model::finance_statistics::FinanceStatisticsQuery;
 use crate::modules::finance::service::finance_statistics_service;
 
@@ -53,9 +54,9 @@ pub async fn generate_daily(
 
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/statistics")
-            .route("/summary", web::get().to(summary))
-            .route("/list", web::get().to(list))
-            .route("/generate-daily", web::post().to(generate_daily)),
+        web::scope("/finance/statistics")
+            .route("/summary", web::get().to(summary).wrap(require_permission("finance:statistics:list")))
+            .route("/list", web::get().to(list).wrap(require_permission("finance:statistics:list")))
+            .route("/generate-daily", web::post().to(generate_daily).wrap(require_permission("finance:statistics:manage"))),
     );
 }

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> - 产品中心</title>
+    <meta name="keywords" content="none">
+    <meta name="description" content="none">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "Microsoft YaHei", Arial, sans-serif; color: #333; background: #f5f5f5; }
+        .header { background: #fff; border-bottom: 2px solid #2563eb; padding: 15px 0; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 15px; }
+        .header .container { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: bold; color: #2563eb; text-decoration: none; }
+        .nav-menu { display: flex; gap: 25px; list-style: none; }
+        .nav-menu a { color: #555; text-decoration: none; font-size: 15px; }
+        .nav-menu a:hover { color: #2563eb; }
+        .breadcrumb { padding: 15px 0; color: #999; font-size: 14px; }
+        .breadcrumb a { color: #666; text-decoration: none; }
+        .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px 0; }
+        .product-card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
+        .product-card:hover { transform: translateY(-4px); }
+        .product-card img { width: 100%; height: 200px; object-fit: cover; }
+        .product-info { padding: 15px; }
+        .product-info h3 { font-size: 16px; margin-bottom: 8px; }
+        .product-info h3 a { color: #333; text-decoration: none; }
+        .product-price { color: #e53e3e; font-size: 18px; font-weight: bold; }
+        .filters { background: #fff; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
+        .filters a { color: #666; text-decoration: none; padding: 5px 15px; border-radius: 4px; }
+        .filters a.active { background: #2563eb; color: #fff; }
+        .pagination { text-align: center; padding: 30px 0; }
+        .pagination a, .pagination span { display: inline-block; padding: 8px 14px; margin: 0 3px; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #666; }
+        .pagination .current { background: #2563eb; color: #fff; border-color: #2563eb; }
+        .footer { background: #2d3748; color: #cbd5e0; padding: 30px 0; margin-top: 40px; }
+        .footer a { color: #cbd5e0; text-decoration: none; }
+        .footer-links { display: flex; gap: 30px; list-style: none; justify-content: center; margin-bottom: 15px; }
+        .footer-copyright { text-align: center; font-size: 14px; color: #718096; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <a href="/" class="logo"></a>
+            <ul class="nav-menu">
+                <li><a href="/">首页</a></li>
+                <li><a href="/product">产品中心</a></li>
+                
+                <li><a href="/category/support">服务支持</a></li>
+                
+                <li><a href="/category/news">新闻动态</a></li>
+                
+                <li><a href="/category/products">产品中心</a></li>
+                
+                <li><a href="/category/team">团队介绍</a></li>
+                
+                <li><a href="/category/about">关于我们</a></li>
+                
+                <li><a href="/category/company">公司简介</a></li>
+                
+                <li><a href="/category/industry">行业新闻</a></li>
+                
+            </ul>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="/">首页</a> &gt; 产品中心
+        </div>
+
+        <div class="filters">
+            <a href="/product" class="active">全部</a>
+            
+            <a href="/product?category_id=1888888888888888104" >服务支持</a>
+            
+            <a href="/product?category_id=1888888888888888103" >新闻动态</a>
+            
+            <a href="/product?category_id=1888888888888888102" >产品中心</a>
+            
+            <a href="/product?category_id=1888888888888888106" >团队介绍</a>
+            
+            <a href="/product?category_id=1888888888888888101" >关于我们</a>
+            
+            <a href="/product?category_id=1888888888888888105" >公司简介</a>
+            
+            <a href="/product?category_id=1888888888888888107" >行业新闻</a>
+            
+        </div>
+
+        <div class="product-grid">
+            
+            <div class="product-card">
+                <a href="/product/16">
+                    <img src="/static/images/no-image.png" alt="电脑" onerror="this.src='data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23eee' width='300' height='200'/><text fill='%23999' x='50%' y='50%' text-anchor='middle' dy='.3em' font-size='16'>暂无图片</text></svg>'">
+                </a>
+                <div class="product-info">
+                    <h3><a href="/product/16">电脑</a></h3>
+                    
+                    
+                    <p><a href="/api/open/leave_msg/submit" style="color:#2563eb;font-size:13px;">立即咨询</a></p>
+                    
+                </div>
+            </div>
+            
+            <div class="product-card">
+                <a href="/product/15">
+                    <img src="/static/images/no-image.png" alt="女士连衣裙" onerror="this.src='data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23eee' width='300' height='200'/><text fill='%23999' x='50%' y='50%' text-anchor='middle' dy='.3em' font-size='16'>暂无图片</text></svg>'">
+                </a>
+                <div class="product-info">
+                    <h3><a href="/product/15">女士连衣裙</a></h3>
+                    
+                    
+                    <p><a href="/api/open/leave_msg/submit" style="color:#2563eb;font-size:13px;">立即咨询</a></p>
+                    
+                </div>
+            </div>
+            
+            <div class="product-card">
+                <a href="/product/5">
+                    <img src="/static/images/no-image.png" alt="不粘锅套装" onerror="this.src='data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23eee' width='300' height='200'/><text fill='%23999' x='50%' y='50%' text-anchor='middle' dy='.3em' font-size='16'>暂无图片</text></svg>'">
+                </a>
+                <div class="product-info">
+                    <h3><a href="/product/5">不粘锅套装</a></h3>
+                    
+                    
+                    <p><a href="/api/open/leave_msg/submit" style="color:#2563eb;font-size:13px;">立即咨询</a></p>
+                    
+                </div>
+            </div>
+            
+            <div class="product-card">
+                <a href="/product/6">
+                    <img src="/static/images/no-image.png" alt="床上四件套" onerror="this.src='data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23eee' width='300' height='200'/><text fill='%23999' x='50%' y='50%' text-anchor='middle' dy='.3em' font-size='16'>暂无图片</text></svg>'">
+                </a>
+                <div class="product-info">
+                    <h3><a href="/product/6">床上四件套</a></h3>
+                    
+                    
+                    <p><a href="/api/open/leave_msg/submit" style="color:#2563eb;font-size:13px;">立即咨询</a></p>
+                    
+                </div>
+            </div>
+            
+            <div class="product-card">
+                <a href="/product/3">
+                    <img src="/static/images/no-image.png" alt="运动T恤" onerror="this.src='data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23eee' width='300' height='200'/><text fill='%23999' x='50%' y='50%' text-anchor='middle' dy='.3em' font-size='16'>暂无图片</text></svg>'">
+                </a>
+                <div class="product-info">
+                    <h3><a href="/product/3">运动T恤</a></h3>
+                    
+                    
+                    <p><a href="/api/open/leave_msg/submit" style="color:#2563eb;font-size:13px;">立即咨询</a></p>
+                    
+                </div>
+            </div>
+            
+            <div class="product-card">
+                <a href="/product/1">
+                    <img src="/static/images/no-image.png" alt="智能手机 X1" onerror="this.src='data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23eee' width='300' height='200'/><text fill='%23999' x='50%' y='50%' text-anchor='middle' dy='.3em' font-size='16'>暂无图片</text></svg>'">
+                </a>
+                <div class="product-info">
+                    <h3><a href="/product/1">智能手机 X1</a></h3>
+                    
+                    
+                    <p><a href="/api/open/leave_msg/submit" style="color:#2563eb;font-size:13px;">立即咨询</a></p>
+                    
+                </div>
+            </div>
+            
+            <div class="product-card">
+                <a href="/product/2">
+                    <img src="/static/images/no-image.png" alt="笔记本电脑 Pro" onerror="this.src='data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23eee' width='300' height='200'/><text fill='%23999' x='50%' y='50%' text-anchor='middle' dy='.3em' font-size='16'>暂无图片</text></svg>'">
+                </a>
+                <div class="product-info">
+                    <h3><a href="/product/2">笔记本电脑 Pro</a></h3>
+                    
+                    
+                    <p><a href="/api/open/leave_msg/submit" style="color:#2563eb;font-size:13px;">立即咨询</a></p>
+                    
+                </div>
+            </div>
+            
+            <div class="product-card">
+                <a href="/product/4">
+                    <img src="/static/images/no-image.png" alt="休闲运动鞋" onerror="this.src='data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23eee' width='300' height='200'/><text fill='%23999' x='50%' y='50%' text-anchor='middle' dy='.3em' font-size='16'>暂无图片</text></svg>'">
+                </a>
+                <div class="product-info">
+                    <h3><a href="/product/4">休闲运动鞋</a></h3>
+                    
+                    
+                    <p><a href="/api/open/leave_msg/submit" style="color:#2563eb;font-size:13px;">立即咨询</a></p>
+                    
+                </div>
+            </div>
+            
+        </div>
+
+        
+
+        <div class="pagination">
+            
+            
+            
+            
+            <span class="current">1</span>
+            
+            
+            
+            <span>共 1 页 / 8 条</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="container">
+            <ul class="footer-links">
+                <li><a href="/">首页</a></li>
+                <li><a href="/product">产品中心</a></li>
+                <li><a href="/category/news">新闻动态</a></li>
+                <li><a href="/category/about">关于我们</a></li>
+            </ul>
+            <p class="footer-copyright"> </p>
+        </div>
+    </div>
+</body>
+</html>

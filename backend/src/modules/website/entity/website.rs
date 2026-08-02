@@ -26,6 +26,8 @@ pub struct Model {
     pub show_banner: Option<i32>,
     /// 模版id
     pub template_id: Option<i64>,
+    /// G-2.4: 移动端模版id（为空时与 template_id 相同）
+    pub mobile_template_id: Option<i64>,
     /// 二级域名
     pub domain: Option<String>,
     /// PC端的LOGO
@@ -40,6 +42,14 @@ pub struct Model {
     pub bind_domain: Option<String>,
     /// 站点类型，1=企业官网，2=商城，3=其他
     pub site_type: Option<i32>,
+    /// 站点模式，1=展示型 2=交易型 3=混合型
+    pub site_mode: Option<i32>,
+    /// 默认发货仓库（关联 mxx_inventory_warehouse）
+    pub default_warehouse_id: Option<i64>,
+    /// 联系邮箱
+    pub contact_email: Option<String>,
+    /// 咨询转线索后的默认负责人
+    pub lead_owner_id: Option<i64>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
@@ -102,6 +112,12 @@ pub struct Model {
     pub share_desc: Option<String>,
     /// 分享图片
     pub share_image: Option<String>,
+    /// URL伪静态规则：0=默认动态 1=短URL 2=目录模式 3=自定义
+    pub url_rule: Option<i32>,
+    /// URL伪静态规则模板（url_rule=3 时生效）
+    pub url_rule_pattern: Option<String>,
+    /// robots.txt 自定义内容，为空则使用默认规则
+    pub robots_content: Option<String>,
     /// 创建时间
     pub create_time: Option<DateTime>,
     /// 更新时间

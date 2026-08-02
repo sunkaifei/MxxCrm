@@ -15,6 +15,9 @@ use crate::modules::crm::entity::opportunity::{
     Column as OppColumn, Entity as OppEntity,
 };
 use crate::modules::crm::model::todo::*;
+use crate::modules::statistics::entity::performance_plan::{
+    Column as PerfPlanColumn, Entity as PerfPlanEntity,
+};
 
 pub struct TodoService;
 
@@ -99,6 +102,15 @@ impl TodoService {
             .await
             .map_err(|e| Error::from(e.to_string()))?;
 
+        // 待我审批的销售计划（当前用户为 current_approver_id 且状态为待审批）
+        let pending_plan_approval = PerfPlanEntity::find()
+            .filter(PerfPlanColumn::CurrentApproverId.eq(user_id))
+            .filter(PerfPlanColumn::Status.eq(1))
+            .filter(PerfPlanColumn::Deleted.eq(0))
+            .count(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
         Ok(TodoSummaryVO {
             overdue_follow_up: (overdue_customer + overdue_lead) as i64,
             today_follow_up: (today_customer + today_lead) as i64,
@@ -106,6 +118,7 @@ impl TodoService {
             pending_payment: pending_payment as i64,
             expiring_contract: expiring_contract as i64,
             stagnant_opportunity: stagnant_opportunity as i64,
+            pending_plan_approval: pending_plan_approval as i64,
         })
     }
 

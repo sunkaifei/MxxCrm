@@ -13,6 +13,10 @@ import { Tabs, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getPaymentPlanPageListApi } from '#/api';
 import { $t } from '#/locales';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
+
+// 回款计划使用说明步骤数（与 i18n 中 page.sale.paymentPlan.guide.steps 数组对齐）
+const guideStepCount = 5;
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -177,6 +181,28 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 <template>
   <Page auto-content-height>
+    <PageUsageGuide
+      :title="$t('page.sale.paymentPlan.guide.title')"
+      :brief="$t('page.sale.paymentPlan.guide.brief')"
+      :expand-text="$t('page.sale.paymentPlan.guide.expand')"
+      :collapse-text="$t('page.sale.paymentPlan.guide.collapse')"
+    >
+      <div
+        v-for="i in guideStepCount"
+        :key="i"
+        class="page-guide-step-item"
+      >
+        <div class="page-guide-step-index">{{ i }}</div>
+        <div class="page-guide-step-content">
+          <div class="page-guide-step-title">
+            {{ $t(`page.sale.paymentPlan.guide.steps[${i - 1}].title`) }}
+          </div>
+          <div class="page-guide-step-desc">
+            {{ $t(`page.sale.paymentPlan.guide.steps[${i - 1}].desc`) }}
+          </div>
+        </div>
+      </div>
+    </PageUsageGuide>
     <Grid table-title="回款计划列表">
       <template #form-header>
         <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">

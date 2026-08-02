@@ -35,4 +35,6 @@ pub mod edit_log;
 pub mod mail_config;
 pub mod mail_template;
 pub mod mail_log;
+pub mod scheduler_job;
+pub mod scheduler_log;
 

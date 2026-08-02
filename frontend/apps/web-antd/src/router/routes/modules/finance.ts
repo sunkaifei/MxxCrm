@@ -62,6 +62,70 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.finance.expenseType.title'),
         },
       },
+      {
+        name: 'FinanceTax',
+        path: '/finance/tax',
+        component: () => import('#/views/finance/tax/index.vue'),
+        meta: {
+          title: $t('page.finance.tax.title'),
+        },
+      },
+      {
+        name: 'FinanceSocialInsurance',
+        path: '/finance/social-insurance',
+        component: () => import('#/views/finance/social-insurance/index.vue'),
+        meta: {
+          title: $t('page.finance.insurance.title'),
+        },
+      },
+      {
+        name: 'FinancePayslip',
+        path: '/finance/payslip',
+        component: () => import('#/views/finance/payslip/index.vue'),
+        meta: {
+          title: $t('page.finance.payslip.title'),
+        },
+      },
+      {
+        name: 'FinanceBankExport',
+        path: '/finance/bank-export',
+        component: () => import('#/views/finance/bank-export/index.vue'),
+        meta: {
+          title: $t('page.finance.bankExport.title'),
+        },
+      },
+      {
+        name: 'FinanceAttendance',
+        path: '/finance/attendance',
+        component: () => import('#/views/finance/attendance/index.vue'),
+        meta: {
+          title: $t('page.finance.attendance.title'),
+        },
+      },
+      {
+        name: 'FinanceSalaryItem',
+        path: '/finance/salary-item',
+        component: () => import('#/views/finance/salary-item/index.vue'),
+        meta: {
+          title: $t('page.finance.salaryItem.title'),
+        },
+      },
+      {
+        name: 'FinanceSalaryAdjustment',
+        path: '/finance/salary-adjustment',
+        component: () => import('#/views/finance/salary-adjustment/index.vue'),
+        meta: {
+          title: $t('page.finance.adjustment.title'),
+        },
+      },
+      {
+        name: 'FinanceTeamCommission',
+        path: '/finance/team-commission',
+        component: () => import('#/views/finance/team-commission/index.vue'),
+        meta: {
+          title: $t('page.finance.teamCommission.title'),
+        },
+      },
     ],
   },
 ];

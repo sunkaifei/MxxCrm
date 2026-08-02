@@ -78,6 +78,18 @@ pub async fn save(
             .get("linkUrl")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
+        seo_title: body
+            .get("seoTitle")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        seo_keywords: body
+            .get("seoKeywords")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        seo_description: body
+            .get("seoDescription")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
     };
 
     match category_service::save_category(db, dto).await {
@@ -160,6 +172,18 @@ pub async fn update(
             .map(|v| v as i32),
         link_url: body
             .get("linkUrl")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        seo_title: body
+            .get("seoTitle")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        seo_keywords: body
+            .get("seoKeywords")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        seo_description: body
+            .get("seoDescription")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
     };

@@ -21,10 +21,14 @@ import {
   type SalesFlowMode,
 } from '#/api';
 import { $t } from '#/locales';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
 import OpportunityDetail from './detail.vue';
 import QuotationDrawer from '../../sale/quotation/drawer.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
+
+// 商机管理使用说明步骤数（与 i18n 中 page.crm.opportunity.guide.steps 数组对齐）
+const guideStepCount = 5;
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -338,6 +342,28 @@ loadFlowMode();
 
 <template>
   <Page>
+    <PageUsageGuide
+      :title="$t('page.crm.opportunity.guide.title')"
+      :brief="$t('page.crm.opportunity.guide.brief')"
+      :expand-text="$t('page.crm.opportunity.guide.expand')"
+      :collapse-text="$t('page.crm.opportunity.guide.collapse')"
+    >
+      <div
+        v-for="i in guideStepCount"
+        :key="i"
+        class="page-guide-step-item"
+      >
+        <div class="page-guide-step-index">{{ i }}</div>
+        <div class="page-guide-step-content">
+          <div class="page-guide-step-title">
+            {{ $t(`page.crm.opportunity.guide.steps[${i - 1}].title`) }}
+          </div>
+          <div class="page-guide-step-desc">
+            {{ $t(`page.crm.opportunity.guide.steps[${i - 1}].desc`) }}
+          </div>
+        </div>
+      </div>
+    </PageUsageGuide>
     <SalesProcessGuide current-step="opportunity" />
     <Grid :table-title="$t('page.crm.opportunity.title')">
       <template #form-header>

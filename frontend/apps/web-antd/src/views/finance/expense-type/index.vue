@@ -38,25 +38,31 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'typeName',
-      label: '类型名称',
-      componentProps: { placeholder: '类型名称', allowClear: true },
+      label: $t('page.finance.expenseType.column.typeName'),
+      componentProps: {
+        placeholder: $t('page.finance.expenseType.drawer.typeNamePlaceholder'),
+        allowClear: true,
+      },
     },
     {
       component: 'Input',
       fieldName: 'typeCode',
-      label: '类型编码',
-      componentProps: { placeholder: '类型编码', allowClear: true },
+      label: $t('page.finance.expenseType.column.typeCode'),
+      componentProps: {
+        placeholder: $t('page.finance.expenseType.column.typeCode'),
+        allowClear: true,
+      },
     },
     {
       component: 'Select',
       fieldName: 'status',
-      label: '状态',
+      label: $t('page.finance.expenseType.column.status'),
       componentProps: {
-        placeholder: '全部',
+        placeholder: $t('page.finance.common.all'),
         allowClear: true,
         options: [
-          { value: 1, label: '启用' },
-          { value: 0, label: '禁用' },
+          { value: 1, label: $t('page.finance.expenseType.status.enabled') },
+          { value: 0, label: $t('page.finance.expenseType.status.disabled') },
         ],
       },
     },
@@ -103,30 +109,30 @@ const gridOptions: VxeGridProps = {
       width: 70,
     },
     {
-      title: '类型名称',
+      title: $t('page.finance.expenseType.column.typeName'),
       field: 'typeName',
       minWidth: 160,
       slots: { default: 'typeName' },
     },
     {
-      title: '类型编码',
+      title: $t('page.finance.expenseType.column.typeCode'),
       field: 'typeCode',
       width: 150,
     },
     {
-      title: '排序',
+      title: $t('page.finance.expenseType.column.sort'),
       field: 'sort',
       width: 80,
       align: 'center',
     },
     {
-      title: '状态',
+      title: $t('page.finance.expenseType.column.status'),
       field: 'status',
       width: 100,
       slots: { default: 'status' },
     },
     {
-      title: '系统内置',
+      title: $t('page.finance.expenseType.column.isSystem'),
       field: 'isSystem',
       width: 100,
       slots: { default: 'isSystem' },
@@ -198,7 +204,7 @@ async function handleSubmit() {
     return;
   }
   if (!formData.typeName?.trim()) {
-    message.warning('请输入类型名称');
+    message.warning($t('page.finance.expenseType.drawer.typeNameRequired'));
     return;
   }
   modalLoading.value = true;
@@ -208,11 +214,15 @@ async function handleSubmit() {
       status: formData.status ? 1 : 0,
     };
     await saveExpenseTypeApi(payload);
-    message.success(isEditType.value ? '更新成功' : '创建成功');
+    message.success(
+      isEditType.value
+        ? $t('page.finance.expenseType.message.updateSuccess')
+        : $t('page.finance.expenseType.message.createSuccess'),
+    );
     modalVisible.value = false;
     gridApi.query();
   } catch (e: any) {
-    message.error(e?.message || '操作失败');
+    message.error(e?.message || $t('page.finance.common.failed'));
   } finally {
     modalLoading.value = false;
   }
@@ -221,40 +231,40 @@ async function handleSubmit() {
 async function handleDelete(row: any) {
   try {
     await deleteExpenseTypeApi([row.id]);
-    message.success('删除成功');
+    message.success($t('page.finance.common.deleteSuccess'));
     gridApi.query();
   } catch (e: any) {
-    message.error(e?.message || '删除失败');
+    message.error(e?.message || $t('page.finance.common.deleteFailed'));
   }
 }
 </script>
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="费用类型管理">
+    <Grid :table-title="$t('page.finance.expenseType.manageTitle')">
       <template #toolbar-tools>
         <Button type="primary" class="mr-2" :icon="h(Plus)" @click="handleCreate">
-          新增费用类型
+          {{ $t('page.finance.expenseType.drawer.titleCreate') }}
         </Button>
         <Button class="mr-2" :icon="h(RefreshCw)" @click="gridApi.query()">
-          刷新
+          {{ $t('page.finance.common.refresh') }}
         </Button>
       </template>
 
       <template #typeName="{ row }">
         <span class="font-medium">{{ row.typeName }}</span>
-        <Tag v-if="row.isSystem" color="purple" class="ml-2">系统</Tag>
+        <Tag v-if="row.isSystem" color="purple" class="ml-2">{{ $t('page.finance.expenseType.tag.system') }}</Tag>
       </template>
 
       <template #status="{ row }">
         <Tag :color="row.status === 1 ? 'green' : 'red'">
-          {{ row.status === 1 ? '启用' : '禁用' }}
+          {{ row.status === 1 ? $t('page.finance.expenseType.status.enabled') : $t('page.finance.expenseType.status.disabled') }}
         </Tag>
       </template>
 
       <template #isSystem="{ row }">
-        <Tag v-if="row.isSystem" color="purple">是</Tag>
-        <span v-else class="text-gray-400">否</span>
+        <Tag v-if="row.isSystem" color="purple">{{ $t('page.finance.common.yes') }}</Tag>
+        <span v-else class="text-gray-400">{{ $t('page.finance.common.no') }}</span>
       </template>
 
       <template #createdAt="{ row }">
@@ -264,21 +274,21 @@ async function handleDelete(row: any) {
       <template #action="{ row }">
         <Button
           type="link"
-          title="编辑"
+          :title="$t('page.finance.common.edit')"
           @click="handleEdit(row)"
-        >编辑</Button>
+        >{{ $t('page.finance.common.edit') }}</Button>
         <Popconfirm
           v-if="!row.isSystem"
-          :title="`确定要删除费用类型「${row.typeName}」吗？`"
-          ok-text="删除"
+          :title="$t('page.finance.expenseType.drawer.deleteConfirm', { name: row.typeName })"
+          :ok-text="$t('page.finance.common.delete')"
           ok-type="danger"
-          cancel-text="取消"
+          :cancel-text="$t('page.finance.common.cancel')"
           @confirm="handleDelete(row)"
         >
-          <Button type="link" danger title="删除">删除</Button>
+          <Button type="link" danger :title="$t('page.finance.common.delete')">{{ $t('page.finance.common.delete') }}</Button>
         </Popconfirm>
-        <span v-else class="text-gray-300 cursor-not-allowed" title="系统内置类型不可删除">
-          删除
+        <span v-else class="text-gray-300 cursor-not-allowed" :title="$t('page.finance.expenseType.message.systemBuiltinNoDelete')">
+          {{ $t('page.finance.common.delete') }}
         </span>
       </template>
     </Grid>
@@ -286,12 +296,12 @@ async function handleDelete(row: any) {
     <!-- 新增/编辑弹窗 -->
     <Modal
       v-model:open="modalVisible"
-      :title="isEditType ? '编辑费用类型' : '新增费用类型'"
+      :title="isEditType ? $t('page.finance.expenseType.drawer.titleEdit') : $t('page.finance.expenseType.drawer.titleCreate')"
       :confirm-loading="modalLoading"
       :mask-closable="false"
       :destroy-on-close="true"
-      ok-text="保存"
-      cancel-text="取消"
+      :ok-text="$t('page.finance.common.save')"
+      :cancel-text="$t('page.finance.common.cancel')"
       @ok="handleSubmit"
     >
       <Form
@@ -302,39 +312,39 @@ async function handleDelete(row: any) {
       >
         <FormItem
           name="typeName"
-          label="类型名称"
-          :rules="[{ required: true, message: '请输入类型名称' }]"
+          :label="$t('page.finance.expenseType.column.typeName')"
+          :rules="[{ required: true, message: $t('page.finance.expenseType.drawer.typeNameRequired') }]"
         >
           <Input
             v-model:value="formData.typeName"
-            placeholder="请输入类型名称"
+            :placeholder="$t('page.finance.expenseType.drawer.typeNameRequired')"
             allow-clear
           />
         </FormItem>
         <FormItem
           name="typeCode"
-          label="类型编码"
-          :rules="[{ required: true, message: '请输入类型编码' }]"
+          :label="$t('page.finance.expenseType.column.typeCode')"
+          :rules="[{ required: true, message: $t('page.finance.expenseType.drawer.typeCodeRequired') }]"
         >
           <Input
             v-model:value="formData.typeCode"
-            placeholder="请输入类型编码"
+            :placeholder="$t('page.finance.expenseType.drawer.typeCodeRequired')"
             allow-clear
           />
         </FormItem>
-        <FormItem name="sort" label="排序">
+        <FormItem name="sort" :label="$t('page.finance.expenseType.column.sort')">
           <InputNumber
             v-model:value="formData.sort"
             :min="0"
             style="width: 100%"
-            placeholder="排序值（越小越靠前）"
+            :placeholder="$t('page.finance.expenseType.drawer.sortPlaceholder')"
           />
         </FormItem>
-        <FormItem name="status" label="状态">
+        <FormItem name="status" :label="$t('page.finance.expenseType.column.status')">
           <Switch
             :checked="formData.status === 1"
-            checked-children="启用"
-            un-checked-children="禁用"
+            :checked-children="$t('page.finance.expenseType.status.enabled')"
+            :un-checked-children="$t('page.finance.expenseType.status.disabled')"
             @change="(checked: boolean) => (formData.status = checked ? 1 : 0)"
           />
         </FormItem>

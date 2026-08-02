@@ -9,5 +9,7 @@
 //!
 
 pub mod article_admin_controller;
+pub mod article_field_admin_controller;
 pub mod category_admin_controller;
+pub mod comment_admin_controller;
 pub mod label_admin_controller;

@@ -38,6 +38,9 @@ pub async fn get_list(
         query.enabled,
         query.department_id,
         query.post_id,
+        query.product_line,
+        query.region_code,
+        query.customer_type,
     )
     .await
     .map_err(|e| e.to_string())?;
@@ -107,7 +110,7 @@ pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<CommissionRu
 
     let mut vo = CommissionRuleDetailVO {
         id: rule.id,
-        rule_name: rule.rule_name,
+        rule_name: rule.rule_name.clone(),
         rule_type: rule.rule_type,
         apply_scope: rule.apply_scope,
         department_id: rule.department_id,
@@ -119,6 +122,9 @@ pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<CommissionRu
         is_default: rule.is_default,
         calc_base_type: rule.calc_base_type,
         trigger_condition: rule.trigger_condition,
+        product_line: rule.product_line,
+        region_code: rule.region_code,
+        customer_type: rule.customer_type,
         effective_date: rule.effective_date.map(|d| d.format("%Y-%m-%d").to_string()),
         expiry_date: rule.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()),
         enabled: rule.enabled,
@@ -129,6 +135,19 @@ pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<CommissionRu
         update_time: rule.update_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         tiers: Vec::new(),
         members: Vec::new(),
+        // v2 新增字段
+        commission_category: rule.commission_category,
+        beneficiary_role: rule.beneficiary_role,
+        calc_method: rule.calc_method,
+        bonus_target: rule.bonus_target.and_then(|d| d.to_f64()),
+        bonus_fixed_amount: rule.bonus_fixed_amount.and_then(|d| d.to_f64()),
+        commission_cap: rule.commission_cap.and_then(|d| d.to_f64()),
+        commission_floor: rule.commission_floor.and_then(|d| d.to_f64()),
+        customer_category: rule.customer_category,
+        defer_months: rule.defer_months,
+        pool_id: rule.pool_id,
+        calc_base_field: rule.calc_base_field,
+        tier_mode: rule.tier_mode,
     };
 
     // 填充部门名称

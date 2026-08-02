@@ -8,6 +8,9 @@
 //! 版权所有，侵权必究！
 //!
 
+pub mod article_field_service;
+pub mod article_label_service;
 pub mod article_service;
 pub mod category_service;
+pub mod comment_service;
 pub mod label_service;

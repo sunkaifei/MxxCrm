@@ -216,17 +216,23 @@ pub async fn monthly_settle(
 }
 
 pub fn register(cfg: &mut web::ServiceConfig) {
+    // 注意:不能使用 /finance 作为 scope 前缀,否则会拦截 /finance/salary、/finance/tax 等其他子模块的请求
+    // actix-web 的 scope 匹配到前缀后,如果内部路由不匹配,直接返回 404,不会继续尝试其他 scope
     cfg.service(
-        web::scope("/finance")
-            .route("/commission-rule/list", web::get().to(list).wrap(require_permission("finance:commission:list")))
-            .route("/commission-rule/detail", web::get().to(detail).wrap(require_permission("finance:commission:list")))
-            .route("/commission-rule/save", web::post().to(save).wrap(require_permission("finance:commission:manage")))
-            .route("/commission-rule/delete", web::post().to(delete).wrap(require_permission("finance:commission:manage")))
-            .route("/commission-rule/toggle", web::post().to(toggle).wrap(require_permission("finance:commission:manage")))
-            .route("/commission-rule/set-default", web::post().to(set_default).wrap(require_permission("finance:commission:manage")))
-            .route("/commission-rule/default", web::get().to(get_default).wrap(require_permission("finance:commission:list")))
-            .route("/commission-rule/options", web::get().to(options).wrap(require_permission("finance:commission:list")))
-            .route("/commission/preview", web::post().to(preview).wrap(require_permission("finance:commission:manage")))
-            .route("/commission/monthly-settle", web::post().to(monthly_settle).wrap(require_permission("finance:commission:manage"))),
+        web::scope("/finance/commission-rule")
+            .route("/list", web::get().to(list).wrap(require_permission("finance:commission:list")))
+            .route("/detail", web::get().to(detail).wrap(require_permission("finance:commission:list")))
+            .route("/save", web::post().to(save).wrap(require_permission("finance:commission:manage")))
+            .route("/delete", web::post().to(delete).wrap(require_permission("finance:commission:manage")))
+            .route("/toggle", web::post().to(toggle).wrap(require_permission("finance:commission:manage")))
+            .route("/set-default", web::post().to(set_default).wrap(require_permission("finance:commission:manage")))
+            .route("/default", web::get().to(get_default).wrap(require_permission("finance:commission:list")))
+            .route("/options", web::get().to(options).wrap(require_permission("finance:commission:list")))
+    );
+    // 提成预览和月度结算单独注册
+    cfg.service(
+        web::scope("/finance/commission")
+            .route("/preview", web::post().to(preview).wrap(require_permission("finance:commission:manage")))
+            .route("/monthly-settle", web::post().to(monthly_settle).wrap(require_permission("finance:commission:manage"))),
     );
 }

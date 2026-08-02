@@ -18,6 +18,17 @@ pub mod salary_service;
 pub mod payment_service;
 pub mod commission_calc_service;
 pub mod expense_service;
+pub mod tax_service;
+pub mod insurance_service;
+pub mod bank_export_service;
+pub mod payslip_service;
+pub mod team_commission_service;
+pub mod attendance_service;
+pub mod salary_item_service;
+pub mod salary_adjustment_service;
+pub mod salary_export_service;
+pub mod commission_pool_service;
+pub mod commission_allocation_service;
 
 pub use payment_record_service::*;
 pub use member_fee_service::*;

@@ -23,9 +23,13 @@ import {
   cancelRefundApi,
 } from '#/api';
 import { $t } from '#/locales';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
 import RefundDrawer from './drawer.vue';
 import RefundDetail from './detail.vue';
 import CustomerDetail from '../../crm/customer/detail.vue';
+
+// 销售退款使用说明步骤数（与 i18n 中 page.sale.refund.guide.steps 数组对齐）
+const guideStepCount = 5;
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -566,6 +570,28 @@ async function handleCancel(row: any) {
 
 <template>
   <Page>
+    <PageUsageGuide
+      :title="$t('page.sale.refund.guide.title')"
+      :brief="$t('page.sale.refund.guide.brief')"
+      :expand-text="$t('page.sale.refund.guide.expand')"
+      :collapse-text="$t('page.sale.refund.guide.collapse')"
+    >
+      <div
+        v-for="i in guideStepCount"
+        :key="i"
+        class="page-guide-step-item"
+      >
+        <div class="page-guide-step-index">{{ i }}</div>
+        <div class="page-guide-step-content">
+          <div class="page-guide-step-title">
+            {{ $t(`page.sale.refund.guide.steps[${i - 1}].title`) }}
+          </div>
+          <div class="page-guide-step-desc">
+            {{ $t(`page.sale.refund.guide.steps[${i - 1}].desc`) }}
+          </div>
+        </div>
+      </div>
+    </PageUsageGuide>
     <Grid :table-title="''">
       <template #form-header>
         <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">

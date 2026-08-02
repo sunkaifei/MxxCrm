@@ -21,6 +21,10 @@ export interface ArticleSaveDTO {
   istop?: number;
   isrecommend?: number;
   status?: number;
+  publishTime?: string;
+  seoTitle?: string;
+  seoKeywords?: string;
+  seoDescription?: string;
 }
 
 export interface ArticleVO {
@@ -36,6 +40,10 @@ export interface ArticleVO {
   istop?: number;
   isrecommend?: number;
   status?: number;
+  publishTime?: string;
+  seoTitle?: string;
+  seoKeywords?: string;
+  seoDescription?: string;
   createTime?: string;
 }
 

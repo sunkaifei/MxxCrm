@@ -130,6 +130,46 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: '请选择状态',
       },
     },
+    {
+      component: 'DatePicker',
+      fieldName: 'publishTime',
+      label: '定时发布',
+      componentProps: {
+        placeholder: '到达该时间后自动发布',
+        showTime: true,
+        format: 'YYYY-MM-DD HH:mm:ss',
+        allowClear: true,
+        style: 'width: 100%',
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'seoTitle',
+      label: 'SEO标题',
+      componentProps: {
+        placeholder: '留空则使用文章标题',
+        allowClear: true,
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'seoKeywords',
+      label: 'SEO关键词',
+      componentProps: {
+        placeholder: '多个关键词用英文逗号分隔',
+        allowClear: true,
+      },
+    },
+    {
+      component: 'Textarea',
+      fieldName: 'seoDescription',
+      label: 'SEO描述',
+      componentProps: {
+        placeholder: '用于搜索引擎收录，建议 80-200 字',
+        allowClear: true,
+        rows: 3,
+      },
+    },
   ],
 });
 

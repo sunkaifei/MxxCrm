@@ -10,6 +10,11 @@ import {
   approvePlanApi, rejectPlanApi, modifyPlanApi,
   getPlanDetailApi, getPlanModifyDetailApi,
 } from '#/api/core/statistics';
+import { $t } from '#/locales';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
+
+// 业绩计划使用说明步骤数（与 i18n 中 page.statistics.performancePlan.guide.steps 数组对齐）
+const guideStepCount = 5;
 
 // ---- Status Config ----
 const STATUS_MAP: Record<number, { text: string; color: string }> = {
@@ -262,6 +267,28 @@ onMounted(() => {
 
 <template>
   <div>
+    <PageUsageGuide
+      :title="$t('page.statistics.performancePlan.guide.title')"
+      :brief="$t('page.statistics.performancePlan.guide.brief')"
+      :expand-text="$t('page.statistics.performancePlan.guide.expand')"
+      :collapse-text="$t('page.statistics.performancePlan.guide.collapse')"
+    >
+      <div
+        v-for="i in guideStepCount"
+        :key="i"
+        class="page-guide-step-item"
+      >
+        <div class="page-guide-step-index">{{ i }}</div>
+        <div class="page-guide-step-content">
+          <div class="page-guide-step-title">
+            {{ $t(`page.statistics.performancePlan.guide.steps[${i - 1}].title`) }}
+          </div>
+          <div class="page-guide-step-desc">
+            {{ $t(`page.statistics.performancePlan.guide.steps[${i - 1}].desc`) }}
+          </div>
+        </div>
+      </div>
+    </PageUsageGuide>
     <!-- Filter Bar -->
     <div class="mb-4 flex items-center justify-between">
       <Space>

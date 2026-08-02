@@ -75,6 +75,15 @@ const cards = computed(() => [
     icon: 'lucide:alert-triangle',
     tabKey: 'opportunity',
   },
+  {
+    key: 'pendingPlanApproval',
+    title: $t('page.dashboard.pendingPlanApproval'),
+    value: summary.value.pendingPlanApproval || 0,
+    color: '#722ed1',
+    bg: '#f9f0ff',
+    icon: 'lucide:clipboard-check',
+    tabKey: 'planApproval',
+  },
 ]);
 
 async function loadData() {
@@ -106,7 +115,7 @@ onMounted(() => {
       </div>
     </template>
     <Spin :spinning="loading">
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div
           v-for="card in cards"
           :key="card.key"

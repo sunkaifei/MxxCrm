@@ -48,8 +48,43 @@ pub struct Model {
     /// 应发工资
     pub total_salary: Decimal,
 
+    /// 个人社保
+    pub social_insurance_personal: Decimal,
+
+    /// 个人公积金
+    pub housing_fund_personal: Decimal,
+
+    /// 单位社保
+    pub social_insurance_company: Decimal,
+
+    /// 单位公积金
+    pub housing_fund_company: Decimal,
+
+    /// 个税金额
+    pub tax_amount: Decimal,
+
+    /// 实发工资
+    pub net_salary: Decimal,
+
+    /// 团队提成金额
+    pub team_commission_amount: Decimal,
+
+    /// 团队激励奖金(category=3产生)
+    pub bonus_amount: Decimal,
+
+    /// 手动分配提成(category=5产生，管理者分配后写入)
+    pub allocated_commission: Decimal,
+
+    /// 递延提成金额(当月应发但递延的金额)
+    pub deferred_commission: Decimal,
+
     /// 状态: 0=待审核 1=已审核 2=已发放
     pub status: Option<i32>,
+
+    /// 员工确认状态: 0=未确认, 1=已确认, 2=申请重新核算
+    pub employee_confirmed: Option<i32>,
+    /// 确认时间
+    pub confirmed_time: Option<DateTime>,
 
     /// 备注
     pub remark: Option<String>,

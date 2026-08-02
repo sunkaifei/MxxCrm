@@ -136,7 +136,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/detail/{id}",
                 web::get()
                     .to(get_by_detail)
-                    .wrap(require_permission("website:links:find")),
+                    .wrap(require_permission("website:links:view")),
             )
             // GET /links/list - 友情链接列表
             .route(

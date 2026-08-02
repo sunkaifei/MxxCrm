@@ -14,6 +14,7 @@ import {
 } from 'ant-design-vue';
 
 import { applyFinancePaymentApi } from '#/api/core/finance';
+import { $t } from '#/locales';
 
 const props = defineProps<{
   visible: boolean;
@@ -27,16 +28,16 @@ const formRef = ref();
 const loading = ref(false);
 
 const paymentTypeOptions = [
-  { value: 1, label: '预付款' },
-  { value: 2, label: '尾款' },
-  { value: 3, label: '全款' },
+  { value: 1, label: $t('page.finance.payment.paymentType.prepay') },
+  { value: 2, label: $t('page.finance.payment.paymentType.final') },
+  { value: 3, label: $t('page.finance.payment.paymentType.full') },
 ];
 
 const paymentMethodOptions = [
-  { value: 1, label: '银行转账' },
-  { value: 2, label: '现金' },
-  { value: 3, label: '支票' },
-  { value: 4, label: '其他' },
+  { value: 1, label: $t('page.finance.payment.paymentMethod.bankTransfer') },
+  { value: 2, label: $t('page.finance.payment.paymentMethod.cash') },
+  { value: 3, label: $t('page.finance.payment.paymentMethod.check') },
+  { value: 4, label: $t('page.finance.payment.paymentMethod.other') },
 ];
 
 const formData = reactive<any>({
@@ -76,10 +77,10 @@ async function handleSubmit() {
   loading.value = true;
   try {
     await applyFinancePaymentApi(formData);
-    message.success('申请成功');
+    message.success($t('page.finance.payment.drawer.applySuccess'));
     emit('close', true);
   } catch (e: any) {
-    message.error(e?.message || '申请失败');
+    message.error(e?.message || $t('page.finance.payment.drawer.applyFailed'));
   } finally {
     loading.value = false;
   }
@@ -93,7 +94,7 @@ function handleClose() {
 <template>
   <Drawer
     :open="visible"
-    title="申请付款"
+    :title="$t('page.finance.payment.drawer.titleApply')"
     :width="560"
     :mask-closable="false"
     :destroy-on-close="true"
@@ -107,67 +108,67 @@ function handleClose() {
     >
       <FormItem
         name="poNo"
-        label="关联采购单"
-        :rules="[{ required: true, message: '请输入关联采购单号' }]"
+        :label="$t('page.finance.payment.drawer.purchaseOrderNo')"
+        :rules="[{ required: true, message: $t('page.finance.payment.drawer.purchaseOrderRequired') }]"
       >
         <Input
           v-model:value="formData.poNo"
-          placeholder="请输入关联采购单号"
+          :placeholder="$t('page.finance.payment.drawer.purchaseOrderPlaceholder')"
           allow-clear
         />
       </FormItem>
 
       <FormItem
         name="paymentType"
-        label="付款类型"
-        :rules="[{ required: true, message: '请选择付款类型' }]"
+        :label="$t('page.finance.payment.drawer.paymentType')"
+        :rules="[{ required: true, message: $t('page.finance.payment.drawer.paymentTypeRequired') }]"
       >
         <Select
           v-model:value="formData.paymentType"
           :options="paymentTypeOptions"
-          placeholder="请选择付款类型"
+          :placeholder="$t('page.finance.payment.drawer.paymentTypePlaceholder')"
         />
       </FormItem>
 
       <FormItem
         name="amount"
-        label="付款金额"
-        :rules="[{ required: true, message: '请输入付款金额' }]"
+        :label="$t('page.finance.payment.drawer.paymentAmount')"
+        :rules="[{ required: true, message: $t('page.finance.payment.drawer.paymentAmountRequired') }]"
       >
         <InputNumber
           v-model:value="formData.amount"
           :min="0"
           :precision="2"
           style="width: 100%"
-          placeholder="请输入付款金额"
+          :placeholder="$t('page.finance.payment.drawer.paymentAmountPlaceholder')"
         />
       </FormItem>
 
       <FormItem
         name="paymentMethod"
-        label="付款方式"
-        :rules="[{ required: true, message: '请选择付款方式' }]"
+        :label="$t('page.finance.payment.drawer.paymentMethod')"
+        :rules="[{ required: true, message: $t('page.finance.payment.drawer.paymentMethodRequired') }]"
       >
         <Select
           v-model:value="formData.paymentMethod"
           :options="paymentMethodOptions"
-          placeholder="请选择付款方式"
+          :placeholder="$t('page.finance.payment.drawer.paymentMethodPlaceholder')"
         />
       </FormItem>
 
-      <FormItem name="paymentAccount" label="付款账户">
+      <FormItem name="paymentAccount" :label="$t('page.finance.payment.drawer.bankAccount')">
         <Input
           v-model:value="formData.paymentAccount"
-          placeholder="请输入付款账户"
+          :placeholder="$t('page.finance.payment.drawer.bankAccountPlaceholder')"
           allow-clear
         />
       </FormItem>
 
-      <FormItem name="remark" label="备注">
+      <FormItem name="remark" :label="$t('page.finance.payment.drawer.remark')">
         <Textarea
           v-model:value="formData.remark"
           :rows="3"
-          placeholder="请输入备注"
+          :placeholder="$t('page.finance.payment.drawer.remarkPlaceholder')"
           allow-clear
         />
       </FormItem>
@@ -175,9 +176,9 @@ function handleClose() {
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <Button @click="handleClose">取消</Button>
+        <Button @click="handleClose">{{ $t('page.finance.common.cancel') }}</Button>
         <Button type="primary" :loading="loading" @click="handleSubmit">
-          提交
+          {{ $t('page.finance.common.submit') }}
         </Button>
       </div>
     </template>

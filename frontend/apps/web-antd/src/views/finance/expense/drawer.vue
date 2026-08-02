@@ -28,6 +28,7 @@ import {
 import CustomerSelectModal from '../../crm/components/CustomerSelectModal.vue';
 import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
 import OrderSelectModal from '../../crm/components/OrderSelectModal.vue';
+import { $t } from '#/locales';
 
 // drawerData 在 onOpenChange 中手动赋值，避免引用尚未定义的 drawerApi
 const drawerData = ref<{ create: boolean; row: any; readonly?: boolean }>({
@@ -80,7 +81,7 @@ async function loadExpenseTypes() {
       value: t.id,
     }));
   } catch (e) {
-    console.error('[费用申请] 加载费用类型失败:', e);
+    console.error('[expense] load expense types failed:', e);
     expenseTypeOptions.value = [];
   }
 }
@@ -121,7 +122,7 @@ async function loadExpenseDetail(id: number) {
     attachmentList.value = Array.isArray(data.attachments) ? data.attachments : [];
     remark.value = data.remark || '';
   } catch (e) {
-    console.error('[费用申请] 加载详情失败:', e);
+    console.error('[expense] load detail failed:', e);
   }
 }
 
@@ -129,18 +130,18 @@ const basicFormSchema: VbenFormSchema[] = [
   {
     component: 'Input',
     fieldName: 'title',
-    label: '费用标题',
+    label: $t('page.finance.expense.drawer.expenseTitle'),
     rules: 'required',
-    componentProps: { placeholder: '请输入费用标题' },
+    componentProps: { placeholder: $t('page.finance.expense.drawer.expenseTitlePlaceholder') },
     wrapperClass: 'col-span-2',
   },
   {
     component: 'Select',
     fieldName: 'expenseType',
-    label: '费用类型',
+    label: $t('page.finance.expense.drawer.expenseType'),
     rules: 'required',
     componentProps: {
-      placeholder: '请选择费用类型',
+      placeholder: $t('page.finance.expense.drawer.expenseTypePlaceholder'),
       allowClear: true,
       options: expenseTypeOptions,
     },
@@ -148,9 +149,9 @@ const basicFormSchema: VbenFormSchema[] = [
   {
     component: 'DatePicker',
     fieldName: 'applyDate',
-    label: '申请日期',
+    label: $t('page.finance.expense.drawer.applyDate'),
     componentProps: {
-      placeholder: '请选择申请日期',
+      placeholder: $t('page.finance.expense.drawer.applyDatePlaceholder'),
       valueFormat: 'YYYY-MM-DD',
       style: 'width:100%',
     },
@@ -168,12 +169,12 @@ const [BasicForm, basicFormApi] = useVbenForm({
 // 费用明细列
 const itemColumns = [
   { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' },
-  { title: '日期', key: 'itemDate', width: 160 },
-  { title: '金额', key: 'amount', width: 130 },
-  { title: '类别', key: 'category', width: 140 },
-  { title: '说明', key: 'description', minWidth: 180 },
-  { title: '附件', key: 'attachment', width: 120 },
-  { title: '操作', key: 'action', width: 70 },
+  { title: $t('page.finance.expense.drawer.itemDate'), key: 'itemDate', width: 160 },
+  { title: $t('page.finance.expense.drawer.amount'), key: 'amount', width: 130 },
+  { title: $t('page.finance.expense.drawer.category'), key: 'category', width: 140 },
+  { title: $t('page.finance.expense.drawer.description'), key: 'description', minWidth: 180 },
+  { title: $t('page.finance.expense.drawer.attachment'), key: 'attachment', width: 120 },
+  { title: $t('page.finance.common.action'), key: 'action', width: 70 },
 ];
 
 function addItem() {
@@ -221,14 +222,14 @@ async function handleSubmit() {
     try {
       validResult = await basicFormApi.validate();
     } catch (e) {
-      console.error('[费用申请提交] 表单验证异常:', e);
+      console.error('[expense] form validation error:', e);
       activeTab.value = 'basic';
-      message.warning('请完善基本信息');
+      message.warning($t('page.finance.expense.drawer.improveBaseInfo'));
       return;
     }
     if (!validResult?.valid) {
       activeTab.value = 'basic';
-      message.warning('请完善必填项');
+      message.warning($t('page.finance.expense.drawer.improveRequired'));
       return;
     }
 
@@ -236,7 +237,7 @@ async function handleSubmit() {
     for (let i = 0; i < items.value.length; i++) {
       const it = items.value[i];
       if (Number(it.amount || 0) <= 0) {
-        message.error(`第 ${i + 1} 行金额必须大于0`);
+        message.error($t('page.finance.expense.drawer.rowAmountRequired', { index: i + 1 }));
         activeTab.value = 'items';
         return;
       }
@@ -285,15 +286,15 @@ async function handleSubmit() {
 
     if (isEdit.value) {
       await updateExpenseApi(submitData);
-      message.success('更新成功');
+      message.success($t('page.finance.expense.drawer.updateSuccess'));
     } else {
       await createExpenseApi(submitData);
-      message.success('创建成功');
+      message.success($t('page.finance.expense.drawer.createSuccess'));
     }
     closeDrawer();
   } catch (e) {
-    console.error('[费用申请提交] 提交失败:', e);
-    message.error('操作失败');
+    console.error('[expense] submit failed:', e);
+    message.error($t('page.finance.common.failed'));
   } finally {
     submitting.value = false;
   }
@@ -342,41 +343,41 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 <template>
   <Drawer
-    :title="isReadonly ? '费用申请详情' : isEdit ? '修改费用申请' : '新建费用申请'"
+    :title="isReadonly ? $t('page.finance.expense.drawer.titleDetail') : isEdit ? $t('page.finance.expense.drawer.titleEdit') : $t('page.finance.expense.drawer.titleCreate')"
     :class="drawerClass"
     :destroy-on-close="true"
     :z-index="2000"
     :show-footer="!isReadonly"
   >
     <template #extra>
-      <Tooltip :title="isReadonly ? '只读模式' : '编辑模式'">
+      <Tooltip :title="isReadonly ? $t('page.finance.expense.drawer.readonlyMode') : $t('page.finance.expense.drawer.editMode')">
         <span class="text-xs text-gray-400 px-2">
-          {{ isReadonly ? '只读' : '可编辑' }}
+          {{ isReadonly ? $t('page.finance.expense.drawer.readonly') : $t('page.finance.expense.drawer.editable') }}
         </span>
       </Tooltip>
     </template>
     <Tabs v-model:activeKey="activeTab">
-      <TabPane key="basic" tab="基本信息">
+      <TabPane key="basic" :tab="$t('page.finance.expense.drawer.baseInfo')">
         <BasicForm />
         <!-- 关联业务 -->
         <div class="mt-3 px-1">
-          <div class="text-sm font-medium mb-2 text-gray-700">关联业务（可选）</div>
+          <div class="text-sm font-medium mb-2 text-gray-700">{{ $t('page.finance.expense.drawer.relatedBusiness') }}</div>
           <div class="grid grid-cols-1 gap-3">
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">客户：</span>
+              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">{{ $t('page.finance.expense.drawer.customer') }}：</span>
               <div class="flex-1">
                 <a
                   v-if="selectedCustomer"
                   class="text-blue-600 cursor-pointer"
                   @click="!isReadonly && (customerSelectVisible = true)"
                 >
-                  {{ selectedCustomer.name || `客户 #${selectedCustomer.id}` }}
+                  {{ selectedCustomer.name || $t('page.finance.expense.drawer.customerHash', { id: selectedCustomer.id }) }}
                 </a>
                 <a
                   v-else-if="!isReadonly"
                   class="text-blue-600 cursor-pointer"
                   @click="customerSelectVisible = true"
-                >选择客户</a>
+                >{{ $t('page.finance.expense.drawer.customerSelect') }}</a>
                 <span v-else>-</span>
               </div>
               <Button
@@ -385,23 +386,23 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 size="small"
                 danger
                 @click="selectedCustomer = null"
-              >清除</Button>
+              >{{ $t('page.finance.expense.drawer.clear') }}</Button>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">商机：</span>
+              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">{{ $t('page.finance.expense.drawer.opportunity') }}：</span>
               <div class="flex-1">
                 <a
                   v-if="selectedOpportunity"
                   class="text-blue-600 cursor-pointer"
                   @click="!isReadonly && (opportunitySelectVisible = true)"
                 >
-                  {{ selectedOpportunity.name || `商机 #${selectedOpportunity.id}` }}
+                  {{ selectedOpportunity.name || $t('page.finance.expense.drawer.opportunityHash', { id: selectedOpportunity.id }) }}
                 </a>
                 <a
                   v-else-if="!isReadonly"
                   class="text-blue-600 cursor-pointer"
                   @click="opportunitySelectVisible = true"
-                >选择商机</a>
+                >{{ $t('page.finance.expense.drawer.opportunitySelect') }}</a>
                 <span v-else>-</span>
               </div>
               <Button
@@ -410,23 +411,23 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 size="small"
                 danger
                 @click="selectedOpportunity = null"
-              >清除</Button>
+              >{{ $t('page.finance.expense.drawer.clear') }}</Button>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">订单：</span>
+              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">{{ $t('page.finance.expense.drawer.order') }}：</span>
               <div class="flex-1">
                 <a
                   v-if="selectedOrder"
                   class="text-blue-600 cursor-pointer"
                   @click="!isReadonly && (orderSelectVisible = true)"
                 >
-                  {{ selectedOrder.name || `订单 #${selectedOrder.id}` }}
+                  {{ selectedOrder.name || $t('page.finance.expense.drawer.orderHash', { id: selectedOrder.id }) }}
                 </a>
                 <a
                   v-else-if="!isReadonly"
                   class="text-blue-600 cursor-pointer"
                   @click="orderSelectVisible = true"
-                >选择订单</a>
+                >{{ $t('page.finance.expense.drawer.orderSelect') }}</a>
                 <span v-else>-</span>
               </div>
               <Button
@@ -435,16 +436,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 size="small"
                 danger
                 @click="selectedOrder = null"
-              >清除</Button>
+              >{{ $t('page.finance.expense.drawer.clear') }}</Button>
             </div>
           </div>
         </div>
         <!-- 备注 -->
         <div class="mt-4 px-1">
-          <label class="text-sm text-gray-500">备注：</label>
+          <label class="text-sm text-gray-500">{{ $t('page.finance.expense.drawer.remark') }}：</label>
           <Input
             v-model:value="remark"
-            placeholder="备注信息"
+            :placeholder="$t('page.finance.expense.drawer.remarkPlaceholder')"
             type="textarea"
             :rows="2"
             :disabled="isReadonly"
@@ -452,14 +453,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
         </div>
       </TabPane>
 
-      <TabPane key="items" tab="费用明细">
+      <TabPane key="items" :tab="$t('page.finance.expense.drawer.expenseDetail')">
         <div class="mb-3 flex justify-between items-center">
           <span class="text-sm text-gray-500">
-            共 {{ items.length }} 项，合计：
+            {{ $t('page.finance.expense.drawer.totalItems', { count: items.length }) }}
             <span class="font-medium text-red-500">{{ totalAmount.toFixed(2) }}</span>
           </span>
           <Button v-if="!isReadonly" type="primary" size="small" @click="addItem">
-            + 添加明细
+            {{ $t('page.finance.expense.drawer.addItem') }}
           </Button>
         </div>
         <Table
@@ -476,7 +477,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
               <DatePicker
                 v-model:value="record.itemDate"
                 value-format="YYYY-MM-DD"
-                placeholder="选择日期"
+                :placeholder="$t('page.finance.expense.drawer.itemDatePlaceholder')"
                 size="small"
                 style="width: 100%"
                 :disabled="isReadonly"
@@ -489,14 +490,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 :precision="2"
                 style="width: 100%"
                 size="small"
-                placeholder="金额"
+                :placeholder="$t('page.finance.expense.drawer.amountPlaceholder')"
                 :disabled="isReadonly"
               />
             </template>
             <template v-else-if="column.key === 'category'">
               <Input
                 v-model:value="record.category"
-                placeholder="类别"
+                :placeholder="$t('page.finance.expense.drawer.categoryPlaceholder')"
                 size="small"
                 :disabled="isReadonly"
               />
@@ -504,7 +505,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
             <template v-else-if="column.key === 'description'">
               <Input
                 v-model:value="record.description"
-                placeholder="说明"
+                :placeholder="$t('page.finance.expense.drawer.descriptionPlaceholder')"
                 size="small"
                 :disabled="isReadonly"
               />
@@ -518,7 +519,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 :show-upload-list="true"
                 @change="(info: any) => handleItemAttachmentChange(index, info)"
               >
-                <Button type="link" size="small">上传</Button>
+                <Button type="link" size="small">{{ $t('page.finance.expense.drawer.upload') }}</Button>
               </Upload>
               <span v-else>{{ record.attachment?.name || '-' }}</span>
             </template>
@@ -529,14 +530,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 danger
                 size="small"
                 @click="removeItem(index)"
-              >删除</Button>
+              >{{ $t('page.finance.common.delete') }}</Button>
             </template>
           </template>
         </Table>
         <!-- 金额汇总 -->
         <div class="mt-4 flex justify-end pr-4">
           <div class="flex items-center gap-2 border-t pt-2">
-            <span class="font-medium">明细合计：</span>
+            <span class="font-medium">{{ $t('page.finance.expense.drawer.detailTotal') }}</span>
             <span class="text-lg font-bold text-red-500">
               {{ totalAmount.toFixed(2) }}
             </span>
@@ -544,9 +545,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
         </div>
       </TabPane>
 
-      <TabPane key="attachment" tab="附件">
+      <TabPane key="attachment" :tab="$t('page.finance.expense.drawer.attachment')">
         <div class="mb-3 text-sm text-gray-500">
-          上传费用申请相关附件（支持多文件）
+          {{ $t('page.finance.expense.drawer.attachmentTip') }}
         </div>
         <Upload
           v-if="!isReadonly"
@@ -556,10 +557,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
           :show-upload-list="true"
           @change="handleAttachmentChange"
         >
-          <Button type="primary">点击上传</Button>
+          <Button type="primary">{{ $t('page.finance.expense.drawer.clickUpload') }}</Button>
         </Upload>
         <div v-if="isReadonly && attachmentList.length === 0" class="text-gray-400 text-center py-8">
-          暂无附件
+          {{ $t('page.finance.expense.drawer.noAttachment') }}
         </div>
       </TabPane>
     </Tabs>

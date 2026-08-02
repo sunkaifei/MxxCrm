@@ -255,7 +255,7 @@ async function handleBatchDelete() {
 
 <template>
   <Page>
-    <Card :bordered="false" class="mb-[15px]">
+    <Card :bordered="false" class="mb-4">
       <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="mb-4">
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
       </Tabs>
@@ -305,7 +305,7 @@ async function handleBatchDelete() {
       </Form>
     </Card>
 
-    <Grid :table-title="$t('page.crm.contact.title')" style="margin-top: 15px">
+    <Grid :table-title="$t('page.crm.contact.title')">
       <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
 
       <template #roleType="{ row }">

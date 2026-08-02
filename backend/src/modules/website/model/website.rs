@@ -27,6 +27,9 @@ pub struct SiteSaveRequest {
     /// 模版名称
     #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub template_id: Option<i64>,
+    /// G-2.4: 移动端模版ID（为空时与 template_id 相同）
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    pub mobile_template_id: Option<i64>,
     /// 二级域名
     pub domain: Option<String>,
     /// PC端的LOGO
@@ -41,6 +44,14 @@ pub struct SiteSaveRequest {
     pub bind_domain: Option<String>,
     /// 站点类型，1=企业官网，2=商城，3=其他
     pub site_type: Option<i32>,
+    /// 站点模式，1=展示型 2=交易型 3=混合型
+    pub site_mode: Option<i32>,
+    /// 默认发货仓库
+    pub default_warehouse_id: Option<i64>,
+    /// 联系邮箱
+    pub contact_email: Option<String>,
+    /// 咨询转线索后的默认负责人
+    pub lead_owner_id: Option<i64>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
@@ -103,6 +114,12 @@ pub struct SiteSaveRequest {
     pub share_desc: Option<String>,
     /// 分享图片
     pub share_image: Option<String>,
+    /// URL伪静态规则：0=默认动态 1=短URL 2=目录模式 3=自定义
+    pub url_rule: Option<i32>,
+    /// URL伪静态规则模板（url_rule=3 时生效）
+    pub url_rule_pattern: Option<String>,
+    /// robots.txt 自定义内容
+    pub robots_content: Option<String>,
     /// 创建时间
     pub create_time: Option<DateTime>,
     /// 更新时间
@@ -117,6 +134,7 @@ impl From<SiteSaveRequest> for SiteSaveDTO {
             user_id: request.user_id,
             show_banner: request.show_banner,
             template_id: request.template_id,
+            mobile_template_id: request.mobile_template_id,
             domain: request.domain,
             logo: request.logo,
             client: request.client,
@@ -124,6 +142,10 @@ impl From<SiteSaveRequest> for SiteSaveDTO {
             description: request.description,
             bind_domain: request.bind_domain,
             site_type: request.site_type,
+            site_mode: request.site_mode,
+            default_warehouse_id: request.default_warehouse_id,
+            contact_email: request.contact_email,
+            lead_owner_id: request.lead_owner_id,
             status: request.status,
             is_default: request.is_default,
             sort: request.sort,
@@ -155,6 +177,9 @@ impl From<SiteSaveRequest> for SiteSaveDTO {
             share_title: request.share_title,
             share_desc: request.share_desc,
             share_image: request.share_image,
+            url_rule: request.url_rule,
+            url_rule_pattern: request.url_rule_pattern,
+            robots_content: request.robots_content,
         }
     }
 }
@@ -173,6 +198,9 @@ pub struct SiteUpdateRequest {
     /// 模版编号
     #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub template_id: Option<i64>,
+    /// G-2.4: 移动端模版ID（为空时与 template_id 相同）
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    pub mobile_template_id: Option<i64>,
     /// 二级域名
     pub domain: Option<String>,
     /// PC端的LOGO
@@ -187,6 +215,14 @@ pub struct SiteUpdateRequest {
     pub bind_domain: Option<String>,
     /// 站点类型，1=企业官网，2=商城，3=其他
     pub site_type: Option<i32>,
+    /// 站点模式，1=展示型 2=交易型 3=混合型
+    pub site_mode: Option<i32>,
+    /// 默认发货仓库
+    pub default_warehouse_id: Option<i64>,
+    /// 联系邮箱
+    pub contact_email: Option<String>,
+    /// 咨询转线索后的默认负责人
+    pub lead_owner_id: Option<i64>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
@@ -249,6 +285,12 @@ pub struct SiteUpdateRequest {
     pub share_desc: Option<String>,
     /// 分享图片
     pub share_image: Option<String>,
+    /// URL伪静态规则：0=默认动态 1=短URL 2=目录模式 3=自定义
+    pub url_rule: Option<i32>,
+    /// URL伪静态规则模板（url_rule=3 时生效）
+    pub url_rule_pattern: Option<String>,
+    /// robots.txt 自定义内容
+    pub robots_content: Option<String>,
 }
 
 impl From<SiteUpdateRequest> for SiteSaveDTO {
@@ -259,6 +301,7 @@ impl From<SiteUpdateRequest> for SiteSaveDTO {
             user_id: request.user_id,
             show_banner: request.show_banner,
             template_id: request.template_id,
+            mobile_template_id: request.mobile_template_id,
             domain: request.domain,
             logo: request.logo,
             client: request.client,
@@ -266,6 +309,10 @@ impl From<SiteUpdateRequest> for SiteSaveDTO {
             description: request.description,
             bind_domain: request.bind_domain,
             site_type: request.site_type,
+            site_mode: request.site_mode,
+            default_warehouse_id: request.default_warehouse_id,
+            contact_email: request.contact_email,
+            lead_owner_id: request.lead_owner_id,
             status: request.status,
             is_default: request.is_default,
             sort: request.sort,
@@ -297,6 +344,9 @@ impl From<SiteUpdateRequest> for SiteSaveDTO {
             share_title: request.share_title,
             share_desc: request.share_desc,
             share_image: request.share_image,
+            url_rule: request.url_rule,
+            url_rule_pattern: request.url_rule_pattern,
+            robots_content: request.robots_content,
         }
     }
 }
@@ -312,6 +362,8 @@ pub struct SiteSaveDTO {
     pub show_banner: Option<i32>,
     /// 模版名称
     pub template_id: Option<i64>,
+    /// G-2.4: 移动端模版ID（为空时与 template_id 相同）
+    pub mobile_template_id: Option<i64>,
     /// 二级域名
     pub domain: Option<String>,
     /// PC端的LOGO
@@ -326,6 +378,14 @@ pub struct SiteSaveDTO {
     pub bind_domain: Option<String>,
     /// 站点类型，1=企业官网，2=商城，3=其他
     pub site_type: Option<i32>,
+    /// 站点模式，1=展示型 2=交易型 3=混合型
+    pub site_mode: Option<i32>,
+    /// 默认发货仓库
+    pub default_warehouse_id: Option<i64>,
+    /// 联系邮箱
+    pub contact_email: Option<String>,
+    /// 咨询转线索后的默认负责人
+    pub lead_owner_id: Option<i64>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
@@ -388,6 +448,12 @@ pub struct SiteSaveDTO {
     pub share_desc: Option<String>,
     /// 分享图片
     pub share_image: Option<String>,
+    /// URL伪静态规则：0=默认动态 1=短URL 2=目录模式 3=自定义
+    pub url_rule: Option<i32>,
+    /// URL伪静态规则模板（url_rule=3 时生效）
+    pub url_rule_pattern: Option<String>,
+    /// robots.txt 自定义内容
+    pub robots_content: Option<String>,
 }
 
 /// 管理员查看站点信息实体
@@ -463,6 +529,9 @@ pub struct SiteDetailVO {
     /// 模版名称
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub template_id: Option<i64>,
+    /// G-2.4: 移动端模版ID（为空时与 template_id 相同）
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub mobile_template_id: Option<i64>,
     /// 二级域名
     pub domain: Option<String>,
     /// PC端的LOGO
@@ -477,6 +546,14 @@ pub struct SiteDetailVO {
     pub bind_domain: Option<String>,
     /// 站点类型，1=企业官网，2=商城，3=其他
     pub site_type: Option<i32>,
+    /// 站点模式，1=展示型 2=交易型 3=混合型
+    pub site_mode: Option<i32>,
+    /// 默认发货仓库
+    pub default_warehouse_id: Option<i64>,
+    /// 联系邮箱
+    pub contact_email: Option<String>,
+    /// 咨询转线索后的默认负责人
+    pub lead_owner_id: Option<i64>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
@@ -539,6 +616,12 @@ pub struct SiteDetailVO {
     pub share_desc: Option<String>,
     /// 分享图片
     pub share_image: Option<String>,
+    /// URL伪静态规则：0=默认动态 1=短URL 2=目录模式 3=自定义
+    pub url_rule: Option<i32>,
+    /// URL伪静态规则模板（url_rule=3 时生效）
+    pub url_rule_pattern: Option<String>,
+    /// robots.txt 自定义内容
+    pub robots_content: Option<String>,
     /// 创建时间
     pub create_time: Option<String>,
 }
@@ -551,6 +634,7 @@ impl From<website::Model> for SiteDetailVO {
             user_id: arg.user_id,
             show_banner: arg.show_banner,
             template_id: arg.template_id,
+            mobile_template_id: arg.mobile_template_id,
             domain: arg.domain,
             logo: arg.logo,
             client: arg.client,
@@ -558,6 +642,10 @@ impl From<website::Model> for SiteDetailVO {
             description: arg.description,
             bind_domain: arg.bind_domain,
             site_type: arg.site_type,
+            site_mode: arg.site_mode,
+            default_warehouse_id: arg.default_warehouse_id,
+            contact_email: arg.contact_email,
+            lead_owner_id: arg.lead_owner_id,
             status: arg.status,
             is_default: arg.is_default,
             sort: arg.sort,
@@ -589,6 +677,9 @@ impl From<website::Model> for SiteDetailVO {
             share_title: arg.share_title,
             share_desc: arg.share_desc,
             share_image: arg.share_image,
+            url_rule: arg.url_rule,
+            url_rule_pattern: arg.url_rule_pattern,
+            robots_content: arg.robots_content,
             create_time: arg.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
@@ -737,6 +828,7 @@ impl SiteModel {
         let payload = website::ActiveModel {
             user_id:         Set(form_data.user_id.to_owned()),
             template_id:     Set(form_data.template_id.to_owned()),
+            mobile_template_id: Set(form_data.mobile_template_id.to_owned()),
             site_name:       Set(form_data.site_name.to_owned()),
             logo:            Set(form_data.logo.to_owned()),
             client:          Set(form_data.client.to_owned()),
@@ -746,6 +838,10 @@ impl SiteModel {
             description:     Set(form_data.description.to_owned()),
             show_banner:     Set(form_data.show_banner.to_owned()),
             site_type:       Set(form_data.site_type.to_owned()),
+            site_mode:       Set(form_data.site_mode.to_owned()),
+            default_warehouse_id: Set(form_data.default_warehouse_id.to_owned()),
+            contact_email:   Set(form_data.contact_email.to_owned()),
+            lead_owner_id:   Set(form_data.lead_owner_id.to_owned()),
             is_default:      Set(form_data.is_default.to_owned()),
             sort:            Set(form_data.sort.to_owned()),
             status:          Set(form_data.status.to_owned()),
@@ -777,6 +873,7 @@ impl SiteModel {
             share_title:     Set(form_data.share_title.to_owned()),
             share_desc:      Set(form_data.share_desc.to_owned()),
             share_image:     Set(form_data.share_image.to_owned()),
+            robots_content:   Set(form_data.robots_content.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -814,6 +911,7 @@ impl SiteModel {
         let payload = website::ActiveModel {
             user_id:         Set(form_data.user_id.to_owned()),
             template_id:     Set(form_data.template_id.to_owned()),
+            mobile_template_id: Set(form_data.mobile_template_id.to_owned()),
             site_name:       Set(form_data.site_name.to_owned()),
             logo:            Set(form_data.logo.to_owned()),
             client:          Set(form_data.client.to_owned()),
@@ -823,6 +921,10 @@ impl SiteModel {
             description:     Set(form_data.description.to_owned()),
             show_banner:     Set(form_data.show_banner.to_owned()),
             site_type:       Set(form_data.site_type.to_owned()),
+            site_mode:       Set(form_data.site_mode.to_owned()),
+            default_warehouse_id: Set(form_data.default_warehouse_id.to_owned()),
+            contact_email:   Set(form_data.contact_email.to_owned()),
+            lead_owner_id:   Set(form_data.lead_owner_id.to_owned()),
             sort:            Set(form_data.sort.to_owned()),
             status:          Set(form_data.status.to_owned()),
             remark:          Set(form_data.remark.to_owned()),
@@ -853,6 +955,9 @@ impl SiteModel {
             share_title:     Set(form_data.share_title.to_owned()),
             share_desc:      Set(form_data.share_desc.to_owned()),
             share_image:     Set(form_data.share_image.to_owned()),
+            url_rule:        Set(form_data.url_rule.to_owned()),
+            url_rule_pattern: Set(form_data.url_rule_pattern.to_owned()),
+            robots_content:   Set(form_data.robots_content.to_owned()),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };
@@ -1032,6 +1137,24 @@ impl SiteModel {
     pub async fn find_by_domain(db: &DbConn, domain: &Option<String>) -> Result<Option<website::Model>, DbErr> {
         Site::find()
             .filter(website::Column::Domain.eq(domain.clone().unwrap_or_default()))
+            .one(db)
+            .await
+    }
+
+    /// 查询默认站点（单站模式核心方法）
+    /// 优先查 is_default=1 的站点，没有则取 id 最小的站点
+    /// * `db` 数据库链接
+    pub async fn find_default(db: &DbConn) -> Result<Option<website::Model>, DbErr> {
+        let site = Site::find()
+            .filter(website::Column::IsDefault.eq(1))
+            .order_by_asc(website::Column::Id)
+            .one(db)
+            .await?;
+        if site.is_some() {
+            return Ok(site);
+        }
+        Site::find()
+            .order_by_asc(website::Column::Id)
             .one(db)
             .await
     }

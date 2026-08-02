@@ -19,10 +19,14 @@ import {
   submitContractApi,
 } from '#/api';
 import { $t } from '#/locales';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
 import ContractDrawer from './drawer.vue';
 import ApprovalDrawer from './approval-drawer.vue';
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
+
+// 合同管理使用说明步骤数（与 i18n 中 page.crm.contract.guide.steps 数组对齐）
+const guideStepCount = 5;
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -372,6 +376,28 @@ onMounted(async () => {
 
 <template>
   <Page>
+    <PageUsageGuide
+      :title="$t('page.crm.contract.guide.title')"
+      :brief="$t('page.crm.contract.guide.brief')"
+      :expand-text="$t('page.crm.contract.guide.expand')"
+      :collapse-text="$t('page.crm.contract.guide.collapse')"
+    >
+      <div
+        v-for="i in guideStepCount"
+        :key="i"
+        class="page-guide-step-item"
+      >
+        <div class="page-guide-step-index">{{ i }}</div>
+        <div class="page-guide-step-content">
+          <div class="page-guide-step-title">
+            {{ $t(`page.crm.contract.guide.steps[${i - 1}].title`) }}
+          </div>
+          <div class="page-guide-step-desc">
+            {{ $t(`page.crm.contract.guide.steps[${i - 1}].desc`) }}
+          </div>
+        </div>
+      </div>
+    </PageUsageGuide>
     <SalesProcessGuide current-step="contract" />
     <Grid :table-title="$t('page.crm.contract.title')">
       <template #form-header>

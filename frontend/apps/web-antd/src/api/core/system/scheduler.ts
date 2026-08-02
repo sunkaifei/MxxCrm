@@ -1,0 +1,32 @@
+import { requestClient } from '#/api/request';
+
+// 路由 scope 为 /system/scheduler，注册在 /api/system 下，
+// 完整路径为 /api/system/system/scheduler/...
+const BASE = '/api/system/system/scheduler';
+
+export const getSchedulerJobListApi = async (params?: any) => {
+  return requestClient.get(`${BASE}/list`, { params });
+};
+
+export const getSchedulerJobDetailApi = async (id: number) => {
+  return requestClient.get(`${BASE}/detail`, { params: { id } });
+};
+
+export const updateSchedulerJobApi = async (data: any) => {
+  return requestClient.post(`${BASE}/update`, data);
+};
+
+export const toggleSchedulerJobApi = async (data: {
+  id: number;
+  enabled: number;
+}) => {
+  return requestClient.post(`${BASE}/toggle`, data);
+};
+
+export const triggerSchedulerJobApi = async (data: { id: number }) => {
+  return requestClient.post(`${BASE}/trigger`, data);
+};
+
+export const getSchedulerLogListApi = async (params?: any) => {
+  return requestClient.get(`${BASE}/log/list`, { params });
+};

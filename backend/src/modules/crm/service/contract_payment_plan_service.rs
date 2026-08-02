@@ -54,6 +54,27 @@ pub async fn save(db: &DbConn, req: &PaymentPlanSaveRequest) -> Result<i64> {
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 
+    // 保存成功后，检测已完全回款的计划并触发提成计算
+    // 条件：received_amount >= plan_amount 且 actual_date 有值 且 plan_amount > 0
+    let saved_plans = PaymentPlanModel::find_by_contract(db, contract_id).await?;
+    for plan in saved_plans {
+        let received = plan.received_amount.unwrap_or_default();
+        let plan_amount = plan.plan_amount.unwrap_or_default();
+        if received >= plan_amount && !plan_amount.is_zero() && plan.actual_date.is_some() {
+            // 查找该合同的提成规则，如果有则触发提成计算
+            if let Some(plan_id) = plan.id {
+                let trigger_result = crate::modules::finance::service::commission_calc_service::calc_on_payment(
+                    db,
+                    plan_id,
+                    received,
+                ).await;
+                if let Err(e) = trigger_result {
+                    log::warn!("[payment_plan] 合同{}回款计划{}提成计算失败：{}", contract_id, plan_id, e);
+                }
+            }
+        }
+    }
+
     Ok(result)
 }
 

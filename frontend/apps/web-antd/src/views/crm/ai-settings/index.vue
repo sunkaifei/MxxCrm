@@ -172,6 +172,7 @@ function openAddModal() {
   form.modelName = '';
   form.apiUrl = '';
   form.temperature = 0.7;
+  apiKeyEdited.value = true; // 新增模式必须输入密钥
   modalVisible.value = true;
   nextTick(() => formRef.value?.resetFields());
 }
@@ -180,11 +181,12 @@ function openEditModal(provider: ProviderInfo) {
   modalMode.value = 'edit';
   editingProviderId.value = provider.id;
   const tplId = provider.template?.id || 'custom';
-  form.template = tplId;
+  // 回显后端返回的脱敏值（如 sk-1****abcd），未修改则不提交
   form.apiKey = provider.apiKey;
   form.modelName = provider.model || PROVIDER_TEMPLATES.find(t => t.id === tplId)?.model || '';
   form.apiUrl = provider.apiUrl || PROVIDER_TEMPLATES.find(t => t.id === tplId)?.apiUrl || '';
   form.temperature = parseFloat(provider.temperature) || 0.7;
+  apiKeyEdited.value = false; // 编辑模式初始未修改
   modalVisible.value = true;
   nextTick(() => formRef.value?.resetFields());
 }
@@ -194,7 +196,10 @@ function closeModal() {
 }
 
 async function handleSaveProvider() {
-  if (!form.apiKey.trim()) { message.error('请填写API密钥'); return; }
+  // 编辑模式且未修改密钥时，跳过密钥校验（保留脱敏值不提交）
+  if (modalMode.value === 'add' || apiKeyEdited.value) {
+    if (!form.apiKey.trim()) { message.error('请填写API密钥'); return; }
+  }
   if (!form.modelName.trim()) { message.error('请填写模型名称'); return; }
   if (!form.apiUrl.trim()) { message.error('请填写API地址'); return; }
 
@@ -205,7 +210,10 @@ async function handleSaveProvider() {
     if (modalMode.value === 'edit') {
       const existing = providers.value.find(p => p.id === editingProviderId.value);
       const updates = [];
-      if (existing?.apiKeyId) updates.push(updateAiConfigApi({ id: existing.apiKeyId, config_key: `ai_${prefix}_api_key`, config_name: `${displayName} API Key`, config_value: form.apiKey, config_type: 'N' }));
+      // 只有用户主动修改了密钥才提交更新，避免把脱敏值写回数据库
+      if (apiKeyEdited.value && existing?.apiKeyId) {
+        updates.push(updateAiConfigApi({ id: existing.apiKeyId, config_key: `ai_${prefix}_api_key`, config_name: `${displayName} API Key`, config_value: form.apiKey, config_type: 'N' }));
+      }
       if (existing?.modelId) updates.push(updateAiConfigApi({ id: existing.modelId, config_key: `ai_${prefix}_model`, config_name: `${displayName}模型`, config_value: form.modelName, config_type: 'N' }));
       if (existing?.apiUrlId) updates.push(updateAiConfigApi({ id: existing.apiUrlId, config_key: `ai_${prefix}_api_url`, config_name: `${displayName} API地址`, config_value: form.apiUrl, config_type: 'N' }));
       if (existing?.tempId) updates.push(updateAiConfigApi({ id: existing.tempId, config_key: `ai_${prefix}_temperature`, config_name: `${displayName}生成温度`, config_value: String(form.temperature), config_type: 'N' }));
@@ -244,21 +252,13 @@ function handleDeleteProvider(provider: ProviderInfo) {
   });
 }
 
-function copyToClipboard(value: string) {
-  navigator.clipboard.writeText(value).then(() => message.success('已复制'));
-}
+// API 密钥是否已被用户修改（编辑模式下控制是否提交更新）
+const apiKeyEdited = ref(false);
 
-function maskKey(key: string) {
-  if (!key) return '';
-  if (key.length <= 8) return '••••••••';
-  return key.slice(0, 4) + '••••••••' + key.slice(-4);
-}
-
-const visibleKeys = ref<Set<string>>(new Set());
-function toggleKeyVisibility(pid: string) {
-  const s = new Set(visibleKeys.value);
-  s.has(pid) ? s.delete(pid) : s.add(pid);
-  visibleKeys.value = s;
+// 点击"修改密钥"按钮：清空当前值，进入可编辑状态
+function enableApiKeyEdit() {
+  form.apiKey = '';
+  apiKeyEdited.value = true;
 }
 
 function getPromptType(key: string) {
@@ -358,11 +358,7 @@ function getPromptType(key: string) {
               <div class="ai-pcard-field">
                 <span class="ai-pcard-label"><LucideKeyRound :size="12" /> API密钥</span>
                 <div class="ai-pcard-value-row">
-                  <code class="ai-pcard-code">{{ visibleKeys.has(provider.id) ? provider.apiKey : maskKey(provider.apiKey) }}</code>
-                  <button class="ai-pcard-inline-btn" @click="toggleKeyVisibility(provider.id)">
-                    {{ visibleKeys.has(provider.id) ? '隐藏' : '显示' }}
-                  </button>
-                  <button class="ai-pcard-inline-btn" @click="copyToClipboard(provider.apiKey)">复制</button>
+                  <code class="ai-pcard-code">{{ provider.apiKey || '-' }}</code>
                 </div>
               </div>
               <div class="ai-pcard-field">
@@ -482,10 +478,24 @@ function getPromptType(key: string) {
             <span>连接配置</span>
           </div>
 
-          <Form.Item label="API 密钥" required>
+          <Form.Item label="API 密钥" :required="modalMode === 'add' || apiKeyEdited">
+            <!-- 编辑模式且未修改：显示脱敏值 + 修改按钮 -->
+            <div v-if="modalMode === 'edit' && !apiKeyEdited" class="ai-apikey-readonly">
+              <Input
+                :value="form.apiKey"
+                readonly
+                class="ai-input-mono"
+              />
+              <Button type="link" size="small" class="ai-apikey-edit-btn" @click="enableApiKeyEdit">
+                <LucideKeyRound :size="12" /> 修改密钥
+              </Button>
+            </div>
+            <!-- 新增模式或已点击修改：可输入，支持眼睛切换查看明文核对 -->
             <Input.Password
+              v-else
               v-model:value="form.apiKey"
-              placeholder="输入 API 密钥..."
+              :placeholder="modalMode === 'edit' ? '输入新的 API 密钥...' : '输入 API 密钥...'"
+              visibility-toggle
               class="ai-input-mono"
             />
             <div class="ai-form-hint">
@@ -745,6 +755,23 @@ function getPromptType(key: string) {
 .ai-input-full { width: 100%; }
 .ai-form-hint { margin-top: 4px; }
 .ai-hint-link { font-size: 12px; color: #6366F1; }
+.ai-apikey-readonly {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-apikey-readonly :deep(input) {
+  background: #F9FAFB;
+  color: #6B7280;
+  cursor: not-allowed;
+}
+.ai-apikey-edit-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .ai-hint-link:hover { color: #4F46E5; }
 .ai-modal-actions {
   display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 16px;

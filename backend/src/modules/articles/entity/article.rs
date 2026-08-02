@@ -68,6 +68,14 @@ pub struct Model {
     pub isrecommend: Option<i32>,
     //0未审核，1审核，2未通过
     pub status: Option<i32>,
+    //SEO标题（独立于文章标题，用于前台 <title>）
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
+    //定时发布时间（到达该时间后自动从草稿变为已发布）
+    pub publish_time: Option<DateTime>,
     //创建时间
     pub create_time: Option<DateTime>,
     //更新时间

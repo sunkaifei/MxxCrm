@@ -9,6 +9,10 @@
 //!
 
 pub mod article;
+pub mod article_field;
+pub mod article_field_value;
+pub mod article_label_merge;
+pub mod article_revision;
 pub mod category;
 pub mod label;
 pub mod comment;

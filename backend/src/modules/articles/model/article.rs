@@ -44,6 +44,16 @@ pub struct ArticlesSaveRequest {
     pub isrecommend: Option<i32>,
     //0未审核，1审核，2未通过
     pub status: Option<i32>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
+    //定时发布时间
+    pub publish_time: Option<NaiveDateTime>,
+    //标签ID列表（可选，传入则同步更新文章-标签关联）
+    pub label_ids: Option<Vec<i64>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -78,6 +88,14 @@ pub struct ArticlesSaveDTO {
     pub isrecommend: Option<i32>,
     //0未审核，1审核，2未通过
     pub status: Option<i32>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
+    //定时发布时间
+    pub publish_time: Option<NaiveDateTime>,
 }
 
 
@@ -98,6 +116,10 @@ impl From<ArticlesSaveRequest> for ArticlesSaveDTO {
             istop: arg.istop,
             isrecommend: arg.isrecommend,
             status: arg.status,
+            seo_title: arg.seo_title,
+            seo_keywords: arg.seo_keywords,
+            seo_description: arg.seo_description,
+            publish_time: arg.publish_time,
             user_id: None,
         }
     }
@@ -134,6 +156,16 @@ pub struct ArticlesUpdateRequest {
     pub isrecommend: Option<i32>,
     //0未审核，1审核，2未通过
     pub status: Option<i32>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
+    //定时发布时间
+    pub publish_time: Option<NaiveDateTime>,
+    //标签ID列表（可选，传入则同步更新文章-标签关联）
+    pub label_ids: Option<Vec<i64>>,
 }
 
 impl From<ArticlesUpdateRequest> for ArticlesSaveDTO {
@@ -154,6 +186,10 @@ impl From<ArticlesUpdateRequest> for ArticlesSaveDTO {
             istop: arg.istop,
             isrecommend: arg.isrecommend,
             status: arg.status,
+            seo_title: arg.seo_title,
+            seo_keywords: arg.seo_keywords,
+            seo_description: arg.seo_description,
+            publish_time: arg.publish_time,
         }
     }
 }
@@ -189,6 +225,10 @@ impl From<ArticlesSaveDTO> for article::Model {
             deleted: None,
             isrecommend: None,
             status: Some(1),
+            seo_title: arg.seo_title,
+            seo_keywords: arg.seo_keywords,
+            seo_description: arg.seo_description,
+            publish_time: arg.publish_time,
             create_time: Some(Local::now().naive_local()),
             update_time: Some(Local::now().naive_local()),
         }
@@ -231,6 +271,14 @@ pub struct ArticleDetailVO {
     pub isrecommend: Option<i32>,
     //0未审核，1审核，2未通过
     pub status: Option<i32>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
+    //定时发布时间
+    pub publish_time: Option<String>,
     //创建时间
     pub create_time: Option<String>,
 }
@@ -252,6 +300,10 @@ impl From<article::Model> for ArticleDetailVO{
             istop: arg.istop,
             isrecommend: arg.isrecommend,
             status: arg.status,
+            seo_title: arg.seo_title,
+            seo_keywords: arg.seo_keywords,
+            seo_description: arg.seo_description,
+            publish_time: arg.publish_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
             create_time: arg.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
@@ -262,6 +314,8 @@ impl From<article::Model> for ArticleDetailVO{
 pub struct ArticleListVO {
     /// 文章id
     pub id: Option<String>,
+    /// 短网址
+    pub short_url: Option<String>,
     /// 网站id
     pub site_id: Option<i64>,
     /// 文章标题
@@ -282,6 +336,7 @@ impl From<article::Model> for ArticleListVO{
     fn from(arg: article::Model) -> Self {
         Self {
             id: Some(arg.id.to_string()),
+            short_url: arg.short_url,
             site_id: None,
             title: arg.title,
             category_id: arg.category_id,
@@ -426,6 +481,11 @@ impl ArticleModel {
                 "istop" SMALLINT DEFAULT 1,
                 "isrecommend" SMALLINT DEFAULT 0,
                 "status" SMALLINT DEFAULT 1,
+                "seo_title" VARCHAR(255),
+                "seo_keywords" VARCHAR(255),
+                "seo_description" VARCHAR(500),
+                "model_id" BIGINT,
+                "publish_time" TIMESTAMP,
                 "create_time" TIMESTAMP,
                 "update_time" TIMESTAMP
             )"#,
@@ -624,16 +684,82 @@ impl ArticleModel {
             }
         }
 
-        let page = item.page_num;
-        let page_size = item.page_size;
+        // 注意：service 层已通过 get_pagination() 计算好 offset/limit，
+        // 并将 offset 存入 page_num、limit 存入 page_size。
+        // 此处直接作为 offset/limit 使用，避免重复计算导致负数转 u64 溢出（TryFromIntError）。
+        let offset = item.page_num;
+        let limit = item.page_size;
 
         query
             .order_by_desc(article::Column::CreateTime)
-            .limit(page_size as u64)
-            .offset(((page - 1) * page_size) as u64)
+            .limit(std::cmp::max(limit, 0) as u64)
+            .offset(std::cmp::max(offset, 0) as u64)
             .all(db)
             .await
             .map(|models| models.into_iter().map(ArticleListVO::from).collect())
             .map_err(|e| Error::from(format!("msg={},code=500", e)))
+    }
+
+    /// 文章浏览量自增 1
+    pub async fn increment_view_count(db: &DbConn, id: i64) -> Result<()> {
+        use sea_orm::sea_query::Expr;
+        let _ = Article::update_many()
+            .col_expr(article::Column::CountView, Expr::col(article::Column::CountView).add(1))
+            .filter(article::Column::Id.eq(id))
+            .exec(db)
+            .await
+            .map_err(|e| Error::from(format!("msg={},code=500", e)))?;
+        Ok(())
+    }
+
+    /// 查询上一篇/下一篇文章（同栏目、已发布）
+    /// 返回 (prev, next)，均为 Option<ArticleListVO>
+    pub async fn find_prev_next(db: &DbConn, category_id: Option<i64>, current_id: i64) -> Result<(Option<ArticleListVO>, Option<ArticleListVO>)> {
+        let mut prev_query = Article::find()
+            .filter(article::Column::Status.eq(2))
+            .filter(article::Column::Id.lt(current_id));
+        if let Some(cat) = category_id {
+            prev_query = prev_query.filter(article::Column::CategoryId.eq(cat));
+        }
+        let prev = prev_query
+            .order_by_desc(article::Column::Id)
+            .one(db)
+            .await
+            .map_err(|e| Error::from(format!("msg={},code=500", e)))?
+            .map(ArticleListVO::from);
+
+        let mut next_query = Article::find()
+            .filter(article::Column::Status.eq(2))
+            .filter(article::Column::Id.gt(current_id));
+        if let Some(cat) = category_id {
+            next_query = next_query.filter(article::Column::CategoryId.eq(cat));
+        }
+        let next = next_query
+            .order_by_asc(article::Column::Id)
+            .one(db)
+            .await
+            .map_err(|e| Error::from(format!("msg={},code=500", e)))?
+            .map(ArticleListVO::from);
+
+        Ok((prev, next))
+    }
+
+    /// 定时发布：将 publish_time <= now() 且 status != 2 的文章自动发布
+    ///
+    /// 由调度器定期调用（如每 5 分钟），自动将到时间的文章从草稿/待审核状态改为已发布。
+    /// 返回本次发布的文章数量。
+    pub async fn publish_scheduled(db: &DbConn) -> Result<i64> {
+        let now = Local::now().naive_local();
+
+        let update_result: UpdateResult = Article::update_many()
+            .col_expr(article::Column::Status, Expr::value(2i32))
+            .filter(article::Column::Status.ne(2))
+            .filter(article::Column::PublishTime.is_not_null())
+            .filter(article::Column::PublishTime.lte(now))
+            .exec(db)
+            .await
+            .map_err(|e| Error::from(format!("定时发布失败: {}", e)))?;
+
+        Ok(update_result.rows_affected as i64)
     }
 }

@@ -31,6 +31,15 @@ import type {
 } from 'ant-design-vue';
 import type { RangePickerProps } from 'ant-design-vue/es/date-picker';
 
+// CodeEditor 组件 props 类型定义
+interface CodeEditorProps {
+  height?: string;
+  language?: string;
+  options?: Record<string, any>;
+  readOnly?: boolean;
+  theme?: string;
+}
+
 import type { Component, Ref } from 'vue';
 
 import type {
@@ -80,6 +89,10 @@ type AdapterUploadProps = UploadProps & {
 
 const AutoComplete = defineAsyncComponent(
   () => import('ant-design-vue/es/auto-complete'),
+);
+// 代码编辑器（Monaco Editor）异步加载，避免首屏加载全部语言包
+const CodeEditor = defineAsyncComponent(
+  () => import('#/components/CodeEditor/index.vue'),
 );
 const Button = defineAsyncComponent(() => import('ant-design-vue/es/button'));
 const Checkbox = defineAsyncComponent(
@@ -604,6 +617,7 @@ export type ComponentType =
   | 'Cascader'
   | 'Checkbox'
   | 'CheckboxGroup'
+  | 'CodeEditor'
   | 'DatePicker'
   | 'DefaultButton'
   | 'Divider'
@@ -637,6 +651,7 @@ export interface ComponentPropsMap {
   Cascader: CascaderProps;
   Checkbox: CheckboxProps;
   CheckboxGroup: CheckboxGroupProps;
+  CodeEditor: CodeEditorProps;
   DatePicker: DatePickerProps;
   DefaultButton: ButtonProps;
   Divider: DividerProps;
@@ -690,6 +705,7 @@ async function initComponentAdapter() {
     Cascader,
     Checkbox,
     CheckboxGroup,
+    CodeEditor,
     DatePicker,
     // 自定义默认按钮
     DefaultButton: (props, { attrs, slots }) => {

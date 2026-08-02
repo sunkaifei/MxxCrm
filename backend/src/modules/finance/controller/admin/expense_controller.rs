@@ -282,7 +282,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/save",
                 web::post()
                     .to(expense_save)
-                    .wrap(require_permission("finance:expense:add")),
+                    .wrap(require_permission("finance:expense:save")),
             )
             .route(
                 "/list",

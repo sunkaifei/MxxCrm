@@ -10,11 +10,14 @@
 
 use crate::core::errors::error::Result;
 use crate::modules::articles::controller::open::article_open_controller;
+use crate::modules::articles::controller::open::comment_open_controller;
 use crate::modules::finance::controller::open::wechat_notify_controller;
 use crate::modules::system::controller::open::captcha_controller;
 use crate::modules::website::controller::open::cms_open_controller;
 use crate::modules::website::controller::open::index_open_controller;
 use crate::modules::website::controller::open::price_open_controller;
+use crate::modules::website::controller::open::leave_msg_open_controller;
+use crate::modules::website::controller::open::website_user_open_controller;
 use actix_files::Files;
 use actix_web::{get, web, HttpResponse};
 
@@ -48,10 +51,31 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         // CMS 栏目页 + 文章详情
         .service(web::resource("/category/{short_url}").route(web::get().to(cms_open_controller::category_page)))
         .service(web::resource("/article/{short_url}").route(web::get().to(cms_open_controller::article_detail)))
+        // CMS 产品列表页 + 产品详情页
+        .service(web::resource("/product").route(web::get().to(cms_open_controller::product_list)))
+        .service(web::resource("/product/").route(web::get().to(cms_open_controller::product_list)))
+        .service(web::resource("/product/{short_url}").route(web::get().to(cms_open_controller::product_detail)))
+        // CMS 搜索页
+        .service(web::resource("/search").route(web::get().to(cms_open_controller::search)))
+        // CMS 站点地图
+        .service(web::resource("/sitemap").route(web::get().to(cms_open_controller::sitemap)))
+        .service(web::resource("/sitemap.html").route(web::get().to(cms_open_controller::sitemap)))
+        .service(web::resource("/sitemap.xml").route(web::get().to(cms_open_controller::sitemap_xml)))
+        // robots.txt
+        .service(web::resource("/robots.txt").route(web::get().to(cms_open_controller::robots_txt)))
+        // CMS 自定义页面
+        .service(web::resource("/page/{short_url}").route(web::get().to(cms_open_controller::custom_page)))
         // 文章列表（兼容旧路由）
         .service(article_open_controller::get_article_list)
+        // 文章评论（公开接口：提交评论、按文章查询评论）
+        .configure(comment_open_controller::register)
         // 微信支付回调
         .service(web::scope("/api/finance")
             .service(wechat_notify_controller::wechat_notify))
+        // 留言提交（前台访客公开接口）
+        .service(web::resource("/api/open/leave_msg/submit").route(web::post().to(leave_msg_open_controller::submit)))
+        // 前台用户注册/登录（公开接口）
+        .service(website_user_open_controller::register)
+        .service(website_user_open_controller::login)
     ;
 }

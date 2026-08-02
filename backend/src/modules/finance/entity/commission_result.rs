@@ -34,8 +34,29 @@ pub struct Model {
     /// 规则名称
     pub rule_name: Option<String>,
 
-    /// 规则类型/方案类型
+    /// 规则类型/方案类型(旧字段)
     pub rule_type: i32,
+
+    /// 提成性质(新): 1=个人提成 2=管理分润 3=团队激励奖金 4=团建资金池 5=总提成再分配 6=利润提成
+    pub commission_category: Option<i16>,
+
+    /// 受益岗位(新): 1=销售本人 2=直属主管 3=部门经理 4=总监 5=总经理 6=自定义岗位
+    pub beneficiary_role: Option<i16>,
+
+    /// 管理者层级(1=主管 2=经理 3=总监)，仅 category=2 时有值
+    pub manager_level: Option<i32>,
+
+    /// 分配状态: 0=无需分配 1=待分配 2=已分配
+    pub allocate_status: Option<i16>,
+
+    /// 已分配金额(用于追踪分配进度)
+    pub allocated_amount: Option<Decimal>,
+
+    /// 关联资金池ID(仅 category=4 时有值)
+    pub pool_id: Option<i64>,
+
+    /// 成本金额(仅 category=6 利润提成时有值)
+    pub cost_amount: Option<Decimal>,
 
     /// 用户ID
     pub user_id: i64,

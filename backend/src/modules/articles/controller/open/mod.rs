@@ -9,3 +9,4 @@
 //!
 
 pub mod article_open_controller;
+pub mod comment_open_controller;

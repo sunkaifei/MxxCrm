@@ -9,9 +9,11 @@
 //!
 
 use crate::core::errors::error::{Error, Result};
-use sea_orm::DbConn;
+use sea_orm::{DbConn, DbErr, TransactionTrait, Set, EntityTrait, ColumnTrait, QueryFilter, QueryOrder};
 use crate::core::web::response::ResultPage;
 
+use crate::modules::website::entity::template_data;
+use crate::modules::website::model::template::TemplateModel;
 use crate::modules::website::model::template_data::{ListQuery, PageWhere, TemplateDataDetailVO, TemplateDataListVO, TemplateDataModel, TemplateDataSaveDTO};
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 
@@ -63,7 +65,7 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
         type_id: query.type_id,
         status: query.status,
     };
-    
+
     let select_where = select_where.format();
 
     let (list, _num_pages) = TemplateDataModel::select_in_page(
@@ -79,4 +81,174 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
     let page_data = ResultPage::new_simple(list_data, count);
 
     Ok(page_data)
+}
+
+/// 导出模板方案（模板信息 + 模板数据）
+///
+/// 收集指定 template_id 下的 mxx_template 模板信息及全部 mxx_template_data 记录，
+/// 打包为可下载的 JSON 结构。
+pub async fn export_template_scheme(db: &DbConn, template_id: i64) -> Result<serde_json::Value> {
+    // 1. 查询模板信息
+    let template_model = TemplateModel::find_by_id(db, &Some(template_id)).await?
+        .ok_or_else(|| Error::from(format!("模板不存在，id={}", template_id)))?;
+
+    // 2. 查询该模板下所有模板数据（不过滤 status，导出全部）
+    let template_data_list = template_data::Entity::find()
+        .filter(template_data::Column::TemplateId.eq(template_id))
+        .order_by_asc(template_data::Column::Sort)
+        .all(db)
+        .await?;
+
+    // 3. 构建导出 JSON
+    let export_data = serde_json::json!({
+        "template": template_model,
+        "template_data": template_data_list,
+        "export_version": "1.0",
+        "export_time": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+    });
+
+    Ok(export_data)
+}
+
+/// 导入模板方案
+///
+/// 解析导入 JSON，按 overwrite 决定更新或新增 template_data 记录。
+/// 全程事务包裹，保证原子性。返回 template_id。
+///
+/// * `db` 数据库链接
+/// * `import_data` 导入数据：`{ "template": {...}, "template_data": [...] }`
+/// * `overwrite` true=按 id 更新已存在记录（不存在则新增）；false=始终新增
+pub async fn import_template_scheme(db: &DbConn, import_data: serde_json::Value, overwrite: bool) -> Result<i64> {
+    // 1. 解析 template_id（优先从 template.id 取，其次从 template_data[0].template_id 取）
+    let template_id = import_data.get("template")
+        .and_then(|t| t.get("id"))
+        .and_then(|v| v.as_i64())
+        .or_else(|| {
+            import_data.get("template_data")
+                .and_then(|d| d.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|item| item.get("template_id"))
+                .and_then(|v| v.as_i64())
+        })
+        .ok_or_else(|| Error::from("导入数据缺少 template_id，无法识别目标模板"))?;
+
+    // 2. 解析 template_data 数组
+    let template_data_arr = import_data.get("template_data")
+        .and_then(|d| d.as_array())
+        .ok_or_else(|| Error::from("导入数据缺少 template_data 数组"))?;
+
+    if template_data_arr.is_empty() {
+        return Ok(template_id);
+    }
+
+    // 3. 事务内处理每条 template_data
+    let template_data_clone = template_data_arr.clone();
+    let result = db.transaction::<_, i64, DbErr>(|txn| {
+        Box::pin(async move {
+            let mut affected = 0i64;
+            for item in &template_data_clone {
+                let dto = parse_template_data_value(item);
+                if overwrite {
+                    // overwrite=true：按 id 尝试更新，不存在则新增
+                    if let Some(id) = dto.id {
+                        if id > 0 {
+                            let existing = template_data::Entity::find_by_id(id).one(txn).await?;
+                            if existing.is_some() {
+                                update_template_data_in_txn(txn, &Some(id), &dto).await?;
+                                affected += 1;
+                                continue;
+                            }
+                        }
+                    }
+                    // 不存在则新增（不设 id，让序列自增）
+                    let new_id = insert_template_data_in_txn(txn, &dto).await?;
+                    if new_id > 0 {
+                        affected += 1;
+                    }
+                } else {
+                    // overwrite=false：始终新增（忽略 id）
+                    let mut new_dto = dto.clone();
+                    new_dto.id = None;
+                    let new_id = insert_template_data_in_txn(txn, &new_dto).await?;
+                    if new_id > 0 {
+                        affected += 1;
+                    }
+                }
+            }
+            Ok(affected)
+        })
+    }).await.map_err(|e| Error::from(e.to_string()))?;
+
+    if result == 0 {
+        return Err(Error::from("导入失败，没有记录被处理"));
+    }
+
+    Ok(template_id)
+}
+
+/// 从 JSON Value 解析出 TemplateDataSaveDTO
+fn parse_template_data_value(value: &serde_json::Value) -> TemplateDataSaveDTO {
+    let id = value.get("id").and_then(|v| v.as_i64()).filter(|v| *v > 0);
+    let template_id = value.get("template_id").and_then(|v| v.as_i64());
+    let model_id = value.get("model_id").and_then(|v| v.as_i64()).map(|v| v as i32);
+    let type_id = value.get("type_id").and_then(|v| v.as_i64()).map(|v| v as i32);
+    let name = value.get("name").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let temptext = value.get("temptext").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let sort = value.get("sort").and_then(|v| v.as_i64()).map(|v| v as i32);
+    let status = value.get("status").and_then(|v| v.as_i64()).map(|v| v as i32);
+
+    TemplateDataSaveDTO {
+        id,
+        template_id,
+        model_id,
+        type_id,
+        name,
+        temptext,
+        sort,
+        status,
+    }
+}
+
+/// 事务内插入模板数据（不设 id，由数据库序列自增）
+async fn insert_template_data_in_txn<C: sea_orm::ConnectionTrait>(
+    txn: &C,
+    dto: &TemplateDataSaveDTO,
+) -> std::result::Result<i64, DbErr> {
+    let model = template_data::ActiveModel {
+        template_id: Set(dto.template_id.to_owned()),
+        model_id: Set(dto.model_id.to_owned()),
+        type_id: Set(dto.type_id.to_owned()),
+        name: Set(dto.name.to_owned()),
+        temptext: Set(dto.temptext.to_owned()),
+        sort: Set(dto.sort.to_owned()),
+        status: Set(dto.status.to_owned()),
+        create_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+        ..Default::default()
+    };
+    let res = template_data::Entity::insert(model).exec(txn).await?;
+    Ok(res.last_insert_id)
+}
+
+/// 事务内按 id 更新模板数据
+async fn update_template_data_in_txn<C: sea_orm::ConnectionTrait>(
+    txn: &C,
+    id: &Option<i64>,
+    dto: &TemplateDataSaveDTO,
+) -> std::result::Result<i64, DbErr> {
+    let model = template_data::ActiveModel {
+        template_id: Set(dto.template_id.to_owned()),
+        model_id: Set(dto.model_id.to_owned()),
+        type_id: Set(dto.type_id.to_owned()),
+        name: Set(dto.name.to_owned()),
+        temptext: Set(dto.temptext.to_owned()),
+        sort: Set(dto.sort.to_owned()),
+        status: Set(dto.status.to_owned()),
+        ..Default::default()
+    };
+    let update_result = template_data::Entity::update_many()
+        .set(model)
+        .filter(template_data::Column::Id.eq(id.clone().unwrap_or_default()))
+        .exec(txn)
+        .await?;
+    Ok(update_result.rows_affected as i64)
 }

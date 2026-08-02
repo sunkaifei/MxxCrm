@@ -1,12 +1,5 @@
 import { requestClient } from '#/api/request';
 
-export interface SiteListParams {
-  page?: number;
-  pageSize?: number;
-  status?: number;
-  keyword?: string;
-}
-
 export interface SiteSaveDTO {
   id?: number;
   siteName?: string;
@@ -50,6 +43,12 @@ export interface SiteSaveDTO {
   shareTitle?: string;
   shareDesc?: string;
   shareImage?: string;
+  /** URL伪静态规则：0=默认动态 1=短URL 2=目录模式 3=自定义 */
+  urlRule?: number;
+  /** URL伪静态规则模板（urlRule=3 时生效） */
+  urlRulePattern?: string;
+  /** 站点模式：1=展示型 2=交易型 3=混合型 */
+  siteMode?: number;
 }
 
 export interface SiteVO {
@@ -97,21 +96,28 @@ export interface SiteVO {
   shareTitle?: string;
   shareDesc?: string;
   shareImage?: string;
+  /** URL伪静态规则：0=默认动态 1=短URL 2=目录模式 3=自定义 */
+  urlRule?: number;
+  /** URL伪静态规则模板（urlRule=3 时生效） */
+  urlRulePattern?: string;
+  /** 站点模式：1=展示型 2=交易型 3=混合型 */
+  siteMode?: number;
 }
 
+/**
+ * 站点 API（单站模式）
+ *
+ * 单站模式下仅保留 `/site/current` 的 GET/PUT 两个接口：
+ * - `getCurrent()`   → GET  /api/system/site/current
+ * - `updateCurrent`  → PUT  /api/system/site/current
+ *
+ * 多站遗留接口（list/detail/add/update/delete）已全部移除。
+ */
 export const siteApi = {
-  list: (params: SiteListParams) =>
-    requestClient.get('/api/system/site/list', { params }),
+  /** 获取当前（默认）站点配置 —— 单站模式专用 */
+  getCurrent: () => requestClient.get('/api/system/site/current'),
 
-  detail: (id: number) =>
-    requestClient.get(`/api/system/site/detail/${id}`),
-
-  add: (data: SiteSaveDTO) =>
-    requestClient.post('/api/system/site/add', data),
-
-  update: (id: number, data: SiteSaveDTO) =>
-    requestClient.put(`/api/system/site/update/${id}`, data),
-
-  delete: (ids: number[]) =>
-    requestClient.delete('/api/system/site/batch_delete', { data: { ids } }),
+  /** 更新当前（默认）站点配置 —— 单站模式专用 */
+  updateCurrent: (data: SiteSaveDTO) =>
+    requestClient.put('/api/system/site/current', data),
 };

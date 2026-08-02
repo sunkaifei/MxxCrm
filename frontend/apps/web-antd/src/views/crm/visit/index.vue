@@ -303,7 +303,7 @@ onMounted(() => {
 <template>
   <Page>
     <!-- 顶部统计卡片 -->
-    <Card :bordered="false" class="mb-[15px]" :loading="statisticsLoading">
+    <Card :bordered="false" class="mb-4" :loading="statisticsLoading">
       <div class="visit-stat-row">
         <div class="visit-stat-item">
           <Statistic title="总拜访次数" :value="statistics.totalVisits" />

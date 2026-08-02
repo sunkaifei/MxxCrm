@@ -34,23 +34,23 @@ import PaymentDrawer from './drawer.vue';
 const drawerVisible = ref(false);
 
 const paymentTypeMap: Record<number, { label: string; color: string }> = {
-  1: { label: '预付款', color: 'blue' },
-  2: { label: '尾款', color: 'orange' },
-  3: { label: '全款', color: 'green' },
+  1: { label: $t('page.finance.payment.paymentType.prepay'), color: 'blue' },
+  2: { label: $t('page.finance.payment.paymentType.final'), color: 'orange' },
+  3: { label: $t('page.finance.payment.paymentType.full'), color: 'green' },
 };
 
 const paymentMethodMap: Record<number, { label: string; color: string }> = {
-  1: { label: '银行转账', color: 'blue' },
-  2: { label: '现金', color: 'green' },
-  3: { label: '支票', color: 'orange' },
-  4: { label: '其他', color: 'default' },
+  1: { label: $t('page.finance.payment.paymentMethod.bankTransfer'), color: 'blue' },
+  2: { label: $t('page.finance.payment.paymentMethod.cash'), color: 'green' },
+  3: { label: $t('page.finance.payment.paymentMethod.check'), color: 'orange' },
+  4: { label: $t('page.finance.payment.paymentMethod.other'), color: 'default' },
 };
 
 const statusMap: Record<number, { label: string; color: string }> = {
-  0: { label: '待审批', color: 'default' },
-  1: { label: '已审批', color: 'processing' },
-  2: { label: '已付款', color: 'green' },
-  3: { label: '已取消', color: 'red' },
+  0: { label: $t('page.finance.payment.status.pending'), color: 'default' },
+  1: { label: $t('page.finance.payment.status.approved'), color: 'processing' },
+  2: { label: $t('page.finance.payment.status.paid'), color: 'green' },
+  3: { label: $t('page.finance.payment.status.canceled'), color: 'red' },
 };
 
 const statusOptions = Object.entries(statusMap).map(([value, item]) => ({
@@ -71,7 +71,7 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'paymentNo',
-      label: '付款编号',
+      label: $t('page.finance.payment.column.paymentNo'),
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
@@ -80,7 +80,7 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'supplierName',
-      label: '供应商',
+      label: $t('page.finance.payment.column.supplierName'),
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
@@ -89,7 +89,7 @@ const formOptions: VbenFormProps = {
     {
       component: 'Select',
       fieldName: 'status',
-      label: '状态',
+      label: $t('page.finance.payment.column.status'),
       componentProps: {
         placeholder: $t('ui.placeholder.select'),
         allowClear: true,
@@ -132,46 +132,46 @@ const gridOptions: VxeGridProps = {
       width: 70,
     },
     {
-      title: '付款编号',
+      title: $t('page.finance.payment.column.paymentNo'),
       field: 'paymentNo',
       minWidth: 160,
     },
     {
-      title: '采购订单号',
+      title: $t('page.finance.payment.column.purchaseOrderNo'),
       field: 'poNo',
       minWidth: 160,
     },
     {
-      title: '供应商',
+      title: $t('page.finance.payment.column.supplierName'),
       field: 'supplierName',
       minWidth: 140,
     },
     {
-      title: '付款类型',
+      title: $t('page.finance.payment.column.paymentType'),
       field: 'paymentType',
       width: 110,
       slots: { default: 'paymentType' },
     },
     {
-      title: '付款金额',
+      title: $t('page.finance.payment.column.paymentAmount'),
       field: 'amount',
       width: 130,
       slots: { default: 'amount' },
     },
     {
-      title: '付款方式',
+      title: $t('page.finance.payment.column.paymentMethod'),
       field: 'paymentMethod',
       width: 120,
       slots: { default: 'paymentMethod' },
     },
     {
-      title: '状态',
+      title: $t('page.finance.payment.column.status'),
       field: 'status',
       width: 100,
       slots: { default: 'status' },
     },
     {
-      title: '申请时间',
+      title: $t('page.finance.payment.column.applyTime'),
       field: 'createTime',
       width: 170,
       slots: { default: 'createdAt' },
@@ -223,11 +223,11 @@ async function handleApproveSubmit() {
       approved: approveForm.approved,
       remark: approveForm.remark,
     });
-    message.success('审批完成');
+    message.success($t('page.finance.payment.message.approveSuccess'));
     approveVisible.value = false;
     gridApi.query();
   } catch (e: any) {
-    message.error(e?.message || '审批失败');
+    message.error(e?.message || $t('page.finance.payment.message.approveFailed'));
   } finally {
     approveLoading.value = false;
   }
@@ -249,7 +249,7 @@ function openConfirm(row: any) {
 
 async function handleConfirmSubmit() {
   if (!confirmForm.paymentDate) {
-    message.warning('请选择付款日期');
+    message.warning($t('page.finance.payment.message.paymentDateRequired'));
     return;
   }
   confirmLoading.value = true;
@@ -258,11 +258,11 @@ async function handleConfirmSubmit() {
       id: confirmForm.id,
       paymentDate: confirmForm.paymentDate,
     });
-    message.success('确认付款成功');
+    message.success($t('page.finance.payment.message.confirmSuccess'));
     confirmVisible.value = false;
     gridApi.query();
   } catch (e: any) {
-    message.error(e?.message || '确认付款失败');
+    message.error(e?.message || $t('page.finance.payment.message.confirmFailed'));
   } finally {
     confirmLoading.value = false;
   }
@@ -284,17 +284,17 @@ function openCancel(row: any) {
 
 async function handleCancelSubmit() {
   if (!cancelForm.remark) {
-    message.warning('请输入取消原因');
+    message.warning($t('page.finance.payment.message.cancelReasonRequired'));
     return;
   }
   cancelLoading.value = true;
   try {
     await cancelFinancePaymentApi({ id: cancelForm.id, remark: cancelForm.remark });
-    message.success('取消成功');
+    message.success($t('page.finance.payment.message.cancelSuccess'));
     cancelVisible.value = false;
     gridApi.query();
   } catch (e: any) {
-    message.error(e?.message || '取消失败');
+    message.error(e?.message || $t('page.finance.payment.message.cancelFailed'));
   } finally {
     cancelLoading.value = false;
   }
@@ -303,13 +303,13 @@ async function handleCancelSubmit() {
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="采购付款">
+    <Grid :table-title="$t('page.finance.payment.title')">
       <template #toolbar-tools>
         <Button type="primary" class="mr-2" @click="handleApply">
-          申请付款
+          {{ $t('page.finance.payment.button.apply') }}
         </Button>
         <Button class="mr-2" :icon="h(RefreshCw)" @click="gridApi.query()">
-          刷新
+          {{ $t('page.finance.common.refresh') }}
         </Button>
       </template>
 
@@ -345,14 +345,14 @@ async function handleCancelSubmit() {
           type="link"
           @click="openApprove(row)"
         >
-          审批
+          {{ $t('page.finance.payment.button.approveAction') }}
         </Button>
         <Button
           v-if="row.status === 1"
           type="link"
           @click="openConfirm(row)"
         >
-          确认付款
+          {{ $t('page.finance.payment.button.confirm') }}
         </Button>
         <Button
           v-if="row.status === 3"
@@ -360,7 +360,7 @@ async function handleCancelSubmit() {
           danger
           @click="openCancel(row)"
         >
-          取消
+          {{ $t('page.finance.common.cancel') }}
         </Button>
       </template>
     </Grid>
@@ -369,19 +369,19 @@ async function handleCancelSubmit() {
 
     <Modal
       v-model:open="approveVisible"
-      title="付款审批"
+      :title="$t('page.finance.payment.button.approve')"
       :confirm-loading="approveLoading"
       @ok="handleApproveSubmit"
     >
       <Form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" class="py-4">
-        <FormItem label="审批结果">
+        <FormItem :label="$t('page.finance.payment.modal.approveResult')">
           <Button
             :type="approveForm.approved ? 'primary' : 'default'"
             size="small"
             class="mr-2"
             @click="approveForm.approved = true"
           >
-            通过
+            {{ $t('page.finance.payment.modal.approvePass') }}
           </Button>
           <Button
             :type="!approveForm.approved ? 'primary' : 'default'"
@@ -389,14 +389,14 @@ async function handleCancelSubmit() {
             danger
             @click="approveForm.approved = false"
           >
-            驳回
+            {{ $t('page.finance.payment.modal.approveReject') }}
           </Button>
         </FormItem>
-        <FormItem label="备注">
+        <FormItem :label="$t('page.finance.common.remark')">
           <Textarea
             v-model:value="approveForm.remark"
             :rows="3"
-            placeholder="请输入审批备注"
+            :placeholder="$t('page.finance.payment.modal.approveRemarkPlaceholder')"
           />
         </FormItem>
       </Form>
@@ -404,17 +404,17 @@ async function handleCancelSubmit() {
 
     <Modal
       v-model:open="confirmVisible"
-      title="确认付款"
+      :title="$t('page.finance.payment.button.confirm')"
       :confirm-loading="confirmLoading"
       @ok="handleConfirmSubmit"
     >
       <Form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" class="py-4">
-        <FormItem label="付款日期" required>
+        <FormItem :label="$t('page.finance.payment.modal.paymentDate')" required>
           <DatePicker
             v-model:value="confirmForm.paymentDate"
             value-format="YYYY-MM-DD"
             style="width: 100%"
-            placeholder="请选择付款日期"
+            :placeholder="$t('page.finance.payment.modal.paymentDatePlaceholder')"
           />
         </FormItem>
       </Form>
@@ -422,16 +422,16 @@ async function handleCancelSubmit() {
 
     <Modal
       v-model:open="cancelVisible"
-      title="取消付款"
+      :title="$t('page.finance.payment.button.cancel')"
       :confirm-loading="cancelLoading"
       @ok="handleCancelSubmit"
     >
       <Form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" class="py-4">
-        <FormItem label="取消原因" required>
+        <FormItem :label="$t('page.finance.payment.modal.cancelReason')" required>
           <Textarea
             v-model:value="cancelForm.remark"
             :rows="3"
-            placeholder="请输入取消原因"
+            :placeholder="$t('page.finance.payment.modal.cancelReasonPlaceholder')"
           />
         </FormItem>
       </Form>

@@ -19,3 +19,24 @@ pub mod website_links;
 pub mod template_data;
 pub mod template_user_data;
 pub mod website_template_merge;
+pub mod website_media;
+pub mod website_media_category;
+pub mod template_var;
+pub mod template_revision;
+pub mod website_banner;
+pub mod website_block;
+pub mod website_page;
+
+pub mod content_model;
+pub mod content_model_field;
+
+pub mod leave_msg;
+
+// 交易型模块（阶段5-7）
+pub mod website_user;
+pub mod website_cart;
+pub mod website_order;
+pub mod website_order_item;
+pub mod website_delivery;
+pub mod website_refund;
+pub mod website_notification_config;

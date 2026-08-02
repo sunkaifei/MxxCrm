@@ -117,8 +117,14 @@ async fn main() -> std::io::Result<()> {
     }
 
     let state = AppState {
-        db: conn,
+        db: conn.clone(),
     };
+
+    // 启动定时任务调度器（每月1号 02:00 自动核算上月工资）
+    match crate::core::kit::scheduler::start_scheduler(conn.clone()).await {
+        Ok(_) => log::info!("[定时任务] 调度器启动成功"),
+        Err(e) => log::error!("[定时任务] 调度器启动失败: {:?}", e),
+    }
 
     HttpServer::new(move || {
         let cors = Cors::default()

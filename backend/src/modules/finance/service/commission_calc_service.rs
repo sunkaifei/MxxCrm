@@ -16,7 +16,7 @@ use chrono::Datelike;
 
 use crate::modules::finance::entity::{commission_rule, commission_tier, commission_result};
 use crate::modules::crm::entity::{contract, contract_commission_member, contract_payment_plan};
-use crate::modules::system::entity::admin;
+use crate::modules::system::entity::{admin, admin_post_merge, admin_dept_merge};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -135,44 +135,25 @@ pub async fn calc_on_payment(
 
 pub async fn calc_monthly_settlement(
     db: &DatabaseConnection,
-    _year: i32,
-    _month: i32,
+    year: i32,
+    month: i32,
 ) -> Result<Vec<commission_result::Model>, String> {
-    let plans = commission_rule::Entity::find()
-        .filter(commission_rule::Column::Enabled.eq(1))
-        .filter(commission_rule::Column::Deleted.eq(0))
-        .filter(commission_rule::Column::RuleType.is_in([3, 4, 5]))
-        .all(db)
-        .await
-        .map_err(|e| e.to_string())?;
+    // 委托调用 team_commission_service::calc_monthly_settlement 完成实际结算
+    // 该函数将团队提成金额写回 salary_record.team_commission_amount，并返回更新的记录数
+    let updated_count = crate::modules::finance::service::team_commission_service::calc_monthly_settlement(
+        db, year, month,
+    )
+    .await?;
 
-    let all_results = Vec::new();
+    log::info!(
+        "[commission_calc] 月度团队提成结算完成 year={} month={} 更新记录数={}",
+        year, month, updated_count
+    );
 
-    for plan in plans {
-        // TODO: 根据方案的适用范围统计对应人员管辖范围内的月业绩
-        // 1. 根据 apply_scope 确定统计范围（部门/岗位/全员）
-        // 2. 查询该范围内所有符合条件的用户（经理/总监/团队长）
-        // 3. 对每个用户，统计其管辖范围内的月度业绩总额
-        // 4. 按阶梯表查比例，计算提成
-        // 5. 生成 commission_result 记录
-
-        // 以下为框架代码，具体统计逻辑待实现
-        let _rule_id = plan.id;
-        let _rule_type = plan.rule_type.unwrap_or(3);
-        let _apply_scope = plan.apply_scope.unwrap_or(0);
-
-        // TODO: 实现具体的业绩统计逻辑
-        // 示例伪代码：
-        // let users = _get_eligible_users(db, &plan).await?;
-        // for user in users {
-        //     let performance = _calc_user_monthly_performance(db, user.id, year, month).await?;
-        //     let (rate, min, max) = _find_tier_rate(db, plan.id, performance).await?;
-        //     let commission = performance * rate;
-        //     // 生成结果记录
-        // }
-    }
-
-    Ok(all_results)
+    // 原函数签名返回 Vec<commission_result::Model>，但团队提成结果已直接写入
+    // salary_record.team_commission_amount，不再单独生成 commission_result 记录。
+    // controller 仅需知道是否成功，因此返回空 Vec 表示成功且无需返回明细。
+    Ok(Vec::new())
 }
 
 pub async fn preview_contract_commission(
@@ -295,6 +276,7 @@ async fn _calc_for_contract(
     source_id: Option<i64>,
 ) -> Result<Vec<commission_result::Model>, String> {
     let rule_type = plan.rule_type.unwrap_or(1);
+    let category = plan.commission_category;
     let now = chrono::Utc::now().naive_utc();
     let period_year = now.date().year();
     let period_month = now.date().month() as i32;
@@ -303,12 +285,35 @@ async fn _calc_for_contract(
 
     let mut results = Vec::new();
 
+    // v2 分发逻辑：基于 commission_category 决定计算路径
+    // 即时计算（合同签订/回款触发）仅处理 category=1（个人提成）和 category=6（利润提成）
+    // category=2/3/4/5（管理分润/团队奖金/资金池/再分配）由月度结算 calc_monthly_settlement 统一处理
+    let should_calc_now = matches!(category, 1 | 6);
+    if !should_calc_now {
+        return Ok(results);
+    }
+
+    // 计算基数：category=6（利润提成）使用毛利，其他使用回款/合同额
+    // 注：合同表暂无成本字段，cost_amount 暂为 0，毛利 = 回款额 - 0 = 回款额
+    let (calc_base, cost_amount) = if category == 6 {
+        let cost = Decimal::ZERO; // TODO: 合同表扩展成本字段后替换
+        let profit = calc_amount - cost;
+        if profit < Decimal::ZERO {
+            (Decimal::ZERO, Some(cost))
+        } else {
+            (profit, Some(cost))
+        }
+    } else {
+        (calc_amount, None)
+    };
+
+    // 根据 rule_type 区分单人 vs 团队分成（保留旧逻辑兼容）
     match rule_type {
         1 => {
             let user_id = contract_model.assigned_to.unwrap_or(0);
             let mut user_name = None;
-            let user_post_id = None;
-            let department_id = None;
+            let mut user_post_id = None;
+            let mut department_id = None;
 
             if user_id > 0 {
                 if let Some(user) = admin::Entity::find_by_id(user_id)
@@ -319,10 +324,34 @@ async fn _calc_for_contract(
                     user_name = user.nick_name.or(user.user_name);
                 }
 
-                // TODO: 查询用户岗位和部门
+                // 查询用户岗位（admin_post_merge 取第一条）
+                if let Some(merge) = admin_post_merge::Entity::find()
+                    .filter(admin_post_merge::Column::AdminId.eq(user_id))
+                    .one(db)
+                    .await
+                    .map_err(|e| e.to_string())?
+                {
+                    user_post_id = merge.post_id;
+                }
+
+                // 查询用户部门（admin_dept_merge 取第一条）
+                if let Some(merge) = admin_dept_merge::Entity::find()
+                    .filter(admin_dept_merge::Column::AdminId.eq(user_id))
+                    .one(db)
+                    .await
+                    .map_err(|e| e.to_string())?
+                {
+                    department_id = merge.dept_id;
+                }
             }
 
-            let commission_amount = calc_amount * rate;
+            let mut commission_amount = calc_base * rate;
+            // v2: 应用单笔封顶
+            if let Some(cap) = plan.commission_cap {
+                if commission_amount > cap {
+                    commission_amount = cap;
+                }
+            }
 
             let result = commission_result::Model {
                 id: 0,
@@ -332,11 +361,18 @@ async fn _calc_for_contract(
                 rule_id: plan.id,
                 rule_name: plan.rule_name.clone(),
                 rule_type,
+                commission_category: Some(category),
+                beneficiary_role: Some(plan.beneficiary_role),
+                manager_level: None,
+                allocate_status: Some(0),
+                allocated_amount: Some(Decimal::ZERO),
+                pool_id: None,
+                cost_amount,
                 user_id,
                 user_name,
                 user_post_id,
                 department_id,
-                calc_base_amount: calc_amount,
+                calc_base_amount: calc_base,
                 tier_min_amount: tier_min,
                 tier_max_amount: tier_max,
                 commission_rate: rate,
@@ -363,7 +399,13 @@ async fn _calc_for_contract(
 
             for member in members {
                 let share_ratio = member.share_ratio;
-                let commission_amount = calc_amount * rate * share_ratio;
+                let mut commission_amount = calc_base * rate * share_ratio;
+                // v2: 应用单笔封顶（按个人封顶）
+                if let Some(cap) = plan.commission_cap {
+                    if commission_amount > cap {
+                        commission_amount = cap;
+                    }
+                }
 
                 let result = commission_result::Model {
                     id: 0,
@@ -373,11 +415,18 @@ async fn _calc_for_contract(
                     rule_id: plan.id,
                     rule_name: plan.rule_name.clone(),
                     rule_type,
+                    commission_category: Some(category),
+                    beneficiary_role: Some(plan.beneficiary_role),
+                    manager_level: None,
+                    allocate_status: Some(0),
+                    allocated_amount: Some(Decimal::ZERO),
+                    pool_id: None,
+                    cost_amount,
                     user_id: member.user_id,
                     user_name: member.user_name.clone(),
                     user_post_id: None,
                     department_id: None,
-                    calc_base_amount: calc_amount,
+                    calc_base_amount: calc_base,
                     tier_min_amount: tier_min,
                     tier_max_amount: tier_max,
                     commission_rate: rate,
@@ -395,12 +444,9 @@ async fn _calc_for_contract(
                 results.push(result);
             }
         }
-        3 | 4 | 5 => {
-            // TODO: 经理/总监/团队长提成，月度结算时统一计算
-            // 这里可以跳过，或者生成预结算记录
-            // 暂时跳过，由 calc_monthly_settlement 统一处理
+        _ => {
+            // 旧 rule_type=3/4/5 已由月度结算统一处理，即时触发跳过
         }
-        _ => {}
     }
 
     Ok(results)
@@ -414,6 +460,13 @@ fn _result_to_active_model(result: commission_result::Model) -> commission_resul
         rule_id: Set(result.rule_id),
         rule_name: Set(result.rule_name),
         rule_type: Set(result.rule_type),
+        commission_category: Set(result.commission_category),
+        beneficiary_role: Set(result.beneficiary_role),
+        manager_level: Set(result.manager_level),
+        allocate_status: Set(result.allocate_status),
+        allocated_amount: Set(result.allocated_amount),
+        pool_id: Set(result.pool_id),
+        cost_amount: Set(result.cost_amount),
         user_id: Set(result.user_id),
         user_name: Set(result.user_name),
         user_post_id: Set(result.user_post_id),

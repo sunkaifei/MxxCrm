@@ -445,7 +445,7 @@ function handleAddContact(row: any) {
 
 <template>
   <Page>
-    <Card :bordered="false" class="mb-[15px]">
+    <Card :bordered="false" class="mb-4">
       <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="mb-4">
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
       </Tabs>
@@ -564,7 +564,7 @@ function handleAddContact(row: any) {
       </Form>
     </Card>
 
-    <Grid :table-title="$t('page.crm.customer.title')" style="margin-top: 15px">
+    <Grid :table-title="$t('page.crm.customer.title')">
       <template #toolbar-tools>
         <Dropdown v-if="accessStore.hasAccessCode('crm:customer:create')" :trigger="['click']">
           <Button type="primary" class="mr-2">{{ $t('page.crm.customer.button.create') }} ▾</Button>

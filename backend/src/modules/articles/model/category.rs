@@ -42,6 +42,12 @@ pub struct CategorySaveRequest {
     pub content_type: Option<i32>,
     // 自定义链接URL
     pub link_url: Option<String>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -74,6 +80,12 @@ pub struct CategorySaveDTO {
     pub content_type: Option<i32>,
     // 自定义链接URL
     pub link_url: Option<String>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
 }
 
 impl From<CategorySaveRequest> for CategorySaveDTO {
@@ -93,6 +105,9 @@ impl From<CategorySaveRequest> for CategorySaveDTO {
             description: value.description,
             content_type: value.content_type,
             link_url: value.link_url,
+            seo_title: value.seo_title,
+            seo_keywords: value.seo_keywords,
+            seo_description: value.seo_description,
         }
     }
 
@@ -129,6 +144,12 @@ pub struct CategoryUpdateRequest {
     pub content_type: Option<i32>,
     // 自定义链接URL
     pub link_url: Option<String>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
 }
 
 impl From<CategoryUpdateRequest> for CategorySaveDTO {
@@ -148,6 +169,9 @@ impl From<CategoryUpdateRequest> for CategorySaveDTO {
             description: value.description,
             content_type: value.content_type,
             link_url: value.link_url,
+            seo_title: value.seo_title,
+            seo_keywords: value.seo_keywords,
+            seo_description: value.seo_description,
         }
     }
 }
@@ -189,6 +213,12 @@ pub struct CategoryDetailVO {
     pub content_type: Option<i32>,
     // 自定义链接URL
     pub link_url: Option<String>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
     // 添加时间
     pub create_time: Option<String>,
     // 更新时间
@@ -212,6 +242,9 @@ impl From<category::Model> for CategoryDetailVO {
             description: value.description,
             content_type: value.content_type,
             link_url: value.link_url,
+            seo_title: value.seo_title,
+            seo_keywords: value.seo_keywords,
+            seo_description: value.seo_description,
             count_topic: value.count_topic,
             create_time: value.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
             update_time: value.update_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
@@ -303,6 +336,12 @@ pub struct CategoryTreeVO {
     pub content_type: Option<i32>,
     // 自定义链接URL
     pub link_url: Option<String>,
+    //SEO标题
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub children: Option<Vec<CategoryTreeVO>>,
 }
@@ -328,6 +367,9 @@ impl CategoryModel {
             description: Set(form_data.description.to_owned()),
             content_type: Set(form_data.content_type.to_owned()),
             link_url: Set(form_data.link_url.to_owned()),
+            seo_title: Set(form_data.seo_title.to_owned()),
+            seo_keywords: Set(form_data.seo_keywords.to_owned()),
+            seo_description: Set(form_data.seo_description.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -373,6 +415,9 @@ impl CategoryModel {
                 description:   Set(form_data.description.to_owned()),
                 content_type:  Set(form_data.content_type.to_owned()),
                 link_url:      Set(form_data.link_url.to_owned()),
+                seo_title:     Set(form_data.seo_title.to_owned()),
+                seo_keywords:  Set(form_data.seo_keywords.to_owned()),
+                seo_description: Set(form_data.seo_description.to_owned()),
                 update_time:   Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             }

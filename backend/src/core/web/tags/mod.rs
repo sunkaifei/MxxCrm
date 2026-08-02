@@ -12,3 +12,4 @@
 pub mod i18n_tags;
 pub mod format_time_tags;
 pub mod common_tags;
+pub mod cms_tags;

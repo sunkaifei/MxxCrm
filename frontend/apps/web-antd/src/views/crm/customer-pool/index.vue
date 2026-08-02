@@ -12,7 +12,11 @@ import { Button, Form, Input, Modal, Row, Col, Select, Tag, message } from 'ant-
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getCustomerPoolListApi, claimCustomerApi } from '#/api';
 import { $t } from '#/locales';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
+
+// 公海客户使用说明步骤数（与 i18n 中 page.crm.customerPool.guide.steps 数组对齐）
+const guideStepCount = 5;
 
 const accessStore = useAccessStore();
 
@@ -179,6 +183,28 @@ async function handleClaim(row: any) {
 
 <template>
   <Page>
+    <PageUsageGuide
+      :title="$t('page.crm.customerPool.guide.title')"
+      :brief="$t('page.crm.customerPool.guide.brief')"
+      :expand-text="$t('page.crm.customerPool.guide.expand')"
+      :collapse-text="$t('page.crm.customerPool.guide.collapse')"
+    >
+      <div
+        v-for="i in guideStepCount"
+        :key="i"
+        class="page-guide-step-item"
+      >
+        <div class="page-guide-step-index">{{ i }}</div>
+        <div class="page-guide-step-content">
+          <div class="page-guide-step-title">
+            {{ $t(`page.crm.customerPool.guide.steps[${i - 1}].title`) }}
+          </div>
+          <div class="page-guide-step-desc">
+            {{ $t(`page.crm.customerPool.guide.steps[${i - 1}].desc`) }}
+          </div>
+        </div>
+      </div>
+    </PageUsageGuide>
     <div class="pool-search-card">
       <Form :model="searchForm" layout="horizontal" :label-col="{ style: { width: '100px' } }">
         <div class="pool-search-form-wrapper">
@@ -298,7 +324,7 @@ async function handleClaim(row: any) {
   border: 1px solid #e8e8e8;
   border-radius: 0;
   padding: 20px 24px 0 24px;
-  margin-bottom: 15px;
+  margin-bottom: 16px;
 }
 .pool-search-card :deep(.ant-form-item) {
   margin-bottom: 16px;

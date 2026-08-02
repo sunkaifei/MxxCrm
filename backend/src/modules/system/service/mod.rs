@@ -34,3 +34,4 @@ pub mod mail_template_service;
 pub mod mail_log_service;
 pub mod mail_service;
 pub mod data_scope_service;
+pub mod scheduler_service;

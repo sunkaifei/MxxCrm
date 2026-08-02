@@ -11,3 +11,4 @@
 
 pub mod admin;
 pub mod open;
+pub mod user;

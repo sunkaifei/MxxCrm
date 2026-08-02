@@ -42,6 +42,10 @@ pub struct Model {
     pub create_time: Option<DateTime>,
     /// 更新时间
     pub update_time: Option<DateTime>,
+    /// 链接打开方式（_self/_blank）
+    pub target: Option<String>,
+    /// 图标
+    pub icon: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

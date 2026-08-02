@@ -23,7 +23,9 @@ import {
 } from '#/api';
 import { $t } from '#/locales';
 import ExpenseDrawer from './drawer.vue';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
 
+const guideStepCount = 5;
 const accessStore = useAccessStore();
 const userStore = useUserStore();
 
@@ -50,9 +52,9 @@ const canViewSubordinate = computed(() => {
 });
 
 const allTabList = [
-  { key: 'all', label: '全部费用申请' },
-  { key: 'my', label: '我的费用申请' },
-  { key: 'subordinate', label: '下属费用申请' },
+  { key: 'all', labelKey: 'page.finance.expense.tab.all' },
+  { key: 'my', labelKey: 'page.finance.expense.tab.my' },
+  { key: 'subordinate', labelKey: 'page.finance.expense.tab.subordinate' },
 ];
 
 const tabList = computed(() => {
@@ -60,7 +62,9 @@ const tabList = computed(() => {
   if (canViewAll.value) keys.push('all');
   keys.push('my');
   if (canViewSubordinate.value) keys.push('subordinate');
-  return allTabList.filter((t) => keys.includes(t.key));
+  return allTabList
+    .filter((t) => keys.includes(t.key))
+    .map((t) => ({ key: t.key, label: $t(t.labelKey) }));
 });
 
 const activeTab = ref('my');
@@ -72,12 +76,12 @@ function handleTabChange(key: string) {
 
 // 费用状态映射：1=草稿,2=待审批,3=审批中,4=已通过,5=已驳回,6=已打款
 const expenseStatusOptions = [
-  { label: '草稿', value: 1 },
-  { label: '待审批', value: 2 },
-  { label: '审批中', value: 3 },
-  { label: '已通过', value: 4 },
-  { label: '已驳回', value: 5 },
-  { label: '已打款', value: 6 },
+  { label: $t('page.finance.expense.status.draft'), value: 1 },
+  { label: $t('page.finance.expense.status.pending'), value: 2 },
+  { label: $t('page.finance.expense.status.approving'), value: 3 },
+  { label: $t('page.finance.expense.status.approved'), value: 4 },
+  { label: $t('page.finance.expense.status.rejected'), value: 5 },
+  { label: $t('page.finance.expense.status.paid'), value: 6 },
 ];
 
 const expenseStatusColorMap: Record<number, string> = {
@@ -90,21 +94,21 @@ const expenseStatusColorMap: Record<number, string> = {
 };
 
 const expenseStatusLabelMap: Record<number, string> = {
-  1: '草稿',
-  2: '待审批',
-  3: '审批中',
-  4: '已通过',
-  5: '已驳回',
-  6: '已打款',
+  1: $t('page.finance.expense.status.draft'),
+  2: $t('page.finance.expense.status.pending'),
+  3: $t('page.finance.expense.status.approving'),
+  4: $t('page.finance.expense.status.approved'),
+  5: $t('page.finance.expense.status.rejected'),
+  6: $t('page.finance.expense.status.paid'),
 };
 
 // 审批状态映射：0=草稿,1=待审批,2=审批中,3=已通过,4=已驳回
 const approvalStatusOptions = [
-  { label: '草稿', value: 0 },
-  { label: '待审批', value: 1 },
-  { label: '审批中', value: 2 },
-  { label: '已通过', value: 3 },
-  { label: '已驳回', value: 4 },
+  { label: $t('page.finance.expense.status.draft'), value: 0 },
+  { label: $t('page.finance.expense.status.pending'), value: 1 },
+  { label: $t('page.finance.expense.status.approving'), value: 2 },
+  { label: $t('page.finance.expense.status.approved'), value: 3 },
+  { label: $t('page.finance.expense.status.rejected'), value: 4 },
 ];
 
 const approvalStatusColorMap: Record<number, string> = {
@@ -116,11 +120,11 @@ const approvalStatusColorMap: Record<number, string> = {
 };
 
 const approvalStatusLabelMap: Record<number, string> = {
-  0: '草稿',
-  1: '待审批',
-  2: '审批中',
-  3: '已通过',
-  4: '已驳回',
+  0: $t('page.finance.expense.status.draft'),
+  1: $t('page.finance.expense.status.pending'),
+  2: $t('page.finance.expense.status.approving'),
+  3: $t('page.finance.expense.status.approved'),
+  4: $t('page.finance.expense.status.rejected'),
 };
 
 // 费用类型选项（从 API 加载）
@@ -150,7 +154,7 @@ async function loadExpenseTypes() {
     });
     expenseTypeMap.value = map;
   } catch (e) {
-    console.error('[费用申请] 加载费用类型失败:', e);
+    console.error('[expense] load expense types failed:', e);
     expenseTypeOptions.value = [];
   }
 }
@@ -167,15 +171,18 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'keywords',
-      label: '费用标题',
-      componentProps: { placeholder: '费用编号/标题', allowClear: true },
+      label: $t('page.finance.expense.column.expenseTitle'),
+      componentProps: {
+        placeholder: $t('page.finance.expense.search.keywordsPlaceholder'),
+        allowClear: true,
+      },
     },
     {
       component: 'Select',
       fieldName: 'expenseType',
-      label: '费用类型',
+      label: $t('page.finance.expense.column.expenseType'),
       componentProps: {
-        placeholder: '全部',
+        placeholder: $t('page.finance.common.all'),
         allowClear: true,
         options: expenseTypeOptions,
       },
@@ -183,9 +190,9 @@ const formOptions: VbenFormProps = {
     {
       component: 'Select',
       fieldName: 'status',
-      label: '状态',
+      label: $t('page.finance.expense.column.status'),
       componentProps: {
-        placeholder: '全部',
+        placeholder: $t('page.finance.common.all'),
         allowClear: true,
         options: expenseStatusOptions,
       },
@@ -193,9 +200,12 @@ const formOptions: VbenFormProps = {
     {
       component: 'RangePicker',
       fieldName: 'dateRange',
-      label: '申请时间',
+      label: $t('page.finance.expense.column.applyTime'),
       componentProps: {
-        placeholder: ['开始日期', '结束日期'],
+        placeholder: [
+          $t('page.finance.expense.search.startDate'),
+          $t('page.finance.expense.search.endDate'),
+        ],
         style: 'width:100%',
         valueFormat: 'YYYY-MM-DD',
       },
@@ -242,49 +252,54 @@ const gridOptions: VxeGridProps = {
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60, headerAlign: 'center' },
     {
-      title: '费用编号',
+      title: $t('page.finance.expense.column.expenseNo'),
       field: 'expenseNo',
       width: 170,
       headerAlign: 'center',
       slots: { default: 'expenseNo' },
     },
-    { title: '费用标题', field: 'title', width: 200, headerAlign: 'center' },
     {
-      title: '费用类型',
+      title: $t('page.finance.expense.column.expenseTitle'),
+      field: 'title',
+      width: 200,
+      headerAlign: 'center',
+    },
+    {
+      title: $t('page.finance.expense.column.expenseType'),
       field: 'expenseType',
       width: 120,
       headerAlign: 'center',
       slots: { default: 'expenseType' },
     },
     {
-      title: '金额',
+      title: $t('page.finance.expense.column.amount'),
       field: 'totalAmount',
       width: 130,
       headerAlign: 'center',
       slots: { default: 'totalAmount' },
     },
     {
-      title: '申请人',
+      title: $t('page.finance.expense.column.applicant'),
       field: 'applicantName',
       width: 100,
       headerAlign: 'center',
     },
     {
-      title: '状态',
+      title: $t('page.finance.expense.column.status'),
       field: 'status',
       width: 100,
       headerAlign: 'center',
       slots: { default: 'status' },
     },
     {
-      title: '审批状态',
+      title: $t('page.finance.expense.column.approvalStatus'),
       field: 'approvalStatus',
       width: 100,
       headerAlign: 'center',
       slots: { default: 'approvalStatus' },
     },
     {
-      title: '申请日期',
+      title: $t('page.finance.expense.column.applyDate'),
       field: 'applyDate',
       width: 120,
       headerAlign: 'center',
@@ -342,7 +357,7 @@ async function handleDelete(row: any) {
 async function handleBatchDelete() {
   const records = gridApi.grid.getCheckboxRecords();
   if (records.length === 0) {
-    window.$message.warning('请选择要删除的费用申请');
+    window.$message.warning($t('page.finance.expense.message.selectToDelete'));
     return;
   }
   const ids = records.map((r: any) => r.id);
@@ -356,17 +371,17 @@ async function handleBatchDelete() {
 // 提交审批：仅草稿(1)/已驳回(5)状态
 async function handleSubmitApproval(row: any) {
   Modal.confirm({
-    title: '提交审批',
-    content: '确定要提交该费用申请进入审批流程吗？',
-    okText: '确认',
-    cancelText: '取消',
+    title: $t('page.finance.expense.modal.submitTitle'),
+    content: $t('page.finance.expense.modal.submitContent'),
+    okText: $t('page.finance.common.confirm'),
+    cancelText: $t('page.finance.common.cancel'),
     onOk: async () => {
       try {
         await submitExpenseApi(row.id);
-        window.$message.success('已提交审批');
+        window.$message.success($t('page.finance.expense.message.submitted'));
         gridApi.query();
       } catch {
-        window.$message.error('提交审批失败');
+        window.$message.error($t('page.finance.expense.message.submitFailed'));
       }
     },
   });
@@ -375,17 +390,17 @@ async function handleSubmitApproval(row: any) {
 // 审批通过：待审批(2)/审批中(3)状态
 async function handleApprove(row: any) {
   Modal.confirm({
-    title: '审批通过',
-    content: '确定要审批通过该费用申请吗？',
-    okText: '确认',
-    cancelText: '取消',
+    title: $t('page.finance.expense.modal.approveTitle'),
+    content: $t('page.finance.expense.modal.approveContent'),
+    okText: $t('page.finance.common.confirm'),
+    cancelText: $t('page.finance.common.cancel'),
     onOk: async () => {
       try {
         await approveExpenseApi(row.id);
-        window.$message.success('审批通过');
+        window.$message.success($t('page.finance.expense.message.approved'));
         gridApi.query();
       } catch {
-        window.$message.error('操作失败');
+        window.$message.error($t('page.finance.common.failed'));
       }
     },
   });
@@ -395,15 +410,15 @@ async function handleApprove(row: any) {
 async function handleReject(row: any) {
   let reason = '';
   Modal.confirm({
-    title: '审批驳回',
+    title: $t('page.finance.expense.modal.rejectTitle'),
     content: () =>
       h(
         'div',
         { style: 'display:flex;flex-direction:column;gap:8px;' },
         [
-          h('span', '确定要驳回该费用申请吗？'),
+          h('span', $t('page.finance.expense.modal.rejectContent')),
           h('textarea', {
-            placeholder: '请输入驳回原因',
+            placeholder: $t('page.finance.expense.modal.rejectReasonPlaceholder'),
             style:
               'min-height:80px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
             onInput: (e: any) => {
@@ -412,15 +427,15 @@ async function handleReject(row: any) {
           }),
         ],
       ),
-    okText: '确认驳回',
-    cancelText: '取消',
+    okText: $t('page.finance.expense.modal.confirmReject'),
+    cancelText: $t('page.finance.common.cancel'),
     onOk: async () => {
       try {
         await rejectExpenseApi(row.id, reason);
-        window.$message.success('已驳回');
+        window.$message.success($t('page.finance.expense.message.rejected'));
         gridApi.query();
       } catch {
-        window.$message.error('操作失败');
+        window.$message.error($t('page.finance.common.failed'));
       }
     },
   });
@@ -434,14 +449,14 @@ async function handlePayment(row: any) {
   let transactionNo = '';
   let remark = '';
   Modal.confirm({
-    title: '费用打款',
+    title: $t('page.finance.expense.modal.paymentTitle'),
     content: () =>
       h(
         'div',
         { style: 'display:flex;flex-direction:column;gap:8px;' },
         [
           h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-            h('span', { style: 'width:90px;text-align:right;' }, '打款金额：'),
+            h('span', { style: 'width:90px;text-align:right;' }, $t('page.finance.expense.modal.paymentAmount')),
             h('input', {
               type: 'number',
               value: paymentAmount,
@@ -453,7 +468,7 @@ async function handlePayment(row: any) {
             }),
           ]),
           h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-            h('span', { style: 'width:90px;text-align:right;' }, '打款日期：'),
+            h('span', { style: 'width:90px;text-align:right;' }, $t('page.finance.expense.modal.paymentDate')),
             h('input', {
               type: 'date',
               style:
@@ -464,9 +479,9 @@ async function handlePayment(row: any) {
             }),
           ]),
           h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-            h('span', { style: 'width:90px;text-align:right;' }, '收款账号：'),
+            h('span', { style: 'width:90px;text-align:right;' }, $t('page.finance.expense.modal.paymentAccount')),
             h('input', {
-              placeholder: '收款账号（可选）',
+              placeholder: $t('page.finance.expense.modal.paymentAccountPlaceholder'),
               style:
                 'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
               onInput: (e: any) => {
@@ -475,9 +490,9 @@ async function handlePayment(row: any) {
             }),
           ]),
           h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-            h('span', { style: 'width:90px;text-align:right;' }, '交易号：'),
+            h('span', { style: 'width:90px;text-align:right;' }, $t('page.finance.expense.modal.transactionNo')),
             h('input', {
-              placeholder: '第三方交易号（可选）',
+              placeholder: $t('page.finance.expense.modal.transactionNoPlaceholder'),
               style:
                 'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
               onInput: (e: any) => {
@@ -486,7 +501,7 @@ async function handlePayment(row: any) {
             }),
           ]),
           h('textarea', {
-            placeholder: '备注（可选）',
+            placeholder: $t('page.finance.expense.modal.remarkPlaceholder'),
             style:
               'min-height:60px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
             onInput: (e: any) => {
@@ -495,8 +510,8 @@ async function handlePayment(row: any) {
           }),
         ],
       ),
-    okText: '确认打款',
-    cancelText: '取消',
+    okText: $t('page.finance.expense.modal.confirmPayment'),
+    cancelText: $t('page.finance.common.cancel'),
     onOk: async () => {
       try {
         await paymentExpenseApi({
@@ -507,10 +522,10 @@ async function handlePayment(row: any) {
           transactionNo: transactionNo || undefined,
           remark: remark || undefined,
         });
-        window.$message.success('打款成功');
+        window.$message.success($t('page.finance.expense.message.paid'));
         gridApi.query();
       } catch {
-        window.$message.error('操作失败');
+        window.$message.error($t('page.finance.common.failed'));
       }
     },
   });
@@ -519,6 +534,24 @@ async function handlePayment(row: any) {
 
 <template>
   <Page>
+    <PageUsageGuide
+      :title="$t('page.finance.expense.guide.title')"
+      :brief="$t('page.finance.expense.guide.brief')"
+      :expand-text="$t('page.finance.expense.guide.expand')"
+      :collapse-text="$t('page.finance.expense.guide.collapse')"
+    >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
+        <div class="page-guide-step-index">{{ i }}</div>
+        <div class="page-guide-step-content">
+          <div class="page-guide-step-title">
+            {{ $t(`page.finance.expense.guide.steps[${i - 1}].title`) }}
+          </div>
+          <div class="page-guide-step-desc">
+            {{ $t(`page.finance.expense.guide.steps[${i - 1}].desc`) }}
+          </div>
+        </div>
+      </div>
+    </PageUsageGuide>
     <Grid :table-title="''">
       <template #form-header>
         <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
@@ -532,14 +565,14 @@ async function handlePayment(row: any) {
           class="mr-2"
           @click="handleCreate"
         >
-          新建费用申请
+          {{ $t('page.finance.expense.button.create') }}
         </Button>
         <Button
           v-if="accessStore.hasAccessCode('finance:expense:delete')"
           class="mr-2"
           @click="handleBatchDelete"
         >
-          批量删除
+          {{ $t('page.finance.expense.message.batchDelete') }}
         </Button>
       </template>
 
@@ -574,7 +607,7 @@ async function handlePayment(row: any) {
 
       <template #approvalStatus="{ row }">
         <Tag :color="approvalStatusColorMap[row.approvalStatus] ?? 'default'">
-          {{ approvalStatusLabelMap[row.approvalStatus] ?? '未知' }}
+          {{ approvalStatusLabelMap[row.approvalStatus] ?? $t('page.finance.expense.message.unknown') }}
         </Tag>
       </template>
 
@@ -584,7 +617,7 @@ async function handlePayment(row: any) {
           v-if="accessStore.hasAccessCode('finance:expense:list')"
           class="text-blue-600 cursor-pointer mx-1"
           @click="handleView(row)"
-        >查看</a>
+        >{{ $t('page.finance.common.view') }}</a>
         <!-- 编辑：草稿(1)或已驳回(5) -->
         <a
           v-if="
@@ -593,7 +626,7 @@ async function handlePayment(row: any) {
           "
           class="text-blue-600 cursor-pointer mx-1"
           @click="handleEdit(row)"
-        >编辑</a>
+        >{{ $t('page.finance.common.edit') }}</a>
         <!-- 提交审批：草稿(1)或已驳回(5) -->
         <a
           v-if="
@@ -602,7 +635,7 @@ async function handlePayment(row: any) {
           "
           class="text-blue-600 cursor-pointer mx-1"
           @click="handleSubmitApproval(row)"
-        >提交审批</a>
+        >{{ $t('page.finance.expense.button.submit') }}</a>
         <!-- 审批通过：待审批(2)/审批中(3) -->
         <a
           v-if="
@@ -611,7 +644,7 @@ async function handlePayment(row: any) {
           "
           class="text-green-600 cursor-pointer mx-1"
           @click="handleApprove(row)"
-        >审批</a>
+        >{{ $t('page.finance.expense.button.approve') }}</a>
         <!-- 审批驳回：待审批(2)/审批中(3) -->
         <a
           v-if="
@@ -620,7 +653,7 @@ async function handlePayment(row: any) {
           "
           class="text-orange-600 cursor-pointer mx-1"
           @click="handleReject(row)"
-        >驳回</a>
+        >{{ $t('page.finance.expense.button.reject') }}</a>
         <!-- 打款：已通过(4) -->
         <a
           v-if="
@@ -629,19 +662,19 @@ async function handlePayment(row: any) {
           "
           class="text-green-600 cursor-pointer mx-1"
           @click="handlePayment(row)"
-        >打款</a>
+        >{{ $t('page.finance.expense.button.payment') }}</a>
         <!-- 删除：仅草稿(1)/已驳回(5) -->
         <Popconfirm
           v-if="
             accessStore.hasAccessCode('finance:expense:delete') &&
             (row.status === 1 || row.status === 5)
           "
-          :title="$t('ui.text.do_you_want_delete', { moduleName: '费用申请' })"
+          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.finance.expense.title') })"
           :ok-text="$t('ui.button.ok')"
           :cancel-text="$t('ui.button.cancel')"
           @confirm="handleDelete(row)"
         >
-          <a class="text-red-500 cursor-pointer mx-1">删除</a>
+          <a class="text-red-500 cursor-pointer mx-1">{{ $t('page.finance.common.delete') }}</a>
         </Popconfirm>
       </template>
     </Grid>

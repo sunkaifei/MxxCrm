@@ -67,6 +67,15 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.system.tag.title'),
         },
       },
+      {
+        name: 'SystemScheduler',
+        path: '/system-ext/scheduler',
+        component: () => import('#/views/system/scheduler/index.vue'),
+        meta: {
+          icon: 'lucide:clock-cog',
+          title: '定时任务',
+        },
+      },
     ],
   },
 ];

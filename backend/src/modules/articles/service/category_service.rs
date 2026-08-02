@@ -129,6 +129,9 @@ pub fn all_list_arr_to_tree(re_list: &mut Vec<CategoryTreeVO>, ori_arr: Vec<cate
                 description: it.description.clone(),
                 content_type: it.content_type,
                 link_url: it.link_url.clone(),
+                seo_title: it.seo_title.clone(),
+                seo_keywords: it.seo_keywords.clone(),
+                seo_description: it.seo_description.clone(),
                 children: (|| -> Option<Vec<CategoryTreeVO>> {
                     if children.len() > 0 {
                         Some(children)

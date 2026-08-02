@@ -78,6 +78,7 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
         website_id: query.website_id.clone(),
         link_name: query.link_name.clone(),
         link_type: query.link_type.clone(),
+        link_category: query.link_category.clone(),
         link_url: query.link_url.clone(),
         status: query.status.clone(),
     };

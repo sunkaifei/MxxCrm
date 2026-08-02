@@ -20,6 +20,8 @@ pub struct TodoSummaryVO {
     pub expiring_contract: i64,
     /// 停滞商机数（超过N天未更新）
     pub stagnant_opportunity: i64,
+    /// 待我审批的销售计划数（当前用户为 current_approver_id 且状态为待审批）
+    pub pending_plan_approval: i64,
 }
 
 // ============ 跟进待办 ============

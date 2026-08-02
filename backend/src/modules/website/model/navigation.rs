@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 
+use sea_orm::prelude::*;
 use sea_orm::*;
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::website::entity::{navigation, navigation::Entity as Navigation};
@@ -36,6 +37,59 @@ pub struct NavigationSaveDTO {
     pub is_show: Option<i32>,
     /// 是否新窗口打开（0否，1是）
     pub is_new_window_open: Option<i32>,
+    /// 链接打开方式（_self/_blank）
+    pub target: Option<String>,
+    /// 图标
+    pub icon: Option<String>,
+}
+
+/// 导航列表查询参数
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all(deserialize = "camelCase"))]
+pub struct NavigationListQuery {
+    pub website_id: Option<i64>,
+    pub nav_type: Option<String>,
+}
+
+/// 导航详情VO
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct NavigationDetailVO {
+    pub id: Option<i64>,
+    pub website_id: Option<i64>,
+    pub parent_id: Option<i64>,
+    pub name: Option<String>,
+    pub web_url: Option<String>,
+    pub value: Option<u32>,
+    pub data_type: Option<String>,
+    pub nav_type: Option<String>,
+    pub sort: Option<i32>,
+    pub is_show: Option<i32>,
+    pub is_new_window_open: Option<i32>,
+    pub target: Option<String>,
+    pub icon: Option<String>,
+    pub create_time: Option<DateTime>,
+}
+
+impl From<navigation::Model> for NavigationDetailVO {
+    fn from(item: navigation::Model) -> Self {
+        NavigationDetailVO {
+            id: Option::from(item.id),
+            website_id: item.website_id,
+            parent_id: item.parent_id,
+            name: item.name,
+            web_url: item.web_url,
+            value: item.value,
+            data_type: item.data_type,
+            nav_type: item.nav_type,
+            sort: item.sort,
+            is_show: item.is_show,
+            is_new_window_open: item.is_new_window_open,
+            target: item.target,
+            icon: item.icon,
+            create_time: item.create_time,
+        }
+    }
 }
 
 pub struct NavigationModel;
@@ -60,6 +114,8 @@ impl NavigationModel {
             sort:                Set(form_data.sort.to_owned()),
             is_show:             Set(form_data.is_show.to_owned()),
             is_new_window_open:  Set(form_data.is_new_window_open.to_owned()),
+            target:              Set(form_data.target.to_owned()),
+            icon:                Set(form_data.icon.to_owned()),
             create_time:         Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:         Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -101,6 +157,8 @@ impl NavigationModel {
                 sort:                Set(form_data.sort.to_owned()),
                 is_show:             Set(form_data.is_show.to_owned()),
                 is_new_window_open:  Set(form_data.is_new_window_open.to_owned()),
+                target:              Set(form_data.target.to_owned()),
+                icon:                Set(form_data.icon.to_owned()),
                 update_time:         Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             }

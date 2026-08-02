@@ -53,3 +53,19 @@ export const deleteTemplateDataApi = async (ids: number[]) => {
     data: { ids },
   });
 };
+
+/**
+ * TPL-6: 模板预览
+ * 不保存模板内容，直接渲染返回 HTML
+ * @param data 模板内容字符串 + 模板类型
+ * @returns 渲染后的 HTML 字符串
+ */
+export const previewTemplateDataApi = async (data: {
+  temptext: string;
+  typeId?: number;
+}): Promise<string> => {
+  return requestClient.post('/api/system/template/data/preview', data, {
+    responseType: 'text',
+    headers: { Accept: 'text/html' },
+  });
+};

@@ -24,6 +24,9 @@ pub struct Model {
     /// 链接类型：0文字链接，1logo链接
     #[serde(default)]
     pub link_type: Option<i32>,
+    /// G-1.16: 链接分类（如：partner/friend/media，用于前端分类筛选）
+    #[serde(default)]
+    pub link_category: Option<String>,
     /// 网站名称
     #[serde(default)]
     pub link_name: Option<String>,

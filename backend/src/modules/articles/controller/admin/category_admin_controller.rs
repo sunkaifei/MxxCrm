@@ -75,6 +75,44 @@ pub async fn update_category(
     Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
 }
 
+/// 兼容前端 PUT /category/update（id 在 body 内，无路径参数）
+pub async fn update_category_compat(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    item: web::Json<CategoryUpdateRequest>
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let item = item.0;
+    let category_data = CategorySaveDTO::from(item);
+    let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
+    let mut dto = category_data;
+    dto.website_id = website_id.map(|s| s.parse::<i64>().unwrap_or_default());
+
+    let result = category_service::update_by_id(&db, dto).await?;
+    if result == 0 {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "更新失败", "local")));
+    }
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
+}
+
+/// 兼容前端 DELETE /category/delete?id=（query 参数传 id）
+pub async fn delete_category_compat(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    query: web::Query<std::collections::HashMap<String, String>>
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
+    let id_str = query.get("id").cloned().unwrap_or_default();
+    let id: i64 = id_str.parse().unwrap_or(0);
+    if id == 0 {
+        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+    }
+    let ids = vec![id];
+    let result = CategoryModel::batch_delete_by_ids(&db, &website_id.map(|s| s.parse::<i64>().unwrap_or_default()), ids).await?;
+    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+}
+
 pub async fn category_option(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
@@ -133,21 +171,21 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/save",
                 web::post()
                     .to(save_category)
-                    .wrap(require_permission("article:category:add")),
+                    .wrap(require_permission("website:category:add")),
             )
             // DELETE /category/batch_delete - 批量删除分类
             .route(
                 "/batch_delete",
                 web::delete()
                     .to(batch_delete)
-                    .wrap(require_permission("article:category:delete")),
+                    .wrap(require_permission("website:category:delete")),
             )
             // PUT /category/update/{id} - 修改分类
             .route(
                 "/update/{id}",
                 web::put()
                     .to(update_category)
-                    .wrap(require_permission("article:category:update")),
+                    .wrap(require_permission("website:category:update")),
             )
             // GET /category/Option - 分类下拉
             .route("/Option", web::get().to(category_option))
@@ -156,14 +194,35 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/detail/{id}",
                 web::get()
                     .to(get_category_detail)
-                    .wrap(require_permission("article:category:view")),
+                    .wrap(require_permission("website:category:view")),
             )
             // GET /category/list - 分类列表
             .route(
                 "/list",
                 web::get()
                     .to(category_list_tree)
-                    .wrap(require_permission("article:category:list")),
+                    .wrap(require_permission("website:category:list")),
+            )
+            // GET /category/tree - 分类树（前端兼容别名，与 /list 相同）
+            .route(
+                "/tree",
+                web::get()
+                    .to(category_list_tree)
+                    .wrap(require_permission("website:category:list")),
+            )
+            // PUT /category/update - 兼容前端无路径参数的更新（id 在 body 内）
+            .route(
+                "/update",
+                web::put()
+                    .to(update_category_compat)
+                    .wrap(require_permission("website:category:update")),
+            )
+            // DELETE /category/delete - 兼容前端 query 参数删除?id=
+            .route(
+                "/delete",
+                web::delete()
+                    .to(delete_category_compat)
+                    .wrap(require_permission("website:category:delete")),
             ),
     );
 }

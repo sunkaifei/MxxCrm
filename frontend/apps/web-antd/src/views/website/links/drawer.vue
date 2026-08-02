@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useVbenDrawer, z } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import { message, Upload } from 'ant-design-vue';
@@ -10,25 +10,6 @@ import { uploadFileApi } from '#/api/core/attachment/file';
 const data = ref();
 const isCreate = computed(() => data.value?.create);
 const getTitle = computed(() => (isCreate.value ? '新增友情链接' : '修改友情链接'));
-const siteOptions = ref<any[]>([]);
-
-// 加载网站列表
-async function loadSiteOptions() {
-  try {
-    const res: any = await siteApi.list({ page: 1, pageSize: 9999 });
-    const list = res?.rows || res?.data?.rows || res?.list || [];
-    siteOptions.value = list.map((item: any) => ({
-      label: item.siteName,
-      value: Number(item.id),
-    }));
-  } catch {
-    siteOptions.value = [];
-  }
-}
-
-onMounted(() => {
-  loadSiteOptions();
-});
 
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
@@ -38,20 +19,6 @@ const [BaseForm, baseFormApi] = useVbenForm({
     },
   },
   schema: [
-    {
-      component: 'Select',
-      fieldName: 'websiteId',
-      label: '所属网站',
-      componentProps: {
-        placeholder: '请选择所属网站',
-        allowClear: true,
-        options: siteOptions,
-        showSearch: true,
-        filterOption: (input: string, option: any) => {
-          return option.label?.toLowerCase().includes(input.toLowerCase());
-        },
-      },
-    },
     {
       component: 'Input',
       fieldName: 'linkName',
@@ -131,6 +98,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     try {
       if (isCreate.value) {
+        // 单站模式：自动注入当前站点 ID
+        const site: any = await siteApi.getCurrent();
+        values.websiteId = site?.id;
         await linksApi.add(values);
         message.success('新增成功');
       } else {

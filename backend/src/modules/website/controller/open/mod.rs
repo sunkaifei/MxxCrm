@@ -11,3 +11,5 @@
 pub mod cms_open_controller;
 pub mod index_open_controller;
 pub mod price_open_controller;
+pub mod leave_msg_open_controller;
+pub mod website_user_open_controller;

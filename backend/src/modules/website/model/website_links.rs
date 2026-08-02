@@ -26,6 +26,9 @@ pub struct LinkSaveRequest {
     /// 链接类型：0文字链接，1logo链接
     #[serde(default)]
     pub link_type: Option<i32>,
+    /// G-1.16: 链接分类（如：partner/friend/media，用于前端分类筛选）
+    #[serde(default)]
+    pub link_category: Option<String>,
     /// 网站名称
     #[serde(default)]
     pub link_name: Option<String>,
@@ -51,6 +54,7 @@ impl From<LinkSaveRequest> for LinkSaveDTO {
             id: None,
             website_id: req.website_id,
             link_type: req.link_type,
+            link_category: req.link_category,
             link_name: req.link_name,
             link_url: req.link_url,
             link_logo: req.link_logo,
@@ -71,6 +75,9 @@ pub struct LinkUpdateRequest {
     /// 链接类型：0文字链接，1logo链接
     #[serde(default)]
     pub link_type: Option<i32>,
+    /// G-1.16: 链接分类（如：partner/friend/media，用于前端分类筛选）
+    #[serde(default)]
+    pub link_category: Option<String>,
     /// 网站名称
     #[serde(default)]
     pub link_name: Option<String>,
@@ -94,6 +101,7 @@ impl From<LinkUpdateRequest> for LinkSaveDTO {
             id: req.id,
             website_id: req.website_id,
             link_type: req.link_type,
+            link_category: req.link_category,
             link_name: req.link_name,
             link_url: req.link_url,
             link_logo: req.link_logo,
@@ -110,6 +118,8 @@ pub struct LinkSaveDTO {
     pub website_id: Option<i64>,
     /// 链接类型：0文字链接，1logo链接
     pub link_type: Option<i32>,
+    /// G-1.16: 链接分类（如：partner/friend/media，用于前端分类筛选）
+    pub link_category: Option<String>,
     /// 网站名称
     pub link_name: Option<String>,
     /// 网站地址
@@ -133,6 +143,9 @@ pub struct LinkListVO {
     /// 链接类型：0文字链接，1logo链接
     #[serde(default)]
     pub link_type: Option<i32>,
+    /// G-1.16: 链接分类（如：partner/friend/media，用于前端分类筛选）
+    #[serde(default)]
+    pub link_category: Option<String>,
     /// 网站名称
     #[serde(default)]
     pub link_name: Option<String>,
@@ -158,6 +171,7 @@ impl From<website_links::Model> for LinkListVO {
             id: Option::from(model.id),
             website_id: model.website_id,
             link_type: model.link_type,
+            link_category: model.link_category,
             link_name: model.link_name,
             link_url: model.link_url,
             link_logo: model.link_logo,
@@ -179,6 +193,9 @@ pub struct LinkDetailVO {
     /// 链接类型：0文字链接，1logo链接
     #[serde(default)]
     pub link_type: Option<i32>,
+    /// G-1.16: 链接分类（如：partner/friend/media，用于前端分类筛选）
+    #[serde(default)]
+    pub link_category: Option<String>,
     /// 网站名称
     #[serde(default)]
     pub link_name: Option<String>,
@@ -204,6 +221,7 @@ impl From<website_links::Model> for LinkDetailVO {
             id: Option::from(model.id),
             website_id: model.website_id,
             link_type: model.link_type,
+            link_category: model.link_category,
             link_name: model.link_name,
             link_url: model.link_url,
             link_logo: model.link_logo,
@@ -221,6 +239,7 @@ pub struct ListQuery{
     pub website_id: Option<i64>,
     pub link_name: Option<String>,
     pub link_type: Option<i32>,
+    pub link_category: Option<String>,
     pub link_url: Option<String>,
     pub status: Option<i32>,
     #[serde(rename = "page")]
@@ -233,6 +252,7 @@ pub struct PageWhere {
     pub website_id: Option<i64>,
     pub link_name: Option<String>,
     pub link_type: Option<i32>,
+    pub link_category: Option<String>,
     pub link_url: Option<String>,
     pub status: Option<i32>,
 }
@@ -255,6 +275,11 @@ impl PageWhere {
             link_type = self.link_type.clone();
         }
 
+        let mut link_category = None;
+        if self.link_category != Some("".to_string()) {
+            link_category = self.link_category.clone();
+        }
+
         let mut link_url = None;
         if self.link_url != Some("".to_string()) {
             link_url = self.link_url.clone();
@@ -269,6 +294,7 @@ impl PageWhere {
             website_id,
             link_name,
             link_type,
+            link_category,
             link_url,
             status,
         }
@@ -285,6 +311,7 @@ impl WebsiteLinksModel {
             website_id:       Set(form_data.website_id.to_owned()),
             link_name:        Set(form_data.link_name.to_owned()),
             link_type:        Set(form_data.link_type.to_owned()),
+            link_category:    Set(form_data.link_category.to_owned()),
             link_url:         Set(form_data.link_url.to_owned()),
             link_logo:        Set(form_data.link_logo.to_owned()),
             status:           Set(form_data.status.to_owned()),
@@ -314,6 +341,7 @@ impl WebsiteLinksModel {
             website_id:       Set(form_data.website_id.to_owned()),
             link_name:        Set(form_data.link_name.to_owned()),
             link_type:        Set(form_data.link_type.to_owned()),
+            link_category:    Set(form_data.link_category.to_owned()),
             link_url:         Set(form_data.link_url.to_owned()),
             link_logo:        Set(form_data.link_logo.to_owned()),
             status:           Set(form_data.status.to_owned()),
@@ -387,6 +415,9 @@ impl WebsiteLinksModel {
             .apply_if(wheres.link_type, |query, v| {
                 query.filter(website_links::Column::LinkType.eq(v))
             })
+            .apply_if(wheres.link_category, |query, v| {
+                query.filter(website_links::Column::LinkCategory.contains(format!("%{}%", v).as_str()))
+            })
             .apply_if(wheres.link_url, |query, v| {
                 query.filter(website_links::Column::LinkUrl.contains(format!("%{}%", v).as_str()))
             })
@@ -413,6 +444,9 @@ impl WebsiteLinksModel {
             })
             .apply_if(wheres.link_type, |query, v| {
                 query.filter(website_links::Column::LinkType.eq(v))
+            })
+            .apply_if(wheres.link_category, |query, v| {
+                query.filter(website_links::Column::LinkCategory.contains(format!("%{}%", v).as_str()))
             })
             .apply_if(wheres.link_url, |query, v| {
                 query.filter(website_links::Column::LinkUrl.contains(format!("%{}%", v).as_str()))

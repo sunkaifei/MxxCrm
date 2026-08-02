@@ -15,48 +15,24 @@ use crate::modules::articles::model::category::CategoryModel;
 use crate::modules::website::model::website::{ListQuery, PageWhere, SiteAdminListVO, SiteDetailVO, SiteModel, SiteSaveDTO, UpdateDefaultDTO};
 use sea_orm::{DbConn, DbErr, TransactionTrait};
 use crate::modules::system::model::admin::AdminModel;
-use crate::modules::website::model::admin_template_merge::AdminTemplateMergeModel;
-use crate::modules::website::model::template_user_data::TemplateDataSaveDTO;
-use crate::modules::website::service::{template_data_service, template_user_data_service};
 
+/// 保存站点（单站模式精简版）
+///
+/// 单站模式下不再：
+/// - 写入 `mxx_system_admin_template_merge`（多租户模板权限遗留）
+/// - 复制系统模板到用户模板（改为按需复制，见 7.0.7）
+/// - 动态建文章表（统一使用共享 `mxx_article` 表）
+///
+/// 仅保留站点基本信息写入和默认站点切换逻辑。
 pub async fn save_site(db: &DbConn, form_data: &SiteSaveDTO) -> Result<i64> {
     let insert_id = SiteModel::insert(db, &form_data).await?;
     if insert_id > 0 {
-        // 保存用户和默认模板关联数据
-        if AdminTemplateMergeModel::find_by_admin_id_and_template_id(db, &form_data.user_id, &form_data.template_id).await? == 0 {
-            AdminTemplateMergeModel::save(db, &form_data.user_id, &form_data.template_id).await?;
-        }
-        
-        // 复制系统模板数据
-        let template_data = template_data_service::select_by_template_id(db, &form_data.template_id).await?;
-        log::info!("数量数量: {:?}", &template_data.len());
-        if !template_data.is_empty() {
-            log::info!("获取到系统模板id: {:?}", &form_data.template_id.unwrap_or_default());
-            for item in template_data {
-                let system_data = TemplateDataSaveDTO {
-                    id: None,
-                    template_id: item.template_id,
-                    model_id: item.model_id,
-                    type_id: item.type_id,
-                    name: item.name,
-                    temptext: item.temptext,
-                    sort: item.sort,
-                    status: item.status,
-                };
-                template_user_data_service::insert(db, &system_data).await?;
-            }
-        } else {
-            log::info!("未获取到系统模板,系统模板id: {:?}", &form_data.template_id.unwrap_or_default());
-        }
-        
         // 处理默认站点逻辑
         if form_data.is_default.unwrap_or_default() == 1 {
             set_default_site(db, &form_data.user_id, &Some(insert_id)).await?;
         }
-        
-        ArticleModel::create_tables(&db, insert_id).await?;
         Ok(insert_id)
-    }else {
+    } else {
         Err(Error::from("添加失败"))
     }
 }
@@ -255,6 +231,22 @@ pub async fn find_by_domain(db: &DbConn, domain: &Option<String>) -> Result<Site
         ))
     })?;
     
+    let result = SiteDetailVO::from(result_data);
+    Ok(result)
+}
+
+
+/// 查询默认站点（单站模式核心方法）
+/// 优先查 is_default=1 的站点，没有则取 id 最小的站点
+/// * `db` 数据库链接
+pub async fn find_default(db: &DbConn) -> Result<SiteDetailVO> {
+    let result_data = SiteModel::find_default(&db).await?.ok_or_else(|| {
+        Error::from(format!(
+            "{}",
+            "未获取到默认站点信息，请先在后台创建站点".to_string(),
+        ))
+    })?;
+
     let result = SiteDetailVO::from(result_data);
     Ok(result)
 }

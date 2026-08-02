@@ -13,8 +13,12 @@ import { Button, Card, Col, Dropdown, Drawer, Form, Input, Modal, Popconfirm, Ro
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteLeadApi, getLeadListApi, addLeadToPoolApi, convertLeadToCustomerApi, performBackgroundCheckApi } from '#/api';
 import { $t } from '#/locales';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
 import LeadDetail from './detail.vue';
 import LeadTransferModal from '../components/LeadTransferModal.vue';
+
+// 线索管理使用说明步骤数（与 i18n 中 page.crm.lead.guide.steps 数组对齐）
+const guideStepCount = 5;
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -435,6 +439,28 @@ function handleDeleteConfirm(row: any) {
 
 <template>
   <Page auto-content-height>
+    <PageUsageGuide
+      :title="$t('page.crm.lead.guide.title')"
+      :brief="$t('page.crm.lead.guide.brief')"
+      :expand-text="$t('page.crm.lead.guide.expand')"
+      :collapse-text="$t('page.crm.lead.guide.collapse')"
+    >
+      <div
+        v-for="i in guideStepCount"
+        :key="i"
+        class="page-guide-step-item"
+      >
+        <div class="page-guide-step-index">{{ i }}</div>
+        <div class="page-guide-step-content">
+          <div class="page-guide-step-title">
+            {{ $t(`page.crm.lead.guide.steps[${i - 1}].title`) }}
+          </div>
+          <div class="page-guide-step-desc">
+            {{ $t(`page.crm.lead.guide.steps[${i - 1}].desc`) }}
+          </div>
+        </div>
+      </div>
+    </PageUsageGuide>
     <Card :bordered="false" class="lead-filter-card mb-[15px]">
       <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="lead-tabs">
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
@@ -505,7 +531,7 @@ function handleDeleteConfirm(row: any) {
       </Form>
     </Card>
 
-    <Grid :table-title="$t('page.crm.lead.title')" style="margin-top: 15px">
+    <Grid :table-title="$t('page.crm.lead.title')">
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('crm:lead:transfer')"

@@ -18,6 +18,10 @@ use crate::modules::message::controller::user::notification_controller;
 use crate::modules::finance::controller::user::{payment_user_controller, member_fee_user_controller};
 use crate::modules::system::controller::user::region_user_controller;
 use crate::modules::shop::controller as shop_controller;
+use crate::modules::website::controller::user::{
+    website_user_user_controller, website_cart_user_controller,
+    website_order_user_controller, website_refund_user_controller,
+};
 
 pub async fn user_auth_middleware(req: &ServiceRequest) -> Result<i64, Error> {
     let token = req
@@ -87,5 +91,26 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .service(shop_controller::user::refund_controller::cancel_refund)
                     .service(shop_controller::user::refund_controller::get_refund_list)
             )
+            // Website - 前台用户中心
+            .service(website_user_user_controller::get_profile)
+            .service(website_user_user_controller::update_profile)
+            .service(website_user_user_controller::change_password)
+            // Website - 购物车
+            .service(website_cart_user_controller::add)
+            .service(website_cart_user_controller::list)
+            .service(website_cart_user_controller::update)
+            .service(website_cart_user_controller::delete)
+            .service(website_cart_user_controller::batch_delete)
+            // Website - 订单
+            .service(website_order_user_controller::create)
+            .service(website_order_user_controller::list)
+            .service(website_order_user_controller::detail)
+            .service(website_order_user_controller::cancel)
+            .service(website_order_user_controller::confirm_receive)
+            // Website - 退款
+            .service(website_refund_user_controller::apply)
+            .service(website_refund_user_controller::list)
+            .service(website_refund_user_controller::detail)
+            .service(website_refund_user_controller::cancel)
     );
 }

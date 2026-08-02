@@ -15,9 +15,17 @@ const routes: RouteRecordRaw[] = [
       {
         name: 'WebsiteList',
         path: '/website/list',
-        component: () => import('#/views/website/site/index.vue'),
+        component: () => import('#/views/website/site/settings.vue'),
         meta: {
           title: $t('page.website.list'),
+        },
+      },
+      {
+        name: 'WebsiteNavigation',
+        path: '/website/navigation',
+        component: () => import('#/views/website/navigation/index.vue'),
+        meta: {
+          title: $t('page.website.navigationTitle'),
         },
       },
       {
@@ -37,9 +45,17 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'WebsiteArticleField',
+        path: '/website/article-field',
+        component: () => import('#/views/website/article-field/index.vue'),
+        meta: {
+          title: $t('page.website.articleFieldTitle'),
+        },
+      },
+      {
         name: 'WebsiteMessage',
         path: '/website/message',
-        component: () => import('#/views/shop/goods-audit/index.vue'),
+        component: () => import('#/views/website/message/index.vue'),
         meta: {
           title: $t('page.website.messageTitle'),
         },
@@ -50,62 +66,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/website/links/index.vue'),
         meta: {
           title: $t('page.website.linksTitle'),
-        },
-      },
-      {
-        name: 'WebsiteSupplierAudit',
-        path: '/website/supplier-audit',
-        component: () => import('#/views/shop/supplier-audit/index.vue'),
-        meta: {
-          title: $t('page.website.supplierAudit'),
-        },
-      },
-      {
-        name: 'WebsiteGoodsAudit',
-        path: '/website/goods-audit',
-        component: () => import('#/views/shop/goods-audit/index.vue'),
-        meta: {
-          title: $t('page.website.goodsAudit'),
-        },
-      },
-      {
-        name: 'WebsiteGoods',
-        path: '/website/goods',
-        component: () => import('#/views/shop/goods/index.vue'),
-        meta: {
-          title: $t('page.website.goods'),
-        },
-      },
-      {
-        name: 'WebsiteOrderList',
-        path: '/website/order-list',
-        component: () => import('#/views/shop/order-list/index.vue'),
-        meta: {
-          title: $t('page.website.orderList'),
-        },
-      },
-      {
-        name: 'WebsiteSettlement',
-        path: '/website/settlement',
-        component: () => import('#/views/shop/settlement/index.vue'),
-        meta: {
-          title: $t('page.website.settlement'),
-        },
-      },
-      {
-        name: 'WebsitePromotion',
-        path: '/website/promotion',
-        component: () => import('#/views/shop/promotion/index.vue'),
-        meta: {
-          title: $t('page.website.promotion'),
-        },
-      },
-      {
-        name: 'WebsiteCommissionConfig',
-        path: '/website/commission-config',
-        component: () => import('#/views/shop/commission-config/index.vue'),
-        meta: {
-          title: $t('page.website.commissionConfig'),
         },
       },
       {
@@ -122,6 +82,78 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/website/template-data/index.vue'),
         meta: {
           title: $t('page.website.templateDataTitle'),
+        },
+      },
+      {
+        name: 'WebsiteContentModel',
+        path: '/website/content-model',
+        component: () => import('#/views/website/content-model/index.vue'),
+        meta: {
+          title: $t('page.website.contentModelTitle'),
+        },
+      },
+      {
+        name: 'WebsiteTemplateVar',
+        path: '/website/template-var',
+        component: () => import('#/views/website/template-var/index.vue'),
+        meta: {
+          title: $t('page.website.templateVarTitle'),
+        },
+      },
+      {
+        name: 'WebsiteMedia',
+        path: '/website/media',
+        component: () => import('#/views/website/media/index.vue'),
+        meta: {
+          title: $t('page.website.mediaTitle'),
+        },
+      },
+      {
+        name: 'WebsiteBanner',
+        path: '/website/banner',
+        component: () => import('#/views/website/banner/index.vue'),
+        meta: {
+          title: $t('page.website.bannerTitle'),
+        },
+      },
+      {
+        name: 'WebsiteBlock',
+        path: '/website/block',
+        component: () => import('#/views/website/block/index.vue'),
+        meta: {
+          title: $t('page.website.blockTitle'),
+        },
+      },
+      {
+        name: 'WebsitePage',
+        path: '/website/page',
+        component: () => import('#/views/website/page/index.vue'),
+        meta: {
+          title: $t('page.website.pageTitle'),
+        },
+      },
+      {
+        name: 'WebsiteOrder',
+        path: '/website/order',
+        component: () => import('#/views/website/order/index.vue'),
+        meta: {
+          title: $t('page.website.orderTitle'),
+        },
+      },
+      {
+        name: 'WebsiteRefund',
+        path: '/website/refund',
+        component: () => import('#/views/website/refund/index.vue'),
+        meta: {
+          title: $t('page.website.refundTitle'),
+        },
+      },
+      {
+        name: 'WebsiteUser',
+        path: '/website/user',
+        component: () => import('#/views/website/user/index.vue'),
+        meta: {
+          title: $t('page.website.userTitle'),
         },
       },
     ],

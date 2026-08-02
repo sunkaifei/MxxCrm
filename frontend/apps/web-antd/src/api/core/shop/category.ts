@@ -20,6 +20,10 @@ export interface CategorySaveDTO {
   description?: string;
   contentType?: number;    // 1=文章, 2=产品, 3=自定义链接
   linkUrl?: string;        // content_type=3时使用
+  // SEO fields
+  seoTitle?: string;
+  seoKeywords?: string;
+  seoDescription?: string;
 }
 
 export interface CategoryVO {
@@ -40,6 +44,10 @@ export interface CategoryVO {
   description?: string;
   contentType?: number;
   linkUrl?: string;
+  // SEO fields
+  seoTitle?: string;
+  seoKeywords?: string;
+  seoDescription?: string;
 }
 
 export const categoryApi = {

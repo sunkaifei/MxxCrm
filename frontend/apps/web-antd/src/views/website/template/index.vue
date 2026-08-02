@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, h, onMounted, ref, watch } from 'vue';
+import { h, onMounted, ref, watch } from 'vue';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 import {
@@ -14,20 +14,28 @@ import {
   LucideSettings,
   LucideTag,
   LucideUser,
+  LucideTrash2,
 } from '@vben/icons';
 import {
   Button,
   message,
   Modal,
+  Pagination,
   Tag,
   Skeleton,
   Empty,
   Input,
-  Badge,
   Affix,
   Tooltip,
 } from 'ant-design-vue';
 import { templateApi, siteApi } from '#/api';
+
+// 无预览图时的占位图（内联 SVG，避免依赖外部服务）
+const NO_PREVIEW_IMG =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="#f0f0f0"/><text x="300" y="200" font-family="sans-serif" font-size="24" fill="#bfbfbf" text-anchor="middle" dominant-baseline="middle">No Preview</text></svg>',
+  );
 import type { TemplateListVO } from '#/api/core/website/template';
 import TemplateDrawer from './drawer.vue';
 import { requestClient } from '#/api/request';
@@ -54,8 +62,6 @@ const previewMode = ref<'large' | 'site'>('large'); // 大图预览 / 站点预�
 // 应用到网站
 const applyVisible = ref(false);
 const applyTemplate = ref<TemplateListVO | null>(null);
-const siteList = ref<{ label: string; value: number }[]>([]);
-const selectedSiteId = ref<number | undefined>(undefined);
 const applying = ref(false);
 
 // --- 分类加载 ---
@@ -166,31 +172,21 @@ async function loadPreviewDetail(item: TemplateListVO) {
 // --- 应用到网站 ---
 async function handleApply(item: TemplateListVO) {
   applyTemplate.value = item;
-  selectedSiteId.value = undefined;
   applyVisible.value = true;
-  try {
-    const res: any = await siteApi.list({ page: 1, pageSize: 9999 });
-    const list = res?.rows || res?.data?.rows || res?.list || [];
-    siteList.value = list.map((s: any) => ({
-      label: s.siteName,
-      value: Number(s.id),
-    }));
-  } catch {
-    siteList.value = [];
-  }
 }
 
 async function confirmApply() {
-  if (!selectedSiteId.value || !applyTemplate.value) {
-    message.warning('请选择目标网站');
+  if (!applyTemplate.value) {
+    message.warning('请选择要应用的模板');
     return;
   }
   applying.value = true;
   try {
-    await siteApi.update(selectedSiteId.value, {
+    // 单站模式：直接应用到当前站点
+    await siteApi.updateCurrent({
       templateId: Number(applyTemplate.value.id),
     } as any);
-    message.success(`已将模板「${applyTemplate.value.name}」应用到所选网站`);
+    message.success(`已将模板「${applyTemplate.value.name}」应用到当前站点`);
     applyVisible.value = false;
   } catch {
     // 全局拦截器处理
@@ -335,7 +331,7 @@ async function handleDelete(item: TemplateListVO) {
               <!-- 预览图区域 -->
               <div class="card-image-wrapper">
                 <img
-                  :src="item.previewPic || 'https://via.placeholder.com/600x400/f0f0f0/bfbfbf?text=No+Preview'"
+                  :src="item.previewPic || NO_PREVIEW_IMG"
                   :alt="item.name"
                   class="card-preview-img"
                   loading="lazy"
@@ -416,6 +412,15 @@ async function handleDelete(item: TemplateListVO) {
                         @click="openDrawer(false, item)"
                       />
                     </Tooltip>
+                    <Tooltip title="删除">
+                      <Button
+                        type="link"
+                        danger
+                        size="small"
+                        :icon="h(LucideTrash2)"
+                        @click="handleDelete(item)"
+                      />
+                    </Tooltip>
                     <Tooltip title="应用到网站">
                       <Button
                         type="primary"
@@ -467,7 +472,7 @@ async function handleDelete(item: TemplateListVO) {
         <!-- 预览模式：大图 -->
         <div v-if="previewMode === 'large'" class="preview-large">
           <img
-            :src="previewTemplate?.previewPic || 'https://via.placeholder.com/1200x800/f0f0f0/bfbfbf?text=No+Preview'"
+            :src="previewTemplate?.previewPic || NO_PREVIEW_IMG"
             :alt="previewTemplate?.name"
             class="preview-large-img"
           />
@@ -550,7 +555,7 @@ async function handleDelete(item: TemplateListVO) {
     <!-- 应用到网站弹窗 -->
     <Modal
       v-model:open="applyVisible"
-      title="应用模板到网站"
+      title="应用模板到当前站点"
       width="480px"
       :confirm-loading="applying"
       ok-text="确认应用"
@@ -558,20 +563,13 @@ async function handleDelete(item: TemplateListVO) {
       @cancel="applyVisible = false"
     >
       <div style="padding: 8px 0">
-        <div style="margin-bottom: 16px; color: #666; font-size: 14px">
-          将模板 <strong style="color: #1677ff">{{ applyTemplate?.name }}</strong> 应用到：
+        <div style="color: #666; font-size: 14px; line-height: 1.8">
+          确认将模板 <strong style="color: #1677ff">{{ applyTemplate?.name }}</strong> 应用到当前站点吗？
+          <br />
+          <span style="color: #999; font-size: 12px">
+            单站模式下模板将直接应用到默认站点，切换后整站外观会立即改变。
+          </span>
         </div>
-        <a-select
-          v-model:value="selectedSiteId"
-          placeholder="请选择目标网站"
-          style="width: 100%"
-          :options="siteList"
-          show-search
-          :filter-option="(input: string, option: any) =>
-            option.label?.toLowerCase().includes(input.toLowerCase())
-          "
-          size="large"
-        />
       </div>
     </Modal>
 

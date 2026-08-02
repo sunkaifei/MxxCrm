@@ -7,7 +7,7 @@ import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, message, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenForm } from '#/adapter/form';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -18,10 +18,11 @@ import {
   getTemplateDataListApi,
   updateTemplateDataApi,
   templateApi,
+  previewTemplateDataApi,
 } from '#/api';
-import type { TemplateDataVO } from '#/api/core/website/template-data';
 import { $t } from '#/locales';
 import { statusList } from '#/store';
+import RevisionModal from './revision-modal.vue';
 
 const accessStore = useAccessStore();
 
@@ -194,6 +195,10 @@ const drawerTitle = computed(() =>
   drawerData.value.create ? '新增模板数据' : '编辑模板数据',
 );
 
+// --- 版本历史 ---
+const revisionVisible = ref(false);
+const revisionTemplateDataId = ref<number | null>(null);
+
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
   commonConfig: {
@@ -258,14 +263,12 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
     },
     {
-      component: 'Input',
+      component: 'CodeEditor',
       fieldName: 'temptext',
       label: '模板内容',
       componentProps: {
-        type: 'textarea',
-        autosize: { minRows: 6, maxRows: 16 },
-        placeholder: '请输入HTML模板内容',
-        allowClear: true,
+        language: 'html',
+        height: '500px',
       },
     },
   ],
@@ -333,6 +336,17 @@ function handleEdit(row: any) {
   openDrawer(false, row);
 }
 
+function openRevisionModal() {
+  if (drawerData.value.row?.id) {
+    revisionTemplateDataId.value = drawerData.value.row.id;
+    revisionVisible.value = true;
+  }
+}
+
+function handleRollback(temptext: string) {
+  baseFormApi.setValues({ temptext });
+}
+
 async function handleDelete(row: any) {
   row.pending = true;
   try {
@@ -353,6 +367,33 @@ function getTypeLabel(typeId: number): string {
 function getTemplateName(templateId: number): string {
   const option = templateOptions.value.find((o) => o.value === templateId);
   return option ? option.label : '未知模板';
+}
+
+// --- TPL-6: 模板预览 ---
+const previewVisible = ref(false);
+const previewHtml = ref('');
+const previewLoading = ref(false);
+
+async function handlePreview() {
+  const values = await baseFormApi.getValues();
+  const temptext = values?.temptext;
+  if (!temptext) {
+    message.warning('请先输入模板内容');
+    return;
+  }
+  previewLoading.value = true;
+  try {
+    const html = await previewTemplateDataApi({
+      temptext,
+      typeId: values?.typeId,
+    });
+    previewHtml.value = html || '';
+    previewVisible.value = true;
+  } catch {
+    // 错误由全局拦截器处理
+  } finally {
+    previewLoading.value = false;
+  }
 }
 </script>
 
@@ -416,7 +457,58 @@ function getTemplateName(templateId: number): string {
     </Grid>
 
     <Drawer :title="drawerTitle">
+      <div
+        v-if="!drawerData.create && drawerData.row?.id"
+        class="mb-3 flex justify-end"
+      >
+        <Button type="link" @click="openRevisionModal">版本历史</Button>
+      </div>
       <BaseForm />
+      <template #footer>
+        <div class="flex justify-between">
+          <Button
+            type="default"
+            :loading="previewLoading"
+            @click="handlePreview"
+          >
+            预览
+          </Button>
+          <div>
+            <Button @click="drawerApi.close()">取消</Button>
+            <Button type="primary" @click="drawerApi.confirm()">保存</Button>
+          </div>
+        </div>
+      </template>
     </Drawer>
+
+    <RevisionModal
+      v-model:visible="revisionVisible"
+      :template-data-id="revisionTemplateDataId"
+      @rollback="handleRollback"
+    />
+
+    <Modal
+      v-model:open="previewVisible"
+      title="模板预览"
+      width="90%"
+      wrap-class-name="full-modal"
+      :footer="null"
+      :destroy-on-close="true"
+    >
+      <iframe
+        :srcdoc="previewHtml"
+        class="preview-iframe"
+        title="template-preview"
+      />
+    </Modal>
   </Page>
 </template>
+
+<style scoped>
+.preview-iframe {
+  width: 100%;
+  height: 80vh;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+}
+</style>

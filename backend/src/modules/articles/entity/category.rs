@@ -51,6 +51,12 @@ pub struct Model {
     pub content_type: Option<i32>,
     // 自定义链接URL（content_type=3时使用）
     pub link_url: Option<String>,
+    //SEO标题（独立于栏目名称，用于前台 <title>）
+    pub seo_title: Option<String>,
+    //SEO关键词
+    pub seo_keywords: Option<String>,
+    //SEO描述
+    pub seo_description: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -7,18 +7,18 @@ use actix_web_grants::GrantsMiddleware;
 use crate::core::kit::config;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::kit::global::AppState;
-use crate::modules::articles::controller::admin::{article_admin_controller, category_admin_controller, label_admin_controller};
+use crate::modules::articles::controller::admin::{article_admin_controller, article_field_admin_controller, category_admin_controller, comment_admin_controller, label_admin_controller};
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
-use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller};
+use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller};
 use crate::modules::shop::controller::admin::shop_admin_controller;
 use crate::modules::shop::controller::admin::category_controller;
 use crate::modules::shop::controller::admin::audit_controller;
-use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller, expense_controller as finance_expense_controller};
+use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller, expense_controller as finance_expense_controller, tax_controller, insurance_controller, bank_export_controller, payslip_controller, team_commission_controller, attendance_controller, salary_item_controller, salary_adjustment_controller, commission_pool_controller};
 use crate::modules::ai::controller::admin::{ai_config_controller, background_check_controller};
 use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, visit_controller, work_log_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller};
@@ -133,8 +133,36 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(my_template_admin_controller::register)
             // Website Links Management
             .configure(website_links_admin_controller::register)
+            // Website Media Management (含 media/category 子路由，注册在 /website/media scope 内)
+            .configure(website_media_admin_controller::register)
+            // CMS Enhancement: Content Model Management
+            .configure(content_model_admin_controller::register)
+            .configure(content_model_field_admin_controller::register)
+            // CMS Enhancement: Template Variables & Revisions
+            .configure(template_var_admin_controller::register)
+            .configure(template_revision_admin_controller::register)
+            // CMS Enhancement: Website Banner/Block/Page Management
+            .configure(website_banner_admin_controller::register)
+            .configure(website_block_admin_controller::register)
+            .configure(website_page_admin_controller::register)
+            // CMS: Leave Message Management (留言管理)
+            .configure(leave_msg_admin_controller::register)
+            // CMS: Navigation Management (导航管理)
+            .configure(navigation_admin_controller::register)
+            // CMS: Website User Management (前台用户管理)
+            .configure(website_user_admin_controller::register)
+            // CMS: Website Order/Delivery Management (网站订单/发货管理)
+            .configure(website_order_admin_controller::register)
+            // CMS: Website Refund Management (网站退款管理)
+            .configure(website_refund_admin_controller::register)
+            // CMS: Website Notification Config Management (网站通知配置管理)
+            .configure(website_notification_config_admin_controller::register)
             // Label Management
             .configure(label_admin_controller::register)
+            // Comment Management (文章评论管理)
+            .configure(comment_admin_controller::register)
+            // Article Custom Field Management (G-2.1: 文章自定义字段管理)
+            .configure(article_field_admin_controller::register)
             // Notice Management
             .configure(notice_admin_controller::register)
             // Tag Management
@@ -165,10 +193,30 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(commission_rule_controller::register)
             // Salary Management
             .configure(salary_controller::register)
+            // Scheduler Job Management (定时任务管理)
+            .configure(scheduler_controller::register)
             // Payment Management
             .configure(finance_payment_controller::register)
             // Finance Expense Management（费用申请）
             .configure(finance_expense_controller::register)
+            // Finance Tax Management（个税管理）
+            .configure(tax_controller::register)
+            // Finance Social Insurance Management（社保公积金）
+            .configure(insurance_controller::register)
+            // Finance Bank Export Management（银行代发）
+            .configure(bank_export_controller::register)
+            // Finance Payslip Management（工资条下发）
+            .configure(payslip_controller::register)
+            // Finance Team Commission（团队提成）
+            .configure(team_commission_controller::register)
+            // Finance Commission Pool（团建资金池）
+            .configure(commission_pool_controller::register)
+            // Finance Attendance（考勤扣款）
+            .configure(attendance_controller::register)
+            // Finance Salary Item（工资项目自定义）
+            .configure(salary_item_controller::register)
+            // Finance Salary Adjustment（调薪记录）
+            .configure(salary_adjustment_controller::register)
             // CRM Customer Management（含 customer_edit_log，注册在 /customer scope 内）
             .configure(crm_customer_controller::register)
             // CRM Lead Management

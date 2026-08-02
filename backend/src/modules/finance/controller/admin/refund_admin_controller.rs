@@ -98,7 +98,7 @@ pub async fn delete(
 
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/refund-record")
+        web::scope("/finance/refund-record")
             .route("/list", web::get().to(list).wrap(require_permission("finance:refund-record:list")))
             .route("/detail/{id}", web::get().to(detail).wrap(require_permission("finance:refund-record:list")))
             .route("/create", web::post().to(create).wrap(require_permission("finance:refund-record:create")))

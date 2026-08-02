@@ -23,6 +23,7 @@ import {
   getTodoPaymentListApi,
   getWeekWorkloadApi,
 } from '#/api';
+import { getPlanListApi } from '#/api/core/statistics';
 import type { QuickNavItem } from '#/api';
 import { $t } from '#/locales';
 
@@ -248,12 +249,15 @@ async function loadQuickNav() {
 // ===== 智能待办 =====
 interface SmartTodoItem {
   id: number;
-  type: 'approval' | 'followUp' | 'payment';
+  type: 'approval' | 'followUp' | 'payment' | 'planApproval';
   title: string;
   meta: string;
   color: string;
   badge?: number;
   raw: any;
+  /** 已处理标记（当天保留显示，带删除线） */
+  done?: boolean;
+  processedAt?: string;
 }
 
 const todoLoading = ref(false);
@@ -261,6 +265,69 @@ const todoItems = ref<SmartTodoItem[]>([]);
 const todoTotalCount = ref(0);
 const quickProcessVisible = ref(false);
 const currentTodoItem = ref<any>(null);
+// 当前点击的待办项（用于处理完后标记已处理）
+const currentClickedTodo = ref<SmartTodoItem | null>(null);
+
+// 今日已处理待办缓存（跨天自动清空，当天保留显示删除线）
+const processedToday = ref<SmartTodoItem[]>([]);
+
+// ===== 今日已处理待办缓存（localStorage，跨天自动清空） =====
+const PROCESSED_TODAY_KEY = computed(
+  () => `todo_processed_${userStore.userInfo?.userId || 'guest'}`,
+);
+
+function getTodayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function loadProcessedToday(): SmartTodoItem[] {
+  try {
+    const raw = localStorage.getItem(PROCESSED_TODAY_KEY.value);
+    if (!raw) return [];
+    const cache = JSON.parse(raw);
+    // 跨天清空：日期不匹配则清除前一天已处理记录
+    if (cache.date !== getTodayStr()) {
+      localStorage.removeItem(PROCESSED_TODAY_KEY.value);
+      return [];
+    }
+    return (cache.items || []).map((p: any) => ({ ...p, done: true }));
+  } catch {
+    return [];
+  }
+}
+
+function saveProcessedToday(items: SmartTodoItem[]) {
+  const compact = items.map((p) => ({
+    id: p.id,
+    type: p.type,
+    title: p.title,
+    meta: p.meta,
+    color: p.color,
+    processedAt: p.processedAt,
+  }));
+  localStorage.setItem(
+    PROCESSED_TODAY_KEY.value,
+    JSON.stringify({ date: getTodayStr(), items: compact }),
+  );
+}
+
+function markAsProcessed(item: SmartTodoItem) {
+  const exists = processedToday.value.some(
+    (p) => p.type === item.type && p.id === item.id,
+  );
+  if (!exists) {
+    processedToday.value.push({
+      ...item,
+      done: true,
+      processedAt: new Date().toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    });
+    saveProcessedToday(processedToday.value);
+  }
+}
 
 // ===== WorkbenchHeader 动态数据 =====
 // 今日已处理数（来自 mxx_work_log 持久化，由后端聚合接口返回）
@@ -286,7 +353,7 @@ const businessTypeMap: Record<string, string> = {
 async function loadSmartTodos() {
   todoLoading.value = true;
   try {
-    const [approvalResp, followUpResp, paymentResp]: any[] =
+    const [approvalResp, followUpResp, paymentResp, planResp]: any[] =
       await Promise.all([
         getTodoApprovalListApi({ pageNum: 1, pageSize: 2 }).catch(
           () => ({ items: [], total: 0 }),
@@ -299,6 +366,10 @@ async function loadSmartTodos() {
         getTodoPaymentListApi({ pageNum: 1, pageSize: 2, days: 7 }).catch(
           () => ({ items: [], total: 0 }),
         ),
+        getPlanListApi({
+          pendingMyApproval: true,
+          year: new Date().getFullYear(),
+        }).catch(() => []),
       ]);
 
     const items: SmartTodoItem[] = [];
@@ -357,14 +428,42 @@ async function loadSmartTodos() {
       });
     });
 
+    // 计划待审批（上级主管可见）
+    const planItems = Array.isArray(planResp) ? planResp : planResp?.data || [];
+    planItems.forEach((item: any) => {
+      const empName = item.employeeName || '员工';
+      const totalContract = Number(item.totalContractTarget || 0);
+      const amtText =
+        totalContract >= 10000
+          ? `${(totalContract / 10000).toFixed(1)}万`
+          : `${totalContract}`;
+      items.push({
+        id: item.id,
+        type: 'planApproval',
+        title: `${empName} ${item.year}年销售计划`,
+        meta: `合同目标 ¥${amtText}，第${item.approvalLevel || 1}级/共${item.totalLevels || 1}级审批，请尽快审核`,
+        color: '#722ed1',
+        raw: item,
+      });
+    });
+
     // 汇总总数
     todoTotalCount.value =
       (approvalResp?.total || 0) +
       (followUpResp?.total || 0) +
-      (paymentResp?.total || 0);
+      (paymentResp?.total || 0) +
+      planItems.length;
 
-    // 最多显示 5 条
-    todoItems.value = items.slice(0, 5);
+    // 未处理项最多 5 条
+    const pendingItems = items.slice(0, 5);
+    // 今日已处理项：排除仍出现在未处理列表中的（防重复），最多追加 3 条
+    const pendingKeys = new Set(
+      pendingItems.map((i) => `${i.type}-${i.id}`),
+    );
+    const doneItems = processedToday.value
+      .filter((p) => !pendingKeys.has(`${p.type}-${p.id}`))
+      .slice(0, 3);
+    todoItems.value = [...pendingItems, ...doneItems];
   } catch {
     todoItems.value = [];
     todoTotalCount.value = 0;
@@ -374,6 +473,14 @@ async function loadSmartTodos() {
 }
 
 function handleTodoClick(item: SmartTodoItem) {
+  // 已处理项点击不触发操作
+  if (item.done) return;
+  // 计划待审批：跳转业绩页处理（在业绩页待审批抽屉中完成审批）
+  if (item.type === 'planApproval') {
+    router.push('/dashboard/performance').catch(() => {});
+    return;
+  }
+  currentClickedTodo.value = item;
   const raw = item.raw || {};
   currentTodoItem.value = {
     ...raw,
@@ -388,6 +495,11 @@ function handleTodoClick(item: SmartTodoItem) {
 }
 
 function handleProcessed() {
+  // 标记当前处理的待办为已处理（当天保留显示删除线，跨天自动清空）
+  if (currentClickedTodo.value) {
+    markAsProcessed(currentClickedTodo.value);
+    currentClickedTodo.value = null;
+  }
   loadSmartTodos();
   loadTodaySummary();
   workLogRefreshKey.value++;
@@ -400,6 +512,7 @@ const overviewRouteMap: Record<string, string> = {
   payment: '/sale/payment',
   contract: '/sale/contract',
   opportunity: '/sale/opportunity',
+  planApproval: '/dashboard/performance',
 };
 
 function handleOverviewClick(tabKey: string) {
@@ -488,6 +601,8 @@ async function loadTodaySummary() {
 }
 
 onMounted(() => {
+  // 初始化今日已处理待办缓存（跨天自动清空）
+  processedToday.value = loadProcessedToday();
   loadQuickNav();
   loadSmartTodos();
   loadWeekWorkload();
@@ -573,6 +688,7 @@ onMounted(() => {
                 v-for="item in todoItems"
                 :key="`${item.type}-${item.id}`"
                 class="todo-item flex cursor-pointer items-start gap-3 py-3 transition hover:bg-gray-50"
+                :class="{ 'opacity-60': item.done }"
                 @click="handleTodoClick(item)"
               >
                 <span
@@ -581,14 +697,23 @@ onMounted(() => {
                   aria-hidden="true"
                 ></span>
                 <div class="min-w-0 flex-1">
-                  <div class="truncate text-sm font-medium text-gray-800">
+                  <div
+                    class="truncate text-sm font-medium text-gray-800"
+                    :class="{ 'line-through text-gray-400': item.done }"
+                  >
                     {{ item.title }}
                   </div>
-                  <div class="mt-0.5 truncate text-xs text-gray-500">
+                  <div
+                    class="mt-0.5 truncate text-xs text-gray-500"
+                    :class="{ 'line-through': item.done }"
+                  >
                     {{ item.meta }}
                   </div>
                 </div>
-                <Tag v-if="item.badge" color="red" class="ml-2 shrink-0">
+                <Tag v-if="item.done" color="default" class="ml-2 shrink-0">
+                  已处理
+                </Tag>
+                <Tag v-else-if="item.badge" color="red" class="ml-2 shrink-0">
                   {{ item.badge }}
                 </Tag>
               </div>

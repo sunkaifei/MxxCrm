@@ -46,6 +46,7 @@
     "ant-design-vue": "catalog:",
     "dayjs": "catalog:",
     "lucide-vue-next": "catalog:",
+    "monaco-editor": "^0.56.0",
     "pinia": "catalog:",
     "vue": "catalog:",
     "vue-advanced-cropper": "^2.8.9",
