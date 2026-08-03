@@ -10,7 +10,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::company::model::code_rule::{
     BatchRegenerateReq, CodeRuleSaveReq, GenerateCodeReq, PreviewCodeReq,
 };
@@ -46,10 +46,10 @@ pub async fn list(state: web::Data<AppState>, query: web::Query<CodeRuleListQuer
     .await
     {
         Ok(page_data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(page_data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -59,10 +59,10 @@ pub async fn info(state: web::Data<AppState>, id: web::Path<i64>) -> Result<Http
     let db = &state.db;
     match code_rule_service::find_by_id(db, id.into_inner()).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -79,25 +79,25 @@ pub async fn create(
     let form = item.0;
     if form.module_code.is_empty() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "模块编码不能为空", "local")));
     }
     if form.module_name.is_empty() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "模块名称不能为空", "local")));
     }
     if form.segments.is_empty() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "段位配置不能为空", "local")));
     }
     match code_rule_service::create(db, form, user_id).await {
         Ok(id) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -115,15 +115,15 @@ pub async fn update(
     let form = item.0;
     if form.segments.is_empty() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "段位配置不能为空", "local")));
     }
     match code_rule_service::update(db, id.into_inner(), form, user_id).await {
         Ok(rows) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(rows, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -133,10 +133,10 @@ pub async fn delete(state: web::Data<AppState>, id: web::Path<i64>) -> Result<Ht
     let db = &state.db;
     match code_rule_service::delete(db, id.into_inner()).await {
         Ok(rows) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(rows, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -152,10 +152,10 @@ pub async fn toggle_enabled(
     let (id, enabled) = path.into_inner();
     match code_rule_service::toggle_enabled(db, id, enabled, jwt.id.unwrap_or_default()).await {
         Ok(rows) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(rows, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -165,10 +165,10 @@ pub async fn preview(state: web::Data<AppState>, item: web::Json<PreviewCodeReq>
     let db = &state.db;
     match code_rule_service::preview(db, item.0).await {
         Ok(no) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(no, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -193,10 +193,10 @@ pub async fn generate(state: web::Data<AppState>, item: web::Json<GenerateCodeRe
     .await
     {
         Ok(no) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(no, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -211,10 +211,10 @@ pub async fn batch_regenerate(
     let jwt: JWTToken = get_user(&req).unwrap_or_default();
     match code_rule_service::start_batch_regenerate(db, item.0, jwt.id.unwrap_or_default()).await {
         Ok(task_id) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(task_id, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -223,10 +223,10 @@ pub async fn batch_regenerate(
 pub async fn batch_regenerate_progress() -> Result<HttpResponse> {
     match code_rule_service::get_batch_progress() {
         Ok(p) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(p, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

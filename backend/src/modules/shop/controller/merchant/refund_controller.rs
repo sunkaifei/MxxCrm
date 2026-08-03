@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{get, put, web, HttpRequest, HttpResponse};
 
 /// Get refund list
@@ -30,7 +30,7 @@ pub async fn get_refund_list(
         "totalPages": 0
     });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -44,7 +44,7 @@ pub async fn get_refund_detail(
     // TODO: call refund_service::detail(db, refund_id).await
     let result = serde_json::json!({});
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -58,7 +58,7 @@ pub async fn agree_refund(
     let _db = &state.db;
     // TODO: call refund_service::agree(db, merchant_id, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }
 
@@ -72,6 +72,6 @@ pub async fn refuse_refund(
     let _db = &state.db;
     // TODO: call refund_service::refuse(db, merchant_id, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }

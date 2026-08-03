@@ -40,9 +40,7 @@ pub struct Model {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
-    /// 站点类型，1=企业官网，2=商城，3=其他
-    pub site_type: Option<i32>,
-    /// 站点模式，1=展示型 2=交易型 3=混合型
+    /// 站点模式，1=展示型 2=交易型
     pub site_mode: Option<i32>,
     /// 默认发货仓库（关联 mxx_inventory_warehouse）
     pub default_warehouse_id: Option<i64>,
@@ -54,8 +52,6 @@ pub struct Model {
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
     pub is_default: Option<i32>,
-    /// 排序
-    pub sort: Option<i32>,
     /// 站点备注，代理商给网站的备注，方便代理商记录这个网站干嘛的
     pub remark: Option<String>,
     /// 是否开启水印 0=关闭 1=开启

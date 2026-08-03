@@ -12,7 +12,7 @@ use actix_web::{web, HttpResponse};
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::service::static_generate_service;
 
 /// POST /static_generate/all - 生成所有静态页面
@@ -20,7 +20,7 @@ pub async fn generate_all(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     match static_generate_service::generate_all(db).await {
         Ok((cat_count, art_count)) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(
                 serde_json::json!({
                     "categories": cat_count,
@@ -29,7 +29,7 @@ pub async fn generate_all(state: web::Data<AppState>) -> Result<HttpResponse> {
                 "local",
             ))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -39,10 +39,10 @@ pub async fn generate_index(state: web::Data<AppState>) -> Result<HttpResponse> 
     let db = &state.db;
     match static_generate_service::generate_index(db).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("首页静态化完成", "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -52,13 +52,13 @@ pub async fn generate_categories(state: web::Data<AppState>) -> Result<HttpRespo
     let db = &state.db;
     match static_generate_service::generate_categories(db).await {
         Ok(count) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(
                 serde_json::json!({ "count": count }),
                 "local",
             ))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -68,13 +68,13 @@ pub async fn generate_articles(state: web::Data<AppState>) -> Result<HttpRespons
     let db = &state.db;
     match static_generate_service::generate_articles(db).await {
         Ok(count) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(
                 serde_json::json!({ "count": count }),
                 "local",
             ))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -83,10 +83,10 @@ pub async fn generate_articles(state: web::Data<AppState>) -> Result<HttpRespons
 pub async fn clear_output() -> Result<HttpResponse> {
     match static_generate_service::clear_output() {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("静态化目录已清空", "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

@@ -12,7 +12,7 @@ use actix_web::{web, HttpResponse};
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::service::content_collector_service;
 
 /// POST /content_collector/run - 执行所有启用的采集规则
@@ -20,13 +20,13 @@ pub async fn run_collect(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     match content_collector_service::collect_all(db).await {
         Ok(count) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(
                 serde_json::json!({ "collected": count }),
                 "local",
             ))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

@@ -16,7 +16,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::payslip_service;
 
 #[derive(Deserialize)]
@@ -49,10 +49,10 @@ pub async fn list(
         page_size,
     ).await {
         Ok((list, total)) => {
-            HttpResponse::Ok().content_type("application/msgpack")
+            HttpResponse::Ok().content_type(MPACK)
                 .body(MetaResp::success_with_page(list, "local", page as u32, total as u32))
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -72,9 +72,9 @@ pub async fn generate(
     let dto = form_data.0;
 
     match payslip_service::generate_payslips(db, dto.year, dto.month).await {
-        Ok(count) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(count) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(count, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -94,9 +94,9 @@ pub async fn send(
     let dto = form_data.0;
 
     match payslip_service::send_payslip(db, dto.id, dto.channels).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("发送成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -116,9 +116,9 @@ pub async fn batch_send(
     let dto = form_data.0;
 
     match payslip_service::batch_send_payslips(db, dto.ids, dto.channels).await {
-        Ok(count) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(count) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(count, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -131,14 +131,14 @@ pub async fn mark_read(
     let item = query.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "工资条ID不能为空", "local"));
     }
 
     match payslip_service::mark_read(db, item.id.unwrap()).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("标记已读成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -158,9 +158,9 @@ pub async fn statistics(
     let q = query.0;
 
     match payslip_service::get_read_statistics(db, q.year, q.month).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

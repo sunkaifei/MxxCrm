@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::{MetaResp, ResultPage};
+use crate::core::web::response::{MetaResp, ResultPage, MPACK};
 use crate::modules::product::model::sku_template::*;
 use crate::modules::product::service::sku_template_service;
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -31,11 +31,11 @@ pub async fn template_list(
         Ok((items, total)) => {
             let page_data = ResultPage::new(items, total, page, page_size);
             Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success(page_data, "local")))
         }
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -55,16 +55,16 @@ pub async fn template_info(
 
     if template_id <= 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "模板ID无效", "local")));
     }
 
     match sku_template_service::get_template_detail(db, template_id).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -77,10 +77,10 @@ pub async fn template_save(
     let db = &state.db;
     match sku_template_service::insert_template(db, &form_data.0).await {
         Ok(id) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success_with_msg(id, "模板创建成功", "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -96,16 +96,16 @@ pub async fn template_update(
 
     if id <= 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "模板ID无效", "local")));
     }
 
     match sku_template_service::update_template(db, id, &item).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::success("更新成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -120,16 +120,16 @@ pub async fn template_delete(
 
     if id <= 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "模板ID无效", "local")));
     }
 
     match sku_template_service::delete_template(db, id).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::success("删除成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -143,10 +143,10 @@ pub async fn template_spec_save(
     let result = sku_template_service::save_template_specs(db, &form_data.0).await;
     match result {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::success("规格保存成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::product::model::product::ProductModel;
 use crate::modules::product::model::spec::{SpecBatchSaveRequest, SkuBatchSaveRequest};
 use crate::modules::product::service::spec_service;
@@ -29,14 +29,14 @@ pub async fn get_product_specs(state: web::Data<AppState>, req: HttpRequest) -> 
         .unwrap_or(0);
 
     if product_id <= 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(
             MetaResp::<String>::fail(400, "产品ID无效", "local"),
         ));
     }
 
     match spec_service::get_specs(db, product_id).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -50,8 +50,8 @@ pub async fn save_product_specs(
 
     let result = spec_service::save_specs(db, &form_data).await;
     match result {
-        Ok(_) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("保存成功".to_string(), "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("保存成功".to_string(), "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -66,14 +66,14 @@ pub async fn generate_skus(state: web::Data<AppState>, req: HttpRequest) -> Resu
         .unwrap_or(0);
 
     if product_id <= 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(
             MetaResp::<String>::fail(400, "产品ID无效", "local"),
         ));
     }
 
     match spec_service::generate_skus(db, product_id).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -86,15 +86,15 @@ pub async fn batch_save_skus(
     let item = form_data.0;
 
     if item.product_id <= 0 || item.skus.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(
             MetaResp::<String>::fail(400, "参数无效", "local"),
         ));
     }
 
     let result = ProductModel::batch_save_skus(db, item.product_id, &item.skus.unwrap_or_default()).await;
     match result {
-        Ok(_) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("SKU保存成功".to_string(), "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("SKU保存失败: {}", e), "local"))),
+        Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("SKU保存成功".to_string(), "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("SKU保存失败: {}", e), "local"))),
     }
 }
 
@@ -116,14 +116,14 @@ pub async fn get_available_spec_values(
         .unwrap_or(serde_json::json!({}));
 
     if product_id <= 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(
             MetaResp::<String>::fail(400, "产品ID无效", "local"),
         ));
     }
 
     match spec_service::get_available_spec_values(db, product_id, selected_specs).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -144,14 +144,14 @@ pub async fn get_sku_by_specs(
         .unwrap_or(serde_json::json!({}));
 
     if product_id <= 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(
             MetaResp::<String>::fail(400, "产品ID无效", "local"),
         ));
     }
 
     match spec_service::get_sku_by_specs(db, product_id, specs).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 

@@ -12,7 +12,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::{MetaResp};
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::shop::model::shop::{ListQuery, ShopSaveRequest, ShopUpdateRequest};
 use crate::modules::shop::service::shop_service;
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -22,16 +22,16 @@ pub async fn save_shop(state: web::Data<AppState>, _req: HttpRequest, item: web:
     let db = &state.db;
 
     if item.store_name.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "搴楅摵鍚嶇О涓嶈兘涓虹┖", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "搴楅摵鍚嶇О涓嶈兘涓虹┖", "local"));
     }
 
     let result = shop_service::save(db, &item.0.into()).await;
     match result {
         Ok(v) => {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::success(v, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::success(v, "local"))
         }
         Err(err) => {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local"))
         }
     }
 }
@@ -48,20 +48,20 @@ pub async fn batch_delete_shop(state: web::Data<AppState>, item: web::Json<BathD
             .collect();
 
         if ids.is_empty() {
-            return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鍒犻櫎鐨処D涓嶈兘涓虹┖", "local"));
+            return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "鍒犻櫎鐨処D涓嶈兘涓虹┖", "local"));
         } else {
             let result = shop_service::batch_delete_by_ids(&db, &ids).await;
             match result {
                 Ok(v) => {
-                    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::success(v, "local"))
+                    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::success(v, "local"))
                 }
                 Err(err) => {
-                    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local"))
+                    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local"))
                 }
             }
         }
     } else {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "鍒犻櫎鐨処D涓嶈兘涓虹┖", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "鍒犻櫎鐨処D涓嶈兘涓虹┖", "local"));
     }
 }
 
@@ -74,16 +74,16 @@ pub async fn update_shop(state: web::Data<AppState>, path: web::Path<i64>, _req:
     update_data.id = Some(path.into_inner());
 
     if update_data.store_name.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "搴楅摵鍚嶇О涓嶈兘涓虹┖", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "搴楅摵鍚嶇О涓嶈兘涓虹┖", "local"));
     }
 
     let result = shop_service::update_by_id(&db, &update_data.into()).await;
     match result {
         Ok(v) => {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::success(v, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::success(v, "local"))
         }
         Err(err) => {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local"))
         }
     }
 }
@@ -93,15 +93,15 @@ pub async fn get_shop_detail(state: web::Data<AppState>, item: web::Path<InfoId>
     let db = &state.db;
 
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "ID涓嶈兘涓虹┖", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID涓嶈兘涓虹┖", "local")));
     }
 
     match shop_service::get_by_detail(&db, &item.id).await {
         Ok(shop) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(shop, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(shop, "local")))
         }
         Err(err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
         }
     }
 }
@@ -111,7 +111,7 @@ pub async fn get_shop_list(state: web::Data<AppState>, query: web::Query<ListQue
     let db = &state.db;
 
     shop_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local"))
     })
 }
 

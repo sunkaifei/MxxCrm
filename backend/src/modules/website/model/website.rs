@@ -42,9 +42,7 @@ pub struct SiteSaveRequest {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
-    /// 站点类型，1=企业官网，2=商城，3=其他
-    pub site_type: Option<i32>,
-    /// 站点模式，1=展示型 2=交易型 3=混合型
+    /// 站点模式，1=展示型 2=交易型
     pub site_mode: Option<i32>,
     /// 默认发货仓库
     pub default_warehouse_id: Option<i64>,
@@ -56,8 +54,6 @@ pub struct SiteSaveRequest {
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
     pub is_default: Option<i32>,
-    /// 排序
-    pub sort: Option<i32>,
     /// 站点备注，代理商给网站的备注，方便代理商记录这个网站干嘛的
     pub remark: Option<String>,
     /// 是否开启水印
@@ -141,14 +137,12 @@ impl From<SiteSaveRequest> for SiteSaveDTO {
             keywords: request.keywords,
             description: request.description,
             bind_domain: request.bind_domain,
-            site_type: request.site_type,
             site_mode: request.site_mode,
             default_warehouse_id: request.default_warehouse_id,
             contact_email: request.contact_email,
             lead_owner_id: request.lead_owner_id,
             status: request.status,
             is_default: request.is_default,
-            sort: request.sort,
             remark: request.remark,
             watermark_enable: request.watermark_enable,
             watermark_type: request.watermark_type,
@@ -213,9 +207,7 @@ pub struct SiteUpdateRequest {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
-    /// 站点类型，1=企业官网，2=商城，3=其他
-    pub site_type: Option<i32>,
-    /// 站点模式，1=展示型 2=交易型 3=混合型
+    /// 站点模式，1=展示型 2=交易型
     pub site_mode: Option<i32>,
     /// 默认发货仓库
     pub default_warehouse_id: Option<i64>,
@@ -227,8 +219,6 @@ pub struct SiteUpdateRequest {
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
     pub is_default: Option<i32>,
-    /// 排序
-    pub sort: Option<i32>,
     /// 站点备注，代理商给网站的备注，方便代理商记录这个网站干嘛的
     pub remark: Option<String>,
     /// 水印开关
@@ -308,14 +298,12 @@ impl From<SiteUpdateRequest> for SiteSaveDTO {
             keywords: request.keywords,
             description: request.description,
             bind_domain: request.bind_domain,
-            site_type: request.site_type,
             site_mode: request.site_mode,
             default_warehouse_id: request.default_warehouse_id,
             contact_email: request.contact_email,
             lead_owner_id: request.lead_owner_id,
             status: request.status,
             is_default: request.is_default,
-            sort: request.sort,
             remark: request.remark,
             watermark_enable: request.watermark_enable,
             watermark_type: request.watermark_type,
@@ -376,9 +364,7 @@ pub struct SiteSaveDTO {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
-    /// 站点类型，1=企业官网，2=商城，3=其他
-    pub site_type: Option<i32>,
-    /// 站点模式，1=展示型 2=交易型 3=混合型
+    /// 站点模式，1=展示型 2=交易型
     pub site_mode: Option<i32>,
     /// 默认发货仓库
     pub default_warehouse_id: Option<i64>,
@@ -390,8 +376,6 @@ pub struct SiteSaveDTO {
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
     pub is_default: Option<i32>,
-    /// 排序
-    pub sort: Option<i32>,
     /// 站点备注
     pub remark: Option<String>,
     /// 水印开关
@@ -477,12 +461,8 @@ pub struct SiteAdminListVO {
     pub logo: Option<String>,
     /// 客户端类型，1:PC，  2:WAP，3:CMS
     pub client: Option<i32>,
-    /// 站点类型，1=企业官网，2=商城，3=其他
-    pub site_type: Option<i32>,
     /// 站点状态，1正常；2冻结
     pub status: Option<i32>,
-    /// 排序
-    pub sort: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
     pub is_default: Option<i32>,
     /// 站点备注，代理商给网站的备注，方便代理商记录这个网站干嘛的
@@ -502,9 +482,7 @@ impl From<website::Model> for SiteAdminListVO {
             template_id: model.template_id,
             logo: model.logo,
             client: model.client,
-            site_type: model.site_type,
             status: model.status,
-            sort: model.sort,
             is_default: model.is_default,
             remark: model.remark,
             create_time: model.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
@@ -544,9 +522,7 @@ pub struct SiteDetailVO {
     pub description: Option<String>,
     /// 绑定的域名
     pub bind_domain: Option<String>,
-    /// 站点类型，1=企业官网，2=商城，3=其他
-    pub site_type: Option<i32>,
-    /// 站点模式，1=展示型 2=交易型 3=混合型
+    /// 站点模式，1=展示型 2=交易型
     pub site_mode: Option<i32>,
     /// 默认发货仓库
     pub default_warehouse_id: Option<i64>,
@@ -558,8 +534,6 @@ pub struct SiteDetailVO {
     pub status: Option<i32>,
     /// 是否是默认站点，1是默认，0不是默认,一个用户只能有一个默认的网站
     pub is_default: Option<i32>,
-    /// 排序
-    pub sort: Option<i32>,
     /// 站点备注
     pub remark: Option<String>,
     /// 水印开关
@@ -641,14 +615,12 @@ impl From<website::Model> for SiteDetailVO {
             keywords: arg.keywords,
             description: arg.description,
             bind_domain: arg.bind_domain,
-            site_type: arg.site_type,
             site_mode: arg.site_mode,
             default_warehouse_id: arg.default_warehouse_id,
             contact_email: arg.contact_email,
             lead_owner_id: arg.lead_owner_id,
             status: arg.status,
             is_default: arg.is_default,
-            sort: arg.sort,
             remark: arg.remark,
             watermark_enable: arg.watermark_enable,
             watermark_type: arg.watermark_type,
@@ -837,13 +809,11 @@ impl SiteModel {
             keywords:        Set(form_data.keywords.to_owned()),
             description:     Set(form_data.description.to_owned()),
             show_banner:     Set(form_data.show_banner.to_owned()),
-            site_type:       Set(form_data.site_type.to_owned()),
             site_mode:       Set(form_data.site_mode.to_owned()),
             default_warehouse_id: Set(form_data.default_warehouse_id.to_owned()),
             contact_email:   Set(form_data.contact_email.to_owned()),
             lead_owner_id:   Set(form_data.lead_owner_id.to_owned()),
             is_default:      Set(form_data.is_default.to_owned()),
-            sort:            Set(form_data.sort.to_owned()),
             status:          Set(form_data.status.to_owned()),
             remark:          Set(form_data.remark.to_owned()),
             watermark_enable:     Set(form_data.watermark_enable.to_owned()),
@@ -920,12 +890,10 @@ impl SiteModel {
             keywords:        Set(form_data.keywords.to_owned()),
             description:     Set(form_data.description.to_owned()),
             show_banner:     Set(form_data.show_banner.to_owned()),
-            site_type:       Set(form_data.site_type.to_owned()),
             site_mode:       Set(form_data.site_mode.to_owned()),
             default_warehouse_id: Set(form_data.default_warehouse_id.to_owned()),
             contact_email:   Set(form_data.contact_email.to_owned()),
             lead_owner_id:   Set(form_data.lead_owner_id.to_owned()),
-            sort:            Set(form_data.sort.to_owned()),
             status:          Set(form_data.status.to_owned()),
             remark:          Set(form_data.remark.to_owned()),
             watermark_enable:     Set(form_data.watermark_enable.to_owned()),

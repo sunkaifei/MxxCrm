@@ -16,7 +16,7 @@ use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::controller::admin::contact_edit_log_controller;
 use crate::modules::crm::model::contact::{ContactListQuery, ContactSaveRequest, ContactUpdateRequest, ContactBindRequest, ContactUnbindRequest, ContactSetRoleRequest, ContactCheckRequest};
 use crate::modules::crm::service::contact_service;
@@ -28,7 +28,7 @@ pub async fn contact_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = contact_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn contact_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContactUpdateRequest>) -> Result<HttpResponse> {
@@ -36,13 +36,13 @@ pub async fn contact_update(state: web::Data<AppState>, req: HttpRequest, form_d
     let form_data = form_data.0;
 
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "联系人ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "联系人ID不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = contact_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn bath_delete_contact(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
@@ -50,7 +50,7 @@ pub async fn bath_delete_contact(state: web::Data<AppState>, item: web::Json<Bat
     let delete_item = item.0;
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的联系人ID", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的联系人ID", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
@@ -59,7 +59,7 @@ pub async fn bath_delete_contact(state: web::Data<AppState>, item: web::Json<Bat
         .collect();
 
     let result = contact_service::batch_delete_by_ids(&db, &filtered_ids).await;
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
@@ -67,12 +67,12 @@ pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "联系人ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "联系人ID不能为空", "local"));
     }
 
     match contact_service::find_by_id(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -85,9 +85,9 @@ pub async fn contact_list(state: web::Data<AppState>, req: HttpRequest, query: w
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         },
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -95,8 +95,8 @@ pub async fn contact_list(state: web::Data<AppState>, req: HttpRequest, query: w
 pub async fn contact_check(state: web::Data<AppState>, form_data: web::Json<ContactCheckRequest>) -> HttpResponse {
     let db = &state.db;
     match contact_service::check_duplicate(&db, &form_data.0).await {
-        Ok(results) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(results, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(results) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(results, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -106,21 +106,21 @@ pub async fn contact_check(state: web::Data<AppState>, form_data: web::Json<Cont
 pub async fn contact_bind(state: web::Data<AppState>, form_data: web::Json<ContactBindRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = contact_service::bind_contact(&db, &form_data.0).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 /// 解绑联系人（离职）
 pub async fn contact_unbind(state: web::Data<AppState>, form_data: web::Json<ContactUnbindRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = contact_service::unbind_contact(&db, &form_data.0).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 /// 设置联系人角色/标记
 pub async fn contact_set_role(state: web::Data<AppState>, form_data: web::Json<ContactSetRoleRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = contact_service::set_role(&db, &form_data.0).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 // ==================== 路由注册（单点维护）====================

@@ -5,7 +5,7 @@ use crate::utils::response::ApiResponse;
 pub struct AreaService;
 
 macro_rules! api_ok {
-    ($expr:expr, $msg:expr) => {
+    ($expr:expr_2021, $msg:expr_2021) => {
         match $expr.await {
             Ok(data) => ApiResponse::success_with_data($msg, data),
             Err(e) => ApiResponse::error(500, format!("{}: {}", $msg, e)),

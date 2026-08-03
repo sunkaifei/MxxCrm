@@ -155,11 +155,11 @@ pub async fn wechat_notify(req: HttpRequest, state: web::Data<AppState>, body: w
                                 if let Some(member_product_id) = record.member_product_id {
                                     log::info!("[微信支付V3回调] 准备查询会员商品，product_id: {}", member_product_id);
                                     
-                                    if let Ok(Some(product)) = MemberProductModel::find_by_id(db, member_product_id).await {
+                                    match MemberProductModel::find_by_id(db, member_product_id).await { Ok(Some(product)) => {
                                         log::info!("[微信支付V3回调] 查询到会员商品，product_name: {}", product.product_name);
-                                    } else {
+                                    } _ => {
                                         log::error!("[微信支付V3回调] 查询会员商品失败，商品ID: {}", member_product_id);
-                                    }
+                                    }}
                                 } else {
                                     log::warn!("[微信支付V3回调] 支付记录中没有会员商品ID，跳过权益创建");
                                 }

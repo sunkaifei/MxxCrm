@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::edit_log::EditLogQuery;
 use crate::modules::system::service::edit_log_service;
 use actix_web::{web, HttpResponse};
@@ -28,12 +28,12 @@ pub async fn edit_log_list(
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(
+            Ok(HttpResponse::Ok().content_type(MPACK).body(
                 MetaResp::success_with_page(page_data, "local", page, total),
             ))
         }
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

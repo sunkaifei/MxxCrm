@@ -17,7 +17,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use sea_orm::EntityTrait;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::model::customer::{CustomerListQuery, CustomerSaveRequest, CustomerUpdateRequest};
 use crate::modules::crm::model::customer_financial::{CustomerFinancialSaveDTO, CustomerFinancialModel};
 use crate::modules::crm::service::customer_service;
@@ -36,7 +36,7 @@ pub async fn customer_insert(state: web::Data<AppState>, req: HttpRequest, form_
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = customer_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn customer_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CustomerUpdateRequest>) -> Result<HttpResponse> {
@@ -44,14 +44,14 @@ pub async fn customer_update(state: web::Data<AppState>, req: HttpRequest, form_
     let form_data = form_data.0;
 
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
     }
 
     // 类型校验由 service 层处理
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = customer_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
@@ -61,7 +61,7 @@ pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, 
     let user_id = jwt_token.id.unwrap_or_default();
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的客户ID", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的客户ID", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
@@ -70,7 +70,7 @@ pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, 
         .collect();
 
     let result = customer_service::batch_delete_by_ids(&db, &filtered_ids, user_id).await;
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 pub async fn customer_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
@@ -78,12 +78,12 @@ pub async fn customer_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
     }
 
     match customer_service::find_by_id(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -98,9 +98,9 @@ pub async fn customer_list(state: web::Data<AppState>, req: HttpRequest, query: 
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         },
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -110,7 +110,7 @@ pub async fn customer_contacts(state: web::Data<AppState>, item: web::Query<Info
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
     }
 
     match contact_service::find_by_customer(&db, item.id.unwrap()).await {
@@ -120,9 +120,9 @@ pub async fn customer_contacts(state: web::Data<AppState>, item: web::Query<Info
                 "current": current,
                 "history": history
             });
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))
         },
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -132,8 +132,8 @@ pub async fn customer_pool_list(state: web::Data<AppState>, query: web::Query<Cu
     let query = query.0;
 
     match customer_service::pool_list(&db, &query).await {
-        Ok(page_data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(page_data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -143,15 +143,15 @@ pub async fn customer_claim(state: web::Data<AppState>, req: HttpRequest, item: 
     let item = item.0;
 
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
 
     match customer_service::claim(&db, item.id.unwrap(), user_id).await {
-        Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(v) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -161,15 +161,15 @@ pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, 
     let item = item.0;
 
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
 
     match customer_service::add_to_pool(&db, item.id.unwrap(), user_id).await {
-        Ok(v) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(v) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -179,12 +179,12 @@ pub async fn customer_assign_history(state: web::Data<AppState>, item: web::Quer
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local"));
     }
 
     match assign_history_service::list_by_customer(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -204,9 +204,9 @@ pub async fn customer_check_name(state: web::Data<AppState>, query: web::Query<C
         Ok(exists) => {
             use serde_json::json;
             let data = json!({ "exists": exists });
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -219,8 +219,8 @@ pub async fn customer_financial_info(
     let customer_id = customer_id.into_inner();
 
     match CustomerFinancialModel::find_by_customer_id(db, customer_id).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -277,9 +277,9 @@ pub async fn customer_financial_update(
                 db, dto.customer_id, user_id, editor_name, &old_data, &new_data, Some(1),
             ).await;
 
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local")))
         }
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -295,10 +295,10 @@ pub async fn customer_transfer_preview(
     let _jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match customer_transfer_service::preview_transfer(db, &form_data.0).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -320,10 +320,10 @@ pub async fn customer_transfer(
     .await
     {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

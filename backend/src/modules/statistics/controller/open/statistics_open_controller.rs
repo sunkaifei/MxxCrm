@@ -10,7 +10,7 @@
 
 use actix_web::{get, HttpRequest, HttpResponse, web};
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::statistics::model::access_record::{AccessRecordSaveDTO, RecordSaveRequest};
 use crate::modules::statistics::service::access_record_service;
 use crate::utils::string_utils::{user_agent_browser, user_agent_os};
@@ -22,10 +22,10 @@ pub async fn save_statistics_record(state: web::Data<AppState>, request: HttpReq
     
     // if let Some(url) = record_request.access_url {
     //     if !url.starts_with("https://www.97560.com") {
-    //         return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "统计网址不正确!", "local")));
+    //         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "统计网址不正确!", "local")));
     //     }
     // } else {
-    //     return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到统计网址地址!", "local")));
+    //     return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到统计网址地址!", "local")));
     // }
     let mut record_dto = AccessRecordSaveDTO::default();
     if let Some(ip) = request.connection_info().realip_remote_addr() {
@@ -53,7 +53,7 @@ pub async fn save_statistics_record(state: web::Data<AppState>, request: HttpReq
         record_dto.access_url = record_request.access_url.clone();
     }
     let result = access_record_service::insert(&db, &record_request).await;
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 

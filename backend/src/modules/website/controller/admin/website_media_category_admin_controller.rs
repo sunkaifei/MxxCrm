@@ -14,7 +14,7 @@ use crate::core::kit::global::AppState;
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_media_category::{MediaCategorySaveDTO, MediaCategorySaveRequest, MediaCategoryUpdateRequest};
 use crate::modules::website::service::website_media_category_service;
 
@@ -23,14 +23,14 @@ pub async fn add(state: web::Data<AppState>, _req: HttpRequest, item: web::Json<
     let db = &state.db;
     let payload = item.into_inner();
     if payload.category_name.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "分类名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "分类名称不能为空", "local")));
     }
     let form_data = MediaCategorySaveDTO::from(payload);
     let result = website_media_category_service::insert(db, form_data).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("添加成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("添加成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "添加失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "添加失败", "local")))
     }
 }
 
@@ -38,13 +38,13 @@ pub async fn add(state: web::Data<AppState>, _req: HttpRequest, item: web::Json<
 pub async fn delete(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
     }
     let result = website_media_category_service::delete_by_id(db, item.id.unwrap_or_default()).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("删除成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("删除成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除失败", "local")))
     }
 }
 
@@ -54,15 +54,15 @@ pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web
     let payload = item.into_inner();
     let category_id = Some(id.into_inner());
     if payload.category_name.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "分类名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "分类名称不能为空", "local")));
     }
     let mut form_data = MediaCategorySaveDTO::from(payload);
     form_data.id = category_id;
     let result = website_media_category_service::update_by_id(db, &form_data).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("修改成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "修改失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "修改失败", "local")))
     }
 }
 
@@ -70,24 +70,24 @@ pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
     }
     let result = website_media_category_service::get_by_detail(db, &item.id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// 查询所有媒体分类（树形列表）
 pub async fn get_by_list(state: web::Data<AppState>, _req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let result = website_media_category_service::select_all(db).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// 查询所有媒体分类（下拉选项）
 pub async fn get_by_options(state: web::Data<AppState>, _req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let result = website_media_category_service::select_all_options(db).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 // ==================== 路由注册（单点维护）====================

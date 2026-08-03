@@ -12,7 +12,7 @@ use actix_web::{web, HttpResponse, Result};
 use crate::core::web::permission_guard::require_permission;
 
 use crate::core::kit::global::AppState;
-use crate::core::web::response::{MetaResp, ResultPage};
+use crate::core::web::response::{MetaResp, ResultPage, MPACK};
 use crate::modules::finance::model::refund_record::{RefundRecordSaveRequest, RefundRecordQuery};
 use crate::modules::finance::service::refund_record_service;
 
@@ -28,9 +28,9 @@ pub async fn list(
     match result {
         Ok((list, total)) => {
             let page_data = ResultPage::new(list, total, page, 20);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local")))
         }
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -44,9 +44,9 @@ pub async fn detail(
     let result = refund_record_service::get_by_id(db, id).await;
 
     match result {
-        Ok(Some(data)) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Ok(None) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "记录不存在", "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(Some(data)) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Ok(None) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "记录不存在", "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -59,8 +59,8 @@ pub async fn create(
     let result = refund_record_service::insert(db, item.into_inner()).await;
 
     match result {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -75,8 +75,8 @@ pub async fn update(
     let result = refund_record_service::update(db, id, item.into_inner()).await;
 
     match result {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -90,9 +90,9 @@ pub async fn delete(
     let result = refund_record_service::delete(db, id).await;
 
     match result {
-        Ok(true) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("删除成功", "local"))),
-        Ok(false) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "记录不存在", "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(true) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success("删除成功", "local"))),
+        Ok(false) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "记录不存在", "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 

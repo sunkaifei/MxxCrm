@@ -30,7 +30,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::sale::model::shipment::{ShipmentListQuery, ShipmentSaveRequest, ShipmentUpdateRequest};
 use crate::modules::sale::service::shipment_service;
 use crate::modules::system::entity::admin::Entity as Admin;
@@ -67,9 +67,9 @@ pub async fn list(state: web::Data<AppState>, req: HttpRequest, query: web::Quer
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -78,11 +78,11 @@ pub async fn info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpR
     let db = &state.db;
     let item = item.0;
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local"));
     }
     match shipment_service::get_detail(db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -100,11 +100,11 @@ pub async fn save(
 
     // 业务成功后记录「创建」操作日志
     if let Ok(shipment_id) = result {
-        let editor_name = if let Ok(Some(admin)) = Admin::find_by_id(user_id).one(db).await {
+        let editor_name = match Admin::find_by_id(user_id).one(db).await { Ok(Some(admin)) => {
             admin.nick_name.or(admin.user_name)
-        } else {
+        } _ => {
             None
-        };
+        }};
 
         let items = form_data.items.unwrap_or_default();
         let item_summary = items.iter()
@@ -153,7 +153,7 @@ pub async fn save(
         ).await;
     }
 
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 /// 修改发货单
@@ -165,7 +165,7 @@ pub async fn update(
     let db = &state.db;
     let form_data = form_data.0;
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
@@ -188,11 +188,11 @@ pub async fn update(
             json!({})
         };
 
-        let editor_name = if let Ok(Some(admin)) = Admin::find_by_id(user_id).one(db).await {
+        let editor_name = match Admin::find_by_id(user_id).one(db).await { Ok(Some(admin)) => {
             admin.nick_name.or(admin.user_name)
-        } else {
+        } _ => {
             None
-        };
+        }};
 
         let business_no = old_data.get("shipmentNo").and_then(|v| v.as_str()).map(|s| s.to_string());
 
@@ -210,7 +210,7 @@ pub async fn update(
         ).await;
     }
 
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 /// 删除发货单
@@ -222,7 +222,7 @@ pub async fn delete(
     let db = &state.db;
     let item = item.0;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
@@ -239,11 +239,11 @@ pub async fn delete(
 
     // 业务成功后记录「删除」日志
     if result.is_ok() {
-        let editor_name = if let Ok(Some(admin)) = Admin::find_by_id(user_id).one(db).await {
+        let editor_name = match Admin::find_by_id(user_id).one(db).await { Ok(Some(admin)) => {
             admin.nick_name.or(admin.user_name)
-        } else {
+        } _ => {
             None
-        };
+        }};
 
         let business_no = old_data.get("shipmentNo").and_then(|v| v.as_str()).map(|s| s.to_string());
         let total_qty = old_data.get("totalQuantity").and_then(|v| v.as_i64()).unwrap_or(0);
@@ -281,7 +281,7 @@ pub async fn delete(
         ).await;
     }
 
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 /// 签收发货单
@@ -289,10 +289,10 @@ pub async fn sign(state: web::Data<AppState>, item: web::Query<InfoId>) -> Resul
     let db = &state.db;
     let item = item.0;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local")));
     }
     let result = shipment_service::sign(db, item.id.unwrap()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 // ==================== 路由注册（单点维护）====================

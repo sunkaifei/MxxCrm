@@ -12,7 +12,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_notification_config::{
     NotificationConfigListQuery, NotificationConfigSaveDTO,
 };
@@ -47,7 +47,7 @@ pub async fn get_current(state: web::Data<AppState>) -> Result<HttpResponse> {
         .ok_or_else(|| crate::core::errors::error::Error::from("默认站点ID为空"))?;
     let list = website_notification_config_service::find_current_all(&db, website_id).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(list, "local")))
 }
 
@@ -68,7 +68,7 @@ pub async fn update_current(
         website_notification_config_service::bulk_upsert(&db, website_id, body.into_inner().configs)
             .await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(affected, "local")))
 }
 
@@ -81,7 +81,7 @@ pub async fn list(
     match website_notification_config_service::get_by_page(db, query.into_inner()).await {
         Ok(page) => Ok(HttpResponse::Ok().json(page)),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -94,10 +94,10 @@ pub async fn detail(
     let db = &state.db;
     match website_notification_config_service::get_by_id(db, id.into_inner()).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -110,7 +110,7 @@ pub async fn create(
     let db = &state.db;
     let result = website_notification_config_service::create(db, body.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -124,7 +124,7 @@ pub async fn update(
     let result =
         website_notification_config_service::update(db, id.into_inner(), body.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -138,7 +138,7 @@ pub async fn toggle(
     let result =
         website_notification_config_service::toggle_enabled(db, id.into_inner(), body.enabled).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -151,17 +151,17 @@ pub async fn batch_delete(
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
             return Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let result = website_notification_config_service::batch_delete(db, ids).await;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }

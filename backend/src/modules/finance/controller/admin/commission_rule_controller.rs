@@ -16,7 +16,7 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::InfoId;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::core::web::response::ResultPage;
 use crate::modules::finance::model::commission_rule::{CommissionRuleQuery, CommissionRuleSaveDTO};
 use crate::modules::finance::service::{commission_rule_service, commission_calc_service};
@@ -41,10 +41,10 @@ pub async fn list(
         Ok((list, total)) => {
             // 包装成 ResultPage 结构，使前端能正确解析 items
             let page_data = ResultPage::new(list, total, page as i64, page_size as i64);
-            HttpResponse::Ok().content_type("application/msgpack")
+            HttpResponse::Ok().content_type(MPACK)
                 .body(MetaResp::success_with_page(page_data, "local", page, total as u32))
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -57,14 +57,14 @@ pub async fn detail(
     let item = query.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "规则ID不能为空", "local"));
     }
 
     match commission_rule_service::get_detail(db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -87,9 +87,9 @@ pub async fn save(
     }
 
     match commission_rule_service::save(db, dto, user_id).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -102,14 +102,14 @@ pub async fn delete(
     let item = query.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "规则ID不能为空", "local"));
     }
 
     match commission_rule_service::delete(db, item.id.unwrap()).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("删除成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -122,14 +122,14 @@ pub async fn toggle(
     let item = query.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "规则ID不能为空", "local"));
     }
 
     match commission_rule_service::toggle(db, item.id.unwrap()).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("操作成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -142,14 +142,14 @@ pub async fn set_default(
     let item = form_data.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "规则ID不能为空", "local"));
     }
 
     match commission_rule_service::set_default(db, item.id.unwrap()).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("设置成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -160,9 +160,9 @@ pub async fn get_default(
     let db = &state.db;
 
     match commission_rule_service::get_default_plan(db).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -173,9 +173,9 @@ pub async fn options(
     let db = &state.db;
 
     match commission_rule_service::list_options(db).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -188,14 +188,14 @@ pub async fn preview(
     let item = form_data.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "合同ID不能为空", "local"));
     }
 
     match commission_calc_service::preview_contract_commission(db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -208,9 +208,9 @@ pub async fn monthly_settle(
     let req = form_data.0;
 
     match commission_calc_service::calc_monthly_settlement(db, req.year, req.month).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

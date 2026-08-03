@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::model::contact_edit_log::ContactEditLogQuery;
 use crate::modules::crm::service::contact_edit_log_service;
 use actix_web::{web, HttpResponse};
@@ -24,10 +24,10 @@ pub async fn contact_edit_log_list(
     let q = query.into_inner();
     match contact_edit_log_service::query_by_contact(db, q).await {
         Ok(page_data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(page_data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

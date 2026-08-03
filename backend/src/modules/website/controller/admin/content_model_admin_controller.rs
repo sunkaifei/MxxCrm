@@ -13,7 +13,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::{MetaResp};
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::content_model::{ListQuery, ContentModelSaveDTO, ContentModelSaveRequest, ContentModelUpdateRequest};
 use crate::modules::website::service::{content_model_service};
 
@@ -23,9 +23,9 @@ pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<C
     let form_data = ContentModelSaveDTO::from(payload);
     let result = content_model_service::insert(&db, &form_data).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("添加成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("添加成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "添加失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "添加失败", "local")))
     }
 }
 
@@ -33,12 +33,12 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let result = content_model_service::batch_delete_by_ids(&db, &ids_vec).await?;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -49,22 +49,22 @@ pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web
     form_data.id = Some(id.into_inner());
     let result = content_model_service::update_by_id(&db, &form_data).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("修改成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "修改失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "修改失败", "local")))
     }
 }
 
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = content_model_service::get_by_detail(&db, &item.id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = content_model_service::get_by_page(&db, query.into_inner()).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 // ==================== 路由注册（单点维护）====================

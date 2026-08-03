@@ -18,8 +18,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     #[serde(skip_deserializing)]
     pub id: i64,
-    /// 模版所属分类id
-    pub category_id: Option<i64>,
     /// 模版的名字，编码，唯一，限制50个字符以内
     pub name: Option<String>,
     /// 模板存储的文件夹名称，设置网站模板时直接使用这个目录

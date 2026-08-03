@@ -17,7 +17,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::{MetaResp};
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::articles::model::article::{ArticleModel, ArticlesSaveDTO, ArticlesSaveRequest, ArticlesUpdateRequest, QueryPageRequest, QueryTitleUnique};
 use crate::modules::articles::model::article_revision::{ArticleRevisionModel, RevisionListQuery};
 use crate::modules::articles::service::article_label_service;
@@ -53,7 +53,7 @@ pub async fn save_article(state: web::Data<AppState>, req: HttpRequest, item: we
     };
     let unique_num = find_by_title_unique(&db, &unique).await?;
     if unique_num {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "文章标题已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "文章标题已存在", "local")));
     }
 
     let result = article_service::save_article(&db, itme_dto).await?;
@@ -62,9 +62,9 @@ pub async fn save_article(state: web::Data<AppState>, req: HttpRequest, item: we
         if let Some(ids) = label_ids {
             let _ = article_label_service::set_labels(&db, result, ids).await?;
         }
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
     }else{
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "文章发布失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "文章发布失败", "local")))
     }
 }
 
@@ -73,14 +73,14 @@ pub async fn batch_delete(state: web::Data<AppState>, req: HttpRequest, item: we
     let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let website_id = website_id.map(|s| s.parse::<i64>().unwrap_or_default());
         let result = ArticleModel::batch_delete_by_ids(&db, website_id.unwrap_or_default(), ids).await?;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -108,7 +108,7 @@ pub async fn update_article_detail(state: web::Data<AppState>, req: HttpRequest,
     };
     let unique_num = find_by_title_unique(&db, &unique).await?;
     if unique_num {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "文章标题已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "文章标题已存在", "local")));
     }
 
     let result = article_service::update_by_id(&db, article_data).await?;
@@ -118,7 +118,7 @@ pub async fn update_article_detail(state: web::Data<AppState>, req: HttpRequest,
             let _ = article_label_service::set_labels(&db, article_id_value, ids).await?;
         }
     }
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
 
 }
 
@@ -132,14 +132,14 @@ pub async fn get_article_detail(state: web::Data<AppState>, req: HttpRequest,ite
     match result {
         Ok(article_op) => match article_op {
             None => {
-                Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "文章不存在", "local")))
+                Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "文章不存在", "local")))
             }
             Some(article) => {
-                Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(article, "local")))
+                Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(article, "local")))
             }
         }
         Err(err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
         }
     }
 }
@@ -153,7 +153,7 @@ pub async fn get_article_list(state: web::Data<AppState>, req: HttpRequest, item
     payload.website_id = website_id.map(|s| s.parse::<i64>().unwrap_or_default());
     let result = article_service::get_by_page(&db, payload).await?;
 
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 // ==================== 文章修订历史 ====================
@@ -170,7 +170,7 @@ pub async fn list_revisions(
     let page_size = query.page_size.unwrap_or(20) as i64;
 
     let result = article_service::list_revisions(db, article_id, page, page_size).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// GET /article/revision/detail/{id} - 修订记录详情
@@ -181,10 +181,10 @@ pub async fn get_revision_detail(
     let db = &state.db;
     match article_service::get_revision_detail(db, id.into_inner()).await {
         Ok(vo) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(vo, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(vo, "local")))
         }
         Err(e) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")))
         }
     }
 }
@@ -205,24 +205,24 @@ pub async fn restore_revision(
     let revision = match ArticleRevisionModel::find_by_id(db, revision_id).await {
         Ok(Some(r)) => r,
         Ok(None) => {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "修订记录不存在", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "修订记录不存在", "local")));
         }
         Err(e) => {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")));
         }
     };
 
     let article_id = revision.article_id.unwrap_or(0);
     if article_id == 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "修订记录缺少文章ID", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "修订记录缺少文章ID", "local")));
     }
 
     match article_service::restore_revision(db, article_id, revision_id, editor_id, editor_name).await {
         Ok(rows) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(rows, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(rows, "local")))
         }
         Err(e) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")))
         }
     }
 }
@@ -238,10 +238,10 @@ pub async fn get_article_labels(
     let article_id = article_id.into_inner();
     match article_label_service::get_labels_by_article(db, article_id).await {
         Ok(label_ids) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(label_ids, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(label_ids, "local")))
         }
         Err(e) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")))
         }
     }
 }
@@ -293,7 +293,7 @@ pub async fn batch_audit(
     let ids: Vec<i64> = payload.ids.iter().filter_map(|s| s.parse::<i64>().ok()).collect();
     let result = article_service::batch_audit(db, ids, payload.status).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
@@ -307,7 +307,7 @@ pub async fn batch_top(
     let ids: Vec<i64> = payload.ids.iter().filter_map(|s| s.parse::<i64>().ok()).collect();
     let result = article_service::batch_set_top(db, ids, payload.istop).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
@@ -321,7 +321,7 @@ pub async fn batch_move_category(
     let ids: Vec<i64> = payload.ids.iter().filter_map(|s| s.parse::<i64>().ok()).collect();
     let result = article_service::batch_move_category(db, ids, payload.category_id).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
@@ -335,7 +335,7 @@ pub async fn batch_recommend(
     let ids: Vec<i64> = payload.ids.iter().filter_map(|s| s.parse::<i64>().ok()).collect();
     let result = article_service::batch_set_recommend(db, ids, payload.isrecommend).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 

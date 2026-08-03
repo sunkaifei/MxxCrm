@@ -15,7 +15,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::leave_msg::{ConvertLeadRequest, LeaveMsgListQuery};
 use crate::modules::website::service::leave_msg_service;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
@@ -44,7 +44,7 @@ pub async fn get_by_detail(
     let db = &state.db;
     let result = leave_msg_service::find_by_id(db, id.into_inner()).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -60,7 +60,7 @@ pub async fn convert_lead(
     let user_id = jwt_token.id.unwrap_or_default();
     if user_id <= 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local")));
     }
 
@@ -68,7 +68,7 @@ pub async fn convert_lead(
     let assigned_to = body.assigned_to;
     let result = leave_msg_service::convert_to_lead(db, leave_msg_id, assigned_to, user_id).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -86,7 +86,7 @@ pub async fn update_status(
         .unwrap_or(2) as i32;
     let result = leave_msg_service::update_status(db, id.into_inner(), status).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -99,17 +99,17 @@ pub async fn batch_delete(
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
             return Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let result = leave_msg_service::batch_delete(db, ids).await;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }

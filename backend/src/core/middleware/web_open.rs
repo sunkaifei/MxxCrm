@@ -10,7 +10,7 @@
 
 use crate::core::kit::global::AppState;
 use crate::core::kit::template::get_template;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::config;
 use actix_web::http::header::ContentType;
 use actix_web::middleware::Next;
@@ -39,7 +39,7 @@ pub async fn check(
 
     let method = req.method();
     if method == Method::POST {
-        return Ok(req.into_response(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, error, "local"))));
+        return Ok(req.into_response(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, error, "local"))));
     }
     let ctx = context!(
             error => error,

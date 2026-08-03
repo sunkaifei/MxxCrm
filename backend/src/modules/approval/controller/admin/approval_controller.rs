@@ -12,7 +12,7 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::approval::model::approval::{
     ApprovalProcessRequest, ApprovalSubmitRequest, FlowListQuery, FlowSaveRequest,
     ApprovalCancelRequest, ApprovalRejectToRequest, ApprovalTransferRequest,
@@ -54,10 +54,10 @@ pub async fn save_flow(
     let operator = jwt_token.username.unwrap_or_default();
     match ApprovalService::save_flow(db, &payload.0, &operator).await {
         Ok(id) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -69,10 +69,10 @@ pub async fn flow_detail(
     let db = &state.db;
     match ApprovalService::find_flow_by_id(db, id.into_inner()).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -93,11 +93,11 @@ pub async fn flow_list(
             let page = data.current_page as u32;
             let total = data.total as u32;
             Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success_with_page(data, "local", page, total)))
         }
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -109,10 +109,10 @@ pub async fn toggle_flow(
     let db = &state.db;
     match ApprovalService::toggle_flow(db, id.into_inner()).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -124,10 +124,10 @@ pub async fn delete_flow(
     let db = &state.db;
     match ApprovalService::delete_flow(db, id.into_inner()).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -143,7 +143,7 @@ pub async fn submit_approval(
     let current_user_id = jwt_token.id.unwrap_or_default();
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
     let mut req_data = payload.0;
@@ -151,10 +151,10 @@ pub async fn submit_approval(
     req_data.submitter_name = Some(jwt_token.username.unwrap_or_default());
     match ApprovalService::submit(db, &req_data).await {
         Ok(id) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -170,7 +170,7 @@ pub async fn process_approval(
     let current_user_id = jwt_token.id.unwrap_or_default();
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
     let mut req_data = payload.0;
@@ -178,10 +178,10 @@ pub async fn process_approval(
     req_data.approver_id = current_user_id;
     match ApprovalService::process(db, &req_data).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -193,10 +193,10 @@ pub async fn approval_detail(
     let db = &state.db;
     match ApprovalService::find_instance_by_id(db, id.into_inner()).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -214,11 +214,11 @@ pub async fn approval_list(
             let page = data.current_page as u32;
             let total = data.total as u32;
             Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success_with_page(data, "local", page, total)))
         }
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
     }
 }
@@ -236,15 +236,15 @@ pub async fn cancel_approval(
     let current_user_id = jwt_token.id.unwrap_or_default();
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
     match ApprovalService::cancel_instance(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -260,15 +260,15 @@ pub async fn reject_to_approval(
     let current_user_id = jwt_token.id.unwrap_or_default();
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
     match ApprovalService::reject_to(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -284,15 +284,15 @@ pub async fn transfer_approval(
     let current_user_id = jwt_token.id.unwrap_or_default();
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
     match ApprovalService::transfer(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -308,15 +308,15 @@ pub async fn delegate_approval(
     let current_user_id = jwt_token.id.unwrap_or_default();
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
     match ApprovalService::delegate(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -332,15 +332,15 @@ pub async fn add_sign_approval(
     let current_user_id = jwt_token.id.unwrap_or_default();
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
     match ApprovalService::add_sign(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -356,15 +356,15 @@ pub async fn add_cc_approval(
     let current_user_id = jwt_token.id.unwrap_or_default();
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
     match ApprovalService::add_cc(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -384,11 +384,11 @@ pub async fn cc_list(
             let page = data.current_page as u32;
             let total = data.total as u32;
             Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success_with_page(data, "local", page, total)))
         }
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -404,10 +404,10 @@ pub async fn cc_mark_read(
     let user_id = jwt_token.id.unwrap_or_default();
     match ApprovalService::mark_cc_read(db, id.into_inner(), user_id).await {
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

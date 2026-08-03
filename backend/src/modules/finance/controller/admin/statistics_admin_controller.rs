@@ -10,7 +10,7 @@
 
 use actix_web::{web, HttpResponse, Result};
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::core::web::permission_guard::require_permission;
 use crate::modules::finance::model::finance_statistics::FinanceStatisticsQuery;
 use crate::modules::finance::service::finance_statistics_service;
@@ -22,8 +22,8 @@ pub async fn summary(
     let result = finance_statistics_service::get_summary(db).await;
     
     match result {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -35,8 +35,8 @@ pub async fn list(
     let result = finance_statistics_service::get_list(db, query.into_inner()).await;
     
     match result {
-        Ok(list) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list, "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(list) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list, "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -47,8 +47,8 @@ pub async fn generate_daily(
     let result = finance_statistics_service::generate_daily_statistics(db).await;
     
     match result {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 

@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_user_client_id;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
 
 /// Create order
@@ -26,7 +26,7 @@ pub async fn create_order(
     // TODO: call order_service::create(db, user_id, body.into_inner()).await
     let result = serde_json::json!({ "order_id": 0 });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -41,7 +41,7 @@ pub async fn pay_order(
     let _user_id = get_user_client_id(&req)?;
     // TODO: call order_service::pay(db, user_id, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }
 
@@ -63,7 +63,7 @@ pub async fn get_order_list(
         "totalPages": 0
     });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -79,7 +79,7 @@ pub async fn get_order_detail(
     // TODO: call order_service::detail(db, user_id, order_id).await
     let result = serde_json::json!({});
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -94,7 +94,7 @@ pub async fn cancel_order(
     let _user_id = get_user_client_id(&req)?;
     // TODO: call order_service::cancel(db, user_id, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }
 
@@ -109,6 +109,6 @@ pub async fn confirm_receive(
     let _user_id = get_user_client_id(&req)?;
     // TODO: call order_service::confirm_receive(db, user_id, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }

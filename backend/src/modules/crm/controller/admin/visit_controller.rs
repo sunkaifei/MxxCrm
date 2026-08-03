@@ -17,7 +17,7 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::model::followup::{VisitCheckInRequest, VisitListQuery};
 use crate::modules::crm::service::followup_service;
 
@@ -36,10 +36,10 @@ pub async fn visit_list(
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack")
+            HttpResponse::Ok().content_type(MPACK)
                 .body(MetaResp::success_with_page(page_data, "local", page, total))
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -50,9 +50,9 @@ pub async fn visit_info(state: web::Data<AppState>, id: web::Path<i64>) -> HttpR
     let id = id.into_inner();
 
     match followup_service::visit_info(db, id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -70,14 +70,14 @@ pub async fn visit_check_in(
     let created_by = jwt_token.id.unwrap_or_default();
 
     if created_by <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
 
     match followup_service::visit_check_in(db, &form_data, created_by).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -95,14 +95,14 @@ pub async fn visit_check_out(
     let updated_by = jwt_token.id.unwrap_or_default();
 
     if updated_by <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
 
     match followup_service::visit_check_out(db, id, updated_by).await {
-        Ok(rows) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(rows) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(rows, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -114,14 +114,14 @@ pub async fn visit_statistics(state: web::Data<AppState>, req: HttpRequest) -> H
     let current_user_id = jwt_token.id.unwrap_or_default();
 
     if current_user_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
 
     match followup_service::visit_statistics(db, current_user_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }

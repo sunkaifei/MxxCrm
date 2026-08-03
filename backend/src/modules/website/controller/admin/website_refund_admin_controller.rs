@@ -14,7 +14,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_refund::{RefundHandleRequest, RefundListQuery};
 use crate::modules::website::service::website_refund_service;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
@@ -36,7 +36,7 @@ pub async fn list(
     match website_refund_service::admin_list(db, query.into_inner()).await {
         Ok(page) => Ok(HttpResponse::Ok().json(page)),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -49,10 +49,10 @@ pub async fn detail(
     let db = &state.db;
     match website_refund_service::admin_detail(db, id.into_inner()).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -69,7 +69,7 @@ pub async fn handle(
     let handle_by = jwt_token.id.unwrap_or_default();
     let result = website_refund_service::admin_handle(db, id.into_inner(), body.into_inner(), handle_by).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -82,7 +82,7 @@ pub async fn mark_refunded(
     let db = &state.db;
     let result = website_refund_service::admin_mark_refunded(db, id.into_inner(), body.transaction_id.clone()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -95,17 +95,17 @@ pub async fn batch_delete(
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
             return Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let result = website_refund_service::admin_batch_delete(db, ids).await;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }

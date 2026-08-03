@@ -12,7 +12,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::{BathDeleteIdRequest, BathIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::{MetaResp};
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::articles::model::category::{CategoryModel, CategoryPageDTO, CategoryPageRequest, CategorySaveDTO, CategorySaveRequest, CategoryUpdateRequest};
 use crate::modules::articles::service::category_service;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
@@ -30,10 +30,10 @@ pub async fn save_category(
     category_data.website_id = website_id.map(|s| s.parse::<i64>().unwrap_or_default());
     match category_service::save_category(&db, category_data).await {
         Ok(_) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(200, "保存成功", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(200, "保存成功", "local")))
         }
         Err(_err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "保存失败", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "保存失败", "local")))
         }
     }
 }
@@ -44,13 +44,13 @@ pub async fn batch_delete(state: web::Data<AppState>, req: HttpRequest, item: we
     let website_id = req.headers().get("website_id").and_then(|value| value.to_str().ok());
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let result = CategoryModel::batch_delete_by_ids(&db,&website_id.map(|s| s.parse::<i64>().unwrap_or_default()), ids).await?;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 
 }
@@ -70,9 +70,9 @@ pub async fn update_category(
 
     let category_data = category_service::update_by_id(&db, category_data).await?;
     if category_data == 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "更新失败", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "更新失败", "local")));
     }
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("修改成功".to_string(), "local")))
 }
 
 /// 兼容前端 PUT /category/update（id 在 body 内，无路径参数）
@@ -90,9 +90,9 @@ pub async fn update_category_compat(
 
     let result = category_service::update_by_id(&db, dto).await?;
     if result == 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "更新失败", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "更新失败", "local")));
     }
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("修改成功".to_string(), "local")))
 }
 
 /// 兼容前端 DELETE /category/delete?id=（query 参数传 id）
@@ -106,11 +106,11 @@ pub async fn delete_category_compat(
     let id_str = query.get("id").cloned().unwrap_or_default();
     let id: i64 = id_str.parse().unwrap_or(0);
     if id == 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
     }
     let ids = vec![id];
     let result = CategoryModel::batch_delete_by_ids(&db, &website_id.map(|s| s.parse::<i64>().unwrap_or_default()), ids).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
 pub async fn category_option(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
@@ -119,10 +119,10 @@ pub async fn category_option(state: web::Data<AppState>, req: HttpRequest) -> Re
 
     match category_service::all_category_tree(&db, website_id.map(|s| s.parse::<i64>().unwrap_or_default()).unwrap_or_default()).await {
         Ok(router_list) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(router_list, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(router_list, "local")))
         }
         Err(_err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到文章分类列表", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到文章分类列表", "local")))
         }
     }
 }
@@ -135,7 +135,7 @@ pub async fn get_category_detail(state: web::Data<AppState>, req: HttpRequest,it
     let _website_id = _website_id.map(|s| s.parse::<i64>().unwrap_or_default());
 
     let result = category_service::find_by_id(db,&id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 pub async fn category_list_tree(state: web::Data<AppState>, req: HttpRequest, item: web::Query<CategoryPageRequest>) -> Result<HttpResponse> {
@@ -149,10 +149,10 @@ pub async fn category_list_tree(state: web::Data<AppState>, req: HttpRequest, it
 
     match category_service::select_all_list(&db,category_dto).await{
         Ok(router_list) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(router_list, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(router_list, "local")))
         }
         Err(_err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到文章分类列表", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到文章分类列表", "local")))
         }
     }
 }

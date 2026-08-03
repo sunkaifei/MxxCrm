@@ -13,7 +13,7 @@ use actix_web::{web, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::articles::model::article_field::{
     ArticleFieldListQuery, ArticleFieldSaveDTO, ArticleFieldValueBatchDTO,
 };
@@ -27,7 +27,7 @@ pub async fn get_by_page(
     let db = &state.db;
     let result = article_field_service::get_by_page(db, query.into_inner()).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -39,7 +39,7 @@ pub async fn get_by_id(
     let db = &state.db;
     let result = article_field_service::get_by_id(db, id.into_inner()).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -52,7 +52,7 @@ pub async fn get_by_category(
     let db = &state.db;
     let result = article_field_service::get_by_category(db, category_id.into_inner()).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -68,7 +68,7 @@ pub async fn add(
     }
     let result = article_field_service::create(db, payload).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::success_with_msg(
             result.to_string(),
             "新增成功",
@@ -85,7 +85,7 @@ pub async fn update(
     let db = &state.db;
     let result = article_field_service::update(db, id.into_inner(), req.into_inner()).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::success_with_msg(
             result.to_string(),
             "更新成功",
@@ -113,7 +113,7 @@ pub async fn batch_delete(
         }
         let result = article_field_service::batch_delete(db, ids).await?;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(Ok(result))))
     } else {
         Err(Error::from("删除的ID不能为空"))
@@ -128,7 +128,7 @@ pub async fn get_article_values(
     let db = &state.db;
     let result = article_field_service::get_article_values(db, article_id.into_inner()).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -140,7 +140,7 @@ pub async fn save_article_values(
     let db = &state.db;
     let result = article_field_service::save_article_values(db, req.into_inner()).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::success_with_msg(
             result.to_string(),
             "保存成功",

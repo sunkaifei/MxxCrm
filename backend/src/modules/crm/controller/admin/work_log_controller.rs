@@ -13,7 +13,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 
 use crate::modules::crm::model::work_log::WorkLogCreateDTO;
 use crate::modules::crm::service::work_log_service;
@@ -24,13 +24,13 @@ pub async fn work_log_today(state: web::Data<AppState>, req: HttpRequest) -> Htt
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
     if user_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
     match work_log_service::find_today_list(db, user_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local")),
     }
 }
@@ -41,13 +41,13 @@ pub async fn work_log_week_workload(state: web::Data<AppState>, req: HttpRequest
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
     if user_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
     match work_log_service::find_week_workload(db, user_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local")),
     }
 }
@@ -58,13 +58,13 @@ pub async fn work_log_today_summary(state: web::Data<AppState>, req: HttpRequest
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
     if user_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
     match work_log_service::find_today_summary(db, user_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local")),
     }
 }
@@ -79,16 +79,16 @@ pub async fn work_log_create(
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
     if user_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
     let mut dto = payload.0;
     // 强制以登录用户为准，防止越权写入他人日志
     dto.user_id = user_id;
     match work_log_service::insert(db, &dto).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local")),
     }
 }

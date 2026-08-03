@@ -15,7 +15,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::sale::model::payment::{
     PaymentApplyRequest, PaymentApprovalReq, PaymentListQuery, PaymentSaveRequest, PaymentUpdateRequest,
 };
@@ -28,7 +28,7 @@ pub async fn payment_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = payment_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn payment_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PaymentUpdateRequest>) -> Result<HttpResponse> {
@@ -36,13 +36,13 @@ pub async fn payment_update(state: web::Data<AppState>, req: HttpRequest, form_d
     let form_data = form_data.0;
 
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "收款记录ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "收款记录ID不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = payment_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
@@ -50,7 +50,7 @@ pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<Bat
     let delete_item = item.0;
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的收款记录ID", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的收款记录ID", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
@@ -59,7 +59,7 @@ pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<Bat
         .collect();
 
     let result = payment_service::batch_delete_by_ids(&db, &filtered_ids).await;
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 pub async fn payment_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
@@ -67,12 +67,12 @@ pub async fn payment_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "收款记录ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "收款记录ID不能为空", "local"));
     }
 
     match payment_service::find_by_id(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -87,9 +87,9 @@ pub async fn payment_list(state: web::Data<AppState>, req: HttpRequest, query: w
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         },
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -102,7 +102,7 @@ pub async fn payment_confirm(
     let db = &state.db;
     let payment_id = match form_data.0.id {
         Some(id) if id > 0 => id,
-        _ => return HttpResponse::Ok().content_type("application/msgpack")
+        _ => return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "回款ID不能为空", "local")),
     };
 
@@ -110,9 +110,9 @@ pub async fn payment_confirm(
     let user_id = jwt_token.id.unwrap_or_default();
 
     match payment_service::confirm(db, payment_id, user_id).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -125,14 +125,14 @@ pub async fn payment_reject(
     let db = &state.db;
     let payment_id = match form_data.0.id {
         Some(id) if id > 0 => id,
-        _ => return HttpResponse::Ok().content_type("application/msgpack")
+        _ => return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "回款ID不能为空", "local")),
     };
 
     match payment_service::reject(db, payment_id).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -150,9 +150,9 @@ pub async fn payment_apply(
     let user_id = jwt_token.id.unwrap_or_default();
 
     match payment_service::apply(db, &dto, user_id).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -165,14 +165,14 @@ pub async fn payment_application_cancel(
     let db = &state.db;
     let application_id = match form_data.0.id {
         Some(id) if id > 0 => id,
-        _ => return HttpResponse::Ok().content_type("application/msgpack")
+        _ => return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "核销记录ID不能为空", "local")),
     };
 
     match payment_service::cancel_apply(db, application_id).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -185,14 +185,14 @@ pub async fn payment_unapplied(
     let db = &state.db;
     let payment_id = match query.0.id {
         Some(id) if id > 0 => id,
-        _ => return HttpResponse::Ok().content_type("application/msgpack")
+        _ => return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "回款ID不能为空", "local")),
     };
 
     match payment_service::get_unapplied(db, payment_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -205,14 +205,14 @@ pub async fn payment_application_list(
     let db = &state.db;
     let payment_id = match query.0.id {
         Some(id) if id > 0 => id,
-        _ => return HttpResponse::Ok().content_type("application/msgpack")
+        _ => return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "回款ID不能为空", "local")),
     };
 
     match payment_service::get_applications(db, payment_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -229,9 +229,9 @@ pub async fn payment_submit(
     let payment_id = path.into_inner();
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match payment_service::submit_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -247,9 +247,9 @@ pub async fn payment_approve(
     let payment_id = path.into_inner();
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match payment_service::approve_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.0.reason).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -265,9 +265,9 @@ pub async fn payment_approval_reject(
     let payment_id = path.into_inner();
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match payment_service::reject_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.0.reason).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -280,9 +280,9 @@ pub async fn payment_approval_detail(
     let db = &state.db;
     let payment_id = path.into_inner();
     match payment_service::get_payment_approval_detail(db, payment_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }

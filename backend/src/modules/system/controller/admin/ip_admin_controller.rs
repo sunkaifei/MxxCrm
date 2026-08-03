@@ -12,14 +12,14 @@ use actix_web::{web, HttpResponse};
 use actix_web::web::Query;
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::ip_address::ListQuery;
 use crate::modules::system::service::ip_address_service;
 
 pub async fn ip_address_page(state: web::Data<AppState>, query: Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     ip_address_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local"))
     })
 }
 

@@ -125,10 +125,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(edit_log_admin_controller::register)
             // Template Category Management
             .configure(template_category_admin_controller::register)
-            // Template Management
+            // Template Management (含 template/data 子路由，嵌套在 /template scope 内)
             .configure(template_admin_controller::register)
-            // Template Data Management
-            .configure(template_data_admin_controller::register)
             // My Template Management
             .configure(my_template_admin_controller::register)
             // Website Links Management

@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::articles::model::category::{CategoryModel, CategoryPageDTO, CategorySaveDTO};
 use crate::modules::articles::service::category_service;
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -96,13 +96,13 @@ pub async fn save(
         Ok(id) => {
             let result = serde_json::json!({ "id": id });
             Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success(result, "local")))
         }
         Err(err) => {
             let err_msg = err.to_string();
             Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, &err_msg, "local")))
         }
     }
@@ -190,15 +190,15 @@ pub async fn update(
 
     match category_service::update_by_id(db, dto).await {
         Ok(affected) if affected > 0 => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::success("修改成功".to_string(), "local"))),
         Ok(_) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "更新失败", "local"))),
         Err(err) => {
             let err_msg = err.to_string();
             Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, &err_msg, "local")))
         }
     }
@@ -228,11 +228,11 @@ pub async fn delete(
     if let Some(id_val) = id {
         let result = CategoryModel::batch_delete_by_ids(db, &website_id, vec![id_val]).await?;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(Ok(result))))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
@@ -259,12 +259,12 @@ pub async fn tree(
 
     match category_service::select_all_list(db, dto).await {
         Ok(list) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(list, "local"))),
         Err(err) => {
             let err_msg = err.to_string();
             Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, &err_msg, "local")))
         }
     }

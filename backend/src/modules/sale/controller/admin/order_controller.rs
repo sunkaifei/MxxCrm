@@ -14,7 +14,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::sale::model::order::{OrderApprovalDetailVO, OrderApprovalReq, OrderListQuery, OrderSaveRequest, OrderStatusUpdateRequest, OrderUpdateRequest};
 use crate::modules::sale::service::order_service;
 use crate::modules::system::service::edit_log_service;
@@ -64,11 +64,11 @@ pub async fn order_insert(state: web::Data<AppState>, req: HttpRequest, form_dat
             json!({})
         };
 
-        let editor_name = if let Ok(Some(admin)) = Admin::find_by_id(user_id).one(db).await {
+        let editor_name = match Admin::find_by_id(user_id).one(db).await { Ok(Some(admin)) => {
             admin.nick_name.or(admin.user_name)
-        } else {
+        } _ => {
             None
-        };
+        }};
 
         let business_no = new_data.get("orderNo").and_then(|v| v.as_str()).map(|s| s.to_string());
         let business_title = new_data.get("title").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -89,14 +89,14 @@ pub async fn order_insert(state: web::Data<AppState>, req: HttpRequest, form_dat
         ).await;
     }
 
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn order_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
@@ -117,11 +117,11 @@ pub async fn order_update(state: web::Data<AppState>, req: HttpRequest, form_dat
             json!({})
         };
 
-        let editor_name = if let Ok(Some(admin)) = Admin::find_by_id(user_id).one(db).await {
+        let editor_name = match Admin::find_by_id(user_id).one(db).await { Ok(Some(admin)) => {
             admin.nick_name.or(admin.user_name)
-        } else {
+        } _ => {
             None
-        };
+        }};
 
         let business_no = old_data.get("orderNo").and_then(|v| v.as_str()).map(|s| s.to_string());
         let business_title = old_data.get("title").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -140,33 +140,33 @@ pub async fn order_update(state: web::Data<AppState>, req: HttpRequest, form_dat
         ).await;
     }
 
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn order_update_status(state: web::Data<AppState>, form_data: web::Json<OrderStatusUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
     }
     if form_data.order_status.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单状态不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单状态不能为空", "local")));
     }
     let result = order_service::update_status(db, &form_data).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn batch_delete_order(state: web::Data<AppState>, form_data: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = form_data.ids.clone() {
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids: Vec<i64> = ids_vec.into_iter().filter_map(|id| id.and_then(|s| s.parse().ok())).collect();
         let result = order_service::batch_delete(db, &ids).await;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -174,11 +174,11 @@ pub async fn order_info(state: web::Data<AppState>, item: web::Query<InfoId>) ->
     let db = &state.db;
     let item = item.0;
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local"));
     }
     match order_service::get_detail(db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -191,9 +191,9 @@ pub async fn order_list(state: web::Data<AppState>, req: HttpRequest, query: web
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         },
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -204,12 +204,12 @@ pub async fn order_submit(state: web::Data<AppState>, req: HttpRequest, item: we
     let db = &state.db;
     let item = item.0;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match order_service::submit_order(db, item.id.unwrap(), jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -219,8 +219,8 @@ pub async fn order_approve(state: web::Data<AppState>, req: HttpRequest, form_da
     let form_data = form_data.0;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match order_service::approve_order(db, form_data.order_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -230,8 +230,8 @@ pub async fn order_reject(state: web::Data<AppState>, req: HttpRequest, form_dat
     let form_data = form_data.0;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match order_service::reject_order(db, form_data.order_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -240,8 +240,8 @@ pub async fn order_approval_detail(state: web::Data<AppState>, path: web::Path<i
     let db = &state.db;
     let order_id = path.into_inner();
     match order_service::get_approval_detail(db, order_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -250,12 +250,12 @@ pub async fn order_create_contract(state: web::Data<AppState>, req: HttpRequest,
     let db = &state.db;
     let item = item.0;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match order_service::create_contract_from_order(db, item.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
-        Ok(contract_id) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(contract_id, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(contract_id) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(contract_id, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 

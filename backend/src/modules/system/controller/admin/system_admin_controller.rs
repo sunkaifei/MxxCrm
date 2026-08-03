@@ -23,7 +23,7 @@ use crate::core::kit::CONTEXT;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserRegisterRequest, CheckUsernameResult, UserLoginVO, AdminModel};
 use crate::modules::system::model::admin::{ListQuery, TokenVO};
 use crate::modules::system::service::menu_service::find_user_role_keys;
@@ -33,56 +33,56 @@ use crate::modules::system::service::{admin_service, dept_service, post_service,
 pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.user_name.as_ref().map_or(true, |username| username.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名称不能为空", "local")));
     }
     if admin_service::find_by_name_unique(&db, &item.user_name, &None).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
     }
     if admin_service::find_by_mobile_unique(&db, &item.mobile, &None).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
     }
     if item.email.is_some() {
         if admin_service::find_by_email_unique(&db, &item.email, &None).await.unwrap_or_default(){
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
         }
     }
     if admin_service::find_by_nick_name_unique(&db, &item.nick_name, &None).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "昵称已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "昵称已存在", "local")));
     }
     let result = admin_service::insert(&db, &item.0).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 /// 后台用户登录
 pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: web::Json<UserLoginRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.username.as_ref().map_or(true, |username| username.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名不能为空", "local")));
     }
 
     if item.password.as_ref().map_or(true, |password| password.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "密码不能为空", "local")));
     }
     // if let (Some(verify_code), Some(uuid)) = (item.captcha_code.clone(), item.captcha_key.clone()) {
     //     if verify_code.is_empty() || uuid.is_empty() {
-    //         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::error_msg("验证不能为空或者参数错误".to_string())));
+    //         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::error_msg("验证不能为空或者参数错误".to_string())));
     //     }
 
     //     // 查询缓存内的验证码
     //     let cache_captcha = CONTEXT.cache_service.get_string(&format!("captcha:cache_{}", uuid.as_str())).await.unwrap_or_default();
     //     if cache_captcha.is_empty() {
-    //         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::error_msg("验证码已过期或者不存在".to_string())));
+    //         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::error_msg("验证码已过期或者不存在".to_string())));
     //     }
 
     //     // 比较验证码
     //     if cache_captcha != verify_code {
-    //         return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::error_msg("验证码不正确".to_string())));
+    //         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::error_msg("验证码不正确".to_string())));
     //     }
 
     //     // 删除验证码缓存
     //     CONTEXT.cache_service.del(&format!("captcha:cache_{}", uuid.as_str())).await.unwrap_or_default();
     // } else {
-    //     return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::error_msg("验证不能为空或者参数错误".to_string())));
+    //     return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::error_msg("验证不能为空或者参数错误".to_string())));
     // }
 
     // 提取登录请求中输入的用户名，用于审计日志记录（即便后续校验失败，也要知道是谁在尝试登录）
@@ -121,7 +121,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
             Some("密码不正确".to_string()),
             oper_ip.clone(),
         ).await;
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码不正确", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "密码不正确", "local")));
     }
 
     // 用户被禁用
@@ -135,7 +135,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
             Some("用户已被禁用，无法登录".to_string()),
             oper_ip.clone(),
         ).await;
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户已被禁用，无法登录", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户已被禁用，无法登录", "local")));
     }
     //判断是否是管理员
     let is_admin = user_info.user_type == Option::from(1);
@@ -201,7 +201,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
                 expires_in: Option::from(expire.as_secs() as i64),
                 role: user_role_keys,
             };
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(user_token, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_token, "local")))
         }
         Err(err) => {
             // 生成 token 失败也记录日志
@@ -214,7 +214,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
                 Some(format!("生成Token失败: {}", err)),
                 oper_ip.clone(),
             ).await;
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
         }
     }
 }
@@ -255,13 +255,13 @@ pub async fn check_username(state: web::Data<AppState>, query: web::Query<UserRe
     let db = &state.db;
     let username = query.username.clone().unwrap_or_default();
     if username.trim().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(CheckUsernameResult { exists: false, message: "".to_string() }, "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(CheckUsernameResult { exists: false, message: "".to_string() }, "local"));
     }
     let exists = admin_service::find_by_name_unique(&db, &Some(username.clone()), &None).await.unwrap_or_default();
     if exists {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(CheckUsernameResult { exists: true, message: "用户名已存在".to_string() }, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(CheckUsernameResult { exists: true, message: "用户名已存在".to_string() }, "local"))
     } else {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(CheckUsernameResult { exists: false, message: "用户名可用".to_string() }, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(CheckUsernameResult { exists: false, message: "用户名可用".to_string() }, "local"))
     }
 }
 
@@ -272,38 +272,38 @@ pub async fn user_register(state: web::Data<AppState>, item: web::Json<UserRegis
     let password = item.password.clone().unwrap_or_default();
     
     if username.trim().is_empty() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名不能为空", "local")));
     }
     if password.trim().is_empty() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "密码不能为空", "local")));
     }
     if username.len() < 3 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名至少需要3个字符", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名至少需要3个字符", "local")));
     }
     if password.len() < 6 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码至少需要6个字符", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "密码至少需要6个字符", "local")));
     }
     
     if admin_service::find_by_name_unique(&db, &Some(username.clone()), &None).await.unwrap_or_default() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
     }
     
     if item.mobile.is_some() {
         if admin_service::find_by_mobile_unique(&db, &item.mobile, &None).await.unwrap_or_default() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
         }
     }
     
     if item.email.is_some() {
         if admin_service::find_by_email_unique(&db, &item.email, &None).await.unwrap_or_default() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
         }
     }
     
     let save_request: AdminSaveRequest = item.into_inner().into();
     
     let result = admin_service::register(&db, &save_request).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 // 删除用户信息
@@ -313,19 +313,19 @@ pub async fn admin_batch_delete(state: web::Data<AppState>, item: web::Json<Bath
         for id_opt in ids_vec.iter() {
             if let Some(id) = id_opt {
                 if id == "1" {
-                    return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "含有不能删除的超级管理员账户", "local")));
+                    return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "含有不能删除的超级管理员账户", "local")));
                 }
             }
         }
 
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
 
         let result = admin_service::batch_delete_by_ids(&db, &ids_vec).await;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -334,15 +334,15 @@ pub async fn admin_soft_delete(state: web::Data<AppState>, path: web::Path<i64>)
     let db = &state.db;
     let id = path.into_inner();
     if id == 1 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "不能删除超级管理员账户", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "不能删除超级管理员账户", "local")));
     }
     let result = admin_service::soft_delete_by_id(&db, id).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn update_user_role(state: web::Data<AppState>, item: web::Json<UpdateAdminRoleRequest>) -> Result<HttpResponse> {
     if is_demo_mode() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "演示站模式下禁止修改用户角色", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "演示站模式下禁止修改用户角色", "local")));
     }
     let db = &state.db;
     let user_role = item.0;
@@ -354,7 +354,7 @@ pub async fn update_user_role(state: web::Data<AppState>, item: web::Json<Update
             permission_cache_service::invalidate_by_user_id(uid).await;
         }
     }
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 
@@ -364,29 +364,29 @@ pub async fn admin_update(state: web::Data<AppState>, item: web::Json<AdminUpdat
     let item = item.0;
     if let Some(id) = item.id {
         if id == 1 && item.status == Option::from(0) {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "超级管理员不能禁用", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "超级管理员不能禁用", "local")));
         }
     } else {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "更新的用户id不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "更新的用户id不能为空", "local")));
     }
     if admin_service::find_by_name_unique(&db, &item.user_name, &item.id).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
     }
     if admin_service::find_by_mobile_unique(&db, &item.mobile, &item.id).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
     }
     if item.email.is_some() {
         if admin_service::find_by_email_unique(&db, &item.email, &item.id).await.unwrap_or_default(){
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
         }
     }
     if admin_service::find_by_nick_name_unique(&db, &item.nick_name, &item.id).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "昵称已存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "昵称已存在", "local")));
     }
 
     let result = admin_service::get_by_detail(&db, &item.id).await?;
     if result.id.unwrap_or_default() == 0 {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户信息不存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户信息不存在", "local")));
     }
     let result = admin_service::update_admin(&db, &item).await;
     // v2.0: 用户信息变更后清除缓存
@@ -401,7 +401,7 @@ pub async fn admin_update(state: web::Data<AppState>, item: web::Json<AdminUpdat
             }
         }
     }
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 /// 更新用户密码
@@ -415,7 +415,7 @@ pub async fn update_password(
 
     // 检查密码是否为空
     if item.password.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "密码不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "密码不能为空", "local")));
     }
 
     // 获取当前用户id
@@ -423,13 +423,13 @@ pub async fn update_password(
 
     // 防止修改当前用户密码
     if admin_token.id == item.user_id {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "不可通过列表页面修改当前用户密码", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "不可通过列表页面修改当前用户密码", "local")));
     }
 
     // 检查用户是否存在
     let sys_admin_result = admin_service::get_by_detail(&db, &item.user_id).await?;
     if sys_admin_result.id.is_none() || sys_admin_result.id == Some(0) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户不存在", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户不存在", "local")));
     }
 
     // 哈希密码
@@ -437,7 +437,7 @@ pub async fn update_password(
 
     // 更新密码
     let result = admin_service::update_user_password(&db, &item.user_id, &Some(hashed_password)).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 // 登录用户更新自己的登录密码
@@ -449,44 +449,44 @@ pub async fn update_my_password(state: web::Data<AppState>, req: HttpRequest, it
     let admin_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = match admin_token.id {
         Some(id) if id > 0 => id,
-        _ => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户未登录或token无效", "local"))),
+        _ => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户未登录或token无效", "local"))),
     };
     
     // 2. 查询管理员信息（使用Model直接查询，包含密码）
     let admin = match AdminModel::find_by_id(db, &Some(user_id)).await {
         Ok(Some(admin)) => admin,
-        _ => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户不存在", "local"))),
+        _ => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户不存在", "local"))),
     };
     
     // 3. 获取旧密码和新密码
     let old_password = match user_pwd.old_password {
         Some(pwd) if !pwd.is_empty() => pwd,
-        _ => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "旧密码不能为空", "local"))),
+        _ => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "旧密码不能为空", "local"))),
     };
     
     let new_password = match user_pwd.new_password {
         Some(pwd) if !pwd.is_empty() => pwd,
-        _ => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "新密码不能为空", "local"))),
+        _ => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "新密码不能为空", "local"))),
     };
     
     let confirm_password = match user_pwd.confirm_password {
         Some(pwd) if !pwd.is_empty() => pwd,
-        _ => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "确认密码不能为空", "local"))),
+        _ => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "确认密码不能为空", "local"))),
     };
     
     // 4. 验证旧密码是否正确
     let stored_password = match admin.password {
         Some(pwd) => pwd,
-        None => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户密码不存在", "local"))),
+        None => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户密码不存在", "local"))),
     };
     
     if !verify(old_password, &stored_password).unwrap_or(false) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "旧密码不正确", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "旧密码不正确", "local")));
     }
     
     // 5. 确认新密码和确认密码一致
     if new_password != confirm_password {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "新密码和确认密码不一致", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "新密码和确认密码不一致", "local")));
     }
     
     // 6. 更新密码
@@ -494,8 +494,8 @@ pub async fn update_my_password(state: web::Data<AppState>, req: HttpRequest, it
     let result = admin_service::update_user_password(db, &Some(admin.id), &Some(hashed)).await;
     
     match result {
-        Ok(_) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(200, "密码更新成功", "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("密码更新失败: {}", e), "local"))),
+        Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(200, "密码更新成功", "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("密码更新失败: {}", e), "local"))),
     }
 }
 
@@ -503,13 +503,13 @@ pub async fn update_admin_status(state: web::Data<AppState>, item: web::Json<Upd
     let db = &state.db;
     let admin_status = item.0;
     if admin_status.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户id不能为空", "local")))
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户id不能为空", "local")))
     }
     if admin_status.id == Option::from(1) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "超级管理员不能禁用", "local")))
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "超级管理员不能禁用", "local")))
     }
     let result = admin_service::update_user_status(&db, &admin_status).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 
@@ -517,11 +517,11 @@ pub async fn update_admin_status(state: web::Data<AppState>, item: web::Json<Upd
 pub async fn get_user_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "角色id不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "角色id不能为空", "local")));
     }
     let user_result = admin_service::get_by_detail(&db, &item.id).await?;
     if user_result.id.is_none() || user_result.id == Some(0) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户不存在", "local")))
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户不存在", "local")))
     }
     let mut admin_detail = user_result;
     // 查询用户关联的角色
@@ -564,7 +564,7 @@ pub async fn get_user_detail(state: web::Data<AppState>, item: web::Path<InfoId>
     admin_detail.post_names = Some(post_name_data);
 
 
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(admin_detail, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(admin_detail, "local")))
 }
 
 pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Result<HttpResponse> {
@@ -595,7 +595,7 @@ pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Res
         data_scope,
     };
     
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(user_info, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_info, "local")))
 }
 
 /// 更新当前登录用户头像请求体
@@ -614,23 +614,23 @@ pub struct UpdateAvatarRequest {
 /// - 用户id从 JWT 提取
 pub async fn update_avatar(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateAvatarRequest>) -> Result<HttpResponse> {
     if is_demo_mode() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "演示站模式下禁止修改头像", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "演示站模式下禁止修改头像", "local")));
     }
     let db = &state.db;
     let admin_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = match admin_token.id {
         Some(id) if id > 0 => id,
-        _ => return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户未登录或token无效", "local"))),
+        _ => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户未登录或token无效", "local"))),
     };
 
     let avatar = item.into_inner().avatar;
     if avatar.trim().is_empty() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "头像地址不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "头像地址不能为空", "local")));
     }
 
     match AdminModel::update_avatar(db, user_id, &avatar).await {
-        Ok(_) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(avatar, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("更新头像失败: {}", e), "local"))),
+        Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(avatar, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("更新头像失败: {}", e), "local"))),
     }
 }
 
@@ -638,14 +638,14 @@ pub async fn update_avatar(state: web::Data<AppState>, req: HttpRequest, item: w
 pub async fn admin_list(state: web::Data<AppState>, query: web::Query<ListQuery>,) -> Result<HttpResponse> {
     let db = &state.db;
     admin_service::get_by_page(db, query.into_inner()).await.map(|page_data| {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local"))
     })
 }
 
 pub async fn admin_options(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     admin_service::get_admin_options(db).await.map(|list_data| {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list_data, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list_data, "local"))
     })
 }
 
@@ -668,12 +668,12 @@ pub async fn get_auth_codes(state: web::Data<AppState>, req: HttpRequest) -> Res
     // 查询用户关联的按钮权限
     let user_role_keys: Vec<String> = find_user_role_keys(&db, &is_admin, &Some(user_info.id)).await?;
     
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(user_role_keys, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_role_keys, "local")))
 }
 
 // 退出登录
 pub async fn logout() -> HttpResponse {
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success(String::new(), "local"))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success(String::new(), "local"))
 }
 
 // ==================== 路由注册（方案 C：单点维护）====================

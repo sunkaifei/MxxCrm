@@ -10,7 +10,7 @@
 
 use actix_web::{get, post, web, HttpResponse, HttpRequest, Result, http::StatusCode};
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::model::member_fee::MemberFeeSaveRequest;
 use crate::modules::finance::service::member_fee_service;
 use crate::core::kit::jwt_util::JWTToken;
@@ -31,14 +31,14 @@ pub async fn get_my_member_info(
                 log::error!("[获取会员信息] Authorization header解析失败: {:?}", e);
                 return Ok(HttpResponse::Ok()
                     .status(StatusCode::UNAUTHORIZED)
-                    .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                    .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
             }
         },
         None => {
             log::error!("[获取会员信息] Authorization header不存在");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
         }
     };
 
@@ -48,7 +48,7 @@ pub async fn get_my_member_info(
             log::error!("[获取会员信息] token验证失败: {:?}", e);
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
         }
     };
 
@@ -56,7 +56,7 @@ pub async fn get_my_member_info(
         log::error!("[获取会员信息] token签发者不匹配");
         return Ok(HttpResponse::Ok()
             .status(StatusCode::UNAUTHORIZED)
-            .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
+            .content_type(MPACK).body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
     }
 
     let user_id = match decoded_token.id {
@@ -65,16 +65,16 @@ pub async fn get_my_member_info(
             log::error!("[获取会员信息] token中未包含用户ID");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
         }
     };
 
     let result = member_fee_service::get_by_user_id(db, user_id).await;
 
     match result {
-        Ok(Some(data)) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Ok(None) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(200, "暂无会员信息", "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(Some(data)) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Ok(None) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(200, "暂无会员信息", "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -94,14 +94,14 @@ pub async fn create_member_fee(
                 log::error!("[创建会员费用] Authorization header解析失败: {:?}", e);
                 return Ok(HttpResponse::Ok()
                     .status(StatusCode::UNAUTHORIZED)
-                    .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                    .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
             }
         },
         None => {
             log::error!("[创建会员费用] Authorization header不存在");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
         }
     };
 
@@ -111,7 +111,7 @@ pub async fn create_member_fee(
             log::error!("[创建会员费用] token验证失败: {:?}", e);
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
         }
     };
 
@@ -119,7 +119,7 @@ pub async fn create_member_fee(
         log::error!("[创建会员费用] token签发者不匹配");
         return Ok(HttpResponse::Ok()
             .status(StatusCode::UNAUTHORIZED)
-            .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
+            .content_type(MPACK).body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
     }
 
     let user_id = match decoded_token.id {
@@ -128,7 +128,7 @@ pub async fn create_member_fee(
             log::error!("[创建会员费用] token中未包含用户ID");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
         }
     };
 
@@ -138,8 +138,8 @@ pub async fn create_member_fee(
     let result = member_fee_service::insert(db, req).await;
 
     match result {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -159,14 +159,14 @@ pub async fn purchase_member(
                 log::error!("[购买会员] Authorization header解析失败: {:?}", e);
                 return Ok(HttpResponse::Ok()
                     .status(StatusCode::UNAUTHORIZED)
-                    .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                    .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
             }
         },
         None => {
             log::error!("[购买会员] Authorization header不存在");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
         }
     };
 
@@ -176,7 +176,7 @@ pub async fn purchase_member(
             log::error!("[购买会员] token验证失败: {:?}", e);
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
         }
     };
 
@@ -184,7 +184,7 @@ pub async fn purchase_member(
         log::error!("[购买会员] token签发者不匹配");
         return Ok(HttpResponse::Ok()
             .status(StatusCode::UNAUTHORIZED)
-            .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
+            .content_type(MPACK).body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
     }
 
     let user_id = match decoded_token.id {
@@ -193,7 +193,7 @@ pub async fn purchase_member(
             log::error!("[购买会员] token中未包含用户ID");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
         }
     };
 
@@ -203,7 +203,7 @@ pub async fn purchase_member(
     let result = member_fee_service::insert(db, req).await;
 
     match result {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

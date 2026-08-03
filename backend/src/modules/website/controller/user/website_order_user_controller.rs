@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::user_auth::get_user_id_from_request;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_order::OrderCreateRequest;
 use crate::modules::website::service::website_order_service;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
@@ -31,10 +31,10 @@ pub async fn create(
     };
     match website_order_service::create_order(db, user_id, body.into_inner()).await {
         Ok(id) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -70,7 +70,7 @@ pub async fn list(
     {
         Ok(page) => Ok(HttpResponse::Ok().json(page)),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -89,10 +89,10 @@ pub async fn detail(
     };
     match website_order_service::get_order_detail(db, user_id, id.into_inner()).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -119,7 +119,7 @@ pub async fn cancel(
     let reason = body.reason.clone().unwrap_or_else(|| "用户主动取消".to_string());
     let result = website_order_service::user_cancel_order(db, user_id, id.into_inner(), reason).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -137,6 +137,6 @@ pub async fn confirm_receive(
     };
     let result = website_order_service::user_confirm_receive(db, user_id, id.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }

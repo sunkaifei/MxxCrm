@@ -12,7 +12,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::message::model::notification::{NotificationListQuery, NotificationDTO, PageResponse, SendNotificationRequest};
 use crate::modules::message::service::notification_service::NotificationService;
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -35,7 +35,7 @@ pub async fn send_notification(
     } else if let Some(rid) = item.receiver_id {
         vec![rid]
     } else {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "接收人不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "接收人不能为空", "local")));
     };
 
     let result = crate::modules::message::service::notification_service::NotificationService::send_notification(
@@ -47,14 +47,14 @@ pub async fn send_notification(
 
     match result {
         Ok(count) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true, "count": count}), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true, "count": count}), "local")))
         }
         Err(e) => {
             let msg = match e {
                 crate::modules::message::service::notification_service::NotificationServiceError::InvalidParameter(m) => m,
                 _ => "发送通知失败".to_string(),
             };
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &msg, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")))
         }
     }
 }
@@ -69,10 +69,10 @@ pub async fn get_notification_list(
 
     match notifications {
         Ok(page_data) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local")))
         }
         Err(_) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取通知列表失败", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取通知列表失败", "local")))
         }
     }
 }

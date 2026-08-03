@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_user::{WebsiteUserListQuery, WebsiteUserSaveDTO};
 use crate::modules::website::service::website_user_service;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
@@ -28,7 +28,7 @@ pub async fn get_by_page(
     match website_user_service::admin_get_by_page(db, query.into_inner()).await {
         Ok(page) => Ok(HttpResponse::Ok().json(page)),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -41,10 +41,10 @@ pub async fn get_by_detail(
     let db = &state.db;
     match website_user_service::admin_get_by_id(db, id.into_inner()).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -57,7 +57,7 @@ pub async fn create(
     let db = &state.db;
     let result = website_user_service::admin_create(db, body.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -70,7 +70,7 @@ pub async fn update(
     let db = &state.db;
     let result = website_user_service::admin_update(db, id.into_inner(), body.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -89,7 +89,7 @@ pub async fn reset_password(
     let db = &state.db;
     let result = website_user_service::admin_reset_password(db, id.into_inner(), body.new_password.clone()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -108,7 +108,7 @@ pub async fn update_status(
     let db = &state.db;
     let result = website_user_service::admin_update_status(db, id.into_inner(), body.status).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -121,17 +121,17 @@ pub async fn batch_delete(
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
             return Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let result = website_user_service::admin_batch_delete(db, ids).await;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }

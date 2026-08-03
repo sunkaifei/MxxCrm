@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::salary_item_service;
 
 /// 删除参数
@@ -37,10 +37,10 @@ pub async fn list(state: web::Data<AppState>) -> HttpResponse {
 
     match salary_item_service::get_item_list(db).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -55,10 +55,10 @@ pub async fn upsert(
 
     match salary_item_service::upsert_item(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -73,10 +73,10 @@ pub async fn delete(
 
     match salary_item_service::delete_item(db, q.id).await {
         Ok(_) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("删除成功".to_string(), "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -91,10 +91,10 @@ pub async fn values(
 
     match salary_item_service::get_item_values(db, q.salary_record_id).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -109,10 +109,10 @@ pub async fn save_values(
 
     match salary_item_service::save_item_values(db, dto.salary_record_id, dto.values).await {
         Ok(_) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("保存成功".to_string(), "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

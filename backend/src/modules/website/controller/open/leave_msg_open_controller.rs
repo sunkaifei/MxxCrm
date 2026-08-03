@@ -11,7 +11,7 @@
 use actix_web::{HttpRequest, HttpResponse, web};
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::leave_msg::LeaveMsgSubmitRequest;
 use crate::modules::website::service::{leave_msg_service, website_service};
 
@@ -32,12 +32,12 @@ pub async fn submit(
         || form_data.contact_phone.as_ref().map_or(false, |s| !s.trim().is_empty());
     if !has_contact {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "请填写联系人姓名或电话", "local")));
     }
     if form_data.content.as_ref().map_or(true, |s| s.trim().is_empty()) {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "留言内容不能为空", "local")));
     }
 
@@ -54,6 +54,6 @@ pub async fn submit(
 
     let result = leave_msg_service::submit(db, &site, form_data, ip_address, user_agent).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }

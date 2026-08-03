@@ -17,7 +17,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::bank_export_service;
 
 #[derive(Deserialize)]
@@ -41,10 +41,10 @@ pub async fn list(
 
     match bank_export_service::get_file_list(db, q.year, q.month, q.bank_type, page, page_size).await {
         Ok((list, total)) => {
-            HttpResponse::Ok().content_type("application/msgpack")
+            HttpResponse::Ok().content_type(MPACK)
                 .body(MetaResp::success_with_page(list, "local", page as u32, total as u32))
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -85,7 +85,7 @@ pub async fn generate(
         match bank_export_service::generate_file(db, dto.year, dto.month, &dto.bank_type, creator_id, creator_name).await {
             Ok(data) => data,
             Err(e) => {
-                return HttpResponse::Ok().content_type("application/msgpack")
+                return HttpResponse::Ok().content_type(MPACK)
                     .body(MetaResp::<String>::fail(400, &e, "local"));
             }
         };
@@ -105,7 +105,7 @@ pub async fn generate(
     ).await {
         Ok(id) => id,
         Err(e) => {
-            return HttpResponse::Ok().content_type("application/msgpack")
+            return HttpResponse::Ok().content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, &e, "local"));
         }
     };
@@ -118,7 +118,7 @@ pub async fn generate(
         file_id,
     };
 
-    HttpResponse::Ok().content_type("application/msgpack")
+    HttpResponse::Ok().content_type(MPACK)
         .body(MetaResp::success(result, "local"))
 }
 
@@ -130,7 +130,7 @@ pub async fn download(
     let item = query.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "文件ID不能为空", "local"));
     }
 
@@ -141,7 +141,7 @@ pub async fn download(
                 .insert_header(("Content-Disposition", format!("attachment; filename=\"{}\"", file_name)))
                 .body(file_content)
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -185,7 +185,7 @@ pub async fn generate_excel(
                 .insert_header(("Content-Disposition", format!("attachment; filename=\"{}\"", file_name)))
                 .body(xlsx_bytes)
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

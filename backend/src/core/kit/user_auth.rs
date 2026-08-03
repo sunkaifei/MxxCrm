@@ -9,7 +9,7 @@
 //!
 
 use actix_web::{HttpRequest, HttpResponse, http::StatusCode};
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::core::kit::jwt_util::JWTToken;
 use crate::config;
 
@@ -29,14 +29,14 @@ pub async fn get_user_id_from_request(req: &HttpRequest) -> Result<i64, HttpResp
                 log::error!("[获取用户ID] Authorization header解析失败: {:?}", e);
                 return Err(HttpResponse::Ok()
                     .status(StatusCode::UNAUTHORIZED)
-                    .content_type("application/msgpack").body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_TOKEN_INVALID, "local")));
+                    .content_type(MPACK).body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_TOKEN_INVALID, "local")));
             }
         },
         None => {
             log::error!("[获取用户ID] Authorization header不存在");
             return Err(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_TOKEN_NOT_EXIST, "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_TOKEN_NOT_EXIST, "local")));
         }
     };
 
@@ -46,7 +46,7 @@ pub async fn get_user_id_from_request(req: &HttpRequest) -> Result<i64, HttpResp
             log::error!("[获取用户ID] token校验失败: {:?}", e);
             return Err(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_TOKEN_EXPIRED, "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_TOKEN_EXPIRED, "local")));
         }
     };
 
@@ -54,7 +54,7 @@ pub async fn get_user_id_from_request(req: &HttpRequest) -> Result<i64, HttpResp
         log::error!("[获取用户ID] token签发者不匹配");
         return Err(HttpResponse::Ok()
             .status(StatusCode::UNAUTHORIZED)
-            .content_type("application/msgpack").body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_TOKEN_TYPE, "local")));
+            .content_type(MPACK).body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_TOKEN_TYPE, "local")));
     }
 
     let user_id = match decoded_token.id {
@@ -63,7 +63,7 @@ pub async fn get_user_id_from_request(req: &HttpRequest) -> Result<i64, HttpResp
             log::error!("[获取用户ID] 用户ID无效");
             return Err(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_USER_ID_INVALID, "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_USER_ID_INVALID, "local")));
         }
     };
 

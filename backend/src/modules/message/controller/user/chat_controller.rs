@@ -11,7 +11,7 @@
 use actix_web::{get, post, web, HttpResponse, HttpRequest};
 use crate::modules::message::model::chat::*;
 use crate::modules::message::service::chat_service::{ChatService, ChatServiceError};
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::core::kit::global::AppState;
 use crate::core::kit::user_auth::get_user_id_from_request;
 
@@ -43,14 +43,14 @@ pub async fn send_message_handler(
     match result {
         Ok(response) => {
             log::info!("[发送聊天消息] 成功: session_id={}, message_id={}", response.session_id, response.message_id);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(response, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(response, "local"))
         }
         Err(e) => {
             log::error!("[发送聊天消息] 失败: {}", format_error(&e));
             match e {
-                ChatServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &msg, "local")),
-                ChatServiceError::UserNotFound => HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "用户不存在", "local")),
-                _ => HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "发送消息失败", "local")),
+                ChatServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")),
+                ChatServiceError::UserNotFound => HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户不存在", "local")),
+                _ => HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "发送消息失败", "local")),
             }
         }
     }
@@ -77,11 +77,11 @@ pub async fn get_session_list_handler(
     match result {
         Ok(response) => {
             log::info!("[会话列表] 成功: 总数={}", response.total);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(response, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(response, "local"))
         }
         Err(e) => {
             log::error!("[会话列表] 失败: {}", format_error(&e));
-            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取会话列表失败", "local"))
+            HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取会话列表失败", "local"))
         }
     }
 }
@@ -107,13 +107,13 @@ pub async fn get_chat_messages_handler(
     match result {
         Ok(response) => {
             log::info!("[聊天记录] 成功: 总数={}", response.total);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(response, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(response, "local"))
         }
         Err(e) => {
             log::error!("[聊天记录] 失败: {}", format_error(&e));
             match e {
-                ChatServiceError::SessionNotFound => HttpResponse::NotFound().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "会话不存在", "local")),
-                _ => HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取聊天记录失败", "local")),
+                ChatServiceError::SessionNotFound => HttpResponse::NotFound().content_type(MPACK).body(MetaResp::<String>::fail(400, "会话不存在", "local")),
+                _ => HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取聊天记录失败", "local")),
             }
         }
     }
@@ -138,11 +138,11 @@ pub async fn mark_read_handler(
     match result {
         Ok(_) => {
             log::info!("[标记已读] 成功");
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true}), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true}), "local"))
         }
         Err(e) => {
             log::error!("[标记已读] 失败: {}", format_error(&e));
-            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "标记已读失败", "local"))
+            HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "标记已读失败", "local"))
         }
     }
 }
@@ -166,11 +166,11 @@ pub async fn delete_session_handler(
     match result {
         Ok(_) => {
             log::info!("[删除会话] 成功");
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true}), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true}), "local"))
         }
         Err(e) => {
             log::error!("[删除会话] 失败: {}", format_error(&e));
-            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除会话失败", "local"))
+            HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除会话失败", "local"))
         }
     }
 }
@@ -191,13 +191,13 @@ pub async fn search_users_handler(
     match result {
         Ok(users) => {
             log::info!("[用户搜索] 成功: 找到{}个用户", users.len());
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(users, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(users, "local"))
         }
         Err(e) => {
             log::error!("[用户搜索] 失败: {}", format_error(&e));
             match e {
-                ChatServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &msg, "local")),
-                _ => HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "搜索用户失败", "local")),
+                ChatServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")),
+                _ => HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "搜索用户失败", "local")),
             }
         }
     }
@@ -224,11 +224,11 @@ pub async fn get_colleague_list_handler(
     match result {
         Ok(users) => {
             log::info!("[同事列表] 成功: 共{}个同事", users.len());
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(users, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(users, "local"))
         }
         Err(e) => {
             log::error!("[同事列表] 失败: {}", format_error(&e));
-            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取同事列表失败", "local"))
+            HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取同事列表失败", "local"))
         }
     }
 }
@@ -248,11 +248,11 @@ pub async fn get_unread_count_handler(req: HttpRequest, state: web::Data<AppStat
     match result {
         Ok(count) => {
             log::info!("[未读数量] 成功: {}", count);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"unread_count": count}), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"unread_count": count}), "local"))
         }
         Err(e) => {
             log::error!("[未读数量] 失败: {}", format_error(&e));
-            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取未读数量失败", "local"))
+            HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取未读数量失败", "local"))
         }
     }
 }
@@ -271,7 +271,7 @@ pub async fn start_session_handler(
     let receiver_id = request.receiver_id;
 
     if receiver_id == 0 {
-        return HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "接收人ID不能为空", "local"));
+        return HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, "接收人ID不能为空", "local"));
     }
 
     log::info!("[开始会话] 用户ID: {}, 对方ID: {}", user_id, receiver_id);
@@ -281,13 +281,13 @@ pub async fn start_session_handler(
     match result {
         Ok(session_id) => {
             log::info!("[开始会话] 成功: session_id={}", session_id);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"sessionId": session_id}), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"sessionId": session_id}), "local"))
         }
         Err(e) => {
             log::error!("[开始会话] 失败: {}", format_error(&e));
             match e {
-                ChatServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &msg, "local")),
-                _ => HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "创建会话失败", "local")),
+                ChatServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")),
+                _ => HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "创建会话失败", "local")),
             }
         }
     }

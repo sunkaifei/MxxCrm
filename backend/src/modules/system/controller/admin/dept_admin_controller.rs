@@ -14,7 +14,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::dept::{DeptDetailVO, DeptModel, DeptSaveDTO, DeptSaveRequest, DeptUpdateRequest, ListQuery};
 use crate::modules::system::service::{admin_service, dept_service};
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -25,13 +25,13 @@ pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::
     let sys_dept = item.0;
     if let Some(dept_name) = sys_dept.dept_name.as_ref() {
         if dept_name.trim().is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门名称不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门名称不能为空", "local")));
         }
         if dept_name.len() > 30 {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门名称不能超过30个字符", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门名称不能超过30个字符", "local")));
         }
     } else {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门名称不能为空", "local")));
     }
     
     //获取用户信息
@@ -53,10 +53,10 @@ pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::
     form_data.update_by = admin.user_name;
     match dept_service::insert(&db, &form_data).await {
         Ok(user_op) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(user_op, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_op, "local")))
         }
         Err(err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
         }
     }
 }
@@ -68,18 +68,18 @@ pub async fn dept_batch_delete(state: web::Data<AppState>, item: web::Json<BathD
         for id_opt in ids_vec.iter() {
             if let Some(id) = id_opt {
                 if id == "1" {
-                    return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "含有不能删除的超级管理员账户", "local")));
+                    return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "含有不能删除的超级管理员账户", "local")));
                 }
             }
         }
 
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let result = dept_service::batch_delete_by_ids(&db, &ids_vec).await;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -91,13 +91,13 @@ pub async fn dept_update(state: web::Data<AppState>, req: HttpRequest, id: web::
 
     if let Some(dept_name) = sys_dept.dept_name.as_ref() {
         if dept_name.trim().is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门名称不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门名称不能为空", "local")));
         }
         if dept_name.len() > 30 {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门名称不能超过30个字符", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门名称不能超过30个字符", "local")));
         }
     } else {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门名称不能为空", "local")));
     }
     
     //获取用户信息
@@ -126,12 +126,12 @@ pub async fn dept_update(state: web::Data<AppState>, req: HttpRequest, id: web::
     match result {
         Ok(v) => {
             if v == 0 {
-                return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "更新部门信息异常", "local")));
+                return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "更新部门信息异常", "local")));
             }
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local")))
         }
         Err(err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("更新部门信息异常,".to_string() + &err.to_string()), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &("更新部门信息异常,".to_string() + &err.to_string()), "local")))
         }
     }
 }
@@ -141,10 +141,10 @@ pub async fn get_dept_options(state: web::Data<AppState>) -> Result<HttpResponse
     let result = dept_service::get_dept_options(db).await;
     match result {
         Ok(v) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local")))
         }
         Err(err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("查询部门列表异常,".to_string() + &err.to_string()), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &("查询部门列表异常,".to_string() + &err.to_string()), "local")))
         }
     }
 }
@@ -154,10 +154,10 @@ pub async fn get_dept_tree(state: web::Data<AppState>) -> Result<HttpResponse> {
     let result = dept_service::get_dept_tree(db).await;
     match result {
         Ok(v) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local")))
         }
         Err(err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("查询部门列表树异常,".to_string() + &err.to_string()), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &("查询部门列表树异常,".to_string() + &err.to_string()), "local")))
         }
     }
 }
@@ -165,20 +165,20 @@ pub async fn get_dept_tree(state: web::Data<AppState>) -> Result<HttpResponse> {
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> HttpResponse {
     let db = &state.db;
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门id不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门id不能为空", "local"));
     }
     return match DeptModel::find_by_id(&db, item.id.unwrap_or_default()).await {
         Ok(dept_op) => match dept_op {
             None => {
-                HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "部门信息不存在", "local"))
+                HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门信息不存在", "local"))
             }
             Some(dept_entity) => {
                 let dept_vo = DeptDetailVO::from(dept_entity);
-                HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(dept_vo, "local"))
+                HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(dept_vo, "local"))
             }
         }
         Err(err) => {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &err.to_string(), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local"))
         }
     }
 }
@@ -189,10 +189,10 @@ pub async fn dept_list(state: web::Data<AppState>, query: web::Query<ListQuery>)
     let result = dept_service::get_all_tree(&db,query.into_inner()).await;
     match result {
         Ok(v) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local")))
         }
         Err(err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("查询部门列表树异常,".to_string() + &err.to_string()), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &("查询部门列表树异常,".to_string() + &err.to_string()), "local")))
         }
     }
 }

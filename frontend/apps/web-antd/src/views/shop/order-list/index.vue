@@ -6,7 +6,7 @@ import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideEye } from '@vben/icons';
 import { Button, Tag, Modal, Descriptions } from 'ant-design-vue';
-import { orderApi } from '#/api';
+import { orderApi } from '#/api/core/shop/order';
 
 const detailModalVisible = ref(false);
 const detailData = ref<any>(null);

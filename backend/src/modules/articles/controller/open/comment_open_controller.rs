@@ -11,7 +11,7 @@
 use actix_web::{web, HttpResponse};
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::articles::model::comment::{CommentSaveRequest, ListQuery};
 use crate::modules::articles::service::comment_service;
 use crate::validate;
@@ -35,9 +35,9 @@ pub async fn submit(
     let result = comment_service::insert(&db, &payload).await?;
 
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("提交成功，待审核".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("提交成功，待审核".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "提交失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "提交失败", "local")))
     }
 }
 
@@ -55,7 +55,7 @@ pub async fn list_by_article(
     let page_size = query.page_size.unwrap_or(10);
 
     let page_data = comment_service::get_by_article(&db, article_id, page, page_size).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local")))
 }
 
 // ==================== 路由注册（单点维护）====================

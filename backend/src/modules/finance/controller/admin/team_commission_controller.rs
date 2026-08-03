@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::{team_commission_service, commission_allocation_service};
 use crate::modules::finance::service::commission_allocation_service::{AllocateDTO, PendingQuery};
 
@@ -82,10 +82,10 @@ pub async fn list(
     .await
     {
         Ok((list, total)) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -100,10 +100,10 @@ pub async fn calculate(
 
     match team_commission_service::calc_monthly_settlement(db, dto.year, dto.month).await {
         Ok(count) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(count, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -118,10 +118,10 @@ pub async fn summary(
 
     match team_commission_service::get_team_summary(db, q.year, q.month).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -144,7 +144,7 @@ pub async fn pending_list(
 
     match commission_allocation_service::get_pending_list(db, query).await {
         Ok((list, total)) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success_with_page(
                 list,
                 "local",
@@ -152,7 +152,7 @@ pub async fn pending_list(
                 total as u32,
             )),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -167,10 +167,10 @@ pub async fn allocate(
 
     match commission_allocation_service::allocate(db, dto).await {
         Ok(count) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(count, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -191,10 +191,10 @@ pub async fn allocation_log(
     .await
     {
         Ok((list, total)) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

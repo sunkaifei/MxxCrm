@@ -5,6 +5,7 @@ use crate::modules::system::service::area_service::AreaService;
 use crate::modules::system::model::area::{AreaSaveRequest, AreaUpdateRequest, AreaSaveDTO, AreaListQuery};
 
 
+use crate::core::web::response::MPACK;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BatchDeleteRequest {
     pub ids: Vec<String>,
@@ -12,7 +13,7 @@ pub struct BatchDeleteRequest {
 
 fn msgpack_response<T: Serialize>(data: T) -> HttpResponse {
     HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(rmp_serde::to_vec_named(&data).unwrap_or_default())
 }
 

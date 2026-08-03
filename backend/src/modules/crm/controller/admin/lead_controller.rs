@@ -15,7 +15,7 @@ use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadSaveRequest, LeadStatusUpdateQuery, LeadUpdateRequest};
 use crate::modules::crm::service::lead_service;
 use crate::modules::crm::service::lead_transfer_service;
@@ -25,13 +25,13 @@ pub async fn lead_insert(state: web::Data<AppState>, req: HttpRequest, form_data
     let form_data = form_data.0;
 
     if form_data.company_name.as_ref().map_or(true, |name| name.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = lead_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn lead_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadUpdateRequest>) -> Result<HttpResponse> {
@@ -39,17 +39,17 @@ pub async fn lead_update(state: web::Data<AppState>, req: HttpRequest, form_data
     let form_data = form_data.0;
 
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local")));
     }
 
     if form_data.company_name.as_ref().map_or(true, |name| name.trim().is_empty()) {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = lead_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn bath_delete_lead(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
@@ -57,7 +57,7 @@ pub async fn bath_delete_lead(state: web::Data<AppState>, item: web::Json<BathDe
     let delete_item = item.0;
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的线索ID", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的线索ID", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
@@ -66,7 +66,7 @@ pub async fn bath_delete_lead(state: web::Data<AppState>, item: web::Json<BathDe
         .collect();
 
     let result = lead_service::batch_delete_by_ids(&db, &filtered_ids).await;
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 pub async fn lead_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
@@ -74,12 +74,12 @@ pub async fn lead_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> 
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
     match lead_service::find_by_id(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -94,9 +94,9 @@ pub async fn lead_list(state: web::Data<AppState>, req: HttpRequest, query: web:
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         },
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -111,9 +111,9 @@ pub async fn lead_pool_list(state: web::Data<AppState>, req: HttpRequest, query:
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         },
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -122,12 +122,12 @@ pub async fn lead_pool_info(state: web::Data<AppState>, item: web::Query<InfoId>
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
     match lead_service::find_by_id(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -136,7 +136,7 @@ pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<B
     let delete_item = item.0;
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的线索ID", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的线索ID", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
@@ -145,7 +145,7 @@ pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<B
         .collect();
 
     let result = lead_service::batch_delete_by_ids(&db, &filtered_ids).await;   
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadStatusUpdateQuery>) -> HttpResponse {
@@ -153,17 +153,17 @@ pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, fo
     let query = form_data.0;
 
     if query.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
     if query.status.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "状态不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "状态不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = lead_service::update_status(&db, query.id.unwrap(), query.status.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
@@ -171,13 +171,13 @@ pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form
     let query = form_data.0;
 
     if query.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = lead_service::add_to_pool(&db, query.id.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 pub async fn lead_claim(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
@@ -185,14 +185,14 @@ pub async fn lead_claim(state: web::Data<AppState>, req: HttpRequest, form_data:
     let query = form_data.0;
 
     if query.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     match lead_service::claim(&db, query.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
-        Ok(customer_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(customer_id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(customer_id) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(customer_id, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -201,14 +201,14 @@ pub async fn lead_convert_to_customer(state: web::Data<AppState>, req: HttpReque
     let query = form_data.0;
 
     if query.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     match lead_service::convert_to_customer(&db, query.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
-        Ok(customer_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(customer_id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(customer_id) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(customer_id, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -224,10 +224,10 @@ pub async fn lead_transfer_preview(
     let _jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match lead_transfer_service::preview_transfer(db, &form_data.0).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -252,10 +252,10 @@ pub async fn lead_transfer(
     .await
     {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

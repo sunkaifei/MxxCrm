@@ -13,7 +13,7 @@ use actix_cors::Cors;
 use actix_web::{web, App, HttpServer, HttpRequest, HttpResponse, Result};
 use actix_web::error::InternalError;
 use utils::snowflake::Snowflake;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 
 #[allow(unused_imports)]
 #[macro_use]
@@ -138,7 +138,7 @@ async fn main() -> std::io::Result<()> {
             .error_handler(|err, _req| {
                 let body = MetaResp::<()>::fail(400, &err.to_string(), "local");
                 let response = HttpResponse::BadRequest()
-                    .content_type("application/msgpack")
+                    .content_type(MPACK)
                     .body(body);
                 InternalError::from_response(err, response).into()
             });

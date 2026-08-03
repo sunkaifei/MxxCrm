@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{web, HttpRequest, HttpResponse};
 
 /// Audit supplier application
@@ -23,7 +23,7 @@ pub async fn audit_apply(
     let _db = &state.db;
     // TODO: call audit_service::audit_supplier(db, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }
 
@@ -36,7 +36,7 @@ pub async fn audit_spu(
     let _db = &state.db;
     // TODO: call audit_service::audit_spu(db, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }
 

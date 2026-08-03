@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website::{SiteSaveDTO, SiteUpdateRequest};
 use crate::modules::website::service::website_service;
 use actix_web::{web, HttpResponse};
@@ -23,7 +23,7 @@ use actix_web::{web, HttpResponse};
 pub async fn get_current(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = website_service::find_default(&db).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// 更新当前（默认）站点配置
@@ -49,7 +49,7 @@ pub async fn update_current(state: web::Data<AppState>, item: web::Json<SiteUpda
     }
 
     website_service::update_by_id(&db, &dto).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("修改成功", "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success("修改成功", "local")))
 }
 
 // ==================== 路由注册（单点维护）====================

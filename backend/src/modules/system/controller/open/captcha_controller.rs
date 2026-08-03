@@ -15,7 +15,7 @@ use captcha::filters::{Dots, Noise, Wave};
 use captcha::Captcha;
 use std::collections::HashMap;
 
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 
 // 定义验证码路由处理函数
 #[get("/pub/captcha/get")]
@@ -35,7 +35,7 @@ pub async fn get_captcha() -> Result<HttpResponse, Box<dyn std::error::Error>> {
     //写入缓存里，该验证码缓存一天，未使用的验证码自动删除
     let result = CONTEXT.cache_service.set_string(&format!("captcha:cache_{}", uuid.as_str()), &captcha_str.as_str()).await;
     if result.is_err() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "创建验证码失败", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "创建验证码失败", "local")));
     }
     let png = captcha.as_png().unwrap_or_default();
     let base64_captcha = engine::general_purpose::STANDARD.encode(png);
@@ -43,5 +43,5 @@ pub async fn get_captcha() -> Result<HttpResponse, Box<dyn std::error::Error>> {
     hashmap.insert("captchaKey", uuid);
     hashmap.insert("captchaBase64", base64_captcha);
     // 返回验证码图像
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(hashmap, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(hashmap, "local")))
 }

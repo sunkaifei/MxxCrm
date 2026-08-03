@@ -11,7 +11,7 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::BathDeleteIdRequest;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::company::model::company::{CompanyAccountSaveRequest, CompanyInfoSaveRequest};
 use crate::modules::company::service::company_service;
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -28,8 +28,8 @@ pub async fn get_company_info(state: web::Data<AppState>, req: HttpRequest) -> R
     let mask_sensitive = !can_edit_company(&jwt_token);
 
     match company_service::get_info(&db, mask_sensitive).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -39,15 +39,15 @@ pub async fn update_company_info(state: web::Data<AppState>, req: HttpRequest, f
     let form_data = form_data.0;
 
     let result = company_service::update_info(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn get_account_list(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
 
     match company_service::get_accounts(&db).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -57,7 +57,7 @@ pub async fn save_account(state: web::Data<AppState>, req: HttpRequest, form_dat
     let form_data = form_data.0;
 
     let result = company_service::save_account(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn delete_account(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
@@ -68,7 +68,7 @@ pub async fn delete_account(state: web::Data<AppState>, item: web::Json<BathDele
         .filter_map(|s| s.parse().ok())
         .collect();
     if ids.is_empty() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "请选择要删除的记录", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "请选择要删除的记录", "local")));
     }
 
     let mut affected = 0i64;
@@ -76,11 +76,11 @@ pub async fn delete_account(state: web::Data<AppState>, item: web::Json<BathDele
         match company_service::delete_account(&db, *id).await {
             Ok(rows) => affected += rows,
             Err(e) => {
-                return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")));
+                return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")));
             }
         }
     }
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(affected, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(affected, "local")))
 }
 
 // ============ 销售流程模式配置 ============
@@ -89,7 +89,7 @@ pub async fn delete_account(state: web::Data<AppState>, item: web::Json<BathDele
 pub async fn get_sales_flow_mode(state: web::Data<AppState>) -> Result<HttpResponse> {
     let db = &state.db;
     let mode = crate::modules::system::service::sales_flow_config_service::get_mode(&db).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(mode, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(mode, "local")))
 }
 
 /// PUT /company/sales-flow/mode - 设置销售流程模式
@@ -98,8 +98,8 @@ pub async fn set_sales_flow_mode(state: web::Data<AppState>, item: web::Json<Sal
     let mode = item.0.mode;
 
     match crate::modules::system::service::sales_flow_config_service::set_mode(&db, &mode).await {
-        Ok(_) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(true, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(true, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 

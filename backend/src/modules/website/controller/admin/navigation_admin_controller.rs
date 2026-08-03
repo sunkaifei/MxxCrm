@@ -13,7 +13,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::navigation::{NavigationSaveDTO, NavigationListQuery, NavigationDetailVO};
 use crate::modules::website::service::{navigation_service, website_service};
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
@@ -43,7 +43,7 @@ pub async fn get_by_page(
     };
 
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(filtered, "local")))
 }
 
@@ -57,7 +57,7 @@ pub async fn get_by_detail(
     let site_id = get_default_site_id(db).await?;
     let result: NavigationDetailVO = navigation_service::find_by_id(db, site_id, id.into_inner()).await?;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -73,13 +73,13 @@ pub async fn add(
 
     if payload.name.is_none() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "导航名称不能为空", "local")));
     }
 
     let result = navigation_service::insert(db, site_id, payload).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -97,13 +97,13 @@ pub async fn update_by_id(
 
     if payload.name.is_none() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "导航名称不能为空", "local")));
     }
 
     let result = navigation_service::update(db, site_id, payload).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -117,17 +117,17 @@ pub async fn batch_delete(
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
             return Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let result = navigation_service::batch_delete(db, site_id, ids).await;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }

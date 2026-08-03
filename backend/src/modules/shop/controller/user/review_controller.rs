@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_user_client_id;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 
 /// Add review
@@ -26,7 +26,7 @@ pub async fn add_review(
     // TODO: call review_service::add(db, user_id, body.into_inner()).await
     let result = serde_json::json!({ "id": 0 });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -46,7 +46,7 @@ pub async fn get_review_list(
         "totalPages": 0
     });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -65,6 +65,6 @@ pub async fn get_review_stats(
         "bad": 0
     });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }

@@ -16,7 +16,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::model::expense::{
     ExpenseApprovalReq, ExpenseListQuery, ExpensePaymentReq, ExpenseSaveRequest,
     ExpenseTypeSaveRequest,
@@ -42,7 +42,7 @@ pub async fn expense_save(
     };
 
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -61,11 +61,11 @@ pub async fn expense_list(
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
             HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success_with_page(page_data, "local", page, total))
         }
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -79,15 +79,15 @@ pub async fn expense_info(
     let id = path.into_inner();
     if id <= 0 {
         return HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "费用申请ID不能为空", "local"));
     }
     match expense_service::get_detail(db, id).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -110,10 +110,10 @@ pub async fn expense_submit(
     .await
     {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -136,10 +136,10 @@ pub async fn expense_approve(
     .await
     {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -162,10 +162,10 @@ pub async fn expense_reject(
     .await
     {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -181,10 +181,10 @@ pub async fn expense_payment(
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match expense_service::make_payment(db, &form_data, jwt_token.id.unwrap_or_default()).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -198,7 +198,7 @@ pub async fn expense_batch_delete(
     if let Some(ids_vec) = form_data.ids.clone() {
         if ids_vec.is_empty() {
             return Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids: Vec<i64> = ids_vec
@@ -207,11 +207,11 @@ pub async fn expense_batch_delete(
             .collect();
         let result = expense_service::batch_delete(db, &ids).await;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
@@ -221,10 +221,10 @@ pub async fn expense_type_list(state: web::Data<AppState>) -> HttpResponse {
     let db = &state.db;
     match expense_service::get_type_list(db).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -238,10 +238,10 @@ pub async fn expense_type_save(
     let form_data = form_data.0;
     match expense_service::save_type(db, &form_data).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -255,7 +255,7 @@ pub async fn expense_type_batch_delete(
     if let Some(ids_vec) = form_data.ids.clone() {
         if ids_vec.is_empty() {
             return Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids: Vec<i64> = ids_vec
@@ -264,11 +264,11 @@ pub async fn expense_type_batch_delete(
             .collect();
         let result = expense_service::batch_delete_type(db, &ids).await;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }

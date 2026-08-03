@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::user_auth::get_user_id_from_request;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_user::WebsiteUserUpdateRequest;
 use crate::modules::website::service::website_user_service;
 use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
@@ -27,10 +27,10 @@ pub async fn get_profile(state: web::Data<AppState>, req: HttpRequest) -> Result
     };
     match website_user_service::get_profile(db, user_id).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -49,7 +49,7 @@ pub async fn update_profile(
     };
     let result = website_user_service::update_profile(db, user_id, body.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -80,6 +80,6 @@ pub async fn change_password(
     )
     .await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }

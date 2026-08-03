@@ -10,7 +10,7 @@
 
 use actix_web::{get, post, web, HttpResponse, Result, HttpRequest, http::StatusCode};
 use crate::core::kit::global::AppState;
-use crate::core::web::response::{MetaResp, ResultPage};
+use crate::core::web::response::{MetaResp, ResultPage, MPACK};
 use crate::modules::finance::model::{
     payment_record::{PaymentRecordSaveRequest, PaymentRecordQuery, PaymentRecordModel},
     member_product::MemberProductModel,
@@ -37,14 +37,14 @@ pub async fn list(
                 log::error!("[支付记录列表] Authorization header解析失败: {:?}", e);
                 return Ok(HttpResponse::Ok()
                     .status(StatusCode::UNAUTHORIZED)
-                    .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                    .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
             }
         },
         None => {
             log::error!("[支付记录列表] Authorization header不存在");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
         }
     };
 
@@ -54,7 +54,7 @@ pub async fn list(
             log::error!("[支付记录列表] token验证失败: {:?}", e);
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
         }
     };
 
@@ -62,7 +62,7 @@ pub async fn list(
         log::error!("[支付记录列表] token签发者不匹配");
         return Ok(HttpResponse::Ok()
             .status(StatusCode::UNAUTHORIZED)
-            .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
+            .content_type(MPACK).body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
     }
 
     let user_id = match decoded_token.id {
@@ -71,7 +71,7 @@ pub async fn list(
             log::error!("[支付记录列表] token中未包含用户ID");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
         }
     };
 
@@ -83,9 +83,9 @@ pub async fn list(
     match result {
         Ok((list, total)) => {
             let page_data = ResultPage::new(list, total, 1, 20);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local")))
         }
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -106,14 +106,14 @@ pub async fn detail(
                 log::error!("[支付记录详情] Authorization header解析失败: {:?}", e);
                 return Ok(HttpResponse::Ok()
                     .status(StatusCode::UNAUTHORIZED)
-                    .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                    .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
             }
         },
         None => {
             log::error!("[支付记录详情] Authorization header不存在");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
         }
     };
 
@@ -123,7 +123,7 @@ pub async fn detail(
             log::error!("[支付记录详情] token验证失败: {:?}", e);
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
         }
     };
 
@@ -131,7 +131,7 @@ pub async fn detail(
         log::error!("[支付记录详情] token签发者不匹配");
         return Ok(HttpResponse::Ok()
             .status(StatusCode::UNAUTHORIZED)
-            .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
+            .content_type(MPACK).body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
     }
 
     let user_id = match decoded_token.id {
@@ -140,7 +140,7 @@ pub async fn detail(
             log::error!("[支付记录详情] token中未包含用户ID");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
         }
     };
 
@@ -149,13 +149,13 @@ pub async fn detail(
     match result {
         Ok(Some(data)) => {
             if data.user_id == user_id {
-                Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")))
+                Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")))
             } else {
-                Ok(HttpResponse::Forbidden().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "无权访问该订单", "local")))
+                Ok(HttpResponse::Forbidden().content_type(MPACK).body(MetaResp::<String>::fail(400, "无权访问该订单", "local")))
             }
         },
-        Ok(None) => Ok(HttpResponse::NotFound().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "订单不存在", "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(None) => Ok(HttpResponse::NotFound().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单不存在", "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -175,14 +175,14 @@ pub async fn create_payment(
                 log::error!("[创建支付] Authorization header解析失败: {:?}", e);
                 return Ok(HttpResponse::Ok()
                     .status(StatusCode::UNAUTHORIZED)
-                    .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                    .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
             }
         },
         None => {
             log::error!("[创建支付] Authorization header不存在");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
         }
     };
 
@@ -192,7 +192,7 @@ pub async fn create_payment(
             log::error!("[创建支付] token验证失败: {:?}", e);
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
         }
     };
 
@@ -200,7 +200,7 @@ pub async fn create_payment(
         log::error!("[创建支付] token签发者不匹配");
         return Ok(HttpResponse::Ok()
             .status(StatusCode::UNAUTHORIZED)
-            .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
+            .content_type(MPACK).body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
     }
 
     let user_id = match decoded_token.id {
@@ -209,7 +209,7 @@ pub async fn create_payment(
             log::error!("[创建支付] token中未包含用户ID");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
         }
     };
 
@@ -219,8 +219,8 @@ pub async fn create_payment(
     let result = payment_record_service::insert(db, req).await;
 
     match result {
-        Ok(data) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -243,14 +243,14 @@ pub async fn create_member_experience_order(
                 log::error!("[会员订单] Authorization header解析失败: {:?}", e);
                 return Ok(HttpResponse::Ok()
                     .status(StatusCode::UNAUTHORIZED)
-                    .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                    .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
             }
         },
         None => {
             log::error!("[会员订单] Authorization header不存在");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token不存在，请重新登录", "local")));
         }
     };
 
@@ -260,7 +260,7 @@ pub async fn create_member_experience_order(
             log::error!("[会员订单] token验证失败: {:?}", e);
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效或已过期，请重新登录", "local")));
         }
     };
 
@@ -268,7 +268,7 @@ pub async fn create_member_experience_order(
         log::error!("[会员订单] token签发者不匹配");
         return Ok(HttpResponse::Ok()
             .status(StatusCode::UNAUTHORIZED)
-            .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
+            .content_type(MPACK).body(MetaResp::<String>::fail(400, "token类型错误，请重新登录", "local")));
     }
 
     let user_id = match decoded_token.id {
@@ -277,13 +277,13 @@ pub async fn create_member_experience_order(
             log::error!("[会员订单] token中未包含用户ID");
             return Ok(HttpResponse::Ok()
                 .status(StatusCode::UNAUTHORIZED)
-                .content_type("application/msgpack").body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, "token无效，请重新登录", "local")));
         }
     };
 
     log::info!("[会员订单] 用户ID: {}", user_id);
 
-    return Ok(HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "微信支付功能暂不可用", "local")));
+    return Ok(HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, "微信支付功能暂不可用", "local")));
 
     let openid = String::new();
     let client_ip = req.connection_info().peer_addr().unwrap_or("127.0.0.1").to_string();
@@ -299,11 +299,11 @@ pub async fn create_member_experience_order(
         },
         Ok(None) => {
             log::warn!("[会员订单] 商品不存在或已下架, product_id={}", order_req.product_id);
-            return Ok(HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "商品不存在或已下架", "local")));
+            return Ok(HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, "商品不存在或已下架", "local")));
         },
         Err(e) => {
             log::error!("[会员订单] 查询商品失败: product_id={}, error={}", order_req.product_id, e);
-            return Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("查询商品失败: {}", e), "local")));
+            return Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("查询商品失败: {}", e), "local")));
         },
     };
 
@@ -325,14 +325,14 @@ pub async fn create_member_experience_order(
     match purchase_result {
         Ok(false) => {
             log::warn!("[会员订单] 购买次数已达上限: user_id={}, product_id={}", user_id, product.id);
-            return Ok(HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "购买次数已达上限", "local")));
+            return Ok(HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, "购买次数已达上限", "local")));
         }
         Ok(true) => {
             log::info!("[会员订单] 购买限制检查通过: user_id={}, product_id={}", user_id, product.id);
         }
         Err(e) => {
             log::error!("[会员订单] 购买限制检查失败, user_id={}, product_id={}, error={}", user_id, product.id, e);
-            return Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("检查购买限制失败: {}", e), "local")));
+            return Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("检查购买限制失败: {}", e), "local")));
         }
     }
 
@@ -357,7 +357,7 @@ pub async fn create_member_experience_order(
 
     if let Err(e) = payment_record_service::insert(db, payment_record).await {
         log::error!("保存支付记录失败: {}", e);
-        return Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "保存订单失败", "local")));
+        return Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "保存订单失败", "local")));
     }
 
     log::info!("[会员订单] 支付记录保存成功");
@@ -368,13 +368,13 @@ pub async fn create_member_experience_order(
         Ok(resp) => resp,
         Err(e) => {
             log::error!("[会员订单] 创建支付订单失败: {}", e);
-            return Ok(HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &format!("创建支付订单失败: {}", e), "local")));
+            return Ok(HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("创建支付订单失败: {}", e), "local")));
         }
     };
 
     log::info!("[会员订单] 微信支付统一下单成功，返回预支付信息");
 
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(pay_response, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(pay_response, "local")))
 }
 
 pub fn routes(cfg: &mut web::ServiceConfig) {

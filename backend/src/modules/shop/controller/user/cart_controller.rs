@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_user_client_id;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
 
 /// Add to cart
@@ -26,7 +26,7 @@ pub async fn add_cart(
     // TODO: call cart_service::add(db, user_id, body.into_inner()).await
     let result = serde_json::json!({ "id": 0 });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -41,7 +41,7 @@ pub async fn get_cart_list(
     // TODO: call cart_service::list(db, user_id).await
     let result = serde_json::json!([]);
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -56,7 +56,7 @@ pub async fn update_cart(
     let _user_id = get_user_client_id(&req)?;
     // TODO: call cart_service::update(db, user_id, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }
 
@@ -71,6 +71,6 @@ pub async fn delete_cart(
     let _user_id = get_user_client_id(&req)?;
     // TODO: call cart_service::batch_delete(db, user_id, ids).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }

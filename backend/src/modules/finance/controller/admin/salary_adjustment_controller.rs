@@ -17,7 +17,7 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::salary_adjustment_service;
 
 /// 列表查询参数
@@ -54,10 +54,10 @@ pub async fn list(
 
     match salary_adjustment_service::get_adjustment_list(db, q.employee_id, page, page_size).await {
         Ok((list, total)) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -72,10 +72,10 @@ pub async fn history(
 
     match salary_adjustment_service::get_employee_history(db, q.employee_id).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -90,10 +90,10 @@ pub async fn create(
 
     match salary_adjustment_service::create_adjustment(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -113,10 +113,10 @@ pub async fn approve(
 
     match salary_adjustment_service::approve_adjustment(db, q.id, approver_id, approver_name).await {
         Ok(_) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("审批通过".to_string(), "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -144,10 +144,10 @@ pub async fn reject(
     .await
     {
         Ok(_) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("已驳回".to_string(), "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -162,10 +162,10 @@ pub async fn comparison(
 
     match salary_adjustment_service::get_comparison(db, q.employee_id).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

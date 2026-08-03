@@ -11,11 +11,9 @@ export interface SiteSaveDTO {
   logo?: string;
   keywords?: string;
   description?: string;
-  siteType?: number;
   client?: number;
   status?: number;
   isDefault?: number;
-  sort?: number;
   remark?: string;
   showBanner?: number;
   watermarkEnable?: number;
@@ -61,11 +59,9 @@ export interface SiteVO {
   logo?: string;
   keywords?: string;
   description?: string;
-  siteType?: number;
   client?: number;
   status?: number;
   isDefault?: number;
-  sort?: number;
   remark?: string;
   userName?: string;
   templateId?: number;

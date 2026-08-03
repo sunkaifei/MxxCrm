@@ -17,7 +17,7 @@ use chrono::ParseError;
 use serde::de::Visitor;
 use serde::ser::{Serialize, Serializer};
 use serde::{Deserialize, Deserializer};
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -126,7 +126,7 @@ impl ResponseError for Error {
         let code = status.as_u16() as i32;
         let body = MetaResp::<()>::fail(code, &self.to_string(), "local");
         HttpResponse::build(status)
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(body)
     }
 }

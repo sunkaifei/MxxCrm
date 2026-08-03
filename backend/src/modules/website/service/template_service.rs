@@ -129,7 +129,6 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
     let select_where = PageWhere{
         name: query.keywords.clone(),
         status: query.status.clone(),
-        category_id: query.category_id.clone(),
     };
     let select_where = select_where.format();
 

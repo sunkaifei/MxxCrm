@@ -14,7 +14,7 @@ use crate::core::kit::global::AppState;
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::controller::admin::website_media_category_admin_controller;
 use crate::modules::website::model::website_media::{ListQuery, MediaSaveDTO, MediaSaveRequest, MediaUpdateRequest};
 use crate::modules::website::service::website_media_service;
@@ -24,17 +24,17 @@ pub async fn add(state: web::Data<AppState>, _req: HttpRequest, item: web::Json<
     let db = &state.db;
     let payload = item.into_inner();
     if payload.original_name.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "原始文件名不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "原始文件名不能为空", "local")));
     }
     if payload.storage_name.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "存储文件名不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "存储文件名不能为空", "local")));
     }
     let form_data = MediaSaveDTO::from(payload);
     let result = website_media_service::insert(db, &form_data).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("添加成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("添加成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "添加失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "添加失败", "local")))
     }
 }
 
@@ -43,12 +43,12 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let result = website_media_service::batch_delete_by_ids(db, &ids_vec).await?;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -61,9 +61,9 @@ pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web
     form_data.id = media_id;
     let result = website_media_service::update_by_id(db, &form_data).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("修改成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "修改失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "修改失败", "local")))
     }
 }
 
@@ -71,10 +71,10 @@ pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
     }
     let result = website_media_service::get_by_detail(db, &item.id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// 分页查询列表
@@ -82,7 +82,7 @@ pub async fn get_by_page(state: web::Data<AppState>, _req: HttpRequest, query: w
     let db = &state.db;
     let form_data = query.into_inner();
     website_media_service::get_by_page(db, form_data).await.map(|page_data| {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local"))
     })
 }
 

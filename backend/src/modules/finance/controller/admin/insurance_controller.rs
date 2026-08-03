@@ -16,7 +16,7 @@ use serde::Deserialize;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::InfoId;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::insurance_service;
 
 // ==================== 社保政策接口 ====================
@@ -36,10 +36,10 @@ pub async fn policy_list(
     let q = query.0;
     match insurance_service::get_policy_list(db, q.city_code, q.year).await {
         Ok(list) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(list, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -52,10 +52,10 @@ pub async fn policy_upsert(
     let dto = form_data.0;
     match insurance_service::upsert_policy(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -68,15 +68,15 @@ pub async fn policy_delete(
     let item = query.0;
     if item.id.is_none() {
         return HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "政策ID不能为空", "local"));
     }
     match insurance_service::delete_policy(db, item.id.unwrap()).await {
         Ok(_) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("删除成功".to_string(), "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -97,10 +97,10 @@ pub async fn employee_config_list(
     let q = query.0;
     match insurance_service::get_all_employee_configs(db).await {
         Ok(list) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(list, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -113,10 +113,10 @@ pub async fn employee_config_upsert(
     let dto = form_data.0;
     match insurance_service::upsert_employee_config(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

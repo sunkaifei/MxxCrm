@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{get, web, HttpRequest, HttpResponse};
 
 /// Get SPU list (paginated)
@@ -29,7 +29,7 @@ pub async fn get_spu_list(
         "totalPages": 0
     });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -47,6 +47,6 @@ pub async fn get_spu_detail(
         "review_stats": {}
     });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }

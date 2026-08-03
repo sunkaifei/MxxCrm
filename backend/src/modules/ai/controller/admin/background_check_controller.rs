@@ -4,7 +4,7 @@ use crate::core::web::permission_guard::require_permission;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::ai::service::background_check_service;
 use crate::modules::system::service::admin_service;
 use serde::{Deserialize, Serialize};
@@ -29,57 +29,57 @@ pub async fn perform_background_check(state: web::Data<AppState>, req: HttpReque
         jwt_token.id.unwrap_or_default(),
         &admin.user_name.clone().unwrap_or_default(),
     ).await {
-        Ok(result) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(result) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
 pub async fn get_by_lead_id(state: web::Data<AppState>, lead_id: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     match background_check_service::get_by_lead_id(&db, lead_id.into_inner()).await {
-        Ok(list) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(list) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
 pub async fn get_latest_by_lead_id(state: web::Data<AppState>, lead_id: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     match background_check_service::get_latest_by_lead_id(&db, lead_id.into_inner()).await {
-        Ok(result) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(result) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
 pub async fn get_by_company_id(state: web::Data<AppState>, company_id: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     match background_check_service::get_by_company_id(&db, company_id.into_inner()).await {
-        Ok(list) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(list) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
 pub async fn get_latest_by_company_id(state: web::Data<AppState>, company_id: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     match background_check_service::get_latest_by_company_id(&db, company_id.into_inner()).await {
-        Ok(result) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(result) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
 pub async fn get_detail(state: web::Data<AppState>, id: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     match background_check_service::get_by_id(&db, id.into_inner()).await {
-        Ok(Some(detail)) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(detail, "local"))),
-        Ok(None) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "背调记录不存在", "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(Some(detail)) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(detail, "local"))),
+        Ok(None) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "背调记录不存在", "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
 pub async fn get_timeline(state: web::Data<AppState>, query: web::Query<TimelineQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     match background_check_service::get_timeline_by_company_name(&db, &query.company_name).await {
-        Ok(list) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(list) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -91,8 +91,8 @@ pub struct TimelineQuery {
 pub async fn delete_by_id(state: web::Data<AppState>, id: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     match background_check_service::delete_by_id(&db, id.into_inner()).await {
-        Ok(count) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(count, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        Ok(count) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(count, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 

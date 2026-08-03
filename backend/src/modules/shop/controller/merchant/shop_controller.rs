@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{get, put, web, HttpRequest, HttpResponse};
 
 /// Get shop info
@@ -23,7 +23,7 @@ pub async fn get_shop_info(
     // TODO: extract merchant_id from token, call shop_service::get_merchant_shop(db, merchant_id).await
     let result = serde_json::json!({});
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -37,6 +37,6 @@ pub async fn update_shop(
     let _db = &state.db;
     // TODO: extract merchant_id from token, call shop_service::update_shop(db, merchant_id, body.into_inner()).await
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<String>::fail(200, "success", "local")))
 }

@@ -265,13 +265,11 @@ const formData = ref<Record<string, any>>({
   logo: '',
   domain: '',
   bindDomain: '',
-  siteType: 1,
   siteMode: 1,
   client: 1,
   showBanner: 1,
   status: 1,
   closeReason: '',
-  sort: 0,
   isDefault: 1,
   keywords: '',
   description: '',
@@ -567,25 +565,16 @@ const statusTagText = computed(() =>
                     <Input v-model:value="formData.siteName" name="siteName" autocomplete="off" placeholder="输入网站名称…" allow-clear />
                   </div>
                   <div class="form-item">
-                    <label class="form-label">网站类型</label>
-                    <RadioGroup v-model:value="formData.siteType">
-                      <Radio :value="1">企业官网</Radio>
-                      <Radio :value="2">商城</Radio>
-                      <Radio :value="3">其他</Radio>
-                    </RadioGroup>
-                  </div>
-                  <div class="form-item">
                     <label class="form-label">
-                      站点模式
+                      站点模式 <span class="req">*</span>
                       <span class="form-label-tip">决定前台按钮渲染逻辑</span>
                     </label>
                     <RadioGroup v-model:value="formData.siteMode">
                       <Radio :value="1">展示型</Radio>
                       <Radio :value="2">交易型</Radio>
-                      <Radio :value="3">混合型</Radio>
                     </RadioGroup>
                     <div class="form-extra">
-                      展示型渲染"立即咨询"，交易型渲染"加入购物车/立即购买"，混合型两者都渲染
+                      展示型渲染"立即咨询"，交易型渲染"加入购物车/立即购买"
                     </div>
                   </div>
                   <div class="form-item">
@@ -605,10 +594,6 @@ const statusTagText = computed(() =>
                     <label class="form-label">绑定域名</label>
                     <Input v-model:value="formData.bindDomain" name="bindDomain" autocomplete="off" placeholder="如：www.example.com" allow-clear />
                     <p class="field-tip">自定义域名，需要先做 DNS 解析</p>
-                  </div>
-                  <div class="form-item">
-                    <label class="form-label">排序</label>
-                    <InputNumber v-model:value="formData.sort" :min="0" style="width: 100%" />
                   </div>
                 </div>
               </Card>
@@ -1362,7 +1347,7 @@ const statusTagText = computed(() =>
   flex: 1;
   display: flex;
   min-height: 0;
-  padding-bottom: 64px;
+  padding-bottom: 100px;
 }
 
 /* Tab 容器 */

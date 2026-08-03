@@ -19,9 +19,6 @@ use crate::utils::string_utils::{deserialize_string_to_u64,serialize_option_u64_
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TemplateSaveRequest {
-    /// 模版所属分类id
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
-    pub category_id: Option<i64>,
     /// 模版的名字，编码，唯一，限制50个字符以内
     pub name: Option<String>,
     /// 模板存储的文件夹名称，设置网站模板时直接使用这个目录
@@ -70,7 +67,6 @@ impl From<TemplateSaveRequest> for TemplateSaveDTO {
     fn from(req: TemplateSaveRequest) -> Self {
         Self {
             id: None,
-            category_id: req.category_id,
             name: req.name,
             template_folder: req.template_folder,
             user_id: req.user_id,
@@ -102,9 +98,6 @@ pub struct TemplateUpdateRequest {
     /// 模版id
     #[serde(deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
-    /// 模版所属分类id
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
-    pub category_id: Option<i64>,
     /// 模版的名字，编码，唯一，限制50个字符以内
     pub name: Option<String>,
     /// 模板存储的文件夹名称，设置网站模板时直接使用这个目录
@@ -153,7 +146,6 @@ impl From<TemplateUpdateRequest> for TemplateSaveDTO {
     fn from(req: TemplateUpdateRequest) -> Self {
         Self {
             id: req.id,
-            category_id: req.category_id,
             name: req.name,
             template_folder: req.template_folder,
             user_id: req.user_id,
@@ -182,8 +174,6 @@ impl From<TemplateUpdateRequest> for TemplateSaveDTO {
 
 pub struct TemplateSaveDTO {
     pub id: Option<i64>,
-    /// 模版所属分类id
-    pub category_id: Option<i64>,
     /// 模版的名字，编码，唯一，限制50个字符以内
     pub name: Option<String>,
     /// 模板存储的文件夹名称，设置网站模板时直接使用这个目录
@@ -237,9 +227,6 @@ pub struct TemplateListVO {
     /// 主键
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
-    /// 模版所属分类id
-    #[serde(serialize_with = "serialize_option_u64_to_string")]
-    pub category_id: Option<i64>,
     /// 模版的名字，编码，唯一，限制50个字符以内
     pub name: Option<String>,
     /// 模板存储的文件夹名称，设置网站模板时直接使用这个目录
@@ -272,7 +259,6 @@ impl From<template::Model> for TemplateListVO {
     fn from(model: template::Model) -> Self {
         Self {
             id: Some(model.id),
-            category_id: model.category_id,
             name: model.name,
             template_folder: model.template_folder,
             preview_url: model.preview_url,
@@ -297,9 +283,6 @@ pub struct TemplateDetailVO {
     /// 主键
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
-    /// 模版所属分类id
-    #[serde(serialize_with = "serialize_option_u64_to_string")]
-    pub category_id: Option<i64>,
     /// 模版的名字，编码，唯一，限制50个字符以内
     pub name: Option<String>,
     /// 模板存储的文件夹名称，设置网站模板时直接使用这个目录
@@ -348,7 +331,6 @@ impl From<template::Model> for TemplateDetailVO {
     fn from(model: template::Model) -> Self {
         Self {
             id: Some(model.id),
-            category_id: model.category_id,
             name: model.name,
             template_folder: model.template_folder,
             user_id: model.user_id,
@@ -395,7 +377,6 @@ pub struct FileTreeNode {
 pub struct ListQuery{
     pub keywords: Option<String>,
     pub status: Option<i32>,
-    pub category_id: Option<i64>,
     #[serde(rename = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
@@ -416,7 +397,6 @@ pub struct MyListQuery{
 pub struct PageWhere {
     pub name: Option<String>,
     pub status: Option<i32>,
-    pub category_id: Option<i64>,
 }
 
 impl PageWhere {
@@ -432,15 +412,9 @@ impl PageWhere {
             status = self.status;
         }
 
-        let mut category_id = None;
-        if self.category_id.is_some() && self.category_id > Some(0) {
-            category_id = self.category_id;
-        }
-
         Self {
             name,
             status,
-            category_id,
         }
     }
 }
@@ -485,7 +459,6 @@ impl TemplateModel {
     /// * `db` 数据库链接
     pub async fn insert(db: &DbConn, form_data: &TemplateSaveDTO) -> Result<i64, DbErr> {
         let payload = template::ActiveModel {
-            category_id:           Set(form_data.category_id),
             user_id:               Set(form_data.user_id),
             name:                  Set(form_data.name.to_owned()),
             template_folder:       Set(form_data.template_folder.to_owned()),
@@ -527,7 +500,6 @@ impl TemplateModel {
     
     pub async fn update_by_id(db: &DbConn, id: &Option<i64>, form_data: &TemplateSaveDTO) -> Result<i64, DbErr> {
         let payload = template::ActiveModel {
-            category_id:         Set(form_data.category_id),
             name:                Set(form_data.name.to_owned()),
             template_folder:     Set(form_data.template_folder.to_owned()),
             remark:              Set(form_data.remark.to_owned()),
@@ -649,9 +621,6 @@ impl TemplateModel {
             .apply_if(wheres.status, |query, v| {
                 query.filter(template::Column::Status.eq(v))
             })
-            .apply_if(wheres.category_id, |query, v| {
-                query.filter(template::Column::CategoryId.eq(v))
-            })
             .count(db)
             .await
             .map(|c| c as i64)
@@ -669,9 +638,6 @@ impl TemplateModel {
             })
             .apply_if(wheres.status, |query, v| {
                 query.filter(template::Column::Status.eq(v))
-            })
-            .apply_if(wheres.category_id, |query, v| {
-                query.filter(template::Column::CategoryId.eq(v))
             })
             .order_by_desc(template::Column::Id)
             .paginate(db, per_page as u64);

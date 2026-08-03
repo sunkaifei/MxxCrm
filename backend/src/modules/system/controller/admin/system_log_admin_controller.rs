@@ -11,7 +11,7 @@ use crate::core::errors::error::Result;
 use actix_web::{web, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::BathDeleteIdRequest;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::system_log::{ListQuery, SystemLogModel};
 use crate::modules::system::service::system_log_service;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
@@ -19,7 +19,7 @@ use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     system_log_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local"))
     })
 }
 
@@ -29,15 +29,15 @@ pub async fn bath_delete(state: web::Data<AppState>, item: web::Json<BathDeleteI
     let delete_item = item.0;
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的日志ID", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的日志ID", "local"));
     }
 
     let ids = convert_vec_option_string_to_vec_u64(delete_item.ids.unwrap_or_default());
     let result = SystemLogModel::batch_delete_by_ids(&db, ids).await;
 
     match result {
-        Ok(count) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::success(count, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(count) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::success(count, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 

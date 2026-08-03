@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_user;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::message::model::notification::*;
 use crate::modules::message::service::notification_service::NotificationService;
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -29,11 +29,11 @@ pub async fn get_my_notification_list(
 
     match result {
         Ok(data) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")))
         }
         Err(e) => {
             log::error!("[通知] 获取列表失败: user_id={}, err={:?}", user_id, e);
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取通知列表失败", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取通知列表失败", "local")))
         }
     }
 }
@@ -51,10 +51,10 @@ pub async fn mark_as_read_handler(
 
     match result {
         Ok(_) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true}), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true}), "local")))
         }
         Err(_) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "标记已读失败", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "标记已读失败", "local")))
         }
     }
 }
@@ -71,10 +71,10 @@ pub async fn mark_all_read_handler(
 
     match result {
         Ok(count) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true, "count": count}), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true, "count": count}), "local")))
         }
         Err(_) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "操作失败", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "操作失败", "local")))
         }
     }
 }
@@ -91,10 +91,10 @@ pub async fn get_unread_count_handler(
 
     match result {
         Ok(count) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"unreadCount": count}), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"unreadCount": count}), "local")))
         }
         Err(_) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取未读数量失败", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取未读数量失败", "local")))
         }
     }
 }
@@ -112,10 +112,10 @@ pub async fn delete_notification_handler(
 
     match result {
         Ok(_) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true}), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true}), "local")))
         }
         Err(_) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除失败", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除失败", "local")))
         }
     }
 }

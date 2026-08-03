@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{get, web, HttpRequest, HttpResponse};
 
 /// Get settlement list
@@ -30,7 +30,7 @@ pub async fn get_settlement_list(
         "totalPages": 0
     });
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }
 
@@ -44,6 +44,6 @@ pub async fn get_settlement_detail(
     // TODO: call settlement_service::detail(db, settlement_id).await
     let result = serde_json::json!({});
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::success(result, "local")))
 }

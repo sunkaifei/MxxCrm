@@ -13,7 +13,7 @@ use actix_web::{web, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::service::{template_revision_service};
 
 /// 获取某模板数据的版本历史列表
@@ -21,17 +21,17 @@ pub async fn get_by_template_data_id(state: web::Data<AppState>, template_data_i
     let db = &state.db;
     let template_data_id = Some(template_data_id.into_inner());
     let result = template_revision_service::get_revisions(db, &template_data_id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// 获取版本详情
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
     }
     let result = template_revision_service::get_by_detail(db, &item.id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 // ==================== 路由注册（单点维护）====================

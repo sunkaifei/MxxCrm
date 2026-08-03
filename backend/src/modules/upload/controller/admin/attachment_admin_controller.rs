@@ -17,7 +17,7 @@ use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::upload::model::attachment::{
     AttachmentBindRequest, AttachmentByEntityQuery, AttachmentPageRequest,
     AttachmentUnbindRequest, AttachmentUpdateRequest, BatchMoveRequest, ImageFormRequest,
@@ -89,14 +89,14 @@ pub async fn delete_attachment(
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
 
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let result = attachment_service::batch_delete_by_ids(&db, ids).await?;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -111,7 +111,7 @@ pub async fn update(
     data.id = Some(id.into_inner());
     validate!(data.name.is_none(), t!("attachment.category.id_empty", locale = "zh-CN").to_string());
     let result = attachment_service::update(&db, data).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
 pub async fn batch_move(
@@ -127,14 +127,14 @@ pub async fn batch_move(
     }
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
         } else {
             let ids = convert_vec_option_string_to_vec_u64(ids_vec);
             let result = attachment_service::batch_update(db, item.type_id, ids).await;
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
         }
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -145,10 +145,10 @@ pub async fn get_detail(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     if item.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
     }
     let result = attachment_service::get_by_detail(&db, &item.id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// # 分页获取附件列表
@@ -163,7 +163,7 @@ pub async fn get_page_list(
         .await
         .map(|page_data| {
             HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success(page_data, "local"))
         })
 }
@@ -204,10 +204,10 @@ pub async fn get_by_entity(
     let db = &state.db;
     match attachment_service::get_by_entity(db, query.into_inner()).await {
         Ok(list) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(list, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -222,7 +222,7 @@ pub async fn bind_attachment(
     let db = &state.db;
     let result = attachment_service::bind_attachments(db, item.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -236,7 +236,7 @@ pub async fn unbind_attachment(
     let db = &state.db;
     let result = attachment_service::unbind_attachments(db, item.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 

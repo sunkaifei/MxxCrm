@@ -11,7 +11,7 @@
 use actix_web::{get, post, web, HttpResponse, HttpRequest};
 use crate::modules::message::model::notification::*;
 use crate::modules::message::service::notification_service::{NotificationService, NotificationServiceError};
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::core::kit::global::AppState;
 use crate::core::kit::user_auth::get_user_id_from_request;
 
@@ -34,11 +34,11 @@ pub async fn get_notification_list_handler(
     match result {
         Ok(response) => {
             log::info!("[通知列表] 成功: 总数={}", response.total);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(response, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(response, "local"))
         }
         Err(e) => {
             log::error!("[通知列表] 失败: {}", format_error(&e));
-            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取通知列表失败", "local"))
+            HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取通知列表失败", "local"))
         }
     }
 }
@@ -62,13 +62,13 @@ pub async fn mark_read_handler(
     match result {
         Ok(_) => {
             log::info!("[标记已读] 成功");
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true}), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true}), "local"))
         }
         Err(e) => {
             log::error!("[标记已读] 失败: {}", format_error(&e));
             match e {
-                NotificationServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &msg, "local")),
-                _ => HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "标记已读失败", "local")),
+                NotificationServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")),
+                _ => HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "标记已读失败", "local")),
             }
         }
     }
@@ -92,11 +92,11 @@ pub async fn mark_all_read_handler(
     match result {
         Ok(count) => {
             log::info!("[全部已读] 成功: {}条", count);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true, "count": count}), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true, "count": count}), "local"))
         }
         Err(e) => {
             log::error!("[全部已读] 失败: {}", format_error(&e));
-            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "全部已读失败", "local"))
+            HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "全部已读失败", "local"))
         }
     }
 }
@@ -119,11 +119,11 @@ pub async fn get_unread_count_handler(
     match result {
         Ok(count) => {
             log::info!("[未读数量] 成功: {}", count);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"unreadCount": count}), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"unreadCount": count}), "local"))
         }
         Err(e) => {
             log::error!("[未读数量] 失败: {}", format_error(&e));
-            HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取未读数量失败", "local"))
+            HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取未读数量失败", "local"))
         }
     }
 }
@@ -147,13 +147,13 @@ pub async fn delete_notification_handler(
     match result {
         Ok(_) => {
             log::info!("[删除通知] 成功");
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(serde_json::json!({"success": true}), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({"success": true}), "local"))
         }
         Err(e) => {
             log::error!("[删除通知] 失败: {}", format_error(&e));
             match e {
-                NotificationServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &msg, "local")),
-                _ => HttpResponse::InternalServerError().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除通知失败", "local")),
+                NotificationServiceError::InvalidParameter(msg) => HttpResponse::BadRequest().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")),
+                _ => HttpResponse::InternalServerError().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除通知失败", "local")),
             }
         }
     }

@@ -10,7 +10,7 @@
 
 use actix_web::{get, HttpResponse, web};
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::service::region_service;
 
 #[get("/region/tree")]
@@ -19,10 +19,10 @@ pub async fn get_region_tree(state: web::Data<AppState>) -> HttpResponse {
     let result = region_service::get_region_tree_for_user(&db).await;
     match result {
         Ok(v) => {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local"))
         }
         Err(err) => {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("查询行政区域树异常,".to_string() + &err.to_string()), "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &("查询行政区域树异常,".to_string() + &err.to_string()), "local"))
         }
     }
 }

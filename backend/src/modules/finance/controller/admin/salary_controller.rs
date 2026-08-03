@@ -16,7 +16,7 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::InfoId;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::model::salary::{
     SalaryQuery, SalaryCalculateDTO, SalaryUpdateDTO, SalaryBatchDTO, SalaryTrendQuery,
 };
@@ -43,10 +43,10 @@ pub async fn list(
 
     match salary_service::get_list(db, query, user_id).await {
         Ok((list, total)) => {
-            HttpResponse::Ok().content_type("application/msgpack")
+            HttpResponse::Ok().content_type(MPACK)
                 .body(MetaResp::success_with_page(list, "local", page, total as u32))
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -59,14 +59,14 @@ pub async fn detail(
     let item = query.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "工资记录ID不能为空", "local"));
     }
 
     match salary_service::get_detail(db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -84,9 +84,9 @@ pub async fn calculate(
     let operator_name = jwt_token.username.as_deref().unwrap_or("财务人员");
 
     match salary_service::calculate(db, dto.year, dto.month, 0, operator_id, operator_name).await {
-        Ok(count) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(count) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(count, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -103,9 +103,9 @@ pub async fn update(
     dto.updated_by = jwt_token.id;
 
     match salary_service::update(db, dto).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("调整成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -118,14 +118,14 @@ pub async fn approve(
     let item = query.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "工资记录ID不能为空", "local"));
     }
 
     match salary_service::approve(db, item.id.unwrap()).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("审核成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -138,9 +138,9 @@ pub async fn batch_approve(
     let dto = form_data.0;
 
     match salary_service::batch_approve(db, dto.ids).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("批量审核成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -153,14 +153,14 @@ pub async fn pay(
     let item = query.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "工资记录ID不能为空", "local"));
     }
 
     match salary_service::pay(db, item.id.unwrap()).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("发放成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -173,9 +173,9 @@ pub async fn batch_pay(
     let dto = form_data.0;
 
     match salary_service::batch_pay(db, dto.ids).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("批量发放成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -188,9 +188,9 @@ pub async fn summary(
     let item = query.0;
 
     match salary_service::get_summary(db, item.year, item.month).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -210,9 +210,9 @@ pub async fn config_list(
     let db = &state.db;
     let q = query.0;
     match salary_service::get_config_list(db, q.employee_id, q.year).await {
-        Ok(list) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(list) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(list, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -239,9 +239,9 @@ pub async fn config_upsert(
         dto.base_salary, dto.position_allowance,
         dto.performance_base, dto.performance_coefficient,
     ).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -253,13 +253,13 @@ pub async fn config_delete(
     let db = &state.db;
     let item = query.0;
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "配置ID不能为空", "local"));
     }
     match salary_service::delete_config(db, item.id.unwrap()).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("删除成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -283,9 +283,9 @@ pub async fn calc_log_list(
     let page = q.page.unwrap_or(1).max(1);
     let page_size = q.page_size.unwrap_or(20).max(1);
     match salary_service::get_calc_log_list(db, q.year, q.month, page, page_size).await {
-        Ok((list, total)) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok((list, total)) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -305,9 +305,9 @@ pub async fn confirm(
     let user_name = jwt_token.username.as_deref().unwrap_or("员工");
 
     match salary_service::submit_confirm(db, user_id, user_name, dto).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -337,9 +337,9 @@ pub async fn my_confirm_list(
     let page_size = q.page_size.unwrap_or(20);
 
     match salary_service::get_my_confirms(db, user_id, page, page_size).await {
-        Ok((list, total)) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok((list, total)) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -365,9 +365,9 @@ pub async fn pending_confirm_list(
             page_size,
         },
     ).await {
-        Ok((list, total)) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok((list, total)) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -385,9 +385,9 @@ pub async fn handle_confirm(
     let handler_name = jwt_token.username.as_deref().unwrap_or("财务");
 
     match salary_service::handle_confirm(db, handler_id, handler_name, dto).await {
-        Ok(_) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("处理成功".to_string(), "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -421,7 +421,7 @@ pub async fn export_salary(
                 .insert_header(("Content-Disposition", format!("attachment; filename=\"{}\"", filename)))
                 .body(csv_bytes)
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -449,7 +449,7 @@ pub async fn export_tax(
                 .insert_header(("Content-Disposition", format!("attachment; filename=\"{}\"", filename)))
                 .body(csv_bytes)
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -475,7 +475,7 @@ pub async fn export_salary_xlsx(
                 .insert_header(("Content-Disposition", format!("attachment; filename=\"{}\"", filename)))
                 .body(xlsx_bytes)
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -496,7 +496,7 @@ pub async fn export_tax_xlsx(
                 .insert_header(("Content-Disposition", format!("attachment; filename=\"{}\"", filename)))
                 .body(xlsx_bytes)
         }
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -640,9 +640,9 @@ pub async fn trend_monthly(
     let trend_q = to_trend_query(&query.0);
 
     match salary_service::get_trend_monthly(db, trend_q, user_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -659,9 +659,9 @@ pub async fn trend_department(
     let trend_q = to_trend_query(&query.0);
 
     match salary_service::get_trend_by_department(db, trend_q, user_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -679,9 +679,9 @@ pub async fn trend_employee(
     let limit = query.limit;
 
     match salary_service::get_trend_by_employee(db, trend_q, user_id, limit).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -698,9 +698,9 @@ pub async fn trend_summary(
     let trend_q = to_trend_query(&query.0);
 
     match salary_service::get_trend_summary(db, trend_q, user_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

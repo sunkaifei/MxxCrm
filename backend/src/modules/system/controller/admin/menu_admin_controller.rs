@@ -11,7 +11,7 @@
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::app::is_demo_mode;
 use crate::core::web::entity::common::BathDeleteIdRequest;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{HttpRequest, HttpResponse, web};
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
@@ -75,9 +75,9 @@ pub async fn add_menu(
     // 执行插入操作
     let result = menu_service::insert(db, menu).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("添加成功", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success("添加成功", "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "添加失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "添加失败", "local")))
     }
 }
 
@@ -89,13 +89,13 @@ pub async fn menu_delete(state: web::Data<AppState>, item: web::Json<BathDeleteI
     validate!(is_demo_mode(), "演示站模式下禁止删除菜单".to_string());
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
         } else {
             let result = menu_service::batch_delete_by_ids(db, ids_vec).await;
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
         }
     }else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -145,9 +145,9 @@ pub async fn menu_update(state: web::Data<AppState>, path: web::Path<i64>, _req:
 
     let result = menu_service::update_by_id(&db, &sys_menu).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success("更新成功", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success("更新成功", "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "更新失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "更新失败", "local")))
     }
 }
 
@@ -155,7 +155,7 @@ pub async fn menu_update(state: web::Data<AppState>, path: web::Path<i64>, _req:
 pub async fn menu_detail(state: web::Data<AppState>, path: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     if path.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
     }
     let result = MenuModel::find_by_id(db,&path.id).await?;
     if let Some(req) = result {
@@ -190,9 +190,9 @@ pub async fn menu_detail(state: web::Data<AppState>, path: web::Path<InfoId>) ->
             children: Vec::new(),
         };
 
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(menu_vo, "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(menu_vo, "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未查询到数据", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未查询到数据", "local")))
     }
 }
 
@@ -202,11 +202,11 @@ pub async fn menu_list(state: web::Data<AppState>, query: web::Query<ListQuery>)
     let result = all_menu_list(db, query.into_inner()).await;
     match result {
         Ok(router_list) => {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(router_list, "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(router_list, "local"))
         }
         Err(err) => {
             log::error!("获取菜单列表错误: {:?}", &err);
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "获取菜单列表错误", "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取菜单列表错误", "local"))
         }
     }
 }
@@ -217,7 +217,7 @@ pub async fn get_menu_options(state: web::Data<AppState>, req: HttpRequest) -> R
     //获取用户信息
     let jwt_token:JWTToken = get_user(&req).unwrap_or_default();
     let menu_result = menu_service::get_menu_options(&db, &jwt_token.id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(menu_result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(menu_result, "local")))
 }
 
 
@@ -235,10 +235,10 @@ pub async fn get_user_menu(state: web::Data<AppState>,req: HttpRequest) -> Resul
     let result = get_user_router_tree(db, &is_admin, &jwt_token.id).await;
     match result {
         Ok(v) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(v, "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local")))
         }
         Err(err) => {
-            Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &("查询菜单异常,".to_string() + &err.to_string()), "local")))
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &("查询菜单异常,".to_string() + &err.to_string()), "local")))
         }
     }
 }

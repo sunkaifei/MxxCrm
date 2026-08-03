@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_user::{WebsiteUserLoginRequest, WebsiteUserRegisterRequest};
 use crate::modules::website::service::website_user_service;
 use actix_web::{post, web, HttpRequest, HttpResponse};
@@ -26,7 +26,7 @@ pub async fn register(
     let ip_address = req.peer_addr().map(|addr| addr.ip().to_string());
     let result = website_user_service::register(db, body.into_inner(), ip_address).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -41,10 +41,10 @@ pub async fn login(
     let ip_address = req.peer_addr().map(|addr| addr.ip().to_string());
     match website_user_service::login(db, body.into_inner(), ip_address).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::attendance_service;
 
 /// 列表查询参数
@@ -75,10 +75,10 @@ pub async fn list(
     .await
     {
         Ok((list, total)) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -93,10 +93,10 @@ pub async fn detail(
 
     match attendance_service::get_attendance_detail(db, q.employee_id, q.year, q.month).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -111,10 +111,10 @@ pub async fn upsert(
 
     match attendance_service::upsert_attendance(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -129,10 +129,10 @@ pub async fn delete(
 
     match attendance_service::delete_attendance(db, q.id).await {
         Ok(_) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("删除成功".to_string(), "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -147,10 +147,10 @@ pub async fn batch_import(
 
     match attendance_service::batch_import(db, dto.records).await {
         Ok(count) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(count, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -165,10 +165,10 @@ pub async fn calculate_deduction(
 
     match attendance_service::calculate_deduction(db, q.employee_id, q.year, q.month).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

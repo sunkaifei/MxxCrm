@@ -15,7 +15,7 @@ use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::model::opportunity::{OpportunityDetailVO, OpportunityListQuery, OpportunityListVO, OpportunitySaveRequest, OpportunityUpdateRequest};
 use crate::modules::crm::service::opportunity_service;
 
@@ -26,7 +26,7 @@ pub async fn opportunity_insert(state: web::Data<AppState>, req: HttpRequest, fo
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = opportunity_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn opportunity_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OpportunityUpdateRequest>) -> Result<HttpResponse> {
@@ -34,13 +34,13 @@ pub async fn opportunity_update(state: web::Data<AppState>, req: HttpRequest, fo
     let form_data = form_data.0;
 
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "商机ID不能为空", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local")));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let result = opportunity_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result)))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn bath_delete_opportunity(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
@@ -48,7 +48,7 @@ pub async fn bath_delete_opportunity(state: web::Data<AppState>, item: web::Json
     let delete_item = item.0;
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未获取到删除的商机ID", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的商机ID", "local"));
     }
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
@@ -57,7 +57,7 @@ pub async fn bath_delete_opportunity(state: web::Data<AppState>, item: web::Json
         .collect();
 
     let result = opportunity_service::batch_delete_by_ids(&db, &filtered_ids).await;
-    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(result))
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
 pub async fn opportunity_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
@@ -65,12 +65,12 @@ pub async fn opportunity_info(state: web::Data<AppState>, item: web::Query<InfoI
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
     }
 
     match opportunity_service::find_by_id(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -85,9 +85,9 @@ pub async fn opportunity_list(state: web::Data<AppState>, req: HttpRequest, quer
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success_with_page(page_data, "local", page, total))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         },
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -96,7 +96,7 @@ pub async fn opportunity_convert_to_quotation(state: web::Data<AppState>, req: H
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -104,8 +104,8 @@ pub async fn opportunity_convert_to_quotation(state: web::Data<AppState>, req: H
     let opp_id = item.id.unwrap();
 
     match opportunity_service::convert_to_quotation(&db, opp_id, user_id).await {
-        Ok(quotation_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(quotation_id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(quotation_id) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(quotation_id, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 
@@ -115,7 +115,7 @@ pub async fn opportunity_convert_to_order(state: web::Data<AppState>, req: HttpR
     let item = item.0;
 
     if item.id.is_none() {
-        return HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
     }
 
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -123,8 +123,8 @@ pub async fn opportunity_convert_to_order(state: web::Data<AppState>, req: HttpR
     let opp_id = item.id.unwrap();
 
     match opportunity_service::convert_to_order(&db, opp_id, user_id).await {
-        Ok(order_id) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(order_id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+        Ok(order_id) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(order_id, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
 

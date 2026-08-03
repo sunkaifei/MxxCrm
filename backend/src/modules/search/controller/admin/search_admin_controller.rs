@@ -8,7 +8,7 @@
 //! 版权所有，侵权必究！
 use actix_web::{HttpResponse, web};
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 #[cfg(feature = "enable-es")]
 use crate::modules::search::service::search_service;
 
@@ -17,19 +17,19 @@ pub async fn create_index(state: web::Data<AppState>) -> HttpResponse {
     {
         if let Ok(status) = search_service::create_index_mappings().await {
             if status {
-                HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::fail(200, "创建成功", "local"))
+                HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::fail(200, "创建成功", "local"))
             } else {
-                HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "创建失败", "local"))
+                HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "创建失败", "local"))
             }
         } else {
-            HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "创建失败", "local"))
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "创建失败", "local"))
         }
     }
     
     #[cfg(not(feature = "enable-es"))]
     {
         let _ = state;
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "Elasticsearch 功能未启用", "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "Elasticsearch 功能未启用", "local"))
     }
 }
 
@@ -41,19 +41,19 @@ pub async fn delete_index(state: web::Data<AppState>) -> HttpResponse {
         match search_service::delete_index().await {
             Ok(status) => {
                 if status {
-                    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::fail(200, "删除成功", "local"))
+                    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::fail(200, "删除成功", "local"))
                 } else {
-                    HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除失败", "local"))
+                    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除失败", "local"))
                 }
             }
-            Err(_) => HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "未知错误，删除失败", "local")),
+            Err(_) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未知错误，删除失败", "local")),
         }
     }
     
     #[cfg(not(feature = "enable-es"))]
     {
         let _ = state;
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "Elasticsearch 功能未启用", "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "Elasticsearch 功能未启用", "local"))
     }
 }
 

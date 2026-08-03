@@ -8,13 +8,15 @@
 //! 版权所有，侵权必究！
 //!
 
+use crate::core::web::response::MPACK;
+
 
 // 验证宏：检查条件并返回错误响应
 #[macro_export]
 macro_rules! validate {
-    ($condition:expr, $message:expr) => {
+    ($condition:expr_2021, $message:expr_2021) => {
         if $condition {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, &$message, "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &$message, "local")));
         }
     };
 }

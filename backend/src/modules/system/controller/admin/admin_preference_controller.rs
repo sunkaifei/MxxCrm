@@ -13,7 +13,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 
 use crate::modules::system::model::admin_preference::QuickNavItem;
 use crate::modules::system::service::admin_preference_service;
@@ -24,13 +24,13 @@ pub async fn get_quick_nav(state: web::Data<AppState>, req: HttpRequest) -> Http
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin_id = jwt_token.id.unwrap_or_default();
     if admin_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
     match admin_preference_service::find_quick_nav(db, admin_id).await {
-        Ok(data) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local")),
     }
 }
@@ -45,14 +45,14 @@ pub async fn save_quick_nav(
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin_id = jwt_token.id.unwrap_or_default();
     if admin_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
     let items = payload.0;
     match admin_preference_service::save_quick_nav(db, admin_id, &items).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local")),
     }
 }
@@ -63,13 +63,13 @@ pub async fn get_sale_mode(state: web::Data<AppState>, req: HttpRequest) -> Http
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin_id = jwt_token.id.unwrap_or_default();
     if admin_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
     match admin_preference_service::find_sale_simple_mode(db, admin_id).await {
-        Ok(enabled) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(enabled) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(enabled, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local")),
     }
 }
@@ -84,14 +84,14 @@ pub async fn save_sale_mode(
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let admin_id = jwt_token.id.unwrap_or_default();
     if admin_id <= 0 {
-        return HttpResponse::Ok().content_type("application/msgpack")
+        return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
     }
     let enabled = payload.0;
     match admin_preference_service::save_sale_simple_mode(db, admin_id, enabled).await {
-        Ok(id) => HttpResponse::Ok().content_type("application/msgpack")
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
-        Err(e) => HttpResponse::Ok().content_type("application/msgpack")
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local")),
     }
 }

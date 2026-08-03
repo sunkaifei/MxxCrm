@@ -17,7 +17,7 @@ use crate::core::kit::global::AppState;
 use crate::core::kit::template::get_template_a_with_cms;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::{MetaResp};
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::core::web::tags::cms_tags::CmsTagData;
 use crate::modules::website::model::template_data::{ListQuery, TemplateDataSaveDTO, TemplateDataSaveRequest, TemplateDataUpdateRequest};
 use crate::modules::website::service::{template_data_service, template_user_data_service, website_service};
@@ -91,9 +91,9 @@ pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<T
 
     if result > 0 {
         template_user_data_service::save_website_template_merge(&db, &Some(website_id), &Some(result)).await?;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("添加成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("添加成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "添加失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "添加失败", "local")))
     }
 }
 
@@ -102,13 +102,13 @@ pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDelete
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
 
         let result = template_data_service::batch_delete_by_ids(&db, &ids_vec).await?;
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
@@ -122,9 +122,9 @@ pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web
 
     let result = template_data_service::update_by_id(&db, &form_data).await?;
     if result > 0 {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::success("修改成功".to_string(), "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("修改成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "修改失败", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "修改失败", "local")))
     }
 }
 
@@ -132,7 +132,7 @@ pub async fn update_by_id(state: web::Data<AppState>, _req: HttpRequest, id: web
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) ->Result<HttpResponse> {
     let db = &state.db;
     let result = template_data_service::get_by_detail(&db, &item.id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// 根据模板ID查询所有模板数据（不分页，用于前端页面列表抽屉）
@@ -146,14 +146,14 @@ pub async fn list_by_template(state: web::Data<AppState>, query: web::Query<List
     let db = &state.db;
     let q = query.into_inner();
     let result = template_data_service::select_by_template_id(&db, &Some(q.template_id)).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 /// 分页
 pub async fn get_by_page(state: web::Data<AppState>, _req: HttpRequest, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     template_data_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
-        HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(page_data, "local"))
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local"))
     })
 }
 
@@ -178,7 +178,7 @@ pub async fn import_scheme(state: web::Data<AppState>, body: web::Json<serde_jso
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let result = template_data_service::import_template_scheme(&db, payload, overwrite).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::success(result, "local")))
 }
 
 // ==================== 路由注册（单点维护）====================

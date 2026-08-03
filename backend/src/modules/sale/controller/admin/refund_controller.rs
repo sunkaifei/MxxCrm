@@ -16,7 +16,7 @@ use crate::core::kit::jwt_util::JWTToken;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::sale::model::refund::{
     RefundApprovalReq, RefundListQuery, RefundPaymentRequest, RefundQualityCheckReq,
     RefundReceiveReq, RefundSaveRequest, RefundUpdateRequest,
@@ -35,7 +35,7 @@ pub async fn refund_insert(
     let user_id = jwt_token.id.unwrap_or_default();
     let result = refund_service::insert(db, &form_data, user_id).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -48,14 +48,14 @@ pub async fn refund_update(
     let form_data = form_data.0;
     if form_data.id.is_none() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "退货单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let user_id = jwt_token.id.unwrap_or_default();
     let result = refund_service::update(db, &form_data, user_id).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -67,7 +67,7 @@ pub async fn batch_delete_refund(
     if let Some(ids_vec) = form_data.ids.clone() {
         if ids_vec.is_empty() {
             return Ok(HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
         let ids: Vec<i64> = ids_vec
@@ -76,11 +76,11 @@ pub async fn batch_delete_refund(
             .collect();
         let result = refund_service::batch_delete(db, &ids).await;
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
@@ -90,15 +90,15 @@ pub async fn refund_info(state: web::Data<AppState>, item: web::Query<InfoId>) -
     let item = item.0;
     if item.id.is_none() {
         return HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "退货单ID不能为空", "local"));
     }
     match refund_service::get_detail(db, item.id.unwrap()).await {
         Ok(data) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -117,11 +117,11 @@ pub async fn refund_list(
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
             HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success_with_page(page_data, "local", page, total))
         }
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -138,7 +138,7 @@ pub async fn refund_submit(
     let item = item.0;
     if item.id.is_none() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "退货单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
@@ -151,10 +151,10 @@ pub async fn refund_submit(
     .await
     {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -177,10 +177,10 @@ pub async fn refund_approve(
     .await
     {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -203,10 +203,10 @@ pub async fn refund_reject(
     .await
     {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -222,10 +222,10 @@ pub async fn refund_receive(
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match refund_service::receive_refund(db, &form_data, jwt_token.id.unwrap_or_default()).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -241,10 +241,10 @@ pub async fn refund_quality_check(
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match refund_service::quality_check(db, &form_data, jwt_token.id.unwrap_or_default()).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -259,16 +259,16 @@ pub async fn refund_cancel(
     let item = item.0;
     if item.id.is_none() {
         return Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "退货单ID不能为空", "local")));
     }
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match refund_service::cancel_refund(db, item.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
         Ok(data) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -284,10 +284,10 @@ pub async fn refund_payment(
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match refund_service::create_payment(db, &form_data, jwt_token.id.unwrap_or_default()).await {
         Ok(payment_id) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(payment_id, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

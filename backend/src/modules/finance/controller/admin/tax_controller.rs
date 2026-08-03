@@ -16,7 +16,7 @@ use serde::Deserialize;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::kit::global::AppState;
 use crate::core::web::entity::common::InfoId;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::tax_service;
 
 // ==================== 税率表接口 ====================
@@ -34,10 +34,10 @@ pub async fn rate_list(
     let db = &state.db;
     match tax_service::get_tax_rate_list(db, query.tax_type).await {
         Ok(list) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(list, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -50,10 +50,10 @@ pub async fn rate_upsert(
     let dto = form_data.0;
     match tax_service::upsert_tax_rate(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -66,15 +66,15 @@ pub async fn rate_delete(
     let item = query.0;
     if item.id.is_none() {
         return HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "税率ID不能为空", "local"));
     }
     match tax_service::delete_tax_rate(db, item.id.unwrap()).await {
         Ok(_) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success("删除成功".to_string(), "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -108,19 +108,19 @@ pub async fn employee_config_list(
     if let (Some(emp_id), Some(year)) = (q.employee_id, q.year) {
         match tax_service::get_employee_tax_config(db, emp_id, year).await {
             Ok(data) => HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success(vec![data], "local")),
             Err(e) => HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, &e, "local")),
         }
     } else {
         match tax_service::get_employee_tax_config_list(db, q.year).await {
             Ok(list) => HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::success(list, "local")),
             Err(e) => HttpResponse::Ok()
-                .content_type("application/msgpack")
+                .content_type(MPACK)
                 .body(MetaResp::<String>::fail(400, &e, "local")),
         }
     }
@@ -134,10 +134,10 @@ pub async fn employee_config_upsert(
     let dto = form_data.0;
     match tax_service::upsert_employee_tax_config(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -152,10 +152,10 @@ pub async fn detail_list(
     let q = query.0;
     match tax_service::get_tax_detail_list(db, q.employee_id, q.year).await {
         Ok(list) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(list, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -176,10 +176,10 @@ pub async fn annual_bonus_calculate(
     let dto = form_data.0;
     match tax_service::calculate_annual_bonus_tax(db, dto.bonus_amount).await {
         Ok(tax) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(tax, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }

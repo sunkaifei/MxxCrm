@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::user_auth::get_user_id_from_request;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_refund::RefundApplyRequest;
 use crate::modules::website::service::website_refund_service;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
@@ -31,10 +31,10 @@ pub async fn apply(
     };
     match website_refund_service::apply(db, user_id, body.into_inner()).await {
         Ok(id) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -70,7 +70,7 @@ pub async fn list(
     {
         Ok(page) => Ok(HttpResponse::Ok().json(page)),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -89,10 +89,10 @@ pub async fn detail(
     };
     match website_refund_service::get_detail(db, Some(user_id), id.into_inner()).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -111,6 +111,6 @@ pub async fn cancel(
     };
     let result = website_refund_service::user_cancel(db, user_id, id.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }

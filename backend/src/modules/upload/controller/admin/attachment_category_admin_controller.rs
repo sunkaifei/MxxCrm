@@ -9,7 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{web, HttpResponse};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::modules::upload::model::attachment_category::{AttachCategoryListVO, AttachCategorySaveRequest, AttachCategoryUpdateRequest, AttachmentCategoryModel, ListQuery, PageWhere};
@@ -21,7 +21,7 @@ pub async fn save_category(state: web::Data<AppState>, item: web::Json<AttachCat
     let db = &state.db;
     let item = item.0;
     let result = attachment_category_service::save(&db, item).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
 pub async fn update_category(state: web::Data<AppState>, id: web::Path<i64>, item: web::Json<AttachCategoryUpdateRequest>) -> Result<HttpResponse> {
@@ -29,35 +29,35 @@ pub async fn update_category(state: web::Data<AppState>, id: web::Path<i64>, ite
     let mut item = item.0;
     item.id = Some(id.into_inner());
     let result = attachment_category_service::update(&db, item).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<i64>::handle_result(Ok(result))))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(Ok(result))))
 }
 
 pub async fn batch_delete_by_ids(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     if let Some(ids_vec) = item.ids.clone() {
         if ids_vec.is_empty() {
-            return Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
 
         let ids = convert_vec_option_string_to_vec_u64(ids_vec);
         let result = attachment_category_service::batch_delete_by_ids(&db, ids).await?;
         Ok(HttpResponse::Ok().json(&MetaResp::<i64>::handle_result(Ok(result))))
     } else {
-        Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
 }
 
 pub async fn get_by_tree(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let tree_list = attachment_category_service::get_category_tree(&db, query.0).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(tree_list, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(tree_list, "local")))
 }
 
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
     validate!(item.id.is_none(), t!("attachment.category.name_empty", locale = "zh-CN").to_string());
     let result = attachment_category_service::find_by_id(&db, &item.id).await?;
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(result, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 pub async fn get_by_list(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
@@ -70,7 +70,7 @@ pub async fn get_by_list(state: web::Data<AppState>, query: web::Query<ListQuery
     let list = AttachmentCategoryModel::find_all(&db, search_where).await?;
 
     let list_data: Vec<AttachCategoryListVO> = list.into_iter().map(|item| AttachCategoryListVO::from(item)).collect();
-    Ok(HttpResponse::Ok().content_type("application/msgpack").body(MetaResp::success(list_data, "local")))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list_data, "local")))
 }
 
 // ==================== 路由注册（单点维护）====================

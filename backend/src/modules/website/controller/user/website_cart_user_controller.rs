@@ -11,7 +11,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::user_auth::get_user_id_from_request;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::website::model::website_cart::{CartAddRequest, CartBatchDeleteRequest, CartUpdateRequest};
 use crate::modules::website::service::website_cart_service;
 use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
@@ -30,7 +30,7 @@ pub async fn add(
     };
     let result = website_cart_service::add(db, user_id, body.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -44,10 +44,10 @@ pub async fn list(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpRe
     };
     match website_cart_service::list(db, user_id).await {
         Ok(vo) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local"))),
         Err(e) => Ok(HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -67,7 +67,7 @@ pub async fn update(
     };
     let result = website_cart_service::update(db, user_id, id.into_inner(), body.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -85,7 +85,7 @@ pub async fn delete(
     };
     let result = website_cart_service::delete(db, user_id, id.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -103,6 +103,6 @@ pub async fn batch_delete(
     };
     let result = website_cart_service::batch_delete(db, user_id, body.into_inner()).await;
     Ok(HttpResponse::Ok()
-        .content_type("application/msgpack")
+        .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
 }

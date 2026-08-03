@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::response::MetaResp;
+use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::commission_pool_service::{
     self, CommissionPoolSaveDTO, PoolExpenseDTO, PoolQuery,
 };
@@ -57,7 +57,7 @@ pub async fn list(
 
     match commission_pool_service::get_pool_list(db, query).await {
         Ok((list, total)) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success_with_page(
                 list,
                 "local",
@@ -65,7 +65,7 @@ pub async fn list(
                 total as u32,
             )),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -80,10 +80,10 @@ pub async fn detail(
 
     match commission_pool_service::get_pool_detail(db, id).await {
         Ok(vo) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(vo, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -98,10 +98,10 @@ pub async fn save(
 
     match commission_pool_service::save_pool(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -116,10 +116,10 @@ pub async fn expense(
 
     match commission_pool_service::expense(db, dto).await {
         Ok(id) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
@@ -138,10 +138,10 @@ pub async fn log(
 
     match commission_pool_service::get_pool_log(db, pool_id, page, page_size).await {
         Ok((list, total)) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),
         Err(e) => HttpResponse::Ok()
-            .content_type("application/msgpack")
+            .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
