@@ -172,13 +172,12 @@ cargo run --release
 | 用户名 | 密码 | 角色 | 部门 | 权限说明 |
 |--------|------|------|------|----------|
 | admin | admin123 | 超级管理员 | 总经办 | 拥有系统所有权限 |
-| system | admin123 | 系统管理员 | 技术部 | 系统配置管理 |
-| sales_manager | admin123 | 销售经理 | 销售部 | 销售管理、CRM客户管理 |
-| sales_staff | admin123 | 销售人员 | 销售一组 | 销售管理、CRM客户管理（数据范围受限） |
-| purchase_staff | admin123 | 采购专员 | 采购部 | 采购管理 |
-| crm_manager | admin123 | CRM管理员 | 销售部 | CRM客户管理 |
-| product_staff | admin123 | 产品专员 | 技术部 | 产品管理、库存管理 |
-| notice_staff | admin123 | 通知专员 | 总经办 | 通知管理 |
+| system | admin123 | 系统管理员 | 深圳总公办 | 系统配置管理 |
+| sales | admin123 | 销售总监 | 市场部门 | 销售管理、CRM客户管理 |
+| manager | admin123 | 销售经理 | 销售一组 | 销售管理、CRM客户管理 |
+| rep | admin123 | 业务员 | 市场部门 | 销售管理、CRM客户管理（数据范围受限） |
+| purchase | admin123 | 采购专员 | 采购部 | 采购管理 |
+| finance | admin123 | 财务专员 | - | 财务管理 |
 
 ## 开发说明
 

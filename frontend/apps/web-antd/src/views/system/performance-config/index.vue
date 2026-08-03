@@ -8,10 +8,6 @@ import {
   Alert,
   Button,
   Card,
-  Checkbox,
-  CheckboxGroup,
-  Divider,
-  Input,
   InputNumber,
   message,
   Radio,
@@ -152,7 +148,7 @@ const cardVisibilityOptions = [
           >
             <Switch
               :checked="(config as any)[opt.value]"
-              @change="(val: boolean) => ((config as any)[opt.value] = val)"
+              @change="(val: any) => ((config as any)[opt.value] = val)"
             />
             <span>{{ opt.label }}</span>
           </div>

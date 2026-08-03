@@ -35,15 +35,7 @@ async fn get_accessible_user_ids(
 }
 
 /// 递归收集子部门ID
-fn collect_child_dept_ids(all_depts: &[dept_entity::Model], parent_id: i64) -> Vec<i64> {
-    let mut result = vec![parent_id];
-    for dept in all_depts {
-        if dept.parent_id == Some(parent_id) {
-            result.extend(collect_child_dept_ids(all_depts, dept.id));
-        }
-    }
-    result
-}
+
 
 pub async fn insert(db: &DbConn, form_data: &OpportunitySaveRequest, created_by: i64) -> Result<i64> {
     if let (Some(customer_id), Some(name)) = (form_data.customer_id, form_data.title.as_deref()) {

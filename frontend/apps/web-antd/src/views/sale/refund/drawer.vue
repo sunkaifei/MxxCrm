@@ -2,6 +2,7 @@
 import type { VbenFormSchema } from '@vben/common-ui';
 
 import { computed, ref } from 'vue';
+import type { Key } from 'ant-design-vue/es/table/interface';
 
 import { useVbenForm } from '@vben/common-ui';
 
@@ -43,7 +44,7 @@ const orderModalVisible = ref(false);
 const orderList = ref<any[]>([]);
 const orderLoading = ref(false);
 const orderKeyword = ref('');
-const orderSelectedKeys = ref<number[]>([]);
+const orderSelectedKeys = ref<Key[]>([]);
 const orderSelectedRow = ref<any | null>(null);
 const orderInfo = ref<{
   id?: number;
@@ -313,14 +314,14 @@ const [BasicForm, basicFormApi] = useVbenForm({
 });
 
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' },
+  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 220 },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' },
-  { title: '已发货', dataIndex: 'deliveredQty', key: 'deliveredQty', width: 80, align: 'right' },
-  { title: '退货数量', key: 'refundQty', width: 100, align: 'center' },
-  { title: '单价', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' },
-  { title: '退货金额', dataIndex: 'refundAmount', key: 'refundAmount', width: 105, align: 'right' },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' as const },
+  { title: '已发货', dataIndex: 'deliveredQty', key: 'deliveredQty', width: 80, align: 'right' as const },
+  { title: '退货数量', key: 'refundQty', width: 100, align: 'center' as const },
+  { title: '单价', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' as const },
+  { title: '退货金额', dataIndex: 'refundAmount', key: 'refundAmount', width: 105, align: 'right' as const },
 ];
 
 // 订单选择表格列定义
@@ -573,7 +574,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         <!-- 备注 -->
         <div class="mt-3 px-1">
           <label class="text-sm text-gray-500">备注：</label>
-          <Input v-model:value="remark" placeholder="备注信息" type="textarea" :rows="2" />
+          <Input.TextArea v-model:value="remark" placeholder="备注信息" :rows="2" />
         </div>
       </TabPane>
       <TabPane key="items" tab="退货明细">
@@ -600,7 +601,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
             :pagination="false"
             size="small"
             :scroll="{ x: 950 }"
-            :row-key="(_: any, index: number) => index"
+            :row-key="(_: any, index) => String(index)"
             bordered
           >
             <template #bodyCell="{ column, record, index }">
@@ -705,7 +706,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         :row-selection="{
           type: 'radio',
           selectedRowKeys: orderSelectedKeys,
-          onChange: (keys: number[], rows: any[]) => {
+          onChange: (keys: Key[], rows: any[]) => {
             orderSelectedKeys = keys;
             orderSelectedRow = rows[0] || null;
           },

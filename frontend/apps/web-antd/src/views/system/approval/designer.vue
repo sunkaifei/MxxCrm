@@ -51,6 +51,7 @@ const approverTypeOptions = [
   { value: 4, label: '发起人自己' },
   { value: 5, label: '指定岗位(职位)' },
   { value: 6, label: '直属上级' },
+  { value: 7, label: '部门主管及上级链' },
 ];
 
 // 直属上级层级选项：approverId 字段在 type=6 时作为层级使用
@@ -106,7 +107,7 @@ const FlowNode = defineComponent({
   setup(props) {
     return () => {
       const nodeType = props.data?.nodeType ?? 2;
-      const cfg = nodeStyleConfig[nodeType] ?? nodeStyleConfig[2];
+      const cfg = nodeStyleConfig[nodeType] ?? nodeStyleConfig[2]!;
       const label = props.data?.nodeName || cfg.defaultLabel;
       const classes = [
         'flow-node',
@@ -145,7 +146,7 @@ const FlowNode = defineComponent({
   },
 });
 
-const nodeTypes = markRaw({ custom: FlowNode });
+const nodeTypes = markRaw({ custom: FlowNode as any });
 
 // ============ State ============
 const flowId = ref<null | number>(null);
@@ -213,7 +214,7 @@ function onDrop(event: DragEvent) {
     x: event.clientX,
     y: event.clientY,
   });
-  const cfg = nodeStyleConfig[nodeType] ?? nodeStyleConfig[2];
+  const cfg = nodeStyleConfig[nodeType] ?? nodeStyleConfig[2]!;
   const nid = genNodeId();
   const node = {
     id: nid,
@@ -302,7 +303,7 @@ function miniNodeStyle(n: any) {
   const w = Math.max(1, maxX - minX);
   const h = Math.max(1, maxY - minY);
   const scale = Math.min(MINI_W / w, MINI_H / h);
-  const cfg = nodeStyleConfig[n.data?.nodeType ?? 2] ?? nodeStyleConfig[2];
+  const cfg = nodeStyleConfig[n.data?.nodeType ?? 2] ?? nodeStyleConfig[2]!;
   return {
     left: `${(n.position.x - minX) * scale}px`,
     top: `${(n.position.y - minY) * scale}px`,
@@ -560,8 +561,8 @@ onMounted(() => {
                   placeholder="选择类型"
                   @change="(val: any) => {
                     if (!selectedNode?.data) return;
-                    // type=6 直属上级：默认层级为 1；其他类型清空 approverId
-                    selectedNode.data.approverId = val === 6 ? 1 : null;
+                    // type=6/7 上级链类型：默认层级为 1；其他类型清空 approverId
+                    selectedNode.data.approverId = val === 6 || val === 7 ? 1 : null;
                   }"
                 />
               </div>
@@ -641,6 +642,15 @@ onMounted(() => {
                   placeholder="选择上级层级"
                 />
                 <span class="field-hint">沿用户直属上级链向上查找；到达组织顶层时系统自动通过（自审回避）</span>
+              </div>
+              <div v-else-if="selectedNode.data.approverType === 7" class="props-field">
+                <label>上级层级</label>
+                <Select
+                  v-model:value="selectedNode.data.approverId"
+                  :options="directManagerLevelOptions"
+                  placeholder="选择上级层级"
+                />
+                <span class="field-hint">沿部门树向上查找部门负责人，人员调部门后审批链自动更新（自审回避）</span>
               </div>
               <div class="props-field">
                 <label>审批模式</label>

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, h, onMounted, reactive, ref } from 'vue';
+import type { Key } from 'ant-design-vue/es/table/interface';
 
 import { useAccess } from '@vben/access';
 import { Page } from '@vben/common-ui';
@@ -328,7 +329,7 @@ async function submitEmpConfigForm() {
   }
 }
 
-function onTabChange(key: string) {
+function onTabChange(key: Key) {
   if (key === 'rate' && rateList.value.length === 0) {
     loadRateList();
   } else if (key === 'empConfig' && empConfigList.value.length === 0) {

@@ -2,9 +2,7 @@
 import { useVbenDrawer } from '@vben/common-ui';
 import { ref, computed, nextTick } from 'vue';
 import {
-  MenuApi,
   getMenuOptionsApi,
-  buildMenuTree,
   updateRoleAuthApi,
   updateRoleApi,
   getRoleInfoApi,
@@ -20,7 +18,7 @@ const data = ref();
 const activeSection = ref<'menu' | 'dataScope'>('menu');
 
 // ---------- 菜单权限 ----------
-const treeData = ref<MenuApi.MenuForm[]>([]);
+const treeData = ref<any[]>([]);
 const treeRef = ref<any>();
 const expandedKeys = ref<string[]>([]);
 const checkedKeys = ref<string[]>([]);
@@ -31,10 +29,10 @@ const defaultProps = {
   key: 'id',
 };
 
-const getAllKeys = (data: MenuApi.MenuForm[]): string[] => {
+const getAllKeys = (data: any[]): string[] => {
   const keys: string[] = [];
-  const traverse = (nodes: MenuApi.MenuForm[]) => {
-    nodes.forEach((node) => {
+  const traverse = (nodes: any[]) => {
+    nodes.forEach((node: any) => {
       if (node.id !== undefined && node.id !== null) {
         keys.push(String(node.id));
       }
@@ -68,7 +66,6 @@ const dataScopeValue = ref<number>(5); // 默认仅本人数据
 const deptTreeData = ref<any[]>([]);
 const deptCheckedKeys = ref<string[]>([]);
 const deptExpandedKeys = ref<string[]>([]);
-const deptTreeRef = ref<any>();
 
 const dataScopeOptions = [
   { value: 1, label: '全部数据', desc: '可查看系统中所有业务数据，不受部门和个人限制' },

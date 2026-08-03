@@ -63,24 +63,24 @@ function formatCurrency(val: number) {
 const rankingColumns = [
   { title: '排名', dataIndex: 'rank', width: 60 },
   { title: '客户名称', dataIndex: 'targetName' },
-  { title: '合同数', dataIndex: 'contractCount', align: 'right' },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '已回款', dataIndex: 'paymentAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '回款率', dataIndex: 'paymentRate', align: 'right', render: (val: number) => `${val}%` },
+  { title: '合同数', dataIndex: 'contractCount', align: 'right' as const },
+  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '已回款', dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '回款率', dataIndex: 'paymentRate', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const typeColumns = [
   { title: '合同类型', dataIndex: 'contractType' },
-  { title: '数量', dataIndex: 'contractCount', align: 'right' },
-  { title: '金额', dataIndex: 'contractAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '占比', dataIndex: 'percentage', align: 'right', render: (val: number) => `${val}%` },
+  { title: '数量', dataIndex: 'contractCount', align: 'right' as const },
+  { title: '金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '占比', dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const statusColumns = [
   { title: '状态', dataIndex: 'status' },
-  { title: '数量', dataIndex: 'contractCount', align: 'right' },
-  { title: '金额', dataIndex: 'contractAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '占比', dataIndex: 'percentage', align: 'right', render: (val: number) => `${val}%` },
+  { title: '数量', dataIndex: 'contractCount', align: 'right' as const },
+  { title: '金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '占比', dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 </script>
 

@@ -106,11 +106,11 @@ const modalState = ref<{
 }>({ type: null, row: null });
 
 // 表单字段
-const targetUserId = ref<null | number>(null);
+const targetUserId = ref<number | undefined>(undefined);
 const targetUserName = ref('');
 const targetUserIds = ref<number[]>([]);
 const addSignType = ref<1 | 2 | 3>(2); // 1=前加签,2=后加签,3=并加签
-const rejectToNodeKey = ref<'' | null>(''); // '' 表示退回到发起人
+const rejectToNodeKey = ref<string | undefined>(''); // '' 表示退回到发起人
 const commentText = ref('');
 const cancelReason = ref('');
 const ccReason = ref('');
@@ -155,9 +155,7 @@ const formOptions: VbenFormProps = {
 };
 
 const gridOptions: VxeGridProps = {
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   columns: [
     {
       field: 'action',
@@ -228,7 +226,7 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 // 是否当前节点候选审批人（含转办/委派后扩展的池）
 function isCandidateApprover(row: any) {
   const list: number[] = row.candidateApprovers || [];
-  return currentUserId.value != null && list.includes(currentUserId.value);
+  return currentUserId.value != null && list.includes(Number(currentUserId.value));
 }
 
 // 实例是否处于可操作状态（待审批/审批中/待修改）
@@ -239,7 +237,7 @@ function isActionable(row: any) {
 // 当前用户是否为发起人
 function isSubmitter(row: any) {
   return (
-    currentUserId.value != null && Number(row.submitterId) === currentUserId.value
+    currentUserId.value != null && Number(row.submitterId) === Number(currentUserId.value)
   );
 }
 
@@ -348,7 +346,7 @@ function handleUserSearch(keyword: string) {
 }
 
 function resetModalForm() {
-  targetUserId.value = null;
+  targetUserId.value = undefined;
   targetUserName.value = '';
   targetUserIds.value = [];
   addSignType.value = 2;
@@ -376,6 +374,11 @@ function openModal(
 function closeModal() {
   modalState.value = { type: null, row: null };
 }
+
+const modalVisible = computed({
+  get: () => modalState.value.type !== null,
+  set: (v: boolean) => { if (!v) closeModal(); },
+});
 
 const modalTitle = computed(() => {
   const map: Record<string, string> = {
@@ -797,7 +800,7 @@ onMounted(async () => {
 
     <!-- 增强功能统一弹窗 -->
     <Modal
-      v-model:visible="modalState.type"
+      v-model:visible="modalVisible"
       :title="modalTitle"
       destroy-on-close
       width="520px"

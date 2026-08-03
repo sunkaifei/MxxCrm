@@ -168,7 +168,7 @@ const [BasicForm, basicFormApi] = useVbenForm({
 
 // 费用明细列
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' },
+  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
   { title: $t('page.finance.expense.drawer.itemDate'), key: 'itemDate', width: 160 },
   { title: $t('page.finance.expense.drawer.amount'), key: 'amount', width: 130 },
   { title: $t('page.finance.expense.drawer.category'), key: 'category', width: 140 },
@@ -446,7 +446,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
           <Input
             v-model:value="remark"
             :placeholder="$t('page.finance.expense.drawer.remarkPlaceholder')"
-            type="textarea"
+            type="text"
             :rows="2"
             :disabled="isReadonly"
           />
@@ -469,7 +469,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
           :pagination="false"
           size="small"
           :scroll="{ x: 850 }"
-          :row-key="(_: any, index: number) => index"
+          :row-key="(_: any, index) => String(index)"
           bordered
         >
           <template #bodyCell="{ column, record, index }">

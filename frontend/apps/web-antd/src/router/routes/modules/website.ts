@@ -93,6 +93,14 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'WebsiteArticleTag',
+        path: '/website/article-tag',
+        component: () => import('#/views/website/article-tag/index.vue'),
+        meta: {
+          title: '文章标签',
+        },
+      },
+      {
         name: 'WebsiteMedia',
         path: '/website/media',
         component: () => import('#/views/website/media/index.vue'),
@@ -146,6 +154,22 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/website/user/index.vue'),
         meta: {
           title: $t('page.website.userTitle'),
+        },
+      },
+      {
+        name: 'WebsiteStaticGenerate',
+        path: '/website/static-generate',
+        component: () => import('#/views/website/static-generate/index.vue'),
+        meta: {
+          title: '静态化生成',
+        },
+      },
+      {
+        name: 'WebsiteCollector',
+        path: '/website/collector',
+        component: () => import('#/views/website/collector/index.vue'),
+        meta: {
+          title: '内容采集器',
         },
       },
     ],

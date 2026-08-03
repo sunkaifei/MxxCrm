@@ -1,4 +1,5 @@
 import { requestClient } from '#/api/request';
+import type { DeliveryListParams } from './delivery';
 
 export interface OrderListParams {
   page?: number;
@@ -69,12 +70,6 @@ export interface ShipParams {
   deliveryCompany: string;
   deliveryType?: number;
   remark?: string;
-}
-
-export interface DeliveryListParams {
-  page?: number;
-  pageSize?: number;
-  orderNo?: string;
 }
 
 export const orderApi = {

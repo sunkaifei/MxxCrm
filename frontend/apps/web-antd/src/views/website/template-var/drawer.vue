@@ -89,7 +89,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: '请输入文本值',
         allowClear: true,
       },
-      ifVisible: ({ values }) => values.varType === 1,
+      dependencies: {
+        triggerFields: ['varType'],
+        if: (values: Record<string, any>) => values.varType === 1,
+      },
     },
     {
       component: 'InputNumber',
@@ -98,14 +101,20 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         placeholder: '请输入数字值',
       },
-      ifVisible: ({ values }) => values.varType === 2,
+      dependencies: {
+        triggerFields: ['varType'],
+        if: (values: Record<string, any>) => values.varType === 2,
+      },
     },
     {
       component: 'Switch',
       fieldName: 'varValueBool',
       label: '变量值',
       defaultValue: false,
-      ifVisible: ({ values }) => values.varType === 3,
+      dependencies: {
+        triggerFields: ['varType'],
+        if: (values: Record<string, any>) => values.varType === 3,
+      },
     },
     {
       component: 'Textarea',
@@ -115,7 +124,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: '请输入HTML内容',
         rows: 6,
       },
-      ifVisible: ({ values }) => values.varType === 4,
+      dependencies: {
+        triggerFields: ['varType'],
+        if: (values: Record<string, any>) => values.varType === 4,
+      },
     },
     {
       component: 'Input',
@@ -125,7 +137,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: '请输入图片URL',
         allowClear: true,
       },
-      ifVisible: ({ values }) => values.varType === 5,
+      dependencies: {
+        triggerFields: ['varType'],
+        if: (values: Record<string, any>) => values.varType === 5,
+      },
     },
     {
       component: 'Select',

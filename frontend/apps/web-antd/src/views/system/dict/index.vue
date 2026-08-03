@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { h } from 'vue';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
@@ -62,9 +63,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
 
   proxyConfig: {
@@ -143,7 +142,7 @@ async function handleStatusChanged(row: any, checked: boolean) {
   }
 }
 
-const [Drawer, drawerApi] = useVbenDrawer({
+const [, drawerApi] = useVbenDrawer({
   connectedComponent: DictDrawer,
   onClosed() {
     const data = drawerApi.getData();
@@ -207,7 +206,7 @@ async function handleDelete(row: any) {
           :checked-value="1"
           :loading="row.pending"
           :un-checked-value="2"
-          @change="(checked: boolean) => handleStatusChanged(row, checked)"
+          @change="(checked: any) => handleStatusChanged(row, checked)"
         />
       </template>
 

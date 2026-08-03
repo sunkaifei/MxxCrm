@@ -75,7 +75,7 @@ const tabList = computed(() => {
 watch(tabList, (newTabs) => {
   const keys = newTabs.map(t => t.key);
   if (!keys.includes(activeTab.value) && keys.length > 0) {
-    activeTab.value = keys[0];
+    activeTab.value = keys[0]!;
   }
 }, { immediate: true });
 
@@ -141,8 +141,8 @@ const searchForm = ref({
   qq: '',
 });
 
-function handleTabChange(key: string) {
-  activeTab.value = key;
+function handleTabChange(key: string | number) {
+  activeTab.value = key as string;
   gridApi.query();
 }
 
@@ -184,8 +184,8 @@ const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: { isHover: true },
-  rowConfig: { height: 'auto' },
+  cellConfig: { isHover: true } as any,
+  rowConfig: { height: 'auto' as any },
   stripe: true,
   checkboxConfig: { checkField: 'checked', trigger: 'row' },
 

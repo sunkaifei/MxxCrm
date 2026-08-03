@@ -4,8 +4,8 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { $t } from '#/locales';
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2, LucideLayers, LucideTag } from '@vben/icons';
-import { Button, Popconfirm, Tag, Space, Select, Switch } from 'ant-design-vue';
+import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { Button, Popconfirm, Tag, Select, Switch } from 'ant-design-vue';
 import TagDrawer from './drawer.vue';
 import { deleteTagApi, getTagListApi, batchDeleteTagApi } from '#/api';
 import { updateTagStatusApi } from '#/api/core/system/tag';
@@ -49,9 +49,7 @@ const gridOptions: VxeGridProps = {
  },
  height: 'auto',
  pagerConfig: {},
- cellConfig: {
- isHover: true,
- },
+ cellConfig: {},
  stripe: true,
  proxyConfig: {
  autoLoad: true,
@@ -163,7 +161,7 @@ async function handleDelete(row: any) {
  }
 }
 async function handleBatchDelete() {
- const selectedRows = gridApi.getCheckboxRecords();
+ const selectedRows = gridApi.grid?.getCheckboxRecords();
  if (!selectedRows || selectedRows.length === 0) {
  window.$message.warning($t('ui.notification.select_row'));
  return;
@@ -220,7 +218,7 @@ async function handleStatusChange(row: any, checked: boolean) {
           @confirm="handleBatchDelete"
         >
           <Button
-            type="danger"
+            danger
             v-access:code="['system:tag:delete']"
             :icon="h(LucideTrash2)"
           >
@@ -262,7 +260,7 @@ async function handleStatusChange(row: any, checked: boolean) {
           :checked="row.status === 1"
           :checked-children="$t('ui.switch.active')"
           :un-checked-children="$t('ui.switch.inactive')"
-          @change="(checked: boolean) => handleStatusChange(row, checked)"
+          @change="(checked: any) => handleStatusChange(row, checked)"
         />
       </template>
 
@@ -291,7 +289,7 @@ async function handleStatusChange(row: any, checked: boolean) {
           @confirm="() => handleDelete(row)"
         >
           <Button
-            type="danger"
+            danger
             v-access:code="['system:tag:delete']"
             link
             :icon="h(LucideTrash2)"

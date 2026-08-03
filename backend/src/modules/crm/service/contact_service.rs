@@ -424,15 +424,7 @@ async fn get_accessible_user_ids(
     crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
 }
 
-fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {
-    let mut ids = vec![parent_id];
-    for dept in all_depts {
-        if dept.parent_id == Some(parent_id) {
-            ids.extend(collect_child_dept_ids(all_depts, dept.id));
-        }
-    }
-    ids
-}
+
 
 /// 获取客户下的联系人列表
 pub async fn find_by_customer(

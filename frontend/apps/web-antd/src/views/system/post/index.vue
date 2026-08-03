@@ -55,9 +55,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
 
   proxyConfig: {
@@ -191,7 +189,7 @@ async function handleDelete(row: any) {
           :disabled="!accessStore.hasAccessCode('system:post:update')"
           :loading="row.pending"
           :un-checked-value="2"
-          @change="(checked: boolean) => handleStatusChanged(row, checked)"
+          @change="(checked: any) => handleStatusChanged(row, checked)"
         />
       </template>
 

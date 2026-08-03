@@ -39,7 +39,7 @@ async function loadData() {
     const res: any = await getSalesFunnelApi({
       year: props.year,
       month: props.month,
-      timeDimension: props.timeDimension,
+      time_dimension: props.timeDimension,
     });
     data.value = res?.data || res || {};
     await nextTick();
@@ -53,7 +53,7 @@ async function loadData() {
 
 function renderChart() {
   const stages = data.value?.stages || [];
-  const funnelData = stages.map((s: any) => ({
+  const funnelData: { name: string; value: number; amount: number; conversionRate: number }[] = stages.map((s: any) => ({
     name: s.stage,
     value: Number(s.count || 0),
     amount: Number(s.amount || 0),

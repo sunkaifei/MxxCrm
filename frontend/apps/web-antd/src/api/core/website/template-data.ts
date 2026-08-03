@@ -76,3 +76,19 @@ export const previewTemplateDataApi = async (data: {
     headers: { Accept: 'text/html' },
   });
 };
+
+/** 模板标签元数据（供编辑器文档面板使用） */
+export interface TemplateTagVO {
+  name: string;
+  category: string;
+  syntax: string;
+  description: string;
+  example: string;
+  params?: Array<[string, string]>;
+}
+
+/** 获取所有模板标签的元数据（文档 + 示例） */
+export const getTemplateTagsApi = async (): Promise<TemplateTagVO[]> => {
+  return requestClient.get('/api/system/template/tags');
+};
+

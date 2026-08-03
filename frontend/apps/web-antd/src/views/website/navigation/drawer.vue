@@ -150,10 +150,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  width: '60%',
-  drawerStyle: {
-    maxWidth: '100vw',
-  },
+  class: 'w-[60%] max-w-[100vw]',
   onCancel() {
     drawerApi.close();
   },

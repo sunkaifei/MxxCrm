@@ -293,7 +293,7 @@ const deptRanking = computed(() => {
 
 function rankingColumnsFor(type: 'dept' | 'employee') {
   return [
-    { title: '排名', dataIndex: 'rank', width: 70, fixed: 'left' },
+    { title: '排名', dataIndex: 'rank', width: 70, fixed: 'left' as const },
     {
       title: type === 'dept' ? '部门' : '销售员',
       dataIndex: 'employeeName',

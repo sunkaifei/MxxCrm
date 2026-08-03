@@ -33,7 +33,6 @@ function formatCurrency(val?: number) {
 
 const milestones = computed<Milestone[]>(() => data.value?.milestones || []);
 
-const currentMilestone = computed(() => data.value?.currentMilestone);
 const nextMilestone = computed(() => data.value?.nextMilestone);
 const futureMilestone = computed(() => data.value?.futureMilestone);
 

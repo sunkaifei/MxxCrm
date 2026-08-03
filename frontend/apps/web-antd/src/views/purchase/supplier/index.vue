@@ -39,7 +39,7 @@ const statusColorMap: Record<number, string> = {
   4: 'default',
 };
 
-const levelOptions = [
+const _levelOptions = [
   { label: '战略供应商', value: 1 },
   { label: '核心供应商', value: 2 },
   { label: '普通供应商', value: 3 },
@@ -71,7 +71,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: { isHover: true },
+  cellConfig: { isHover: true } as any,
   stripe: true,
   proxyConfig: {
     autoLoad: true,

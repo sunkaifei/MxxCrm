@@ -35,15 +35,7 @@ async fn get_accessible_user_ids(
     crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
 }
 
-fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {
-    let mut result = vec![parent_id];
-    for dept in all_depts {
-        if dept.parent_id == Some(parent_id) {
-            result.extend(collect_child_dept_ids(all_depts, dept.id));
-        }
-    }
-    result
-}
+
 
 pub async fn get_list(db: &DbConn, query: &ShipmentListQuery, current_user_id: i64) -> Result<ResultPage<Vec<ShipmentListVO>>> {
     let page = query.page_num.unwrap_or(1);

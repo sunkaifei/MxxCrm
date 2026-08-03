@@ -10,7 +10,7 @@ import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Drawer, Dropdown, Menu, Tabs, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
-import { LucideMoreHorizontal, LucideChevronDown } from '@vben/icons';
+import { LucideChevronDown } from '@vben/icons';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteQuotationApi, getQuotationInfoApi, getQuotationListApi, submitQuotationApprovalApi } from '#/api';
@@ -56,8 +56,8 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string) {
-  activeTab.value = key;
+function handleTabChange(key: string | number) {
+  activeTab.value = key as string;
   gridApi.query();
 }
 
@@ -134,7 +134,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: { isHover: true },
+  cellConfig: { isHover: true } as any,
   stripe: true,
   checkboxConfig: { checkMethod: () => true },
   proxyConfig: {

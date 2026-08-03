@@ -43,9 +43,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
 
   proxyConfig: {

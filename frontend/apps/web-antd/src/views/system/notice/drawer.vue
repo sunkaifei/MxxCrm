@@ -298,7 +298,8 @@ const publishStatusMeta = computed(() => {
 
 // 等级徽标
 const levelMeta = computed(() => {
-  const level = baseFormApi.getValues()?.level;
+  const values = baseFormApi.form.values;
+  const level = values?.level;
   switch (level) {
     case 'urgent':
       return { text: '紧急', color: '#f5222d' };

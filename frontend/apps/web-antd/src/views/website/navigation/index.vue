@@ -41,9 +41,7 @@ const gridOptions: VxeGridProps = {
   },
   height: 'auto',
   pagerConfig: { enabled: false },
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
   proxyConfig: {
     autoLoad: true,
@@ -52,10 +50,10 @@ const gridOptions: VxeGridProps = {
         const res: any = await navigationApi.list({
           navType: formValues.navType || undefined,
         });
-        return { rows: res || [], total: (res || []).length };
+        return { items: res || [], total: (res || []).length };
       },
       delete: async ({ body }) => {
-        await navigationApi.delete(body);
+        await navigationApi.delete(body.removeRecords);
       },
     },
   },

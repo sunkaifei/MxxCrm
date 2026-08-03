@@ -35,6 +35,11 @@ pub fn get_admin_id(req: &HttpRequest) -> Result<i64> {
     Ok(jwt_token.id.unwrap_or_default())
 }
 
+/// 获取管理员ID（返回默认值 0，不抛出错误）
+pub fn get_admin_id_or_default(req: &HttpRequest) -> i64 {
+    get_user(req).unwrap_or_default().id.unwrap_or_default()
+}
+
 /// 获取用户端用户信息
 pub fn get_user_client(req: &HttpRequest) -> Result<JWTToken> {
     let token = req

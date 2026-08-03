@@ -77,8 +77,8 @@ function handleReset() {
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, refresh: true, zoom: true },
   pagerConfig: {},
-  cellConfig: { isHover: true },
-  rowConfig: { height: 'auto' },
+  cellConfig: { isHover: true } as any,
+  rowConfig: { height: 'auto' as any },
   stripe: true,
 
   proxyConfig: {

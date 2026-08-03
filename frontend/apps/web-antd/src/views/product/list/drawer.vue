@@ -333,8 +333,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
       return {
         id: s.id,
-        specs: specsValue,
-        imageUrl: s.imageUrl || null,
+        specs: specsValue ? JSON.stringify(specsValue) : undefined,
+        imageUrl: s.imageUrl || undefined,
         price: s.price,
         costPrice: s.costPrice,
         originalPrice: s.originalPrice,
@@ -350,7 +350,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const payload = {
       ...formData.value,
       currency: 'CNY',
-      imageUrl: coverImageUrl.value || null,
+      imageUrl: coverImageUrl.value || undefined,
       carouselImages: carouselImages.value.map((img) => img.url),
       specType: specType.value,
       templateId: selectedTemplateId.value || undefined,
@@ -545,7 +545,7 @@ async function loadProductDetail(id: number) {
     if (specsData?.specs && Array.isArray(specsData.specs)) {
       templateSpecs.value = specsData.specs.map((s: any) => ({
         name: s.name || '',
-        values: (s.values || []).map((v: any) => String(v.value || '')).filter(v => v !== ''),
+        values: (s.values || []).map((v: any) => String(v.value || '')).filter((v: string) => v !== ''),
       }));
     }
   } catch {

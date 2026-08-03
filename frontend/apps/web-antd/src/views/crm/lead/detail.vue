@@ -338,7 +338,7 @@ async function handleRunBackgroundCheck() {
   try {
     const res = await performBackgroundCheckApi({
       company_name: form.companyName,
-      lead_id: props.id,
+      lead_id: props.id ?? undefined,
     });
     console.log('[背调] 评估结果:', res);
     if (res) {
@@ -587,11 +587,11 @@ function resetForm() {
         <div class="lead-info-detail-grid">
           <div class="lead-info-detail-item">
             <div class="lead-info-detail-label">行业</div>
-            <div class="lead-info-detail-value">{{ industryLabelMap[form.industry] || form.industry || '-' }}</div>
+            <div class="lead-info-detail-value">{{ industryLabelMap[form.industry!] || form.industry || '-' }}</div>
           </div>
           <div class="lead-info-detail-item">
             <div class="lead-info-detail-label">来源</div>
-            <div class="lead-info-detail-value">{{ sourceLabelMap[form.source] || form.source || '-' }}</div>
+            <div class="lead-info-detail-value">{{ sourceLabelMap[form.source!] || form.source || '-' }}</div>
           </div>
           <div class="lead-info-detail-item">
             <div class="lead-info-detail-label">国家/地区</div>

@@ -77,14 +77,22 @@ const entityTypeOptions = [
   { value: 'quotation', color: 'purple' },
   { value: 'payment', color: 'green' },
   { value: 'common', color: 'default' },
-];
-
-const fileTypeOptions = [
-  { value: 'all', label: '全部文件' },
-  { value: 'image', label: '图片' },
-  { value: 'doc', label: '文档' },
-  { value: 'video', label: '视频' },
-  { value: 'other', label: '其他' },
+  // CMS 内容类型
+  { value: 'website_media', color: 'geekblue' },
+  { value: 'article', color: 'magenta' },
+  { value: 'banner', color: 'lime' },
+  { value: 'block', color: 'gold' },
+  { value: 'page', color: 'volcano' },
+  { value: 'category', color: 'cyan' },
+  { value: 'navigation', color: 'purple' },
+  { value: 'link', color: 'blue' },
+  { value: 'member', color: 'orange' },
+  { value: 'member_avatar', color: 'cyan' },
+  { value: 'comment', color: 'default' },
+  { value: 'announcement', color: 'red' },
+  { value: 'faq', color: 'green' },
+  { value: 'ad', color: 'gold' },
+  { value: 'form', color: 'default' },
 ];
 
 // --- Computed ---

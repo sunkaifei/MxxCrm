@@ -281,16 +281,7 @@ async fn get_accessible_user_ids(
 }
 
 /// 递归收集部门下的所有子部门ID（含自身）
-fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {
-    let mut ids = Vec::new();
-    for dept in all_depts {
-        if dept.parent_id == Some(parent_id) {
-            ids.push(dept.id);
-            ids.extend(collect_child_dept_ids(all_depts, dept.id));
-        }
-    }
-    ids
-}
+
 
 pub async fn update_status(db: &DbConn, id: i64, status: i32, updated_by: Option<i64>) -> Result<i64> {
     // 已转客户的线索不允许修改状态，防止状态不一致

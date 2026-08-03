@@ -57,7 +57,6 @@ const gridOptions: VxeGridProps = {
     enabled: false,
   },
   cellConfig: {
-    isHover: true,
     height: 56,
   },
   treeConfig: {

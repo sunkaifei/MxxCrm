@@ -31,7 +31,7 @@ use sea_orm::{DbConn, EntityTrait};
 use std::collections::HashSet;
 
 /// 递归获取指定部门及其所有子部门的ID列表
-fn collect_child_dept_ids(all_depts: &[dept::Model], parent_id: i64) -> Vec<i64> {
+pub fn collect_child_dept_ids(all_depts: &[dept::Model], parent_id: i64) -> Vec<i64> {
     let mut ids = vec![parent_id];
     for d in all_depts {
         if d.parent_id == Some(parent_id) {

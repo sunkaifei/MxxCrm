@@ -60,7 +60,7 @@ const gridOptions: VxeGridProps = {
   toolbarConfig: { refresh: true, zoom: true },
   pagerConfig: {},
   height: 420,
-  cellConfig: { isHover: true },
+  cellConfig: { isHover: true } as any,
   rowConfig: { height: 'auto' },
   stripe: true,
 

@@ -58,9 +58,7 @@ const [Form, { form, validate, getFieldComponentRef }] = useVbenForm(
   }),
 );
 
-const validPass = computed(
-  () => lockScreenPassword?.value === form?.values?.password,
-);
+
 
 async function handleSubmit() {
   const { valid } = await validate();

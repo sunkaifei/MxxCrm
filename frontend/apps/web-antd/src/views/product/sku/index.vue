@@ -19,7 +19,7 @@ import {
   saveTemplateSpecsApi,
   updateSkuTemplateApi,
 } from '#/api';
-import type { SkuTemplateListVO, SkuTemplateDetailVO, SpecSaveItem, SpecValueSaveItem } from '#/api';
+import type { SkuTemplateListVO, SkuTemplateDetailVO } from '#/api';
 import { $t } from '#/locales';
 
 const accessStore = useAccessStore();
@@ -72,9 +72,7 @@ const gridOptions: VxeGridProps = {
   },
   height: 'auto',
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: { isHover: true } as any,
   stripe: true,
 
   proxyConfig: {
@@ -236,23 +234,23 @@ function removeSpecRow(idx: number) {
 
 /** 添加规格值 */
 function addSpecValue(specIdx: number) {
-  specList.value[specIdx].values.push('');
+  specList.value[specIdx]?.values.push('');
 }
 
 /** 删除规格值 */
 function removeSpecValue(specIdx: number, valIdx: number) {
-  specList.value[specIdx].values.splice(valIdx, 1);
+  specList.value[specIdx]?.values.splice(valIdx, 1);
 }
 
 /** 失焦时清理空值 */
 function handleBlurSpecValue(specIdx: number, valIdx: number) {
-  const val = specList.value[specIdx].values[valIdx];
+  const val = specList.value[specIdx]?.values[valIdx];
   if (val && typeof val === 'string') {
     const trimmed = val.trim();
     if (trimmed === '') {
       removeSpecValue(specIdx, valIdx);
     } else {
-      specList.value[specIdx].values[valIdx] = trimmed;
+      if (specList.value[specIdx]) specList.value[specIdx].values[valIdx] = trimmed;
     }
   }
 }
@@ -418,7 +416,7 @@ async function handleSaveSpecs() {
                 <span class="text-xs text-gray-400">值:</span>
                 <div class="flex flex-wrap gap-1 flex-1">
                   <span
-                    v-for="(val, vIdx) in spec.values"
+                    v-for="(_val, vIdx) in spec.values"
                     :key="vIdx"
                     class="spec-value-tag"
                   >

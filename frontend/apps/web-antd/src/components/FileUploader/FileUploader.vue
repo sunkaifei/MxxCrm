@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { Upload, message } from 'ant-design-vue';
 import type { UploadFile } from 'ant-design-vue';
 import { uploadFileApi } from '#/api/core/attachment/file';
-import { LucideUpload, LucideX } from '@vben/icons';
+import { LucideUpload } from '@vben/icons';
 
 interface Props {
   entityType: string;        // 业务类型（product/avatar/contract/invoice/quotation/payment/common）

@@ -90,16 +90,16 @@ const paymentMethodLabelMap: Record<number, string> = {
 };
 
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' },
+  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
   { title: '产品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 120 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
   {
     title: '退货数量',
     dataIndex: 'refundQty',
     key: 'refundQty',
     width: 100,
-    align: 'right',
+    align: 'right' as const,
     customRender: ({ text }: any) => Number(text || 0).toFixed(0),
   },
   {
@@ -107,7 +107,7 @@ const itemColumns = [
     dataIndex: 'unitPrice',
     key: 'unitPrice',
     width: 100,
-    align: 'right',
+    align: 'right' as const,
     customRender: ({ text }: any) => Number(text || 0).toFixed(2),
   },
   {
@@ -115,14 +115,14 @@ const itemColumns = [
     dataIndex: 'refundAmount',
     key: 'refundAmount',
     width: 120,
-    align: 'right',
+    align: 'right' as const,
     customRender: ({ text }: any) =>
       `¥ ${Number(text || 0).toFixed(2)}`,
   },
 ];
 
 const paymentColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' },
+  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
   { title: '退款单号', dataIndex: 'paymentNo', key: 'paymentNo', width: 170 },
   {
     title: '退款方式',
@@ -136,7 +136,7 @@ const paymentColumns = [
     dataIndex: 'paymentAmount',
     key: 'paymentAmount',
     width: 120,
-    align: 'right',
+    align: 'right' as const,
     customRender: ({ text }: any) => `¥ ${Number(text || 0).toFixed(2)}`,
   },
   {

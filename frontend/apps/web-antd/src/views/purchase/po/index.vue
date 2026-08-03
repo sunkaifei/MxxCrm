@@ -54,9 +54,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: { isHover: true } as any,
   stripe: true,
 
   proxyConfig: {
@@ -150,11 +148,13 @@ async function handleCreate() {
   openDrawer(true);
 }
 
-async function handleConfirm(row: any) {
+async function _handleConfirm(row: any) {
+  void _handleConfirm;
   window.$message.info(`确认采购: ${row.id}`);
 }
 
-async function handleReceive(row: any) {
+async function _handleReceive(row: any) {
+  void _handleReceive;
   window.$message.info(`入库: ${row.id}`);
 }
 </script>

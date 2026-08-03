@@ -85,8 +85,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
         allowClear: true,
         rows: 4,
       },
-      ifVisible: ({ values }) =>
-        [6, 7, 8].includes(values.fieldType),
+      dependencies: {
+        triggerFields: ['fieldType'],
+        if: (values: Record<string, any>) =>
+          [6, 7, 8].includes(values.fieldType),
+      },
     },
     {
       component: 'Input',

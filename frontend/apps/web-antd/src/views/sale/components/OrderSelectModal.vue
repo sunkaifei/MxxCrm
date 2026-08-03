@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { h, onMounted, ref, watch } from 'vue';
+import type { Key } from 'ant-design-vue/es/table/interface';
 
 import { Button, Input, Modal, Table, Tag } from 'ant-design-vue';
 
@@ -29,7 +30,7 @@ const keyword = ref('');
 const loading = ref(false);
 const list = ref<OrderOption[]>([]);
 const selectedRow = ref<OrderOption | null>(null);
-const selectedKeys = ref<number[]>([]);
+const selectedKeys = ref<Key[]>([]);
 const pagination = ref({ current: 1, pageSize: 10, total: 0 });
 
 const currencySymbolMap: Record<number, string> = {
@@ -161,8 +162,8 @@ onMounted(() => {
 
 const rowSelection = {
   type: 'radio' as const,
-  selectedRowKeys: selectedKeys,
-  onChange: (keys: number[], rows: OrderOption[]) => {
+  selectedRowKeys: selectedKeys.value,
+  onChange: (keys: Key[], rows: OrderOption[]) => {
     selectedKeys.value = keys;
     selectedRow.value = rows[0] || null;
   },

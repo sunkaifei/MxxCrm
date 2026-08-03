@@ -75,7 +75,7 @@ sqids = "0.4"
 chrono = { version = "0.4.40", features = ["unstable-locales"] }
 chrono-tz = { version = "0.10.4", features = ["serde"] }
 
-image = { version = "0.25.10", features = ["webp"] }
+image = { version = "0.25.10", features = ["png", "jpeg", "gif", "webp"] }
 webp = "0.3.1"
 zip = "0.6.4"
 

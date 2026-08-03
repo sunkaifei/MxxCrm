@@ -16,6 +16,8 @@ export interface CategorySaveDTO {
   // New unified fields
   pageType?: number;       // 1=封面模式, 2=列表模式
   pageTemplateDataId?: number;
+  listTemplateDataId?: number;   // 列表页模板ID (typeId=2)
+  detailTemplateDataId?: number; // 内容页模板ID (typeId=3)
   bannerImage?: string;
   description?: string;
   contentType?: number;    // 1=文章, 2=产品, 3=自定义链接
@@ -40,6 +42,8 @@ export interface CategoryVO {
   // New unified fields
   pageType?: number;
   pageTemplateDataId?: number;
+  listTemplateDataId?: number;
+  detailTemplateDataId?: number;
   bannerImage?: string;
   description?: string;
   contentType?: number;

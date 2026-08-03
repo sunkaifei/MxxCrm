@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, h, ref } from 'vue';
+import { computed, h, onMounted, ref } from 'vue';
 import { useVbenDrawer, z } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import {
@@ -7,14 +7,17 @@ import {
   LucideMinimize2,
   LucideEye,
   LucideClock,
+  LucideTag,
 } from '@vben/icons';
-import { Button, message, Modal } from 'ant-design-vue';
+import { Button, Collapse, CollapsePanel, Empty, message, Modal, Tabs, TabPane, Input } from 'ant-design-vue';
 import {
   addTemplateDataApi,
   updateTemplateDataApi,
   previewTemplateDataApi,
   getTemplateDataDetailApi,
+  getTemplateTagsApi,
 } from '#/api';
+import type { TemplateTagVO } from '#/api/core/website/template-data';
 import { $t } from '#/locales';
 import { statusList } from '#/store';
 import RevisionModal from '../template-data/revision-modal.vue';
@@ -42,7 +45,7 @@ const isFullscreen = ref(false);
 
 function toggleFullscreen() {
   isFullscreen.value = !isFullscreen.value;
-  drawerApi.setState({ width: isFullscreen.value ? '100%' : '75%' });
+  drawerApi.setState({ class: isFullscreen.value ? 'w-full' : 'w-[75vw]' });
 }
 
 // 版本历史
@@ -59,6 +62,77 @@ function openRevisionModal() {
 function handleRollback(temptext: string) {
   baseFormApi.setValues({ temptext });
 }
+
+// 标签文档面板
+const tagsPanelActive = ref<string[]>([]);
+const allTags = ref<TemplateTagVO[]>([]);
+const tagsLoading = ref(false);
+const tagSearchKeyword = ref('');
+
+const tagsByCategory = computed(() => {
+  const keyword = tagSearchKeyword.value.trim().toLowerCase();
+  const filtered = keyword
+    ? allTags.value.filter(
+        (t) =>
+          t.name.toLowerCase().includes(keyword) ||
+          t.description.toLowerCase().includes(keyword) ||
+          t.syntax.toLowerCase().includes(keyword),
+      )
+    : allTags.value;
+
+  const map = new Map<string, TemplateTagVO[]>();
+  for (const tag of filtered) {
+    if (!map.has(tag.category)) map.set(tag.category, []);
+    map.get(tag.category)!.push(tag);
+  }
+  return Array.from(map.entries()).map(([category, tags]) => ({
+    category,
+    tags,
+  }));
+});
+
+async function loadTags() {
+  if (allTags.value.length > 0) return;
+  tagsLoading.value = true;
+  try {
+    const res = await getTemplateTagsApi();
+    allTags.value = Array.isArray(res) ? res : [];
+  } catch {
+    // 全局拦截器处理
+  } finally {
+    tagsLoading.value = false;
+  }
+}
+
+function toggleTagsPanel() {
+  if (tagsPanelActive.value.length > 0) {
+    tagsPanelActive.value = [];
+  } else {
+    tagsPanelActive.value = ['tags'];
+    loadTags();
+  }
+}
+
+// 把标签示例代码插入到编辑器光标位置
+async function insertTagExample(example: string) {
+  // 通过表单 API 获取 CodeEditor 组件实例
+  const comp = baseFormApi.getFieldComponentRef<any>('temptext');
+  if (comp && typeof comp.insertText === 'function') {
+    comp.insertText(example);
+    message.success('已插入到光标位置');
+  } else {
+    // 降级：追加到末尾
+    const values = await baseFormApi.getValues();
+    const current = values?.temptext || '';
+    await baseFormApi.setValues({ temptext: current + '\n' + example });
+    message.success('已追加到末尾');
+  }
+}
+
+onMounted(() => {
+  loadTags();
+});
+
 
 // 表单
 const [BaseForm, baseFormApi] = useVbenForm({
@@ -177,7 +251,7 @@ async function handleSave() {
 }
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  width: '75%',
+  class: 'w-[75vw]',
   onCancel() {
     drawerApi.close();
   },
@@ -229,34 +303,84 @@ defineExpose({ open, close });
 </script>
 
 <template>
-  <Drawer :title="drawerTitle" :class="isFullscreen ? 'fullscreen-editor' : 'normal-editor'">
-    <!-- 顶部工具栏 -->
-    <div class="editor-toolbar">
-      <div class="editor-toolbar-left">
-        <Button
-          type="text"
-          size="small"
-          :icon="h(isFullscreen ? LucideMinimize2 : LucideMaximize2)"
-          @click="toggleFullscreen"
-        >
-          {{ isFullscreen ? '退出全屏' : '全屏编辑' }}
-        </Button>
-      </div>
-      <div class="editor-toolbar-right">
-        <Button
-          v-if="!isCreate"
-          type="link"
-          size="small"
-          :icon="h(LucideClock)"
-          @click="openRevisionModal"
-        >
-          版本历史
-        </Button>
-      </div>
-    </div>
+  <Drawer :title="drawerTitle">
+    <!-- 右上角：标签文档 + 版本历史 + 全屏按钮 -->
+    <template #extra>
+      <Button
+        type="link"
+        size="small"
+        :icon="h(LucideTag)"
+        @click="toggleTagsPanel"
+      >
+        标签文档
+      </Button>
+      <Button
+        v-if="!isCreate"
+        type="link"
+        size="small"
+        :icon="h(LucideClock)"
+        @click="openRevisionModal"
+      >
+        版本历史
+      </Button>
+      <Button
+        type="text"
+        size="small"
+        :icon="h(isFullscreen ? LucideMinimize2 : LucideMaximize2)"
+        @click="toggleFullscreen"
+      />
+    </template>
 
     <!-- 表单内容 -->
     <BaseForm />
+
+    <!-- 标签文档面板（可折叠） -->
+    <Collapse v-model:active-key="tagsPanelActive" ghost class="tags-panel">
+      <CollapsePanel key="tags" header="模板标签文档（点击标签插入到光标位置）">
+        <Input
+          v-model:value="tagSearchKeyword"
+          placeholder="搜索标签名称、说明或语法..."
+          allow-clear
+          size="small"
+          class="mb-3"
+        />
+        <Empty v-if="tagsByCategory.length === 0" description="暂无标签" />
+        <Tabs v-else type="card" size="small">
+          <TabPane
+            v-for="group in tagsByCategory"
+            :key="group.category"
+            :tab="`${group.category} (${group.tags.length})`"
+          >
+            <div class="tag-list">
+              <div
+                v-for="tag in group.tags"
+                :key="tag.name"
+                class="tag-card"
+              >
+                <div class="tag-card-header">
+                  <span class="tag-name">{{ tag.name }}</span>
+                  <Button
+                    type="primary"
+                    size="small"
+                    @click="insertTagExample(tag.example)"
+                  >
+                    插入
+                  </Button>
+                </div>
+                <p class="tag-desc">{{ tag.description }}</p>
+                <pre class="tag-syntax">{{ tag.syntax }}</pre>
+                <div v-if="tag.params && tag.params.length > 0" class="tag-params">
+                  <span class="tag-params-title">参数：</span>
+                  <span v-for="p in tag.params" :key="p[0]" class="tag-param">
+                    <code>{{ p[0] }}</code> {{ p[1] }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </TabPane>
+        </Tabs>
+      </CollapsePanel>
+    </Collapse>
 
     <!-- 底部操作栏 -->
     <template #footer>
@@ -302,22 +426,6 @@ defineExpose({ open, close });
 </template>
 
 <style scoped>
-.editor-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
-}
-
-.editor-toolbar-left,
-.editor-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .editor-footer {
   display: flex;
   align-items: center;
@@ -337,15 +445,97 @@ defineExpose({ open, close });
   border-radius: 4px;
 }
 
-/* 暗黑模式适配 */
-:root.dark .editor-toolbar {
-  --border-color: #333;
+/* 标签文档面板 */
+.tags-panel {
+  margin-top: 12px;
+  border-top: 1px dashed #e8e8e8;
+  padding-top: 4px;
+}
+
+.tag-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.tag-card {
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fafafa;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.tag-card:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.tag-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.tag-name {
+  font-weight: 600;
+  color: #0f172a;
+  font-family: SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.tag-desc {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.tag-syntax {
+  margin: 0;
+  padding: 8px 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.tag-params {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #475569;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-params-title {
+  font-weight: 600;
+  color: #334155;
+}
+
+.tag-param code {
+  background: #e2e8f0;
+  color: #1d4ed8;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
 }
 
 /* 响应式：小屏幕全宽 */
 @media (max-width: 767px) {
   :deep(.ant-drawer-content-wrapper) {
     width: 100% !important;
+  }
+
+  .tag-list {
+    grid-template-columns: 1fr;
   }
 }
 </style>

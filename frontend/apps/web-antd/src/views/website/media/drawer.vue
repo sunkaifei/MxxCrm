@@ -134,10 +134,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
 const currentMedia = ref<any>({});
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  width: '50%',
-  drawerStyle: {
-    maxWidth: '100vw',
-  },
+  class: 'w-[50%] max-w-[100vw]',
   onCancel() {
     drawerApi.close();
   },

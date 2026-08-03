@@ -81,8 +81,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
           return {};
         },
       },
-      help: computed(() => (isCreate.value ? $t('page.system.user.defaultPasswordTip') : '')),
-      ifShow: ({ values }: any) => !!values.create,
+      help: () => (isCreate.value ? $t('page.system.user.defaultPasswordTip') : ''),
     },
     {
       component: 'Select',

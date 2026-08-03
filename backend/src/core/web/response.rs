@@ -6,7 +6,11 @@
 //!
 
 use crate::core::errors::error::Error;
+use actix_web::HttpResponse;
 use serde::Serialize;
+
+/// MessagePack 内容类型常量
+pub const MPACK: &str = "application/msgpack";
 
 /// API全局MetaMessage返回根对象（MetaResp<T> + RespMeta 固定结构）
 #[derive(Debug, Serialize)]
@@ -182,4 +186,34 @@ where
             total_pages: 1,
         }
     }
+}
+
+// ==================== 响应快捷方法 ====================
+
+/// 成功返回带业务数据
+pub fn ok_success<T: Serialize>(data: T) -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::success(data, "local"))
+}
+
+/// 成功返回带分页信息
+pub fn ok_success_page<T: Serialize>(data: T, page: u32, total: u32) -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::success_with_page(data, "local", page, total))
+}
+
+/// 业务错误返回（400）
+pub fn ok_fail(msg: &str) -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::<String>::fail(400, msg, "local"))
+}
+
+/// 处理数据库操作结果（insert/update/delete），返回成功或失败
+pub fn ok_handle_result(result: std::result::Result<i64, Error>) -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::<i64>::handle_result(result))
 }

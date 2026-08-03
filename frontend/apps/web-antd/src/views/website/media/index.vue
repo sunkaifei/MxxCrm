@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, h, onMounted, ref } from 'vue';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import {
   LucideUpload,
+  LucidePlus,
   LucideTrash2,
   LucideEye,
   LucideImage,
@@ -33,9 +34,11 @@ import {
   deleteMediaApi,
   getMediaCategoryAllApi,
   getMediaListApi,
+  deleteMediaCategoryApi,
 } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
 import MediaDrawer from './drawer.vue';
+import MediaCategoryDrawer from './category-drawer.vue';
 
 const SelectOption = Select.Option;
 
@@ -209,29 +212,71 @@ async function handleDelete(item: any) {
   }
 }
 
+// --- 分类管理 ---
+const [CategoryDrawer, categoryDrawerApi] = useVbenDrawer({
+  connectedComponent: MediaCategoryDrawer,
+  onClosed() {
+    const d = categoryDrawerApi.getData();
+    if (d?.needRefresh) loadCategoryTree();
+  },
+});
+
+function handleAddCategory(parentId?: number) {
+  categoryDrawerApi.setData({ create: true, parentId });
+  categoryDrawerApi.open();
+}
+
+function handleEditCategory(item: any) {
+  categoryDrawerApi.setData({ create: false, row: item });
+  categoryDrawerApi.open();
+}
+
+async function handleDeleteCategory(item: any) {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除分类「${item.title || item.categoryName}」吗？`,
+    okType: 'danger',
+    onOk: async () => {
+      try {
+        await deleteMediaCategoryApi(item.key);
+        message.success('分类删除成功');
+        loadCategoryTree();
+      } catch (e: any) {
+        message.error(e?.message || '删除失败');
+      }
+    },
+  });
+}
+
 // --- 上传 ---
 async function uploadFile(options: any) {
   const { file, onSuccess, onError, onProgress } = options;
   try {
     onProgress?.({ percent: 30 });
-    const res: any = await uploadFileApi(file, 'website-media');
-    const url = res?.data?.url || res?.url;
+    const res: any = await uploadFileApi(file, 'website_media');
+    const data = res?.data;
+    const url = data?.url || res?.url;
+    const attachmentId = data?.id ? Number(data.id) : undefined;
     onProgress?.({ percent: 100 });
     onSuccess?.(res, file);
 
-    // 上传成功后调用 addMediaApi 创建媒体记录
+    // 上传成功后调用 addMediaApi 创建媒体记录，关联 attachment_id
     if (url) {
       const fileName = file.name || '';
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
+      // 从URL中提取存储文件名（UUID文件名，位于最后一段路径）
+      const storageName = url.substring(url.lastIndexOf('/') + 1) || fileName;
       await addMediaApi({
         originalName: fileName,
+        storageName: storageName,
         fileUrl: url,
-        filePath: res?.data?.path || res?.path || url,
+        filePath: url,
         fileExt: ext,
         fileSize: file.size,
         fileType: imageExtensions.includes(ext) ? 1 : 5,
         mimeType: file.type,
         categoryId: selectedCategoryId.value || undefined,
+        attachmentId,
       });
     }
     message.success('上传成功');
@@ -275,6 +320,13 @@ onMounted(() => {
       <aside class="aside-bar">
         <div class="aside-header">
           <h3 class="aside-title">媒体分类</h3>
+          <Button
+            type="link"
+            size="small"
+            :icon="h(LucidePlus)"
+            @click="handleAddCategory()"
+            title="新增分类"
+          />
         </div>
         <div class="aside-tree">
           <Tree
@@ -282,7 +334,40 @@ onMounted(() => {
             :default-expand-all="true"
             :selected-keys="selectedCategoryId ? [selectedCategoryId] : []"
             @select="onSelectCategory"
-          />
+          >
+            <template #title="nodeData">
+              <span class="category-node">
+                <span class="category-node-title">{{ nodeData.title }}</span>
+                <span class="category-node-actions">
+                  <Tooltip title="新增子分类">
+                    <Button
+                      type="text"
+                      size="small"
+                      :icon="h(LucidePlus)"
+                      @click.stop="handleAddCategory(nodeData.key)"
+                    />
+                  </Tooltip>
+                  <Tooltip title="编辑">
+                    <Button
+                      type="text"
+                      size="small"
+                      :icon="h(LucideFilePenLine)"
+                      @click.stop="handleEditCategory(nodeData)"
+                    />
+                  </Tooltip>
+                  <Tooltip title="删除">
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      :icon="h(LucideTrash2)"
+                      @click.stop="handleDeleteCategory(nodeData)"
+                    />
+                  </Tooltip>
+                </span>
+              </span>
+            </template>
+          </Tree>
           <div v-if="treeData.length === 0" class="aside-empty">
             <span>暂无分类</span>
           </div>
@@ -436,12 +521,17 @@ onMounted(() => {
                     </span>
                   </div>
                   <div class="gc-footer">
-                    <Tag
-                      :color="fileTypeMap[item.fileType]?.color || 'default'"
-                      class="gc-tag"
-                    >
-                      {{ fileTypeMap[item.fileType]?.label || '未知' }}
-                    </Tag>
+                    <div class="gc-footer-left">
+                      <Tag
+                        :color="fileTypeMap[item.fileType]?.color || 'default'"
+                        class="gc-tag"
+                      >
+                        {{ fileTypeMap[item.fileType]?.label || '未知' }}
+                      </Tag>
+                      <span v-if="item.uploadedName" class="gc-uploader" :title="item.uploadedName">
+                        {{ item.uploadedName }}
+                      </span>
+                    </div>
                     <div class="gc-actions">
                       <Button
                         type="text"
@@ -513,6 +603,7 @@ onMounted(() => {
     </Modal>
 
     <Drawer />
+    <CategoryDrawer />
   </Page>
 </template>
 
@@ -541,12 +632,29 @@ onMounted(() => {
 .aside-header {
   padding: 16px 16px 12px;
   border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .aside-title {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
+}
+
+.category-node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.category-node-actions {
+  display: none;
+  gap: 2px;
+}
+.category-node:hover .category-node-actions {
+  display: inline-flex;
 }
 
 .aside-tree {
@@ -755,6 +863,24 @@ onMounted(() => {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid #f5f5f5;
+}
+
+.gc-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.gc-uploader {
+  font-size: 11px;
+  color: #8c8c8c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80px;
 }
 .gc-tag {
   font-size: 11px;

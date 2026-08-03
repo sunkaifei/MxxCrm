@@ -3,7 +3,7 @@ import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideEye, LucideTrash2 } from '@vben/icons';
+import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
@@ -64,7 +64,6 @@ const gridOptions: VxeGridProps = {
     transform: false,
   },
   cellConfig: {
-    isHover: true,
     height: 48,
   },
 
@@ -218,7 +217,7 @@ async function handleDelete(row: any) {
           :checked-value="1"
           :loading="row.pending"
           :un-checked-value="2"
-          @change="(checked: boolean) => handleStatusChanged(row, checked)"
+          @change="(checked: any) => handleStatusChanged(row, checked)"
         />
       </template>
 

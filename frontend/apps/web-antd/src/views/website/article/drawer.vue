@@ -3,6 +3,7 @@ import { computed, ref, onMounted } from 'vue';
 import { useVbenDrawer, z } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import { articleApi, categoryApi } from '#/api';
+import { articleTagApi } from '#/api/core/website/article-tag';
 import { message } from 'ant-design-vue';
 
 const data = ref();
@@ -10,6 +11,7 @@ const isCreate = computed(() => data.value?.create);
 const getTitle = computed(() => (isCreate.value ? '新增文章' : '编辑文章'));
 
 const categoryTree = ref<any[]>([]);
+const tagOptions = ref<any[]>([]);
 
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
@@ -39,6 +41,18 @@ const [BaseForm, baseFormApi] = useVbenForm({
         allowClear: true,
       },
       rules: z.string().min(1, { message: '请输入文章标题' }),
+    },
+    {
+      component: 'Select',
+      fieldName: 'labelIds',
+      label: '文章标签',
+      componentProps: {
+        mode: 'multiple',
+        options: tagOptions,
+        placeholder: '请选择标签（可多选）',
+        allowClear: true,
+        style: 'width: 100%',
+      },
     },
     {
       component: 'Input',
@@ -174,10 +188,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  width: '80%',
-  drawerStyle: {
-    maxWidth: '100vw',
-  },
+  class: 'w-[80%] max-w-[100vw]',
   onCancel() {
     drawerApi.close();
   },
@@ -191,6 +202,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
     setLoading(true);
 
     const values = await baseFormApi.getValues();
+
+    // 将 labelIds 转为数字数组
+    if (values.labelIds) {
+      values.labelIds = values.labelIds.map((id: any) => Number(id));
+    }
 
     try {
       if (isCreate.value) {
@@ -210,8 +226,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen) {
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
-      baseFormApi.setValues(data.value?.row || {});
+      const row = data.value?.row || {};
+      baseFormApi.setValues(row);
       setLoading(false);
+
+      // 编辑模式：加载已有标签ID
+      if (!isCreate.value && row?.id) {
+        articleApi.getLabels(row.id).then((res: any) => {
+          const ids = Array.isArray(res) ? res : [];
+          baseFormApi.setValues({ labelIds: ids });
+        }).catch(() => {
+          // 静默处理
+        });
+      }
     }
   },
 });
@@ -232,8 +259,21 @@ async function loadCategoryTree() {
   categoryTree.value = mapTree(result);
 }
 
+async function loadTags() {
+  try {
+    const result: any = await articleTagApi.all();
+    tagOptions.value = (Array.isArray(result) ? result : []).map((tag: any) => ({
+      label: tag.name,
+      value: tag.id,
+    }));
+  } catch {
+    tagOptions.value = [];
+  }
+}
+
 onMounted(() => {
   loadCategoryTree();
+  loadTags();
 });
 </script>
 

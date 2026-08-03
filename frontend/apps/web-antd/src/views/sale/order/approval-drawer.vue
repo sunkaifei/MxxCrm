@@ -74,7 +74,7 @@ const nodeStatusMap: Record<number, { label: string; color: string; bgClass: str
 };
 
 // 节点类型名称
-const nodeTypeMap: Record<number, string> = {
+const _nodeTypeMap: Record<number, string> = {
   1: '发起人',
   2: '审批人',
   3: '条件分支',
@@ -104,10 +104,11 @@ const canApprove = computed(() => {
 });
 
 // 是否是发起人
-const isSubmitter = computed(() => {
+const _isSubmitter = computed(() => {
   if (!instance.value || !currentUserId.value) return false;
   return instance.value.submitterId === currentUserId.value;
 });
+void _isSubmitter;
 
 // 流程节点（按node_order排序，排除条件分支节点，用于流程图和流转记录）
 const flowNodesOrdered = computed(() => {
@@ -341,7 +342,7 @@ watch(
                         </svg>
                       </div>
                       <div
-                        v-if="idx < (instance?.logs?.length || 0) - 1 || (instance?.status === 1 || instance?.status === 2)"
+                        v-if="Number(idx) < ((instance?.logs?.length || 0) - 1) || (instance?.status === 1 || instance?.status === 2)"
                         class="w-0.5 flex-1 bg-gray-200 mt-1 min-h-[20px]"
                       ></div>
                     </div>
@@ -373,8 +374,8 @@ watch(
                     <div class="flex items-center gap-2 flex-wrap">
                       <span class="font-semibold text-blue-600">审批人</span>
                       <Tag color="processing" class="m-0">待审批</Tag>
-                      <Tag v-if="approveModeMap[instance.approveMode]" :color="approveModeMap[instance.approveMode].color" class="m-0">
-                        {{ approveModeMap[instance.approveMode].label }}
+                      <Tag v-if="instance?.approveMode && approveModeMap[instance.approveMode]" :color="approveModeMap[instance.approveMode]?.color" class="m-0">
+                        {{ approveModeMap[instance.approveMode]?.label }}
                       </Tag>
                     </div>
                     <!-- 候选审批人列表 -->

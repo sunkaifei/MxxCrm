@@ -132,7 +132,7 @@ const setContractRuleApi = (data: any) => {
 };
 
 const commissionRuleOptions = ref<any[]>([]);
-const selectedRuleId = ref<number | null>(null);
+const selectedRuleId = ref<number>();
 const commissionMode = ref<number>(1);
 const commissionMembers = ref<any[]>([]);
 const roleTypeOptions = [
@@ -277,7 +277,7 @@ async function loadCommissionData(contractId: number) {
   try {
     const res: any = await getContractMembersApi(contractId);
     const data = res?.data?.data || res?.data || res || {};
-    selectedRuleId.value = data.ruleId || data.commissionRuleId || null;
+    selectedRuleId.value = data.ruleId || data.commissionRuleId || undefined;
     commissionMode.value = data.mode || data.commissionMode || 1;
     const members = data.members || data.commissionMembers || [];
     if (Array.isArray(members)) {
@@ -859,7 +859,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       selectedOrder.value = null;
       contactOptions.value = [];
       commissionRuleOptions.value = [];
-      selectedRuleId.value = null;
+      selectedRuleId.value = undefined;
       commissionMode.value = 1;
       commissionMembers.value = [];
       previewResult.value = [];
@@ -1016,7 +1016,7 @@ function toggleMaximize() {
             :pagination="false"
             size="small"
             bordered
-            :row-key="(_record: any, index: number) => `item_${index}`"
+            :row-key="(_record: any, index) => `item_${index}`"
             class="order-items-table"
           >
             <template #bodyCell="{ column, record }">
@@ -1078,7 +1078,7 @@ function toggleMaximize() {
             :pagination="false"
             bordered
             size="small"
-            :row-key="(_record: any, index: number) => `plan_${index}`"
+            :row-key="(_record: any, index) => `plan_${index}`"
             :scroll="{ x: 900 }"
             class="payment-plan-table"
           >
@@ -1201,7 +1201,7 @@ function toggleMaximize() {
               :pagination="false"
               size="small"
               bordered
-              :row-key="(_record: any, index: number) => `member_${index}`"
+              :row-key="(_record: any, index) => `member_${index}`"
             >
               <template #bodyCell="{ column, record, index }">
                 <template v-if="column.key === 'userName'">

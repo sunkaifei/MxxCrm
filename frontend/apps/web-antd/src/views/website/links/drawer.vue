@@ -76,10 +76,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  width: '80%',
-  drawerStyle: {
-    maxWidth: '100vw',
-  },
+  class: 'w-[80%] max-w-[100vw]',
   onCancel() {
     drawerApi.close();
   },
@@ -171,9 +168,9 @@ function syncLogoFileList(url: string) {
   }
 }
 
-function handleLogoPreview(file: UploadFile) {
-  // 使用 ant-design-vue 的 image preview
-}
+// function handleLogoPreview(file: UploadFile) {
+//   // 使用 ant-design-vue 的 image preview
+// }
 </script>
 
 <template>

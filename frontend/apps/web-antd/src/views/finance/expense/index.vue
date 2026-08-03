@@ -7,7 +7,6 @@ import { computed, h, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
-import { formatDateTime } from '@vben/utils';
 
 import { Button, Modal, Popconfirm, Tag, Tabs } from 'ant-design-vue';
 
@@ -69,8 +68,8 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string) {
-  activeTab.value = key;
+function handleTabChange(key: string | number) {
+  activeTab.value = key as string;
   gridApi.query();
 }
 
@@ -103,7 +102,7 @@ const expenseStatusLabelMap: Record<number, string> = {
 };
 
 // 审批状态映射：0=草稿,1=待审批,2=审批中,3=已通过,4=已驳回
-const approvalStatusOptions = [
+const _approvalStatusOptions = [
   { label: $t('page.finance.expense.status.draft'), value: 0 },
   { label: $t('page.finance.expense.status.pending'), value: 1 },
   { label: $t('page.finance.expense.status.approving'), value: 2 },
@@ -217,8 +216,8 @@ const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: { isHover: true },
-  rowConfig: { height: 'auto' },
+  cellConfig: { isHover: true } as any,
+  rowConfig: {},
   stripe: true,
   checkboxConfig: { checkMethod: () => true },
   proxyConfig: {

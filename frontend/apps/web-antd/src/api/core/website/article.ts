@@ -25,6 +25,8 @@ export interface ArticleSaveDTO {
   seoTitle?: string;
   seoKeywords?: string;
   seoDescription?: string;
+  /** 标签ID列表 */
+  labelIds?: number[];
 }
 
 export interface ArticleVO {
@@ -45,6 +47,8 @@ export interface ArticleVO {
   seoKeywords?: string;
   seoDescription?: string;
   createTime?: string;
+  /** 标签ID列表 */
+  labelIds?: number[];
 }
 
 export const articleApi = {
@@ -58,4 +62,7 @@ export const articleApi = {
     requestClient.put(`/api/system/article/update/${id}`, data),
   delete: (ids: number[]) =>
     requestClient.delete('/api/system/article/batch_delete', { data: { ids } }),
+  /** 获取文章标签ID列表 */
+  getLabels: (articleId: number) =>
+    requestClient.get(`/api/system/article/labels/${articleId}`),
 };

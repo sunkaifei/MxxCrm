@@ -276,7 +276,7 @@ function formatSpecs(specs: any): string {
         <div v-if="skuLoadingMap[record.id]" class="py-4 text-center text-gray-400">
           加载中...
         </div>
-        <div v-else-if="!skuMap[record.id] || skuMap[record.id].length === 0">
+        <div v-else-if="!skuMap[record.id] || skuMap[record.id]?.length === 0">
           <Empty description="暂无SKU数据" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
         </div>
         <Table

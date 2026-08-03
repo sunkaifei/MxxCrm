@@ -68,9 +68,7 @@ const formOptions: VbenFormProps = {
 };
 
 const gridOptions: VxeGridProps = {
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   columns: [
     {
       title: $t('ui.table.seq'),

@@ -96,7 +96,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
         allowClear: true,
         rows: 4,
       },
-      ifVisible: ({ values }) => [6, 7].includes(values.fieldType),
+      dependencies: {
+        triggerFields: ['fieldType'],
+        if: (values: Record<string, any>) =>
+          [6, 7, 8].includes(values.fieldType),
+      },
     },
     {
       component: 'Input',
@@ -139,10 +143,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  width: '50%',
-  drawerStyle: {
-    maxWidth: '100vw',
-  },
+  class: 'w-[50%] max-w-[100vw]',
   onCancel() {
     drawerApi.close();
   },

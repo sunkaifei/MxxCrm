@@ -89,8 +89,8 @@ function mapTree<T, V extends Record<string, any>>(
   for (const node of tree) {
     const mapperNode = mapper(node);
     if (mapperNode) {
-      if (mapperNode[childProps]) {
-        mapperNode[childProps] = mapTree(mapperNode[childProps], mapper, options);
+      if ((mapperNode as Record<string, any>)[childProps]) {
+        (mapperNode as Record<string, any>)[childProps] = mapTree((mapperNode as Record<string, any>)[childProps], mapper, options);
       }
       result.push(mapperNode);
     }

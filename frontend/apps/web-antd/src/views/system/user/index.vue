@@ -59,9 +59,7 @@ const gridOptions: VxeGridProps = {
   },
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
 
   proxyConfig: {
@@ -241,7 +239,7 @@ async function handleDelete(row: any) {
           :loading="row.pending"
           :checked-children="$t('ui.switch.active')"
           :un-checked-children="$t('ui.switch.inactive')"
-          @change="(checked: boolean) => handleStatusChanged(row, checked)"
+          @change="(checked: any) => handleStatusChanged(row, checked)"
         />
       </template>
 
@@ -269,7 +267,7 @@ async function handleDelete(row: any) {
           @confirm="() => handleDelete(row)"
         >
           <Button
-            type="danger"
+            danger
             v-access:code="['system:admin:delete']"
             link
             :icon="h(LucideTrash2)"

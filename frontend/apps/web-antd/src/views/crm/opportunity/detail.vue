@@ -387,7 +387,7 @@ function handleCustomerSearch(value: string) {
   loadCustomerOptions(value || '');
 }
 
-function handleCustomerChange(value: any) {
+function _handleCustomerChange(value: any) {
   baseForm.contactId = undefined;
   selectedContactName.value = '';
   contactOptions.value = [];
@@ -663,7 +663,7 @@ const followupModalTitle = computed(() => {
   return `添加${stageLabelMap[followupForm.stage] || ''}跟进记录`;
 });
 
-function openFollowupModal(stage: number) {
+function _openFollowupModal(stage: number) {
   if (isCreate.value) {
     message.warning('请先保存商机基础信息');
     return;

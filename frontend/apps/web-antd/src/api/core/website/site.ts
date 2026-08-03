@@ -4,6 +4,8 @@ export interface SiteSaveDTO {
   id?: number;
   siteName?: string;
   templateId?: number;
+  /** 首页模板数据ID（为空时回退到type_id=1的默认模板） */
+  homeTemplateDataId?: number;
   domain?: string;
   bindDomain?: string;
   logo?: string;
@@ -67,6 +69,8 @@ export interface SiteVO {
   remark?: string;
   userName?: string;
   templateId?: number;
+  /** 首页模板数据ID（为空时回退到type_id=1的默认模板） */
+  homeTemplateDataId?: number;
   createTime?: string;
   showBanner?: number;
   watermarkEnable?: number;

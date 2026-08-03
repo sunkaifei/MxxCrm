@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Card, Row, Col, Table } from 'ant-design-vue';
-import { LucideUsers, LucidePieChart, LucideArrowRight } from '@vben/icons';
+import { LucideArrowRight } from '@vben/icons';
 import { getCustomerTypeStatsApi, getCustomerSourceStatsApi, getCustomerIndustryStatsApi, getCustomerFunnelApi } from '#/api/core/statistics';
 
 const customerTypeData = ref<any[]>([]);
@@ -79,24 +79,24 @@ function formatCurrency(val: number) {
 
 const typeColumns = [
   { title: '客户类型', dataIndex: 'customerType' },
-  { title: '总数', dataIndex: 'totalCount', align: 'right' },
-  { title: '成交数', dataIndex: 'contractCount', align: 'right' },
-  { title: '转化率', dataIndex: 'conversionRate', align: 'right', render: (val: number) => `${val}%` },
+  { title: '总数', dataIndex: 'totalCount', align: 'right' as const },
+  { title: '成交数', dataIndex: 'contractCount', align: 'right' as const },
+  { title: '转化率', dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const sourceColumns = [
   { title: '来源渠道', dataIndex: 'source' },
-  { title: '总数', dataIndex: 'totalCount', align: 'right' },
-  { title: '成交数', dataIndex: 'contractCount', align: 'right' },
-  { title: '转化率', dataIndex: 'conversionRate', align: 'right', render: (val: number) => `${val}%` },
+  { title: '总数', dataIndex: 'totalCount', align: 'right' as const },
+  { title: '成交数', dataIndex: 'contractCount', align: 'right' as const },
+  { title: '转化率', dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const industryColumns = [
   { title: '行业', dataIndex: 'industry' },
-  { title: '客户数', dataIndex: 'totalCount', align: 'right' },
-  { title: '成交数', dataIndex: 'contractCount', align: 'right' },
-  { title: '转化率', dataIndex: 'conversionRate', align: 'right', render: (val: number) => `${val}%` },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right', render: (val: number) => formatCurrency(val) },
+  { title: '客户数', dataIndex: 'totalCount', align: 'right' as const },
+  { title: '成交数', dataIndex: 'contractCount', align: 'right' as const },
+  { title: '转化率', dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
 ];
 </script>
 

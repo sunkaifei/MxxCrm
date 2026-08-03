@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { h } from 'vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { $t } from '#/locales';
@@ -53,9 +54,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
 
   proxyConfig: {
@@ -163,7 +162,7 @@ async function handleDelete(row: any) {
         >
           <Button
             v-if="accessStore.hasAccessCode('system:record:delete')"
-            type="danger"
+            danger
             link
             :icon="h(LucideTrash2)"
           />

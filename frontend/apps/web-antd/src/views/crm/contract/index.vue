@@ -65,8 +65,8 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string) {
-  activeTab.value = key;
+function handleTabChange(key: string | number) {
+  activeTab.value = key as string;
   gridApi.query();
 }
 
@@ -200,8 +200,8 @@ const gridOptions: VxeGridProps = {
   },
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: { isHover: true },
-  rowConfig: { height: 'auto' },
+  cellConfig: { isHover: true } as any,
+  rowConfig: { height: 'auto' as any },
   stripe: true,
 
   proxyConfig: {

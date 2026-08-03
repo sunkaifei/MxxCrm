@@ -155,7 +155,7 @@ const shouldRequired = computed(() => {
     return isRequired.value || isSchemaRequired;
   }
 
-  let isOptional = currentRules?.value?.isOptional?.();
+  let isOptional = (currentRules?.value as any)?.isOptional?.();
 
   // 如果有设置默认值，则不是必填，需要特殊处理
   const typeName = currentRules?.value?._def?.typeName;
@@ -188,8 +188,9 @@ const fieldRules = computed(() => {
   // Ant Design Vue validator: (rule, value) => Promise<void> | Promise.reject(msg)
   // vee-validate rule: (value, ctx) => true | string | Promise<true | string>
   if (Array.isArray(rules)) {
+    const rulesArr = rules;
     return (value: any) => {
-      const validators = rules
+      const validators = rulesArr
         .map((r: any) => (isFunction(r) ? r : r?.validator))
         .filter(Boolean) as Array<(rule: any, value: any) => Promise<any>>;
       return validators.reduce(async (prev, validator) => {

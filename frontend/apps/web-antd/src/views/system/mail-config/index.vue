@@ -80,9 +80,7 @@ const configGridOptions: VxeGridProps = {
     zoom: true,
   },
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
   proxyConfig: {
     autoLoad: true,
@@ -319,9 +317,7 @@ const templateGridOptions: VxeGridProps = {
     zoom: true,
   },
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
   proxyConfig: {
     autoLoad: true,
@@ -527,7 +523,7 @@ async function handleTemplateDelete(row: any) {
             @confirm="() => handleConfigDelete(row)"
           >
             <Button
-              type="danger"
+              danger
               link
               :icon="h(LucideTrash2)"
             />
@@ -568,7 +564,7 @@ async function handleTemplateDelete(row: any) {
             @confirm="() => handleTemplateDelete(row)"
           >
             <Button
-              type="danger"
+              danger
               link
               :icon="h(LucideTrash2)"
             />

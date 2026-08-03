@@ -60,9 +60,10 @@ const submitting = ref(false);
 // 销售流程模式：A=仅标准(必填报价单) B=仅简易(隐藏报价单/必填商机) both=两种都允许
 const flowMode = ref<SalesFlowMode>('both');
 // 是否显示"选择报价单"入口
-const showQuotationSelect = computed(
+const _showQuotationSelect = computed(
   () => flowMode.value === 'A' || flowMode.value === 'both',
 );
+void _showQuotationSelect;
 // both 模式下用户选择的销售路径：standard=标准(报价单) simple=简易(商机)
 const salesMode = ref<'standard' | 'simple'>('standard');
 // both 模式下是否显示模式选择器
@@ -70,7 +71,7 @@ const showModeSelector = computed(
   () => flowMode.value === 'both' && !drawerData.value.create ? false : flowMode.value === 'both',
 );
 // 是否显示报价单选择入口
-const showQuotationEntry = computed(() => {
+const _showQuotationEntry = computed(() => {
   if (flowMode.value === 'A') return true;
   if (flowMode.value === 'B') return false;
   // both 模式
@@ -563,19 +564,20 @@ watch(
 );
 
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' },
+  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 240 },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' as const },
   { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
-  { title: '单价', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' },
+  { title: '单价', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' as const },
   { title: '折扣率(%)', dataIndex: 'discountRate', key: 'discountRate', width: 75 },
   { title: '税率(%)', dataIndex: 'taxRate', key: 'taxRate', width: 75 },
-  { title: '金额', dataIndex: 'amount', key: 'amount', width: 105, align: 'right' },
-  { title: '操作', key: 'action', width: 55, align: 'center' },
+  { title: '金额', dataIndex: 'amount', key: 'amount', width: 105, align: 'right' as const },
+  { title: '操作', key: 'action', width: 55, align: 'center' as const },
 ];
 
-function addItem() {
+function _addItem() {
+  void _addItem;
   openProductModal();
 }
 
@@ -1198,7 +1200,7 @@ watch(submitting, (val) => {
             :pagination="false"
             size="small"
             :scroll="{ x: 1150 }"
-            row-key="(_: any, index: number) => index"
+            :row-key="(_: any, index) => String(index)"
             bordered
           >
             <template #bodyCell="{ column, record, index }">

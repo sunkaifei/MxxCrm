@@ -6,12 +6,24 @@ import {
   LucideFilePenLine,
   LucideTrash2,
   LucidePlus,
+  LucideSearch,
 } from '@vben/icons';
-import { Button, message, Modal, Popconfirm, Tag, Empty, Skeleton, Space } from 'ant-design-vue';
-import { getTemplateDataListByTemplateApi, deleteTemplateDataApi } from '#/api';
+import { Button, message, Modal, Popconfirm, Tag, Empty, Skeleton, Space, Input, Select, Pagination } from 'ant-design-vue';
+import { getTemplateDataListApi, deleteTemplateDataApi } from '#/api';
 import { formatDateTime } from '@vben/utils';
+import PageEditor from './page-editor.vue';
 
 const accessStore = useAccessStore();
+
+// 嵌套的页面编辑器抽屉
+const [PageEditorInstance, pageEditorApi] = useVbenDrawer({
+  connectedComponent: PageEditor,
+  onClosed() {
+    // 编辑器关闭后刷新列表
+    loadPages();
+    drawerData.value.onRefreshTemplates?.();
+  },
+});
 
 // 从父组件接收的数据
 const drawerData = ref<{
@@ -24,20 +36,63 @@ const drawerData = ref<{
 // 页面列表数据
 const pages = ref<any[]>([]);
 const loading = ref(false);
-const dataLoaded = ref(false);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(10);
+
+// 搜索条件
+const keywords = ref('');
+const typeId = ref<number | undefined>(undefined);
+const status = ref<number | undefined>(undefined);
 
 async function loadPages() {
   if (!drawerData.value.templateId) return;
   loading.value = true;
   try {
-    const res: any = await getTemplateDataListByTemplateApi(drawerData.value.templateId);
-    pages.value = Array.isArray(res) ? res : res?.data || res?.items || [];
-    dataLoaded.value = true;
-  } catch {
+    const params: any = {
+      templateId: drawerData.value.templateId,
+      page: page.value,
+      pageSize: pageSize.value,
+    };
+    if (keywords.value) params.keywords = keywords.value;
+    if (typeId.value !== undefined) params.typeId = typeId.value;
+    if (status.value !== undefined) params.status = status.value;
+
+    const res: any = await getTemplateDataListApi(params);
+    const data = res?.data || res;
+    pages.value = data?.items || data?.rows || data?.list || [];
+    total.value = data?.total || data?.count || 0;
+  } catch (err: any) {
     pages.value = [];
+    total.value = 0;
+    message.error(err?.message || '加载页面列表失败');
   } finally {
     loading.value = false;
   }
+}
+
+function handleSearch() {
+  page.value = 1;
+  loadPages();
+}
+
+function handleReset() {
+  keywords.value = '';
+  typeId.value = undefined;
+  status.value = undefined;
+  page.value = 1;
+  loadPages();
+}
+
+function handlePageChange(p: number) {
+  page.value = p;
+  loadPages();
+}
+
+function handlePageSizeChange(_current: number, size: number) {
+  pageSize.value = size;
+  page.value = 1;
+  loadPages();
 }
 
 // 类型映射
@@ -87,23 +142,28 @@ async function handleDelete(row: any) {
 
 // 编辑
 function handleEdit(row: any) {
-  drawerData.value.onEditPage?.({ templateId: drawerData.value.templateId, row });
+  pageEditorApi.setData({ templateId: drawerData.value.templateId, row });
+  pageEditorApi.open();
 }
 
 // 新增
 function handleCreate() {
-  drawerData.value.onEditPage?.({ templateId: drawerData.value.templateId, row: null });
+  pageEditorApi.setData({ templateId: drawerData.value.templateId, row: null });
+  pageEditorApi.open();
 }
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  width: '75%',
+  class: 'w-[75%]',
   onCancel() {
     drawerApi.close();
   },
   onOpenChange(isOpen) {
     if (isOpen) {
       drawerData.value = drawerApi.getData<any>() || { templateId: 0, templateName: '' };
-      dataLoaded.value = false;
+      page.value = 1;
+      keywords.value = '';
+      typeId.value = undefined;
+      status.value = undefined;
       loadPages();
     }
   },
@@ -116,10 +176,44 @@ const [Drawer, drawerApi] = useVbenDrawer({
       <span>页面管理 - {{ drawerData.templateName }}</span>
     </template>
     <div class="pages-drawer-content">
+      <!-- 搜索栏 -->
+      <div class="pages-search-bar">
+        <Input
+          v-model:value="keywords"
+          placeholder="搜索页面名称"
+          allow-clear
+          style="width: 200px"
+          @press-enter="handleSearch"
+        >
+          <template #prefix><component :is="LucideSearch" style="font-size: 14px" /></template>
+        </Input>
+        <Select
+          v-model:value="typeId"
+          placeholder="页面类型"
+          allow-clear
+          style="width: 140px"
+          :options="typeOptions.map(o => ({ value: o.value, label: o.label }))"
+          @change="handleSearch"
+        />
+        <Select
+          v-model:value="status"
+          placeholder="状态"
+          allow-clear
+          style="width: 100px"
+          :options="[
+            { value: 1, label: '启用' },
+            { value: 0, label: '禁用' },
+          ]"
+          @change="handleSearch"
+        />
+        <Button size="small" type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+        <Button size="small" @click="handleReset">重置</Button>
+      </div>
+
       <!-- 顶部操作栏 -->
       <div class="pages-toolbar">
         <div class="pages-toolbar-info">
-          <span class="pages-count">共 {{ pages.length }} 个页面</span>
+          <span class="pages-count">共 {{ total }} 个页面</span>
         </div>
         <Space>
           <Button size="small" @click="loadPages">刷新</Button>
@@ -136,7 +230,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       </div>
 
       <!-- 加载中 -->
-      <div v-if="loading && !dataLoaded" class="pages-loading">
+      <div v-if="loading" class="pages-loading">
         <div v-for="i in 4" :key="i" class="page-skeleton-row">
           <Skeleton active :paragraph="{ rows: 1, width: ['60%'] }" />
         </div>
@@ -201,7 +295,25 @@ const [Drawer, drawerApi] = useVbenDrawer({
           </div>
         </div>
       </div>
+
+      <!-- 分页 -->
+      <div v-if="total > pageSize" class="pages-pagination">
+        <Pagination
+          :current="page"
+          :total="total"
+          :page-size="pageSize"
+          :page-size-options="['10', '20', '50']"
+          show-size-changer
+          show-quick-jumper
+          size="small"
+          @change="handlePageChange"
+          @show-size-change="handlePageSizeChange"
+        />
+      </div>
     </div>
+
+    <!-- 嵌套的页面编辑器抽屉 -->
+    <PageEditorInstance />
   </Drawer>
 </template>
 
@@ -211,6 +323,15 @@ const [Drawer, drawerApi] = useVbenDrawer({
   flex-direction: column;
   height: 100%;
   padding: 0 4px;
+}
+
+.pages-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .pages-toolbar {
@@ -317,6 +438,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
   gap: 4px;
   flex-shrink: 0;
   margin-left: 12px;
+}
+
+.pages-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+  flex-shrink: 0;
 }
 
 /* 暗黑模式适配 */

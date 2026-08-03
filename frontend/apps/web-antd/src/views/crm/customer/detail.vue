@@ -1228,7 +1228,7 @@ function removeBankAccount(index: number) {
   financialForm.bankAccounts.splice(index, 1);
   // 如果删除了默认账号，将第一个设为默认
   if (removed?.isDefault && financialForm.bankAccounts.length > 0) {
-    financialForm.bankAccounts[0].isDefault = true;
+    financialForm.bankAccounts[0]!.isDefault = true;
   }
 }
 
@@ -1277,7 +1277,7 @@ async function handleSaveFinancial() {
 
   // 校验银行账户
   for (let i = 0; i < financialForm.bankAccounts.length; i++) {
-    const acct = financialForm.bankAccounts[i];
+    const acct = financialForm.bankAccounts[i]!;
     if (!acct.bankName?.trim()) {
       message.error(`第 ${i + 1} 个银行账户的「开户行」不能为空`);
       return;

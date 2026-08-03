@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { h, onMounted, ref, watch } from 'vue';
+import { h, onMounted, ref } from 'vue';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 import {
@@ -9,14 +9,13 @@ import {
   LucideDisplay,
   LucidePlus,
   LucideEye,
-  LucideSearch,
-  LucideLayoutGrid,
   LucideTag,
   LucideUser,
   LucideTrash2,
   LucideFile,
   LucideUpload,
   LucideDownload,
+  LucideFilePenLine,
 } from '@vben/icons';
 import {
   Button,
@@ -25,8 +24,6 @@ import {
   Tag,
   Skeleton,
   Empty,
-  Input,
-  Affix,
   Tooltip,
 } from 'ant-design-vue';
 import { templateApi, siteApi } from '#/api';
@@ -38,10 +35,8 @@ const NO_PREVIEW_IMG =
     '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="#f0f0f0"/><text x="300" y="200" font-family="sans-serif" font-size="24" fill="#bfbfbf" text-anchor="middle" dominant-baseline="middle">No Preview</text></svg>',
   );
 import type { TemplateListVO } from '#/api/core/website/template';
-import { requestClient } from '#/api/request';
 import TemplateDrawer from './drawer.vue';
 import PagesDrawer from './pages-drawer.vue';
-import PageEditor from './page-editor.vue';
 
 const accessStore = useAccessStore();
 
@@ -51,9 +46,6 @@ const loading = ref(false);
 const total = ref(0);
 const page = ref(1);
 const pageSize = ref(12);
-const keyword = ref('');
-const activeCategoryId = ref<number | undefined>(undefined);
-const categories = ref<{ id: number; name: string; children?: any[] }[]>([]);
 
 // 预览
 const previewVisible = ref(false);
@@ -69,7 +61,6 @@ const applying = ref(false);
 
 // 页面管理の状态
 const selectedTemplate = ref<TemplateListVO | null>(null);
-const editingPage = ref<{ templateId: number; row?: any } | null>(null);
 
 // --- 页面管理抽屉 ---
 const [PagesDrawerInstance, pagesDrawerApi] = useVbenDrawer({
@@ -79,37 +70,17 @@ const [PagesDrawerInstance, pagesDrawerApi] = useVbenDrawer({
   },
 });
 
-// 页面编辑器抽屉
-const [PageEditorInstance, pageEditorApi] = useVbenDrawer({
-  connectedComponent: PageEditor,
-  onClosed() {
-    editingPage.value = null;
-    loadTemplates();
-  },
-});
-
 // 页面列表抽屉
 function openPagesDrawer(item: TemplateListVO) {
   selectedTemplate.value = item;
   pagesDrawerApi.setData({
     templateId: Number(item.id),
     templateName: item.name || '',
-    onEditPage: (data: { templateId: number; row?: any }) => {
-      pagesDrawerApi.close();
-      openPageEditor(data);
-    },
     onRefreshTemplates: () => {
       loadTemplates();
     },
   });
   pagesDrawerApi.open();
-}
-
-// 页面编辑器
-function openPageEditor(data: { templateId: number; row?: any }) {
-  editingPage.value = data;
-  pageEditorApi.setData(data);
-  pageEditorApi.open();
 }
 
 // --- 模板主题编辑抽屉（旧模板市场） ---
@@ -126,15 +97,9 @@ function handleCreateTemplate() {
   templateDrawerApi.open();
 }
 
-// --- 分类加载 ---
-async function loadCategories() {
-  try {
-    const res: any = await requestClient.get('/api/system/template_category/options');
-    const rawList = Array.isArray(res) ? res : res?.data || [];
-    categories.value = rawList;
-  } catch {
-    categories.value = [];
-  }
+function handleEditTemplate(item: TemplateListVO) {
+  templateDrawerApi.setData({ create: false, row: item });
+  templateDrawerApi.open();
 }
 
 // --- 模板列表加载 ---
@@ -144,9 +109,7 @@ async function loadTemplates() {
     const res: any = await templateApi.list({
       page: page.value,
       pageSize: pageSize.value,
-      keywords: keyword.value || undefined,
       status: 1,
-      categoryId: activeCategoryId.value,
     });
     const items = res?.items || [];
     templates.value = items;
@@ -159,26 +122,8 @@ async function loadTemplates() {
 }
 
 onMounted(() => {
-  loadCategories();
   loadTemplates();
 });
-
-// 搜索防抖
-let searchTimer: any;
-watch(keyword, () => {
-  if (searchTimer) clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    page.value = 1;
-    loadTemplates();
-  }, 300);
-});
-
-// 分类切换
-function selectCategory(catId: number | undefined) {
-  activeCategoryId.value = catId;
-  page.value = 1;
-  loadTemplates();
-}
 
 // 分页
 function handlePageChange(p: number) {
@@ -312,71 +257,12 @@ function handleImportTemplate() {
 <template>
   <Page auto-content-height>
     <div class="template-market">
-      <!-- 左侧分类导航 -->
-      <aside class="template-sidebar">
-        <Affix>
-          <div class="sidebar-header">
-            <h3 class="sidebar-title">
-              <component :is="LucideLayoutGrid" style="margin-right: 6px" />
-              模板分类
-            </h3>
-          </div>
-          <div class="sidebar-search">
-            <Input
-              v-model:value="keyword"
-              placeholder="搜索模板..."
-              allow-clear
-              size="middle"
-            >
-              <template #prefix>
-                <component :is="LucideSearch" style="color: #bfbfbf; font-size: 14px" />
-              </template>
-            </Input>
-          </div>
-          <div class="sidebar-category-list">
-            <div
-              class="category-item"
-              :class="{ active: activeCategoryId === undefined }"
-              @click="selectCategory(undefined)"
-            >
-              <span class="category-label">全部模板</span>
-              <span class="category-count">{{ total }}</span>
-            </div>
-            <div
-              v-for="cat in categories"
-              :key="cat.id"
-              class="category-item"
-              :class="{ active: activeCategoryId === cat.id }"
-              @click="selectCategory(cat.id)"
-            >
-              <span class="category-label">{{ cat.name }}</span>
-            </div>
-          </div>
-
-          <div
-            v-if="accessStore.hasAccessCode('template:add')"
-            class="sidebar-footer"
-          >
-            <Button
-              type="primary"
-              block
-              :icon="h(LucidePlus)"
-              @click="handleCreateTemplate"
-            >
-              新增模板
-            </Button>
-          </div>
-        </Affix>
-      </aside>
-
       <!-- 右侧内容区 -->
       <main class="template-main">
         <!-- 顶部信息栏 -->
         <div class="template-topbar">
           <div class="topbar-info">
-            <h2 class="topbar-title">
-              {{ activeCategoryId ? (categories.find(c => c.id === activeCategoryId)?.name || '模板列表') : '全部模板' }}
-            </h2>
+            <h2 class="topbar-title">模板管理</h2>
             <span class="topbar-count">共 {{ total }} 个模板</span>
           </div>
           <div class="topbar-actions">
@@ -497,6 +383,13 @@ function handleImportTemplate() {
                     <span>官方</span>
                   </div>
                   <div class="card-actions">
+                    <Tooltip title="编辑模板信息">
+                      <Button
+                        size="small"
+                        :icon="h(LucideFilePenLine)"
+                        @click="handleEditTemplate(item)"
+                      />
+                    </Tooltip>
                     <Tooltip title="管理页面">
                       <Button
                         type="primary"
@@ -675,100 +568,18 @@ function handleImportTemplate() {
     <TemplateDrawerInstance />
     <!-- 页面列表抽屉（75%） -->
     <PagesDrawerInstance />
-    <!-- 页面编辑器抽屉（75%，可全屏） -->
-    <PageEditorInstance />
   </Page>
 </template>
 
 <style scoped>
 /* ========== 主布局 ========== */
 .template-market {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
+  width: 100%;
 }
 
-/* ========== 左侧侧边栏 ========== */
-.template-sidebar {
-  width: 220px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 16px;
-}
-.sidebar-header {
-  padding: 4px 4px 12px;
-}
-.sidebar-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.88);
-  display: flex;
-  align-items: center;
-}
-.sidebar-search {
-  margin-bottom: 12px;
-  padding: 0 2px;
-}
-.sidebar-category-list {
-  background: #fff;
-  border-radius: 8px;
-  padding: 6px 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02);
-  max-height: calc(100vh - 280px);
-  overflow-y: auto;
-}
-.category-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.75);
-  position: relative;
-}
-.category-item:hover {
-  background: #f5f7fa;
-  color: #1677ff;
-}
-.category-item.active {
-  background: #e6f4ff;
-  color: #1677ff;
-  font-weight: 500;
-}
-.category-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 16px;
-  background: #1677ff;
-  border-radius: 0 2px 2px 0;
-}
-.category-count {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.4);
-  background: #f0f0f0;
-  padding: 0 6px;
-  border-radius: 10px;
-  font-weight: 400;
-}
-.category-item.active .category-count {
-  background: #fff;
-  color: #1677ff;
-}
-.sidebar-footer {
-  margin-top: 16px;
-  padding: 0 2px;
-}
-
-/* ========== 右侧主内容 ========== */
+/* ========== 主内容 ========== */
 .template-main {
-  flex: 1;
+  width: 100%;
   min-width: 0;
 }
 .template-topbar {
@@ -1081,36 +892,4 @@ function handleImportTemplate() {
   border-top: 1px solid #f0f0f0;
 }
 
-/* ========== 响应式 ========== */
-@media (max-width: 900px) {
-  .template-market {
-    flex-direction: column;
-  }
-  .template-sidebar {
-    width: 100%;
-    position: static;
-  }
-  .sidebar-category-list {
-    max-height: none;
-    display: flex;
-    flex-wrap: wrap;
-    padding: 8px;
-    gap: 4px;
-  }
-  .category-item {
-    padding: 6px 14px;
-    border-radius: 16px;
-    background: #f5f5f5;
-  }
-  .category-item.active {
-    background: #1677ff;
-    color: #fff;
-  }
-  .category-item.active::before {
-    display: none;
-  }
-  .category-count {
-    display: none;
-  }
-}
 </style>

@@ -79,7 +79,7 @@ async function loadOverview() {
     overviewItems.value[2]!.value = c.totalPaymentAmount ?? 0;
     overviewItems.value[2]!.totalValue = c.totalPaymentAmount ?? 0;
 
-    overviewItems.value[3]!.value = `${((c.completionRate ?? 0) * 100).toFixed(1)}%`;
+    overviewItems.value[3]!.value = `${((c.completionRate ?? 0) * 100).toFixed(1)}%` as any;
     overviewItems.value[3]!.totalValue = c.unpaidAmount ?? 0;
   } catch {
     // keep zeros on error

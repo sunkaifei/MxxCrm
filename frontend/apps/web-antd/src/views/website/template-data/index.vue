@@ -113,9 +113,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
 
   proxyConfig: {
@@ -475,7 +473,7 @@ async function handlePreview() {
           </Button>
           <div>
             <Button @click="drawerApi.close()">取消</Button>
-            <Button type="primary" @click="drawerApi.confirm()">保存</Button>
+            <Button type="primary" @click="drawerApi.onConfirm?.()">保存</Button>
           </div>
         </div>
       </template>

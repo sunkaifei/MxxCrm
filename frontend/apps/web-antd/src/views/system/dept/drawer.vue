@@ -40,7 +40,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
           const result = await getDeptTreeApi();
           const list = Array.isArray(result) ? result : [];
           // 统一将树节点 value 转为字符串，避免数字/字符串类型不匹配导致回显异常
-          const convertTree = (nodes: any[]) =>
+          const convertTree = (nodes: any[]): any[] =>
             nodes.map((node) => ({
               value: String(node.value),
               label: node.label,

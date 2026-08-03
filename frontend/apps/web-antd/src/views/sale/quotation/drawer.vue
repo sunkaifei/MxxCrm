@@ -7,9 +7,7 @@ import { useVbenForm } from '@vben/common-ui';
 
 import {
   Button,
-  DatePicker,
   InputNumber,
-  Select,
   Table,
   Tabs,
   TabPane,
@@ -33,7 +31,7 @@ import {
 import ProductSelectModal from '../components/ProductSelectModal.vue';
 import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
 
-const drawerData = ref<{ create?: boolean; row?: any; needRefresh?: boolean }>({ create: true });
+const drawerData = ref<{ create?: boolean; row?: any; needRefresh?: boolean; fromOpportunity?: any }>({ create: true });
 const isEdit = computed(() => !drawerData.value.create);
 const isReadOnly = ref(false);
 const activeTab = ref('basic');
@@ -174,7 +172,7 @@ function onProductSelect(items: any[]) {
   recalculateAll();
 }
 
-function onCustomerChange(val: any, option: any) {
+function onCustomerChange(_val: any, option: any) {
   if (option?.raw) {
     basicFormApi.setValues({
       customerName: option.raw.customerName || option.raw.name || '',
@@ -182,7 +180,7 @@ function onCustomerChange(val: any, option: any) {
   }
 }
 
-function onContactChange(val: any, option: any) {
+function onContactChange(_val: any, option: any) {
   if (option?.raw) {
     basicFormApi.setValues({
       contactName: option.raw.contactName || option.raw.name || '',
@@ -275,6 +273,7 @@ function removeItem(index: number) {
 
 function recalculateItem(index: number) {
   const item = quotationItems.value[index];
+  if (!item) return;
   const gross = item.quantity * item.unitPrice;
   item.discountAmount = Number((gross * item.discountRate / 100).toFixed(2));
   const afterDiscount = gross - item.discountAmount;
@@ -302,17 +301,17 @@ const summary = computed(() => {
 });
 
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' },
+  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 240 },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' },
-  { title: '单价(只读)', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' as const },
+  { title: '单价(只读)', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' as const },
   { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
-  { title: '单重(kg)', dataIndex: 'weight', key: 'weight', width: 80, align: 'right' },
+  { title: '单重(kg)', dataIndex: 'weight', key: 'weight', width: 80, align: 'right' as const },
   { title: '折扣(%)', dataIndex: 'discountRate', key: 'discountRate', width: 75 },
-  { title: '折扣额', dataIndex: 'discountAmount', key: 'discountAmount', width: 85, align: 'right' },
-  { title: '小计', dataIndex: 'subtotal', key: 'subtotal', width: 105, align: 'right' },
-  { title: '操作', key: 'action', width: 55, align: 'center' },
+  { title: '折扣额', dataIndex: 'discountAmount', key: 'discountAmount', width: 85, align: 'right' as const },
+  { title: '小计', dataIndex: 'subtotal', key: 'subtotal', width: 105, align: 'right' as const },
+  { title: '操作', key: 'action', width: 55, align: 'center' as const },
 ];
 
 // ============ 审批记录 ============
@@ -702,7 +701,7 @@ async function handleSubmit() {
   try {
     data = {
       ...values,
-      ...tradeValues,
+      ...(tradeValues as any),
       customerId: custId,
       contactId: contId,
       opportunityId: oppId,
@@ -759,18 +758,13 @@ async function handleSubmit() {
     drawerApi.close();
   } catch (e) {
     console.error('[报价单提交] 7. 提交失败:', e);
-    console.error('[报价单提交] 7.1 错误详情:', e?.response?.data || e?.message || e);
+    console.error('[报价单提交] 7.1 错误详情:', (e as any)?.response?.data || (e as any)?.message || e);
     message.error('操作失败');
   } finally {
     drawerApi.setState({ confirmLoading: false });
   }
   console.log('[报价单提交] ========== 提交流程结束 ==========');
   return false;
-}
-
-function closeDrawer() {
-  drawerApi.close();
-  drawerApi.setData({ needRefresh: true });
 }
 
 const [Drawer, drawerApi] = useVbenDrawer({

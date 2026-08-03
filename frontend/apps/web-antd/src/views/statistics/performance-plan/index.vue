@@ -4,7 +4,7 @@ import {
   Button, Table, Tag, Modal, message, Select, InputNumber, Input,
   Space, Descriptions, Timeline, Form,
 } from 'ant-design-vue';
-import type { TableColumnsType } from 'ant-design-vue/es/table';
+
 import {
   getPlanListApi, createPlanApi, submitPlanApi,
   approvePlanApi, rejectPlanApi, modifyPlanApi,
@@ -219,7 +219,7 @@ const STATUS_LABEL: Record<number, string> = {
 };
 
 // ---- Table Columns ----
-const columns: TableColumnsType = [
+const columns: any = [
   { title: 'ID', dataIndex: 'id', width: 60 },
   { title: '员工', dataIndex: 'employeeName', width: 100 },
   { title: '年份', dataIndex: 'year', width: 70 },
@@ -343,7 +343,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(mt, idx) in createForm.monthlyTargets" :key="mt.month">
+              <tr v-for="(mt, _idx) in createForm.monthlyTargets" :key="mt.month">
                 <td class="border px-2 py-1">{{ mt.month }}月</td>
                 <td class="border px-2 py-1">
                   <InputNumber v-model:value="mt.contractTargetAmount" :min="0" :precision="2" style="width: 100%" />
@@ -466,7 +466,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(mt, idx) in modifyForm.monthlyTargets" :key="mt.month">
+              <tr v-for="(mt, _idx) in modifyForm.monthlyTargets" :key="mt.month">
                 <td class="border px-2 py-1">{{ mt.month }}月</td>
                 <td class="border px-2 py-1">
                   <InputNumber v-model:value="mt.contractTargetAmount" :min="0" :precision="2" style="width: 100%" />

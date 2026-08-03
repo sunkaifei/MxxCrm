@@ -5,12 +5,10 @@ export interface TemplateListParams {
   pageSize?: number;
   keywords?: string;
   status?: number;
-  categoryId?: number;
 }
 
 export interface TemplateListVO {
   id: number;
-  categoryId?: number;
   name?: string;
   templateFolder?: string;
   previewUrl?: string;
@@ -28,7 +26,6 @@ export interface TemplateListVO {
 
 export interface TemplateDetailVO {
   id: number;
-  categoryId?: number;
   name?: string;
   templateFolder?: string;
   userId?: number;
@@ -53,7 +50,6 @@ export interface TemplateDetailVO {
 }
 
 export interface TemplateSaveDTO {
-  categoryId?: number;
   name?: string;
   templateFolder?: string;
   remark?: string;
@@ -100,4 +96,19 @@ export const templateApi = {
   /** 公共模板下拉选项 */
   commonOptions: () =>
     requestClient.get('/api/system/template/common_options'),
+
+  /** 导出模板为 .mtp 文件 */
+  exportTemplate: (id: number) =>
+    requestClient.get(`/api/system/template/export/${id}`, {
+      responseType: 'blob',
+    }),
+
+  /** 导入 .mtp 模板文件 */
+  importTemplate: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return requestClient.post('/api/system/template/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };

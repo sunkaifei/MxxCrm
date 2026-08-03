@@ -52,9 +52,7 @@ const gridOptions: VxeGridProps = {
   pagerConfig: {
     enabled: false,
   },
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   rowConfig: { height: 48 },
   treeConfig: {
     parentField: 'parentId',
@@ -306,7 +304,7 @@ async function handleDelete(row: any) {
           :loading="row.pending"
           :checked-children="$t('ui.switch.active')"
           :un-checked-children="$t('ui.switch.inactive')"
-          @change="(checked: boolean) => handleStatusChanged(row, checked)"
+          @change="(checked: any) => handleStatusChanged(row, checked)"
         />
       </template>
 

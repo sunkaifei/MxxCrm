@@ -5,7 +5,7 @@ import { computed, ref, watch } from 'vue';
 
 import { useVbenForm } from '@vben/common-ui';
 
-import { Button, Tooltip, message } from 'ant-design-vue';
+import { Tooltip, message } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
 import { createInvoiceApi, getInvoiceInfoApi, updateInvoiceApi } from '#/api';
@@ -251,7 +251,7 @@ watch(
 
 async function handleSubmit() {
   const { valid, values } = await formApi.validate();
-  if (!valid) return;
+  if (!valid || !values) return;
   try {
     const data = {
       ...values,

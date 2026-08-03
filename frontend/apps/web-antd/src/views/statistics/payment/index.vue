@@ -80,27 +80,27 @@ function formatCurrency(val: number) {
 
 const trendColumns = [
   { title: '月份', dataIndex: 'month', render: (val: number) => `${val}月` },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '已回款', dataIndex: 'paymentAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '回款率', dataIndex: 'completionRate', align: 'center', render: (val: number) => `${val}%` },
-  { title: '逾期金额', dataIndex: 'overdueAmount', align: 'right', render: (val: number) => formatCurrency(val) },
+  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '已回款', dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '回款率', dataIndex: 'completionRate', align: 'center' as const, render: (val: number) => `${val}%` },
+  { title: '逾期金额', dataIndex: 'overdueAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
 ];
 
 const statusColumns = [
   { title: '状态', dataIndex: 'status' },
-  { title: '合同数', dataIndex: 'contractCount', align: 'right' },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '已回款', dataIndex: 'paidAmount', align: 'right', render: (val: number) => val ? formatCurrency(val) : '-' },
-  { title: '占比', dataIndex: 'percentage', align: 'right', render: (val: number) => `${val}%` },
+  { title: '合同数', dataIndex: 'contractCount', align: 'right' as const },
+  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '已回款', dataIndex: 'paidAmount', align: 'right' as const, render: (val: number) => val ? formatCurrency(val) : '-' },
+  { title: '占比', dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const rankingColumns = [
   { title: '排名', dataIndex: 'rank', width: 60 },
   { title: '客户名称', dataIndex: 'targetName' },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '已回款', dataIndex: 'paymentAmount', align: 'right', render: (val: number) => formatCurrency(val) },
-  { title: '回款率', dataIndex: 'completionRate', align: 'right', render: (val: number) => `${val}%` },
-  { title: '逾期金额', dataIndex: 'overdueAmount', align: 'right', render: (val: number) => formatCurrency(val) },
+  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '已回款', dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: '回款率', dataIndex: 'completionRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: '逾期金额', dataIndex: 'overdueAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
 ];
 </script>
 

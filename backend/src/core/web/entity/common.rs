@@ -23,6 +23,17 @@ pub struct BathDeleteIdRequest {
     pub ids: Option<Vec<Option<String>>>,
 }
 
+impl BathDeleteIdRequest {
+    /// 将 ids 解析为 Vec<i64>，过滤掉无效值
+    pub fn parse_ids(&self) -> Vec<i64> {
+        self.ids.as_ref().map(|ids| {
+            ids.iter()
+                .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
+                .collect()
+        }).unwrap_or_default()
+    }
+}
+
 #[derive(Deserialize)]
 pub struct InfoId {
     #[serde(deserialize_with = "deserialize_string_to_u64")]

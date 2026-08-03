@@ -61,9 +61,7 @@ const gridOptions: VxeGridProps = {
   },
   height: 'auto',
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: {},
   stripe: true,
   proxyConfig: {
     autoLoad: true,
@@ -76,7 +74,7 @@ const gridOptions: VxeGridProps = {
         });
       },
       delete: async ({ body }) => {
-        await messageApi.delete(body);
+        await messageApi.delete(body.removeRecords);
       },
     },
   },

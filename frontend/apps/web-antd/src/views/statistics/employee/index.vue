@@ -72,29 +72,29 @@ function formatCurrency(val: number) {
 const customerColumns = [
   { title: '员工', dataIndex: 'employeeName' },
   { title: '部门', dataIndex: 'departmentName' },
-  { title: '客户总数', dataIndex: 'totalCustomers', align: 'right' },
-  { title: '本月新增', dataIndex: 'newCustomersThisMonth', align: 'right' },
-  { title: '成交客户', dataIndex: 'contractCustomers', align: 'right' },
-  { title: '转化率', dataIndex: 'customerConversionRate', align: 'right', render: (val: number) => `${val}%` },
+  { title: '客户总数', dataIndex: 'totalCustomers', align: 'right' as const },
+  { title: '本月新增', dataIndex: 'newCustomersThisMonth', align: 'right' as const },
+  { title: '成交客户', dataIndex: 'contractCustomers', align: 'right' as const },
+  { title: '转化率', dataIndex: 'customerConversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const followUpColumns = [
   { title: '员工', dataIndex: 'employeeName' },
   { title: '部门', dataIndex: 'departmentName' },
-  { title: '总跟进次数', dataIndex: 'totalFollowUp', align: 'right' },
-  { title: '客户跟进', dataIndex: 'customerFollowUp', align: 'right' },
-  { title: '商机跟进', dataIndex: 'opportunityFollowUp', align: 'right' },
-  { title: '平均跟进间隔(天)', dataIndex: 'avgFollowInterval', align: 'right' },
+  { title: '总跟进次数', dataIndex: 'totalFollowUp', align: 'right' as const },
+  { title: '客户跟进', dataIndex: 'customerFollowUp', align: 'right' as const },
+  { title: '商机跟进', dataIndex: 'opportunityFollowUp', align: 'right' as const },
+  { title: '平均跟进间隔(天)', dataIndex: 'avgFollowInterval', align: 'right' as const },
 ];
 
 const conversionColumns = [
   { title: '员工', dataIndex: 'employeeName' },
   { title: '部门', dataIndex: 'departmentName' },
-  { title: '商机总数', dataIndex: 'totalOpportunities', align: 'right' },
-  { title: '赢单', dataIndex: 'wonOpportunities', align: 'right' },
-  { title: '输单', dataIndex: 'lostOpportunities', align: 'right' },
-  { title: '赢单率', dataIndex: 'opportunityWinRate', align: 'right', render: (val: number) => `${val}%` },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right', render: (val: number) => formatCurrency(val) },
+  { title: '商机总数', dataIndex: 'totalOpportunities', align: 'right' as const },
+  { title: '赢单', dataIndex: 'wonOpportunities', align: 'right' as const },
+  { title: '输单', dataIndex: 'lostOpportunities', align: 'right' as const },
+  { title: '赢单率', dataIndex: 'opportunityWinRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
 ];
 </script>
 

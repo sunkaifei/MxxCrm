@@ -77,9 +77,7 @@ const gridOptions: VxeGridProps = {
   },
   height: 'auto',
   pagerConfig: {},
-  cellConfig: {
-    isHover: true,
-  },
+  cellConfig: { isHover: true } as any,
   stripe: true,
 
   proxyConfig: {
@@ -345,7 +343,7 @@ async function handleDelete(row: any) {
             :checked="formData.status === 1"
             :checked-children="$t('page.finance.expenseType.status.enabled')"
             :un-checked-children="$t('page.finance.expenseType.status.disabled')"
-            @change="(checked: boolean) => (formData.status = checked ? 1 : 0)"
+            @change="(checked: boolean | string | number) => { formData.status = checked ? 1 : 0 }"
           />
         </FormItem>
       </Form>

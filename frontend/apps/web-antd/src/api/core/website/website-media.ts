@@ -25,6 +25,9 @@ export interface WebsiteMediaVO {
   hasWatermark: number;
   sort: number;
   status: number;
+  attachmentId?: number;
+  uploadedBy?: number;
+  uploadedName?: string;
   createTime: string;
 }
 
@@ -59,6 +62,7 @@ export interface MediaSaveDTO {
   tags?: string[];
   sort?: number;
   status?: number;
+  attachmentId?: number;
 }
 
 export interface MediaCategoryVO {

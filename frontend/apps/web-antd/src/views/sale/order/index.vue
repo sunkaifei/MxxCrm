@@ -9,7 +9,7 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Tabs, Modal, Popconfirm, Tag, Dropdown, Input, Menu } from 'ant-design-vue';
+import { Button, Drawer, Tabs, Modal, Tag, Dropdown, Input, Menu } from 'ant-design-vue';
 import { useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -20,9 +20,6 @@ import {
   signShipmentApi,
   updateOrderStatusApi,
   submitOrderApi,
-  approveOrderApi,
-  rejectOrderApi,
-  getOrderApprovalDetailApi,
   createContractFromOrderApi,
 } from '#/api';
 import { $t } from '#/locales';
@@ -69,8 +66,8 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string) {
-  activeTab.value = key;
+function handleTabChange(key: string | number) {
+  activeTab.value = key as string;
   gridApi.query();
 }
 
@@ -137,13 +134,14 @@ const paymentStatusLabelMap: Record<number, string> = {
   4: '已退款',
 };
 
-const approvalStatusOptions = [
+const _approvalStatusOptions = [
   { label: '草稿', value: 0 },
   { label: '待审批', value: 1 },
   { label: '审批中', value: 2 },
   { label: '已通过', value: 3 },
   { label: '已驳回', value: 4 },
 ];
+void _approvalStatusOptions;
 
 const approvalStatusColorMap: Record<number, string> = {
   0: 'default',
@@ -218,8 +216,8 @@ const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: { isHover: true },
-  rowConfig: { height: 'auto' },
+  cellConfig: { isHover: true } as any,
+  rowConfig: {},
   stripe: true,
   checkboxConfig: { checkMethod: () => true },
   proxyConfig: {
@@ -364,7 +362,7 @@ const [ShipmentFormDrawer, shipmentDrawerApi] = useVbenDrawer({
 });
 
 function openDrawer(create: boolean, row?: any) {
-  drawerApi.setState({ width: undefined });
+  drawerApi.setState({ width: undefined } as any);
   drawerApi.setData({ create, row });
   drawerApi.open();
 }

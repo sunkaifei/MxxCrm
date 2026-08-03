@@ -652,7 +652,7 @@ const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', 
               :color="log.action === 2 ? 'green' : log.action === 3 ? 'red' : 'blue'"
             >
               <div class="font-medium">
-                {{ { 1: '提交审批', 2: '审批通过', 3: '驳回', 4: '申请修改' }[log.action] || '操作' }}
+                {{ { 1: '提交审批', 2: '审批通过', 3: '驳回', 4: '申请修改' }[log.action as number] || '操作' }}
               </div>
               <div class="text-xs text-gray-500">
                 {{ log.operatorName }} · {{ log.createTime }}

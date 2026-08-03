@@ -43,7 +43,7 @@ const approvalDrawerOrderId = ref<number | null>(null);
 const approvalDrawerContractId = ref<number | null>(null);
 const orderApprovalVisible = ref(false);
 const contractApprovalVisible = ref(false);
-const approvalCurrentUserId = computed(() => userStore.userInfo?.userId);
+const approvalCurrentUserId = computed(() => userStore.userInfo?.userId ? Number(userStore.userInfo.userId) : undefined);
 
 // 处理 QuickProcessModal 的查看审批流详情事件：在工作台内嵌打开抽屉
 function handleViewApproval(payload: {

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, h, onMounted, reactive, ref } from 'vue';
+import type { Key } from 'ant-design-vue/es/table/interface';
 
 import { useAccess } from '@vben/access';
 import { Page } from '@vben/common-ui';
@@ -435,7 +436,7 @@ async function submitEmpInsForm() {
   }
 }
 
-function onTabChange(key: string) {
+function onTabChange(key: Key) {
   if (key === 'policy' && policyList.value.length === 0) {
     loadPolicyList();
   } else if (key === 'empIns' && empInsList.value.length === 0) {

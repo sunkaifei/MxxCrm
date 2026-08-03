@@ -3,7 +3,7 @@ import { computed } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Card, Empty, Spin, Statistic, Tag } from 'ant-design-vue';
+import { Card, Empty, Spin, Tag } from 'ant-design-vue';
 
 interface Props {
   loading?: boolean;
@@ -31,14 +31,14 @@ function formatCurrency(val?: number) {
   return `¥${val.toLocaleString()}`;
 }
 
-const statusConfig = computed(() => {
+const statusConfig = computed<{ color: string; bg: string; text: string; icon: string }>(() => {
   const map: Record<string, { color: string; bg: string; text: string; icon: string }> = {
     green: { color: '#52c41a', bg: '#f6ffed', text: '达标在望', icon: 'lucide:check-circle' },
     yellow: { color: '#faad14', bg: '#fffbe6', text: '关注缺口', icon: 'lucide:alert-circle' },
     red: { color: '#ff4d4f', bg: '#fff2f0', text: '缺口预警', icon: 'lucide:alert-triangle' },
     warning: { color: '#fa8c16', bg: '#fff7e6', text: '预警', icon: 'lucide:alert-triangle' },
   };
-  return map[props.data?.status || 'yellow'] || map.yellow;
+  return (map[props.data?.status || 'yellow'] ?? map.yellow)!;
 });
 
 const coverageText = computed(() => {

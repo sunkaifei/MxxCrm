@@ -108,6 +108,37 @@ watch(
 onBeforeUnmount(() => {
   editor?.dispose();
 });
+
+// 在光标位置插入文本（若编辑器未聚焦则追加到末尾）
+function insertText(text: string) {
+  if (!editor) return;
+  editor.focus();
+  const selection = editor.getSelection();
+  if (selection) {
+    editor.executeEdits('insert-snippet', [
+      {
+        range: selection,
+        text,
+        forceMoveMarkers: true,
+      },
+    ]);
+  } else {
+    const model = editor.getModel();
+    if (model) {
+      const lastLine = model.getLineCount();
+      const lastCol = model.getLineMaxColumn(lastLine);
+      editor.executeEdits('insert-snippet', [
+        {
+          range: new monaco.Range(lastLine, lastCol, lastLine, lastCol),
+          text: `\n${text}`,
+          forceMoveMarkers: true,
+        },
+      ]);
+    }
+  }
+}
+
+defineExpose({ insertText });
 </script>
 
 <template>

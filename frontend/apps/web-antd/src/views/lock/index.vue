@@ -3,14 +3,16 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { LockKeyhole } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 
 import { Avatar, Button, InputPassword } from 'ant-design-vue';
 import { useDateFormat, useNow } from '@vueuse/core';
+// @ts-ignore
 import { useI18n } from 'vue-i18n';
 
 const router = useRouter();
 const accessStore = useAccessStore();
+const userStore = useUserStore();
 
 const { locale } = useI18n();
 
@@ -56,7 +58,7 @@ onMounted(() => {
 });
 
 const avatar = computed(
-  () => accessStore.userInfo?.avatar ?? '/default-avatar.png',
+  () => userStore.userInfo?.avatar ?? '/default-avatar.png',
 );
 
 /**
@@ -158,7 +160,7 @@ function handleContextMenu(e: MouseEvent) {
       </div>
       <div class="text-center">
         <div class="text-xl font-semibold text-white">
-          {{ accessStore.userInfo?.realName || '已锁定' }}
+          {{ (accessStore as any).userInfo?.realName || '已锁定' }}
         </div>
         <div class="text-sm text-white/60 mt-1">会话已锁定</div>
       </div>

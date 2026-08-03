@@ -3,7 +3,7 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { computed, h, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
@@ -18,7 +18,7 @@ import { PageUsageGuide } from '#/components/PageUsageGuide';
 // 回款计划使用说明步骤数（与 i18n 中 page.sale.paymentPlan.guide.steps 数组对齐）
 const guideStepCount = 5;
 
-const accessStore = useAccessStore();
+const _accessStore = useAccessStore();
 const userStore = useUserStore();
 
 const canViewAll = computed(() => {
@@ -51,8 +51,8 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string) {
-  activeTab.value = key;
+function handleTabChange(key: string | number) {
+  activeTab.value = key as string;
   gridApi.query();
 }
 
@@ -63,7 +63,7 @@ const statusOptions = [
   { label: '已逾期', value: 3 },
 ];
 
-const paymentTypeOptions = [
+const _paymentTypeOptions = [
   { label: '预付款', value: 1 },
   { label: '进度款', value: 2 },
   { label: '到货款', value: 3 },
@@ -71,6 +71,7 @@ const paymentTypeOptions = [
   { label: '质保金', value: 5 },
   { label: '尾款', value: 6 },
 ];
+void _paymentTypeOptions;
 
 const statusColorMap: Record<number, string> = {
   0: 'default',
@@ -141,7 +142,7 @@ const gridOptions: VxeGridProps = {
   height: 'auto',
   exportConfig: {},
   pagerConfig: {},
-  cellConfig: { isHover: true },
+  cellConfig: { isHover: true } as any,
   stripe: true,
   proxyConfig: {
     autoLoad: true,

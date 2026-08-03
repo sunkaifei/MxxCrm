@@ -33,6 +33,7 @@ import {
   LucideUpload,
 } from '@vben/icons';
 import {
+  getTemplateDataListByTemplateApi,
   notificationApi,
   siteApi,
   templateApi,
@@ -197,6 +198,9 @@ function selectTemplate(tpl: any) {
   selectedTemplateName.value = tpl.name;
   currentTemplateDetail.value = tpl;
   templateModalVisible.value = false;
+  // 模板切换后，清空已选首页模板并重新加载首页模板选项
+  formData.value.homeTemplateDataId = null;
+  loadHomeTemplateOptions(tpl.id);
 }
 
 async function loadTemplateDetail(templateId?: number) {
@@ -220,6 +224,41 @@ function previewCurrentTemplate() {
   }
 }
 
+// ============ 首页模板数据选项 ============
+const homeTemplateOptions = ref<Array<{ label: string; value: any }>>([]);
+const homeTemplateLoading = ref(false);
+
+const homeTemplateOptionsWithDefault = computed(() => [
+  { label: '默认', value: null },
+  ...homeTemplateOptions.value,
+]);
+
+async function loadHomeTemplateOptions(templateId?: any) {
+  if (!templateId) {
+    homeTemplateOptions.value = [];
+    return;
+  }
+  homeTemplateLoading.value = true;
+  try {
+    const res: any = await getTemplateDataListByTemplateApi(
+      Number(templateId),
+    );
+    const list: any[] = Array.isArray(res)
+      ? res
+      : res?.items || res?.data || [];
+    homeTemplateOptions.value = list
+      .filter((item: any) => item.typeId === 1)
+      .map((item: any) => ({
+        label: item.name || `模板${item.id}`,
+        value: item.id,
+      }));
+  } catch {
+    homeTemplateOptions.value = [];
+  } finally {
+    homeTemplateLoading.value = false;
+  }
+}
+
 // ============ 主表单数据（直接响应式对象，DEDECMS 风格自定义布局）============
 const formData = ref<Record<string, any>>({
   siteName: '',
@@ -240,6 +279,7 @@ const formData = ref<Record<string, any>>({
   urlRulePattern: '',
   robotsContent: '',
   templateId: undefined,
+  homeTemplateDataId: undefined,
   watermarkEnable: 0,
   watermarkType: 1,
   watermarkText: '',
@@ -383,6 +423,8 @@ async function loadSite() {
     // 模板详情
     if (data?.templateId) {
       await loadTemplateDetail(Number(data.templateId));
+      // 加载当前模板下的首页模板数据选项
+      await loadHomeTemplateOptions(data.templateId);
     }
     // 通知配置
     await loadNotifications(data?.id);
@@ -766,6 +808,24 @@ const statusTagText = computed(() =>
                       </Button>
                     </div>
                   </div>
+                </div>
+              </Card>
+
+              <Card title="首页模板" :bordered="false" class="cfg-card">
+                <p class="section-desc">
+                  选择当前模板下用于渲染网站首页的模板数据。选择"默认"时，系统将回退到模板自带的首页。
+                </p>
+                <div class="form-item form-item-full">
+                  <label class="form-label">首页模板数据</label>
+                  <Select
+                    v-model:value="formData.homeTemplateDataId"
+                    :options="homeTemplateOptionsWithDefault"
+                    :loading="homeTemplateLoading"
+                    placeholder="请选择首页模板"
+                  />
+                  <p class="field-tip">
+                    仅展示当前模板下类型为"首页"的模板数据。更换模板后列表将自动刷新。
+                  </p>
                 </div>
               </Card>
               </div>

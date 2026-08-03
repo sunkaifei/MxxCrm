@@ -25,7 +25,8 @@ async function loadRevisions() {
   loading.value = true;
   try {
     const res: any = await getTemplateRevisionListApi(props.templateDataId);
-    revisions.value = res?.items || res || [];
+    const data = res?.data || res;
+    revisions.value = Array.isArray(data) ? data : data?.items || data?.list || [];
   } catch {
     revisions.value = [];
   } finally {

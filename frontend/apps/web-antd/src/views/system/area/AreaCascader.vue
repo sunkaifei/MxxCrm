@@ -17,7 +17,7 @@ import { Cascader } from 'ant-design-vue';
 import { getAreaCascaderApi } from '#/api/core/system/area';
 
 const props = withDefaults(defineProps<{
-  modelValue?: string[];
+  modelValue?: (string | number)[];
   placeholder?: string;
   showSearch?: boolean;
   disabled?: boolean;
@@ -30,12 +30,12 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string[] | undefined];
-  change: [value: string[]];
+  'update:modelValue': [value: (string | number)[] | undefined];
+  change: [value: (string | number)[]];
 }>();
 
 const areaOptions = ref<any[]>([]);
-const localValue = ref<string[] | undefined>(props.modelValue);
+const localValue = ref<(string | number)[] | undefined>(props.modelValue);
 
 watch(() => props.modelValue, (newVal) => {
   localValue.value = newVal;
@@ -52,7 +52,7 @@ const loadAreaData = async () => {
   }
 };
 
-const handleChange = (value: string[]) => {
+const handleChange = (value: any) => {
   localValue.value = value;
   emit('update:modelValue', value);
   emit('change', value);

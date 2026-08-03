@@ -24,16 +24,6 @@ use sea_orm::{DbConn, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Que
 use std::collections::{HashMap, HashSet};
 
 /// 递归获取指定部门及其所有子部门的ID列表
-fn collect_child_dept_ids(all_depts: &[crate::modules::system::entity::dept::Model], parent_id: i64) -> Vec<i64> {
-    let mut ids = vec![parent_id];
-    for dept in all_depts {
-        if dept.parent_id == Some(parent_id) {
-            ids.extend(collect_child_dept_ids(all_depts, dept.id));
-        }
-    }
-    ids
-}
-
 /// 根据用户ID获取其数据权限范围内的所有用户ID
 ///
 /// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
