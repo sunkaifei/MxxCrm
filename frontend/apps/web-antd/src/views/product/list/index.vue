@@ -97,6 +97,11 @@ const gridOptions: VxeGridProps = {
       width: 140,
     },
     {
+      title: '品牌',
+      field: 'brandName',
+      width: 120,
+    },
+    {
       title: 'SKU',
       field: 'sku',
       width: 120,

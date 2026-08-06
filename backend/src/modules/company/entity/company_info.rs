@@ -31,6 +31,7 @@ pub struct Model {
     pub logo_url: Option<String>,
     pub tax_number: Option<String>,
     pub invoice_title: Option<String>,
+    pub business_type: Option<String>,
     pub remark: Option<String>,
     pub deleted: Option<i32>,
     pub create_by: Option<i64>,

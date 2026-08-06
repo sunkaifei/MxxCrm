@@ -1,0 +1,474 @@
+{
+  "product": {
+    "title": "Product Management",
+    "list": {
+      "title": "Product List",
+      "button": {
+        "create": "Add Product",
+        "edit": "Edit Product",
+        "delete": "Delete Product",
+        "view": "SKU"
+      }
+    },
+    "category": {
+      "title": "Product Category",
+      "button": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      }
+    },
+    "inbound": {
+      "title": "Inbound Management",
+      "button": {
+        "create": "Create Inbound"
+      },
+      "field": {
+        "inboundNo": "Inbound No.",
+        "inboundType": "Inbound Type",
+        "warehouse": "Warehouse",
+        "status": "Status",
+        "totalQuantity": "Total Quantity",
+        "totalAmount": "Total Amount",
+        "createdBy": "Created By",
+        "createTime": "Create Time"
+      },
+      "placeholder": {
+        "inboundNo": "Enter inbound number",
+        "inboundType": "Select inbound type",
+        "warehouse": "Enter warehouse",
+        "status": "Select status"
+      },
+      "type": {
+        "purchase": "Purchase Inbound",
+        "return": "Return Inbound",
+        "surplus": "Surplus Inbound",
+        "initial": "Initial Inbound",
+        "other": "Other Inbound",
+        "unknown": "Unknown"
+      },
+      "status": {
+        "0": "Draft",
+        "1": "Pending",
+        "2": "Approved",
+        "3": "Completed",
+        "4": "Rejected",
+        "unknown": "Unknown"
+      },
+      "action": {
+        "submitAudit": "Submit Audit",
+        "audit": "Approve",
+        "reject": "Reject",
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "message": {
+        "submitSuccess": "Submitted for audit",
+        "auditSuccess": "Approved",
+        "rejectSuccess": "Rejected"
+      },
+      "drawer": {
+        "title": {
+          "create": "Create Inbound",
+          "edit": "Edit Inbound"
+        },
+        "fullscreen": "Maximize",
+        "restore": "Restore",
+        "basicInfo": "Basic Information",
+        "detail": "Inbound Details",
+        "inboundType": "Inbound Type",
+        "inboundTypePlaceholder": "Select inbound type",
+        "warehouse": "Inbound Warehouse",
+        "warehousePlaceholder": "Select inbound warehouse",
+        "sourceOrderNo": "Source Order No.",
+        "sourceOrderNoPlaceholder": "e.g. PO number, return number",
+        "remark": "Remark",
+        "remarkPlaceholder": "Enter remark",
+        "alertTitle": "Inbound Detail Table",
+        "alertDesc": "Inbound details will be edited in the table below (rendered by InboundItemTable.vue). Please save basic info first, then add detail items."
+      }
+    },
+    "outbound": {
+      "title": "Outbound Management",
+      "button": {
+        "create": "Create Outbound"
+      },
+      "field": {
+        "outboundNo": "Outbound No.",
+        "outboundType": "Outbound Type",
+        "warehouse": "Warehouse",
+        "status": "Status",
+        "totalQuantity": "Total Quantity",
+        "totalAmount": "Total Amount",
+        "createdBy": "Created By",
+        "createTime": "Create Time"
+      },
+      "placeholder": {
+        "outboundNo": "Enter outbound number",
+        "outboundType": "Select outbound type",
+        "warehouse": "Select warehouse",
+        "status": "Select status"
+      },
+      "type": {
+        "sale": "Sale Outbound",
+        "material": "Material Outbound",
+        "shortage": "Shortage Outbound",
+        "scrap": "Scrap Outbound",
+        "freeze": "Freeze Outbound",
+        "other": "Other Outbound",
+        "unknown": "Unknown"
+      },
+      "status": {
+        "0": "Draft",
+        "1": "Pending",
+        "2": "Approved",
+        "3": "Completed",
+        "4": "Rejected",
+        "unknown": "Unknown"
+      },
+      "action": {
+        "submitAudit": "Submit Audit",
+        "audit": "Approve",
+        "reject": "Reject",
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "message": {
+        "submitSuccess": "Submitted for audit",
+        "auditSuccess": "Approved",
+        "rejectSuccess": "Rejected"
+      },
+      "drawer": {
+        "title": {
+          "create": "Create Outbound",
+          "edit": "Edit Outbound"
+        },
+        "fullscreen": "Maximize",
+        "restore": "Restore",
+        "basicInfo": "Basic Information",
+        "detail": "Outbound Details",
+        "outboundType": "Outbound Type",
+        "outboundTypePlaceholder": "Select outbound type",
+        "warehouse": "Outbound Warehouse",
+        "warehousePlaceholder": "Select outbound warehouse",
+        "sourceOrderNo": "Source Order No.",
+        "sourceOrderNoPlaceholder": "e.g. related sales order number",
+        "remark": "Remark",
+        "remarkPlaceholder": "Enter remark",
+        "alertDesc": "Outbound details will be maintained in a separate detail table. After saving the outbound order, you can add outbound item details on the detail page."
+      }
+    },
+    "inventory": {
+      "title": "Inventory Management",
+      "inbound": {
+        "title": "Inbound Management",
+        "create": "Create Inbound",
+        "audit": "Audit",
+        "status": {
+          "0": "Draft",
+          "1": "Pending",
+          "2": "Approved",
+          "3": "Completed",
+          "4": "Rejected"
+        },
+        "type": {
+          "purchase": "Purchase Inbound",
+          "return": "Return Inbound",
+          "surplus": "Surplus Inbound",
+          "initial": "Initial Inbound",
+          "other": "Other Inbound"
+        }
+      },
+      "outbound": {
+        "title": "Outbound Management",
+        "create": "Create Outbound",
+        "audit": "Audit",
+        "status": {
+          "0": "Draft",
+          "1": "Pending",
+          "2": "Approved",
+          "3": "Completed",
+          "4": "Rejected"
+        },
+        "type": {
+          "sale": "Sale Outbound",
+          "material": "Material Outbound",
+          "shortage": "Shortage Outbound",
+          "scrap": "Scrap Outbound",
+          "freeze": "Freeze Outbound",
+          "other": "Other Outbound"
+        }
+      },
+      "stockLog": {
+        "title": "Stock Log"
+      },
+      "transfer": {
+        "title": "Transfer Management",
+        "create": "Create Transfer",
+        "status": {
+          "0": "Draft",
+          "1": "Pending Outbound",
+          "2": "In Transit",
+          "3": "Completed",
+          "4": "Cancelled"
+        },
+        "field": {
+          "transferNo": "Transfer No.",
+          "sourceWarehouse": "Source Warehouse",
+          "targetWarehouse": "Target Warehouse",
+          "status": "Status",
+          "totalQuantity": "Total Quantity",
+          "createdBy": "Created By",
+          "createTime": "Create Time"
+        },
+        "action": {
+          "viewDetail": "View Detail",
+          "outbound": "Outbound",
+          "inbound": "Inbound",
+          "outboundSuccess": "Outbound success",
+          "inboundSuccess": "Inbound success"
+        },
+        "drawer": {
+          "title": {
+            "create": "Create Transfer",
+            "edit": "Edit Transfer"
+          },
+          "fullscreen": "Maximize",
+          "restore": "Restore",
+          "info": "Transfer Information",
+          "detail": "Transfer Details",
+          "sourceWarehouse": "Source Warehouse",
+          "sourceWarehousePlaceholder": "Select source warehouse",
+          "targetWarehouse": "Target Warehouse",
+          "targetWarehousePlaceholder": "Select target warehouse",
+          "remark": "Remark",
+          "remarkPlaceholder": "Enter remark"
+        }
+      },
+      "check": {
+        "title": "Stock Check",
+        "create": "Create Check",
+        "audit": "Audit",
+        "status": {
+          "0": "Draft",
+          "1": "Checking",
+          "2": "Approved",
+          "3": "Closed"
+        },
+        "type": {
+          "1": "Full Count",
+          "2": "Spot Check",
+          "3": "Dynamic Count"
+        },
+        "typeDesc": {
+          "1": "Count all inventory in the warehouse, suspend in/out operations",
+          "2": "Count selected products only, does not affect daily operations",
+          "3": "Rolling count by ABC classification, no business suspension needed"
+        },
+        "field": {
+          "checkNo": "Check No.",
+          "checkType": "Check Type",
+          "warehouse": "Warehouse",
+          "status": "Status",
+          "totalItems": "Total Items",
+          "diffItems": "Diff Items",
+          "checkBy": "Checked By",
+          "checkTime": "Check Time",
+          "remark": "Remark"
+        },
+        "action": {
+          "auditConfirm": "Confirm to audit this check?",
+          "auditSuccess": "Audit successful",
+          "confirm": "Confirm",
+          "cancel": "Cancel"
+        },
+        "drawer": {
+          "basicInfo": "Basic Information",
+          "checkTypeDesc": "Check Type Description",
+          "detail": "Check Details",
+          "detailHint": "Detail Note",
+          "detailHintText": "After saving, you can enter check data in the detail page",
+          "createTitle": "Create Check",
+          "editTitle": "Edit Check",
+          "fullscreen": "Maximize",
+          "restore": "Restore",
+          "checkTypePlaceholder": "Please select check type",
+          "warehousePlaceholder": "Please select warehouse",
+          "remarkPlaceholder": "Please enter remark",
+          "desc": "Description",
+          "descPlaceholder": "Please select check type first"
+        }
+      },
+      "alert": {
+        "title": "Inventory Alert",
+        "low": "Low Stock Alert",
+        "high": "High Stock Alert",
+        "stale": "Stale Alert",
+        "expiry": "Expiry Alert",
+        "frozen": "Frozen Alert",
+        "field": {
+          "productName": "Product Name",
+          "warehouseName": "Warehouse Name",
+          "currentQuantity": "Current Qty",
+          "minQuantity": "Min Qty",
+          "maxQuantity": "Max Qty",
+          "staleDays": "Stale Days",
+          "alertType": "Alert Type",
+          "enableLowAlert": "Low Stock Alert",
+          "enableHighAlert": "High Stock Alert",
+          "enableStaleAlert": "Stale Alert"
+        },
+        "type": {
+          "lowStock": "Low Stock",
+          "highStock": "High Stock",
+          "stale": "Stale"
+        },
+        "action": {
+          "viewRule": "View Rule",
+          "edit": "Edit",
+          "delete": "Delete",
+          "create": "Add Rule"
+        }
+      },
+      "report": {
+        "title": "Inventory Report",
+        "stockSummary": "Stock Summary",
+        "inboundSummary": "Inbound Summary",
+        "outboundSummary": "Outbound Summary",
+        "turnover": "Turnover Rate",
+        "staleList": "Stale Stock List",
+        "costReport": "Cost Report",
+        "field": {
+          "productName": "Product Name",
+          "warehouseName": "Warehouse Name",
+          "openingQty": "Opening Qty",
+          "inboundQty": "Inbound Qty",
+          "outboundQty": "Outbound Qty",
+          "closingQty": "Closing Qty",
+          "turnoverRate": "Turnover Rate",
+          "avgInventory": "Avg Inventory",
+          "currentQty": "Current Qty",
+          "availableQty": "Available Qty",
+          "reservedQty": "Reserved Qty",
+          "inTransitQty": "In Transit Qty",
+          "frozenQty": "Frozen Qty",
+          "productCode": "Product Code",
+          "staleDays": "Stale Days",
+          "lastMovement": "Last Movement",
+          "unitCost": "Unit Cost",
+          "totalCost": "Total Cost",
+          "avgCost": "Avg Cost",
+          "dateRange": "Date Range"
+        },
+        "type": {
+          "stockReport": "Stock Report",
+          "turnover": "Turnover Rate",
+          "staleList": "Stale Stock List",
+          "costReport": "Cost Report"
+        }
+      }
+    },
+    "warehouse": {
+      "title": "Warehouse Management",
+      "button": {
+        "create": "Add Warehouse",
+        "edit": "Edit Warehouse",
+        "delete": "Delete Warehouse"
+      }
+    },
+    "sku": {
+      "title": "SKU Management",
+      "button": {
+        "create": "Create SKU"
+      }
+    }
+  },
+  "inventory": {
+    "inbound": {
+      "title": "Inbound Management"
+    },
+    "outbound": {
+      "title": "Outbound Management"
+    },
+    "stockLog": {
+      "title": "Stock Transactions"
+    },
+    "transfer": {
+      "title": "Transfer Management"
+    },
+    "check": {
+      "title": "Stock Check"
+    },
+    "alert": {
+      "title": "Inventory Alert"
+    },
+    "report": {
+      "title": "Inventory Report",
+      "stockSummary": "Stock Summary",
+      "inboundSummary": "Inbound Summary",
+      "outboundSummary": "Outbound Summary",
+      "turnover": "Turnover Rate",
+      "staleList": "Stale Stock List",
+      "costReport": "Cost Report",
+      "field": {
+        "productName": "Product Name",
+        "warehouseName": "Warehouse Name",
+        "openingQty": "Opening Qty",
+        "inboundQty": "Inbound Qty",
+        "outboundQty": "Outbound Qty",
+        "closingQty": "Closing Qty",
+        "turnoverRate": "Turnover Rate",
+        "avgInventory": "Avg Inventory",
+        "currentQty": "Current Qty",
+        "availableQty": "Available Qty",
+        "reservedQty": "Reserved Qty",
+        "inTransitQty": "In Transit Qty",
+        "frozenQty": "Frozen Qty",
+        "productCode": "Product Code",
+        "staleDays": "Stale Days",
+        "lastMovement": "Last Movement",
+        "unitCost": "Unit Cost",
+        "totalCost": "Total Cost",
+        "avgCost": "Avg Cost",
+        "dateRange": "Date Range"
+      },
+      "type": {
+        "stockReport": "Stock Report",
+        "turnover": "Turnover Rate",
+        "staleList": "Stale Stock List",
+        "costReport": "Cost Report"
+      }
+    },
+    "changeType": {
+      "transferOut": "Transfer Out",
+      "transferIn": "Transfer In",
+      "check": "Stock Check",
+      "freeze": "Freeze",
+      "unfreeze": "Unfreeze",
+      "setup": "Initial Setup",
+      "adjust": "Adjust"
+    },
+    "column": {
+      "productId": "Product ID",
+      "warehouseId": "Warehouse ID",
+      "changeType": "Change Type",
+      "quantityBefore": "Qty Before",
+      "changeQuantity": "Change Qty",
+      "quantityAfter": "Qty After",
+      "bizNo": "Business No.",
+      "operator": "Operator"
+    },
+    "form": {
+      "productName": "Product Name",
+      "warehouseId": "Warehouse ID",
+      "warehouseIdPlaceholder": "Enter warehouse ID",
+      "productId": "Product ID"
+    },
+    "message": {
+      "viewStockLog": "View stock log of {name}"
+    },
+    "tooltip": {
+      "viewStockLog": "View Stock Log"
+    }
+  }
+}

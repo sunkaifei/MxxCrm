@@ -30,6 +30,9 @@ pub struct Model {
     /// 分类ID
     pub category_id: Option<i64>,
 
+    /// 品牌ID
+    pub brand_id: Option<i64>,
+
     /// SKU模板ID
     pub template_id: Option<i64>,
 
@@ -95,6 +98,24 @@ pub struct Model {
 
     /// 更新时间
     pub update_time: Option<DateTime>,
+
+    /// 是否自产（1-是 0-否）
+    pub is_self_produced: Option<i32>,
+
+    /// 生产提前期（天）
+    pub production_lead_time: Option<i32>,
+
+    /// 生产安全库存
+    pub production_safety_stock: Option<Decimal>,
+
+    /// 安全库存
+    pub safety_stock: Option<Decimal>,
+
+    /// 最大库存
+    pub max_stock: Option<Decimal>,
+
+    /// 预警天数
+    pub warning_days: Option<i32>,
 
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,

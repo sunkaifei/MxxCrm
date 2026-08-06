@@ -1,2 +1,17 @@
 pub mod warehouse;
 pub mod stock;
+pub mod inbound;
+pub mod inbound_item;
+pub mod outbound;
+pub mod outbound_item;
+pub mod stock_log;
+pub mod stock_freeze;
+pub mod quality_check;
+pub mod stocktake;
+pub mod stocktake_item;
+pub mod transfer;
+pub mod transfer_item;
+pub mod batch;
+pub mod warehouse_area;
+pub mod stock_snapshot;
+pub mod alert_rule;

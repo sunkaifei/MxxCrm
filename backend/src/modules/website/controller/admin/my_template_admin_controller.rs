@@ -32,7 +32,7 @@ pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<T
     let mut form_data = TemplateDataSaveDTO::from(item.into_inner());
     form_data.template_id = website.template_id;
     let result = template_user_data_service::insert(&db, &form_data).await?;
-    Ok(HttpResponse::Ok().json(result))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 pub async fn batch_delete(state: web::Data<AppState>, _req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
@@ -43,7 +43,7 @@ pub async fn batch_delete(state: web::Data<AppState>, _req: HttpRequest, item: w
         }
 
         let result = template_user_data_service::batch_delete_by_ids(&db, &ids_vec).await?;
-        Ok(HttpResponse::Ok().json(&MetaResp::<i64>::handle_result(Ok(result))))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::success(result, "local")))
     } else {
         Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
     }
@@ -59,7 +59,7 @@ pub async fn update_by_id(state: web::Data<AppState>, req: HttpRequest, id: web:
         .and_then(|id_str| id_str.parse::<i64>().ok());
     form_data.template_id = website_service::find_by_id(db, &website_id).await?.template_id;
     let result = template_user_data_service::update_by_id(&db, &form_data).await?;
-    Ok(HttpResponse::Ok().json(result))
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
 pub async fn get_by_tree(
@@ -84,7 +84,7 @@ pub async fn get_by_tree(
     let website_id = website_id.ok_or_else(|| Error::from("website_id is required"))?;
     let site = website_service::find_by_id(db, &Some(website_id)).await?;
     template_user_data_service::find_by_template_id(&db, &site.template_id).await.map(|tree| {
-        HttpResponse::Ok().json(tree)
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(tree, "local"))
     })
 }
 
@@ -109,7 +109,11 @@ pub async fn get_by_page(state: web::Data<AppState>, req: HttpRequest, query: we
     form_data.template_id = site.template_id;
     form_data.website_id = site.id;
     template_user_data_service::get_by_page(&db, form_data).await.map(|page_data| {
-        HttpResponse::Ok().json(page_data)
+        let current_page = page_data.current_page as u32;
+        let total = page_data.total as u32;
+        HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success_with_page(page_data, "local", current_page, total))
     })
 }
 
@@ -126,7 +130,11 @@ pub async fn get_buy_by_page(
     let admin_token:JWTToken = get_user(&req).unwrap_or_default();
     list_query.admin_id = admin_token.id;
     template_service::get_my_list_by_page(&db, list_query).await.map(|page_data| {
-        HttpResponse::Ok().json(page_data)
+        let current_page = page_data.current_page as u32;
+        let total = page_data.total as u32;
+        HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success_with_page(page_data, "local", current_page, total))
     })
 }
 

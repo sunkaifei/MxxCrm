@@ -28,6 +28,24 @@ pub struct Model {
     pub reserved_quantity: Option<Decimal>,
     /// 可用数量
     pub available_quantity: Option<Decimal>,
+    /// 在途数量（调拨出库后未入库）
+    pub in_transit_quantity: Option<Decimal>,
+    /// 冻结数量
+    pub frozen_quantity: Option<Decimal>,
+    /// 最低库存警戒线
+    pub alert_min_quantity: Option<Decimal>,
+    /// 最高库存警戒线
+    pub alert_max_quantity: Option<Decimal>,
+    /// 加权平均成本
+    pub avg_cost: Option<Decimal>,
+    /// 最后入库成本
+    pub last_in_cost: Option<Decimal>,
+    /// 库存总成本
+    pub total_cost: Option<Decimal>,
+    /// 最后入库时间
+    pub last_inbound_time: Option<DateTime>,
+    /// 最后出库时间
+    pub last_outbound_time: Option<DateTime>,
     /// 创建时间
     pub create_time: Option<DateTime>,
     /// 更新时间

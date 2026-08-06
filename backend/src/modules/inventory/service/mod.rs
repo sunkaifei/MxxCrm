@@ -1,2 +1,16 @@
 pub mod warehouse_service;
+pub mod warehouse_area_service;
 pub mod inventory_service;
+pub mod inbound_service;
+pub mod outbound_service;
+pub mod stock_engine;
+pub mod stock_log_service;
+pub mod freeze_service;
+pub mod stocktake_service;
+pub mod transfer_service;
+pub mod batch_service;
+pub mod stock_snapshot_service;
+pub mod inventory_suggestion_service;
+pub mod inventory_report_service;
+pub mod quality_check_service;
+pub mod alert_service;

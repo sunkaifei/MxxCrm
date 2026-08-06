@@ -26,6 +26,9 @@ import {
 
 import {
   exportPerformanceApi,
+  getEmployeeConversionApi,
+  getEmployeeCustomerCountApi,
+  getEmployeeFollowUpApi,
   getMonthlyPerformanceApi,
   getPerformanceComparisonApi,
   getPerformanceForecastApi,
@@ -259,7 +262,12 @@ const performanceProgress = computed(() => {
 
 // ===== 维度拆解 Tab =====
 const breakdownTab = ref<
-  'dept' | 'employee' | 'customer' | 'product' | 'region'
+  | 'customer'
+  | 'dept'
+  | 'employee'
+  | 'employee-comparison'
+  | 'product'
+  | 'region'
 >('dept');
 
 // ===== 部门排名聚合 =====
@@ -328,6 +336,130 @@ function rankingColumnsFor(type: 'dept' | 'employee') {
     },
   ];
 }
+
+// ===== 员工对比 Tab =====
+const employeeComparisonLoading = ref(false);
+const employeeComparisonData = ref<any[]>([]);
+const employeeComparisonLoaded = ref(false);
+
+const employeeComparisonColumns = [
+  { title: '员工', dataIndex: 'employeeName', width: 100, fixed: 'left' as const },
+  { title: '部门', dataIndex: 'departmentName', width: 100 },
+  { title: '客户总数', dataIndex: 'totalCustomers', align: 'right' as const, width: 90 },
+  { title: '合同客户', dataIndex: 'contractCustomers', align: 'right' as const, width: 90 },
+  { title: '转化率', dataIndex: 'customerConversionRate', align: 'right' as const, width: 90 },
+  { title: '跟进次数', dataIndex: 'totalFollowUp', align: 'right' as const, width: 90 },
+  { title: '商机跟进', dataIndex: 'opportunityFollowUp', align: 'right' as const, width: 90 },
+  { title: '商机数', dataIndex: 'totalOpportunities', align: 'right' as const, width: 80 },
+  { title: '成交商机', dataIndex: 'wonOpportunities', align: 'right' as const, width: 90 },
+  { title: '胜率', dataIndex: 'opportunityWinRate', align: 'right' as const, width: 80 },
+  { title: '合同数', dataIndex: 'totalContracts', align: 'right' as const, width: 80 },
+  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, width: 120 },
+  { title: '客单价', dataIndex: 'avgContractAmount', align: 'right' as const, width: 110 },
+];
+
+async function loadEmployeeComparison() {
+  if (employeeComparisonLoaded.value) return;
+  employeeComparisonLoading.value = true;
+  try {
+    const params = {
+      year: selectedYear.value,
+      month: timeDimension.value !== 'year' ? selectedMonth.value : undefined,
+    };
+    const [customerRes, followUpRes, conversionRes] = await Promise.all([
+      getEmployeeCustomerCountApi(),
+      getEmployeeFollowUpApi(params),
+      getEmployeeConversionApi(params),
+    ]);
+
+    const customerList: any[] = customerRes?.data || customerRes || [];
+    const followUpList: any[] = followUpRes?.data || followUpRes || [];
+    const conversionList: any[] = conversionRes?.data || conversionRes || [];
+
+    const mergeMap = new Map<string, any>();
+    const getKey = (item: any) =>
+      String(item.employeeId ?? item.employee_id ?? '');
+
+    customerList.forEach((item: any) => {
+      const key = getKey(item);
+      mergeMap.set(key, {
+        employeeName: item.employeeName ?? item.employee_name ?? '-',
+        departmentName: item.departmentName ?? item.department_name ?? '-',
+        totalCustomers: Number(item.totalCustomers ?? item.total_customers ?? 0),
+        contractCustomers: Number(
+          item.contractCustomers ?? item.contract_customers ?? 0,
+        ),
+        customerConversionRate: Number(
+          item.customerConversionRate ?? item.customer_conversion_rate ?? 0,
+        ),
+      });
+    });
+
+    followUpList.forEach((item: any) => {
+      const key = getKey(item);
+      const row =
+        mergeMap.get(key) ||
+        (mergeMap.set(key, {
+          employeeName: item.employeeName ?? item.employee_name ?? '-',
+          departmentName: item.departmentName ?? item.department_name ?? '-',
+        }),
+        mergeMap.get(key));
+      row.totalFollowUp = Number(item.totalFollowUp ?? item.total_follow_up ?? 0);
+      row.opportunityFollowUp = Number(
+        item.opportunityFollowUp ?? item.opportunity_follow_up ?? 0,
+      );
+    });
+
+    conversionList.forEach((item: any) => {
+      const key = getKey(item);
+      const row =
+        mergeMap.get(key) ||
+        (mergeMap.set(key, {
+          employeeName: item.employeeName ?? item.employee_name ?? '-',
+          departmentName: item.departmentName ?? item.department_name ?? '-',
+        }),
+        mergeMap.get(key));
+      row.totalOpportunities = Number(
+        item.totalOpportunities ?? item.total_opportunities ?? 0,
+      );
+      row.wonOpportunities = Number(
+        item.wonOpportunities ?? item.won_opportunities ?? 0,
+      );
+      row.opportunityWinRate = Number(
+        item.opportunityWinRate ?? item.opportunity_win_rate ?? 0,
+      );
+      row.totalContracts = Number(item.totalContracts ?? item.total_contracts ?? 0);
+      row.contractAmount = Number(item.contractAmount ?? item.contract_amount ?? 0);
+      row.avgContractAmount = Number(
+        item.avgContractAmount ?? item.avg_contract_amount ?? 0,
+      );
+    });
+
+    employeeComparisonData.value = Array.from(mergeMap.values()).sort(
+      (a, b) => (b.contractAmount || 0) - (a.contractAmount || 0),
+    );
+    employeeComparisonLoaded.value = true;
+  } catch (e) {
+    console.error('加载员工对比数据失败', e);
+    employeeComparisonData.value = [];
+  } finally {
+    employeeComparisonLoading.value = false;
+  }
+}
+
+watch(breakdownTab, (val) => {
+  if (val === 'employee-comparison') {
+    loadEmployeeComparison();
+  }
+});
+
+// 筛选条件变化时重置员工对比缓存，下次切换 Tab 重新加载
+watch(
+  () => [selectedYear.value, selectedMonth.value, timeDimension.value],
+  () => {
+    employeeComparisonLoaded.value = false;
+  },
+);
 
 // ===== 个人销售计划抽屉 =====
 const planDrawerVisible = ref(false);
@@ -841,6 +973,7 @@ async function handleExport(format: 'excel' | 'pdf') {
           <Tabs.TabPane key="customer" tab="客户维度" />
           <Tabs.TabPane key="product" tab="产品维度" />
           <Tabs.TabPane key="region" tab="区域维度" />
+          <Tabs.TabPane key="employee-comparison" tab="员工对比" />
         </Tabs>
 
         <!-- 部门排名 -->
@@ -964,6 +1097,33 @@ async function handleExport(format: 'excel' | 'pdf') {
           :month="selectedMonth"
           :time-dimension="timeDimension"
         />
+
+        <!-- 员工对比 -->
+        <Spin v-else-if="breakdownTab === 'employee-comparison'" :spinning="employeeComparisonLoading">
+          <Table
+            :columns="employeeComparisonColumns"
+            :data-source="employeeComparisonData"
+            :pagination="{ pageSize: 10, showSizeChanger: true }"
+            row-key="employeeName"
+            size="middle"
+            :scroll="{ x: 1300 }"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.dataIndex === 'customerConversionRate'">
+                {{ formatPercent(record.customerConversionRate) }}%
+              </template>
+              <template v-else-if="column.dataIndex === 'opportunityWinRate'">
+                {{ formatPercent(record.opportunityWinRate) }}%
+              </template>
+              <template v-else-if="column.dataIndex === 'contractAmount'">
+                {{ formatCurrency(record.contractAmount) }}
+              </template>
+              <template v-else-if="column.dataIndex === 'avgContractAmount'">
+                {{ formatCurrency(record.avgContractAmount) }}
+              </template>
+            </template>
+          </Table>
+        </Spin>
       </Card>
 
       <!-- ============ 模块9：行为指标 ============ -->

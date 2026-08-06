@@ -10,7 +10,6 @@
 
 use crate::core::errors::error::{Error, Result};
 use actix_web::{web, HttpRequest, HttpResponse};
-use actix_web::http::header::ContentType;
 use minijinja::context;
 use serde::{Deserialize, Serialize};
 use crate::core::kit::global::AppState;
@@ -71,7 +70,9 @@ pub async fn preview(
 
     // 4. 渲染模板字符串
     let html = get_template_a_with_cms(&payload.temptext, ctx, &cms_data)?;
-    Ok(HttpResponse::Ok().content_type(ContentType::html()).body(html))
+    Ok(HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::success(html, "local")))
 }
 
 /// 新增
@@ -159,12 +160,14 @@ pub async fn get_by_page(state: web::Data<AppState>, _req: HttpRequest, query: w
 
 /// 导出模板方案
 ///
-/// 返回常规 JSON（非 MsgPack），便于前端直接下载保存为 .json 文件。
+/// 返回 MsgPack，data 为模板方案数据，供前端下载保存为 .json 文件。
 pub async fn export_scheme(state: web::Data<AppState>, item: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     let template_id = item.into_inner();
     let export_data = template_data_service::export_template_scheme(&db, template_id).await?;
-    Ok(HttpResponse::Ok().json(export_data))
+    Ok(HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::success(export_data, "local")))
 }
 
 /// 导入模板方案

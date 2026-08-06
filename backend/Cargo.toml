@@ -121,6 +121,14 @@ lettre = { version = "0.11", default-features = false, features = ["builder", "h
 # P2-4/P2-6: xlsx 真实 Excel 导出（工资单/个税/银行代发）
 rust_xlsxwriter = "0.79"
 
+# PDF 生成（纯 Rust，typst 排版引擎）
+typst = "0.15.1"
+typst-pdf = "0.15.1"
+typst-layout = "0.15.1"
+typst-assets = { version = "0.15.1", features = ["fonts"] }
+ecow = "0.2"
+comemo = "0.5"
+
 [features]
 default = []
 enable-es = ["elasticsearch"]

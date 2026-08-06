@@ -9,7 +9,7 @@
 //!
 
 use std::collections::{HashMap, HashSet};
-use sea_orm::DbConn;
+use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter};
 use crate::core::errors::error::{Error, Result};
 use crate::modules::system::entity::menu::Model;
 use crate::modules::system::model::admin::AdminModel;
@@ -53,6 +53,31 @@ pub async fn update_by_id(db: &DbConn, menu: &MenuUpdateRequest) -> Result<i64> 
 pub async fn get_user_router_tree(db: &DbConn, is_admin: &bool, user_id: &Option<i64>) -> Result<Vec<menu::Router>> {
     let mut list: Vec<Model> = Vec::<Model>::new();
     let mut seen_ids = HashSet::new();
+
+    // 获取当前企业类型，用于菜单 business_types 过滤
+    use crate::modules::company::entity::company_info::Entity as CompanyInfo;
+    use crate::modules::company::entity::company_info::Column as CompanyColumn;
+    let company_business_type: Option<String> = CompanyInfo::find()
+        .filter(CompanyColumn::Deleted.eq(0))
+        .one(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?
+        .and_then(|c| c.business_type);
+    log::info!("[菜单] 企业类型: {:?}", company_business_type);
+
+    // 判断菜单是否对当前企业类型可见
+    let is_menu_visible = |menu: &Model| -> bool {
+        if let Some(types_str) = &menu.business_types {
+            if types_str.is_empty() { return true; }
+            if let Some(bt) = &company_business_type {
+                // business_types 存储为 JSON 数组字符串，如 ["sales","production","mixed"]
+                if types_str.contains(bt) { return true; }
+                return false;
+            }
+            // 未设置企业类型时，菜单可见（兼容旧数据）
+        }
+        true
+    };
 
     if is_admin.clone() {
         list = MenuModel::find_all(db).await?;
@@ -154,6 +179,39 @@ pub async fn get_user_router_tree(db: &DbConn, is_admin: &bool, user_id: &Option
             }
         }
     }
+    // 按企业类型过滤菜单
+    let before = list.len();
+    list.retain(|m| is_menu_visible(m));
+    log::info!("[菜单] 企业类型过滤: 过滤前={}, 过滤后={}", before, list.len());
+
+    // 非管理员需补充过滤后缺失的父菜单，确保树形结构完整（管理员已有全部菜单）
+    if !is_admin.clone() {
+        let mut parent_ids: Vec<i64> = Vec::new();
+        for m in &list {
+            if m.parent_id != 0 {
+                parent_ids.push(m.parent_id);
+            }
+        }
+        let mut processed = 0;
+        while !parent_ids.is_empty() && processed < 20 {
+            processed += 1;
+            let current_ids: Vec<i64> = parent_ids.drain(..).collect();
+            for pid in current_ids {
+                if seen_ids.contains(&pid) { continue; }
+                if let Some(parent_menu) = MenuModel::find_by_id(db, &Some(pid)).await? {
+                    if parent_menu.deleted.unwrap_or(0) == 0 && parent_menu.status == 1 && is_menu_visible(&parent_menu) {
+                        if seen_ids.insert(parent_menu.id) {
+                            if parent_menu.parent_id != 0 {
+                                parent_ids.push(parent_menu.parent_id);
+                            }
+                            list.push(parent_menu);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let mut router_list = Vec::<menu::Router>::new();
     list.sort_by(|a, b| a.sort.unwrap_or(0).cmp(&b.sort.unwrap_or(0)));
     router_arr_to_tree(&mut router_list, list, Some(0));

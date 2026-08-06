@@ -629,6 +629,15 @@ pub async fn approve_refund(db: &DbConn, refund_id: i64, operator_id: i64, _reas
     RefundModel::update_status(&txn, refund_id, 3).await?; // 审批通过
     txn.commit().await?;
 
+    // 审批通过后，自动生成退货入库单（best-effort，不阻断审批流程）
+    if let Some(warehouse_id) = refund.warehouse_id {
+        if warehouse_id > 0 {
+            if let Err(e) = auto_create_return_inbound(db, &refund, refund_id, warehouse_id, operator_id).await {
+                log::warn!("[approve_refund] 退货入库单自动创建失败 refund_id={}: {}", refund_id, e);
+            }
+        }
+    }
+
     let _ = operator_id;
     get_detail(db, refund_id).await
 }
@@ -863,4 +872,55 @@ pub async fn create_payment(db: &DbConn, req: &RefundPaymentRequest, operator_id
     txn.commit().await?;
 
     Ok(payment_id)
+}
+
+/// 退货审批通过后自动生成退货入库单（best-effort，不阻断审批流程）
+async fn auto_create_return_inbound(
+    db: &DbConn,
+    refund: &refund_entity::Model,
+    refund_id: i64,
+    warehouse_id: i64,
+    operator_id: i64,
+) -> Result<()> {
+    use crate::modules::inventory::model::inbound::{InboundItemRequest, InboundSaveRequest};
+    use crate::modules::inventory::service::inbound_service;
+
+    // 查询退货明细
+    let items = RefundItemModel::find_by_refund_id(db, refund_id).await
+        .map_err(|e| Error::from(format!("查询退货明细失败: {}", e)))?;
+
+    if items.is_empty() {
+        return Ok(());
+    }
+
+    let mut total_qty = Decimal::from(0);
+    let inbound_items: Vec<InboundItemRequest> = items.iter().map(|item| {
+        let qty = item.refund_qty.unwrap_or(Decimal::from(0));
+        total_qty += qty;
+        InboundItemRequest {
+            product_id: item.product_id.unwrap_or_default(),
+            product_sku: None,
+            quantity: qty,
+            unit_price: item.unit_price,
+            amount: item.refund_amount,
+            batch_no: None,
+            remark: None,
+        }
+    }).collect();
+
+    let refund_no = refund.refund_no.clone().unwrap_or_default();
+
+    let inbound_req = InboundSaveRequest {
+        inbound_type: "return".to_string(),
+        warehouse_id,
+        source_order_id: Some(refund_id),
+        source_order_no: Some(refund_no.clone()),
+        total_quantity: Some(total_qty),
+        total_amount: refund.total_amount,
+        remark: Some(format!("退货入库，退货单：{}", refund_no)),
+        items: inbound_items,
+    };
+
+    inbound_service::create_and_auto_audit(db, &inbound_req, operator_id).await?;
+    Ok(())
 }

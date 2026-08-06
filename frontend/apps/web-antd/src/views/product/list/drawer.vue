@@ -6,6 +6,7 @@ import { message, Tabs, Radio, Upload, Input, InputNumber, Select, Switch } from
 import { LucideUpload, LucideX, LucideMaximize2 } from '@vben/icons';
 import {
   createProductApi,
+  getAllBrandsApi,
   getCategoryListApi,
   getProductInfoApi,
   updateProductApi,
@@ -53,6 +54,7 @@ const formData = ref({
   name: '',
   productNo: '',
   categoryId: undefined as number | undefined,
+  brandId: undefined as number | undefined,
   keywords: '',
   unit: '',
   barcode: '',
@@ -67,6 +69,7 @@ const formData = ref({
 });
 
 const categoryOptions = ref<Array<{ value: number; label: string }>>([]);
+const brandOptions = ref<Array<{ value: number; label: string }>>([]);
 
 // Lazy loaded wangeditor editor
 const ProductEditor = defineAsyncComponent(() => import('./product-editor.vue'));
@@ -383,6 +386,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         name: row.name || '',
         productNo: row.productNo || '',
         categoryId: row.categoryId || undefined,
+        brandId: row.brandId || undefined,
         keywords: row.keywords || '',
         unit: row.unit || '',
         barcode: row.barcode || '',
@@ -435,12 +439,22 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
 
       try {
-        const catRes = await getCategoryListApi({ page: 1, pageSize: 999 });
+        const [catRes, brandRes] = await Promise.all([
+          getCategoryListApi({ page: 1, pageSize: 999 }),
+          getAllBrandsApi(),
+        ]);
         const catList = catRes?.items || catRes?.rows || [];
         if (catList.length > 0) {
           categoryOptions.value = catList.map((c: any) => ({
             value: Number(c.id),
             label: c.name,
+          }));
+        }
+        const brandList = (brandRes as any) || [];
+        if (Array.isArray(brandList) && brandList.length > 0) {
+          brandOptions.value = brandList.map((b: any) => ({
+            value: Number(b.id),
+            label: b.name,
           }));
         }
       } catch {
@@ -467,6 +481,7 @@ async function loadProductDetail(id: number) {
         name: productData.name || '',
         productNo: productData.productNo || '',
         categoryId: productData.categoryId || undefined,
+        brandId: productData.brandId || undefined,
         keywords: productData.keywords || '',
         unit: productData.unit || '',
         barcode: productData.barcode || '',
@@ -598,6 +613,21 @@ function setLoading(loading: boolean) {
                 placeholder="请选择商品分类"
                 allow-clear
                 :options="categoryOptions"
+                style="width: 100%"
+              />
+            </div>
+          </div>
+
+          <div class="basic-form-row">
+            <label class="basic-form-label">品牌</label>
+            <div class="basic-form-control">
+              <Select
+                v-model:value="formData.brandId"
+                placeholder="请选择品牌"
+                allow-clear
+                :options="brandOptions"
+                show-search
+                :filter-option="(input: string, option: any) => option.label?.toLowerCase().includes(input.toLowerCase())"
                 style="width: 100%"
               />
             </div>

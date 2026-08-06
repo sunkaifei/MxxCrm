@@ -1,0 +1,291 @@
+{
+  "crm": {
+    "title": "Customer",
+    "lead": {
+      "title": "Lead Management",
+      "button": {
+        "create": "Add Lead",
+        "edit": "Edit Lead",
+        "delete": "Delete Lead",
+        "convert": "Convert to Customer",
+        "assign": "Assign Lead",
+        "info": "View Details"
+      },
+      "guide": {
+        "title": "Lead Management Guide",
+        "brief": "Leads are the sales funnel entry, multi-channel input then converted to customers. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          {
+            "title": "Lead Sources",
+            "desc": "Supports form submission, Excel import, manual entry; auto-tags source channel."
+          },
+          {
+            "title": "Assignment & Follow-up",
+            "desc": "Assigned to sales staff, enters follow-up status; log calls/visits/emails."
+          },
+          {
+            "title": "Status Flow",
+            "desc": "Unassigned → Assigned → Following → Converted/Abandoned; auto-recycled if overdue."
+          },
+          {
+            "title": "Convert to Customer",
+            "desc": "Qualified leads convert to customers, auto-carrying contact info and follow-up history."
+          },
+          {
+            "title": "Pool Recycling",
+            "desc": "Overdue leads auto-recycle to the public pool; other sales can reclaim."
+          }
+        ]
+      }
+    },
+    "customer": {
+      "title": "Customer Management",
+      "button": {
+        "create": "Add Customer",
+        "edit": "Edit Customer",
+        "delete": "Delete Customer",
+        "assign": "Assign Customer",
+        "view": "View Customer"
+      },
+      "tab": {
+        "all": "All Customers",
+        "my": "My Customers",
+        "subordinate": "Subordinate Customers",
+        "todayFollow": "Today Follow-up"
+      }
+    },
+    "customerFollowup": {
+      "title": "Customer Follow-up"
+    },
+    "customerPool": {
+      "title": "Customer Pool",
+      "button": {
+        "return": "Return to Pool",
+        "claim": "Claim"
+      },
+      "guide": {
+        "title": "Customer Pool Guide",
+        "brief": "The pool stores overdue or inactive customers for re-claiming or reassignment. Expand for rules.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          {
+            "title": "Recycling Rules",
+            "desc": "Customers with overdue follow-ups (default 30 days) or no deals auto-recycle to pool."
+          },
+          {
+            "title": "Claim Mechanism",
+            "desc": "Sales staff can actively claim customers from the pool; claimed customers move to their roster."
+          },
+          {
+            "title": "Assignment",
+            "desc": "Administrators can reassign pool customers to specific sales staff."
+          },
+          {
+            "title": "Protection Period",
+            "desc": "Claimed customers have a protection period (default 15 days) during which they won't be recycled."
+          },
+          {
+            "title": "Policy Config",
+            "desc": "Different recycle periods and protection lengths can be configured by customer tier."
+          }
+        ]
+      }
+    },
+    "contact": {
+      "title": "Contact Management",
+      "button": {
+        "view": "View Contact",
+        "unbind": "Unbind/Resign"
+      }
+    },
+    "opportunity": {
+      "title": "Opportunity Management",
+      "button": {
+        "create": "Add Opportunity",
+        "edit": "Edit Opportunity",
+        "delete": "Delete Opportunity",
+        "view": "View Opportunity"
+      },
+      "guide": {
+        "title": "Opportunity Management Guide",
+        "brief": "Opportunities are the core of the sales pipeline, from lead conversion to deal close. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          {
+            "title": "Create Opportunity",
+            "desc": "Converted from lead or created directly; link customer/contact, fill expected amount and win probability."
+          },
+          {
+            "title": "Stage Progression",
+            "desc": "Initial contact → Need confirmation → Proposal/quote → Negotiation → Won/Lost, log follow-ups per stage."
+          },
+          {
+            "title": "Linked Entities",
+            "desc": "Link customers, contacts, quotes, competitors to form a complete sales record."
+          },
+          {
+            "title": "Deal Conversion",
+            "desc": "Won opportunities can generate contracts with auto-filled amount and customer info."
+          },
+          {
+            "title": "Commission Linkage",
+            "desc": "Contract payment triggers commission rules; opportunity amount serves as commission base."
+          }
+        ]
+      }
+    },
+    "contract": {
+      "title": "Contract Management",
+      "detailTitle": "{moduleName} Detail",
+      "tab": {
+        "basic": "Basic Info",
+        "paymentPlan": "Payment Plan"
+      },
+      "status": {
+        "current": "Current Status",
+        "lockedTip": "🔒 Under approval process, info cannot be modified",
+        "draft": "Draft",
+        "draftDesc": "Created, pending submission for approval",
+        "pending": "Pending Approval",
+        "pendingDesc": "Submitted, waiting for approver",
+        "approving": "In Approval",
+        "approvingDesc": "Going through multi-level approval process",
+        "executing": "Executing",
+        "executingDesc": "Approved, contract is in effect",
+        "completed": "Completed",
+        "completedDesc": "Contract fully fulfilled",
+        "terminated": "Terminated",
+        "terminatedDesc": "Contract has been terminated",
+        "rejected": "Rejected",
+        "rejectedDesc": "Approval rejected, can be modified and resubmitted"
+      },
+      "paymentPlan": {
+        "title": "Payment Plan",
+        "description": "Add payment plan for smart due/overdue reminders",
+        "howToAutoGenerate": "How to auto-generate?",
+        "howToAutoGenerateTip": "System calculates receivables based on payment plans and reminds stakeholders before due dates. Supports triggers by signing, invoicing, settlement, or shipping.",
+        "generateMethod": "Generation Method",
+        "overdueRate": "Overdue Interest Rate",
+        "periodName": "Period Name",
+        "paymentType": "Payment Type",
+        "plannedAmount": "Planned Amount",
+        "percent": "% of Total",
+        "plannedDate": "Planned Date",
+        "remark": "Remark",
+        "addRow": "Add Row",
+        "delete": "Delete",
+        "planTotal": "Plan Total",
+        "contractTotal": "Contract Total",
+        "remaining": "Remaining",
+        "amountMatched": "✓ Amount Matched",
+        "exceedAmount": "⚠ Exceeds Contract Amount",
+        "distributeRemaining": "Distribute Remaining Equally",
+        "noRemaining": "No remaining amount to distribute",
+        "addRowFirst": "Please add at least one payment plan row first",
+        "distributed": "Distributed remaining equally",
+        "noPlans": "No payment plans yet",
+        "amountMismatchTitle": "Amount Mismatch",
+        "amountMismatchContent": "Payment plan total differs from contract total by {diff}. Continue saving?",
+        "continueSave": "Continue Save",
+        "goBackEdit": "Go Back & Edit",
+        "planRequired": "At least one payment plan is required for installment payment",
+        "periodNameRequired": "Row {n}: Period name is required",
+        "amountRequired": "Row {n}: Planned amount must be greater than 0",
+        "generateMethods": {
+          "manual": "Manually add payment plan when creating",
+          "sign": "Auto-generate after signing",
+          "invoice": "Auto-generate after invoicing",
+          "settle": "Auto-generate after settlement",
+          "ship": "Auto-generate after shipping"
+        }
+      },
+      "select": {
+        "customerTitle": "Select My Customer",
+        "customerPlaceholder": "Click 'Select' button to pick a customer",
+        "customerSearchPlaceholder": "Enter customer name/number to search",
+        "opportunityTitle": "Select Related Opportunity",
+        "opportunityPlaceholder": "Click 'Select' button to pick an opportunity",
+        "opportunitySearchPlaceholder": "Enter opportunity name to search",
+        "selectBtn": "Select",
+        "clearBtn": "Clear",
+        "generateNo": "Generate No.",
+        "regenerateNo": "Regenerate",
+        "noPreview": "Click 'Generate No.' to auto-generate",
+        "generateSuccess": "Contract number generated: {code}",
+        "noRuleWarning": "No contract code rule found, please configure first",
+        "generateFailed": "Failed to generate number",
+        "pleaseGenerateFirst": "⚠ Please generate first",
+        "generateTip": "Auto-generate unique contract number from code rule, must generate before saving",
+        "selectCustomer": "Please select a customer",
+        "noData": "No data",
+        "loadFailed": "Load failed"
+      },
+      "button": {
+        "create": "Add Contract",
+        "edit": "Edit Contract",
+        "delete": "Delete Contract",
+        "submit": "Submit for Approval",
+        "view": "View Contract",
+        "viewApproval": "View Approval",
+        "createOrder": "Create Order"
+      },
+      "guide": {
+        "title": "Contract Management Guide",
+        "brief": "Contracts formalize won deals, link to payment plans, and trigger commission. Expand for full flow.",
+        "expand": "Details",
+        "collapse": "Collapse",
+        "steps": [
+          {
+            "title": "Create Contract",
+            "desc": "Created from won opportunity; link customer/opportunity, fill amount, sign date, payment method."
+          },
+          {
+            "title": "Approval Flow",
+            "desc": "Submitted contracts go through multi-level approval; info is locked during approval."
+          },
+          {
+            "title": "Status Flow",
+            "desc": "Draft → Pending → Approving → Executing → Completed; can be rejected for revision or terminated."
+          },
+          {
+            "title": "Payment Plan",
+            "desc": "Attach payment plans after execution; due reminders by node, reconcile on payment registration."
+          },
+          {
+            "title": "Commission Trigger",
+            "desc": "Payment completion auto-triggers commission rules, generating results for sales staff."
+          }
+        ]
+      }
+    },
+    "leadPool": {
+      "title": "Public Leads",
+      "button": {
+        "create": "Create Lead",
+        "edit": "Edit",
+        "delete": "Delete",
+        "info": "View"
+      }
+    },
+    "followup": {
+      "title": "Follow-up",
+      "button": {
+        "save": "Save Now",
+        "update": "Edit Follow-up",
+        "delete": "Delete Follow-up",
+        "info": "View Follow-up"
+      }
+    },
+    "visit": {
+      "title": "Field Visit",
+      "button": {
+        "add": "Add Visit",
+        "export": "Export"
+      }
+    }
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "button": {
+    "system": {
+      "admin": {
+        "create": "Add User",
+        "edit": "Edit User",
+        "delete": "Delete User",
+        "assignRole": "Assign Role",
+        "assignDept": "Assign Dept"
+      },
+      "role": {
+        "create": "Add Role",
+        "edit": "Edit Role",
+        "delete": "Delete Role",
+        "assignMenu": "Assign Menu",
+        "view": "View Role"
+      },
+      "menu": {
+        "create": "Add Menu",
+        "edit": "Edit Menu",
+        "delete": "Delete Menu",
+        "view": "View Menu"
+      }
+    },
+    "crm": {
+      "lead": {
+        "create": "Add Lead",
+        "edit": "Edit Lead",
+        "delete": "Delete Lead",
+        "convert": "Convert",
+        "assign": "Assign"
+      },
+      "customer": {
+        "create": "Add Customer",
+        "edit": "Edit Customer",
+        "delete": "Delete Customer",
+        "assign": "Assign"
+      },
+      "opportunity": {
+        "create": "Add Opportunity",
+        "edit": "Edit Opportunity",
+        "delete": "Delete Opportunity"
+      },
+      "contract": {
+        "create": "Add Contract",
+        "edit": "Edit Contract",
+        "delete": "Delete Contract"
+      }
+    },
+    "sale": {
+      "order": {
+        "create": "Add Order",
+        "edit": "Edit Order",
+        "delete": "Delete Order",
+        "confirm": "Confirm",
+        "ship": "Ship",
+        "complete": "Complete"
+      },
+      "payment": {
+        "create": "Add Payment",
+        "edit": "Edit Payment",
+        "delete": "Delete Payment"
+      }
+    },
+    "product": {
+      "title": "Product",
+      "create": "Add Product",
+      "edit": "Edit Product",
+      "delete": "Delete Product",
+      "category": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      },
+      "warehouse": {
+        "create": "Add Warehouse",
+        "edit": "Edit Warehouse",
+        "delete": "Delete Warehouse"
+      }
+    },
+    "purchase": {
+      "supplier": {
+        "create": "Add Supplier",
+        "edit": "Edit Supplier",
+        "delete": "Delete Supplier"
+      },
+      "po": {
+        "create": "Add PO",
+        "edit": "Edit PO",
+        "delete": "Delete PO",
+        "confirm": "Confirm",
+        "receive": "Receive"
+      }
+    },
+    "attachment": {
+      "file": {
+        "upload": "Upload",
+        "delete": "Delete"
+      },
+      "category": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      }
+    },
+    "shop": {
+      "category": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      },
+      "goods": {
+        "create": "Add Product",
+        "edit": "Edit Product",
+        "delete": "Delete Product"
+      }
+    }
+  }
+}

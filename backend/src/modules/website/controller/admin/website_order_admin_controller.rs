@@ -30,7 +30,13 @@ pub async fn order_list(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     match website_order_service::admin_order_list(db, query.into_inner()).await {
-        Ok(page) => Ok(HttpResponse::Ok().json(page)),
+        Ok(page) => {
+            let current_page = page.current_page as u32;
+            let total = page.total as u32;
+            Ok(HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::success_with_page(page, "local", current_page, total)))
+        }
         Err(e) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
@@ -135,7 +141,13 @@ pub async fn delivery_list(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     match website_delivery_service::admin_list(db, query.into_inner()).await {
-        Ok(page) => Ok(HttpResponse::Ok().json(page)),
+        Ok(page) => {
+            let current_page = page.current_page as u32;
+            let total = page.total as u32;
+            Ok(HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::success_with_page(page, "local", current_page, total)))
+        }
         Err(e) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),

@@ -118,6 +118,15 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
           } catch {
             response.data = text;
           }
+        } else if (
+          contentType.includes('application/pdf') ||
+          contentType.includes('application/octet-stream') ||
+          contentType.includes('image/') ||
+          contentType.startsWith('application/vnd') ||
+          contentType.startsWith('application/zip')
+        ) {
+          // 二进制文件流（PDF/图片/Office 等），保持 ArrayBuffer 原样返回，避免被误解码
+          response.data = new Blob([response.data], { type: contentType });
         } else {
           try {
             const decoded = decode(new Uint8Array(response.data)) as {

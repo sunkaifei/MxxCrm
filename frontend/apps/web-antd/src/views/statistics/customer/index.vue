@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Card, Row, Col, Table } from 'ant-design-vue';
 import { LucideArrowRight } from '@vben/icons';
+import { $t } from '#/locales';
 import { getCustomerTypeStatsApi, getCustomerSourceStatsApi, getCustomerIndustryStatsApi, getCustomerFunnelApi } from '#/api/core/statistics';
 
 const customerTypeData = ref<any[]>([]);
@@ -10,10 +11,13 @@ const customerSourceData = ref<any[]>([]);
 const customerIndustryData = ref<any[]>([]);
 const funnelData = ref<any[]>([]);
 
-// 商机阶段数值 → 名称映射
-const funnelStageMap: Record<number, string> = {
-  0: '资格审查', 1: '需求分析', 2: '方案报价',
-  3: '商务谈判', 4: '已成交', 5: '已输单',
+const funnelStageLabels: Record<number, string> = {
+  0: $t('page.statistics.funnelStageQualifications'),
+  1: $t('page.statistics.funnelStageNeedsAnalysis'),
+  2: $t('page.statistics.funnelStageProposal'),
+  3: $t('page.statistics.funnelStageNegotiation'),
+  4: $t('page.statistics.funnelStageWon'),
+  5: $t('page.statistics.funnelStageLost'),
 };
 
 const loadData = async () => {
@@ -55,13 +59,13 @@ const loadData = async () => {
     
     if (funnelRes.data && funnelRes.data.data && funnelRes.data.data.funnel) {
       funnelData.value = funnelRes.data.data.funnel.map((item: any) => ({
-        stage: funnelStageMap[item.stage] || item.stage,
+        stage: funnelStageLabels[item.stage] || item.stage,
         count: item.count,
         rate: item.rate,
       }));
     }
   } catch (e) {
-    console.error('加载客户转化数据失败', e);
+    console.error($t('page.statistics.loadCustomerFailed'), e);
     customerTypeData.value = [];
     customerSourceData.value = [];
     customerIndustryData.value = [];
@@ -74,38 +78,38 @@ onMounted(() => {
 });
 
 function formatCurrency(val: number) {
-  return `¥${(val / 10000).toFixed(1)}万`;
+  return `¥${(val / 10000).toFixed(1)}${$t('page.statistics.currencyFormat')}`;
 }
 
 const typeColumns = [
-  { title: '客户类型', dataIndex: 'customerType' },
-  { title: '总数', dataIndex: 'totalCount', align: 'right' as const },
-  { title: '成交数', dataIndex: 'contractCount', align: 'right' as const },
-  { title: '转化率', dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.customerTypeCol'), dataIndex: 'customerType' },
+  { title: $t('page.statistics.totalCount'), dataIndex: 'totalCount', align: 'right' as const },
+  { title: $t('page.statistics.contractCount'), dataIndex: 'contractCount', align: 'right' as const },
+  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const sourceColumns = [
-  { title: '来源渠道', dataIndex: 'source' },
-  { title: '总数', dataIndex: 'totalCount', align: 'right' as const },
-  { title: '成交数', dataIndex: 'contractCount', align: 'right' as const },
-  { title: '转化率', dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.source'), dataIndex: 'source' },
+  { title: $t('page.statistics.totalCount'), dataIndex: 'totalCount', align: 'right' as const },
+  { title: $t('page.statistics.contractCount'), dataIndex: 'contractCount', align: 'right' as const },
+  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const industryColumns = [
-  { title: '行业', dataIndex: 'industry' },
-  { title: '客户数', dataIndex: 'totalCount', align: 'right' as const },
-  { title: '成交数', dataIndex: 'contractCount', align: 'right' as const },
-  { title: '转化率', dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.industryCol'), dataIndex: 'industry' },
+  { title: $t('page.statistics.customerCount'), dataIndex: 'totalCount', align: 'right' as const },
+  { title: $t('page.statistics.contractCount'), dataIndex: 'contractCount', align: 'right' as const },
+  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
 ];
 </script>
 
 <template>
   <Page auto-content-height>
     <div class="p-4">
-      <h2 class="text-lg font-bold mb-4">客户转化分析</h2>
+      <h2 class="text-lg font-bold mb-4">{{ $t('page.statistics.customerConversion') }}</h2>
       
-      <Card title="客户转化漏斗" class="mb-6">
+      <Card :title="$t('page.statistics.customerFunnel')" class="mb-6">
         <div class="flex items-center justify-center py-8">
           <div class="w-full max-w-md space-y-4">
             <div v-for="(item, idx) in funnelData" :key="item.stage" 
@@ -122,17 +126,17 @@ const industryColumns = [
       
       <Row :gutter="16">
         <Col :span="8">
-          <Card title="客户类型分布">
+          <Card :title="$t('page.statistics.customerType')">
             <Table :columns="typeColumns" :data-source="customerTypeData" :pagination="false" size="small" />
           </Card>
         </Col>
         <Col :span="8">
-          <Card title="客户来源分析">
+          <Card :title="$t('page.statistics.customerSource')">
             <Table :columns="sourceColumns" :data-source="customerSourceData" :pagination="false" size="small" />
           </Card>
         </Col>
         <Col :span="8">
-          <Card title="行业分布">
+          <Card :title="$t('page.statistics.industry')">
             <Table :columns="industryColumns" :data-source="customerIndustryData" :pagination="false" size="small" />
           </Card>
         </Col>

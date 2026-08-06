@@ -21,7 +21,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
  {
  component: 'Input',
  fieldName: 'purchaseNo',
- label: '采购单号',
+ label: $t('page.purchase.po.form.purchaseNo'),
  rules: 'required',
  componentProps: {
  placeholder: $t('ui.placeholder.input'),
@@ -31,7 +31,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
  {
  component: 'Input',
  fieldName: 'supplierId',
- label: '供应商ID',
+ label: $t('page.purchase.po.form.supplierId'),
  componentProps: {
  placeholder: $t('ui.placeholder.input'),
  allowClear: true,
@@ -40,7 +40,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
  {
  component: 'Input',
  fieldName: 'amount',
- label: '采购金额',
+ label: $t('page.purchase.po.form.amount'),
  componentProps: {
  placeholder: $t('ui.placeholder.input'),
  allowClear: true,
@@ -128,22 +128,22 @@ function updateSubtotal(item: any) {
     <BaseForm />
     <div class="mt-4">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="text-lg font-semibold">采购明细</h3>
+        <h3 class="text-lg font-semibold">{{ $t('page.purchase.po.item.title') }}</h3>
         <button class="btn btn-primary" @click="addItem">
-          添加明细
+          {{ $t('page.purchase.po.item.addItem') }}
         </button>
       </div>
       <table class="w-full border-collapse">
         <thead>
           <tr>
-            <th class="border px-4 py-2">产品名称</th>
-            <th class="border px-4 py-2">SKU</th>
-            <th class="border px-4 py-2">数量</th>
-            <th class="border px-4 py-2">单价</th>
-            <th class="border px-4 py-2">折扣(%)</th>
-            <th class="border px-4 py-2">税率(%)</th>
-            <th class="border px-4 py-2">小计</th>
-            <th class="border px-4 py-2">操作</th>
+            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.productName') }}</th>
+            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.sku') }}</th>
+            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.quantity') }}</th>
+            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.unitPrice') }}</th>
+            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.discount') }}</th>
+            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.taxRate') }}</th>
+            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.subtotal') }}</th>
+            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.action') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -152,14 +152,14 @@ function updateSubtotal(item: any) {
               <input
                 v-model="item.productName"
                 class="w-full border rounded px-2 py-1"
-                placeholder="产品名称"
+                :placeholder="$t('page.purchase.po.item.placeholder.productName')"
               />
             </td>
             <td class="border px-4 py-2">
               <input
                 v-model="item.sku"
                 class="w-full border rounded px-2 py-1"
-                placeholder="SKU"
+                :placeholder="$t('page.purchase.po.item.placeholder.sku')"
               />
             </td>
             <td class="border px-4 py-2">
@@ -167,7 +167,7 @@ function updateSubtotal(item: any) {
                 v-model.number="item.quantity"
                 type="number"
                 class="w-full border rounded px-2 py-1"
-                placeholder="数量"
+                :placeholder="$t('page.purchase.po.item.placeholder.quantity')"
                 @input="updateSubtotal(item)"
               />
             </td>
@@ -177,7 +177,7 @@ function updateSubtotal(item: any) {
                 type="number"
                 step="0.01"
                 class="w-full border rounded px-2 py-1"
-                placeholder="单价"
+                :placeholder="$t('page.purchase.po.item.placeholder.unitPrice')"
                 @input="updateSubtotal(item)"
               />
             </td>
@@ -186,7 +186,7 @@ function updateSubtotal(item: any) {
                 v-model.number="item.discount"
                 type="number"
                 class="w-full border rounded px-2 py-1"
-                placeholder="折扣"
+                :placeholder="$t('page.purchase.po.item.placeholder.discount')"
                 @input="updateSubtotal(item)"
               />
             </td>
@@ -195,18 +195,18 @@ function updateSubtotal(item: any) {
                 v-model.number="item.taxRate"
                 type="number"
                 class="w-full border rounded px-2 py-1"
-                placeholder="税率"
+                :placeholder="$t('page.purchase.po.item.placeholder.taxRate')"
                 @input="updateSubtotal(item)"
               />
             </td>
             <td class="border px-4 py-2">{{ item.totalAmount }}</td>
             <td class="border px-4 py-2">
-              <button class="text-red-500" @click="removeItem(index)">删除</button>
+              <button class="text-red-500" @click="removeItem(index)">{{ $t('page.purchase.po.item.delete') }}</button>
             </td>
           </tr>
           <tr v-if="items.length === 0">
             <td colspan="8" class="border px-4 py-8 text-center">
-              暂无采购明细，点击上方按钮添加
+              {{ $t('page.purchase.po.item.empty') }}
             </td>
           </tr>
         </tbody>

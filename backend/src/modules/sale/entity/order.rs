@@ -73,6 +73,10 @@ pub struct Model {
     pub remark: Option<String>,
     pub owner_user_id: Option<i64>,
     pub dept_id: Option<i64>,
+    /// PDF文件访问URL
+    pub pdf_file_url: Option<String>,
+    /// PDF模板ID
+    pub pdf_template_id: Option<i64>,
     /// 审批状态（0-草稿, 1-待审批, 2-审批中, 3-已通过, 4-已驳回）
     pub approval_status: Option<i32>,
     /// 审批实例ID（关联 mxx_system_approval_instance）

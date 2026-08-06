@@ -106,14 +106,20 @@ pub struct ProductSaveRequest {
     pub keywords: Option<String>,
     /// 库存数量（单规格模式）
     pub stock: Option<i32>,
+    /// 是否自产（1-是 0-否）
+    pub is_self_produced: Option<i32>,
+    /// 生产提前期（天）
+    pub production_lead_time: Option<i32>,
+    /// 生产安全库存
+    pub production_safety_stock: Option<Decimal>,
     /// SKU变体列表
     pub skus: Option<Vec<SkuRequest>>,
 }
 
-impl From<ProductSaveRequest> for ProductSaveDTO {
-    fn from(item: ProductSaveRequest) -> Self {
+impl From<ProductUpdateRequest> for ProductSaveDTO {
+    fn from(item: ProductUpdateRequest) -> Self {
         ProductSaveDTO {
-            id: None,
+            id: item.id,
             product_no: item.product_no,
             name: item.name,
             category_id: item.category_id,
@@ -135,6 +141,9 @@ impl From<ProductSaveRequest> for ProductSaveDTO {
             spec_type: item.spec_type,
             keywords: item.keywords,
             stock: item.stock,
+            is_self_produced: item.is_self_produced,
+            production_lead_time: item.production_lead_time,
+            production_safety_stock: item.production_safety_stock,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -171,13 +180,19 @@ pub struct ProductUpdateRequest {
     pub spec_type: Option<String>,
     pub keywords: Option<String>,
     pub stock: Option<i32>,
+    /// 是否自产（1-是 0-否）
+    pub is_self_produced: Option<i32>,
+    /// 生产提前期（天）
+    pub production_lead_time: Option<i32>,
+    /// 生产安全库存
+    pub production_safety_stock: Option<Decimal>,
     pub skus: Option<Vec<SkuRequest>>,
 }
 
-impl From<ProductUpdateRequest> for ProductSaveDTO {
-    fn from(item: ProductUpdateRequest) -> Self {
+impl From<ProductSaveRequest> for ProductSaveDTO {
+    fn from(item: ProductSaveRequest) -> Self {
         ProductSaveDTO {
-            id: item.id,
+            id: None,
             product_no: item.product_no,
             name: item.name,
             category_id: item.category_id,
@@ -199,6 +214,9 @@ impl From<ProductUpdateRequest> for ProductSaveDTO {
             spec_type: item.spec_type,
             keywords: item.keywords,
             stock: item.stock,
+            is_self_produced: item.is_self_produced,
+            production_lead_time: item.production_lead_time,
+            production_safety_stock: item.production_safety_stock,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -234,6 +252,9 @@ pub struct ProductSaveDTO {
     pub spec_type: Option<String>,
     pub keywords: Option<String>,
     pub stock: Option<i32>,
+    pub is_self_produced: Option<i32>,
+    pub production_lead_time: Option<i32>,
+    pub production_safety_stock: Option<Decimal>,
     pub deleted: Option<i32>,
     pub created_by: Option<i64>,
     pub create_time: Option<DateTime>,
@@ -447,6 +468,9 @@ impl ProductModel {
             spec_type: Set(req.spec_type.clone()),
             keywords: Set(req.keywords.clone()),
             stock: Set(req.stock),
+            is_self_produced: Set(req.is_self_produced),
+            production_lead_time: Set(req.production_lead_time),
+            production_safety_stock: Set(req.production_safety_stock.clone()),
             created_by: Set(req.created_by),
             create_time: Set(Some(now)),
             updated_by: Set(req.updated_by),
@@ -495,6 +519,9 @@ impl ProductModel {
             spec_type: Set(req.spec_type.clone()),
             keywords: Set(req.keywords.clone()),
             stock: Set(req.stock),
+            is_self_produced: Set(req.is_self_produced),
+            production_lead_time: Set(req.production_lead_time),
+            production_safety_stock: Set(req.production_safety_stock.clone()),
             updated_by: Set(req.updated_by),
             update_time: Set(Some(chrono::Utc::now().naive_utc())),
             ..Default::default()

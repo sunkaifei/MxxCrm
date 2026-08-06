@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>报价单 - A4 竖版（标准尺寸 · 多页纸张）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1a1a1a;
+      --ink-soft: #3d3d3d;
+      --steel: #6e6e6e;
+      --mist: #a0a0a0;
+      --amber: #b8860b;
+      --paper: #ffffff;
+      --hair: #1a1a1a;
+      --hair-soft: #d6d6d6;
+      --zebra: #f7f7f7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* A4 portrait: each sheet = one physical page */
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    body {
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: #e9e9ec;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 24px;
+      gap: 9mm;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ===== one physical A4 portrait page (210 x 297) ===== */
+    .sheet {
+      width: 210mm;
+      height: 297mm;
+      background: var(--paper);
+      position: relative;
+      padding: 10mm 13mm 8mm;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    /* outer hairline frame */
+    .sheet::after {
+      content: "";
+      position: absolute;
+      top: 6mm; right: 6mm; bottom: 6mm; left: 6mm;
+      border: 0.6pt solid var(--hair);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .inner {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* ===== page 1: full header ===== */
+    .doc-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8mm;
+      align-items: flex-end;
+      padding-bottom: 3mm;
+      border-bottom: 1pt solid var(--hair);
+    }
+    .brand-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.5px; letter-spacing: 0.26em;
+      color: var(--amber); text-transform: uppercase; margin-bottom: 3px;
+    }
+    .brand-name {
+      font-family: "Noto Serif SC", serif;
+      font-size: 19px; font-weight: 700; color: var(--ink); line-height: 1.1;
+    }
+    .brand-meta {
+      font-size: 7.8px; line-height: 1.65; color: var(--steel); margin-top: 4px;
+    }
+    .doc-title { text-align: right; }
+    .doc-title .en {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px; font-weight: 700; letter-spacing: 0.3em;
+      text-transform: uppercase; color: var(--steel); margin-bottom: 2px;
+    }
+    .doc-title .zh {
+      font-family: "Noto Serif SC", serif;
+      font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1;
+    }
+    .doc-title .doc-id {
+      margin-top: 6px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.6px; color: var(--steel); letter-spacing: 0.05em;
+    }
+    .doc-title .doc-id strong { color: var(--amber); }
+
+    /* ===== running header (continuation pages) ===== */
+    .running-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 2.6mm;
+      border-bottom: 0.6pt solid var(--hair);
+    }
+    .running-head .rh-left {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.8px; color: var(--ink-soft); letter-spacing: 0.04em;
+    }
+    .running-head .rh-left strong { color: var(--amber); }
+    .running-head .rh-title {
+      font-family: "Noto Serif SC", serif;
+      font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: 0.08em;
+    }
+    .running-head .rh-right {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.8px; color: var(--steel); letter-spacing: 0.06em;
+    }
+
+    /* ===== info strip (page 1 only) — stacked in portrait ===== */
+    .info-band {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 8mm;
+      margin: 3mm 0 3.5mm;
+      padding-bottom: 3mm;
+      border-bottom: 0.6pt solid var(--hair-soft);
+    }
+    .info-block {
+      padding: 0.5mm 0;
+      font-size: 8px; line-height: 1.7; color: var(--ink-soft);
+    }
+    .info-block + .info-block { /* not needed in 2-col but keep safe */ }
+    .info-block.full {
+      grid-column: 1 / -1;
+      border-top: 0.4pt dashed var(--hair-soft);
+      padding-top: 2.5mm; margin-top: 1mm;
+    }
+    .info-block h3 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--amber); margin-bottom: 2.6mm;
+    }
+    .info-block .label {
+      font-family: "JetBrains Mono", monospace;
+      color: var(--steel); display: inline-block; min-width: 5.4em; font-size: 7.2px;
+    }
+    /* inline term items in the full-width block */
+    .info-block.full p { font-size: 8px; line-height: 1.85; color: var(--ink-soft); }
+    .info-block.full .term {
+      display: inline-block; margin-right: 6mm; white-space: nowrap;
+    }
+
+    /* ===== table ===== */
+    .table-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 8.8px; }
+
+    thead th {
+      font-family: "Noto Sans SC", sans-serif;
+      font-weight: 700; font-size: 8px; letter-spacing: 0.06em;
+      color: var(--ink);
+      padding: 2.6mm 2.6mm; text-align: left; white-space: nowrap;
+      border-top: 1pt solid var(--hair);
+      border-bottom: 1pt solid var(--hair);
+      background: transparent;
+    }
+    thead th.num, thead th.qty, thead th.price, thead th.amt { text-align: right; }
+
+    tbody td {
+      padding: 2.7mm 2.6mm;
+      border-bottom: 0.4pt solid var(--hair-soft);
+      color: var(--ink-soft); vertical-align: middle; line-height: 1.3;
+    }
+    tbody tr:nth-child(even) td { background: var(--zebra); }
+
+    td.sku {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8.2px; font-weight: 700; letter-spacing: 0.03em;
+      color: var(--ink); white-space: nowrap;
+    }
+    td.name { color: var(--ink); font-weight: 500; }
+    td.spec { color: var(--ink-soft); }
+
+    td.num, td.qty, td.price, td.amt {
+      text-align: right;
+      font-family: "JetBrains Mono", monospace; font-size: 8.8px;
+    }
+    td.amt { color: var(--ink); font-weight: 700; }
+
+    tr.subtotal td {
+      border-top: 0.6pt solid var(--hair);
+      border-bottom: none;
+      background: #fff;
+    }
+    tr.subtotal td.label-cell {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.4px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--steel); text-align: right;
+    }
+    tr.subtotal td.amt-cell {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700; color: var(--ink); font-size: 9px;
+    }
+
+    /* ===== closing block (last page) ===== */
+    .closing { margin-top: 4mm; }
+    .closing-row {
+      display: grid; grid-template-columns: 1.3fr 0.9fr;
+      gap: 8mm; margin-bottom: 4mm;
+    }
+    .terms h3, .summary h3, .sign h3 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--amber);
+      margin-bottom: 2.6mm; padding-bottom: 2mm;
+      border-bottom: 0.4pt dashed var(--hair-soft);
+    }
+    .terms ul { list-style: none; font-size: 7.6px; line-height: 1.75; color: var(--ink-soft); }
+    .terms li { position: relative; padding-left: 1.4em; }
+    .terms li::before {
+      content: "›"; position: absolute; left: 0;
+      color: var(--amber); font-weight: 700; font-family: "JetBrains Mono", monospace;
+    }
+    .summary { border: 0.6pt solid var(--hair); padding: 3.4mm 4.5mm; }
+    .summary-row {
+      display: flex; justify-content: space-between;
+      font-size: 8.4px; padding: 1.3mm 0; color: var(--ink-soft);
+    }
+    .summary-row span:last-child { font-family: "JetBrains Mono", monospace; }
+    .summary-row.total {
+      margin-top: 1.5mm; padding-top: 2mm;
+      border-top: 1pt solid var(--hair);
+      font-family: "Noto Serif SC", serif;
+      font-size: 11px; font-weight: 700; color: var(--ink);
+    }
+    .summary-row.total .amount {
+      color: var(--amber); font-size: 14.5px; font-family: "JetBrains Mono", monospace;
+    }
+    .sign {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10mm; padding-top: 3mm;
+      border-top: 0.6pt solid var(--hair-soft);
+    }
+    .sign-block h3 { margin-bottom: 6mm; }
+    .sign-line { border-bottom: 0.6pt solid var(--ink); height: 9mm; }
+    .sign-date {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.2px; color: var(--steel); margin-top: 1.6mm;
+    }
+
+    /* ===== page footer ===== */
+    .page-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 3.5mm; padding-top: 2.4mm;
+      border-top: 0.4pt solid var(--hair-soft);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.2px; color: var(--steel); letter-spacing: 0.06em;
+    }
+    .page-foot .pf-mid { color: var(--ink-soft); }
+    .page-foot .pf-right strong { color: var(--amber); }
+
+    /* ===== controls ===== */
+    .no-print {
+      position: fixed; right: 28px; bottom: 28px; z-index: 100;
+      display: flex; gap: 10px;
+    }
+    .btn {
+      background: var(--ink); color: #fff; border: none;
+      padding: 11px 22px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em;
+      cursor: pointer; border-radius: 2px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.3);
+      transition: transform .2s ease, background .2s ease;
+    }
+    .btn:hover { background: var(--amber); transform: translateY(-2px); }
+    .btn.ghost {
+      background: transparent; color: #555; border: 1px solid #999; box-shadow: none;
+    }
+    .btn.ghost:hover { background: #eee; color: #000; }
+
+    @media print {
+      body { background: #fff; padding: 0; gap: 0; }
+      .sheet {
+        box-shadow: none;
+        page-break-after: always;
+        break-after: page;
+      }
+      .sheet:last-child { page-break-after: auto; break-after: auto; }
+      .no-print { display: none !important; }
+      tbody tr:nth-child(even) td { background: #fcfcfc; }
+    }
+
+    @media screen and (max-width: 900px) {
+      body { padding: 16px; }
+      .sheet { width: 100%; height: auto; min-height: 297mm; }
+      .closing-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ PAGE 1 / 2 ============ -->
+  <section class="sheet">
+    <div class="inner">
+      <header class="doc-header">
+        <div class="brand">
+          <div class="brand-tag">// SUPPLIER</div>
+          <div class="brand-name">Mxx Industrial Co., Ltd.</div>
+          <div class="brand-meta">
+            上海市浦东新区张江高科技园区博云路 2 号 5 号楼<br>
+            T: 021-6666-8888 · E: sales@mxx-industrial.cn<br>
+            统一社会信用代码：91310000MA1FL33XXX · 开户行：工商银行张江支行
+          </div>
+        </div>
+        <div class="doc-title">
+          <div class="en">Quotation / 报价单</div>
+          <div class="zh">产品报价单</div>
+          <div class="doc-id">NO. <strong>QT-2026-0806-004</strong> · ISSUED 2026-08-06</div>
+        </div>
+      </header>
+
+      <section class="info-band">
+        <div class="info-block">
+          <h3>// 客户信息 Client</h3>
+          <span class="label">CUSTOMER</span>上海星辰制造有限公司<br>
+          <span class="label">CONTACT</span>李建国 经理<br>
+          <span class="label">TEL</span>139-1234-5678<br>
+          <span class="label">EMAIL</span>lijg@star-mfg.cn
+        </div>
+        <div class="info-block">
+          <h3>// 项目信息 Project</h3>
+          <span class="label">PROJECT</span>自动化产线配件采购<br>
+          <span class="label">LEAD-TIME</span>15 个工作日<br>
+          <span class="label">CURRENCY</span>CNY 人民币<br>
+          <span class="label">VALID-UNTIL</span>2026-09-06
+        </div>
+        <div class="info-block full">
+          <h3>// 商务条款 Terms</h3>
+          <p>
+            <span class="term"><span class="label">PAYMENT</span>月结 30 天</span>
+            <span class="term"><span class="label">INVOICE</span>13% 专票</span>
+            <span class="term"><span class="label">DELIVERY</span>含运费，送货上门</span>
+            <span class="term"><span class="label">WARRANTY</span>12 个月质保</span>
+          </p>
+        </div>
+      </section>
+
+      <div class="table-area">
+        <table>
+          <thead>
+            <tr>
+              <th class="num" style="width:5%">序号</th>
+              <th style="width:14%">产品编号</th>
+              <th style="width:24%">产品名称</th>
+              <th style="width:27%">规格参数</th>
+              <th class="qty" style="width:8%">数量</th>
+              <th class="price" style="width:11%">单价(¥)</th>
+              <th class="amt" style="width:11%">金额(¥)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">01</td><td class="sku">PRD-A101</td>
+              <td class="name">伺服减速电机</td>
+              <td class="spec">750W · 220V · 减速比 1:10</td>
+              <td class="qty">12 台</td><td class="price">4,280.00</td><td class="amt">51,360.00</td>
+            </tr>
+            <tr>
+              <td class="num">02</td><td class="sku">PRD-B204</td>
+              <td class="name">线性导轨滑块</td>
+              <td class="spec">HGR35 · 长 2000mm · 含 4 滑块</td>
+              <td class="qty">8 套</td><td class="price">1,860.00</td><td class="amt">14,880.00</td>
+            </tr>
+            <tr>
+              <td class="num">03</td><td class="sku">PRD-C330</td>
+              <td class="name">PLC 可编程控制器</td>
+              <td class="spec">64DI/32DO · 以太网 + RS485</td>
+              <td class="qty">4 台</td><td class="price">6,500.00</td><td class="amt">26,000.00</td>
+            </tr>
+            <tr>
+              <td class="num">04</td><td class="sku">PRD-D452</td>
+              <td class="name">光电传感器阵列</td>
+              <td class="spec">检测距离 3m · NPN/PNP 双输出</td>
+              <td class="qty">24 只</td><td class="price">320.00</td><td class="amt">7,680.00</td>
+            </tr>
+            <tr>
+              <td class="num">05</td><td class="sku">PRD-E588</td>
+              <td class="name">不锈钢控制柜</td>
+              <td class="spec">2000×800×600mm · IP54 防护</td>
+              <td class="qty">3 台</td><td class="price">5,400.00</td><td class="amt">16,200.00</td>
+            </tr>
+            <tr>
+              <td class="num">06</td><td class="sku">PRD-F614</td>
+              <td class="name">人机界面触摸屏</td>
+              <td class="spec">10.1 寸 · 以太网/RS485/CAN</td>
+              <td class="qty">5 台</td><td class="price">2,150.00</td><td class="amt">10,750.00</td>
+            </tr>
+            <tr>
+              <td class="num">07</td><td class="sku">PRD-G722</td>
+              <td class="name">变频器</td>
+              <td class="spec">5.5kW · 三相 380V</td>
+              <td class="qty">6 台</td><td class="price">3,680.00</td><td class="amt">22,080.00</td>
+            </tr>
+            <tr>
+              <td class="num">08</td><td class="sku">PRD-H805</td>
+              <td class="name">气动电磁阀岛</td>
+              <td class="spec">16 位 · 24VDC · Profinet</td>
+              <td class="qty">4 套</td><td class="price">2,980.00</td><td class="amt">11,920.00</td>
+            </tr>
+            <tr>
+              <td class="num">09</td><td class="sku">PRD-I933</td>
+              <td class="name">安全光栅</td>
+              <td class="spec">保护高度 1200mm · PLe</td>
+              <td class="qty">6 套</td><td class="price">1,420.00</td><td class="amt">8,520.00</td>
+            </tr>
+            <tr>
+              <td class="num">10</td><td class="sku">PRD-J018</td>
+              <td class="name">工业交换机</td>
+              <td class="spec">8 口千兆 · 双电源冗余</td>
+              <td class="qty">3 台</td><td class="price">1,860.00</td><td class="amt">5,580.00</td>
+            </tr>
+            <tr>
+              <td class="num">11</td><td class="sku">PRD-K142</td>
+              <td class="name">步进电机驱动器</td>
+              <td class="spec">7A · 24-80VDC · 细分可调</td>
+              <td class="qty">16 台</td><td class="price">420.00</td><td class="amt">6,720.00</td>
+            </tr>
+            <tr>
+              <td class="num">12</td><td class="sku">PRD-L267</td>
+              <td class="name">绝对值编码器</td>
+              <td class="spec">分辨率 20 位 · Profibus</td>
+              <td class="qty">10 只</td><td class="price">680.00</td><td class="amt">6,800.00</td>
+            </tr>
+            <tr class="subtotal">
+              <td colspan="6" class="label-cell">本页小计 → Subtotal (carried forward)</td>
+              <td class="amt-cell">187,490.00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="page-foot">
+        <span>Mxx Industrial Co., Ltd.</span>
+        <span class="pf-mid">QT-2026-0806-004 · CONTINUED ON NEXT PAGE</span>
+        <span class="pf-right">PAGE <strong>1 / 2</strong></span>
+      </footer>
+    </div>
+  </section>
+
+
+  <!-- ============ PAGE 2 / 2 ============ -->
+  <section class="sheet">
+    <div class="inner">
+      <header class="running-head">
+        <div class="rh-left">NO. <strong>QT-2026-0806-004</strong> · 客户：上海星辰制造有限公司</div>
+        <div class="rh-title">产品报价单（续）</div>
+        <div class="rh-right">ISSUED 2026-08-06</div>
+      </header>
+
+      <div class="table-area">
+        <table style="margin-top:3.5mm">
+          <thead>
+            <tr>
+              <th class="num" style="width:5%">序号</th>
+              <th style="width:14%">产品编号</th>
+              <th style="width:24%">产品名称</th>
+              <th style="width:27%">规格参数</th>
+              <th class="qty" style="width:8%">数量</th>
+              <th class="price" style="width:11%">单价(¥)</th>
+              <th class="amt" style="width:11%">金额(¥)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">13</td><td class="sku">PRD-M389</td>
+              <td class="name">开关电源</td>
+              <td class="spec">24VDC 10A · 240W</td>
+              <td class="qty">8 台</td><td class="price">260.00</td><td class="amt">2,080.00</td>
+            </tr>
+            <tr>
+              <td class="num">14</td><td class="sku">PRD-N450</td>
+              <td class="name">中间继电器</td>
+              <td class="spec">24VDC · 8A · 含底座</td>
+              <td class="qty">40 只</td><td class="price">38.00</td><td class="amt">1,520.00</td>
+            </tr>
+            <tr>
+              <td class="num">15</td><td class="sku">PRD-P512</td>
+              <td class="name">接线端子排</td>
+              <td class="spec">1.5mm² · 回路数 10/排</td>
+              <td class="qty">60 排</td><td class="price">12.50</td><td class="amt">750.00</td>
+            </tr>
+            <tr>
+              <td class="num">16</td><td class="sku">PRD-Q640</td>
+              <td class="name">网络滤波器</td>
+              <td class="spec">单相 16A · 抗干扰</td>
+              <td class="qty">8 只</td><td class="price">95.00</td><td class="amt">760.00</td>
+            </tr>
+            <tr>
+              <td class="num">17</td><td class="sku">PRD-R718</td>
+              <td class="name">伺服电机驱动器</td>
+              <td class="spec">1.8kW · 支持位置/速度/转矩</td>
+              <td class="qty">5 台</td><td class="price">2,780.00</td><td class="amt">13,900.00</td>
+            </tr>
+            <tr>
+              <td class="num">18</td><td class="sku">PRD-S835</td>
+              <td class="name">温控仪</td>
+              <td class="spec">PID · 支持 K/J 型热电偶</td>
+              <td class="qty">12 台</td><td class="price">260.00</td><td class="amt">3,120.00</td>
+            </tr>
+            <tr>
+              <td class="num">19</td><td class="sku">PRD-T902</td>
+              <td class="name">固态继电器</td>
+              <td class="spec">40A · DC 控制交流</td>
+              <td class="qty">20 只</td><td class="price">45.00</td><td class="amt">900.00</td>
+            </tr>
+            <tr>
+              <td class="num">20</td><td class="sku">PRD-U051</td>
+              <td class="name">工业级网线</td>
+              <td class="spec">CAT6 · 屏蔽 · 5m</td>
+              <td class="qty">30 根</td><td class="price">22.00</td><td class="amt">660.00</td>
+            </tr>
+            <tr>
+              <td class="num">21</td><td class="sku">PRD-V128</td>
+              <td class="name">以太网通讯模块</td>
+              <td class="spec">Modbus TCP · 4 通道</td>
+              <td class="qty">4 只</td><td class="price">880.00</td><td class="amt">3,520.00</td>
+            </tr>
+            <tr>
+              <td class="num">22</td><td class="sku">PRD-W244</td>
+              <td class="name">按钮指示灯套件</td>
+              <td class="spec">Φ22 · 含启动/停止/急停</td>
+              <td class="qty">10 套</td><td class="price">65.00</td><td class="amt">650.00</td>
+            </tr>
+            <tr>
+              <td class="num">23</td><td class="sku">PRD-X360</td>
+              <td class="name">熔断器底座</td>
+              <td class="spec">10×38 · 含熔芯</td>
+              <td class="qty">20 只</td><td class="price">18.00</td><td class="amt">360.00</td>
+            </tr>
+            <tr>
+              <td class="num">24</td><td class="sku">PRD-Y482</td>
+              <td class="name">电流互感器</td>
+              <td class="spec">100/5A · 穿心式</td>
+              <td class="qty">6 只</td><td class="price">58.00</td><td class="amt">348.00</td>
+            </tr>
+            <tr>
+              <td class="num">25</td><td class="sku">PRD-Z508</td>
+              <td class="name">数显电压表</td>
+              <td class="spec">三相 · LED 显示</td>
+              <td class="qty">4 只</td><td class="price">120.00</td><td class="amt">480.00</td>
+            </tr>
+            <tr class="subtotal">
+              <td colspan="6" class="label-cell">本页小计 → Subtotal (this page)</td>
+              <td class="amt-cell">28,488.00</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="closing">
+          <div class="closing-row">
+            <div class="terms">
+              <h3>// 备注条款 Terms &amp; Conditions</h3>
+              <ul>
+                <li>报价有效期为 30 天，逾期价格需重新核定；产品编号对应唯一物料，下单请核对。</li>
+                <li>数量 ±5% 属正常交付范围，按实际结算；非标定制件一经投产不予退换。</li>
+                <li>含 13% 增值税，不含安装调试费（可另行报价）。</li>
+                <li>本报价单共 2 页，金额汇总以末页为准。</li>
+              </ul>
+            </div>
+            <div class="summary">
+              <h3>// 金额汇总 Total</h3>
+              <div class="summary-row"><span>上页结转 B/F</span><span>187,490.00</span></div>
+              <div class="summary-row"><span>本页小计</span><span>28,488.00</span></div>
+              <div class="summary-row"><span>小计 Subtotal</span><span>215,978.00</span></div>
+              <div class="summary-row"><span>增值税 VAT 13%</span><span>28,077.14</span></div>
+              <div class="summary-row total"><span>合计 Grand Total</span><span class="amount">¥244,055.14</span></div>
+            </div>
+          </div>
+
+          <div class="sign">
+            <div class="sign-block">
+              <h3>// 供方签章 Supplier</h3>
+              <div class="sign-line"></div>
+              <div class="sign-date">DATE: 2026 / ___ / ___</div>
+            </div>
+            <div class="sign-block">
+              <h3>// 客户签章 Client</h3>
+              <div class="sign-line"></div>
+              <div class="sign-date">DATE: 2026 / ___ / ___</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="page-foot">
+        <span>Mxx Industrial Co., Ltd.</span>
+        <span class="pf-mid">QT-2026-0806-004 · END OF QUOTATION</span>
+        <span class="pf-right">PAGE <strong>2 / 2</strong></span>
+      </footer>
+    </div>
+  </section>
+
+  <div class="no-print">
+    <button class="btn ghost" onclick="window.location.href='quotation-a4-landscape-v3.html'">← 横版</button>
+    <button class="btn" onclick="window.print()">打印预览 / 存为 PDF</button>
+  </div>
+</body>
+</html>

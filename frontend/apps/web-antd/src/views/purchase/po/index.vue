@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { h } from 'vue';
+import { h, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
@@ -11,12 +11,43 @@ import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { deletePurchaseOrderApi, getPurchaseOrderListApi } from '#/api';
+import { auditPurchaseOrderApi, closePurchaseOrderApi, deletePurchaseOrderApi, getAllBrandsApi, getPurchaseOrderListApi, rejectPurchaseOrderApi } from '#/api';
 import { $t } from '#/locales';
 
 import PurchaseOrderDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
+
+const brandOptions = ref<{ label: string; value: number }[]>([]);
+
+async function loadBrands() {
+  try {
+    const res = await getAllBrandsApi();
+    brandOptions.value = (res || []).map((item: any) => ({
+      label: item.name,
+      value: item.id,
+    }));
+  } catch {
+    // 忽略品牌加载失败
+  }
+}
+
+onMounted(() => {
+  loadBrands();
+});
+
+const statusOptions = [
+  { label: $t('page.purchase.po.status.draft'), value: 'draft', color: 'default' },
+  { label: $t('page.purchase.po.status.pending_audit'), value: 'pending_audit', color: 'blue' },
+  { label: $t('page.purchase.po.status.audited'), value: 'audited', color: 'green' },
+  { label: $t('page.purchase.po.status.ordered'), value: 'ordered', color: 'orange' },
+  { label: $t('page.purchase.po.status.in_transit'), value: 'in_transit', color: 'purple' },
+  { label: $t('page.purchase.po.status.partial_received'), value: 'partial_received', color: 'cyan' },
+  { label: $t('page.purchase.po.status.received'), value: 'received', color: 'geekblue' },
+  { label: $t('page.purchase.po.status.completed'), value: 'completed', color: 'green' },
+  { label: $t('page.purchase.po.status.cancelled'), value: 'cancelled', color: 'red' },
+  { label: $t('page.purchase.po.status.rejected'), value: 'rejected', color: 'red' },
+];
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -26,10 +57,22 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'keywords',
-      label: '采购单号',
+      label: $t('page.purchase.po.form.purchaseNo'),
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'brandId',
+      label: $t('page.purchase.po.form.brand'),
+      componentProps: {
+        placeholder: $t('ui.placeholder.select'),
+        allowClear: true,
+        options: brandOptions,
+        showSearch: true,
+        filterOption: true,
       },
     },
     {
@@ -39,6 +82,7 @@ const formOptions: VbenFormProps = {
       componentProps: {
         placeholder: $t('ui.placeholder.select'),
         allowClear: true,
+        options: statusOptions.map(s => ({ label: s.label, value: s.value })),
       },
     },
   ],
@@ -66,6 +110,7 @@ const gridOptions: VxeGridProps = {
           pageSize: page.pageSize,
           keywords: formValues.keywords,
           status: formValues.status,
+          brandId: formValues.brandId,
         });
       },
     },
@@ -78,15 +123,15 @@ const gridOptions: VxeGridProps = {
       width: 70,
     },
     {
-      title: '采购单号',
+      title: $t('page.purchase.po.column.purchaseNo'),
       field: 'purchaseNo',
     },
     {
-      title: '供应商ID',
+      title: $t('page.purchase.po.column.supplierId'),
       field: 'supplierId',
     },
     {
-      title: '采购金额',
+      title: $t('page.purchase.po.column.amount'),
       field: 'amount',
     },
     {
@@ -148,14 +193,37 @@ async function handleCreate() {
   openDrawer(true);
 }
 
-async function _handleConfirm(row: any) {
-  void _handleConfirm;
-  window.$message.info(`确认采购: ${row.id}`);
+async function handleAudit(row: any) {
+  row.pending = true;
+  try {
+    await auditPurchaseOrderApi(row.id);
+    window.$message.success($t('page.purchase.po.message.auditSuccess'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
 }
 
-async function _handleReceive(row: any) {
-  void _handleReceive;
-  window.$message.info(`入库: ${row.id}`);
+async function handleClose(row: any) {
+  row.pending = true;
+  try {
+    await closePurchaseOrderApi(row.id);
+    window.$message.success($t('page.purchase.po.message.closeSuccess'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
+async function handleReject(row: any) {
+  row.pending = true;
+  try {
+    await rejectPurchaseOrderApi(row.id);
+    window.$message.success($t('page.purchase.po.message.rejectSuccess'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
 }
 </script>
 
@@ -178,10 +246,35 @@ async function _handleReceive(row: any) {
       </template>
 
       <template #status="{ row }">
-        <Tag>{{ row.status }}</Tag>
+        <Tag :color="statusOptions.find(s => s.value === row.status)?.color || 'default'">
+          {{ statusOptions.find(s => s.value === row.status)?.label || row.status }}
+        </Tag>
       </template>
 
       <template #action="{ row }">
+        <Button
+          v-if="accessStore.hasAccessCode('purchase:order:audit') && (row.status === 'draft' || row.status === 'pending_audit')"
+          type="link"
+          @click="() => handleAudit(row)"
+        >
+          {{ row.status === 'draft' ? $t('page.purchase.po.action.submitAudit') : $t('page.purchase.po.action.auditPass') }}
+        </Button>
+        <Button
+          v-if="accessStore.hasAccessCode('purchase:order:audit') && row.status === 'pending_audit'"
+          type="link"
+          danger
+          @click="() => handleReject(row)"
+        >
+          {{ $t('page.purchase.po.action.reject') }}
+        </Button>
+        <Button
+          v-if="accessStore.hasAccessCode('purchase:order:close') && row.status === 'audited'"
+          type="link"
+          danger
+          @click="() => handleClose(row)"
+        >
+          {{ $t('page.purchase.po.action.close') }}
+        </Button>
         <Button
           v-if="accessStore.hasAccessCode('purchase:po:edit')"
           type="link"

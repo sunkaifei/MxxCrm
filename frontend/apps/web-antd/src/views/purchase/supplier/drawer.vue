@@ -1,12 +1,32 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+import dayjs from 'dayjs';
 
 import { useVbenDrawer } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import type { VbenFormSchema } from '@vben/common-ui';
 import { $t } from '#/locales';
-import { createSupplierApi, getSupplierInfoApi, updateSupplierApi } from '#/api';
-import { message, Tooltip } from 'ant-design-vue';
+import {
+  createSupplierApi,
+  createSupplierBrandApi,
+  deleteSupplierBrandApi,
+  getAllBrandsApi,
+  getBrandsBySupplierApi,
+  getSupplierInfoApi,
+  updateSupplierApi,
+} from '#/api';
+import {
+  Button,
+  DatePicker,
+  Input,
+  message,
+  Modal,
+  Popconfirm,
+  Select,
+  Table,
+  Tag,
+  Tooltip,
+} from 'ant-design-vue';
 
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
@@ -309,8 +329,139 @@ async function loadDetail(id: number) {
       paymentTerms: data.paymentTerms,
       deliveryTerms: data.deliveryTerms,
     });
+
+    // 加载代理品牌
+    loadSupplierBrands(id);
   } catch (e) {
     console.error('[供应商] 加载详情失败:', e);
+  }
+}
+
+// ========== 代理品牌管理 ==========
+const supplierBrands = ref<any[]>([]);
+const allBrandOptions = ref<Array<{ value: number; label: string }>>([]);
+
+const authorizedOptions = [
+  { label: '未授权', value: 0 },
+  { label: '已授权', value: 1 },
+  { label: '已过期', value: 2 },
+];
+
+const authorizedLabelMap: Record<number, string> = {
+  0: '未授权',
+  1: '已授权',
+  2: '已过期',
+};
+
+const authorizedColorMap: Record<number, string> = {
+  0: 'default',
+  1: 'green',
+  2: 'red',
+};
+
+const brandColumns = [
+  { title: '品牌名称', dataIndex: 'brandName', key: 'brandName', minWidth: 140 },
+  { title: '授权状态', dataIndex: 'isAuthorized', key: 'isAuthorized', width: 100 },
+  { title: '授权编号', dataIndex: 'authorizationNo', key: 'authorizationNo', width: 140 },
+  { title: '授权开始', dataIndex: 'authorizationStart', key: 'authorizationStart', width: 120 },
+  { title: '授权结束', dataIndex: 'authorizationEnd', key: 'authorizationEnd', width: 120 },
+  { title: '操作', key: 'action', width: 80 },
+];
+
+function getBrandName(brandId: any): string {
+  const brand = allBrandOptions.value.find((b) => b.value === Number(brandId));
+  return brand?.label || `品牌#${brandId}`;
+}
+
+async function loadAllBrands() {
+  if (allBrandOptions.value.length > 0) return;
+  try {
+    const res = await getAllBrandsApi();
+    const list = (res as any) || [];
+    if (Array.isArray(list)) {
+      allBrandOptions.value = list.map((b: any) => ({
+        value: Number(b.id),
+        label: b.name,
+      }));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function loadSupplierBrands(supplierId: number) {
+  await loadAllBrands();
+  try {
+    const res = await getBrandsBySupplierApi({ supplierId });
+    const list = Array.isArray(res) ? res : (res as any)?.records ?? [];
+    supplierBrands.value = list.map((item: any) => ({
+      ...item,
+      brandName: getBrandName(item.brandId),
+    }));
+  } catch {
+    supplierBrands.value = [];
+  }
+}
+
+// 添加品牌关联
+const addBrandVisible = ref(false);
+const addBrandLoading = ref(false);
+const addBrandForm = ref({
+  brandId: undefined as number | undefined,
+  isAuthorized: 1,
+  authorizationNo: '',
+  authorizationStart: undefined as dayjs.Dayjs | undefined,
+  authorizationEnd: undefined as dayjs.Dayjs | undefined,
+});
+
+function openAddBrandModal() {
+  addBrandForm.value = {
+    brandId: undefined,
+    isAuthorized: 1,
+    authorizationNo: '',
+    authorizationStart: undefined,
+    authorizationEnd: undefined,
+  };
+  loadAllBrands();
+  addBrandVisible.value = true;
+}
+
+async function handleAddBrand() {
+  if (!addBrandForm.value.brandId) {
+    message.warning('请选择品牌');
+    return;
+  }
+  if (!drawerData.value.row?.id) {
+    message.warning('请先保存供应商信息');
+    return;
+  }
+  addBrandLoading.value = true;
+  try {
+    await createSupplierBrandApi({
+      supplierId: drawerData.value.row.id,
+      brandId: addBrandForm.value.brandId,
+      isAuthorized: addBrandForm.value.isAuthorized,
+      authorizationNo: addBrandForm.value.authorizationNo || undefined,
+      authorizationStart: addBrandForm.value.authorizationStart?.format('YYYY-MM-DD'),
+      authorizationEnd: addBrandForm.value.authorizationEnd?.format('YYYY-MM-DD'),
+    });
+    message.success('添加品牌关联成功');
+    addBrandVisible.value = false;
+    loadSupplierBrands(drawerData.value.row.id);
+  } finally {
+    addBrandLoading.value = false;
+  }
+}
+
+async function handleDeleteBrand(record: any) {
+  try {
+    await deleteSupplierBrandApi([record.id]);
+    message.success('已删除品牌关联');
+    if (drawerData.value.row?.id) {
+      loadSupplierBrands(drawerData.value.row.id);
+    }
+  } catch {
+    // ignore
   }
 }
 </script>
@@ -342,7 +493,100 @@ async function loadDetail(id: number) {
 
     <div class="supplier-drawer__body">
       <MainForm />
+
+      <template v-if="!drawerData.create">
+        <div class="supplier-brand-section">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-base font-semibold text-gray-800 m-0">代理品牌</h4>
+            <Button type="primary" size="small" @click="openAddBrandModal">
+              添加品牌
+            </Button>
+          </div>
+          <Table
+            :columns="brandColumns"
+            :data-source="supplierBrands"
+            :pagination="false"
+            :row-key="(record: any) => record.id"
+            bordered
+            size="small"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'isAuthorized'">
+                <Tag :color="authorizedColorMap[record.isAuthorized] || 'default'">
+                  {{ authorizedLabelMap[record.isAuthorized] || '未知' }}
+                </Tag>
+              </template>
+              <template v-if="column.key === 'action'">
+                <Popconfirm
+                  title="确认删除该品牌关联？"
+                  ok-text="确定"
+                  cancel-text="取消"
+                  @confirm="() => handleDeleteBrand(record)"
+                >
+                  <Button type="link" danger size="small">删除</Button>
+                </Popconfirm>
+              </template>
+            </template>
+          </Table>
+        </div>
+      </template>
     </div>
+
+    <Modal
+      v-model:open="addBrandVisible"
+      title="添加代理品牌"
+      :confirm-loading="addBrandLoading"
+      ok-text="确定"
+      cancel-text="取消"
+      @ok="handleAddBrand"
+    >
+      <div class="py-2 space-y-4">
+        <div class="flex items-center">
+          <label class="w-28 text-right pr-3 text-sm text-gray-700">品牌</label>
+          <Select
+            v-model:value="addBrandForm.brandId"
+            placeholder="请选择品牌"
+            :options="allBrandOptions"
+            show-search
+            :filter-option="(input: string, option: any) => option.label?.toLowerCase().includes(input.toLowerCase())"
+            style="flex: 1"
+          />
+        </div>
+        <div class="flex items-center">
+          <label class="w-28 text-right pr-3 text-sm text-gray-700">授权状态</label>
+          <Select
+            v-model:value="addBrandForm.isAuthorized"
+            :options="authorizedOptions"
+            style="flex: 1"
+          />
+        </div>
+        <div class="flex items-center">
+          <label class="w-28 text-right pr-3 text-sm text-gray-700">授权编号</label>
+          <Input
+            v-model:value="addBrandForm.authorizationNo"
+            placeholder="请输入授权编号"
+            allow-clear
+            style="flex: 1"
+          />
+        </div>
+        <div class="flex items-center">
+          <label class="w-28 text-right pr-3 text-sm text-gray-700">授权开始</label>
+          <DatePicker
+            v-model:value="addBrandForm.authorizationStart"
+            placeholder="请选择日期"
+            style="flex: 1"
+          />
+        </div>
+        <div class="flex items-center">
+          <label class="w-28 text-right pr-3 text-sm text-gray-700">授权结束</label>
+          <DatePicker
+            v-model:value="addBrandForm.authorizationEnd"
+            placeholder="请选择日期"
+            style="flex: 1"
+          />
+        </div>
+      </div>
+    </Modal>
   </Drawer>
 </template>
 
@@ -390,5 +634,11 @@ async function loadDetail(id: number) {
   font-size: 13px;
   font-weight: 600;
   color: #1890ff;
+}
+
+.supplier-brand-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
 }
 </style>

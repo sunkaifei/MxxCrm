@@ -34,9 +34,9 @@ pub async fn add_links(state: web::Data<AppState>, _req: HttpRequest, item: web:
     let result = website_links_service::insert(&db, form_data).await?;
 
     if result > 0 {
-        Ok(HttpResponse::Ok().json("添加成功"))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("添加成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().json("添加失败".to_string()))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "添加失败", "local")))
     }
 }
 
@@ -79,9 +79,9 @@ pub async fn update_by_id(state: web::Data<AppState>, id: web::Path<i64>, item: 
     let result = website_links_service::update_by_id(&db, &form_data).await?;
 
     if result > 0 {
-        Ok(HttpResponse::Ok().json("更新成功"))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("更新成功".to_string(), "local")))
     } else {
-        Ok(HttpResponse::Ok().json("更新失败".to_string()))
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "更新失败", "local")))
     }
 }
 pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) -> Result<HttpResponse> {
@@ -97,7 +97,11 @@ pub async fn get_by_page(state: web::Data<AppState>, _req: HttpRequest, query: w
     let db = &state.db;
     let form_data = query.0;
     website_links_service::get_by_page(&db, form_data).await.map(|page_data| {
-        HttpResponse::Ok().json(page_data)
+        let current_page = page_data.current_page as u32;
+        let total = page_data.total as u32;
+        HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success_with_page(page_data, "local", current_page, total))
     })
 }
 

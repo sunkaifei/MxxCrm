@@ -7,7 +7,10 @@
   "placeholder": {
     "search": "请输入搜索内容",
     "input": "请输入",
-    "select": "请选择"
+    "select": "请选择",
+    "all": "全部",
+    "startDate": "开始日期",
+    "endDate": "结束日期"
   },
   "formRules": {
     "required": "此项为必填项"
@@ -42,9 +45,13 @@
     "yes": "是",
     "no": "否"
   },
+  "enabled": "启用",
+  "disabled": "禁用",
+  "unknown": "未知",
   "button": {
     "ok": "是的",
     "cancel": "不要",
+    "edit": "编辑",
     "create": "创建{moduleName}",
     "update": "编辑{moduleName}",
     "delete": "删除{moduleName}",

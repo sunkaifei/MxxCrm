@@ -10,7 +10,7 @@
 
 use std::sync::LazyLock;
 use actix_cors::Cors;
-use actix_web::{web, App, HttpServer, HttpRequest, HttpResponse, Result};
+use actix_web::{web, App, HttpServer, HttpRequest, HttpResponse};
 use actix_web::error::InternalError;
 use utils::snowflake::Snowflake;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -22,8 +22,9 @@ extern crate rust_i18n;
 use crate::core::kit::db::connect;
 use crate::core::kit::global::AppState;
 use crate::core::kit::config;
-use crate::routes::{admin_routes, merchant_routes, open_routes, user_routes};
-use crate::embed_frontend::FrontendAssets;
+use crate::core::kit::install;
+use crate::routes::{admin_routes, merchant_routes, open_routes, user_routes, install_routes};
+use crate::embed_frontend::{FrontendAssets, InstallAssets};
 
 pub mod core;
 pub mod utils;
@@ -76,6 +77,44 @@ async fn serve_frontend(req: HttpRequest) -> HttpResponse {
     }
 }
 
+/// 安装模式下的默认页面服务
+async fn serve_install_page(req: HttpRequest) -> HttpResponse {
+    let path = req.path().trim_start_matches('/');
+
+    // 对 /api 路径返回 JSON 404
+    if req.path().starts_with("/api") {
+        return HttpResponse::NotFound()
+            .content_type("application/json")
+            .body(r#"{"code":404,"msg":"接口不存在","data":null}"#);
+    }
+
+    // 尝试返回安装页面的静态资源
+    if let Some(file) = InstallAssets::get(path) {
+        let content_type = match path.split('.').last() {
+            Some("html") => "text/html; charset=utf-8",
+            Some("css") => "text/css",
+            Some("js") => "application/javascript",
+            Some("json") => "application/json",
+            Some("ico") => "image/x-icon",
+            Some("png") => "image/png",
+            Some("jpg") | Some("jpeg") => "image/jpeg",
+            Some("svg") => "image/svg+xml",
+            _ => "application/octet-stream",
+        };
+        HttpResponse::Ok()
+            .content_type(content_type)
+            .body(file.data)
+    } else {
+        // 默认返回安装页面 HTML
+        match InstallAssets::get("index.html") {
+            Some(index) => HttpResponse::Ok()
+                .content_type("text/html; charset=utf-8")
+                .body(index.data),
+            None => HttpResponse::NotFound().body("404 Not Found - 安装页面未找到，请确认 static/install/index.html 存在"),
+        }
+    }
+}
+
 fn init_storage_dirs() {
     use std::fs;
     let upload_dirs = [
@@ -100,9 +139,54 @@ fn init_storage_dirs() {
 async fn main() -> std::io::Result<()> {
     log4rs::init_file("./config/log4rs.yaml", Default::default()).unwrap_or_default();
 
+    // ===== 安装模式判定 =====
+    let install_mode = !install::is_installed() && !install::check_database_ready().await;
+
+    if install_mode {
+        log::info!("======== 进入安装模式 ========");
+        install::log_install("启动安装模式");
+
+        // 安全：安装模式强制绑定 127.0.0.1，避免安装向导暴露到公网
+        let host = "127.0.0.1".to_string();
+        let preferred_port = config::section::<u16>("server", "server_port", 8080);
+        // 端口冲突时自动顺延
+        let port = install::find_available_port(&host, preferred_port).await;
+        let url = format!("http://{}:{}", host, port);
+
+        // 启动 HTTP 服务（仅安装路由）
+        let server = HttpServer::new(|| {
+            let cors = Cors::default()
+                .allow_any_origin()
+                .allowed_methods(vec!["GET", "POST"])
+                .supports_credentials()
+                .max_age(36000);
+
+            App::new()
+                .wrap(cors)
+                .configure(install_routes::configure)
+                .default_service(web::get().to(serve_install_page))
+        })
+        .bind(format!("{}:{}", host, port))?;
+
+        // 延迟 1 秒后自动打开浏览器
+        let browser_url = url.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            install::open_browser(&browser_url);
+        });
+
+        log::info!("安装向导已启动，请访问: {}", url);
+        install::log_install(format!("安装向导已启动: {}", url));
+        return server.run().await;
+    }
+
+    // ===== 以下为现有正常启动逻辑 =====
     log::info!("starting HTTP server at {:}",&config::section::<String>("server", "server_url", "http://127.0.0.1".to_string()));
 
     init_storage_dirs();
+
+    // 初始化 PDF 模块字体（启动时加载一次，后续复用）
+    crate::modules::system::service::typst_world::init_fonts();
 
     let conn = connect().await.unwrap_or_default();
 

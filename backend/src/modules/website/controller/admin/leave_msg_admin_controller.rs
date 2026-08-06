@@ -32,7 +32,13 @@ pub async fn get_by_page(
     let page_size = form_data.page_size.unwrap_or(10);
     leave_msg_service::get_by_page(db, page, page_size, form_data.website_id, form_data.status)
         .await
-        .map(|page_data| HttpResponse::Ok().json(page_data))
+        .map(|page_data| {
+            let current_page = page_data.current_page as u32;
+            let total = page_data.total as u32;
+            HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::success_with_page(page_data, "local", current_page, total))
+        })
 }
 
 /// GET /message/detail/{id} - 留言详情

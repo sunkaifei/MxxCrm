@@ -13,3 +13,13 @@ use rust_embed::RustEmbed;
 #[derive(RustEmbed)]
 #[folder = "../frontend/apps/web-antd/dist"]
 pub struct FrontendAssets;
+
+/// 安装向导静态资源（内嵌 HTML + license.txt）
+#[derive(RustEmbed)]
+#[folder = "static/install/"]
+pub struct InstallAssets;
+
+/// 内置 SQL dump 文件
+#[derive(RustEmbed)]
+#[folder = "../sql/"]
+pub struct SqlDump;

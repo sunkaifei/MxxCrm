@@ -1,6 +1,6 @@
 import { requestClient } from '#/api/request';
 
-export const getPurchaseOrderListApi = async (params?: PageParams) => {
+export const getPurchaseOrderListApi = async (params?: Record<string, any>) => {
   return requestClient.get('/api/system/purchase/order/list', { params });
 };
 export const getPurchaseOrderInfoApi = async (id: number) => {
@@ -16,4 +16,13 @@ export const deletePurchaseOrderApi = async (ids: number[]) => {
   return requestClient.delete('/api/system/purchase/order/bath_delete', {
     data: { ids },
   });
+};
+export const auditPurchaseOrderApi = async (id: number) => {
+  return requestClient.put(`/api/system/purchase/order/audit/${id}`);
+};
+export const closePurchaseOrderApi = async (id: number) => {
+  return requestClient.put(`/api/system/purchase/order/close/${id}`);
+};
+export const rejectPurchaseOrderApi = async (id: number) => {
+  return requestClient.put(`/api/system/purchase/order/reject/${id}`);
 };

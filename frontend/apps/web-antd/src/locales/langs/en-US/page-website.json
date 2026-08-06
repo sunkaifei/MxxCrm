@@ -1,0 +1,95 @@
+{
+  "website": {
+    "title": "Website",
+    "list": "Website Settings",
+    "categoryTitle": "Category",
+    "articleTitle": "Article",
+    "articleFieldTitle": "Custom Fields",
+    "messageTitle": "Messages",
+    "navigationTitle": "Navigation",
+    "linksTitle": "Links",
+    "templateManageTitle": "Template Management",
+    "contentModelTitle": "Content Model",
+    "templateVarTitle": "Template Variables",
+    "mediaTitle": "Media Library",
+    "bannerTitle": "Banner",
+    "blockTitle": "Block",
+    "pageTitle": "Custom Page",
+    "orderTitle": "Orders",
+    "refundTitle": "Refunds",
+    "userTitle": "Website Users",
+    "supplierAudit": "Supplier Audit",
+    "goodsAudit": "Goods Audit",
+    "goods": "Goods",
+    "orderList": "Orders",
+    "settlement": "Settlement",
+    "promotion": "Promotion",
+    "commissionConfig": "Commission Config",
+    "button": {
+      "create": "Add Website",
+      "edit": "Edit Website",
+      "delete": "Delete Website",
+      "view": "View Website"
+    },
+    "template": {
+      "title": "Templates",
+      "button": {
+        "create": "Add Template",
+        "edit": "Edit Template",
+        "delete": "Delete Template",
+        "view": "View Template",
+        "preview": "Preview",
+        "apply": "Apply to Site"
+      }
+    },
+    "templateData": {
+      "title": "Template Data",
+      "button": {
+        "create": "Add Template",
+        "edit": "Edit Template",
+        "delete": "Delete Template",
+        "view": "View Template"
+      }
+    },
+    "order": {
+      "button": {
+        "view": "View Order",
+        "edit": "Edit Order",
+        "ship": "Ship Order",
+        "delete": "Delete Order",
+        "deliveryList": "Delivery List",
+        "deliveryView": "View Delivery"
+      }
+    },
+    "refund": {
+      "button": {
+        "view": "View Refund",
+        "handle": "Handle Refund",
+        "markRefunded": "Mark Refunded",
+        "delete": "Delete Refund"
+      }
+    },
+    "user": {
+      "button": {
+        "view": "View User",
+        "create": "Add User",
+        "edit": "Edit User",
+        "resetPassword": "Reset Password",
+        "status": "Toggle Status",
+        "delete": "Delete User"
+      }
+    }
+  },
+  "shop": {
+    "title": "Shop Management",
+    "category": "Category",
+    "supplierAudit": "Supplier Audit",
+    "goodsAudit": "Goods Audit",
+    "goods": "Goods Management",
+    "shopList": "Shop List",
+    "orderList": "Order Management",
+    "settlement": "Settlement",
+    "promotion": "Promotion",
+    "commissionConfig": "Commission Config"
+  }
+}

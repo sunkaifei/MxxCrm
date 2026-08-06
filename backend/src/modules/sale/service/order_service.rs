@@ -243,6 +243,13 @@ pub async fn update_status(db: &DbConn, form_data: &OrderStatusUpdateRequest) ->
     }
 
     let result = OrderModel::update_status(db, id, order_status, form_data.tracking_no.clone(), form_data.remark.clone()).await?;
+
+    // 订单作废时，同步更新关联备货计划状态
+    if order_status == 11 {
+        use crate::modules::purchase::service::purchase_stock_plan_service;
+        let _ = purchase_stock_plan_service::sync_order_change(db, id, "cancelled").await;
+    }
+
     Ok(result)
 }
 
@@ -525,6 +532,11 @@ pub async fn approve_order(db: &DbConn, order_id: i64, operator_id: i64, operato
     active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
     active.update(&txn).await?;
     txn.commit().await?;
+
+    // 审批通过后自动生成 PDF（best-effort，不阻断审批流程）
+    if new_status == 3 {
+        crate::modules::system::service::pdf_generator_service::generate_for_order_approval(db, order_id, Some(operator_id));
+    }
 
     get_detail(db, order_id).await
 }

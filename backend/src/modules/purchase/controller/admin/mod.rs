@@ -1,2 +1,9 @@
 pub mod purchase_order_controller;
+pub mod purchase_receipt_controller;
+pub mod purchase_report_controller;
+pub mod purchase_requisition_controller;
+pub mod purchase_return_controller;
+pub mod purchase_stock_plan_controller;
 pub mod supplier_controller;
+pub mod supplier_brand_controller;
+pub mod supplier_product_controller;

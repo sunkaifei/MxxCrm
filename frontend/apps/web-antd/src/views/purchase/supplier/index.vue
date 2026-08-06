@@ -39,13 +39,6 @@ const statusColorMap: Record<number, string> = {
   4: 'default',
 };
 
-const _levelOptions = [
-  { label: '战略供应商', value: 1 },
-  { label: '核心供应商', value: 2 },
-  { label: '普通供应商', value: 3 },
-  { label: '备选供应商', value: 4 },
-];
-
 const formOptions: VbenFormProps = {
   collapsed: false,
   showCollapseButton: false,

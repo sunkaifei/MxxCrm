@@ -1,2 +1,10 @@
+pub mod purchase_approval_record;
 pub mod purchase_order;
+pub mod purchase_order_item;
+pub mod purchase_receipt;
+pub mod purchase_requisition;
+pub mod purchase_return;
+pub mod purchase_stock_plan;
+pub mod purchase_supplier_product;
 pub mod supplier;
+pub mod supplier_brand;

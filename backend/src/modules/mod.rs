@@ -61,4 +61,10 @@ pub mod approval;
 /// 企业信息模块
 pub mod company;
 
+/// 生产管理模块
+pub mod production;
+
+/// 安装向导模块
+pub mod install;
+
 

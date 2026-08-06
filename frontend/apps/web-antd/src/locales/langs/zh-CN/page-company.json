@@ -1,0 +1,137 @@
+{
+  "company": {
+    "title": "企业",
+    "aiSettings": {
+      "title": "AI设置",
+      "button": {
+        "create": "新增配置",
+        "edit": "编辑配置",
+        "delete": "删除配置",
+        "view": "查看配置"
+      }
+    },
+    "salesFlow": {
+      "title": "销售流程",
+      "edit": "编辑销售流程",
+      "modeA": "标准流程",
+      "modeB": "简易流程",
+      "modeBoth": "两种都允许",
+      "currentMode": "当前模式",
+      "modeValue": "模式 {value}",
+      "save": "保存",
+      "cancel": "取消",
+      "unsavedTip": "有未保存的修改",
+      "standardBadge": "严格",
+      "simpleBadge": "快捷",
+      "bothBadge": "推荐",
+      "standardFlow": "客户 → 商机 → 报价单 → 订单 → 合同",
+      "simpleFlow": "客户 → 商机 → 订单 → 合同",
+      "bothFlow": "商机处同时显示\"转报价单\"和\"转订单\"两个入口",
+      "standardDesc": "适用于大额订单、需要正式报价、需要比价/竞争的项目。所有订单必须经过报价单。",
+      "simpleDesc": "适用于老客户复购、小额订单、无需报价环节。商机可直接转订单，但必须关联商机。",
+      "bothDesc": "默认推荐。业务员可根据实际情况自行选择走标准流程或简易流程，灵活性最高。",
+      "tipsTitle": "说明",
+      "tipStandard": "标准流程：所有订单必须从报价单转化而来，商机列表\"更多\"操作只显示\"转报价单\"。",
+      "tipSimple": "简易流程：商机可直接转订单，订单表单中\"关联报价单\"字段隐藏，\"关联商机\"改为必填。",
+      "tipBoth": "两种都允许：商机列表\"更多\"操作同时显示\"转报价单\"和\"转订单\"，业务员自行选择。",
+      "tipGeneral": "配置变更不影响已有数据，仅在新建/转单时按当前模式校验。"
+    },
+    "info": {
+      "title": "企业信息",
+      "basicInfo": "企业基本信息",
+      "accountInfo": "银行账户信息",
+      "companyName": "企业名称",
+      "creditCode": "统一社会信用代码",
+      "legalPerson": "法定代表人",
+      "legalPhone": "法人电话",
+      "registerAddress": "注册地址",
+      "contactPhone": "联系电话",
+      "contactEmail": "联系邮箱",
+      "taxNumber": "税号",
+      "invoiceTitle": "发票抬头",
+      "businessScope": "经营范围",
+      "remark": "备注",
+      "button": {
+        "edit": "编辑",
+        "accountSave": "保存账户",
+        "accountDelete": "删除账户"
+      }
+    },
+    "codeRule": {
+      "title": "编号规则配置",
+      "module": "编号规则",
+      "moduleCode": "模块编码",
+      "moduleName": "模块名称",
+      "ruleName": "规则名称",
+      "bizTypeCode": "业务类型",
+      "separator": "分隔符",
+      "seqLength": "流水号位数",
+      "preview": "预览编号",
+      "basicInfo": "基本信息",
+      "segmentsTitle": "段位配置",
+      "previewTitle": "实时预览",
+      "button": {
+        "add": "新增规则",
+        "edit": "编辑",
+        "delete": "删除",
+        "regenerate": "一键更新"
+      }
+    },
+    "message": {
+      "title": "我的消息",
+      "notification": "系统消息",
+      "colleague": "同事",
+      "searchPlaceholder": "搜索同事",
+      "markAllRead": "全部已读",
+      "noNotification": "暂无系统消息",
+      "noColleague": "暂无同事",
+      "selectColleagueTip": "选择一位同事开始聊天",
+      "inputPlaceholder": "输入消息，按 Enter 发送",
+      "send": "发送",
+      "systemNotification": "系统通知",
+      "totalMessages": "共 {total} 条消息",
+      "unread": "未读",
+      "viewDetail": "查看详情"
+    }
+  },
+  "statistics": {
+    "title": "数据分析",
+    "index": "概览",
+    "performance": "业绩概览",
+    "performanceOverview": "业绩概览",
+    "customer": "客户转化",
+    "employee": "员工统计",
+    "contract": "合同排行",
+    "payment": "回款分析",
+    "performancePlan": {
+      "guide": {
+        "title": "业绩计划说明",
+        "brief": "设定个人/部门/公司的业绩目标，审批后按月跟踪完成率；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "计划类型",
+            "desc": "支持年度、季度、月度三种计划周期，可按个人、部门、公司维度设定。"
+          },
+          {
+            "title": "目标设定",
+            "desc": "填写目标金额与关键指标，可分解到子部门或个人。"
+          },
+          {
+            "title": "审批流程",
+            "desc": "提交后走多级审批，上级确认目标合理性后生效。"
+          },
+          {
+            "title": "进度跟踪",
+            "desc": "实时对比实际业绩与目标，自动计算完成率与差距。"
+          },
+          {
+            "title": "月度汇总",
+            "desc": "按月汇总完成情况，生成业绩报表供管理层决策。"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Card, Row, Col, Table } from 'ant-design-vue';
+import { $t } from '#/locales';
 import { getEmployeeCustomerCountApi, getEmployeeFollowUpApi, getEmployeeConversionApi } from '#/api/core/statistics';
 
 const customerCountData = ref<any[]>([]);
@@ -54,7 +55,7 @@ const loadData = async () => {
       }));
     }
   } catch (e) {
-    console.error('加载员工统计数据失败', e);
+    console.error($t('page.statistics.loadEmployeeFailed'), e);
     customerCountData.value = [];
     followUpData.value = [];
     conversionData.value = [];
@@ -66,55 +67,55 @@ onMounted(() => {
 });
 
 function formatCurrency(val: number) {
-  return `¥${(val / 10000).toFixed(1)}万`;
+  return `¥${(val / 10000).toFixed(1)}${$t('page.statistics.currencyFormat')}`;
 }
 
 const customerColumns = [
-  { title: '员工', dataIndex: 'employeeName' },
-  { title: '部门', dataIndex: 'departmentName' },
-  { title: '客户总数', dataIndex: 'totalCustomers', align: 'right' as const },
-  { title: '本月新增', dataIndex: 'newCustomersThisMonth', align: 'right' as const },
-  { title: '成交客户', dataIndex: 'contractCustomers', align: 'right' as const },
-  { title: '转化率', dataIndex: 'customerConversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.employee'), dataIndex: 'employeeName' },
+  { title: $t('page.statistics.department'), dataIndex: 'departmentName' },
+  { title: $t('page.statistics.totalCustomers'), dataIndex: 'totalCustomers', align: 'right' as const },
+  { title: $t('page.statistics.newCustomersThisMonth'), dataIndex: 'newCustomersThisMonth', align: 'right' as const },
+  { title: $t('page.statistics.contractCustomers'), dataIndex: 'contractCustomers', align: 'right' as const },
+  { title: $t('page.statistics.conversionRate'), dataIndex: 'customerConversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const followUpColumns = [
-  { title: '员工', dataIndex: 'employeeName' },
-  { title: '部门', dataIndex: 'departmentName' },
-  { title: '总跟进次数', dataIndex: 'totalFollowUp', align: 'right' as const },
-  { title: '客户跟进', dataIndex: 'customerFollowUp', align: 'right' as const },
-  { title: '商机跟进', dataIndex: 'opportunityFollowUp', align: 'right' as const },
-  { title: '平均跟进间隔(天)', dataIndex: 'avgFollowInterval', align: 'right' as const },
+  { title: $t('page.statistics.employee'), dataIndex: 'employeeName' },
+  { title: $t('page.statistics.department'), dataIndex: 'departmentName' },
+  { title: $t('page.statistics.totalFollowUp'), dataIndex: 'totalFollowUp', align: 'right' as const },
+  { title: $t('page.statistics.customerFollowUp'), dataIndex: 'customerFollowUp', align: 'right' as const },
+  { title: $t('page.statistics.opportunityFollowUp'), dataIndex: 'opportunityFollowUp', align: 'right' as const },
+  { title: $t('page.statistics.avgFollowInterval'), dataIndex: 'avgFollowInterval', align: 'right' as const },
 ];
 
 const conversionColumns = [
-  { title: '员工', dataIndex: 'employeeName' },
-  { title: '部门', dataIndex: 'departmentName' },
-  { title: '商机总数', dataIndex: 'totalOpportunities', align: 'right' as const },
-  { title: '赢单', dataIndex: 'wonOpportunities', align: 'right' as const },
-  { title: '输单', dataIndex: 'lostOpportunities', align: 'right' as const },
-  { title: '赢单率', dataIndex: 'opportunityWinRate', align: 'right' as const, render: (val: number) => `${val}%` },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.employee'), dataIndex: 'employeeName' },
+  { title: $t('page.statistics.department'), dataIndex: 'departmentName' },
+  { title: $t('page.statistics.totalOpportunities'), dataIndex: 'totalOpportunities', align: 'right' as const },
+  { title: $t('page.statistics.wonOpportunities'), dataIndex: 'wonOpportunities', align: 'right' as const },
+  { title: $t('page.statistics.lostOpportunities'), dataIndex: 'lostOpportunities', align: 'right' as const },
+  { title: $t('page.statistics.opportunityWinRate'), dataIndex: 'opportunityWinRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
 ];
 </script>
 
 <template>
   <Page auto-content-height>
     <div class="p-4">
-      <h2 class="text-lg font-bold mb-4">员工统计分析</h2>
+      <h2 class="text-lg font-bold mb-4">{{ $t('page.statistics.employeeStats') }}</h2>
       
-      <Card title="员工客户量统计" class="mb-6">
+      <Card :title="$t('page.statistics.employeeCustomerCount')" class="mb-6">
         <Table :columns="customerColumns" :data-source="customerCountData" :pagination="false" />
       </Card>
       
       <Row :gutter="16">
         <Col :span="12">
-          <Card title="跟进频次分析">
+          <Card :title="$t('page.statistics.followUpAnalysis')">
             <Table :columns="followUpColumns" :data-source="followUpData" :pagination="false" size="small" />
           </Card>
         </Col>
         <Col :span="12">
-          <Card title="成交率分析">
+          <Card :title="$t('page.statistics.conversionAnalysis')">
             <Table :columns="conversionColumns" :data-source="conversionData" :pagination="false" size="small" />
           </Card>
         </Col>

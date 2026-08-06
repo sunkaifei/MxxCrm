@@ -164,6 +164,11 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64>
         return Ok(0);
     }
 
+    // 删除前释放已审批通过报价单的冻结库存（best-effort）
+    for &id in ids_vec {
+        let _ = unfreeze_stock_for_quotation(db, id, 0).await;
+    }
+
     let txn = db.begin().await?;
 
     for &id in ids_vec {
@@ -393,6 +398,15 @@ pub async fn approve(
     QuotationModel::update_status_and_approval(&txn, id, new_status, Some(new_approval_status)).await?;
     txn.commit().await?;
 
+    // 审批通过后自动冻结库存（best-effort，不阻断审批流程）
+    if new_approval_status == 3 {
+        if let Err(e) = freeze_stock_for_quotation(db, id, operator_id).await {
+            log::warn!("[quotation::approve] 报价单 {} 库存冻结失败: {}", id, e);
+        }
+        // 审批通过后自动生成 PDF（best-effort，不阻断审批流程）
+        crate::modules::system::service::pdf_generator_service::generate_for_quotation_approval(db, id, Some(operator_id));
+    }
+
     find_by_id(db, id).await
 }
 
@@ -542,5 +556,90 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
     QuotationModel::update_status_and_approval(&txn, quotation_id, Some(8), None).await?;
 
     txn.commit().await?;
+
+    // 转单后释放报价单冻结的库存（best-effort，不阻断转单）
+    let _ = unfreeze_stock_for_quotation(db, quotation_id, created_by_i64).await;
+
     Ok(order_id)
+}
+
+/// 根据报价单明细冻结库存（审批通过时调用）
+async fn freeze_stock_for_quotation(db: &DbConn, quotation_id: i64, operator_id: i64) -> Result<()> {
+    use crate::modules::inventory::service::freeze_service;
+    use crate::modules::inventory::entity::stock as stock_entity;
+
+    let items = QuotationItemModel::find_by_quotation_id(db, quotation_id).await?;
+    let quotation = QuotationModel::find_by_id(db, quotation_id).await?
+        .ok_or_else(|| Error::from("报价单不存在"))?;
+    let quotation_no = quotation.quotation_no.as_deref().unwrap_or("");
+
+    for item in &items {
+        let product_id = item.product_id.unwrap_or(0);
+        let quantity = item.quantity.unwrap_or(Decimal::from(0));
+        if product_id <= 0 || quantity <= Decimal::from(0) {
+            continue;
+        }
+        // 查找该产品有库存的仓库，选择库存最充足的仓库冻结
+        let stock_record = stock_entity::Entity::find()
+            .filter(stock_entity::Column::ProductId.eq(product_id))
+            .filter(stock_entity::Column::AvailableQuantity.gte(quantity))
+            .filter(stock_entity::Column::Deleted.eq(0))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?
+            .into_iter()
+            .max_by_key(|s| s.available_quantity.unwrap_or(Decimal::from(0)));
+
+        if let Some(s) = stock_record {
+            let warehouse_id = s.warehouse_id.unwrap_or(0);
+            let reason = format!("报价单 {} 审批通过，预留库存", quotation_no);
+            freeze_service::freeze_stock(db, product_id, warehouse_id, quantity, Some(reason), operator_id).await?;
+        }
+    }
+    Ok(())
+}
+
+/// 根据报价单明细释放冻结库存（转单/删除时调用）
+async fn unfreeze_stock_for_quotation(db: &DbConn, quotation_id: i64, operator_id: i64) -> Result<()> {
+    use crate::modules::inventory::service::freeze_service;
+    use crate::modules::inventory::entity::stock_freeze;
+
+    let quotation = match QuotationModel::find_by_id(db, quotation_id).await? {
+        Some(q) => q,
+        None => return Ok(()),
+    };
+
+    // 仅审批通过(status=3)的报价单可能冻结了库存
+    if quotation.approval_status != Some(3) && quotation.status != Some(3) {
+        return Ok(());
+    }
+
+    let quotation_no = quotation.quotation_no.as_deref().unwrap_or("");
+    let items = QuotationItemModel::find_by_quotation_id(db, quotation_id).await?;
+
+    for item in &items {
+        let product_id = item.product_id.unwrap_or(0);
+        let quantity = item.quantity.unwrap_or(Decimal::from(0));
+        if product_id <= 0 || quantity <= Decimal::from(0) {
+            continue;
+        }
+        // 查找该产品所有冻结记录并解冻
+        let freeze_records = stock_freeze::Entity::find()
+            .filter(stock_freeze::Column::ProductId.eq(product_id))
+            .filter(stock_freeze::Column::Status.eq(0))
+            .filter(stock_freeze::Column::Deleted.eq(0))
+            .filter(stock_freeze::Column::Remark.contains(format!("报价单 {}", quotation_no).as_str()))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        for record in freeze_records {
+            let fq = record.freeze_quantity.unwrap_or(Decimal::from(0));
+            if fq > Decimal::from(0) {
+                let wid = record.warehouse_id.unwrap_or(0);
+                let _ = freeze_service::unfreeze_stock(db, product_id, wid, fq.min(quantity), operator_id).await;
+            }
+        }
+    }
+    Ok(())
 }

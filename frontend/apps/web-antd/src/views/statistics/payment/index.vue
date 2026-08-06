@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Card, Row, Col, Progress, Table } from 'ant-design-vue';
+import { $t } from '#/locales';
 import { getPaymentCompletionApi, getPaymentMonthlyTrendApi, getPaymentStatusAnalysisApi, getPaymentRankingApi } from '#/api/core/statistics';
 
 const completionData = ref<any>({});
@@ -62,7 +63,7 @@ const loadData = async () => {
       }));
     }
   } catch (e) {
-    console.error('加载回款分析数据失败', e);
+    console.error($t('page.statistics.loadPaymentFailed'), e);
     completionData.value = {};
     monthlyTrendData.value = [];
     statusAnalysisData.value = [];
@@ -75,50 +76,50 @@ onMounted(() => {
 });
 
 function formatCurrency(val: number) {
-  return `¥${(val / 10000).toFixed(1)}万`;
+  return `¥${(val / 10000).toFixed(1)}${$t('page.statistics.currencyFormat')}`;
 }
 
 const trendColumns = [
-  { title: '月份', dataIndex: 'month', render: (val: number) => `${val}月` },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '已回款', dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '回款率', dataIndex: 'completionRate', align: 'center' as const, render: (val: number) => `${val}%` },
-  { title: '逾期金额', dataIndex: 'overdueAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.month'), dataIndex: 'month', render: (val: number) => `${val}${$t('page.statistics.monthUnit')}` },
+  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.paidAmount'), dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.paymentRate'), dataIndex: 'completionRate', align: 'center' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.overdueAmount'), dataIndex: 'overdueAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
 ];
 
 const statusColumns = [
-  { title: '状态', dataIndex: 'status' },
-  { title: '合同数', dataIndex: 'contractCount', align: 'right' as const },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '已回款', dataIndex: 'paidAmount', align: 'right' as const, render: (val: number) => val ? formatCurrency(val) : '-' },
-  { title: '占比', dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.status'), dataIndex: 'status' },
+  { title: $t('page.statistics.contractCountCol'), dataIndex: 'contractCount', align: 'right' as const },
+  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.paidAmount'), dataIndex: 'paidAmount', align: 'right' as const, render: (val: number) => val ? formatCurrency(val) : '-' },
+  { title: $t('page.statistics.percentage'), dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const rankingColumns = [
-  { title: '排名', dataIndex: 'rank', width: 60 },
-  { title: '客户名称', dataIndex: 'targetName' },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '已回款', dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '回款率', dataIndex: 'completionRate', align: 'right' as const, render: (val: number) => `${val}%` },
-  { title: '逾期金额', dataIndex: 'overdueAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.rank'), dataIndex: 'rank', width: 60 },
+  { title: $t('page.statistics.customerName'), dataIndex: 'targetName' },
+  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.paidAmount'), dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.paymentRate'), dataIndex: 'completionRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.overdueAmount'), dataIndex: 'overdueAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
 ];
 </script>
 
 <template>
   <Page auto-content-height>
     <div class="p-4">
-      <h2 class="text-lg font-bold mb-4">回款分析</h2>
+      <h2 class="text-lg font-bold mb-4">{{ $t('page.statistics.paymentAnalysis') }}</h2>
       
       <Row :gutter="16" class="mb-6">
         <Col :span="12">
-          <Card title="回款完成率" :extra="`${completionData.completionRate}%`">
+          <Card :title="$t('page.statistics.paymentCompletion')" :extra="`${completionData.completionRate}%`">
             <div class="flex items-center justify-between">
               <div>
-                <div class="text-sm text-gray-500">合同总额</div>
+                <div class="text-sm text-gray-500">{{ $t('page.statistics.totalContractAmount') }}</div>
                 <div class="text-xl font-bold">{{ formatCurrency(completionData.totalContractAmount) }}</div>
               </div>
               <div class="text-right">
-                <div class="text-sm text-gray-500">已回款</div>
+                <div class="text-sm text-gray-500">{{ $t('page.statistics.totalPaymentAmount') }}</div>
                 <div class="text-xl font-bold text-green-600">{{ formatCurrency(completionData.totalPaymentAmount) }}</div>
               </div>
             </div>
@@ -126,14 +127,14 @@ const rankingColumns = [
           </Card>
         </Col>
         <Col :span="12">
-          <Card title="回款状态">
+          <Card :title="$t('page.statistics.paymentStatus')">
             <div class="space-y-3">
               <div class="flex justify-between">
-                <span>未回款</span>
+                <span>{{ $t('page.statistics.unpaid') }}</span>
                 <span class="text-red-500">{{ formatCurrency(completionData.unpaidAmount) }} ({{ completionData.unpaidRate }}%)</span>
               </div>
               <div class="flex justify-between">
-                <span>逾期金额</span>
+                <span>{{ $t('page.statistics.overdueAmount') }}</span>
                 <span class="text-orange-500">{{ formatCurrency(completionData.overdueAmount) }} ({{ completionData.overdueRate }}%)</span>
               </div>
             </div>
@@ -141,18 +142,18 @@ const rankingColumns = [
         </Col>
       </Row>
       
-      <Card title="月度回款趋势" class="mb-6">
+      <Card :title="$t('page.statistics.monthlyTrend')" class="mb-6">
         <Table :columns="trendColumns" :data-source="monthlyTrendData" :pagination="false" />
       </Card>
       
       <Row :gutter="16">
         <Col :span="12">
-          <Card title="回款状态分析">
+          <Card :title="$t('page.statistics.paymentStatus')">
             <Table :columns="statusColumns" :data-source="statusAnalysisData" :pagination="false" size="small" />
           </Card>
         </Col>
         <Col :span="12">
-          <Card title="回款排行">
+          <Card :title="$t('page.statistics.paymentRanking')">
             <Table :columns="rankingColumns" :data-source="rankingData" :pagination="false" size="small" />
           </Card>
         </Col>

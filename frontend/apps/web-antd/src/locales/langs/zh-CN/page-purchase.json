@@ -1,0 +1,121 @@
+{
+  "purchase": {
+    "title": "采购",
+    "supplier": {
+      "title": "供应商管理",
+      "button": {
+        "create": "新增供应商",
+        "edit": "编辑供应商",
+        "delete": "删除供应商"
+      }
+    },
+    "po": {
+      "title": "采购单管理",
+      "status": {
+        "draft": "草稿",
+        "pending_audit": "待审核",
+        "audited": "已审核",
+        "ordered": "已下单",
+        "in_transit": "运输中",
+        "partial_received": "部分收货",
+        "received": "已收货",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "rejected": "已驳回"
+      },
+      "column": {
+        "purchaseNo": "采购单号",
+        "supplierId": "供应商ID",
+        "amount": "采购金额"
+      },
+      "form": {
+        "purchaseNo": "采购单号",
+        "supplierId": "供应商ID",
+        "amount": "采购金额",
+        "brand": "品牌"
+      },
+      "action": {
+        "submitAudit": "提交审核",
+        "auditPass": "审核通过",
+        "reject": "驳回",
+        "close": "关闭"
+      },
+      "message": {
+        "auditSuccess": "审核成功",
+        "closeSuccess": "关闭成功",
+        "rejectSuccess": "驳回成功"
+      },
+      "item": {
+        "title": "采购明细",
+        "addItem": "添加明细",
+        "delete": "删除",
+        "empty": "暂无采购明细，点击上方按钮添加",
+        "column": {
+          "productName": "产品名称",
+          "sku": "SKU",
+          "quantity": "数量",
+          "unitPrice": "单价",
+          "discount": "折扣(%)",
+          "taxRate": "税率(%)",
+          "subtotal": "小计",
+          "action": "操作"
+        },
+        "placeholder": {
+          "productName": "产品名称",
+          "sku": "SKU",
+          "quantity": "数量",
+          "unitPrice": "单价",
+          "discount": "折扣",
+          "taxRate": "税率"
+        }
+      },
+      "button": {
+        "create": "新增采购单",
+        "edit": "编辑采购单",
+        "delete": "删除采购单",
+        "confirm": "确认采购",
+        "receive": "入库"
+      }
+    },
+    "item": {
+      "title": "采购明细"
+    },
+    "requisition": {
+      "title": "采购申请",
+      "button": {
+        "create": "新增采购申请",
+        "edit": "编辑采购申请",
+        "delete": "删除采购申请",
+        "approve": "审批",
+        "convert": "转采购订单"
+      }
+    },
+    "receipt": {
+      "title": "采购收货",
+      "button": {
+        "create": "新增收货单",
+        "delete": "删除收货单",
+        "inbound": "生成入库单"
+      }
+    },
+    "return": {
+      "title": "采购退货",
+      "button": {
+        "create": "新增退货单",
+        "edit": "编辑退货单",
+        "delete": "删除退货单"
+      }
+    },
+    "stockPlan": {
+      "title": "备货计划",
+      "button": {
+        "create": "新增备货计划",
+        "edit": "编辑备货计划",
+        "delete": "删除备货计划"
+      }
+    },
+    "report": {
+      "title": "采购报表"
+    }
+  }
+}

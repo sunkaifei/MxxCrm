@@ -128,6 +128,36 @@ async fn init_registry(registry: &SchedulerRegistry) {
             }),
         )
         .await;
+
+    // 注册库存快照生成处理器（每日凌晨生成前一天的库存快照）
+    registry
+        .register(
+            "stock_snapshot_generate",
+            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
+                Box::pin(async move {
+                    let count = crate::modules::inventory::service::stock_snapshot_service::generate_daily_snapshot(&db)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    Ok(format!("库存快照生成完成：本次生成 {} 条快照记录", count))
+                })
+            }),
+        )
+        .await;
+
+    // 注册低库存采购建议扫描处理器
+    registry
+        .register(
+            "low_stock_suggestion",
+            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
+                Box::pin(async move {
+                    let suggestions = crate::modules::inventory::service::inventory_suggestion_service::scan_low_stock(&db)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    Ok(format!("低库存扫描完成：本次生成 {} 条采购建议", suggestions.len()))
+                })
+            }),
+        )
+        .await;
 }
 
 /// V7-4: 从 handler_params 解析 year/month，缺失时回退为"上月"

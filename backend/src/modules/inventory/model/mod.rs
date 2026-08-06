@@ -1,2 +1,12 @@
 pub mod warehouse;
+pub mod warehouse_area;
 pub mod stock;
+pub mod inbound;
+pub mod outbound;
+pub mod stock_log;
+pub mod stocktake;
+pub mod transfer;
+pub mod quality_check;
+pub mod batch;
+pub mod stock_snapshot;
+pub mod alert;

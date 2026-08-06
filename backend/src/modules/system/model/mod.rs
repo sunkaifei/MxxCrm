@@ -39,4 +39,5 @@ pub mod tag_merge;
 pub mod area;
 pub mod edit_log;
 pub mod mail;
+pub mod pdf;
 

@@ -172,6 +172,22 @@ const formSchema: VbenFormSchema[] = [
     },
   },
   {
+    component: 'Select',
+    fieldName: 'pickingStrategy',
+    label: '默认拣货策略',
+    defaultValue: 'fifo',
+    componentProps: {
+      placeholder: '请选择拣货策略',
+      options: [
+        { label: 'FIFO（先进先出）', value: 'fifo' },
+        { label: 'FEFO（先到期先出）', value: 'fefo' },
+        { label: 'LIFO（后进先出）', value: 'lifo' },
+        { label: '指定批次', value: 'assigned' },
+      ],
+      allowClear: true,
+    },
+  },
+  {
     component: 'Textarea',
     fieldName: 'remark',
     label: '备注',

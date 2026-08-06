@@ -1,2 +1,13 @@
 pub mod warehouse_controller;
 pub mod inventory_controller;
+pub mod inbound_controller;
+pub mod outbound_controller;
+pub mod batch_controller;
+pub mod stock_snapshot_controller;
+pub mod inventory_suggestion_controller;
+pub mod inventory_report_controller;
+pub mod quality_check_controller;
+pub mod stocktake_controller;
+pub mod warehouse_area_controller;
+pub mod transfer_controller;
+pub mod alert_controller;

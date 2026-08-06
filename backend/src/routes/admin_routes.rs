@@ -11,7 +11,7 @@ use crate::modules::articles::controller::admin::{article_admin_controller, arti
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller};
@@ -21,10 +21,11 @@ use crate::modules::shop::controller::admin::audit_controller;
 use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller, expense_controller as finance_expense_controller, tax_controller, insurance_controller, bank_export_controller, payslip_controller, team_commission_controller, attendance_controller, salary_item_controller, salary_adjustment_controller, commission_pool_controller};
 use crate::modules::ai::controller::admin::{ai_config_controller, background_check_controller};
 use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, visit_controller, work_log_controller};
-use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller};
-use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller};
+use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller, brand_controller, unit_conversion_controller};
+use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller, purchase_requisition_controller, purchase_receipt_controller, purchase_return_controller, purchase_stock_plan_controller, purchase_report_controller, supplier_brand_controller, supplier_product_controller};
+use crate::modules::production::controller::admin::{production_plan_controller, production_order_controller};
 use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, refund_controller, shipment_controller};
-use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller};
+use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller, inbound_controller, outbound_controller, inventory_report_controller, quality_check_controller, batch_controller, stock_snapshot_controller, inventory_suggestion_controller, stocktake_controller, warehouse_area_controller, transfer_controller, alert_controller};
 use crate::modules::company::controller::admin::company_controller;
 use crate::modules::company::controller::admin::code_rule_controller;
 use crate::modules::message::controller::admin::notification_admin_controller;
@@ -247,8 +248,30 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(sku_template_controller::register)
             // Inventory Warehouse Management
             .configure(warehouse_controller::register)
+            // Inventory Report Management (must be before /inventory to avoid scope prefix conflict)
+            .configure(inventory_report_controller::register)
+            // Inventory Quality Check Management (must be before /inventory)
+            .configure(quality_check_controller::register)
+            // Inventory Stocktake Management (must be before /inventory)
+            .configure(stocktake_controller::register)
+            // Inventory Transfer Management (must be before /inventory)
+            .configure(transfer_controller::register)
+            // Inventory Alert Rule Management (must be before /inventory which registers /alert)
+            .configure(alert_controller::register)
             // Inventory Stock Management
             .configure(inventory_controller::register)
+            // Inventory Inbound Management
+            .configure(inbound_controller::register)
+            // Inventory Outbound Management
+            .configure(outbound_controller::register)
+            // Inventory Batch Management
+            .configure(batch_controller::register)
+            // Inventory Stock Snapshot Management
+            .configure(stock_snapshot_controller::register)
+            // Inventory Suggestion Management
+            .configure(inventory_suggestion_controller::register)
+            // Inventory Warehouse Area Management
+            .configure(warehouse_area_controller::register)
             // Sale Order Management
             .configure(sale_order_controller::register)
             // Sale Order Item Management
@@ -267,6 +290,28 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(purchase_order_controller::register)
             // Supplier Management
             .configure(supplier_controller::register)
+            // Purchase Requisition Management
+            .configure(purchase_requisition_controller::register)
+            // Purchase Receiving Management
+            .configure(purchase_receipt_controller::register)
+            // Purchase Return Management
+            .configure(purchase_return_controller::register)
+            // Purchase Stock Plan Management
+            .configure(purchase_stock_plan_controller::register)
+            // Purchase Report Management
+            .configure(purchase_report_controller::register)
+            // Supplier Brand Association
+            .configure(supplier_brand_controller::register)
+            // Supplier Product Association
+            .configure(supplier_product_controller::register)
+            // Product Brand Management
+            .configure(brand_controller::register)
+            // Product Unit Conversion Management
+            .configure(unit_conversion_controller::register)
+            // Production Plan Management
+            .configure(production_plan_controller::register)
+            // Production Order Management
+            .configure(production_order_controller::register)
             // Approval Flow + Instance Management
             .configure(approval_controller::register)
             // Company Info Management
@@ -283,6 +328,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(mail_controller::register)
             // Admin Preference Management (快捷导航/仪表盘布局)
             .configure(admin_preference_controller::register)
+            // PDF Template & Generator Management (PDF模板管理/生成/下载)
+            .configure(pdf_controller::register)
     );
 
     // logout 路由独立注册（不在 /api/system scope 下，避免前缀冲突）

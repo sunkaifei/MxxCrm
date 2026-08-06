@@ -1,2 +1,9 @@
 pub mod purchase_order_service;
+pub mod purchase_receipt_service;
+pub mod purchase_report_service;
+pub mod purchase_requisition_service;
+pub mod purchase_return_service;
+pub mod purchase_stock_plan_service;
 pub mod supplier_service;
+pub mod supplier_brand_service;
+pub mod supplier_product_service;

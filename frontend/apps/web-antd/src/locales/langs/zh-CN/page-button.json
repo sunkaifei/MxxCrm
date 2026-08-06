@@ -1,0 +1,221 @@
+{
+  "button": {
+    "system": {
+      "admin": {
+        "create": "新增用户",
+        "edit": "编辑用户",
+        "delete": "删除用户",
+        "assignRole": "分配角色",
+        "assignDept": "分配部门"
+      },
+      "role": {
+        "create": "新增角色",
+        "edit": "编辑角色",
+        "delete": "删除角色",
+        "assignMenu": "分配菜单",
+        "view": "查看角色"
+      },
+      "menu": {
+        "create": "新增菜单",
+        "edit": "编辑菜单",
+        "delete": "删除菜单",
+        "view": "查看菜单"
+      },
+      "dept": {
+        "create": "新增部门",
+        "edit": "编辑部门",
+        "delete": "删除部门",
+        "view": "查看部门"
+      },
+      "post": {
+        "create": "新增岗位",
+        "edit": "编辑岗位",
+        "delete": "删除岗位",
+        "view": "查看岗位"
+      },
+      "config": {
+        "create": "新增配置",
+        "edit": "编辑配置",
+        "delete": "删除配置"
+      },
+      "dict": {
+        "create": "新增字典",
+        "edit": "编辑字典",
+        "delete": "删除字典",
+        "view": "查看字典"
+      },
+      "notice": {
+        "create": "新增公告",
+        "edit": "编辑公告",
+        "delete": "删除公告",
+        "view": "查看公告"
+      },
+      "tag": {
+        "create": "新增标签",
+        "edit": "编辑标签",
+        "delete": "删除标签"
+      },
+      "approval": {
+        "create": "新增审批",
+        "edit": "编辑审批",
+        "toggle": "启用/禁用"
+      }
+    },
+    "crm": {
+      "lead": {
+        "create": "新增线索",
+        "edit": "编辑线索",
+        "delete": "删除线索",
+        "convert": "转为客户",
+        "assign": "分配线索",
+        "info": "查看详情"
+      },
+      "customer": {
+        "create": "新增客户",
+        "edit": "编辑客户",
+        "delete": "删除客户",
+        "assign": "分配客户",
+        "view": "查看客户",
+        "followup": "客户跟进"
+      },
+      "contact": {
+        "create": "新增联系人",
+        "edit": "编辑联系人",
+        "delete": "删除联系人",
+        "view": "查看联系人"
+      },
+      "opportunity": {
+        "create": "新增商机",
+        "edit": "编辑商机",
+        "delete": "删除商机",
+        "view": "查看商机"
+      },
+      "contract": {
+        "create": "新增合同",
+        "edit": "编辑合同",
+        "delete": "删除合同",
+        "submit": "提交合同",
+        "view": "查看合同"
+      },
+      "followup": {
+        "save": "立即保存",
+        "update": "编辑跟进",
+        "delete": "删除跟进",
+        "info": "查看跟进"
+      }
+    },
+    "sale": {
+      "order": {
+        "create": "新增订单",
+        "edit": "编辑订单",
+        "delete": "删除订单",
+        "confirm": "确认订单",
+        "ship": "发货",
+        "complete": "完成订单"
+      },
+      "payment": {
+        "create": "登记回款",
+        "edit": "编辑回款",
+        "delete": "删除回款"
+      },
+      "quotation": {
+        "create": "新建报价单",
+        "edit": "编辑报价单",
+        "delete": "删除报价单",
+        "send": "发送报价",
+        "accept": "转为订单",
+        "reject": "拒绝报价"
+      },
+      "invoice": {
+        "create": "新建发票",
+        "edit": "编辑发票",
+        "delete": "删除发票"
+      },
+      "performance": {
+        "export": "导出"
+      }
+    },
+    "purchase": {
+      "supplier": {
+        "create": "新增供应商",
+        "edit": "编辑供应商",
+        "delete": "删除供应商"
+      },
+      "po": {
+        "create": "新增采购单",
+        "edit": "编辑采购单",
+        "delete": "删除采购单",
+        "confirm": "确认采购",
+        "receive": "入库"
+      }
+    },
+    "product": {
+      "create": "新增产品",
+      "edit": "编辑产品",
+      "delete": "删除产品",
+      "category": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      },
+      "warehouse": {
+        "create": "新增仓库",
+        "edit": "编辑仓库",
+        "delete": "删除仓库"
+      },
+      "sku": {
+        "create": "新增规格"
+      }
+    },
+    "finance": {
+      "commissionRule": {
+        "create": "新增规则",
+        "edit": "编辑规则",
+        "delete": "删除规则",
+        "toggle": "启用禁用"
+      },
+      "salary": {
+        "calculate": "执行核算",
+        "adjust": "手动调整",
+        "approve": "工资审核",
+        "pay": "工资发放"
+      },
+      "payment": {
+        "apply": "申请付款",
+        "approve": "付款审批",
+        "confirm": "确认付款",
+        "cancel": "取消付款"
+      }
+    },
+    "attachment": {
+      "file": {
+        "upload": "上传文件",
+        "delete": "删除文件"
+      },
+      "category": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      }
+    },
+    "shop": {
+      "category": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      },
+      "goods": {
+        "create": "新增商品",
+        "edit": "编辑商品",
+        "delete": "删除商品"
+      }
+    },
+    "company": {
+      "info": {
+        "edit": "编辑",
+        "accountSave": "保存账户",
+        "accountDelete": "删除账户"
+      }
+    }
+  }
+}

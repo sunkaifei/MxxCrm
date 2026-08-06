@@ -22,6 +22,7 @@ pub mod jwt_util;
 pub mod user_auth;
 pub mod sensitive;
 pub mod scheduler;
+pub mod install;
 
 pub static CONTEXT: LazyLock<ServiceContext> = LazyLock::new(|| ServiceContext::default());
 

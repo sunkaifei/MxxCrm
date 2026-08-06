@@ -1,0 +1,474 @@
+{
+  "product": {
+    "title": "产品",
+    "list": {
+      "title": "产品列表",
+      "button": {
+        "create": "新增产品",
+        "edit": "编辑产品",
+        "delete": "删除产品",
+        "view": "SKU"
+      }
+    },
+    "category": {
+      "title": "产品分类",
+      "button": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      }
+    },
+    "inbound": {
+      "title": "入库管理",
+      "button": {
+        "create": "创建入库单"
+      },
+      "field": {
+        "inboundNo": "入库单号",
+        "inboundType": "入库类型",
+        "warehouse": "仓库",
+        "status": "状态",
+        "totalQuantity": "总数量",
+        "totalAmount": "总金额",
+        "createdBy": "创建人",
+        "createTime": "创建时间"
+      },
+      "placeholder": {
+        "inboundNo": "请输入入库单号",
+        "inboundType": "请选择入库类型",
+        "warehouse": "请输入仓库",
+        "status": "请选择状态"
+      },
+      "type": {
+        "purchase": "采购入库",
+        "return": "退货入库",
+        "surplus": "盘盈入库",
+        "initial": "期初入库",
+        "other": "其他入库",
+        "unknown": "未知"
+      },
+      "status": {
+        "0": "草稿",
+        "1": "待审核",
+        "2": "已审核",
+        "3": "已完成",
+        "4": "已驳回",
+        "unknown": "未知"
+      },
+      "action": {
+        "submitAudit": "提交审核",
+        "audit": "审核通过",
+        "reject": "驳回",
+        "edit": "编辑",
+        "delete": "删除"
+      },
+      "message": {
+        "submitSuccess": "提交审核成功",
+        "auditSuccess": "审核通过",
+        "rejectSuccess": "已驳回"
+      },
+      "drawer": {
+        "title": {
+          "create": "创建入库单",
+          "edit": "编辑入库单"
+        },
+        "fullscreen": "最大化",
+        "restore": "还原",
+        "basicInfo": "基本信息",
+        "detail": "入库明细",
+        "inboundType": "入库类型",
+        "inboundTypePlaceholder": "请选择入库类型",
+        "warehouse": "入库仓库",
+        "warehousePlaceholder": "请选择入库仓库",
+        "sourceOrderNo": "源单号",
+        "sourceOrderNoPlaceholder": "如：采购单号、退货单号",
+        "remark": "备注",
+        "remarkPlaceholder": "请输入备注信息",
+        "alertTitle": "入库明细表格",
+        "alertDesc": "入库明细将在下方表格中编辑（由 InboundItemTable.vue 组件渲染），请先保存基本信息后添加明细物品。"
+      }
+    },
+    "outbound": {
+      "title": "出库管理",
+      "button": {
+        "create": "创建出库单"
+      },
+      "field": {
+        "outboundNo": "出库单号",
+        "outboundType": "出库类型",
+        "warehouse": "仓库",
+        "status": "状态",
+        "totalQuantity": "总数量",
+        "totalAmount": "总金额",
+        "createdBy": "创建人",
+        "createTime": "创建时间"
+      },
+      "placeholder": {
+        "outboundNo": "请输入出库单号",
+        "outboundType": "请选择出库类型",
+        "warehouse": "请选择仓库",
+        "status": "请选择状态"
+      },
+      "type": {
+        "sale": "销售出库",
+        "material": "领料出库",
+        "shortage": "盘亏出库",
+        "scrap": "报废出库",
+        "freeze": "冻结出库",
+        "other": "其他出库",
+        "unknown": "未知"
+      },
+      "status": {
+        "0": "草稿",
+        "1": "待审核",
+        "2": "已审核",
+        "3": "已完成",
+        "4": "已驳回",
+        "unknown": "未知"
+      },
+      "action": {
+        "submitAudit": "提交审核",
+        "audit": "审核通过",
+        "reject": "驳回",
+        "edit": "编辑",
+        "delete": "删除"
+      },
+      "message": {
+        "submitSuccess": "提交审核成功",
+        "auditSuccess": "审核通过",
+        "rejectSuccess": "已驳回"
+      },
+      "drawer": {
+        "title": {
+          "create": "创建出库单",
+          "edit": "编辑出库单"
+        },
+        "fullscreen": "最大化",
+        "restore": "还原",
+        "basicInfo": "基本信息",
+        "detail": "出库明细",
+        "outboundType": "出库类型",
+        "outboundTypePlaceholder": "请选择出库类型",
+        "warehouse": "出库仓库",
+        "warehousePlaceholder": "请选择出库仓库",
+        "sourceOrderNo": "源单号",
+        "sourceOrderNoPlaceholder": "如：关联的销售订单号",
+        "remark": "备注",
+        "remarkPlaceholder": "请输入备注信息",
+        "alertDesc": "出库明细将在独立的明细表格中维护，保存出库单后可在详情页添加出库商品明细。"
+      }
+    },
+    "inventory": {
+      "title": "库存管理",
+      "inbound": {
+        "title": "入库管理",
+        "create": "创建入库单",
+        "audit": "审核",
+        "status": {
+          "0": "草稿",
+          "1": "待审核",
+          "2": "已审核",
+          "3": "已完成",
+          "4": "已驳回"
+        },
+        "type": {
+          "purchase": "采购入库",
+          "return": "退货入库",
+          "surplus": "盘盈入库",
+          "initial": "初始入库",
+          "other": "其他入库"
+        }
+      },
+      "outbound": {
+        "title": "出库管理",
+        "create": "创建出库单",
+        "audit": "审核",
+        "status": {
+          "0": "草稿",
+          "1": "待审核",
+          "2": "已审核",
+          "3": "已完成",
+          "4": "已驳回"
+        },
+        "type": {
+          "sale": "销售出库",
+          "material": "领料出库",
+          "shortage": "盘亏出库",
+          "scrap": "报废出库",
+          "freeze": "冻结出库",
+          "other": "其他出库"
+        }
+      },
+      "stockLog": {
+        "title": "库存流水"
+      },
+      "transfer": {
+        "title": "调拨管理",
+        "create": "创建调拨单",
+        "status": {
+          "0": "草稿",
+          "1": "待出库",
+          "2": "在途",
+          "3": "已完成",
+          "4": "已取消"
+        },
+        "field": {
+          "transferNo": "调拨单号",
+          "sourceWarehouse": "源仓库",
+          "targetWarehouse": "目标仓库",
+          "status": "状态",
+          "totalQuantity": "总数量",
+          "createdBy": "创建人",
+          "createTime": "创建时间"
+        },
+        "action": {
+          "viewDetail": "查看详情",
+          "outbound": "出库",
+          "inbound": "入库",
+          "outboundSuccess": "出库成功",
+          "inboundSuccess": "入库成功"
+        },
+        "drawer": {
+          "title": {
+            "create": "创建调拨单",
+            "edit": "编辑调拨单"
+          },
+          "fullscreen": "最大化",
+          "restore": "还原",
+          "info": "调拨信息",
+          "detail": "调拨明细",
+          "sourceWarehouse": "源仓库",
+          "sourceWarehousePlaceholder": "请选择源仓库",
+          "targetWarehouse": "目标仓库",
+          "targetWarehousePlaceholder": "请选择目标仓库",
+          "remark": "备注",
+          "remarkPlaceholder": "请输入备注信息"
+        }
+      },
+      "check": {
+        "title": "盘点管理",
+        "create": "创建盘点单",
+        "audit": "审核",
+        "status": {
+          "0": "草稿",
+          "1": "盘点中",
+          "2": "已审核",
+          "3": "已关闭"
+        },
+        "type": {
+          "1": "定期全盘",
+          "2": "抽盘",
+          "3": "动态盘点"
+        },
+        "typeDesc": {
+          "1": "对指定仓库的全部库存进行盘点，需暂停出入库操作",
+          "2": "仅盘点部分产品，不影响日常出入库",
+          "3": "按产品 ABC 分类滚动盘点，无需暂停业务"
+        },
+        "field": {
+          "checkNo": "盘点单号",
+          "checkType": "盘点类型",
+          "warehouse": "仓库",
+          "status": "状态",
+          "totalItems": "盘点项数",
+          "diffItems": "差异项数",
+          "checkBy": "盘点人",
+          "checkTime": "盘点时间",
+          "remark": "备注"
+        },
+        "action": {
+          "auditConfirm": "确认审核该盘点单吗？",
+          "auditSuccess": "审核成功",
+          "confirm": "确认",
+          "cancel": "取消"
+        },
+        "drawer": {
+          "basicInfo": "基本信息",
+          "checkTypeDesc": "盘点类型说明",
+          "detail": "盘点明细",
+          "detailHint": "明细说明",
+          "detailHintText": "保存盘点单后，可在明细页录入盘点数据",
+          "createTitle": "创建盘点单",
+          "editTitle": "编辑盘点单",
+          "fullscreen": "最大化",
+          "restore": "还原",
+          "checkTypePlaceholder": "请选择盘点类型",
+          "warehousePlaceholder": "请选择盘点仓库",
+          "remarkPlaceholder": "请输入备注信息",
+          "desc": "说明",
+          "descPlaceholder": "请先选择盘点类型"
+        }
+      },
+      "alert": {
+        "title": "库存预警",
+        "low": "低库存预警",
+        "high": "高库存预警",
+        "stale": "呆滞预警",
+        "expiry": "临期预警",
+        "frozen": "冻结预警",
+        "field": {
+          "productName": "产品名称",
+          "warehouseName": "仓库名称",
+          "currentQuantity": "当前数量",
+          "minQuantity": "最低库存",
+          "maxQuantity": "最高库存",
+          "staleDays": "呆滞天数",
+          "alertType": "预警类型",
+          "enableLowAlert": "低库存预警",
+          "enableHighAlert": "高库存预警",
+          "enableStaleAlert": "呆滞预警"
+        },
+        "type": {
+          "lowStock": "低库存",
+          "highStock": "高库存",
+          "stale": "呆滞"
+        },
+        "action": {
+          "viewRule": "查看规则",
+          "edit": "编辑",
+          "delete": "删除",
+          "create": "新增规则"
+        }
+      },
+      "report": {
+        "title": "库存报表",
+        "stockSummary": "库存汇总表",
+        "inboundSummary": "入库汇总表",
+        "outboundSummary": "出库汇总表",
+        "turnover": "库存周转率",
+        "staleList": "呆滞库存清单",
+        "costReport": "库存成本报表",
+        "field": {
+          "productName": "产品名称",
+          "warehouseName": "仓库名称",
+          "openingQty": "期初数量",
+          "inboundQty": "入库数量",
+          "outboundQty": "出库数量",
+          "closingQty": "期末数量",
+          "turnoverRate": "周转率",
+          "avgInventory": "平均库存",
+          "currentQty": "当前库存",
+          "availableQty": "可用数量",
+          "reservedQty": "预留数量",
+          "inTransitQty": "在途数量",
+          "frozenQty": "冻结数量",
+          "productCode": "产品编码",
+          "staleDays": "呆滞天数",
+          "lastMovement": "最后变动",
+          "unitCost": "单位成本",
+          "totalCost": "总成本",
+          "avgCost": "平均成本",
+          "dateRange": "日期范围"
+        },
+        "type": {
+          "stockReport": "收发存报表",
+          "turnover": "库存周转率",
+          "staleList": "呆滞库存清单",
+          "costReport": "库存成本报表"
+        }
+      }
+    },
+    "warehouse": {
+      "title": "仓库管理",
+      "button": {
+        "create": "新增仓库",
+        "edit": "编辑仓库",
+        "delete": "删除仓库"
+      }
+    },
+    "sku": {
+      "title": "规格管理",
+      "button": {
+        "create": "新增规格"
+      }
+    }
+  },
+  "inventory": {
+    "inbound": {
+      "title": "入库管理"
+    },
+    "outbound": {
+      "title": "出库管理"
+    },
+    "stockLog": {
+      "title": "库存流水"
+    },
+    "transfer": {
+      "title": "调拨管理"
+    },
+    "check": {
+      "title": "盘点管理"
+    },
+    "alert": {
+      "title": "库存预警"
+    },
+    "report": {
+      "title": "库存报表",
+      "stockSummary": "库存汇总表",
+      "inboundSummary": "入库汇总表",
+      "outboundSummary": "出库汇总表",
+      "turnover": "库存周转率",
+      "staleList": "呆滞库存清单",
+      "costReport": "库存成本报表",
+      "field": {
+        "productName": "产品名称",
+        "warehouseName": "仓库名称",
+        "openingQty": "期初数量",
+        "inboundQty": "入库数量",
+        "outboundQty": "出库数量",
+        "closingQty": "期末数量",
+        "turnoverRate": "周转率",
+        "avgInventory": "平均库存",
+        "currentQty": "当前库存",
+        "availableQty": "可用数量",
+        "reservedQty": "预留数量",
+        "inTransitQty": "在途数量",
+        "frozenQty": "冻结数量",
+        "productCode": "产品编码",
+        "staleDays": "呆滞天数",
+        "lastMovement": "最后变动",
+        "unitCost": "单位成本",
+        "totalCost": "总成本",
+        "avgCost": "平均成本",
+        "dateRange": "日期范围"
+      },
+      "type": {
+        "stockReport": "收发存报表",
+        "turnover": "库存周转率",
+        "staleList": "呆滞库存清单",
+        "costReport": "库存成本报表"
+      }
+    },
+    "changeType": {
+      "transferOut": "调拨出库",
+      "transferIn": "调拨入库",
+      "check": "盘点",
+      "freeze": "冻结",
+      "unfreeze": "解冻",
+      "setup": "初始化",
+      "adjust": "调整"
+    },
+    "column": {
+      "productId": "产品ID",
+      "warehouseId": "仓库ID",
+      "changeType": "变动类型",
+      "quantityBefore": "变动前数量",
+      "changeQuantity": "变动数量",
+      "quantityAfter": "变动后数量",
+      "bizNo": "业务单号",
+      "operator": "操作人"
+    },
+    "form": {
+      "productName": "产品名称",
+      "warehouseId": "仓库ID",
+      "warehouseIdPlaceholder": "请输入仓库ID",
+      "productId": "产品ID"
+    },
+    "message": {
+      "viewStockLog": "查看 {name} 的库存流水"
+    },
+    "tooltip": {
+      "viewStockLog": "查看流水"
+    }
+  }
+}

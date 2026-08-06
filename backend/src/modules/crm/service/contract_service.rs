@@ -398,6 +398,8 @@ pub async fn approve_contract(db: &DbConn, req: &ContractApprovalRequest, operat
     // 审批通过联动：自动将合同状态置为已签署（2），sign_date 为空时设为当前日期
     let original_sign_date = contract.sign_date;
     let today_date = chrono::Local::now().naive_local().date();
+    // 捕获 order_id 用于审批通过后自动创建销售出库单
+    let contract_order_id = contract.order_id;
 
     // 更新合同表
     let txn = db.begin().await?;
@@ -429,7 +431,100 @@ pub async fn approve_contract(db: &DbConn, req: &ContractApprovalRequest, operat
     ContractApprovalLog::insert(log_payload).exec(&txn).await?;
     txn.commit().await?;
 
+    // 审批通过后自动生成销售出库单（best-effort，失败不阻断合同审批）
+    if new_status == 3 {
+        if let Some(order_id) = contract_order_id {
+            let _ = auto_create_outbound_for_contract(db, contract_id, order_id, operator_id).await;
+        }
+        // 审批通过后自动生成 PDF（best-effort，不阻断审批流程）
+        crate::modules::system::service::pdf_generator_service::generate_for_contract_approval(db, contract_id, Some(operator_id));
+    }
+
     find_by_id(db, contract_id).await
+}
+
+/// 合同审批通过后自动创建销售出库单
+/// 根据关联合同的销售订单明细，创建出库单并自动提交审核
+async fn auto_create_outbound_for_contract(
+    db: &DbConn,
+    contract_id: i64,
+    order_id: i64,
+    operator_id: i64,
+) -> Result<i64> {
+    use crate::modules::sale::entity::order_item;
+    use crate::modules::inventory::entity::warehouse;
+    use crate::modules::inventory::model::outbound::{OutboundItemRequest, OutboundSaveRequest};
+    use crate::modules::inventory::service::outbound_service;
+
+    // 查询销售订单
+    let order = order::Entity::find_by_id(order_id)
+        .filter(order::Column::Deleted.eq(0))
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::from("关联销售订单不存在".to_string()))?;
+
+    let order_no = order.order_no.clone().unwrap_or_default();
+
+    // 查询订单明细
+    let items = order_item::Entity::find()
+        .filter(order_item::Column::OrderId.eq(order_id))
+        .filter(order_item::Column::Deleted.eq(0))
+        .all(db)
+        .await?;
+
+    if items.is_empty() {
+        return Err(Error::from("销售订单明细为空，无法生成出库单".to_string()));
+    }
+
+    // 查找默认仓库（第一个启用的仓库）
+    let default_warehouse = warehouse::Entity::find()
+        .filter(warehouse::Column::Deleted.eq(0))
+        .filter(warehouse::Column::IsActive.eq(true))
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::from("未找到可用的仓库，无法生成出库单".to_string()))?;
+
+    let warehouse_id = default_warehouse.id;
+
+    // 构建出库明细
+    let outbound_items: Vec<OutboundItemRequest> = items
+        .iter()
+        .map(|item| OutboundItemRequest {
+            product_id: item.product_id.unwrap_or_default(),
+            product_sku: item.sku.clone(),
+            quantity: item.quantity.unwrap_or_default(),
+            batch_no: None,
+            remark: None,
+        })
+        .collect();
+
+    // 计算总数量
+    let total_quantity: rust_decimal::Decimal = items
+        .iter()
+        .map(|i| i.quantity.unwrap_or_default())
+        .fold(rust_decimal::Decimal::ZERO, |acc, x| acc + x);
+
+    let outbound_req = OutboundSaveRequest {
+        outbound_type: "sale".to_string(),
+        warehouse_id,
+        source_order_id: Some(order_id),
+        source_order_no: Some(order_no),
+        total_quantity: Some(total_quantity),
+        total_amount: order.total_amount,
+        remark: Some(format!("合同(id={})审批通过自动生成", contract_id)),
+        items: outbound_items,
+    };
+
+    // 创建出库单
+    let outbound_id = outbound_service::create(db, &outbound_req, operator_id).await?;
+
+    // 提交审核
+    outbound_service::submit_audit(db, outbound_id).await?;
+
+    // 自动审核通过（扣减库存）
+    outbound_service::audit(db, outbound_id, operator_id).await?;
+
+    Ok(outbound_id)
 }
 
 pub async fn reject_contract(db: &DbConn, req: &ContractApprovalRequest, operator_id: i64, operator_name: &str) -> Result<ContractDetailVO> {

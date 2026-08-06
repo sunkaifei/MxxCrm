@@ -62,8 +62,11 @@ pub fn get_template_a(template_content: &str, ctx: Value) -> Result<String> {
 /// - `links(link_type)` 获取指定类型的友情链接
 fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
     let tpl_vars = cms_data.template_vars.clone();
-    env.add_function("tpl_var", move |key: String| -> String {
-        tpl_vars.get(&key).cloned().unwrap_or_default()
+    env.add_function("tpl_var", move |key: String, default_value: Option<String>| -> String {
+        tpl_vars.get(&key)
+            .cloned()
+            .or(default_value)
+            .unwrap_or_default()
     });
 
     let banners_data = cms_data.banners.clone();
@@ -150,10 +153,8 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
 
     // 文章列表标签：从预取数据中过滤
     let articles_data = cms_data.articles.clone();
-    env.add_function("get_articles", move |category_id: Option<i64>, limit: Option<usize>, page: Option<usize>| -> Vec<Value> {
+    env.add_function("get_articles", move |category_id: Option<i64>, limit: Option<usize>| -> Vec<Value> {
         let limit = limit.unwrap_or(10).min(50);
-        let page = page.unwrap_or(1).max(1);
-        let offset = (page - 1) * limit;
 
         articles_data.iter()
             .filter(|a| {
@@ -162,7 +163,6 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
                     _ => true,
                 }
             })
-            .skip(offset)
             .take(limit)
             .map(|a| Value::from_serialize(a))
             .collect()
@@ -181,11 +181,8 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
 
     // 产品列表标签：从预取数据中过滤
     let products_data = cms_data.products.clone();
-    env.add_function("get_products", move |category_id: Option<i64>, limit: Option<usize>, page: Option<usize>, order: Option<String>| -> Vec<Value> {
+    env.add_function("get_products", move |category_id: Option<i64>, limit: Option<usize>| -> Vec<Value> {
         let limit = limit.unwrap_or(10).min(50);
-        let page = page.unwrap_or(1).max(1);
-        let offset = (page - 1) * limit;
-        let _ = order; // 预取数据已按最新排序，order 参数暂不重新排序
 
         products_data.iter()
             .filter(|p| {
@@ -199,7 +196,6 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
                     _ => true,
                 }
             })
-            .skip(offset)
             .take(limit)
             .cloned()
             .collect()
@@ -236,8 +232,9 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
     env.add_function("get_site_mode", move || -> i32 { site_mode });
 
     // 购物车/咨询按钮：根据站点模式渲染不同按钮
-    env.add_function("cart_button", move |product_id: i64, site_mode_param: Option<i32>| -> String {
-        cart_button_html(product_id, site_mode_param.or(Some(site_mode)))
+    env.add_function("cart_button", move |product_id: minijinja::Value, site_mode_param: Option<i32>| -> String {
+        let pid = product_id.as_i64().or_else(|| product_id.as_str().and_then(|s| s.parse::<i64>().ok())).unwrap_or(0);
+        cart_button_html(pid, site_mode_param.or(Some(site_mode)))
     });
 
     // 线索/咨询表单：渲染表单 HTML
@@ -435,6 +432,64 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
     env.add_filter("truncate", truncate_filter);
     env.add_function("time_ago", time_ago_function);
     env.add_function("pagination", pagination_function);
+
+    // ===== P0-7: 上一篇/下一篇文章标签（基于预取文章列表） =====
+    let prev_next_data = cms_data.articles.clone();
+    env.add_function("get_prev_article", move |article_id: i64| -> Option<Value> {
+        // 按 create_time 降序排列，找到当前文章的前一篇（更早的文章）
+        let mut sorted: Vec<&ArticleListVO> = prev_next_data.iter().collect();
+        sorted.sort_by(|a, b| {
+            let ca = a.create_time.as_deref().unwrap_or("");
+            let cb = b.create_time.as_deref().unwrap_or("");
+            cb.cmp(ca)
+        });
+        let idx = sorted.iter().position(|a| {
+            a.id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0) == article_id
+        });
+        match idx {
+            Some(i) if i + 1 < sorted.len() => Some(Value::from_serialize(sorted[i + 1])),
+            _ => None,
+        }
+    });
+
+    let next_data = cms_data.articles.clone();
+    env.add_function("get_next_article", move |article_id: i64| -> Option<Value> {
+        let mut sorted: Vec<&ArticleListVO> = next_data.iter().collect();
+        sorted.sort_by(|a, b| {
+            let ca = a.create_time.as_deref().unwrap_or("");
+            let cb = b.create_time.as_deref().unwrap_or("");
+            cb.cmp(ca)
+        });
+        let idx = sorted.iter().position(|a| {
+            a.id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0) == article_id
+        });
+        match idx {
+            Some(i) if i > 0 => Some(Value::from_serialize(sorted[i - 1])),
+            _ => None,
+        }
+    });
+
+    // ===== 产品详情标签（从预取产品列表中按ID查找） =====
+    let product_detail_data = cms_data.products.clone();
+    env.add_function("get_product", move |product_id: i64| -> Option<Value> {
+        product_detail_data.iter()
+            .find(|p| {
+                p.get_attr("id").ok()
+                    .and_then(|v| v.as_i64())
+                    .map(|id| id == product_id)
+                    .unwrap_or(false)
+            })
+            .map(|p| Value::from_serialize(p))
+    });
+
+    // ===== SEO: canonical_url 标签 =====
+    env.add_function("canonical_url", move |path: Option<String>| -> String {
+        // 从 context 中获取 site_url，否则用相对路径
+        match path {
+            Some(p) => format!("<link rel=\"canonical\" href=\"{}\"/>", html_escape(&p)),
+            None => String::new(),
+        }
+    });
 }
 
 /// HTML 转义辅助函数（用于 og_tags 等标签输出）

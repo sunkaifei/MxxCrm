@@ -1,0 +1,111 @@
+{
+  "attachment": {
+    "title": "Attachment",
+    "file": {
+      "title": "File Management",
+      "button": {
+        "upload": "Upload File",
+        "delete": "Delete File",
+        "close": "Close"
+      },
+      "search": {
+        "placeholder": "Search file name",
+        "category": "Category",
+        "entityType": "Entity Type",
+        "allEntityTypes": "All Entity Types"
+      },
+      "tab": {
+        "all": "All Files",
+        "image": "Images",
+        "file": "Files"
+      },
+      "view": {
+        "grid": "Grid View",
+        "list": "List View"
+      },
+      "action": {
+        "preview": "Preview",
+        "copyUrl": "Copy URL",
+        "download": "Download",
+        "delete": "Delete"
+      },
+      "message": {
+        "copySuccess": "Link copied to clipboard",
+        "deleteConfirm": "Delete {name}?",
+        "empty": "No files",
+        "previewFail": "Preview failed",
+        "downloadFail": "Download failed"
+      },
+      "column": {
+        "name": "Name",
+        "type": "Type",
+        "size": "Size",
+        "createTime": "Created At",
+        "action": "Action",
+        "entityType": "Entity Type",
+        "isPublic": "Public",
+        "uploadedBy": "Uploaded By"
+      },
+      "uploadModal": {
+        "title": "Upload File"
+      },
+      "entityTypes": {
+        "product": "Product Image",
+        "avatar": "User Avatar",
+        "contract": "Contract Attachment",
+        "invoice": "Invoice File",
+        "quotation": "Quotation Attachment",
+        "payment": "Payment Voucher",
+        "common": "Common Attachment",
+        "website_media": "CMS Media",
+        "article": "Article Image",
+        "banner": "Banner Image",
+        "block": "Block Image",
+        "page": "Custom Page",
+        "category": "Category Image",
+        "navigation": "Navigation Icon",
+        "link": "Friendly Link",
+        "member": "Member File",
+        "member_avatar": "Member Avatar",
+        "comment": "Comment Attachment",
+        "announcement": "Announcement",
+        "faq": "FAQ Image",
+        "ad": "Ad Image",
+        "form": "Form Submission"
+      },
+      "public": "Public",
+      "private": "Private",
+      "filter": {
+        "all": "All Types",
+        "image": "Image",
+        "doc": "Document",
+        "video": "Video",
+        "other": "Other",
+        "type": "File Type"
+      }
+    },
+    "category": {
+      "title": "Category Management",
+      "description": "Manage file categories with multi-level support",
+      "button": {
+        "add": "Add Category"
+      },
+      "form": {
+        "name": "Category Name",
+        "nameRequired": "Please enter category name",
+        "namePlaceholder": "Please enter category name"
+      },
+      "modal": {
+        "add": "Add Category",
+        "edit": "Edit Category"
+      },
+      "message": {
+        "loadFail": "Failed to load categories",
+        "deleteFail": "Delete failed",
+        "submitFail": "Submit failed",
+        "deleteConfirm": "Are you sure to delete this category and all its subcategories?",
+        "empty": "No categories"
+      }
+    }
+  }
+}

@@ -12,3 +12,4 @@ pub mod admin_routes;
 pub mod merchant_routes;
 pub mod open_routes;
 pub mod user_routes;
+pub mod install_routes;

@@ -1,0 +1,340 @@
+{
+  "user": {
+    "module": "User",
+    "title": "Employee Management",
+    "username": "Username",
+    "nickname": "Name",
+    "mobile": "Mobile",
+    "email": "Email",
+    "motto": "Motto",
+    "lastLoginTime": "Last Login",
+    "button": {
+      "create": "Add User"
+    }
+  },
+  "system": {
+    "title": "System Management",
+    "user": {
+      "module": "User",
+      "title": "Employee Management",
+      "username": "User Name",
+      "usernName": "User Name",
+      "nickName": "Name",
+      "realName": "Real Name",
+      "email": "Email",
+      "mobile": "Mobile",
+      "phone": "Phone",
+      "gender": "Gender",
+      "genderMale": "Male",
+      "genderFemale": "Female",
+      "genderUnknown": "Unknown",
+      "dept": "Department",
+      "post": "Position",
+      "basicInfo": "Basic Information",
+      "deptRoleInfo": "Department & Role",
+      "statusInfo": "Status Settings",
+      "defaultPasswordTip": "Default password: 123456",
+      "usernameMinLength": "Username must be at least 3 characters",
+      "usernameMaxLength": "Username cannot exceed 20 characters",
+      "usernameFormat": "Username can only contain letters, numbers and underscores",
+      "usernameExists": "Username already exists, please choose another",
+      "passwordMinLength": "Password must be at least 6 characters",
+      "passwordMaxLength": "Password cannot exceed 32 characters",
+      "passwordFormat": "Password must contain both letters and numbers",
+      "authority": "Authority",
+      "orgId": "Subordinate Organization",
+      "deptId": "Subordinate Department",
+      "lastLoginIp": "Last Login IP",
+      "lastLoginTime": "Last Login Time",
+      "role": "Role",
+      "button": {
+        "create": "Create",
+        "delete": "Delete",
+        "update": "Update",
+        "assignRole": "Assign Role",
+        "assignDept": "Assign Dept"
+      }
+    },
+    "menu": {
+      "module": "Menu",
+      "title": "Menu Management",
+      "name": "Menu Name",
+      "routeName": "Route Name",
+      "type": "Type",
+      "icon": "Icon",
+      "path": "Path",
+      "component": "Component",
+      "show": "Show",
+      "isExt": "Is Ext",
+      "keepAlive": "Keep Alive",
+      "parentId": "Parent Menu",
+      "mainDirectory": "Main Directory",
+      "perm": "Authority",
+      "affixTab": "Affix Tab",
+      "hideChildrenInMenu": "Hide Children In Menu",
+      "hideInBreadcrumb": "Hide In Breadcrumb",
+      "hideInMenu": "Hide In Menu",
+      "hideInTab": "Hide In Tab",
+      "button": {
+        "create": "Create",
+        "createChild": "Add Submenu",
+        "delete": "Delete",
+        "edit": "Edit Menu",
+        "update": "Update",
+        "view": "View Menu"
+      }
+    },
+    "role": {
+      "module": "Role",
+      "title": "Role Management",
+      "name": "Role Name",
+      "code": "Role Code",
+      "show": "Show",
+      "apiAuth": "Api Auth",
+      "menuAuth": "Menu Auth",
+      "button": {
+        "create": "Create",
+        "auth": "Assign Permissions",
+        "delete": "Delete",
+        "edit": "Edit Role",
+        "update": "Update",
+        "assignMenu": "Assign Menu",
+        "view": "View Role"
+      }
+    },
+    "api": {
+      "module": "API",
+      "title": "API Management",
+      "description": "API Description",
+      "parentId": "Parent API",
+      "path": "Path",
+      "method": "Method",
+      "button": {
+        "create": "Create",
+        "delete": "Delete",
+        "update": "Update"
+      }
+    },
+    "dict": {
+      "module": "Dict",
+      "title": "Dict Management",
+      "dictName": "Dict Name",
+      "dictType": "Dict Type",
+      "itemKey": "Item Key",
+      "itemValue": "Item Value",
+      "button": {
+        "create": "Add Dict",
+        "delete": "Delete Dict",
+        "edit": "Edit Dict",
+        "update": "Update Dict",
+        "view": "View Dict"
+      }
+    },
+    "record": {
+      "module": "Operating Record",
+      "title": "Operating Record",
+      "username": "Operating User",
+      "description": "Description",
+      "method": "Method",
+      "path": "Path",
+      "statusCode": "Status Code",
+      "msg": "Msg",
+      "elapsed": "Elapsed(ms)",
+      "platform": "Platform",
+      "ip": "IP",
+      "createTime": "Operating Time",
+      "button": {
+        "delete": "Delete"
+      }
+    },
+    "dept": {
+      "module": "Department",
+      "title": "Department Management",
+      "deptName": "Department Name",
+      "parentId": "Parent Department",
+      "code": "Dept Code",
+      "leader": "Leader",
+      "phone": "Phone",
+      "email": "Email",
+      "topLevel": "Top Level",
+      "button": {
+        "create": "Add Department",
+        "edit": "Edit Department",
+        "delete": "Delete Department",
+        "view": "View Department"
+      }
+    },
+    "post": {
+      "module": "Post",
+      "title": "Post Management",
+      "postName": "Post Name",
+      "postCode": "Post Code",
+      "button": {
+        "create": "Add Post",
+        "edit": "Edit Post",
+        "delete": "Delete Post",
+        "view": "View Post"
+      }
+    },
+    "config": {
+      "module": "Config",
+      "title": "System Config",
+      "configName": "Config Name",
+      "configKey": "Config Key",
+      "configValue": "Config Value",
+      "button": {
+        "create": "Add Config",
+        "edit": "Edit Config",
+        "delete": "Delete Config"
+      }
+    },
+    "notice": {
+      "module": "Notice",
+      "title": "Notice",
+      "noticeTitle": "Notice Title",
+      "noticeType": "Notice Type",
+      "content": "Content",
+      "button": {
+        "create": "Add Notice",
+        "edit": "Edit Notice",
+        "delete": "Delete Notice",
+        "view": "View Notice"
+      }
+    },
+    "log": {
+      "title": "System Log",
+      "module": "Operation Log",
+      "moduleTitle": "Module",
+      "businessType": "Business Type",
+      "businessTypeOther": "Other",
+      "businessTypeInsert": "Insert",
+      "businessTypeUpdate": "Update",
+      "businessTypeDelete": "Delete",
+      "method": "Method",
+      "requestMethod": "Request Method",
+      "operatorType": "Operator Type",
+      "operatorTypeOther": "Other",
+      "operatorTypeAdmin": "Admin User",
+      "operatorTypeUser": "Mobile User",
+      "operName": "Operator",
+      "deptName": "Department",
+      "operUrl": "Request URL",
+      "operIp": "IP Address",
+      "operLocation": "Location",
+      "operParam": "Request Params",
+      "jsonResult": "Response Result",
+      "status": "Status",
+      "statusNormal": "Normal",
+      "statusException": "Exception",
+      "errorMsg": "Error Message",
+      "statusCode": "Status Code",
+      "elapsed": "Elapsed(ms)",
+      "createTime": "Operation Time",
+      "beginTime": "Begin Time",
+      "endTime": "End Time",
+      "viewDetail": "View Detail"
+    },
+    "tag": {
+      "module": "Tag",
+      "title": "Tag Management",
+      "name": "Tag Name",
+      "color": "Tag Color",
+      "group": "Tag Group",
+      "global": "Is Global",
+      "status": "Status",
+      "owner": "Owner",
+      "systemTag": "System Tag",
+      "unknown": "Unknown",
+      "ungrouped": "Ungrouped",
+      "button": {
+        "create": "Add Tag",
+        "edit": "Edit Tag",
+        "delete": "Delete Tag"
+      }
+    },
+    "mail": {
+      "config": {
+        "title": "Mail Settings"
+      },
+      "template": "Email Template",
+      "send": "Send Email",
+      "log": "Email Log"
+    },
+    "pdfTemplate": {
+      "module": "PDF Template",
+      "title": "PDF Template Management",
+      "name": "Template Name",
+      "code": "Template Code",
+      "docType": "Document Type",
+      "docTypeQuotation": "Quotation",
+      "docTypeOrder": "Order",
+      "docTypeContract": "Contract",
+      "paperSize": "Paper Size",
+      "orientation": "Orientation",
+      "portrait": "Portrait",
+      "landscape": "Landscape",
+      "isDefault": "Default",
+      "default": "Default",
+      "font": "Font",
+      "marginTop": "Margin Top",
+      "marginBottom": "Margin Bottom",
+      "marginLeft": "Margin Left",
+      "marginRight": "Margin Right",
+      "content": "Template Content",
+      "header": "Header",
+      "footer": "Footer",
+      "sort": "Sort",
+      "button": {
+        "create": "New Template",
+        "edit": "Edit Template",
+        "delete": "Delete Template",
+        "setDefault": "Set Default"
+      }
+    },
+    "pdfRecord": {
+      "title": "PDF Generation Records",
+      "tabGenerate": "Generation Records",
+      "tabDownload": "Download History",
+      "docType": "Document Type",
+      "docTypeQuotation": "Quotation",
+      "docTypeOrder": "Order",
+      "docTypeContract": "Contract",
+      "docNo": "Document No.",
+      "templateName": "Template",
+      "fileName": "File Name",
+      "fileSize": "File Size",
+      "pageCount": "Pages",
+      "triggerType": "Trigger",
+      "triggerManual": "Manual",
+      "triggerAuto": "Auto",
+      "status": "Status",
+      "statusSuccess": "Success",
+      "statusFailed": "Failed",
+      "createTime": "Generated At",
+      "download": "Download",
+      "downloadFailed": "Cannot download failed records",
+      "downloadUser": "Downloaded By",
+      "downloadIp": "IP Address",
+      "downloadTime": "Downloaded At",
+      "reDownload": "Download Again"
+    },
+    "approval": {
+      "title": "Approval Flow Management",
+      "todo": "Approval Tasks",
+      "designer": "Approval Flow Designer",
+      "cc": "CC To Me",
+      "button": {
+        "create": "Create Approval Flow",
+        "edit": "Edit Approval Flow",
+        "toggle": "Enable/Disable"
+      }
+    },
+    "editLog": "Edit Log",
+    "scheduler": {
+      "title": "Scheduled Tasks",
+      "button": {
+        "manage": "Manage"
+      }
+    }
+  }
+}

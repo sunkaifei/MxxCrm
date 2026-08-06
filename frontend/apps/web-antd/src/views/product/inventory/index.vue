@@ -1,11 +1,21 @@
 <script lang="ts" setup>
+import { h } from 'vue';
+
 import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+import { LucideList } from '@vben/icons';
+import { useAccessStore } from '@vben/stores';
+
+import { Button, Tag, Tooltip } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { getInventoryListApi } from '#/api';
 import { $t } from '#/locales';
+
+import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
+
+const accessStore = useAccessStore();
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -15,7 +25,7 @@ const formOptions: VbenFormProps = {
     {
       component: 'Input',
       fieldName: 'productName',
-      label: '产品名称',
+      label: $t('page.inventory.form.productName'),
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
@@ -23,10 +33,10 @@ const formOptions: VbenFormProps = {
     },
     {
       component: 'Input',
-      fieldName: 'sku',
-      label: 'SKU',
+      fieldName: 'warehouseId',
+      label: $t('page.inventory.form.warehouseId'),
       componentProps: {
-        placeholder: $t('ui.placeholder.input'),
+        placeholder: $t('page.inventory.form.warehouseIdPlaceholder'),
         allowClear: true,
       },
     },
@@ -54,7 +64,7 @@ const gridOptions: VxeGridProps = {
           page: page.currentPage,
           pageSize: page.pageSize,
           productName: formValues.productName,
-          sku: formValues.sku,
+          warehouseId: formValues.warehouseId,
         });
       },
     },
@@ -64,40 +74,119 @@ const gridOptions: VxeGridProps = {
     {
       title: $t('ui.table.seq'),
       type: 'seq',
-      width: 70,
+      width: 60,
     },
     {
-      title: '产品名称',
+      title: $t('page.inventory.report.field.productName'),
       field: 'productName',
+      minWidth: 140,
     },
     {
-      title: '产品编码',
+      title: $t('page.product.list.productCode'),
       field: 'productCode',
+      width: 120,
     },
     {
-      title: '仓库',
+      title: $t('page.inventory.report.field.warehouseName'),
       field: 'warehouseName',
+      width: 120,
     },
     {
-      title: '库存数量',
+      title: $t('page.inventory.report.field.currentQty'),
       field: 'quantity',
+      width: 100,
     },
     {
-      title: '预留数量',
-      field: 'reservedQuantity',
-    },
-    {
-      title: '可用数量',
+      title: $t('page.inventory.report.field.availableQty'),
       field: 'availableQuantity',
+      width: 100,
+    },
+    {
+      title: $t('page.inventory.report.field.reservedQty'),
+      field: 'reservedQuantity',
+      width: 100,
+    },
+    {
+      title: $t('page.inventory.report.field.inTransitQty'),
+      field: 'inTransitQuantity',
+      width: 100,
+    },
+    {
+      title: $t('page.inventory.report.field.frozenQty'),
+      field: 'frozenQuantity',
+      width: 100,
+      slots: { default: 'frozenQuantity' },
+    },
+    {
+      title: $t('page.inventory.report.field.avgCost'),
+      field: 'avgCost',
+      width: 110,
+    },
+    {
+      title: $t('page.inventory.report.field.totalCost'),
+      field: 'totalCost',
+      width: 120,
+    },
+    {
+      title: $t('page.inventory.report.field.lastMovement'),
+      field: 'lastInboundTime',
+      width: 150,
+    },
+    {
+      title: $t('page.inventory.report.field.lastMovement'),
+      field: 'lastOutboundTime',
+      width: 150,
+    },
+    {
+      title: $t('ui.table.updateTime'),
+      field: 'updateTime',
+      width: 150,
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 100,
     },
   ],
 };
 
 const [Grid] = useVbenVxeGrid({ gridOptions, formOptions });
+
+function handleViewLog(row: any) {
+  // 跳转到库存流水页面（按产品筛选）
+  const _route = {
+    name: 'StockLog',
+    query: { productId: row.productId, productName: row.productName },
+  };
+  // 使用 router.push 跳转到库存流水页面（按产品筛选）
+  // 实际项目中可使用 router.push({ name: 'StockLog', query: { productId: row.productId } })
+  window.$message.info($t('page.inventory.message.viewStockLog', { name: row.productName }));
+}
 </script>
 
 <template>
   <Page auto-content-height>
-    <Grid :table-title="$t('page.product.inventory.title')" />
+    <InventoryProcessGuide current-step="stock" />
+    <Grid :table-title="$t('page.product.inventory.title')">
+      <template #frozenQuantity="{ row }">
+        <Tag v-if="row.frozenQuantity && Number(row.frozenQuantity) > 0" color="red">
+          {{ row.frozenQuantity }}
+        </Tag>
+        <span v-else>{{ row.frozenQuantity ?? '0' }}</span>
+      </template>
+
+      <template #action="{ row }">
+        <Tooltip :title="$t('page.inventory.tooltip.viewStockLog')">
+          <Button
+            v-if="accessStore.hasAccessCode('product:inventory:view')"
+            type="link"
+            :icon="h(LucideList)"
+            @click="() => handleViewLog(row)"
+          />
+        </Tooltip>
+      </template>
+    </Grid>
   </Page>
 </template>

@@ -6,7 +6,10 @@
   },
   "placeholder": {
     "input": "Please enter",
-    "select": "Please select"
+    "select": "Please select",
+    "all": "All",
+    "startDate": "Start date",
+    "endDate": "End date"
   },
   "formRules": {
     "required": "This field is required"
@@ -40,9 +43,13 @@
     "yes": "Yes",
     "no": "No"
   },
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "unknown": "Unknown",
   "button": {
     "ok": "OK",
     "cancel": "Cancel",
+    "edit": "Edit",
     "create": "Create {moduleName}",
     "update": "Update {moduleName}",
     "delete": "Delete {moduleName}",

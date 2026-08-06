@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>服务订单 Service Order - A4 竖版</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1a1a1a;
+      --ink-soft: #3d3d3d;
+      --steel: #6e6e6e;
+      --mist: #a0a0a0;
+      --amber: #b8860b;
+      --paper: #ffffff;
+      --hair: #1a1a1a;
+      --hair-soft: #d6d6d6;
+      --zebra: #f7f7f7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page { size: A4 portrait; margin: 0; }
+
+    html, body { background: #e9e9ec; }
+
+    body {
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-weight: 400;
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 16px;
+      -webkit-font-smoothing: antialiased;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .mono { font-family: "JetBrains Mono", monospace; }
+
+    /* ===== A4 sheet ===== */
+    .sheet {
+      position: relative;
+      width: 210mm;
+      height: 297mm;
+      background: var(--paper);
+      padding: 10mm 13mm 8mm;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+    }
+    .sheet::after {
+      content: "";
+      position: absolute;
+      top: 6mm; right: 6mm; bottom: 6mm; left: 6mm;
+      border: 0.6pt solid var(--hair);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .inner {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* ===== section title ===== */
+    .sec-title {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700;
+      font-size: 7.6pt;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--amber);
+      display: flex;
+      align-items: baseline;
+      gap: 2mm;
+      margin-bottom: 2.6mm;
+    }
+    .sec-title::before { content: "//"; letter-spacing: 0; }
+    .sec-title .cn {
+      font-family: "Noto Sans SC", sans-serif;
+      font-size: 8pt;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: 0.08em;
+    }
+
+    /* ===== header ===== */
+    .doc-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 3.4mm;
+      margin-bottom: 4mm;
+      border-bottom: 1pt solid var(--hair);
+    }
+    .brand { display: flex; align-items: center; gap: 3mm; }
+    .brand .mark {
+      width: 11mm; height: 11mm;
+      border: 1.2pt solid var(--ink);
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif;
+      font-weight: 700; font-size: 16pt;
+      color: var(--ink);
+      position: relative;
+    }
+    .brand .mark::after {
+      content: "";
+      position: absolute; inset: 1mm;
+      border: 0.4pt solid var(--ink);
+    }
+    .brand .b-name {
+      font-family: "Noto Serif SC", serif;
+      font-weight: 700; font-size: 13pt;
+      color: var(--ink); line-height: 1.05;
+    }
+    .brand .b-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.4pt; letter-spacing: 0.16em;
+      color: var(--steel); text-transform: uppercase;
+      margin-top: 1.4mm;
+    }
+
+    .doc-id { text-align: right; }
+    .doc-id .d-kind {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.6pt; letter-spacing: 0.2em;
+      color: var(--amber); text-transform: uppercase;
+      margin-bottom: 1mm;
+    }
+    .doc-id .d-title {
+      font-family: "Noto Serif SC", serif;
+      font-weight: 700; font-size: 17pt;
+      color: var(--ink); letter-spacing: 0.08em; line-height: 1;
+    }
+    .doc-id .d-sub {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.6pt; letter-spacing: 0.18em;
+      color: var(--steel); text-transform: uppercase;
+      margin-top: 1.4mm;
+    }
+    .doc-id .d-meta {
+      margin-top: 2.4mm;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7pt; color: var(--ink-soft);
+      line-height: 1.7;
+    }
+    .doc-id .d-meta b { color: var(--amber); font-weight: 700; }
+
+    /* ===== parties ===== */
+    .parties {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      margin-bottom: 4mm;
+    }
+    .party { padding: 0 5mm 0 0; }
+    .party + .party { padding: 0 0 0 5mm; border-left: 0.6pt solid var(--hair-soft); }
+    .party .role {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.4pt; letter-spacing: 0.14em;
+      color: var(--amber); text-transform: uppercase;
+      margin-bottom: 1.4mm;
+    }
+    .party .pname {
+      font-family: "Noto Sans SC", sans-serif;
+      font-size: 9.2pt; font-weight: 700; color: var(--ink);
+      margin-bottom: 1.8mm;
+    }
+    .party p {
+      font-size: 7.4pt; line-height: 1.75; color: var(--ink-soft);
+    }
+    .party .lbl {
+      display: inline-block; min-width: 7.5em;
+      color: var(--steel);
+    }
+
+    /* ===== overview strip (3 col) ===== */
+    .overview {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border: 0.6pt solid var(--hair-soft);
+      background: var(--zebra);
+      margin-bottom: 4.2mm;
+    }
+    .ov-cell { padding: 2.6mm 3.2mm; }
+    .ov-cell + .ov-cell { border-left: 0.6pt solid var(--hair-soft); }
+    .ov-cell .k {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.2pt; letter-spacing: 0.14em;
+      color: var(--steel); text-transform: uppercase;
+      margin-bottom: 1mm;
+    }
+    .ov-cell .v {
+      font-size: 8pt; font-weight: 500; color: var(--ink);
+    }
+    .ov-cell .v.mono { font-family: "JetBrains Mono", monospace; font-weight: 500; }
+
+    /* ===== generic table ===== */
+    table.grid {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    table.grid th {
+      font-family: "Noto Sans SC", sans-serif;
+      font-weight: 700;
+      font-size: 7pt;
+      color: var(--ink);
+      padding: 2.2mm 2.4mm;
+      text-align: left;
+      border-top: 0.8pt solid var(--hair);
+      border-bottom: 0.8pt solid var(--hair);
+      background: transparent;
+    }
+    table.grid th.r { text-align: right; }
+    table.grid th.c { text-align: center; }
+    table.grid td {
+      padding: 1.9mm 2.4mm;
+      border-bottom: 0.3pt solid var(--hair-soft);
+      color: var(--ink-soft);
+      font-size: 7.4pt;
+      line-height: 1.5;
+      vertical-align: top;
+    }
+    table.grid tbody tr:nth-child(even) td { background: var(--zebra); }
+    table.grid td.r { text-align: right; font-family: "JetBrains Mono", monospace; color: var(--ink); font-weight: 500; }
+    table.grid td.c { text-align: center; }
+    table.grid td.mono { font-family: "JetBrains Mono", monospace; }
+    table.grid tr.total-row td {
+      border-top: 0.6pt solid var(--hair);
+      border-bottom: 0.8pt solid var(--hair);
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    /* service items table */
+    .svc-table { margin-bottom: 4mm; }
+    .svc-table .col-name { font-weight: 700; color: var(--ink); }
+    .svc-table .stage {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.8pt; color: var(--amber); font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    /* ===== milestone bar ===== */
+    .ms-wrap { margin-bottom: 3.6mm; }
+    .ms-bar {
+      display: flex;
+      width: 100%;
+      height: 5.4mm;
+      border: 0.5pt solid var(--hair-soft);
+      margin-bottom: 1.6mm;
+      overflow: hidden;
+    }
+    .ms-seg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.2pt; font-weight: 700;
+      color: var(--ink);
+      border-right: 0.5pt solid var(--paper);
+    }
+    .ms-seg:last-child { border-right: none; }
+    .ms-seg.s1 { background: #f3ead3; }
+    .ms-seg.s2 { background: #ead9b4; }
+    .ms-seg.s3 { background: #dcc28d; color: var(--paper); }
+    .ms-seg.s4 { background: #c9ad6b; color: var(--paper); }
+    .ms-seg.s5 { background: var(--amber); color: var(--paper); }
+
+    .ms-axis {
+      display: flex;
+      width: 100%;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6pt; color: var(--mist);
+      margin-bottom: 2.2mm;
+    }
+    .ms-axis span { text-align: center; }
+
+    /* ===== bottom block: terms + summary ===== */
+    .bottom {
+      display: grid;
+      grid-template-columns: 1.34fr 1fr;
+      gap: 6mm;
+      margin-top: auto;
+      margin-bottom: 3.6mm;
+    }
+
+    .terms { list-style: none; }
+    .terms li {
+      display: flex;
+      gap: 2mm;
+      font-size: 7pt;
+      line-height: 1.62;
+      color: var(--ink-soft);
+      margin-bottom: 1.7mm;
+    }
+    .terms li:last-child { margin-bottom: 0; }
+    .terms .tn {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700;
+      font-size: 6.6pt;
+      color: var(--amber);
+      flex-shrink: 0;
+      padding-top: 0.2mm;
+    }
+    .terms b { color: var(--ink); font-weight: 700; }
+
+    .summary {
+      border: 0.6pt solid var(--hair);
+      padding: 2.8mm 3.4mm;
+    }
+    .sum-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 7.6pt;
+      color: var(--ink-soft);
+      padding: 1.3mm 0;
+      border-bottom: 0.3pt solid var(--hair-soft);
+    }
+    .sum-row .k { color: var(--steel); }
+    .sum-row .v { font-family: "JetBrains Mono", monospace; font-weight: 500; color: var(--ink); }
+    .sum-row.grand {
+      border-bottom: none;
+      padding-top: 2.2mm;
+      margin-top: 0.6mm;
+      border-top: 0.8pt solid var(--hair);
+    }
+    .sum-row.grand .k {
+      font-family: "Noto Sans SC", sans-serif;
+      font-weight: 700; font-size: 8.4pt; color: var(--ink);
+    }
+    .sum-row.grand .v {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700; font-size: 11pt; color: var(--amber);
+    }
+    .sum-cap {
+      margin-top: 2mm;
+      padding-top: 1.8mm;
+      border-top: 0.3pt solid var(--hair-soft);
+      font-size: 7pt; color: var(--ink-soft); line-height: 1.5;
+    }
+    .sum-cap b { color: var(--ink); font-weight: 700; }
+
+    /* ===== signature ===== */
+    .signarea {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 0.8pt solid var(--hair);
+      padding-top: 3mm;
+    }
+    .sign-col { padding-right: 6mm; }
+    .sign-col + .sign-col { padding: 0 0 0 6mm; border-left: 0.6pt solid var(--hair-soft); }
+    .sign-col .sc-role {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.4pt; letter-spacing: 0.14em;
+      color: var(--amber); text-transform: uppercase;
+      margin-bottom: 1mm;
+    }
+    .sign-col .sc-name {
+      font-family: "Noto Sans SC", sans-serif;
+      font-weight: 700; font-size: 8.2pt; color: var(--ink);
+      margin-bottom: 2.4mm;
+    }
+    .sign-line {
+      display: flex;
+      align-items: baseline;
+      gap: 2mm;
+      font-size: 6.8pt; color: var(--steel);
+      padding: 1.3mm 0;
+    }
+    .sign-line .sl-k { flex-shrink: 0; min-width: 9em; }
+    .sign-line .sl-v {
+      flex: 1;
+      border-bottom: 0.4pt solid var(--hair-soft);
+      height: 3.6mm;
+    }
+    .seal-box {
+      margin-top: 2.4mm;
+      height: 14mm;
+      border: 0.5pt dashed var(--mist);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6pt; letter-spacing: 0.12em;
+      color: var(--mist);
+    }
+
+    /* ===== footer ===== */
+    .page-foot {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 2.2mm;
+      border-top: 0.4pt solid var(--hair-soft);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.4pt; color: var(--mist);
+      letter-spacing: 0.08em;
+    }
+    .page-foot .pf-mid { color: var(--steel); }
+    .page-foot b { color: var(--amber); font-weight: 700; }
+
+    /* ===== print button ===== */
+    .no-print {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 100;
+    }
+    .btn {
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      padding: 11px 22px;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      border-radius: 2px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .btn:hover { background: var(--amber); transform: translateY(-2px); }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .sheet { box-shadow: none; }
+      .no-print { display: none !important; }
+    }
+
+    @media screen and (max-width: 880px) {
+      body { padding: 14px; }
+      .sheet { width: 100%; height: auto; min-height: 297mm; }
+      .parties, .signarea { grid-template-columns: 1fr; }
+      .sign-col + .sign-col { border-left: none; border-top: 0.6pt solid var(--hair-soft); padding-left: 0; padding-top: 3mm; margin-top: 3mm; }
+      .bottom { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <section class="sheet">
+    <div class="inner">
+
+      <!-- ===== HEADER ===== -->
+      <header class="doc-head">
+        <div class="brand">
+          <div class="mark">M</div>
+          <div>
+            <div class="b-name">Mxx Design Studio</div>
+            <div class="b-tag">Design &amp; Engineering Services</div>
+          </div>
+        </div>
+        <div class="doc-id">
+          <div class="d-kind">// Service Order</div>
+          <div class="d-title">服务订单</div>
+          <div class="d-sub">Service Order</div>
+          <div class="d-meta">
+            订单号 NO. <b>SV-2026-08-0067</b><br>
+            签订日期 <b>2026-02-20</b>
+          </div>
+        </div>
+      </header>
+
+      <!-- ===== PARTIES ===== -->
+      <div class="sec-title">PARTIES <span class="cn">双方信息</span></div>
+      <section class="parties">
+        <div class="party">
+          <div class="role">// Party A · 委托方</div>
+          <div class="pname">甲方：杭州云栖科技有限公司</div>
+          <p>
+            <span class="lbl">联系人：</span>李 明（项目经理）<br>
+            <span class="lbl">电话：</span>0571-8888 6666<br>
+            <span class="lbl">地址：</span>浙江省杭州市西湖区云栖小镇 9 号楼
+          </p>
+        </div>
+        <div class="party">
+          <div class="role">// Party B · 服务方</div>
+          <div class="pname">乙方：Mxx Design Studio</div>
+          <p>
+            <span class="lbl">联系人：</span>张 工（技术总监）<br>
+            <span class="lbl">电话：</span>0571-1234 5678<br>
+            <span class="lbl">地址：</span>浙江省杭州市余杭区未来科技城梦想小镇
+          </p>
+        </div>
+      </section>
+
+      <!-- ===== OVERVIEW ===== -->
+      <div class="sec-title">OVERVIEW <span class="cn">服务概述</span></div>
+      <section class="overview">
+        <div class="ov-cell">
+          <div class="k">// Service Category</div>
+          <div class="v">软件开发与设计服务</div>
+        </div>
+        <div class="ov-cell">
+          <div class="k">// Service Period</div>
+          <div class="v mono">2026-03-01 → 2026-09-30</div>
+        </div>
+        <div class="ov-cell">
+          <div class="k">// Location</div>
+          <div class="v">乙方驻地 + 远程协作</div>
+        </div>
+      </section>
+
+      <!-- ===== SERVICE ITEMS ===== -->
+      <div class="sec-title">SERVICE ITEMS <span class="cn">服务项目</span></div>
+      <table class="grid svc-table">
+        <colgroup>
+          <col style="width:6%">
+          <col style="width:11%">
+          <col style="width:20%">
+          <col style="width:39%">
+          <col style="width:9%">
+          <col style="width:15%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="c">序号</th>
+            <th>阶段编号</th>
+            <th>服务项目</th>
+            <th>服务内容描述</th>
+            <th class="r">工作量<br>(人天)</th>
+            <th class="r">金额 (¥)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="c mono">01</td>
+            <td><span class="stage">S-01</span></td>
+            <td class="col-name">需求调研与分析</td>
+            <td>业务流程梳理、干系人访谈、需求规格说明书编写</td>
+            <td class="r">15</td>
+            <td class="r">45,000.00</td>
+          </tr>
+          <tr>
+            <td class="c mono">02</td>
+            <td><span class="stage">S-02</span></td>
+            <td class="col-name">方案设计与评审</td>
+            <td>系统架构设计、UI/UX 设计、技术方案评审与确认</td>
+            <td class="r">20</td>
+            <td class="r">60,000.00</td>
+          </tr>
+          <tr>
+            <td class="c mono">03</td>
+            <td><span class="stage">S-03</span></td>
+            <td class="col-name">开发与实施</td>
+            <td>前后端开发、第三方接口对接、数据迁移与系统集成联调</td>
+            <td class="r">45</td>
+            <td class="r">135,000.00</td>
+          </tr>
+          <tr>
+            <td class="c mono">04</td>
+            <td><span class="stage">S-04</span></td>
+            <td class="col-name">测试与验收</td>
+            <td>功能测试、性能测试、安全测试及 UAT 用户验收测试</td>
+            <td class="r">12</td>
+            <td class="r">36,000.00</td>
+          </tr>
+          <tr>
+            <td class="c mono">05</td>
+            <td><span class="stage">S-05</span></td>
+            <td class="col-name">培训与交付</td>
+            <td>用户操作培训、技术文档交付、系统上线支持</td>
+            <td class="r">6</td>
+            <td class="r">18,000.00</td>
+          </tr>
+          <tr>
+            <td class="c mono">06</td>
+            <td><span class="stage">S-06</span></td>
+            <td class="col-name">运维与支持</td>
+            <td>90 天质保期内的技术支持、故障响应与系统维护</td>
+            <td class="r">8</td>
+            <td class="r">24,000.00</td>
+          </tr>
+          <tr class="total-row">
+            <td class="c" colspan="4">合计</td>
+            <td class="r">106</td>
+            <td class="r">318,000.00</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ===== MILESTONES ===== -->
+      <div class="sec-title">MILESTONES <span class="cn">里程碑结算进度</span></div>
+      <div class="ms-wrap">
+        <div class="ms-bar">
+          <div class="ms-seg s1" style="width:20%">启动 20%</div>
+          <div class="ms-seg s2" style="width:20%">设计 20%</div>
+          <div class="ms-seg s3" style="width:30%">开发 30%</div>
+          <div class="ms-seg s4" style="width:20%">验收 20%</div>
+          <div class="ms-seg s5" style="width:10%">10%</div>
+        </div>
+        <div class="ms-axis">
+          <span style="width:20%">20%</span>
+          <span style="width:20%">40%</span>
+          <span style="width:30%">70%</span>
+          <span style="width:20%">90%</span>
+          <span style="width:10%">100%</span>
+        </div>
+      </div>
+      <table class="grid" style="margin-bottom:4mm">
+        <colgroup>
+          <col style="width:22%">
+          <col style="width:34%">
+          <col style="width:12%">
+          <col style="width:17%">
+          <col style="width:15%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>里程碑节点</th>
+            <th>交付物</th>
+            <th class="c">结算比例</th>
+            <th class="r">结算金额 (¥)</th>
+            <th class="c">预计完成</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="col-name">M1 · 项目启动</td>
+            <td>项目计划书、需求规格说明书</td>
+            <td class="c mono">20%</td>
+            <td class="r">63,600.00</td>
+            <td class="c mono">2026-03-15</td>
+          </tr>
+          <tr>
+            <td class="col-name">M2 · 设计确认</td>
+            <td>架构设计文档、UI 设计稿</td>
+            <td class="c mono">20%</td>
+            <td class="r">63,600.00</td>
+            <td class="c mono">2026-04-20</td>
+          </tr>
+          <tr>
+            <td class="col-name">M3 · 开发完成</td>
+            <td>可运行系统、接口技术文档</td>
+            <td class="c mono">30%</td>
+            <td class="r">95,400.00</td>
+            <td class="c mono">2026-07-31</td>
+          </tr>
+          <tr>
+            <td class="col-name">M4 · 验收通过</td>
+            <td>测试报告、用户验收单</td>
+            <td class="c mono">20%</td>
+            <td class="r">63,600.00</td>
+            <td class="c mono">2026-08-31</td>
+          </tr>
+          <tr>
+            <td class="col-name">M5 · 质保期满</td>
+            <td>培训记录、运维交接文档</td>
+            <td class="c mono">10%</td>
+            <td class="r">31,800.00</td>
+            <td class="c mono">2026-11-30</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="2">结算合计</td>
+            <td class="c mono">100%</td>
+            <td class="r">318,000.00</td>
+            <td class="c">—</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ===== BOTTOM: TERMS + SUMMARY ===== -->
+      <div class="bottom">
+        <div>
+          <div class="sec-title">TERMS <span class="cn">服务条款</span></div>
+          <ul class="terms">
+            <li>
+              <span class="tn">01</span>
+              <span><b>知识产权归属。</b>项目交付物的知识产权在甲方全额付款后归甲方所有；乙方事先拥有的通用组件、方法论及非定制工具保留所有权。</span>
+            </li>
+            <li>
+              <span class="tn">02</span>
+              <span><b>保密义务。</b>双方对合作中获知的商业秘密与技术信息负有保密义务，保密期限自本订单签订之日起 5 年。</span>
+            </li>
+            <li>
+              <span class="tn">03</span>
+              <span><b>变更管理。</b>服务范围或交付物的任何变更须经双方书面确认，并相应调整工期与费用。</span>
+            </li>
+            <li>
+              <span class="tn">04</span>
+              <span><b>违约责任。</b>逾期交付或逾期付款的，违约方按服务费总额日 <b>0.5‰</b> 支付违约金。</span>
+            </li>
+            <li>
+              <span class="tn">05</span>
+              <span><b>验收标准。</b>以双方确认的需求规格说明书及验收测试用例为准，验收期为交付后 10 个工作日。</span>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="sec-title">SUMMARY <span class="cn">费用汇总</span></div>
+          <div class="summary">
+            <div class="sum-row">
+              <span class="k">服务费小计</span>
+              <span class="v">¥ 318,000.00</span>
+            </div>
+            <div class="sum-row">
+              <span class="k">增值税 (6%)</span>
+              <span class="v">¥ 19,080.00</span>
+            </div>
+            <div class="sum-row grand">
+              <span class="k">合计 (含税)</span>
+              <span class="v">¥ 337,080.00</span>
+            </div>
+            <div class="sum-cap">
+              人民币大写：<b>叁拾叁万柒仟零捌拾元整</b>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SIGNATURE ===== -->
+      <div class="sec-title">SIGNATURE <span class="cn">签署盖章</span></div>
+      <section class="signarea">
+        <div class="sign-col">
+          <div class="sc-role">// Party A · 甲方（委托方）</div>
+          <div class="sc-name">杭州云栖科技有限公司</div>
+          <div class="sign-line"><span class="sl-k">授权代表（签字）</span><span class="sl-v"></span></div>
+          <div class="sign-line"><span class="sl-k">签署日期</span><span class="sl-v"></span></div>
+          <div class="seal-box">（加盖单位公章）</div>
+        </div>
+        <div class="sign-col">
+          <div class="sc-role">// Party B · 乙方（服务方）</div>
+          <div class="sc-name">Mxx Design Studio</div>
+          <div class="sign-line"><span class="sl-k">授权代表（签字）</span><span class="sl-v"></span></div>
+          <div class="sign-line"><span class="sl-k">签署日期</span><span class="sl-v"></span></div>
+          <div class="seal-box">（加盖单位公章）</div>
+        </div>
+      </section>
+
+      <!-- ===== FOOTER ===== -->
+      <div class="page-foot">
+        <span>服务订单 <b>SV-2026-08-0067</b></span>
+        <span class="pf-mid">Mxx Design Studio · 保密文件</span>
+        <span>第 <b>1</b> 页 / 共 <b>1</b> 页</span>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="no-print">
+    <button class="btn" onclick="window.print()">打印预览 / 存为 PDF</button>
+  </div>
+
+</body>
+</html>

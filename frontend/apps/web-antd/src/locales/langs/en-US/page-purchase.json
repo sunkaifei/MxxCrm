@@ -1,0 +1,121 @@
+{
+  "purchase": {
+    "title": "Purchase Management",
+    "supplier": {
+      "title": "Supplier Management",
+      "button": {
+        "create": "Add Supplier",
+        "edit": "Edit Supplier",
+        "delete": "Delete Supplier"
+      }
+    },
+    "po": {
+      "title": "Purchase Order",
+      "status": {
+        "draft": "Draft",
+        "pending_audit": "Pending Audit",
+        "audited": "Audited",
+        "ordered": "Ordered",
+        "in_transit": "In Transit",
+        "partial_received": "Partial Received",
+        "received": "Received",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "rejected": "Rejected"
+      },
+      "column": {
+        "purchaseNo": "PO No.",
+        "supplierId": "Supplier ID",
+        "amount": "Amount"
+      },
+      "form": {
+        "purchaseNo": "PO No.",
+        "supplierId": "Supplier ID",
+        "amount": "Amount",
+        "brand": "Brand"
+      },
+      "action": {
+        "submitAudit": "Submit Audit",
+        "auditPass": "Approve",
+        "reject": "Reject",
+        "close": "Close"
+      },
+      "message": {
+        "auditSuccess": "Audit approved",
+        "closeSuccess": "Closed successfully",
+        "rejectSuccess": "Rejected successfully"
+      },
+      "item": {
+        "title": "Purchase Items",
+        "addItem": "Add Item",
+        "delete": "Delete",
+        "empty": "No items yet. Click the button above to add.",
+        "column": {
+          "productName": "Product Name",
+          "sku": "SKU",
+          "quantity": "Qty",
+          "unitPrice": "Unit Price",
+          "discount": "Discount(%)",
+          "taxRate": "Tax Rate(%)",
+          "subtotal": "Subtotal",
+          "action": "Action"
+        },
+        "placeholder": {
+          "productName": "Product Name",
+          "sku": "SKU",
+          "quantity": "Qty",
+          "unitPrice": "Unit Price",
+          "discount": "Discount",
+          "taxRate": "Tax Rate"
+        }
+      },
+      "button": {
+        "create": "Add PO",
+        "edit": "Edit PO",
+        "delete": "Delete PO",
+        "confirm": "Confirm PO",
+        "receive": "Receive"
+      }
+    },
+    "item": {
+      "title": "Purchase Items"
+    },
+    "requisition": {
+      "title": "Purchase Requisition",
+      "button": {
+        "create": "Add Requisition",
+        "edit": "Edit Requisition",
+        "delete": "Delete Requisition",
+        "approve": "Approve",
+        "convert": "Convert to PO"
+      }
+    },
+    "receipt": {
+      "title": "Purchase Receipt",
+      "button": {
+        "create": "Add Receipt",
+        "delete": "Delete Receipt",
+        "inbound": "Create Inbound"
+      }
+    },
+    "return": {
+      "title": "Purchase Return",
+      "button": {
+        "create": "Add Return",
+        "edit": "Edit Return",
+        "delete": "Delete Return"
+      }
+    },
+    "stockPlan": {
+      "title": "Stock Preparation Plan",
+      "button": {
+        "create": "Add Plan",
+        "edit": "Edit Plan",
+        "delete": "Delete Plan"
+      }
+    },
+    "report": {
+      "title": "Purchase Report"
+    }
+  }
+}

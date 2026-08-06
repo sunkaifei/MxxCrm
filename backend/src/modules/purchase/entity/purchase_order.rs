@@ -34,6 +34,19 @@ pub struct Model {
     pub updated_by: Option<i64>,
     pub deleted: Option<i32>,
     pub update_time: Option<DateTime>,
+    pub pr_id: Option<i64>,
+    pub pr_no: Option<String>,
+    pub department_id: Option<i64>,
+    pub buyer_id: Option<i64>,
+    pub total_quantity: Option<Decimal>,
+    pub tax_total: Option<Decimal>,
+    pub discount_amount: Option<Decimal>,
+    pub freight_amount: Option<Decimal>,
+    pub delivery_address: Option<String>,
+    pub delivery_terms: Option<String>,
+    pub payment_terms: Option<String>,
+    pub audit_by: Option<i64>,
+    pub audit_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

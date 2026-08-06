@@ -35,3 +35,8 @@ pub mod mail_log_service;
 pub mod mail_service;
 pub mod data_scope_service;
 pub mod scheduler_service;
+pub mod typst_world;
+pub mod pdf_compiler_service;
+pub mod pdf_generator_service;
+pub mod pdf_template_service;
+pub mod html_to_typst;

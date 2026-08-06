@@ -18,7 +18,7 @@ use crate::core::web::entity::common::QueryUrl;
 use crate::core::kit::global::AppState;
 use crate::core::web::tags::cms_tags::CmsTagData;
 use crate::modules::articles::entity::category;
-use crate::modules::articles::model::article::QueryPageRequest;
+use crate::modules::articles::model::article::{ArticleListVO, QueryPageRequest};
 use crate::modules::articles::model::category::CategoryModel;
 use crate::modules::articles::service::article_service;
 use crate::modules::product::model::product::ProductListQuery;
@@ -170,6 +170,20 @@ pub async fn category_page(
             .filter(|c| c.parent_id == Some(category_id))
             .collect();
 
+        // 查询该栏目下的文章（含子栏目）
+        let query_data = QueryPageRequest {
+            title: None,
+            page_num: Some(1),
+            page_size: Some(10),
+            category_id: Option::from(category_id),
+            website_id: Option::from(site_id),
+            status: Some(1),
+        };
+        let article_items: Vec<ArticleListVO> = match article_service::get_by_page(db, query_data).await {
+            Ok(p) => p.items,
+            Err(_) => vec![],
+        };
+
         let ctx = context!(
             site => &site,
             site_name => site_name,
@@ -179,6 +193,8 @@ pub async fn category_page(
             category_description => category_description,
             breadcrumbs => &breadcrumbs,
             children => &sub_categories,
+            sub_categories => &sub_categories,
+            category_articles => &article_items,
             categories => &nav_categories,
             site_id => site_id,
             canonical_url => build_canonical_url(&site, &format!("/category/{}", category.short_url.clone().unwrap_or_default())),
@@ -193,7 +209,7 @@ pub async fn category_page(
             page_size: Some(10),
             category_id: Option::from(category_id),
             website_id: Option::from(site_id),
-            status: Some(2),
+            status: Some(1),
         };
         let article_page = article_service::get_by_page(db, query_data).await?;
 
@@ -205,7 +221,7 @@ pub async fn category_page(
             category_name => category_name,
             category_description => category_description,
             breadcrumbs => &breadcrumbs,
-            list => &article_page.items,
+            articles => &article_page.items,
             total => &article_page.total,
             page => &1,
             categories => &nav_categories,

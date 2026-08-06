@@ -47,6 +47,10 @@ pub struct Model {
     pub remark: Option<String>,
     pub owner_user_id: Option<i64>,
     pub dept_id: Option<i64>,
+    /// PDF文件访问URL
+    pub pdf_file_url: Option<String>,
+    /// PDF模板ID
+    pub pdf_template_id: Option<i64>,
     pub create_by: Option<String>,
     pub create_time: Option<DateTime>,
     pub update_by: Option<String>,

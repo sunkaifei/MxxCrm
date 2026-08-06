@@ -1,0 +1,295 @@
+{
+  "crm": {
+    "title": "客户",
+    "lead": {
+      "title": "线索管理",
+      "button": {
+        "create": "新增线索",
+        "edit": "编辑线索",
+        "delete": "删除线索",
+        "convert": "转为客户",
+        "assign": "分配线索",
+        "info": "查看详情"
+      },
+      "guide": {
+        "title": "线索管理说明",
+        "brief": "线索是销售漏斗的入口，多渠道录入后经跟进转化为客户；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "线索来源",
+            "desc": "支持表单提交、Excel 导入、手工录入等多种方式，自动标记来源渠道。"
+          },
+          {
+            "title": "分配跟进",
+            "desc": "线索分配给销售人员后进入跟进中状态，记录电话/拜访/邮件等跟进。"
+          },
+          {
+            "title": "状态流转",
+            "desc": "未分配 → 已分配 → 跟进中 → 已转换/已废弃，超时未跟进自动回收。"
+          },
+          {
+            "title": "转换客户",
+            "desc": "达标线索可转换为客户，自动带出联系方式与跟进历史。"
+          },
+          {
+            "title": "公海回收",
+            "desc": "超时未跟进的线索自动回收到公海，其他销售可重新认领。"
+          }
+        ]
+      }
+    },
+    "customer": {
+      "title": "客户管理",
+      "button": {
+        "create": "新增客户",
+        "edit": "编辑客户",
+        "delete": "删除客户",
+        "assign": "分配客户",
+        "view": "查看客户",
+        "followup": "客户跟进"
+      },
+      "tab": {
+        "all": "全部客户",
+        "my": "我的客户",
+        "subordinate": "下属客户",
+        "todayFollow": "今日跟进客户"
+      }
+    },
+    "customerFollowup": {
+      "title": "客户跟进管理"
+    },
+    "customerPool": {
+      "title": "公海客户",
+      "button": {
+        "return": "退回公海",
+        "claim": "认领"
+      },
+      "guide": {
+        "title": "公海客户说明",
+        "brief": "公海存放超时未跟进或未成交的客户，可被重新认领或分配；展开查看完整规则。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "回收规则",
+            "desc": "超时未跟进（默认30天）或超时未成交的客户自动回收到公海。"
+          },
+          {
+            "title": "认领机制",
+            "desc": "销售人员可主动从公海认领客户，认领后进入个人名下。"
+          },
+          {
+            "title": "分配机制",
+            "desc": "管理员可将公海客户重新分配给指定销售人员。"
+          },
+          {
+            "title": "保护期",
+            "desc": "认领后有保护期（默认15天），保护期内不会被回收。"
+          },
+          {
+            "title": "策略配置",
+            "desc": "可按客户等级配置不同的回收周期与保护期长度。"
+          }
+        ]
+      }
+    },
+    "contact": {
+      "title": "联系人管理",
+      "button": {
+        "create": "新增联系人",
+        "edit": "编辑联系人",
+        "delete": "删除联系人",
+        "view": "查看联系人",
+        "unbind": "解绑/离职"
+      }
+    },
+    "opportunity": {
+      "title": "商机管理",
+      "button": {
+        "create": "新增商机",
+        "edit": "编辑商机",
+        "delete": "删除商机",
+        "view": "查看商机"
+      },
+      "guide": {
+        "title": "商机管理说明",
+        "brief": "商机是销售 pipeline 的核心，从线索转换或直接创建，推进阶段直至成交；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "创建商机",
+            "desc": "从线索转换或直接创建，关联客户与联系人，填写预计金额与成交概率。"
+          },
+          {
+            "title": "阶段推进",
+            "desc": "初步接触 → 需求确认 → 方案报价 → 商务谈判 → 成交/失败，每阶段记录跟进。"
+          },
+          {
+            "title": "关联实体",
+            "desc": "可关联客户、联系人、报价单、竞争对手，形成完整销售档案。"
+          },
+          {
+            "title": "成交转化",
+            "desc": "商机成交后可一键生成合同，自动回填金额与客户信息。"
+          },
+          {
+            "title": "提成联动",
+            "desc": "成交合同回款后触发提成规则，商机金额作为提成计算基数。"
+          }
+        ]
+      }
+    },
+    "contract": {
+      "title": "合同管理",
+      "detailTitle": "{moduleName}详情",
+      "tab": {
+        "basic": "基本信息",
+        "paymentPlan": "回款计划"
+      },
+      "status": {
+        "current": "当前状态",
+        "lockedTip": "🔒 审批流程中，信息不可修改",
+        "draft": "草稿",
+        "draftDesc": "已创建，待提交审批",
+        "pending": "待审批",
+        "pendingDesc": "已提交，等待审批人处理",
+        "approving": "审批中",
+        "approvingDesc": "正在多级审批流转中",
+        "executing": "执行中",
+        "executingDesc": "审批通过，合同生效执行中",
+        "completed": "已完成",
+        "completedDesc": "合同全部履行完毕",
+        "terminated": "已终止",
+        "terminatedDesc": "合同被终止作废",
+        "rejected": "已驳回",
+        "rejectedDesc": "审批被驳回，可修改后重新提交"
+      },
+      "paymentPlan": {
+        "title": "回款计划",
+        "description": "请添加合同的回款计划，用于智能提醒到期、逾期情况",
+        "howToAutoGenerate": "如何自动生成？",
+        "howToAutoGenerateTip": "系统会根据回款计划自动计算应收账款，并在到期前提醒相关人员。支持按签订、开票、结算、发货等节点触发。",
+        "generateMethod": "生成方式",
+        "overdueRate": "设定逾期利率",
+        "periodName": "期次名称",
+        "paymentType": "款项类型",
+        "plannedAmount": "计划金额",
+        "percent": "金额占比",
+        "plannedDate": "计划回款日期",
+        "remark": "备注",
+        "addRow": "添加行",
+        "delete": "删除",
+        "planTotal": "计划总额",
+        "contractTotal": "合同总额",
+        "remaining": "剩余",
+        "amountMatched": "✓ 金额匹配",
+        "exceedAmount": "⚠ 超出合同金额",
+        "distributeRemaining": "平均分配剩余金额",
+        "noRemaining": "没有剩余可分配的金额",
+        "addRowFirst": "请先添加至少一行回款计划",
+        "distributed": "已平均分配剩余金额",
+        "noPlans": "暂无回款计划",
+        "amountMismatchTitle": "金额不匹配",
+        "amountMismatchContent": "回款计划总额与合同总金额相差 {diff}，是否继续保存？",
+        "continueSave": "继续保存",
+        "goBackEdit": "返回修改",
+        "planRequired": "分期收款模式下请至少添加一条回款计划",
+        "periodNameRequired": "第{n}行：期次名称不能为空",
+        "amountRequired": "第{n}行：计划金额必须大于0",
+        "generateMethods": {
+          "manual": "创建时，手动添加回款计划",
+          "sign": "签订后生成回款计划",
+          "invoice": "开票后生成回款计划",
+          "settle": "结算后生成回款计划",
+          "ship": "发货后生成回款计划"
+        }
+      },
+      "select": {
+        "customerTitle": "选择我的客户",
+        "customerPlaceholder": "点击右侧「选择」按钮挑选客户",
+        "customerSearchPlaceholder": "输入客户名称/编号搜索",
+        "opportunityTitle": "选择关联商机",
+        "opportunityPlaceholder": "点击右侧「选择」按钮挑选商机",
+        "opportunitySearchPlaceholder": "输入商机名称搜索",
+        "selectBtn": "选择",
+        "clearBtn": "清除",
+        "generateNo": "生成编号",
+        "regenerateNo": "重新生成",
+        "noPreview": "点击「生成编号」自动生成",
+        "generateSuccess": "已生成合同编号：{code}",
+        "noRuleWarning": "未找到合同编码规则，请先在系统中配置",
+        "generateFailed": "生成编号失败",
+        "pleaseGenerateFirst": "⚠ 请先生成",
+        "generateTip": "根据编码规则自动生成唯一合同编号，保存前必须先生成",
+        "selectCustomer": "请选择客户",
+        "noData": "暂无数据",
+        "loadFailed": "加载失败"
+      },
+      "button": {
+        "create": "新增合同",
+        "edit": "编辑合同",
+        "delete": "删除合同",
+        "submit": "提交审批",
+        "view": "查看合同",
+        "viewApproval": "查看审批",
+        "createOrder": "创建订单"
+      },
+      "guide": {
+        "title": "合同管理说明",
+        "brief": "合同是商机成交后的正式协议，关联客户与回款计划，触发提成计算；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "创建合同",
+            "desc": "从商机成交后创建，关联客户、商机，填写合同金额、签订日期、付款方式。"
+          },
+          {
+            "title": "审批流程",
+            "desc": "提交合同后走多级审批，审批中信息锁定不可修改。"
+          },
+          {
+            "title": "状态流转",
+            "desc": "草稿 → 待审批 → 审批中 → 执行中 → 完成；可被驳回修改重提，或终止。"
+          },
+          {
+            "title": "回款计划",
+            "desc": "合同执行后挂载回款计划，按节点到期提醒，回款登记后核销。"
+          },
+          {
+            "title": "提成触发",
+            "desc": "回款完成自动触发提成规则，为销售人员生成提成结果。"
+          }
+        ]
+      }
+    },
+    "leadPool": {
+      "title": "公海线索",
+      "button": {
+        "create": "新增线索",
+        "edit": "编辑",
+        "delete": "删除",
+        "info": "查看"
+      }
+    },
+    "followup": {
+      "title": "跟进记录",
+      "button": {
+        "save": "立即保存",
+        "update": "编辑跟进",
+        "delete": "删除跟进",
+        "info": "查看跟进"
+      }
+    },
+    "visit": {
+      "title": "外勤拜访",
+      "button": {
+        "add": "新增拜访",
+        "export": "导出"
+      }
+    }
+  }
+}

@@ -51,6 +51,18 @@ pub struct InventoryListVO {
     pub reserved_quantity: Option<Decimal>,
     /// 可用数量
     pub available_quantity: Option<Decimal>,
+    /// 在途数量
+    pub in_transit_quantity: Option<Decimal>,
+    /// 冻结数量
+    pub frozen_quantity: Option<Decimal>,
+    /// 加权平均成本
+    pub avg_cost: Option<Decimal>,
+    /// 库存总成本
+    pub total_cost: Option<Decimal>,
+    /// 最后入库时间
+    pub last_inbound_time: Option<String>,
+    /// 最后出库时间
+    pub last_outbound_time: Option<String>,
     /// 最后更新时间
     pub update_time: Option<String>,
 }
@@ -63,6 +75,79 @@ pub struct InventoryListData {
     pub total: i64,
     /// 库存列表
     pub items: Vec<InventoryListVO>,
+}
+
+/// 安全库存设置请求
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SafetyStockRequest {
+    /// 仓库ID
+    pub warehouse_id: i64,
+    /// 产品ID
+    pub product_id: i64,
+    /// 最低库存警戒线
+    pub alert_min_quantity: Option<Decimal>,
+    /// 最高库存警戒线
+    pub alert_max_quantity: Option<Decimal>,
+}
+
+/// 库存预警查询参数
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StockWarningQuery {
+    /// 当前页码
+    #[serde(rename = "page")]
+    pub page_num: u64,
+    /// 每页条数
+    pub page_size: u64,
+    /// 仓库ID（可选）
+    pub warehouse_id: Option<i64>,
+    /// 呆滞天数（仅呆滞预警使用）
+    pub days: Option<i32>,
+}
+
+/// 库存预警列表分页响应
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StockWarningListData {
+    /// 数据总数
+    pub total: u64,
+    /// 预警列表
+    pub items: Vec<StockWarningVO>,
+}
+
+/// 库存预警列表项
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StockWarningVO {
+    /// 库存ID
+    pub id: Option<i64>,
+    /// 产品ID
+    pub product_id: Option<i64>,
+    /// 产品名称
+    pub product_name: Option<String>,
+    /// 产品编码
+    pub product_code: Option<String>,
+    /// 仓库ID
+    pub warehouse_id: Option<i64>,
+    /// 仓库名称
+    pub warehouse_name: Option<String>,
+    /// 库存数量
+    pub quantity: Option<Decimal>,
+    /// 可用数量
+    pub available_quantity: Option<Decimal>,
+    /// 最低库存警戒线
+    pub alert_min_quantity: Option<Decimal>,
+    /// 最高库存警戒线
+    pub alert_max_quantity: Option<Decimal>,
+    /// 预警类型：low_stock/high_stock/stale
+    pub alert_type: Option<String>,
+    /// 最后入库时间
+    pub last_inbound_time: Option<String>,
+    /// 最后出库时间
+    pub last_outbound_time: Option<String>,
+    /// 距今天数（呆滞预警使用，最后出库至今天数）
+    pub obsolete_days: Option<i64>,
 }
 
 /// 库存详情响应项
@@ -93,6 +178,22 @@ pub struct InventoryDetailVO {
     pub reserved_quantity: Option<Decimal>,
     /// 可用数量
     pub available_quantity: Option<Decimal>,
+    /// 在途数量
+    pub in_transit_quantity: Option<Decimal>,
+    /// 冻结数量
+    pub frozen_quantity: Option<Decimal>,
+    /// 加权平均成本
+    pub avg_cost: Option<Decimal>,
+    /// 最后入库成本
+    pub last_in_cost: Option<Decimal>,
+    /// 库存总成本
+    pub total_cost: Option<Decimal>,
+    /// 最后入库时间
+    pub last_inbound_time: Option<String>,
+    /// 最后出库时间
+    pub last_outbound_time: Option<String>,
     /// 最后更新时间
     pub update_time: Option<String>,
+    /// 库存流水记录（最近50条）
+    pub logs: Vec<crate::modules::inventory::entity::stock_log::Model>,
 }

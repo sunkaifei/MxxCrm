@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>报价单 V2 - A4 横向（白纸细线版）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1a1a1a;
+      --ink-soft: #444;
+      --steel: #777;
+      --mist: #aaa;
+      --amber: #b8860b;
+      --paper: #ffffff;
+      --hair: #1a1a1a;
+      --hair-soft: #d8d8d8;
+      --hair-grid: #ececec;
+      --zebra: #fafafa;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+
+    body {
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: #e9e9ec;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 24px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .sheet {
+      width: 297mm;
+      height: 210mm;
+      background: var(--paper);
+      position: relative;
+      padding: 12mm 14mm 10mm;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.18);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(18px);
+      animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* outer hairline frame */
+    .sheet::after {
+      content: "";
+      position: absolute;
+      top: 6mm;
+      right: 6mm;
+      bottom: 6mm;
+      left: 6mm;
+      border: 0.6pt solid var(--hair);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .corner-mark {
+      position: absolute;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px;
+      color: var(--steel);
+      letter-spacing: 0.15em;
+      z-index: 3;
+    }
+
+    .corner-mark.tl { top: 9mm; left: 9mm; }
+    .corner-mark.tr { top: 9mm; right: 9mm; }
+    .corner-mark.bl { bottom: 8.5mm; left: 9mm; }
+    .corner-mark.br { bottom: 8.5mm; right: 9mm; }
+
+    .inner {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 2mm;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 14mm;
+      margin-bottom: 7mm;
+      align-items: flex-end;
+      padding-bottom: 5mm;
+      border-bottom: 1.2pt solid var(--hair);
+    }
+
+    .brand-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8.5px;
+      letter-spacing: 0.28em;
+      color: var(--amber);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .brand-name {
+      font-family: "Noto Serif SC", serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.1;
+      letter-spacing: 0.02em;
+    }
+
+    .brand-meta {
+      font-size: 8.5px;
+      line-height: 1.8;
+      color: var(--ink-soft);
+      margin-top: 5px;
+    }
+
+    .doc-title {
+      text-align: right;
+    }
+
+    .doc-title .en {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--steel);
+      margin-bottom: 3px;
+    }
+
+    .doc-title .zh {
+      font-family: "Noto Serif SC", serif;
+      font-size: 34px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .doc-title .doc-id {
+      margin-top: 7px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8.5px;
+      color: var(--steel);
+      letter-spacing: 0.06em;
+    }
+
+    .doc-title .doc-id strong {
+      color: var(--amber);
+    }
+
+    .info-band {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0;
+      margin-bottom: 7mm;
+      border-top: 0.6pt solid var(--hair);
+      border-bottom: 0.6pt solid var(--hair);
+    }
+
+    .info-block {
+      padding: 4mm 6mm 4mm 0;
+    }
+
+    .info-block + .info-block {
+      padding-left: 6mm;
+      border-left: 0.6pt solid var(--hair-soft);
+    }
+
+    .info-block h3 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 0.4pt dashed var(--hair-soft);
+    }
+
+    .info-block p {
+      font-size: 9px;
+      line-height: 1.85;
+      color: var(--ink-soft);
+    }
+
+    .info-block .label {
+      font-family: "JetBrains Mono", monospace;
+      color: var(--steel);
+      display: inline-block;
+      min-width: 5.5em;
+      font-size: 8px;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9.5px;
+    }
+
+    thead th {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700;
+      font-size: 8.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink);
+      padding: 3mm 4mm;
+      text-align: left;
+      white-space: nowrap;
+      border-top: 1.2pt solid var(--hair);
+      border-bottom: 1.2pt solid var(--hair);
+      background: transparent;
+    }
+
+    thead th.num,
+    thead th.qty,
+    thead th.price,
+    thead th.amt {
+      text-align: right;
+    }
+
+    tbody td {
+      padding: 3.4mm 4mm;
+      border-bottom: 0.4pt solid var(--hair-soft);
+      color: var(--ink-soft);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+
+    /* zebra striping for readability, very light */
+    tbody tr:nth-child(even) td {
+      background: var(--zebra);
+    }
+
+    tbody tr {
+      opacity: 0;
+      transform: translateX(-8px);
+      animation: rowIn 0.45s ease forwards;
+    }
+
+    tbody tr:nth-child(1) { animation-delay: 0.25s; }
+    tbody tr:nth-child(2) { animation-delay: 0.33s; }
+    tbody tr:nth-child(3) { animation-delay: 0.41s; }
+    tbody tr:nth-child(4) { animation-delay: 0.49s; }
+    tbody tr:nth-child(5) { animation-delay: 0.57s; }
+
+    @keyframes rowIn {
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* the product code prefix before each name */
+    .sku {
+      display: inline-block;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--ink);
+      border: 0.6pt solid var(--ink);
+      padding: 1px 5px;
+      border-radius: 1px;
+      margin-right: 7px;
+      vertical-align: 1px;
+      white-space: nowrap;
+    }
+
+    .item-name {
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 2px;
+    }
+
+    .item-desc {
+      font-size: 8.5px;
+      color: var(--steel);
+    }
+
+    td.num,
+    td.qty,
+    td.price,
+    td.amt {
+      text-align: right;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9.5px;
+    }
+
+    td.amt {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    /* bottom rule closes the table body */
+    tbody tr:last-child td {
+      border-bottom: 1.2pt solid var(--hair);
+    }
+
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1.5fr 0.9fr;
+      gap: 10mm;
+      margin-top: 6mm;
+      align-items: stretch;
+    }
+
+    .terms h3 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 4mm;
+      padding-bottom: 3mm;
+      border-bottom: 0.4pt dashed var(--hair-soft);
+    }
+
+    .terms ul {
+      list-style: none;
+      font-size: 8.5px;
+      line-height: 1.95;
+      color: var(--ink-soft);
+    }
+
+    .terms li {
+      position: relative;
+      padding-left: 1.6em;
+    }
+
+    .terms li::before {
+      content: "›";
+      position: absolute;
+      left: 0;
+      color: var(--amber);
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .summary {
+      border: 0.6pt solid var(--hair);
+      padding: 5mm 6mm;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .summary h3 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 4mm;
+      padding-bottom: 3mm;
+      border-bottom: 0.4pt dashed var(--hair-soft);
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9.5px;
+      padding: 2mm 0;
+      color: var(--ink-soft);
+    }
+
+    .summary-row span:last-child {
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .summary-row.total {
+      margin-top: auto;
+      padding-top: 3mm;
+      border-top: 1.2pt solid var(--hair);
+      font-family: "Noto Serif SC", serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .summary-row.total .amount {
+      color: var(--amber);
+      font-size: 18px;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .sign {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12mm;
+      margin-top: 6mm;
+      padding-top: 5mm;
+      border-top: 0.6pt solid var(--hair-soft);
+    }
+
+    .sign-block h4 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 7mm;
+    }
+
+    .sign-line {
+      border-bottom: 0.6pt solid var(--ink);
+      height: 10mm;
+    }
+
+    .sign-date {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px;
+      color: var(--steel);
+      margin-top: 2mm;
+    }
+
+    .no-print {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      border-radius: 2px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .btn:hover {
+      background: var(--amber);
+      transform: translateY(-2px);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: #555;
+      border: 1px solid #999;
+      box-shadow: none;
+    }
+
+    .btn.ghost:hover {
+      background: #eee;
+      color: #000;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+        display: block;
+      }
+      .sheet {
+        margin: 0;
+        box-shadow: none;
+        width: 100%;
+        height: 100%;
+        animation: none;
+        opacity: 1;
+        transform: none;
+      }
+      .no-print {
+        display: none !important;
+      }
+      tbody tr {
+        animation: none;
+        opacity: 1;
+        transform: none;
+      }
+      /* keep zebra very light in print to save toner */
+      tbody tr:nth-child(even) td {
+        background: #fcfcfc;
+      }
+    }
+
+    @media screen and (max-width: 900px) {
+      body { padding: 16px; }
+      .sheet { width: 100%; height: auto; min-height: 210mm; }
+      .bottom-row, .sign { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="corner-mark tl">[ TL ]</div>
+    <div class="corner-mark tr">[ QT-2026-0805-002 ]</div>
+    <div class="corner-mark bl">PAGE 01 / 01</div>
+    <div class="corner-mark br">[ REV.01 ]</div>
+
+    <div class="inner">
+      <header>
+        <div class="brand">
+          <div class="brand-tag">// SUPPLIER</div>
+          <div class="brand-name">Mxx Industrial Co., Ltd.</div>
+          <div class="brand-meta">
+            上海市浦东新区张江高科技园区博云路 2 号 5 号楼<br>
+            T: 021-6666-8888 · E: sales@mxx-industrial.cn<br>
+            统一社会信用代码：91310000MA1FL33XXX · 开户行：工商银行张江支行
+          </div>
+        </div>
+        <div class="doc-title">
+          <div class="en">Quotation / 报价单</div>
+          <div class="zh">产品报价单</div>
+          <div class="doc-id">NO. <strong>QT-2026-0805-002</strong> · ISSUED 2026-08-05</div>
+        </div>
+      </header>
+
+      <section class="info-band">
+        <div class="info-block">
+          <h3>// 客户信息 Client</h3>
+          <p>
+            <span class="label">CUSTOMER</span>上海星辰制造有限公司<br>
+            <span class="label">CONTACT</span>李建国 经理<br>
+            <span class="label">TEL</span>139-1234-5678<br>
+            <span class="label">EMAIL</span>lijg@star-mfg.cn
+          </p>
+        </div>
+        <div class="info-block">
+          <h3>// 项目信息 Project</h3>
+          <p>
+            <span class="label">PROJECT</span>自动化产线配件采购<br>
+            <span class="label">LEAD-TIME</span>15 个工作日<br>
+            <span class="label">CURRENCY</span>CNY 人民币<br>
+            <span class="label">VALID-UNTIL</span>2026-09-05
+          </p>
+        </div>
+        <div class="info-block">
+          <h3>// 商务条款 Terms</h3>
+          <p>
+            <span class="label">PAYMENT</span>月结 30 天<br>
+            <span class="label">INVOICE</span>增值税专用发票 13%<br>
+            <span class="label">DELIVERY</span>含运费，送货上门<br>
+            <span class="label">WARRANTY</span>12 个月质保
+          </p>
+        </div>
+      </section>
+
+      <main>
+        <table>
+          <thead>
+            <tr>
+              <th class="num" style="width:5%">NO.</th>
+              <th style="width:38%">产品名称 / 描述</th>
+              <th style="width:22%">规格参数</th>
+              <th class="qty" style="width:9%">数量</th>
+              <th class="price" style="width:13%">单价(¥)</th>
+              <th class="amt" style="width:13%">金额(¥)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">01</td>
+              <td>
+                <div class="item-name"><span class="sku">PRD-A101</span>伺服减速电机</div>
+                
+              </td>
+              <td>750W · 220V · 减速比 1:10</td>
+              <td class="qty">12 台</td>
+              <td class="price">4,280.00</td>
+              <td class="amt">51,360.00</td>
+            </tr>
+            <tr>
+              <td class="num">02</td>
+              <td>
+                <div class="item-name"><span class="sku">PRD-B204</span>线性导轨滑块</div>
+                <div class="item-desc">滚柱型高负荷直线导轨及配套滑块</div>
+              </td>
+              <td>HGR35 · 长 2000mm · 含 4 滑块</td>
+              <td class="qty">8 套</td>
+              <td class="price">1,860.00</td>
+              <td class="amt">14,880.00</td>
+            </tr>
+            <tr>
+              <td class="num">03</td>
+              <td>
+                <div class="item-name"><span class="sku">PRD-C330</span>PLC 可编程控制器</div>
+                <div class="item-desc">模块化中型 PLC，含 CPU 及 I/O 模块</div>
+              </td>
+              <td>64DI/32DO · 以太网 + RS485</td>
+              <td class="qty">4 台</td>
+              <td class="price">6,500.00</td>
+              <td class="amt">26,000.00</td>
+            </tr>
+            <tr>
+              <td class="num">04</td>
+              <td>
+                <div class="item-name"><span class="sku">PRD-D452</span>光电传感器阵列</div>
+                
+              </td>
+              <td>检测距离 3m · NPN/PNP 双输出</td>
+              <td class="qty">24 只</td>
+              <td class="price">320.00</td>
+              <td class="amt">7,680.00</td>
+            </tr>
+            <tr>
+              <td class="num">05</td>
+              <td>
+                <div class="item-name"><span class="sku">PRD-E588</span>不锈钢控制柜</div>
+                <div class="item-desc">落地式电气控制柜，含散热与布线</div>
+              </td>
+              <td>2000×800×600mm · IP54 防护</td>
+              <td class="qty">3 台</td>
+              <td class="price">5,400.00</td>
+              <td class="amt">16,200.00</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="bottom-row">
+          <div class="terms">
+            <h3>// 备注条款 Terms &amp; Conditions</h3>
+            <ul>
+              <li>报价有效期为 30 天，逾期价格需重新核定。</li>
+              <li>产品编号（SKU）对应唯一物料，下单时请核对。</li>
+              <li>数量 ±5% 属正常交付范围，按实际结算。</li>
+              <li>非标定制件一经投产不予退换，标准件支持 7 天退换。</li>
+              <li>含 13% 增值税，不含安装调试费（可另行报价）。</li>
+            </ul>
+          </div>
+          <div class="summary">
+            <h3>// 金额汇总 Total</h3>
+            <div class="summary-row">
+              <span>小计 Subtotal</span>
+              <span>116,120.00</span>
+            </div>
+            <div class="summary-row">
+              <span>运费 Freight</span>
+              <span>0.00</span>
+            </div>
+            <div class="summary-row">
+              <span>增值税 VAT 13%</span>
+              <span>15,095.60</span>
+            </div>
+            <div class="summary-row total">
+              <span>合计 Grand Total</span>
+              <span class="amount">¥131,215.60</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sign">
+          <div class="sign-block">
+            <h4>// 供方签章 Supplier</h4>
+            <div class="sign-line"></div>
+            <div class="sign-date">DATE: 2026 / ___ / ___</div>
+          </div>
+          <div class="sign-block">
+            <h4>// 客户签章 Client</h4>
+            <div class="sign-line"></div>
+            <div class="sign-date">DATE: 2026 / ___ / ___</div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="no-print">
+    <button class="btn ghost" onclick="window.location.href='quotation-a4-landscape.html'">← V1 暖色版</button>
+    <button class="btn" onclick="window.print()">打印 / 存为 PDF</button>
+  </div>
+</body>
+</html>

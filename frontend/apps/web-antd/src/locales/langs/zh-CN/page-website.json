@@ -1,0 +1,227 @@
+{
+  "website": {
+    "title": "网站",
+    "list": "网站设置",
+    "categoryTitle": "栏目管理",
+    "articleTitle": "文章管理",
+    "articleFieldTitle": "自定义字段",
+    "messageTitle": "留言管理",
+    "navigationTitle": "导航管理",
+    "linksTitle": "友情链接",
+    "templateTitle": "模板管理",
+    "contentModelTitle": "内容模型",
+    "templateVarTitle": "模板变量",
+    "mediaTitle": "媒体库",
+    "bannerTitle": "Banner管理",
+    "blockTitle": "区块管理",
+    "pageTitle": "自定义页面",
+    "orderTitle": "订单管理",
+    "refundTitle": "退款管理",
+    "userTitle": "前台用户",
+    "supplierAudit": "供货商审核",
+    "goodsAudit": "商品审核",
+    "goods": "商品管理",
+    "orderList": "商城订单",
+    "settlement": "结算管理",
+    "promotion": "促销管理",
+    "commissionConfig": "佣金设置",
+    "button": {
+      "create": "新增网站",
+      "edit": "修改网站",
+      "delete": "删除网站",
+      "view": "查看网站"
+    },
+    "template": {
+      "button": {
+        "create": "新增模板",
+        "edit": "编辑模板",
+        "delete": "删除模板",
+        "view": "查看模板",
+        "preview": "预览模板",
+        "apply": "应用到网站"
+      }
+    },
+    "templateData": {
+      "button": {
+        "list": "页面列表",
+        "create": "新增模板数据",
+        "add": "新增页面",
+        "edit": "编辑模板数据",
+        "delete": "删除模板数据",
+        "view": "查看模板数据",
+        "revision": "版本历史"
+      }
+    },
+    "category": {
+      "button": {
+        "create": "新增栏目",
+        "edit": "编辑栏目",
+        "delete": "删除栏目",
+        "view": "查看栏目"
+      }
+    },
+    "article": {
+      "button": {
+        "create": "新增文章",
+        "edit": "编辑文章",
+        "delete": "删除文章",
+        "view": "查看文章",
+        "revision": "版本历史",
+        "revisionRestore": "恢复版本"
+      }
+    },
+    "message": {
+      "button": {
+        "delete": "删除留言",
+        "view": "查看留言",
+        "convertLead": "转线索",
+        "markProcessed": "标记已处理",
+        "markIgnored": "标记已忽略"
+      }
+    },
+    "links": {
+      "button": {
+        "create": "新增链接",
+        "edit": "编辑链接",
+        "delete": "删除链接",
+        "view": "查看链接"
+      }
+    },
+    "order": {
+      "button": {
+        "view": "查看订单",
+        "edit": "编辑订单",
+        "ship": "订单发货",
+        "delete": "删除订单",
+        "deliveryList": "发货单列表",
+        "deliveryView": "查看发货单"
+      }
+    },
+    "refund": {
+      "button": {
+        "view": "查看退款",
+        "handle": "审核退款",
+        "markRefunded": "标记已退款",
+        "delete": "删除退款"
+      }
+    },
+    "user": {
+      "button": {
+        "view": "查看用户",
+        "create": "新增用户",
+        "edit": "编辑用户",
+        "resetPassword": "重置密码",
+        "status": "启用/停用",
+        "delete": "删除用户"
+      }
+    },
+    "notificationTitle": "通知管理",
+    "notification": {
+      "button": {
+        "view": "查看通知",
+        "edit": "编辑通知",
+        "toggle": "启用/禁用"
+      }
+    },
+    "navigation": {
+      "button": {
+        "add": "新增导航",
+        "edit": "编辑导航",
+        "delete": "删除导航",
+        "view": "查看导航"
+      }
+    },
+    "banner": {
+      "button": {
+        "view": "查看Banner",
+        "add": "新增Banner",
+        "edit": "编辑Banner",
+        "delete": "删除Banner"
+      }
+    },
+    "block": {
+      "button": {
+        "view": "查看区块",
+        "add": "新增区块",
+        "edit": "编辑区块",
+        "delete": "删除区块"
+      }
+    },
+    "page": {
+      "button": {
+        "view": "查看页面",
+        "add": "新增页面",
+        "edit": "编辑页面",
+        "delete": "删除页面"
+      }
+    },
+    "media": {
+      "button": {
+        "view": "查看媒体",
+        "add": "上传媒体",
+        "edit": "编辑媒体",
+        "delete": "删除媒体",
+        "category": "分类列表",
+        "categoryAdd": "新增分类",
+        "categoryEdit": "编辑分类",
+        "categoryDelete": "删除分类",
+        "categoryView": "查看分类"
+      }
+    },
+    "contentModel": {
+      "button": {
+        "view": "查看模型",
+        "add": "新增模型",
+        "edit": "编辑模型",
+        "delete": "删除模型",
+        "field": "字段列表",
+        "fieldAdd": "新增字段",
+        "fieldEdit": "编辑字段",
+        "fieldDelete": "删除字段",
+        "fieldView": "查看字段"
+      }
+    },
+    "templateVar": {
+      "button": {
+        "view": "查看变量",
+        "add": "新增变量",
+        "edit": "编辑变量",
+        "delete": "删除变量"
+      }
+    },
+    "articleField": {
+      "button": {
+        "view": "查看字段",
+        "add": "新增字段",
+        "edit": "编辑字段",
+        "delete": "删除字段"
+      }
+    }
+  },
+  "shop": {
+    "title": "商城",
+    "category": {
+      "title": "分类管理",
+      "button": {
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      }
+    },
+    "supplierAudit": "供货商审核",
+    "goodsAudit": "商品审核",
+    "goods": {
+      "title": "商品管理",
+      "button": {
+        "create": "新增商品",
+        "edit": "编辑商品",
+        "delete": "删除商品"
+      }
+    },
+    "shopList": "店铺管理",
+    "orderList": "订单管理",
+    "settlement": "结算管理",
+    "promotion": "促销管理",
+    "commissionConfig": "佣金设置"
+  }
+}

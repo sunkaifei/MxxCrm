@@ -1,0 +1,2127 @@
+{
+  "finance": {
+    "title": "财务",
+    "common": {
+      "action": "操作",
+      "status": "状态",
+      "remark": "备注",
+      "createTime": "创建时间",
+      "updateTime": "更新时间",
+      "year": "年",
+      "month": "月",
+      "yearMonth": "年月",
+      "employee": "员工",
+      "employeeId": "员工ID",
+      "employeeName": "员工姓名",
+      "department": "部门",
+      "query": "查询",
+      "reset": "重置",
+      "refresh": "刷新",
+      "confirm": "确认",
+      "cancel": "取消",
+      "save": "保存",
+      "edit": "编辑",
+      "delete": "删除",
+      "view": "查看",
+      "create": "新增",
+      "submit": "提交",
+      "back": "返回列表",
+      "total": "共 {count} 条",
+      "all": "全部",
+      "enabled": "启用",
+      "disabled": "禁用",
+      "yes": "是",
+      "no": "否",
+      "success": "操作成功",
+      "failed": "操作失败",
+      "loadFailed": "加载失败",
+      "saveSuccess": "保存成功",
+      "saveFailed": "保存失败",
+      "deleteConfirm": "确认删除该记录吗？",
+      "deleteSuccess": "删除成功",
+      "deleteFailed": "删除失败",
+      "noData": "暂无数据",
+      "viewDetail": "查看详情",
+      "export": "导出",
+      "exportSalary": "导出工资单",
+      "exportTax": "导出个税",
+      "filter": "筛选",
+      "employeePlaceholder": "请输入员工姓名",
+      "statusPlaceholder": "请选择状态",
+      "yearPlaceholder": "请选择年份",
+      "monthPlaceholder": "请选择月份",
+      "seq": "序号"
+    },
+    "commissionRule": {
+      "title": "提成规则",
+      "manageTitle": "提成方案管理",
+      "defaultTag": "默认",
+      "button": {
+        "create": "新增规则",
+        "edit": "编辑规则",
+        "delete": "删除规则",
+        "toggle": "启用禁用",
+        "createPlan": "新增提成方案",
+        "setDefault": "设为默认",
+        "cancelDefault": "取消默认"
+      },
+      "column": {
+        "ruleName": "方案名称",
+        "ruleType": "方案类型",
+        "applyScope": "适用范围",
+        "triggerCondition": "触发条件",
+        "effectiveDate": "生效日期",
+        "expiryDate": "失效日期",
+        "priority": "优先级",
+        "calcBaseField": "提成基数",
+        "tierMode": "阶梯模式",
+        "isDefault": "是否默认"
+      },
+      "ruleType": {
+        "personal": "个人业绩",
+        "team": "团队分成",
+        "manager": "部门经理",
+        "director": "总监",
+        "leader": "团队长"
+      },
+      "triggerCondition": {
+        "contractSign": "合同签订",
+        "paymentReceived": "回款到账",
+        "orderComplete": "订单完成",
+        "invoiceIssued": "发票开具"
+      },
+      "calcBaseField": {
+        "paymentAmount": "回款额",
+        "contractAmount": "合同金额",
+        "profit": "毛利",
+        "netProfit": "净利润"
+      },
+      "tierMode": {
+        "single": "单档命中",
+        "progressive": "累进阶梯",
+        "excessIncrease": "超额递增"
+      },
+      "applyScope": {
+        "department": "指定部门",
+        "company": "全公司",
+        "post": "指定岗位",
+        "employee": "指定人员",
+        "designatedDept": "指定部门",
+        "designatedPost": "指定岗位",
+        "designatedMember": "指定人员"
+      },
+      "calcBaseType": {
+        "personalMonthly": "个人月度业绩",
+        "teamMonthly": "团队月度业绩",
+        "singleContract": "单笔合同",
+        "singlePayment": "单笔回款"
+      },
+      "roleType": {
+        "signer": "签单人",
+        "participant": "参与人",
+        "techSupport": "技术支持",
+        "manager": "经理",
+        "other": "其他"
+      },
+      "memberType": {
+        "salesman": "销售",
+        "directManager": "直属上级",
+        "deptDirector": "部门总监",
+        "other": "其他"
+      },
+      "distributionType": {
+        "fixedRate": "固定比例"
+      },
+      "drawer": {
+        "titleCreate": "新增提成方案",
+        "titleEdit": "编辑提成方案",
+        "baseInfo": "基础信息",
+        "tierConfig": "金额阶梯配置",
+        "ruleName": "方案名称",
+        "ruleNamePlaceholder": "请输入方案名称",
+        "ruleType": "方案类型",
+        "ruleTypePlaceholder": "请选择方案类型",
+        "applyScope": "适用范围",
+        "applyScopePlaceholder": "请选择适用范围",
+        "department": "适用部门",
+        "departmentPlaceholder": "请选择部门",
+        "post": "适用岗位",
+        "postIdPlaceholder": "请输入岗位ID",
+        "triggerCondition": "触发条件",
+        "triggerConditionPlaceholder": "请选择触发条件",
+        "calcBaseType": "计算基准",
+        "calcBaseField": "提成基数",
+        "calcBaseTypePlaceholder": "请选择计算基准",
+        "calcBaseTypeRequired": "请选择计算基准",
+        "triggerConditionRequired": "请选择触发条件",
+        "tierMode": "阶梯模式",
+        "priority": "优先级",
+        "priorityPlaceholder": "请输入优先级",
+        "effectiveDate": "生效日期",
+        "effectiveDatePlaceholder": "请选择生效日期",
+        "expiryDate": "失效日期",
+        "expiryDatePlaceholder": "请选择失效日期",
+        "isDefault": "是否默认",
+        "description": "描述说明",
+        "descriptionPlaceholder": "请输入描述说明",
+        "tierMinAmount": "最低金额",
+        "tierMaxAmount": "最高金额",
+        "tierRate": "提成比例",
+        "tierSort": "排序",
+        "addTier": "添加阶梯",
+        "tierEmpty": "请至少添加一条阶梯配置",
+        "memberConfig": "成员配置",
+        "addMember": "添加成员",
+        "memberType": "成员类型",
+        "memberName": "成员名称",
+        "distributionType": "分配方式",
+        "fixedRate": "固定比例",
+        "roleName": "角色名称",
+        "defaultRatio": "默认比例",
+        "required": "必填",
+        "ruleNameRequired": "请输入方案名称",
+        "ruleTypeRequired": "请选择方案类型",
+        "updateSuccess": "更新成功",
+        "createSuccess": "创建成功",
+        "commissionCategory": "提成性质",
+        "beneficiaryRole": "受益岗位",
+        "calcMethod": "计算方式",
+        "filterConditions": "筛选条件（可选）",
+        "productLine": "产品线",
+        "region": "区域",
+        "customerType": "客户类型",
+        "effectiveSettings": "生效设置",
+        "poolRequired": "请选择关联资金池"
+      },
+      "message": {
+        "unknown": "未知",
+        "enabled": "已启用",
+        "disabled": "已禁用",
+        "setDefaultSuccess": "已设为默认方案",
+        "cancelDefaultTitle": "确认取消默认",
+        "cancelDefaultContent": "确定要取消「{name}」的默认方案状态吗？",
+        "cancelDefaultSuccess": "已取消默认方案",
+        "deleteTitle": "确认删除",
+        "deleteContent": "确定要删除提成方案「{name}」吗？"
+      },
+      "guide": {
+        "title": "提成规则配置说明",
+        "brief": "配置销售提成的计算规则，支持阶梯累进与多维度差异化；展开查看完整配置流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "规则维度",
+            "desc": "可按产品线、区域、客户类型配置差异化提成比例，实现精细化管理。"
+          },
+          {
+            "title": "计算方式",
+            "desc": "支持固定比例、阶梯累进（按金额/数量分档）、固定金额三种计算方式。"
+          },
+          {
+            "title": "成员绑定",
+            "desc": "选择规则适用的销售人员，一个人员可绑定多条规则（不同维度不冲突）。"
+          },
+          {
+            "title": "触发时机",
+            "desc": "合同回款完成时自动触发提成计算，按规则生成提成结果记录。"
+          },
+          {
+            "title": "团队分润",
+            "desc": "上级管理者可按配置比例从下级提成中分润，在团队提成页面查看汇总。"
+          }
+        ]
+      },
+      "category": {
+        "personal": "个人提成",
+        "management": "多级管理分润",
+        "teamBonus": "团队激励奖金",
+        "poolFund": "团建资金池",
+        "reallocation": "总提成再分配",
+        "profit": "利润提成"
+      },
+      "beneficiary": {
+        "sales": "销售本人",
+        "supervisor": "直属主管",
+        "manager": "部门经理",
+        "director": "总监",
+        "gm": "总经理",
+        "custom": "自定义岗位"
+      },
+      "calcMethod": {
+        "rate": "按比例",
+        "fixed": "固定金额(达标后)",
+        "tiered": "阶梯累进",
+        "progressive": "超额递增"
+      },
+      "field": {
+        "bonusTarget": "达标门槛",
+        "bonusFixedAmount": "固定奖金金额",
+        "commissionCap": "单笔封顶",
+        "commissionFloor": "月度保底",
+        "customerCategory": "客户分类",
+        "deferMonths": "递延发放月数",
+        "pool": "关联资金池",
+        "calcBaseField": "提成基数",
+        "customerCategoryAll": "全部",
+        "customerCategoryNew": "仅新客户",
+        "customerCategoryOld": "仅老客户"
+      },
+      "limit": {
+        "title": "限制规则",
+        "capPlaceholder": "不封顶请留空",
+        "floorPlaceholder": "不保底请留空",
+        "deferPlaceholder": "0=随当月发"
+      },
+      "preview": {
+        "title": "方案预览",
+        "personalDesc": "销售员从自己签单回款中按比例获得提成",
+        "managementDesc": "管理者从下属团队回款按层级系数分润",
+        "teamBonusDesc": "团队月回款达标后一次性发放固定奖金",
+        "poolFundDesc": "按比例提取团建基金，不进个人工资",
+        "reallocationDesc": "系统归集总提成，管理者手动分配给团队成员",
+        "profitDesc": "按合同毛利而非回款额计算提成",
+        "payment": "回款额",
+        "teamPayment": "团队回款",
+        "rate": "比例",
+        "amount": "金额",
+        "target": "门槛",
+        "bonus": "奖金",
+        "cost": "成本",
+        "profit": "毛利",
+        "commission": "提成",
+        "share": "分润",
+        "totalCollected": "归集总额",
+        "deposit": "存入",
+        "poolBalance": "资金池余额",
+        "pool": "资金池",
+        "expense": "支出",
+        "teamBuilding": "团建活动",
+        "dinnerActivity": "聚餐/活动",
+        "pending": "待分配",
+        "toSalary": "进工资",
+        "notToSalary": "不进工资",
+        "personalCommission": "个人提成",
+        "notAffected": "不受影响",
+        "notReached": "未达标 ¥0",
+        "byPerformance": "按业绩",
+        "sales": "销售员",
+        "member": "成员"
+      }
+    },
+    "salary": {
+      "title": "工资核算",
+      "detail": {
+        "salaryInfo": "工资信息",
+        "commissionDetail": "提成明细",
+        "adjustPerformance": "手动调整绩效/扣款",
+        "performanceBonus": "绩效奖金",
+        "deductionAmount": "扣款金额",
+        "approveButton": "审核通过",
+        "payButton": "发放工资",
+        "column": {
+          "contractName": "合同名称",
+          "contractAmount": "合同金额",
+          "paymentAmount": "回款金额",
+          "commissionRate": "提成比例",
+          "commissionAmount": "提成金额",
+          "ruleName": "适用规则"
+        }
+      },
+      "button": {
+        "calculate": "执行核算",
+        "adjust": "手动调整",
+        "approve": "工资审核",
+        "pay": "工资发放",
+        "batchApprove": "批量审核",
+        "batchPay": "批量发放",
+        "config": "底薪配置",
+        "calcLog": "核算日志",
+        "pendingConfirm": "待处理申诉",
+        "confirm": "确认工资",
+        "applyRecalc": "申请重新核算",
+        "submitApproval": "提交审批",
+        "syncApproval": "同步审批"
+      },
+      "column": {
+        "employeeName": "员工姓名",
+        "department": "部门",
+        "yearMonth": "年月",
+        "baseSalary": "底薪",
+        "positionAllowance": "岗位津贴",
+        "commissionAmount": "提成金额",
+        "teamCommission": "团队提成",
+        "teamCommissionAmount": "团队分润",
+        "bonusAmount": "团队激励奖金",
+        "allocatedCommission": "手动分配提成",
+        "deferredCommission": "递延提成",
+        "performanceBonus": "绩效奖金",
+        "deductionAmount": "扣款",
+        "socialInsurancePersonal": "个人社保",
+        "housingFundPersonal": "个人公积金",
+        "taxAmount": "个税",
+        "totalSalary": "应发工资",
+        "netSalary": "实发工资",
+        "status": "状态",
+        "employeeConfirmed": "员工确认"
+      },
+      "status": {
+        "pending": "待审核",
+        "approved": "已审核",
+        "paid": "已发放"
+      },
+      "confirmStatus": {
+        "unconfirmed": "未确认",
+        "confirmed": "已确认",
+        "recalcRequested": "申请重新核算",
+        "appealing": "申诉中"
+      },
+      "action": {
+        "detail": "详情",
+        "approve": "审核",
+        "adjust": "调整",
+        "pay": "发放",
+        "handleAppeal": "处理申诉"
+      },
+      "summary": {
+        "title": "{year}年{month}月工资汇总",
+        "baseSalaryTotal": "底薪合计",
+        "commissionTotal": "提成合计",
+        "performanceTotal": "绩效合计",
+        "deductionTotal": "扣款合计",
+        "taxTotal": "个税合计",
+        "netSalaryTotal": "实发合计",
+        "recordCount": "记录数",
+        "baseSalaryGrandTotal": "底薪总额",
+        "commissionGrandTotal": "提成总额",
+        "performanceGrandTotal": "绩效总额",
+        "deductionGrandTotal": "扣款总额",
+        "totalSalaryGrandTotal": "应发总额",
+        "socialInsuranceTotal": "个人社保合计",
+        "refresh": "刷新汇总"
+      },
+      "tooltip": {
+        "calculate": "手动核算指定月份的工资（系统也会在每月1号02:00自动核算上月）",
+        "refreshSummary": "刷新工资汇总数据",
+        "refreshList": "刷新工资列表"
+      },
+      "label": {
+        "employee": "员工：",
+        "yearMonth": "年月：",
+        "totalSalary": "应发工资："
+      },
+      "format": {
+        "year": "{year}年",
+        "month": "{month}月",
+        "monthShort": "{month}月",
+        "yi": "¥{value}亿",
+        "wan": "¥{value}万"
+      },
+      "export": {
+        "xlsx": "Excel 格式（.xlsx）",
+        "csv": "CSV 格式（.csv）"
+      },
+      "modal": {
+        "calcTitle": "执行工资核算",
+        "calcContent": "系统会在每月1号02:00自动核算上月工资。也可手动执行核算。",
+        "calcContentManual": "手动核算将立即生成指定月份的工资记录，已有记录将被覆盖。",
+        "calcYear": "核算年份",
+        "calcYearShort": "年",
+        "calcMonth": "核算月份",
+        "calcMonthShort": "月",
+        "calcSuccess": "核算完成，生成 {count} 条工资记录",
+        "adjustTitle": "手动调整",
+        "approveTitle": "工资审核",
+        "payTitle": "工资发放",
+        "confirmTitle": "确认工资",
+        "confirmContent": "确认本月工资无误？",
+        "confirmAlertMessage": "请仔细核对工资明细，确认后将无法再申请重新核算。",
+        "recalcTitle": "申请重新核算",
+        "recalcReason": "申请理由",
+        "recalcReasonPlaceholder": "请填写申请重新核算的理由",
+        "recalcReasonPlaceholderLong": "请详细说明申请重新核算的理由（必填，最多500字）",
+        "recalcReasonRequired": "请填写申请理由",
+        "recalcAlertMessage": "提交后财务人员将审核您的申请，审核期间工资暂缓发放。",
+        "handleAppealTitle": "处理申诉",
+        "handleAction": "处理操作",
+        "approveRecalc": "同意重新核算",
+        "rejectRecalc": "驳回申请",
+        "handleRemark": "处理备注",
+        "approveRecalcTitle": "同意重新核算",
+        "approveRecalcContent": "同意后将触发该员工工资重新核算，原记录被覆盖，确认同意？",
+        "approveRecalcRemark": "财务同意重新核算",
+        "approveRecalcSuccess": "已同意重新核算，工资将重新计算",
+        "rejectAppealTitle": "驳回申请",
+        "rejectAppealContent": "驳回后员工工资按原核算结果发放，确认驳回？",
+        "rejectAppealRemark": "财务驳回重新核算申请",
+        "rejectAppealSuccess": "已驳回重新核算申请",
+        "handleFailed": "处理失败",
+        "submitApprovalTitle": "提交工资审批",
+        "submitApprovalContent": "将 {year}年{month}月 所有待审核工资记录提交到审批流，由审批人逐条审核。确认提交？"
+      },
+      "message": {
+        "loadFailed": "加载失败",
+        "calcFailed": "核算失败",
+        "approveFailed": "审核失败",
+        "approveSuccess": "审核成功",
+        "payFailed": "发放失败",
+        "paySuccess": "发放成功",
+        "confirmFailed": "确认失败",
+        "confirmSuccess": "确认成功",
+        "noSelectedRows": "请选择要操作的记录",
+        "batchApproveSelectRequired": "请选择要审核的工资记录",
+        "batchApproveSuccess": "批量审核成功",
+        "batchApproveFailed": "批量审核失败",
+        "batchPaySelectRequired": "请选择要发放的工资记录",
+        "batchPaySuccess": "批量发放成功",
+        "batchPayFailed": "批量发放失败",
+        "recalcRequested": "已提交重新核算申请",
+        "recalcSubmitted": "已提交重新核算申请，请等待财务审核",
+        "submitFailed": "提交失败",
+        "appealHandled": "申诉已处理",
+        "adjustSuccess": "调整成功",
+        "adjustFailed": "调整失败"
+      },
+      "config": {
+        "title": "底薪配置",
+        "info": "配置员工每月底薪、岗位津贴与绩效基数，留空月份表示全年适用。",
+        "addButton": "新增配置",
+        "editTitle": "编辑底薪配置",
+        "createTitle": "新增底薪配置",
+        "fullYear": "全年",
+        "auto": "自动",
+        "label": {
+          "employeeId": "员工ID",
+          "year": "年份",
+          "month": "月份（可选）",
+          "baseSalary": "底薪",
+          "positionAllowance": "岗位津贴",
+          "performanceBase": "绩效基数",
+          "performanceCoefficient": "绩效系数"
+        },
+        "placeholder": {
+          "employeeId": "请输入员工ID",
+          "month": "不选表示全年适用",
+          "performanceCoefficient": "留空表示自动"
+        },
+        "column": {
+          "employeeId": "员工ID",
+          "year": "年份",
+          "month": "月份",
+          "baseSalary": "底薪",
+          "positionAllowance": "岗位津贴",
+          "performanceBase": "绩效基数",
+          "performanceCoefficient": "绩效系数",
+          "action": "操作"
+        },
+        "message": {
+          "employeeIdRequired": "请输入员工ID",
+          "baseSalaryNegative": "底薪不能为负数",
+          "deleteTitle": "删除底薪配置",
+          "deleteContent": "确认删除该底薪配置？删除后不可恢复。"
+        }
+      },
+      "log": {
+        "title": "核算日志",
+        "info": "记录每次工资核算的执行情况，包含手动和定时触发。",
+        "empty": "暂无核算日志",
+        "trigger": {
+          "manual": "手动",
+          "auto": "定时"
+        },
+        "result": {
+          "success": "成功",
+          "failed": "失败"
+        },
+        "column": {
+          "yearMonth": "年月",
+          "triggerType": "触发方式",
+          "result": "结果",
+          "generatedCount": "生成记录数",
+          "elapsed": "耗时",
+          "operator": "操作人",
+          "errorMessage": "错误信息",
+          "executeTime": "执行时间"
+        }
+      },
+      "pending": {
+        "title": "待处理申诉",
+        "empty": "暂无待处理申诉",
+        "approveRecalc": "同意重算",
+        "reject": "驳回",
+        "column": {
+          "employee": "员工",
+          "yearMonth": "年月",
+          "reason": "申请理由",
+          "createTime": "提交时间",
+          "action": "操作"
+        }
+      },
+      "guide": {
+        "title": "工资核算使用说明",
+        "brief": "按月核算全员工资，联动考勤、社保、个税、提成、调薪等多项数据；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "前置配置",
+            "desc": "先维护工资项、社保政策、个税规则、考勤记录、提成规则等基础数据。"
+          },
+          {
+            "title": "触发核算",
+            "desc": "按月触发核算引擎，系统自动汇总基本工资、绩效、提成、考勤扣款等各项数据。"
+          },
+          {
+            "title": "计算逻辑",
+            "desc": "应发 = 基本工资 + 绩效 + 提成 + 加班；实发 = 应发 - 社保个人 - 公积金个人 - 个税 - 其他扣减。"
+          },
+          {
+            "title": "员工确认",
+            "desc": "核算完成后生成工资条，员工可查看并确认，有疑问可发起申诉。"
+          },
+          {
+            "title": "银行代发",
+            "desc": "确认无误后导出银行代发文件，可推送工资条通知到员工。"
+          }
+        ]
+      }
+    },
+    "salaryAnalysis": {
+      "title": "工资趋势分析",
+      "button": {
+        "refresh": "刷新"
+      },
+      "filter": {
+        "yearStart": "起始年",
+        "yearEnd": "截止年",
+        "monthStart": "起始月",
+        "monthEnd": "截止月",
+        "monthPlaceholder": "选择月份",
+        "department": "部门",
+        "departmentPlaceholder": "输入部门名称",
+        "employee": "员工姓名",
+        "employeePlaceholder": "输入员工姓名"
+      },
+      "summary": {
+        "totalGross": "应发合计",
+        "totalNet": "实发合计",
+        "totalCommission": "提成合计",
+        "totalTax": "个税合计",
+        "totalHeadcount": "发薪人头数",
+        "avgMonthlyNet": "月均实发"
+      },
+      "metric": {
+        "totalGross": "应发工资",
+        "totalNet": "实发工资",
+        "totalBase": "基本工资",
+        "totalCommission": "提成金额",
+        "totalPerformance": "绩效奖金",
+        "totalTeamCommission": "团队提成",
+        "totalTax": "个税金额",
+        "avgNet": "人均实发"
+      },
+      "chart": {
+        "monthlyTitle": "月度工资趋势",
+        "metricPlaceholder": "选择展示科目",
+        "deptTitle": "部门工资对比",
+        "empTitle": "员工工资排名",
+        "empty": "请至少选择一个工资科目"
+      },
+      "table": {
+        "deptTitle": "部门工资明细",
+        "empTitle": "员工工资排名明细"
+      },
+      "column": {
+        "rank": "排名",
+        "employeeName": "员工姓名",
+        "department": "部门",
+        "headcount": "人头数",
+        "months": "参与月数",
+        "totalBase": "基本工资合计",
+        "totalCommission": "提成合计",
+        "totalGross": "应发合计",
+        "totalNet": "实发合计",
+        "avgNet": "人均实发",
+        "avgMonthlyNet": "月均实发"
+      },
+      "message": {
+        "loadFailed": "加载失败",
+        "empty": "暂无数据"
+      },
+      "unit": {
+        "month": "月",
+        "person": "人"
+      }
+    },
+    "payment": {
+      "title": "采购付款",
+      "button": {
+        "apply": "申请付款",
+        "approve": "付款审批",
+        "approveAction": "审批",
+        "confirm": "确认付款",
+        "cancel": "取消付款"
+      },
+      "column": {
+        "paymentNo": "付款编号",
+        "purchaseOrderNo": "采购订单号",
+        "supplierName": "供应商",
+        "paymentType": "付款类型",
+        "paymentAmount": "付款金额",
+        "paymentMethod": "付款方式",
+        "status": "状态",
+        "applyTime": "申请时间"
+      },
+      "paymentType": {
+        "prepay": "预付款",
+        "final": "尾款",
+        "full": "全款"
+      },
+      "paymentMethod": {
+        "bankTransfer": "银行转账",
+        "cash": "现金",
+        "check": "支票",
+        "other": "其他"
+      },
+      "status": {
+        "pending": "待审批",
+        "approved": "已审批",
+        "paid": "已付款",
+        "canceled": "已取消"
+      },
+      "drawer": {
+        "titleApply": "申请付款",
+        "purchaseOrderNo": "关联采购单",
+        "purchaseOrderPlaceholder": "请输入采购订单号",
+        "supplierName": "供应商名称",
+        "paymentType": "付款类型",
+        "paymentAmount": "付款金额",
+        "paymentMethod": "付款方式",
+        "bankAccount": "付款账户",
+        "remark": "备注",
+        "applySuccess": "申请成功",
+        "applyFailed": "申请失败",
+        "purchaseOrderRequired": "请输入关联采购单号",
+        "paymentTypePlaceholder": "请选择付款类型",
+        "paymentTypeRequired": "请选择付款类型",
+        "paymentAmountPlaceholder": "请输入付款金额",
+        "paymentAmountRequired": "请输入付款金额",
+        "paymentMethodPlaceholder": "请选择付款方式",
+        "paymentMethodRequired": "请选择付款方式",
+        "bankAccountPlaceholder": "请输入付款账户",
+        "remarkPlaceholder": "请输入备注"
+      },
+      "modal": {
+        "approveResult": "审批结果",
+        "approvePass": "通过",
+        "approveReject": "驳回",
+        "approveRemarkPlaceholder": "请输入审批备注",
+        "paymentDate": "付款日期",
+        "paymentDatePlaceholder": "请选择付款日期",
+        "cancelReason": "取消原因",
+        "cancelReasonPlaceholder": "请输入取消原因"
+      },
+      "message": {
+        "approveSuccess": "审批完成",
+        "approveFailed": "审批失败",
+        "paymentDateRequired": "请选择付款日期",
+        "confirmSuccess": "确认付款成功",
+        "confirmFailed": "确认付款失败",
+        "cancelReasonRequired": "请输入取消原因",
+        "cancelSuccess": "取消成功",
+        "cancelFailed": "取消失败"
+      }
+    },
+    "expense": {
+      "title": "费用申请",
+      "button": {
+        "create": "新建费用申请",
+        "submit": "提交审批",
+        "approve": "审批",
+        "reject": "驳回",
+        "payment": "打款",
+        "add": "新建",
+        "update": "修改",
+        "delete": "删除",
+        "export": "导出"
+      },
+      "tab": {
+        "all": "全部费用申请",
+        "my": "我的费用申请",
+        "subordinate": "下属费用申请"
+      },
+      "search": {
+        "keywordsPlaceholder": "费用编号/标题",
+        "startDate": "开始日期",
+        "endDate": "结束日期"
+      },
+      "column": {
+        "expenseNo": "费用编号",
+        "expenseTitle": "费用标题",
+        "expenseType": "费用类型",
+        "amount": "金额",
+        "applicant": "申请人",
+        "status": "状态",
+        "approvalStatus": "审批状态",
+        "applyTime": "申请时间",
+        "applyDate": "申请日期"
+      },
+      "status": {
+        "draft": "草稿",
+        "pending": "待审批",
+        "approving": "审批中",
+        "approved": "已通过",
+        "rejected": "已驳回",
+        "paid": "已打款"
+      },
+      "drawer": {
+        "titleCreate": "新建费用申请",
+        "titleEdit": "修改费用申请",
+        "titleDetail": "费用申请详情",
+        "baseInfo": "基本信息",
+        "expenseDetail": "费用明细",
+        "attachment": "附件",
+        "expenseTitle": "费用标题",
+        "expenseTitlePlaceholder": "请输入费用标题",
+        "expenseType": "费用类型",
+        "amount": "金额",
+        "occurTime": "发生时间",
+        "remark": "备注",
+        "improveBaseInfo": "请完善基本信息",
+        "improveRequired": "请完善必填项",
+        "updateSuccess": "更新成功",
+        "createSuccess": "创建成功",
+        "totalItems": "共 {count} 项，合计：",
+        "applyDate": "申请日期",
+        "applyDatePlaceholder": "请选择申请日期",
+        "expenseTypePlaceholder": "请选择费用类型",
+        "itemDate": "日期",
+        "itemDatePlaceholder": "选择日期",
+        "category": "类别",
+        "categoryPlaceholder": "类别",
+        "description": "说明",
+        "descriptionPlaceholder": "说明",
+        "amountPlaceholder": "金额",
+        "addItem": "+ 添加明细",
+        "upload": "上传",
+        "clickUpload": "点击上传",
+        "attachmentTip": "上传费用申请相关附件（支持多文件）",
+        "noAttachment": "暂无附件",
+        "detailTotal": "明细合计：",
+        "readonlyMode": "只读模式",
+        "editMode": "编辑模式",
+        "readonly": "只读",
+        "editable": "可编辑",
+        "relatedBusiness": "关联业务（可选）",
+        "customer": "客户",
+        "customerHash": "客户 #{id}",
+        "customerSelect": "选择客户",
+        "opportunity": "商机",
+        "opportunityHash": "商机 #{id}",
+        "opportunitySelect": "选择商机",
+        "order": "订单",
+        "orderHash": "订单 #{id}",
+        "orderSelect": "选择订单",
+        "clear": "清除",
+        "remarkPlaceholder": "备注信息",
+        "rowAmountRequired": "第 {index} 行金额必须大于0"
+      },
+      "message": {
+        "selectToDelete": "请选择要删除的费用申请",
+        "batchDelete": "批量删除",
+        "unknown": "未知",
+        "submitted": "已提交审批",
+        "submitFailed": "提交审批失败",
+        "approved": "审批通过",
+        "rejected": "已驳回",
+        "paid": "打款成功"
+      },
+      "modal": {
+        "submitTitle": "提交审批",
+        "submitContent": "确定要提交该费用申请进入审批流程吗？",
+        "approveTitle": "审批通过",
+        "approveContent": "确定要审批通过该费用申请吗？",
+        "rejectTitle": "审批驳回",
+        "rejectContent": "确定要驳回该费用申请吗？",
+        "rejectReasonPlaceholder": "请输入驳回原因",
+        "confirmReject": "确认驳回",
+        "paymentTitle": "费用打款",
+        "paymentAmount": "打款金额：",
+        "paymentDate": "打款日期：",
+        "paymentAccount": "收款账号：",
+        "paymentAccountPlaceholder": "收款账号（可选）",
+        "transactionNo": "交易号：",
+        "transactionNoPlaceholder": "第三方交易号（可选）",
+        "remarkPlaceholder": "备注（可选）",
+        "confirmPayment": "确认打款"
+      },
+      "guide": {
+        "title": "报销管理说明",
+        "brief": "员工提交费用报销，经多级审批后由财务付款；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "提交报销",
+            "desc": "填写费用类型、金额、发生日期，上传票据附件，可添加多个明细项。"
+          },
+          {
+            "title": "审批流程",
+            "desc": "按费用类型和金额自动匹配审批流，支持多级审批与会签。"
+          },
+          {
+            "title": "财务审核",
+            "desc": "审批通过后财务复核票据真实性与金额准确性，可驳回补充。"
+          },
+          {
+            "title": "付款登记",
+            "desc": "审核通过后登记付款信息（银行流水号、付款日期），完成报销。"
+          },
+          {
+            "title": "状态跟踪",
+            "desc": "状态流转：草稿 → 待审批 → 审批中 → 已通过 → 已付款 / 已驳回。"
+          }
+        ]
+      }
+    },
+    "expenseType": {
+      "title": "费用类型",
+      "manageTitle": "费用类型管理",
+      "column": {
+        "typeName": "类型名称",
+        "typeCode": "类型编码",
+        "sort": "排序",
+        "status": "状态",
+        "isSystem": "系统内置"
+      },
+      "status": {
+        "enabled": "启用",
+        "disabled": "禁用"
+      },
+      "tag": {
+        "system": "系统"
+      },
+      "drawer": {
+        "titleCreate": "新增费用类型",
+        "titleEdit": "编辑费用类型",
+        "typeName": "类型名称",
+        "typeNamePlaceholder": "类型名称",
+        "typeNameRequired": "请输入类型名称",
+        "typeCodeRequired": "请输入类型编码",
+        "sortPlaceholder": "排序值（越小越靠前）",
+        "deleteConfirm": "确定要删除费用类型「{name}」吗？"
+      },
+      "message": {
+        "updateSuccess": "更新成功",
+        "createSuccess": "创建成功",
+        "systemBuiltinNoDelete": "系统内置类型不可删除"
+      }
+    },
+    "tax": {
+      "title": "个税管理",
+      "button": {
+        "list": "查看",
+        "manage": "管理",
+        "create": "新增税率",
+        "edit": "编辑税率",
+        "delete": "删除",
+        "createEmpConfig": "新增员工个税配置",
+        "editEmpConfig": "编辑员工个税配置"
+      },
+      "tab": {
+        "rateTable": "税率表管理",
+        "empConfig": "员工个税配置"
+      },
+      "taxType": {
+        "cumulative": "综合所得累计",
+        "annualBonus": "年终奖月度"
+      },
+      "column": {
+        "level": "级数",
+        "taxType": "税率类型",
+        "minAmount": "最低应纳税额",
+        "maxAmount": "最高应纳税额",
+        "above": "以上",
+        "rate": "税率(%)",
+        "quickDeduction": "速算扣除数",
+        "employee": "员工",
+        "year": "年度",
+        "taxThreshold": "起征点",
+        "childrenEducation": "子女教育",
+        "continuingEducation": "继续教育",
+        "housingLoan": "住房贷款利息",
+        "housingRent": "住房租金",
+        "supportingElderly": "赡养老人",
+        "infantCare": "3岁以下婴幼儿照护",
+        "seriousIllness": "大病医疗",
+        "otherDeduction": "其他扣除",
+        "foreignerAllowance": "外籍员工津贴",
+        "cumulativeIncome": "累计收入",
+        "cumulativeTaxPaid": "累计已预扣"
+      },
+      "drawer": {
+        "titleRateCreate": "新增税率",
+        "titleRateEdit": "编辑税率",
+        "titleEmpConfigCreate": "新增员工个税配置",
+        "titleEmpConfigEdit": "编辑员工个税配置",
+        "level": "级数",
+        "taxType": "税率类型",
+        "minAmount": "最低应纳税额",
+        "maxAmount": "最高应纳税额",
+        "rate": "税率",
+        "quickDeduction": "速算扣除数",
+        "effectiveDate": "生效日期",
+        "expiryDate": "失效日期",
+        "employee": "员工",
+        "year": "年度",
+        "taxThreshold": "起征点",
+        "specialDeduction": "专项附加扣除",
+        "childrenEducation": "子女教育",
+        "continuingEducation": "继续教育",
+        "housingLoan": "住房贷款利息",
+        "housingRent": "住房租金",
+        "supportingElderly": "赡养老人",
+        "infantCare": "3岁以下婴幼儿照护",
+        "seriousIllness": "大病医疗",
+        "otherDeduction": "其他扣除",
+        "foreignerAllowance": "外籍员工津补贴",
+        "levelPlaceholder": "请输入级数",
+        "maxAmountHintLabel": "最高应纳税额（留空=以上）",
+        "maxAmountPlaceholder": "留空表示以上",
+        "employeeIdPlaceholder": "请输入员工ID",
+        "taxThresholdUnitLabel": "起征点（元/月）",
+        "specialDeductionUnitLabel": "专项附加扣除（元/月）",
+        "yearPlaceholder": "全部年份"
+      },
+      "message": {
+        "loadFailed": "加载失败",
+        "saveSuccess": "保存成功",
+        "deleteSuccess": "删除成功",
+        "deleteConfirm": "确认删除该税率吗？",
+        "levelRequired": "请填写级数",
+        "rateRange": "税率必须在 0-100 之间",
+        "employeeIdRequired": "请填写员工ID"
+      },
+      "guide": {
+        "title": "个税管理说明",
+        "brief": "维护累进税率表与员工专项扣除，工资核算时自动计算累计预扣个税；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "税率配置",
+            "desc": "维护七级累进税率表，设置起征点与速算扣除数。"
+          },
+          {
+            "title": "专项扣除",
+            "desc": "配置员工专项附加扣除：子女教育、继续教育、大病医疗、住房贷款、住房租金、赡养老人。"
+          },
+          {
+            "title": "累计预扣",
+            "desc": "按年累计计算应纳税额，每月递进预扣，年底多退少补。"
+          },
+          {
+            "title": "员工配置",
+            "desc": "为员工绑定个税方案，设置专项扣除明细与免税额度。"
+          },
+          {
+            "title": "工资联动",
+            "desc": "工资核算时自动计算当期应扣税额，生成个税明细表。"
+          }
+        ]
+      }
+    },
+    "insurance": {
+      "title": "社保公积金",
+      "button": {
+        "list": "查看",
+        "manage": "管理",
+        "createPolicy": "新增城市政策",
+        "createPolicyShort": "新增政策",
+        "editPolicy": "编辑城市政策",
+        "createEmpConfig": "新增员工社保配置",
+        "editEmpConfig": "编辑员工社保配置"
+      },
+      "tab": {
+        "policy": "城市政策库",
+        "empConfig": "员工社保配置"
+      },
+      "column": {
+        "cityCode": "城市编码",
+        "cityName": "城市名称",
+        "year": "年度",
+        "baseLower": "基数下限",
+        "baseUpper": "基数上限",
+        "pensionCompany": "养老(单位)",
+        "pensionPersonal": "养老(个人)",
+        "medicalCompany": "医疗(单位)",
+        "medicalPersonal": "医疗(个人)",
+        "unemploymentCompany": "失业(单位)",
+        "unemploymentPersonal": "失业(个人)",
+        "workinjuryCompany": "工伤(单位)",
+        "maternityCompany": "生育(单位)",
+        "housingFundCompany": "公积金(单位)",
+        "housingFundPersonal": "公积金(个人)",
+        "employee": "员工",
+        "baseAmount": "缴费基数",
+        "housingFundBase": "公积金基数",
+        "status": "参保状态",
+        "pension": "养老",
+        "medical": "医疗",
+        "unemployment": "失业",
+        "workinjury": "工伤",
+        "maternity": "生育",
+        "housingFund": "公积金"
+      },
+      "placeholder": {
+        "allYears": "全部年度"
+      },
+      "status": {
+        "notParticipated": "未参保",
+        "participated": "已参保"
+      },
+      "drawer": {
+        "titlePolicyCreate": "新增城市政策",
+        "titlePolicyEdit": "编辑城市政策",
+        "titleEmpConfigCreate": "新增员工社保配置",
+        "titleEmpConfigEdit": "编辑员工社保配置",
+        "cityCode": "参保城市",
+        "cityName": "城市名称",
+        "year": "年度",
+        "baseLower": "基数下限",
+        "baseUpper": "基数上限",
+        "pensionCompanyRate": "养老单位比例",
+        "pensionPersonalRate": "养老个人比例",
+        "medicalCompanyRate": "医疗单位比例",
+        "medicalPersonalRate": "医疗个人比例",
+        "unemploymentCompanyRate": "失业单位比例",
+        "unemploymentPersonalRate": "失业个人比例",
+        "workinjuryCompanyRate": "工伤单位比例",
+        "maternityCompanyRate": "生育单位比例",
+        "housingFundCompanyRate": "公积金单位比例",
+        "housingFundPersonalRate": "公积金个人比例",
+        "employee": "员工",
+        "baseAmount": "缴费基数",
+        "housingFundBase": "公积金基数",
+        "participatePension": "参保养老",
+        "participateMedical": "参保医疗",
+        "participateUnemployment": "参保失业",
+        "participateWorkinjury": "参保工伤",
+        "participateMaternity": "参保生育",
+        "participateHousingFund": "缴公积金",
+        "effectiveDate": "生效日期",
+        "expiryDate": "停保日期",
+        "pensionInsurance": "养老保险",
+        "medicalInsurance": "医疗保险",
+        "unemploymentInsurance": "失业保险",
+        "workinjuryInsurance": "工伤保险",
+        "maternityInsurance": "生育保险",
+        "housingFundLabel": "住房公积金",
+        "cityCodePlaceholder": "如 BJ、SH",
+        "cityNamePlaceholder": "如 北京",
+        "employeeIdPlaceholder": "请输入员工ID",
+        "rateTip": "各项费率（%，如 16 表示 16%）",
+        "participateTitle": "参保险种"
+      },
+      "message": {
+        "loadPolicyFailed": "加载城市政策失败",
+        "loadEmpConfigFailed": "加载员工社保配置失败",
+        "cityCodeRequired": "请填写城市编码",
+        "cityNameRequired": "请填写城市名称",
+        "employeeIdRequired": "请填写员工ID",
+        "deleteFailed": "删除失败",
+        "deletePolicyConfirm": "确认删除该城市政策？"
+      },
+      "guide": {
+        "title": "社保公积金管理说明",
+        "brief": "按地区配置社保公积金基数与比例，员工参保后工资核算自动扣减；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "政策配置",
+            "desc": "按地区设置社保（养老/医疗/失业/工伤/生育）和公积金的基数范围与缴费比例。"
+          },
+          {
+            "title": "员工参保",
+            "desc": "为员工配置参保方案，选择参保地区、缴费基数、起缴月份。"
+          },
+          {
+            "title": "生效规则",
+            "desc": "按月起缴，基数调整每年一次（通常7月），变更次月生效。"
+          },
+          {
+            "title": "工资联动",
+            "desc": "工资核算时自动计算并扣减个人缴纳部分（养老/医疗/失业/公积金）。"
+          },
+          {
+            "title": "企业部分",
+            "desc": "企业缴纳部分单独统计，不计入员工实发工资但计入用工成本。"
+          }
+        ]
+      }
+    },
+    "payslip": {
+      "title": "工资条下发",
+      "button": {
+        "list": "查看",
+        "manage": "管理",
+        "generate": "生成工资条",
+        "send": "发送工资条",
+        "batchSend": "批量发送",
+        "withdraw": "撤回",
+        "sendAction": "发送"
+      },
+      "statistic": {
+        "total": "总数",
+        "sent": "已发送",
+        "read": "已读",
+        "unread": "未读"
+      },
+      "column": {
+        "employeeId": "员工ID",
+        "employeeName": "员工",
+        "yearMonth": "年月",
+        "totalSalary": "应发工资",
+        "socialInsurancePersonal": "个人社保",
+        "taxAmount": "个税",
+        "netSalary": "实发工资",
+        "sendStatus": "发送状态",
+        "sendChannels": "发送渠道",
+        "sendTime": "发送时间",
+        "readTime": "查阅时间"
+      },
+      "sendStatus": {
+        "unsent": "未发送",
+        "sent": "已发送",
+        "read": "已读",
+        "confirmed": "已确认",
+        "withdrawn": "已撤回"
+      },
+      "channel": {
+        "inbox": "站内信",
+        "email": "邮件",
+        "sms": "短信",
+        "wechat": "企业微信",
+        "dingtalk": "钉钉",
+        "feishu": "飞书"
+      },
+      "detail": {
+        "title": "工资条详情",
+        "itemsTitle": "工资明细项",
+        "itemColumn": "项目",
+        "amountColumn": "金额",
+        "noDetailData": "无明细数据",
+        "baseSalary": "底薪",
+        "positionAllowance": "岗位津贴",
+        "commission": "提成",
+        "performanceBonus": "绩效奖金",
+        "teamCommission": "团队提成",
+        "bonusAmount": "团队激励奖金",
+        "allocatedCommission": "手动分配提成",
+        "deferredCommission": "递延提成",
+        "deduction": "扣款",
+        "socialInsurancePersonal": "个人社保",
+        "housingFundPersonal": "个人公积金",
+        "tax": "个税",
+        "totalSalary": "应发工资",
+        "netSalary": "实发工资"
+      },
+      "modal": {
+        "generateTitle": "生成工资条",
+        "sendTitle": "发送工资条",
+        "batchSendTitle": "批量发送工资条",
+        "selectChannel": "选择发送渠道",
+        "selectEmployee": "选择员工范围",
+        "selectChannelTip": "请选择发送通道（可多选），将通知到对应渠道：",
+        "sendSuccess": "发送成功",
+        "withdrawConfirm": "确认撤回已发送未查阅的工资条吗？",
+        "withdrawSuccess": "撤回成功"
+      },
+      "message": {
+        "generateSuccess": "工资条生成成功",
+        "generateFailed": "生成失败",
+        "sendFailed": "发送失败",
+        "batchSendSuccess": "批量发送成功",
+        "selectFirst": "请先选择要发送的工资条",
+        "selectChannelRequired": "请至少选择一个发送通道",
+        "noData": "暂无工资条数据"
+      },
+      "guide": {
+        "title": "工资条下发使用说明",
+        "brief": "按月生成工资条并通过多渠道下发员工，支持查阅追踪与撤回；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "生成工资条",
+            "desc": "选择年月生成工资条，系统从工资核算结果拉取明细并组装成员工可读的工资单。"
+          },
+          {
+            "title": "选择渠道",
+            "desc": "支持站内信、邮件、短信、企业微信、钉钉、飞书等多通道下发，可多选。"
+          },
+          {
+            "title": "单发/批量",
+            "desc": "可对单条工资条发送，也可勾选多条批量发送；发送后状态变为已发送。"
+          },
+          {
+            "title": "查阅追踪",
+            "desc": "员工查阅后状态更新为已读，后台可统计已发送/已读/未读数量。"
+          },
+          {
+            "title": "撤回处理",
+            "desc": "对已发送但未查阅的工资条可撤回，撤回后员工端不再可见。"
+          }
+        ]
+      }
+    },
+    "bankExport": {
+      "title": "银行代发",
+      "button": {
+        "list": "查看",
+        "manage": "管理",
+        "export": "导出文件",
+        "download": "下载",
+        "invalidate": "作废",
+        "generate": "生成代发文件",
+        "downloadFile": "下载文件"
+      },
+      "bankType": {
+        "icbc": "工商银行",
+        "ccb": "建设银行",
+        "cmb": "招商银行",
+        "boc": "中国银行",
+        "abc": "农业银行"
+      },
+      "fileFormat": {
+        "xls": "Excel",
+        "txt": "TXT",
+        "csv": "CSV"
+      },
+      "status": {
+        "generating": "生成中",
+        "success": "成功",
+        "failed": "失败",
+        "invalidated": "已作废"
+      },
+      "column": {
+        "yearMonth": "年月",
+        "bankType": "银行类型",
+        "fileName": "文件名",
+        "fileFormat": "格式",
+        "totalCount": "总条数",
+        "totalAmount": "总金额",
+        "status": "状态",
+        "createTime": "生成时间",
+        "operator": "操作人"
+      },
+      "modal": {
+        "title": "银行代发文件",
+        "exportTitle": "导出银行代发文件",
+        "yearMonth": "年月",
+        "bankType": "银行类型",
+        "bankTypePlaceholder": "请选择银行类型",
+        "fileFormat": "文件格式",
+        "employeeScope": "员工范围",
+        "allEmployee": "全员",
+        "exportSuccess": "导出成功",
+        "invalidateConfirm": "确认作废该文件吗？",
+        "generateTitle": "生成银行代发文件",
+        "resultTitle": "代发文件生成结果",
+        "previewTitle": "文件内容预览",
+        "bankShort": "银行"
+      },
+      "message": {
+        "loadFailed": "加载失败",
+        "generateFailed": "生成失败",
+        "bankTypeRequired": "请选择银行类型",
+        "noData": "暂无银行代发文件记录"
+      },
+      "guide": {
+        "title": "银行代发使用说明",
+        "brief": "按月按银行生成代发工资文件（TXT/Excel），用于提交银行发放；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "前置条件",
+            "desc": "需先完成工资核算并审核通过，确保员工银行账号信息已维护完整。"
+          },
+          {
+            "title": "选择参数",
+            "desc": "选择年月、银行类型（工行/建行/招行/中行/农行）与文件格式（TXT 或 Excel）。"
+          },
+          {
+            "title": "生成文件",
+            "desc": "系统按银行规范汇总当月实发工资并生成代发文件，状态为生成中 → 成功/失败。"
+          },
+          {
+            "title": "预览下载",
+            "desc": "TXT 格式可预览文件内容并下载，Excel 格式直接下载二进制文件。"
+          },
+          {
+            "title": "提交银行",
+            "desc": "下载后代发文件提交至对应银行网银系统完成工资发放。"
+          }
+        ]
+      }
+    },
+    "attendance": {
+      "title": "考勤扣款",
+      "button": {
+        "list": "查看",
+        "manage": "管理",
+        "create": "新增考勤记录",
+        "edit": "编辑考勤记录",
+        "import": "批量导入",
+        "confirmImport": "确认导入",
+        "calc": "计算扣款"
+      },
+      "column": {
+        "employeeId": "员工ID",
+        "employeeName": "员工姓名",
+        "yearMonth": "年月",
+        "workDays": "应出勤天数",
+        "actualWorkDays": "实际出勤",
+        "lateCount": "迟到(次)",
+        "earlyLeaveCount": "早退(次)",
+        "absentCount": "缺卡(次)",
+        "personalLeaveDays": "事假(天)",
+        "sickLeaveDays": "病假(天)",
+        "annualLeaveDays": "年假(天)",
+        "overtimeWeekday": "工作日加班(h)",
+        "overtimeWeekend": "休息日加班(h)",
+        "overtimeHoliday": "法定假日加班(h)",
+        "deductionAmount": "扣款金额"
+      },
+      "drawer": {
+        "titleCreate": "新增考勤记录",
+        "titleEdit": "编辑考勤记录",
+        "employeeId": "员工ID",
+        "employeeIdPlaceholder": "请填写员工ID",
+        "year": "年",
+        "month": "月",
+        "workDays": "应出勤天数",
+        "actualWorkDays": "实际出勤天数",
+        "lateCount": "迟到次数",
+        "earlyLeaveCount": "早退次数",
+        "absentCount": "缺卡次数",
+        "personalLeaveDays": "事假天数",
+        "sickLeaveDays": "病假天数",
+        "annualLeaveDays": "年假天数",
+        "overtimeWeekday": "工作日加班",
+        "overtimeWeekend": "休息日加班",
+        "overtimeHoliday": "法定假日加班",
+        "overtimeSection": "加班时长（小时）"
+      },
+      "import": {
+        "title": "批量导入考勤",
+        "selectFile": "选择Excel文件",
+        "selectedFile": "已选择文件：{name}，请点击\"确认导入\"提交",
+        "uploadFirst": "请先上传Excel文件",
+        "importSuccess": "导入成功",
+        "tip": "请上传Excel文件，包含字段：员工ID、年份、月份、应出勤天数、实际出勤天数等。",
+        "selected": "已选择：{name}"
+      },
+      "search": {
+        "yearLabel": "年份",
+        "yearPlaceholder": "年份",
+        "monthLabel": "月份",
+        "allMonths": "全部月份"
+      },
+      "calc": {
+        "title": "考勤扣款明细 - 员工{employeeId}",
+        "calculating": "计算中...",
+        "lateDeduction": "迟到扣款",
+        "earlyLeaveDeduction": "早退扣款",
+        "absentDeduction": "旷工扣款",
+        "leaveDeduction": "请假扣款",
+        "overtimePay": "加班费",
+        "fullAttendanceBonus": "全勤奖",
+        "netAdjustment": "净调整额"
+      },
+      "message": {
+        "monthOption": "{n}月",
+        "calcFailed": "计算扣款失败",
+        "importSuccess": "批量导入成功",
+        "importFailed": "批量导入失败"
+      },
+      "guide": {
+        "title": "考勤扣款使用说明",
+        "brief": "按月记录员工考勤数据并计算扣款/加班费，联动工资核算；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "数据录入",
+            "desc": "按员工按月录入应出勤天数、实际出勤、迟到/早退/缺卡次数、请假天数及加班时长。"
+          },
+          {
+            "title": "批量导入",
+            "desc": "支持通过 Excel 批量导入考勤数据，模板需包含员工ID、年月、出勤天数等字段。"
+          },
+          {
+            "title": "扣款计算",
+            "desc": "系统按规则计算迟到/早退/旷工/请假扣款及加班费、全勤奖，得出净调整额。"
+          },
+          {
+            "title": "联动核算",
+            "desc": "考勤扣款与加班费将作为工资项参与月度工资核算，影响应发与实发。"
+          },
+          {
+            "title": "查询管理",
+            "desc": "可按年份、月份筛选查看考勤记录，支持编辑修正与重新计算扣款。"
+          }
+        ]
+      }
+    },
+    "adjustment": {
+      "title": "调薪记录",
+      "button": {
+        "list": "查看",
+        "manage": "管理",
+        "create": "新增调薪记录",
+        "edit": "编辑调薪记录",
+        "viewHistory": "调薪历史",
+        "approve": "审批",
+        "reject": "驳回",
+        "detail": "详情",
+        "history": "历史",
+        "approveAction": "通过"
+      },
+      "column": {
+        "employeeId": "员工ID",
+        "employeeName": "员工姓名",
+        "adjustmentDate": "调薪日期",
+        "adjustmentType": "调薪类型",
+        "oldBaseSalary": "原底薪",
+        "newBaseSalary": "新底薪",
+        "oldPositionAllowance": "原岗位津贴",
+        "newPositionAllowance": "新岗位津贴",
+        "oldPerformanceBase": "原绩效基数",
+        "newPerformanceBase": "新绩效基数",
+        "status": "审批状态",
+        "reason": "调薪原因"
+      },
+      "adjustmentType": {
+        "regularization": "转正",
+        "annual": "年度调薪",
+        "promotion": "晋升",
+        "transfer": "调岗",
+        "special": "特殊调薪"
+      },
+      "status": {
+        "pending": "待审批",
+        "approved": "已通过",
+        "rejected": "已驳回"
+      },
+      "drawer": {
+        "titleCreate": "新增调薪记录",
+        "titleEdit": "编辑调薪记录",
+        "employeeId": "员工ID",
+        "employeeIdPlaceholder": "请填写员工ID",
+        "employeeIdInputPlaceholder": "请输入员工ID",
+        "adjustmentDate": "调薪日期",
+        "adjustmentDatePlaceholder": "请选择调薪日期",
+        "adjustmentType": "调薪类型",
+        "oldBaseSalary": "原底薪",
+        "newBaseSalary": "新底薪",
+        "oldPositionAllowance": "原岗位津贴",
+        "newPositionAllowance": "新岗位津贴",
+        "oldPerformanceBase": "原绩效基数",
+        "newPerformanceBase": "新绩效基数",
+        "reason": "调薪原因",
+        "reasonPlaceholder": "请输入调薪原因",
+        "rejectReason": "驳回原因",
+        "rejectReasonPlaceholder": "请输入驳回原因",
+        "approver": "审批人",
+        "approveTime": "审批时间",
+        "historyTitle": "调薪历史 - 员工{employeeId}"
+      },
+      "message": {
+        "loadFailed": "调薪记录加载失败",
+        "dateRequired": "请选择调薪日期",
+        "reasonRequired": "请填写调薪原因",
+        "createSuccess": "调薪记录创建成功",
+        "createFailed": "调薪记录创建失败",
+        "approveSuccess": "审批通过成功",
+        "approveFailed": "审批通过失败",
+        "rejectReasonRequired": "请填写驳回原因",
+        "rejectSuccess": "驳回成功",
+        "rejectFailed": "驳回失败",
+        "loadHistoryFailed": "调薪历史加载失败"
+      },
+      "modal": {
+        "approveConfirm": "确认审批通过该调薪申请吗？",
+        "titleReject": "驳回调薪申请",
+        "titleDetail": "调薪详情"
+      },
+      "history": {
+        "loading": "加载中...",
+        "baseSalary": "底薪",
+        "positionAllowance": "岗位津贴",
+        "reason": "原因",
+        "rejectLabel": "驳回原因",
+        "empty": "暂无调薪历史"
+      },
+      "guide": {
+        "title": "调薪记录使用说明",
+        "brief": "管理员工底薪、岗位津贴、绩效基数的调整记录，支持审批流与历史追溯；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "新增调薪",
+            "desc": "选择员工、调薪类型（转正/年度/晋升/调岗/特殊）填写原薪与新薪及调薪原因。"
+          },
+          {
+            "title": "提交审批",
+            "desc": "调薪记录创建后进入待审批状态，由审批人审核通过或驳回并填写驳回原因。"
+          },
+          {
+            "title": "生效联动",
+            "desc": "审批通过后新底薪/津贴/绩效基数将同步到工资核算，下月核算自动采用新标准。"
+          },
+          {
+            "title": "历史追溯",
+            "desc": "可在调薪历史中查看员工历次调薪记录，包含薪资金额、原因与审批结果。"
+          },
+          {
+            "title": "状态说明",
+            "desc": "状态流转：待审批 → 已通过 / 已驳回；已通过的记录不可重复审批。"
+          }
+        ]
+      }
+    },
+    "salaryItem": {
+      "title": "工资项目",
+      "button": {
+        "list": "查看",
+        "manage": "管理",
+        "create": "新增工资项目",
+        "edit": "编辑工资项目",
+        "delete": "删除"
+      },
+      "column": {
+        "itemCode": "项目编码",
+        "itemName": "项目名称",
+        "itemType": "类型",
+        "calcMode": "计算方式",
+        "formula": "公式",
+        "defaultValue": "默认值",
+        "isTaxable": "计税",
+        "sort": "排序",
+        "enabled": "启用"
+      },
+      "itemType": {
+        "addition": "增项",
+        "deduction": "减项"
+      },
+      "calcMode": {
+        "fixed": "固定值",
+        "formula": "公式",
+        "manual": "手动输入"
+      },
+      "drawer": {
+        "titleCreate": "新增工资项目",
+        "titleEdit": "编辑工资项目",
+        "itemCode": "项目编码",
+        "itemName": "项目名称",
+        "itemType": "类型",
+        "calcMode": "计算方式",
+        "formula": "公式",
+        "formulaPlaceholder": "如：{example}",
+        "defaultValue": "默认值",
+        "isTaxable": "是否计税",
+        "isPretax": "税前扣除",
+        "sort": "排序",
+        "enabled": "启用",
+        "itemCodePlaceholder": "如：baseSalary、commission",
+        "itemNamePlaceholder": "请输入项目名称",
+        "formulaExtra": "支持 {example} 等变量引用",
+        "defaultValueExtra": "固定值模式下的默认金额",
+        "isPretaxExtra": "减项是否在计税前扣除",
+        "deleteConfirm": "确定要删除工资项目「{name}」吗？"
+      },
+      "manageTitle": "工资项目管理",
+      "alert": "工资项目用于自定义工资明细项，公式模式支持 {example} 等变量引用",
+      "message": {
+        "itemCodeRequired": "请输入项目编码",
+        "itemNameRequired": "请输入项目名称",
+        "formulaRequired": "公式模式下请填写计算公式",
+        "updateSuccess": "更新成功",
+        "createSuccess": "创建成功",
+        "confirmDeleteTitle": "确认删除"
+      },
+      "guide": {
+        "title": "工资项目使用说明",
+        "brief": "维护工资明细项（增项/减项）与计算方式，公式模式支持变量引用；展开查看配置要点。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "项目类型",
+            "desc": "增项计入应发工资（如底薪、提成、绩效），减项从应发中扣除（如社保、个税、考勤扣款）。"
+          },
+          {
+            "title": "计算方式",
+            "desc": "固定值：按默认金额；公式：通过变量表达式自动计算；手动输入：核算时逐条录入。"
+          },
+          {
+            "title": "公式变量",
+            "desc": "公式中可引用 {baseSalary}、{commission} 等已定义项目变量，系统在核算时解析替换。"
+          },
+          {
+            "title": "计税设置",
+            "desc": "标记「计税」的项目参与个税计算；减项可设为「税前扣除」（如社保公积金）或税后扣除。"
+          },
+          {
+            "title": "排序与启用",
+            "desc": "通过排序控制工资条展示顺序，禁用的项目不参与核算与展示。"
+          }
+        ]
+      }
+    },
+    "teamCommission": {
+      "title": "团队提成",
+      "button": {
+        "calculate": "计算团队提成",
+        "query": "查询",
+        "manage": "管理"
+      },
+      "tab": {
+        "list": "提成明细",
+        "summary": "按管理者汇总",
+        "pending": "待分配",
+        "pool": "团建资金池",
+        "allocationLog": "分配记录"
+      },
+      "allocate": {
+        "title": "分配团队提成",
+        "method": "分配方式",
+        "average": "平均分配",
+        "byPerformance": "按业绩比例",
+        "manual": "手动填写",
+        "total": "待分配总额",
+        "allocatedTotal": "已分配",
+        "remaining": "剩余",
+        "confirm": "确认分配",
+        "overLimit": "分配总额超过待分配金额",
+        "success": "分配成功",
+        "member": "成员",
+        "payment": "业绩(回款)",
+        "amount": "分配金额",
+        "selectMember": "请选择分配成员",
+        "noMember": "暂无可分配的成员",
+        "btn": "分配",
+        "methodAverage": "平均分配",
+        "methodByPerformance": "按业绩比例",
+        "methodManual": "手动填写"
+      },
+      "statistic": {
+        "managerCount": "管理者人数",
+        "managerCountSuffix": "人",
+        "totalTeamPayment": "团队总回款",
+        "totalCommission": "提成总额"
+      },
+      "column": {
+        "employee": "员工",
+        "department": "部门",
+        "yearMonth": "年月",
+        "baseSalary": "底薪",
+        "teamCommissionAmount": "团队提成",
+        "totalSalary": "应发工资",
+        "status": "状态",
+        "manager": "管理者",
+        "teamTotalPayment": "团队总回款",
+        "commissionAmount": "提成金额",
+        "subordinatesCount": "下属人数",
+        "rate": "提成比例",
+        "pendingTotal": "待分配总额",
+        "allocatedAmount": "已分配金额",
+        "allocator": "分配人",
+        "allocateMethod": "分配方式",
+        "allocateStatus": "分配状态",
+        "allocateTime": "分配时间",
+        "ruleName": "规则名称",
+        "beneficiary": "受益人"
+      },
+      "allocateStatus": {
+        "pending": "待分配",
+        "allocated": "已分配"
+      },
+      "status": {
+        "pending": "待审核",
+        "approved": "已审核",
+        "paid": "已发放"
+      },
+      "empty": {
+        "list": "暂无团队提成数据，请先点击「计算团队提成」",
+        "summary": "暂无汇总数据",
+        "pending": "暂无待分配的提成数据",
+        "allocationLog": "暂无分配记录"
+      },
+      "modal": {
+        "calcTitle": "计算团队提成",
+        "calcContent": "将根据 {year}年{month}月 的回款数据，沿组织架构向上计算各级管理者的团队提成。",
+        "calcLogic": "计算逻辑：查询当月已回款合同 → 按合同负责人找到员工 → 沿 direct_manager_id 向上最多 3 级 → 按岗位系数（默认 5%）计算提成。",
+        "calcSuccess": "计算完成，更新 {count} 条记录"
+      },
+      "message": {
+        "loadFailed": "加载失败",
+        "calcFailed": "计算失败"
+      },
+      "monthLabel": "{month}月",
+      "yearLabel": "{year}年",
+      "guide": {
+        "title": "团队提成说明",
+        "brief": "基于组织架构自动计算管理者从下属业绩中的分润，按月汇总；展开查看完整逻辑。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "层级识别",
+            "desc": "基于部门组织架构自动识别上下级关系，无需手动维护层级。"
+          },
+          {
+            "title": "分润规则",
+            "desc": "上级按配置比例从直接下属的提成中分润，支持多级递延。"
+          },
+          {
+            "title": "月度汇总",
+            "desc": "按月聚合各级别管理者的分润总额，含直接下属和间接下属。"
+          },
+          {
+            "title": "数据来源",
+            "desc": "分润基于下级已生成的提成结果记录，实时反映团队业绩。"
+          },
+          {
+            "title": "用途",
+            "desc": "用于团队管理者的绩效核算与薪酬发放，可导出明细。"
+          }
+        ]
+      }
+    },
+    "pool": {
+      "title": "团建资金池",
+      "create": "新建资金池",
+      "edit": "编辑资金池",
+      "name": "资金池名称",
+      "namePlaceholder": "请输入资金池名称",
+      "balance": "余额",
+      "total": "累计存入",
+      "used": "已使用",
+      "manager": "管理人",
+      "status": "状态",
+      "statusActive": "活跃",
+      "statusFrozen": "冻结",
+      "statusClosed": "已关闭",
+      "description": "描述说明",
+      "descriptionPlaceholder": "请输入描述说明",
+      "expense": "支出登记",
+      "expenseAmount": "支出金额",
+      "expenseDate": "支出日期",
+      "expenseReason": "支出事由",
+      "expenseReasonPlaceholder": "请输入支出事由（如Q1团队聚餐）",
+      "log": "流水明细",
+      "logType": "类型",
+      "logDeposit": "存入",
+      "logExpense": "支出",
+      "logSource": "来源",
+      "logAmount": "金额",
+      "logDate": "日期",
+      "logReason": "事由",
+      "column": {
+        "name": "资金池名称",
+        "balance": "余额",
+        "total": "累计存入",
+        "used": "已使用",
+        "manager": "管理人",
+        "status": "状态"
+      },
+      "saveSuccess": "保存成功",
+      "expenseSuccess": "支出登记成功",
+      "deleteConfirm": "确定要删除资金池「{name}」吗？",
+      "deleteSuccess": "删除成功",
+      "empty": "暂无资金池数据"
+    },
+    "statistics": {
+      "title": "财务统计",
+      "listTitle": "统计明细",
+      "summary": {
+        "totalIncome": "总收入",
+        "successAmount": "成功金额",
+        "refundAmount": "退款金额",
+        "memberFeeAmount": "会员费金额",
+        "orderCount": "订单数",
+        "successCount": "成功笔数",
+        "refundCount": "退款笔数"
+      },
+      "statType": {
+        "daily": "日统计",
+        "weekly": "周统计",
+        "monthly": "月统计"
+      },
+      "column": {
+        "statDate": "统计日期",
+        "statType": "统计类型",
+        "totalIncome": "总收入",
+        "successAmount": "成功金额",
+        "refundAmount": "退款金额",
+        "memberFeeAmount": "会员费金额",
+        "orderCount": "订单数",
+        "successCount": "成功笔数",
+        "refundCount": "退款笔数"
+      },
+      "placeholder": {
+        "statType": "统计类型",
+        "startDate": "开始日期",
+        "endDate": "结束日期"
+      },
+      "button": {
+        "generate": "生成昨日统计"
+      },
+      "message": {
+        "loadFailed": "加载失败",
+        "generateSuccess": "生成成功",
+        "generateFailed": "生成失败",
+        "empty": "暂无统计数据"
+      }
+    },
+    "refundRecord": {
+      "title": "退款记录",
+      "button": {
+        "add": "新增退款"
+      },
+      "column": {
+        "userId": "用户ID",
+        "paymentRecordId": "支付记录ID",
+        "amount": "退款金额",
+        "status": "状态",
+        "transactionId": "交易号",
+        "refundTime": "退款时间",
+        "reason": "退款原因",
+        "remark": "备注",
+        "createTime": "创建时间"
+      },
+      "status": {
+        "pending": "待退款",
+        "success": "已退款",
+        "failed": "退款失败"
+      },
+      "placeholder": {
+        "userId": "请输入用户ID",
+        "paymentRecordId": "请输入支付记录ID",
+        "amount": "请输入退款金额",
+        "transactionId": "请输入交易号",
+        "refundTime": "格式：YYYY-MM-DD HH:mm:ss",
+        "reason": "请输入退款原因",
+        "remark": "请输入备注"
+      },
+      "drawer": {
+        "titleCreate": "新增退款记录",
+        "titleEdit": "编辑退款记录"
+      },
+      "message": {
+        "required": "用户ID和支付记录ID为必填",
+        "createSuccess": "创建成功",
+        "updateSuccess": "更新成功",
+        "deleteSuccess": "删除成功",
+        "saveFailed": "保存失败",
+        "deleteFailed": "删除失败",
+        "deleteConfirm": "确认删除该退款记录吗？"
+      },
+      "guide": {
+        "title": "退款记录说明",
+        "brief": "基于支付记录发起退款，经审核后调起支付渠道退款接口；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "发起退款",
+            "desc": "基于已有支付记录发起退款，填写退款金额与退款原因。"
+          },
+          {
+            "title": "审核流程",
+            "desc": "退款申请进入待审核状态，由财务审核退款合理性。"
+          },
+          {
+            "title": "渠道交互",
+            "desc": "审核通过后系统调起支付渠道退款接口（微信/支付宝原路退回）。"
+          },
+          {
+            "title": "状态同步",
+            "desc": "退款成功后同步更新原支付记录为已退款状态，保持数据一致。"
+          },
+          {
+            "title": "财务影响",
+            "desc": "退款金额计入财务统计的退款总额，影响收入报表。"
+          }
+        ]
+      }
+    },
+    "paymentRecord": {
+      "title": "付款记录",
+      "button": {
+        "add": "新增付款"
+      },
+      "column": {
+        "userId": "用户ID",
+        "memberProductId": "会员产品ID",
+        "orderId": "订单号",
+        "paymentType": "支付类型",
+        "amount": "金额",
+        "payMethod": "支付方式",
+        "status": "状态",
+        "transactionId": "交易号",
+        "payTime": "支付时间",
+        "remark": "备注",
+        "createTime": "创建时间"
+      },
+      "paymentType": {
+        "member": "会员费",
+        "product": "商品购买",
+        "recharge": "充值",
+        "other": "其他"
+      },
+      "payMethod": {
+        "wechat": "微信支付",
+        "alipay": "支付宝",
+        "bank": "银行卡"
+      },
+      "status": {
+        "pending": "待支付",
+        "success": "支付成功",
+        "failed": "支付失败",
+        "refunded": "已退款"
+      },
+      "placeholder": {
+        "userId": "请输入用户ID",
+        "memberProductId": "请输入会员产品ID",
+        "orderId": "请输入订单号",
+        "amount": "请输入金额",
+        "transactionId": "请输入交易号",
+        "payTime": "格式：YYYY-MM-DD HH:mm:ss",
+        "remark": "请输入备注"
+      },
+      "drawer": {
+        "titleCreate": "新增付款记录",
+        "titleEdit": "编辑付款记录"
+      },
+      "message": {
+        "userIdRequired": "请输入用户ID",
+        "createSuccess": "创建成功",
+        "updateSuccess": "更新成功",
+        "deleteSuccess": "删除成功",
+        "saveFailed": "保存失败",
+        "deleteFailed": "删除失败",
+        "deleteConfirm": "确认删除该付款记录吗？"
+      },
+      "guide": {
+        "title": "付款记录说明",
+        "brief": "记录 C 端用户在线支付的流水，与会员费、订单联动；展开查看完整链路。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "来源",
+            "desc": "C 端用户在小程序下单支付后自动生成，记录订单号、金额、支付方式。"
+          },
+          {
+            "title": "支付方式",
+            "desc": "支持微信支付、支付宝、银行卡等多种支付渠道。"
+          },
+          {
+            "title": "状态流转",
+            "desc": "待支付 → 支付成功 / 支付失败 / 已退款，由支付渠道回调驱动。"
+          },
+          {
+            "title": "关联联动",
+            "desc": "支付成功后联动生成会员费记录，关联订单与用户。"
+          },
+          {
+            "title": "退款处理",
+            "desc": "需退款时通过退款记录页面发起，退款成功后同步更新本记录状态。"
+          }
+        ]
+      }
+    },
+    "memberFee": {
+      "title": "会员费",
+      "button": {
+        "add": "新增会员费"
+      },
+      "column": {
+        "userId": "用户ID",
+        "memberType": "会员类型",
+        "amount": "金额",
+        "validStartTime": "有效期开始",
+        "validEndTime": "有效期结束",
+        "status": "状态",
+        "paymentRecordId": "支付记录ID",
+        "remark": "备注",
+        "createTime": "创建时间"
+      },
+      "memberType": {
+        "monthly": "月费",
+        "yearly": "年费",
+        "lifetime": "终身"
+      },
+      "status": {
+        "inactive": "未生效",
+        "active": "有效",
+        "expired": "已过期"
+      },
+      "placeholder": {
+        "userId": "请输入用户ID",
+        "amount": "请输入金额",
+        "validStartTime": "格式：YYYY-MM-DD HH:mm:ss",
+        "validEndTime": "格式：YYYY-MM-DD HH:mm:ss",
+        "paymentRecordId": "请输入支付记录ID",
+        "remark": "请输入备注"
+      },
+      "drawer": {
+        "titleCreate": "新增会员费",
+        "titleEdit": "编辑会员费"
+      },
+      "message": {
+        "userIdRequired": "请输入用户ID",
+        "createSuccess": "创建成功",
+        "updateSuccess": "更新成功",
+        "deleteSuccess": "删除成功",
+        "saveFailed": "保存失败",
+        "deleteFailed": "删除失败",
+        "deleteConfirm": "确认删除该会员费记录吗？"
+      },
+      "guide": {
+        "title": "会员费使用说明",
+        "brief": "会员费记录 C 端用户的会员订阅，与支付记录、会员产品联动；展开查看完整链路。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "会员产品配置",
+            "desc": "在会员产品表中维护月度/季度/年度等会员套餐的价格、时长与购买限制。"
+          },
+          {
+            "title": "C 端下单支付",
+            "desc": "用户在小程序选择套餐下单，系统写入支付记录并调起微信支付，支付成功后回调更新状态。"
+          },
+          {
+            "title": "会员费生成",
+            "desc": "支付成功后系统自动生成会员费记录，记录有效期、关联支付记录ID与会员类型。"
+          },
+          {
+            "title": "后台管理",
+            "desc": "本页用于后台补录、调整或查询；正常情况下由 C 端支付流程自动生成，无需手动新增。"
+          },
+          {
+            "title": "状态流转",
+            "desc": "未生效 → 有效（支付成功）→ 已过期（有效期结束）；退款会同步更新支付记录为已退款。"
+          }
+        ]
+      }
+    }
+  }
+}

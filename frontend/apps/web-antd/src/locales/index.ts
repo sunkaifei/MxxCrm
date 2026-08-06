@@ -35,7 +35,20 @@ async function loadMessages(lang: SupportedLanguagesType) {
     localesMap[lang]?.(),
     loadThirdPartyMessage(lang),
   ]);
-  return appLocaleMessages?.default;
+  const messages = appLocaleMessages?.default || {};
+
+  // 将 page-* 命名空间合并到统一的 'page' 命名空间
+  const merged: Record<string, any> = {};
+  for (const [key, value] of Object.entries(messages)) {
+    if (key.startsWith('page-')) {
+      if (!merged.page) merged.page = {};
+      Object.assign(merged.page, value);
+    } else {
+      merged[key] = value;
+    }
+  }
+
+  return merged;
 }
 
 /**

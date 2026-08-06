@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>采购订单 Purchase Order — PO-2026-08-0156</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --ink-soft:#3d3d3d;
+    --steel:#6e6e6e;
+    --mist:#a0a0a0;
+    --amber:#b8860b;
+    --paper:#ffffff;
+    --hair:#1a1a1a;
+    --hair-soft:#d6d6d6;
+    --zebra:#f7f7f7;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html,body{
+    background:#e9e9ec;
+    font-family:'Noto Sans SC',sans-serif;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  @page{ size:A4 portrait; margin:0; }
+
+  /* ===== screen preview ===== */
+  body{
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding:28px 16px 60px;
+    min-height:100vh;
+  }
+
+  .sheet{
+    position:relative;
+    width:210mm;
+    height:297mm;
+    background:var(--paper);
+    padding:10mm 13mm 8mm;
+    display:flex;
+    flex-direction:column;
+    box-shadow:0 10px 40px rgba(0,0,0,.18);
+    overflow:hidden;
+  }
+
+  /* outer frame */
+  .sheet::after{
+    content:"";
+    position:absolute;
+    inset:6mm;
+    border:0.6pt solid var(--hair);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .inner{
+    position:relative;
+    z-index:1;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+
+  /* ===== typography ===== */
+  .brand{
+    font-family:'Noto Serif SC',serif;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  .num{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
+  .r-align{ text-align:right; }
+  .c-align{ text-align:center; }
+
+  .sec-title{
+    font-family:'JetBrains Mono',monospace;
+    font-size:7.5pt;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--amber);
+    font-weight:700;
+    margin-bottom:5px;
+  }
+  .sec-title::before{ content:"// "; }
+
+  .muted{ color:var(--steel); }
+  .faint{ color:var(--mist); }
+  .small{ font-size:8pt; }
+  .tiny{ font-size:7pt; }
+  .x-tiny{ font-size:6.5pt; }
+
+  /* ===== header ===== */
+  .head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    border-bottom:0.6pt solid var(--hair);
+    padding-bottom:7px;
+    margin-bottom:9px;
+  }
+  .head-left .corp{
+    font-size:16pt;
+    line-height:1.15;
+    letter-spacing:0.01em;
+    margin-bottom:3px;
+  }
+  .head-left .corp-sub{
+    font-family:'JetBrains Mono',monospace;
+    font-size:6.5pt;
+    letter-spacing:0.22em;
+    color:var(--steel);
+    margin-bottom:6px;
+  }
+  .head-left .addr{ font-size:7.5pt; line-height:1.5; color:var(--ink-soft); }
+  .head-left .addr span{ display:block; }
+
+  .head-right{ text-align:right; }
+  .head-right .po-title{
+    font-family:'Noto Serif SC',serif;
+    font-weight:700;
+    font-size:15pt;
+    line-height:1.1;
+    color:var(--ink);
+  }
+  .head-right .po-title-en{
+    font-family:'JetBrains Mono',monospace;
+    font-size:7pt;
+    letter-spacing:0.2em;
+    color:var(--steel);
+    margin-top:2px;
+    margin-bottom:7px;
+  }
+  .head-right .po-no{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:11pt;
+    color:var(--amber);
+    letter-spacing:0.04em;
+    margin-bottom:3px;
+  }
+  .head-right .po-date{
+    font-family:'JetBrains Mono',monospace;
+    font-size:7.5pt;
+    color:var(--ink-soft);
+  }
+
+  /* ===== supplier box ===== */
+  .supplier{
+    border:0.6pt solid var(--hair);
+    border-left:2.4pt solid var(--amber);
+    padding:8px 11px 8px 10px;
+    margin-bottom:9px;
+    background:#fcfcfa;
+    display:flex;
+    gap:18px;
+  }
+  .supplier .col-left{ flex:1.35; }
+  .supplier .col-right{ flex:1; border-left:0.4pt dashed var(--hair-soft); padding-left:14px; }
+  .supplier .sup-name{
+    font-family:'Noto Serif SC',serif;
+    font-weight:700;
+    font-size:11.5pt;
+    color:var(--ink);
+    margin-bottom:4px;
+    line-height:1.2;
+  }
+  .kv{ display:flex; font-size:7.8pt; line-height:1.62; }
+  .kv .k{ color:var(--steel); width:46px; flex:0 0 46px; letter-spacing:0.04em; }
+  .kv .v{ color:var(--ink-soft); }
+  .supplier .badge{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:6.2pt;
+    letter-spacing:0.16em;
+    background:var(--ink);
+    color:#fff;
+    padding:1.5px 6px;
+    margin-bottom:5px;
+    font-weight:500;
+  }
+
+  /* ===== metadata grid ===== */
+  .meta{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:0;
+    border-top:0.4pt solid var(--hair-soft);
+    border-bottom:0.4pt solid var(--hair-soft);
+    margin-bottom:9px;
+  }
+  .meta .cell{
+    padding:5px 10px;
+    border-right:0.4pt solid var(--hair-soft);
+  }
+  .meta .cell:nth-child(3n){ border-right:none; }
+  .meta .cell:nth-child(n+4){ border-top:0.4pt solid var(--hair-soft); }
+  .meta .lbl{
+    font-family:'JetBrains Mono',monospace;
+    font-size:6.3pt;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--mist);
+    margin-bottom:1px;
+  }
+  .meta .val{
+    font-family:'Noto Sans SC',sans-serif;
+    font-size:8.4pt;
+    color:var(--ink);
+    font-weight:500;
+  }
+  .meta .val.mono{ font-family:'JetBrains Mono',monospace; }
+
+  /* ===== approval flow ===== */
+  .approval{ margin-bottom:9px; }
+  .flow{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+  }
+  .node{
+    border:0.6pt solid var(--hair-soft);
+    border-top:1.8pt solid var(--amber);
+    padding:6px 9px 7px;
+    background:#fdfdfc;
+  }
+  .node .role{
+    font-family:'JetBrains Mono',monospace;
+    font-size:7pt;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--ink);
+    font-weight:700;
+    margin-bottom:1px;
+  }
+  .node .role-cn{
+    font-size:7.5pt;
+    color:var(--steel);
+    margin-bottom:6px;
+  }
+  .node .line{
+    display:flex;
+    align-items:center;
+    font-size:7pt;
+    color:var(--mist);
+    margin-top:7px;
+  }
+  .node .line .lab{
+    width:34px;
+    flex:0 0 34px;
+    font-family:'JetBrains Mono',monospace;
+    letter-spacing:0.06em;
+  }
+  .node .line .gap{
+    flex:1;
+    border-bottom:0.5pt solid var(--hair-soft);
+    height:11px;
+  }
+  .flow-arrow{
+    text-align:center;
+    font-family:'JetBrains Mono',monospace;
+    font-size:8pt;
+    color:var(--mist);
+  }
+
+  /* ===== table ===== */
+  .tbl-wrap{ flex:1; display:flex; flex-direction:column; min-height:0; margin-bottom:8px; }
+  table.items{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+    font-size:7.6pt;
+  }
+  table.items thead th{
+    font-family:'JetBrains Mono',monospace;
+    font-size:6.6pt;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:#fff;
+    background:var(--ink);
+    font-weight:500;
+    padding:5px 5px;
+    text-align:left;
+    border:0.4pt solid var(--ink);
+  }
+  table.items thead th.c-align,table.items thead th.r-align{ }
+  table.items tbody td{
+    padding:4.5px 5px;
+    border:0.4pt solid var(--hair-soft);
+    color:var(--ink-soft);
+    vertical-align:middle;
+    line-height:1.35;
+  }
+  table.items tbody tr:nth-child(even) td{ background:var(--zebra); }
+  table.items td.idx{ text-align:center; font-family:'JetBrains Mono',monospace; color:var(--mist); font-weight:500; }
+  table.items td.code{ font-family:'JetBrains Mono',monospace; font-size:7.2pt; color:var(--ink-soft); }
+  table.items td.qty,table.items td.unit,table.items td.amt{
+    text-align:right;
+    font-family:'JetBrains Mono',monospace;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink);
+  }
+  table.items td.amt{ font-weight:500; }
+  table.items td.spec{ font-size:7pt; color:var(--steel); }
+  /* column widths */
+  col.c-idx{ width:22px; }
+  col.c-code{ width:78px; }
+  col.c-name{ width:auto; }
+  col.c-spec{ width:120px; }
+  col.c-qty{ width:42px; }
+  col.c-unit{ width:64px; }
+  col.c-amt{ width:74px; }
+
+  /* ===== bottom area: terms + summary ===== */
+  .bottom{ display:flex; gap:12px; margin-bottom:9px; }
+  .terms{ flex:1.15; }
+  .terms ol{
+    list-style:none;
+    counter-reset:t;
+  }
+  .terms li{
+    counter-increment:t;
+    font-size:7.2pt;
+    line-height:1.55;
+    color:var(--ink-soft);
+    padding-left:16px;
+    position:relative;
+    margin-bottom:3px;
+  }
+  .terms li::before{
+    content:counter(t,decimal-leading-zero);
+    position:absolute;
+    left:0;
+    font-family:'JetBrains Mono',monospace;
+    font-size:6.4pt;
+    color:var(--amber);
+    font-weight:700;
+  }
+
+  .summary{
+    flex:0 0 188px;
+    border:0.6pt solid var(--hair);
+    padding:7px 11px 8px;
+  }
+  .sum-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-size:8pt;
+    padding:3px 0;
+    color:var(--ink-soft);
+  }
+  .sum-row .lab{
+    font-family:'JetBrains Mono',monospace;
+    font-size:7pt;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--steel);
+  }
+  .sum-row .val{
+    font-family:'JetBrains Mono',monospace;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink);
+  }
+  .sum-row.sub{ border-bottom:0.4pt dotted var(--hair-soft); }
+  .sum-row.tax{ border-bottom:0.6pt solid var(--ink); padding-bottom:5px; }
+  .sum-row.grand{
+    padding-top:6px;
+    align-items:center;
+  }
+  .sum-row.grand .lab{
+    font-size:8.5pt;
+    color:var(--ink);
+    font-weight:700;
+  }
+  .sum-row.grand .val{
+    font-size:12.5pt;
+    font-weight:700;
+    color:var(--amber);
+  }
+  .cn-amount{
+    margin-top:6px;
+    padding-top:5px;
+    border-top:0.4pt dashed var(--hair-soft);
+    font-size:7.4pt;
+    color:var(--ink-soft);
+    line-height:1.4;
+  }
+  .cn-amount .lab{
+    font-family:'JetBrains Mono',monospace;
+    font-size:6.4pt;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--mist);
+    display:block;
+    margin-bottom:1px;
+  }
+  .cn-amount .txt{ font-weight:500; color:var(--ink); }
+
+  /* ===== signatures ===== */
+  .signs{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:8px;
+  }
+  .sign-box{
+    border:0.6pt solid var(--hair-soft);
+    padding:7px 10px 9px;
+    min-height:30mm;
+    position:relative;
+  }
+  .sign-box .who{
+    font-family:'Noto Serif SC',serif;
+    font-weight:700;
+    font-size:9pt;
+    color:var(--ink);
+    margin-bottom:1px;
+  }
+  .sign-box .who-en{
+    font-family:'JetBrains Mono',monospace;
+    font-size:6.4pt;
+    letter-spacing:0.14em;
+    color:var(--mist);
+    margin-bottom:8px;
+  }
+  .sign-box .seal-area{
+    height:14mm;
+    margin:3px 0;
+  }
+  .sign-line{
+    display:flex;
+    align-items:center;
+    font-size:7pt;
+    color:var(--mist);
+    margin-top:5px;
+  }
+  .sign-line .lab{
+    width:40px;
+    flex:0 0 40px;
+    font-family:'JetBrains Mono',monospace;
+    letter-spacing:0.06em;
+  }
+  .sign-line .gap{
+    flex:1;
+    border-bottom:0.5pt solid var(--hair-soft);
+    height:10px;
+  }
+
+  /* ===== footer ===== */
+  .foot{
+    border-top:0.6pt solid var(--hair);
+    padding-top:5px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-family:'JetBrains Mono',monospace;
+    font-size:6.6pt;
+    letter-spacing:0.08em;
+    color:var(--mist);
+  }
+  .foot .l{ color:var(--steel); }
+  .foot .r{ color:var(--ink-soft); }
+
+  /* ===== print button ===== */
+  #printBtn{
+    position:fixed;
+    right:26px;
+    bottom:26px;
+    z-index:50;
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    font-family:'JetBrains Mono',monospace;
+    font-size:8.5pt;
+    letter-spacing:0.1em;
+    font-weight:500;
+    padding:11px 20px;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,0,0,.28);
+    transition:background .18s ease, transform .12s ease;
+    text-transform:uppercase;
+  }
+  #printBtn::before{ content:"\2399  "; }
+  #printBtn:hover{ background:var(--amber); transform:translateY(-1px); }
+  #printBtn:active{ transform:translateY(0); }
+
+  /* ===== print ===== */
+  @media print{
+    html,body{ background:#fff !important; padding:0 !important; }
+    .sheet{
+      box-shadow:none !important;
+      margin:0 !important;
+      page-break-after:always;
+    }
+    #printBtn{ display:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="inner">
+
+    <!-- ========== HEADER ========== -->
+    <header class="head">
+      <div class="head-left">
+        <div class="brand corp">Mxx Industrial Co., Ltd.</div>
+        <div class="corp-sub">PURCHASING DEPARTMENT · 采购部</div>
+        <div class="addr">
+          <span>No. 168 Zhongshan East Road, Nanjing, Jiangsu 210002, China</span>
+          <span class="mono">Tel +86 25 8800 1680 · Fax +86 25 8800 1681</span>
+          <span class="mono">procurement@mxx-industrial.com</span>
+        </div>
+      </div>
+      <div class="head-right">
+        <div class="po-title">采购订单</div>
+        <div class="po-title-en">PURCHASE ORDER</div>
+        <div class="po-no">PO-2026-08-0156</div>
+        <div class="po-date">ISSUED · 2026-08-06</div>
+      </div>
+    </header>
+
+    <!-- ========== SUPPLIER BOX ========== -->
+    <section class="supplier">
+      <div class="col-left">
+        <span class="badge">SUPPLIER · 供应商</span>
+        <div class="sup-name">盛远精密机械制造有限公司</div>
+        <div class="sup-name" style="font-size:8pt;color:var(--steel);font-family:'Noto Sans SC',sans-serif;font-weight:400;">Shengyuan Precision Machinery Mfg. Co., Ltd.</div>
+        <div style="margin-top:5px;">
+          <div class="kv"><span class="k">联系人</span><span class="v">王建华 / Mr. Wang Jianhua</span></div>
+          <div class="kv"><span class="k">电话</span><span class="v mono">+86 512 6789 2340</span></div>
+          <div class="kv"><span class="k">邮箱</span><span class="v mono">wangjh@shengyuan-pm.com</span></div>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="kv"><span class="k">地址</span><span class="v">江苏省苏州市工业园区星湖街 328 号精密制造园 B 栋</span></div>
+        <div class="kv" style="margin-top:3px;"><span class="k">供方编号</span><span class="v mono">SUP-2024-0317</span></div>
+        <div class="kv"><span class="k">开户行</span><span class="v">中国工商银行苏州工业园区支行</span></div>
+        <div class="kv"><span class="k">账号</span><span class="v mono">1102 2109 0920 0088 452</span></div>
+      </div>
+    </section>
+
+    <!-- ========== METADATA ========== -->
+    <section class="meta">
+      <div class="cell">
+        <div class="lbl">订单日期 / Order Date</div>
+        <div class="val mono">2026-08-06</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">要求到货日 / Required Delivery</div>
+        <div class="val mono">2026-08-28</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">采购员 / Buyer</div>
+        <div class="val">李明 · Ming Li</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">币种 / Currency</div>
+        <div class="val mono">CNY ¥</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">付款方式 / Payment Terms</div>
+        <div class="val">月结 60 天 · Net 60</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">交货地点 / Delivery To</div>
+        <div class="val">南京工厂原料仓 · NJ-W01</div>
+      </div>
+    </section>
+
+    <!-- ========== APPROVAL FLOW ========== -->
+    <section class="approval">
+      <div class="sec-title">审批流程 / Approval Workflow</div>
+      <div class="flow">
+        <div class="node">
+          <div class="role">01 · BUYER</div>
+          <div class="role-cn">采购员 · 发起</div>
+          <div class="line"><span class="lab">签字</span><span class="gap"></span></div>
+          <div class="line"><span class="lab">日期</span><span class="gap"></span></div>
+        </div>
+        <div class="node">
+          <div class="role">02 · DEPT. MANAGER</div>
+          <div class="role-cn">部门主管 · 审核</div>
+          <div class="line"><span class="lab">签字</span><span class="gap"></span></div>
+          <div class="line"><span class="lab">日期</span><span class="gap"></span></div>
+        </div>
+        <div class="node">
+          <div class="role">03 · CFO</div>
+          <div class="role-cn">财务总监 · 终审</div>
+          <div class="line"><span class="lab">签字</span><span class="gap"></span></div>
+          <div class="line"><span class="lab">日期</span><span class="gap"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== ITEMS TABLE ========== -->
+    <div class="tbl-wrap">
+      <div class="sec-title">采购明细 / Line Items</div>
+      <table class="items">
+        <colgroup>
+          <col class="c-idx"><col class="c-code"><col class="c-name"><col class="c-spec"><col class="c-qty"><col class="c-unit"><col class="c-amt">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="c-align">#</th>
+            <th>产品编号 / CODE</th>
+            <th>产品名称 / DESCRIPTION</th>
+            <th>规格参数 / SPEC</th>
+            <th class="r-align">数量 QTY</th>
+            <th class="r-align">单价 UNIT</th>
+            <th class="r-align">金额 AMOUNT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="idx">01</td>
+            <td class="code">SY-PM-6205</td>
+            <td>深沟球轴承</td>
+            <td class="spec">φ25×φ52×15mm · C3 游隙</td>
+            <td class="qty">1,200</td>
+            <td class="unit">18.50</td>
+            <td class="amt">22,200.00</td>
+          </tr>
+          <tr>
+            <td class="idx">02</td>
+            <td class="code">SY-PM-6206</td>
+            <td>深沟球轴承</td>
+            <td class="spec">φ30×φ62×16mm · C3 游隙</td>
+            <td class="qty">800</td>
+            <td class="unit">22.80</td>
+            <td class="amt">18,240.00</td>
+          </tr>
+          <tr>
+            <td class="idx">03</td>
+            <td class="code">SY-PM-7208C</td>
+            <td>角接触球轴承</td>
+            <td class="spec">φ40×φ80×18mm · 15° 接触角</td>
+            <td class="qty">400</td>
+            <td class="unit">56.00</td>
+            <td class="amt">22,400.00</td>
+          </tr>
+          <tr>
+            <td class="idx">04</td>
+            <td class="code">SY-PM-30205</td>
+            <td>圆锥滚子轴承</td>
+            <td class="spec">φ25×φ52×16.25mm · 单列</td>
+            <td class="qty">350</td>
+            <td class="unit">34.20</td>
+            <td class="amt">11,970.00</td>
+          </tr>
+          <tr>
+            <td class="idx">05</td>
+            <td class="code">SY-HS-M8-30</td>
+            <td>内六角螺栓</td>
+            <td class="spec">M8×30 · 12.9 级 · 发黑</td>
+            <td class="qty">5,000</td>
+            <td class="unit">0.68</td>
+            <td class="amt">3,400.00</td>
+          </tr>
+          <tr>
+            <td class="idx">06</td>
+            <td class="code">SY-HS-M10-40</td>
+            <td>内六角螺栓</td>
+            <td class="spec">M10×40 · 12.9 级 · 镀锌</td>
+            <td class="qty">3,000</td>
+            <td class="unit">1.15</td>
+            <td class="amt">3,450.00</td>
+          </tr>
+          <tr>
+            <td class="idx">07</td>
+            <td class="code">SY-SE-NBR-32</td>
+            <td>O 型密封圈</td>
+            <td class="spec">NBR · φ32×φ3.5 · 邵尔 70</td>
+            <td class="qty">8,000</td>
+            <td class="unit">0.22</td>
+            <td class="amt">1,760.00</td>
+          </tr>
+          <tr>
+            <td class="idx">08</td>
+            <td class="code">SY-GE-CU-D12</td>
+            <td>铜基粉末冶金含油轴承</td>
+            <td class="spec">φ12×φ18×16mm · CuSn10</td>
+            <td class="qty">2,400</td>
+            <td class="unit">3.85</td>
+            <td class="amt">9,240.00</td>
+          </tr>
+          <tr>
+            <td class="idx">09</td>
+            <td class="code">SY-LB-6004ZZ</td>
+            <td>微型密封轴承</td>
+            <td class="spec">φ20×φ42×12mm · 双面防尘</td>
+            <td class="qty">600</td>
+            <td class="unit">12.60</td>
+            <td class="amt">7,560.00</td>
+          </tr>
+          <tr>
+            <td class="idx">10</td>
+            <td class="code">SY-PL-200×50</td>
+            <td>直线导轨滑块</td>
+            <td class="spec">HGR20 · 200mm 行程 · 预紧 C</td>
+            <td class="qty">120</td>
+            <td class="unit">68.00</td>
+            <td class="amt">8,160.00</td>
+          </tr>
+          <tr>
+            <td class="idx">11</td>
+            <td class="code">SY-CO-GB70</td>
+            <td>弹簧垫圈</td>
+            <td class="spec">φ10 · 65Mn · 磷化</td>
+            <td class="qty">10,000</td>
+            <td class="unit">0.09</td>
+            <td class="amt">900.00</td>
+          </tr>
+          <tr>
+            <td class="idx">12</td>
+            <td class="code">SY-KY-25×35</td>
+            <td>平键</td>
+            <td class="spec">8×7×35mm · 45 钢 · 调质</td>
+            <td class="qty">1,500</td>
+            <td class="unit">0.76</td>
+            <td class="amt">1,140.00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ========== TERMS + SUMMARY ========== -->
+    <section class="bottom">
+      <div class="terms">
+        <div class="sec-title">交货与付款条款 / Terms</div>
+        <ol>
+          <li>交货期：供应商须于 2026-08-28 前将全部货物送达指定地点，逾期按合同总额 0.3% / 日计违约金。</li>
+          <li>质量标准：所有产品须符合 GB/T 307.1 及图纸技术要求，提供出厂检验报告及材质证明。</li>
+          <li>付款方式：货到验收合格后，按月结 60 天电汇（T/T）支付，含 13% 增值税专用发票。</li>
+          <li>运输及保险：由供应商承担运费与运输保险，货物风险在交付至买方仓库后转移。</li>
+          <li>售后保障：轴承类产品质保 12 个月，自验收合格之日起计算，质量问题免费换新。</li>
+        </ol>
+      </div>
+
+      <div class="summary">
+        <div class="sum-row sub">
+          <span class="lab">小计 / Subtotal</span>
+          <span class="val">¥ 110,420.00</span>
+        </div>
+        <div class="sum-row tax">
+          <span class="lab">税额 (13%) / VAT</span>
+          <span class="val">¥ 14,354.60</span>
+        </div>
+        <div class="sum-row grand">
+          <span class="lab">合计 Total</span>
+          <span class="val">¥ 124,774.60</span>
+        </div>
+        <div class="cn-amount">
+          <span class="lab">人民币大写 / In Words</span>
+          <span class="txt">壹拾贰万肆仟柒佰柒拾肆元陆角整</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== SIGNATURES ========== -->
+    <section class="signs">
+      <div class="sign-box">
+        <div class="who">采购方 / Purchaser</div>
+        <div class="who-en">MXX INDUSTRIAL CO., LTD.</div>
+        <div class="seal-area"></div>
+        <div class="sign-line"><span class="lab">授权代表</span><span class="gap"></span></div>
+        <div class="sign-line"><span class="lab">日期</span><span class="gap"></span></div>
+      </div>
+      <div class="sign-box">
+        <div class="who">供应商 / Supplier</div>
+        <div class="who-en">SHENGYUAN PRECISION MACHINERY</div>
+        <div class="seal-area"></div>
+        <div class="sign-line"><span class="lab">授权代表</span><span class="gap"></span></div>
+        <div class="sign-line"><span class="lab">日期</span><span class="gap"></span></div>
+      </div>
+    </section>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="foot">
+      <div class="l">PO-2026-08-0156 · CONFIDENTIAL — INTERNAL PURCHASING USE</div>
+      <div class="r">PAGE 01 / 01</div>
+    </footer>
+
+  </div>
+</div>
+
+<button id="printBtn" class="no-print" type="button">打印预览 / Print</button>
+
+<script>
+  (function(){
+    var btn = document.getElementById('printBtn');
+    if(btn){
+      btn.addEventListener('click', function(){
+        window.print();
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

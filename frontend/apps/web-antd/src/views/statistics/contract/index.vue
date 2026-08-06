@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Card, Row, Col, Table } from 'ant-design-vue';
+import { $t } from '#/locales';
 import { getContractRankingApi, getContractTypeDistributionApi, getContractStatusAnalysisApi } from '#/api/core/statistics';
 
 const rankingData = ref<any[]>([]);
@@ -45,7 +46,7 @@ const loadData = async () => {
       }));
     }
   } catch (e) {
-    console.error('加载合同统计数据失败', e);
+    console.error($t('page.statistics.loadContractFailed'), e);
     rankingData.value = [];
     typeDistributionData.value = [];
     statusAnalysisData.value = [];
@@ -57,50 +58,50 @@ onMounted(() => {
 });
 
 function formatCurrency(val: number) {
-  return `¥${(val / 10000).toFixed(1)}万`;
+  return `¥${(val / 10000).toFixed(1)}${$t('page.statistics.currencyFormat')}`;
 }
 
 const rankingColumns = [
-  { title: '排名', dataIndex: 'rank', width: 60 },
-  { title: '客户名称', dataIndex: 'targetName' },
-  { title: '合同数', dataIndex: 'contractCount', align: 'right' as const },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '已回款', dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '回款率', dataIndex: 'paymentRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.rank'), dataIndex: 'rank', width: 60 },
+  { title: $t('page.statistics.customerName'), dataIndex: 'targetName' },
+  { title: $t('page.statistics.contractCountCol'), dataIndex: 'contractCount', align: 'right' as const },
+  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.paidAmount'), dataIndex: 'paymentAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.paymentRate'), dataIndex: 'paymentRate', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const typeColumns = [
-  { title: '合同类型', dataIndex: 'contractType' },
-  { title: '数量', dataIndex: 'contractCount', align: 'right' as const },
-  { title: '金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '占比', dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.contractTypeCol'), dataIndex: 'contractType' },
+  { title: $t('page.statistics.count'), dataIndex: 'contractCount', align: 'right' as const },
+  { title: $t('page.statistics.amount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.percentage'), dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 
 const statusColumns = [
-  { title: '状态', dataIndex: 'status' },
-  { title: '数量', dataIndex: 'contractCount', align: 'right' as const },
-  { title: '金额', dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
-  { title: '占比', dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.status'), dataIndex: 'status' },
+  { title: $t('page.statistics.count'), dataIndex: 'contractCount', align: 'right' as const },
+  { title: $t('page.statistics.amount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.percentage'), dataIndex: 'percentage', align: 'right' as const, render: (val: number) => `${val}%` },
 ];
 </script>
 
 <template>
   <Page auto-content-height>
     <div class="p-4">
-      <h2 class="text-lg font-bold mb-4">合同排行分析</h2>
+      <h2 class="text-lg font-bold mb-4">{{ $t('page.statistics.contractRanking') }}</h2>
       
-      <Card title="合同排行" class="mb-6">
+      <Card :title="$t('page.statistics.contractRankingTitle')" class="mb-6">
         <Table :columns="rankingColumns" :data-source="rankingData" :pagination="false" />
       </Card>
       
       <Row :gutter="16">
         <Col :span="12">
-          <Card title="合同类型分布">
+          <Card :title="$t('page.statistics.contractTypeDist')">
             <Table :columns="typeColumns" :data-source="typeDistributionData" :pagination="false" size="small" />
           </Card>
         </Col>
         <Col :span="12">
-          <Card title="合同状态分析">
+          <Card :title="$t('page.statistics.contractStatus')">
             <Table :columns="statusColumns" :data-source="statusAnalysisData" :pagination="false" size="small" />
           </Card>
         </Col>

@@ -32,6 +32,7 @@ pub struct CompanyInfoVO {
     pub logo_url: Option<String>,
     pub tax_number: Option<String>,
     pub invoice_title: Option<String>,
+    pub business_type: Option<String>,
     pub remark: Option<String>,
     pub create_time: Option<String>,
     pub update_time: Option<String>,
@@ -71,6 +72,7 @@ pub struct CompanyInfoSaveRequest {
     pub logo_url: Option<String>,
     pub tax_number: Option<String>,
     pub invoice_title: Option<String>,
+    pub business_type: Option<String>,
     pub remark: Option<String>,
 }
 
@@ -125,6 +127,7 @@ impl From<Model> for CompanyInfoVO {
             logo_url: model.logo_url,
             tax_number: model.tax_number,
             invoice_title: model.invoice_title,
+            business_type: model.business_type,
             remark: model.remark,
             create_time: model.create_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
             update_time: model.update_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
@@ -175,6 +178,7 @@ pub async fn update_info(db: &DbConn, req: &CompanyInfoSaveRequest, updated_by: 
         logo_url: Set(req.logo_url.clone()),
         tax_number: Set(req.tax_number.clone()),
         invoice_title: Set(req.invoice_title.clone()),
+        business_type: Set(req.business_type.clone()),
         remark: Set(req.remark.clone()),
         update_by: Set(Some(updated_by)),
         update_time: Set(Some(now)),

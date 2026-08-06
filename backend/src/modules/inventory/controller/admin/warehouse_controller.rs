@@ -84,7 +84,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
         web::scope("/warehouse")
             .route("/save", web::post().to(warehouse_insert).wrap(require_permission("product:warehouse:create")))
             .route("/update", web::put().to(warehouse_update).wrap(require_permission("product:warehouse:edit")))
-            .route("/bath_delete", web::delete().to(batch_delete_warehouse).wrap(require_permission("product:warehouse:delete")))
+            .route("/batch_delete", web::delete().to(batch_delete_warehouse).wrap(require_permission("product:warehouse:delete")))
             .route("/info", web::get().to(warehouse_info).wrap(require_permission("product:warehouse:edit")))
             .route("/list", web::get().to(warehouse_list).wrap(require_permission("product:warehouse:list"))),
     );

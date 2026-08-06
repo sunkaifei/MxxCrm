@@ -13,7 +13,7 @@ import { Button, Drawer, Dropdown, Menu, Tabs, message, Modal, Popconfirm, Tag }
 import { LucideChevronDown } from '@vben/icons';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteQuotationApi, getQuotationInfoApi, getQuotationListApi, submitQuotationApprovalApi } from '#/api';
+import { deleteQuotationApi, getQuotationInfoApi, getQuotationListApi, submitQuotationApprovalApi, generatePdfApi, downloadPdfApi } from '#/api';
 import { $t } from '#/locales';
 import OrderDrawer from '../order/drawer.vue';
 import QuotationDetail from './detail.vue';
@@ -247,6 +247,32 @@ function openDetail(row: any) {
   detailVisible.value = true;
 }
 
+async function handleDownloadPdf(row: any) {
+  row.pending = true;
+  try {
+    const res: any = await generatePdfApi({ docType: 'quotation', docId: row.id });
+    const data = res?.data ?? res;
+    const recordId = data?.recordId;
+    if (!recordId) {
+      window.$message.error('生成PDF失败');
+      return;
+    }
+    const blob: any = await downloadPdfApi(recordId);
+    const pdfBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `报价单_${row.quotationNo || row.id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    window.$message.success('PDF下载成功');
+  } finally {
+    row.pending = false;
+  }
+}
+
 function handleDetailEdit(id: string) {
   detailVisible.value = false;
   const record = gridApi.grid.getTableData().fullData.find((r: any) => String(r.id) === id);
@@ -328,6 +354,13 @@ function handleDetailEdit(id: string) {
                 @click="handleConvertToOrder(row)"
               >
                 一键转订单
+              </Menu.Item>
+              <Menu.Item
+                v-if="row.approvalStatus === 3"
+                key="downloadPdf"
+                @click="handleDownloadPdf(row)"
+              >
+                下载报价PDF
               </Menu.Item>
               <Menu.Item
                 v-if="accessStore.hasAccessCode('sale:quotation:edit') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"

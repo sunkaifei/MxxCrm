@@ -1,0 +1,114 @@
+{
+  "attachment": {
+    "title": "附件",
+    "file": {
+      "title": "文件管理",
+      "button": {
+        "upload": "上传文件",
+        "delete": "删除文件",
+        "close": "关闭"
+      },
+      "search": {
+        "placeholder": "搜索文件名称",
+        "category": "文件分类",
+        "entityType": "业务类型",
+        "allEntityTypes": "全部业务类型"
+      },
+      "tab": {
+        "all": "全部文件",
+        "image": "图片管理",
+        "file": "文件管理"
+      },
+      "view": {
+        "grid": "网格视图",
+        "list": "列表视图"
+      },
+      "action": {
+        "preview": "预览",
+        "copyUrl": "复制链接",
+        "download": "下载",
+        "delete": "删除"
+      },
+      "message": {
+        "copySuccess": "链接已复制到剪贴板",
+        "deleteConfirm": "确定删除 {name}？",
+        "empty": "暂无文件",
+        "previewFail": "预览失败",
+        "downloadFail": "下载失败"
+      },
+      "column": {
+        "name": "文件名",
+        "type": "类型",
+        "size": "大小",
+        "createTime": "创建时间",
+        "action": "操作",
+        "entityType": "业务来源",
+        "isPublic": "是否公开",
+        "uploadedBy": "上传人"
+      },
+      "uploadModal": {
+        "title": "上传文件"
+      },
+      "entityTypes": {
+        "product": "产品图片",
+        "avatar": "用户头像",
+        "contract": "合同附件",
+        "invoice": "发票文件",
+        "quotation": "报价单附件",
+        "payment": "回款凭证",
+        "common": "通用附件",
+        "website_media": "CMS媒体库",
+        "article": "文章内容",
+        "banner": "轮播图片",
+        "block": "页面区块",
+        "page": "自定义页面",
+        "category": "栏目分类",
+        "navigation": "导航图标",
+        "link": "友情链接",
+        "member": "会员文件",
+        "member_avatar": "会员头像",
+        "comment": "评论附件",
+        "announcement": "公告图片",
+        "faq": "FAQ图片",
+        "ad": "广告图片",
+        "form": "表单提交"
+      },
+      "public": "公开",
+      "private": "私有",
+      "filter": {
+        "all": "全部类型",
+        "image": "图片",
+        "doc": "文档",
+        "video": "视频",
+        "other": "其他",
+        "type": "文件类型"
+      }
+    },
+    "category": {
+      "title": "分类管理",
+      "description": "管理文件分类，支持多级分类",
+      "button": {
+        "add": "新增分类",
+        "create": "新增分类",
+        "edit": "编辑分类",
+        "delete": "删除分类"
+      },
+      "form": {
+        "name": "分类名称",
+        "nameRequired": "请输入分类名称",
+        "namePlaceholder": "请输入分类名称"
+      },
+      "modal": {
+        "add": "新增分类",
+        "edit": "编辑分类"
+      },
+      "message": {
+        "loadFail": "加载分类失败",
+        "deleteFail": "删除失败",
+        "submitFail": "提交失败",
+        "deleteConfirm": "确定删除该分类及其所有子分类吗？",
+        "empty": "暂无分类"
+      }
+    }
+  }
+}

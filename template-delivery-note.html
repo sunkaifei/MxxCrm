@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>送货单 Delivery Note - DN-2026-08-0288</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1a1a1a;
+      --ink-soft: #3d3d3d;
+      --steel: #6e6e6e;
+      --mist: #a0a0a0;
+      --amber: #b8860b;
+      --paper: #ffffff;
+      --hair: #1a1a1a;
+      --hair-soft: #d6d6d6;
+      --zebra: #f7f7f7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page { size: A4 landscape; margin: 0; }
+
+    body {
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-weight: 400;
+      color: var(--ink);
+      background: #e9e9ec;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 24px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ===== sheet ===== */
+    .sheet {
+      position: relative;
+      width: 297mm;
+      height: 210mm;
+      background: var(--paper);
+      padding: 8mm 11mm 7mm;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, .16);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .sheet::after {
+      content: "";
+      position: absolute;
+      top: 5mm; right: 5mm; bottom: 5mm; left: 5mm;
+      border: 0.6pt solid var(--hair);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .inner {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* ===== header ===== */
+    .doc-header {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 10mm;
+      align-items: flex-end;
+      padding-bottom: 2.8mm;
+      border-bottom: 1pt solid var(--hair);
+    }
+    .brand-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.5px;
+      letter-spacing: 0.26em;
+      color: var(--amber);
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+    .brand-name {
+      font-family: "Noto Serif SC", serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.1;
+    }
+    .brand-meta {
+      font-size: 7.6px;
+      line-height: 1.6;
+      color: var(--steel);
+      margin-top: 4px;
+    }
+    .doc-title { text-align: right; }
+    .doc-title .en {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--steel);
+      margin-bottom: 2px;
+    }
+    .doc-title .zh {
+      font-family: "Noto Serif SC", serif;
+      font-size: 23px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .doc-title .doc-id {
+      margin-top: 5px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7.6px;
+      color: var(--steel);
+      letter-spacing: 0.05em;
+    }
+    .doc-title .doc-id strong { color: var(--amber); }
+
+    /* ===== logistics bar ===== */
+    .logi-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      margin: 2.6mm 0 2.6mm;
+      border-top: 0.6pt solid var(--hair-soft);
+      border-bottom: 0.6pt solid var(--hair-soft);
+    }
+    .lb-cell {
+      padding: 2.2mm 5mm 2.2mm 0;
+    }
+    .lb-cell + .lb-cell {
+      padding-left: 5mm;
+      border-left: 0.6pt solid var(--hair-soft);
+    }
+    .lb-cell .k {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.8px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--steel);
+      display: block;
+      margin-bottom: 1mm;
+    }
+    .lb-cell .v {
+      font-size: 8.8px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .lb-cell .v.mono {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    /* ===== receiver (prominent) ===== */
+    .receiver {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr 2.4fr;
+      border: 0.8pt solid var(--ink);
+      margin-bottom: 2.8mm;
+      background: #fbfbf9;
+    }
+    .rcv-cell {
+      padding: 2.6mm 4mm;
+      border-right: 0.4pt solid var(--hair-soft);
+    }
+    .rcv-cell:last-child { border-right: none; }
+    .rcv-cell .k {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.6px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--amber);
+      display: block;
+      margin-bottom: 1mm;
+    }
+    .rcv-cell .v {
+      font-size: 9.2px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+    .rcv-cell .v.normal { font-weight: 500; }
+    .rcv-cell .v.mono {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    /* ===== section title ===== */
+    .sec-title {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 1.8mm;
+    }
+
+    /* ===== table ===== */
+    .table-area { flex: 0 0 auto; display: flex; flex-direction: column; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.6px;
+    }
+    thead th {
+      font-family: "Noto Sans SC", sans-serif;
+      font-weight: 700;
+      font-size: 7.8px;
+      letter-spacing: 0.06em;
+      color: var(--ink);
+      padding: 2.2mm 2.4mm;
+      text-align: left;
+      white-space: nowrap;
+      border-top: 1pt solid var(--hair);
+      border-bottom: 1pt solid var(--hair);
+      background: transparent;
+    }
+    thead th.num { text-align: center; }
+    thead th.qty { text-align: right; }
+    tbody td {
+      padding: 2.1mm 2.4mm;
+      border-bottom: 0.4pt solid var(--hair-soft);
+      color: var(--ink-soft);
+      vertical-align: middle;
+      line-height: 1.3;
+    }
+    tbody tr:nth-child(even) td { background: var(--zebra); }
+    td.idx {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--steel);
+      text-align: center;
+    }
+    td.sku {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8.2px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    td.name { color: var(--ink); font-weight: 500; }
+    td.spec { color: var(--ink-soft); }
+    td.qty {
+      text-align: right;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8.8px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    td.qty.ship { color: var(--amber); }
+    td.note { color: var(--steel); }
+
+    /* ===== cargo totals ===== */
+    .cargo-total {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 0.6pt solid var(--hair);
+      border-top: none;
+    }
+    .ct-cell {
+      padding: 2mm 4mm;
+      text-align: center;
+      border-right: 0.4pt solid var(--hair-soft);
+    }
+    .ct-cell:last-child { border-right: none; }
+    .ct-cell .k {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 6.6px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--steel);
+      display: block;
+    }
+    .ct-cell .v {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: 0.02em;
+    }
+    .ct-cell .v .unit {
+      font-size: 7px;
+      font-weight: 500;
+      color: var(--steel);
+      margin-left: 2px;
+    }
+
+    /* ===== sign-off (most important — flex grows) ===== */
+    .signoff {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-top: 3.4mm;
+      min-height: 0;
+    }
+    .sign-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 0.78fr 1fr;
+      gap: 6mm;
+      min-height: 0;
+    }
+    .sign-panel {
+      border: 0.6pt solid var(--hair);
+      padding: 3.4mm 4mm;
+      display: flex;
+      flex-direction: column;
+    }
+    .sign-panel .panel-title {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      padding-bottom: 2.2mm;
+      margin-bottom: 3.4mm;
+      border-bottom: 0.4pt dashed var(--hair-soft);
+    }
+    .sign-field {
+      display: flex;
+      align-items: baseline;
+      font-size: 8.2px;
+      color: var(--ink-soft);
+      margin-bottom: 3mm;
+    }
+    .sign-field .fk {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--steel);
+      flex: 0 0 auto;
+      margin-right: 3mm;
+      min-width: 13.5em;
+    }
+    .sign-field .fline {
+      flex: 1;
+      border-bottom: 0.5pt solid var(--ink-soft);
+      min-width: 0;
+      height: 4mm;
+    }
+    .sign-field .fval {
+      font-size: 8.2px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    /* check row */
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 5mm;
+      font-size: 8.2px;
+      color: var(--ink-soft);
+      margin-bottom: 3mm;
+    }
+    .check-row .fk {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--steel);
+    }
+    .chk {
+      display: inline-flex;
+      align-items: center;
+      gap: 1.6mm;
+      cursor: default;
+    }
+    .box {
+      display: inline-block;
+      width: 3.2mm;
+      height: 3.2mm;
+      border: 0.7pt solid var(--ink);
+      flex: 0 0 auto;
+    }
+    .chk .clabel { font-size: 8px; color: var(--ink-soft); }
+
+    /* stamp area */
+    .stamp-panel {
+      border: 0.8pt dashed var(--amber);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: #fffdf6;
+      padding: 4mm;
+    }
+    .stamp-panel .stamp-k {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 2.4mm;
+    }
+    .stamp-panel .stamp-box {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 0.5pt dashed var(--hair-soft);
+      min-height: 0;
+    }
+    .stamp-panel .stamp-hint {
+      font-family: "Noto Serif SC", serif;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--mist);
+      letter-spacing: 0.1em;
+      line-height: 1.5;
+    }
+
+    /* ===== footer ===== */
+    .page-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 3mm;
+      padding-top: 2mm;
+      border-top: 0.4pt solid var(--hair-soft);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 7px;
+      color: var(--steel);
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+    }
+    .page-foot .pf-left strong { color: var(--amber); }
+    .page-foot .pf-mid { color: var(--ink-soft); }
+    .page-foot .pf-right strong { color: var(--amber); }
+
+    /* ===== print button ===== */
+    .no-print {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      padding: 11px 22px;
+      font-family: "Noto Sans SC", sans-serif;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      border-radius: 2px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, .3);
+      transition: transform .2s ease, background .2s ease;
+    }
+    .btn:hover { background: var(--amber); transform: translateY(-2px); }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .sheet { box-shadow: none; page-break-after: always; }
+      .sheet:last-child { page-break-after: auto; }
+      .no-print { display: none !important; }
+      tbody tr:nth-child(even) td { background: #fcfcfc; }
+      .stamp-panel { background: #fff; }
+      .receiver { background: #fff; }
+    }
+
+    @media screen and (max-width: 900px) {
+      body { padding: 16px; }
+      .sheet { width: 100%; height: auto; min-height: 210mm; }
+      .doc-header, .logi-bar, .receiver, .sign-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ DELIVERY NOTE ============ -->
+  <section class="sheet">
+    <div class="inner">
+
+      <!-- ===== header ===== -->
+      <header class="doc-header">
+        <div class="brand">
+          <div class="brand-tag">// Shipper 发货方</div>
+          <div class="brand-name">Mxx Industrial Co., Ltd.</div>
+          <div class="brand-meta">
+            上海市浦东新区张江高科技园区博云路 2 号 5 号楼<br>
+            T: 021-6666-8888 · E: logistics@mxx-industrial.cn<br>
+            统一社会信用代码：91310000MA1FL33XXX
+          </div>
+        </div>
+        <div class="doc-title">
+          <div class="en">Delivery Note</div>
+          <div class="zh">送货单</div>
+          <div class="doc-id">NO. <strong>DN-2026-08-0288</strong> · ISSUED 2026-08-06</div>
+        </div>
+      </header>
+
+      <!-- ===== logistics bar ===== -->
+      <section class="logi-bar">
+        <div class="lb-cell">
+          <span class="k">// Ship Date 发货日期</span>
+          <span class="v mono">2026-08-06</span>
+        </div>
+        <div class="lb-cell">
+          <span class="k">// ETA 预计到达</span>
+          <span class="v mono">2026-08-09</span>
+        </div>
+        <div class="lb-cell">
+          <span class="k">// Transport 运输方式</span>
+          <span class="v">公路汽运 · 整车</span>
+        </div>
+        <div class="lb-cell">
+          <span class="k">// Tracking No. 物流单号</span>
+          <span class="v mono">SF-20260806-7720-4488</span>
+        </div>
+      </section>
+
+      <!-- ===== receiver (prominent) ===== -->
+      <section class="receiver">
+        <div class="rcv-cell">
+          <span class="k">// Consignee 收货单位</span>
+          <span class="v">上海星辰制造有限公司</span>
+        </div>
+        <div class="rcv-cell">
+          <span class="k">// Receiver 收货人</span>
+          <span class="v">李建国 经理</span>
+        </div>
+        <div class="rcv-cell">
+          <span class="k">// Tel 联系电话</span>
+          <span class="v mono">139-1234-5678</span>
+        </div>
+        <div class="rcv-cell">
+          <span class="k">// Delivery Address 收货地址</span>
+          <span class="v normal">江苏省苏州市工业园区星汉街 88 号 · 3 号仓库收货月台</span>
+        </div>
+      </section>
+
+      <!-- ===== goods table ===== -->
+      <div class="table-area">
+        <div class="sec-title">// 产品明细 Goods Detail</div>
+        <table>
+          <thead>
+            <tr>
+              <th class="num" style="width:5%">序号<br><span style="font-family:'JetBrains Mono';font-weight:400;font-size:6.4px;color:var(--steel)">NO.</span></th>
+              <th style="width:13%">产品编号<br><span style="font-family:'JetBrains Mono';font-weight:400;font-size:6.4px;color:var(--steel)">CODE</span></th>
+              <th style="width:22%">产品名称<br><span style="font-family:'JetBrains Mono';font-weight:400;font-size:6.4px;color:var(--steel)">PRODUCT</span></th>
+              <th style="width:25%">规格参数<br><span style="font-family:'JetBrains Mono';font-weight:400;font-size:6.4px;color:var(--steel)">SPEC</span></th>
+              <th class="qty" style="width:10%">订单数量<br><span style="font-family:'JetBrains Mono';font-weight:400;font-size:6.4px;color:var(--steel)">ORDER QTY</span></th>
+              <th class="qty" style="width:10%">发货数量<br><span style="font-family:'JetBrains Mono';font-weight:400;font-size:6.4px;color:var(--steel)">SHIP QTY</span></th>
+              <th style="width:15%">备注<br><span style="font-family:'JetBrains Mono';font-weight:400;font-size:6.4px;color:var(--steel)">REMARK</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="idx">01</td>
+              <td class="sku">MX-PB-3201</td>
+              <td class="name">工业精密轴承</td>
+              <td class="spec">Φ32 · 内径 32mm / 外径 72mm / 密封型</td>
+              <td class="qty">500</td>
+              <td class="qty ship">500</td>
+              <td class="note">标准纸盒装</td>
+            </tr>
+            <tr>
+              <td class="idx">02</td>
+              <td class="sku">MX-CS-7050</td>
+              <td class="name">伺服电机连接线</td>
+              <td class="spec">1.5m · 纯铜芯 · 屏蔽双绞 / 航空插头</td>
+              <td class="qty">200</td>
+              <td class="qty ship">200</td>
+              <td class="note">—</td>
+            </tr>
+            <tr>
+              <td class="idx">03</td>
+              <td class="sku">MX-AL-1108</td>
+              <td class="name">铝合金型材</td>
+              <td class="spec">4040L · 长度 2000mm · 阳极氧化</td>
+              <td class="qty">80</td>
+              <td class="qty ship">80</td>
+              <td class="note">木箱包装</td>
+            </tr>
+            <tr>
+              <td class="idx">04</td>
+              <td class="sku">MX-SW-4520</td>
+              <td class="name">不锈钢法兰球阀</td>
+              <td class="spec">DN50 · PN16 · 304SS · 手动</td>
+              <td class="qty">120</td>
+              <td class="qty ship">120</td>
+              <td class="note">—</td>
+            </tr>
+            <tr>
+              <td class="idx">05</td>
+              <td class="sku">MX-RD-8830</td>
+              <td class="name">行星减速机</td>
+              <td class="spec">行星式 · 减速比 1:10 · 输入轴 14mm</td>
+              <td class="qty">40</td>
+              <td class="qty ship">40</td>
+              <td class="note">单独防潮包装</td>
+            </tr>
+            <tr>
+              <td class="idx">06</td>
+              <td class="sku">MX-CT-2005</td>
+              <td class="name">增量式编码器</td>
+              <td class="spec">2500 PPR · 5VDC · 轴径 6mm</td>
+              <td class="qty">60</td>
+              <td class="qty ship">60</td>
+              <td class="note">防静电袋</td>
+            </tr>
+            <tr>
+              <td class="idx">07</td>
+              <td class="sku">MX-GB-5512</td>
+              <td class="name">同步带轮</td>
+              <td class="spec">HTD 5M · 24 齿 · 铝合金 / 阳极氧化</td>
+              <td class="qty">300</td>
+              <td class="qty ship">300</td>
+              <td class="note">—</td>
+            </tr>
+            <tr>
+              <td class="idx">08</td>
+              <td class="sku">MX-FB-3300</td>
+              <td class="name">电磁流量计</td>
+              <td class="spec">DN10 · 4-20mA 输出 · PTFE 衬里</td>
+              <td class="qty">25</td>
+              <td class="qty ship">25</td>
+              <td class="note">精密仪器 · 易碎</td>
+            </tr>
+            <tr>
+              <td class="idx">09</td>
+              <td class="sku">MX-PN-6680</td>
+              <td class="name">气动夹爪</td>
+              <td class="spec">二指 · 行程 20mm · 夹持力 80N</td>
+              <td class="qty">50</td>
+              <td class="qty ship">50</td>
+              <td class="note">—</td>
+            </tr>
+            <tr>
+              <td class="idx">10</td>
+              <td class="sku">MX-PS-9910</td>
+              <td class="name">直线导轨滑块</td>
+              <td class="spec">HGR20 · 长 1000mm · 含 2 滑块</td>
+              <td class="qty">35</td>
+              <td class="qty ship">35</td>
+              <td class="note">成对包装</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- cargo totals -->
+        <div class="cargo-total">
+          <div class="ct-cell">
+            <span class="k">// Total Cartons 总箱数</span>
+            <span class="v">28<span class="unit">箱</span></span>
+          </div>
+          <div class="ct-cell">
+            <span class="k">// Gross Weight 总重量</span>
+            <span class="v">342.5<span class="unit">kg</span></span>
+          </div>
+          <div class="ct-cell">
+            <span class="k">// Total Volume 总体积</span>
+            <span class="v">1.68<span class="unit">m³</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== sign-off (most important) ===== -->
+      <section class="signoff">
+        <div class="sec-title">// 签收确认 Sign &amp; Confirm</div>
+        <div class="sign-grid">
+
+          <!-- ship confirmation -->
+          <div class="sign-panel">
+            <div class="panel-title">// Shipper 发货确认</div>
+            <div class="sign-field">
+              <span class="fk">发货人签字 Shipper</span>
+              <span class="fline"></span>
+            </div>
+            <div class="sign-field">
+              <span class="fk">发货日期 Ship Date</span>
+              <span class="fline"></span>
+            </div>
+            <div class="sign-field">
+              <span class="fk">发运方式 Method</span>
+              <span class="fline"></span>
+            </div>
+            <div class="sign-field">
+              <span class="fk">承运单位 Carrier</span>
+              <span class="fline"></span>
+            </div>
+          </div>
+
+          <!-- stamp -->
+          <div class="stamp-panel">
+            <div class="stamp-k">// 收货专用章 Stamp</div>
+            <div class="stamp-box">
+              <span class="stamp-hint">加盖收货专用章<br>(Company Seal)</span>
+            </div>
+          </div>
+
+          <!-- receive confirmation -->
+          <div class="sign-panel">
+            <div class="panel-title">// Receiver 收货确认</div>
+            <div class="sign-field">
+              <span class="fk">收货人签字 Receiver</span>
+              <span class="fline"></span>
+            </div>
+            <div class="sign-field">
+              <span class="fk">收货日期 Recv Date</span>
+              <span class="fline"></span>
+            </div>
+            <div class="check-row">
+              <span class="fk">实收数量 Qty Check</span>
+              <span class="chk"><span class="box"></span><span class="clabel">一致</span></span>
+              <span class="chk"><span class="box"></span><span class="clabel">不一致</span></span>
+            </div>
+            <div class="check-row">
+              <span class="fk">外观完好 Condition</span>
+              <span class="chk"><span class="box"></span><span class="clabel">是</span></span>
+              <span class="chk"><span class="box"></span><span class="clabel">否</span></span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===== footer ===== -->
+      <footer class="page-foot">
+        <span class="pf-left">送货单号 <strong>DN-2026-08-0288</strong></span>
+        <span class="pf-mid">本送货单一式三联 · 发货联 / 财务联 / 签收联 · 收货方签字盖章后回传有效</span>
+        <span class="pf-right">PAGE <strong>1 / 1</strong></span>
+      </footer>
+
+    </div>
+  </section>
+
+  <div class="no-print">
+    <button class="btn" onclick="window.print()">打印预览 / 存为 PDF</button>
+  </div>
+</body>
+</html>

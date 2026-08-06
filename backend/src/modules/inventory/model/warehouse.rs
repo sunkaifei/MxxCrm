@@ -35,6 +35,8 @@ pub struct WarehouseVO {
     pub contact_phone: Option<String>,
     pub is_active: Option<bool>,
     pub status: Option<i16>,
+    pub sort_order: Option<i32>,
+    pub picking_strategy: Option<String>,
     pub create_time: Option<String>,
 }
 
@@ -55,6 +57,8 @@ pub struct WarehouseDetailVO {
     pub logistics_types: Option<String>,
     pub is_active: Option<bool>,
     pub remark: Option<String>,
+    pub sort_order: Option<i32>,
+    pub picking_strategy: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,6 +77,8 @@ pub struct WarehouseSaveRequest {
     pub logistics_types: Option<String>,
     pub is_active: Option<bool>,
     pub remark: Option<String>,
+    pub sort_order: Option<i32>,
+    pub picking_strategy: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -92,6 +98,8 @@ pub struct WarehouseUpdateRequest {
     pub logistics_types: Option<String>,
     pub is_active: Option<bool>,
     pub remark: Option<String>,
+    pub sort_order: Option<i32>,
+    pub picking_strategy: Option<String>,
 }
 
 fn warehouse_type_name(t: Option<i16>) -> Option<String> {
@@ -122,6 +130,8 @@ impl From<Model> for WarehouseVO {
             contact_phone: model.contact_phone,
             is_active: model.is_active,
             status: if model.is_active.unwrap_or(true) { Some(1) } else { Some(0) },
+            sort_order: model.sort_order,
+            picking_strategy: model.picking_strategy,
             create_time: model.create_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
@@ -144,6 +154,8 @@ impl From<Model> for WarehouseDetailVO {
             logistics_types: model.logistics_types,
             is_active: model.is_active,
             remark: model.remark,
+            sort_order: model.sort_order,
+            picking_strategy: model.picking_strategy,
         }
     }
 }
@@ -189,6 +201,8 @@ pub async fn insert(db: &DbConn, req: &WarehouseSaveRequest, created_by: i64) ->
         logistics_types: Set(req.logistics_types.clone()),
         is_active: Set(req.is_active.or(Some(true))),
         remark: Set(req.remark.clone()),
+        sort_order: Set(req.sort_order),
+        picking_strategy: Set(req.picking_strategy.clone()),
         deleted: Set(Some(0)),
         created_by: Set(Some(created_by)),
         updated_by: Set(Some(created_by)),
@@ -216,6 +230,8 @@ pub async fn update_by_id(db: &DbConn, id: i64, req: &WarehouseUpdateRequest, up
         logistics_types: Set(req.logistics_types.clone()),
         is_active: Set(req.is_active),
         remark: Set(req.remark.clone()),
+        sort_order: Set(req.sort_order),
+        picking_strategy: Set(req.picking_strategy.clone()),
         updated_by: Set(Some(updated_by)),
         update_time: Set(Some(now)),
         ..Default::default()

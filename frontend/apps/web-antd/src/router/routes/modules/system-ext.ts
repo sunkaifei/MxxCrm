@@ -76,6 +76,24 @@ const routes: RouteRecordRaw[] = [
           title: '定时任务',
         },
       },
+      {
+        name: 'SystemPdfTemplate',
+        path: '/system-ext/pdf-template',
+        component: () => import('#/views/system/pdf-template/index.vue'),
+        meta: {
+          icon: 'lucide:file-text',
+          title: $t('page.system.pdfTemplate.title'),
+        },
+      },
+      {
+        name: 'SystemPdfRecord',
+        path: '/system-ext/pdf-record',
+        component: () => import('#/views/system/pdf-record/index.vue'),
+        meta: {
+          icon: 'lucide:file-down',
+          title: $t('page.system.pdfRecord.title'),
+        },
+      },
     ],
   },
 ];

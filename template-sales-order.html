@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>销售订单 Sales Order - SO-2026-08-0042</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ==================== Design System Tokens ==================== */
+:root {
+  --ink: #1a1a1a;
+  --ink-soft: #3d3d3d;
+  --steel: #6e6e6e;
+  --mist: #a0a0a0;
+  --amber: #b8860b;
+  --paper: #ffffff;
+  --hair: #1a1a1a;
+  --hair-soft: #d6d6d6;
+  --zebra: #f7f7f7;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ==================== Page Setup ==================== */
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+html, body {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 400;
+  color: var(--ink);
+  background: #e9e9ec;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==================== Sheet ==================== */
+.sheet {
+  width: 297mm;
+  height: 210mm;
+  background: var(--paper);
+  padding: 8mm 11mm 7mm;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  margin: 0 auto;
+}
+
+.sheet::after {
+  content: '';
+  position: absolute;
+  top: 5mm;
+  right: 5mm;
+  bottom: 5mm;
+  left: 5mm;
+  border: 0.6pt solid var(--hair);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==================== Section Title ==================== */
+.sec-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 8pt;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2.5mm;
+}
+
+.sec-title::before {
+  content: '// ';
+}
+
+/* ==================== Header ==================== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4mm;
+  padding-bottom: 3mm;
+  border-bottom: 0.6pt solid var(--hair);
+}
+
+.brand {
+  flex: 1;
+}
+
+.brand-name {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 700;
+  font-size: 17pt;
+  color: var(--ink);
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.brand-en {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 7.5pt;
+  color: var(--steel);
+  margin-top: 0.5mm;
+}
+
+.brand-meta {
+  margin-top: 2mm;
+  font-size: 7pt;
+  color: var(--steel);
+  line-height: 1.5;
+  font-weight: 300;
+}
+
+.brand-meta span {
+  display: inline-block;
+  margin-right: 4mm;
+}
+
+.doc-title-block {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.doc-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 7pt;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.doc-title {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 700;
+  font-size: 15pt;
+  color: var(--ink);
+  margin-top: 0.5mm;
+}
+
+.doc-title-en {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 400;
+  font-size: 8pt;
+  color: var(--steel);
+  margin-top: 0.5mm;
+  letter-spacing: 0.05em;
+}
+
+.doc-no {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 10pt;
+  color: var(--ink);
+  margin-top: 2mm;
+  letter-spacing: 0.03em;
+}
+
+.doc-date {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 400;
+  font-size: 7.5pt;
+  color: var(--steel);
+  margin-top: 1mm;
+}
+
+/* ==================== Info Bars ==================== */
+.info-row {
+  display: grid;
+  gap: 0;
+  margin-bottom: 3mm;
+}
+
+.info-customer {
+  grid-template-columns: repeat(3, 1fr);
+  border: 0.5pt solid var(--hair-soft);
+  border-right: none;
+}
+
+.info-meta {
+  grid-template-columns: repeat(4, 1fr);
+  border: 0.5pt solid var(--hair-soft);
+  border-right: none;
+}
+
+.info-cell {
+  padding: 2mm 3mm;
+  border-right: 0.5pt solid var(--hair-soft);
+}
+
+.info-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 6pt;
+  color: var(--mist);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.info-value {
+  font-size: 8.5pt;
+  color: var(--ink);
+  font-weight: 500;
+  margin-top: 0.8mm;
+  line-height: 1.3;
+}
+
+.info-value-sub {
+  font-size: 7.5pt;
+  color: var(--steel);
+  font-weight: 300;
+  margin-top: 0.5mm;
+}
+
+/* ==================== Product Table ==================== */
+.table-wrap {
+  margin-bottom: 3mm;
+}
+
+.product-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.product-table th {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 6.5pt;
+  color: var(--paper);
+  background: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1.8mm 2mm;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.product-table th.num,
+.product-table td.num {
+  text-align: right;
+}
+
+.product-table th.center,
+.product-table td.center {
+  text-align: center;
+}
+
+.product-table td {
+  font-size: 7.8pt;
+  color: var(--ink-soft);
+  padding: 1.6mm 2mm;
+  vertical-align: middle;
+  border-bottom: 0.3pt solid var(--hair-soft);
+  line-height: 1.3;
+}
+
+.product-table tbody tr:nth-child(even) td {
+  background: var(--zebra);
+}
+
+.product-table td.idx {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 7pt;
+  color: var(--mist);
+  text-align: center;
+}
+
+.product-table td.code {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 7pt;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.product-table td.num {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 400;
+  font-size: 7.5pt;
+  color: var(--ink);
+}
+
+.product-table td.amount {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 7.8pt;
+  color: var(--ink);
+}
+
+/* Column widths */
+.col-idx     { width: 6%; }
+.col-code    { width: 12%; }
+.col-name    { width: 20%; }
+.col-spec    { width: 23%; }
+.col-qty     { width: 8%; }
+.col-price   { width: 11%; }
+.col-disc    { width: 8%; }
+.col-amount  { width: 12%; }
+
+/* ==================== Summary + Payment Row ==================== */
+.bottom-row {
+  display: flex;
+  gap: 4mm;
+  margin-bottom: 3mm;
+}
+
+/* Payment cards */
+.payment-section {
+  flex: 1;
+}
+
+.pay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2mm;
+}
+
+.pay-card {
+  border: 0.5pt solid var(--hair-soft);
+  padding: 2mm 2.5mm;
+  position: relative;
+}
+
+.pay-card.total {
+  border: 0.6pt solid var(--amber);
+  background: #fdfaf3;
+}
+
+.pay-stage {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 6pt;
+  color: var(--mist);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pay-label {
+  font-size: 8pt;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 0.8mm;
+}
+
+.pay-amount {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 10pt;
+  color: var(--ink);
+  margin-top: 0.5mm;
+}
+
+.pay-card.total .pay-amount {
+  color: var(--amber);
+  font-size: 11pt;
+}
+
+.pay-note {
+  font-size: 6.5pt;
+  color: var(--steel);
+  margin-top: 0.5mm;
+  font-weight: 300;
+}
+
+/* Summary box */
+.summary-box {
+  width: 68mm;
+  flex-shrink: 0;
+  border: 0.6pt solid var(--hair);
+  padding: 2.5mm 3mm;
+}
+
+.summary-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 7pt;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2mm;
+  padding-bottom: 1.5mm;
+  border-bottom: 0.4pt solid var(--hair-soft);
+}
+
+.summary-title::before {
+  content: '// ';
+}
+
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1mm 0;
+}
+
+.sum-label {
+  font-size: 7.5pt;
+  color: var(--steel);
+  font-weight: 400;
+}
+
+.sum-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 400;
+  font-size: 8pt;
+  color: var(--ink);
+}
+
+.sum-divider {
+  border-top: 0.4pt solid var(--hair-soft);
+  margin: 1mm 0;
+}
+
+.sum-total-label {
+  font-size: 9pt;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.sum-total-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 12pt;
+  color: var(--amber);
+}
+
+.sum-cn {
+  font-size: 7pt;
+  color: var(--ink-soft);
+  font-weight: 500;
+  margin-top: 1mm;
+  padding-top: 1.5mm;
+  border-top: 0.4pt solid var(--hair-soft);
+  text-align: left;
+}
+
+.sum-cn .cn-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 6pt;
+  color: var(--mist);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 0.5mm;
+}
+
+/* ==================== Terms + Signatures ==================== */
+.terms-sign-row {
+  display: flex;
+  gap: 4mm;
+  flex: 1;
+}
+
+.terms-block {
+  flex: 1;
+}
+
+.terms-list {
+  list-style: none;
+  padding: 0;
+}
+
+.terms-list li {
+  font-size: 6.8pt;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 1mm;
+  padding-left: 3.5mm;
+  position: relative;
+  font-weight: 300;
+}
+
+.terms-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 1mm;
+  width: 1.2mm;
+  height: 1.2mm;
+  background: var(--amber);
+}
+
+.terms-list li strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* Signatures */
+.sign-block {
+  width: 75mm;
+  flex-shrink: 0;
+}
+
+.sign-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3mm;
+}
+
+.sign-card {
+  border: 0.5pt solid var(--hair-soft);
+  padding: 2mm 2.5mm;
+  min-height: 24mm;
+}
+
+.sign-party {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 6.5pt;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sign-name {
+  font-size: 7.5pt;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 0.5mm;
+}
+
+.sign-seal {
+  margin-top: 6mm;
+  padding-top: 1.5mm;
+  border-top: 0.3pt dashed var(--hair-soft);
+}
+
+.sign-seal-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 5.5pt;
+  color: var(--mist);
+  text-transform: uppercase;
+}
+
+.sign-date {
+  margin-top: 1.5mm;
+}
+
+.sign-date-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 5.5pt;
+  color: var(--mist);
+  text-transform: uppercase;
+}
+
+.sign-date-line {
+  border-bottom: 0.4pt solid var(--hair-soft);
+  height: 3mm;
+  margin-top: 0.5mm;
+}
+
+/* ==================== Footer ==================== */
+.footer {
+  margin-top: auto;
+  padding-top: 2mm;
+  border-top: 0.5pt solid var(--hair);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-left {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 6pt;
+  color: var(--mist);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+.footer-right {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 6pt;
+  color: var(--mist);
+  font-weight: 400;
+}
+
+.footer-right .page-num {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ==================== Print Button ==================== */
+.print-btn {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  padding: 10px 22px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 9pt;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  z-index: 9999;
+  transition: background 0.2s, transform 0.15s;
+  letter-spacing: 0.03em;
+}
+
+.print-btn:hover {
+  background: var(--amber);
+  transform: translateY(-1px);
+}
+
+.print-btn:active {
+  transform: translateY(0);
+}
+
+/* ==================== Print Media ==================== */
+@media print {
+  html, body {
+    background: var(--paper);
+    margin: 0;
+    padding: 0;
+  }
+
+  .sheet {
+    box-shadow: none;
+    margin: 0;
+    page-break-after: always;
+  }
+
+  .print-btn {
+    display: none !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="inner">
+
+    <!-- ==================== HEADER ==================== -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-name">Mxx Industrial Co., Ltd.</div>
+        <div class="brand-en">北京心月狐科技有限公司</div>
+        <div class="brand-meta">
+          <span>北京市朝阳区建国路 88 号现代城 A 座 12 层</span>
+          <span>Tel: +86-10-8888-0042</span>
+          <span>统一社会信用代码: 91110105MA01XX8X4K</span>
+        </div>
+      </div>
+      <div class="doc-title-block">
+        <div class="doc-label">// Document</div>
+        <div class="doc-title">销售订单</div>
+        <div class="doc-title-en">SALES ORDER</div>
+        <div class="doc-no">SO-2026-08-0042</div>
+        <div class="doc-date">ISSUED: 2026-08-06</div>
+      </div>
+    </header>
+
+    <!-- ==================== CUSTOMER INFO ==================== -->
+    <div class="info-row info-customer">
+      <div class="info-cell">
+        <div class="info-label">// Customer</div>
+        <div class="info-value">深圳市汇通精密制造有限公司</div>
+        <div class="info-value-sub">Shenzhen Huitong Precision Mfg. Co., Ltd.</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">// Contact</div>
+        <div class="info-value">王志远 / 采购部经理</div>
+        <div class="info-value-sub">Tel: 139-2888-6677 &nbsp; Email: wangzy@huitong.cn</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">// Shipping Address</div>
+        <div class="info-value">深圳市宝安区沙井街道共和工业区</div>
+        <div class="info-value-sub">恒生大厦 B 栋 3 楼 &nbsp; 邮编: 518104</div>
+      </div>
+    </div>
+
+    <!-- ==================== ORDER METADATA ==================== -->
+    <div class="info-row info-meta">
+      <div class="info-cell">
+        <div class="info-label">// Order Date</div>
+        <div class="info-value">2026-08-06</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">// Expected Shipment</div>
+        <div class="info-value">2026-08-20</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">// Sales Representative</div>
+        <div class="info-value">李铭哲</div>
+        <div class="info-value-sub">华东大区 / 高级客户经理</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">// Payment Terms</div>
+        <div class="info-value">银行转账 (T/T)</div>
+        <div class="info-value-sub">账期: 预付 30% + 发货前 60% + 验收 10%</div>
+      </div>
+    </div>
+
+    <!-- ==================== PRODUCT TABLE ==================== -->
+    <div class="table-wrap">
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th class="col-idx center">No.</th>
+            <th class="col-code">产品编号 / Code</th>
+            <th class="col-name">产品名称 / Product</th>
+            <th class="col-spec">规格参数 / Specification</th>
+            <th class="col-qty num">数量 Qty</th>
+            <th class="col-price num">单价 Unit Price</th>
+            <th class="col-disc num">折扣 Disc%</th>
+            <th class="col-amount num">金额 Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="idx">01</td>
+            <td class="code">MX-BR-3020</td>
+            <td>精密直线导轨</td>
+            <td>HGR30 / L=2000mm / C级</td>
+            <td class="num">40</td>
+            <td class="num">¥ 285.00</td>
+            <td class="num">5%</td>
+            <td class="num amount">¥ 10,830.00</td>
+          </tr>
+          <tr>
+            <td class="idx">02</td>
+            <td class="code">MX-BR-3021</td>
+            <td>滚珠丝杆副</td>
+            <td>SFU3205 / L=1500mm / 双螺母</td>
+            <td class="num">20</td>
+            <td class="num">¥ 680.00</td>
+            <td class="num">8%</td>
+            <td class="num amount">¥ 12,512.00</td>
+          </tr>
+          <tr>
+            <td class="idx">03</td>
+            <td class="code">MX-SV-5500</td>
+            <td>伺服电机总成</td>
+            <td>750W / 220V / 3000rpm / 绝对编码器</td>
+            <td class="num">8</td>
+            <td class="num">¥ 3,200.00</td>
+            <td class="num">10%</td>
+            <td class="num amount">¥ 23,040.00</td>
+          </tr>
+          <tr>
+            <td class="idx">04</td>
+            <td class="code">MX-DRV-22A</td>
+            <td>伺服驱动器</td>
+            <td>750W匹配 / 脉冲+模拟量 / RS485</td>
+            <td class="num">8</td>
+            <td class="num">¥ 1,580.00</td>
+            <td class="num">10%</td>
+            <td class="num amount">¥ 11,376.00</td>
+          </tr>
+          <tr>
+            <td class="idx">05</td>
+            <td class="code">MX-PL-1204</td>
+            <td>行星减速机</td>
+            <td>PLF60 / 减速比 1:10 / 精密级</td>
+            <td class="num">12</td>
+            <td class="num">¥ 890.00</td>
+            <td class="num">5%</td>
+            <td class="num amount">¥ 10,146.00</td>
+          </tr>
+          <tr>
+            <td class="idx">06</td>
+            <td class="code">MX-CO-0080</td>
+            <td>膜片式联轴器</td>
+            <td>伺服型 / 外径 38mm / D10-D10</td>
+            <td class="num">24</td>
+            <td class="num">¥ 156.00</td>
+            <td class="num">0%</td>
+            <td class="num amount">¥ 3,744.00</td>
+          </tr>
+          <tr>
+            <td class="idx">07</td>
+            <td class="code">MX-SEN-T01</td>
+            <td>限位开关传感器</td>
+            <td>光电式 / NPN常开 / M8接插件</td>
+            <td class="num">48</td>
+            <td class="num">¥ 42.00</td>
+            <td class="num">0%</td>
+            <td class="num amount">¥ 2,016.00</td>
+          </tr>
+          <tr>
+            <td class="idx">08</td>
+            <td class="code">MX-CBL-P05</td>
+            <td>高柔性拖链电缆</td>
+            <td>4芯×1.5mm² / 屏蔽 / per meter</td>
+            <td class="num">500</td>
+            <td class="num">¥ 12.50</td>
+            <td class="num">12%</td>
+            <td class="num amount">¥ 5,500.00</td>
+          </tr>
+          <tr>
+            <td class="idx">09</td>
+            <td class="code">MX-ACC-K01</td>
+            <td>安装紧固件套件</td>
+            <td>不锈钢304 / M6-M12混装 / 200件</td>
+            <td class="num">5</td>
+            <td class="num">¥ 320.00</td>
+            <td class="num">0%</td>
+            <td class="num amount">¥ 1,600.00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ==================== PAYMENT + SUMMARY ==================== -->
+    <div class="bottom-row">
+
+      <!-- Payment Progress -->
+      <div class="payment-section">
+        <div class="sec-title">付款进度 / Payment Schedule</div>
+        <div class="pay-grid">
+          <div class="pay-card">
+            <div class="pay-stage">Stage 01 / 预付款</div>
+            <div class="pay-label">预付 30%</div>
+            <div class="pay-amount">¥ 24,229.86</div>
+            <div class="pay-note">下单后 3 个工作日内</div>
+          </div>
+          <div class="pay-card">
+            <div class="pay-stage">Stage 02 / 发货前</div>
+            <div class="pay-label">发货前 60%</div>
+            <div class="pay-amount">¥ 48,459.72</div>
+            <div class="pay-note">发货通知后付清发货款</div>
+          </div>
+          <div class="pay-card">
+            <div class="pay-stage">Stage 03 / 验收尾款</div>
+            <div class="pay-label">验收后 10%</div>
+            <div class="pay-amount">¥ 8,076.62</div>
+            <div class="pay-note">到货验收合格后 7 日内</div>
+          </div>
+          <div class="pay-card total">
+            <div class="pay-stage">Total / 合计</div>
+            <div class="pay-label">100% 应收总额</div>
+            <div class="pay-amount">¥ 80,766.20</div>
+            <div class="pay-note">含税 (13%) 总金额</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Box -->
+      <div class="summary-box">
+        <div class="summary-title">金额汇总 / Summary</div>
+        <div class="sum-row">
+          <span class="sum-label">小计 Subtotal</span>
+          <span class="sum-value">¥ 80,764.00</span>
+        </div>
+        <div class="sum-row">
+          <span class="sum-label">折扣减免 Discount</span>
+          <span class="sum-value">- ¥ 7,398.20</span>
+        </div>
+        <div class="sum-row">
+          <span class="sum-label">运费 Freight</span>
+          <span class="sum-value">¥ 0.00</span>
+        </div>
+        <div class="sum-row">
+          <span class="sum-label">税额 Tax (13%)</span>
+          <span class="sum-value">¥ 7,400.40</span>
+        </div>
+        <div class="sum-divider"></div>
+        <div class="sum-row">
+          <span class="sum-total-label">合计 Grand Total</span>
+          <span class="sum-total-value">¥ 80,766.20</span>
+        </div>
+        <div class="sum-cn">
+          <span class="cn-label">// Amount in Words</span>
+          人民币 捌万零柒佰陆拾陆元贰角整
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== TERMS + SIGNATURES ==================== -->
+    <div class="terms-sign-row">
+
+      <!-- Terms -->
+      <div class="terms-block">
+        <div class="sec-title">条款与条件 / Terms &amp; Conditions</div>
+        <ul class="terms-list">
+          <li><strong>交货方式：</strong>卖方负责陆运至买方指定收货地址，预计发货日为 2026-08-20，到货周期约 3-5 个工作日。</li>
+          <li><strong>质量保证：</strong>产品自验收之日起提供 12 个月质保，质保期内非人为损坏免费维修或更换。</li>
+          <li><strong>验收标准：</strong>买方须在到货后 7 日内完成验收，逾期未提出书面异议视为验收合格。</li>
+          <li><strong>违约责任：</strong>买方逾期付款按未付金额日万分之五计违约金；卖方逾期交货按已收款日万分之五计违约金。</li>
+        </ul>
+      </div>
+
+      <!-- Signatures -->
+      <div class="sign-block">
+        <div class="sec-title">签章确认 / Authorized Signatures</div>
+        <div class="sign-grid">
+          <div class="sign-card">
+            <div class="sign-party">// Party A 供方</div>
+            <div class="sign-name">Mxx Industrial Co., Ltd.</div>
+            <div class="sign-seal">
+              <div class="sign-seal-label">公章 / Seal</div>
+            </div>
+            <div class="sign-date">
+              <div class="sign-date-label">日期 / Date</div>
+              <div class="sign-date-line"></div>
+            </div>
+          </div>
+          <div class="sign-card">
+            <div class="sign-party">// Party B 需方</div>
+            <div class="sign-name">深圳市汇通精密制造有限公司</div>
+            <div class="sign-seal">
+              <div class="sign-seal-label">公章 / Seal</div>
+            </div>
+            <div class="sign-date">
+              <div class="sign-date-label">日期 / Date</div>
+              <div class="sign-date-line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== FOOTER ==================== -->
+    <footer class="footer">
+      <div class="footer-left">SO-2026-08-0042 &nbsp;|&nbsp; Mxx Industrial Co., Ltd. &nbsp;|&nbsp; 本订单自双方签章之日起生效</div>
+      <div class="footer-right">Page <span class="page-num">1 / 1</span></div>
+    </footer>
+
+  </div><!-- /.inner -->
+</div><!-- /.sheet -->
+
+<!-- Print Button (no-print) -->
+<button class="print-btn no-print" onclick="window.print()">打印预览 / Print</button>
+
+</body>
+</html>

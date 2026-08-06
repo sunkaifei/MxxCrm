@@ -37,6 +37,8 @@ pub struct Model {
     pub icon: Option<String>,
     pub redirect: Option<String>,
     pub params: Option<serde_json::Value>,
+    /// 企业类型（JSON数组，如 ["manufacturing","trading"]）
+    pub business_types: Option<String>,
     pub create_time: Option<DateTime>,
     pub update_time: Option<DateTime>,
     ///删除标志（0未删除 1已删除）
