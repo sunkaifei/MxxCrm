@@ -91,6 +91,7 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/api/system")
+            .wrap(crate::core::web::demo_guard::DemoGuard::new())
             .wrap(GrantsMiddleware::with_extractor(extract))
             // ============ 所有 controller 通过 register 集中注册 ============
             // System Admin Management（登录、注销、注册、用户管理、权限码）

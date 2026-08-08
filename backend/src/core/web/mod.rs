@@ -13,3 +13,4 @@ pub mod base_controller;
 pub mod entity;
 pub mod tags;
 pub mod permission_guard;
+pub mod demo_guard;
