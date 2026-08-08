@@ -15,10 +15,8 @@
 /**/*.py
 /**/*.sql
 /**/*.tpy
-/**/*.md
 /*.txt
-/**/*.dump
-/sql/
+/**/*.md
 /lefthook.yml
 /token.txt
 /mxx-crm-deploy/
