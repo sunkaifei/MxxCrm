@@ -11,6 +11,12 @@ use crate::modules::system::entity::dept::Entity as Dept;
 use sea_orm::prelude::Decimal;
 use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter};
 use std::collections::HashMap;
+use rust_decimal::prelude::RoundingStrategy;
+
+/// 统一百分比保留2位小数（后端兜底）
+fn round_pct(d: Decimal) -> Decimal {
+    d.round_dp_with_strategy(2, RoundingStrategy::MidpointNearestEven)
+}
 
 pub async fn get_employee_customer_count(db: &DbConn, _department_id: Option<i64>) -> Result<Vec<EmployeeCustomerCountVO>> {
     let admins = Admin::find()
@@ -85,7 +91,7 @@ pub async fn get_employee_customer_count(db: &DbConn, _department_id: Option<i64
         let new_cust = new_customer_count.get(&a.id).copied().unwrap_or(0);
         let contract_cust = contract_customer_count.get(&a.id).copied().unwrap_or(0);
         let conversion_rate = if total > 0 {
-            Decimal::from(contract_cust) / Decimal::from(total) * Decimal::from(100)
+            round_pct(Decimal::from(contract_cust) / Decimal::from(total) * Decimal::from(100))
         } else {
             Decimal::ZERO
         };
@@ -286,7 +292,7 @@ pub async fn get_employee_conversion(db: &DbConn, _year: Option<i32>, _month: Op
         let ca = contract_amount.get(&a.id).copied().unwrap_or(Decimal::ZERO);
 
         let win_rate = if to > 0 {
-            Decimal::from(wo) / Decimal::from(to) * Decimal::from(100)
+            round_pct(Decimal::from(wo) / Decimal::from(to) * Decimal::from(100))
         } else {
             Decimal::ZERO
         };

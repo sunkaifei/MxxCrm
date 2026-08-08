@@ -6,7 +6,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { computed, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { useUserStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -23,6 +23,7 @@ import { $t } from '#/locales';
 import VisitDetailDrawer from './detail-drawer.vue';
 
 const userStore = useUserStore();
+const accessStore = useAccessStore();
 
 // 全部拜访 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
 const canViewAll = computed(() => {
@@ -393,6 +394,7 @@ onMounted(() => {
 
       <template #action="{ row }">
         <a
+          v-if="accessStore.hasAccessCode('crm:visit:list')"
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleView(row)"
         >查看详情</a>

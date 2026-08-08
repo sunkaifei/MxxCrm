@@ -46,9 +46,6 @@ pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveReq
             return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
         }
     }
-    if admin_service::find_by_nick_name_unique(&db, &item.nick_name, &None).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "昵称已存在", "local")));
-    }
     let result = admin_service::insert(&db, &item.0).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
@@ -152,13 +149,29 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
     // 原来的token
     let old_token = CONTEXT.cache_service.get_string(&format!("user_{}", user_info.id.to_string().as_str())).await?;
 
-    //过期时间
-    let expire = Duration::from_secs(config::section::<i64>("server", "jwt_expire_admin", 1800) as u64);
+    // v1.1: 会话超时优先从安全设置（缓存/配置表）动态读取，回退配置文件默认值
+    let expire_secs = permission_cache_service::get_session_timeout_secs().await;
+    let expire = Duration::from_secs(expire_secs);
 
-    match JWTToken::new(Some(user_info.id), user_info.user_name.clone(), user_role_keys.clone(), None).create_token(&config::section::<String>("server", "jwt_secret_admin", "".to_string())) {
+    match JWTToken::new_with_expire(Some(user_info.id), user_info.user_name.clone(), user_role_keys.clone(), None, expire_secs).create_token(&config::section::<String>("server", "jwt_secret_admin", "".to_string())) {
         Ok(token) => {
-            // 缓存token
-            CONTEXT.cache_service.set_string(&format!("user_{}", user_info.id.to_string().as_str()), &token.clone().as_str()).await?;
+            // v1.1: 根据登录模式写入 token 缓存
+            if permission_cache_service::is_multi_device_mode().await {
+                // 多设备模式：将 token 追加到用户 token 集合，并按最大设备数限制踢出最旧设备
+                let key = format!("user_tokens_{}", user_info.id);
+                let mut tokens: Vec<String> = CONTEXT.cache_service.get_json(&key).await.unwrap_or_default();
+                let max_devices = permission_cache_service::get_max_devices().await;
+                if max_devices > 0 && tokens.len() >= max_devices {
+                    // tokens 按登录先后有序追加，移除最旧的
+                    let drop_count = tokens.len() - max_devices + 1;
+                    tokens.drain(0..drop_count);
+                }
+                tokens.push(token.clone());
+                CONTEXT.cache_service.set_json(&key, &tokens).await?;
+            } else {
+                // 单设备模式：覆盖旧 token（现有逻辑不变）
+                CONTEXT.cache_service.set_string(&format!("user_{}", user_info.id.to_string().as_str()), &token.clone().as_str()).await?;
+            }
 
             // 记录登录成功日志（同步落库，登录响应延迟几毫秒可接受）
             // json_result 字段名与 TokenVO 实际响应字段保持一致，敏感字段已脱敏
@@ -265,9 +278,24 @@ pub async fn check_username(state: web::Data<AppState>, query: web::Query<UserRe
     }
 }
 
+/// 查询注册开关状态（免鉴权接口，供登录页判断是否显示注册入口）
+pub async fn register_status() -> Result<HttpResponse> {
+    let enabled = permission_cache_service::is_register_enabled().await;
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(
+        serde_json::json!({ "registerEnabled": enabled }),
+        "local",
+    )))
+}
+
 /// 用户注册
 pub async fn user_register(state: web::Data<AppState>, item: web::Json<UserRegisterRequest>) -> Result<HttpResponse> {
     let db = &state.db;
+
+    // 注册开关：关闭时拒绝注册（云服务器场景防止外部人员随意注册）
+    if !permission_cache_service::is_register_enabled().await {
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(403, "系统未开放注册", "local")));
+    }
+
     let username = item.username.clone().unwrap_or_default();
     let password = item.password.clone().unwrap_or_default();
     
@@ -380,9 +408,6 @@ pub async fn admin_update(state: web::Data<AppState>, item: web::Json<AdminUpdat
             return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
         }
     }
-    if admin_service::find_by_nick_name_unique(&db, &item.nick_name, &item.id).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "昵称已存在", "local")));
-    }
 
     let result = admin_service::get_by_detail(&db, &item.id).await?;
     if result.id.unwrap_or_default() == 0 {
@@ -437,6 +462,10 @@ pub async fn update_password(
 
     // 更新密码
     let result = admin_service::update_user_password(&db, &item.user_id, &Some(hashed_password)).await;
+    // v1.1: 改密成功后强制目标用户所有设备重新登录（防止密码泄露后旧 token 仍可用）
+    if let Ok(_) = result {
+        permission_cache_service::invalidate_user_session(item.user_id.unwrap_or_default()).await;
+    }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -492,10 +521,59 @@ pub async fn update_my_password(state: web::Data<AppState>, req: HttpRequest, it
     // 6. 更新密码
     let hashed = hash(new_password, DEFAULT_COST).unwrap_or_default();
     let result = admin_service::update_user_password(db, &Some(admin.id), &Some(hashed)).await;
-    
+
+    // v1.1: 改密成功后强制自己所有设备重新登录（本请求已放行，下次请求即 401）
+    if let Ok(_) = result {
+        permission_cache_service::invalidate_user_session(admin.id).await;
+    }
+
     match result {
         Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(200, "密码更新成功", "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("密码更新失败: {}", e), "local"))),
+    }
+}
+
+/// 踢用户下线（清除该用户所有设备会话 + 断开 WebSocket）
+///
+/// 权限：system:admin:kick；不可踢超级管理员（id=1）
+pub async fn kick_offline(
+    state: web::Data<AppState>,
+    path: web::Path<i64>,
+) -> Result<HttpResponse> {
+    let _db = &state.db;
+    let user_id = path.into_inner();
+
+    // 不能踢超级管理员
+    if user_id == 1 {
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "不能踢超级管理员下线", "local")));
+    }
+
+    // 清除该用户所有缓存（token + 权限 + 多设备集合）并断开 WebSocket
+    permission_cache_service::invalidate_user_session(user_id).await;
+
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("已强制下线".to_string(), "local")))
+}
+
+/// 审核注册用户
+///
+/// 请求体: { "auditStatus": 1 }  1=通过 0=拒绝(保持待审核)
+/// 审核通过时自动将用户 status 设为 1（正常启用）
+pub async fn audit_user(state: web::Data<AppState>, path: web::Path<i64>, item: web::Json<serde_json::Value>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let user_id = path.into_inner();
+    let audit_status = item.get("auditStatus").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+
+    if user_id == 1 {
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "超级管理员无需审核", "local")));
+    }
+
+    let result = admin_service::update_audit_status(db, user_id, audit_status).await;
+    match result {
+        Ok(_) => {
+            let msg = if audit_status == 1 { "审核已通过，用户已启用" } else { "已拒绝" };
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success(msg.to_string(), "local")))
+        }
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("审核失败: {}", e), "local"))),
     }
 }
 
@@ -509,6 +587,12 @@ pub async fn update_admin_status(state: web::Data<AppState>, item: web::Json<Upd
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "超级管理员不能禁用", "local")))
     }
     let result = admin_service::update_user_status(&db, &admin_status).await;
+    // v1.1: 禁用用户（status=0）时即时清理会话 + 断开 WebSocket，启用则无需处理
+    if let Ok(_) = result {
+        if admin_status.status.unwrap_or(1) == 0 {
+            permission_cache_service::invalidate_user_session(admin_status.id.unwrap_or_default()).await;
+        }
+    }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -730,6 +814,20 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::delete()
                     .to(admin_soft_delete)
                     .wrap(require_permission("system:admin:delete")),
+            )
+            // POST /admin/kick-offline/{id} - 踢用户下线（v1.1 登录安全）
+            .route(
+                "/kick-offline/{id}",
+                web::post()
+                    .to(kick_offline)
+                    .wrap(require_permission("system:admin:kick")),
+            )
+            // PUT /admin/audit/{id} - 审核注册用户（通过/拒绝）
+            .route(
+                "/audit/{id}",
+                web::put()
+                    .to(audit_user)
+                    .wrap(require_permission("system:admin:audit")),
             ),
     );
 
@@ -740,6 +838,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/login", web::post().to(post_login))
             // POST /auth/register - 用户注册
             .route("/register", web::post().to(user_register))
+            // GET /auth/register-status - 查询注册开关（免鉴权，供登录页判断是否显示注册入口）
+            .route("/register-status", web::get().to(register_status))
             // GET /auth/check-username - 检查用户名是否已存在
             .route("/check-username", web::get().to(check_username))
             // GET /auth/codes - 获取当前用户权限码列表

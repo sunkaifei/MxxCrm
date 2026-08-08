@@ -45,7 +45,9 @@ const overviewItems = ref<AnalysisOverviewItem[]>([
     value: 0,
   },
   {
+    decimals: 2,
     icon: LucideTarget,
+    suffix: '%',
     title: '回款完成率',
     totalTitle: '未回款金额(元)',
     totalValue: 0,
@@ -57,6 +59,8 @@ const chartTabs: TabOption[] = [
   { label: '业绩趋势', value: 'trends' },
   { label: '回款月度趋势', value: 'visits' },
 ];
+
+import { formatPercentDisplay } from '#/utils/format';
 
 const currentYear = new Date().getFullYear();
 
@@ -79,7 +83,7 @@ async function loadOverview() {
     overviewItems.value[2]!.value = c.totalPaymentAmount ?? 0;
     overviewItems.value[2]!.totalValue = c.totalPaymentAmount ?? 0;
 
-    overviewItems.value[3]!.value = `${((c.completionRate ?? 0) * 100).toFixed(1)}%` as any;
+    overviewItems.value[3]!.value = Number(c.completionRate) || 0;
     overviewItems.value[3]!.totalValue = c.unpaidAmount ?? 0;
   } catch {
     // keep zeros on error

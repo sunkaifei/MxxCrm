@@ -34,19 +34,23 @@ withDefaults(defineProps<Props>(), {
 
         <CardContent class="flex items-center justify-between">
           <VbenCountToAnimator
+            :decimals="item.decimals ?? 0"
             :end-val="item.value"
+            :prefix="item.prefix || ''"
             :start-val="1"
+            :suffix="item.suffix || ''"
             class="text-xl"
-            prefix=""
           />
           <VbenIcon :icon="item.icon" class="size-8 shrink-0" />
         </CardContent>
         <CardFooter class="justify-between">
           <span>{{ item.totalTitle }}</span>
           <VbenCountToAnimator
+            :decimals="item.totalDecimals ?? 0"
             :end-val="item.totalValue"
+            :prefix="item.totalPrefix || ''"
             :start-val="1"
-            prefix=""
+            :suffix="item.totalSuffix || ''"
           />
         </CardFooter>
       </Card>

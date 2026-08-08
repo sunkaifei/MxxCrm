@@ -249,21 +249,32 @@
         "title": "Stock Check",
         "create": "Create Check",
         "audit": "Audit",
+        "submit": "Submit",
+        "input": "Input Count",
+        "complete": "Complete",
+        "cancel": "Cancel",
+        "viewDetail": "View Detail",
         "status": {
           "0": "Draft",
           "1": "Checking",
-          "2": "Approved",
-          "3": "Closed"
+          "2": "Completed",
+          "3": "Cancelled"
         },
         "type": {
           "1": "Full Count",
           "2": "Spot Check",
-          "3": "Dynamic Count"
+          "3": "Dynamic Count",
+          "surplus": "Surplus",
+          "shortage": "Shortage",
+          "match": "Match"
         },
         "typeDesc": {
           "1": "Count all inventory in the warehouse, suspend in/out operations",
           "2": "Count selected products only, does not affect daily operations",
           "3": "Rolling count by ABC classification, no business suspension needed"
+        },
+        "tab": {
+          "all": "All"
         },
         "field": {
           "checkNo": "Check No.",
@@ -272,20 +283,42 @@
           "status": "Status",
           "totalItems": "Total Items",
           "diffItems": "Diff Items",
+          "surplusCount": "Surplus",
+          "shortageCount": "Shortage",
           "checkBy": "Checked By",
           "checkTime": "Check Time",
-          "remark": "Remark"
+          "remark": "Remark",
+          "productCode": "Product Code",
+          "productName": "Product Name",
+          "productSku": "SKU",
+          "systemQuantity": "System Qty",
+          "actualQuantity": "Actual Qty",
+          "difference": "Diff",
+          "differenceType": "Diff Type",
+          "diffReason": "Reason",
+          "handling": "Handling"
         },
         "action": {
           "auditConfirm": "Confirm to audit this check?",
           "auditSuccess": "Audit successful",
           "confirm": "Confirm",
-          "cancel": "Cancel"
+          "cancel": "Cancel",
+          "submitConfirm": "Confirm to submit? Status will change to Checking",
+          "submitSuccess": "Submitted successfully",
+          "completeConfirm": "Confirm to complete? Stock will be adjusted automatically (surplus inbound / shortage outbound)",
+          "completeSuccess": "Completed, stock adjusted",
+          "cancelConfirm": "Confirm to cancel this check?",
+          "cancelSuccess": "Cancelled",
+          "inputSuccess": "Input saved successfully",
+          "uninputted": "{count} products have not been counted yet",
+          "noItems": "Please add at least one product",
+          "noSelection": "Please select products to remove first",
+          "addSuccess": "Added {count} products"
         },
         "drawer": {
           "basicInfo": "Basic Information",
           "checkTypeDesc": "Check Type Description",
-          "detail": "Check Details",
+          "detail": "Product Items",
           "detailHint": "Detail Note",
           "detailHintText": "After saving, you can enter check data in the detail page",
           "createTitle": "Create Check",
@@ -296,7 +329,16 @@
           "warehousePlaceholder": "Please select warehouse",
           "remarkPlaceholder": "Please enter remark",
           "desc": "Description",
-          "descPlaceholder": "Please select check type first"
+          "descPlaceholder": "Please select check type first",
+          "addItem": "Add Product",
+          "removeSelected": "Remove Selected",
+          "batchAssign": "Batch Assign",
+          "itemCount": "{count} items",
+          "emptyHint": "Click \"Add Product\" to select products for checking",
+          "inputTitle": "Enter Actual Quantity",
+          "inputProgress": "{done} / {total} entered",
+          "batchFillZero": "Fill 0",
+          "detailTitle": "Check Detail"
         }
       },
       "alert": {

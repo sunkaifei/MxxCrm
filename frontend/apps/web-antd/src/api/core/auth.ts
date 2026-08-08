@@ -80,6 +80,15 @@ export async function registerApi(data: AuthApi.RegisterParams) {
 }
 
 /**
+ * 查询注册开关状态（免鉴权）
+ */
+export async function getRegisterStatusApi() {
+  return baseRequestClient.get<{ registerEnabled: boolean }>(
+    '/api/system/auth/register-status',
+  );
+}
+
+/**
  * 检查用户名是否已存在
  */
 export async function checkUsernameApi(username: string) {

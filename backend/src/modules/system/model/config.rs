@@ -368,6 +368,26 @@ impl ConfigModel {
             .one(db)
             .await
     }
+
+    /// ### 根据 key 更新 config_value（登录安全等系统配置动态更新用）
+    /// * `db` - 数据库连接对象
+    /// * `key` - 配置键名
+    /// * `value` - 新的配置值
+    ///
+    /// 返回值：受影响的行数（0 表示 key 不存在）
+    pub async fn update_value_by_key(db: &DbConn, key: &str, value: &str) -> Result<i64, DbErr> {
+        let payload = config::ActiveModel {
+            config_value: Set(Some(value.to_string())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local())),
+            ..Default::default()
+        };
+        let update_result: UpdateResult = Config::update_many()
+            .set(payload)
+            .filter(config::Column::ConfigKey.eq(key))
+            .exec(db)
+            .await?;
+        Ok(update_result.rows_affected as i64)
+    }
     
     /// ### 查询系统配置记录条数
     /// * `db` - 数据库连接对象

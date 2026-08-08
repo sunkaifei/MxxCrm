@@ -189,14 +189,14 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/approve",
                 web::post()
                     .to(approve_plan)
-                    .wrap(require_permission("statistics:performance-plan:approve")),
+                    .wrap(require_permission("statistics:performance-plan:audit")),
             )
             // POST /statistics/performance/plan/reject - 驳回
             .route(
                 "/reject",
                 web::post()
                     .to(reject_plan)
-                    .wrap(require_permission("statistics:performance-plan:approve")),
+                    .wrap(require_permission("statistics:performance-plan:audit")),
             )
             // POST /statistics/performance/plan/modify - 申请修改
             .route(

@@ -50,6 +50,9 @@ const canViewSubordinate = computed(() => {
   return dataScope === 2 || dataScope === 3 || dataScope === 4;
 });
 
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 const allTabList = [
   { key: 'all', labelKey: 'page.finance.expense.tab.all' },
   { key: 'my', labelKey: 'page.finance.expense.tab.my' },
@@ -559,7 +562,7 @@ async function handlePayment(row: any) {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('finance:expense:save')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('finance:expense:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -567,7 +570,7 @@ async function handlePayment(row: any) {
           {{ $t('page.finance.expense.button.create') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('finance:expense:delete')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('finance:expense:delete')"
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -620,6 +623,7 @@ async function handlePayment(row: any) {
         <!-- 编辑：草稿(1)或已驳回(5) -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('finance:expense:save') &&
             (row.status === 1 || row.status === 5)
           "
@@ -629,6 +633,7 @@ async function handlePayment(row: any) {
         <!-- 提交审批：草稿(1)或已驳回(5) -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('finance:expense:save') &&
             (row.status === 1 || row.status === 5)
           "
@@ -638,7 +643,8 @@ async function handlePayment(row: any) {
         <!-- 审批通过：待审批(2)/审批中(3) -->
         <a
           v-if="
-            accessStore.hasAccessCode('finance:expense:approve') &&
+            !isSubordinateView &&
+            accessStore.hasAccessCode('finance:expense:audit') &&
             (row.status === 2 || row.status === 3)
           "
           class="text-green-600 cursor-pointer mx-1"
@@ -647,7 +653,8 @@ async function handlePayment(row: any) {
         <!-- 审批驳回：待审批(2)/审批中(3) -->
         <a
           v-if="
-            accessStore.hasAccessCode('finance:expense:approve') &&
+            !isSubordinateView &&
+            accessStore.hasAccessCode('finance:expense:audit') &&
             (row.status === 2 || row.status === 3)
           "
           class="text-orange-600 cursor-pointer mx-1"
@@ -656,6 +663,7 @@ async function handlePayment(row: any) {
         <!-- 打款：已通过(4) -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('finance:expense:payment') &&
             row.status === 4
           "
@@ -665,6 +673,7 @@ async function handlePayment(row: any) {
         <!-- 删除：仅草稿(1)/已驳回(5) -->
         <Popconfirm
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('finance:expense:delete') &&
             (row.status === 1 || row.status === 5)
           "

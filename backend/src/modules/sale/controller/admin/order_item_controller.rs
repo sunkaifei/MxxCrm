@@ -124,7 +124,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(order_item_info)
-                    .wrap(require_permission("sale:order:item:info")),
+                    .wrap(require_permission("sale:order:item:view")),
             )
             // GET /sale/order-item/list - 订单明细列表
             .route(

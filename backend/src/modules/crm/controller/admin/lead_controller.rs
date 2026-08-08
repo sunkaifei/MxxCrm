@@ -274,14 +274,14 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/save",
                 web::post()
                     .to(lead_insert)
-                    .wrap(require_permission("crm:lead:create")),
+                    .wrap(require_permission("crm:lead:save")),
             )
             // PUT /lead/update - 修改线索
             .route(
                 "/update",
                 web::put()
                     .to(lead_update)
-                    .wrap(require_permission("crm:lead:edit")),
+                    .wrap(require_permission("crm:lead:update")),
             )
             // DELETE /lead/bath_delete - 批量删除线索
             .route(
@@ -295,7 +295,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(lead_info)
-                    .wrap(require_permission("crm:lead:info")),
+                    .wrap(require_permission("crm:lead:view")),
             )
             // GET /lead/list - 线索列表
             .route(
@@ -309,28 +309,28 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/update-status",
                 web::put()
                     .to(lead_update_status)
-                    .wrap(require_permission("crm:lead:edit")),
+                    .wrap(require_permission("crm:lead:update")),
             )
             // PUT /lead/add-to-pool - 退回公海
             .route(
                 "/add-to-pool",
                 web::put()
                     .to(lead_add_to_pool)
-                    .wrap(require_permission("crm:lead:edit")),
+                    .wrap(require_permission("crm:lead:update")),
             )
             // PUT /lead/claim - 领取线索
             .route(
                 "/claim",
                 web::put()
                     .to(lead_claim)
-                    .wrap(require_permission("crm:lead:edit")),
+                    .wrap(require_permission("crm:lead:update")),
             )
             // POST /lead/convert-to-customer - 线索转客户
             .route(
                 "/convert-to-customer",
                 web::post()
                     .to(lead_convert_to_customer)
-                    .wrap(require_permission("crm:lead:edit")),
+                    .wrap(require_permission("crm:lead:update")),
             )
             // POST /lead/transfer/preview - 预览线索转移影响范围
             .route(
@@ -361,7 +361,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(lead_pool_info)
-                    .wrap(require_permission("crm:lead-pool:info")),
+                    .wrap(require_permission("crm:lead-pool:view")),
             )
             // DELETE /lead-pool/bath_delete - 批量删除公海线索
             .route(

@@ -2,7 +2,7 @@
 import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucideMoreHorizontal, LucideChevronDown } from '@vben/icons';
@@ -99,6 +99,8 @@ const canViewSubordinate = computed(() => {
 });
 
 const activeTab = ref('my');
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
 const allTabList = [
   { key: 'all', label: '全部商机' },
   { key: 'my', label: '我的商机' },
@@ -117,10 +119,24 @@ watch(tabList, (newTabs) => {
   if (!keys.includes(activeTab.value) && keys.length > 0) {
     activeTab.value = keys[0]!;
   }
+  // 根据当前tab控制"负责人"列显隐（"我的商机"下隐藏）
+  nextTick(() => {
+    if (activeTab.value === 'my') {
+      gridApi.grid?.hideColumn('assigneeName');
+    } else {
+      gridApi.grid?.showColumn('assigneeName');
+    }
+  });
 }, { immediate: true });
 
 function handleTabChange(key: string | number) {
   activeTab.value = key as string;
+  // "我的商机"tab下隐藏"负责人"列（只看自己的，无需显示）；其他tab显示
+  if (key === 'my') {
+    gridApi.grid?.hideColumn('assigneeName');
+  } else {
+    gridApi.grid?.showColumn('assigneeName');
+  }
   gridApi.query();
 }
 
@@ -279,7 +295,7 @@ const gridOptions: VxeGridProps = {
       formatter: ({ cellValue }: any) => sourceLabelMap[cellValue] || cellValue || '-',
     },
     { title: '预计成交日', field: 'expectedCloseDate', width: 120 },
-    { title: '录入人', field: 'createdByName', width: 90 },
+    { title: '负责人', field: 'assigneeName', width: 90, visible: true },
     {
       title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createdAt' }, width: 160,
     },
@@ -372,10 +388,10 @@ loadFlowMode();
         </Tabs>
       </template>
       <template #toolbar-tools>
-        <Button v-if="accessStore.hasAccessCode('crm:opportunity:save')" type="primary" class="mr-2" @click="handleCreate">
+        <Button v-if="!isSubordinateView && accessStore.hasAccessCode('crm:opportunity:save')" type="primary" class="mr-2" @click="handleCreate">
           {{ $t('page.crm.opportunity.button.create') }}
         </Button>
-        <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
+        <Button v-if="!isSubordinateView" @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
       <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
@@ -390,44 +406,50 @@ loadFlowMode();
       </template>
 
       <template #action="{ row }">
-        <a
-          v-if="accessStore.hasAccessCode('crm:opportunity:update')"
-          class="text-blue-600 cursor-pointer mr-3"
-          @click="() => handleEdit(row)"
-        >
-          修改
-        </a>
-        <Popconfirm
-          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.opportunity.title') })"
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="handleDelete(row)"
-        >
+        <template v-if="isSubordinateView">
+          <!-- 下属视图不展示操作按钮，用占位符保持行高与其他列一致 -->
+          <span class="text-gray-400">-</span>
+        </template>
+        <template v-else>
           <a
-            v-if="accessStore.hasAccessCode('crm:opportunity:delete')"
-            class="text-red-500 cursor-pointer mr-3"
+            v-if="accessStore.hasAccessCode('crm:opportunity:update')"
+            class="text-blue-600 cursor-pointer mr-3"
+            @click="() => handleEdit(row)"
           >
-            删除
+            修改
           </a>
-        </Popconfirm>
-        <Dropdown
-          v-if="showMoreActions && accessStore.hasAccessCode('crm:opportunity:update')"
-          :trigger="['click']"
-        >
-          <a class="text-blue-600 cursor-pointer" @click.prevent>
-            更多<LucideChevronDown class="inline-block ml-0.5" :size="12" />
-          </a>
-          <template #overlay>
-            <Menu>
-              <Menu.Item v-if="canConvertToQuotation" key="toQuotation" @click="handleConvertToQuotation(row)">
-                一键转报价单
-              </Menu.Item>
-              <Menu.Item v-if="canConvertToOrder" key="toOrder" @click="handleConvertToOrder(row)">
-                一键转订单
-              </Menu.Item>
-            </Menu>
-          </template>
-        </Dropdown>
+          <Popconfirm
+            :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.opportunity.title') })"
+            :ok-text="$t('ui.button.ok')"
+            :cancel-text="$t('ui.button.cancel')"
+            @confirm="handleDelete(row)"
+          >
+            <a
+              v-if="accessStore.hasAccessCode('crm:opportunity:delete')"
+              class="text-red-500 cursor-pointer mr-3"
+            >
+              删除
+            </a>
+          </Popconfirm>
+          <Dropdown
+            v-if="showMoreActions && accessStore.hasAccessCode('crm:opportunity:update')"
+            :trigger="['click']"
+          >
+            <a class="text-blue-600 cursor-pointer" @click.prevent>
+              更多<LucideChevronDown class="inline-block ml-0.5" :size="12" />
+            </a>
+            <template #overlay>
+              <Menu>
+                <Menu.Item v-if="canConvertToQuotation" key="toQuotation" @click="handleConvertToQuotation(row)">
+                  一键转报价单
+                </Menu.Item>
+                <Menu.Item v-if="canConvertToOrder" key="toOrder" @click="handleConvertToOrder(row)">
+                  一键转订单
+                </Menu.Item>
+              </Menu>
+            </template>
+          </Dropdown>
+        </template>
       </template>
     </Grid>
 

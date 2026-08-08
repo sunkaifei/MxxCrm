@@ -1,8 +1,14 @@
 import type { Component } from 'vue';
 
 interface AnalysisOverviewItem {
+  decimals?: number;
   icon: Component | string;
+  prefix?: string;
+  suffix?: string;
   title: string;
+  totalDecimals?: number;
+  totalPrefix?: string;
+  totalSuffix?: string;
   totalTitle: string;
   totalValue: number;
   value: number;

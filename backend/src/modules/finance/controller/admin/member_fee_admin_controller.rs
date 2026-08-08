@@ -101,8 +101,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
         web::scope("/finance/member-fee")
             .route("/list", web::get().to(list).wrap(require_permission("finance:member-fee:list")))
             .route("/detail/{id}", web::get().to(detail).wrap(require_permission("finance:member-fee:list")))
-            .route("/create", web::post().to(create).wrap(require_permission("finance:member-fee:create")))
-            .route("/update/{id}", web::put().to(update).wrap(require_permission("finance:member-fee:edit")))
+            .route("/create", web::post().to(create).wrap(require_permission("finance:member-fee:save")))
+            .route("/update/{id}", web::put().to(update).wrap(require_permission("finance:member-fee:update")))
             .route("/delete/{id}", web::delete().to(delete).wrap(require_permission("finance:member-fee:delete"))),
     );
 }

@@ -133,6 +133,13 @@ pub struct PostOptionVO {
     pub label: Option<String>,
 }
 
+/// 岗位-管理员关联DTO（用于批量查询返回）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PostAdminByName {
+    pub admin_id: Option<i64>,
+    pub post_name: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PostListVO {

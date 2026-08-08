@@ -13,7 +13,8 @@
     "endDate": "结束日期"
   },
   "formRules": {
-    "required": "此项为必填项"
+    "required": "此项为必填项",
+    "selectAtLeastOne": "{name}为必选项，请至少选择一个"
   },
   "tree": {
     "select_all": "选择全部",

@@ -29,8 +29,7 @@ pub struct ExpenseSaveRequest {
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub id: Option<i64>,
     pub title: Option<String>,
-    #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
-    pub expense_type: Option<i64>,
+    pub expense_type: Option<i32>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub applicant_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
@@ -61,8 +60,7 @@ pub struct ExpenseListQuery {
     pub status: Option<i32>,
     /// 审批状态：0=草稿,1=待审批,2=审批中,3=已通过,4=已驳回
     pub approval_status: Option<i32>,
-    #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
-    pub expense_type: Option<i64>,
+    pub expense_type: Option<i32>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub customer_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
@@ -115,7 +113,7 @@ pub struct ExpenseTypeSaveRequest {
 pub struct ExpenseSaveDTO {
     pub expense_no: Option<String>,
     pub title: Option<String>,
-    pub expense_type: Option<i64>,
+    pub expense_type: Option<i32>,
     pub applicant_id: Option<i64>,
     pub dept_id: Option<i64>,
     pub customer_id: Option<i64>,
@@ -151,8 +149,7 @@ pub struct ExpenseListVO {
     pub id: Option<i64>,
     pub expense_no: Option<String>,
     pub title: Option<String>,
-    #[serde(serialize_with = "serialize_option_u64_to_string")]
-    pub expense_type: Option<i64>,
+    pub expense_type: Option<i32>,
     pub expense_type_name: Option<String>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub applicant_id: Option<i64>,
@@ -183,8 +180,7 @@ pub struct ExpenseDetailVO {
     pub id: Option<i64>,
     pub expense_no: Option<String>,
     pub title: Option<String>,
-    #[serde(serialize_with = "serialize_option_u64_to_string")]
-    pub expense_type: Option<i64>,
+    pub expense_type: Option<i32>,
     pub expense_type_name: Option<String>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub applicant_id: Option<i64>,
@@ -465,7 +461,7 @@ impl ExpenseModel {
         keywords: Option<String>,
         status: Option<i32>,
         approval_status: Option<i32>,
-        expense_type: Option<i64>,
+        expense_type: Option<i32>,
         customer_id: Option<i64>,
         opportunity_id: Option<i64>,
         order_id: Option<i64>,
@@ -529,7 +525,7 @@ impl ExpenseModel {
         keywords: Option<String>,
         status: Option<i32>,
         approval_status: Option<i32>,
-        expense_type: Option<i64>,
+        expense_type: Option<i32>,
         customer_id: Option<i64>,
         opportunity_id: Option<i64>,
         order_id: Option<i64>,

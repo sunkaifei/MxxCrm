@@ -249,21 +249,32 @@
         "title": "盘点管理",
         "create": "创建盘点单",
         "audit": "审核",
+        "submit": "提交",
+        "input": "录入实盘",
+        "complete": "完成",
+        "cancel": "取消",
+        "viewDetail": "查看详情",
         "status": {
           "0": "草稿",
           "1": "盘点中",
-          "2": "已审核",
-          "3": "已关闭"
+          "2": "已完成",
+          "3": "已取消"
         },
         "type": {
           "1": "定期全盘",
           "2": "抽盘",
-          "3": "动态盘点"
+          "3": "动态盘点",
+          "surplus": "盘盈",
+          "shortage": "盘亏",
+          "match": "一致"
         },
         "typeDesc": {
           "1": "对指定仓库的全部库存进行盘点，需暂停出入库操作",
           "2": "仅盘点部分产品，不影响日常出入库",
           "3": "按产品 ABC 分类滚动盘点，无需暂停业务"
+        },
+        "tab": {
+          "all": "全部"
         },
         "field": {
           "checkNo": "盘点单号",
@@ -272,20 +283,42 @@
           "status": "状态",
           "totalItems": "盘点项数",
           "diffItems": "差异项数",
+          "surplusCount": "盘盈数",
+          "shortageCount": "盘亏数",
           "checkBy": "盘点人",
           "checkTime": "盘点时间",
-          "remark": "备注"
+          "remark": "备注",
+          "productCode": "产品编码",
+          "productName": "产品名称",
+          "productSku": "SKU",
+          "systemQuantity": "系统数量",
+          "actualQuantity": "实盘数量",
+          "difference": "差异",
+          "differenceType": "差异类型",
+          "diffReason": "差异原因",
+          "handling": "处理方式"
         },
         "action": {
           "auditConfirm": "确认审核该盘点单吗？",
           "auditSuccess": "审核成功",
           "confirm": "确认",
-          "cancel": "取消"
+          "cancel": "取消",
+          "submitConfirm": "确认提交该盘点单吗？提交后进入盘点中状态",
+          "submitSuccess": "提交成功",
+          "completeConfirm": "确认完成盘点吗？完成后将自动调整库存（盘盈入库/盘亏出库）",
+          "completeSuccess": "盘点完成，库存已自动调整",
+          "cancelConfirm": "确认取消该盘点单吗？",
+          "cancelSuccess": "已取消",
+          "inputSuccess": "录入成功",
+          "uninputted": "还有 {count} 个产品未录入实盘数量",
+          "noItems": "请至少添加一个产品",
+          "noSelection": "请先选择要删除的产品",
+          "addSuccess": "已添加 {count} 个产品"
         },
         "drawer": {
           "basicInfo": "基本信息",
           "checkTypeDesc": "盘点类型说明",
-          "detail": "盘点明细",
+          "detail": "盘点产品明细",
           "detailHint": "明细说明",
           "detailHintText": "保存盘点单后，可在明细页录入盘点数据",
           "createTitle": "创建盘点单",
@@ -296,7 +329,16 @@
           "warehousePlaceholder": "请选择盘点仓库",
           "remarkPlaceholder": "请输入备注信息",
           "desc": "说明",
-          "descPlaceholder": "请先选择盘点类型"
+          "descPlaceholder": "请先选择盘点类型",
+          "addItem": "添加产品",
+          "removeSelected": "删除选中",
+          "batchAssign": "批量分配盘点人",
+          "itemCount": "共 {count} 项",
+          "emptyHint": "请点击「添加产品」选择需要盘点的产品",
+          "inputTitle": "录入实盘数量",
+          "inputProgress": "已录入 {done} / {total} 项",
+          "batchFillZero": "空白填0",
+          "detailTitle": "盘点详情"
         }
       },
       "alert": {

@@ -66,6 +66,9 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 function handleTabChange(key: string | number) {
   activeTab.value = key as string;
   gridApi.query();
@@ -686,7 +689,7 @@ function closeCustomerDetail() {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('sale:order:create')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:order:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -694,7 +697,7 @@ function closeCustomerDetail() {
           新建订单
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:order:delete')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:order:delete')"
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -774,6 +777,7 @@ function closeCustomerDetail() {
         <!-- 提交审批：草稿(0)或已驳回(4)状态 -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:order:update') &&
             (row.approvalStatus === 0 || row.approvalStatus === 4)
           "
@@ -793,12 +797,13 @@ function closeCustomerDetail() {
         >审批</a>
         <!-- 更多操作：编辑/删除/订单作废 -->
         <Dropdown v-if="
-          (accessStore.hasAccessCode('sale:order:update') &&
+          !isSubordinateView &&
+          ((accessStore.hasAccessCode('sale:order:update') &&
             (row.approvalStatus === 0 || row.approvalStatus === 4)) ||
           (accessStore.hasAccessCode('sale:order:delete') &&
             (row.approvalStatus === 0 || row.approvalStatus === 4)) ||
           (accessStore.hasAccessCode('sale:order:update') &&
-            row.approvalStatus === 3 && !row.contractId)
+            row.approvalStatus === 3 && !row.contractId))
         ">
           <a class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))">更多<span class="text-xs">▾</span></a>
@@ -807,6 +812,7 @@ function closeCustomerDetail() {
               <!-- 编辑：草稿(0)或已驳回(4)，审批中(2)/已通过(3)不可编辑 -->
               <Menu.Item
                 v-if="
+                  !isSubordinateView &&
                   accessStore.hasAccessCode('sale:order:update') &&
                   (row.approvalStatus === 0 || row.approvalStatus === 4)
                 "
@@ -817,6 +823,7 @@ function closeCustomerDetail() {
               <!-- 订单作废：审批通过(3)且未签合同 -->
               <Menu.Item
                 v-if="
+                  !isSubordinateView &&
                   accessStore.hasAccessCode('sale:order:update') &&
                   row.approvalStatus === 3 && !row.contractId
                 "
@@ -827,6 +834,7 @@ function closeCustomerDetail() {
               <!-- 删除：草稿(0)或已驳回(4)允许，审批中(2)/已通过(3)不可删除 -->
               <Menu.Item
                 v-if="
+                  !isSubordinateView &&
                   accessStore.hasAccessCode('sale:order:delete') &&
                   (row.approvalStatus === 0 || row.approvalStatus === 4)
                 "
@@ -850,6 +858,7 @@ function closeCustomerDetail() {
         <!-- 签署合同：审批已通过(3)且未关联合同 -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:order:update') &&
             row.approvalStatus === 3 && !row.contractId
           "
@@ -859,6 +868,7 @@ function closeCustomerDetail() {
         >签署合同</a>
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 3
           "
@@ -868,6 +878,7 @@ function closeCustomerDetail() {
         >备货</a>
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:order:update') &&
             (row.orderStatus === 3 ||
               row.orderStatus === 4 ||
@@ -879,6 +890,7 @@ function closeCustomerDetail() {
         >发货</a>
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 6
           "
@@ -888,6 +900,7 @@ function closeCustomerDetail() {
         >签收</a>
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:order:update') &&
             row.orderStatus === 9
           "

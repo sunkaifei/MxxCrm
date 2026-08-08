@@ -13,6 +13,7 @@ use actix_web::dev::ServiceRequest;
 
 use crate::core::kit::config;
 use crate::core::kit::jwt_util::JWTToken;
+use crate::core::kit::CONTEXT;
 use crate::modules::message::controller::user::chat_controller;
 use crate::modules::message::controller::user::notification_controller;
 use crate::modules::finance::controller::user::{payment_user_controller, member_fee_user_controller};
@@ -38,7 +39,18 @@ pub async fn user_auth_middleware(req: &ServiceRequest) -> Result<i64, Error> {
     let jwt_token = JWTToken::verify(&config::section::<String>("server", "jwt_secret_user", "".to_string()), &token)
         .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid token"))?;
 
-    Ok(jwt_token.id.unwrap_or_default())
+    let user_id = jwt_token.id.unwrap_or_default();
+
+    // v1.1: 校验用户是否被禁用（与 get_user_id_from_request 保持一致）
+    if user_id > 0 {
+        if let Ok(flag) = CONTEXT.cache_service.get_string(&format!("user_disabled:{}", user_id)).await {
+            if !flag.is_empty() {
+                return Err(actix_web::error::ErrorUnauthorized("账号已被禁用，请重新登录"));
+            }
+        }
+    }
+
+    Ok(user_id)
 }
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {

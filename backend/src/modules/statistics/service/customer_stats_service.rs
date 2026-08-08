@@ -7,6 +7,12 @@ use crate::modules::statistics::model::customer_stats::{CustomerTypeStatsVO, Cus
 use sea_orm::prelude::Decimal;
 use sea_orm::{ColumnTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter};
 use std::collections::HashMap;
+use rust_decimal::prelude::RoundingStrategy;
+
+/// 统一百分比保留2位小数（后端兜底）
+fn round_pct(d: Decimal) -> Decimal {
+    d.round_dp_with_strategy(2, RoundingStrategy::MidpointNearestEven)
+}
 
 fn customer_type_name(t: i32) -> &'static str {
     match t {
@@ -88,7 +94,7 @@ pub async fn get_customer_type_stats(db: &DbConn, _year: Option<i32>, _month: Op
             contract_count: contract_by_type.get(&t).copied(),
             conversion_rate: if count > 0 {
                 let c = contract_by_type.get(&t).copied().unwrap_or(0);
-                Some(Decimal::from(c) / Decimal::from(count) * Decimal::from(100))
+                Some(round_pct(Decimal::from(c) / Decimal::from(count) * Decimal::from(100)))
             } else {
                 Some(Decimal::ZERO)
             },
@@ -138,7 +144,7 @@ pub async fn get_customer_source_stats(db: &DbConn, _year: Option<i32>, _month: 
             contract_count: contract_by_source.get(&s).copied(),
             conversion_rate: if count > 0 {
                 let c = contract_by_source.get(&s).copied().unwrap_or(0);
-                Some(Decimal::from(c) / Decimal::from(count) * Decimal::from(100))
+                Some(round_pct(Decimal::from(c) / Decimal::from(count) * Decimal::from(100)))
             } else {
                 Some(Decimal::ZERO)
             },
@@ -194,7 +200,7 @@ pub async fn get_customer_industry_stats(db: &DbConn, _year: Option<i32>, _month
                 total_count: Some(count),
                 contract_count: Some(cc),
                 conversion_rate: if count > 0 {
-                    Some(Decimal::from(cc) / Decimal::from(count) * Decimal::from(100))
+                    Some(round_pct(Decimal::from(cc) / Decimal::from(count) * Decimal::from(100)))
                 } else {
                     Some(Decimal::ZERO)
                 },
@@ -246,25 +252,25 @@ pub async fn get_customer_funnel(db: &DbConn, _year: Option<i32>, _month: Option
         .sum();
 
     let l2c = if lead_count > 0 {
-        Decimal::from(customer_count) / Decimal::from(lead_count) * Decimal::from(100)
+        round_pct(Decimal::from(customer_count) / Decimal::from(lead_count) * Decimal::from(100))
     } else {
         Decimal::ZERO
     };
 
     let c2o = if customer_count > 0 {
-        Decimal::from(opportunity_count) / Decimal::from(customer_count) * Decimal::from(100)
+        round_pct(Decimal::from(opportunity_count) / Decimal::from(customer_count) * Decimal::from(100))
     } else {
         Decimal::ZERO
     };
 
     let o2c = if opportunity_count > 0 {
-        Decimal::from(contract_count) / Decimal::from(opportunity_count) * Decimal::from(100)
+        round_pct(Decimal::from(contract_count) / Decimal::from(opportunity_count) * Decimal::from(100))
     } else {
         Decimal::ZERO
     };
 
     let overall = if lead_count > 0 {
-        Decimal::from(contract_count) / Decimal::from(lead_count) * Decimal::from(100)
+        round_pct(Decimal::from(contract_count) / Decimal::from(lead_count) * Decimal::from(100))
     } else {
         Decimal::ZERO
     };

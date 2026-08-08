@@ -75,13 +75,18 @@ function renderChart() {
         return lines.join('<br/>');
       },
     },
-    legend: { data: funnelData.map((d) => d.name) },
+    legend: {
+      data: funnelData.map((d) => d.name),
+      top: 8,
+      itemGap: 16,
+    },
+    grid: { top: 60 },
     series: [
       {
         name: '销售漏斗',
         type: 'funnel',
         left: '10%',
-        top: 20,
+        top: 60,
         bottom: 20,
         width: '80%',
         min: 0,

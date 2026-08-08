@@ -36,6 +36,10 @@ const dataScope = computed(() => {
 
 // 列表类型选项卡：全部线索 / 我的线索 / 下属线索 / 今日跟进线索
 const activeTab = ref('my');
+
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 const allTabList = [
   { key: 'all', label: '全部线索' },
   { key: 'my', label: '我的线索' },
@@ -519,7 +523,7 @@ function handleDeleteConfirm(row: any) {
           <Button type="default" @click="handleReset">重置</Button>
           <span class="lead-filter-divider"></span>
           <Button
-            v-if="accessStore.hasAccessCode('crm:lead:create')"
+            v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:save')"
             type="primary"
             ghost
             :icon="h(LucidePlus)"
@@ -534,12 +538,12 @@ function handleDeleteConfirm(row: any) {
     <Grid :table-title="$t('page.crm.lead.title')">
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('crm:lead:transfer')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:transfer')"
           :icon="h(LucideUsers)"
           class="mr-2"
           @click="handleBatchTransfer"
         >批量转移线索</Button>
-        <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
+        <Button v-if="!isSubordinateView" @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
       <template #createTime="{ row }">{{ formatDateTime(row.createTime) }}</template>
@@ -569,12 +573,14 @@ function handleDeleteConfirm(row: any) {
             <template #overlay>
               <div class="lead-more-menu">
                 <div
+                  v-if="!isSubordinateView"
                   class="more-menu-item"
                   @click="() => handleAIAssessment(row)"
                 >
                   <span>一键评估</span>
                 </div>
                 <div
+                  v-if="!isSubordinateView"
                   class="more-menu-item"
                   :class="{ disabled: row.status === 3 || !!row.convertedToCustomerId }"
                   @click="() => ! (row.status === 3 || row.convertedToCustomerId) && handleConvertToCustomer(row)"
@@ -582,18 +588,19 @@ function handleDeleteConfirm(row: any) {
                   <span>一键转客户</span>
                 </div>
                 <div
+                  v-if="!isSubordinateView"
                   class="more-menu-item"
                   :class="{ disabled: row.status === 4 }"
                   @click="() => row.status !== 4 && handleAddToPool(row)"
                 >
                   <span>退回到公海</span>
                 </div>
-                <div v-if="accessStore.hasAccessCode('crm:lead:transfer')" class="more-menu-item" @click="() => handleTransfer(row)">
+                <div v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:transfer')" class="more-menu-item" @click="() => handleTransfer(row)">
                   <span>转移</span>
                 </div>
-                <div v-if="activeTab !== 'subordinate' && accessStore.hasAccessCode('crm:lead:delete')" class="more-menu-divider" />
+                <div v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:delete')" class="more-menu-divider" />
                 <div
-                  v-if="activeTab !== 'subordinate' && accessStore.hasAccessCode('crm:lead:delete')"
+                  v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:delete')"
                   class="more-menu-item danger"
                   @click="() => handleDeleteConfirm(row)"
                 >

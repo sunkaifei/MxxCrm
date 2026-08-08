@@ -27,3 +27,4 @@ pub mod edit_log_admin_controller;
 pub mod mail_controller;
 pub mod scheduler_controller;
 pub mod pdf_controller;
+pub mod setting_admin_controller;

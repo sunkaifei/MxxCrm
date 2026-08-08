@@ -127,4 +127,20 @@ impl ICacheService for RedisService {
             };
         })
     }
+
+    fn keys(&self, pattern: &str) -> BoxFuture<'_, Result<Vec<String>>> {
+        let pattern = pattern.to_string();
+        Box::pin(async move {
+            let mut conn = self.get_conn().await?;
+            // 后台低频统计场景，使用 KEYS 即可；键空间为登录会话类前缀，规模可控
+            match redis::cmd("KEYS").arg(&[pattern.as_str()]).query_async::<Vec<String>>(&mut conn).await {
+                Ok(v) => Ok(v),
+                Err(e) => Err(Error::from(format!(
+                    "RedisService keys({}) fail:{}",
+                    pattern,
+                    e.to_string()
+                ))),
+            }
+        })
+    }
 }

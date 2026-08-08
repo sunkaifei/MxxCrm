@@ -55,7 +55,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
       },
-      rules: z.string().min(1, { message: $t('ui.formRules.required') }),
+      rules: z.string()
+        .min(1, { message: $t('ui.formRules.required') })
+        .regex(/^[a-zA-Z0-9_]+$/, { message: '用户名只能包含字母、数字和下划线，不能包含空格' }),
     },
     {
       component: 'Input',
@@ -137,7 +139,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       formItemClass: 'col-span-2',
       rules: z
         .array(z.any(), { required_error: $t('ui.formRules.required') })
-        .min(1, { message: '部门为必选项，请至少选择一个部门' }),
+        .min(1, { message: $t('ui.formRules.selectAtLeastOne', { name: $t('page.system.user.dept') }) }),
     },
     {
       component: 'ApiSelect',
@@ -155,7 +157,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
       rules: z
         .array(z.any(), { required_error: $t('ui.formRules.required') })
-        .min(1, { message: '角色为必选项，请至少选择一个角色' }),
+        .min(1, { message: $t('ui.formRules.selectAtLeastOne', { name: $t('page.system.user.role') }) }),
     },
     {
       component: 'ApiSelect',
@@ -173,15 +175,15 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
       rules: z
         .array(z.any(), { required_error: $t('ui.formRules.required') })
-        .min(1, { message: '岗位为必选项，请至少选择一个岗位' }),
+        .min(1, { message: $t('ui.formRules.selectAtLeastOne', { name: $t('page.system.user.post') }) }),
     },
     {
       component: 'ApiSelect',
       fieldName: 'directManagerId',
-      label: '直属上级',
-      help: '用于审批流向上查找领导，未配置则视为顶层决策人（审批自动通过）',
+      label: $t('page.system.user.directManager'),
+      help: $t('page.system.user.directManagerTip'),
       componentProps: {
-        placeholder: '请选择直属上级（可选）',
+        placeholder: $t('page.system.user.directManagerPlaceholder'),
         allowClear: true,
         showSearch: true,
         optionFilterProp: 'label',

@@ -6,7 +6,7 @@ import { computed, h, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucideEye } from '@vben/icons';
-import { useUserStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Drawer, message, Popconfirm, Tabs, Tag } from 'ant-design-vue';
@@ -34,6 +34,7 @@ const sourceTypeColorMap: Record<number, string> = {
 };
 
 const userStore = useUserStore();
+const accessStore = useAccessStore();
 
 // data_scope 决定可见的 Tab
 // 1=全部数据 → 全部Tab  2=自定义 → my+subordinate+todayFollow
@@ -47,6 +48,10 @@ const dataScope = computed(() => {
 });
 
 const activeTab = ref('my');
+
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 const allTabList = [
   { key: 'all', label: '全部跟进' },
   { key: 'my', label: '我的跟进' },
@@ -339,8 +344,8 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
       </template>
 
       <template #action="{ row }">
-        <Button type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
-        <Popconfirm title="确定删除该跟进记录？" ok-text="确认" cancel-text="取消" @confirm="handleDelete(row)">
+        <Button v-if="accessStore.hasAccessCode('crm:followup:view')" type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
+        <Popconfirm v-if="!isSubordinateView && accessStore.hasAccessCode('crm:followup:delete')" title="确定删除该跟进记录？" ok-text="确认" cancel-text="取消" @confirm="handleDelete(row)">
           <Button type="link" danger>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           </Button>

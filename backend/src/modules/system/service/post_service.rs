@@ -12,7 +12,7 @@ use sea_orm::{DbConn, DbErr, TransactionTrait};
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::system::model::admin_post_merge::{AdminPostMergeModel, AdminPostMergeSaveDTO};
-use crate::modules::system::model::post::{ListQuery, PageWhere, PostDetailVO, PostListVO, PostModel, PostOptionVO, PostSaveDTO, PostSaveRequest, PostUpdateRequest};
+use crate::modules::system::model::post::{ListQuery, PageWhere, PostAdminByName, PostDetailVO, PostListVO, PostModel, PostOptionVO, PostSaveDTO, PostSaveRequest, PostUpdateRequest};
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 
 /// ### 添加岗位
@@ -260,6 +260,33 @@ pub async fn get_post_options(db: &DbConn) -> Result<Vec<PostOptionVO>> {
                 label: data.post_name,
             });
         }
+    }
+    Ok(list_data)
+}
+
+/// 根据管理员ID列表批量查询岗位关联（返回 admin_id + post_name 的扁平列表）
+pub async fn select_by_ids(db: &DbConn, admin_ids: Vec<i64>) -> Result<Vec<PostAdminByName>> {
+    let result_merge = AdminPostMergeModel::find_by_admin_ids(db, admin_ids).await?;
+    // 收集所有 post_id，一次性查询岗位名称
+    let post_ids: Vec<i64> = result_merge.iter()
+        .filter_map(|m| m.post_id)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    let mut list_data: Vec<PostAdminByName> = Vec::new();
+    if post_ids.is_empty() {
+        return Ok(list_data);
+    }
+    let posts = PostModel::find_by_ids(db, post_ids).await.unwrap_or_default();
+    let post_map: std::collections::HashMap<i64, Option<String>> = posts.into_iter()
+        .map(|p| (p.id, p.post_name))
+        .collect();
+    for merge in result_merge {
+        let pid = merge.post_id.unwrap_or_default();
+        list_data.push(PostAdminByName {
+            admin_id: merge.admin_id,
+            post_name: post_map.get(&pid).cloned().flatten(),
+        });
     }
     Ok(list_data)
 }

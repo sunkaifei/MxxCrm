@@ -33,7 +33,8 @@ export interface ProductSaveRequest {
   description?: string;
   detail?: string;
   currency?: string;
-  coverImage?: string | null;
+  imageUrl?: string | null;
+  brandId?: number;
   carouselImages?: string[];
   specType?: 'single' | 'multiple';
   templateId?: number;

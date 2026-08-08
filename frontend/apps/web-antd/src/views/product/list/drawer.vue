@@ -468,13 +468,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 async function loadProductDetail(id: number) {
   try {
-    const [productRes, specsRes] = await Promise.all([
-      getProductInfoApi(id),
-      getProductSpecsApi(id),
-    ]);
+    const productRes = await getProductInfoApi(id);
+    const specsRes = await getProductSpecsApi(id);
 
-    const productData = productRes as any;
-    const specsData = specsRes as any;
+    // 后端 /info 接口返回 {product, specs} 格式，适配新旧两种格式
+    const respData = productRes as any;
+    const productData = respData?.product ?? respData;
+    const specsData = respData?.specs ?? (specsRes as any);
 
     if (productData) {
       formData.value = {

@@ -149,14 +149,14 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/check-in",
                 web::post()
                     .to(visit_check_in)
-                    .wrap(require_permission("crm:visit:add")),
+                    .wrap(require_permission("crm:visit:save")),
             )
             // POST /visit/check-out/{id} - 签退
             .route(
                 "/check-out/{id}",
                 web::post()
                     .to(visit_check_out)
-                    .wrap(require_permission("crm:visit:add")),
+                    .wrap(require_permission("crm:visit:save")),
             )
             // GET /visit/statistics - 拜访统计
             .route(

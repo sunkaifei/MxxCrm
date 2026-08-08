@@ -32,10 +32,19 @@ pub struct StocktakeSaveRequest {
 pub struct StocktakeItemRequest {
     pub id: Option<i64>,
     pub product_id: i64,
+    /// SKU ID（多规格产品按SKU盘点时使用）
+    #[serde(default)]
+    pub sku_id: Option<i64>,
     pub product_name: Option<String>,
     pub product_sku: Option<String>,
     pub system_quantity: Option<Decimal>,
     pub actual_quantity: Option<Decimal>,
+    #[serde(default)]
+    pub assignee_ids: Option<serde_json::Value>,
+    #[serde(default)]
+    pub diff_reason: Option<String>,
+    #[serde(default)]
+    pub handling: Option<String>,
     pub remark: Option<String>,
 }
 
@@ -52,6 +61,21 @@ pub struct StocktakeInputItem {
     pub id: i64,
     pub actual_quantity: Decimal,
     pub remark: Option<String>,
+    /// 盘点人ID列表（前端传数组，序列化为 JSON 数组字符串存库）
+    #[serde(default)]
+    pub assignee_ids: Option<serde_json::Value>,
+    /// 复盘数量
+    #[serde(default)]
+    pub recheck_quantity: Option<Decimal>,
+    /// 复盘人ID列表
+    #[serde(default)]
+    pub recheck_assignee_ids: Option<serde_json::Value>,
+    /// 差异原因
+    #[serde(default)]
+    pub diff_reason: Option<String>,
+    /// 处理方式
+    #[serde(default)]
+    pub handling: Option<String>,
 }
 
 // 盘点单列表查询参数

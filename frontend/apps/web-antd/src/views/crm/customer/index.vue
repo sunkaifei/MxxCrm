@@ -45,6 +45,8 @@ const dataScope = computed(() => {
 });
 
 const activeTab = ref('my');
+// 下属视图下只能查看，不能进行写操作
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
 const allTabList = [
   { key: 'all', label: '全部客户' },
   { key: 'my', label: '我的客户' },
@@ -544,7 +546,7 @@ function handleAddContact(row: any) {
           <Button type="default" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
           <Button type="default" @click="handleReset">刷新</Button>
           <Button
-            v-if="accessStore.hasAccessCode('crm:customer:create')"
+            v-if="!isSubordinateView && accessStore.hasAccessCode('crm:customer:save')"
             type="primary"
             :icon="h(LucidePlus)"
             @click="handleCreate"
@@ -553,7 +555,7 @@ function handleAddContact(row: any) {
           </Button>
           <Button :icon="h(LucideUpload)">导入</Button>
           <Button
-            v-if="accessStore.hasAccessCode('crm:customer:transfer')"
+            v-if="!isSubordinateView && accessStore.hasAccessCode('crm:customer:transfer')"
             :icon="h(LucideUsers)"
             @click="handleBatchTransfer"
           >批量转移客户</Button>
@@ -566,7 +568,7 @@ function handleAddContact(row: any) {
 
     <Grid :table-title="$t('page.crm.customer.title')">
       <template #toolbar-tools>
-        <Dropdown v-if="accessStore.hasAccessCode('crm:customer:create')" :trigger="['click']">
+        <Dropdown v-if="!isSubordinateView && accessStore.hasAccessCode('crm:customer:save')" :trigger="['click']">
           <Button type="primary" class="mr-2">{{ $t('page.crm.customer.button.create') }} ▾</Button>
           <template #overlay>
             <div class="customer-more-menu">
@@ -579,7 +581,7 @@ function handleAddContact(row: any) {
             </div>
           </template>
         </Dropdown>
-        <Button @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
+        <Button v-if="!isSubordinateView" @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
       </template>
 
       <template #createdAt="{ row }">{{ formatDateTime(row.createTime) }}</template>
@@ -616,27 +618,27 @@ function handleAddContact(row: any) {
 
       <template #action="{ row }">
         <span class="action-btns">
-          <a v-if="accessStore.hasAccessCode('crm:customer:followup') && activeTab === 'my'" class="action-btn" @click="() => handleFollowup(row)">跟进</a>
-          <Popconfirm :title="'确定将该客户退回公海？'" @confirm="handlePool(row)">
+          <a v-if="!isSubordinateView && accessStore.hasAccessCode('crm:customer:followup')" class="action-btn" @click="() => handleFollowup(row)">跟进</a>
+          <Popconfirm v-if="!isSubordinateView" :title="'确定将该客户退回公海？'" @confirm="handlePool(row)">
             <a class="action-btn">公海</a>
           </Popconfirm>
           <Dropdown :trigger="['click']">
             <a class="action-btn more-btn">更多 ▾</a>
             <template #overlay>
               <div class="customer-more-menu">
-                <div class="more-menu-item" @click="() => handleAddOpportunity(row)">
+                <div v-if="!isSubordinateView" class="more-menu-item" @click="() => handleAddOpportunity(row)">
                   <span>添加商机</span>
                 </div>
-                <div class="more-menu-item" @click="() => handleAddContact(row)">
+                <div v-if="!isSubordinateView" class="more-menu-item" @click="() => handleAddContact(row)">
                   <span>添加联系人</span>
                 </div>
-                <div v-if="accessStore.hasAccessCode('crm:customer:transfer')" class="more-menu-item" @click="() => handleTransfer(row)">
+                <div v-if="!isSubordinateView && accessStore.hasAccessCode('crm:customer:transfer')" class="more-menu-item" @click="() => handleTransfer(row)">
                   <span>转移</span>
                 </div>
-                <div v-if="accessStore.hasAccessCode('crm:customer:update')" class="more-menu-item" @click="() => handleEdit(row)">
+                <div v-if="!isSubordinateView && accessStore.hasAccessCode('crm:customer:update')" class="more-menu-item" @click="() => handleEdit(row)">
                   <span>修改</span>
                 </div>
-                <Popconfirm v-if="accessStore.hasAccessCode('crm:customer:delete')" :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.customer.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
+                <Popconfirm v-if="!isSubordinateView && accessStore.hasAccessCode('crm:customer:delete')" :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.customer.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
                   <div class="more-menu-item danger">
                     <span>删除</span>
                   </div>

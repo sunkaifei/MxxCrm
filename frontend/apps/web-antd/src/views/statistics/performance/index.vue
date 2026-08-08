@@ -145,8 +145,9 @@ async function loadData() {
       ]);
 
     monthlyData.value = monthlyRes?.data?.months || monthlyRes?.months || [];
+    const rankingList = Array.isArray(rankingRes) ? rankingRes : (rankingRes?.data ?? []);
     rankingData.value =
-      rankingRes?.data?.map((item: any) => ({
+      rankingList.map((item: any) => ({
         rank: item.rank,
         employeeName: item.employeeName || item.employee_name,
         departmentName: item.departmentName || item.department_name,
@@ -165,7 +166,7 @@ async function loadData() {
     // 个人视图额外加载自己的数据
     if (isPersonalView.value) {
       personalData.value =
-        rankingRes?.data?.find(
+        rankingList.find(
           (r: any) => r.employeeId === userStore.userInfo?.userId,
         ) || {};
     }

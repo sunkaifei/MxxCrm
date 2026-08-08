@@ -201,10 +201,10 @@ impl WebsiteUserModel {
             .await
     }
 
-    /// 根据用户名查询
+    /// 根据用户名查询（不区分大小写）
     pub async fn find_by_username<C: ConnectionTrait>(db: &C, username: &str) -> Result<Option<website_user::Model>, DbErr> {
         WebsiteUser::find()
-            .filter(website_user::Column::Username.eq(username))
+            .filter(website_user::Column::Username.eq(username.to_lowercase()))
             .filter(website_user::Column::Deleted.eq(0))
             .one(db)
             .await

@@ -65,6 +65,9 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 function handleTabChange(key: string | number) {
   activeTab.value = key as string;
   gridApi.query();
@@ -407,7 +410,7 @@ onMounted(async () => {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('crm:contract:create')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -469,7 +472,7 @@ onMounted(async () => {
       <template #action="{ row }">
         <!-- 1. 提交审批按钮（草稿或已驳回） -->
         <Button
-          v-if="accessStore.hasAccessCode('crm:contract:submit') && canSubmit(row)"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:submit') && canSubmit(row)"
           type="link"
           @click="() => handleSubmit(row)"
         >
@@ -488,14 +491,14 @@ onMounted(async () => {
         <!-- 3. 已通过 → 发货 / 查看发货 -->
         <template v-if="isApproved(row)">
           <Button
-            v-if="!hasShipment(row)"
+            v-if="!isSubordinateView && !hasShipment(row)"
             type="link"
             @click="() => handleShip(row)"
           >
             发货
           </Button>
           <Button
-            v-else
+            v-if="hasShipment(row)"
             type="link"
             @click="() => handleViewShipment(row)"
           >
@@ -505,7 +508,7 @@ onMounted(async () => {
 
         <!-- 4. 编辑按钮（仅草稿/驳回状态显示，文字） -->
         <Button
-          v-if="accessStore.hasAccessCode('crm:contract:update') && canEdit(row)"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:update') && canEdit(row)"
           type="link"
           @click="() => handleEdit(row)"
         >
@@ -520,7 +523,7 @@ onMounted(async () => {
           @confirm="handleDelete(row)"
         >
           <Button
-            v-if="accessStore.hasAccessCode('crm:contract:delete') && canDelete(row)"
+            v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:delete') && canDelete(row)"
             type="link"
             danger
           >

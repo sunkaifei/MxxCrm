@@ -116,4 +116,23 @@ impl ICacheService for MemService {
             Box::pin(async { Err(Error::from(error_msg.to_string())) })
         }
     }
+
+    fn keys(&self, pattern: &str) -> BoxFuture<'_, Result<Vec<String>>> {
+        self.recycling();
+        let pattern = pattern.to_string();
+        // 支持 glob 风格前缀匹配（如 "user_*"）。此处实现最小化：仅处理尾部 "*" 通配。
+        let prefix = pattern.strip_suffix('*').unwrap_or(&pattern);
+        let result: Vec<String> = self
+            .cache
+            .iter()
+            .filter_map(|(k, _)| {
+                if pattern == "*" || k.starts_with(prefix) {
+                    Some(k.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Box::pin(async move { Ok(result) })
+    }
 }

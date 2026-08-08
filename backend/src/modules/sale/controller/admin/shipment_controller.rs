@@ -324,14 +324,14 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/save",
                 web::post()
                     .to(save)
-                    .wrap(require_permission("sale:shipment:create")),
+                    .wrap(require_permission("sale:shipment:save")),
             )
             // PUT /sale/shipment/update - 修改发货单
             .route(
                 "/update",
                 web::put()
                     .to(update)
-                    .wrap(require_permission("sale:shipment:edit")),
+                    .wrap(require_permission("sale:shipment:update")),
             )
             // DELETE /sale/shipment/delete - 删除发货单
             .route(

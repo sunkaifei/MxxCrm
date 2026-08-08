@@ -16,12 +16,12 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::kit::app::is_demo_mode;
 use crate::core::web::response::ResultPage;
 use crate::modules::system::entity::admin;
-use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminModel, AdminOptionVO, AdminSaveDTO, AdminSaveRequest, AdminUpdateRequest, DeptNameDTO, ListQuery, PageWhere, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
+use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminModel, AdminOptionVO, AdminSaveDTO, AdminSaveRequest, AdminUpdateRequest, DeptNameDTO, ListQuery, PageWhere, PostNameDTO, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
 use crate::modules::system::model::admin_dept_merge::{AdminDeptMergeModel, AdminDeptMergeSaveDTO};
 use crate::modules::system::model::admin_post_merge::{AdminPostMergeModel, AdminPostMergeSaveDTO};
 use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, AdminRolesMergeSaveDTO};
 use crate::modules::system::model::role::RoleModel;
-use crate::modules::system::service::{config_service, dept_service, role_service};
+use crate::modules::system::service::{config_service, dept_service, post_service, role_service};
 use crate::utils::string_utils::{convert_vec_option_string_to_vec_u64};
 
 /// 批量查询 admin 用户名映射：admin_id -> 显示名（nick_name 优先，回退 user_name）
@@ -166,9 +166,31 @@ pub async fn register(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> 
     if is_demo_mode() {
         return Err(Error::from("演示站模式下禁止注册用户"));
     }
-    
-    let admin_id = insert(db, form_data).await?;
-    
+
+    // 注册用户不经过 insert 的部门/角色/岗位必选校验（注册时为文本填写，审核后管理员分配）
+    let mut dto_data = AdminSaveDTO::from(form_data.clone());
+    if let Some(password) = &form_data.password {
+        if !password.is_empty() {
+            let hashed = hash(password, DEFAULT_COST).unwrap_or_default();
+            dto_data.password = Option::from(hashed);
+        } else {
+            let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
+            let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
+            dto_data.password = Option::from(hashed);
+        }
+    } else {
+        let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
+        let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
+        dto_data.password = Option::from(hashed);
+    }
+
+    let admin_id = AdminModel::insert(db, &dto_data).await
+        .map_err(|e| Error::from(format!("插入注册用户失败: {}", e)))?;
+
+    // 注册用户标记为待审核（audit_status=0），status 已在 form_data 中设为 0
+    let _ = AdminModel::update_audit_status(db, admin_id, 0).await;
+
+    // 绑定默认角色（受限角色，管理员审核后可调整）
     let default_role = RoleModel::find_by_role_key(db, "admin").await?.unwrap_or_default();
     if default_role.id > 0 {
         let role_merge = vec![AdminRolesMergeSaveDTO {
@@ -179,7 +201,7 @@ pub async fn register(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> 
         }];
         let _ = AdminRoleMergeModel::insert_batch(db, &role_merge).await;
     }
-    
+
     Ok(admin_id)
 }
 
@@ -368,6 +390,12 @@ pub async fn update_user_status(db: &DbConn, form_data: &UpdateAdminStatusReques
     Ok(result)
 }
 
+/// 审核注册用户（通过时 status=1, audit_status=1；拒绝时保持 status=0, audit_status=0）
+pub async fn update_audit_status(db: &DbConn, user_id: i64, audit_status: i32) -> Result<i64> {
+    let result = AdminModel::update_audit_status(db, user_id, audit_status).await?;
+    Ok(result)
+}
+
 /// 修改登录信息
 pub async fn update_login_info(db: &DbConn, form_data: &UpdateLoginRequest) -> Result<i64> {
     let form_data = AdminSaveDTO::from(form_data.clone());
@@ -483,6 +511,7 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
     let id_list: Vec<i64> = list.clone().into_iter().map(|data| data.id).collect();
     let result_role = role_service::select_by_ids(db, id_list.clone()).await;
     let result_dept = dept_service::select_by_ids(db, id_list.clone()).await;
+    let result_post = post_service::select_by_ids(db, id_list.clone()).await;
     let mut list_data: Vec<AdminListVO> = Vec::new();
     for data in list.clone() {
         let mut role_data: Vec<RoleNameDTO> = Vec::new();
@@ -509,11 +538,41 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             Err(_) => {}
         }
 
+        let mut posts_data: Vec<PostNameDTO> = Vec::new();
+        match result_post {
+            Ok(ref post_list) => {
+                for post_entity in post_list {
+                    if post_entity.admin_id == Some(data.id) {
+                        posts_data.push(PostNameDTO { post_name: post_entity.post_name.clone() });
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+
         let role_name_str = if role_data.is_empty() {
             None
         } else {
             Some(role_data.iter()
                 .filter_map(|r| r.role_name.clone())
+                .collect::<Vec<_>>()
+                .join(", "))
+        };
+
+        let dept_name_str = if depts_data.is_empty() {
+            None
+        } else {
+            Some(depts_data.iter()
+                .filter_map(|d| d.dept_name.clone())
+                .collect::<Vec<_>>()
+                .join(", "))
+        };
+
+        let post_name_str = if posts_data.is_empty() {
+            None
+        } else {
+            Some(posts_data.iter()
+                .filter_map(|p| p.post_name.clone())
                 .collect::<Vec<_>>()
                 .join(", "))
         };
@@ -528,6 +587,9 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             role_name: role_name_str,
             roles: Option::from(role_data),
             depts: Option::from(depts_data),
+            dept_name: dept_name_str,
+            posts: Option::from(posts_data),
+            post_name: post_name_str,
             remark: data.remark,
             status: data.status,
             sort: data.sort,
@@ -536,8 +598,17 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             create_time: Option::from(data.create_time.unwrap_or_default().format("%Y-%m-%d %H:%M:%S").to_string()),
             direct_manager_id: data.direct_manager_id,
             direct_manager_name: None,
+            online: false,
+            audit_status: data.audit_status.unwrap_or(0),
         });
 
+    }
+
+    // 批量查询在线状态，避免逐条查缓存
+    let online_sessions = crate::modules::system::service::permission_cache_service::list_online_sessions().await;
+    let online_ids: std::collections::HashSet<i64> = online_sessions.into_iter().map(|(uid, _)| uid).collect();
+    for item in list_data.iter_mut() {
+        item.online = online_ids.contains(&item.id);
     }
 
     // 批量查询直属上级姓名，避免 N+1

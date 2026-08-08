@@ -315,7 +315,11 @@ pub async fn get_forecast(
     } else {
         Decimal::from(0)
     };
-    let historical_win_rate = win_rate_decimal.to_f64().unwrap_or(0.0);
+    use rust_decimal::prelude::RoundingStrategy;
+    let historical_win_rate = (win_rate_decimal * Decimal::from(100))
+        .round_dp_with_strategy(2, RoundingStrategy::MidpointNearestEven)
+        .to_f64()
+        .unwrap_or(0.0);
 
     let forecast_amount = completed_amount + pipeline_amount * win_rate_decimal;
 

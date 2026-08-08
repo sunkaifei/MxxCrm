@@ -100,6 +100,9 @@ watch(tabList, (newTabs) => {
   }
 }, { immediate: true });
 
+// 是否为下属视图（下属视图下不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 const searchForm = ref({
   customerName: '',
   name: '',
@@ -297,10 +300,10 @@ async function handleBatchDelete() {
         <div class="flex flex-wrap items-center gap-2 mt-3">
           <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
           <Button @click="handleReset">刷新</Button>
-          <Button v-if="accessStore.hasAccessCode('crm:contact:create')" type="primary" @click="handleCreate">
+          <Button v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contact:save')" type="primary" @click="handleCreate">
             {{ $t('page.crm.contact.button.create') }}
           </Button>
-          <Button @click="handleBatchDelete" danger ghost>批量删除</Button>
+          <Button v-if="!isSubordinateView" @click="handleBatchDelete" danger ghost>批量删除</Button>
         </div>
       </Form>
     </Card>
@@ -322,9 +325,9 @@ async function handleBatchDelete() {
       </template>
 
       <template #action="{ row }">
-        <Button v-if="accessStore.hasAccessCode('crm:contact:update')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
+        <Button v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contact:update')" type="link" :icon="h(LucideFilePenLine)" @click="() => handleEdit(row)" />
         <Popconfirm :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.contact.title') })" :ok-text="$t('ui.button.ok')" :cancel-text="$t('ui.button.cancel')" @confirm="handleDelete(row)">
-          <Button v-if="accessStore.hasAccessCode('crm:contact:delete')" type="link" danger :icon="h(LucideTrash2)" />
+          <Button v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contact:delete')" type="link" danger :icon="h(LucideTrash2)" />
         </Popconfirm>
       </template>
     </Grid>

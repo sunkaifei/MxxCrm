@@ -71,6 +71,9 @@ export default defineConfig(async () => {
         },
       ],
       server: {
+        host: '0.0.0.0',
+        port: 5668,
+        strictPort: true,
         proxy: {
           '/api': {
             changeOrigin: true,

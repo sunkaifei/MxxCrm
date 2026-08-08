@@ -36,8 +36,11 @@ use crate::modules::system::service::menu_service;
 /// 权限缓存键前缀
 const PERM_KEY_PREFIX: &str = "perm:";
 
-/// 用户Token缓存键前缀
+/// 用户Token缓存键前缀（单设备模式）
 const USER_TOKEN_KEY_PREFIX: &str = "user_";
+
+/// 多设备模式用户 Token 集合缓存键前缀
+const USER_TOKENS_KEY_PREFIX: &str = "user_tokens_";
 
 /// 默认缓存TTL（秒）
 const DEFAULT_PERM_CACHE_TTL: u64 = 300;
@@ -50,9 +53,67 @@ fn perm_key(user_id: i64) -> String {
     format!("{}{}", PERM_KEY_PREFIX, user_id)
 }
 
-/// 构建用户Token缓存的键
+/// 构建用户Token缓存的键（单设备模式）
 fn user_token_key(user_id: i64) -> String {
     format!("{}{}", USER_TOKEN_KEY_PREFIX, user_id)
+}
+
+/// 构建多设备模式用户 Token 集合缓存的键
+fn user_tokens_key(user_id: i64) -> String {
+    format!("{}{}", USER_TOKENS_KEY_PREFIX, user_id)
+}
+
+/// 读取登录模式配置：false=单设备（默认），true=多设备
+///
+/// 优先从缓存读取（安全设置页面保存时写入 `config:login_multi_device`），
+/// 缓存未命中时回退到配置文件。
+pub async fn is_multi_device_mode() -> bool {
+    match CONTEXT.cache_service.get_string("config:login_multi_device").await {
+        Ok(v) if !v.is_empty() => v == "1",
+        _ => {
+            let val = config::section::<String>("server", "login_multi_device", "0".to_string());
+            val == "1"
+        }
+    }
+}
+
+/// 读取会话超时配置（秒），优先缓存 `config:session_timeout`，回退配置文件 `jwt_expire_admin`
+pub async fn get_session_timeout_secs() -> u64 {
+    match CONTEXT.cache_service.get_string("config:session_timeout").await {
+        Ok(v) if !v.is_empty() => {
+            if let Ok(secs) = v.parse::<u64>() {
+                if secs > 0 {
+                    return secs;
+                }
+            }
+            config::section::<u64>("server", "jwt_expire_admin", 28800)
+        }
+        _ => config::section::<u64>("server", "jwt_expire_admin", 28800),
+    }
+}
+
+/// 读取多设备模式最大在线设备数，0=不限制
+pub async fn get_max_devices() -> usize {
+    match CONTEXT.cache_service.get_string("config:login_max_devices").await {
+        Ok(v) if !v.is_empty() => v.parse::<usize>().unwrap_or(5),
+        _ => {
+            let val = config::section::<String>("server", "login_max_devices", "5".to_string());
+            val.parse::<usize>().unwrap_or(5)
+        }
+    }
+}
+
+/// 读取员工注册开关：true=开放注册，false=关闭（默认）
+///
+/// 场景：内网部署可开放，云服务器部署应关闭防止外部人员随意注册。
+pub async fn is_register_enabled() -> bool {
+    match CONTEXT.cache_service.get_string("config:register_enabled").await {
+        Ok(v) if !v.is_empty() => v == "1",
+        _ => {
+            let val = config::section::<String>("server", "register_enabled", "0".to_string());
+            val == "1"
+        }
+    }
 }
 
 /// 获取缓存TTL（秒），首次调用读配置，后续直接返回缓存值
@@ -162,19 +223,101 @@ pub async fn invalidate_by_role_id(db: &DbConn, role_id: i64) {
     invalidate_by_user_ids(&admin_ids).await;
 }
 
-/// 清除用户的登录会话（Token + 权限缓存）
+/// 清除用户的登录会话（Token + 权限缓存 + WebSocket 连接）
 ///
-/// 调用场景：用户被禁用、删除、密码重置
-/// 效果：用户下次请求时 token 验证失败 → 401 → 前端跳转登录页
+/// 调用场景：用户被禁用、删除、密码重置、踢下线、改密强制下线
+/// 效果：用户下次请求时 token 验证失败 → 401 → 前端跳转登录页；
+///       已建立的 WebSocket 连接通过 registry.kick 主动断开
 pub async fn invalidate_user_session(user_id: i64) {
     // 清除权限缓存
     invalidate_by_user_id(user_id).await;
-    // 清除Token缓存（使旧token失效）
+    // 清除Token缓存（使旧token失效，单设备模式）
     let token_key = user_token_key(user_id);
     if let Err(e) = CONTEXT.cache_service.del(&token_key).await {
         log::warn!("[权限缓存] 清除Token失败 user_id={}, err={}", user_id, e);
     }
+    // 清除多设备模式 Token 集合
+    let tokens_key = user_tokens_key(user_id);
+    if let Err(e) = CONTEXT.cache_service.del(&tokens_key).await {
+        log::warn!("[权限缓存] 清除多设备Token集合失败 user_id={}, err={}", user_id, e);
+    }
+    // 断开该用户所有 WebSocket 连接（消息模块）
+    crate::modules::message::websocket::registry::ConnectionRegistry::global().kick(user_id);
     log::info!("[权限缓存] 用户会话已清除 user_id={}", user_id);
+}
+
+/// 按单个 token 踢出会话（多设备模式下从用户 Token 集合中移除指定 token）
+///
+/// 调用场景：在线会话列表的"按会话下线"操作
+/// 返回：true=成功移除，false=token 不在集合中
+pub async fn invalidate_session_by_token(user_id: i64, token: &str) -> bool {
+    let tokens_key = user_tokens_key(user_id);
+    let mut tokens: Vec<String> = match CONTEXT.cache_service.get_json(&tokens_key).await {
+        Ok(t) => t,
+        Err(_) => return false,
+    };
+    let before = tokens.len();
+    tokens.retain(|t| t != token);
+    if tokens.len() == before {
+        return false;
+    }
+    if tokens.is_empty() {
+        let _ = CONTEXT.cache_service.del(&tokens_key).await;
+    } else {
+        let _ = CONTEXT.cache_service.set_json(&tokens_key, &tokens).await;
+    }
+    // 单设备模式兼容：若存在 user_{id} 且匹配则一并清除
+    if let Ok(cached) = CONTEXT.cache_service.get_string(&user_token_key(user_id)).await {
+        if cached == token {
+            let _ = CONTEXT.cache_service.del(&user_token_key(user_id)).await;
+        }
+    }
+    log::info!("[权限缓存] 按会话踢出 user_id={}, 剩余会话数={}", user_id, tokens.len());
+    true
+}
+
+/// 扫描在线用户会话，返回 (user_id, token列表) 的集合
+///
+/// 同时扫描单设备键 `user_*` 与多设备键 `user_tokens_*`。
+/// 供安全设置页"在线用户列表"接口使用。
+pub async fn list_online_sessions() -> Vec<(i64, Vec<String>)> {
+    let mut result: std::collections::HashMap<i64, Vec<String>> = std::collections::HashMap::new();
+
+    // 单设备模式：user_{id}
+    if let Ok(keys) = CONTEXT.cache_service.keys(&format!("{}*", USER_TOKEN_KEY_PREFIX)).await {
+        for k in keys {
+            // 跳过 user_tokens_ 前缀的键（多设备模式）
+            if k.starts_with(USER_TOKENS_KEY_PREFIX) {
+                continue;
+            }
+            if let Some(id_str) = k.strip_prefix(USER_TOKEN_KEY_PREFIX) {
+                if let Ok(uid) = id_str.parse::<i64>() {
+                    if let Ok(token) = CONTEXT.cache_service.get_string(&k).await {
+                        if !token.is_empty() {
+                            result.entry(uid).or_default().push(token);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 多设备模式：user_tokens_{id}
+    if let Ok(keys) = CONTEXT.cache_service.keys(&format!("{}*", USER_TOKENS_KEY_PREFIX)).await {
+        for k in keys {
+            if let Some(id_str) = k.strip_prefix(USER_TOKENS_KEY_PREFIX) {
+                if let Ok(uid) = id_str.parse::<i64>() {
+                    if let Ok(tokens) = CONTEXT.cache_service.get_json::<Vec<String>>(&k).await {
+                        if !tokens.is_empty() {
+                            result.entry(uid).or_default().extend(tokens);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    result.into_iter().collect()
 }
 
 /// 验证用户Token是否仍然有效
@@ -201,5 +344,31 @@ pub async fn validate_user_token(user_id: i64, token: &str) -> bool {
             log::debug!("[权限缓存] Token缓存未找到 user_id={}", user_id);
             false
         }
+    }
+}
+
+/// 统一会话校验（自动适配单/多设备模式）
+///
+/// - 单设备模式：校验 `user_{id}` 是否等于 token
+/// - 多设备模式：校验 token 是否在 `user_tokens_{id}` 集合中
+///
+/// 调用场景：extract 中间件、WS 心跳
+/// 返回：false 时请求方应返回 401 / 断开连接
+pub async fn validate_session(user_id: i64, token: &str) -> bool {
+    if is_multi_device_mode().await {
+        // 多设备模式：检查 token 是否在集合中
+        let key = user_tokens_key(user_id);
+        match CONTEXT.cache_service.get_json::<Vec<String>>(&key).await {
+            Ok(tokens) => {
+                if tokens.is_empty() {
+                    return false;
+                }
+                tokens.iter().any(|t| t == token)
+            }
+            Err(_) => false,
+        }
+    } else {
+        // 单设备模式：精确匹配
+        validate_user_token(user_id, token).await
     }
 }

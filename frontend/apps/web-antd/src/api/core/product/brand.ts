@@ -13,7 +13,7 @@ export const updateBrandApi = async (param: any) => {
   return requestClient.put('/api/system/product/brand/update', param);
 };
 export const deleteBrandApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/product/brand/bath_delete', {
+  return requestClient.delete('/api/system/product/brand/batch_delete', {
     data: { ids },
   });
 };

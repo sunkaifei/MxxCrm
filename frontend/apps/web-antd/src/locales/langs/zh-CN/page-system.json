@@ -47,12 +47,24 @@
       "lastLoginIp": "上次登录IP",
       "lastLoginTime": "上次登录时间",
       "role": "角色",
+      "directManager": "直属上级",
+      "directManagerTip": "用于审批流向上查找领导，未配置则视为顶层决策人（审批自动通过）",
+      "directManagerPlaceholder": "请选择直属上级（可选）",
       "button": {
         "create": "创建账号",
         "delete": "删除账号",
         "edit": "修改账号",
         "assignRole": "分配角色",
-        "assignDept": "分配部门"
+        "assignDept": "分配部门",
+        "audit": "审核",
+        "auditPass": "通过",
+        "auditReject": "拒绝",
+        "kickOffline": "踢下线"
+      },
+      "auditStatus": {
+        "pending": "待审核",
+        "approved": "已通过",
+        "label": "审核状态"
       }
     },
     "menu": {
@@ -424,6 +436,37 @@
         "triggerSuccess": "执行成功",
         "triggerFailed": "执行失败",
         "operationFailed": "操作失败"
+      }
+    },
+    "setting": {
+      "title": "系统设置",
+      "sessionTimeout": "会话超时",
+      "sessionTimeoutDesc": "登录后保持在线时长，超时后需重新登录",
+      "loginStrategy": "登录策略",
+      "multiDevice": "允许多设备同时登录",
+      "multiDeviceDesc": "开启后同一账号可在多台设备同时在线；关闭后新设备登录将旧设备踢下线",
+      "maxDevices": "单账号最多同时在线设备数",
+      "maxDevicesDesc": "仅多设备模式下生效，0 表示不限制",
+      "registerStrategy": "注册策略",
+      "registerEnabled": "开放员工注册",
+      "registerEnabledDesc": "关闭后外部人员无法通过注册页创建账号。内网部署可开启，云服务器部署建议关闭",
+      "tip": "修改设置后，已登录用户需重新登录后生效",
+      "saveSuccess": "保存成功",
+      "kickConfirm": "确认将该用户所有设备强制下线？",
+      "kickSuccess": "已强制下线",
+      "sessionList": "在线用户",
+      "online": "在线",
+      "sessionUser": "用户",
+      "sessionExpireTime": "到期时间",
+      "sessionKick": "下线",
+      "sessionKickConfirm": "确认将该会话强制下线？",
+      "sessionNoData": "暂无在线会话",
+      "duration": {
+        "2h": "2小时",
+        "4h": "4小时",
+        "8h": "8小时（推荐）",
+        "12h": "12小时",
+        "24h": "24小时"
       }
     }
   }

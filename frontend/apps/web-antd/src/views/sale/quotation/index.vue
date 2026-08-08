@@ -5,6 +5,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, ref } from 'vue';
 
+import { useWindowSize } from '@vueuse/core';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -24,6 +25,9 @@ import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue'
 const accessStore = useAccessStore();
 const userStore = useUserStore();
 
+// 当前用户ID（用于判断是否为报价单负责人，仅负责人可提交审批）
+const currentUserId = computed(() => (userStore.userInfo as any)?.userId ?? (userStore.userInfo as any)?.id);
+
 // 全部报价单 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
 const canViewAll = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
@@ -40,6 +44,9 @@ const canViewSubordinate = computed(() => {
   return dataScope === 2 || dataScope === 3 || dataScope === 4;
 });
 
+// 是否为下属视图（下属视图下只能查看和下载，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 const allTabList = [
   { key: 'all', label: '全部报价单' },
   { key: 'my', label: '我的报价单' },
@@ -55,6 +62,10 @@ const tabList = computed(() => {
 });
 
 const activeTab = ref('my');
+
+// 抽屉宽度自适应：大屏固定960，小屏取90%视口宽度
+const { width: winWidth } = useWindowSize();
+const drawerWidth = computed(() => Math.min(960, Math.round(winWidth.value * 0.9)));
 
 function handleTabChange(key: string | number) {
   activeTab.value = key as string;
@@ -243,7 +254,7 @@ async function handleConvertToOrder(row: any) {
 }
 
 function openDetail(row: any) {
-  detailId.value = row.id;
+  detailId.value = Number(row.id);
   detailVisible.value = true;
 }
 
@@ -291,7 +302,7 @@ function handleDetailEdit(id: string) {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('sale:quotation:save')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:quotation:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -299,7 +310,7 @@ function handleDetailEdit(id: string) {
           新建报价单
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:quotation:delete')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:quotation:delete')"
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -336,7 +347,7 @@ function handleDetailEdit(id: string) {
 
       <template #action="{ row }">
         <a
-          v-if="accessStore.hasAccessCode('sale:quotation:edit') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+          v-if="!isSubordinateView && currentUserId === row.ownerUserId && accessStore.hasAccessCode('sale:quotation:update') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
           class="text-blue-600 cursor-pointer mr-3"
           @click="() => handleSubmitApproval(row)"
         >
@@ -349,7 +360,7 @@ function handleDetailEdit(id: string) {
           <template #overlay>
             <Menu>
               <Menu.Item
-                v-if="row.approvalStatus === 3"
+                v-if="!isSubordinateView && row.approvalStatus === 3"
                 key="toOrder"
                 @click="handleConvertToOrder(row)"
               >
@@ -363,14 +374,14 @@ function handleDetailEdit(id: string) {
                 下载报价PDF
               </Menu.Item>
               <Menu.Item
-                v-if="accessStore.hasAccessCode('sale:quotation:edit') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+                v-if="!isSubordinateView && accessStore.hasAccessCode('sale:quotation:update') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
                 key="edit"
                 @click="() => handleEdit(row)"
               >
                 修改
               </Menu.Item>
               <Popconfirm
-                v-if="accessStore.hasAccessCode('sale:quotation:delete') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+                v-if="!isSubordinateView && accessStore.hasAccessCode('sale:quotation:delete') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
                 :title="$t('ui.text.do_you_want_delete', { moduleName: '报价单' })"
                 :ok-text="$t('ui.button.ok')"
                 :cancel-text="$t('ui.button.cancel')"
@@ -388,7 +399,7 @@ function handleDetailEdit(id: string) {
     <Drawer
       v-model:open="detailVisible"
       placement="right"
-      :width="960"
+      :width="drawerWidth"
       title="报价单详情"
       :destroy-on-close="true"
       :body-style="{ padding: 0 }"

@@ -337,13 +337,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/approve",
                 web::post()
                     .to(refund_approve)
-                    .wrap(require_permission("sale:refund:approve")),
+                    .wrap(require_permission("sale:refund:audit")),
             )
             .route(
                 "/reject",
                 web::post()
                     .to(refund_reject)
-                    .wrap(require_permission("sale:refund:approve")),
+                    .wrap(require_permission("sale:refund:audit")),
             )
             .route(
                 "/receive",

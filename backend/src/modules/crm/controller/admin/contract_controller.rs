@@ -351,7 +351,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(contract_info)
-                    .wrap(require_permission("crm:contract:info")),
+                    .wrap(require_permission("crm:contract:view")),
             )
             // GET /contract/list - 合同列表
             .route(
@@ -372,7 +372,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/approve",
                 web::post()
                     .to(contract_approve)
-                    .wrap(require_permission("crm:contract:approve")),
+                    .wrap(require_permission("crm:contract:audit")),
             )
             // POST /contract/reject - 审批驳回
             .route(
@@ -400,14 +400,14 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/commission-members/save",
                 web::post()
                     .to(save_contract_commission_members)
-                    .wrap(require_permission("crm:contract:edit")),
+                    .wrap(require_permission("crm:contract:update")),
             )
             // POST /contract/commission-rule/set - 设置合同提成规则
             .route(
                 "/commission-rule/set",
                 web::post()
                     .to(set_contract_commission_rule)
-                    .wrap(require_permission("crm:contract:edit")),
+                    .wrap(require_permission("crm:contract:update")),
             )
             // POST /contract/commission/preview - 预览合同提成
             .route(

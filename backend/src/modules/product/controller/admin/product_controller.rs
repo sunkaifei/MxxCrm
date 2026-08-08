@@ -34,7 +34,7 @@ pub async fn product_update(state: web::Data<AppState>, req: HttpRequest, form_d
     let form_data = form_data.0;
     
     if form_data.id.is_none() {
-        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "浜у搧ID涓嶈兘涓虹┖", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "产品ID不能为空", "local")));
     }
     
     let result = product_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
@@ -56,11 +56,14 @@ pub async fn product_info(state: web::Data<AppState>, req: HttpRequest) -> Resul
     let db = &state.db;
     let id = req.query_string().split("&").find(|s| s.starts_with("id=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())).unwrap_or(0);
     if id <= 0 {
-        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID鏃犳晥", "local")));
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
     
-    match product_service::get_detail(&db, id).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+    match product_service::get_detail_with_specs(&db, id).await {
+        Ok((data, specs)) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({
+            "product": data,
+            "specs": specs,
+        }), "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }

@@ -88,11 +88,9 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
 
     let (list, total) = match list_type {
         "all" => {
-            // 全部线索：根据 data_scope 过滤（管理员/总经理/老板查看所有已分配数据）
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter().filter_map(|r| r.data_scope).min();
-
-            match get_accessible_user_ids(db, current_user_id, data_scope).await? {
+            // 全部线索：根据数据权限过滤（管理员/总经理/老板查看所有已分配数据）
+            match crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await? {
                 None => {
                     // 全部数据权限 - 不过滤负责人
                     LeadModel::select_in_page(
@@ -114,17 +112,12 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
             }
         }
         "subordinate" => {
-            // 下属线索：显示用户 data_scope 范围内的其他人的线索（排除自己）
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter().filter_map(|r| r.data_scope).min();
-
-            let user_ids = match data_scope {
-                Some(5) => {
-                    // 仅本人数据权限的人，无法看到下属线索
-                    Vec::new()
-                }
-                Some(1) | None => {
-                    // 全部数据权限：获取所有用户（排除自己）
+            // 下属线索：获取数据权限范围内的其他用户（排除自己）
+            let accessible = crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?;
+            let user_ids: Vec<i64> = match accessible {
+                None => {
+                    // 全部数据权限：获取所有用户，排除自己
                     let all_admins = Admin::find()
                         .filter(admin::Column::Id.ne(current_user_id))
                         .all(db)
@@ -132,12 +125,9 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
                         .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
                     all_admins.iter().map(|u| u.id).collect()
                 }
-                _ => {
-                    get_accessible_user_ids(db, current_user_id, data_scope).await?
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter(|id| *id != current_user_id)
-                        .collect::<Vec<_>>()
+                Some(ids) => {
+                    // 部门/仅本人权限：排除自己
+                    ids.into_iter().filter(|id| *id != current_user_id).collect()
                 }
             };
 

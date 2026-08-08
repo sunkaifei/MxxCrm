@@ -309,7 +309,7 @@ async function handleClaim(row: any) {
 
       <template #action="{ row }">
         <span class="action-btns">
-          <a v-if="accessStore.hasAccessCode('crm:customer:update')" class="action-btn" @click="() => handleClaim(row)">领取</a>
+          <a v-if="accessStore.hasAccessCode('crm:customer:claim')" class="action-btn" @click="() => handleClaim(row)">领取</a>
         </span>
       </template>
     </Grid>

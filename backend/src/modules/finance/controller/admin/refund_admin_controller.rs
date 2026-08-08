@@ -101,8 +101,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
         web::scope("/finance/refund-record")
             .route("/list", web::get().to(list).wrap(require_permission("finance:refund-record:list")))
             .route("/detail/{id}", web::get().to(detail).wrap(require_permission("finance:refund-record:list")))
-            .route("/create", web::post().to(create).wrap(require_permission("finance:refund-record:create")))
-            .route("/update/{id}", web::put().to(update).wrap(require_permission("finance:refund-record:edit")))
+            .route("/create", web::post().to(create).wrap(require_permission("finance:refund-record:save")))
+            .route("/update/{id}", web::put().to(update).wrap(require_permission("finance:refund-record:update")))
             .route("/delete/{id}", web::delete().to(delete).wrap(require_permission("finance:refund-record:delete"))),
     );
 }

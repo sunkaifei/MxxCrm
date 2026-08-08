@@ -290,7 +290,7 @@ async function handleDelete(row: any) {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('sale:shipment:create')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:shipment:save')"
           type="primary"
           class="mr-2"
           @click="() => handleCreate()"
@@ -333,7 +333,7 @@ async function handleDelete(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('sale:shipment:sign') && row.status === 2"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:shipment:sign') && row.status === 2"
           type="link"
           size="small"
           @click="() => handleSign(row)"
@@ -341,7 +341,7 @@ async function handleDelete(row: any) {
           {{ $t('page.sale.shipment.button.sign') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:shipment:edit')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:shipment:update')"
           type="link"
           size="small"
           :icon="h(LucideFilePenLine)"
@@ -358,7 +358,7 @@ async function handleDelete(row: any) {
           @confirm="() => handleDelete(row)"
         >
           <Button
-            v-if="accessStore.hasAccessCode('sale:shipment:delete')"
+            v-if="!isSubordinateView && accessStore.hasAccessCode('sale:shipment:delete')"
             type="link"
             danger
             :icon="h(LucideTrash2)"

@@ -13,7 +13,11 @@
 /backend/logs/
 /scripts/
 /**/*.py
+/**/*.sql
+/**/*.tpy
 /*.txt
+/**/*.md
 /lefthook.yml
 /token.txt
 /mxx-crm-deploy/
+/pdf-template/

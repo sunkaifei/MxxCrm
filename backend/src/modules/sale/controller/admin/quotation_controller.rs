@@ -285,7 +285,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/update",
                 web::put()
                     .to(quotation_update)
-                    .wrap(require_permission("sale:quotation:edit")),
+                    .wrap(require_permission("sale:quotation:update")),
             )
             // POST /sale/quotation/batch-delete - 批量删除报价单
             .route(
@@ -320,14 +320,14 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/{id}/approve",
                 web::post()
                     .to(quotation_approve)
-                    .wrap(require_permission("sale:quotation:approve")),
+                    .wrap(require_permission("sale:quotation:audit")),
             )
             // POST /sale/quotation/{id}/reject - 驳回
             .route(
                 "/{id}/reject",
                 web::post()
                     .to(quotation_reject)
-                    .wrap(require_permission("sale:quotation:approve")),
+                    .wrap(require_permission("sale:quotation:audit")),
             )
             // POST /sale/quotation/{id}/convert-order - 转换为订单
             .route(

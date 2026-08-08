@@ -432,19 +432,12 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
         }
         "subordinate" => {
-            // 下属客户：显示用户 data_scope 范围内的其他人的客户（排除自己）
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-
-            let user_ids = match data_scope {
-                Some(5) => {
-                    // 仅本人数据权限的人，无法看到下属客户
-                    Vec::new()
-                }
-                Some(1) | None => {
-                    // 全部数据权限：获取所有用户（排除自己）
+            // 下属客户：获取数据权限范围内的其他用户（排除自己）
+            let accessible = crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?;
+            let user_ids: Vec<i64> = match accessible {
+                None => {
+                    // 全部数据权限：获取所有用户，排除自己
                     let all_admins = Admin::find()
                         .filter(admin::Column::Id.ne(current_user_id))
                         .all(db)
@@ -452,12 +445,9 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
                         .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
                     all_admins.iter().map(|u| u.id).collect()
                 }
-                _ => {
-                    get_accessible_user_ids(db, current_user_id, data_scope).await?
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter(|id| *id != current_user_id)
-                        .collect::<Vec<_>>()
+                Some(ids) => {
+                    // 部门/仅本人权限：排除自己
+                    ids.into_iter().filter(|id| *id != current_user_id).collect()
                 }
             };
 
@@ -488,15 +478,9 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
         }
         _ => {
-            // all：根据 data_scope 过滤全部客户
-            // 获取当前用户角色的数据权限
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            // 取最小的 data_scope（数值越小权限越大）
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-
-            match get_accessible_user_ids(db, current_user_id, data_scope).await? {
+            // all：根据数据权限过滤全部客户
+            match crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await? {
                 None => {
                     // 全部数据 - 不过滤负责人
                     let (list, total) = CustomerModel::select_in_page(

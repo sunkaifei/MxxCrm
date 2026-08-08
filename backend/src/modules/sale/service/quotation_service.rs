@@ -214,16 +214,12 @@ pub async fn list(db: &DbConn, query: &QuotationListQuery, current_user_id: i64)
             Some(vec![current_user_id])
         }
         "subordinate" => {
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-
-            match data_scope {
-                Some(5) => {
-                    Some(Vec::new())
-                }
-                Some(1) | None => {
+            // 下属报价单：获取数据权限范围内的其他用户（排除自己）
+            let accessible = crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?;
+            match accessible {
+                None => {
+                    // 全部数据权限：获取所有用户，排除自己
                     let all_admins = Admin::find()
                         .filter(admin::Column::Id.ne(current_user_id))
                         .all(db)
@@ -231,51 +227,31 @@ pub async fn list(db: &DbConn, query: &QuotationListQuery, current_user_id: i64)
                         .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
                     Some(all_admins.iter().map(|u| u.id).collect())
                 }
-                _ => {
-                    let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter(|id| *id != current_user_id)
-                        .collect::<Vec<_>>();
-                    Some(user_ids)
+                Some(ids) => {
+                    // 部门/仅本人权限：排除自己
+                    Some(ids.into_iter().filter(|id| *id != current_user_id).collect())
                 }
             }
         }
         _ => {
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-            get_accessible_user_ids(db, current_user_id, data_scope).await?
+            // all：按多角色合并后的数据权限过滤
+            crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?
         }
     };
 
-    let (list, total) = if list_type == "my" {
-        QuotationModel::select_in_page(
-            db,
-            page,
-            page_size,
-            query.keywords.clone(),
-            query.customer_id,
-            query.status,
-            query.approval_status,
-            query.start_date.clone(),
-            query.end_date.clone(),
-        ).await?
-    } else {
-        QuotationModel::select_in_page_by_owner_user_ids(
-            db,
-            page,
-            page_size,
-            query.keywords.clone(),
-            query.customer_id,
-            query.status,
-            query.approval_status,
-            query.start_date.clone(),
-            query.end_date.clone(),
-            owner_user_ids_opt,
-        ).await?
-    };
+    let (list, total) = QuotationModel::select_in_page_by_owner_user_ids(
+        db,
+        page,
+        page_size,
+        query.keywords.clone(),
+        query.customer_id,
+        query.status,
+        query.approval_status,
+        query.start_date.clone(),
+        query.end_date.clone(),
+        owner_user_ids_opt,
+    ).await?;
 
     let mut customer_map: HashMap<i64, String> = HashMap::new();
     let customer_ids: Vec<i64> = list.iter()
@@ -331,6 +307,11 @@ pub async fn submit_approval(
 ) -> Result<QuotationDetailVO> {
     let quotation = QuotationModel::find_by_id(db, id).await?
         .ok_or_else(|| Error::from("报价单不存在".to_string()))?;
+
+    // 仅报价单负责人本人可提交审批，其他人无权提交
+    if quotation.owner_user_id.unwrap_or(0) != operator_id {
+        return Err(Error::from("只能提交自己负责的报价单进行审批".to_string()));
+    }
 
     if quotation.approval_status != Some(1) && quotation.approval_status != Some(4) {
         return Err(Error::from("当前状态不允许提交，仅草稿或已驳回状态可提交".to_string()));

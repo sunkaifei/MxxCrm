@@ -18,7 +18,7 @@ use tokio::time::interval;
 
 use crate::core::kit::config;
 use crate::core::kit::jwt_util::JWTToken;
-use crate::modules::message::websocket::registry::ConnectionRegistry;
+use crate::modules::message::websocket::registry::{ConnectionRegistry, CLOSE_COMMAND};
 
 /// 心跳间隔（秒）
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
@@ -55,6 +55,11 @@ fn extract_user_id_from_query(req: &HttpRequest) -> Option<i64> {
 /// URL: ws://host/ws/message?token=xxx
 pub async fn ws_handler(req: HttpRequest, body: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     // 从 query 参数解析 token，浏览器 WebSocket 不支持自定义 Header
+    let token_str = web::Query::<std::collections::HashMap<String, String>>::from_query(req.query_string())
+        .ok()
+        .and_then(|q| q.get("token").cloned())
+        .unwrap_or_default();
+
     let user_id = match extract_user_id_from_query(&req) {
         Some(id) if id > 0 => id,
         _ => {
@@ -86,6 +91,12 @@ pub async fn ws_handler(req: HttpRequest, body: web::Payload) -> Result<HttpResp
     // 任务1：从通道读取推送消息，写到 WebSocket
     actix_web::rt::spawn(async move {
         while let Some(msg) = rx.recv().await {
+            // 识别约定关闭指令（踢下线时由 registry.kick 发送）：主动关闭连接并退出
+            if msg == CLOSE_COMMAND {
+                let _ = push_session.close(None).await;
+                log::info!("[WebSocket] 用户 {} 连接因踢下线已主动关闭", user_id);
+                break;
+            }
             if push_session.text(msg).await.is_err() {
                 break;
             }
@@ -129,6 +140,13 @@ pub async fn ws_handler(req: HttpRequest, body: web::Payload) -> Result<HttpResp
                 _ = tick.tick() => {
                     if Instant::now().duration_since(last_heartbeat) > CLIENT_TIMEOUT {
                         log::warn!("[WebSocket] 用户 {} 心跳超时，关闭连接", user_id);
+                        break;
+                    }
+                    // v1.1 心跳兜底：统一会话校验（单/多设备模式）
+                    // 踢下线/改密/禁用后缓存被清除，心跳检测到即主动断开 WS 连接
+                    if !crate::modules::system::service::permission_cache_service::validate_session(user_id, token_str.as_str()).await {
+                        log::info!("[WebSocket] 用户 {} token 已失效（心跳兜底），关闭连接", user_id);
+                        let _ = session.close(None).await;
                         break;
                     }
                     // 发送 Ping

@@ -8,6 +8,12 @@ use crate::modules::system::entity::admin::Entity as Admin;
 use sea_orm::prelude::Decimal;
 use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter};
 use std::collections::HashMap;
+use rust_decimal::prelude::RoundingStrategy;
+
+/// 统一百分比保留2位小数（后端兜底）
+fn round_pct(d: Decimal) -> Decimal {
+    d.round_dp_with_strategy(2, RoundingStrategy::MidpointNearestEven)
+}
 
 pub async fn get_payment_completion(db: &DbConn, year: Option<i32>, _month: Option<i32>) -> Result<PaymentCompletionVO> {
     let year = year.unwrap_or(chrono::Local::now().year() as i32);
@@ -49,12 +55,12 @@ pub async fn get_payment_completion(db: &DbConn, year: Option<i32>, _month: Opti
 
     let unpaid_amount = total_contract_amount - total_payment_amount;
     let completion_rate = if total_contract_amount > Decimal::ZERO {
-        total_payment_amount / total_contract_amount * Decimal::from(100)
+        round_pct(total_payment_amount / total_contract_amount * Decimal::from(100))
     } else {
         Decimal::ZERO
     };
     let unpaid_rate = if total_contract_amount > Decimal::ZERO {
-        unpaid_amount / total_contract_amount * Decimal::from(100)
+        round_pct(unpaid_amount / total_contract_amount * Decimal::from(100))
     } else {
         Decimal::ZERO
     };
@@ -108,7 +114,7 @@ pub async fn get_payment_monthly_trend(db: &DbConn, year: Option<i32>) -> Result
         let ca = contract_by_month.get(&m).copied().unwrap_or(Decimal::ZERO);
         let pa = payment_by_month.get(&m).copied().unwrap_or(Decimal::ZERO);
         let rate = if ca > Decimal::ZERO {
-            pa / ca * Decimal::from(100)
+            round_pct(pa / ca * Decimal::from(100))
         } else {
             Decimal::ZERO
         };
@@ -196,7 +202,7 @@ pub async fn get_payment_status_analysis(db: &DbConn, _year: Option<i32>, _month
             contract_count: Some(unpaid_count),
             contract_amount: Some(contracts.iter().filter(|c| paid_by_contract.get(&c.id).copied().unwrap_or(Decimal::ZERO) == Decimal::ZERO).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum()),
             paid_amount: Some(Decimal::ZERO),
-            percentage: if total_contract_amount > Decimal::ZERO { Some(contracts.iter().filter(|c| paid_by_contract.get(&c.id).copied().unwrap_or(Decimal::ZERO) == Decimal::ZERO).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum::<Decimal>() / total_contract_amount * Decimal::from(100)) } else { Some(Decimal::ZERO) },
+            percentage: if total_contract_amount > Decimal::ZERO { Some(round_pct(contracts.iter().filter(|c| paid_by_contract.get(&c.id).copied().unwrap_or(Decimal::ZERO) == Decimal::ZERO).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum::<Decimal>() / total_contract_amount * Decimal::from(100))) } else { Some(Decimal::ZERO) },
         },
         PaymentStatusAnalysisVO {
             status: Some("partial".to_string()),
@@ -207,10 +213,10 @@ pub async fn get_payment_status_analysis(db: &DbConn, _year: Option<i32>, _month
                 p > Decimal::ZERO && p < c.amount.unwrap_or(Decimal::ZERO)
             }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum()),
             paid_amount: Some(partial_paid_amount),
-            percentage: if total_contract_amount > Decimal::ZERO { Some(contracts.iter().filter(|c| {
+            percentage: if total_contract_amount > Decimal::ZERO { Some(round_pct(contracts.iter().filter(|c| {
                 let p = paid_by_contract.get(&c.id).copied().unwrap_or(Decimal::ZERO);
                 p > Decimal::ZERO && p < c.amount.unwrap_or(Decimal::ZERO)
-            }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum::<Decimal>() / total_contract_amount * Decimal::from(100)) } else { Some(Decimal::ZERO) },
+            }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum::<Decimal>() / total_contract_amount * Decimal::from(100))) } else { Some(Decimal::ZERO) },
         },
         PaymentStatusAnalysisVO {
             status: Some("paid".to_string()),
@@ -221,10 +227,10 @@ pub async fn get_payment_status_analysis(db: &DbConn, _year: Option<i32>, _month
                 p >= c.amount.unwrap_or(Decimal::ZERO)
             }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum()),
             paid_amount: Some(paid_amount),
-            percentage: if total_contract_amount > Decimal::ZERO { Some(contracts.iter().filter(|c| {
+            percentage: if total_contract_amount > Decimal::ZERO { Some(round_pct(contracts.iter().filter(|c| {
                 let p = paid_by_contract.get(&c.id).copied().unwrap_or(Decimal::ZERO);
                 p >= c.amount.unwrap_or(Decimal::ZERO)
-            }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum::<Decimal>() / total_contract_amount * Decimal::from(100)) } else { Some(Decimal::ZERO) },
+            }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum::<Decimal>() / total_contract_amount * Decimal::from(100))) } else { Some(Decimal::ZERO) },
         },
         PaymentStatusAnalysisVO {
             status: Some("overdue".to_string()),
@@ -236,11 +242,11 @@ pub async fn get_payment_status_analysis(db: &DbConn, _year: Option<i32>, _month
                 (p < amount) && c.sign_date.map_or(false, |sd| sd < now)
             }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum()),
             paid_amount: Some(overdue_paid_amount),
-            percentage: if total_contract_amount > Decimal::ZERO { Some(contracts.iter().filter(|c| {
+            percentage: if total_contract_amount > Decimal::ZERO { Some(round_pct(contracts.iter().filter(|c| {
                 let p = paid_by_contract.get(&c.id).copied().unwrap_or(Decimal::ZERO);
                 let amount = c.amount.unwrap_or(Decimal::ZERO);
                 (p < amount) && c.sign_date.map_or(false, |sd| sd < now)
-            }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum::<Decimal>() / total_contract_amount * Decimal::from(100)) } else { Some(Decimal::ZERO) },
+            }).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum::<Decimal>() / total_contract_amount * Decimal::from(100))) } else { Some(Decimal::ZERO) },
         },
     ];
 
@@ -321,7 +327,7 @@ pub async fn get_payment_ranking(db: &DbConn, _year: Option<i32>, _month: Option
             contracts.iter().filter(|c| ids.contains(&c.id)).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum()
         }).unwrap_or(Decimal::ZERO);
         let rate = if contract_amount > Decimal::ZERO {
-            *pa / contract_amount * Decimal::from(100)
+            round_pct(*pa / contract_amount * Decimal::from(100))
         } else {
             Decimal::ZERO
         };
@@ -342,7 +348,7 @@ pub async fn get_payment_ranking(db: &DbConn, _year: Option<i32>, _month: Option
             contracts.iter().filter(|c| ids.contains(&c.id)).map(|c| c.amount.unwrap_or(Decimal::ZERO)).sum()
         }).unwrap_or(Decimal::ZERO);
         let rate = if contract_amount > Decimal::ZERO {
-            *pa / contract_amount * Decimal::from(100)
+            round_pct(*pa / contract_amount * Decimal::from(100))
         } else {
             Decimal::ZERO
         };

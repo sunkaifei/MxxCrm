@@ -342,7 +342,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/save",
                 web::post()
                     .to(customer_insert)
-                    .wrap(require_permission("crm:customer:create")),
+                    .wrap(require_permission("crm:customer:save")),
             )
             // PUT /customer/update - 修改客户
             .route(
@@ -363,7 +363,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(customer_info)
-                    .wrap(require_permission("crm:customer:info")),
+                    .wrap(require_permission("crm:customer:view")),
             )
             // GET /customer/list - 客户列表
             .route(
@@ -377,7 +377,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/contacts",
                 web::get()
                     .to(customer_contacts)
-                    .wrap(require_permission("crm:customer:info")),
+                    .wrap(require_permission("crm:customer:view")),
             )
             // PUT /customer/claim - 领取公海客户
             .route(
@@ -398,7 +398,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/assign-history",
                 web::get()
                     .to(customer_assign_history)
-                    .wrap(require_permission("crm:customer:info")),
+                    .wrap(require_permission("crm:customer:view")),
             )
             // GET /customer/check-name - 检查客户名称是否已存在（按 customerType 区分字段）
             .route(
@@ -412,7 +412,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/financial/{customer_id}",
                 web::get()
                     .to(customer_financial_info)
-                    .wrap(require_permission("crm:customer:info")),
+                    .wrap(require_permission("crm:customer:view")),
             )
             // PUT /customer/financial/update - 更新客户财务信息
             .route(

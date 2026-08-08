@@ -160,48 +160,29 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
             Some(vec![current_user_id])
         }
         "subordinate" => {
-            // 下属商机：根据 data_scope 获取可见用户，排除自己
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-
-            match data_scope {
-                Some(5) => {
-                    // 仅本人数据权限，无下属
-                    Some(Vec::new())
-                }
-                Some(1) | None => {
-                    // 全部数据权限：返回 None 表示不限制（除了自己），
-                    // 但 select_in_page_by_assigned_ids 中 None 表示不过滤，
-                    // 所以这里需要传 "排除自己" 的逻辑。
-                    // 简化处理：传 None 不过滤，然后在结果中排除自己？
-                    // 更简单的方式：获取所有用户ID，排除自己
+            // 下属商机：获取数据权限范围内的其他用户（排除自己）
+            let accessible = crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?;
+            match accessible {
+                None => {
+                    // 全部数据权限：获取所有用户，排除自己
                     let all_admins = Admin::find()
                         .filter(admin::Column::Id.ne(current_user_id))
                         .all(db)
                         .await
                         .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    let user_ids: Vec<i64> = all_admins.iter().map(|u| u.id).collect();
-                    Some(user_ids)
+                    Some(all_admins.iter().map(|u| u.id).collect())
                 }
-                _ => {
-                    let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter(|id| *id != current_user_id)
-                        .collect::<Vec<_>>();
-                    Some(user_ids)
+                Some(ids) => {
+                    // 部门/仅本人权限：排除自己
+                    Some(ids.into_iter().filter(|id| *id != current_user_id).collect())
                 }
             }
         }
         _ => {
-            // all：按 data_scope 过滤
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-            get_accessible_user_ids(db, current_user_id, data_scope).await?
+            // all：按多角色合并后的数据权限过滤
+            crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?
         }
     };
 
@@ -263,6 +244,12 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
         .collect();
     let creator_map = build_admin_name_map(db, creator_ids).await;
 
+    // 批量查询负责人名称
+    let assigned_ids: Vec<i64> = list.iter()
+        .filter_map(|item| item.assigned_to)
+        .collect();
+    let assigned_map = build_admin_name_map(db, assigned_ids).await;
+
     // 批量查询联系人姓名
     let contact_ids: Vec<i64> = list.iter()
         .filter_map(|item| item.contact_id)
@@ -304,11 +291,13 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
     let data: Vec<OpportunityListVO> = list.into_iter().map(|item| {
         let customer_id = item.customer_id;
         let created_by = item.created_by;
+        let assigned_to = item.assigned_to;
         let opp_id = item.id;
         let ct_id = item.contact_id;
         let mut vo: OpportunityListVO = item.into();
         vo.customer_name = customer_id.and_then(|id| customer_map.get(&id).cloned());
         vo.created_by_name = created_by.and_then(|id| creator_map.get(&id).cloned());
+        vo.assignee_name = assigned_to.and_then(|id| assigned_map.get(&id).cloned());
         vo.quote_count = quote_count_map.get(&opp_id).copied();
         vo.contact_name = ct_id.and_then(|id| contact_map.get(&id).cloned());
         vo

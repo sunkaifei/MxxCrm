@@ -5,6 +5,8 @@ use crate::modules::sale::entity::{payment as sale_payment, payment::Entity as S
 use crate::modules::statistics::entity::performance_target::{self, Entity as PerformanceTarget};
 use crate::modules::statistics::model::performance_target::{PerformanceTargetVO, PerformanceTargetSaveRequest, MonthlyPerformanceStatsVO, MonthlyPerformanceVO, PerformanceRankingVO};
 use crate::modules::system::entity::admin::Entity as Admin;
+use crate::modules::system::entity::admin_dept_merge::{self, Entity as AdminDeptMerge};
+use crate::modules::system::entity::dept::{self, Entity as Dept};
 use sea_orm::{DbConn, DbErr, QuerySelect, ColumnTrait, QueryFilter, EntityTrait, QueryOrder, ActiveModelTrait, Set, IntoActiveModel, TransactionTrait};
 use sea_orm::prelude::Decimal;
 
@@ -34,7 +36,7 @@ pub async fn get_targets(db: &DbConn, employee_id: Option<i64>, year: Option<i32
         .into_iter()
         .map(|a| (a.id, a.user_name))
         .collect::<std::collections::HashMap<i64, Option<String>>>();
-    
+
     let result = targets.into_iter()
         .map(|t| {
             let mut vo: PerformanceTargetVO = t.into();
@@ -248,6 +250,41 @@ pub async fn get_performance_ranking(db: &DbConn, year: Option<i32>, month: Opti
         .map(|a| (a.id, a.user_name))
         .collect::<std::collections::HashMap<i64, Option<String>>>();
 
+    // 查询员工-部门关联 + 部门名称
+    let admin_ids: Vec<i64> = admin_map.keys().copied().collect();
+    let admin_dept_rows = if admin_ids.is_empty() {
+        vec![]
+    } else {
+        AdminDeptMerge::find()
+            .filter(admin_dept_merge::Column::AdminId.is_in(admin_ids))
+            .all(db)
+            .await?
+    };
+    let dept_ids: Vec<i64> = admin_dept_rows.iter().filter_map(|r| r.dept_id).collect();
+    let dept_map = if dept_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        Dept::find()
+            .filter(dept::Column::Deleted.eq(0))
+            .filter(dept::Column::Id.is_in(dept_ids))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|d| (d.id, d.dept_name))
+            .collect::<std::collections::HashMap<i64, Option<String>>>()
+    };
+    let employee_dept_map: std::collections::HashMap<i64, Option<String>> = {
+        let mut m = std::collections::HashMap::new();
+        for r in &admin_dept_rows {
+            if let (Some(aid), Some(did)) = (r.admin_id, r.dept_id) {
+                if let Some(dname) = dept_map.get(&did) {
+                    m.insert(aid, dname.clone());
+                }
+            }
+        }
+        m
+    };
+
     // (contract_target, payment_target, contract_actual, payment_actual, contract_count, payment_count)
     let mut employee_stats: std::collections::HashMap<i64, (Decimal, Decimal, Decimal, Decimal, i64, i64)> = std::collections::HashMap::new();
 
@@ -314,7 +351,7 @@ pub async fn get_performance_ranking(db: &DbConn, year: Option<i32>, month: Opti
                 rank: None,
                 employee_id: Some(eid),
                 employee_name: admin_map.get(&eid).cloned().flatten(),
-                department_name: None,
+                department_name: employee_dept_map.get(&eid).and_then(|n| n.clone()),
                 contract_amount: Some(contract_actual),
                 contract_count: Some(contract_count),
                 payment_amount: Some(payment_actual),

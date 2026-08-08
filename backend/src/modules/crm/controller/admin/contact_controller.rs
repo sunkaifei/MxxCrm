@@ -137,7 +137,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/save",
                 web::post()
                     .to(contact_insert)
-                    .wrap(require_permission("crm:contact:create")),
+                    .wrap(require_permission("crm:contact:save")),
             )
             // PUT /contact/update - 修改联系人
             .route(
@@ -158,7 +158,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(contact_info)
-                    .wrap(require_permission("crm:contact:info")),
+                    .wrap(require_permission("crm:contact:view")),
             )
             // GET /contact/list - 联系人列表
             .route(

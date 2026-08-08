@@ -77,15 +77,22 @@ pub async fn create(
                     .and_then(|s| s.quantity)
                     .unwrap_or_default();
 
+                let assignee_str = item.assignee_ids.as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap_or_default());
+
                 let item_active = stocktake_item::ActiveModel {
                     stocktake_id: Set(Some(id)),
                     product_id: Set(Some(item.product_id)),
+                    sku_id: Set(item.sku_id),
                     product_name: Set(item.product_name.clone()),
                     product_sku: Set(item.product_sku.clone()),
                     system_quantity: Set(Some(system_qty)),
                     actual_quantity: Set(None),
                     difference: Set(Some(Decimal::ZERO)),
                     difference_type: Set(Some(0)),
+                    assignee_ids: Set(assignee_str),
+                    diff_reason: Set(item.diff_reason.clone()),
+                    handling: Set(item.handling.clone()),
                     remark: Set(item.remark.clone()),
                     deleted: Set(Some(0)),
                     create_time: Set(Some(now)),
@@ -156,15 +163,22 @@ pub async fn update(
                     .and_then(|s| s.quantity)
                     .unwrap_or_default();
 
+                let assignee_str = item.assignee_ids.as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap_or_default());
+
                 let item_active = stocktake_item::ActiveModel {
                     stocktake_id: Set(Some(id)),
                     product_id: Set(Some(item.product_id)),
+                    sku_id: Set(item.sku_id),
                     product_name: Set(item.product_name.clone()),
                     product_sku: Set(item.product_sku.clone()),
                     system_quantity: Set(Some(system_qty)),
                     actual_quantity: Set(None),
                     difference: Set(Some(Decimal::ZERO)),
                     difference_type: Set(Some(0)),
+                    assignee_ids: Set(assignee_str),
+                    diff_reason: Set(item.diff_reason.clone()),
+                    handling: Set(item.handling.clone()),
                     remark: Set(item.remark.clone()),
                     deleted: Set(Some(0)),
                     create_time: Set(Some(now)),
@@ -245,12 +259,31 @@ pub async fn input(
                     0 // 一致
                 };
 
-                stocktake_item::Entity::update_many()
+                let assignee_str = input_item.assignee_ids.as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap_or_default());
+                let recheck_assignee_str = input_item.recheck_assignee_ids.as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap_or_default());
+
+                let mut query = stocktake_item::Entity::update_many()
                     .col_expr(stocktake_item::Column::ActualQuantity, Expr::value(actual_qty))
                     .col_expr(stocktake_item::Column::Difference, Expr::value(difference))
                     .col_expr(stocktake_item::Column::DifferenceType, Expr::value(diff_type))
                     .col_expr(stocktake_item::Column::Remark, Expr::value(input_item.remark.clone()))
-                    .col_expr(stocktake_item::Column::UpdateTime, Expr::value(now))
+                    .col_expr(stocktake_item::Column::DiffReason, Expr::value(input_item.diff_reason.clone()))
+                    .col_expr(stocktake_item::Column::Handling, Expr::value(input_item.handling.clone()))
+                    .col_expr(stocktake_item::Column::UpdateTime, Expr::value(now));
+
+                if let Some(aids) = assignee_str {
+                    query = query.col_expr(stocktake_item::Column::AssigneeIds, Expr::value(aids));
+                }
+                if let Some(rq) = input_item.recheck_quantity {
+                    query = query.col_expr(stocktake_item::Column::RecheckQuantity, Expr::value(rq));
+                }
+                if let Some(raids) = recheck_assignee_str {
+                    query = query.col_expr(stocktake_item::Column::RecheckAssigneeIds, Expr::value(raids));
+                }
+
+                query
                     .filter(stocktake_item::Column::Id.eq(input_item.id))
                     .filter(stocktake_item::Column::StocktakeId.eq(id))
                     .exec(txn)

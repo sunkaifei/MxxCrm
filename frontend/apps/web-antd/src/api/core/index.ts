@@ -58,6 +58,7 @@ export * from './system/post';
 export * from './system/preference';
 export * from './system/record';
 export * from './system/role';
+export * from './system/setting';
 export * from './system/tag';
 export * from './system/tag_group';
 export * from './system/user';

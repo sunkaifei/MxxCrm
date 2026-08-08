@@ -64,9 +64,11 @@ pub struct AdminSaveRequest {
 
 impl From<AdminSaveRequest> for AdminSaveDTO {
     fn from(req: AdminSaveRequest) -> Self {
+        // 用户名统一转小写、去空格
+        let normalized_username = req.user_name.map(|n| n.trim().replace(' ', "").to_lowercase());
         AdminSaveDTO {
             id: None,
-            user_name: req.user_name,
+            user_name: normalized_username,
             nick_name: req.nick_name,
             user_type: req.user_type,
             email: req.email,
@@ -131,9 +133,11 @@ pub struct AdminUpdateRequest {
 
 impl From<AdminUpdateRequest> for AdminSaveDTO {
     fn from(req: AdminUpdateRequest) -> Self {
+        // 用户名统一转小写、去空格
+        let normalized_username = req.user_name.map(|n| n.trim().replace(' ', "").to_lowercase());
         AdminSaveDTO {
             id: req.id,
-            user_name: req.user_name,
+            user_name: normalized_username,
             nick_name: req.nick_name,
             user_type: req.user_type,
             email: req.email,
@@ -218,6 +222,12 @@ pub struct UserRegisterRequest {
     pub password: Option<String>,
     pub email: Option<String>,
     pub mobile: Option<String>,
+    ///姓名（写入 nick_name）
+    pub nick_name: Option<String>,
+    ///申请部门（文本，写入 remark）
+    pub dept_name: Option<String>,
+    ///申请岗位（文本，写入 remark）
+    pub post_name: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -230,9 +240,13 @@ pub struct CheckUsernameResult {
 impl From<UserRegisterRequest> for AdminSaveRequest {
     fn from(req: UserRegisterRequest) -> Self {
         let username = req.username.clone().unwrap_or_default();
+        // 将申请部门/岗位拼入 remark，审核时管理员可见
+        let dept = req.dept_name.unwrap_or_default();
+        let post = req.post_name.unwrap_or_default();
+        let remark = format!("申请部门：{}；申请岗位：{}", dept, post);
         AdminSaveRequest {
             user_name: req.username,
-            nick_name: Some(username),
+            nick_name: req.nick_name.or(Some(username)),
             user_type: Some(0),
             post_ids: None,
             role_ids: None,
@@ -242,8 +256,8 @@ impl From<UserRegisterRequest> for AdminSaveRequest {
             gender: None,
             avatar: None,
             password: req.password,
-            status: Some(1),
-            remark: None,
+            status: Some(0), // 待审核，审核通过后改为1
+            remark: Some(remark),
             sort: None,
             direct_manager_id: None,
         }
@@ -353,6 +367,14 @@ pub struct DeptNameDTO {
     pub dept_name: Option<String>,
 }
 
+/// 用户岗位名称DTO
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PostNameDTO {
+    ///岗位名称
+    pub post_name: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminOptionVO {
@@ -394,6 +416,12 @@ pub struct AdminListVO {
     pub roles: Option<Vec<RoleNameDTO>>,
     ///所有的所在部门名称
     pub depts: Option<Vec<DeptNameDTO>>,
+    ///部门名称（逗号分隔）
+    pub dept_name: Option<String>,
+    ///所有的岗位名称
+    pub posts: Option<Vec<PostNameDTO>>,
+    ///岗位名称（逗号分隔）
+    pub post_name: Option<String>,
     pub remark: Option<String>,
     pub sort:  Option<i32>,
     pub status:  Option<i32>,
@@ -407,6 +435,12 @@ pub struct AdminListVO {
     pub direct_manager_id: Option<i64>,
     ///直属上级姓名
     pub direct_manager_name: Option<String>,
+    ///是否在线（基于登录会话缓存判断）
+    #[serde(default)]
+    pub online: bool,
+    ///审核状态：0待审核 1已通过
+    #[serde(default)]
+    pub audit_status: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -735,6 +769,31 @@ impl AdminModel {
             .exec(db).await?;
         Ok(update_result.rows_affected as i64)
     }
+
+    /// 审核注册用户（通过时 status=1, audit_status=1；拒绝时保持 status=0, audit_status=0）
+    pub async fn update_audit_status(
+        db: &DbConn,
+        user_id: i64,
+        audit_status: i32,
+    ) -> Result<i64, DbErr> {
+        let (audit_val, status_val) = if audit_status == 1 {
+            (Some(1), Some(1))
+        } else {
+            (Some(0), Some(0))
+        };
+        let payload = admin::ActiveModel {
+            audit_status: Set(audit_val),
+            status: Set(status_val),
+            update_time: Set(Option::from(chrono::Local::now().naive_local())),
+            ..Default::default()
+        };
+        let update_result: UpdateResult = Admin::update_many()
+            .set(payload)
+            .filter(admin::Column::Id.eq(user_id))
+            .exec(db)
+            .await?;
+        Ok(update_result.rows_affected as i64)
+    }
     
     /// 更新登录IP和时间信息
     pub async fn update_login_info(db: &DbConn,
@@ -753,10 +812,10 @@ impl AdminModel {
         Ok(update_result.rows_affected as i64)
     }
 
-    /// 查询用户名是否唯一
+    /// 查询用户名是否唯一（不区分大小写）
     pub async fn find_by_name_unique(db: &DbConn, name: &Option<String>, id: &Option<i64>) -> Result<i64, DbErr> {
         let result = Admin::find()
-            .filter(admin::Column::UserName.eq(name.clone().unwrap_or_default()))
+            .filter(admin::Column::UserName.eq(name.clone().unwrap_or_default().to_lowercase()))
             .apply_if(id.clone(), |query, v| {
                 query.filter(admin::Column::Id.ne(v))
             })
@@ -804,10 +863,10 @@ impl AdminModel {
             .await
     }
 
-    /// 根据用户名查询用户信息
+    /// 根据用户名查询用户信息（不区分大小写）
     pub async fn find_by_username(db: &DbConn, username: &Option<String>) -> Result<Option<admin::Model>, DbErr> {
         Admin::find()
-            .filter(admin::Column::UserName.eq(username.clone().unwrap_or_default()))
+            .filter(admin::Column::UserName.eq(username.clone().unwrap_or_default().to_lowercase()))
             .one(db)
             .await
     }

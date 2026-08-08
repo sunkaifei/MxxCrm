@@ -4,9 +4,12 @@ import { h, onMounted, ref } from 'vue';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import {
-  LucideCheckCircle,
   LucideFilePenLine,
+  LucidePlay,
+  LucideSearch,
+  LucideSquare,
   LucideTrash2,
+  LucideCheckCircle,
 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
@@ -15,16 +18,19 @@ import { Button, Popconfirm, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
-  auditCheckApi,
+  cancelCheckApi,
+  completeCheckApi,
   deleteCheckApi,
   getCheckListApi,
-  updateCheckApi,
+  submitCheckApi,
 } from '#/api/core/product/check';
 import { getWarehouseListApi } from '#/api/core/product/warehouse';
 import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
 import CheckDrawer from './drawer.vue';
+import InputDrawer from './input-drawer.vue';
+import DetailDrawer from './detail-drawer.vue';
 
 const accessStore = useAccessStore();
 
@@ -172,12 +178,12 @@ const gridOptions: VxeGridProps = {
     },
     {
       title: $t('page.product.inventory.check.field.checkNo'),
-      field: 'checkNo',
-      width: 140,
+      field: 'stocktakeNo',
+      width: 160,
     },
     {
       title: $t('page.product.inventory.check.field.checkType'),
-      field: 'checkType',
+      field: 'stocktakeType',
       width: 110,
       slots: { default: 'checkType' },
     },
@@ -199,19 +205,27 @@ const gridOptions: VxeGridProps = {
       align: 'right',
     },
     {
-      title: $t('page.product.inventory.check.field.diffItems'),
-      field: 'diffItems',
+      title: $t('page.product.inventory.check.field.surplusCount'),
+      field: 'surplusCount',
       width: 90,
       align: 'right',
+      slots: { default: 'surplusCount' },
+    },
+    {
+      title: $t('page.product.inventory.check.field.shortageCount'),
+      field: 'shortageCount',
+      width: 90,
+      align: 'right',
+      slots: { default: 'shortageCount' },
     },
     {
       title: $t('page.product.inventory.check.field.checkBy'),
-      field: 'checkByName',
+      field: 'createdByName',
       width: 100,
     },
     {
       title: $t('page.product.inventory.check.field.checkTime'),
-      field: 'checkTime',
+      field: 'createTime',
       width: 160,
     },
     {
@@ -219,13 +233,14 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 140,
+      width: 200,
     },
   ],
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
+// 新增/编辑弹窗
 const [Drawer, drawerApi] = useVbenDrawer({
   connectedComponent: CheckDrawer,
   onClosed() {
@@ -236,11 +251,24 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
+// 盘点录入弹窗
+const [InputDrawerComp, inputDrawerApi] = useVbenDrawer({
+  connectedComponent: InputDrawer,
+  onClosed() {
+    const data = inputDrawerApi.getData();
+    if (data && data.needRefresh) {
+      gridApi.query();
+    }
+  },
+});
+
+// 盘点详情弹窗
+const [DetailDrawerComp, detailDrawerApi] = useVbenDrawer({
+  connectedComponent: DetailDrawer,
+});
+
 function openDrawer(create: boolean, row?: any) {
-  drawerApi.setData({
-    create,
-    row,
-  });
+  drawerApi.setData({ create, row });
   drawerApi.open();
 }
 
@@ -263,15 +291,52 @@ async function handleDelete(row: any) {
   }
 }
 
-async function handleAudit(row: any) {
+// 提交（草稿→盘点中）
+async function handleSubmit(row: any) {
   row.pending = true;
   try {
-    await auditCheckApi(row.id);
-    window.$message.success($t('page.product.inventory.check.action.auditSuccess'));
+    await submitCheckApi(row.id);
+    window.$message.success($t('page.product.inventory.check.action.submitSuccess'));
   } finally {
     row.pending = false;
     gridApi.query();
   }
+}
+
+// 打开录入弹窗
+function handleInput(row: any) {
+  inputDrawerApi.setData({ row });
+  inputDrawerApi.open();
+}
+
+// 完成盘点
+async function handleComplete(row: any) {
+  row.pending = true;
+  try {
+    await completeCheckApi(row.id);
+    window.$message.success($t('page.product.inventory.check.action.completeSuccess'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
+// 取消盘点
+async function handleCancel(row: any) {
+  row.pending = true;
+  try {
+    await cancelCheckApi(row.id);
+    window.$message.success($t('page.product.inventory.check.action.cancelSuccess'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
+// 查看详情
+function handleDetail(row: any) {
+  detailDrawerApi.setData({ row });
+  detailDrawerApi.open();
 }
 </script>
 
@@ -291,8 +356,8 @@ async function handleAudit(row: any) {
       </template>
 
       <template #checkType="{ row }">
-        <Tag :color="getCheckTypeTag(row.checkType).color">
-          {{ getCheckTypeTag(row.checkType).label }}
+        <Tag :color="getCheckTypeTag(row.stocktakeType === 'full' ? 1 : row.stocktakeType === 'dynamic' ? 3 : 2).color">
+          {{ getCheckTypeTag(row.stocktakeType === 'full' ? 1 : row.stocktakeType === 'dynamic' ? 3 : 2).label }}
         </Tag>
       </template>
 
@@ -302,37 +367,88 @@ async function handleAudit(row: any) {
         </Tag>
       </template>
 
+      <template #surplusCount="{ row }">
+        <span :class="{ 'text-green-600 font-medium': (row.surplusCount ?? 0) > 0 }">
+          {{ row.surplusCount ?? 0 }}
+        </span>
+      </template>
+
+      <template #shortageCount="{ row }">
+        <span :class="{ 'text-red-600 font-medium': (row.shortageCount ?? 0) > 0 }">
+          {{ row.shortageCount ?? 0 }}
+        </span>
+      </template>
+
       <template #action="{ row }">
-        <Button
-          v-if="accessStore.hasAccessCode('product:check:edit')"
-          type="link"
-          :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
-        />
-        <Popconfirm
-          v-if="row.status === 1 && accessStore.hasAccessCode('product:check:audit')"
-          :title="$t('page.product.inventory.check.action.auditConfirm')"
-          :ok-text="$t('page.product.inventory.check.action.confirm')"
-          :cancel-text="$t('page.product.inventory.check.action.cancel')"
-          @confirm="() => handleAudit(row)"
-        >
-          <Button type="link" :icon="h(LucideCheckCircle)" />
-        </Popconfirm>
-        <Popconfirm
-          v-else-if="accessStore.hasAccessCode('product:check:audit')"
-          :title="
-            $t('ui.text.do_you_want_delete', {
-              moduleName: $t('page.product.inventory.check.title'),
-            })
-          "
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="() => handleDelete(row)"
-        >
-          <Button type="link" danger :icon="h(LucideTrash2)" />
-        </Popconfirm>
+        <!-- 草稿(0)：编辑 / 提交 / 删除 -->
+        <template v-if="row.status === 0">
+          <Button
+            v-if="accessStore.hasAccessCode('product:check:edit')"
+            type="link"
+            size="small"
+            :icon="h(LucideFilePenLine)"
+            @click="() => handleEdit(row)"
+          />
+          <Popconfirm
+            v-if="accessStore.hasAccessCode('product:check:audit')"
+            :title="$t('page.product.inventory.check.action.submitConfirm')"
+            @confirm="() => handleSubmit(row)"
+          >
+            <Button type="link" size="small" :icon="h(LucidePlay)" />
+          </Popconfirm>
+          <Popconfirm
+            v-if="accessStore.hasAccessCode('product:check:delete')"
+            :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.product.inventory.check.title') })"
+            @confirm="() => handleDelete(row)"
+          >
+            <Button type="link" size="small" danger :icon="h(LucideTrash2)" />
+          </Popconfirm>
+        </template>
+
+        <!-- 盘点中(1)：录入实盘 / 完成 / 取消 -->
+        <template v-else-if="row.status === 1">
+          <Button
+            v-if="accessStore.hasAccessCode('product:check:edit')"
+            type="link"
+            size="small"
+            :icon="h(LucideFilePenLine)"
+            @click="() => handleInput(row)"
+          >
+            {{ $t('page.product.inventory.check.input') }}
+          </Button>
+          <Popconfirm
+            v-if="accessStore.hasAccessCode('product:check:audit')"
+            :title="$t('page.product.inventory.check.action.completeConfirm')"
+            @confirm="() => handleComplete(row)"
+          >
+            <Button type="link" size="small" :icon="h(LucideCheckCircle)">
+              {{ $t('page.product.inventory.check.complete') }}
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            v-if="accessStore.hasAccessCode('product:check:edit')"
+            :title="$t('page.product.inventory.check.action.cancelConfirm')"
+            @confirm="() => handleCancel(row)"
+          >
+            <Button type="link" size="small" :icon="h(LucideSquare)" />
+          </Popconfirm>
+        </template>
+
+        <!-- 已完成(2) / 已取消(3)：查看详情 -->
+        <template v-else>
+          <Button
+            type="link"
+            size="small"
+            :icon="h(LucideSearch)"
+            @click="() => handleDetail(row)"
+          >
+            {{ $t('page.product.inventory.check.viewDetail') }}
+          </Button>
+        </template>
       </template>
     </Grid>
     <Drawer />
+    <InputDrawerComp />
+    <DetailDrawerComp />
   </Page>
 </template>

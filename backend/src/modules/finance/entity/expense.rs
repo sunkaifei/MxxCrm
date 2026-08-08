@@ -23,7 +23,7 @@ pub struct Model {
     pub expense_no: Option<String>,
     pub title: Option<String>,
     /// 费用类型ID（关联 mxx_finance_expense_type）
-    pub expense_type: Option<i64>,
+    pub expense_type: Option<i32>,
     /// 申请人ID
     pub applicant_id: Option<i64>,
     pub dept_id: Option<i64>,

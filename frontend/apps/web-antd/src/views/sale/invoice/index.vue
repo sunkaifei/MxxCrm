@@ -51,6 +51,9 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 function handleTabChange(key: string | number) {
   activeTab.value = key as string;
   gridApi.query();
@@ -233,7 +236,7 @@ async function handleBatchDelete() {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('sale:invoice:create')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:invoice:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -241,7 +244,7 @@ async function handleBatchDelete() {
           新建发票
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:invoice:delete')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:invoice:delete')"
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -272,7 +275,7 @@ async function handleBatchDelete() {
       <template #action="{ row }">
         <Button type="link" :icon="h(LucideEye)" @click="handleView(row)" />
         <Button
-          v-if="accessStore.hasAccessCode('sale:invoice:edit')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:invoice:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="handleEdit(row)"
@@ -284,7 +287,7 @@ async function handleBatchDelete() {
           @confirm="handleDelete(row)"
         >
           <Button
-            v-if="accessStore.hasAccessCode('sale:invoice:delete')"
+            v-if="!isSubordinateView && accessStore.hasAccessCode('sale:invoice:delete')"
             type="link"
             danger
             :icon="h(LucideTrash2)"

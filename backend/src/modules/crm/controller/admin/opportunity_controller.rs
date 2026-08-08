@@ -163,7 +163,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(opportunity_info)
-                    .wrap(require_permission("crm:opportunity:info")),
+                    .wrap(require_permission("crm:opportunity:view")),
             )
             // GET /opportunity/list - 商机列表
             .route(

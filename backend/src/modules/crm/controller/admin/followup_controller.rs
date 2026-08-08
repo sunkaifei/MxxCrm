@@ -126,7 +126,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(followup_info)
-                    .wrap(require_permission("crm:followup:info")),
+                    .wrap(require_permission("crm:followup:view")),
             )
             // GET /followup/list - 跟进记录列表
             .route(

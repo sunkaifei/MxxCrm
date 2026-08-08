@@ -14,7 +14,7 @@ export const updateCategoryApi = async (param: any) => {
   return requestClient.put('/api/system/product/category/update', param);
 };
 export const deleteCategoryApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/product/category/bath_delete', {
+  return requestClient.delete('/api/system/product/category/batch_delete', {
     data: { ids },
   });
 };

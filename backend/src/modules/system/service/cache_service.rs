@@ -31,6 +31,10 @@ pub trait ICacheService: Sync + Send + Debug {
 
     fn ttl(&self, k: &str) -> BoxFuture<'_, Result<i64>>;
     fn del(&self, k: &str) -> BoxFuture<'_, Result<i64>>;
+
+    /// 按模式扫描缓存键（glob 风格，如 "user_*"）。
+    /// Redis 走 SCAN/KEYS，Mem 遍历内存 Map。仅用于后台在线会话统计等低频场景。
+    fn keys(&self, pattern: &str) -> BoxFuture<'_, Result<Vec<String>>>;
 }
 
 pub struct CacheService {
@@ -119,5 +123,10 @@ impl CacheService {
 
     pub async fn del(&self, k: &str) -> Result<i64> {
         self.inner.del(k).await
+    }
+
+    /// 按模式扫描缓存键（glob 风格），仅用于后台在线会话统计等低频场景
+    pub async fn keys(&self, pattern: &str) -> Result<Vec<String>> {
+        self.inner.keys(pattern).await
     }
 }

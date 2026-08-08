@@ -6,6 +6,7 @@ import { computed, h, onMounted, ref } from 'vue';
 import { formatDateTime } from '@vben/utils';
 
 import {
+  Button,
   Card,
   Descriptions,
   Empty,
@@ -108,7 +109,7 @@ const itemColumns: TableColumnsType = [
   { title: '单位', dataIndex: 'unit', width: 60, align: 'center' },
   {
     title: '单价',
-    key: 'unitPrice',
+    dataIndex: 'unitPrice',
     width: 100,
     align: 'right',
     customRender: ({ text }: any) => `${currencySymbol.value}${formatMoney(text)}`,
@@ -122,7 +123,7 @@ const itemColumns: TableColumnsType = [
   },
   {
     title: '折扣额',
-    key: 'discountAmount',
+    dataIndex: 'discountAmount',
     width: 85,
     align: 'right',
     customRender: ({ text }: any) =>
@@ -132,7 +133,7 @@ const itemColumns: TableColumnsType = [
   },
   {
     title: '税额',
-    key: 'taxAmount',
+    dataIndex: 'taxAmount',
     width: 85,
     align: 'right',
     customRender: ({ text }: any) =>
@@ -142,7 +143,7 @@ const itemColumns: TableColumnsType = [
   },
   {
     title: '小计',
-    key: 'subtotal',
+    dataIndex: 'subtotal',
     width: 110,
     align: 'right',
     customRender: ({ text }: any) =>
@@ -186,9 +187,9 @@ onMounted(() => fetchDetail());
           </div>
         </div>
         <div class="flex gap-2">
-          <a-button size="small" @click="emit('edit', String(detail.id))">
+          <Button size="small" @click="emit('edit', String(detail.id))">
             编辑
-          </a-button>
+          </Button>
         </div>
       </div>
     </div>
@@ -274,7 +275,7 @@ onMounted(() => fetchDetail());
 
     <!-- 基本信息 -->
     <Card size="small" title="基本信息" class="mb-3">
-      <Descriptions :column="2" size="small" :colon="false">
+      <Descriptions :column="{ xs: 1, sm: 2 }" size="small" :colon="false">
         <Descriptions.Item label="客户">{{ detail.customerName || '-' }}</Descriptions.Item>
         <Descriptions.Item label="联系人">{{ detail.contactName || '-' }}</Descriptions.Item>
         <Descriptions.Item label="商机">{{ detail.opportunityTitle || '-' }}</Descriptions.Item>
@@ -288,7 +289,7 @@ onMounted(() => fetchDetail());
 
     <!-- 交易条款 -->
     <Card size="small" title="交易条款" class="mb-3">
-      <Descriptions :column="2" size="small" :colon="false">
+      <Descriptions :column="{ xs: 1, sm: 2 }" size="small" :colon="false">
         <Descriptions.Item label="付款条件" :span="2">{{ detail.paymentTerms || '-' }}</Descriptions.Item>
         <Descriptions.Item label="交货条款">{{ detail.deliveryTerms || '-' }}</Descriptions.Item>
         <Descriptions.Item label="交货日期">{{ detail.deliveryDate || '-' }}</Descriptions.Item>
@@ -356,6 +357,12 @@ onMounted(() => fetchDetail());
   gap: 12px;
   padding: 16px 0;
   border-bottom: 1px solid #f0f0f0;
+}
+
+@media (max-width: 640px) {
+  .quotation-detail__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .quotation-detail__stat-item {

@@ -463,6 +463,8 @@ pub struct OpportunityListVO {
     pub expected_close_date: Option<Date>,
     /// 负责人ID
     pub assigned_to: Option<i64>,
+    /// 负责人名称
+    pub assignee_name: Option<String>,
     /// 商机来源（1=官网, 2=展会, 3=社交媒体, 4=客户转介, 5=陌生拜访, 6=海关数据, 7=邮件营销, 8=阿里国际站, 9=Amazon, 10=TikTok, 11=微信, 12=其他）
     pub source: Option<i32>,
     /// 创建人ID
@@ -493,6 +495,7 @@ impl From<opportunity::Model> for OpportunityListVO {
             currency: item.currency.map(currency_code_to_i32),
             expected_close_date: item.expected_close_date,
             assigned_to: item.assigned_to,
+            assignee_name: None,
             source: item.source.map(|s| s.to_i32()),
             created_by: item.created_by,
             created_by_name: None,

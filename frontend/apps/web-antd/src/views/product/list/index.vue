@@ -81,7 +81,7 @@ const gridOptions: VxeGridProps = {
     },
     {
       title: '商品图',
-      field: 'coverImage',
+      field: 'imageUrl',
       width: 70,
       slots: { default: 'productImage' },
     },
@@ -102,9 +102,10 @@ const gridOptions: VxeGridProps = {
       width: 120,
     },
     {
-      title: 'SKU',
-      field: 'sku',
-      width: 120,
+      title: '规格',
+      field: 'specType',
+      width: 90,
+      slots: { default: 'specType' },
     },
     {
       title: '单位',
@@ -196,8 +197,8 @@ function handleCreate() {
       </template>
 
       <template #productImage="{ row }">
-        <div v-if="row.coverImage || row.imageUrl" class="w-10 h-10 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
-          <img :src="row.coverImage || row.imageUrl" alt="产品主图" class="w-full h-full object-cover" />
+        <div v-if="row.imageUrl || row.coverImage" class="w-10 h-10 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
+          <img :src="row.imageUrl || row.coverImage" alt="产品主图" class="w-full h-full object-cover" />
         </div>
         <div v-else class="w-10 h-10 rounded-lg border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-50">
           <LucideImageOff class="w-5 h-5 text-gray-400" />
@@ -210,6 +211,11 @@ function handleCreate() {
 
       <template #status="{ row }">
         <Tag :color="row.isActive ? 'green' : 'red'">{{ row.isActive ? '启用' : '停用' }}</Tag>
+      </template>
+
+      <template #specType="{ row }">
+        <Tag v-if="row.specType === 'multiple'" color="purple">多规格</Tag>
+        <Tag v-else color="default">单规格</Tag>
       </template>
 
       <template #action="{ row }">

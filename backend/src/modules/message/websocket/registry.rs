@@ -78,4 +78,28 @@ impl ConnectionRegistry {
         let map = self.inner.lock();
         map.len()
     }
+
+    /// 强制断开指定用户的所有 WebSocket 连接（踢下线时调用）
+    ///
+    /// 实现方式：向该用户的每个发送通道推送一条约定关闭指令 `__close__`，
+    /// 由 `session.rs` 推送任务识别并调用 `session.close()` 主动关闭连接，
+    /// 随后移除已关闭的发送端。
+    pub fn kick(&self, user_id: i64) {
+        let mut map = self.inner.lock();
+        if let Some(senders) = map.get_mut(&user_id) {
+            let count = senders.len();
+            for tx in senders.iter() {
+                let _ = tx.send(CLOSE_COMMAND.to_string());
+            }
+            // 清理已关闭的发送端
+            senders.retain(|tx| !tx.is_closed());
+            if senders.is_empty() {
+                map.remove(&user_id);
+            }
+            log::info!("[WebSocket] 踢下线用户 {}，断开连接数: {}", user_id, count);
+        }
+    }
 }
+
+/// 推送任务识别的关闭指令（见 session.rs 推送分支）
+pub const CLOSE_COMMAND: &str = "__close__";

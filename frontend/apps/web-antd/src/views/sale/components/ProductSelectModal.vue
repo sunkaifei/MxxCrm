@@ -1,10 +1,11 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { Modal, Input, Table, Button, Tag, Empty } from 'ant-design-vue';
 
 import { getProductListApi } from '#/api';
 import { getProductSpecsApi } from '#/api';
+import { getInventoryListApi } from '#/api/core/product/inventory';
 
 interface SelectedSku {
   productId: number;
@@ -20,11 +21,48 @@ interface SelectedSku {
   imageUrl?: string;
 }
 
-const props = defineProps<{ visible: boolean }>();
+const props = defineProps<{
+  visible: boolean;
+  excludeIds?: number[];
+  /** 已添加的 SKU 标识列表（格式 `productId-skuId`，新数据） */
+  excludeSkuKeys?: string[];
+  /** 已添加的 SKU 编码列表（如 SKU-20-Black-Silicone，兼容历史数据） */
+  excludeSkuCodes?: string[];
+  /** 仓库ID（用于查询真实库存） */
+  warehouseId?: number;
+}>();
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void;
   (e: 'select', items: SelectedSku[]): void;
 }>();
+
+// computed: 完全响应式，props 变化时自动更新
+const excludeIdSet = computed(
+  () => new Set((props.excludeIds ?? []).map((id) => Number(id))),
+);
+const excludeSkuKeySet = computed(
+  () => new Set(props.excludeSkuKeys ?? []),
+);
+const excludeSkuCodeSet = computed(
+  () => new Set(props.excludeSkuCodes ?? []),
+);
+
+// 判断单规格产品是否已添加（多规格产品不整体排除）
+function isProductAdded(record: any): boolean {
+  if (isMultiSpec(record)) return false;
+  return excludeIdSet.value.has(Number(record.id));
+}
+
+// 判断某个 SKU 是否已被添加过（支持 skuId 和 skuCode 两种匹配方式）
+function isSkuAdded(productId: number, sku: any): boolean {
+  // 1. 新数据：按 productId-skuId 匹配
+  const key = `${Number(productId)}-${Number(sku.id)}`;
+  if (excludeSkuKeySet.value.has(key)) return true;
+  // 2. 历史数据：按 skuCode 匹配
+  const code = sku.skuCode || sku.sku_code;
+  if (code && excludeSkuCodeSet.value.has(code)) return true;
+  return false;
+}
 
 const keyword = ref('');
 const loading = ref(false);
@@ -59,16 +97,109 @@ async function loadProducts() {
     productList.value = list.map((p: any) => ({
       ...p,
       key: p.id,
+      specInfo: '', // 初始为空，异步加载后更新
     }));
     pagination.value.total = res?.total || list.length;
+
+    // 异步加载规格信息，直接更新 productList 触发响应式
+    loadProductSpecs();
+    // 异步加载仓库真实库存
+    loadWarehouseStock();
   } finally {
     loading.value = false;
+  }
+}
+
+// 批量加载仓库真实库存，更新 productList 中的 stock 字段
+async function loadWarehouseStock() {
+  if (!props.warehouseId) return;
+  const productIds = productList.value.map((p) => p.id);
+  if (productIds.length === 0) return;
+  try {
+    const res = await getInventoryListApi({
+      warehouseId: props.warehouseId,
+      pageSize: 200,
+    });
+    const list = res?.list || res?.items || res || [];
+    // 建立 productId → quantity 映射
+    const stockMap = new Map<number, number>();
+    for (const item of list) {
+      const pid = Number(item.productId ?? item.product_id ?? 0);
+      const qty = Number(item.quantity ?? 0);
+      if (pid > 0) stockMap.set(pid, qty);
+    }
+    // 更新产品列表中的 stock
+    productList.value = productList.value.map((p) => ({
+      ...p,
+      stock: stockMap.get(Number(p.id)) ?? p.stock ?? 0,
+    }));
+  } catch {
+    // 库存查询失败，保持原有 stock 值
   }
 }
 
 function onSearch() {
   pagination.value.current = 1;
   loadProducts();
+}
+
+// 异步加载产品列表中每个产品的规格摘要，直接写入 productList 触发更新
+async function loadProductSpecs() {
+  const products = productList.value;
+  // 并行请求所有产品的规格
+  await Promise.allSettled(
+    products.map(async (product: any, i: number) => {
+      try {
+        const res: any = await getProductSpecsApi(product.id);
+        const data = res?.data ?? res;
+        const skus = data?.skus ?? data?.skuList ?? [];
+        let specText = '';
+
+        if (skus.length === 1) {
+          // 单规格：优先从 specs 对象提取 key:value
+          const specs = parseSpecsObj(skus[0]?.specs);
+          if (specs) {
+            specText = Object.entries(specs)
+              .map(([k, v]) => `${k}:${v}`)
+              .join(' / ');
+          } else {
+            specText = '';
+          }
+        } else if (skus.length > 1) {
+          // 多规格：汇总各维度可选值
+          const specMap = new Map<string, Set<string>>();
+          for (const sku of skus) {
+            const specs = parseSpecsObj(sku?.specs);
+            if (specs) {
+              for (const [key, val] of Object.entries(specs)) {
+                if (!specMap.has(key)) specMap.set(key, new Set());
+                specMap.get(key)!.add(String(val));
+              }
+            }
+          }
+          specText = [...specMap.entries()]
+            .map(([key, vals]) => `${key}:${[...vals].join(',')}`)
+            .join(' / ');
+        }
+
+        product.specInfo = specText;
+
+        // 多规格产品：库存显示所有 SKU 库存累加值
+        if (skus.length > 0) {
+          const totalStock = skus.reduce(
+            (sum: number, s: any) => sum + Number(s.stock ?? 0),
+            0,
+          );
+          product.stock = totalStock;
+        }
+
+        // 强制替换数组引用，确保 Table 组件重新渲染
+        productList.value = [...productList.value];
+      } catch (e) {
+        console.error('[ProductSelectModal] 加载规格失败:', product.id, e);
+      }
+    }),
+  );
 }
 
 function onPageChange(page: number, pageSize: number) {
@@ -110,7 +241,7 @@ function selectSingleProduct(product: any) {
     weight: Number(product.weight || 0),
     unitPrice: Number(product.salePrice || product.marketPrice || 0),
     stock: product.stock,
-    imageUrl: product.coverImage,
+    imageUrl: product.imageUrl || product.coverImage,
   };
 
   const existing = selectedSkus.value.findIndex(
@@ -124,7 +255,16 @@ function selectSingleProduct(product: any) {
 }
 
 function selectSku(product: any, sku: any) {
-  const specText = sku.label || formatSpecs(sku.specs) || '';
+  // 优先用 specs 生成带规格名的文本（如 颜色:红色），label 作为兜底
+  const specsObj = parseSpecsObj(sku.specs);
+  let specText = '';
+  if (specsObj) {
+    specText = Object.entries(specsObj)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(' / ');
+  } else {
+    specText = sku.label || '';
+  }
 
   const item: SelectedSku = {
     productId: Number(product.id),
@@ -137,7 +277,7 @@ function selectSku(product: any, sku: any) {
     spec: specText,
     unitPrice: Number(sku.price || product.salePrice || 0),
     stock: sku.stock,
-    imageUrl: sku.imageUrl || product.coverImage,
+    imageUrl: sku.imageUrl || product.imageUrl || product.coverImage,
   };
 
   const existing = selectedSkus.value.findIndex((s) => s.skuId === item.skuId);
@@ -172,11 +312,12 @@ function handleCancel() {
 }
 
 const productColumns = [
-  { title: '产品名称', dataIndex: 'name', key: 'name', width: 200 },
-  { title: '编码', dataIndex: 'productNo', key: 'productNo', width: 120 },
-  { title: '单价', key: 'price', width: 100 },
-  { title: '库存', dataIndex: 'stock', key: 'stock', width: 80 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 60 },
+  { title: '产品名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: '编码', dataIndex: 'productNo', key: 'productNo', width: 110 },
+  { title: '规格信息', key: 'specInfo', width: 200 },
+  { title: '单价', key: 'price', width: 90 },
+  { title: '库存', dataIndex: 'stock', key: 'stock', width: 70 },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55 },
   { title: '操作', key: 'action', width: 80 },
 ];
 
@@ -186,6 +327,22 @@ const skuColumns = [
   { title: '库存', dataIndex: 'stock', key: 'stock', width: 80 },
   { title: '操作', key: 'action', width: 80 },
 ];
+
+// 把 specs（可能是 JSON 字符串或对象）统一解析为对象
+function parseSpecsObj(specs: any): Record<string, any> | null {
+  if (!specs) return null;
+  if (typeof specs === 'string') {
+    try {
+      const parsed = JSON.parse(specs);
+      if (typeof parsed === 'object' && parsed !== null) return parsed;
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  if (typeof specs === 'object' && specs !== null) return specs;
+  return null;
+}
 
 function formatSpecs(specs: any): string {
   if (!specs) return '-';
@@ -241,18 +398,37 @@ function formatSpecs(specs: any): string {
         onChange: onPageChange,
       }"
       :expanded-row-keys="expandedRowKeys"
+      :row-expandable="(record: any) => isMultiSpec(record)"
       size="small"
       row-key="id"
       :scroll="{ y: 400 }"
       @expand="onExpand"
     >
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'price'">
+        <template v-if="column.key === 'specInfo'">
+          <span v-if="record.specInfo" class="text-xs">{{ record.specInfo }}</span>
+          <span v-else-if="isMultiSpec(record)">
+            <Tag color="blue" style="font-size: 11px">多规格</Tag>
+          </span>
+          <span v-else class="text-gray-400">-</span>
+        </template>
+        <template v-else-if="column.key === 'price'">
           ¥{{ Number(record.salePrice || record.marketPrice || 0).toFixed(2) }}
         </template>
         <template v-else-if="column.key === 'action'">
+          <!-- 单规格产品已添加：禁用 -->
           <Button
-            v-if="!isMultiSpec(record)"
+            v-if="isProductAdded(record)"
+            type="primary"
+            size="small"
+            ghost
+            disabled
+          >
+            已添加
+          </Button>
+          <!-- 单规格产品 -->
+          <Button
+            v-else-if="!isMultiSpec(record)"
             type="primary"
             size="small"
             :ghost="isSkuSelected(record.id)"
@@ -260,13 +436,14 @@ function formatSpecs(specs: any): string {
           >
             {{ isSkuSelected(record.id) ? '已选' : '选择' }}
           </Button>
+          <!-- 多规格产品：展开/收起 SKU 列表 -->
           <Button
             v-else
             type="link"
             size="small"
             @click="onExpand(!expandedRowKeys.includes(record.id), record)"
           >
-            {{ expandedRowKeys.includes(record.id) ? '收起' : '选规格' }}
+            {{ expandedRowKeys.includes(record.id) ? '收起' : '展开' }}
           </Button>
         </template>
       </template>
@@ -289,8 +466,8 @@ function formatSpecs(specs: any): string {
         >
           <template #bodyCell="{ column, record: sku }">
             <template v-if="column.key === 'specText'">
-              <span v-if="sku.label" class="font-medium">{{ sku.label }}</span>
-              <span v-else-if="sku.specs" class="font-medium">{{ formatSpecs(sku.specs) }}</span>
+              <span v-if="parseSpecsObj(sku.specs)" class="font-medium">{{ formatSpecs(sku.specs) }}</span>
+              <span v-else-if="sku.label" class="font-medium">{{ sku.label }}</span>
               <span v-else class="text-gray-400">无规格</span>
             </template>
             <template v-else-if="column.key === 'price'">
@@ -298,6 +475,16 @@ function formatSpecs(specs: any): string {
             </template>
             <template v-else-if="column.key === 'action'">
               <Button
+                v-if="isSkuAdded(record.id, sku)"
+                type="primary"
+                size="small"
+                ghost
+                disabled
+              >
+                已添加
+              </Button>
+              <Button
+                v-else
                 type="primary"
                 size="small"
                 :ghost="isSkuSelected(record.id, sku.id)"
@@ -324,6 +511,7 @@ function formatSpecs(specs: any): string {
             <span class="font-medium">{{ item.productName }}</span>
             <Tag v-if="item.spec" color="blue">{{ item.spec }}</Tag>
             <span class="text-gray-400">¥{{ item.unitPrice.toFixed(2) }}/{{ item.unit || '个' }}</span>
+            <Tag v-if="item.stock !== undefined && item.stock !== null" color="orange">库存: {{ item.stock }}</Tag>
           </div>
           <Button type="link" danger size="small" @click="removeSelected(idx)">移除</Button>
         </div>

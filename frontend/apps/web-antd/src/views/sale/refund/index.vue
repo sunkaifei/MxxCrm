@@ -56,6 +56,9 @@ const canViewSubordinate = computed(() => {
   return dataScope === 2 || dataScope === 3 || dataScope === 4;
 });
 
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 const allTabList = [
   { key: 'all', label: '全部退货单' },
   { key: 'my', label: '我的退货单' },
@@ -600,7 +603,7 @@ async function handleCancel(row: any) {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('sale:refund:save')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:refund:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -608,7 +611,7 @@ async function handleCancel(row: any) {
           新建退货单
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:refund:delete')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:refund:delete')"
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -679,6 +682,7 @@ async function handleCancel(row: any) {
         <!-- 编辑：草稿(1)或已驳回(8)或已取消(9) -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:update') &&
             (row.refundStatus === 1 || row.refundStatus === 8 || row.refundStatus === 9)
           "
@@ -688,6 +692,7 @@ async function handleCancel(row: any) {
         <!-- 提交审批：草稿(1)或已驳回(8) -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:update') &&
             (row.refundStatus === 1 || row.refundStatus === 8)
           "
@@ -697,7 +702,8 @@ async function handleCancel(row: any) {
         <!-- 审批通过：待审批(2) -->
         <a
           v-if="
-            accessStore.hasAccessCode('sale:refund:approve') &&
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:refund:audit') &&
             row.refundStatus === 2
           "
           class="text-green-600 cursor-pointer mx-1"
@@ -706,7 +712,8 @@ async function handleCancel(row: any) {
         <!-- 审批驳回：待审批(2) -->
         <a
           v-if="
-            accessStore.hasAccessCode('sale:refund:approve') &&
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:refund:audit') &&
             row.refundStatus === 2
           "
           class="text-orange-600 cursor-pointer mx-1"
@@ -715,6 +722,7 @@ async function handleCancel(row: any) {
         <!-- 仓库收货：审批通过(3)/待收货(4) -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:update') &&
             (row.refundStatus === 3 || row.refundStatus === 4)
           "
@@ -724,6 +732,7 @@ async function handleCancel(row: any) {
         <!-- 质检完成：已收货(5)/质检中(6) -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:update') &&
             (row.refundStatus === 5 || row.refundStatus === 6)
           "
@@ -733,6 +742,7 @@ async function handleCancel(row: any) {
         <!-- 取消：草稿(1)/待审批(2)/已驳回(8) -->
         <a
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:update') &&
             (row.refundStatus === 1 || row.refundStatus === 2 || row.refundStatus === 8)
           "
@@ -742,6 +752,7 @@ async function handleCancel(row: any) {
         <!-- 删除：仅草稿(1)/已驳回(8)/已取消(9) -->
         <Popconfirm
           v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:delete') &&
             (row.refundStatus === 1 || row.refundStatus === 8 || row.refundStatus === 9)
           "

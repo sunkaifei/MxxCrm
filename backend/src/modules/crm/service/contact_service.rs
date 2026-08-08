@@ -248,17 +248,12 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
             Some(ids)
         }
         "subordinate" => {
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-
-            let user_ids = match data_scope {
-                Some(5) => {
-                    Vec::new()
-                }
-                Some(1) | None => {
-                    // 全部数据权限：获取所有用户（排除自己）
+            // 下属联系人：获取数据权限范围内的其他用户（排除自己）
+            let accessible = crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?;
+            let user_ids: Vec<i64> = match accessible {
+                None => {
+                    // 全部数据权限：获取所有用户，排除自己
                     let all_admins = Admin::find()
                         .filter(admin::Column::Id.ne(current_user_id))
                         .all(db)
@@ -266,12 +261,9 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
                         .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
                     all_admins.iter().map(|u| u.id).collect()
                 }
-                _ => {
-                    get_accessible_user_ids(db, current_user_id, data_scope).await?
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter(|id| *id != current_user_id)
-                        .collect::<Vec<_>>()
+                Some(ids) => {
+                    // 部门/仅本人权限：排除自己
+                    ids.into_iter().filter(|id| *id != current_user_id).collect()
                 }
             };
 

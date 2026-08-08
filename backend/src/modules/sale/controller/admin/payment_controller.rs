@@ -323,7 +323,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/info",
                 web::get()
                     .to(payment_info)
-                    .wrap(require_permission("sale:payment:info")),
+                    .wrap(require_permission("sale:payment:view")),
             )
             // GET /sale/payment/list - 回款列表
             .route(
@@ -400,7 +400,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/{id}/approval-detail",
                 web::get()
                     .to(payment_approval_detail)
-                    .wrap(require_permission("sale:payment:info")),
+                    .wrap(require_permission("sale:payment:view")),
             ),
     );
 }

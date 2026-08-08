@@ -52,7 +52,16 @@
         "delete": "Delete",
         "update": "Update",
         "assignRole": "Assign Role",
-        "assignDept": "Assign Dept"
+        "assignDept": "Assign Dept",
+        "audit": "Audit",
+        "auditPass": "Approve",
+        "auditReject": "Reject",
+        "kickOffline": "Kick Offline"
+      },
+      "auditStatus": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "label": "Audit Status"
       }
     },
     "menu": {
@@ -334,6 +343,37 @@
       "title": "Scheduled Tasks",
       "button": {
         "manage": "Manage"
+      }
+    },
+    "setting": {
+      "title": "System Settings",
+      "sessionTimeout": "Session Timeout",
+      "sessionTimeoutDesc": "Online duration after login, re-login required when expired",
+      "loginStrategy": "Login Strategy",
+      "multiDevice": "Allow multi-device login",
+      "multiDeviceDesc": "When enabled, the same account can be online on multiple devices; when disabled, new login kicks old device offline",
+      "maxDevices": "Max concurrent devices per account",
+      "maxDevicesDesc": "Only effective in multi-device mode, 0 means unlimited",
+      "registerStrategy": "Registration",
+      "registerEnabled": "Allow staff registration",
+      "registerEnabledDesc": "When disabled, external users cannot create accounts via the registration page. Enable for intranet, disable for cloud deployment",
+      "tip": "After modifying settings, logged-in users need to re-login to take effect",
+      "saveSuccess": "Saved successfully",
+      "kickConfirm": "Force all devices of this user offline?",
+      "kickSuccess": "Forced offline",
+      "sessionList": "Online Users",
+      "online": "Online",
+      "sessionUser": "User",
+      "sessionExpireTime": "Expire Time",
+      "sessionKick": "Kick",
+      "sessionKickConfirm": "Force this session offline?",
+      "sessionNoData": "No online sessions",
+      "duration": {
+        "2h": "2 hours",
+        "4h": "4 hours",
+        "8h": "8 hours (Recommended)",
+        "12h": "12 hours",
+        "24h": "24 hours"
       }
     }
   }

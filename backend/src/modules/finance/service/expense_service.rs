@@ -190,7 +190,7 @@ pub async fn get_detail(db: &DbConn, id: i64) -> Result<ExpenseDetailVO> {
 
     // 查询费用类型名称
     if let Some(t_id) = vo.expense_type {
-        if let Some(t) = FinanceExpenseType::find_by_id(t_id)
+        if let Some(t) = FinanceExpenseType::find_by_id(t_id as i64)
             .filter(expense_type_entity::Column::Deleted.eq(0))
             .one(db).await? {
             vo.expense_type_name = t.type_name;
@@ -238,14 +238,12 @@ pub async fn get_list(db: &DbConn, query: &ExpenseListQuery, current_user_id: i6
     let applicant_ids_opt: Option<Vec<i64>> = match list_type {
         "my" => Some(vec![current_user_id]),
         "subordinate" => {
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-
-            match data_scope {
-                Some(5) => Some(Vec::new()),
-                Some(1) | None => {
+            // 下属费用：获取数据权限范围内的其他用户（排除自己）
+            let accessible = crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?;
+            match accessible {
+                None => {
+                    // 全部数据权限：获取所有用户，排除自己
                     let all_admins = Admin::find()
                         .filter(admin::Column::Id.ne(current_user_id))
                         .all(db)
@@ -253,14 +251,9 @@ pub async fn get_list(db: &DbConn, query: &ExpenseListQuery, current_user_id: i6
                         .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
                     Some(all_admins.iter().map(|u| u.id).collect())
                 }
-                _ => {
-                    let user_ids = crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id)
-                        .await?
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter(|id| *id != current_user_id)
-                        .collect::<Vec<_>>();
-                    Some(user_ids)
+                Some(ids) => {
+                    // 部门/仅本人权限：排除自己
+                    Some(ids.into_iter().filter(|id| *id != current_user_id).collect())
                 }
             }
         }
@@ -358,14 +351,16 @@ pub async fn get_list(db: &DbConn, query: &ExpenseListQuery, current_user_id: i6
     };
 
     // 批量查询费用类型名称
-    let type_ids: Vec<i64> = list.iter()
+    let type_ids: Vec<i32> = list.iter()
         .filter_map(|c| c.expense_type)
         .collect::<HashSet<_>>()
         .into_iter()
         .collect();
     let type_name_map: HashMap<i64, String> = if !type_ids.is_empty() {
         FinanceExpenseType::find()
-            .filter(expense_type_entity::Column::Id.is_in(type_ids.clone()))
+            .filter(expense_type_entity::Column::Id.is_in(
+                type_ids.iter().map(|&id| id as i64).collect::<Vec<_>>(),
+            ))
             .filter(expense_type_entity::Column::Deleted.eq(0))
             .all(db)
             .await?
@@ -400,7 +395,7 @@ pub async fn get_list(db: &DbConn, query: &ExpenseListQuery, current_user_id: i6
             }
         }
         if let Some(t_id) = vo.expense_type {
-            if let Some(name) = type_name_map.get(&t_id) {
+            if let Some(name) = type_name_map.get(&(t_id as i64)) {
                 vo.expense_type_name = Some(name.clone());
             }
         }

@@ -15,7 +15,7 @@ export const updateWarehouseApi = async (param: any) => {
   return requestClient.put('/api/system/warehouse/update', param);
 };
 export const deleteWarehouseApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/warehouse/bath_delete', {
+  return requestClient.delete('/api/system/warehouse/batch_delete', {
     data: { ids },
   });
 };

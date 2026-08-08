@@ -11,7 +11,7 @@
 use actix_web::{HttpRequest, HttpResponse, http::StatusCode};
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::core::kit::jwt_util::JWTToken;
-use crate::config;
+use crate::core::kit::{config, CONTEXT};
 
 const USER_TOKEN_ISSUER: &str = "mxx_B2B_user";
 const USER_TOKEN_ERROR_MSG_TOKEN_INVALID: &str = "token无效，请重新登录";
@@ -19,6 +19,7 @@ const USER_TOKEN_ERROR_MSG_TOKEN_NOT_EXIST: &str = "token不存在，请重新�
 const USER_TOKEN_ERROR_MSG_TOKEN_EXPIRED: &str = "token无效或已过期，请重新登录";
 const USER_TOKEN_ERROR_MSG_TOKEN_TYPE: &str = "token类型错误，请重新登录";
 const USER_TOKEN_ERROR_MSG_USER_ID_INVALID: &str = "用户ID无效，请重新登录";
+const USER_TOKEN_ERROR_MSG_USER_DISABLED: &str = "账号已被禁用，请重新登录";
 
 pub async fn get_user_id_from_request(req: &HttpRequest) -> Result<i64, HttpResponse> {
     let jwt_secret = config::section::<String>("server", "jwt_secret_user", "mxx_secret_key".to_string());
@@ -66,6 +67,16 @@ pub async fn get_user_id_from_request(req: &HttpRequest) -> Result<i64, HttpResp
                 .content_type(MPACK).body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_USER_ID_INVALID, "local")));
         }
     };
+
+    // v1.1: 校验用户是否被禁用（后台禁用时写入 user_disabled:{id} 标记，即时生效）
+    if let Ok(flag) = CONTEXT.cache_service.get_string(&format!("user_disabled:{}", user_id)).await {
+        if !flag.is_empty() {
+            log::warn!("[获取用户ID] 用户已被禁用 user_id={}", user_id);
+            return Err(HttpResponse::Ok()
+                .status(StatusCode::UNAUTHORIZED)
+                .content_type(MPACK).body(MetaResp::<String>::fail(400, USER_TOKEN_ERROR_MSG_USER_DISABLED, "local")));
+        }
+    }
 
     Ok(user_id)
 }

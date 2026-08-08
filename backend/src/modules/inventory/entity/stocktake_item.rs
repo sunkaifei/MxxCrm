@@ -22,9 +22,11 @@ pub struct Model {
     pub stocktake_id: Option<i64>,
     /// 产品ID
     pub product_id: Option<i64>,
+    /// SKU ID（多规格产品按SKU盘点时使用）
+    pub sku_id: Option<i64>,
     /// 产品名称
     pub product_name: Option<String>,
-    /// 产品SKU
+    /// 产品SKU编码
     pub product_sku: Option<String>,
     /// 系统数量
     pub system_quantity: Option<Decimal>,
@@ -34,6 +36,16 @@ pub struct Model {
     pub difference: Option<Decimal>,
     /// 差异类型：0=一致 1=盘盈 2=盘亏
     pub difference_type: Option<i32>,
+    /// 盘点人ID列表（JSON数组字符串，如 "[1,2,3]"）
+    pub assignee_ids: Option<String>,
+    /// 复盘数量
+    pub recheck_quantity: Option<Decimal>,
+    /// 复盘人ID列表（JSON数组字符串）
+    pub recheck_assignee_ids: Option<String>,
+    /// 差异原因
+    pub diff_reason: Option<String>,
+    /// 处理方式
+    pub handling: Option<String>,
     /// 备注
     pub remark: Option<String>,
     /// 删除标识（0未删除 1已删除）

@@ -36,6 +36,12 @@ pub async fn update_by_id(db: &DbConn, form_data: &ConfigSaveDTO) -> Result<i64>
     Ok(config)
 }
 
+/// 根据 key 更新 config_value（登录安全等系统配置动态更新用）
+pub async fn update_value_by_key(db: &DbConn, key: &str, value: &str) -> Result<i64>{
+    let config = ConfigModel::update_value_by_key(db, key, value).await?;
+    Ok(config)
+}
+
 /// 根据配置名称查询是否唯一
 pub async fn find_by_name_unique(db: &DbConn, name: &Option<String>, id: &Option<i64>) -> Result<bool>{
     let result_num = ConfigModel::find_by_name_unique(db, &name, id).await?;

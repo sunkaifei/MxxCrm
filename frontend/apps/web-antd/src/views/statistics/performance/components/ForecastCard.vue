@@ -4,6 +4,7 @@ import { computed } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { Card, Empty, Spin, Tag } from 'ant-design-vue';
+import { formatPercentDisplay } from '#/utils/format';
 
 interface Props {
   loading?: boolean;
@@ -101,7 +102,7 @@ const coverageText = computed(() => {
           <div class="metric-block">
             <div class="text-xs text-gray-500">历史成交率</div>
             <div class="text-sm font-semibold text-purple-600">
-              {{ ((data.historicalWinRate || 0) * 100).toFixed(2) }}%
+              {{ formatPercentDisplay(data.historicalWinRate) }}
             </div>
           </div>
           <div class="metric-block">

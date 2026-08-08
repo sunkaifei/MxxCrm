@@ -66,6 +66,38 @@ impl JWTToken {
         }
     }
 
+    /// 使用指定的过期时间（秒）构造 JWTToken
+    ///
+    /// 用于登录安全设置页动态配置会话超时：由异步调用方（登录接口）从缓存/配置表
+    /// 读取过期时间后传入，解决 `new()` 同步读取配置文件、无法动态生效的问题。
+    /// 保留原 `new()` 供测试与不关心动态过期时间的调用方继续使用。
+    pub fn new_with_expire(
+        id: Option<i64>,
+        username: Option<String>,
+        permissions: Vec<String>,
+        issuer: Option<&str>,
+        expire_secs: u64,
+    ) -> JWTToken {
+        let now = SystemTime::now();
+        let now = now.duration_since(UNIX_EPOCH).expect("获取系统时间失败");
+        let issuer_str = issuer.unwrap_or("mxx_B2B_admin");
+        let expire_duration = Duration::from_secs(expire_secs);
+        log::debug!("[JWT] 动态过期时间配置: {} 秒", expire_secs);
+
+        JWTToken {
+            id,
+            username,
+            permissions,
+            aud: String::from("mxx_B2B"),
+            exp: (now + expire_duration).as_secs() as usize,
+            iat: now.as_secs() as usize,
+            iss: String::from(issuer_str),
+            nbf: now.as_secs() as usize,
+            sub: String::from("mxx_B2B_token"),
+            jti: String::from("ignore"),
+        }
+    }
+
     /// create token
     /// secret: your secret string
     pub fn create_token(&self, secret: &str) -> Result<String> {

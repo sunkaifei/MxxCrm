@@ -11,7 +11,7 @@ use crate::modules::articles::controller::admin::{article_admin_controller, arti
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller};
@@ -61,8 +61,9 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
             // v2.0: 权限从缓存读取（缓存miss时回查DB），实现权限实时生效
             let user_id = jwt_data.id.unwrap_or_default();
             if user_id > 0 {
-                // v2.0: 验证Token是否仍然有效（用户禁用/删除时会被清除）
-                if !permission_cache_service::validate_user_token(user_id, &token).await {
+                // v1.1: 统一会话校验（单设备精确匹配 / 多设备检查 token 集合）
+                // 确保踢人、改密、禁用在两种模式下都能即时生效
+                if !permission_cache_service::validate_session(user_id, &token).await {
                     return Err(error::ErrorUnauthorized("登录状态已失效，请重新登录"));
                 }
 
@@ -94,6 +95,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             // ============ 所有 controller 通过 register 集中注册 ============
             // System Admin Management（登录、注销、注册、用户管理、权限码）
             .configure(system_admin_controller::register)
+            // System Setting Management（系统设置、在线会话管理 v1.1）
+            .configure(setting_admin_controller::register)
             // Role Management
             .configure(role_admin_controller::register)
             // Menu Management

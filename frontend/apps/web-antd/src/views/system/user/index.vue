@@ -5,11 +5,17 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { $t } from '#/locales';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { LucideFilePenLine, LucideTrash2, LogOut } from '@vben/icons';
 import { Button, Popconfirm, Switch, Tag } from 'ant-design-vue';
 import UserDrawer from './drawer.vue';
 import UserDetailDrawer from '../../crm/components/UserDetailDrawer.vue';
-import { deleteUserApi, getUserListApi, updateUserApi } from '#/api';
+import {
+  auditUserApi,
+  deleteUserApi,
+  getUserListApi,
+  kickOfflineApi,
+  updateUserApi,
+} from '#/api';
 import { statusList } from '#/store';
 import { formatDateTime } from '@vben/utils';
 import { useAccessStore } from '@vben/stores';
@@ -95,7 +101,17 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'nickName' },
     },
     {
-      title: '手机',
+      title: $t('page.system.user.dept'),
+      field: 'deptName',
+      width: 140,
+    },
+    {
+      title: $t('page.system.user.post'),
+      field: 'postName',
+      width: 140,
+    },
+    {
+      title: $t('page.system.user.mobile'),
       field: 'mobile',
       width: 120,
     },
@@ -111,7 +127,7 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'roleName' },
     },
     {
-      title: '直属上级',
+      title: $t('page.system.user.directManager'),
       field: 'directManagerName',
       width: 120,
     },
@@ -120,6 +136,18 @@ const gridOptions: VxeGridProps = {
       field: 'status',
       width: 80,
       slots: { default: 'status' },
+    },
+    {
+      title: $t('page.system.setting.online'),
+      field: 'online',
+      width: 80,
+      slots: { default: 'online' },
+    },
+    {
+      title: $t('page.system.user.auditStatus.label'),
+      field: 'auditStatus',
+      width: 90,
+      slots: { default: 'auditStatus' },
     },
     {
       title: $t('page.system.user.lastLoginTime'),
@@ -198,6 +226,27 @@ async function handleDelete(row: any) {
     gridApi.query();
   }
 }
+
+async function handleKickOffline(row: any) {
+  row.pending = true;
+  try {
+    await kickOfflineApi(row.id);
+    window.$message.success($t('page.system.setting.kickSuccess'));
+  } finally {
+    row.pending = false;
+  }
+}
+
+async function handleAudit(row: any, auditStatus: number) {
+  row.pending = true;
+  try {
+    await auditUserApi(row.id, auditStatus);
+    window.$message.success(auditStatus === 1 ? '审核已通过' : '已拒绝');
+    gridApi.query();
+  } finally {
+    row.pending = false;
+  }
+}
 </script>
 
 <template>
@@ -243,6 +292,21 @@ async function handleDelete(row: any) {
         />
       </template>
 
+      <template #online="{ row }">
+        <Tag :color="row.online ? 'success' : 'default'">
+          {{ row.online ? $t('page.system.setting.online') : $t('ui.switch.inactive') }}
+        </Tag>
+      </template>
+
+      <template #auditStatus="{ row }">
+        <Tag v-if="row.auditStatus === 0" color="warning">
+          {{ $t('page.system.user.auditStatus.pending') }}
+        </Tag>
+        <Tag v-else color="success">
+          {{ $t('page.system.user.auditStatus.approved') }}
+        </Tag>
+      </template>
+
       <template #lastLoginTime="{ row }">
         {{ formatDateTime(row.lastLoginTime) }}
       </template>
@@ -272,6 +336,40 @@ async function handleDelete(row: any) {
             link
             :icon="h(LucideTrash2)"
           />
+        </Popconfirm>
+
+        <Popconfirm
+          :title="$t('page.system.setting.kickConfirm')"
+          :ok-text="$t('ui.button.ok')"
+          :cancel-text="$t('ui.button.cancel')"
+          @confirm="() => handleKickOffline(row)"
+        >
+          <Button
+            danger
+            type="primary"
+            link
+            v-access:code="['system:admin:kick']"
+            :icon="h(LogOut)"
+            :disabled="row.userType === 1"
+          />
+        </Popconfirm>
+
+        <!-- 审核：仅待审核用户（auditStatus=0）显示 -->
+        <Popconfirm
+          v-if="row.auditStatus === 0"
+          :title="`确认审核通过该用户？通过后将自动启用，可登录系统。`"
+          :ok-text="$t('ui.button.ok')"
+          :cancel-text="$t('ui.button.cancel')"
+          @confirm="() => handleAudit(row, 1)"
+        >
+          <Button
+            type="primary"
+            link
+            v-access:code="['system:admin:audit']"
+            :disabled="row.userType === 1"
+          >
+            {{ $t('page.system.user.button.auditPass') }}
+          </Button>
         </Popconfirm>
       </template>
     </Grid>

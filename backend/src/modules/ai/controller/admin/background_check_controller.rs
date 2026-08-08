@@ -106,6 +106,6 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/company-latest/{company_id}", web::get().to(get_latest_by_company_id).wrap(require_permission("crm:lead:list")))
             .route("/detail/{id}", web::get().to(get_detail).wrap(require_permission("crm:lead:list")))
             .route("/timeline", web::get().to(get_timeline).wrap(require_permission("crm:lead:list")))
-            .route("/delete/{id}", web::delete().to(delete_by_id).wrap(require_permission("crm:lead:edit"))),
+            .route("/delete/{id}", web::delete().to(delete_by_id).wrap(require_permission("crm:lead:update"))),
     );
 }

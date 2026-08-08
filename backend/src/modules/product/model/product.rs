@@ -70,6 +70,8 @@ pub struct ProductSaveRequest {
     pub name: Option<String>,
     /// 分类ID
     pub category_id: Option<i64>,
+    /// 品牌ID
+    pub brand_id: Option<i64>,
     /// SKU模板ID
     pub template_id: Option<i64>,
     /// 默认SKU编码
@@ -123,6 +125,7 @@ impl From<ProductUpdateRequest> for ProductSaveDTO {
             product_no: item.product_no,
             name: item.name,
             category_id: item.category_id,
+            brand_id: item.brand_id,
             template_id: item.template_id,
             sku: item.sku,
             barcode: item.barcode,
@@ -162,6 +165,7 @@ pub struct ProductUpdateRequest {
     pub product_no: Option<String>,
     pub name: Option<String>,
     pub category_id: Option<i64>,
+    pub brand_id: Option<i64>,
     pub template_id: Option<i64>,
     pub sku: Option<String>,
     pub barcode: Option<String>,
@@ -196,6 +200,7 @@ impl From<ProductSaveRequest> for ProductSaveDTO {
             product_no: item.product_no,
             name: item.name,
             category_id: item.category_id,
+            brand_id: item.brand_id,
             template_id: item.template_id,
             sku: item.sku,
             barcode: item.barcode,
@@ -234,6 +239,7 @@ pub struct ProductSaveDTO {
     pub product_no: Option<String>,
     pub name: Option<String>,
     pub category_id: Option<i64>,
+    pub brand_id: Option<i64>,
     pub template_id: Option<i64>,
     pub sku: Option<String>,
     pub barcode: Option<String>,
@@ -501,6 +507,7 @@ impl ProductModel {
             product_no: Set(req.product_no.clone()),
             name: Set(req.name.clone()),
             category_id: Set(req.category_id),
+            brand_id: Set(req.brand_id),
             template_id: Set(req.template_id),
             sku: Set(req.sku.clone()),
             barcode: Set(req.barcode.clone()),
@@ -562,36 +569,57 @@ impl ProductModel {
     }
 
     pub async fn batch_save_skus<C>(db: &C, product_id: i64, skus: &[SkuRequest]) -> Result<(), DbErr> where C: ConnectionTrait {
-        // 1. 删除旧的SKU（物理删除，然后重新插入）
-        ProductSku::delete_many()
-            .filter(sku::Column::ProductId.eq(product_id))
-            .exec(db)
-            .await?;
+        use sea_orm::sea_query::Expr;
 
-        // 2. 获取产品的规格定义，用于将 label 转换为 JSON 对象
-        let specs = crate::modules::product::entity::spec::Entity::find()
-            .filter(crate::modules::product::entity::spec::Column::ProductId.eq(product_id))
-            .order_by_asc(crate::modules::product::entity::spec::Column::SortOrder)
-            .all(db)
-            .await?;
-
-        let spec_names: Vec<String> = specs.iter().map(|s| s.name.clone()).collect();
-
-        // 3. 插入新的SKU
         let now = chrono::Utc::now().naive_utc();
         let timestamp = now.timestamp_millis();
+
+        // 1. 查询该产品现有的所有 SKU ID
+        let existing_skus: Vec<sku::Model> = ProductSku::find()
+            .filter(sku::Column::ProductId.eq(product_id))
+            .all(db)
+            .await?;
+        let existing_ids: std::collections::HashSet<i64> = existing_skus.iter().map(|s| s.id).collect();
+
+        // 2. 收集本次提交中带 id 的 SKU（表示更新），其余的表示新增
+        let mut submitted_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+
         for (idx, s) in skus.iter().enumerate() {
-            let specs_value = if let Some(ref specs_json) = s.specs {
-                Some(specs_json.clone())
-            } else {
-                None
-            };
-            
+            let specs_value = s.specs.clone();
+
             let sku_code = match &s.sku_code {
                 Some(code) if !code.trim().is_empty() => code.clone(),
                 _ => format!("SKU-{}-{}", product_id, timestamp + idx as i64),
             };
-            
+
+            // 检查是否有 id（前端传入已有 SKU 的 id 表示更新）
+            if let Some(ref id_val) = s.id {
+                if let Ok(id) = id_val.to_string().parse::<i64>() {
+                    if id > 0 && existing_ids.contains(&id) {
+                        // 更新已有 SKU
+                        submitted_ids.insert(id);
+                        ProductSku::update_many()
+                            .col_expr(sku::Column::SkuCode, Expr::value(sku_code.clone()))
+                            .col_expr(sku::Column::Specs, Expr::value(specs_value.clone()))
+                            .col_expr(sku::Column::Price, Expr::value(s.price.clone()))
+                            .col_expr(sku::Column::CostPrice, Expr::value(s.cost_price.clone()))
+                            .col_expr(sku::Column::OriginalPrice, Expr::value(s.original_price.clone()))
+                            .col_expr(sku::Column::Stock, Expr::value(s.stock))
+                            .col_expr(sku::Column::Weight, Expr::value(s.weight.clone()))
+                            .col_expr(sku::Column::Volume, Expr::value(s.volume.clone()))
+                            .col_expr(sku::Column::ImageUrl, Expr::value(s.image_url.clone()))
+                            .col_expr(sku::Column::IsDefault, Expr::value(s.is_default))
+                            .col_expr(sku::Column::IsActive, Expr::value(s.is_active))
+                            .col_expr(sku::Column::UpdateTime, Expr::value(now))
+                            .filter(sku::Column::Id.eq(id))
+                            .exec(db)
+                            .await?;
+                        continue;
+                    }
+                }
+            }
+
+            // 新增 SKU
             let payload = sku::ActiveModel {
                 product_id: Set(product_id),
                 sku_code: Set(Some(sku_code)),
@@ -610,6 +638,16 @@ impl ProductModel {
                 ..Default::default()
             };
             ProductSku::insert(payload).exec(db).await?;
+        }
+
+        // 3. 删除本次未提交的旧 SKU（前端不再需要的）
+        let ids_to_delete: Vec<i64> = existing_ids.difference(&submitted_ids).copied().collect();
+        if !ids_to_delete.is_empty() {
+            ProductSku::delete_many()
+                .filter(sku::Column::ProductId.eq(product_id))
+                .filter(sku::Column::Id.is_in(ids_to_delete))
+                .exec(db)
+                .await?;
         }
 
         Ok(())

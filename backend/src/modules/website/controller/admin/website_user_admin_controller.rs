@@ -112,7 +112,17 @@ pub async fn update_status(
     body: web::Json<UpdateStatusRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let result = website_user_service::admin_update_status(db, id.into_inner(), body.status).await;
+    let user_id = id.into_inner();
+    let result = website_user_service::admin_update_status(db, user_id, body.status).await;
+    // v1.1: 禁用（status=0）即时生效——写禁用标记，前台认证拦截；启用则清除标记
+    if result.is_ok() {
+        let key = format!("user_disabled:{}", user_id);
+        if body.status == 0 {
+            let _ = crate::core::kit::CONTEXT.cache_service.set_string(&key, "1").await;
+        } else {
+            let _ = crate::core::kit::CONTEXT.cache_service.del(&key).await;
+        }
+    }
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))

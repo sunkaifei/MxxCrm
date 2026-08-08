@@ -7,6 +7,12 @@ use crate::modules::statistics::model::contract_stats::{ContractRankingVO, Contr
 use sea_orm::prelude::Decimal;
 use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter};
 use std::collections::HashMap;
+use rust_decimal::prelude::RoundingStrategy;
+
+/// 统一百分比保留2位小数（后端兜底）
+fn round_pct(d: Decimal) -> Decimal {
+    d.round_dp_with_strategy(2, RoundingStrategy::MidpointNearestEven)
+}
 
 fn type_name(t: i32) -> &'static str {
     match t {
@@ -108,7 +114,7 @@ pub async fn get_contract_ranking(db: &DbConn, _year: Option<i32>, _month: Optio
             .filter_map(|c| payment_by_contract.get(&c.id))
             .sum();
         let payment_rate = if *amount > Decimal::ZERO {
-            payment / *amount * Decimal::from(100)
+            round_pct(payment / *amount * Decimal::from(100))
         } else {
             Decimal::ZERO
         };
@@ -131,7 +137,7 @@ pub async fn get_contract_ranking(db: &DbConn, _year: Option<i32>, _month: Optio
             .filter_map(|c| payment_by_contract.get(&c.id))
             .sum();
         let payment_rate = if *amount > Decimal::ZERO {
-            payment / *amount * Decimal::from(100)
+            round_pct(payment / *amount * Decimal::from(100))
         } else {
             Decimal::ZERO
         };
@@ -185,7 +191,7 @@ pub async fn get_contract_type_distribution(db: &DbConn, _year: Option<i32>, _mo
             contract_count: Some(count),
             contract_amount: Some(amount),
             percentage: if total_amount > Decimal::ZERO {
-                Some(amount / total_amount * Decimal::from(100))
+                Some(round_pct(amount / total_amount * Decimal::from(100)))
             } else {
                 Some(Decimal::ZERO)
             },
@@ -219,7 +225,7 @@ pub async fn get_contract_status_analysis(db: &DbConn, _year: Option<i32>, _mont
             contract_count: Some(count),
             contract_amount: Some(amount),
             percentage: if total_amount > Decimal::ZERO {
-                Some(amount / total_amount * Decimal::from(100))
+                Some(round_pct(amount / total_amount * Decimal::from(100)))
             } else {
                 Some(Decimal::ZERO)
             },

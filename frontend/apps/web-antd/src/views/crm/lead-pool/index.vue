@@ -235,7 +235,7 @@ async function handleDelete(row: any) {
     <Grid :table-title="$t('page.crm.leadPool.title')">
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('crm:lead:create')"
+          v-if="accessStore.hasAccessCode('crm:lead:save')"
           type="primary"
           class="mr-2"
           @click="openCreate"
@@ -271,7 +271,7 @@ async function handleDelete(row: any) {
         <span class="action-btns">
           <a class="action-btn" @click="() => handleClaim(row)">领取</a>
           <a
-            v-if="accessStore.hasAccessCode('crm:lead:edit')"
+            v-if="accessStore.hasAccessCode('crm:lead:update')"
             class="action-btn"
             @click="() => openEdit(row)"
           >编辑</a>

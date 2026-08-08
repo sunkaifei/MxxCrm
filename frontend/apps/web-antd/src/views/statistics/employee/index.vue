@@ -16,49 +16,43 @@ const loadData = async () => {
       getEmployeeFollowUpApi(),
       getEmployeeConversionApi(),
     ]);
-    
-    if (customerRes.data && customerRes.data.data) {
-      customerCountData.value = customerRes.data.data.map((item: any) => ({
-        employeeName: item.employeeName,
-        departmentName: item.departmentName,
-        totalCustomers: item.totalCustomers,
-        newCustomersThisMonth: item.newCustomersThisMonth,
-        contractCustomers: item.contractCustomers,
-        customerConversionRate: item.customerConversionRate,
-      }));
-    }
-    
-    if (followRes.data && followRes.data.data) {
-      followUpData.value = followRes.data.data.map((item: any) => ({
-        employeeName: item.employeeName,
-        departmentName: item.departmentName,
-        totalFollowUp: item.totalFollowUp,
-        customerFollowUp: item.customerFollowUp,
-        opportunityFollowUp: item.opportunityFollowUp,
-        avgFollowInterval: item.avgFollowInterval,
-        customersWithoutFollow30Days: item.customersWithoutFollow30Days,
-      }));
-    }
-    
-    if (conversionRes.data && conversionRes.data.data) {
-      conversionData.value = conversionRes.data.data.map((item: any) => ({
-        employeeName: item.employeeName,
-        departmentName: item.departmentName,
-        totalOpportunities: item.totalOpportunities,
-        wonOpportunities: item.wonOpportunities,
-        lostOpportunities: item.lostOpportunities,
-        opportunityWinRate: item.opportunityWinRate,
-        totalContracts: item.totalContracts,
-        contractAmount: item.contractAmount,
-        avgContractAmount: item.avgContractAmount,
-        avgSalesCycleDays: item.avgSalesCycleDays,
-      }));
-    }
+
+    const customerList = Array.isArray(customerRes) ? customerRes : (customerRes as any)?.data ?? [];
+    customerCountData.value = customerList.map((item: any) => ({
+      employeeName: item.employeeName,
+      departmentName: item.departmentName,
+      totalCustomers: item.totalCustomers,
+      newCustomersThisMonth: item.newCustomersThisMonth,
+      contractCustomers: item.contractCustomers,
+      customerConversionRate: Number(item.customerConversionRate) || 0,
+    }));
+
+    const followList = Array.isArray(followRes) ? followRes : (followRes as any)?.data ?? [];
+    followUpData.value = followList.map((item: any) => ({
+      employeeName: item.employeeName,
+      departmentName: item.departmentName,
+      totalFollowUp: item.totalFollowUp,
+      customerFollowUp: item.customerFollowUp,
+      opportunityFollowUp: item.opportunityFollowUp,
+      avgFollowInterval: Number(item.avgFollowInterval) || 0,
+      customersWithoutFollow30Days: item.customersWithoutFollow30Days,
+    }));
+
+    const conversionList = Array.isArray(conversionRes) ? conversionRes : (conversionRes as any)?.data ?? [];
+    conversionData.value = conversionList.map((item: any) => ({
+      employeeName: item.employeeName,
+      departmentName: item.departmentName,
+      totalOpportunities: item.totalOpportunities,
+      wonOpportunities: item.wonOpportunities,
+      lostOpportunities: item.lostOpportunities,
+      opportunityWinRate: Number(item.opportunityWinRate) || 0,
+      totalContracts: item.totalContracts,
+      contractAmount: Number(item.contractAmount) || 0,
+      avgContractAmount: Number(item.avgContractAmount) || 0,
+      avgSalesCycleDays: item.avgSalesCycleDays,
+    }));
   } catch (e) {
     console.error($t('page.statistics.loadEmployeeFailed'), e);
-    customerCountData.value = [];
-    followUpData.value = [];
-    conversionData.value = [];
   }
 };
 
@@ -76,7 +70,7 @@ const customerColumns = [
   { title: $t('page.statistics.totalCustomers'), dataIndex: 'totalCustomers', align: 'right' as const },
   { title: $t('page.statistics.newCustomersThisMonth'), dataIndex: 'newCustomersThisMonth', align: 'right' as const },
   { title: $t('page.statistics.contractCustomers'), dataIndex: 'contractCustomers', align: 'right' as const },
-  { title: $t('page.statistics.conversionRate'), dataIndex: 'customerConversionRate', align: 'right' as const, render: (val: number) => `${val}%` },
+  { title: $t('page.statistics.conversionRate'), dataIndex: 'customerConversionRate', align: 'right' as const, customRender: ({ text }) => `${Number(text).toFixed(2)}%` },
 ];
 
 const followUpColumns = [
@@ -94,8 +88,8 @@ const conversionColumns = [
   { title: $t('page.statistics.totalOpportunities'), dataIndex: 'totalOpportunities', align: 'right' as const },
   { title: $t('page.statistics.wonOpportunities'), dataIndex: 'wonOpportunities', align: 'right' as const },
   { title: $t('page.statistics.lostOpportunities'), dataIndex: 'lostOpportunities', align: 'right' as const },
-  { title: $t('page.statistics.opportunityWinRate'), dataIndex: 'opportunityWinRate', align: 'right' as const, render: (val: number) => `${val}%` },
-  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, render: (val: number) => formatCurrency(val) },
+  { title: $t('page.statistics.opportunityWinRate'), dataIndex: 'opportunityWinRate', align: 'right' as const, customRender: ({ text }) => `${Number(text).toFixed(2)}%` },
+  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, customRender: ({ text }) => formatCurrency(text) },
 ];
 </script>
 
@@ -103,12 +97,12 @@ const conversionColumns = [
   <Page auto-content-height>
     <div class="p-4">
       <h2 class="text-lg font-bold mb-4">{{ $t('page.statistics.employeeStats') }}</h2>
-      
+
       <Card :title="$t('page.statistics.employeeCustomerCount')" class="mb-6">
         <Table :columns="customerColumns" :data-source="customerCountData" :pagination="false" />
       </Card>
-      
-      <Row :gutter="16">
+
+      <Row :gutter="16" class="mt-4">
         <Col :span="12">
           <Card :title="$t('page.statistics.followUpAnalysis')">
             <Table :columns="followUpColumns" :data-source="followUpData" :pagination="false" size="small" />

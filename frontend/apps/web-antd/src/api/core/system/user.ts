@@ -52,3 +52,17 @@ export const updateMyPasswordApi = async (param: {
 }) => {
   return requestClient.put('/api/system/admin/update_my_password', param);
 };
+
+/**
+ * 踢用户下线（强制该用户所有设备重新登录）
+ */
+export const kickOfflineApi = async (id: number) => {
+  return requestClient.post(`/api/system/admin/kick-offline/${id}`);
+};
+
+/**
+ * 审核注册用户（1=通过 0=拒绝）
+ */
+export const auditUserApi = async (id: number, auditStatus: number) => {
+  return requestClient.put(`/api/system/admin/audit/${id}`, { auditStatus });
+};

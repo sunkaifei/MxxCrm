@@ -306,13 +306,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/approve",
                 web::post()
                     .to(expense_approve)
-                    .wrap(require_permission("finance:expense:approve")),
+                    .wrap(require_permission("finance:expense:audit")),
             )
             .route(
                 "/reject",
                 web::post()
                     .to(expense_reject)
-                    .wrap(require_permission("finance:expense:approve")),
+                    .wrap(require_permission("finance:expense:audit")),
             )
             .route(
                 "/payment",

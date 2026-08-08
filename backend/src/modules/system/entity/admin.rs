@@ -61,6 +61,8 @@ pub struct Model {
     pub bank_name: Option<String>,
     ///银行开户名
     pub bank_account_name: Option<String>,
+    ///审核状态：0待审核 1已通过（注册用户默认待审核）
+    pub audit_status: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

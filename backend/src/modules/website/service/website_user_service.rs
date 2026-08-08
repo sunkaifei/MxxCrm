@@ -42,7 +42,9 @@ fn validate_password(password: &str) -> Result<()> {
 }
 
 /// 前台用户注册
-pub async fn register(db: &DbConn, req: WebsiteUserRegisterRequest, register_ip: Option<String>) -> Result<i64> {
+pub async fn register(db: &DbConn, mut req: WebsiteUserRegisterRequest, register_ip: Option<String>) -> Result<i64> {
+    // 用户名统一转小写、去空格
+    req.username = req.username.trim().replace(' ', "").to_lowercase();
     validate_username(&req.username)?;
     validate_password(&req.password)?;
 

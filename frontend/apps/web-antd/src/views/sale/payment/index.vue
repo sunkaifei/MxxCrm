@@ -56,6 +56,9 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 function handleTabChange(key: string | number) {
   activeTab.value = key as string;
   gridApi.query();
@@ -391,7 +394,7 @@ function handleReject(row: any) {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('sale:payment:create')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -444,7 +447,7 @@ function handleReject(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('sale:payment:confirm') && row.status === 1"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:confirm') && row.status === 1"
           type="link"
           size="small"
           @click="() => handleConfirm(row)"
@@ -452,7 +455,7 @@ function handleReject(row: any) {
           确认
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:payment:confirm') && row.status === 1"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:confirm') && row.status === 1"
           type="link"
           size="small"
           danger
@@ -461,7 +464,7 @@ function handleReject(row: any) {
           驳回
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:payment:confirm') && row.status === 2"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:confirm') && row.status === 2"
           type="link"
           size="small"
           @click="() => openApplicationDrawer(row)"
@@ -469,7 +472,7 @@ function handleReject(row: any) {
           核销
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('sale:payment:edit')"
+          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
@@ -485,7 +488,7 @@ function handleReject(row: any) {
           @confirm="() => handleDelete(row)"
         >
           <Button
-            v-if="accessStore.hasAccessCode('sale:payment:delete')"
+            v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:delete')"
             type="link"
             danger
             :icon="h(LucideTrash2)"
