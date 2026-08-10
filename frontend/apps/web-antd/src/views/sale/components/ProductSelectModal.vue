@@ -21,16 +21,23 @@ interface SelectedSku {
   imageUrl?: string;
 }
 
-const props = defineProps<{
-  visible: boolean;
-  excludeIds?: number[];
-  /** 已添加的 SKU 标识列表（格式 `productId-skuId`，新数据） */
-  excludeSkuKeys?: string[];
-  /** 已添加的 SKU 编码列表（如 SKU-20-Black-Silicone，兼容历史数据） */
-  excludeSkuCodes?: string[];
-  /** 仓库ID（用于查询真实库存） */
-  warehouseId?: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    excludeIds?: number[];
+    /** 已添加的 SKU 标识列表（格式 `productId-skuId`，新数据） */
+    excludeSkuKeys?: string[];
+    /** 已添加的 SKU 编码列表（如 SKU-20-Black-Silicone，兼容历史数据） */
+    excludeSkuCodes?: string[];
+    /** 仓库ID（用于查询真实库存） */
+    warehouseId?: number;
+    /** 严格库存模式：开启后 warehouseId 有值时，库存<=0 的 SKU 不可选 */
+    strictStock?: boolean;
+  }>(),
+  {
+    strictStock: false,
+  },
+);
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void;
   (e: 'select', items: SelectedSku[]): void;
@@ -232,7 +239,14 @@ function isMultiSpec(product: any) {
   return product.specType === 'multiple';
 }
 
+// 严格库存模式：开启且 warehouseId 有值时，库存<=0 的条目（产品/SKU）不可选
+function isOutOfStock(record: any): boolean {
+  if (!props.strictStock || !props.warehouseId) return false;
+  return Number(record?.stock ?? 0) <= 0;
+}
+
 function selectSingleProduct(product: any) {
+  if (isOutOfStock(product)) return;
   const item: SelectedSku = {
     productId: Number(product.id),
     productName: product.name || product.productName,
@@ -255,6 +269,7 @@ function selectSingleProduct(product: any) {
 }
 
 function selectSku(product: any, sku: any) {
+  if (isOutOfStock(sku)) return;
   // 优先用 specs 生成带规格名的文本（如 颜色:红色），label 作为兜底
   const specsObj = parseSpecsObj(sku.specs);
   let specText = '';
@@ -399,6 +414,7 @@ function formatSpecs(specs: any): string {
       }"
       :expanded-row-keys="expandedRowKeys"
       :row-expandable="(record: any) => isMultiSpec(record)"
+      :row-class-name="(record: any) => (!isMultiSpec(record) && isOutOfStock(record)) ? 'stock-row--disabled' : ''"
       size="small"
       row-key="id"
       :scroll="{ y: 400 }"
@@ -425,6 +441,16 @@ function formatSpecs(specs: any): string {
             disabled
           >
             已添加
+          </Button>
+          <!-- 严格库存模式下无库存：禁用 -->
+          <Button
+            v-else-if="!isMultiSpec(record) && isOutOfStock(record)"
+            type="primary"
+            size="small"
+            ghost
+            disabled
+          >
+            无库存
           </Button>
           <!-- 单规格产品 -->
           <Button
@@ -463,6 +489,7 @@ function formatSpecs(specs: any): string {
           :pagination="false"
           size="small"
           row-key="id"
+          :row-class-name="(sku: any) => isOutOfStock(sku) ? 'stock-row--disabled' : ''"
         >
           <template #bodyCell="{ column, record: sku }">
             <template v-if="column.key === 'specText'">
@@ -482,6 +509,15 @@ function formatSpecs(specs: any): string {
                 disabled
               >
                 已添加
+              </Button>
+              <Button
+                v-else-if="isOutOfStock(sku)"
+                type="primary"
+                size="small"
+                ghost
+                disabled
+              >
+                无库存
               </Button>
               <Button
                 v-else
@@ -519,3 +555,12 @@ function formatSpecs(specs: any): string {
     </div>
   </Modal>
 </template>
+
+<style>
+/* 严格库存模式：库存<=0 的行显示灰色、不可选 */
+.stock-row--disabled > td {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  cursor: not-allowed;
+}
+</style>

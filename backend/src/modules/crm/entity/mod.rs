@@ -23,3 +23,6 @@ pub mod followup;
 pub mod lead;
 pub mod opportunity;
 pub mod work_log;
+pub mod electronic_signature;
+pub mod service_ticket;
+pub mod service_ticket_log;

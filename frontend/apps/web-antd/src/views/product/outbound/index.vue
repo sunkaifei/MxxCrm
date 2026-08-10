@@ -340,7 +340,7 @@ function handleCreate() {
           {{ $t('page.product.outbound.action.reject') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('product:outbound:edit')"
+          v-if="accessStore.hasAccessCode('product:outbound:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

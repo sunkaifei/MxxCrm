@@ -40,4 +40,5 @@ pub mod area;
 pub mod edit_log;
 pub mod mail;
 pub mod pdf;
+pub mod integration_config;
 

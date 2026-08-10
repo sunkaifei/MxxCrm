@@ -19,3 +19,7 @@ pub mod opportunity_controller;
 pub mod todo_controller;
 pub mod visit_controller;
 pub mod work_log_controller;
+pub mod customer_360_controller;
+pub mod electronic_signature_controller;
+pub mod payment_plan_auto_controller;
+pub mod service_ticket_controller;

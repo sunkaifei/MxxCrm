@@ -10,18 +10,28 @@ import {
   DescriptionsItem,
   Drawer,
   Input,
+  Modal,
+  Select,
   Spin,
   TabPane,
   Table,
   Tabs,
   Tag,
+  message,
 } from 'ant-design-vue';
 
 import {
+  addCcApprovalApi,
+  addSignApprovalApi,
   approveContractApi,
+  cancelApprovalApi,
+  delegateApprovalApi,
   getContractApprovalDetailApi,
   rejectContractApi,
+  rejectToApprovalApi,
+  transferApprovalApi,
 } from '#/api';
+import { searchUsersApi } from '#/api/core/message/chat';
 
 const STAMP_APPROVED = '/images/approval-approved.svg';
 const STAMP_PENDING = '/images/approval-pending.svg';
@@ -36,6 +46,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:visible': [val: boolean];
   success: [];
+  'go-edit': [contractId: number];
 }>();
 
 const loading = ref(false);
@@ -43,6 +54,34 @@ const detail = ref<any>(null);
 const comment = ref('');
 const actionLoading = ref(false);
 const activeTab = ref('detail');
+
+// 最大化状态
+const isMaximized = ref(false);
+const drawerWidth = computed(() => (isMaximized.value ? '100%' : '75%'));
+// 本地控制 Drawer 开关：父组件打开时同步打开
+const drawerOpen = ref(false);
+watch(
+  () => props.visible,
+  (val) => {
+    drawerOpen.value = val;
+  },
+  { immediate: true },
+);
+
+// Drawer 状态变化（含点击 X / 遮罩 / ESC / 底部按钮）统一在此同步父组件
+watch(drawerOpen, (val) => {
+  if (!val) {
+    isMaximized.value = false;
+    emit('update:visible', false);
+  }
+});
+
+function toggleMaximize() {
+  isMaximized.value = !isMaximized.value;
+}
+function handleClose() {
+  drawerOpen.value = false;
+}
 
 const instance = computed(() => detail.value?.instance);
 const contract = computed(() => detail.value);
@@ -101,21 +140,87 @@ const canApprove = computed(() => {
 
 // 是否是发起人
 const isSubmitter = computed(() => {
-  if (!instance.value || !props.currentUserId) return false;
-  return instance.value.submitterId === props.currentUserId;
+  if (!instance.value || props.currentUserId == null) return false;
+  return Number(instance.value.submitterId) === Number(props.currentUserId);
 });
+
+// 当前用户是否在候选审批人池中
+const isCandidateApprover = computed(() => {
+  if (!instance.value || props.currentUserId == null) return false;
+  const uidNum = Number(props.currentUserId);
+  const candidates = instance.value.candidateApprovers || [];
+  if (candidates.length > 0) {
+    return candidates.includes(uidNum);
+  }
+  return instance.value.currentApproverId === uidNum;
+});
+
+// 实例是否处于可操作状态（待审批/审批中）
+const isActionable = computed(() => {
+  return instance.value?.status === 1 || instance.value?.status === 2;
+});
+
+// 发起人撤销
+const canCancel = computed(() => isSubmitter.value && isActionable.value);
+// 退回
+const canRejectTo = computed(
+  () => isCandidateApprover.value && isActionable.value,
+);
+// 转办
+const canTransfer = computed(
+  () => isCandidateApprover.value && isActionable.value,
+);
+// 委派
+const canDelegate = computed(
+  () => isCandidateApprover.value && isActionable.value,
+);
+// 加签
+const canAddSign = computed(
+  () => isCandidateApprover.value && isActionable.value,
+);
+// 抄送（发起人或当前审批人）
+const canCc = computed(
+  () => (isSubmitter.value || isCandidateApprover.value) && isActionable.value,
+);
 
 // 是否只是查看者（既不是发起人也不是当前审批人）
 const isViewer = computed(() => {
   return !canApprove.value && !isSubmitter.value;
 });
 
+// 底部操作栏是否显示（存在任意可执行操作）
+const hasAnyAction = computed(
+  () =>
+    canApprove.value ||
+    canCancel.value ||
+    canCc.value ||
+    canRejectTo.value ||
+    canTransfer.value ||
+    canDelegate.value ||
+    canAddSign.value,
+);
+
 // 流程节点（按node_order排序，排除条件分支节点，用于流程图和流转记录）
+// 同时过滤掉未流转且审批人=0（系统自动通过）的节点，这些节点没有实际意义
 const flowNodesOrdered = computed(() => {
   if (!instance.value?.flowNodes) return [];
   return [...instance.value.flowNodes]
     .filter((n: any) => n.nodeType !== 3)
+    .filter((n: any) => {
+      // 保留所有非审批节点（开始/结束）
+      if (n.nodeType !== 2) return true;
+      // 审批节点：过滤掉"未流转"且"系统自动通过"的节点
+      if (n.nodeStatus === 0 && n.approverName === '系统自动通过') return false;
+      return true;
+    })
     .sort((a: any, b: any) => a.nodeOrder - b.nodeOrder);
+});
+
+// 获取驳回原因（从审批日志中找 action=2 的最新一条 comment）
+const latestRejectComment = computed(() => {
+  const logs = instance.value?.logs || [];
+  const rejectLog = [...logs].reverse().find((log: any) => log.action === 2 && log.comment);
+  return rejectLog?.comment || '';
 });
 
 // 审批流转记录表格数据（结合logs和nodes）
@@ -183,8 +288,9 @@ async function handleApprove() {
   actionLoading.value = true;
   try {
     await approveContractApi(props.contractId, comment.value || undefined);
+    window.$message?.success('审批通过');
     emit('success');
-    emit('update:visible', false);
+    handleClose();
   } finally {
     actionLoading.value = false;
   }
@@ -196,10 +302,218 @@ async function handleReject() {
   actionLoading.value = true;
   try {
     await rejectContractApi(props.contractId, comment.value || undefined);
+    window.$message?.success('已驳回，发起人可修改后重新提交');
     emit('success');
-    emit('update:visible', false);
+    handleClose();
   } finally {
     actionLoading.value = false;
+  }
+}
+
+// 发起人从审批详情跳转到编辑合同
+function handleGoEdit() {
+  if (!props.contractId) return;
+  handleClose();
+  emit('go-edit', props.contractId);
+}
+
+// ============ 增强功能弹窗状态 ============
+const modalState = ref<{
+  type: 'addCc' | 'addSign' | 'cancel' | 'delegate' | 'rejectTo' | 'transfer' | null;
+}>({ type: null });
+
+// 表单字段
+const targetUserId = ref<number | undefined>(undefined);
+const targetUserName = ref('');
+const targetUserIds = ref<number[]>([]);
+const addSignType = ref<1 | 2 | 3>(2); // 1=前加签,2=后加签,3=并加签
+const rejectToNodeKey = ref<string | undefined>(''); // '' 表示退回到发起人
+const commentText = ref('');
+const cancelReason = ref('');
+const ccReason = ref('');
+
+// 用户远程搜索
+const userOptions = ref<{ label: string; value: number }[]>([]);
+const userSearching = ref(false);
+let userSearchTimer: any = null;
+
+function handleUserSearch(keyword: string) {
+  if (userSearchTimer) clearTimeout(userSearchTimer);
+  if (!keyword.trim()) {
+    userOptions.value = [];
+    return;
+  }
+  userSearchTimer = setTimeout(async () => {
+    userSearching.value = true;
+    try {
+      const res: any = await searchUsersApi({
+        keyword,
+        page: 1,
+        pageSize: 20,
+      });
+      const list: any[] = res.list || res || [];
+      userOptions.value = list.map((u: any) => ({
+        label:
+          u.realName ||
+          u.nickName ||
+          u.userName ||
+          u.username ||
+          `用户${u.userId || u.id}`,
+        value: u.userId || u.id,
+      }));
+    } catch {
+      userOptions.value = [];
+    } finally {
+      userSearching.value = false;
+    }
+  }, 300);
+}
+
+function resetModalForm() {
+  targetUserId.value = undefined;
+  targetUserName.value = '';
+  targetUserIds.value = [];
+  addSignType.value = 2;
+  rejectToNodeKey.value = '';
+  commentText.value = '';
+  cancelReason.value = '';
+  ccReason.value = '';
+  userOptions.value = [];
+}
+
+function openModal(
+  type: 'addCc' | 'addSign' | 'cancel' | 'delegate' | 'rejectTo' | 'transfer',
+) {
+  resetModalForm();
+  modalState.value = { type };
+}
+
+function closeModal() {
+  modalState.value = { type: null };
+}
+
+const modalVisible = computed({
+  get: () => modalState.value.type !== null,
+  set: (v: boolean) => {
+    if (!v) closeModal();
+  },
+});
+
+const modalTitle = computed(() => {
+  const map: Record<string, string> = {
+    addCc: '添加抄送',
+    addSign: '加签',
+    cancel: '撤销审批',
+    delegate: '委派审批人',
+    rejectTo: '退回审批',
+    transfer: '转办审批',
+  };
+  return modalState.value.type ? map[modalState.value.type] : '';
+});
+
+// 退回节点选项：基于详情中的 flowNodes（审批类型节点）
+const rejectNodeOptions = computed(() => {
+  if (!instance.value) return [];
+  const nodes: any[] = instance.value.flowNodes || [];
+  return [
+    { label: '退回到发起人（修改后重新提交）', value: '' },
+    ...nodes
+      .filter((n) => n.nodeType === 2)
+      .map((n) => ({
+        label: `退回到节点：${n.nodeName}`,
+        value: n.nodeKey,
+      })),
+  ];
+});
+
+// 增强操作提交（撤销/退回/转办/委派/加签/抄送）
+async function handleModalSubmit() {
+  const type = modalState.value.type;
+  const instanceId = instance.value?.id;
+  if (!type || !instanceId) return;
+  try {
+    switch (type) {
+      case 'cancel': {
+        await cancelApprovalApi({
+          instanceId,
+          cancelReason: cancelReason.value || undefined,
+        });
+        message.success('已撤销审批');
+        break;
+      }
+      case 'rejectTo': {
+        await rejectToApprovalApi({
+          instanceId,
+          rejectToNodeKey:
+            rejectToNodeKey.value === ''
+              ? undefined
+              : rejectToNodeKey.value || undefined,
+          comment: commentText.value || undefined,
+        });
+        message.success('已退回');
+        break;
+      }
+      case 'transfer': {
+        if (!targetUserId.value) {
+          message.warning('请选择转办目标用户');
+          return;
+        }
+        await transferApprovalApi({
+          instanceId,
+          targetUserId: targetUserId.value,
+          targetUserName: targetUserName.value || undefined,
+          comment: commentText.value || undefined,
+        });
+        message.success('已转办');
+        break;
+      }
+      case 'delegate': {
+        if (!targetUserId.value) {
+          message.warning('请选择被委派人');
+          return;
+        }
+        await delegateApprovalApi({
+          instanceId,
+          targetUserId: targetUserId.value,
+          targetUserName: targetUserName.value || undefined,
+          comment: commentText.value || undefined,
+        });
+        message.success('已委派');
+        break;
+      }
+      case 'addSign': {
+        if (!targetUserIds.value.length) {
+          message.warning('请选择加签用户');
+          return;
+        }
+        await addSignApprovalApi({
+          instanceId,
+          addSignType: addSignType.value,
+          targetUserIds: targetUserIds.value,
+          comment: commentText.value || undefined,
+        });
+        message.success('已加签');
+        break;
+      }
+      case 'addCc': {
+        if (!targetUserIds.value.length) {
+          message.warning('请选择抄送用户');
+          return;
+        }
+        await addCcApprovalApi({
+          instanceId,
+          userIds: targetUserIds.value,
+          ccReason: ccReason.value || undefined,
+        });
+        message.success('已添加抄送');
+        break;
+      }
+    }
+    closeModal();
+    await loadDetail();
+    emit('success');
+  } catch (e: any) {
+    message.error(e?.message || '操作失败');
   }
 }
 
@@ -227,15 +541,24 @@ watch(
 
 <template>
   <Drawer
-    :open="visible"
+    v-model:open="drawerOpen"
     title="合同审批"
     placement="right"
-    width="75%"
+    :width="drawerWidth"
+    :closable="false"
     :body-style="{ padding: 0, display: 'flex', flexDirection: 'column', height: '100%' }"
     :header-style="{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px' }"
-    destroy-on-close
-    @close="emit('update:visible', false)"
   >
+    <template #extra>
+      <div class="flex items-center gap-1">
+        <Button type="text" size="small" @click="toggleMaximize">
+          {{ isMaximized ? '⤓ 还原' : '⤢' }}
+        </Button>
+        <Button type="text" size="small" @click="handleClose">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </Button>
+      </div>
+    </template>
     <Spin :spinning="loading" class="approval-spin">
       <div v-if="detail" class="approval-container flex flex-col h-full">
         <!-- ========== 顶部区域：编号、标题、状态、提交人、印章 ========== -->
@@ -443,6 +766,13 @@ watch(
                       <Tag color="error" class="m-0">已驳回</Tag>
                     </div>
                     <div class="text-xs text-gray-400 mt-0.5">{{ formatDateTime(instance.finishedAt) }}</div>
+                    <div v-if="latestRejectComment" class="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      <div class="text-xs text-red-500 font-semibold mb-1">驳回原因</div>
+                      <div class="text-sm text-red-700">{{ latestRejectComment }}</div>
+                    </div>
+                    <div v-if="isSubmitter" class="mt-2 text-xs text-blue-500">
+                      您可以修改合同内容后重新提交审批
+                    </div>
                   </div>
                 </div>
               </div>
@@ -496,7 +826,7 @@ watch(
                         </span>
                       </div>
                       <div class="text-xs mt-1" :class="node.nodeStatus === 0 ? 'text-gray-400' : 'text-gray-500'">
-                        {{ node.approverName || '-' }}
+                        {{ node.approverName || '—' }}
                       </div>
                     </div>
                     <span
@@ -562,8 +892,8 @@ watch(
         </div>
 
         <!-- ========== 底部操作栏 ========== -->
-        <div v-if="canApprove" class="border-t border-gray-200 px-6 py-4 bg-white">
-          <div class="mb-3">
+        <div v-if="hasAnyAction" class="border-t border-gray-200 px-6 py-4 bg-white">
+          <div v-if="canApprove" class="mb-3">
             <Input.TextArea
               v-model:value="comment"
               :rows="2"
@@ -571,16 +901,18 @@ watch(
             />
           </div>
           <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <!-- 高级操作按钮（视觉参考，功能后续扩展） -->
-              <Button class="text-gray-500" disabled>抄送</Button>
-              <Button class="text-gray-500" disabled>转办</Button>
-              <Button class="text-gray-500" disabled>委派</Button>
-              <Button class="text-gray-500" disabled>加签</Button>
-              <Button class="text-gray-500" disabled>退回</Button>
-              <Button class="text-gray-500" @click="emit('update:visible', false)">取消</Button>
+            <div class="flex items-center gap-3 flex-wrap">
+              <!-- 撤销审批（仅发起人） -->
+              <Button v-if="canCancel" danger @click="openModal('cancel')">撤销审批</Button>
+              <!-- 高级操作 -->
+              <Button v-if="canCc" class="text-gray-500" @click="openModal('addCc')">抄送</Button>
+              <Button v-if="canTransfer" class="text-gray-500" @click="openModal('transfer')">转办</Button>
+              <Button v-if="canDelegate" class="text-gray-500" @click="openModal('delegate')">委派</Button>
+              <Button v-if="canAddSign" class="text-gray-500" @click="openModal('addSign')">加签</Button>
+              <Button v-if="canRejectTo" class="text-gray-500" @click="openModal('rejectTo')">退回</Button>
+              <Button class="text-gray-500" @click="handleClose">取消</Button>
             </div>
-            <div class="flex items-center gap-3">
+            <div v-if="canApprove" class="flex items-center gap-3">
               <Button
                 danger
                 :loading="actionLoading"
@@ -604,10 +936,159 @@ watch(
           </div>
         </div>
 
-        <!-- 非审批人：只显示关闭按钮 -->
-        <div v-else class="border-t border-gray-200 px-6 py-3 bg-gray-50 flex justify-end">
-          <Button @click="emit('update:visible', false)">关闭</Button>
+        <!-- 无审批操作权限：根据状态显示不同操作 -->
+        <div v-else class="border-t border-gray-200 px-6 py-3 bg-gray-50 flex justify-between items-center">
+          <!-- 发起人 + 已驳回/已撤回/待修改：显示去修改按钮 -->
+          <div v-if="isSubmitter && instance && [4, 5, 6].includes(instance.status)" class="flex items-center gap-3">
+            <span class="text-sm text-gray-500">
+              {{ instance.status === 4 ? '审批被驳回' : instance.status === 5 ? '审批已撤回' : '审批被退回' }}，请修改后重新提交
+            </span>
+            <Button
+              type="primary"
+              @click="handleGoEdit"
+            >
+              {{ instance.status === 6 ? '去修改' : '去编辑' }}
+            </Button>
+          </div>
+          <div v-else></div>
+          <Button @click="handleClose">关闭</Button>
         </div>
+
+        <!-- 增强功能统一弹窗（撤销/退回/转办/委派/加签/抄送） -->
+        <Modal
+          v-model:visible="modalVisible"
+          :title="modalTitle"
+          destroy-on-close
+          width="520px"
+          @cancel="closeModal"
+        >
+          <div class="space-y-4 py-2">
+            <!-- 退回目标节点选择 -->
+            <div v-if="modalState.type === 'rejectTo'">
+              <div class="mb-2 text-sm text-gray-600">退回到：</div>
+              <Select
+                v-model:value="rejectToNodeKey"
+                :options="rejectNodeOptions"
+                placeholder="请选择退回目标"
+                style="width: 100%"
+              />
+              <div class="mt-1 text-xs text-gray-400">
+                默认退回到发起人，发起人修改后可重新提交
+              </div>
+            </div>
+
+            <!-- 转办 / 委派：单选用户 -->
+            <div v-if="modalState.type === 'transfer' || modalState.type === 'delegate'">
+              <div class="mb-2 text-sm text-gray-600">
+                {{ modalState.type === 'transfer' ? '转办给：' : '委派给：' }}
+              </div>
+              <Select
+                v-model:value="targetUserId"
+                :filter-option="false"
+                :loading="userSearching"
+                :options="userOptions"
+                allow-clear
+                show-search
+                placeholder="输入姓名/用户名搜索"
+                style="width: 100%"
+                @search="handleUserSearch"
+                @change="(v: any) => {
+                  const opt = userOptions.find(o => o.value === v);
+                  targetUserName = opt?.label || '';
+                }"
+              />
+              <div class="mt-1 text-xs text-gray-400">
+                <template v-if="modalState.type === 'transfer'">
+                  转办后责任转移，原审批人不再参与此节点审批
+                </template>
+                <template v-else>
+                  委派后责任仍归原审批人，被委派人处理后转回
+                </template>
+              </div>
+            </div>
+
+            <!-- 加签：类型选择 + 多选用户 -->
+            <div v-if="modalState.type === 'addSign'">
+              <div class="mb-2 text-sm text-gray-600">加签类型：</div>
+              <Select
+                v-model:value="addSignType"
+                :options="[
+                  { label: '前加签（先由加签人审批，再由我审批）', value: 1 },
+                  { label: '后加签（我通过后，再由加签人审批）', value: 2 },
+                  { label: '并加签（与我同时审批，并行处理）', value: 3 },
+                ]"
+                style="width: 100%"
+              />
+              <div class="mt-3 mb-2 text-sm text-gray-600">加签用户：</div>
+              <Select
+                v-model:value="targetUserIds"
+                :filter-option="false"
+                :loading="userSearching"
+                :options="userOptions"
+                allow-clear
+                mode="multiple"
+                placeholder="输入姓名/用户名搜索（可多选）"
+                style="width: 100%"
+                @search="handleUserSearch"
+              />
+            </div>
+
+            <!-- 抄送：多选用户 -->
+            <div v-if="modalState.type === 'addCc'">
+              <div class="mb-2 text-sm text-gray-600">抄送给：</div>
+              <Select
+                v-model:value="targetUserIds"
+                :filter-option="false"
+                :loading="userSearching"
+                :options="userOptions"
+                allow-clear
+                mode="multiple"
+                placeholder="输入姓名/用户名搜索（可多选）"
+                style="width: 100%"
+                @search="handleUserSearch"
+              />
+            </div>
+
+            <!-- 撤销：撤回原因 -->
+            <div v-if="modalState.type === 'cancel'">
+              <div class="mb-2 text-sm text-gray-600">
+                撤销原因（仅发起人可撤销进行中的审批）：
+              </div>
+              <Input.TextArea
+                v-model:value="cancelReason"
+                :rows="4"
+                placeholder="请填写撤销原因"
+              />
+            </div>
+
+            <!-- 退回 / 转办 / 委派 / 加签：审批意见 -->
+            <div
+              v-if="modalState.type && ['addSign', 'delegate', 'rejectTo', 'transfer'].includes(modalState.type)"
+            >
+              <div class="mb-2 text-sm text-gray-600">审批意见：</div>
+              <Input.TextArea
+                v-model:value="commentText"
+                :rows="3"
+                placeholder="请填写说明（可选）"
+              />
+            </div>
+
+            <!-- 抄送说明 -->
+            <div v-if="modalState.type === 'addCc'">
+              <div class="mb-2 text-sm text-gray-600">抄送说明：</div>
+              <Input.TextArea
+                v-model:value="ccReason"
+                :rows="3"
+                placeholder="请填写抄送说明（可选）"
+              />
+            </div>
+          </div>
+
+          <template #footer>
+            <Button @click="closeModal">取消</Button>
+            <Button type="primary" @click="handleModalSubmit">确认</Button>
+          </template>
+        </Modal>
       </div>
     </Spin>
   </Drawer>

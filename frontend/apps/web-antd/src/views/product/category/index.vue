@@ -156,7 +156,7 @@ function handleCreate() {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('product:category:edit')"
+          v-if="accessStore.hasAccessCode('product:category:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

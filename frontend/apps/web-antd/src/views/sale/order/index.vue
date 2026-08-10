@@ -689,7 +689,7 @@ function closeCustomerDetail() {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:order:save')"
+          v-if="!isSubordinateView && !isSuperAdmin && accessStore.hasAccessCode('sale:order:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"

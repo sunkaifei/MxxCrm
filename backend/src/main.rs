@@ -200,6 +200,16 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
+    // 一次性数据迁移：ai_config / mail_config → 统一配置表（幂等，已迁移则跳过）
+    match crate::modules::system::service::integration_config_service::migrate_legacy_configs(
+        &conn,
+    )
+    .await
+    {
+        Ok(_) => log::info!("[配置迁移] 旧配置迁移检查完成"),
+        Err(e) => log::error!("[配置迁移] 旧配置迁移失败: {:?}", e),
+    }
+
     let state = AppState {
         db: conn.clone(),
     };

@@ -798,7 +798,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/update",
                 web::put()
                     .to(pdf_template_update)
-                    .wrap(require_permission("system:pdf-template:edit")),
+                    .wrap(require_permission("system:pdf-template:update")),
             )
             .route(
                 "/bath_delete",
@@ -810,7 +810,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/set_default",
                 web::put()
                     .to(pdf_template_set_default)
-                    .wrap(require_permission("system:pdf-template:edit")),
+                    .wrap(require_permission("system:pdf-template:update")),
             )
             .route(
                 "/options",

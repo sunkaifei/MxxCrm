@@ -31,15 +31,6 @@ const routes: RouteRecordRaw[] = [
       },
       {
         meta: {
-          icon: 'lucide:bot',
-          title: 'AI设置',
-        },
-        name: 'CompanyAiSettings',
-        path: '/company/ai-settings',
-        component: () => import('#/views/crm/ai-settings/index.vue'),
-      },
-      {
-        meta: {
           icon: 'lucide:workflow',
           title: '销售流程',
         },

@@ -38,6 +38,16 @@ pub struct Model {
     pub delivery_date: Option<Date>,
     pub product_type: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
+    /// 履约方式：1=物流配送，2=自动交付，3=手动交付，4=服务履行，5=无需交付
+    pub fulfillment_type: Option<i32>,
+    /// 服务/订阅期开始日（仅 product_type=3/4）
+    pub service_start_date: Option<Date>,
+    /// 服务/订阅期结束日
+    pub service_end_date: Option<Date>,
+    /// 服务时长（单位：月）
+    pub service_duration: Option<i32>,
+    /// 虚拟商品已交付数量
+    pub delivered_quantity_v: Option<i32>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
     pub create_by: Option<i64>,

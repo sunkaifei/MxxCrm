@@ -389,14 +389,30 @@ pub async fn save_tax_detail(
     month: i32,
     result: MonthlyTaxResult,
 ) -> Result<i64, String> {
-    let now = Utc::now().naive_utc();
+    use sea_orm::ConnectionTrait;
     let txn = db.begin().await.map_err(|e| e.to_string())?;
+    let id = save_tax_detail_in_conn(&txn, salary_record_id, employee_id, year, month, result).await?;
+    txn.commit().await.map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+/// 在指定连接（事务或普通连接）上保存个税明细并更新累计值
+/// 供 calculate_inner 在主事务内调用，避免个税明细写在主事务外
+pub(crate) async fn save_tax_detail_in_conn<C: ConnectionTrait>(
+    conn: &C,
+    salary_record_id: i64,
+    employee_id: i64,
+    year: i32,
+    month: i32,
+    result: MonthlyTaxResult,
+) -> Result<i64, String> {
+    let now = Utc::now().naive_utc();
 
     // 查询配置以计算当月收入（= 累计收入 - 上月累计收入）
     let config = employee_tax_config::Entity::find()
         .filter(employee_tax_config::Column::EmployeeId.eq(employee_id))
         .filter(employee_tax_config::Column::Year.eq(year))
-        .one(&txn)
+        .one(conn)
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "员工个税配置不存在".to_string())?;
@@ -429,7 +445,7 @@ pub async fn save_tax_detail(
         create_time: Set(Some(now)),
         ..Default::default()
     };
-    let inserted = detail.insert(&txn).await.map_err(|e| e.to_string())?;
+    let inserted = detail.insert(conn).await.map_err(|e| e.to_string())?;
 
     // 更新员工个税配置的累计值（截至当月的累计）
     let mut active: employee_tax_config::ActiveModel = config.into();
@@ -443,9 +459,8 @@ pub async fn save_tax_detail(
     // 累计已预缴税额 = 上月累计 + 当月应纳税额
     active.cumulative_tax_paid = Set(prev_cumulative_tax_paid + result.monthly_tax);
     active.update_time = Set(Some(now));
-    active.update(&txn).await.map_err(|e| e.to_string())?;
+    active.update(conn).await.map_err(|e| e.to_string())?;
 
-    txn.commit().await.map_err(|e| e.to_string())?;
     Ok(inserted.id)
 }
 

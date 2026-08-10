@@ -176,7 +176,7 @@ async function handleConvertToOrder(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('production:plan:edit')"
+          v-if="accessStore.hasAccessCode('production:plan:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

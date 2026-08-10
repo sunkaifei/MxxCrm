@@ -170,7 +170,7 @@ async function handleToInbound(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('purchase:receipt:edit')"
+          v-if="accessStore.hasAccessCode('purchase:receipt:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

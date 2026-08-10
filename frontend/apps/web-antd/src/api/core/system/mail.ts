@@ -1,18 +1,7 @@
 import { requestClient } from '#/api/request';
 
-// 邮箱配置
-export const getMailConfigListApi = async (params?: any) =>
-  requestClient.get('/api/system/mail/config/list', { params });
-export const getMailConfigInfoApi = async (id: number) =>
-  requestClient.get('/api/system/mail/config/info', { params: { id } });
-export const createMailConfigApi = async (data: any) =>
-  requestClient.post('/api/system/mail/config/save', data);
-export const updateMailConfigApi = async (data: any) =>
-  requestClient.put('/api/system/mail/config/update', data);
-export const deleteMailConfigApi = async (ids: number[]) =>
-  requestClient.delete('/api/system/mail/config/bath_delete', { data: { ids } });
-export const setDefaultMailConfigApi = async (id: number) =>
-  requestClient.put('/api/system/mail/config/set_default', { id });
+// 邮箱账号（SMTP）配置：已统一迁移到「第三方接口配置」(integration-config.ts → smtp_email)
+// 下方仅保留邮件模板 / 发送 / 日志相关接口
 
 // 邮件模板
 export const getMailTemplateListApi = async (params?: any) =>

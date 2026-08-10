@@ -11,7 +11,7 @@ use crate::modules::articles::controller::admin::{article_admin_controller, arti
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller};
@@ -24,10 +24,18 @@ use crate::modules::crm::controller::admin::{customer_controller as crm_customer
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller, brand_controller, unit_conversion_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller, purchase_requisition_controller, purchase_receipt_controller, purchase_return_controller, purchase_stock_plan_controller, purchase_report_controller, supplier_brand_controller, supplier_product_controller};
 use crate::modules::production::controller::admin::{production_plan_controller, production_order_controller};
-use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, refund_controller, shipment_controller};
-use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller, inbound_controller, outbound_controller, inventory_report_controller, quality_check_controller, batch_controller, stock_snapshot_controller, inventory_suggestion_controller, stocktake_controller, warehouse_area_controller, transfer_controller, alert_controller};
+use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, refund_controller, shipment_controller, delivery_controller, card_pool_controller, entitlement_controller, online_payment_controller, logistics_controller, delivery_notification_controller, tax_invoice_controller, exchange_controller, download_link_controller};
+use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller, inbound_controller, outbound_controller, inventory_report_controller, quality_check_controller, batch_controller, stock_snapshot_controller, inventory_suggestion_controller, stocktake_controller, warehouse_area_controller, transfer_controller, alert_controller, serial_number_controller, bin_location_controller};
 use crate::modules::company::controller::admin::company_controller;
 use crate::modules::company::controller::admin::code_rule_controller;
+use crate::modules::crm::controller::admin::customer_360_controller;
+use crate::modules::crm::controller::admin::electronic_signature_controller;
+use crate::modules::crm::controller::admin::payment_plan_auto_controller;
+use crate::modules::crm::controller::admin::service_ticket_controller;
+use crate::modules::statistics::controller::admin::subscription_stats_controller;
+use crate::modules::statistics::controller::admin::customer_ltv_controller;
+use crate::modules::statistics::controller::admin::abc_analysis_controller;
+use crate::modules::system::controller::admin::exchange_rate_controller;
 use crate::modules::message::controller::admin::notification_admin_controller;
 use crate::modules::message::controller::admin::my_notification_controller;
 use crate::modules::message::controller::admin::chat_admin_controller;
@@ -110,6 +118,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(post_admin_controller::register)
             // Config Management
             .configure(config_admin_controller::register)
+            // Third-party Integration Config Management（第三方接口统一配置中心）
+            .configure(integration_config_controller::register)
             // Region Management
             .configure(region_admin_controller::register)
             // Area Management
@@ -238,8 +248,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(todo_controller::register)
             // CRM Work Log
             .configure(work_log_controller::register)
-            // AI Config Management
-            .configure(ai_config_controller::register)
+            // AI Config Management —— 已废弃，AI 配置统一到「第三方接口配置」integration_config (category=ai)
+            // .configure(ai_config_controller::register)
             // Background Check Management
             .configure(background_check_controller::register)
             // Product Category Management
@@ -290,6 +300,45 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(invoice_controller::register)
             // Sale Shipment Management
             .configure(shipment_controller::register)
+            // Sale Virtual Product Delivery Management (07-virtual-product)
+            .configure(delivery_controller::register)
+            // Sale Card Pool Management (07-virtual-product)
+            .configure(card_pool_controller::register)
+            // Sale Entitlement Management (07-virtual-product)
+            .configure(entitlement_controller::register)
+            // === 08-CRM能力补齐 P0-P3 ===
+            // P0-1: 在线支付
+            .configure(online_payment_controller::register)
+            // P1-2: 物流追踪
+            .configure(logistics_controller::register)
+            // P1-5: 交付通知
+            .configure(delivery_notification_controller::register)
+            // P2-9: 金税开票
+            .configure(tax_invoice_controller::register)
+            // P2-10: 换货流程
+            .configure(exchange_controller::register)
+            // P3-16: 下载链接防盗
+            .configure(download_link_controller::register)
+            // P1-4: 客户360视图
+            .configure(customer_360_controller::register)
+            // P1-6: 电子签约
+            .configure(electronic_signature_controller::register)
+            // P2-7: 回款计划自动生成
+            .configure(payment_plan_auto_controller::register)
+            // P3-15: 服务工单
+            .configure(service_ticket_controller::register)
+            // P1-3: MRR/ARR 订阅统计
+            .configure(subscription_stats_controller::register)
+            // P2-11: 客户LTV分析
+            .configure(customer_ltv_controller::register)
+            // P3-14: ABC分类分析
+            .configure(abc_analysis_controller::register)
+            // P2-12: 序列号管理
+            .configure(serial_number_controller::register)
+            // P3-13: 库位管理
+            .configure(bin_location_controller::register)
+            // P2-8: 汇率管理
+            .configure(exchange_rate_controller::register)
             // Purchase Order Management
             .configure(purchase_order_controller::register)
             // Supplier Management

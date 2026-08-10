@@ -116,6 +116,12 @@ pub struct ProductSaveRequest {
     pub production_safety_stock: Option<Decimal>,
     /// SKU变体列表
     pub skus: Option<Vec<SkuRequest>>,
+    /// 商品类型：1=实物，2=虚拟，3=服务，4=订阅
+    pub product_type: Option<i32>,
+    /// 默认履约方式：1=物流配送，2=自动交付，3=手动交付，4=服务履行，5=无需交付
+    pub fulfillment_type: Option<i32>,
+    /// 是否虚拟库存（0=否，1=是，无限售）
+    pub is_virtual_stock: Option<i32>,
 }
 
 impl From<ProductUpdateRequest> for ProductSaveDTO {
@@ -152,6 +158,9 @@ impl From<ProductUpdateRequest> for ProductSaveDTO {
             create_time: None,
             updated_by: None,
             update_time: None,
+            product_type: item.product_type,
+            fulfillment_type: item.fulfillment_type,
+            is_virtual_stock: item.is_virtual_stock,
         }
     }
 }
@@ -191,6 +200,12 @@ pub struct ProductUpdateRequest {
     /// 生产安全库存
     pub production_safety_stock: Option<Decimal>,
     pub skus: Option<Vec<SkuRequest>>,
+    /// 商品类型：1=实物，2=虚拟，3=服务，4=订阅
+    pub product_type: Option<i32>,
+    /// 默认履约方式
+    pub fulfillment_type: Option<i32>,
+    /// 是否虚拟库存
+    pub is_virtual_stock: Option<i32>,
 }
 
 impl From<ProductSaveRequest> for ProductSaveDTO {
@@ -227,6 +242,9 @@ impl From<ProductSaveRequest> for ProductSaveDTO {
             create_time: None,
             updated_by: None,
             update_time: None,
+            product_type: item.product_type,
+            fulfillment_type: item.fulfillment_type,
+            is_virtual_stock: item.is_virtual_stock,
         }
     }
 }
@@ -266,6 +284,9 @@ pub struct ProductSaveDTO {
     pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
     pub update_time: Option<DateTime>,
+    pub product_type: Option<i32>,
+    pub fulfillment_type: Option<i32>,
+    pub is_virtual_stock: Option<i32>,
 }
 
 /// SKU变体VO
@@ -298,8 +319,8 @@ impl From<sku::Model> for SkuVO {
                 Some(s.to_string())
             } else if v.is_object() {
                 let obj = v.as_object()?;
-                let values: Vec<String> = obj.values().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
-                Some(values.join(" / "))
+                let pairs: Vec<String> = obj.iter().filter_map(|(k, v)| v.as_str().map(|s| format!("{}：{}", k, s))).collect();
+                Some(pairs.join(" / "))
             } else {
                 None
             }
@@ -405,6 +426,9 @@ pub struct ProductListVO {
     pub is_active: Option<bool>,
     pub spec_type: Option<String>,
     pub create_time: Option<DateTime>,
+    pub brand_name: Option<String>,
+    pub total_stock: Option<i64>,
+    pub safety_stock: Option<Decimal>,
 }
 
 impl From<product::Model> for ProductListVO {
@@ -423,6 +447,9 @@ impl From<product::Model> for ProductListVO {
             is_active: item.is_active,
             spec_type: item.spec_type,
             create_time: item.create_time,
+            brand_name: None,
+            total_stock: None,
+            safety_stock: item.safety_stock,
         }
     }
 }
@@ -435,6 +462,8 @@ pub struct ProductListQuery {
     pub page_size: Option<i64>,
     pub keywords: Option<String>,
     pub category_id: Option<i64>,
+    pub warehouse_id: Option<i64>,
+    pub brand_id: Option<i64>,
     pub is_active: Option<bool>,
 }
 
@@ -481,6 +510,9 @@ impl ProductModel {
             create_time: Set(Some(now)),
             updated_by: Set(req.updated_by),
             update_time: Set(Some(now)),
+            product_type: Set(req.product_type),
+            fulfillment_type: Set(req.fulfillment_type),
+            is_virtual_stock: Set(req.is_virtual_stock),
             ..Default::default()
         };
 
@@ -531,6 +563,9 @@ impl ProductModel {
             production_safety_stock: Set(req.production_safety_stock.clone()),
             updated_by: Set(req.updated_by),
             update_time: Set(Some(chrono::Utc::now().naive_utc())),
+            product_type: Set(req.product_type),
+            fulfillment_type: Set(req.fulfillment_type),
+            is_virtual_stock: Set(req.is_virtual_stock),
             ..Default::default()
         };
 
@@ -659,6 +694,7 @@ impl ProductModel {
         per_page: i64,
         keywords: Option<String>,
         category_id: Option<i64>,
+        brand_id: Option<i64>,
         is_active: Option<bool>,
     ) -> Result<(Vec<product::Model>, i64), DbErr> {
         let mut query = Product::find()
@@ -675,6 +711,9 @@ impl ProductModel {
         if let Some(c) = category_id {
             query = query.filter(product::Column::CategoryId.eq(c));
         }
+        if let Some(b) = brand_id {
+            query = query.filter(product::Column::BrandId.eq(b));
+        }
         if let Some(a) = is_active {
             query = query.filter(product::Column::IsActive.eq(a));
         }
@@ -689,6 +728,7 @@ impl ProductModel {
         db: &DbConn,
         keywords: Option<String>,
         category_id: Option<i64>,
+        brand_id: Option<i64>,
         is_active: Option<bool>,
     ) -> Result<i64, DbErr> {
         let mut query = Product::find()
@@ -704,6 +744,9 @@ impl ProductModel {
         }
         if let Some(c) = category_id {
             query = query.filter(product::Column::CategoryId.eq(c));
+        }
+        if let Some(b) = brand_id {
+            query = query.filter(product::Column::BrandId.eq(b));
         }
         if let Some(a) = is_active {
             query = query.filter(product::Column::IsActive.eq(a));

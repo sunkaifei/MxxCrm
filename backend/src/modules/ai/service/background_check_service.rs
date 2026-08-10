@@ -1,6 +1,6 @@
 use crate::core::errors::error::{Error, Result};
 use crate::modules::ai::model::company_background_check::{BackgroundCheckDetailVO, BackgroundCheckListVO, BackgroundCheckModel, BackgroundCheckSaveDTO};
-use crate::modules::ai::service::ai_config_service;
+use crate::modules::system::service::integration_config_service;
 use log::{info, warn, error};
 use sea_orm::{DbConn, EntityTrait};
 use serde_json::{json, Value};
@@ -20,16 +20,66 @@ pub async fn perform_background_check(
 
     info!("[背调] 开始执行, company_name={}, lead_id={:?}", company_name, lead_id);
 
-    let api_key = ai_config_service::get_by_key(db, "ai_deepseek_api_key").await
-        .map_err(|_| Error::from("DeepSeek API密钥未配置，请先在AI设置中配置"))?;
-    let model = ai_config_service::get_by_key(db, "ai_deepseek_model").await?;
-    let api_url = ai_config_service::get_by_key(db, "ai_deepseek_api_url").await?;
-    let temperature = ai_config_service::get_by_key(db, "ai_deepseek_temperature").await?;
-    let prompt = ai_config_service::get_by_key(db, "ai_background_check_prompt").await?;
+    // ========== 改用 integration_config 统一配置中心 ==========
+    // 1. 获取第一个已启用的 AI 提供商（一次性查询，后续取字段零成本）
+    let provider = integration_config_service::get_default_ai_provider(db)
+        .await
+        .map_err(|e| {
+            error!("[背调] 加载AI提供商失败: {}", e);
+            Error::from("没有可用的AI提供商配置，请先在「系统设置→第三方接口配置→AI配置」中添加并启用")
+        })?
+        .ok_or_else(|| Error::from("没有已启用的 AI 提供商，请先在「系统设置→第三方接口配置→AI配置」中添加并启用"))?;
 
-    info!("[背调] 配置加载完成: model={}, api_url={}", model, api_url);
+    let code = provider.integration_code.clone().unwrap_or_else(|| "unknown".to_string());
+    let json = provider.config_json.as_ref().ok_or_else(|| {
+        Error::from(format!("AI 提供商 {} 配置为空，请重新保存", code))
+    })?;
 
-    let temperature_val: f64 = temperature.parse().unwrap_or(0.7);
+    // 2. 从 config_json + entity 字段拼接所需参数
+    let api_key = json
+        .get("api_key")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| Error::from(format!("AI 提供商 {} 缺少 api_key 配置", code)))?;
+
+    let model = json
+        .get("model")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| Error::from(format!("AI 提供商 {} 缺少 model 配置", code)))?;
+
+    // api_url 优先级：entity.api_base_url > config_json.api_url > 按 provider code 推定默认值
+    let api_url = provider
+        .api_base_url
+        .clone()
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            json.get("api_url")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| default_api_url_for_provider(&code));
+
+    if api_url.is_empty() {
+        return Err(Error::from(format!("AI 提供商 {} 缺少 API 地址（api_base_url 字段）", code)));
+    }
+
+    let temperature = json
+        .get("temperature")
+        .and_then(|v| v.as_str().and_then(|s| s.parse::<f64>().ok()))
+        .or_else(|| json.get("temperature").and_then(|v| v.as_f64()))
+        .unwrap_or(0.7);
+
+    // 3. 获取背调提示词
+    let prompt =
+        integration_config_service::get_ai_prompt_content(db, "background_check").await?;
+
+    info!(
+        "[背调] 配置加载完成: provider={}, model={}, api_url={}",
+        code, model, api_url
+    );
 
     let full_prompt = format!("{}\n\n请查询以下公司的信息：{}", prompt, company_name);
 
@@ -55,7 +105,7 @@ pub async fn perform_background_check(
                     "content": full_prompt
                 }
             ],
-            "temperature": temperature_val,
+            "temperature": temperature,
             "max_tokens": 4096
         }))
         .send()
@@ -176,6 +226,21 @@ pub async fn perform_background_check(
         .ok_or_else(|| Error::from("保存背调记录失败"))?;
 
     Ok(BackgroundCheckDetailVO::from(check))
+}
+
+/// 根据 AI provider code 给出默认 API 地址（降级兜底，正常应优先使用 entity.api_base_url）
+fn default_api_url_for_provider(code: &str) -> String {
+    match code {
+        "deepseek" => "https://api.deepseek.com/v1/chat/completions".to_string(),
+        "doubao" => "https://ark.cn-beijing.volces.com/api/v3/chat/completions".to_string(),
+        "zhipu" => "https://open.bigmodel.cn/api/paas/v4/chat/completions".to_string(),
+        "qwen" => "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions".to_string(),
+        "moonshot" => "https://api.moonshot.cn/v1/chat/completions".to_string(),
+        "wenxin" | "baidu" => {
+            "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat".to_string()
+        }
+        _ => String::new(),
+    }
 }
 
 pub async fn get_by_lead_id(db: &DbConn, lead_id: i64) -> Result<Vec<BackgroundCheckListVO>> {

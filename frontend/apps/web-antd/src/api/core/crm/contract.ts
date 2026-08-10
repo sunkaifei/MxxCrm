@@ -22,6 +22,14 @@ export const submitContractApi = async (contractId: number) => {
   return requestClient.post('/api/system/contract/submit', { id: contractId });
 };
 
+// 上传签署件（确认签署）
+export const signContractApi = async (id: number, data: { contractFile?: string; contractImages?: string }) =>
+  requestClient.post(`/api/system/contract/sign/${id}`, data);
+
+// 确认执行（已签署 → 执行中）
+export const executeContractApi = async (id: number) =>
+  requestClient.post(`/api/system/contract/execute/${id}`);
+
 export const approveContractApi = async (contractId: number, reason?: string) => {
   return requestClient.post('/api/system/contract/approve', { contractId, reason });
 };

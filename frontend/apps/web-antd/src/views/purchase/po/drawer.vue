@@ -5,8 +5,10 @@ import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
 import { createPurchaseOrderApi, updatePurchaseOrderApi } from '#/api';
 import { statusList } from '#/store';
+import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 const data = ref();
 const items = ref<any[]>([]);
+const productSelectVisible = ref(false);
 const getTitle = computed(() => data.value?.create
  ? $t('ui.modal.create', { moduleName: $t('page.purchase.po.title') })
  : $t('ui.modal.update', { moduleName: $t('page.purchase.po.title') }));
@@ -98,16 +100,48 @@ const [Drawer, drawerApi] = useVbenDrawer({
 function setLoading(loading: boolean) {
  drawerApi.setState({ loading });
 }
+// 已添加产品的排除列表（computed 确保响应式）
+const excludeProductIds = computed(() =>
+  items.value
+    .filter((i: any) => !i.skuId || i.skuId === 0)
+    .map((i: any) => Number(i.productId)),
+);
+const excludeSkuKeys = computed(() =>
+  items.value
+    .filter((i: any) => i.skuId && i.skuId > 0)
+    .map((i: any) => `${i.productId}-${i.skuId}`),
+);
+const excludeSkuCodes = computed(() =>
+  items.value
+    .filter((i: any) => i.productSku && i.productSku !== '')
+    .map((i: any) => i.productSku),
+);
 function addItem() {
- items.value.push({
- productName: '',
- sku: '',
- quantity: 1,
- unitPrice: 0,
- discount: 0,
- taxRate: 0,
- totalAmount: 0,
- });
+  productSelectVisible.value = true;
+}
+function onProductSelected(selectedItems: any[]) {
+  const existingKeys = new Set(
+    items.value.map((i: any) => `${i.productId}-${i.skuId || 0}`),
+  );
+  for (const item of selectedItems) {
+    const key = `${item.productId}-${item.skuId || 0}`;
+    if (existingKeys.has(key)) continue;
+    items.value.push({
+      productId: item.productId,
+      productName: item.productName,
+      productCode: item.productCode,
+      skuId: item.skuId || 0,
+      productSku: item.skuCode || '',
+      spec: item.spec || '',
+      unit: item.unit || '',
+      quantity: 1,
+      unitPrice: item.unitPrice || 0,
+      discount: 0,
+      taxRate: 0,
+      totalAmount: 0,
+    });
+  }
+  productSelectVisible.value = false;
 }
 function removeItem(index: number) {
  items.value.splice(index, 1);
@@ -149,18 +183,16 @@ function updateSubtotal(item: any) {
         <tbody>
           <tr v-for="(item, index) in items" :key="index">
             <td class="border px-4 py-2">
-              <input
-                v-model="item.productName"
-                class="w-full border rounded px-2 py-1"
-                :placeholder="$t('page.purchase.po.item.placeholder.productName')"
-              />
+              <div class="flex flex-col">
+                <span class="font-medium">{{ item.productName || '-' }}</span>
+                <span class="text-xs text-gray-400">{{ item.productCode || '' }}</span>
+              </div>
             </td>
             <td class="border px-4 py-2">
-              <input
-                v-model="item.sku"
-                class="w-full border rounded px-2 py-1"
-                :placeholder="$t('page.purchase.po.item.placeholder.sku')"
-              />
+              <div class="flex flex-col">
+                <span>{{ item.productSku || item.spec || '-' }}</span>
+                <span v-if="item.spec && item.productSku" class="text-xs text-gray-400">{{ item.spec }}</span>
+              </div>
             </td>
             <td class="border px-4 py-2">
               <input
@@ -212,5 +244,13 @@ function updateSubtotal(item: any) {
         </tbody>
       </table>
     </div>
+    <ProductSelectModal
+      :visible="productSelectVisible"
+      :exclude-ids="excludeProductIds"
+      :exclude-sku-keys="excludeSkuKeys"
+      :exclude-sku-codes="excludeSkuCodes"
+      @update:visible="(val) => (productSelectVisible = val)"
+      @select="onProductSelected"
+    />
   </Drawer>
 </template>

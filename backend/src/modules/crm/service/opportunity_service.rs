@@ -11,7 +11,7 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::entity::{contact, customer};
 use crate::modules::crm::model::opportunity::{OpportunityDetailVO, OpportunityListQuery, OpportunityListVO, OpportunityModel, OpportunitySaveDTO, OpportunitySaveRequest, OpportunityUpdateRequest};
-use crate::modules::system::entity::{admin, admin::Entity as Admin, dept as dept_entity};
+use crate::modules::system::entity::dept as dept_entity;
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::admin_service::build_admin_name_map;
@@ -160,23 +160,13 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
             Some(vec![current_user_id])
         }
         "subordinate" => {
-            // 下属商机：获取数据权限范围内的其他用户（排除自己）
-            let accessible = crate::modules::system::service::data_scope_service
-                ::get_accessible_user_ids(db, current_user_id).await?;
-            match accessible {
-                None => {
-                    // 全部数据权限：获取所有用户，排除自己
-                    let all_admins = Admin::find()
-                        .filter(admin::Column::Id.ne(current_user_id))
-                        .all(db)
-                        .await
-                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    Some(all_admins.iter().map(|u| u.id).collect())
-                }
-                Some(ids) => {
-                    // 部门/仅本人权限：排除自己
-                    Some(ids.into_iter().filter(|id| *id != current_user_id).collect())
-                }
+            // 下属商机：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            let subordinate_ids = crate::modules::system::service::subordinate_service
+                ::get_subordinate_ids_default(db, current_user_id).await?;
+            if subordinate_ids.is_empty() {
+                Some(vec![-1])
+            } else {
+                Some(subordinate_ids)
             }
         }
         _ => {
@@ -493,6 +483,11 @@ pub async fn convert_to_order(db: &DbConn, opportunity_id: i64, user_id: i64) ->
         dept_id: None,
         approval_status: Some(0), // 草稿
         instance_id: None,
+        fulfillment_type: None,
+        service_start_date: None,
+        service_end_date: None,
+        service_duration: None,
+        auto_renew: None,
         create_by: Some(user_id),
         update_by: None,
     };

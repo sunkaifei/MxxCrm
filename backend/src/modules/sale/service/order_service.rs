@@ -25,6 +25,7 @@ use crate::modules::system::service::role_service;
 use crate::modules::system::service::sales_flow_config_service;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use sea_orm::{ActiveModelTrait, DbConn, TransactionTrait, EntityTrait, ColumnTrait, QueryFilter, Set};
 use std::collections::{HashMap, HashSet};
 
@@ -127,12 +128,60 @@ pub async fn insert(db: &DbConn, form_data: &OrderSaveRequest, created_by: i64) 
         dto.owner_user_id = Some(created_by);
     }
 
+    // === 虚拟商品与服务订单支持：order_type / fulfillment_type 自动推导 ===
+    use crate::modules::sale::model::order::{
+        derive_order_type, default_fulfillment_type, PRODUCT_TYPE_PHYSICAL,
+    };
+    // 推导每条明细的 fulfillment_type（如未传则按 product_type 默认）
+    let enriched_items: Vec<OrderItemSaveDTO> = items.iter().map(|it| {
+        let pt = it.product_type.unwrap_or(PRODUCT_TYPE_PHYSICAL);
+        let ft = it.fulfillment_type.unwrap_or_else(|| default_fulfillment_type(pt));
+        let mut cloned = it.clone();
+        cloned.fulfillment_type = Some(ft);
+        cloned
+    }).collect();
+    // 推导订单 order_type
+    let item_types: Vec<i32> = enriched_items.iter()
+        .map(|it| it.product_type.unwrap_or(PRODUCT_TYPE_PHYSICAL))
+        .collect();
+    dto.order_type = Some(derive_order_type(&item_types));
+    dto.fulfillment_type = enriched_items.first()
+        .and_then(|it| it.fulfillment_type);
+    // 服务/订阅订单：聚合服务期
+    if let Some(max_duration) = enriched_items.iter()
+        .filter_map(|it| it.service_duration)
+        .max() {
+        dto.service_duration = Some(max_duration);
+        let earliest_start = enriched_items.iter()
+            .filter_map(|it| it.service_start_date)
+            .min();
+        dto.service_start_date = earliest_start.or(Some(chrono::Local::now().date_naive()));
+        if let Some(start) = dto.service_start_date {
+            dto.service_end_date = Some(add_months_naive(start, max_duration));
+        }
+    }
+
     let order_id = OrderModel::insert(&txn, &dto).await?;
-    OrderItemModel::insert_batch(&txn, order_id, &items).await?;
+    OrderItemModel::insert_batch(&txn, order_id, &enriched_items).await?;
 
     txn.commit().await?;
 
     Ok(order_id)
+}
+
+/// 增加 N 月（处理跨年/月末）
+fn add_months_naive(date: chrono::NaiveDate, months: i32) -> chrono::NaiveDate {
+    use chrono::Datelike;
+    let total = date.year() * 12 + (date.month() as i32 - 1) + months;
+    let new_year = total.div_euclid(12);
+    let new_month = total.rem_euclid(12) + 1;
+    let last_day = chrono::NaiveDate::from_ymd_opt(
+        if new_month == 12 { new_year + 1 } else { new_year },
+        if new_month == 12 { 1u32 } else { (new_month + 1) as u32 },
+        1
+    ).map(|d| d.pred_opt().unwrap_or(d).day()).unwrap_or(28);
+    let day = date.day().min(last_day);
+    chrono::NaiveDate::from_ymd_opt(new_year, new_month as u32, day).unwrap_or(date)
 }
 
 pub async fn update(db: &DbConn, form_data: &OrderUpdateRequest, updated_by: i64) -> Result<i64> {
@@ -209,9 +258,24 @@ pub async fn update(db: &DbConn, form_data: &OrderUpdateRequest, updated_by: i64
     dto.total_amount = Some(total_amount);
     dto.update_by = Some(updated_by);
 
+    // === 虚拟商品与服务订单支持：order_type / fulfillment_type 自动推导（编辑场景） ===
+    use crate::modules::sale::model::order as order_model_mod;
+    let enriched_items: Vec<OrderItemSaveDTO> = items.iter().map(|it| {
+        let pt = it.product_type.unwrap_or(order_model_mod::PRODUCT_TYPE_PHYSICAL);
+        let ft = it.fulfillment_type.unwrap_or_else(|| order_model_mod::default_fulfillment_type(pt));
+        let mut cloned = it.clone();
+        cloned.fulfillment_type = Some(ft);
+        cloned
+    }).collect();
+    let item_types: Vec<i32> = enriched_items.iter()
+        .map(|it| it.product_type.unwrap_or(order_model_mod::PRODUCT_TYPE_PHYSICAL))
+        .collect();
+    dto.order_type = Some(order_model_mod::derive_order_type(&item_types));
+    dto.fulfillment_type = enriched_items.first().and_then(|it| it.fulfillment_type);
+
     OrderModel::update_by_id(&txn, id, &dto).await?;
     OrderItemModel::delete_by_order_id(&txn, id).await?;
-    OrderItemModel::insert_batch(&txn, id, &items).await?;
+    OrderItemModel::insert_batch(&txn, id, &enriched_items).await?;
 
     txn.commit().await?;
 
@@ -239,6 +303,58 @@ pub async fn update_status(db: &DbConn, form_data: &OrderStatusUpdateRequest) ->
         }
         if order.contract_id.is_some() {
             return Err(Error::from("已签合同的订单不能作废"));
+        }
+    }
+
+    // === 虚拟商品与服务订单支持：状态机前置校验 ===
+    use crate::modules::sale::model::order as order_const;
+    let order = existing.as_ref().unwrap();
+    let current_status = order.order_status.unwrap_or(0);
+    let order_type = order.order_type.unwrap_or(order_const::ORDER_TYPE_PHYSICAL);
+
+    // 校验1：实物订单未发货完成不允许置"已完成"（除非全部明细 fulfillment_type=5 无需交付）
+    if order_status == 10 && order_type == order_const::ORDER_TYPE_PHYSICAL
+        && current_status != 9 && current_status != 6 {
+        // 允许：已发货(6)/已签收(9) → 已完成(10)；其他拒绝
+        if current_status < 6 {
+            return Err(Error::from("实物订单未发货完成，不允许置为已完成"));
+        }
+    }
+
+    // 校验2：虚拟订单未全部交付不允许置"已完成"
+    if order_status == 10 && matches!(order_type,
+        order_const::ORDER_TYPE_VIRTUAL | order_const::ORDER_TYPE_MIXED) {
+        let items = OrderItemModel::find_by_order_id(db, id).await?;
+        use crate::modules::sale::model::order_delivery::DeliveryModel;
+        let mut all_delivered = true;
+        for item in items.iter() {
+            let pt = item.product_type.unwrap_or(order_const::PRODUCT_TYPE_PHYSICAL);
+            if !matches!(pt, order_const::PRODUCT_TYPE_VIRTUAL | order_const::PRODUCT_TYPE_SUBSCRIPTION) {
+                continue;
+            }
+            let item_id = item.id;
+            let delivered = DeliveryModel::count_by_item(db, item_id).await
+                .map_err(|e| Error::from(e.to_string()))?;
+            let needed = item.quantity.unwrap_or(rust_decimal::Decimal::ZERO)
+                .to_i64().unwrap_or(0);
+            if delivered < needed {
+                all_delivered = false;
+                break;
+            }
+        }
+        if !all_delivered {
+            return Err(Error::from("虚拟订单未全部交付，不允许置为已完成"));
+        }
+    }
+
+    // 校验3：服务/订阅订单置"服务中"必须有 entitlement
+    if order_status == order_const::ORDER_STATUS_IN_SERVICE
+        && matches!(order_type, order_const::ORDER_TYPE_SERVICE | order_const::ORDER_TYPE_SUBSCRIPTION) {
+        use crate::modules::sale::model::entitlement::EntitlementModel;
+        let ents = EntitlementModel::find_by_order(db, id).await
+            .map_err(|e| Error::from(e.to_string()))?;
+        if ents.is_empty() {
+            return Err(Error::from("服务订单缺少权益记录，不允许置为服务中"));
         }
     }
 
@@ -455,8 +571,9 @@ pub async fn submit_order(db: &DbConn, order_id: i64, operator_id: i64, operator
     let order = OrderModel::find_by_id(db, order_id).await?
         .ok_or_else(|| Error::from("订单不存在"))?;
 
-    if order.approval_status != Some(0) && order.approval_status != Some(4) {
-        return Err(Error::from("当前状态不允许提交，仅草稿或已驳回状态可提交"));
+    if order.approval_status != Some(0) && order.approval_status != Some(4)
+        && order.approval_status != Some(5) && order.approval_status != Some(6) {
+        return Err(Error::from("当前状态不允许提交，仅草稿、已驳回、已撤回或待修改状态可提交"));
     }
 
     let title = order.title.clone().unwrap_or_default();
@@ -526,6 +643,15 @@ pub async fn approve_order(db: &DbConn, order_id: i64, operator_id: i64, operato
     // 审批通过后自动生成 PDF（best-effort，不阻断审批流程）
     if new_status == 3 {
         crate::modules::system::service::pdf_generator_service::generate_for_order_approval(db, order_id, Some(operator_id));
+
+        // === 07-虚拟商品：审批通过后，服务/订阅订单自动创建权益 ===
+        // best-effort，失败不阻断审批流程
+        if let Ok(Some(order_check)) = OrderModel::find_by_id(db, order_id).await {
+            let order_type = order_check.order_type.unwrap_or(1);
+            if matches!(order_type, 3 | 4 | 5) { // 服务/订阅/混合
+                let _ = crate::modules::sale::service::entitlement_service::create_for_order(db, order_id).await;
+            }
+        }
     }
 
     get_detail(db, order_id).await

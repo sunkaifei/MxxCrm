@@ -23,6 +23,7 @@ import {
   getQuotationInfoApi,
   updateQuotationApi,
   getOpportunityInfoApi,
+  getWarehouseListApi,
 } from '#/api';
 import {
   getCustomerListApi,
@@ -118,6 +119,26 @@ async function loadContactsByCustomer(customerId: number | undefined) {
   }
 }
 
+// ============ 发货仓库（可选，选品时参考库存） ============
+const warehouseOptions = ref<any[]>([]);
+// 选品弹窗使用的仓库ID（从表单读取，可能为空）
+const currentWarehouseId = ref<number | undefined>(undefined);
+
+async function loadWarehouseList() {
+  try {
+    const res: any = await getWarehouseListApi({ page: 1, pageSize: 100 });
+    const data = res?.data ?? res ?? {};
+    const rawList = data.list || data.items || data.rows || [];
+    warehouseOptions.value = rawList.map((w: any) => ({
+      label: w.warehouseName || w.name,
+      value: w.id,
+    }));
+  } catch (e) {
+    console.error('[报价单] 加载仓库列表失败:', e);
+    warehouseOptions.value = [];
+  }
+}
+
 // ============ 产品选择弹窗 ============
 const productModalVisible = ref(false);
 
@@ -146,7 +167,10 @@ async function handleSelectOpportunity(row: any) {
   await onOpportunityChange(oppId, { raw: row });
 }
 
-function openProductModal() {
+async function openProductModal() {
+  // 选品前读取当前选中的发货仓库（可能为空），用于弹窗内展示参考库存
+  const values = await basicFormApi.getValues();
+  currentWarehouseId.value = values.warehouseId ? Number(values.warehouseId) : undefined;
   productModalVisible.value = true;
 }
 
@@ -174,9 +198,14 @@ function onProductSelect(items: any[]) {
 
 function onCustomerChange(_val: any, option: any) {
   if (option?.raw) {
-    basicFormApi.setValues({
+    const patch: any = {
       customerName: option.raw.customerName || option.raw.name || '',
-    });
+    };
+    // 自动带出客户负责人作为报价单负责人
+    if (option.raw.assignedTo) {
+      patch.ownerUserId = option.raw.assignedTo;
+    }
+    basicFormApi.setValues(patch);
   }
 }
 
@@ -202,6 +231,7 @@ async function onOpportunityChange(val: any, option: any) {
       customerName: '',
       contactId: undefined,
       contactName: '',
+      ownerUserId: undefined,
     });
     contactOptions.value = [];
     return;
@@ -215,6 +245,8 @@ async function onOpportunityChange(val: any, option: any) {
     const custName = detail?.customerName || '';
     const contId = detail?.contactId ? Number(detail.contactId) : undefined;
     const contName = detail?.contactName || '';
+    // 商机负责人作为报价单负责人
+    const ownerId = detail?.assignedTo ? Number(detail.assignedTo) : undefined;
 
     boundCustomerId.value = custId;
 
@@ -238,6 +270,7 @@ async function onOpportunityChange(val: any, option: any) {
       customerName: custName,
       contactId: contId,
       contactName: contName,
+      ownerUserId: ownerId,
     });
   } catch (e) {
     console.error('[报价单] 加载商机详情失败:', e);
@@ -396,6 +429,17 @@ const basicFormSchema: VbenFormSchema[] = [
   },
   {
     component: 'Select',
+    fieldName: 'warehouseId',
+    label: '发货仓库',
+    componentProps: () => ({
+      placeholder: '可选，选择后选品时展示库存',
+      allowClear: true,
+      options: warehouseOptions,
+      disabled: isReadOnly.value,
+    }),
+  },
+  {
+    component: 'Select',
     fieldName: 'currency',
     label: '币种',
     defaultValue: 1,
@@ -500,8 +544,9 @@ async function initFromOpportunity(opp: any) {
   let custName = opp.customerName || '';
   let contId = opp.contactId ? Number(opp.contactId) : undefined;
   let contName = opp.contactName || '';
+  let ownerId = opp.assignedTo ? Number(opp.assignedTo) : undefined;
 
-  if ((!custId || !contId) && oppId) {
+  if ((!custId || !contId || !ownerId) && oppId) {
     try {
       const res: any = await getOpportunityInfoApi(oppId);
       const detail = res?.data ?? res;
@@ -509,6 +554,7 @@ async function initFromOpportunity(opp: any) {
       if (!custName) custName = detail?.customerName || '';
       if (!contId && detail?.contactId) contId = Number(detail.contactId);
       if (!contName) contName = detail?.contactName || '';
+      if (!ownerId && detail?.assignedTo) ownerId = Number(detail.assignedTo);
     } catch (e) {
       console.error('[报价单] 加载商机详情失败:', e);
     }
@@ -537,6 +583,7 @@ async function initFromOpportunity(opp: any) {
     customerName: custName,
     contactId: contId,
     contactName: contName,
+    ownerUserId: ownerId,
   });
 }
 
@@ -572,7 +619,7 @@ async function loadDetail(id: number) {
     }
     // 等待下拉选项渲染完成后再设置表单值，确保Select能匹配到label
     await nextTick();
-    // 设置表单（负责人由后端自动绑定当前登录用户，状态由审批流控制，不在表单中展示）
+    // 负责人：新建时由客户/商机的 assignedTo 带出；编辑时回显已有负责人，状态由审批流控制，不在表单中展示
     basicFormApi.setValues({
       title: data.title,
       customerId: custId,
@@ -583,7 +630,9 @@ async function loadDetail(id: number) {
       currency: Number(data.currency ?? 1),
       quotationDate: data.quotationDate,
       validUntil: data.validUntil,
+      warehouseId: data.warehouseId ? Number(data.warehouseId) : undefined,
       remark: data.remark,
+      ownerUserId: data.ownerUserId != null ? Number(data.ownerUserId) : undefined,
     });
     tradeFormApi.setValues({
       paymentTerms: data.paymentTerms,
@@ -783,6 +832,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
     contactOptions.value = [];
     basicFormApi.resetForm();
     tradeFormApi.resetForm();
+    // 加载发货仓库列表（供选品时参考库存，可选）
+    await loadWarehouseList();
 
     if (!drawerData.value.create && drawerData.value.row?.id) {
       // 编辑模式：加载报价单详情
@@ -980,6 +1031,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         <!-- 产品选择弹窗 -->
         <ProductSelectModal
           v-model:visible="productModalVisible"
+          :warehouse-id="currentWarehouseId"
           @select="onProductSelect"
         />
       </TabPane>

@@ -16,11 +16,11 @@ use crate::modules::crm::entity::{opportunity, opportunity::Entity as Opportunit
 use crate::modules::crm::service::assign_history_service;
 use crate::modules::crm::service::customer_edit_log_service;
 use crate::modules::company::service::code_rule_service;
-use crate::modules::system::entity::{admin, admin::Entity as Admin, tag, tag_merge};
+use crate::modules::system::entity::{admin::Entity as Admin, tag, tag_merge};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::role_service;
-use sea_orm::{DbConn, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, ConnectionTrait};
+use sea_orm::{DbConn, ColumnTrait, DatabaseTransaction, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, ConnectionTrait};
 use std::collections::{HashMap, HashSet};
 
 /// 递归获取指定部门及其所有子部门的ID列表
@@ -192,6 +192,20 @@ pub async fn update(db: &DbConn, form_data: &CustomerUpdateRequest, updated_by: 
     dto.updated_by = Some(updated_by);
     let result = CustomerModel::update_by_id(&txn, &form_data.id, &dto).await?;
 
+    // 4.1 如果负责人(assigned_to)发生变化，级联更新关联业务数据的负责人
+    let old_assignee = old_model.assigned_to;
+    let new_assignee = dto.assigned_to;
+    if old_assignee != new_assignee && new_assignee.is_some() {
+        let new_uid = new_assignee.unwrap();
+        log::info!(
+            "[customer_update] 客户(id={})负责人变更: {:?} -> {}, 级联更新关联业务数据",
+            customer_id, old_assignee, new_uid
+        );
+
+        // 直接调用级联更新（不需要重复校验/记录历史，因为这是编辑的一部分）
+        cascade_update_related_assignees(&txn, customer_id, new_uid).await?;
+    }
+
     // 5. 记录修改日志（如有差异）
     let old_json = serde_json::to_value(&old_model).unwrap_or_default();
     let new_json = serde_json::to_value(&dto).unwrap_or_default();
@@ -207,6 +221,78 @@ pub async fn update(db: &DbConn, form_data: &CustomerUpdateRequest, updated_by: 
 
     txn.commit().await?;
     Ok(result)
+}
+
+/// 级联更新客户关联业务数据的负责人（商机/合同/报价单/订单/发票/回款/回款计划）
+async fn cascade_update_related_assignees(
+    txn: &DatabaseTransaction,
+    customer_id: i64,
+    new_user_id: i64,
+) -> Result<()> {
+    use crate::modules::crm::entity::{opportunity, contract};
+    use crate::modules::sale::entity::{quotation, order, invoice, payment};
+    use crate::modules::crm::entity::contract_payment_plan;
+    use sea_orm::sea_query::Expr;
+
+    // 1. 商机 assigned_to
+    let _ = opportunity::Entity::update_many()
+        .col_expr(opportunity::Column::AssignedTo, Expr::value(Some(new_user_id)))
+        .filter(opportunity::Column::CustomerId.eq(customer_id))
+        .filter(opportunity::Column::Deleted.eq(0))
+        .exec(txn).await;
+
+    // 2. 合同 assigned_to
+    let _ = contract::Entity::update_many()
+        .col_expr(contract::Column::AssignedTo, Expr::value(Some(new_user_id)))
+        .filter(contract::Column::CustomerId.eq(customer_id))
+        .filter(contract::Column::Deleted.eq(0))
+        .exec(txn).await;
+
+    // 2.1 收集合同ID供回款计划使用
+    let contract_ids: Vec<i64> = contract::Entity::find()
+        .filter(contract::Column::CustomerId.eq(customer_id))
+        .filter(contract::Column::Deleted.eq(0))
+        .all(txn).await.unwrap_or_default()
+        .into_iter().map(|c| c.id).collect();
+
+    // 3. 回款计划 owner_user_id
+    if !contract_ids.is_empty() {
+        let _ = contract_payment_plan::Entity::update_many()
+            .col_expr(contract_payment_plan::Column::OwnerUserId, Expr::value(Some(new_user_id)))
+            .filter(contract_payment_plan::Column::ContractId.is_in(contract_ids))
+            .filter(contract_payment_plan::Column::Deleted.eq(0))
+            .exec(txn).await;
+    }
+
+    // 4. 报价单 owner_user_id
+    let _ = quotation::Entity::update_many()
+        .col_expr(quotation::Column::OwnerUserId, Expr::value(Some(new_user_id)))
+        .filter(quotation::Column::CustomerId.eq(customer_id))
+        .filter(quotation::Column::Deleted.eq(0))
+        .exec(txn).await;
+
+    // 5. 订单 owner_user_id
+    let _ = order::Entity::update_many()
+        .col_expr(order::Column::OwnerUserId, Expr::value(Some(new_user_id)))
+        .filter(order::Column::CustomerId.eq(customer_id))
+        .filter(order::Column::Deleted.eq(0))
+        .exec(txn).await;
+
+    // 6. 发票 owner_user_id
+    let _ = invoice::Entity::update_many()
+        .col_expr(invoice::Column::OwnerUserId, Expr::value(Some(new_user_id)))
+        .filter(invoice::Column::CustomerId.eq(customer_id))
+        .filter(invoice::Column::Deleted.eq(0))
+        .exec(txn).await;
+
+    // 7. 回款 owner_user_id
+    let _ = payment::Entity::update_many()
+        .col_expr(payment::Column::OwnerUserId, Expr::value(Some(new_user_id)))
+        .filter(payment::Column::CustomerId.eq(customer_id))
+        .filter(payment::Column::Deleted.eq(0))
+        .exec(txn).await;
+
+    Ok(())
 }
 
 pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>, deleted_by: i64) -> Result<i64> {
@@ -432,31 +518,14 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
         }
         "subordinate" => {
-            // 下属客户：获取数据权限范围内的其他用户（排除自己）
-            let accessible = crate::modules::system::service::data_scope_service
-                ::get_accessible_user_ids(db, current_user_id).await?;
-            let user_ids: Vec<i64> = match accessible {
-                None => {
-                    // 全部数据权限：获取所有用户，排除自己
-                    let all_admins = Admin::find()
-                        .filter(admin::Column::Id.ne(current_user_id))
-                        .all(db)
-                        .await
-                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    all_admins.iter().map(|u| u.id).collect()
-                }
-                Some(ids) => {
-                    // 部门/仅本人权限：排除自己
-                    ids.into_iter().filter(|id| *id != current_user_id).collect()
-                }
-            };
-
-            let assigned_ids = if user_ids.is_empty() { None } else { Some(user_ids) };
+            // 下属客户：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            let subordinate_ids = crate::modules::system::service::subordinate_service
+                ::get_subordinate_ids_default(db, current_user_id).await?;
             let (list, total) = CustomerModel::select_in_page_by_assigned_ids(
                 &db, page, page_size,
                 query.keywords.clone(), query.customer_type.clone(),
                 query.level.clone(), query.country.clone(), query.source.clone(),
-                assigned_ids,
+                Some(subordinate_ids),
             ).await?;
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
         }

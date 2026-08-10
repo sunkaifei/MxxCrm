@@ -20,6 +20,70 @@ use crate::modules::sale::entity::{order, order::Entity as SaleOrder, order_item
 use crate::modules::sale::model::shipment::ShipmentListVO;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
+// ==================== 商品类型常量 ====================
+pub const PRODUCT_TYPE_PHYSICAL: i32 = 1;     // 实物商品
+pub const PRODUCT_TYPE_VIRTUAL: i32 = 2;      // 虚拟商品
+pub const PRODUCT_TYPE_SERVICE: i32 = 3;      // 服务商品
+pub const PRODUCT_TYPE_SUBSCRIPTION: i32 = 4; // 订阅商品
+
+// ==================== 订单类型常量 ====================
+pub const ORDER_TYPE_PHYSICAL: i32 = 1;
+pub const ORDER_TYPE_VIRTUAL: i32 = 2;
+pub const ORDER_TYPE_SERVICE: i32 = 3;
+pub const ORDER_TYPE_SUBSCRIPTION: i32 = 4;
+pub const ORDER_TYPE_MIXED: i32 = 5;
+
+// ==================== 履约方式常量 ====================
+pub const FULFILLMENT_LOGISTICS: i32 = 1;      // 物流配送
+pub const FULFILLMENT_AUTO_DELIVER: i32 = 2;   // 自动交付
+pub const FULFILLMENT_MANUAL_DELIVER: i32 = 3; // 手动交付
+pub const FULFILLMENT_SERVICE: i32 = 4;        // 服务履行
+pub const FULFILLMENT_NONE: i32 = 5;           // 无需交付
+
+// ==================== 订单状态扩展常量 ====================
+pub const ORDER_STATUS_PENDING_DELIVERY: i32 = 12;   // 待交付（虚拟/服务）
+pub const ORDER_STATUS_IN_SERVICE: i32 = 13;         // 服务中（服务/订阅）
+pub const ORDER_STATUS_PARTIAL_DELIVERED: i32 = 14;  // 部分交付（虚拟/混合）
+pub const ORDER_STATUS_PENDING_ACTIVATION: i32 = 15; // 待激活（订阅）
+
+// ==================== 工具函数 ====================
+
+/// 是否需要发货（仅实物商品）
+pub fn needs_shipping(product_type: i32) -> bool {
+    product_type == PRODUCT_TYPE_PHYSICAL
+}
+
+/// 是否需要库存（仅实物商品）
+pub fn needs_stock(product_type: i32) -> bool {
+    product_type == PRODUCT_TYPE_PHYSICAL
+}
+
+/// 是否需要服务权益（服务/订阅）
+pub fn needs_entitlement(product_type: i32) -> bool {
+    matches!(product_type, PRODUCT_TYPE_SERVICE | PRODUCT_TYPE_SUBSCRIPTION)
+}
+
+/// 根据订单明细的 product_type 推导订单类型
+pub fn derive_order_type(item_types: &[i32]) -> i32 {
+    let unique: std::collections::HashSet<i32> = item_types.iter().copied().collect();
+    match unique.len() {
+        0 => ORDER_TYPE_PHYSICAL,
+        1 => *unique.iter().next().unwrap(),
+        _ => ORDER_TYPE_MIXED,
+    }
+}
+
+/// 根据 product_type 推导默认 fulfillment_type
+pub fn default_fulfillment_type(product_type: i32) -> i32 {
+    match product_type {
+        PRODUCT_TYPE_PHYSICAL => FULFILLMENT_LOGISTICS,
+        PRODUCT_TYPE_VIRTUAL => FULFILLMENT_AUTO_DELIVER,
+        PRODUCT_TYPE_SERVICE => FULFILLMENT_SERVICE,
+        PRODUCT_TYPE_SUBSCRIPTION => FULFILLMENT_SERVICE,
+        _ => FULFILLMENT_NONE,
+    }
+}
+
 // ==================== 请求 DTO ====================
 
 #[derive(Debug, Clone, Deserialize)]
@@ -210,6 +274,16 @@ pub struct OrderSaveDTO {
     pub approval_status: Option<i32>,
     /// 审批实例ID
     pub instance_id: Option<i64>,
+    /// 主履约方式（明细级聚合）
+    pub fulfillment_type: Option<i32>,
+    /// 服务/订阅期开始日
+    pub service_start_date: Option<Date>,
+    /// 服务/订阅期结束日
+    pub service_end_date: Option<Date>,
+    /// 服务时长（月）
+    pub service_duration: Option<i32>,
+    /// 是否自动续约（0=否，1=是）
+    pub auto_renew: Option<i32>,
     pub create_by: Option<i64>,
     pub update_by: Option<i64>,
 }
@@ -236,6 +310,14 @@ pub struct OrderItemSaveDTO {
     pub total_amount: Option<Decimal>,
     pub delivery_date: Option<Date>,
     pub product_type: Option<i32>,
+    /// 履约方式：1=物流配送，2=自动交付，3=手动交付，4=服务履行，5=无需交付
+    pub fulfillment_type: Option<i32>,
+    /// 服务/订阅期开始日
+    pub service_start_date: Option<Date>,
+    /// 服务/订阅期结束日
+    pub service_end_date: Option<Date>,
+    /// 服务时长（月）
+    pub service_duration: Option<i32>,
     pub delivered_quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub sort: Option<i32>,
@@ -450,6 +532,11 @@ impl From<OrderSaveRequest> for OrderSaveDTO {
             dept_id: req.dept_id,
             approval_status: None,
             instance_id: None,
+            fulfillment_type: None,
+            service_start_date: None,
+            service_end_date: None,
+            service_duration: None,
+            auto_renew: None,
             create_by: None,
             update_by: None,
         }
@@ -506,6 +593,11 @@ impl From<OrderUpdateRequest> for OrderSaveDTO {
             dept_id: req.dept_id,
             approval_status: None,
             instance_id: None,
+            fulfillment_type: None,
+            service_start_date: None,
+            service_end_date: None,
+            service_duration: None,
+            auto_renew: None,
             create_by: None,
             update_by: None,
         }
@@ -712,6 +804,11 @@ impl OrderModel {
             owner_user_id: Set(req.owner_user_id),
             dept_id: Set(req.dept_id),
             approval_status: Set(Some(0)),
+            fulfillment_type: Set(req.fulfillment_type),
+            service_start_date: Set(req.service_start_date),
+            service_end_date: Set(req.service_end_date),
+            service_duration: Set(req.service_duration),
+            auto_renew: Set(req.auto_renew),
             create_by: Set(req.create_by),
             create_time: Set(Some(now)),
             update_by: Set(req.update_by),
@@ -768,6 +865,11 @@ impl OrderModel {
         if let Some(v) = req.remark.clone() { payload.remark = Set(Some(v)); }
         if let Some(v) = req.owner_user_id { payload.owner_user_id = Set(Some(v)); }
         if let Some(v) = req.dept_id { payload.dept_id = Set(Some(v)); }
+        if let Some(v) = req.fulfillment_type { payload.fulfillment_type = Set(Some(v)); }
+        if let Some(v) = req.service_start_date { payload.service_start_date = Set(Some(v)); }
+        if let Some(v) = req.service_end_date { payload.service_end_date = Set(Some(v)); }
+        if let Some(v) = req.service_duration { payload.service_duration = Set(Some(v)); }
+        if let Some(v) = req.auto_renew { payload.auto_renew = Set(Some(v)); }
         if let Some(v) = req.update_by { payload.update_by = Set(Some(v)); }
 
         let result = SaleOrder::update_many()
@@ -1010,7 +1112,12 @@ impl OrderItemModel {
                 total_amount: Set(Some(total_amt)),
                 delivery_date: Set(item.delivery_date),
                 product_type: Set(item.product_type),
+                fulfillment_type: Set(item.fulfillment_type),
+                service_start_date: Set(item.service_start_date),
+                service_end_date: Set(item.service_end_date),
+                service_duration: Set(item.service_duration),
                 delivered_quantity: Set(item.delivered_quantity.or(Some(Decimal::from(0)))),
+                delivered_quantity_v: Set(Some(0)),
                 remark: Set(item.remark.clone()),
                 sort: Set(item.sort.or(Some(idx as i32))),
                 create_time: Set(Some(now)),

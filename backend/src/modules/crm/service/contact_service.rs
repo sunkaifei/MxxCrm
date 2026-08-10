@@ -18,7 +18,6 @@ use crate::modules::crm::model::contact::{
     ContactListVO, ContactModel, ContactSaveDTO, ContactSaveRequest, ContactSetRoleRequest,
     ContactUnbindRequest, ContactUpdateRequest, CustomerContactVO,
 };
-use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::service::role_service;
 use sea_orm::DbConn;
 use sea_orm::DbErr;
@@ -160,7 +159,27 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64>
     if ids_vec.is_empty() {
         return Ok(0);
     }
-    let result = ContactModel::batch_delete_by_ids(&db, &ids_vec).await?;
+    let ids_clone = ids_vec.clone();
+    let result = db.transaction::<_, i64, DbErr>(|txn| {
+        Box::pin(async move {
+            customer_contact_merge::Entity::delete_many()
+                .filter(customer_contact_merge::Column::ContactId.is_in(ids_clone.clone()))
+                .exec(txn)
+                .await?;
+            contact::Entity::update_many()
+                .set(contact::ActiveModel {
+                    deleted: Set(Some(1)),
+                    ..Default::default()
+                })
+                .filter(contact::Column::Id.is_in(ids_clone))
+                .exec(txn)
+                .await
+                .map(|r| r.rows_affected as i64)
+        })
+    })
+    .await
+    .map_err(|e| Error::from(e.to_string()))?;
+
     Ok(result)
 }
 
@@ -248,32 +267,17 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
             Some(ids)
         }
         "subordinate" => {
-            // 下属联系人：获取数据权限范围内的其他用户（排除自己）
-            let accessible = crate::modules::system::service::data_scope_service
-                ::get_accessible_user_ids(db, current_user_id).await?;
-            let user_ids: Vec<i64> = match accessible {
-                None => {
-                    // 全部数据权限：获取所有用户，排除自己
-                    let all_admins = Admin::find()
-                        .filter(admin::Column::Id.ne(current_user_id))
-                        .all(db)
-                        .await
-                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    all_admins.iter().map(|u| u.id).collect()
-                }
-                Some(ids) => {
-                    // 部门/仅本人权限：排除自己
-                    ids.into_iter().filter(|id| *id != current_user_id).collect()
-                }
-            };
+            // 下属联系人：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            let subordinate_ids = crate::modules::system::service::subordinate_service
+                ::get_subordinate_ids_default(db, current_user_id).await?;
 
-            if user_ids.is_empty() {
+            if subordinate_ids.is_empty() {
                 return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
             }
 
             let ids: Vec<i64> = customer::Entity::find()
                 .filter(customer::Column::Deleted.eq(0))
-                .filter(customer::Column::AssignedTo.is_in(user_ids))
+                .filter(customer::Column::AssignedTo.is_in(subordinate_ids))
                 .all(db)
                 .await
                 .map_err(|e| Error::from(e.to_string()))?

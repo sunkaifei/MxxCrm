@@ -150,8 +150,9 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/update", web::put().to(warehouse_area_update).wrap(require_permission("product:warehouse:save")))
             .route("/batch_delete", web::delete().to(batch_delete_warehouse_area).wrap(require_permission("product:warehouse:delete")))
             .route("/info", web::get().to(warehouse_area_info).wrap(require_permission("product:warehouse:list")))
-            .route("/list", web::get().to(warehouse_area_list).wrap(require_permission("product:warehouse:list")))
-            .route("/list_by_warehouse", web::get().to(warehouse_area_list_by_warehouse).wrap(require_permission("product:warehouse:list"))),
+            // list 类查询为基础参考数据，所有登录用户均可访问
+            .route("/list", web::get().to(warehouse_area_list))
+            .route("/list_by_warehouse", web::get().to(warehouse_area_list_by_warehouse)),
     );
     cfg.service(
         web::scope("/area")
@@ -159,8 +160,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/update", web::put().to(warehouse_area_update).wrap(require_permission("product:warehouse:save")))
             .route("/batch_delete", web::delete().to(batch_delete_warehouse_area).wrap(require_permission("product:warehouse:delete")))
             .route("/info", web::get().to(warehouse_area_info).wrap(require_permission("product:warehouse:list")))
-            .route("/list", web::get().to(warehouse_area_list).wrap(require_permission("product:warehouse:list")))
-            .route("/list_by_warehouse", web::get().to(warehouse_area_list_by_warehouse).wrap(require_permission("product:warehouse:list")))
-            .route("/tree", web::get().to(warehouse_area_tree).wrap(require_permission("product:warehouse:list"))),
+            .route("/list", web::get().to(warehouse_area_list))
+            .route("/list_by_warehouse", web::get().to(warehouse_area_list_by_warehouse))
+            .route("/tree", web::get().to(warehouse_area_tree)),
     );
 }

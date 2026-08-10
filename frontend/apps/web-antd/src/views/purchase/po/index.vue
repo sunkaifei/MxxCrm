@@ -276,7 +276,7 @@ async function handleReject(row: any) {
           {{ $t('page.purchase.po.action.close') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('purchase:po:edit')"
+          v-if="accessStore.hasAccessCode('purchase:order:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

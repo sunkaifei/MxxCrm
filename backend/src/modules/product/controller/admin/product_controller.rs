@@ -77,6 +77,8 @@ pub async fn product_list(state: web::Data<AppState>, req: HttpRequest) -> Resul
         page_size: query_str.split("&").find(|s| s.starts_with("pageSize=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
         keywords: query_str.split("&").find(|s| s.starts_with("keywords=")).and_then(|s| s.split("=").nth(1).map(|s| s.to_string())),
         category_id: query_str.split("&").find(|s| s.starts_with("categoryId=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
+        warehouse_id: query_str.split("&").find(|s| s.starts_with("warehouseId=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
+        brand_id: query_str.split("&").find(|s| s.starts_with("brandId=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())),
         is_active: query_str.split("&").find(|s| s.starts_with("isActive=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<bool>().ok())),
     };
     
@@ -112,7 +114,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/update",
                 web::put()
                     .to(product_update)
-                    .wrap(require_permission("product:product:edit")),
+                    .wrap(require_permission("product:product:update")),
             )
             // DELETE /product/product/batchDelete - 批量删除产品
             .route(

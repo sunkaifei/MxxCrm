@@ -5,6 +5,7 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, Quer
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::approval::model::approval::ApprovalModel;
+use crate::modules::approval::entity::approval_cc::{Column as CcColumn, Entity as CcEntity};
 use crate::modules::crm::entity::contract::{Column as ContractColumn, Entity as ContractEntity};
 use crate::modules::crm::entity::contract_payment_plan::{
     Column as PlanColumn, Entity as PlanEntity,
@@ -111,6 +112,15 @@ impl TodoService {
             .await
             .map_err(|e| Error::from(e.to_string()))?;
 
+        // 未读抄送数
+        let unread_cc = CcEntity::find()
+            .filter(CcColumn::UserId.eq(user_id))
+            .filter(CcColumn::IsRead.eq(0))
+            .filter(CcColumn::Deleted.eq(0))
+            .count(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))? as i64;
+
         Ok(TodoSummaryVO {
             overdue_follow_up: (overdue_customer + overdue_lead) as i64,
             today_follow_up: (today_customer + today_lead) as i64,
@@ -119,6 +129,7 @@ impl TodoService {
             expiring_contract: expiring_contract as i64,
             stagnant_opportunity: stagnant_opportunity as i64,
             pending_plan_approval: pending_plan_approval as i64,
+            unread_cc,
         })
     }
 

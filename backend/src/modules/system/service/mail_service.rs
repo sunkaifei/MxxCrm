@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::{Error, Result};
 use crate::modules::system::model::mail::{MailLogSaveDTO, SendMailRequest};
-use crate::modules::system::service::mail_config_service;
+use crate::modules::system::service::integration_config_service;
 use sea_orm::{DbConn, DbErr, TransactionTrait};
 
 use lettre::message::header::ContentType;
@@ -18,10 +18,10 @@ use lettre::message::Mailbox;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
-/// 核心邮件发送函数
+/// 核心邮件发送函数（使用第三方接口统一配置的 smtp_email 编码）
 ///
 /// 流程：
-/// 1. 获取默认邮箱配置，缺失则返回错误"未配置默认邮箱账号"
+/// 1. 从 integration_config 获取 code='smtp_email' 且 enabled=1 的配置，缺失则报错
 /// 2. 若 `req.doc_url` 有值，用 reqwest 异步抓取其内容作为正文（失败则回退到 req.body）
 /// 3. 用 lettre 构建邮件（from/to/cc/subject/html body）
 /// 4. 根据 is_ssl 选择 `relay`（隐式 TLS）或 `starttls_relay`，端口用配置的 port
@@ -33,18 +33,52 @@ pub async fn send_mail(
     sender_id: Option<i64>,
     sender_name: Option<String>,
 ) -> Result<i64> {
-    // 1. 获取默认邮箱配置
-    let config = mail_config_service::find_default(db)
+    // 1. 获取 SMTP 配置（从统一配置中心，code = smtp_email）
+    let config = integration_config_service::get_by_code(db, "smtp_email")
         .await?
-        .ok_or_else(|| Error::from("未配置默认邮箱账号"))?;
+        .ok_or_else(|| Error::from("未配置邮件发送账号，请先在「系统设置→第三方接口配置→通知配置→SMTP邮件」中完成配置"))?;
 
-    let from_email = config.from_email.clone().unwrap_or_default();
-    let from_name = config.from_name.clone().unwrap_or_default();
-    let host = config.host.clone().unwrap_or_default();
-    let port = config.port.unwrap_or(465);
-    let username = config.username.clone().unwrap_or_default();
-    let password = config.password.clone().unwrap_or_default();
-    let is_ssl = config.is_ssl.unwrap_or(1);
+    if config.enabled != Some(1) {
+        return Err(Error::from(
+            "SMTP 邮件配置未启用，请在「第三方接口配置→通知配置」中将其启用",
+        ));
+    }
+
+    let json = config
+        .config_json
+        .as_ref()
+        .ok_or_else(|| Error::from("SMTP 配置为空 (config_json 缺失)"))?;
+
+    // 从 JSON 中提取字段（兼容 字符串/数字 两种类型）
+    let get_str = |k: &str| -> Option<String> {
+        json.get(k).and_then(|v| v.as_str()).map(|s| s.to_string())
+    };
+    let get_i32 = |k: &str| -> Option<i32> {
+        json.get(k)
+            .and_then(|v| v.as_i64().map(|n| n as i32))
+            .or_else(|| json.get(k).and_then(|v| v.as_str().and_then(|s| s.parse::<i32>().ok())))
+    };
+
+    let from_email = get_str("from_email").unwrap_or_default();
+    let from_name = get_str("from_name").unwrap_or_default();
+    let host = get_str("host").unwrap_or_default();
+    let port: i32 = get_i32("port").unwrap_or(465);
+    let username = get_str("username").unwrap_or_default();
+    let password = get_str("password").unwrap_or_default();
+    let is_ssl: i32 = get_i32("is_ssl").unwrap_or(1);
+
+    // 必填校验
+    if host.is_empty() || username.is_empty() || password.is_empty() {
+        return Err(Error::from(
+            "SMTP 配置不完整：缺少 host/username/password，请检查第三方接口配置→通知配置",
+        ));
+    }
+    if from_email.is_empty() {
+        return Err(Error::from(
+            "SMTP 配置缺少发件邮箱 (from_email)，请检查第三方接口配置→通知配置",
+        ));
+    }
+
     let subject = req.subject.clone().unwrap_or_default();
     let to_emails = req.to_emails.clone();
     let cc_emails = req.cc_emails.clone();

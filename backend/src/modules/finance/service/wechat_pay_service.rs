@@ -9,9 +9,11 @@
 //!
 
 use reqwest::Client;
+use sea_orm::DbConn;
 use serde::{Serialize, Deserialize};
 use crate::core::errors::error::{Error, Result};
 use crate::config;
+use crate::modules::system::service::integration_config_service;
 use std::collections::BTreeMap;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use rand::Rng;
@@ -21,6 +23,19 @@ use openssl::pkey::PKey;
 use openssl::hash::MessageDigest;
 use openssl::sign::{Signer, Verifier};
 use openssl::x509::X509;
+
+/// 第三方接口配置编码：微信支付
+const INTEGRATION_CODE_WECHAT_PAY: &str = "wechat_pay";
+
+/// 从 integration_config 读取微信支付配置项（读不到则回退到 INI 配置以保持向后兼容）
+async fn get_wechat_config(db: &DbConn, key: &str, ini_default: &str) -> String {
+    if let Some(val) = integration_config_service::get_config_value(db, INTEGRATION_CODE_WECHAT_PAY, key).await {
+        if !val.is_empty() {
+            return val;
+        }
+    }
+    config::section::<String>("wechat", key, ini_default.to_string())
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WechatPayResponse {
@@ -81,8 +96,8 @@ fn get_project_root() -> std::path::PathBuf {
         .to_path_buf()
 }
 
-fn load_private_key() -> Result<PKey<openssl::pkey::Private>> {
-    let key_path = config::section::<String>("wechat", "key_path", "pay/apiclient_key.pem".to_string());
+async fn load_private_key(db: &DbConn) -> Result<PKey<openssl::pkey::Private>> {
+    let key_path = get_wechat_config(db, "key_path", "pay/apiclient_key.pem").await;
     let full_path = if std::path::Path::new(&key_path).is_absolute() {
         std::path::PathBuf::from(&key_path)
     } else {
@@ -99,8 +114,8 @@ fn load_private_key() -> Result<PKey<openssl::pkey::Private>> {
         .map_err(|e| Error::from(format!("转换私钥失败: {}", e)))
 }
 
-fn get_certificate_serial_no() -> Result<String> {
-    let cert_path = config::section::<String>("wechat", "cert_path", "pay/apiclient_cert.pem".to_string());
+async fn get_certificate_serial_no(db: &DbConn) -> Result<String> {
+    let cert_path = get_wechat_config(db, "cert_path", "pay/apiclient_cert.pem").await;
     let full_path = if std::path::Path::new(&cert_path).is_absolute() {
         std::path::PathBuf::from(&cert_path)
     } else {
@@ -122,8 +137,8 @@ fn get_certificate_serial_no() -> Result<String> {
         .to_uppercase())
 }
 
-fn load_wechat_platform_public_key() -> Result<PKey<openssl::pkey::Public>> {
-    let cert_path = config::section::<String>("wechat", "platform_cert_path", "pay/wechat_platform_cert.pem".to_string());
+async fn load_wechat_platform_public_key(db: &DbConn) -> Result<PKey<openssl::pkey::Public>> {
+    let cert_path = get_wechat_config(db, "platform_cert_path", "pay/wechat_platform_cert.pem").await;
     let full_path = if std::path::Path::new(&cert_path).is_absolute() {
         std::path::PathBuf::from(&cert_path)
     } else {
@@ -142,7 +157,8 @@ fn load_wechat_platform_public_key() -> Result<PKey<openssl::pkey::Public>> {
     Ok(public_key)
 }
 
-pub fn verify_wechat_v3_notify(
+pub async fn verify_wechat_v3_notify(
+    db: &DbConn,
     timestamp: &str,
     nonce: &str,
     body: &str,
@@ -160,7 +176,7 @@ pub fn verify_wechat_v3_notify(
         return Ok(false);
     }
     
-    let public_key = load_wechat_platform_public_key()?;
+    let public_key = load_wechat_platform_public_key(db).await?;
     
     let message = format!("{}\n{}\n{}\n", timestamp, nonce, body);
     log::info!("[微信支付V3] 签名消息: {}", message);
@@ -204,14 +220,15 @@ fn generate_v3_sign(
 }
 
 pub async fn create_member_experience_order(
+    db: &DbConn,
     _user_id: i64,
     order_id: &str,
     openid: &str,
     client_ip: &str,
     amount: i32,
 ) -> Result<WechatPayResponse> {
-    let app_id = config::section::<String>("wechat", "app_id", "".to_string());
-    let mch_id = config::section::<String>("wechat", "mchid", "".to_string());
+    let app_id = get_wechat_config(db, "app_id", "").await;
+    let mch_id = get_wechat_config(db, "mchid", "").await;
     
     if app_id.is_empty() || mch_id.is_empty() {
         return Err(Error::from("微信支付配置未设置"));
@@ -243,10 +260,10 @@ pub async fn create_member_experience_order(
     
     log::info!("[微信支付V3] 请求数据: {}", body);
     
-    let private_key = load_private_key()?;
+    let private_key = load_private_key(db).await?;
     let url = "/v3/pay/transactions/jsapi";
     let sign = generate_v3_sign("POST", url, &timestamp, &nonce_str, &body, &private_key)?;
-    let serial_no = get_certificate_serial_no()?;
+    let serial_no = get_certificate_serial_no(db).await?;
     
     let client = Client::new();
     let response = client.post(&format!("https://api.mch.weixin.qq.com{}", url))

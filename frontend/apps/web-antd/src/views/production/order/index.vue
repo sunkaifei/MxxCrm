@@ -236,7 +236,7 @@ async function handleClose(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('production:order:edit')"
+          v-if="accessStore.hasAccessCode('production:order:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

@@ -9,10 +9,11 @@ import { LucideMoreHorizontal, LucideChevronDown } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Drawer, Dropdown, Menu, Modal, Tabs, message } from 'ant-design-vue';
+import { Alert, Button, Popconfirm, Drawer, Dropdown, Menu, Modal, Tabs, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { useVbenDrawer } from '#/adapter/drawer';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import {
   convertOpportunityToOrderApi,
   deleteOpportunityApi,
@@ -32,6 +33,7 @@ const guideStepCount = 5;
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
+const { isSuperAdmin, guardBusiness } = useSuperAdminGuard();
 
 // 销售流程模式：A=仅标准(转报价单) B=仅简易(转订单) both=两种都允许
 const flowMode = ref<SalesFlowMode>('both');
@@ -317,6 +319,7 @@ const [QuotationFormDrawer, quotationDrawerApi] = useVbenDrawer({
 });
 
 function handleCreate() {
+  if (guardBusiness('商机')) return;
   detailId.value = null;
   detailVisible.value = true;
 }
@@ -381,6 +384,13 @@ loadFlowMode();
       </div>
     </PageUsageGuide>
     <SalesProcessGuide current-step="opportunity" />
+    <a-alert
+      v-if="isSuperAdmin"
+      type="info"
+      show-icon
+      message="您当前是超级管理员，仅可查看数据。创建商机等业务操作请使用业务账号登录。"
+      style="margin-bottom: 12px;"
+    />
     <Grid :table-title="$t('page.crm.opportunity.title')">
       <template #form-header>
         <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
@@ -388,7 +398,7 @@ loadFlowMode();
         </Tabs>
       </template>
       <template #toolbar-tools>
-        <Button v-if="!isSubordinateView && accessStore.hasAccessCode('crm:opportunity:save')" type="primary" class="mr-2" @click="handleCreate">
+        <Button v-if="!isSubordinateView && !isSuperAdmin && accessStore.hasAccessCode('crm:opportunity:save')" type="primary" class="mr-2" @click="handleCreate">
           {{ $t('page.crm.opportunity.button.create') }}
         </Button>
         <Button v-if="!isSubordinateView" @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>

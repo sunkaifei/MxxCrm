@@ -250,6 +250,8 @@ impl CmsTagData {
         let product_query = ProductListQuery {
             keywords: None,
             category_id: None,
+            warehouse_id: None,
+            brand_id: None,
             is_active: Some(true),
             page_num: Some(1),
             page_size: Some(100),

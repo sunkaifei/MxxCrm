@@ -7,7 +7,8 @@ import { useVbenForm } from '#/adapter/form';
 import { $t } from '#/locales';
 import { createInboundApi, getInboundInfoApi, updateInboundApi } from '#/api/core/product/inbound';
 import { getWarehouseListApi } from '#/api/core/product/warehouse';
-import { Alert, message, Tooltip } from 'ant-design-vue';
+import { Button, Input, InputNumber, Table, message, Tooltip } from 'ant-design-vue';
+import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
@@ -33,6 +34,8 @@ const inboundTypeOptions = [
 
 // 仓库选项（异步加载）
 const warehouseOptions = ref<{ label: string; value: number }[]>([]);
+// 当前选中仓库ID（传给 ProductSelectModal 用于查询库存）
+const selectedWarehouseId = ref<number | undefined>();
 
 async function loadWarehouseOptions() {
   try {
@@ -45,6 +48,119 @@ async function loadWarehouseOptions() {
   } catch (e) {
     console.error('[入库] 加载仓库列表失败:', e);
   }
+}
+
+// ============ 产品明细 ============
+const tableItems = ref<any[]>([]);
+const productSelectVisible = ref(false);
+
+// 已添加产品的排除列表（computed 确保响应式）
+const excludeProductIds = computed(() =>
+  tableItems.value
+    .filter((i: any) => !i.skuId || i.skuId === 0)
+    .map((i: any) => Number(i.productId)),
+);
+const excludeSkuKeys = computed(() =>
+  tableItems.value
+    .filter((i: any) => i.skuId && i.skuId > 0)
+    .map((i: any) => `${i.productId}-${i.skuId}`),
+);
+const excludeSkuCodes = computed(() =>
+  tableItems.value
+    .filter((i: any) => i.productSku && i.productSku !== '')
+    .map((i: any) => i.productSku),
+);
+
+const itemColumns = computed(() => [
+  {
+    title: '产品编码',
+    dataIndex: 'productCode',
+    width: 110,
+    ellipsis: true,
+  },
+  {
+    title: '产品名称',
+    dataIndex: 'productName',
+    width: 140,
+    ellipsis: true,
+  },
+  {
+    title: '规格',
+    dataIndex: 'spec',
+    width: 120,
+    ellipsis: true,
+  },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    width: 60,
+    align: 'center' as const,
+  },
+  {
+    title: '数量',
+    dataIndex: 'quantity',
+    width: 110,
+  },
+  {
+    title: '单价',
+    dataIndex: 'unitPrice',
+    width: 110,
+  },
+  {
+    title: '金额',
+    dataIndex: 'amount',
+    width: 100,
+    align: 'right' as const,
+  },
+  {
+    title: '批次号',
+    dataIndex: 'batchNo',
+    width: 120,
+  },
+  {
+    title: '备注',
+    dataIndex: 'remark',
+    width: 140,
+  },
+  {
+    title: $t('ui.table.action'),
+    dataIndex: 'action',
+    width: 60,
+    fixed: 'right' as const,
+  },
+]);
+
+function openProductSelect() {
+  mainFormApi.getValues().then((values) => {
+    if (!values?.warehouseId) {
+      message.warning('请先选择入库仓库');
+      return;
+    }
+    productSelectVisible.value = true;
+  });
+}
+
+function onProductSelected(selectedItems: any[]) {
+  for (const item of selectedItems) {
+    tableItems.value.push({
+      productId: item.productId,
+      productName: item.productName,
+      productCode: item.productCode,
+      skuId: item.skuId || 0,
+      productSku: item.skuCode || '',
+      spec: item.spec || '',
+      unit: item.unit || '',
+      quantity: 1,
+      unitPrice: item.unitPrice || 0,
+      batchNo: '',
+      remark: '',
+    });
+  }
+  productSelectVisible.value = false;
+}
+
+function removeItem(index: number) {
+  tableItems.value.splice(index, 1);
 }
 
 const formSchema: VbenFormSchema[] = [
@@ -80,6 +196,9 @@ const formSchema: VbenFormSchema[] = [
       showSearch: true,
       filterOption: (input: string, option: any) =>
         (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+      onChange: (val: any) => {
+        selectedWarehouseId.value = val ? Number(val) : undefined;
+      },
     },
   },
   {
@@ -121,10 +240,35 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const valid = await mainFormApi.validate();
       if (!valid.valid) return;
 
+      if (tableItems.value.length === 0) {
+        message.warning('请至少添加一个产品');
+        return;
+      }
+
+      const hasInvalidQty = tableItems.value.some((item) => !item.quantity || Number(item.quantity) <= 0);
+      if (hasInvalidQty) {
+        message.warning('产品数量必须大于 0');
+        return;
+      }
+
       confirmLoading.value = true;
       const values = await mainFormApi.getValues();
 
-      const data = { ...values };
+      const { _div1, _div2, ...rest } = values as any;
+
+      const data = {
+        ...rest,
+        warehouseId: rest.warehouseId ? Number(rest.warehouseId) : undefined,
+        items: tableItems.value.map((item) => ({
+          productId: item.productId,
+          productSku: item.productSku || undefined,
+          quantity: Number(item.quantity),
+          unitPrice: item.unitPrice !== undefined && item.unitPrice !== '' ? Number(item.unitPrice) : undefined,
+          amount: Number(item.quantity) * Number(item.unitPrice || 0),
+          batchNo: item.batchNo || undefined,
+          remark: item.remark || undefined,
+        })),
+      };
 
       if (drawerData.value.create) {
         await createInboundApi(data);
@@ -148,6 +292,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       drawerData.value = drawerApi.getData<{ create: boolean; row?: any }>() || { create: true };
       mainFormApi.resetForm();
       confirmLoading.value = false;
+      tableItems.value = [];
+      selectedWarehouseId.value = undefined;
       loadWarehouseOptions();
       if (!drawerData.value.create && drawerData.value.row?.id) {
         loadDetail(drawerData.value.row.id);
@@ -162,13 +308,31 @@ async function loadDetail(id: number) {
     const data = resp?.data ?? resp;
     if (!data) return;
     const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+    const main = data.main ?? data;
+    const items = data.items ?? [];
 
     mainFormApi.setValues({
-      inboundType: data.inboundType ?? 'purchase',
-      warehouseId: data.warehouseId ? num(data.warehouseId) : undefined,
-      sourceOrderNo: data.sourceOrderNo,
-      remark: data.remark,
+      inboundType: main.inboundType ?? 'purchase',
+      warehouseId: main.warehouseId ? num(main.warehouseId) : undefined,
+      sourceOrderNo: main.sourceOrderNo,
+      remark: main.remark,
     });
+    selectedWarehouseId.value = main.warehouseId ? Number(main.warehouseId) : undefined;
+
+    // 回填产品明细
+    tableItems.value = items.map((item: any) => ({
+      productId: Number(item.productId),
+      productName: item.productName ?? '',
+      productCode: item.productCode ?? '',
+      skuId: 0,
+      productSku: item.productSku ?? '',
+      spec: item.spec ?? '',
+      unit: item.unit ?? '',
+      quantity: num(item.quantity) ?? 0,
+      unitPrice: num(item.unitPrice) ?? 0,
+      batchNo: item.batchNo ?? '',
+      remark: item.remark ?? '',
+    }));
   } catch (e) {
     console.error('[入库] 加载详情失败:', e);
   }
@@ -202,14 +366,106 @@ async function loadDetail(id: number) {
 
     <div class="inbound-drawer__body">
       <MainForm />
-      <Alert
-        type="info"
-        show-icon
-        :message="$t('page.product.inbound.drawer.alertTitle')"
-        :description="$t('page.product.inbound.drawer.alertDesc')"
-        class="inbound-item-alert"
-      />
+
+      <!-- 产品明细工具栏 -->
+      <div class="inbound-items-toolbar">
+        <Button type="primary" size="small" @click="openProductSelect">
+          添加产品
+        </Button>
+        <span v-if="tableItems.length > 0" class="inbound-items-count">共 {{ tableItems.length }} 项</span>
+      </div>
+
+      <!-- 产品明细表格 -->
+      <Table
+        :columns="itemColumns"
+        :data-source="tableItems"
+        :row-key="(record: any) => `${record.productId}-${record.skuId || 0}`"
+        :pagination="false"
+        size="small"
+        :scroll="{ x: 1100, y: 360 }"
+        class="inbound-items-table"
+      >
+        <template #bodyCell="{ column, record, index }">
+          <!-- 数量：可编辑 -->
+          <template v-if="column.dataIndex === 'quantity'">
+            <InputNumber
+              v-model:value="record.quantity"
+              size="small"
+              style="width: 100%"
+              :precision="0"
+              :min="0"
+              :step="1"
+              placeholder="数量"
+            />
+          </template>
+
+          <!-- 单价：可编辑 -->
+          <template v-else-if="column.dataIndex === 'unitPrice'">
+            <InputNumber
+              v-model:value="record.unitPrice"
+              size="small"
+              style="width: 100%"
+              :precision="2"
+              :min="0"
+              :step="0.01"
+              placeholder="单价"
+            />
+          </template>
+
+          <!-- 金额：自动计算 -->
+          <template v-else-if="column.dataIndex === 'amount'">
+            <span class="font-medium">{{ (Number(record.quantity || 0) * Number(record.unitPrice || 0)).toFixed(2) }}</span>
+          </template>
+
+          <!-- 批次号：可编辑 -->
+          <template v-else-if="column.dataIndex === 'batchNo'">
+            <Input
+              v-model:value="record.batchNo"
+              size="small"
+              placeholder="批次号"
+            />
+          </template>
+
+          <!-- 备注：可编辑 -->
+          <template v-else-if="column.dataIndex === 'remark'">
+            <Input
+              v-model:value="record.remark"
+              size="small"
+              placeholder="备注"
+            />
+          </template>
+
+          <!-- 操作：删除 -->
+          <template v-else-if="column.dataIndex === 'action'">
+            <Button
+              type="link"
+              danger
+              size="small"
+              @click="removeItem(index)"
+            >
+              {{ $t('ui.button.delete') }}
+            </Button>
+          </template>
+        </template>
+
+        <template #emptyText>
+          <div class="inbound-items-empty">
+            请点击「添加产品」选择需要入库的产品
+          </div>
+        </template>
+      </Table>
     </div>
+
+    <!-- 产品选择弹窗 -->
+    <ProductSelectModal
+      :visible="productSelectVisible"
+      :exclude-ids="excludeProductIds"
+      :exclude-sku-keys="excludeSkuKeys"
+      :exclude-sku-codes="excludeSkuCodes"
+      :warehouse-id="selectedWarehouseId"
+      @update:visible="(val) => (productSelectVisible = val)"
+      @select="onProductSelected"
+    />
   </Drawer>
 </template>
 
@@ -259,7 +515,26 @@ async function loadDetail(id: number) {
   color: #1890ff;
 }
 
-.inbound-item-alert {
-  margin-top: 8px;
+.inbound-items-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.inbound-items-count {
+  font-size: 13px;
+  color: #666;
+}
+
+.inbound-items-table {
+  margin-bottom: 8px;
+}
+
+.inbound-items-empty {
+  padding: 24px 0;
+  color: #999;
+  font-size: 13px;
+  text-align: center;
 }
 </style>

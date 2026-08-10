@@ -34,6 +34,10 @@ pub struct Model {
     pub subtotal: Option<Decimal>,
     pub sort: Option<i32>,
     pub remark: Option<String>,
+    /// 商品类型：1=实物，2=虚拟，3=服务，4=订阅
+    pub product_type: Option<i32>,
+    /// 履约方式：1=物流配送，2=自动交付，3=手动交付，4=服务履行，5=无需交付
+    pub fulfillment_type: Option<i32>,
     pub create_by: Option<String>,
     pub create_time: Option<DateTime>,
     pub update_by: Option<String>,

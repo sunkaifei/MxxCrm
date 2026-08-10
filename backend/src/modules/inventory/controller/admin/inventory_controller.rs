@@ -259,7 +259,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/initial", web::post().to(inventory_initial).wrap(require_permission("product:inbound:create")))
             .route("/freeze", web::post().to(inventory_freeze).wrap(require_permission("product:inventory:freeze")))
             .route("/unfreeze", web::post().to(inventory_unfreeze).wrap(require_permission("product:inventory:freeze")))
-            .route("/set_safety_stock", web::put().to(set_safety_stock).wrap(require_permission("product:inventory:edit")))
+            .route("/set_safety_stock", web::put().to(set_safety_stock).wrap(require_permission("product:inventory:update")))
             .route("/adjust", web::post().to(inventory_adjust).wrap(require_permission("product:inventory:adjust")))
             .route("/warning/low", web::get().to(low_stock_warning).wrap(require_permission("product:inventory:list")))
             .route("/warning/high", web::get().to(high_stock_warning).wrap(require_permission("product:inventory:list")))

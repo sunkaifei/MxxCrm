@@ -318,7 +318,7 @@ function handleCreate() {
           {{ $t('page.product.inbound.action.reject') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('product:inbound:edit')"
+          v-if="accessStore.hasAccessCode('product:inbound:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

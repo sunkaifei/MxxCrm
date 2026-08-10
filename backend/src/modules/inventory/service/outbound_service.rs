@@ -13,7 +13,7 @@ use sea_orm::sea_query::Expr;
 use rust_decimal::Decimal;
 use crate::core::errors::error::{Error, Result};
 use crate::modules::inventory::model::outbound::*;
-use crate::modules::inventory::entity::{outbound, outbound_item};
+use crate::modules::inventory::entity::{outbound, outbound_item, stock};
 use crate::modules::inventory::service::stock_engine;
 use crate::modules::inventory::entity::warehouse;
 use crate::modules::system::entity::admin;
@@ -135,6 +135,37 @@ pub async fn audit(
     let warehouse_id = outbound_order.warehouse_id.unwrap_or_default();
     let outbound_no = outbound_order.outbound_no.clone().unwrap_or_default();
     let outbound_type = outbound_order.outbound_type.clone().unwrap_or_default();
+
+    // 4.1 库存校验：检查每个产品的可用库存是否充足
+    for item in &items {
+        let product_id = item.product_id.unwrap_or_default();
+        let quantity = item.quantity.unwrap_or_default();
+        let stock_record = stock::Entity::find()
+            .filter(stock::Column::ProductId.eq(product_id))
+            .filter(stock::Column::WarehouseId.eq(warehouse_id))
+            .filter(stock::Column::Deleted.eq(0))
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        match stock_record {
+            Some(s) => {
+                let available = s.available_quantity.unwrap_or_default();
+                if quantity > available {
+                    return Err(Error::from(format!(
+                        "产品[{}]库存不足，当前可用: {}，需出库: {}",
+                        product_id, available, quantity
+                    )));
+                }
+            }
+            None => {
+                return Err(Error::from(format!(
+                    "产品[{}]在指定仓库无库存记录",
+                    product_id
+                )));
+            }
+        }
+    }
 
     db.transaction::<_, _, DbErr>(|txn| {
         Box::pin(async move {
@@ -434,6 +465,35 @@ pub async fn create_and_auto_audit(
     req: &OutboundSaveRequest,
     created_by: i64,
 ) -> Result<i64> {
+    // 库存校验：检查每个产品的可用库存是否充足（自动审核会直接扣减库存）
+    for item in &req.items {
+        let stock_record = stock::Entity::find()
+            .filter(stock::Column::ProductId.eq(item.product_id))
+            .filter(stock::Column::WarehouseId.eq(req.warehouse_id))
+            .filter(stock::Column::Deleted.eq(0))
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        match stock_record {
+            Some(s) => {
+                let available = s.available_quantity.unwrap_or_default();
+                if item.quantity > available {
+                    return Err(Error::from(format!(
+                        "产品[{}]库存不足，当前可用: {}，需出库: {}",
+                        item.product_id, available, item.quantity
+                    )));
+                }
+            }
+            None => {
+                return Err(Error::from(format!(
+                    "产品[{}]在指定仓库无库存记录",
+                    item.product_id
+                )));
+            }
+        }
+    }
+
     let outbound_no = generate_outbound_no(db).await?;
 
     let result_id = db.transaction::<_, _, DbErr>(|txn| {

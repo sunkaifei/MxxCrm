@@ -58,15 +58,50 @@ const formData = ref({
   keywords: '',
   unit: '',
   barcode: '',
-  salePrice: 0,
-  marketPrice: 0,
-  costPrice: 0,
-  stock: 0,
   weight: undefined as number | undefined,
   dimensions: '',
   isActive: true,
   detail: '',
+  productType: 1 as number,         // 商品类型：1=实物（默认）
+  fulfillmentType: 1 as number,      // 履约方式：1=物流配送（默认）
+  isVirtualStock: 0 as number,       // 虚拟库存：0=否（默认）
 });
+
+// 商品类型选项
+const productTypeOptions = [
+  { label: '实物商品', value: 1 },
+  { label: '虚拟商品', value: 2 },
+  { label: '服务商品', value: 3 },
+  { label: '订阅商品', value: 4 },
+];
+
+// 履约方式选项（按商品类型动态过滤）
+const allFulfillmentOptions = [
+  { label: '物流配送', value: 1 },
+  { label: '自动交付', value: 2 },
+  { label: '手动交付', value: 3 },
+  { label: '服务履行', value: 4 },
+  { label: '无需交付', value: 5 },
+];
+
+// 根据商品类型返回可选履约方式
+const fulfillmentOptions = computed(() => {
+  const pt = formData.value.productType;
+  if (pt === 1) return [{ label: '物流配送', value: 1 }];
+  if (pt === 2) return [{ label: '自动交付', value: 2 }, { label: '手动交付', value: 3 }];
+  if (pt === 3 || pt === 4) return [{ label: '服务履行', value: 4 }, { label: '手动交付', value: 3 }];
+  return allFulfillmentOptions;
+});
+
+// 商品类型变更时自动设置默认履约方式
+function onProductTypeChange(val: number) {
+  if (val === 1) formData.value.fulfillmentType = 1;
+  else if (val === 2) formData.value.fulfillmentType = 2;
+  else if (val === 3 || val === 4) formData.value.fulfillmentType = 4;
+}
+
+// 非实物商品才显示虚拟库存开关
+const showVirtualStock = computed(() => formData.value.productType !== 1);
 
 const categoryOptions = ref<Array<{ value: number; label: string }>>([]);
 const brandOptions = ref<Array<{ value: number; label: string }>>([]);
@@ -89,7 +124,6 @@ const specList = ref<Array<{
   price: number;
   costPrice: number;
   originalPrice: number;
-  stock: number;
   skuCode: string;
   weight: number;
   volume: number;
@@ -102,7 +136,6 @@ const specList = ref<Array<{
   price: 0,
   costPrice: 0,
   originalPrice: 0,
-  stock: 0,
   skuCode: '',
   weight: 0,
   volume: 0,
@@ -191,14 +224,14 @@ function generateSpecCombinations(specs: Array<{ name: string; values: string[] 
     return;
   }
 
-  // 笛卡尔积
-  let combinations: string[][] = [[]];
+  // 笛卡尔积（保留规格名称）
+  let combinations: Array<{ name: string; value: string }[]> = [[]];
   for (const spec of specs) {
     const vals = spec.values.length > 0 ? spec.values : [''];
-    const newCombos: string[][] = [];
+    const newCombos: Array<{ name: string; value: string }[]> = [];
     for (const combo of combinations) {
       for (const v of vals) {
-        newCombos.push([...combo, v]);
+        newCombos.push([...combo, { name: spec.name, value: v }]);
       }
     }
     combinations = newCombos;
@@ -209,12 +242,11 @@ function generateSpecCombinations(specs: Array<{ name: string; values: string[] 
     specKeyCounter++;
     return {
       _key: specKeyCounter,
-      label: combo.join(' / '),
+      label: combo.map((c) => `${c.name}：${c.value}`).join(' / '),
       imageUrl: '',
       price: 0,
       costPrice: 0,
       originalPrice: 0,
-      stock: 0,
       skuCode: '',
       weight: 0,
       volume: 0,
@@ -236,7 +268,6 @@ watch(specType, (val) => {
       price: 0,
       costPrice: 0,
       originalPrice: 0,
-      stock: 0,
       skuCode: '',
       weight: 0,
       volume: 0,
@@ -341,7 +372,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
         price: s.price,
         costPrice: s.costPrice,
         originalPrice: s.originalPrice,
-        stock: s.stock,
         skuCode: s.skuCode,
         weight: s.weight,
         volume: s.volume,
@@ -358,6 +388,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
       specType: specType.value,
       templateId: selectedTemplateId.value || undefined,
       skus: specs.length > 0 ? specs : undefined,
+      productType: formData.value.productType,
+      fulfillmentType: formData.value.fulfillmentType,
+      isVirtualStock: showVirtualStock.value ? formData.value.isVirtualStock : 0,
     };
 
     try {
@@ -390,14 +423,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
         keywords: row.keywords || '',
         unit: row.unit || '',
         barcode: row.barcode || '',
-        salePrice: row.salePrice ?? 0,
-        marketPrice: row.marketPrice ?? 0,
-        costPrice: row.costPrice ?? 0,
-        stock: row.stock ?? 0,
         weight: row.weight ?? undefined,
         dimensions: row.dimensions || '',
         isActive: row.isActive ?? true,
         detail: row.detail || '',
+        productType: row.productType ?? 1,
+        fulfillmentType: row.fulfillmentType ?? 1,
+        isVirtualStock: row.isVirtualStock ?? 0,
       };
 
       coverImageUrl.value = row.imageUrl || '';
@@ -429,7 +461,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
           price: 0,
           costPrice: 0,
           originalPrice: 0,
-          stock: 0,
           skuCode: '',
           weight: 0,
           volume: 0,
@@ -485,10 +516,6 @@ async function loadProductDetail(id: number) {
         keywords: productData.keywords || '',
         unit: productData.unit || '',
         barcode: productData.barcode || '',
-        salePrice: productData.salePrice ?? 0,
-        marketPrice: productData.marketPrice ?? 0,
-        costPrice: productData.costPrice ?? 0,
-        stock: productData.stock ?? 0,
         weight: productData.weight ?? undefined,
         dimensions: productData.dimensions || '',
         isActive: productData.isActive ?? true,
@@ -522,7 +549,7 @@ async function loadProductDetail(id: number) {
         } else if (typeof s.specs === 'string') {
           label = s.specs;
         } else if (s.specs && typeof s.specs === 'object' && !Array.isArray(s.specs)) {
-          label = Object.values(s.specs).join(' / ');
+          label = Object.entries(s.specs).map(([k, v]) => `${k}：${v}`).join(' / ');
         }
         return {
           _key: specKeyCounter,
@@ -532,7 +559,6 @@ async function loadProductDetail(id: number) {
           price: s.price ?? 0,
           costPrice: s.costPrice ?? 0,
           originalPrice: s.originalPrice ?? 0,
-          stock: s.stock ?? 0,
           skuCode: s.skuCode || '',
           weight: s.weight ?? 0,
           volume: s.volume ?? 0,
@@ -548,7 +574,6 @@ async function loadProductDetail(id: number) {
         price: productData.salePrice ?? 0,
         costPrice: productData.costPrice ?? 0,
         originalPrice: productData.marketPrice ?? 0,
-        stock: productData.stock ?? 0,
         skuCode: '',
         weight: productData.weight ?? 0,
         volume: 0,
@@ -592,7 +617,7 @@ function setLoading(loading: boolean) {
               <span class="required-star">*</span>
               商品名称
             </label>
-            <div class="basic-form-control">
+            <div class="basic-form-control flex-1">
               <Input
                 v-model:value="formData.name"
                 placeholder="请输入商品名称"
@@ -602,161 +627,115 @@ function setLoading(loading: boolean) {
             </div>
           </div>
 
-          <div class="basic-form-row">
-            <label class="basic-form-label required">
-              <span class="required-star">*</span>
-              商品分类
-            </label>
-            <div class="basic-form-control">
-              <Select
-                v-model:value="formData.categoryId"
-                placeholder="请选择商品分类"
-                allow-clear
-                :options="categoryOptions"
-                style="width: 100%"
-              />
+          <!-- 分类 + 品牌 一行 -->
+          <div class="basic-form-pair">
+            <div class="basic-form-row">
+              <label class="basic-form-label required">
+                <span class="required-star">*</span>
+                商品分类
+              </label>
+              <div class="basic-form-control">
+                <Select
+                  v-model:value="formData.categoryId"
+                  placeholder="请选择商品分类"
+                  allow-clear
+                  :options="categoryOptions"
+                  style="width: 100%"
+                />
+              </div>
+            </div>
+            <div class="basic-form-row">
+              <label class="basic-form-label">品牌</label>
+              <div class="basic-form-control">
+                <Select
+                  v-model:value="formData.brandId"
+                  placeholder="请选择品牌"
+                  allow-clear
+                  :options="brandOptions"
+                  show-search
+                  :filter-option="(input: string, option: any) => option.label?.toLowerCase().includes(input.toLowerCase())"
+                  style="width: 100%"
+                />
+              </div>
             </div>
           </div>
 
-          <div class="basic-form-row">
-            <label class="basic-form-label">品牌</label>
-            <div class="basic-form-control">
-              <Select
-                v-model:value="formData.brandId"
-                placeholder="请选择品牌"
-                allow-clear
-                :options="brandOptions"
-                show-search
-                :filter-option="(input: string, option: any) => option.label?.toLowerCase().includes(input.toLowerCase())"
-                style="width: 100%"
-              />
+          <!-- 单位 + 产品编号 一行 -->
+          <div class="basic-form-pair">
+            <div class="basic-form-row">
+              <label class="basic-form-label">单位名</label>
+              <div class="basic-form-control">
+                <Input
+                  v-model:value="formData.unit"
+                  placeholder="请输入单位名"
+                  allow-clear
+                  style="width: 100%"
+                />
+              </div>
+            </div>
+            <div class="basic-form-row">
+              <label class="basic-form-label">产品编号</label>
+              <div class="basic-form-control">
+                <Input
+                  v-model:value="formData.productNo"
+                  placeholder="请输入产品编号"
+                  allow-clear
+                  style="width: 100%"
+                />
+              </div>
             </div>
           </div>
 
-          <div class="basic-form-row">
-            <label class="basic-form-label">关键字</label>
-            <div class="basic-form-control">
-              <Input
-                v-model:value="formData.keywords"
-                placeholder="请输入关键字"
-                allow-clear
-                style="width: 100%"
-              />
+          <!-- 关键字 + 条码 一行 -->
+          <div class="basic-form-pair">
+            <div class="basic-form-row">
+              <label class="basic-form-label">关键字</label>
+              <div class="basic-form-control">
+                <Input
+                  v-model:value="formData.keywords"
+                  placeholder="请输入关键字"
+                  allow-clear
+                  style="width: 100%"
+                />
+              </div>
+            </div>
+            <div class="basic-form-row">
+              <label class="basic-form-label">条码</label>
+              <div class="basic-form-control">
+                <Input
+                  v-model:value="formData.barcode"
+                  placeholder="请输入条码"
+                  allow-clear
+                  style="width: 100%"
+                />
+              </div>
             </div>
           </div>
 
-          <div class="basic-form-row">
-            <label class="basic-form-label">单位名</label>
-            <div class="basic-form-control">
-              <Input
-                v-model:value="formData.unit"
-                placeholder="请输入单位名"
-                allow-clear
-                style="width: 100%"
-              />
+          <!-- 重量 + 尺寸 一行 -->
+          <div class="basic-form-pair">
+            <div class="basic-form-row">
+              <label class="basic-form-label">重量 (KG)</label>
+              <div class="basic-form-control">
+                <InputNumber
+                  v-model:value="formData.weight"
+                  :min="0"
+                  :precision="3"
+                  placeholder="0"
+                  style="width: 100%"
+                />
+              </div>
             </div>
-          </div>
-
-          <div class="basic-form-row">
-            <label class="basic-form-label">产品编号</label>
-            <div class="basic-form-control">
-              <Input
-                v-model:value="formData.productNo"
-                placeholder="请输入产品编号"
-                allow-clear
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div class="basic-form-row">
-            <label class="basic-form-label">条码</label>
-            <div class="basic-form-control">
-              <Input
-                v-model:value="formData.barcode"
-                placeholder="请输入条码"
-                allow-clear
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div class="basic-form-row">
-            <label class="basic-form-label required">
-              <span class="required-star">*</span>
-              商品价格
-            </label>
-            <div class="basic-form-control">
-              <InputNumber
-                v-model:value="formData.salePrice"
-                :min="0"
-                :precision="2"
-                placeholder="0"
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div class="basic-form-row">
-            <label class="basic-form-label">成本价</label>
-            <div class="basic-form-control">
-              <InputNumber
-                v-model:value="formData.costPrice"
-                :min="0"
-                :precision="2"
-                placeholder="0"
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div class="basic-form-row">
-            <label class="basic-form-label">市场价</label>
-            <div class="basic-form-control">
-              <InputNumber
-                v-model:value="formData.marketPrice"
-                :min="0"
-                :precision="2"
-                placeholder="0"
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div class="basic-form-row">
-            <label class="basic-form-label">库存</label>
-            <div class="basic-form-control">
-              <InputNumber
-                v-model:value="formData.stock"
-                :min="0"
-                placeholder="0"
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div class="basic-form-row">
-            <label class="basic-form-label">重量 (KG)</label>
-            <div class="basic-form-control">
-              <InputNumber
-                v-model:value="formData.weight"
-                :min="0"
-                :precision="3"
-                placeholder="0"
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div class="basic-form-row">
-            <label class="basic-form-label">尺寸</label>
-            <div class="basic-form-control">
-              <Input
-                v-model:value="formData.dimensions"
-                placeholder="如 30x20x10cm"
-                allow-clear
-                style="width: 100%"
-              />
+            <div class="basic-form-row">
+              <label class="basic-form-label">尺寸</label>
+              <div class="basic-form-control">
+                <Input
+                  v-model:value="formData.dimensions"
+                  placeholder="如 30x20x10cm"
+                  allow-clear
+                  style="width: 100%"
+                />
+              </div>
             </div>
           </div>
 
@@ -816,6 +795,44 @@ function setLoading(loading: boolean) {
               </Radio.Group>
             </div>
           </div>
+
+          <!-- 商品类型 -->
+          <div class="basic-form-row">
+            <label class="basic-form-label">商品类型</label>
+            <div class="basic-form-control">
+              <Radio.Group
+                v-model:value="formData.productType"
+                @change="(e: any) => onProductTypeChange(e.target.value)"
+              >
+                <Radio v-for="opt in productTypeOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </Radio>
+              </Radio.Group>
+            </div>
+          </div>
+
+          <!-- 履约方式 -->
+          <div class="basic-form-row">
+            <label class="basic-form-label">履约方式</label>
+            <div class="basic-form-control">
+              <Select
+                v-model:value="formData.fulfillmentType"
+                style="width: 200px"
+                :options="fulfillmentOptions"
+              />
+            </div>
+          </div>
+
+          <!-- 虚拟库存（仅非实物商品显示） -->
+          <div v-if="showVirtualStock" class="basic-form-row">
+            <label class="basic-form-label">虚拟库存</label>
+            <div class="basic-form-control">
+              <Radio.Group v-model:value="formData.isVirtualStock">
+                <Radio :value="1">无限售（不扣减库存）</Radio>
+                <Radio :value="0">需管理库存</Radio>
+              </Radio.Group>
+            </div>
+          </div>
         </div>
       </Tabs.TabPane>
 
@@ -870,7 +887,6 @@ function setLoading(loading: boolean) {
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130">售价</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130">成本价</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130">原价</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-110">库存</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-150">商品编号</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-140">重量 (KG)</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-140">体积(m³)</th>
@@ -904,9 +920,6 @@ function setLoading(loading: boolean) {
                   </td>
                   <td class="px-4 py-3">
                     <InputNumber v-model:value="spec.originalPrice" :min="0" :precision="2" size="small" style="width: 100%" />
-                  </td>
-                  <td class="px-4 py-3">
-                    <InputNumber v-model:value="spec.stock" :min="0" size="small" style="width: 100%" />
                   </td>
                   <td class="px-4 py-3">
                     <Input v-model:value="spec.skuCode" placeholder="商品编号" size="small" style="width: 100%" />
@@ -964,6 +977,13 @@ function setLoading(loading: boolean) {
   display: flex;
   align-items: center;
   min-height: 32px;
+  flex: 1;
+  min-width: 0;
+}
+
+.basic-form-pair {
+  display: flex;
+  gap: 24px;
 }
 
 .basic-form-row.items-start {

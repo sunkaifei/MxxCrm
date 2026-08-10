@@ -69,8 +69,8 @@ pub async fn wechat_notify(req: HttpRequest, state: web::Data<AppState>, body: w
     log::info!("[微信支付V3回调] 回调头 - timestamp={}, nonce={}, serial={}", timestamp, nonce, serial);
 
     let verify_result = wechat_pay_service::verify_wechat_v3_notify(
-        timestamp, nonce, &body_str, signature, serial
-    );
+        db, timestamp, nonce, &body_str, signature, serial
+    ).await;
 
     match verify_result {
         Ok(true) => {

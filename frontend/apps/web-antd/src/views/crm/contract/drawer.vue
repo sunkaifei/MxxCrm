@@ -437,6 +437,12 @@ async function handleSelectOrder(row: any) {
     // 加载该客户的联系人列表
     await loadContactsByCustomer(row.customerId);
   }
+  // 自动带出订单负责人作为合同负责人
+  if (row.ownerUserId) {
+    await baseFormApi.setValues({ assignedTo: row.ownerUserId });
+  } else if (row.assignedTo) {
+    await baseFormApi.setValues({ assignedTo: row.assignedTo });
+  }
   // 同步设置表单字段值，用于验证
   await baseFormApi.setValues({ _orderDisplay: row.orderNo || row.title || '' });
   // 设置默认对方签署人为订单联系人
@@ -574,31 +580,12 @@ const [BaseForm, baseFormApi] = useVbenForm({
       rules: 'required',
       componentProps: { placeholder: '选择日期', valueFormat: 'YYYY-MM-DD' },
     },
-    {
-      component: 'DatePicker',
-      fieldName: 'signDate',
-      label: '签署日期',
-      componentProps: { placeholder: '选择日期', valueFormat: 'YYYY-MM-DD' },
-    },
-
-    // ---- 负责人与文件 ----
-    {
-      component: 'Select',
-      fieldName: 'assignedTo',
-      label: '负责人',
-      componentProps: {
-        placeholder: $t('ui.placeholder.select'),
-        allowClear: true,
-        showSearch: true,
-        filterOption: (input: string, option: any) =>
-          option.label.toLowerCase().includes(input.toLowerCase()),
-        options: userOptions,
-      },
-    },
+    // ---- 文件 ----
     {
       component: 'Select',
       fieldName: 'ourSignerId',
       label: '我方签署人',
+      rules: 'required',
       componentProps: {
         placeholder: '默认为订单创建人（业务员）',
         allowClear: true,
@@ -612,6 +599,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Select',
       fieldName: 'theirSignerName',
       label: '对方签署人',
+      rules: 'required',
       componentProps: {
         placeholder: '选择联系人',
         allowClear: true,
@@ -628,13 +616,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
     },
     {
-      component: 'Input',
-      fieldName: 'theirSignerPhone',
-      label: '对方签署电话',
-      componentProps: {
-        placeholder: '选择联系人后自动填充',
-        disabled: true,
-      },
+      component: 'DatePicker',
+      fieldName: 'signDate',
+      label: '签署日期',
+      componentProps: { placeholder: '选择日期', valueFormat: 'YYYY-MM-DD' },
     },
     {
       component: 'Upload',

@@ -90,16 +90,84 @@ pub async fn insert(db: &DbConn, form_data: &RefundSaveRequest, created_by: i64)
         if let Some(oi_id) = item.order_item_id {
             let oi = order_item_map.get(&oi_id)
                 .ok_or_else(|| Error::from(format!("订单明细 id={} 不存在", oi_id)))?;
-            let delivered = oi.delivered_quantity.unwrap_or(oi.quantity.unwrap_or(Decimal::from(0)));
-            let already_refunded = existing_refunded_map.get(&oi_id).copied().unwrap_or(Decimal::from(0));
-            let refundable = delivered - already_refunded;
+
+            // === 07-虚拟商品：按商品类型校验可退数量/金额 ===
+            use crate::modules::sale::model::order::{needs_shipping, PRODUCT_TYPE_PHYSICAL, PRODUCT_TYPE_VIRTUAL, PRODUCT_TYPE_SERVICE, PRODUCT_TYPE_SUBSCRIPTION};
+            let product_type = oi.product_type.unwrap_or(PRODUCT_TYPE_PHYSICAL);
             let want = item.refund_qty.unwrap_or(Decimal::from(0));
-            if want > refundable {
-                return Err(Error::from(format!(
-                    "产品 [{}] 退货数量 {} 超过可退数量 {}（已发货 {}，已退货 {}）",
-                    item.product_name.clone().unwrap_or_default(),
-                    want, refundable, delivered, already_refunded
-                )));
+
+            if !needs_shipping(product_type) {
+                // 虚拟/服务/订阅商品：根据交付记录判定可退
+                use crate::modules::sale::model::order_delivery::DeliveryModel;
+                let delivered_count = DeliveryModel::count_by_item(db, oi_id).await
+                    .map_err(|e| Error::from(e.to_string()))?;
+                let delivered_dec = Decimal::from(delivered_count);
+
+                // 查询已签收的交付数量（虚拟商品已签收不可退）
+                use sea_orm::EntityTrait;
+                let received_count = crate::modules::sale::entity::order_delivery::Entity::find()
+                    .filter(crate::modules::sale::entity::order_delivery::Column::OrderItemId.eq(oi_id))
+                    .filter(crate::modules::sale::entity::order_delivery::Column::Status.eq(3)) // 已签收
+                    .filter(crate::modules::sale::entity::order_delivery::Column::Deleted.eq(0))
+                    .count(db).await.map_err(|e| Error::from(e.to_string()))?;
+
+                if received_count > 0 && matches!(product_type, PRODUCT_TYPE_VIRTUAL | PRODUCT_TYPE_SUBSCRIPTION) {
+                    return Err(Error::from(format!(
+                        "虚拟商品 [{}] 已签收 {} 张卡密，不可退",
+                        item.product_name.clone().unwrap_or_default(), received_count
+                    )));
+                }
+
+                let already_refunded = existing_refunded_map.get(&oi_id).copied().unwrap_or(Decimal::from(0));
+                let refundable = delivered_dec - already_refunded;
+                if want > refundable {
+                    return Err(Error::from(format!(
+                        "虚拟商品 [{}] 退货数量 {} 超过可退数量 {}（已交付 {}，已退货 {}）",
+                        item.product_name.clone().unwrap_or_default(),
+                        want, refundable, delivered_count, already_refunded
+                    )));
+                }
+
+                // 服务商品：按剩余服务天数比例退款（仅警告，不阻断）
+                if matches!(product_type, PRODUCT_TYPE_SERVICE | PRODUCT_TYPE_SUBSCRIPTION) {
+                    let unit_price = item.unit_price.unwrap_or(Decimal::from(0));
+                    let line_total = want * unit_price;
+                    // 查询 entitlement 计算剩余天数
+                    use crate::modules::sale::model::entitlement::EntitlementModel;
+                    let ents = EntitlementModel::find_by_order(db, order_id).await
+                        .map_err(|e| Error::from(e.to_string()))?;
+                    if let Some(ent) = ents.first() {
+                        if let Some(end_date) = ent.end_date {
+                            let today = chrono::Local::now().date_naive();
+                            if end_date > today {
+                                let total_days = ent.duration_months.unwrap_or(12) as i64 * 30;
+                                let dur = end_date - today;
+                                let remaining_days = dur.num_days();
+                                if total_days > 0 && remaining_days < total_days {
+                                    let ratio = Decimal::from(remaining_days) / Decimal::from(total_days);
+                                    let refundable_amount = line_total * ratio;
+                                    log::info!(
+                                        "服务商品 [{}] 按比例退款：总额 {}，剩余天数 {}/{}，可退 {:.2}",
+                                        item.product_name.clone().unwrap_or_default(),
+                                        line_total, remaining_days, total_days, refundable_amount
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // 实物商品：保留原有逻辑
+                let delivered = oi.delivered_quantity.unwrap_or(oi.quantity.unwrap_or(Decimal::from(0)));
+                let already_refunded = existing_refunded_map.get(&oi_id).copied().unwrap_or(Decimal::from(0));
+                let refundable = delivered - already_refunded;
+                if want > refundable {
+                    return Err(Error::from(format!(
+                        "产品 [{}] 退货数量 {} 超过可退数量 {}（已发货 {}，已退货 {}）",
+                        item.product_name.clone().unwrap_or_default(),
+                        want, refundable, delivered, already_refunded
+                    )));
+                }
             }
         }
     }

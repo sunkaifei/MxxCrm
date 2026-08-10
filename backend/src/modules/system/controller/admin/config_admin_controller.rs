@@ -158,7 +158,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/update/{id}",
                 web::put()
                     .to(update_config)
-                    .wrap(require_permission("system:config:edit")),
+                    .wrap(require_permission("system:config:update")),
             )
             // GET /config/detail/{id} - 配置详情
             .route(

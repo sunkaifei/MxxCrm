@@ -242,6 +242,38 @@ pub async fn contract_reject(state: web::Data<AppState>, req: HttpRequest, form_
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ContractSignRequest {
+    contract_file: Option<String>,
+    contract_images: Option<String>,
+}
+
+pub async fn contract_sign(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>, form_data: web::Json<ContractSignRequest>) -> HttpResponse {
+    let db = &state.db;
+    let contract_id = path.into_inner();
+    let form_data = form_data.0;
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    match contract_service::sign_contract(&db, contract_id, form_data.contract_file, form_data.contract_images, jwt_token.id.unwrap_or_default()).await {
+        Ok(_) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("签署成功".to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+pub async fn contract_execute(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> HttpResponse {
+    let db = &state.db;
+    let contract_id = path.into_inner();
+
+    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+
+    match contract_service::execute_contract(&db, contract_id, jwt_token.id.unwrap_or_default()).await {
+        Ok(_) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("执行成功".to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
 pub async fn contract_approval_detail(state: web::Data<AppState>, path: web::Path<i64>) -> HttpResponse {
     let db = &state.db;
     let contract_id = path.into_inner();
@@ -380,6 +412,20 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::post()
                     .to(contract_reject)
                     .wrap(require_permission("crm:contract:reject")),
+            )
+            // POST /contract/sign/{id} - 上传签署件，确认签署
+            .route(
+                "/sign/{id}",
+                web::post()
+                    .to(contract_sign)
+                    .wrap(require_permission("crm:contract:sign")),
+            )
+            // POST /contract/execute/{id} - 确认执行合同（已签署 → 执行中）
+            .route(
+                "/execute/{id}",
+                web::post()
+                    .to(contract_execute)
+                    .wrap(require_permission("crm:contract:execute")),
             )
             // GET /contract/approval-detail/{contract_id} - 审批详情
             .route(

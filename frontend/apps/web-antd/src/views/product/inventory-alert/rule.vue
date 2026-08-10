@@ -245,7 +245,7 @@ async function handleBatchDelete() {
     <Grid :table-title="$t('page.product.inventory.alert.title')">
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('product:alert:edit')"
+          v-if="accessStore.hasAccessCode('product:alert:update')"
           type="primary"
           class="mr-2"
           :icon="h(LucidePlus)"
@@ -254,7 +254,7 @@ async function handleBatchDelete() {
           {{ $t('page.product.inventory.alert.action.create') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('product:alert:edit')"
+          v-if="accessStore.hasAccessCode('product:alert:update')"
           class="mr-2"
           danger
           ghost
@@ -283,7 +283,7 @@ async function handleBatchDelete() {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('product:alert:edit')"
+          v-if="accessStore.hasAccessCode('product:alert:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
@@ -291,7 +291,7 @@ async function handleBatchDelete() {
           {{ $t('page.product.inventory.alert.action.edit') }}
         </Button>
         <Popconfirm
-          v-if="accessStore.hasAccessCode('product:alert:edit')"
+          v-if="accessStore.hasAccessCode('product:alert:update')"
           :title="$t('ui.text.do_you_want_delete')"
           @confirm="() => handleDelete(row)"
         >

@@ -42,6 +42,11 @@ pub struct Model {
     pub add_sign_user_ids: Option<serde_json::Value>,
     /// 是否需要重新提交：0=否,1=是（退回到发起人时置1）
     pub needs_resubmit: Option<i32>,
+    /// 流程模板快照（创建实例时拷贝的 nodes+edges JSON，防止模板修改影响在途实例）
+    #[sea_orm(column_type = "JsonBinary", nullable)]
+    pub flow_snapshot: Option<serde_json::Value>,
+    /// 流程模板版本号
+    pub flow_version: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

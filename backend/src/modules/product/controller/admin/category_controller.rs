@@ -96,9 +96,9 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .to(category_update)
                     .wrap(require_permission("product:category:update")),
             )
-            // DELETE /product/category/bath_delete - 批量删除分类
+            // DELETE /product/category/batch_delete - 批量删除分类
             .route(
-                "/bath_delete",
+                "/batch_delete",
                 web::delete()
                     .to(batch_delete_category)
                     .wrap(require_permission("product:category:delete")),

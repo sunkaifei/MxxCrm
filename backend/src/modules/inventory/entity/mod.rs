@@ -15,3 +15,6 @@ pub mod batch;
 pub mod warehouse_area;
 pub mod stock_snapshot;
 pub mod alert_rule;
+pub mod serial_number;
+pub mod bin_location;
+pub mod stock_bin;

@@ -14,7 +14,6 @@ use crate::modules::crm::model::work_log::WorkLogCreateDTO;
 use crate::modules::crm::entity::{customer, followup, lead};
 use crate::modules::crm::service::customer_service::get_accessible_user_ids;
 use crate::modules::crm::service::work_log_service;
-use crate::modules::system::entity::admin;
 use crate::modules::system::service::admin_service::build_admin_name_map;
 use crate::modules::system::service::role_service;
 use chrono::Datelike;
@@ -148,29 +147,14 @@ pub async fn list(db: &DbConn, query: &FollowupListQuery, current_user_id: i64) 
             ).await?
         }
         "subordinate" => {
-            // 下属跟进：获取数据权限范围内的其他用户，排除自己
-            let accessible = crate::modules::system::service::data_scope_service
-                ::get_accessible_user_ids(db, current_user_id).await?;
-            let user_ids = match accessible {
-                None => {
-                    // 全部数据权限：获取所有用户，排除自己
-                    let all_admins = admin::Entity::find()
-                        .filter(admin::Column::Id.ne(current_user_id))
-                        .all(db).await
-                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    all_admins.iter().map(|u| u.id).collect()
-                }
-                Some(ids) => {
-                    // 部门/仅本人权限：排除自己
-                    ids.into_iter().filter(|id| *id != current_user_id).collect()
-                }
-            };
-            // 即使 user_ids 为空（如 data_scope=5），也传 Some(vec![]) 让查询直接返回空结果
+            // 下属跟进：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            let subordinate_ids = crate::modules::system::service::subordinate_service
+                ::get_subordinate_ids_default(db, current_user_id).await?;
             FollowupModel::select_in_page_by_creator_ids(
                 &db, page, page_size,
                 query.customer_id, query.lead_id, query.opportunity_id,
                 query.only_customer, query.source_type,
-                Some(user_ids),
+                Some(subordinate_ids),
             ).await?
         }
         "todayFollow" => {
@@ -228,24 +212,10 @@ async fn list_grouped(
     let (creator_ids, time_range) = match list_type {
         "my" => (Some(vec![current_user_id]), None),
         "subordinate" => {
-            let user_ids = match data_scope {
-                Some(5) => Vec::new(),
-                Some(1) | None => {
-                    let all_admins = admin::Entity::find()
-                        .filter(admin::Column::Id.ne(current_user_id))
-                        .all(db).await
-                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    all_admins.iter().map(|u| u.id).collect()
-                }
-                _ => {
-                    get_accessible_user_ids(db, current_user_id, data_scope).await?
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter(|id| *id != current_user_id)
-                        .collect::<Vec<_>>()
-                }
-            };
-            (Some(user_ids), None)
+            // 下属跟进：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            let subordinate_ids = crate::modules::system::service::subordinate_service
+                ::get_subordinate_ids_default(db, current_user_id).await?;
+            (Some(subordinate_ids), None)
         }
         "todayFollow" => {
             let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
@@ -565,24 +535,10 @@ pub async fn visit_list(db: &DbConn, query: &VisitListQuery, current_user_id: i6
     let creator_ids: Option<Vec<i64>> = match list_type {
         "my" => Some(vec![current_user_id]),
         "subordinate" => {
-            // 下属拜访：获取数据权限范围内的其他用户，排除自己
-            let accessible = crate::modules::system::service::data_scope_service
-                ::get_accessible_user_ids(db, current_user_id).await?;
-            let user_ids = match accessible {
-                None => {
-                    // 全部数据权限：获取所有用户，排除自己
-                    let all_admins = admin::Entity::find()
-                        .filter(admin::Column::Id.ne(current_user_id))
-                        .all(db).await
-                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    all_admins.iter().map(|u| u.id).collect()
-                }
-                Some(ids) => {
-                    // 部门/仅本人权限：排除自己
-                    ids.into_iter().filter(|id| *id != current_user_id).collect()
-                }
-            };
-            Some(user_ids)
+            // 下属拜访：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            let subordinate_ids = crate::modules::system::service::subordinate_service
+                ::get_subordinate_ids_default(db, current_user_id).await?;
+            Some(subordinate_ids)
         }
         _ => {
             // all：根据数据权限过滤

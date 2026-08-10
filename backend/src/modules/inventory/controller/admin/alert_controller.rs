@@ -104,8 +104,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
         web::scope("/alert/rule")
             .route("/list", web::get().to(rule_list).wrap(require_permission("product:alert:list")))
             .route("/info", web::get().to(rule_info).wrap(require_permission("product:alert:list")))
-            .route("/save", web::post().to(rule_save).wrap(require_permission("product:alert:edit")))
-            .route("/update", web::put().to(rule_update).wrap(require_permission("product:alert:edit")))
-            .route("/batch_delete", web::delete().to(rule_batch_delete).wrap(require_permission("product:alert:edit"))),
+            .route("/save", web::post().to(rule_save).wrap(require_permission("product:alert:update")))
+            .route("/update", web::put().to(rule_update).wrap(require_permission("product:alert:update")))
+            .route("/batch_delete", web::delete().to(rule_batch_delete).wrap(require_permission("product:alert:update"))),
     );
 }

@@ -314,6 +314,8 @@ pub async fn product_list(
     let query = ProductListQuery {
         keywords: keyword,
         category_id,
+        warehouse_id: None,
+        brand_id: None,
         is_active: Some(true),
         page_num: Some(page_num),
         page_size: Some(12),
@@ -399,6 +401,8 @@ pub async fn search(
     let product_query = ProductListQuery {
         keywords: Some(keyword.clone()),
         category_id: None,
+        warehouse_id: None,
+        brand_id: None,
         is_active: Some(true),
         page_num: Some(1),
         page_size: Some(10),
@@ -519,6 +523,8 @@ pub async fn sitemap(
     let product_query = ProductListQuery {
         keywords: None,
         category_id: None,
+        warehouse_id: None,
+        brand_id: None,
         is_active: Some(true),
         page_num: Some(1),
         page_size: Some(1000),
@@ -615,6 +621,8 @@ pub async fn sitemap_xml(
     let product_query = ProductListQuery {
         keywords: None,
         category_id: None,
+        warehouse_id: None,
+        brand_id: None,
         is_active: Some(true),
         page_num: Some(1),
         page_size: Some(1000),

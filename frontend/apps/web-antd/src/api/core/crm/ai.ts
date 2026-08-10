@@ -1,28 +1,7 @@
 import { requestClient } from '#/api/request';
 
-export const getAiConfigListApi = async () => {
-  return requestClient.get('/api/system/ai-config/list');
-};
-
-export const getAiConfigDetailApi = async (id: number) => {
-  return requestClient.get(`/api/system/ai-config/detail/${id}`);
-};
-
-export const addAiConfigApi = async (params: any) => {
-  return requestClient.post('/api/system/ai-config/add', params);
-};
-
-export const updateAiConfigApi = async (params: any) => {
-  return requestClient.put('/api/system/ai-config/update', params);
-};
-
-export const deleteAiConfigApi = async (id: number) => {
-  return requestClient.delete(`/api/system/ai-config/delete/${id}`);
-};
-
-export const batchDeleteAiConfigApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/ai-config/batch-delete', { ids });
-};
+// AI 模型提供商 / 提示词配置：已统一迁移到「第三方接口配置」(integration-config.ts → AI 分类)
+// 下方仅保留企业背调相关接口（消费方）
 
 export const performBackgroundCheckApi = async (params: { company_name: string; lead_id?: number; company_id?: number }) => {
   return requestClient.post('/api/system/background-check/perform', params, { timeout: 120_000 });

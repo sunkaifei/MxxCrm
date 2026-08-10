@@ -12,6 +12,7 @@ import { getApprovalFlowDetailApi, saveApprovalFlowApi } from '#/api';
 import { getAdminOptionsApi } from '#/api/core/system/user';
 import { getRoleOptionsApi } from '#/api/core/system/role';
 import { getPostOptionsApi } from '#/api/core/system/post';
+import { searchUsersApi } from '#/api/core/message/chat';
 
 const route = useRoute();
 const router = useRouter();
@@ -50,12 +51,14 @@ const approverTypeOptions = [
   { value: 3, label: '部门主管' },
   { value: 4, label: '发起人自己' },
   { value: 5, label: '指定岗位(职位)' },
-  { value: 6, label: '直属上级' },
-  { value: 7, label: '部门主管及上级链' },
+  { value: 6, label: '直属上级（汇报关系）' },
+  { value: 7, label: '部门主管链（组织树）' },
+  { value: 8, label: '发起人自选' },
 ];
 
-// 直属上级层级选项：approverId 字段在 type=6 时作为层级使用
+// 直属上级层级选项：approverId 字段在 type=6/7 时作为层级使用
 const directManagerLevelOptions = [
+  { value: 0, label: '连续逐级直到顶层' },
   { value: 1, label: '直属上级（1级）' },
   { value: 2, label: '上级的上级（2级）' },
   { value: 3, label: '三级上级（3级）' },
@@ -95,6 +98,42 @@ async function loadOptions() {
   }
 }
 
+// ============ CC user remote search (reuses searchUsersApi) ============
+const ccUserOptions = ref<{ label: string; value: number }[]>([]);
+const ccUserSearching = ref(false);
+let ccUserSearchTimer: any = null;
+
+function handleCcUserSearch(keyword: string) {
+  if (ccUserSearchTimer) clearTimeout(ccUserSearchTimer);
+  if (!keyword.trim()) {
+    ccUserOptions.value = [];
+    return;
+  }
+  ccUserSearchTimer = setTimeout(async () => {
+    ccUserSearching.value = true;
+    try {
+      const res: any = await searchUsersApi({
+        keyword,
+        page: 1,
+        pageSize: 20,
+      });
+      const list: any[] = res.list || res || [];
+      ccUserOptions.value = list.map((u: any) => ({
+        label:
+          u.realName ||
+          u.nickName ||
+          u.userName ||
+          u.username ||
+          `用户${u.userId || u.id}`,
+        value: u.userId || u.id,
+      }));
+    } catch {
+      ccUserOptions.value = [];
+    } finally {
+      ccUserSearching.value = false;
+    }
+  }, 300);
+}
 
 // ============ Custom node component ============
 const FlowNode = defineComponent({
@@ -181,6 +220,20 @@ const selectedNode = computed<any>(() =>
   nodes.value.find((n) => n.id === selectedNodeId.value),
 );
 
+// Options for CC user select: merge echo labels (adminOptions entries matching
+// the currently selected node's ccUserIds) with remote search results.
+const ccUserSelectOptions = computed<{ label: string; value: number }[]>(() => {
+  const map = new Map<number, { label: string; value: number }>();
+  const selectedIds: number[] =
+    (selectedNode.value?.data?.ccUserIds as number[]) || [];
+  const selectedSet = new Set(selectedIds);
+  for (const o of adminOptions.value) {
+    if (selectedSet.has(o.value)) map.set(o.value, o);
+  }
+  for (const o of ccUserOptions.value) map.set(o.value, o);
+  return Array.from(map.values());
+});
+
 const selectedEdge = computed<any>(() =>
   edges.value.find((e) => e.id === selectedEdgeId.value),
 );
@@ -228,6 +281,7 @@ function onDrop(event: DragEvent) {
       approverId: null,
       approveMode: 1,
       isFinal: false,
+      ...(nodeType === 2 ? { ccUserIds: [] as number[] } : {}),
     },
   };
   nodes.value = [...nodes.value, node];
@@ -343,6 +397,14 @@ async function loadFlow(id: number) {
           approverId: n.approverId != null ? Number(n.approverId) : (n.approver_id != null ? Number(n.approver_id) : null),
           approveMode: n.approveMode ?? n.approve_mode ?? 1,
           isFinal: !!(n.isFinal ?? n.is_final ?? false),
+          ccUserIds: (Array.isArray(n.ccUserIds)
+            ? n.ccUserIds
+            : Array.isArray(n.cc_user_ids)
+              ? n.cc_user_ids
+              : []
+          )
+            .map((id: any) => Number(id))
+            .filter((id: number) => !Number.isNaN(id)),
         },
       };
     });
@@ -389,6 +451,11 @@ async function handleSave() {
         approverId: n.data?.approverId != null ? Number(n.data.approverId) : null,
         approveMode: n.data?.approveMode ?? 1,
         isFinal: n.data?.isFinal ? 1 : 0,
+        ccUserIds: Array.isArray(n.data?.ccUserIds)
+          ? n.data.ccUserIds
+              .map((id: any) => Number(id))
+              .filter((id: number) => !Number.isNaN(id))
+          : [],
         positionX: Math.round(n.position?.x ?? 0),
         positionY: Math.round(n.position?.y ?? 0),
       })),
@@ -652,6 +719,10 @@ onMounted(() => {
                 />
                 <span class="field-hint">沿部门树向上查找部门负责人，人员调部门后审批链自动更新（自审回避）</span>
               </div>
+              <div v-else-if="selectedNode.data.approverType === 8" class="props-field hint">
+                <label>说明</label>
+                <span class="field-hint">提交审批时由发起人自行选择审批人</span>
+              </div>
               <div class="props-field">
                 <label>审批模式</label>
                 <Select
@@ -663,6 +734,20 @@ onMounted(() => {
               <div class="props-field inline">
                 <label>是否终审</label>
                 <Switch v-model:checked="selectedNode.data.isFinal" />
+              </div>
+              <div class="props-field">
+                <label>通过后抄送</label>
+                <Select
+                  v-model:value="selectedNode.data.ccUserIds"
+                  mode="multiple"
+                  show-search
+                  allow-clear
+                  :filter-option="false"
+                  :loading="ccUserSearching"
+                  :options="ccUserSelectOptions"
+                  placeholder="搜索用户姓名（可多选）"
+                  @search="handleCcUserSearch"
+                />
               </div>
             </template>
 

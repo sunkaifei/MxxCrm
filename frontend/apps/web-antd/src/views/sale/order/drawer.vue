@@ -14,6 +14,7 @@ import {
   Tabs,
   TabPane,
   Table,
+  Tag,
   Tooltip,
   message,
 } from 'ant-design-vue';
@@ -32,6 +33,7 @@ import {
   getCompanyInfoApi,
   getCompanyAccountListApi,
   getSalesFlowModeApi,
+  getWarehouseListApi,
   type BankAccount,
   type SalesFlowMode,
 } from '#/api';
@@ -97,6 +99,26 @@ const loadFlowMode = async () => {
 };
 loadFlowMode();
 
+// 发货仓库（影响产品库存校验与发货归属）
+const warehouseOptions = ref<{ value: number; label: string }[]>([]);
+const warehouseId = ref<number | undefined>(undefined);
+
+async function loadWarehouses() {
+  try {
+    const res: any = await getWarehouseListApi({ page: 1, pageSize: 200 });
+    const data = res?.data ?? res ?? {};
+    const list = data?.list || data?.items || data?.rows || [];
+    warehouseOptions.value = list.map((w: any) => ({
+      value: Number(w.id),
+      label: w.warehouseName || w.name,
+    }));
+  } catch (e) {
+    console.error('[订单] 加载仓库列表失败:', e);
+    warehouseOptions.value = [];
+  }
+}
+loadWarehouses();
+
 // 报价单选择
 const quotationModalVisible = ref(false);
 const quotationInfo = ref<{ id?: number; title?: string; quotationNo?: string }>({});
@@ -118,6 +140,10 @@ function onOpportunitySelect(item: any) {
   const previousCustomerId = contactFilterCustomerId.value;
   opportunityInfo.value = { id: item.id, name: item.opportunityName || item.title || '' };
   basicFormApi.setValues({ opportunityId: item.id });
+  // 自动带出商机负责人作为订单负责人
+  if (item.assignedTo) {
+    basicFormApi.setValues({ ownerUserId: item.assignedTo });
+  }
   // 自动填充客户信息
   if (item.customerName) {
     basicFormApi.setValues({ customerName: item.customerName });
@@ -235,7 +261,19 @@ const financialLoading = ref(false);
 const productModalVisible = ref(false);
 
 function openProductModal() {
+  // 添加产品前必须先选择发货仓库（用于库存校验）
+  if (!warehouseId.value) {
+    message.warning('请先选择发货仓库');
+    activeTab.value = 'items';
+    return;
+  }
   productModalVisible.value = true;
+}
+
+// 切换发货仓库时清空已选产品（报价单模式下保留报价单明细）
+function onWarehouseChange() {
+  if (isQuotationMode.value) return;
+  items.value = [];
 }
 
 async function onQuotationSelect(item: any) {
@@ -243,6 +281,10 @@ async function onQuotationSelect(item: any) {
   const previousCustomerId = contactFilterCustomerId.value;
   quotationInfo.value = { id: item.id, title: item.title, quotationNo: item.quotationNo };
   basicFormApi.setValues({ quotationId: item.id });
+  // 自动带出报价单负责人作为订单负责人
+  if (item.ownerUserId) {
+    basicFormApi.setValues({ ownerUserId: item.ownerUserId });
+  }
   // 自动填充客户信息
   if (item.customerName) {
     basicFormApi.setValues({ customerName: item.customerName });
@@ -322,6 +364,7 @@ function onProductSelect(selectedItems: any[]) {
       discountRate: 100,
       taxRate: 0,
       amount: 0,
+      stock: item.stock,
     });
     updateLineAmount(items.value.length - 1);
   });
@@ -566,15 +609,25 @@ watch(
 const itemColumns = [
   { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 240 },
+  { title: '类型', dataIndex: 'productType', key: 'productType', width: 90, align: 'center' as const },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' as const },
   { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
+  { title: '库存', dataIndex: 'stock', key: 'stock', width: 70, align: 'center' as const },
   { title: '单价', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' as const },
   { title: '折扣率(%)', dataIndex: 'discountRate', key: 'discountRate', width: 75 },
   { title: '税率(%)', dataIndex: 'taxRate', key: 'taxRate', width: 75 },
   { title: '金额', dataIndex: 'amount', key: 'amount', width: 105, align: 'right' as const },
   { title: '操作', key: 'action', width: 55, align: 'center' as const },
 ];
+
+// === 07-虚拟商品：商品类型映射（用于明细行徽标渲染） ===
+const productTypeLabels: Record<number, string> = {
+  1: '实物', 2: '虚拟', 3: '服务', 4: '订阅',
+};
+const productTypeColors: Record<number, string> = {
+  1: 'blue', 2: 'purple', 3: 'orange', 4: 'green',
+};
 
 function _addItem() {
   void _addItem;
@@ -683,6 +736,8 @@ async function loadOrderDetail(orderId: number) {
       deliveryDate: data.deliveryDate,
       remark: data.remark,
     });
+    // 发货仓库（直接赋值 ref，不触发清空明细）
+    warehouseId.value = data.warehouseId ?? undefined;
     // 报价单信息
     quotationInfo.value = data.quotationId
       ? { id: data.quotationId, title: data.quotationTitle || data.quotationNo || '' }
@@ -783,7 +838,14 @@ async function handleSubmit() {
       return;
     }
 
-    // 2. 商品明细检查
+    // 2. 发货仓库校验
+    if (!warehouseId.value) {
+      message.error('请选择发货仓库');
+      activeTab.value = 'items';
+      return;
+    }
+
+    // 3. 商品明细检查
     console.log('[订单提交] 商品明细数量:', items.value.length);
     if (items.value.length === 0) {
       message.error('请至少添加一条商品明细');
@@ -791,7 +853,7 @@ async function handleSubmit() {
       return;
     }
 
-    // 3. 收集数据
+    // 4. 收集数据
     const basicValues = await basicFormApi.getValues();
     const shippingValues = await shippingFormApi.getValues();
     const paymentValues = await paymentFormApi.getValues();
@@ -817,7 +879,7 @@ async function handleSubmit() {
       }
     }
 
-    // 4. 财务信息校验：支付账户名称、开户行、开户账号、支付方式、支付截止日期不能为空
+    // 5. 财务信息校验：支付账户名称、开户行、开户账号、支付方式、支付截止日期不能为空
     if (!buyerInfo.accountName || !buyerInfo.accountName.trim()) {
       message.error('请填写支付账户名称');
       activeTab.value = 'payment';
@@ -866,6 +928,8 @@ async function handleSubmit() {
       // 显式带上 contactId（来自联系人选择，schema 中无此字段）
       contactId: contactInfo.value.id || undefined,
       contactName: contactInfo.value.name || undefined,
+      // 发货仓库（来自仓库选择，schema 中无此字段）
+      warehouseId: warehouseId.value || undefined,
       paymentMethod: paymentValues.paymentMethod,
       paymentDueDate: paymentValues.paymentDueDate,
       items: submitItems,
@@ -922,6 +986,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       // 重置联系人信息
       contactInfo.value = {};
       contactFilterCustomerId.value = undefined;
+      // 重置发货仓库
+      warehouseId.value = undefined;
       salesMode.value = 'standard';
       if (props.fromQuotation) {
         // 从报价单创建订单，预填充报价单信息
@@ -944,6 +1010,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
           contactId: q.contactId,
           contactName: q.contactName,
           opportunityId: q.opportunityId,
+          ownerUserId: q.ownerUserId,
           currency: q.currency ?? 1,
           deliveryDate: q.deliveryDate,
           remark: q.remark,
@@ -1177,6 +1244,21 @@ watch(submitting, (val) => {
         />
       </TabPane>
       <TabPane key="items" tab="商品明细">
+        <!-- 发货仓库（必选，影响产品库存校验） -->
+        <div class="mb-3 flex items-center gap-2 px-1">
+          <span class="shrink-0 text-sm" style="width: 82px; color: hsl(var(--foreground))">
+            <span style="color: hsl(0 84% 60%)">*</span>发货仓库：
+          </span>
+          <Select
+            v-model:value="warehouseId"
+            placeholder="请选择发货仓库"
+            style="flex: 1"
+            :options="warehouseOptions"
+            allow-clear
+            @change="onWarehouseChange"
+          />
+        </div>
+
         <!-- 报价单模式提示 -->
         <div v-if="isQuotationMode" class="mb-3 px-3 py-2 rounded text-xs" style="background: hsl(var(--primary) / 0.06); color: hsl(var(--primary)); border: 1px solid hsl(var(--primary) / 0.2);">
           当前为报价单模式，产品明细一比一来源于报价单，不可增删改
@@ -1199,7 +1281,7 @@ watch(submitting, (val) => {
             :data-source="items"
             :pagination="false"
             size="small"
-            :scroll="{ x: 1150 }"
+            :scroll="{ x: 1230 }"
             :row-key="(_: any, index) => String(index)"
             bordered
           >
@@ -1209,6 +1291,11 @@ watch(submitting, (val) => {
                   <span class="font-medium">{{ record.productName || '-' }}</span>
                   <span class="text-xs" style="color: hsl(var(--muted-foreground))">{{ record.productCode || '' }}</span>
                 </div>
+              </template>
+              <template v-else-if="column.key === 'productType'">
+                <Tag :color="productTypeColors[Number(record.productType) || 1] || 'default'">
+                  {{ productTypeLabels[Number(record.productType) || 1] || '实物' }}
+                </Tag>
               </template>
               <template v-else-if="column.key === 'spec'">
                 <span class="text-sm">{{ record.spec || '-' }}</span>
@@ -1226,6 +1313,18 @@ watch(submitting, (val) => {
                   :disabled="isQuotationMode"
                   @change="() => updateLineAmount(index)"
                 />
+              </template>
+              <template v-else-if="column.key === 'stock'">
+                <span
+                  v-if="record.stock !== undefined && record.stock !== null"
+                  :style="{
+                    color: Number(record.quantity) > Number(record.stock) ? 'hsl(30 90% 50%)' : 'inherit',
+                    fontWeight: Number(record.quantity) > Number(record.stock) ? 600 : 400,
+                  }"
+                >
+                  {{ record.stock }}
+                </span>
+                <span v-else style="color: hsl(var(--muted-foreground))">—</span>
               </template>
               <template v-else-if="column.key === 'unitPrice'">
                 <InputNumber
@@ -1326,6 +1425,8 @@ watch(submitting, (val) => {
         <!-- 产品选择弹窗 -->
         <ProductSelectModal
           v-model:visible="productModalVisible"
+          :warehouse-id="warehouseId"
+          :strict-stock="true"
           @select="onProductSelect"
         />
       </TabPane>

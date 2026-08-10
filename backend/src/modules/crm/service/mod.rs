@@ -22,3 +22,7 @@ pub mod contract_commission_service;
 pub mod followup_service;
 pub mod todo_service;
 pub mod work_log_service;
+pub mod customer_360_service;
+pub mod electronic_signature_service;
+pub mod payment_plan_auto_service;
+pub mod service_ticket_service;

@@ -180,7 +180,7 @@ async function handleConvertToRequisition(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('purchase:stockPlan:edit')"
+          v-if="accessStore.hasAccessCode('purchase:stockPlan:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

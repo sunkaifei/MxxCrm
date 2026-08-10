@@ -19,6 +19,9 @@ pub struct Model {
     pub is_final: Option<i32>,
     pub position_x: Option<i32>,
     pub position_y: Option<i32>,
+    /// 审批通过后自动抄送的用户ID列表（JSON数组，如 [1,2,3]）
+    #[sea_orm(column_type = "JsonBinary", nullable)]
+    pub cc_user_ids: Option<serde_json::Value>,
     pub create_time: Option<DateTime>,
 }
 

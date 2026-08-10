@@ -39,6 +39,12 @@ export interface ProductSaveRequest {
   specType?: 'single' | 'multiple';
   templateId?: number;
   skus?: ProductSkuRequest[];
+  /** 商品类型：1=实物，2=虚拟，3=服务，4=订阅 */
+  productType?: number;
+  /** 履约方式：1=物流配送，2=自动交付，3=手动交付，4=服务履行，5=无需交付 */
+  fulfillmentType?: number;
+  /** 是否虚拟库存（0=否，1=是，无限售） */
+  isVirtualStock?: number;
 }
 
 export type ProductUpdateRequest = ProductSaveRequest;

@@ -329,6 +329,7 @@
     },
     "approval": {
       "title": "Approval Flow Management",
+      "list": "Approval Flow List",
       "todo": "Approval Tasks",
       "designer": "Approval Flow Designer",
       "cc": "CC To Me",
@@ -344,6 +345,9 @@
       "button": {
         "manage": "Manage"
       }
+    },
+    "integration": {
+      "title": "Third-Party Integration"
     },
     "setting": {
       "title": "System Settings",

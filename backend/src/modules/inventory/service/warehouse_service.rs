@@ -1,5 +1,6 @@
-use crate::core::errors::error::Result;
+use crate::core::errors::error::{Error, Result};
 use crate::modules::inventory::entity::warehouse::{Entity as WarehouseEntity, ActiveModel as WarehouseActiveModel, Column as WarehouseColumn};
+use crate::modules::inventory::entity::warehouse_area::{Entity as WarehouseAreaEntity, ActiveModel as WarehouseAreaActiveModel, Column as WarehouseAreaColumn};
 use crate::modules::inventory::model::warehouse::{WarehouseDetailVO, WarehouseListQuery, WarehouseListVO, WarehouseSaveRequest, WarehouseUpdateRequest};
 use crate::modules::inventory::model::warehouse;
 use sea_orm::*;
@@ -28,13 +29,29 @@ pub async fn update(db: &DatabaseConnection, data: &WarehouseUpdateRequest, upda
 }
 
 pub async fn batch_delete(db: &DatabaseConnection, ids: &[i64]) -> Result<i64> {
-    let res = WarehouseEntity::update_many()
-        .set(WarehouseActiveModel {
-            deleted: Set(Some(1)),
-            ..Default::default()
+    let ids_vec = ids.to_vec();
+    let res = db.transaction::<_, i64, DbErr>(|txn| {
+        Box::pin(async move {
+            WarehouseAreaEntity::update_many()
+                .set(WarehouseAreaActiveModel {
+                    deleted: Set(Some(1)),
+                    ..Default::default()
+                })
+                .filter(WarehouseAreaColumn::WarehouseId.is_in(ids_vec.clone()))
+                .exec(txn)
+                .await?;
+            let r = WarehouseEntity::update_many()
+                .set(WarehouseActiveModel {
+                    deleted: Set(Some(1)),
+                    ..Default::default()
+                })
+                .filter(WarehouseColumn::Id.is_in(ids_vec))
+                .exec(txn)
+                .await?;
+            Ok(r.rows_affected as i64)
         })
-        .filter(WarehouseColumn::Id.is_in(ids.to_vec()))
-        .exec(db)
-        .await?;
-    Ok(res.rows_affected as i64)
+    })
+    .await
+    .map_err(|e| Error::from(e.to_string()))?;
+    Ok(res)
 }

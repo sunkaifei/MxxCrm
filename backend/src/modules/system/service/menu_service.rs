@@ -9,9 +9,10 @@
 //!
 
 use std::collections::{HashMap, HashSet};
-use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DbConn, DbErr, EntityTrait, QueryFilter, TransactionTrait};
 use crate::core::errors::error::{Error, Result};
 use crate::modules::system::entity::menu::Model;
+use crate::modules::system::entity::{menu as menu_entity, role_menu_merge};
 use crate::modules::system::model::admin::AdminModel;
 use crate::modules::system::model::admin_role_merge::AdminRoleMergeModel;
 use crate::modules::system::model::menu;
@@ -36,7 +37,24 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids: Vec<Option<String>>) -> Resul
         return Err(Error::from("有下级的菜单不能删除"));
     };
 
-    Ok(MenuModel::batch_delete_by_ids(db, vec_ids).await?)
+    let ids_for_txn = vec_ids;
+    let affected = db.transaction::<_, i64, DbErr>(|txn| {
+        Box::pin(async move {
+            role_menu_merge::Entity::delete_many()
+                .filter(role_menu_merge::Column::MenuId.is_in(ids_for_txn.clone()))
+                .exec(txn)
+                .await?;
+            let res = menu_entity::Entity::delete_many()
+                .filter(menu_entity::Column::Id.is_in(ids_for_txn))
+                .exec(txn)
+                .await?;
+            Ok(res.rows_affected as i64)
+        })
+    })
+    .await
+    .map_err(|e| Error::from(e.to_string()))?;
+
+    Ok(affected)
 }
 
 /// 按id更新菜单

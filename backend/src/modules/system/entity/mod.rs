@@ -40,4 +40,6 @@ pub mod scheduler_log;
 pub mod pdf_template;
 pub mod pdf_record;
 pub mod pdf_download_log;
+pub mod exchange_rate;
+pub mod integration_config;
 

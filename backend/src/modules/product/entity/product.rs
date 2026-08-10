@@ -119,6 +119,18 @@ pub struct Model {
 
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
+    /// 商品类型：1=实物，2=虚拟，3=服务，4=订阅
+    pub product_type: Option<i32>,
+    /// 默认履约方式：1=物流配送，2=自动交付，3=手动交付，4=服务履行，5=无需交付
+    pub fulfillment_type: Option<i32>,
+    /// 是否虚拟库存（0=否，1=是，无限售），仅对 product_type=2/3/4 有效
+    pub is_virtual_stock: Option<i32>,
+    /// ABC 分类（A/B/C）
+    pub abc_class: Option<String>,
+    /// ABC 分类得分（累计百分比）
+    pub abc_score: Option<Decimal>,
+    /// ABC 分类更新时间
+    pub abc_updated_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

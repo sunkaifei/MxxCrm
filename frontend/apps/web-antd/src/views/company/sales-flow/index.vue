@@ -23,7 +23,7 @@ const accessStore = useAccessStore();
 
 // 通过权限码判断是否有编辑权限
 const canEdit = computed(() =>
-  accessStore.hasAccessCode('company:sales-flow:edit'),
+  accessStore.hasAccessCode('company:sales-flow:update'),
 );
 
 const loading = ref(false);

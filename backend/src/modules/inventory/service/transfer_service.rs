@@ -51,6 +51,35 @@ pub async fn create(
         return Err(Error::from("源仓库和目标仓库不能相同".to_string()));
     }
 
+    // 库存校验：检查源仓库每个产品的可用库存是否充足
+    for item in &req.items {
+        let stock_record = stock::Entity::find()
+            .filter(stock::Column::ProductId.eq(item.product_id))
+            .filter(stock::Column::WarehouseId.eq(req.from_warehouse_id))
+            .filter(stock::Column::Deleted.eq(0))
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        match stock_record {
+            Some(s) => {
+                let available = s.available_quantity.unwrap_or_default();
+                if item.quantity > available {
+                    return Err(Error::from(format!(
+                        "产品[{}]库存不足，当前可用: {}，需调拨: {}",
+                        item.product_id, available, item.quantity
+                    )));
+                }
+            }
+            None => {
+                return Err(Error::from(format!(
+                    "产品[{}]在源仓库无库存记录",
+                    item.product_id
+                )));
+            }
+        }
+    }
+
     let transfer_no = generate_transfer_no(db).await?;
     let total_quantity: Decimal = req.items.iter()
         .map(|i| i.quantity)

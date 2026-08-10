@@ -9,9 +9,13 @@
 //!
 
 use crate::core::errors::error::Result;
+use crate::modules::product::entity::brand;
 use crate::modules::product::model::product::{ProductDetailVO, ProductListQuery, ProductListVO, ProductSaveDTO, ProductSaveRequest, ProductUpdateRequest};
 use crate::modules::product::model::product::ProductModel;
-use sea_orm::{DbConn, TransactionTrait};
+use rust_decimal::prelude::ToPrimitive;
+use sea_orm::prelude::Decimal;
+use sea_orm::{ColumnTrait, ConnectionTrait, DbConn, EntityTrait, QueryFilter, TransactionTrait, Value};
+use std::collections::HashMap;
 
 pub async fn insert(db: &DbConn, form_data: &ProductSaveRequest, created_by: i64) -> Result<i64> {
     let name = form_data.name.as_ref().ok_or("产品名称不能为空")?;
@@ -96,21 +100,73 @@ pub async fn get_detail_with_specs(db: &DbConn, id: i64) -> Result<(ProductDetai
 pub async fn get_list(db: &DbConn, query: &ProductListQuery) -> Result<(Vec<ProductListVO>, i64, i64)> {
     let page_num = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(10);
-    let (list, total_pages) = ProductModel::select_in_page(
+    let (models, total_pages) = ProductModel::select_in_page(
         db,
         page_num,
         page_size,
         query.keywords.clone(),
         query.category_id,
+        query.brand_id,
         query.is_active,
     ).await?;
 
-    let list: Vec<ProductListVO> = list.into_iter().map(|m| m.into()).collect();
+    // 批量查询库存（按仓库过滤或全仓库汇总）
+    let product_ids: Vec<i64> = models.iter().map(|m| m.id).collect();
+    let stock_map: HashMap<i64, i64> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        let placeholders: Vec<String> = (1..=product_ids.len()).map(|i| format!("${}", i)).collect();
+        let mut values: Vec<Value> = product_ids.iter().map(|&id| id.into()).collect();
+        let mut sql = format!(
+            "SELECT product_id, COALESCE(SUM(quantity), 0) AS total FROM mxx_inventory_stock WHERE deleted = 0 AND product_id IN ({}) GROUP BY product_id",
+            placeholders.join(", ")
+        );
+        if let Some(wid) = query.warehouse_id {
+            sql.push_str(&format!(" AND warehouse_id = ${}", product_ids.len() + 1));
+            values.push(wid.into());
+        }
+        let stmt = sea_orm::Statement::from_sql_and_values(db.get_database_backend(), &sql, values);
+        let rows = db.query_all_raw(stmt).await?;
+        let mut map = HashMap::new();
+        for row in rows {
+            let pid: i64 = row.try_get("", "product_id")?;
+            let total: Decimal = row.try_get("", "total")?;
+            map.insert(pid, total.to_i64().unwrap_or(0));
+        }
+        map
+    };
+
+    // 批量查询品牌名称
+    let brand_ids: Vec<i64> = models.iter().filter_map(|m| m.brand_id).collect();
+    let brand_map: HashMap<i64, String> = if brand_ids.is_empty() {
+        HashMap::new()
+    } else {
+        brand::Entity::find()
+            .filter(brand::Column::Id.is_in(brand_ids))
+            .filter(brand::Column::Deleted.eq(0))
+            .all(db)
+            .await?
+            .into_iter()
+            .filter_map(|b| b.name.map(|n| (b.id, n)))
+            .collect()
+    };
+
+    let list: Vec<ProductListVO> = models.into_iter().map(|m| {
+        let pid = m.id;
+        let bid = m.brand_id;
+        let mut vo: ProductListVO = m.into();
+        if let Some(bid) = bid {
+            vo.brand_name = brand_map.get(&bid).cloned();
+        }
+        vo.total_stock = stock_map.get(&pid).cloned();
+        vo
+    }).collect();
 
     let total = ProductModel::select_count(
         db,
         query.keywords.clone(),
         query.category_id,
+        query.brand_id,
         query.is_active,
     ).await?;
 

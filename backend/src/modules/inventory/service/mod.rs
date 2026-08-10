@@ -14,3 +14,5 @@ pub mod inventory_suggestion_service;
 pub mod inventory_report_service;
 pub mod quality_check_service;
 pub mod alert_service;
+pub mod serial_number_service;
+pub mod bin_location_service;

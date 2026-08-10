@@ -103,11 +103,11 @@ pub async fn batch_delete_ai_config(state: web::Data<AppState>, item: web::Json<
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/ai-config")
-            .route("/add", web::post().to(insert_ai_config).wrap(require_permission("crm:ai:edit")))
-            .route("/update", web::put().to(update_ai_config).wrap(require_permission("crm:ai:edit")))
+            .route("/add", web::post().to(insert_ai_config).wrap(require_permission("crm:ai:update")))
+            .route("/update", web::put().to(update_ai_config).wrap(require_permission("crm:ai:update")))
             .route("/list", web::get().to(get_ai_config_list).wrap(require_permission("crm:ai:view")))
             .route("/detail/{id}", web::get().to(get_ai_config_detail).wrap(require_permission("crm:ai:view")))
-            .route("/delete/{id}", web::delete().to(delete_ai_config).wrap(require_permission("crm:ai:edit")))
-            .route("/batch-delete", web::delete().to(batch_delete_ai_config).wrap(require_permission("crm:ai:edit"))),
+            .route("/delete/{id}", web::delete().to(delete_ai_config).wrap(require_permission("crm:ai:update")))
+            .route("/batch-delete", web::delete().to(batch_delete_ai_config).wrap(require_permission("crm:ai:update"))),
     );
 }

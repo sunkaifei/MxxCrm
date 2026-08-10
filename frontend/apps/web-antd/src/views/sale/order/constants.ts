@@ -17,6 +17,11 @@ export const orderStatusOptions = [
   { label: '已签收', value: 9 },
   { label: '已完成', value: 10 },
   { label: '已作废', value: 11 },
+  // === 07-虚拟商品：新增状态 ===
+  { label: '待交付', value: 12 },
+  { label: '服务中', value: 13 },
+  { label: '部分交付', value: 14 },
+  { label: '待激活', value: 15 },
 ];
 
 export const orderStatusColorMap: Record<number, string> = {
@@ -31,6 +36,11 @@ export const orderStatusColorMap: Record<number, string> = {
   9: 'green',
   10: 'blue',
   11: 'red',
+  // 07-虚拟商品
+  12: 'orange',
+  13: 'processing',
+  14: 'cyan',
+  15: 'orange',
 };
 
 export const orderStatusLabelMap: Record<number, string> = {
@@ -45,6 +55,42 @@ export const orderStatusLabelMap: Record<number, string> = {
   9: '已签收',
   10: '已完成',
   11: '已作废',
+  // 07-虚拟商品
+  12: '待交付',
+  13: '服务中',
+  14: '部分交付',
+  15: '待激活',
+};
+
+// === 07-虚拟商品：商品类型映射 ===
+export const productTypeOptions = [
+  { label: '实物商品', value: 1 },
+  { label: '虚拟商品', value: 2 },
+  { label: '服务商品', value: 3 },
+  { label: '订阅商品', value: 4 },
+];
+
+export const productTypeColorMap: Record<number, string> = {
+  1: 'blue',
+  2: 'purple',
+  3: 'orange',
+  4: 'green',
+};
+
+export const productTypeLabelMap: Record<number, string> = {
+  1: '实物商品',
+  2: '虚拟商品',
+  3: '服务商品',
+  4: '订阅商品',
+};
+
+// === 07-虚拟商品：履约方式映射 ===
+export const fulfillmentTypeLabelMap: Record<number, string> = {
+  1: '物流配送',
+  2: '自动交付',
+  3: '手动交付',
+  4: '服务履行',
+  5: '无需交付',
 };
 
 // 支付状态

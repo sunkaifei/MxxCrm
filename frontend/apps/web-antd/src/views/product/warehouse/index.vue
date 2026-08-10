@@ -208,7 +208,7 @@ function handleCreate() {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('product:warehouse:edit')"
+          v-if="accessStore.hasAccessCode('product:warehouse:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

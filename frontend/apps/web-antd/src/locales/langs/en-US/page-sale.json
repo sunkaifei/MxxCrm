@@ -74,6 +74,32 @@
         "sign": "Confirm Receipt"
       }
     },
+    "delivery": {
+      "title": "Virtual Delivery",
+      "button": {
+        "view": "View Full",
+        "create": "New Delivery",
+        "edit": "Edit",
+        "resend": "Resend"
+      }
+    },
+    "cardPool": {
+      "title": "Card Pool",
+      "button": {
+        "create": "New Card",
+        "delete": "Delete",
+        "view": "View Full",
+        "import": "Import"
+      }
+    },
+    "entitlement": {
+      "title": "Entitlements",
+      "button": {
+        "create": "New",
+        "edit": "Edit",
+        "renew": "Renew"
+      }
+    },
     "invoice": {
       "title": "Invoice",
       "button": {

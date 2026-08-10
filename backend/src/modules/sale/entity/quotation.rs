@@ -56,6 +56,8 @@ pub struct Model {
     pub update_by: Option<String>,
     pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
+    /// 订单类型：1=实物，2=虚拟，3=服务，4=订阅，5=混合（由明细推导）
+    pub order_type: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

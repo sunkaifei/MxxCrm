@@ -14,6 +14,7 @@ use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
 use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalLogVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractModel, ContractSaveDTO};
 use crate::modules::crm::entity::{contract, contract_approval_log, contract::Entity as Contract, contract_approval_log::Entity as ContractApprovalLog, customer::{Entity as Customer, Column as CustomerColumn}};
+use crate::modules::system::entity::admin::{Entity as AdminEntity, Column as AdminColumn};
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
@@ -190,23 +191,14 @@ pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) 
             Some(vec![current_user_id])
         }
         "subordinate" => {
-            // 下属合同：获取数据权限范围内的其他用户（排除自己）
-            let accessible = crate::modules::system::service::data_scope_service
-                ::get_accessible_user_ids(db, current_user_id).await?;
-            match accessible {
-                None => {
-                    // 全部数据权限：获取所有用户，排除自己
-                    let all_admins = Admin::find()
-                        .filter(admin::Column::Id.ne(current_user_id))
-                        .all(db)
-                        .await
-                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    Some(all_admins.iter().map(|u| u.id).collect())
-                }
-                Some(ids) => {
-                    // 部门/仅本人权限：排除自己
-                    Some(ids.into_iter().filter(|id| *id != current_user_id).collect())
-                }
+            // 下属合同：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            let subordinate_ids = crate::modules::system::service::subordinate_service
+                ::get_subordinate_ids_default(db, current_user_id).await?;
+            if subordinate_ids.is_empty() {
+                // 没有下属，返回空列表
+                Some(vec![-1])
+            } else {
+                Some(subordinate_ids)
             }
         }
         _ => {
@@ -270,6 +262,29 @@ pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) 
         vo
     }).collect();
 
+    // 批量查询负责人姓名
+    let assigned_ids: Vec<i64> = data.iter()
+        .filter_map(|v| v.assigned_to)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    let assigned_name_map: HashMap<i64, String> = if !assigned_ids.is_empty() {
+        AdminEntity::find()
+            .filter(AdminColumn::Id.is_in(assigned_ids))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|u| (u.id, u.nick_name.unwrap_or_default()))
+            .collect()
+    } else {
+        HashMap::new()
+    };
+    for vo in &mut data {
+        if let Some(uid) = vo.assigned_to {
+            vo.assigned_to_name = assigned_name_map.get(&uid).cloned();
+        }
+    }
+
     // 计算合同发货状态：关联订单中存在“已发货/部分发货/已签收/已完成”(order_status>=5) 即视为已发货
     let contract_ids: Vec<i64> = data.iter().filter_map(|v| v.id).collect();
     let ship_status_map: HashMap<i64, i32> = if !contract_ids.is_empty() {
@@ -305,13 +320,34 @@ pub async fn submit_contract(db: &DbConn, contract_id: i64, operator_id: i64, op
         .await?
         .ok_or_else(|| Error::from("合同不存在".to_string()))?;
 
-    if contract.approval_status != Some(0) && contract.approval_status != Some(4) {
-        return Err(Error::from("当前状态不允许提交，仅草稿或已驳回状态可提交".to_string()));
+    if contract.approval_status != Some(0) && contract.approval_status != Some(4)
+        && contract.approval_status != Some(5) && contract.approval_status != Some(6) {
+        return Err(Error::from("当前状态不允许提交，仅草稿、已驳回、已撤回或待修改状态可提交".to_string()));
+    }
+
+    // 校验：合同必须指定负责人（assigned_to），否则审批流无法正确解析直属上级
+    let contract_owner_id = match contract.assigned_to {
+        Some(uid) if uid > 0 => uid,
+        _ => return Err(Error::from("合同未指定负责人，无法提交审批。请先分配负责人".to_string())),
+    };
+
+    // 校验：负责人不能是超级管理员（user_type=1），超管不参与业务审批链
+    let owner = Admin::find_by_id(contract_owner_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::from("合同负责人不存在".to_string()))?;
+    if owner.user_type == Some(1) {
+        return Err(Error::from("合同负责人是超级管理员，不参与业务审批。请将合同分配给业务人员".to_string()));
     }
 
     let total_amount = contract.total_amount.unwrap_or(Decimal::from(0));
     let previous_status = contract.approval_status;
     let title = contract.title.clone();
+
+    // 提交审批时，以合同负责人(assigned_to)作为提交人，而非当前操作者
+    // 这样审批流"直属上级"才能正确解析到负责人的上级
+    // contract_owner_id 已在上方校验
+    let contract_owner_name = owner.nick_name.or(owner.user_name).unwrap_or_else(|| operator_name.to_string());
 
     // 调用审批引擎提交
     let submit_req = ApprovalSubmitRequest {
@@ -319,8 +355,8 @@ pub async fn submit_contract(db: &DbConn, contract_id: i64, operator_id: i64, op
         business_type: "contract".to_string(),
         business_id: contract_id,
         business_title: title,
-        submitter_id: operator_id,
-        submitter_name: Some(operator_name.to_string()),
+        submitter_id: contract_owner_id,
+        submitter_name: Some(contract_owner_name.clone()),
         extra_data: Some(serde_json::json!({ "amount": total_amount })),
     };
     let instance_id = ApprovalService::submit(db, &submit_req).await?;
@@ -385,23 +421,14 @@ pub async fn approve_contract(db: &DbConn, req: &ContractApprovalRequest, operat
         .ok_or_else(|| Error::from("审批实例不存在".to_string()))?;
     let new_status = if instance.status == 3 { 3 } else { 2 };
 
-    // 审批通过联动：自动将合同状态置为已签署（2），sign_date 为空时设为当前日期
-    let original_sign_date = contract.sign_date;
-    let today_date = chrono::Local::now().naive_local().date();
     // 捕获 order_id 用于审批通过后自动创建销售出库单
     let contract_order_id = contract.order_id;
 
-    // 更新合同表
+    // 更新合同表（审批通过后不再自动签署，合同进入"待签署"状态：status=Draft + approval_status=3）
     let txn = db.begin().await?;
     let mut active: contract::ActiveModel = contract.into_active_model();
     active.approval_status = Set(Some(new_status));
     active.update_time = Set(Some(chrono::Local::now().naive_local().to_owned()));
-    if new_status == 3 {
-        active.status = Set(Some(ContractStatus::Signed));
-        if original_sign_date.is_none() {
-            active.sign_date = Set(Some(today_date));
-        }
-    }
     active.update(&txn).await?;
 
     let now = chrono::Local::now().naive_local().to_owned();
@@ -605,4 +632,49 @@ pub async fn get_approval_detail(db: &DbConn, contract_id: i64) -> Result<Contra
         approval_status: contract.approval_status,
         instance,
     })
+}
+
+/// 上传签署件（合同扫描件），状态变为已签署
+pub async fn sign_contract(db: &DbConn, contract_id: i64, contract_file: Option<String>, contract_images: Option<String>, _operator_id: i64) -> Result<()> {
+    let contract = Contract::find_by_id(contract_id)
+        .filter(contract::Column::Deleted.eq(0))
+        .one(db).await?
+        .ok_or_else(|| Error::from("合同不存在".to_string()))?;
+
+    // 仅审批通过(approval_status=3)的合同可签署
+    if contract.approval_status != Some(3) {
+        return Err(Error::from("仅审批通过的合同可签署".to_string()));
+    }
+
+    let mut active: contract::ActiveModel = contract.into_active_model();
+    active.status = Set(Some(ContractStatus::Signed));
+    active.sign_date = Set(Some(chrono::Local::now().date_naive()));
+    if let Some(file) = contract_file {
+        active.contract_file = Set(Some(file));
+    }
+    if let Some(imgs) = contract_images {
+        active.contract_images = Set(Some(imgs));
+    }
+    active.update_time = Set(Some(chrono::Local::now().naive_local()));
+    active.update(db).await?;
+    Ok(())
+}
+
+/// 确认执行合同（已签署 → 执行中）
+pub async fn execute_contract(db: &DbConn, contract_id: i64, _operator_id: i64) -> Result<()> {
+    let contract = Contract::find_by_id(contract_id)
+        .filter(contract::Column::Deleted.eq(0))
+        .one(db).await?
+        .ok_or_else(|| Error::from("合同不存在".to_string()))?;
+
+    // 仅已签署(status=2)的合同可执行
+    if contract.status != Some(ContractStatus::Signed) {
+        return Err(Error::from("仅已签署的合同可执行".to_string()));
+    }
+
+    let mut active: contract::ActiveModel = contract.into_active_model();
+    active.status = Set(Some(ContractStatus::Executing));
+    active.update_time = Set(Some(chrono::Local::now().naive_local()));
+    active.update(db).await?;
+    Ok(())
 }

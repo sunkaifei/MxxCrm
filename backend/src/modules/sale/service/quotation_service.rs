@@ -453,10 +453,50 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
     let discount_amount = detail.discount_amount.unwrap_or_else(|| Decimal::from(0));
     let tax_amount = detail.tax_amount.unwrap_or_else(|| Decimal::from(0));
 
+    // 先准备 order_items，便于推导 order_type
+    let order_items: Vec<OrderItemSaveDTO> = items.iter().map(|item| {
+        use crate::modules::sale::model::order::{default_fulfillment_type, PRODUCT_TYPE_PHYSICAL};
+        let pt = item.product_type.unwrap_or(PRODUCT_TYPE_PHYSICAL);
+        OrderItemSaveDTO {
+            product_id: item.product_id,
+            product_name: item.product_name.clone(),
+            product_code: item.product_code.clone(),
+            sku: None,
+            spec: item.spec.clone(),
+            unit: item.unit.clone(),
+            unit_id: None,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            discount_rate: item.discount_rate.map(|r| Decimal::from(100) - r),
+            discount_amount: item.discount_amount,
+            tax_rate: item.tax_rate,
+            tax_amount: item.tax_amount,
+            amount: item.subtotal,
+            total_amount: item.subtotal,
+            delivery_date: None,
+            product_type: Some(pt),
+            fulfillment_type: Some(default_fulfillment_type(pt)),
+            service_start_date: None,
+            service_end_date: None,
+            service_duration: None,
+            delivered_quantity: None,
+            remark: item.remark.clone(),
+            sort: item.sort,
+        }
+    }).collect();
+
+    // 基于 order_items 推导 order_type
+    use crate::modules::sale::model::order::{derive_order_type, PRODUCT_TYPE_PHYSICAL};
+    let item_types: Vec<i32> = order_items.iter()
+        .map(|it| it.product_type.unwrap_or(PRODUCT_TYPE_PHYSICAL))
+        .collect();
+    let derived_order_type = derive_order_type(&item_types);
+    let derived_fulfillment_type = order_items.first().and_then(|it| it.fulfillment_type);
+
     let order_dto = OrderSaveDTO {
         order_no: Some(order_no),
         title: detail.title.clone(),
-        order_type: Some(1),
+        order_type: Some(derived_order_type),
         order_status: Some(0),
         customer_id: detail.customer_id,
         customer_name: detail.customer_name.clone(),
@@ -501,36 +541,16 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
         dept_id: detail.dept_id,
         approval_status: Some(0),
         instance_id: None,
+        fulfillment_type: derived_fulfillment_type,
+        service_start_date: None,
+        service_end_date: None,
+        service_duration: None,
+        auto_renew: None,
         create_by: Some(created_by_i64),
         update_by: None,
     };
 
     let order_id = OrderModel::insert(&txn, &order_dto).await?;
-
-    let order_items: Vec<OrderItemSaveDTO> = items.iter().map(|item| {
-        OrderItemSaveDTO {
-            product_id: item.product_id,
-            product_name: item.product_name.clone(),
-            product_code: item.product_code.clone(),
-            sku: None,
-            spec: item.spec.clone(),
-            unit: item.unit.clone(),
-            unit_id: None,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            discount_rate: item.discount_rate.map(|r| Decimal::from(100) - r),
-            discount_amount: item.discount_amount,
-            tax_rate: item.tax_rate,
-            tax_amount: item.tax_amount,
-            amount: item.subtotal,
-            total_amount: item.subtotal,
-            delivery_date: None,
-            product_type: None,
-            delivered_quantity: None,
-            remark: item.remark.clone(),
-            sort: item.sort,
-        }
-    }).collect();
 
     OrderItemModel::insert_batch(&txn, order_id, &order_items).await?;
 
@@ -560,6 +580,15 @@ async fn freeze_stock_for_quotation(db: &DbConn, quotation_id: i64, operator_id:
         if product_id <= 0 || quantity <= Decimal::from(0) {
             continue;
         }
+
+        // === 虚拟商品与服务订单支持：非实物商品跳过库存冻结 ===
+        use crate::modules::sale::model::order::{needs_stock, PRODUCT_TYPE_PHYSICAL};
+        let product_type = item.product_type.unwrap_or(PRODUCT_TYPE_PHYSICAL);
+        if !needs_stock(product_type) {
+            log::info!("报价明细[id={}]为非实物商品(product_type={})，跳过库存冻结", item.id, product_type);
+            continue;
+        }
+
         // 查找该产品有库存的仓库，选择库存最充足的仓库冻结
         let stock_record = stock_entity::Entity::find()
             .filter(stock_entity::Column::ProductId.eq(product_id))

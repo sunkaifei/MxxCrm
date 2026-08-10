@@ -150,7 +150,7 @@ async function handleDelete(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('product:brand:edit')"
+          v-if="accessStore.hasAccessCode('product:brand:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

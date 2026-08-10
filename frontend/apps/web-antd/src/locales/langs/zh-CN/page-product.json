@@ -155,7 +155,20 @@
         "sourceOrderNoPlaceholder": "如：关联的销售订单号",
         "remark": "备注",
         "remarkPlaceholder": "请输入备注信息",
-        "alertDesc": "出库明细将在独立的明细表格中维护，保存出库单后可在详情页添加出库商品明细。"
+        "addItem": "添加产品",
+        "emptyHint": "请点击「添加产品」选择需要出库的产品",
+        "noItems": "请至少添加一个出库产品",
+        "selectWarehouseFirst": "请先选择出库仓库",
+        "stockShortage": "{name} 库存不足（可用 {stock}，本次出库 {quantity}）",
+        "item": {
+          "productName": "产品名称",
+          "spec": "规格",
+          "unit": "单位",
+          "stock": "可用库存",
+          "quantity": "出库数量",
+          "batchNo": "批次号",
+          "remark": "备注"
+        }
       }
     },
     "inventory": {
@@ -422,6 +435,21 @@
       "title": "规格管理",
       "button": {
         "create": "新增规格"
+      }
+    },
+    "brand": {
+      "title": "品牌管理",
+      "button": {
+        "create": "新增品牌",
+        "update": "编辑品牌",
+        "delete": "删除品牌"
+      },
+      "field": {
+        "name": "品牌名称",
+        "logo": "品牌Logo",
+        "sort": "排序",
+        "description": "描述",
+        "status": "状态"
       }
     }
   },

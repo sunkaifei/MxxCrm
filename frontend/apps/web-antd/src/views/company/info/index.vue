@@ -33,7 +33,7 @@ import {
 const accessStore = useAccessStore();
 
 // 通过权限码判断是否有编辑权限（超管拥有 company:info:edit 权限）
-const canEdit = computed(() => accessStore.hasAccessCode('company:info:edit'));
+const canEdit = computed(() => accessStore.hasAccessCode('company:info:update'));
 
 const loading = ref(false);
 const editMode = ref(false); // 编辑模式开关

@@ -10,3 +10,6 @@
 
 pub mod statistics_admin_controller;
 pub mod performance_plan_controller;
+pub mod subscription_stats_controller;
+pub mod customer_ltv_controller;
+pub mod abc_analysis_controller;

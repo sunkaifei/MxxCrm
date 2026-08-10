@@ -198,43 +198,9 @@ pub async fn mail_log_by_customer(state: web::Data<AppState>, query: web::Query<
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/mail")
-            // ---- 邮箱配置 ----
-            .route(
-                "/config/list",
-                web::get()
-                    .to(mail_config_list)
-                    .wrap(require_permission("system:mail:config")),
-            )
-            .route(
-                "/config/info",
-                web::get()
-                    .to(mail_config_info)
-                    .wrap(require_permission("system:mail:config")),
-            )
-            .route(
-                "/config/save",
-                web::post()
-                    .to(mail_config_insert)
-                    .wrap(require_permission("system:mail:config")),
-            )
-            .route(
-                "/config/update",
-                web::put()
-                    .to(mail_config_update)
-                    .wrap(require_permission("system:mail:config")),
-            )
-            .route(
-                "/config/bath_delete",
-                web::delete()
-                    .to(mail_config_bath_delete)
-                    .wrap(require_permission("system:mail:config")),
-            )
-            .route(
-                "/config/set_default",
-                web::put()
-                    .to(mail_config_set_default)
-                    .wrap(require_permission("system:mail:config")),
-            )
+            // ---- 邮箱账号（SMTP）配置 ----
+            // 已统一迁移到「第三方接口配置」integration_config（code=smtp_email）
+            // 旧的 /config/* CRUD 路由已移除，相关前端入口改为跳转 integration-config 页面
             // ---- 邮件模板 ----
             .route(
                 "/template/list",

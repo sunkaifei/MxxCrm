@@ -5,13 +5,31 @@ import { useVbenDrawer } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import type { VbenFormSchema } from '@vben/common-ui';
 import { $t } from '#/locales';
-import { createReceiptApi, getReceiptInfoApi, updateReceiptApi } from '#/api';
+import { createReceiptApi, getReceiptInfoApi, updateReceiptApi, getWarehouseListApi } from '#/api';
 import { Button, message, Tooltip } from 'ant-design-vue';
+import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
 const drawerData = ref<{ create: boolean; row?: any }>({ create: true });
 const items = ref<any[]>([]);
+const productSelectVisible = ref(false);
+const warehouseOptions = ref<{ value: number; label: string }[]>([]);
+const currentWarehouseId = ref<number | undefined>(undefined);
+
+async function loadWarehouses() {
+  try {
+    const res = await getWarehouseListApi({ pageSize: 200 });
+    const list = res?.list || res?.items || [];
+    warehouseOptions.value = list.map((w: any) => ({ value: Number(w.id), label: w.name }));
+  } catch {}
+}
+loadWarehouses();
+
+// 已选产品ID列表（排除已添加的产品）
+const excludeProductIds = computed(() =>
+  items.value.map((it: any) => Number(it.productId)).filter(Boolean),
+);
 
 const drawerClass = computed(() => [
   'receipt-drawer',
@@ -37,10 +55,17 @@ const formSchema: VbenFormSchema[] = [
     componentProps: { placeholder: '请输入供应商', allowClear: true },
   },
   {
-    component: 'Input',
-    fieldName: 'warehouseName',
-    label: '仓库',
-    componentProps: { placeholder: '请输入仓库名称', allowClear: true },
+    component: 'Select',
+    fieldName: 'warehouseId',
+    label: '收货仓库',
+    componentProps: () => ({
+      options: warehouseOptions.value,
+      placeholder: '请选择收货仓库',
+      allowClear: true,
+      onChange: (val: any) => {
+        currentWarehouseId.value = val ?? undefined;
+      },
+    }),
   },
   {
     component: 'Textarea',
@@ -72,6 +97,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       const data = {
         ...values,
+        warehouseId: values.warehouseId || undefined,
         items: items.value,
       };
 
@@ -96,6 +122,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       isFullscreen.value = false;
       drawerData.value = drawerApi.getData<{ create: boolean; row?: any }>() || { create: true };
       mainFormApi.resetForm();
+      currentWarehouseId.value = undefined;
       items.value = drawerData.value.row?.items || [];
       confirmLoading.value = false;
       if (!drawerData.value.create && drawerData.value.row?.id) {
@@ -114,22 +141,36 @@ async function loadDetail(id: number) {
     mainFormApi.setValues({
       purchaseNo: data.purchaseNo,
       supplierName: data.supplierName,
-      warehouseName: data.warehouseName,
+      warehouseId: data.warehouseId,
       remark: data.remark,
     });
+    currentWarehouseId.value = data.warehouseId ? Number(data.warehouseId) : undefined;
     items.value = data.items || [];
   } catch (e) {
     console.error('[收货单] 加载详情失败:', e);
   }
 }
 
-function addItem() {
-  items.value.push({
-    productName: '',
-    orderQuantity: 1,
-    receivedQuantity: 0,
-    currentQuantity: 0,
-    remark: '',
+function openProductSelect() {
+  productSelectVisible.value = true;
+}
+
+function onProductSelected(selectedItems: any[]) {
+  selectedItems.forEach((item) => {
+    items.value.push({
+      productId: item.productId,
+      productName: item.productName || '',
+      productCode: item.productCode || '',
+      spec: item.spec || '',
+      skuId: item.skuId,
+      skuCode: item.skuCode,
+      unit: item.unit || '',
+      unitPrice: item.unitPrice || 0,
+      orderQuantity: 1,
+      receivedQuantity: 0,
+      currentQuantity: 0,
+      remark: '',
+    });
   });
 }
 
@@ -169,7 +210,7 @@ function removeItem(index: number) {
       <div class="mt-4">
         <div class="flex justify-between items-center mb-3">
           <h3 class="text-base font-semibold">收货明细</h3>
-          <Button type="dashed" size="small" @click="addItem">添加明细</Button>
+          <Button type="dashed" size="small" @click="openProductSelect">选择产品</Button>
         </div>
         <table class="w-full border-collapse receipt-drawer__table">
           <thead>
@@ -184,8 +225,9 @@ function removeItem(index: number) {
           </thead>
           <tbody>
             <tr v-for="(item, index) in items" :key="index">
-              <td class="border px-2 py-1">
-                <input v-model="item.productName" class="w-full border rounded px-2 py-1 text-sm" placeholder="产品名称" />
+              <td class="border px-2 py-1 text-sm">
+                <div>{{ item.productName }}</div>
+                <div v-if="item.spec" class="text-xs text-gray-400">{{ item.spec }}</div>
               </td>
               <td class="border px-2 py-1">
                 <input v-model.number="item.orderQuantity" type="number" min="0" class="w-full border rounded px-2 py-1 text-sm" placeholder="采购数量" />
@@ -212,6 +254,13 @@ function removeItem(index: number) {
         </table>
       </div>
     </div>
+
+    <ProductSelectModal
+      v-model:visible="productSelectVisible"
+      :exclude-ids="excludeProductIds"
+      :warehouse-id="currentWarehouseId"
+      @select="onProductSelected"
+    />
   </Drawer>
 </template>
 

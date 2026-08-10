@@ -331,7 +331,7 @@ async function handleConvertToPo() {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('purchase:requisition:edit')"
+          v-if="accessStore.hasAccessCode('purchase:requisition:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

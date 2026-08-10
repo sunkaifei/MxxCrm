@@ -658,9 +658,9 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
             let _ = cv.insert(&txn).await;
         }
 
-        // 保存个税明细
-        let _ = crate::modules::finance::service::tax_service::save_tax_detail(
-            db, salary_id, employee_id, year, month, tax_result,
+        // 保存个税明细（在主事务内，保证原子性）
+        let _ = crate::modules::finance::service::tax_service::save_tax_detail_in_conn(
+            &txn, salary_id, employee_id, year, month, tax_result,
         ).await;
 
         generated_count += 1;
@@ -1317,32 +1317,43 @@ pub async fn submit_confirm(
         return Err("申请重新核算必须填写理由".to_string());
     }
 
-    // 更新工资记录的确认状态
+    // 更新工资记录的确认状态 + 创建确认/申诉记录（事务保证原子性）
     let confirmed_status = if dto.action == 1 { 1 } else { 2 };
-    let mut active: salary_record::ActiveModel = record.clone().into();
-    active.employee_confirmed = sea_orm::Set(Some(confirmed_status));
-    active.confirmed_time = sea_orm::Set(Some(Utc::now().naive_utc()));
-    active.update(db).await.map_err(|e| e.to_string())?;
-
-    // 创建确认/申诉记录
     let now = Utc::now().naive_utc();
-    let confirm = salary_confirm::ActiveModel {
-        salary_record_id: sea_orm::Set(dto.salary_record_id),
-        employee_id: sea_orm::Set(user_id),
-        employee_name: sea_orm::Set(Some(user_name.to_string())),
-        year: sea_orm::Set(record.year),
-        month: sea_orm::Set(record.month),
-        action: sea_orm::Set(dto.action),
-        reason: sea_orm::Set(dto.reason.clone()),
-        status: sea_orm::Set(Some(if dto.action == 1 { 1 } else { 0 })),
-        handler_id: sea_orm::Set(None),
-        handler_name: sea_orm::Set(None),
-        handle_time: sea_orm::Set(None),
-        handle_remark: sea_orm::Set(None),
-        create_time: sea_orm::Set(Some(now)),
-        ..Default::default()
-    };
-    let result = confirm.insert(db).await.map_err(|e| e.to_string())?;
+    let record_id = record.id;
+    let record_year = record.year;
+    let record_month = record.month;
+    let reason_clone = dto.reason.clone();
+    let user_name_owned = user_name.to_string();
+    let confirm_record_id = db.transaction::<_, i64, String>(|txn| {
+        Box::pin(async move {
+            let mut active: salary_record::ActiveModel = record.into();
+            active.employee_confirmed = sea_orm::Set(Some(confirmed_status));
+            active.confirmed_time = sea_orm::Set(Some(now));
+            active.update(txn).await.map_err(|e| e.to_string())?;
+
+            let confirm = salary_confirm::ActiveModel {
+                salary_record_id: sea_orm::Set(record_id),
+                employee_id: sea_orm::Set(user_id),
+                employee_name: sea_orm::Set(Some(user_name_owned)),
+                year: sea_orm::Set(record_year),
+                month: sea_orm::Set(record_month),
+                action: sea_orm::Set(dto.action),
+                reason: sea_orm::Set(dto.reason.clone()),
+                status: sea_orm::Set(Some(if dto.action == 1 { 1 } else { 0 })),
+                handler_id: sea_orm::Set(None),
+                handler_name: sea_orm::Set(None),
+                handle_time: sea_orm::Set(None),
+                handle_remark: sea_orm::Set(None),
+                create_time: sea_orm::Set(Some(now)),
+                ..Default::default()
+            };
+            let result = confirm.insert(txn).await.map_err(|e| e.to_string())?;
+            Ok(result.id)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?;
 
     // 如果是申请重新核算，通知所有财务角色用户
     if dto.action == 2 {
@@ -1351,17 +1362,17 @@ pub async fn submit_confirm(
         for fin_id in finance_users {
             let _ = NotificationService::send_system_notification(
                 db, fin_id,
-                format!("工资重新核算申请 - {}年{}月", record.year, record.month),
+                format!("工资重新核算申请 - {}年{}月", record_year, record_month),
                 format!("员工 {} 申请重新核算 {}年{}月工资，理由：{}",
-                    user_name, record.year, record.month,
-                    dto.reason.as_deref().unwrap_or("无")),
+                    user_name, record_year, record_month,
+                    reason_clone.as_deref().unwrap_or("无")),
                 2, // 通知类型 2=审批通知
                 Some("/finance/salary".to_string()),
             ).await;
         }
     }
 
-    Ok(result.id)
+    Ok(confirm_record_id)
 }
 
 /// 财务处理申诉
@@ -1417,16 +1428,24 @@ pub async fn handle_confirm(
             .one(db).await.map_err(|e| e.to_string())?;
 
         if let Some(new_rec) = new_record {
-            // 更新申诉记录关联到新工资记录
-            let mut c_active: salary_confirm::ActiveModel = confirm.clone().into();
-            c_active.salary_record_id = sea_orm::Set(new_rec.id);
-            c_active.update(db).await.map_err(|e| e.to_string())?;
+            // 更新申诉记录关联到新工资记录 + 重置新工资记录确认状态（事务保证原子性）
+            let new_rec_id = new_rec.id;
+            let confirm_clone = confirm.clone();
+            db.transaction::<_, (), String>(|txn| {
+                Box::pin(async move {
+                    let mut c_active: salary_confirm::ActiveModel = confirm_clone.into();
+                    c_active.salary_record_id = sea_orm::Set(new_rec_id);
+                    c_active.update(txn).await.map_err(|e| e.to_string())?;
 
-            // 重置新工资记录的确认状态为"待确认"
-            let mut rec_active: salary_record::ActiveModel = new_rec.into();
-            rec_active.employee_confirmed = sea_orm::Set(Some(0));
-            rec_active.confirmed_time = sea_orm::Set(None);
-            rec_active.update(db).await.map_err(|e| e.to_string())?;
+                    let mut rec_active: salary_record::ActiveModel = new_rec.into();
+                    rec_active.employee_confirmed = sea_orm::Set(Some(0));
+                    rec_active.confirmed_time = sea_orm::Set(None);
+                    rec_active.update(txn).await.map_err(|e| e.to_string())?;
+                    Ok(())
+                })
+            })
+            .await
+            .map_err(|e| e.to_string())?;
         }
     }
 

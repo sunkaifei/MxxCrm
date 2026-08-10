@@ -1,7 +1,7 @@
 use sea_orm::*;
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
-use crate::modules::system::entity::{admin, tag};
+use crate::modules::system::entity::{admin, tag, tag_merge};
 use crate::modules::system::model::tag::{TagListVO, TagDetailVO, TagSuggestVO, TagStatisticsVO, TagSaveDTO, TagModel};
 use crate::modules::system::model::tag_group::{TagGroupModel};
 use crate::modules::system::model::tag_merge::{TagEntityResult, TagMergeModel};
@@ -84,12 +84,53 @@ impl TagService {
         if tag.is_none() {
             return Err(Error::NotFound("标签不存在".to_string()));
         }
-        TagModel::delete_by_id(db, id).await.map_err(|e| Error::Database(e.to_string()))?;
+        db.transaction::<_, _, DbErr>(|txn| {
+            Box::pin(async move {
+                tag_merge::Entity::delete_many()
+                    .filter(tag_merge::Column::TagId.eq(id))
+                    .exec(txn)
+                    .await?;
+                tag::Entity::update_many()
+                    .set(tag::ActiveModel {
+                        deleted: Set(Some(1)),
+                        update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
+                        ..Default::default()
+                    })
+                    .filter(tag::Column::Id.eq(id))
+                    .filter(tag::Column::Deleted.eq(0))
+                    .exec(txn)
+                    .await?;
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::Database(e.to_string()))?;
         Ok(true)
     }
 
     pub async fn batch_delete(db: &DbConn, ids: &Vec<i64>) -> Result<bool> {
-        TagModel::batch_delete_by_ids(db, ids).await.map_err(|e| Error::Database(e.to_string()))?;
+        let ids_clone = ids.clone();
+        db.transaction::<_, _, DbErr>(|txn| {
+            Box::pin(async move {
+                tag_merge::Entity::delete_many()
+                    .filter(tag_merge::Column::TagId.is_in(ids_clone.clone()))
+                    .exec(txn)
+                    .await?;
+                tag::Entity::update_many()
+                    .set(tag::ActiveModel {
+                        deleted: Set(Some(1)),
+                        update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
+                        ..Default::default()
+                    })
+                    .filter(tag::Column::Id.is_in(ids_clone.clone()))
+                    .filter(tag::Column::Deleted.eq(0))
+                    .exec(txn)
+                    .await?;
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::Database(e.to_string()))?;
         Ok(true)
     }
 

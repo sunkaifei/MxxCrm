@@ -11,7 +11,6 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::crm::model::contract_payment_plan::{PaymentPlanListQuery, PaymentPlanListVO, PaymentPlanModel, PaymentPlanSaveRequest, PaymentPlanVO};
 use crate::modules::crm::entity::{contract, contract::Entity as Contract, customer::{Entity as Customer, Column as CustomerColumn}};
-use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::role_service;
@@ -125,23 +124,13 @@ pub async fn page_list(db: &DbConn, query: &PaymentPlanListQuery, current_user_i
             Some(vec![current_user_id])
         }
         "subordinate" => {
-            // 下属回款计划：获取数据权限范围内的其他用户（排除自己）
-            let accessible = crate::modules::system::service::data_scope_service
-                ::get_accessible_user_ids(db, current_user_id).await?;
-            match accessible {
-                None => {
-                    // 全部数据权限：获取所有用户，排除自己
-                    let all_admins = Admin::find()
-                        .filter(admin::Column::Id.ne(current_user_id))
-                        .all(db)
-                        .await
-                        .map_err(|e| Error::from(format!("查询用户列表失败: {}", e)))?;
-                    Some(all_admins.iter().map(|u| u.id).collect())
-                }
-                Some(ids) => {
-                    // 部门/仅本人权限：排除自己
-                    Some(ids.into_iter().filter(|id| *id != current_user_id).collect())
-                }
+            // 下属回款计划：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            let subordinate_ids = crate::modules::system::service::subordinate_service
+                ::get_subordinate_ids_default(db, current_user_id).await?;
+            if subordinate_ids.is_empty() {
+                Some(vec![-1])
+            } else {
+                Some(subordinate_ids)
             }
         }
         _ => {

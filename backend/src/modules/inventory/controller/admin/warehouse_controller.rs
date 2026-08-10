@@ -83,9 +83,10 @@ pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/warehouse")
             .route("/save", web::post().to(warehouse_insert).wrap(require_permission("product:warehouse:create")))
-            .route("/update", web::put().to(warehouse_update).wrap(require_permission("product:warehouse:edit")))
+            .route("/update", web::put().to(warehouse_update).wrap(require_permission("product:warehouse:update")))
             .route("/batch_delete", web::delete().to(batch_delete_warehouse).wrap(require_permission("product:warehouse:delete")))
-            .route("/info", web::get().to(warehouse_info).wrap(require_permission("product:warehouse:edit")))
-            .route("/list", web::get().to(warehouse_list).wrap(require_permission("product:warehouse:list"))),
+            .route("/info", web::get().to(warehouse_info).wrap(require_permission("product:warehouse:update")))
+            // list 为基础参考数据，所有登录用户均可访问（报价单/订单选品时需要）
+            .route("/list", web::get().to(warehouse_list)),
     );
 }

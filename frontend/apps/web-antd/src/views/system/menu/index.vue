@@ -1,9 +1,10 @@
 <script lang="ts" setup>
+import { ref } from 'vue';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Popconfirm, Switch, Tag } from 'ant-design-vue';
+import { Button, InputNumber, Popconfirm, Switch, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -166,6 +167,13 @@ const gridOptions: VxeGridProps = {
       width: 120,
     },
     {
+      title: $t('ui.table.sortId'),
+      field: 'sort',
+      slots: { default: 'sort' },
+      width: 80,
+      align: 'center',
+    },
+    {
       title: $t('ui.table.updateTime'),
       field: 'updateTime',
       formatter: 'formatDateTime',
@@ -197,6 +205,27 @@ const collapseAll = () => {
 async function handleStatusChanged(row: any, checked: boolean) {
   row.pending = true;
   row.status = checked ? 1 : 2;
+  try {
+    await updateMenuApi(row.id, row);
+    window.$message.success($t('ui.notification.update_success'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
+const editingSortId = ref<number | null>(null);
+const editingSortRowId = ref<number | null>(null);
+
+async function handleSortBlur(row: any) {
+  if (editingSortId.value === null) return;
+  const newSort = editingSortId.value;
+  editingSortId.value = null;
+  editingSortRowId.value = null;
+  if (newSort === (row.meta?.sort ?? row.sort)) return;
+  row.pending = true;
+  row.sort = newSort;
+  if (row.meta) row.meta.sort = newSort;
   try {
     await updateMenuApi(row.id, row);
     window.$message.success($t('ui.notification.update_success'));
@@ -306,6 +335,23 @@ async function handleDelete(row: any) {
           :un-checked-children="$t('ui.switch.inactive')"
           @change="(checked: any) => handleStatusChanged(row, checked)"
         />
+      </template>
+
+      <template #sort="{ row }">
+        <InputNumber
+          v-if="editingSortId !== null && editingSortRowId === row.id"
+          v-model:value="editingSortId"
+          :min="0"
+          size="small"
+          style="width: 60px"
+          @blur="handleSortBlur(row)"
+          @pressEnter="handleSortBlur(row)"
+        />
+        <span
+          v-else
+          class="cursor-pointer inline-block min-w-[30px] text-center"
+          @dblclick="editingSortRowId = row.id; editingSortId = (row.meta?.sort ?? row.sort ?? 0)"
+        >{{ row.meta?.sort ?? row.sort ?? 0 }}</span>
       </template>
 
       <template #action="{ row }">

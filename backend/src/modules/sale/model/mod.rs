@@ -10,6 +10,9 @@
 pub mod invoice;
 pub mod order;
 pub mod order_item;
+pub mod order_delivery;
+pub mod card_pool;
+pub mod entitlement;
 pub mod payment;
 pub mod payment_application;
 pub mod quotation;

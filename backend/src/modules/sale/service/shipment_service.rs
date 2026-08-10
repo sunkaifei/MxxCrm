@@ -141,6 +141,20 @@ pub async fn create(db: &DbConn, form_data: &ShipmentSaveRequest, created_by: i6
         .await?
         .ok_or_else(|| Error::from("订单不存在"))?;
 
+    // === 虚拟商品与服务订单支持：发货明细必须全部为实物 ===
+    use crate::modules::sale::model::order::{needs_shipping, PRODUCT_TYPE_PHYSICAL};
+    use crate::modules::sale::model::order_item::OrderItemModel as OrderItemModelById;
+    for item in &items {
+        if let Some(order_item_id) = item.order_item_id {
+            let order_item = OrderItemModelById::find_by_id(db, order_item_id).await?
+                .ok_or_else(|| Error::from("订单明细不存在"))?;
+            let pt = order_item.product_type.unwrap_or(PRODUCT_TYPE_PHYSICAL);
+            if !needs_shipping(pt) {
+                return Err(Error::from("非实物商品不能创建发货单（请改用虚拟商品交付）"));
+            }
+        }
+    }
+
     // 计算总数量
     let total_quantity: i32 = items.iter().map(|i| i.quantity.unwrap_or(0)).sum();
 

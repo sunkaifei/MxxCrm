@@ -330,6 +330,7 @@
     },
     "approval": {
       "title": "审批流管理",
+      "list": "审批流列表",
       "todo": "审批待办",
       "designer": "审批流设计器",
       "cc": "抄送我的",
@@ -437,6 +438,9 @@
         "triggerFailed": "执行失败",
         "operationFailed": "操作失败"
       }
+    },
+    "integration": {
+      "title": "第三方接口配置"
     },
     "setting": {
       "title": "系统设置",

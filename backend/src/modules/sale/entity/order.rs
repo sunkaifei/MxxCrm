@@ -81,6 +81,16 @@ pub struct Model {
     pub approval_status: Option<i32>,
     /// 审批实例ID（关联 mxx_system_approval_instance）
     pub instance_id: Option<i64>,
+    /// 主履约方式：1=物流配送，2=自动交付，3=手动交付，4=服务履行，5=无需交付
+    pub fulfillment_type: Option<i32>,
+    /// 服务/订阅期开始日（仅 order_type=3/4）
+    pub service_start_date: Option<Date>,
+    /// 服务/订阅期结束日
+    pub service_end_date: Option<Date>,
+    /// 服务时长（单位：月，订阅/服务类）
+    pub service_duration: Option<i32>,
+    /// 是否自动续约（0=否，1=是，订阅类）
+    pub auto_renew: Option<i32>,
     pub create_by: Option<i64>,
     pub create_time: Option<DateTime>,
     pub update_by: Option<i64>,

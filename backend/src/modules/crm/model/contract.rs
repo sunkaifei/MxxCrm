@@ -60,8 +60,10 @@ pub struct ContractSaveRequest {
     /// 交付条款
     pub delivery_terms: Option<String>,
     /// 付款方式类型（1-一次性付款 2-分期付款 3-按里程碑付款）
+    #[serde(default, deserialize_with = "deserialize_i32_from_string")]
     pub payment_method_type: Option<i32>,
     /// 负责人ID
+    #[serde(default, deserialize_with = "deserialize_i64_from_string")]
     pub assigned_to: Option<i64>,
     /// 合同文件路径
     pub contract_file: Option<String>,
@@ -70,8 +72,10 @@ pub struct ContractSaveRequest {
     /// 备注信息
     pub remark: Option<String>,
     /// 提成规则ID
+    #[serde(default, deserialize_with = "deserialize_i64_from_string")]
     pub commission_rule_id: Option<i64>,
     /// 提成计算方式（1-按方案自动计算 2-手动指定分成）
+    #[serde(default, deserialize_with = "deserialize_i32_from_string")]
     pub commission_mode: Option<i32>,
     /// 我方签署人ID（业务员）
     #[serde(default, deserialize_with = "deserialize_i64_from_string")]
@@ -149,6 +153,53 @@ where
         }
         None => Ok(None),
     }
+}
+
+/// 从字符串或整数反序列化 i32（前端枚举字段可能传字符串）
+fn deserialize_i32_from_string<'de, D>(deserializer: D) -> Result<Option<i32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self};
+
+    struct I32OrString;
+    impl<'de> de::Visitor<'de> for I32OrString {
+        type Value = Option<i32>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "i32 or string")
+        }
+
+        fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
+            if value.is_empty() {
+                Ok(None)
+            } else {
+                value.parse::<i32>().map(Some).map_err(E::custom)
+            }
+        }
+
+        fn visit_string<E: de::Error>(self, value: String) -> Result<Self::Value, E> {
+            self.visit_str(&value)
+        }
+
+        fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
+            Ok(Some(value as i32))
+        }
+
+        fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
+            Ok(Some(value as i32))
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+    }
+
+    deserializer.deserialize_any(I32OrString)
 }
 
 impl From<ContractSaveRequest> for ContractSaveDTO {
@@ -543,6 +594,13 @@ pub struct ContractListVO {
     pub end_date: Option<Date>,
     /// 发货状态（0/None-未发货，1-已发货/部分发货/已签收/已完成）
     pub ship_status: Option<i32>,
+    /// 负责人ID
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub assigned_to: Option<i64>,
+    /// 负责人姓名
+    pub assigned_to_name: Option<String>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
 }
 
 impl From<contract::Model> for ContractListVO {
@@ -562,6 +620,9 @@ impl From<contract::Model> for ContractListVO {
             start_date: item.start_date,
             end_date: item.end_date,
             ship_status: None,
+            assigned_to: item.assigned_to,
+            assigned_to_name: None,
+            create_time: item.create_time,
         }
     }
 }

@@ -84,6 +84,15 @@ const cards = computed(() => [
     icon: 'lucide:clipboard-check',
     tabKey: 'planApproval',
   },
+  {
+    key: 'unreadCc',
+    title: $t('page.dashboard.unreadCc'),
+    value: summary.value.unreadCc || 0,
+    color: '#fa8c16',
+    bg: '#fff7e6',
+    icon: 'lucide:mail',
+    tabKey: 'cc',
+  },
 ]);
 
 async function loadData() {

@@ -338,6 +338,7 @@ const baseForm = reactive({
   title: '',
   customerId: undefined as number | undefined | string,
   contactId: undefined as number | undefined,
+  assignedTo: undefined as number | undefined,
   amount: undefined as number | undefined,
   currency: 1,
   probability: undefined as number | undefined,
@@ -393,6 +394,11 @@ function _handleCustomerChange(value: any) {
   contactOptions.value = [];
   if (value) {
     loadContacts(Number(value));
+    // 自动带出客户负责人作为商机负责人
+    const selectedCustomer = customerOptions.value.find((c: any) => c.id === value);
+    if (selectedCustomer?.assignedTo) {
+      baseForm.assignedTo = selectedCustomer.assignedTo;
+    }
   }
 }
 
@@ -492,6 +498,10 @@ function selectCustomerFromPicker(customer: any) {
   if (customer.id) {
     loadContacts(Number(customer.id));
   }
+  // 自动带出客户负责人作为商机负责人
+  if (customer.assignedTo) {
+    baseForm.assignedTo = customer.assignedTo;
+  }
   customerPickerVisible.value = false;
 }
 
@@ -509,6 +519,7 @@ const resetForm = () => {
   baseForm.title = '';
   baseForm.customerId = undefined;
   baseForm.contactId = undefined;
+  baseForm.assignedTo = undefined;
   selectedContactName.value = '';
   baseForm.amount = undefined;
   baseForm.currency = 1;
@@ -558,6 +569,7 @@ const loadData = async () => {
     baseForm.title = data.title || '';
     baseForm.customerId = data.customerId != null ? Number(data.customerId) : undefined;
     baseForm.contactId = data.contactId != null ? Number(data.contactId) : undefined;
+    baseForm.assignedTo = data.assignedTo != null ? Number(data.assignedTo) : undefined;
     baseForm.amount = data.amount != null ? Number(data.amount) : undefined;
     baseForm.currency = data.currency != null ? Number(data.currency) : 1;
     baseForm.probability = data.probability != null ? Number(data.probability) : undefined;
@@ -717,6 +729,7 @@ const handleSaveBase = async () => {
       title: baseForm.title,
       customerId: baseForm.customerId != null ? Number(baseForm.customerId) : undefined,
       contactId: baseForm.contactId,
+      assignedTo: baseForm.assignedTo,
       amount: baseForm.amount,
       currency: baseForm.currency,
       probability: baseForm.probability,

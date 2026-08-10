@@ -11,3 +11,5 @@ pub mod stocktake_controller;
 pub mod warehouse_area_controller;
 pub mod transfer_controller;
 pub mod alert_controller;
+pub mod serial_number_controller;
+pub mod bin_location_controller;

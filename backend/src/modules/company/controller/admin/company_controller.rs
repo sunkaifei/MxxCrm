@@ -19,7 +19,7 @@ use crate::core::web::permission_guard::require_permission;
 
 /// 判断当前用户是否有企业信息编辑权限（有编辑权限则不脱敏法人电话）
 fn can_edit_company(jwt_token: &JWTToken) -> bool {
-    jwt_token.permissions.iter().any(|p| p == "company:info:edit")
+    jwt_token.permissions.iter().any(|p| p == "company:info:update")
 }
 
 pub async fn get_company_info(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
@@ -113,12 +113,12 @@ pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/company")
             .route("/info", web::get().to(get_company_info).wrap(require_permission("company:info:list")))
-            .route("/update", web::put().to(update_company_info).wrap(require_permission("company:info:edit")))
+            .route("/update", web::put().to(update_company_info).wrap(require_permission("company:info:update")))
             .route("/account/list", web::get().to(get_account_list).wrap(require_permission("company:info:list")))
             .route("/account/save", web::post().to(save_account).wrap(require_permission("company:account:save")))
             .route("/account/delete", web::delete().to(delete_account).wrap(require_permission("company:account:delete")))
             // 销售流程模式：所有登录用户可读（前端需要根据模式动态显示按钮），仅授权用户可改
             .route("/sales-flow/mode", web::get().to(get_sales_flow_mode))
-            .route("/sales-flow/mode", web::put().to(set_sales_flow_mode).wrap(require_permission("company:sales-flow:edit"))),
+            .route("/sales-flow/mode", web::put().to(set_sales_flow_mode).wrap(require_permission("company:sales-flow:update"))),
     );
 }

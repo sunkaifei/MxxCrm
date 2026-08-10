@@ -383,7 +383,7 @@ function handleDetail(row: any) {
         <!-- 草稿(0)：编辑 / 提交 / 删除 -->
         <template v-if="row.status === 0">
           <Button
-            v-if="accessStore.hasAccessCode('product:check:edit')"
+            v-if="accessStore.hasAccessCode('product:check:update')"
             type="link"
             size="small"
             :icon="h(LucideFilePenLine)"
@@ -408,7 +408,7 @@ function handleDetail(row: any) {
         <!-- 盘点中(1)：录入实盘 / 完成 / 取消 -->
         <template v-else-if="row.status === 1">
           <Button
-            v-if="accessStore.hasAccessCode('product:check:edit')"
+            v-if="accessStore.hasAccessCode('product:check:update')"
             type="link"
             size="small"
             :icon="h(LucideFilePenLine)"
@@ -426,7 +426,7 @@ function handleDetail(row: any) {
             </Button>
           </Popconfirm>
           <Popconfirm
-            v-if="accessStore.hasAccessCode('product:check:edit')"
+            v-if="accessStore.hasAccessCode('product:check:update')"
             :title="$t('page.product.inventory.check.action.cancelConfirm')"
             @confirm="() => handleCancel(row)"
           >

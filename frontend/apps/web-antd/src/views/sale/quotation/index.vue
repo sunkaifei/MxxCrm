@@ -10,11 +10,12 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Dropdown, Menu, Tabs, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
+import { Alert, Button, Drawer, Dropdown, Menu, Tabs, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
 import { LucideChevronDown } from '@vben/icons';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteQuotationApi, getQuotationInfoApi, getQuotationListApi, submitQuotationApprovalApi, generatePdfApi, downloadPdfApi } from '#/api';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 import OrderDrawer from '../order/drawer.vue';
 import QuotationDetail from './detail.vue';
@@ -24,6 +25,8 @@ import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue'
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
+
+const { isSuperAdmin, guardBusiness } = useSuperAdminGuard();
 
 // 当前用户ID（用于判断是否为报价单负责人，仅负责人可提交审批）
 const currentUserId = computed(() => (userStore.userInfo as any)?.userId ?? (userStore.userInfo as any)?.id);
@@ -194,7 +197,10 @@ function openDrawer(create: boolean, row?: any) {
   drawerApi.open();
 }
 
-function handleCreate() { openDrawer(true); }
+function handleCreate() {
+  if (guardBusiness('报价单')) return;
+  openDrawer(true);
+}
 function handleEdit(row: any) { openDrawer(false, row); }
 
 async function handleDelete(row: any) {
@@ -294,6 +300,13 @@ function handleDetailEdit(id: string) {
 <template>
   <Page auto-content-height>
     <SalesProcessGuide current-step="quotation" />
+    <Alert
+      v-if="isSuperAdmin"
+      type="info"
+      show-icon
+      message="您当前是超级管理员，仅可查看数据。创建报价单等业务操作请使用业务账号登录。"
+      style="margin-bottom: 12px;"
+    />
     <Grid :table-title="$t('page.sale.quotation.title')">
       <template #form-header>
         <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
@@ -302,7 +315,7 @@ function handleDetailEdit(id: string) {
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:quotation:save')"
+          v-if="!isSubordinateView && !isSuperAdmin && accessStore.hasAccessCode('sale:quotation:save')"
           type="primary"
           class="mr-2"
           @click="handleCreate"

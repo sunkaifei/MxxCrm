@@ -2,8 +2,8 @@ use chrono::Utc;
 use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 
@@ -63,6 +63,7 @@ pub struct NodeDTO {
     /// 审批模式：1=或签(任一通过)，2=会签(全通过)，3=依次审批
     pub approve_mode: Option<i32>,
     pub is_final: Option<i32>,
+    pub cc_user_ids: Option<serde_json::Value>,
     pub position_x: Option<i32>,
     pub position_y: Option<i32>,
 }
@@ -103,6 +104,7 @@ pub struct NodeVO {
     /// 审批模式：1=或签(任一通过)，2=会签(全通过)，3=依次审批
     pub approve_mode: Option<i32>,
     pub is_final: Option<i32>,
+    pub cc_user_ids: Option<serde_json::Value>,
     pub position_x: Option<i32>,
     pub position_y: Option<i32>,
 }
@@ -344,12 +346,17 @@ pub struct ApprovalModel;
 
 impl ApprovalModel {
     pub async fn save_flow(db: &DatabaseConnection, req: &FlowSaveRequest, operator: &str) -> Result<i64> {
+        use sea_orm::TransactionTrait;
         let now = Utc::now().naive_utc();
+        let req = (*req).clone();
+        let operator = operator.to_string();
 
+        db.transaction::<_, i64, Error>(|txn| {
+            Box::pin(async move {
         let flow_id = if let Some(id) = req.flow_id {
             // Update existing flow
             let existing = FlowEntity::find_by_id(id)
-                .one(db)
+                .one(txn)
                 .await
                 .map_err(|e| Error::from(e.to_string()))?
                 .ok_or_else(|| Error::from("审批流不存在"))?;
@@ -370,7 +377,7 @@ impl ApprovalModel {
             active.description = Set(req.description.clone());
             active.update_by = Set(Some(operator.to_string()));
             active.update_time = Set(Some(now));
-            active.update(db).await.map_err(|e| Error::from(e.to_string()))?;
+            active.update(txn).await.map_err(|e| Error::from(e.to_string()))?;
             id
         } else {
             // Insert new flow（用户自定义，is_system = 0）
@@ -388,7 +395,7 @@ impl ApprovalModel {
                 ..Default::default()
             };
             let result = FlowEntity::insert(active)
-                .exec(db)
+                .exec(txn)
                 .await
                 .map_err(|e| Error::from(e.to_string()))?;
             result.last_insert_id
@@ -397,13 +404,13 @@ impl ApprovalModel {
         // Delete old nodes and edges
         NodeEntity::delete_many()
             .filter(NodeColumn::FlowId.eq(flow_id))
-            .exec(db)
+            .exec(txn)
             .await
             .map_err(|e| Error::from(e.to_string()))?;
 
         EdgeEntity::delete_many()
             .filter(EdgeColumn::FlowId.eq(flow_id))
-            .exec(db)
+            .exec(txn)
             .await
             .map_err(|e| Error::from(e.to_string()))?;
 
@@ -421,11 +428,12 @@ impl ApprovalModel {
                 is_final: Set(node.is_final),
                 position_x: Set(node.position_x),
                 position_y: Set(node.position_y),
+                cc_user_ids: Set(node.cc_user_ids.clone()),
                 create_time: Set(Some(now)),
                 ..Default::default()
             };
             NodeEntity::insert(active)
-                .exec(db)
+                .exec(txn)
                 .await
                 .map_err(|e| Error::from(e.to_string()))?;
         }
@@ -442,12 +450,16 @@ impl ApprovalModel {
                 ..Default::default()
             };
             EdgeEntity::insert(active)
-                .exec(db)
+                .exec(txn)
                 .await
                 .map_err(|e| Error::from(e.to_string()))?;
         }
 
         Ok(flow_id)
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))
     }
 
     pub async fn find_flow_by_id(db: &DatabaseConnection, id: i64) -> Result<Option<FlowDetailVO>> {
@@ -493,6 +505,7 @@ impl ApprovalModel {
                     approver_id: n.approver_id,
                     approve_mode: n.approve_mode,
                     is_final: n.is_final,
+                    cc_user_ids: n.cc_user_ids,
                     position_x: n.position_x,
                     position_y: n.position_y,
                 })
@@ -620,7 +633,7 @@ impl ApprovalModel {
     }
 
     pub async fn find_flow_by_code(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         code: &str,
     ) -> Result<Option<(FlowModel, Vec<NodeModel>, Vec<EdgeModel>)>> {
         let flow = FlowEntity::find()
@@ -652,11 +665,12 @@ impl ApprovalModel {
     }
 
     pub async fn create_instance(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         req: &ApprovalSubmitRequest,
         first_node_key: &str,
         approver_id: i64,
         candidate_approvers: &[i64],
+        flow_snapshot: Option<serde_json::Value>,
     ) -> Result<i64> {
         let now = Utc::now().naive_utc();
         // 候选审批人列表（去重，保留顺序）；若为空则退化为 [approver_id]
@@ -687,6 +701,8 @@ impl ApprovalModel {
             create_time: Set(Some(now)),
             update_time: Set(Some(now)),
             extra_data: Set(req.extra_data.clone()),
+            flow_snapshot: Set(flow_snapshot),
+            flow_version: Set(Some(1)),
             ..Default::default()
         };
         let result = InstanceEntity::insert(active)
@@ -694,6 +710,50 @@ impl ApprovalModel {
             .await
             .map_err(|e| Error::from(e.to_string()))?;
         Ok(result.last_insert_id)
+    }
+
+    /// 从快照 JSON 中解析出 flow nodes 和 edges
+    /// 用于在途审批实例优先读取快照（而非实时查模板表），防止模板修改影响在途实例
+    pub fn parse_flow_snapshot(
+        snapshot: &serde_json::Value,
+    ) -> Result<(Vec<NodeModel>, Vec<EdgeModel>)> {
+        let nodes_val = snapshot.get("nodes")
+            .ok_or_else(|| Error::from("快照缺少 nodes 字段"))?;
+        let edges_val = snapshot.get("edges")
+            .ok_or_else(|| Error::from("快照缺少 edges 字段"))?;
+
+        let nodes: Vec<NodeModel> = serde_json::from_value(nodes_val.clone())
+            .map_err(|e| Error::from(format!("快照 nodes 反序列化失败: {}", e)))?;
+        let edges: Vec<EdgeModel> = serde_json::from_value(edges_val.clone())
+            .map_err(|e| Error::from(format!("快照 edges 反序列化失败: {}", e)))?;
+        Ok((nodes, edges))
+    }
+
+    /// 获取实例的流程数据：优先从快照读取，无快照时回退到实时查询模板表（兼容旧实例）
+    pub async fn get_instance_flow_data(
+        db: &impl ConnectionTrait,
+        instance: &InstanceModel,
+    ) -> Result<(Vec<NodeModel>, Vec<EdgeModel>)> {
+        if let Some(ref snapshot) = instance.flow_snapshot {
+            return Self::parse_flow_snapshot(snapshot);
+        }
+        // 兼容旧实例（无快照）：实时查询模板表
+        let flow_data = Self::find_flow_by_code(
+            db,
+            &instance.flow_code.clone().unwrap_or_default(),
+        ).await?;
+        match flow_data {
+            Some((_flow, nodes, edges)) => Ok((nodes, edges)),
+            None => Err(Error::from("审批流模板不存在")),
+        }
+    }
+
+    /// 查询实例原始数据（InstanceModel），用于 process 等需要读取快照的场景
+    pub async fn find_instance_by_id_raw(db: &impl ConnectionTrait, id: i64) -> Result<Option<InstanceModel>> {
+        InstanceEntity::find_by_id(id)
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))
     }
 
     pub async fn find_instance_by_id(db: &DatabaseConnection, id: i64) -> Result<Option<ApprovalInstanceVO>> {
@@ -725,20 +785,16 @@ impl ApprovalModel {
             None
         };
 
-        // 查询提交人名字
-        let submitter_name = if inst.submitter_name.is_some() {
-            inst.submitter_name.clone()
-        } else {
-            AdminModel::find_by_id(db, &inst.submitter_id)
-                .await
-                .ok()
-                .flatten()
-                .and_then(|a| a.nick_name.or(a.user_name))
-        };
+        // 查询提交人姓名（始终从 admin 表取真实姓名，优先 nick_name）
+        let submitter_name = AdminModel::find_by_id(db, &inst.submitter_id)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|a| a.nick_name.or(a.user_name));
 
-        // 查询流程节点和边
-        let flow_data = Self::find_flow_by_code(db, &inst.flow_code.clone().unwrap_or_default()).await?;
-        let (flow_nodes, flow_edges) = if let Some((_flow, nodes, edges)) = flow_data {
+        // 查询流程节点和边：优先从快照读取，无快照时回退到实时查询模板表
+        let (nodes, edges) = Self::get_instance_flow_data(db, &inst).await?;
+        let (flow_nodes, flow_edges) = {
             let instance_status = inst.status.unwrap_or(1);
             let current_node_key = inst.current_node_key.clone().unwrap_or_default();
 
@@ -755,17 +811,19 @@ impl ApprovalModel {
             let mut node_vos: Vec<ApprovalFlowNodeVO> = Vec::new();
             for n in &nodes {
                 let nkey = n.node_key.clone().unwrap_or_default();
-                let approver_id = n.approver_id;
-                let approver_name = if let Some(aid) = approver_id {
-                    AdminModel::find_by_id(db, &Some(aid))
-                        .await
-                        .ok()
-                        .flatten()
-                        .and_then(|a| a.nick_name.or(a.user_name))
-                } else {
-                    None
-                };
 
+                // 从审批日志中找当前节点的实际审批人（已审批/驳回的节点）
+                let log_approver: Option<i64> = logs.iter()
+                    .filter(|l| l.node_key.as_deref() == Some(&nkey))
+                    .filter(|l| l.action == Some(1) || l.action == Some(2))
+                    .last()
+                    .and_then(|l| l.approver_id);
+
+                // 当前进行中的节点：用实例的 current_approver_id
+                let is_current_node = nkey == current_node_key && (instance_status == 1 || instance_status == 2);
+                let instance_approver_id = if is_current_node { inst.current_approver_id } else { None };
+
+                // 提前计算节点状态（approver_name 解析依赖此值）
                 let node_status = if rejected_node_keys.contains(&nkey) {
                     3
                 } else if approved_node_keys.contains(&nkey) {
@@ -778,6 +836,49 @@ impl ApprovalModel {
                     2
                 } else {
                     0
+                };
+
+                // 优先用日志中的实际审批人，其次用实例当前审批人
+                // 注意：type=6/7 的 n.approver_id 是层级数(1/2)，不是 userId，不能直接用于查用户名
+                let approver_type = n.approver_type.unwrap_or(1);
+                let is_dynamic_type = approver_type == 6 || approver_type == 7;
+                
+                // 静态类型可以直接用配置的 approver_id
+                let approver_id = if is_dynamic_type {
+                    log_approver.or(instance_approver_id)
+                } else {
+                    log_approver.or(instance_approver_id).or(n.approver_id)
+                };
+                
+                // 如果动态类型且没有已知的审批人（未流转节点），提前解析
+                let approver_id = if approver_id.is_none() && is_dynamic_type && node_status == 0 {
+                    // 用提交人信息预解析 type=6/7 节点的审批人
+                    let submitter_id = inst.submitter_id.unwrap_or(0);
+                    if submitter_id > 0 {
+                        match Self::resolve_approvers(db, n.approver_type, n.approver_id, submitter_id, None).await {
+                            Ok(candidates) if !candidates.is_empty() => Some(candidates[0]),
+                            Ok(_) => Some(0), // 空列表 = 到顶自动通过
+                            Err(_) => None,
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    approver_id
+                };
+                
+                let approver_name = if let Some(aid) = approver_id {
+                    if aid > 0 {
+                        AdminModel::find_by_id(db, &Some(aid))
+                            .await
+                            .ok()
+                            .flatten()
+                            .and_then(|a| a.nick_name.or(a.user_name))
+                    } else {
+                        Some("系统自动通过".to_string())
+                    }
+                } else {
+                    None
                 };
 
                 node_vos.push(ApprovalFlowNodeVO {
@@ -803,12 +904,26 @@ impl ApprovalModel {
                 .collect();
 
             (node_vos, edge_vos)
-        } else {
-            (vec![], vec![])
         };
 
         // 计算每条日志的耗时
         let submitted_time = inst.submitted_at;
+
+        // 批量查询审批人姓名（始终从 admin 表取真实姓名）
+        let log_approver_ids: Vec<i64> = logs.iter().filter_map(|l| l.approver_id).collect::<std::collections::HashSet<_>>().into_iter().collect();
+        let approver_name_map: std::collections::HashMap<i64, String> = if !log_approver_ids.is_empty() {
+            AdminEntity::find()
+                .filter(AdminColumn::Id.is_in(log_approver_ids))
+                .all(db)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| (a.id, a.nick_name.or(a.user_name).unwrap_or_default()))
+                .collect()
+        } else {
+            std::collections::HashMap::new()
+        };
+
         let log_vos: Vec<ApprovalLogVO> = logs.iter()
             .enumerate()
             .map(|(i, l)| {
@@ -831,7 +946,7 @@ impl ApprovalModel {
                     node_key: l.node_key.clone(),
                     node_name: l.node_name.clone(),
                     approver_id: l.approver_id.unwrap_or_default(),
-                    approver_name: l.approver_name.clone(),
+                    approver_name: l.approver_id.and_then(|aid| approver_name_map.get(&aid).cloned()).or_else(|| l.approver_name.clone()),
                     action: l.action.unwrap_or(0),
                     comment: l.comment.clone(),
                     create_time: l.create_time.map(|t| t.to_string()),
@@ -1068,7 +1183,7 @@ impl ApprovalModel {
     }
 
     pub async fn update_instance_node(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         node_key: &str,
         approver_id: i64,
@@ -1104,7 +1219,7 @@ impl ApprovalModel {
     /// 追加已处理审批人到 processed_approvers JSON 数组（幂等：已存在则不重复添加）
     /// 返回追加后的已处理列表
     pub async fn append_processed_approver(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         approver_id: i64,
     ) -> Result<Vec<i64>> {
@@ -1143,7 +1258,7 @@ impl ApprovalModel {
         Ok(processed)
     }
 
-    pub async fn finish_instance(db: &DatabaseConnection, instance_id: i64, status: i32) -> Result<()> {
+    pub async fn finish_instance(db: &impl ConnectionTrait, instance_id: i64, status: i32) -> Result<()> {
         let now = Utc::now().naive_utc();
         InstanceEntity::update_many()
             .col_expr(InstanceColumn::Status, Expr::value(status))
@@ -1158,7 +1273,7 @@ impl ApprovalModel {
 
     /// 仅更新当前审批人（用于依次审批模式下同节点内流转，不重置候选池/已处理池）
     pub async fn update_current_approver(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         approver_id: i64,
     ) -> Result<()> {
@@ -1175,7 +1290,7 @@ impl ApprovalModel {
     }
 
     pub async fn insert_log(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         node_key: &str,
         node_name: &str,
@@ -1202,7 +1317,7 @@ impl ApprovalModel {
 
     /// 插入带目标用户/节点的审批日志（用于转办/委派/加签/退回/取消）
     pub async fn insert_log_with_target(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         node_key: &str,
         node_name: &str,
@@ -1240,7 +1355,7 @@ impl ApprovalModel {
 
     /// 更新实例的当前节点和审批人（用于退回/转办/委派/加签）
     pub async fn update_instance_node_with_extras(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         node_key: &str,
         approver_id: i64,
@@ -1282,7 +1397,7 @@ impl ApprovalModel {
 
     /// 更新实例的取消原因
     pub async fn update_cancel_reason(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         cancel_reason: &str,
     ) -> Result<()> {
@@ -1299,7 +1414,7 @@ impl ApprovalModel {
 
     /// 批量插入抄送记录
     pub async fn insert_cc_records(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         user_ids: &[i64],
         cc_from_id: Option<i64>,
@@ -1310,7 +1425,7 @@ impl ApprovalModel {
         // 查询用户姓名
         let mut user_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
         for uid in user_ids {
-            if let Ok(Some(admin)) = AdminModel::find_by_id(db, &Some(*uid)).await {
+            if let Ok(Some(admin)) = AdminEntity::find_by_id(*uid).one(db).await {
                 let name = admin.nick_name.or(admin.user_name).unwrap_or_default();
                 user_names.insert(*uid, name);
             }
@@ -1427,13 +1542,13 @@ impl ApprovalModel {
         Ok(())
     }
     /// 根据节点配置的 approver_type/approver_id 解析出实际审批人ID列表
-    /// approver_type: 1=指定用户, 2=指定角色, 3=部门主管, 4=发起人自己, 5=指定岗位, 6=直属上级
-    /// type=6 时 approver_id 表示向上查找的层级（默认1=直属上级，2=上级的上级，依此类推）
-    /// 返回候选审批人列表（或签/会签模式下均为全部候选；依次审批时按返回顺序处理）
-    /// 注意：本函数不过滤发起人自审，调用方需在拿到候选列表后调用 filter_self_approvers 进行回避
-    /// 对于 type=6，若到达组织架构顶层（无更高级别上级），返回空列表（调用方应作为自动通过信号处理）
+    /// approver_type: 1=指定用户, 2=指定角色, 3=部门主管, 4=发起人自己, 5=指定岗位, 6=直属上级, 7=部门主管链
+    /// type=6 时 approver_id 表示向上查找的层级（默认1=直属上级，2=上级的上级，依此类推；0=连续逐级直到顶层）
+    /// type=7 时 approver_id 表示部门树向上层级（语义同 type=6，但沿 dept.parent_id 链查找部门负责人）
+    /// 超管(user_type=1)和已停用用户自动跳过；负责人空缺时向上跳一级（空缺容错）
+    /// 返回候选审批人列表；空列表表示已到顶层，调用方应作为"自动通过"信号处理
     pub async fn resolve_approvers(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         approver_type: Option<i32>,
         approver_id: Option<i64>,
         submitter_id: i64,
@@ -1486,12 +1601,15 @@ impl ApprovalModel {
                     .filter(|id| active_admins.contains(id))
                     .collect();
                 if filtered.is_empty() {
-                    return Err(Error::from("该角色下未找到启用的审批人"));
+                    // 角色下无启用用户：返回空 Vec 触发跳过（而非报错）
+                    log::warn!("角色(id={})下无启用的审批人，审批节点将跳过", role_id);
+                    return Ok(Vec::new());
                 }
                 Ok(filtered)
             }
             3 => {
                 // 部门主管：单个人（部门负责人），校验用户状态
+                // 空缺容错：负责人未配置/已停用/超管 → 返回空 Vec 触发跳过（而非报错）
                 let dept_id = approver_id.or(submitter_dept_id)
                     .ok_or_else(|| Error::from("无法确定审批部门"))?;
                 let dept = DeptEntity::find_by_id(dept_id)
@@ -1500,19 +1618,26 @@ impl ApprovalModel {
                     .map_err(|e| Error::from(e.to_string()))?
                     .ok_or_else(|| Error::from("部门不存在"))?;
                 let dept_name = dept.dept_name.clone().unwrap_or_default();
-                let leader_id = dept.leader_id
-                    .filter(|&id| id > 0)
-                    .ok_or_else(|| Error::from(format!("部门[{}]未配置负责人", dept_name)))?;
-                // 校验部门负责人是否启用
-                let leader = AdminEntity::find_by_id(leader_id)
-                    .one(db)
-                    .await
-                    .map_err(|e| Error::from(e.to_string()))?
-                    .ok_or_else(|| Error::from("部门负责人用户不存在"))?;
-                if leader.status.unwrap_or(0) != 1 {
-                    return Err(Error::from(format!("部门[{}]负责人已停用，请联系管理员", dept_name)));
+                let leader_id = dept.leader_id.filter(|&id| id > 0);
+                match leader_id {
+                    Some(lid) => {
+                        let leader = AdminEntity::find_by_id(lid)
+                            .one(db)
+                            .await
+                            .map_err(|e| Error::from(e.to_string()))?;
+                        match leader {
+                            Some(a) if a.status.unwrap_or(0) == 1 && a.user_type.unwrap_or(0) != 1 => Ok(vec![lid]),
+                            _ => {
+                                log::warn!("部门[{}]负责人不可用或为超管，审批节点将跳过", dept_name);
+                                Ok(Vec::new())
+                            }
+                        }
+                    }
+                    None => {
+                        log::warn!("部门[{}]未配置负责人，审批节点将跳过", dept_name);
+                        Ok(Vec::new())
+                    }
                 }
-                Ok(vec![leader_id])
             }
             4 => {
                 // 发起人自己
@@ -1550,18 +1675,27 @@ impl ApprovalModel {
                     .filter(|id| active_admins.contains(id))
                     .collect();
                 if filtered.is_empty() {
-                    return Err(Error::from("该岗位下未找到启用的审批人"));
+                    // 岗位下无启用用户：返回空 Vec 触发跳过（而非报错）
+                    log::warn!("岗位(id={})下无启用的审批人，审批节点将跳过", post_id);
+                    return Ok(Vec::new());
                 }
                 Ok(filtered)
             }
             6 => {
-                // 直属上级：根据 approver_id 作为层级（默认1），沿 direct_manager_id 链向上查找
-                // 返回空 Vec 表示已到组织架构顶层，调用方应作为"自动通过"信号处理
-                let level = approver_id.filter(|&l| l > 0).unwrap_or(1) as usize;
+                // 直属上级：沿 direct_manager_id 链向上查找
+                // approver_id = 层级数（默认1=直属上级，2=上级的上级）
+                // level=0 表示沿链向上查找首个有效上级（带容错），到顶层仍无则返回空
+                // 超管(user_type=1)和已停用用户自动跳过
+                // 返回空 Vec 表示已到顶层无可用审批人，调用方作为"自动通过"信号处理
+                let level_raw = approver_id.unwrap_or(1);
+                let target_level: usize = if level_raw <= 0 { 1 } else { level_raw as usize };
+
                 let mut current_id: Option<i64> = Some(submitter_id);
                 let mut visited: std::collections::HashSet<i64> = std::collections::HashSet::new();
                 visited.insert(submitter_id);
-                for _ in 0..level {
+
+                // Step 1: 沿链向上走 target_level 步（跳过超管/停用）
+                for _ in 0..target_level {
                     let cur = match current_id {
                         Some(id) => id,
                         None => return Ok(Vec::new()),
@@ -1577,39 +1711,151 @@ impl ApprovalModel {
                     let next = admin.direct_manager_id.filter(|&id| id > 0);
                     match next {
                         Some(mid) => {
-                            // 防止循环引用（A→B→A）
                             if !visited.insert(mid) {
                                 log::warn!("检测到 direct_manager_id 循环引用: {} -> {}", cur, mid);
                                 return Ok(Vec::new());
                             }
                             current_id = Some(mid);
                         }
-                        None => {
-                            // 当前节点无上级，已到顶层
-                            return Ok(Vec::new());
-                        }
+                        None => return Ok(Vec::new()), // 未到目标层级已到顶
                     }
                 }
-                // 最终 current_id 即为指定层级的上级，校验其状态
-                match current_id {
-                    Some(mid) if mid != submitter_id => {
-                        // 校验上级用户是否启用
-                        let manager = AdminEntity::find_by_id(mid)
-                            .one(db)
-                            .await
-                            .map_err(|e| Error::from(e.to_string()))?;
-                        match manager {
-                            Some(m) if m.status.unwrap_or(0) == 1 => Ok(vec![mid]),
-                            Some(_) => {
-                                // 上级已停用，视为无可用上级，返回空触发自动通过
-                                log::warn!("直属上级(id={})已停用，审批节点将自动通过", mid);
-                                Ok(Vec::new())
+
+                // Step 2: 从目标层级开始，向上查找首个有效审批人
+                // 超管/停用/是发起人自己 → 向上跳一级继续查找
+                let safety_max = 40usize;
+                for _ in 0..safety_max {
+                    let cur = match current_id {
+                        Some(id) => id,
+                        None => return Ok(Vec::new()),
+                    };
+                    if cur == submitter_id {
+                        // 回到发起人，到顶
+                        return Ok(Vec::new());
+                    }
+                    let manager = AdminEntity::find_by_id(cur)
+                        .one(db)
+                        .await
+                        .map_err(|e| Error::from(e.to_string()))?;
+                    match manager {
+                        Some(m) if m.status.unwrap_or(0) == 1 && m.user_type.unwrap_or(0) != 1 => {
+                            return Ok(vec![cur]);
+                        }
+                        Some(m) if m.user_type == Some(1) => {
+                            log::info!("直属上级(id={})是超管，自动跳过继续向上", cur);
+                        }
+                        Some(_) => {
+                            log::info!("直属上级(id={})已停用，自动跳过继续向上", cur);
+                        }
+                        None => return Ok(Vec::new()),
+                    }
+                    // 向上一级
+                    let admin = AdminEntity::find_by_id(cur)
+                        .one(db)
+                        .await
+                        .map_err(|e| Error::from(e.to_string()))?;
+                    match admin.and_then(|a| a.direct_manager_id).filter(|&id| id > 0 && !visited.contains(&id)) {
+                        Some(mid) => {
+                            visited.insert(mid);
+                            current_id = Some(mid);
+                        }
+                        None => return Ok(Vec::new()),
+                    }
+                }
+                Ok(Vec::new())
+            }
+            7 => {
+                // 部门主管链：沿 dept.parent_id 链向上，取部门负责人
+                // approver_id = 层级数（默认1=直属部门负责人，2=上级部门负责人）
+                // level=0 表示从直属部门开始，沿链向上查找首个有效负责人
+                // 空缺容错：负责人未配置/已停用/超管/是发起人自己 → 自动向上跳一级继续查找
+                // 返回空 Vec 表示已到顶层无可用审批人，调用方作为"自动通过"信号处理
+                let level_raw = approver_id.unwrap_or(1);
+                // level=0 等价于 level=1（找直属部门负责人，配合空缺容错向上递进）
+                let target_level: usize = if level_raw <= 0 { 1 } else { level_raw as usize };
+
+                let start_dept_id = submitter_dept_id
+                    .ok_or_else(|| Error::from("无法确定发起人所属部门，请先为用户分配部门"))?;
+
+                // Step 1: 沿 parent_id 链向上走 target_level 步，定位到目标部门
+                let mut current_dept_id = start_dept_id;
+                let mut visited = std::collections::HashSet::new();
+                visited.insert(start_dept_id);
+
+                for _ in 0..target_level {
+                    let dept = DeptEntity::find_by_id(current_dept_id)
+                        .one(db)
+                        .await
+                        .map_err(|e| Error::from(e.to_string()))?
+                        .ok_or_else(|| Error::from("部门不存在"))?;
+                    match dept.parent_id.filter(|&id| id > 0 && !visited.contains(&id)) {
+                        Some(pid) => {
+                            visited.insert(pid);
+                            current_dept_id = pid;
+                        }
+                        None => return Ok(Vec::new()), // 已经到顶，没找到目标层级
+                    }
+                }
+
+                // Step 2: 从目标部门开始，向上查找首个有效负责人
+                // 处理空缺容错：未配置/超管/停用/是发起人自己 → 向上跳一级
+                let mut search_dept_id = current_dept_id;
+                let mut search_visited = std::collections::HashSet::new();
+                search_visited.insert(current_dept_id);
+                let safety_max = 40usize; // 安全上限防死循环
+
+                for _ in 0..safety_max {
+                    let dept = DeptEntity::find_by_id(search_dept_id)
+                        .one(db)
+                        .await
+                        .map_err(|e| Error::from(e.to_string()))?
+                        .ok_or_else(|| Error::from("部门不存在"))?;
+
+                    let dept_name = dept.dept_name.clone().unwrap_or_default();
+                    let leader_id = dept.leader_id.filter(|&id| id > 0);
+
+                    // 检查当前部门负责人是否可用
+                    let mut found_valid = false;
+                    let mut result_id: Option<i64> = None;
+                    if let Some(lid) = leader_id {
+                        if lid == submitter_id {
+                            log::info!("部门[{}]负责人是发起人自己，向上跳一级", dept_name);
+                        } else {
+                            let leader = AdminEntity::find_by_id(lid)
+                                .one(db)
+                                .await
+                                .map_err(|e| Error::from(e.to_string()))?;
+                            match leader {
+                                Some(a) if a.status.unwrap_or(0) == 1 && a.user_type.unwrap_or(0) != 1 => {
+                                    found_valid = true;
+                                    result_id = Some(lid);
+                                }
+                                Some(_) if leader.as_ref().map(|a| a.user_type == Some(1)).unwrap_or(false) => {
+                                    log::info!("部门[{}]负责人是超管，自动跳过继续向上", dept_name);
+                                }
+                                _ => {
+                                    log::warn!("部门[{}]负责人不可用，向上跳一级", dept_name);
+                                }
                             }
-                            None => Ok(Vec::new()),
                         }
+                    } else {
+                        log::warn!("部门[{}]未配置负责人，向上跳一级", dept_name);
                     }
-                    _ => Ok(Vec::new()),
+
+                    if found_valid {
+                        return Ok(vec![result_id.unwrap()]);
+                    }
+
+                    // 向上一级
+                    match dept.parent_id.filter(|&id| id > 0 && !search_visited.contains(&id)) {
+                        Some(pid) => {
+                            search_visited.insert(pid);
+                            search_dept_id = pid;
+                        }
+                        None => return Ok(Vec::new()), // 到顶，无可用审批人
+                    }
                 }
+                Ok(Vec::new())
             }
             other => Err(Error::from(format!("不支持的审批人类型: {}", other))),
         }
@@ -1623,13 +1869,13 @@ impl ApprovalModel {
 
     /// 判断节点是否为"直属上级"类型（type=6），用于空候选列表时的自动通过决策
     pub fn is_direct_manager_node(approver_type: Option<i32>) -> bool {
-        approver_type == Some(6)
+        approver_type == Some(6) || approver_type == Some(7)
     }
 
     /// 兼容旧调用：解析单个审批人（返回候选列表的第一个）
     /// 新代码应直接使用 resolve_approvers
     pub async fn resolve_approver(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         approver_type: Option<i32>,
         approver_id: Option<i64>,
         submitter_id: i64,
@@ -1650,7 +1896,7 @@ impl ApprovalModel {
     }
 
     /// 查询用户的部门ID
-    pub async fn find_user_dept_id(db: &DatabaseConnection, user_id: i64) -> Result<Option<i64>> {
+    pub async fn find_user_dept_id(db: &impl ConnectionTrait, user_id: i64) -> Result<Option<i64>> {
         let merge = DeptMergeEntity::find()
             .filter(DeptMergeColumn::AdminId.eq(user_id))
             .one(db)

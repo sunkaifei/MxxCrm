@@ -74,6 +74,32 @@
         "sign": "签收确认"
       }
     },
+    "delivery": {
+      "title": "虚拟商品交付",
+      "button": {
+        "view": "查看完整内容",
+        "create": "新增交付记录",
+        "edit": "修改交付",
+        "resend": "重发通知"
+      }
+    },
+    "cardPool": {
+      "title": "卡密池管理",
+      "button": {
+        "create": "新增卡密",
+        "delete": "删除/作废",
+        "view": "查看完整卡密",
+        "import": "批量导入"
+      }
+    },
+    "entitlement": {
+      "title": "服务权益",
+      "button": {
+        "create": "新建权益",
+        "edit": "修改权益",
+        "renew": "续约"
+      }
+    },
     "invoice": {
       "title": "发票管理",
       "button": {

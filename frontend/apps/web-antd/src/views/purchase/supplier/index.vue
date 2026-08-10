@@ -177,7 +177,7 @@ async function handleBatchDelete() {
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('purchase:supplier:edit')"
+          v-if="accessStore.hasAccessCode('purchase:supplier:update')"
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"

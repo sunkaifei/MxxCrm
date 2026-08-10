@@ -128,7 +128,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/update/{id}",
                 web::put()
                     .to(update_by_id)
-                    .wrap(require_permission("template:category:edit")),
+                    .wrap(require_permission("template:category:update")),
             )
             // GET /template_category/detail/{id} - 模板分类详情
             .route(

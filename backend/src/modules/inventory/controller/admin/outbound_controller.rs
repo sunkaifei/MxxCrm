@@ -180,7 +180,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/outbound")
             .route("/save", web::post().to(outbound_save).wrap(require_permission("product:outbound:create")))
-            .route("/update", web::put().to(outbound_update).wrap(require_permission("product:outbound:edit")))
+            .route("/update", web::put().to(outbound_update).wrap(require_permission("product:outbound:update")))
             .route("/submit/{id}", web::put().to(outbound_submit).wrap(require_permission("product:outbound:audit")))
             .route("/audit", web::post().to(outbound_audit).wrap(require_permission("product:outbound:audit")))
             .route("/reject", web::post().to(outbound_reject).wrap(require_permission("product:outbound:audit")))

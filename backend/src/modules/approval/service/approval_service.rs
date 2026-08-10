@@ -4,10 +4,12 @@ use crate::modules::approval::entity::approval_flow_edge;
 use crate::modules::approval::entity::approval_flow_node;
 use crate::modules::approval::entity::approval_instance::{Column as InstanceColumn, Entity as InstanceEntity};
 use crate::modules::approval::model::approval::*;
+use crate::modules::crm::entity::contract;
 use crate::modules::crm::model::work_log::WorkLogCreateDTO;
 use crate::modules::crm::service::work_log_service;
+use crate::modules::sale::entity::order;
 
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, TransactionTrait};
 
 pub struct ApprovalService;
 
@@ -46,15 +48,80 @@ impl ApprovalService {
         let start_node = nodes.iter().find(|n| n.node_type == Some(1))
             .ok_or_else(|| Error::from("审批流缺少开始节点"))?;
 
-        // 从开始节点的出边找到第一个审批节点
+        // 创建流程模板快照（防止模板修改影响在途实例）
+        let flow_snapshot = serde_json::json!({
+            "nodes": nodes.iter().map(|n| serde_json::to_value(n).unwrap_or_default()).collect::<Vec<_>>(),
+            "edges": edges.iter().map(|e| serde_json::to_value(e).unwrap_or_default()).collect::<Vec<_>>(),
+            "version": 1,
+        });
+
+        // 从开始节点的出边找到第一个节点
         let first_edge = edges.iter().find(|e| e.source_node_key == start_node.node_key)
             .ok_or_else(|| Error::from("开始节点没有连线"))?;
 
-        let first_node = nodes.iter().find(|n| n.node_key == first_edge.target_node_key)
+        let mut first_node = nodes.iter().find(|n| n.node_key == first_edge.target_node_key)
             .ok_or_else(|| Error::from("开始节点的目标节点不存在"))?;
 
+        let extra_data = req.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
+
+        // 如果第一个节点是条件分支(type=3)，根据条件解析到真正的审批节点(type=2)
+        if first_node.node_type == Some(3) {
+            let mut current_key = first_node.node_key.clone().unwrap_or_default();
+            loop {
+                // 查找满足条件的出边
+                let cond_edges: Vec<&approval_flow_edge::Model> = edges.iter()
+                    .filter(|e| e.source_node_key.as_deref() == Some(&current_key))
+                    .collect();
+                
+                let mut next_node = None;
+                for edge in &cond_edges {
+                    let cond = edge.condition_expr.as_deref().unwrap_or("");
+                    if cond.is_empty() || Self::eval_condition(cond, &extra_data) {
+                        let target_key = edge.target_node_key.as_deref().unwrap_or("");
+                        next_node = nodes.iter().find(|n| n.node_key.as_deref() == Some(target_key));
+                        break;
+                    }
+                }
+
+                match next_node {
+                    Some(node) if node.node_type == Some(2) => {
+                        first_node = node;
+                        break;
+                    }
+                    Some(node) if node.node_type == Some(3) => {
+                        // 嵌套条件分支，继续解析
+                        current_key = node.node_key.clone().unwrap_or_default();
+                        continue;
+                    }
+                    Some(node) if node.node_type == Some(4) => {
+                        // 直接到结束节点，说明不需要审批（如条件不满足直接通过）
+                        // 创建实例并直接完成（事务保证原子性）
+                        let nk = node.node_key.clone().unwrap_or_default();
+                        let req = (*req).clone();
+                        let instance_id = db.transaction::<_, i64, Error>(|txn| {
+                            Box::pin(async move {
+                                let instance_id = ApprovalModel::create_instance(
+                                    txn, &req, &nk, 0, &[],
+                                    Some(flow_snapshot),
+                                ).await?;
+                                ApprovalModel::finish_instance(txn, instance_id, 3).await?;
+                                Ok(instance_id)
+                            })
+                        })
+                        .await
+                        .map_err(|e| Error::from(e.to_string()))?;
+                        let _ = flow;
+                        return Ok(instance_id);
+                    }
+                    _ => {
+                        return Err(Error::from("条件分支未匹配到任何审批节点"));
+                    }
+                }
+            }
+        }
+
         if first_node.node_type != Some(2) {
-            return Err(Error::from("第一个节点必须是审批节点"));
+            return Err(Error::from("第一个节点必须是审批节点或条件分支"));
         }
 
         // 解析发起人部门
@@ -80,14 +147,24 @@ impl ApprovalService {
         if candidates.is_empty() {
             if ApprovalModel::is_direct_manager_node(first_node_approver_type) {
                 // 创建实例（占位，current_approver_id=0 表示系统自动通过），随后立即自动流转
-                let instance_id = ApprovalModel::create_instance(
-                    db, req, &first_node_key, 0, &[], 
-                ).await?;
-                // 写入自动通过日志
-                Self::insert_auto_pass_log(db, instance_id, &first_node_key, &first_node_name).await?;
-                // 流转到下一节点
-                let extra_data = req.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
-                Self::advance_to_next_node(db, instance_id, &first_node_key, &nodes, &edges, req.submitter_id, &extra_data).await?;
+                let ed = req.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
+                let sid = req.submitter_id;
+                let req = (*req).clone();
+                let instance_id = db.transaction::<_, i64, Error>(|txn| {
+                    Box::pin(async move {
+                        let instance_id = ApprovalModel::create_instance(
+                            txn, &req, &first_node_key, 0, &[],
+                            Some(flow_snapshot),
+                        ).await?;
+                        // 写入自动通过日志
+                        Self::insert_auto_pass_log(txn, instance_id, &first_node_key, &first_node_name).await?;
+                        // 流转到下一节点
+                        Self::advance_to_next_node(txn, instance_id, &first_node_key, &nodes, &edges, sid, &ed).await?;
+                        Ok(instance_id)
+                    })
+                })
+                .await
+                .map_err(|e| Error::from(e.to_string()))?;
                 let _ = flow;
                 return Ok(instance_id);
             } else {
@@ -98,13 +175,21 @@ impl ApprovalService {
         // 当前审批人取候选列表的第一个（或签/会签模式下所有人可见，依次审批按顺序）
         let primary_approver = candidates[0];
 
-        let instance_id = ApprovalModel::create_instance(
-            db,
-            req,
-            &first_node_key,
-            primary_approver,
-            &candidates,
-        ).await?;
+        let req = (*req).clone();
+        let instance_id = db.transaction::<_, i64, Error>(|txn| {
+            Box::pin(async move {
+                ApprovalModel::create_instance(
+                    txn,
+                    &req,
+                    &first_node_key,
+                    primary_approver,
+                    &candidates,
+                    Some(flow_snapshot),
+                ).await
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
         let _ = flow; // flow 已使用
         Ok(instance_id)
@@ -136,8 +221,9 @@ impl ApprovalService {
             return Err(Error::from("您已审批过该节点"));
         }
 
-        let flow_data = ApprovalModel::find_flow_by_code(db, &instance.flow_code).await?;
-        let (_flow, nodes, edges) = flow_data.ok_or_else(|| Error::from("审批流模板不存在"))?;
+        let flow_data = ApprovalModel::find_instance_by_id_raw(db, req.instance_id).await?
+            .ok_or_else(|| Error::from("审批实例不存在"))?;
+        let (nodes, edges) = ApprovalModel::get_instance_flow_data(db, &flow_data).await?;
 
         let current_node_key = instance.current_node_key.as_ref()
             .ok_or_else(|| Error::from("当前节点为空"))?;
@@ -147,65 +233,80 @@ impl ApprovalService {
 
         let node_name = current_node.node_name.clone().unwrap_or_default();
 
-        ApprovalModel::insert_log(db, req.instance_id, current_node_key, &node_name, req).await?;
-
+        let current_node_key = current_node_key.clone();
+        let candidate_approvers = instance.candidate_approvers.clone();
         let submitter_id = instance.submitter_id;
         let extra_data = instance.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
+        let wl_approver_id = req.approver_id;
+        let wl_approver_name = req.approver_name.clone();
+        let wl_action = req.action;
+        let wl_comment = req.comment.clone();
+        let req = (*req).clone();
 
-        match req.action {
-            1 => {
-                // 通过
-                match approve_mode {
+        // 审批日志写入 + 实例状态变更：事务包裹，保证原子性
+        db.transaction::<_, (), Error>(|txn| {
+            Box::pin(async move {
+                ApprovalModel::insert_log(txn, req.instance_id, &current_node_key, &node_name, &req).await?;
+
+                match req.action {
                     1 => {
-                        // 或签：任一通过即流转到下一节点
-                        Self::advance_to_next_node(db, req.instance_id, current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
+                        // 通过
+                        match approve_mode {
+                            1 => {
+                                // 或签：任一通过即流转到下一节点
+                                Self::advance_to_next_node(txn, req.instance_id, &current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
+                            }
+                            2 => {
+                                // 会签：全部通过才流转
+                                let processed = ApprovalModel::append_processed_approver(txn, req.instance_id, req.approver_id).await?;
+                                if processed.len() >= candidate_approvers.len() {
+                                    // 所有候选审批人均已通过，流转到下一节点
+                                    Self::advance_to_next_node(txn, req.instance_id, &current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
+                                }
+                                // 否则等待其他审批人处理
+                            }
+                            3 => {
+                                // 依次审批：按候选池顺序逐个审批
+                                let processed = ApprovalModel::append_processed_approver(txn, req.instance_id, req.approver_id).await?;
+                                if processed.len() >= candidate_approvers.len() {
+                                    // 全部审批完成，流转到下一节点
+                                    Self::advance_to_next_node(txn, req.instance_id, &current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
+                                } else {
+                                    // 更新当前审批人为候选池中下一个未处理的人
+                                    let next_approver = candidate_approvers[processed.len()];
+                                    ApprovalModel::update_current_approver(txn, req.instance_id, next_approver).await?;
+                                }
+                            }
+                            _ => {
+                                // 默认按或签处理
+                                Self::advance_to_next_node(txn, req.instance_id, &current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
+                            }
+                        }
                     }
                     2 => {
-                        // 会签：全部通过才流转
-                        let processed = ApprovalModel::append_processed_approver(db, req.instance_id, req.approver_id).await?;
-                        if processed.len() >= instance.candidate_approvers.len() {
-                            // 所有候选审批人均已通过，流转到下一节点
-                            Self::advance_to_next_node(db, req.instance_id, current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
-                        }
-                        // 否则等待其他审批人处理
+                        // 驳回：直接结束实例（无论何种审批模式）
+                        ApprovalModel::finish_instance(txn, req.instance_id, 4).await?;
                     }
-                    3 => {
-                        // 依次审批：按候选池顺序逐个审批
-                        let processed = ApprovalModel::append_processed_approver(db, req.instance_id, req.approver_id).await?;
-                        if processed.len() >= instance.candidate_approvers.len() {
-                            // 全部审批完成，流转到下一节点
-                            Self::advance_to_next_node(db, req.instance_id, current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
-                        } else {
-                            // 更新当前审批人为候选池中下一个未处理的人
-                            let next_approver = instance.candidate_approvers[processed.len()];
-                            ApprovalModel::update_current_approver(db, req.instance_id, next_approver).await?;
-                        }
-                    }
-                    _ => {
-                        // 默认按或签处理
-                        Self::advance_to_next_node(db, req.instance_id, current_node_key, &nodes, &edges, submitter_id, &extra_data).await?;
-                    }
+                    _ => return Err(Error::from("无效的操作类型")),
                 }
-            }
-            2 => {
-                // 驳回：直接结束实例（无论何种审批模式）
-                ApprovalModel::finish_instance(db, req.instance_id, 4).await?;
-            }
-            _ => return Err(Error::from("无效的操作类型")),
-        }
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
         // 工作日志埋点（审批通过/驳回），不影响主业务
-        let action_name = if req.action == 1 { "审批通过" } else { "驳回审批" };
-        let result_val = if req.action == 1 { 1 } else { 2 };
+        let action_name = if wl_action == 1 { "审批通过" } else { "驳回审批" };
+        let result_val = if wl_action == 1 { 1 } else { 2 };
         let log_dto = WorkLogCreateDTO {
-            user_id: req.approver_id,
-            user_name: req.approver_name.clone(),
+            user_id: wl_approver_id,
+            user_name: wl_approver_name,
             action_type: Some(1),
             action_name: Some(action_name.to_string()),
             business_type: Some(instance.business_type.clone()),
             business_id: Some(instance.business_id),
             business_title: instance.business_title.clone(),
-            description: req.comment.clone(),
+            description: wl_comment,
             result: Some(result_val),
             work_date: Some(chrono::Local::now().naive_local().date()),
         };
@@ -226,9 +327,60 @@ impl ApprovalService {
 
     // ============ Private helpers ============
 
+    /// 审批撤销/退回后回写业务侧审批状态（合同/订单）。
+    /// 失败时忽略错误（best-effort），不影响审批主流程。
+    async fn sync_business_approval_status(
+        db: &impl ConnectionTrait,
+        business_type: &str,
+        business_id: i64,
+        approval_status: i32,
+    ) {
+        let value = sea_orm::sea_query::Expr::value(approval_status);
+        match business_type {
+            "contract" => {
+                let _ = contract::Entity::update_many()
+                    .col_expr(contract::Column::ApprovalStatus, value.clone())
+                    .filter(contract::Column::Id.eq(business_id))
+                    .exec(db)
+                    .await;
+            }
+            "order" => {
+                let _ = order::Entity::update_many()
+                    .col_expr(order::Column::ApprovalStatus, value)
+                    .filter(order::Column::Id.eq(business_id))
+                    .exec(db)
+                    .await;
+            }
+            _ => {}
+        }
+    }
+
+    /// 节点审批通过后自动抄送（读取节点的 cc_user_ids 配置）
+    async fn auto_cc_on_node_pass(
+        db: &impl ConnectionTrait,
+        instance_id: i64,
+        node: &approval_flow_node::Model,
+    ) {
+        if let Some(cc_ids) = &node.cc_user_ids {
+            let user_ids: Vec<i64> = cc_ids.as_array()
+                .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
+                .unwrap_or_default();
+            if !user_ids.is_empty() {
+                let _ = ApprovalModel::insert_cc_records(
+                    db,
+                    instance_id,
+                    &user_ids,
+                    Some(0),
+                    Some("系统".to_string()),
+                    Some("节点审批通过自动抄送".to_string()),
+                ).await;
+            }
+        }
+    }
+
     /// 从当前节点查找下一节点并推进实例（处理条件分支）
     async fn advance_to_next_node(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         current_node_key: &str,
         nodes: &[approval_flow_node::Model],
@@ -236,6 +388,11 @@ impl ApprovalService {
         submitter_id: i64,
         extra_data: &serde_json::Value,
     ) -> Result<()> {
+        // 节点审批通过后自动抄送（cc_user_ids 不为空时触发）
+        if let Some(current_node) = nodes.iter().find(|n| n.node_key.as_deref() == Some(current_node_key)) {
+            Self::auto_cc_on_node_pass(db, instance_id, current_node).await;
+        }
+
         let out_edges: Vec<&approval_flow_edge::Model> = edges.iter()
             .filter(|e| e.source_node_key.as_deref() == Some(current_node_key))
             .collect();
@@ -272,7 +429,7 @@ impl ApprovalService {
     }
 
     async fn move_to_next_node(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         next_key: &str,
         nodes: &[approval_flow_node::Model],
@@ -332,7 +489,7 @@ impl ApprovalService {
     /// 写入"系统自动通过"审批日志（用于直属上级节点候选为空时自动流转）
     /// approver_id=0 表示系统，action=1 表示通过
     async fn insert_auto_pass_log(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         node_key: &str,
         node_name: &str,
@@ -409,7 +566,16 @@ impl ApprovalService {
         for op in &["<=", ">=", "==", "!=", ">", "<"] {
             if let Some(pos) = expr.find(op) {
                 let field = expr[..pos].trim();
-                let value = expr[pos + op.len()..].trim();
+                let value = expr[pos + op.len()..].trim().trim_matches('"').trim_matches('\'');
+                // 优先尝试字符串比较（支持 customerType=="VIP" 等场景）
+                if let Some(actual_str) = data.get(field).and_then(|v| v.as_str()) {
+                    return match *op {
+                        "==" => actual_str == value,
+                        "!=" => actual_str != value,
+                        _ => false, // 字符串不支持大小比较
+                    };
+                }
+                // 回退到数值比较
                 let actual = data.get(field).and_then(|v| v.as_f64()).unwrap_or(0.0);
                 let expected: f64 = value.parse().unwrap_or(0.0);
                 return match *op {
@@ -427,7 +593,7 @@ impl ApprovalService {
     }
 
     async fn traverse_condition(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         instance_id: i64,
         node_key: &str,
         nodes: &[approval_flow_node::Model],
@@ -522,25 +688,41 @@ impl ApprovalService {
             .find(|n| n.node_key == current_node_key)
             .map(|n| n.node_name.clone())
             .unwrap_or_default();
+        let instance_id = req.instance_id;
+        let operator_name = operator_name.to_string();
 
-        // 写入取消日志
-        ApprovalModel::insert_log_with_target(
-            db,
-            req.instance_id,
-            &current_node_key,
-            &current_node_name,
-            operator_id,
-            Some(operator_name.to_string()),
-            7, // action=7 取消
-            Some(cancel_reason.clone()),
-            None, None, None, None,
-        ).await?;
+        // 审批日志写入 + 实例状态变更：事务包裹，保证原子性
+        let business_type = instance.business_type.clone();
+        let business_id = instance.business_id;
+        db.transaction::<_, (), Error>(|txn| {
+            Box::pin(async move {
+                // 写入取消日志
+                ApprovalModel::insert_log_with_target(
+                    txn,
+                    instance_id,
+                    &current_node_key,
+                    &current_node_name,
+                    operator_id,
+                    Some(operator_name.clone()),
+                    7, // action=7 取消
+                    Some(cancel_reason.clone()),
+                    None, None, None, None,
+                ).await?;
 
-        // 更新取消原因
-        ApprovalModel::update_cancel_reason(db, req.instance_id, &cancel_reason).await?;
+                // 更新取消原因
+                ApprovalModel::update_cancel_reason(txn, instance_id, &cancel_reason).await?;
 
-        // 结束实例，状态=5 已撤回
-        ApprovalModel::finish_instance(db, req.instance_id, 5).await?;
+                // 结束实例，状态=5 已撤回
+                ApprovalModel::finish_instance(txn, instance_id, 5).await?;
+
+                // 撤销后回写业务侧状态：合同/订单 approval_status 回到 0（草稿），便于发起人重新编辑提交
+                Self::sync_business_approval_status(txn, &business_type, business_id, 0).await;
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
         Ok(())
     }
@@ -571,101 +753,129 @@ impl ApprovalService {
             .find(|n| n.node_key == current_node_key)
             .map(|n| n.node_name.clone())
             .unwrap_or_default();
+        let inst_submitter_id = instance.submitter_id;
+        let inst_submitter_name = instance.submitter_name.clone();
+        let inst_business_type = instance.business_type.clone();
+        let inst_business_id = instance.business_id;
+        let inst_extra_data = instance.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
+        let inst_flow_nodes = instance.flow_nodes.clone();
+        let req = (*req).clone();
+        let operator_name = operator_name.to_string();
 
-        match &req.reject_to_node_key {
-            None => {
-                // 退回到发起人：标记需要重新提交，状态置为 6=待修改
-                ApprovalModel::insert_log_with_target(
-                    db,
-                    req.instance_id,
-                    &current_node_key,
-                    &current_node_name,
-                    operator_id,
-                    Some(operator_name.to_string()),
-                    6, // action=6 退回
-                    req.comment.clone(),
-                    Some(instance.submitter_id),
-                    instance.submitter_name.clone(),
-                    None, None,
-                ).await?;
+        // 审批日志写入 + 实例状态变更：事务包裹，保证原子性
+        db.transaction::<_, (), Error>(|txn| {
+            Box::pin(async move {
+                match &req.reject_to_node_key {
+                    None => {
+                        // 退回到发起人：标记需要重新提交，状态置为 6=待修改
+                        ApprovalModel::insert_log_with_target(
+                            txn,
+                            req.instance_id,
+                            &current_node_key,
+                            &current_node_name,
+                            operator_id,
+                            Some(operator_name.to_string()),
+                            6, // action=6 退回
+                            req.comment.clone(),
+                            Some(inst_submitter_id),
+                            inst_submitter_name.clone(),
+                            None, None,
+                        ).await?;
 
-                // 更新实例：current_approver 设为发起人，needs_resubmit=1，状态=6
-                ApprovalModel::update_instance_node_with_extras(
-                    db,
-                    req.instance_id,
-                    "start",
-                    instance.submitter_id,
-                    &[instance.submitter_id],
-                    None, None, None,
-                    Some(1), // needs_resubmit=1
-                ).await?;
+                        // 更新实例：current_approver 设为发起人，needs_resubmit=1，状态=6
+                        ApprovalModel::update_instance_node_with_extras(
+                            txn,
+                            req.instance_id,
+                            "start",
+                            inst_submitter_id,
+                            &[inst_submitter_id],
+                            None, None, None,
+                            Some(1), // needs_resubmit=1
+                        ).await?;
 
-                // 状态改为 6=待修改（退回到发起人）
-                let now = chrono::Utc::now().naive_utc();
-                InstanceEntity::update_many()
-                    .col_expr(InstanceColumn::Status, sea_orm::sea_query::Expr::value(6))
-                    .col_expr(InstanceColumn::UpdateTime, sea_orm::sea_query::Expr::value(now))
-                    .filter(InstanceColumn::Id.eq(req.instance_id))
-                    .exec(db)
-                    .await
-                    .map_err(|e| Error::from(e.to_string()))?;
-            }
-            Some(target_key) => {
-                // 退回到指定节点
-                let target_node = instance.flow_nodes.iter()
-                    .find(|n| n.node_key == *target_key)
-                    .ok_or_else(|| Error::from(format!("目标节点 {} 不存在", target_key)))?;
+                        // 状态改为 6=待修改（退回到发起人）
+                        let now = chrono::Utc::now().naive_utc();
+                        InstanceEntity::update_many()
+                            .col_expr(InstanceColumn::Status, sea_orm::sea_query::Expr::value(6))
+                            .col_expr(InstanceColumn::UpdateTime, sea_orm::sea_query::Expr::value(now))
+                            .filter(InstanceColumn::Id.eq(req.instance_id))
+                            .exec(txn)
+                            .await
+                            .map_err(|e| Error::from(e.to_string()))?;
 
-                // 查询目标节点的实际配置（从原始 flow_node 表获取 approver_type 等）
-                let flow_data = ApprovalModel::find_flow_by_code(db, &instance.flow_code).await?;
-                let (_flow, nodes, _edges) = flow_data.ok_or_else(|| Error::from("审批流模板不存在"))?;
-                let target_node_cfg = nodes.iter()
-                    .find(|n| n.node_key.as_deref() == Some(target_key))
-                    .ok_or_else(|| Error::from("目标节点配置不存在"))?;
+                        // 退回到发起人后回写业务侧状态：合同/订单 approval_status 置为 6（待修改），便于发起人修改后重新提交
+                        Self::sync_business_approval_status(txn, &inst_business_type, inst_business_id, 6).await;
+                    }
+                    Some(target_key) => {
+                        // 退回到指定节点
+                        let target_node_name = inst_flow_nodes.iter()
+                            .find(|n| n.node_key == *target_key)
+                            .map(|n| n.node_name.clone())
+                            .ok_or_else(|| Error::from(format!("目标节点 {} 不存在", target_key)))?;
 
-                let submitter_dept_id = ApprovalModel::find_user_dept_id(db, instance.submitter_id).await?;
-                let raw_candidates = ApprovalModel::resolve_approvers(
-                    db,
-                    target_node_cfg.approver_type,
-                    target_node_cfg.approver_id,
-                    instance.submitter_id,
-                    submitter_dept_id,
-                ).await?;
-                let candidates = ApprovalModel::filter_self_approvers(raw_candidates, instance.submitter_id);
+                        // 读取目标节点配置：优先从快照读取
+                        let inst_raw = ApprovalModel::find_instance_by_id_raw(txn, req.instance_id).await?
+                            .ok_or_else(|| Error::from("审批实例不存在"))?;
+                        let (nodes, _edges) = ApprovalModel::get_instance_flow_data(txn, &inst_raw).await?;
+                        let target_node_cfg = nodes.iter()
+                            .find(|n| n.node_key.as_deref() == Some(target_key))
+                            .ok_or_else(|| Error::from("目标节点配置不存在"))?;
 
-                if candidates.is_empty() {
-                    return Err(Error::from("目标节点未解析到候选审批人"));
+                        let submitter_dept_id = ApprovalModel::find_user_dept_id(txn, inst_submitter_id).await?;
+                        let raw_candidates = ApprovalModel::resolve_approvers(
+                            txn,
+                            target_node_cfg.approver_type,
+                            target_node_cfg.approver_id,
+                            inst_submitter_id,
+                            submitter_dept_id,
+                        ).await?;
+                        let candidates = ApprovalModel::filter_self_approvers(raw_candidates, inst_submitter_id);
+
+                        if candidates.is_empty() {
+                            // 动态节点（type=6/7）候选为空时自动通过，而非报错
+                            if ApprovalModel::is_direct_manager_node(target_node_cfg.approver_type) {
+                                let (nodes2, edges2) = ApprovalModel::get_instance_flow_data(txn, &inst_raw).await?;
+                                ApprovalModel::update_instance_node(txn, req.instance_id, target_key, 0, &[]).await?;
+                                Self::insert_auto_pass_log(txn, req.instance_id, target_key, &target_node_name).await?;
+                                Self::advance_to_next_node(txn, req.instance_id, target_key, &nodes2, &edges2, inst_submitter_id, &inst_extra_data).await?;
+                                return Ok(());
+                            }
+                            return Err(Error::from("目标节点未解析到候选审批人"));
+                        }
+
+                        let primary_approver = candidates[0];
+
+                        ApprovalModel::insert_log_with_target(
+                            txn,
+                            req.instance_id,
+                            &current_node_key,
+                            &current_node_name,
+                            operator_id,
+                            Some(operator_name.to_string()),
+                            6, // action=6 退回
+                            req.comment.clone(),
+                            Some(primary_approver),
+                            None,
+                            Some(target_key.clone()),
+                            Some(target_node_name),
+                        ).await?;
+
+                        ApprovalModel::update_instance_node_with_extras(
+                            txn,
+                            req.instance_id,
+                            target_key,
+                            primary_approver,
+                            &candidates,
+                            None, None, None,
+                            Some(0),
+                        ).await?;
+                    }
                 }
-
-                let primary_approver = candidates[0];
-                let target_node_name = target_node.node_name.clone();
-
-                ApprovalModel::insert_log_with_target(
-                    db,
-                    req.instance_id,
-                    &current_node_key,
-                    &current_node_name,
-                    operator_id,
-                    Some(operator_name.to_string()),
-                    6, // action=6 退回
-                    req.comment.clone(),
-                    Some(primary_approver),
-                    None,
-                    Some(target_key.clone()),
-                    Some(target_node_name),
-                ).await?;
-
-                ApprovalModel::update_instance_node_with_extras(
-                    db,
-                    req.instance_id,
-                    target_key,
-                    primary_approver,
-                    &candidates,
-                    None, None, None,
-                    Some(0),
-                ).await?;
-            }
-        }
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
         Ok(())
     }
@@ -702,31 +912,43 @@ impl ApprovalService {
             .map(|n| n.node_name.clone())
             .unwrap_or_default();
 
-        // 写入转办日志
-        ApprovalModel::insert_log_with_target(
-            db,
-            req.instance_id,
-            &current_node_key,
-            &current_node_name,
-            operator_id,
-            Some(operator_name.to_string()),
-            3, // action=3 转办
-            req.comment.clone(),
-            Some(req.target_user_id),
-            req.target_user_name.clone(),
-            None, None,
-        ).await?;
+        let req = (*req).clone();
+        let operator_name = operator_name.to_string();
 
-        // 更新实例：当前审批人改为目标用户，候选池替换为目标用户，记录转办来源
-        ApprovalModel::update_instance_node_with_extras(
-            db,
-            req.instance_id,
-            &current_node_key,
-            req.target_user_id,
-            &[req.target_user_id],
-            Some(operator_id), // transfer_from_id
-            None, None, None,
-        ).await?;
+        // 审批日志写入 + 实例状态变更：事务包裹，保证原子性
+        db.transaction::<_, (), Error>(|txn| {
+            Box::pin(async move {
+                // 写入转办日志
+                ApprovalModel::insert_log_with_target(
+                    txn,
+                    req.instance_id,
+                    &current_node_key,
+                    &current_node_name,
+                    operator_id,
+                    Some(operator_name.to_string()),
+                    3, // action=3 转办
+                    req.comment.clone(),
+                    Some(req.target_user_id),
+                    req.target_user_name.clone(),
+                    None, None,
+                ).await?;
+
+                // 更新实例：当前审批人改为目标用户，候选池替换为目标用户，记录转办来源
+                ApprovalModel::update_instance_node_with_extras(
+                    txn,
+                    req.instance_id,
+                    &current_node_key,
+                    req.target_user_id,
+                    &[req.target_user_id],
+                    Some(operator_id), // transfer_from_id
+                    None, None, None,
+                ).await?;
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
         Ok(())
     }
@@ -762,37 +984,51 @@ impl ApprovalService {
             .map(|n| n.node_name.clone())
             .unwrap_or_default();
 
-        // 写入委派日志
-        ApprovalModel::insert_log_with_target(
-            db,
-            req.instance_id,
-            &current_node_key,
-            &current_node_name,
-            operator_id,
-            Some(operator_name.to_string()),
-            4, // action=4 委派
-            req.comment.clone(),
-            Some(req.target_user_id),
-            req.target_user_name.clone(),
-            None, None,
-        ).await?;
+        // 更新候选池：当前审批人改为被委派人，候选池增加被委派人，记录委派来源
+        let new_candidates = {
+            let mut nc = instance.candidate_approvers.clone();
+            if !nc.contains(&req.target_user_id) {
+                nc.push(req.target_user_id);
+            }
+            nc
+        };
+        let req = (*req).clone();
+        let operator_name = operator_name.to_string();
 
-        // 更新实例：当前审批人改为被委派人，候选池增加被委派人，记录委派来源
-        let mut new_candidates = instance.candidate_approvers.clone();
-        if !new_candidates.contains(&req.target_user_id) {
-            new_candidates.push(req.target_user_id);
-        }
+        // 审批日志写入 + 实例状态变更：事务包裹，保证原子性
+        db.transaction::<_, (), Error>(|txn| {
+            Box::pin(async move {
+                // 写入委派日志
+                ApprovalModel::insert_log_with_target(
+                    txn,
+                    req.instance_id,
+                    &current_node_key,
+                    &current_node_name,
+                    operator_id,
+                    Some(operator_name.to_string()),
+                    4, // action=4 委派
+                    req.comment.clone(),
+                    Some(req.target_user_id),
+                    req.target_user_name.clone(),
+                    None, None,
+                ).await?;
 
-        ApprovalModel::update_instance_node_with_extras(
-            db,
-            req.instance_id,
-            &current_node_key,
-            req.target_user_id,
-            &new_candidates,
-            None,
-            Some(operator_id), // delegate_from_id
-            None, None,
-        ).await?;
+                ApprovalModel::update_instance_node_with_extras(
+                    txn,
+                    req.instance_id,
+                    &current_node_key,
+                    req.target_user_id,
+                    &new_candidates,
+                    None,
+                    Some(operator_id), // delegate_from_id
+                    None, None,
+                ).await?;
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
         Ok(())
     }
@@ -845,73 +1081,86 @@ impl ApprovalService {
             .collect::<Vec<_>>()
             .join(",");
 
-        // 写入加签日志
-        ApprovalModel::insert_log_with_target(
-            db,
-            req.instance_id,
-            &current_node_key,
-            &current_node_name,
-            operator_id,
-            Some(operator_name.to_string()),
-            5, // action=5 加签
-            req.comment.clone().or(Some(format!("加签用户: {}", target_names_str))),
-            None, None, None, None,
-        ).await?;
-
         // 更新候选池：将新加签用户加入候选池
-        let mut new_candidates = instance.candidate_approvers.clone();
-        for uid in &new_users {
-            if !new_candidates.contains(uid) {
-                new_candidates.push(*uid);
+        let new_candidates = {
+            let mut nc = instance.candidate_approvers.clone();
+            for uid in &new_users {
+                if !nc.contains(uid) {
+                    nc.push(*uid);
+                }
             }
-        }
+            nc
+        };
+        let req = (*req).clone();
+        let operator_name = operator_name.to_string();
 
-        match req.add_sign_type {
-            1 => {
-                // 前加签：新审批人先审批，当前审批人暂不处理
-                // 当前审批人改为第一个新加签用户
-                ApprovalModel::update_instance_node_with_extras(
-                    db,
+        // 审批日志写入 + 实例状态变更：事务包裹，保证原子性
+        db.transaction::<_, (), Error>(|txn| {
+            Box::pin(async move {
+                // 写入加签日志
+                ApprovalModel::insert_log_with_target(
+                    txn,
                     req.instance_id,
                     &current_node_key,
-                    new_users[0],
-                    &new_candidates,
-                    None, None,
-                    Some(1), // add_sign_type=前加签
-                    None,
+                    &current_node_name,
+                    operator_id,
+                    Some(operator_name.to_string()),
+                    5, // action=5 加签
+                    req.comment.clone().or(Some(format!("加签用户: {}", target_names_str))),
+                    None, None, None, None,
                 ).await?;
-            }
-            2 => {
-                // 后加签：当前审批人通过后新审批人继续，仅更新候选池
-                // 当前审批人保持不变，仅扩展候选池
-                let now = chrono::Utc::now().naive_utc();
-                let candidates_json: serde_json::Value =
-                    serde_json::Value::Array(new_candidates.iter().map(|id| serde_json::json!(id)).collect());
-                InstanceEntity::update_many()
-                    .col_expr(InstanceColumn::CandidateApprovers, sea_orm::sea_query::Expr::value(candidates_json))
-                    .col_expr(InstanceColumn::AddSignType, sea_orm::sea_query::Expr::value(2))
-                    .col_expr(InstanceColumn::UpdateTime, sea_orm::sea_query::Expr::value(now))
-                    .filter(InstanceColumn::Id.eq(req.instance_id))
-                    .exec(db)
-                    .await
-                    .map_err(|e| Error::from(e.to_string()))?;
-            }
-            3 => {
-                // 并加签：新审批人与当前审批人并行，加入候选池即可
-                let now = chrono::Utc::now().naive_utc();
-                let candidates_json: serde_json::Value =
-                    serde_json::Value::Array(new_candidates.iter().map(|id| serde_json::json!(id)).collect());
-                InstanceEntity::update_many()
-                    .col_expr(InstanceColumn::CandidateApprovers, sea_orm::sea_query::Expr::value(candidates_json))
-                    .col_expr(InstanceColumn::AddSignType, sea_orm::sea_query::Expr::value(3))
-                    .col_expr(InstanceColumn::UpdateTime, sea_orm::sea_query::Expr::value(now))
-                    .filter(InstanceColumn::Id.eq(req.instance_id))
-                    .exec(db)
-                    .await
-                    .map_err(|e| Error::from(e.to_string()))?;
-            }
-            _ => return Err(Error::from("无效的加签类型，1=前加签,2=后加签,3=并加签")),
-        }
+
+                match req.add_sign_type {
+                    1 => {
+                        // 前加签：新审批人先审批，当前审批人暂不处理
+                        // 当前审批人改为第一个新加签用户
+                        ApprovalModel::update_instance_node_with_extras(
+                            txn,
+                            req.instance_id,
+                            &current_node_key,
+                            new_users[0],
+                            &new_candidates,
+                            None, None,
+                            Some(1), // add_sign_type=前加签
+                            None,
+                        ).await?;
+                    }
+                    2 => {
+                        // 后加签：当前审批人通过后新审批人继续，仅更新候选池
+                        // 当前审批人保持不变，仅扩展候选池
+                        let now = chrono::Utc::now().naive_utc();
+                        let candidates_json: serde_json::Value =
+                            serde_json::Value::Array(new_candidates.iter().map(|id| serde_json::json!(id)).collect());
+                        InstanceEntity::update_many()
+                            .col_expr(InstanceColumn::CandidateApprovers, sea_orm::sea_query::Expr::value(candidates_json))
+                            .col_expr(InstanceColumn::AddSignType, sea_orm::sea_query::Expr::value(2))
+                            .col_expr(InstanceColumn::UpdateTime, sea_orm::sea_query::Expr::value(now))
+                            .filter(InstanceColumn::Id.eq(req.instance_id))
+                            .exec(txn)
+                            .await
+                            .map_err(|e| Error::from(e.to_string()))?;
+                    }
+                    3 => {
+                        // 并加签：新审批人与当前审批人并行，加入候选池即可
+                        let now = chrono::Utc::now().naive_utc();
+                        let candidates_json: serde_json::Value =
+                            serde_json::Value::Array(new_candidates.iter().map(|id| serde_json::json!(id)).collect());
+                        InstanceEntity::update_many()
+                            .col_expr(InstanceColumn::CandidateApprovers, sea_orm::sea_query::Expr::value(candidates_json))
+                            .col_expr(InstanceColumn::AddSignType, sea_orm::sea_query::Expr::value(3))
+                            .col_expr(InstanceColumn::UpdateTime, sea_orm::sea_query::Expr::value(now))
+                            .filter(InstanceColumn::Id.eq(req.instance_id))
+                            .exec(txn)
+                            .await
+                            .map_err(|e| Error::from(e.to_string()))?;
+                    }
+                    _ => return Err(Error::from("无效的加签类型，1=前加签,2=后加签,3=并加签")),
+                }
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
         Ok(())
     }
@@ -938,31 +1187,47 @@ impl ApprovalService {
             return Err(Error::from("仅发起人或当前审批人可添加抄送"));
         }
 
-        // 写入抄送日志
-        ApprovalModel::insert_log_with_target(
-            db,
-            req.instance_id,
-            instance.current_node_key.as_deref().unwrap_or(""),
-            instance.flow_nodes.iter()
-                .find(|n| Some(n.node_key.clone()) == instance.current_node_key)
-                .map(|n| n.node_name.clone())
-                .unwrap_or_default().as_str(),
-            operator_id,
-            Some(operator_name.to_string()),
-            8, // action=8 抄送
-            req.cc_reason.clone(),
-            None, None, None, None,
-        ).await?;
+        // 提取当前节点信息（事务前准备）
+        let cc_node_key = instance.current_node_key.clone().unwrap_or_default();
+        let cc_node_name = instance.flow_nodes.iter()
+            .find(|n| Some(n.node_key.clone()) == instance.current_node_key)
+            .map(|n| n.node_name.clone())
+            .unwrap_or_default();
 
-        // 插入抄送记录
-        ApprovalModel::insert_cc_records(
-            db,
-            req.instance_id,
-            &req.user_ids,
-            Some(operator_id),
-            Some(operator_name.to_string()),
-            req.cc_reason.clone(),
-        ).await?;
+        let req = (*req).clone();
+        let operator_name = operator_name.to_string();
+
+        // 审批日志写入 + 抄送记录写入：事务包裹，保证原子性
+        db.transaction::<_, (), Error>(|txn| {
+            Box::pin(async move {
+                // 写入抄送日志
+                ApprovalModel::insert_log_with_target(
+                    txn,
+                    req.instance_id,
+                    &cc_node_key,
+                    &cc_node_name,
+                    operator_id,
+                    Some(operator_name.to_string()),
+                    8, // action=8 抄送
+                    req.cc_reason.clone(),
+                    None, None, None, None,
+                ).await?;
+
+                // 插入抄送记录
+                ApprovalModel::insert_cc_records(
+                    txn,
+                    req.instance_id,
+                    &req.user_ids,
+                    Some(operator_id),
+                    Some(operator_name.to_string()),
+                    req.cc_reason.clone(),
+                ).await?;
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
         Ok(())
     }

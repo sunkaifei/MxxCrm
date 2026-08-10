@@ -155,7 +155,20 @@
         "sourceOrderNoPlaceholder": "e.g. related sales order number",
         "remark": "Remark",
         "remarkPlaceholder": "Enter remark",
-        "alertDesc": "Outbound details will be maintained in a separate detail table. After saving the outbound order, you can add outbound item details on the detail page."
+        "addItem": "Add Product",
+        "emptyHint": "Click \"Add Product\" to select products to outbound",
+        "noItems": "Please add at least one outbound product",
+        "selectWarehouseFirst": "Please select an outbound warehouse first",
+        "stockShortage": "{name} insufficient stock (available {stock}, outbound {quantity})",
+        "item": {
+          "productName": "Product",
+          "spec": "Spec",
+          "unit": "Unit",
+          "stock": "Available",
+          "quantity": "Quantity",
+          "batchNo": "Batch No.",
+          "remark": "Remark"
+        }
       }
     },
     "inventory": {
@@ -422,6 +435,21 @@
       "title": "SKU Management",
       "button": {
         "create": "Create SKU"
+      }
+    },
+    "brand": {
+      "title": "Brand Management",
+      "button": {
+        "create": "Add Brand",
+        "update": "Edit Brand",
+        "delete": "Delete Brand"
+      },
+      "field": {
+        "name": "Brand Name",
+        "logo": "Brand Logo",
+        "sort": "Sort",
+        "description": "Description",
+        "status": "Status"
       }
     }
   },

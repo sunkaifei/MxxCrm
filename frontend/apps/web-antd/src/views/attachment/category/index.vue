@@ -192,7 +192,7 @@ onMounted(() => {
                   type="text"
                   size="small"
                   @click.stop="handleEdit(dataRef)"
-                  v-if="accessStore.hasAccessCode('attachment:category:edit')"
+                  v-if="accessStore.hasAccessCode('attachment:category:update')"
                 >
                   <template #icon>
                     <component :is="LucideEdit" />

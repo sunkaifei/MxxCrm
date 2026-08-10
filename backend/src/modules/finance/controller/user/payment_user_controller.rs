@@ -364,7 +364,7 @@ pub async fn create_member_experience_order(
 
     log::info!("[会员订单] 准备调用微信支付统一下单, 金额: {} 分", (product.price * 100.0) as i32);
 
-    let pay_response = match wechat_pay_service::create_member_experience_order(user_id, &order_id, &openid, &client_ip, (product.price * 100.0) as i32).await {
+    let pay_response = match wechat_pay_service::create_member_experience_order(db, user_id, &order_id, &openid, &client_ip, (product.price * 100.0) as i32).await {
         Ok(resp) => resp,
         Err(e) => {
             log::error!("[会员订单] 创建支付订单失败: {}", e);

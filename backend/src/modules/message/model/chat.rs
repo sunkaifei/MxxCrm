@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize, de::Error as SerdeError};
 use serde_json;
-use sea_orm::{EntityTrait, QuerySelect, QueryFilter, QueryOrder, ColumnTrait, PaginatorTrait, DbErr, DbConn, Set, Condition};
+use sea_orm::{EntityTrait, QuerySelect, QueryFilter, QueryOrder, ColumnTrait, PaginatorTrait, DbErr, DbConn, Set, Condition, TransactionTrait};
 use chrono::Utc;
 use crate::modules::message::entity::chat_session;
 use crate::modules::message::entity::chat_session::Entity as ChatSessionEntity;
@@ -247,31 +247,39 @@ impl ChatModel {
             }
         }
 
-        let session_model = chat_session::ActiveModel {
-            session_type: Set(SESSION_TYPE_PRIVATE),
-            session_name: Set(other.nick_name.clone()),
-            avatar_url: Set(other.avatar),
-            member_count: Set(Some(2)),
-            ..Default::default()
-        };
-        let result = ChatSessionEntity::insert(session_model).exec(db).await?;
-        let session_id = result.last_insert_id;
+        let session_id = db.transaction::<_, i64, DbErr>(|txn| {
+            Box::pin(async move {
+                let session_model = chat_session::ActiveModel {
+                    session_type: Set(SESSION_TYPE_PRIVATE),
+                    session_name: Set(other.nick_name.clone()),
+                    avatar_url: Set(other.avatar),
+                    member_count: Set(Some(2)),
+                    ..Default::default()
+                };
+                let result = ChatSessionEntity::insert(session_model).exec(txn).await?;
+                let session_id = result.last_insert_id;
 
-        let participant1 = chat_session_participant::ActiveModel {
-            session_id: Set(session_id),
-            user_id: Set(user_id),
-            unread_count: Set(Some(0)),
-            ..Default::default()
-        };
-        ChatSessionParticipantEntity::insert(participant1).exec(db).await?;
+                let participant1 = chat_session_participant::ActiveModel {
+                    session_id: Set(session_id),
+                    user_id: Set(user_id),
+                    unread_count: Set(Some(0)),
+                    ..Default::default()
+                };
+                ChatSessionParticipantEntity::insert(participant1).exec(txn).await?;
 
-        let participant2 = chat_session_participant::ActiveModel {
-            session_id: Set(session_id),
-            user_id: Set(other_user_id),
-            unread_count: Set(Some(0)),
-            ..Default::default()
-        };
-        ChatSessionParticipantEntity::insert(participant2).exec(db).await?;
+                let participant2 = chat_session_participant::ActiveModel {
+                    session_id: Set(session_id),
+                    user_id: Set(other_user_id),
+                    unread_count: Set(Some(0)),
+                    ..Default::default()
+                };
+                ChatSessionParticipantEntity::insert(participant2).exec(txn).await?;
+
+                Ok(session_id)
+            })
+        })
+        .await
+        .map_err(|e| DbErr::Custom(e.to_string()))?;
 
         Ok(session_id)
     }
@@ -327,47 +335,55 @@ impl ChatModel {
             send_time: Set(Some(Utc::now().naive_utc())),
             ..Default::default()
         };
-        let result = ChatMessageEntity::insert(message_model).exec(db).await?;
-        let message_id = result.last_insert_id;
+        let result = db.transaction::<_, SendMessageResponse, DbErr>(|txn| {
+            Box::pin(async move {
+                let result = ChatMessageEntity::insert(message_model).exec(txn).await?;
+                let message_id = result.last_insert_id;
 
-        let content_preview = if content.len() > 50 {
-            format!("{}...", &content[..50])
-        } else {
-            content.clone()
-        };
+                let content_preview = if content.len() > 50 {
+                    format!("{}...", &content[..50])
+                } else {
+                    content.clone()
+                };
 
-        ChatSessionEntity::update_many()
-            .col_expr(chat_session::Column::LastMessageId, sea_orm::sea_query::Expr::value(message_id))
-            .col_expr(chat_session::Column::LastMessageContent, sea_orm::sea_query::Expr::value(content_preview))
-            .col_expr(chat_session::Column::LastMessageTime, sea_orm::sea_query::Expr::value(Utc::now()))
-            .filter(chat_session::Column::Id.eq(session_id))
-            .exec(db)
-            .await?;
-
-        let session = ChatSessionEntity::find_by_id(session_id).one(db).await?;
-        if let Some(s) = session {
-            if s.session_type != SESSION_TYPE_SYSTEM {
-                let participants = ChatSessionParticipantEntity::find()
-                    .filter(chat_session_participant::Column::SessionId.eq(session_id))
-                    .filter(chat_session_participant::Column::UserId.ne(sender_id))
-                    .all(db)
+                ChatSessionEntity::update_many()
+                    .col_expr(chat_session::Column::LastMessageId, sea_orm::sea_query::Expr::value(message_id))
+                    .col_expr(chat_session::Column::LastMessageContent, sea_orm::sea_query::Expr::value(content_preview))
+                    .col_expr(chat_session::Column::LastMessageTime, sea_orm::sea_query::Expr::value(Utc::now()))
+                    .filter(chat_session::Column::Id.eq(session_id))
+                    .exec(txn)
                     .await?;
 
-                for p in participants {
-                    let new_unread = p.unread_count.unwrap_or(0) + 1;
-                    let _ = ChatSessionParticipantEntity::update_many()
-                        .col_expr(chat_session_participant::Column::UnreadCount, sea_orm::sea_query::Expr::value(new_unread))
-                        .filter(chat_session_participant::Column::Id.eq(p.id))
-                        .exec(db)
-                        .await;
-                }
-            }
-        }
+                let session = ChatSessionEntity::find_by_id(session_id).one(txn).await?;
+                if let Some(s) = session {
+                    if s.session_type != SESSION_TYPE_SYSTEM {
+                        let participants = ChatSessionParticipantEntity::find()
+                            .filter(chat_session_participant::Column::SessionId.eq(session_id))
+                            .filter(chat_session_participant::Column::UserId.ne(sender_id))
+                            .all(txn)
+                            .await?;
 
-        Ok(SendMessageResponse {
-            session_id,
-            message_id,
+                        for p in participants {
+                            let new_unread = p.unread_count.unwrap_or(0) + 1;
+                            let _ = ChatSessionParticipantEntity::update_many()
+                                .col_expr(chat_session_participant::Column::UnreadCount, sea_orm::sea_query::Expr::value(new_unread))
+                                .filter(chat_session_participant::Column::Id.eq(p.id))
+                                .exec(txn)
+                                .await;
+                        }
+                    }
+                }
+
+                Ok(SendMessageResponse {
+                    session_id,
+                    message_id,
+                })
+            })
         })
+        .await
+        .map_err(|e| DbErr::Custom(e.to_string()))?;
+
+        Ok(result)
     }
 
     pub async fn get_session_list(
