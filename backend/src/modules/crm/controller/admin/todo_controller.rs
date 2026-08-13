@@ -1,6 +1,5 @@
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{web, HttpRequest, HttpResponse};
 
@@ -10,8 +9,7 @@ use crate::modules::crm::service::todo_service::TodoService;
 /// GET /todo/summary - 待办汇总
 pub async fn todo_summary(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match TodoService::summary(db, jwt_token.id.unwrap_or_default()).await {
+    match TodoService::summary(db, get_current_user_id(&req)).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -24,9 +22,8 @@ pub async fn todo_approval_list(
     query: web::Query<ApprovalTodoQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let query = query.0;
-    match TodoService::approval_list(db, jwt_token.id.unwrap_or_default(), &query).await {
+    match TodoService::approval_list(db, get_current_user_id(&req), &query).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -43,9 +40,8 @@ pub async fn todo_follow_up_list(
     query: web::Query<FollowUpTodoQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let query = query.0;
-    match TodoService::follow_up_list(db, jwt_token.id.unwrap_or_default(), &query).await {
+    match TodoService::follow_up_list(db, get_current_user_id(&req), &query).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -62,9 +58,8 @@ pub async fn todo_payment_list(
     query: web::Query<PaymentTodoQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let query = query.0;
-    match TodoService::payment_list(db, jwt_token.id.unwrap_or_default(), &query).await {
+    match TodoService::payment_list(db, get_current_user_id(&req), &query).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -81,9 +76,8 @@ pub async fn todo_contract_list(
     query: web::Query<ContractTodoQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let query = query.0;
-    match TodoService::contract_list(db, jwt_token.id.unwrap_or_default(), &query).await {
+    match TodoService::contract_list(db, get_current_user_id(&req), &query).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -100,9 +94,8 @@ pub async fn todo_opportunity_list(
     query: web::Query<OpportunityTodoQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let query = query.0;
-    match TodoService::opportunity_list(db, jwt_token.id.unwrap_or_default(), &query).await {
+    match TodoService::opportunity_list(db, get_current_user_id(&req), &query).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;

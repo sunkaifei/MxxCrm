@@ -14,6 +14,15 @@ import { MenuType, statusList } from '#/store';
 const isMenu = (type: string) => type === MenuType.MENU;
 const isButton = (type: string) => type === MenuType.BUTTON;
 
+// 菜单名翻译（目录级对象兜底到 .title）
+function translateMenuName(key?: string | null): string {
+  if (!key) return '';
+  const direct = $t(key);
+  if (direct !== key && !direct.startsWith('[object ')) return direct;
+  const withTitle = $t(`${key}.title`);
+  return withTitle !== `${key}.title` ? withTitle : key;
+}
+
 const menuTypeList = computed(() => [
   { value: MenuType.FOLDER, label: $t('enum.menuType.folder') },
   { value: MenuType.MENU, label: $t('enum.menuType.menu') },

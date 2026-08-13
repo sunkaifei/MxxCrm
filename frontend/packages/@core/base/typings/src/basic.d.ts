@@ -17,6 +17,10 @@ interface BasicUserInfo {
    */
   realName: string;
   /**
+   * 邮箱
+   */
+  email?: string;
+  /**
    * 用户角色
    */
   roles?: string[];

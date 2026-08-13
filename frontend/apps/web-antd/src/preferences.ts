@@ -20,7 +20,7 @@ export const overridesPreferences = defineOverridesPreferences({
     name: import.meta.env.VITE_APP_TITLE,
     accessMode: 'backend',
     layout: 'sidebar-mixed-nav',
-    defaultHomePath: '/dashboard',
+    defaultHomePath: '/workspace',
   },
   theme: {
     mode: 'light',

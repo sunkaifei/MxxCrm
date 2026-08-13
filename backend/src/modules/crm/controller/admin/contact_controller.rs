@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
@@ -25,9 +24,7 @@ pub async fn contact_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = contact_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = contact_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -39,13 +36,11 @@ pub async fn contact_update(state: web::Data<AppState>, req: HttpRequest, form_d
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "联系人ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = contact_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = contact_service::update_checked(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
-pub async fn bath_delete_contact(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
+pub async fn bath_delete_contact(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
 
@@ -58,11 +53,11 @@ pub async fn bath_delete_contact(state: web::Data<AppState>, item: web::Json<Bat
         .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
 
-    let result = contact_service::batch_delete_by_ids(&db, &filtered_ids).await;
+    let result = contact_service::batch_delete_by_ids_checked(&db, &filtered_ids, get_current_user_id(&req)).await;
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
-pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
+pub async fn contact_info(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
 
@@ -70,7 +65,7 @@ pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "联系人ID不能为空", "local"));
     }
 
-    match contact_service::find_by_id(&db, item.id.unwrap()).await {
+    match contact_service::find_by_id_checked(&db, item.id.unwrap(), get_current_user_id(&req)).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -79,9 +74,7 @@ pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
 pub async fn contact_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ContactListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    match contact_service::list(&db, &query, jwt_token.id.unwrap_or_default()).await {
+    match contact_service::list(&db, &query, get_current_user_id(&req)).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -103,9 +96,9 @@ pub async fn contact_check(state: web::Data<AppState>, form_data: web::Json<Cont
 // ==================== 关联操作接口 ====================
 
 /// 绑定联系人到客户（入职）
-pub async fn contact_bind(state: web::Data<AppState>, form_data: web::Json<ContactBindRequest>) -> Result<HttpResponse> {
+pub async fn contact_bind(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContactBindRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let result = contact_service::bind_contact(&db, &form_data.0).await;
+    let result = contact_service::bind_contact_checked(&db, &form_data.0, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 

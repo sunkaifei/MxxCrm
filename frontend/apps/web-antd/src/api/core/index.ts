@@ -44,6 +44,7 @@ export * from './sale/shipment';
 export * from './shop';
 export * from './statistics';
 export * from './system/api';
+export * from './system/audit';
 export * from './system/approval';
 export * from './system/code-rule';
 export * from './system/config';

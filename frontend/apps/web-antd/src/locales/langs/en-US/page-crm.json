@@ -1,6 +1,32 @@
 {
   "crm": {
     "title": "Customer",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "lead": {
       "title": "Lead Management",
       "button": {
@@ -9,7 +35,8 @@
         "delete": "Delete Lead",
         "convert": "Convert to Customer",
         "assign": "Assign Lead",
-        "info": "View Details"
+        "info": "View Details",
+        "transfer": "Transfer"
       },
       "guide": {
         "title": "Lead Management Guide",
@@ -47,7 +74,9 @@
         "edit": "Edit Customer",
         "delete": "Delete Customer",
         "assign": "Assign Customer",
-        "view": "View Customer"
+        "view": "View Customer",
+        "transfer": "Transfer",
+        "followup": "Follow Up"
       },
       "tab": {
         "all": "All Customers",
@@ -98,7 +127,10 @@
       "title": "Contact Management",
       "button": {
         "view": "View Contact",
-        "unbind": "Unbind/Resign"
+        "unbind": "Unbind/Resign",
+        "create": "Add Contact",
+        "edit": "Edit Contact",
+        "delete": "Delete Contact"
       }
     },
     "opportunity": {
@@ -231,7 +263,10 @@
         "submit": "Submit for Approval",
         "view": "View Contract",
         "viewApproval": "View Approval",
-        "createOrder": "Create Order"
+        "createOrder": "Create Order",
+        "sign": "Sign Contract",
+        "execute": "Execute Contract",
+        "pdf": "Generate Contract PDF"
       },
       "guide": {
         "title": "Contract Management Guide",

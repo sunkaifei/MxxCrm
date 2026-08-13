@@ -2,8 +2,7 @@ use crate::core::errors::error::Result;
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::ai::model::ai_config::AiConfigSaveDTO;
@@ -21,8 +20,7 @@ pub async fn insert_ai_config(state: web::Data<AppState>, req: HttpRequest, item
     if item.config_name.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "配置名称不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = item.into_inner();
     form_data.created_by = admin.user_name.clone();
     form_data.updated_by = admin.user_name;
@@ -46,8 +44,7 @@ pub async fn update_ai_config(state: web::Data<AppState>, req: HttpRequest, item
     if item.config_name.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "配置名称不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = item.into_inner();
     form_data.updated_by = admin.user_name;
     match ai_config_service::update_by_id(&db, &form_data.id, &form_data).await {

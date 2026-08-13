@@ -30,6 +30,10 @@ const businessTypeMap: Record<string, { label: string; color: string }> = {
   payment: { label: '付款', color: 'gold' },
   expense: { label: '报销', color: 'magenta' },
   leave: { label: '请假', color: 'orange' },
+  hire: { label: '员工入职', color: 'geekblue' },
+  inbound: { label: '入库', color: 'lime' },
+  outbound: { label: '出库', color: 'volcano' },
+  user: { label: '用户审核', color: 'cyan' },
 };
 
 const businessTypeOptions = Object.entries(businessTypeMap).map(

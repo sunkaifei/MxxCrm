@@ -13,18 +13,27 @@ import {
 import { getWarehouseListApi } from '#/api/core/product/warehouse';
 import { getInventoryListApi } from '#/api/core/product/inventory';
 import {
+  Alert,
   Button,
   Input,
   InputNumber,
+  Modal,
   Table,
+  Textarea,
   Tooltip,
   message,
 } from 'ant-design-vue';
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
+import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
 const drawerData = ref<{ create: boolean; row?: any }>({ create: true });
+
+// ============ 修改原因弹窗（编辑已完成单据时使用） ============
+const changeReasonVisible = ref(false);
+const changeReason = ref('');
+const pendingSaveData = ref<any>(null);
 
 const drawerClass = computed(() => [
   'outbound-drawer',
@@ -45,6 +54,8 @@ const outboundTypeOptions = [
 ];
 
 const warehouseOptions = ref<{ label: string; value: number }[]>([]);
+const selectedWarehouseName = ref('');
+const warehouseSelectVisible = ref(false);
 
 async function loadWarehouseOptions() {
   try {
@@ -57,6 +68,24 @@ async function loadWarehouseOptions() {
   } catch (e) {
     console.error('[出库] 加载仓库选项失败:', e);
   }
+}
+
+function openWarehouseSelect() {
+  warehouseSelectVisible.value = true;
+}
+
+function onWarehouseSelected(warehouse: any) {
+  const id = Number(warehouse.id);
+  const name = warehouse.warehouseName ?? warehouse.name ?? '';
+  selectedWarehouseName.value = name;
+  mainFormApi.setFieldValue('warehouseId', id);
+  mainFormApi.setFieldValue('warehouseName', name);
+}
+
+function clearWarehouse() {
+  selectedWarehouseName.value = '';
+  mainFormApi.setFieldValue('warehouseId', undefined);
+  mainFormApi.setFieldValue('warehouseName', '');
 }
 
 // ============ 产品明细 ============
@@ -248,18 +277,17 @@ const formSchema: VbenFormSchema[] = [
     },
   },
   {
-    component: 'Select',
-    fieldName: 'warehouseId',
+    component: 'Input',
+    fieldName: 'warehouseName',
     label: $t('page.product.outbound.drawer.warehouse'),
     rules: 'required',
     componentProps: {
       placeholder: $t('page.product.outbound.drawer.warehousePlaceholder'),
-      options: warehouseOptions,
+      readonly: true,
       allowClear: true,
-      showSearch: true,
-      filterOption: (input: string, option: any) =>
-        (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
-      onChange: (val: any) => onWarehouseChange(val),
+      style: { cursor: 'pointer' },
+      onClick: () => openWarehouseSelect(),
+      onChange: (e: any) => { if (!e?.target?.value) clearWarehouse(); },
     },
   },
   {
@@ -312,13 +340,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
         }
       }
 
-      confirmLoading.value = true;
       const values = await mainFormApi.getValues();
-      const { _div1, ...rest } = values as any;
+      const { _div1, warehouseName, ...rest } = values as any;
 
       const data = {
         ...rest,
-        warehouseId: rest.warehouseId ? Number(rest.warehouseId) : undefined,
+        warehouseId: selectedWarehouseId.value,
         items: tableItems.value.map((item) => ({
           productId: item.productId,
           productSku: item.productSku || undefined,
@@ -329,14 +356,29 @@ const [Drawer, drawerApi] = useVbenDrawer({
       };
 
       if (drawerData.value.create) {
+        // 新建：直接保存
+        confirmLoading.value = true;
         await createOutboundApi(data);
         message.success($t('ui.notification.create_success'));
+        drawerApi.setData({ needRefresh: true });
+        drawerApi.close();
       } else {
-        await updateOutboundApi({ ...data, id: drawerData.value.row.id });
-        message.success($t('ui.notification.update_success'));
+        // 编辑：检查是否为已完成单据
+        const rowStatus = Number(drawerData.value.row?.status ?? 0);
+        if (rowStatus === 3) {
+          // 已完成单据：弹出修改原因弹窗（不设confirmLoading，让弹窗可操作）
+          pendingSaveData.value = data;
+          changeReason.value = '';
+          changeReasonVisible.value = true;
+        } else {
+          // 草稿/待审核：直接保存
+          confirmLoading.value = true;
+          await updateOutboundApi({ ...data, id: drawerData.value.row.id });
+          message.success($t('ui.notification.update_success'));
+          drawerApi.setData({ needRefresh: true });
+          drawerApi.close();
+        }
       }
-      drawerApi.setData({ needRefresh: true });
-      drawerApi.close();
     } finally {
       confirmLoading.value = false;
     }
@@ -373,20 +415,22 @@ async function loadDetail(id: number) {
     const num = (v: any) =>
       v === null || v === undefined ? undefined : Number(v);
 
-    const wid = main.warehouseId ? num(main.warehouseId) : undefined;
+    const wid = (main.warehouseId ?? main.warehouse_id) ? num(main.warehouseId ?? main.warehouse_id) : undefined;
     mainFormApi.setValues({
-      outboundType: main.outboundType ?? 'sale',
+      outboundType: main.outboundType ?? main.outbound_type ?? 'sale',
       warehouseId: wid,
-      sourceOrderNo: main.sourceOrderNo,
+      warehouseName: main.warehouseName ?? '',
+      sourceOrderNo: main.sourceOrderNo ?? main.source_order_no,
       remark: main.remark,
     });
     selectedWarehouseId.value = wid;
+    selectedWarehouseName.value = main.warehouseName ?? '';
 
     tableItems.value = items.map((item: any) => ({
-      productId: Number(item.productId ?? 0),
+      productId: Number(item.productId ?? item.product_id ?? 0),
       productName: item.productName ?? '',
       productCode: item.productCode ?? '',
-      productSku: item.productSku ?? '',
+      productSku: item.productSku ?? item.product_sku ?? '',
       spec: item.spec ?? '',
       unit: item.unit ?? '',
       stock: 0,
@@ -394,7 +438,7 @@ async function loadDetail(id: number) {
         item.quantity !== null && item.quantity !== undefined
           ? Number(item.quantity)
           : 0,
-      batchNo: item.batchNo ?? '',
+      batchNo: item.batchNo ?? item.batch_no ?? '',
       remark: item.remark ?? '',
     }));
 
@@ -404,6 +448,34 @@ async function loadDetail(id: number) {
     }
   } catch (e) {
     console.error('[出库] 加载详情失败:', e);
+  }
+}
+
+// ============ 修改原因弹窗：提交 ============
+async function submitChangeReason() {
+  if (!changeReason.value.trim()) {
+    message.warning('请填写修改原因');
+    return;
+  }
+
+  try {
+    confirmLoading.value = true;
+    changeReasonVisible.value = false;
+
+    const data = pendingSaveData.value;
+    await updateOutboundApi({
+      ...data,
+      id: drawerData.value.row.id,
+      changeReason: changeReason.value.trim(),
+    });
+    message.success($t('ui.notification.update_success'));
+    drawerApi.setData({ needRefresh: true });
+    drawerApi.close();
+  } catch (e) {
+    console.error('[出库] 修改已完成单据失败:', e);
+  } finally {
+    confirmLoading.value = false;
+    pendingSaveData.value = null;
   }
 }
 </script>
@@ -556,6 +628,40 @@ async function loadDetail(id: number) {
       @update:visible="(val) => (productSelectVisible = val)"
       @select="onProductSelected"
     />
+
+    <!-- 仓库选择弹窗 -->
+    <WarehouseSelectModal
+      :visible="warehouseSelectVisible"
+      @update:visible="(val) => (warehouseSelectVisible = val)"
+      @select="onWarehouseSelected"
+    />
+
+    <!-- 修改原因弹窗（编辑已完成单据时显示） -->
+    <Modal
+      v-model:open="changeReasonVisible"
+      title="修改已完成单据"
+      :confirm-loading="confirmLoading"
+      :mask-closable="false"
+      :width="480"
+      ok-text="确认修改"
+      cancel-text="取消"
+      @ok="submitChangeReason"
+    >
+      <Alert
+        type="warning"
+        message="该单据已完成，修改后将自动调整库存。请填写修改原因，此操作将记录到修改日志。"
+        show-icon
+        class="mb-4"
+      />
+      <div class="mb-2 font-medium">修改原因 <span class="text-red-500">*</span></div>
+      <Textarea
+        v-model:value="changeReason"
+        placeholder="请填写修改原因，例如：出库数量录错，实际出库20件"
+        :rows="4"
+        :maxlength="500"
+        show-count
+      />
+    </Modal>
   </Drawer>
 </template>
 

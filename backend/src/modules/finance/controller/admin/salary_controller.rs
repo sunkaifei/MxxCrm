@@ -13,8 +13,7 @@ use crate::core::web::permission_guard::require_permission;
 use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::model::salary::{
@@ -38,13 +37,16 @@ pub async fn list(
     let query = query.0;
     let page = query.page.unwrap_or(1) as u32;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or(0);
+    let user_id = get_current_user_id(&req);
 
     match salary_service::get_list(db, query, user_id).await {
         Ok((list, total)) => {
+            let payload = serde_json::json!({
+                "items": list,
+                "total": total,
+            });
             HttpResponse::Ok().content_type(MPACK)
-                .body(MetaResp::success_with_page(list, "local", page, total as u32))
+                .body(MetaResp::success_with_page(payload, "local", page, total as u32))
         }
         Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
@@ -53,17 +55,19 @@ pub async fn list(
 
 pub async fn detail(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<InfoId>,
 ) -> HttpResponse {
     let db = &state.db;
     let item = query.0;
+    let user_id = get_current_user_id(&req);
 
     if item.id.is_none() {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "工资记录ID不能为空", "local"));
     }
 
-    match salary_service::get_detail(db, item.id.unwrap()).await {
+    match salary_service::get_detail(db, item.id.unwrap(), user_id).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)
@@ -79,9 +83,8 @@ pub async fn calculate(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or(0);
-    let operator_name = jwt_token.username.as_deref().unwrap_or("财务人员");
+    let (operator_id, username) = get_current_user(&req);
+    let operator_name: &str = if username.is_empty() { "财务人员" } else { &username };
 
     match salary_service::calculate(db, dto.year, dto.month, 0, operator_id, operator_name).await {
         Ok(count) => HttpResponse::Ok().content_type(MPACK)
@@ -99,8 +102,7 @@ pub async fn update(
     let db = &state.db;
     let mut dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    dto.updated_by = jwt_token.id;
+    dto.updated_by = Some(get_current_user_id(&req));
 
     match salary_service::update(db, dto).await {
         Ok(_) => HttpResponse::Ok().content_type(MPACK)
@@ -182,12 +184,14 @@ pub async fn batch_pay(
 
 pub async fn summary(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<SummaryQuery>,
 ) -> HttpResponse {
     let db = &state.db;
     let item = query.0;
+    let user_id = get_current_user_id(&req);
 
-    match salary_service::get_summary(db, item.year, item.month).await {
+    match salary_service::get_summary(db, item.year, item.month, user_id).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)
@@ -300,9 +304,8 @@ pub async fn confirm(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or(0);
-    let user_name = jwt_token.username.as_deref().unwrap_or("员工");
+    let (user_id, username) = get_current_user(&req);
+    let user_name: &str = if username.is_empty() { "员工" } else { &username };
 
     match salary_service::submit_confirm(db, user_id, user_name, dto).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK)
@@ -331,8 +334,7 @@ pub async fn my_confirm_list(
 ) -> HttpResponse {
     let db = &state.db;
     let q = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or(0);
+    let user_id = get_current_user_id(&req);
     let page = q.page.unwrap_or(1);
     let page_size = q.page_size.unwrap_or(20);
 
@@ -380,9 +382,8 @@ pub async fn handle_confirm(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let handler_id = jwt_token.id.unwrap_or(0);
-    let handler_name = jwt_token.username.as_deref().unwrap_or("财务");
+    let (handler_id, username) = get_current_user(&req);
+    let handler_name: &str = if username.is_empty() { "财务" } else { &username };
 
     match salary_service::handle_confirm(db, handler_id, handler_name, dto).await {
         Ok(_) => HttpResponse::Ok().content_type(MPACK)
@@ -403,17 +404,19 @@ pub struct ExportSalaryQuery {
 
 pub async fn export_salary(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<ExportSalaryQuery>,
 ) -> HttpResponse {
     let db = &state.db;
     let q = query.0;
+    let user_id = get_current_user_id(&req);
 
     let emp_ids: Option<Vec<i64>> = q.employee_ids.as_ref().map(|s| {
         s.split(',').filter_map(|x| x.trim().parse::<i64>().ok()).collect()
     });
     let emp_ids_ref = emp_ids.as_ref().map(|v| v.as_slice());
 
-    match salary_export_service::export_salary_csv(db, q.year, q.month, emp_ids_ref).await {
+    match salary_export_service::export_salary_csv(db, q.year, q.month, emp_ids_ref, user_id).await {
         Ok(csv_bytes) => {
             let filename = format!("salary_{}-{}.csv", q.year, q.month);
             HttpResponse::Ok()
@@ -436,12 +439,14 @@ pub struct ExportTaxQuery {
 
 pub async fn export_tax(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<ExportTaxQuery>,
 ) -> HttpResponse {
     let db = &state.db;
     let q = query.0;
+    let user_id = get_current_user_id(&req);
 
-    match salary_export_service::export_tax_csv(db, q.year, q.month).await {
+    match salary_export_service::export_tax_csv(db, q.year, q.month, user_id).await {
         Ok(csv_bytes) => {
             let filename = format!("tax_{}-{}.csv", q.year, q.month);
             HttpResponse::Ok()
@@ -457,17 +462,19 @@ pub async fn export_tax(
 /// P2-4: 导出工资单 xlsx
 pub async fn export_salary_xlsx(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<ExportSalaryQuery>,
 ) -> HttpResponse {
     let db = &state.db;
     let q = query.0;
+    let user_id = get_current_user_id(&req);
 
     let emp_ids: Option<Vec<i64>> = q.employee_ids.as_ref().map(|s| {
         s.split(',').filter_map(|x| x.trim().parse::<i64>().ok()).collect()
     });
     let emp_ids_ref = emp_ids.as_ref().map(|v| v.as_slice());
 
-    match salary_export_service::export_salary_xlsx(db, q.year, q.month, emp_ids_ref).await {
+    match salary_export_service::export_salary_xlsx(db, q.year, q.month, emp_ids_ref, user_id).await {
         Ok(xlsx_bytes) => {
             let filename = format!("salary_{}-{}.xlsx", q.year, q.month);
             HttpResponse::Ok()
@@ -483,12 +490,14 @@ pub async fn export_salary_xlsx(
 /// P2-4: 导出个税申报 xlsx
 pub async fn export_tax_xlsx(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<ExportTaxQuery>,
 ) -> HttpResponse {
     let db = &state.db;
     let q = query.0;
+    let user_id = get_current_user_id(&req);
 
-    match salary_export_service::export_tax_xlsx(db, q.year, q.month).await {
+    match salary_export_service::export_tax_xlsx(db, q.year, q.month, user_id).await {
         Ok(xlsx_bytes) => {
             let filename = format!("tax_{}-{}.xlsx", q.year, q.month);
             HttpResponse::Ok()
@@ -519,9 +528,7 @@ pub async fn submit_approval(
     let db = &state.db;
     let q = query.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or(0);
-    let operator_name = jwt_token.username.clone().unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
 
     match salary_service::submit_salary_approval(db, q.year, q.month, operator_id, &operator_name).await {
         Ok((success, failures)) => {
@@ -635,8 +642,7 @@ pub async fn trend_monthly(
     query: web::Query<TrendLimitQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or(0);
+    let user_id = get_current_user_id(&req);
     let trend_q = to_trend_query(&query.0);
 
     match salary_service::get_trend_monthly(db, trend_q, user_id).await {
@@ -654,8 +660,7 @@ pub async fn trend_department(
     query: web::Query<TrendLimitQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or(0);
+    let user_id = get_current_user_id(&req);
     let trend_q = to_trend_query(&query.0);
 
     match salary_service::get_trend_by_department(db, trend_q, user_id).await {
@@ -673,8 +678,7 @@ pub async fn trend_employee(
     query: web::Query<TrendLimitQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or(0);
+    let user_id = get_current_user_id(&req);
     let trend_q = to_trend_query(&query.0);
     let limit = query.limit;
 
@@ -693,8 +697,7 @@ pub async fn trend_summary(
     query: web::Query<TrendLimitQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or(0);
+    let user_id = get_current_user_id(&req);
     let trend_q = to_trend_query(&query.0);
 
     match salary_service::get_trend_summary(db, trend_q, user_id).await {

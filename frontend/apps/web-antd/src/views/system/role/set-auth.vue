@@ -117,11 +117,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     // 加载当前用户可授权的菜单树（后端 /menu/options 已按用户权限过滤）
     const menuList = await getMenuOptionsApi();
+    // 菜单名 i18n（目录级 key 带 .title fallback）
+    const translateName = (key?: string | null): string => {
+      if (!key) return '';
+      const direct = $t(key);
+      if (direct !== key && !direct.startsWith('[object ')) return direct;
+      const withTitle = $t(`${key}.title`);
+      return withTitle !== `${key}.title` ? withTitle : key;
+    };
     // 递归翻译菜单名称（包含 BUTTON 类型的权限按钮）
     const translateMenu = (items: any[]): any[] => {
       return items.map((item) => {
-        if (item.name) item.name = $t(item.name);
-        if (item.meta?.name) item.meta.name = $t(item.meta.name);
+        if (item.name) item.name = translateName(item.name);
+        if (item.meta?.name) item.meta.name = translateName(item.meta.name);
         if (item.children?.length) {
           item.children = translateMenu(item.children);
         }

@@ -14,3 +14,8 @@ pub mod performance_plan;
 pub mod plan_monthly_target;
 pub mod plan_approval_log;
 pub mod plan_approval_node;
+pub mod daily_contract;
+pub mod daily_payment;
+pub mod daily_employee;
+pub mod daily_customer;
+pub mod agg_batch;

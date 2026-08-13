@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::inventory::model::stocktake::{StocktakeInputRequest, StocktakeListQuery, StocktakeSaveRequest};
@@ -21,58 +20,52 @@ use crate::core::web::permission_guard::require_permission;
 
 pub async fn stocktake_save(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
 
     let form_data: StocktakeSaveRequest = serde_json::from_value(body)?;
 
-    let result = stocktake_service::create(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = stocktake_service::create(db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn stocktake_update(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = path.into_inner();
     let body = body.0;
 
     let form_data: StocktakeSaveRequest = serde_json::from_value(body)?;
 
-    let result = stocktake_service::update(db, id, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = stocktake_service::update(db, id, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn stocktake_submit(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = path.into_inner();
-    let result = stocktake_service::submit(db, id, jwt_token.id.unwrap_or_default()).await;
+    let result = stocktake_service::submit(db, id, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn stocktake_input(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>, body: web::Json<StocktakeInputRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = path.into_inner();
     let form_data = body.0;
 
-    let result = stocktake_service::input(db, id, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = stocktake_service::input(db, id, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn stocktake_complete(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = path.into_inner();
-    let result = stocktake_service::complete(db, id, jwt_token.id.unwrap_or_default()).await;
+    let result = stocktake_service::complete(db, id, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn stocktake_cancel(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = path.into_inner();
-    let result = stocktake_service::cancel(db, id, jwt_token.id.unwrap_or_default()).await;
+    let result = stocktake_service::cancel(db, id, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -126,12 +119,11 @@ pub async fn stocktake_list(state: web::Data<AppState>, req: HttpRequest) -> Res
 /// 盘点审核（通过 POST JSON body 中的 id 完成审核）
 pub async fn stocktake_audit(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = body.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
     if id <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
-    let result = stocktake_service::complete(db, id, jwt_token.id.unwrap_or_default()).await;
+    let result = stocktake_service::complete(db, id, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 

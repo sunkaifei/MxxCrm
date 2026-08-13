@@ -190,6 +190,9 @@ async fn main() -> std::io::Result<()> {
 
     let conn = connect().await.unwrap_or_default();
 
+    // 注入全局 DB 连接（供 permission_cache_service 等无法通过请求上下文获取 db 的场景使用）
+    crate::core::kit::CONTEXT.set_db(conn.clone());
+
     // 初始化消息系统表
     match crate::modules::message::migration::init_message_tables(&conn).await {
         Ok(_) => {
@@ -199,6 +202,9 @@ async fn main() -> std::io::Result<()> {
             log::error!("[消息系统] 数据库表初始化失败: {:?}", e);
         }
     }
+
+    // 初始化 DB session 表（mem 缓存模式重启后降级验证用，防止重启丢登录态）
+    crate::modules::system::service::session_service::ensure_session_table(&conn).await;
 
     // 一次性数据迁移：ai_config / mail_config → 统一配置表（幂等，已迁移则跳过）
     match crate::modules::system::service::integration_config_service::migrate_legacy_configs(

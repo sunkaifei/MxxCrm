@@ -18,10 +18,13 @@ use crate::modules::inventory::entity::alert_rule;
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AlertRuleListQuery {
+    #[serde(alias = "page")]
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
     pub product_id: Option<i64>,
     pub warehouse_id: Option<i64>,
+    pub product_name: Option<String>,
+    pub warehouse_name: Option<String>,
 }
 
 // 预警规则保存请求
@@ -69,12 +72,18 @@ pub struct AlertRuleListItem {
 }
 
 /// 分页查询预警规则
+///
+/// `product_ids` 与 `warehouse_ids` 为名称模糊匹配后解析得到的 ID 列表，
+/// 当传入空 `Vec` 时表示名称匹配不到任何记录，应直接返回空结果；
+/// 传入 `None` 时表示不按名称过滤。
 pub async fn select_page<C: ConnectionTrait>(
     db: &C,
     page: u64,
     page_size: u64,
     product_id: Option<i64>,
     warehouse_id: Option<i64>,
+    product_ids: Option<&[i64]>,
+    warehouse_ids: Option<&[i64]>,
 ) -> Result<(Vec<alert_rule::Model>, u64), DbErr> {
     let mut query = alert_rule::Entity::find()
         .filter(alert_rule::Column::Deleted.eq(0));
@@ -84,6 +93,21 @@ pub async fn select_page<C: ConnectionTrait>(
     }
     if let Some(wid) = warehouse_id {
         query = query.filter(alert_rule::Column::WarehouseId.eq(wid));
+    }
+    // 名称匹配后的 ID 列表过滤：空切片表示匹配不到，结果集应为空
+    if let Some(ids) = product_ids {
+        if ids.is_empty() {
+            query = query.filter(alert_rule::Column::Id.eq(0));
+        } else {
+            query = query.filter(alert_rule::Column::ProductId.is_in(ids.to_vec()));
+        }
+    }
+    if let Some(ids) = warehouse_ids {
+        if ids.is_empty() {
+            query = query.filter(alert_rule::Column::Id.eq(0));
+        } else {
+            query = query.filter(alert_rule::Column::WarehouseId.is_in(ids.to_vec()));
+        }
     }
 
     let total = query.clone().count(db).await?;

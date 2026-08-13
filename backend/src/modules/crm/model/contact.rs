@@ -1,4 +1,4 @@
-﻿//!
+//!
 //! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
 //!
 //! https://www.mxxshop.com
@@ -35,6 +35,12 @@ pub struct ContactSaveRequest {
     pub wechat: Option<String>,
     /// QQ号
     pub qq: Option<String>,
+    /// 国家
+    pub country: Option<String>,
+    /// 省/市/区
+    pub region: Option<String>,
+    /// 详细地址
+    pub address: Option<String>,
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
     /// 生日日期
@@ -67,6 +73,9 @@ impl From<ContactSaveRequest> for ContactSaveDTO {
             whatsapp: item.whatsapp,
             wechat: item.wechat,
             qq: item.qq,
+            country: item.country,
+            region: item.region,
+            address: item.address,
             gender: item.gender,
             birthday: item.birthday,
             notes: item.notes,
@@ -138,6 +147,12 @@ pub struct ContactUpdateRequest {
     pub wechat: Option<String>,
     /// QQ号
     pub qq: Option<String>,
+    /// 国家
+    pub country: Option<String>,
+    /// 省/市/区
+    pub region: Option<String>,
+    /// 详细地址
+    pub address: Option<String>,
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
     /// 生日日期
@@ -162,6 +177,9 @@ impl From<ContactUpdateRequest> for ContactSaveDTO {
             whatsapp: item.whatsapp,
             wechat: item.wechat,
             qq: item.qq,
+            country: item.country,
+            region: item.region,
+            address: item.address,
             gender: item.gender,
             birthday: item.birthday,
             notes: item.notes,
@@ -202,6 +220,12 @@ pub struct ContactSaveDTO {
     pub wechat: Option<String>,
     /// QQ号
     pub qq: Option<String>,
+    /// 国家
+    pub country: Option<String>,
+    /// 省/市/区
+    pub region: Option<String>,
+    /// 详细地址
+    pub address: Option<String>,
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
     /// 生日日期
@@ -309,6 +333,12 @@ pub struct ContactDetailVO {
     pub wechat: Option<String>,
     /// QQ号
     pub qq: Option<String>,
+    /// 国家
+    pub country: Option<String>,
+    /// 省/市/区
+    pub region: Option<String>,
+    /// 详细地址
+    pub address: Option<String>,
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
     /// 生日日期
@@ -376,6 +406,10 @@ pub struct ContactListVO {
     pub customer_id: Option<i64>,
     /// 关联客户名称
     pub company_name: Option<String>,
+    /// 归属人ID（人脉资产归属）
+    pub created_by: Option<i64>,
+    /// 归属人姓名（管理员视角：孤儿联系人属于谁管理）
+    pub owner_name: Option<String>,
     /// 当前任职角色（0-决策人 1-影响者 2-使用者 3-其他）
     pub role_type: Option<i32>,
     /// 创建时间
@@ -462,9 +496,13 @@ impl ContactModel {
             whatsapp: Set(req.whatsapp.clone()),
             wechat: Set(req.wechat.clone()),
             qq: Set(req.qq.clone()),
+            country: Set(req.country.clone()),
+            region: Set(req.region.clone()),
+            address: Set(req.address.clone()),
             gender: Set(req.gender.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
+            created_by: Set(req.created_by.filter(|v| *v > 0)),
             create_time: Set(Option::from(now)),
             update_time: Set(Option::from(now)),
             ..Default::default()
@@ -524,6 +562,9 @@ impl ContactModel {
             whatsapp: Set(req.whatsapp.clone()),
             wechat: Set(req.wechat.clone()),
             qq: Set(req.qq.clone()),
+            country: Set(req.country.clone()),
+            region: Set(req.region.clone()),
+            address: Set(req.address.clone()),
             gender: Set(req.gender.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),

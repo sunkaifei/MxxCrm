@@ -35,6 +35,20 @@ const activeIndex = ref(-1);
 const searchItems = shallowRef<MenuRecordRaw[]>([]);
 const searchResults = ref<MenuRecordRaw[]>([]);
 
+/**
+ * 菜单名 i18n 翻译（带 .title fallback）。
+ * 目录级 key（如 page.statistics.employee）在 locale 中是
+ * { title, button } 对象，直接 $t 不命中；这里兜底 `${key}.title`。
+ */
+function translateMenuName(key?: string | null): string {
+  if (!key) return '';
+  const direct = $t(key);
+  if (direct !== key && !direct.startsWith('[object ')) return direct;
+  const withTitle = $t(`${key}.title`);
+  if (withTitle !== `${key}.title`) return withTitle;
+  return key;
+}
+
 const handleSearch = useThrottleFn(search, 200);
 
 // 搜索函数，用于根据搜索关键词查找匹配的菜单项
@@ -207,7 +221,7 @@ onMounted(() => {
   searchItems.value = mapTree(props.menus, (item) => {
     return {
       ...item,
-      name: $t(item?.name),
+      name: translateMenuName(item?.name),
     };
   });
   if (searchHistory.value.length > 0) {

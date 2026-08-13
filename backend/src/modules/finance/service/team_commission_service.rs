@@ -335,21 +335,13 @@ pub async fn calc_monthly_settlement(
             manager_id, manager_level, coefficient, team_payment, commission
         );
 
-        // 在消费 record 之前先计算新的应发工资
-        // total_salary = base_salary + commission_amount + performance_bonus + team_commission_amount - deduction_amount
-        let new_total = record.base_salary
-            + record.commission_amount
-            + record.performance_bonus
-            + commission
-            - record.deduction_amount;
+        // 使用增量法更新应发工资：在原 total_salary 基础上加上团队提成差额
+        // 原方式从组件重建 total_salary 会丢失岗位津贴(position_allowance)和自定义工资项
+        let old_team_commission = record.team_commission_amount;
+        let delta = commission - old_team_commission;
+        let new_total = record.total_salary + delta;
 
-        // P0-2 修复：团队提成归集后重算个税和实发工资
-        // 之前只更新 total_salary 未重算 tax_amount 和 net_salary，导致管理者个税申报数据错误
-        let personal_insurance = record.social_insurance_personal;
-        let personal_housing = record.housing_fund_personal;
-        // 注：tax_service::calculate_monthly_tax 接收 &DatabaseConnection 而非事务，但内部 save_tax_detail
-        // 会写入个税累计值。这里使用 db 而非 txn 以匹配签名；个税重算与工资更新不在同一事务，
-        // 但失败时按原值保留，不影响工资记录正确性。
+        // 个税重算：以新应发工资为基数
         let new_tax_amount: Decimal = match tax_service::calculate_monthly_tax(
             db,
             manager_id,
@@ -363,7 +355,9 @@ pub async fn calc_monthly_settlement(
                 record.tax_amount
             }
         };
-        let new_net = new_total - personal_insurance - personal_housing - new_tax_amount;
+        // 增量法更新实发工资：原 net_salary + 团队提成差额 - 个税差额
+        let tax_delta = new_tax_amount - record.tax_amount;
+        let new_net = record.net_salary + delta - tax_delta;
 
         let mut active: salary_record::ActiveModel = record.into();
         active.team_commission_amount = Set(commission);

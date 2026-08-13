@@ -1,6 +1,32 @@
 {
   "website": {
     "title": "Website",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "list": "Website Settings",
     "categoryTitle": "Category",
     "articleTitle": "Article",
@@ -48,7 +74,10 @@
         "create": "Add Template",
         "edit": "Edit Template",
         "delete": "Delete Template",
-        "view": "View Template"
+        "view": "View Template",
+        "list": "List",
+        "add": "Add",
+        "revision": "Revision"
       }
     },
     "order": {
@@ -77,6 +106,123 @@
         "resetPassword": "Reset Password",
         "status": "Toggle Status",
         "delete": "Delete User"
+      }
+    },
+    "category": {
+      "button": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category",
+        "view": "View"
+      }
+    },
+    "article": {
+      "button": {
+        "create": "Add Article",
+        "edit": "Edit Article",
+        "delete": "Delete Article",
+        "view": "View",
+        "revision": "Revision",
+        "revisionRestore": "Restore Revision"
+      }
+    },
+    "message": {
+      "button": {
+        "view": "View",
+        "delete": "Delete",
+        "convertLead": "Convert to Lead",
+        "markProcessed": "Mark Processed"
+      }
+    },
+    "links": {
+      "button": {
+        "create": "Add Link",
+        "edit": "Edit Link",
+        "delete": "Delete Link",
+        "view": "View"
+      }
+    },
+    "templateTitle": "Templates",
+    "navigation": {
+      "button": {
+        "add": "Add Navigation",
+        "edit": "Edit Navigation",
+        "delete": "Delete Navigation",
+        "view": "View"
+      }
+    },
+    "notificationTitle": "Notifications",
+    "notification": {
+      "button": {
+        "view": "View",
+        "edit": "Edit",
+        "toggle": "Enable/Disable"
+      }
+    },
+    "banner": {
+      "button": {
+        "view": "View",
+        "add": "Add Banner",
+        "edit": "Edit Banner",
+        "delete": "Delete Banner"
+      }
+    },
+    "block": {
+      "button": {
+        "view": "View",
+        "add": "Add Block",
+        "edit": "Edit Block",
+        "delete": "Delete Block"
+      }
+    },
+    "page": {
+      "button": {
+        "view": "View",
+        "add": "Add Page",
+        "edit": "Edit Page",
+        "delete": "Delete Page"
+      }
+    },
+    "media": {
+      "button": {
+        "view": "View",
+        "add": "Add Media",
+        "edit": "Edit Media",
+        "delete": "Delete Media",
+        "category": "Category",
+        "categoryAdd": "Add Category",
+        "categoryEdit": "Edit Category",
+        "categoryDelete": "Delete Category",
+        "categoryView": "View Category"
+      }
+    },
+    "contentModel": {
+      "button": {
+        "view": "View",
+        "add": "Add Model",
+        "edit": "Edit Model",
+        "delete": "Delete Model",
+        "field": "Field",
+        "fieldAdd": "Add Field",
+        "fieldEdit": "Edit Field",
+        "fieldDelete": "Delete Field",
+        "fieldView": "View Field"
+      }
+    },
+    "templateVar": {
+      "button": {
+        "view": "View",
+        "add": "Add Variable",
+        "edit": "Edit Variable",
+        "delete": "Delete Variable"
+      }
+    },
+    "articleField": {
+      "button": {
+        "view": "View",
+        "add": "Add Field",
+        "edit": "Edit Field",
+        "delete": "Delete Field"
       }
     }
   },

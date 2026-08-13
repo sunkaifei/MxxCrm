@@ -37,12 +37,24 @@ async function loadMessages(lang: SupportedLanguagesType) {
   ]);
   const messages = appLocaleMessages?.default || {};
 
-  // 将 page-* 命名空间合并到统一的 'page' 命名空间
+  // 深度合并工具函数
+  function deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+    for (const [k, v] of Object.entries(source)) {
+      if (v && typeof v === 'object' && !Array.isArray(v) && target[k] && typeof target[k] === 'object' && !Array.isArray(target[k])) {
+        deepMerge(target[k], v);
+      } else {
+        target[k] = v;
+      }
+    }
+    return target;
+  }
+
+  // 将 page-* 命名空间深度合并到统一的 'page' 命名空间
   const merged: Record<string, any> = {};
   for (const [key, value] of Object.entries(messages)) {
     if (key.startsWith('page-')) {
       if (!merged.page) merged.page = {};
-      Object.assign(merged.page, value);
+      deepMerge(merged.page, value as Record<string, any>);
     } else {
       merged[key] = value;
     }

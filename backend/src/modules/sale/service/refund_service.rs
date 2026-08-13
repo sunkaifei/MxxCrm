@@ -476,20 +476,6 @@ pub async fn get_existing_refunded_qty_by_order(db: &DbConn, order_id: i64) -> R
     Ok(map)
 }
 
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
-
-
-
 /// 退货单列表（支持 全部/我的/下属）
 pub async fn get_list(db: &DbConn, query: &RefundListQuery, current_user_id: i64) -> Result<ResultPage<Vec<RefundListVO>>> {
     let page = query.page_num.unwrap_or(1);
@@ -660,6 +646,8 @@ pub async fn submit_refund(db: &DbConn, refund_id: i64, operator_id: i64, operat
         extra_data: Some(serde_json::json!({
             "amount": refund.total_amount.unwrap_or(Decimal::from(0)),
         })),
+        cc_user_ids: None,
+        cc_reason: None,
     };
     let instance_id = ApprovalService::submit(db, &submit_req).await?;
 

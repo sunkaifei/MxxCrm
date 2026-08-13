@@ -26,6 +26,20 @@ const props = withDefaults(defineProps<Props>(), {
 const route = useRoute();
 const router = useRouter();
 
+/**
+ * 菜单名 i18n 翻译（带 .title fallback）。
+ * 目录级 key（如 page.statistics.employee）在 locale 中是
+ * { title, button } 对象，直接 $t 不命中；这里兜底 `${key}.title`。
+ */
+function translateTitle(key?: string | null): string {
+  if (!key) return '';
+  const direct = $t(key);
+  if (direct !== key && !direct.startsWith('[object ')) return direct;
+  const withTitle = $t(`${key}.title`);
+  if (withTitle !== `${key}.title`) return withTitle;
+  return key;
+}
+
 const breadcrumbs = computed((): IBreadcrumb[] => {
   const matched = route.matched;
 
@@ -42,7 +56,7 @@ const breadcrumbs = computed((): IBreadcrumb[] => {
     resultBreadcrumb.push({
       icon,
       path: path || route.path,
-      title: title ? $t((title || name) as string) : '',
+      title: title ? translateTitle((title || name) as string) : '',
     });
   }
   if (props.showHome) {

@@ -10,6 +10,10 @@
 
 pub mod access_record_service;
 pub mod source_service;
+pub mod stats_range;
+pub mod stats_agg_service;
+pub mod stats_agg_query;
+pub mod stats_cache;
 pub mod performance_target_service;
 pub mod customer_stats_service;
 pub mod employee_stats_service;

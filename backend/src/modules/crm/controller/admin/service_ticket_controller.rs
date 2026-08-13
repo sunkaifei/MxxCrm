@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::service::service_ticket_service::{self, TicketListQuery};
@@ -67,7 +66,6 @@ pub struct TicketCustomerQuery {
 pub async fn create(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<TicketCreateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match service_ticket_service::create_ticket(
         db,
         form_data.customer_id,
@@ -77,7 +75,7 @@ pub async fn create(state: web::Data<AppState>, req: HttpRequest, form_data: web
         form_data.ticket_type,
         form_data.channel,
         form_data.entitlement_id,
-        jwt_token.id.unwrap_or_default(),
+        get_current_user_id(&req),
     ).await {
         Ok(id) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
@@ -102,8 +100,7 @@ pub async fn respond(state: web::Data<AppState>, req: HttpRequest, form_data: we
     if form_data.id == 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "工单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match service_ticket_service::respond_ticket(db, form_data.id, form_data.content, jwt_token.id.unwrap_or_default()).await {
+    match service_ticket_service::respond_ticket(db, form_data.id, form_data.content, get_current_user_id(&req)).await {
         Ok(id) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -115,8 +112,7 @@ pub async fn resolve(state: web::Data<AppState>, req: HttpRequest, form_data: we
     if form_data.id == 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "工单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match service_ticket_service::resolve_ticket(db, form_data.id, form_data.resolution, jwt_token.id.unwrap_or_default()).await {
+    match service_ticket_service::resolve_ticket(db, form_data.id, form_data.resolution, get_current_user_id(&req)).await {
         Ok(id) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }

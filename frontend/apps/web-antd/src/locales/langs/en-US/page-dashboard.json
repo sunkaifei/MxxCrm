@@ -1,6 +1,32 @@
 {
   "dashboard": {
     "title": "Dashboard",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "analytics": "Analytics",
     "workspace": "Workspace",
     "dataCenter": "Data Center",

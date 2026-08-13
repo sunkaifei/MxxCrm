@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::inventory::model::outbound::*;
 use crate::modules::inventory::service::outbound_service;
@@ -20,42 +19,55 @@ use crate::core::web::permission_guard::require_permission;
 
 pub async fn outbound_save(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
 
     let form_data: OutboundSaveRequest = serde_json::from_value(body)?;
 
-    let result = outbound_service::create(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = outbound_service::create(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn outbound_audit(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = body.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
     if id <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
-    let audit_by = jwt_token.id.unwrap_or_default();
+    let (audit_by, audit_name) = crate::core::web::base_controller::get_current_user(&req);
     if audit_by <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取用户信息失败", "local")));
     }
-    let result = outbound_service::audit(&db, id, audit_by).await;
+    let comment = body.get("comment").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let result = outbound_service::audit(&db, id, audit_by, &audit_name, comment).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn outbound_reject(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = body.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
     if id <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
-    let audit_by = jwt_token.id.unwrap_or_default();
+    let (audit_by, audit_name) = crate::core::web::base_controller::get_current_user(&req);
     if audit_by <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取用户信息失败", "local")));
     }
-    let result = outbound_service::reject(&db, id, audit_by).await;
+    let comment = body.get("comment").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let result = outbound_service::reject(&db, id, audit_by, &audit_name, comment).await;
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
+}
+
+pub async fn outbound_withdraw(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let id = body.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+    if id <= 0 {
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
+    }
+    let (operator_id, operator_name) = crate::core::web::base_controller::get_current_user(&req);
+    if operator_id <= 0 {
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取用户信息失败", "local")));
+    }
+    let result = outbound_service::withdraw(&db, id, operator_id, &operator_name).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -93,8 +105,12 @@ pub async fn outbound_list(state: web::Data<AppState>, req: HttpRequest) -> Resu
 
 pub async fn outbound_update(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
+
+    // 提取修改原因（已完成单据修改时必填，由 service 层校验）
+    let change_reason = body.get("changeReason")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
 
     let form_data: OutboundSaveRequest = serde_json::from_value(body)?;
     let id = req.query_string().split("&").find(|s| s.starts_with("id=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())).unwrap_or(0);
@@ -102,7 +118,7 @@ pub async fn outbound_update(state: web::Data<AppState>, req: HttpRequest, body:
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
 
-    let result = outbound_service::update(&db, id, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = outbound_service::update(&db, id, &form_data, get_current_user_id(&req), change_reason.as_deref()).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -118,10 +134,21 @@ pub async fn outbound_batch_delete(state: web::Data<AppState>, req: HttpRequest)
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
-pub async fn outbound_submit(state: web::Data<AppState>, path: web::Path<i64>) -> Result<HttpResponse> {
+pub async fn outbound_submit(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
     let id = path.into_inner();
-    let result = outbound_service::submit_audit(db, id).await;
+    let (operator_id, operator_name) = crate::core::web::base_controller::get_current_user(&req);
+    if operator_id <= 0 {
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取用户信息失败", "local")));
+    }
+    // 抄送人（可选）
+    let body = body.0;
+    let cc_user_ids: Vec<i64> = body.get("ccUserIds")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
+        .unwrap_or_default();
+    let cc_reason = body.get("ccReason").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let result = outbound_service::submit_audit(db, id, operator_id, &operator_name, cc_user_ids, cc_reason).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -166,13 +193,12 @@ pub async fn outbound_import(
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
 
     let items: Vec<OutboundSaveRequest> = serde_json::from_value(body)
         .map_err(|e| crate::core::errors::error::Error::from(e.to_string()))?;
 
-    let result = outbound_service::import_list(&db, items, jwt_token.id.unwrap_or_default()).await;
+    let result = outbound_service::import_list(&db, items, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -181,9 +207,10 @@ pub fn register(cfg: &mut web::ServiceConfig) {
         web::scope("/outbound")
             .route("/save", web::post().to(outbound_save).wrap(require_permission("product:outbound:create")))
             .route("/update", web::put().to(outbound_update).wrap(require_permission("product:outbound:update")))
-            .route("/submit/{id}", web::put().to(outbound_submit).wrap(require_permission("product:outbound:audit")))
+            .route("/submit/{id}", web::put().to(outbound_submit).wrap(require_permission("product:outbound:update")))
             .route("/audit", web::post().to(outbound_audit).wrap(require_permission("product:outbound:audit")))
             .route("/reject", web::post().to(outbound_reject).wrap(require_permission("product:outbound:audit")))
+            .route("/withdraw", web::post().to(outbound_withdraw).wrap(require_permission("product:outbound:update")))
             .route("/batch_delete", web::delete().to(outbound_batch_delete).wrap(require_permission("product:outbound:delete")))
             .route("/info", web::get().to(outbound_info).wrap(require_permission("product:outbound:list")))
             .route("/list", web::get().to(outbound_list).wrap(require_permission("product:outbound:list")))

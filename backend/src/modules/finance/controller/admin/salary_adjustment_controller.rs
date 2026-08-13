@@ -14,8 +14,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::service::salary_adjustment_service;
@@ -107,9 +106,8 @@ pub async fn approve(
     let db = &state.db;
     let q = query.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let approver_id = jwt_token.id.unwrap_or(0);
-    let approver_name = jwt_token.username.as_deref().unwrap_or("审批人");
+    let (approver_id, username) = get_current_user(&req);
+    let approver_name: &str = if username.is_empty() { "审批人" } else { &username };
 
     match salary_adjustment_service::approve_adjustment(db, q.id, approver_id, approver_name).await {
         Ok(_) => HttpResponse::Ok()
@@ -130,9 +128,8 @@ pub async fn reject(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let approver_id = jwt_token.id.unwrap_or(0);
-    let approver_name = jwt_token.username.as_deref().unwrap_or("审批人");
+    let (approver_id, username) = get_current_user(&req);
+    let approver_name: &str = if username.is_empty() { "审批人" } else { &username };
 
     match salary_adjustment_service::reject_adjustment(
         db,

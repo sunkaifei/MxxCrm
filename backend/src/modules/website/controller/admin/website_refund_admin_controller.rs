@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -71,8 +70,7 @@ pub async fn handle(
     body: web::Json<RefundHandleRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let handle_by = jwt_token.id.unwrap_or_default();
+    let handle_by = get_current_user_id(&req);
     let result = website_refund_service::admin_handle(db, id.into_inner(), body.into_inner(), handle_by).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)

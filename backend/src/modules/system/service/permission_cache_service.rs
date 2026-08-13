@@ -31,6 +31,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::config;
 use crate::core::kit::CONTEXT;
 use crate::modules::system::model::admin_role_merge::AdminRoleMergeModel;
+use crate::modules::system::service::config_service;
 use crate::modules::system::service::menu_service;
 
 /// 权限缓存键前缀
@@ -65,30 +66,28 @@ fn user_tokens_key(user_id: i64) -> String {
 
 /// 读取登录模式配置：false=单设备（默认），true=多设备
 ///
-/// 优先从缓存读取（安全设置页面保存时写入 `config:login_multi_device`），
-/// 缓存未命中时回退到配置文件。
+/// 优先从缓存读取，缓存未命中时回查数据库 mxx_system_config。
+/// 全部由数据库控制，在线设置实时生效。
 pub async fn is_multi_device_mode() -> bool {
     match CONTEXT.cache_service.get_string("config:login_multi_device").await {
         Ok(v) if !v.is_empty() => v == "1",
         _ => {
-            let val = config::section::<String>("server", "login_multi_device", "0".to_string());
-            val == "1"
+            let db_val = config_service::find_value_by_key_from_db("login_multi_device").await.unwrap_or_else(|| "0".to_string());
+            let _ = CONTEXT.cache_service.set_string("config:login_multi_device", &db_val).await;
+            db_val == "1"
         }
     }
 }
 
-/// 读取会话超时配置（秒），优先缓存 `config:session_timeout`，回退配置文件 `jwt_expire_admin`
+/// 读取会话超时配置（秒），优先缓存，miss 时回查数据库
 pub async fn get_session_timeout_secs() -> u64 {
     match CONTEXT.cache_service.get_string("config:session_timeout").await {
-        Ok(v) if !v.is_empty() => {
-            if let Ok(secs) = v.parse::<u64>() {
-                if secs > 0 {
-                    return secs;
-                }
-            }
-            config::section::<u64>("server", "jwt_expire_admin", 28800)
+        Ok(v) if !v.is_empty() => v.parse::<u64>().unwrap_or(28800),
+        _ => {
+            let db_val = config_service::find_value_by_key_from_db("session_timeout").await.unwrap_or_else(|| "28800".to_string());
+            let _ = CONTEXT.cache_service.set_string("config:session_timeout", &db_val).await;
+            db_val.parse::<u64>().unwrap_or(28800)
         }
-        _ => config::section::<u64>("server", "jwt_expire_admin", 28800),
     }
 }
 
@@ -97,21 +96,21 @@ pub async fn get_max_devices() -> usize {
     match CONTEXT.cache_service.get_string("config:login_max_devices").await {
         Ok(v) if !v.is_empty() => v.parse::<usize>().unwrap_or(5),
         _ => {
-            let val = config::section::<String>("server", "login_max_devices", "5".to_string());
-            val.parse::<usize>().unwrap_or(5)
+            let db_val = config_service::find_value_by_key_from_db("login_max_devices").await.unwrap_or_else(|| "5".to_string());
+            let _ = CONTEXT.cache_service.set_string("config:login_max_devices", &db_val).await;
+            db_val.parse::<usize>().unwrap_or(5)
         }
     }
 }
 
 /// 读取员工注册开关：true=开放注册，false=关闭（默认）
-///
-/// 场景：内网部署可开放，云服务器部署应关闭防止外部人员随意注册。
 pub async fn is_register_enabled() -> bool {
     match CONTEXT.cache_service.get_string("config:register_enabled").await {
         Ok(v) if !v.is_empty() => v == "1",
         _ => {
-            let val = config::section::<String>("server", "register_enabled", "0".to_string());
-            val == "1"
+            let db_val = config_service::find_value_by_key_from_db("register_enabled").await.unwrap_or_else(|| "0".to_string());
+            let _ = CONTEXT.cache_service.set_string("config:register_enabled", &db_val).await;
+            db_val == "1"
         }
     }
 }
@@ -354,21 +353,63 @@ pub async fn validate_user_token(user_id: i64, token: &str) -> bool {
 ///
 /// 调用场景：extract 中间件、WS 心跳
 /// 返回：false 时请求方应返回 401 / 断开连接
+///
+/// 降级策略：mem 缓存模式重启后缓存丢失，缓存未命中时回查数据库 session 表，
+/// DB 验证通过则回填缓存，确保重启不丢登录态。
 pub async fn validate_session(user_id: i64, token: &str) -> bool {
-    if is_multi_device_mode().await {
+    validate_session_with_db(user_id, token, None).await
+}
+
+/// 带 DB 降级的会话校验（extract 中间件传入 db 连接）
+pub async fn validate_session_with_db(user_id: i64, token: &str, db: Option<&DbConn>) -> bool {
+    let multi = is_multi_device_mode().await;
+
+    let cached_ok = if multi {
         // 多设备模式：检查 token 是否在集合中
         let key = user_tokens_key(user_id);
         match CONTEXT.cache_service.get_json::<Vec<String>>(&key).await {
             Ok(tokens) => {
                 if tokens.is_empty() {
-                    return false;
+                    false
+                } else {
+                    tokens.iter().any(|t| t == token)
                 }
-                tokens.iter().any(|t| t == token)
             }
             Err(_) => false,
         }
     } else {
         // 单设备模式：精确匹配
         validate_user_token(user_id, token).await
+    };
+
+    if cached_ok {
+        return true;
+    }
+
+    // 缓存未命中（mem 模式重启后丢失），降级查数据库 session 表
+    if let Some(db) = db {
+        log::debug!("[权限缓存] 缓存未命中 user_id={}, 降级查 DB session", user_id);
+        match crate::modules::system::service::session_service::get_session_store()
+            .validate_session(db, user_id, token)
+            .await
+        {
+            Ok(true) => {
+                // DB 验证通过，回填缓存避免下次仍走 DB
+                if multi {
+                    let key = user_tokens_key(user_id);
+                    let mut tokens: Vec<String> = CONTEXT.cache_service.get_json(&key).await.unwrap_or_default();
+                    if !tokens.iter().any(|t| t == token) {
+                        tokens.push(token.to_string());
+                    }
+                    let _ = CONTEXT.cache_service.set_json(&key, &tokens).await;
+                } else {
+                    let _ = CONTEXT.cache_service.set_string(&user_token_key(user_id), token).await;
+                }
+                true
+            }
+            _ => false,
+        }
+    } else {
+        false
     }
 }

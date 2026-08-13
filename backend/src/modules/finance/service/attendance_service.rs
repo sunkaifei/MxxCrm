@@ -17,6 +17,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::{ToPrimitive, FromPrimitive};
 
 use crate::modules::finance::entity::{attendance_record, salary_config};
+use crate::modules::system::entity::admin;
 
 // ==================== 常量 ====================
 
@@ -110,7 +111,7 @@ pub async fn get_attendance_list(
     employee_id: Option<i64>,
     page: i64,
     page_size: i64,
-) -> Result<(Vec<attendance_record::Model>, i64), String> {
+) -> Result<(Vec<serde_json::Value>, i64), String> {
     let mut stmt = attendance_record::Entity::find();
     if let Some(y) = year {
         stmt = stmt.filter(attendance_record::Column::Year.eq(y));
@@ -134,7 +135,35 @@ pub async fn get_attendance_list(
         .fetch_page((page - 1) as u64)
         .await
         .map_err(|e| e.to_string())?;
-    Ok((items, total))
+
+    // 批量查询员工姓名
+    let emp_ids: Vec<i64> = items.iter().map(|r| r.employee_id).collect::<Vec<_>>();
+    let mut name_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    if !emp_ids.is_empty() {
+        let admins = admin::Entity::find()
+            .filter(admin::Column::Id.is_in(emp_ids))
+            .all(db)
+            .await
+            .map_err(|e| e.to_string())?;
+        for a in admins {
+            let name = a.nick_name.or(a.user_name).unwrap_or_default();
+            name_map.insert(a.id, name);
+        }
+    }
+
+    let result: Vec<serde_json::Value> = items
+        .into_iter()
+        .map(|r| {
+            let emp_name = name_map.get(&r.employee_id).cloned().unwrap_or_default();
+            let mut json = serde_json::to_value(&r).unwrap_or_default();
+            if let Some(obj) = json.as_object_mut() {
+                obj.insert("employeeName".to_string(), serde_json::Value::String(emp_name));
+            }
+            json
+        })
+        .collect();
+
+    Ok((result, total))
 }
 
 /// 查询单个员工考勤详情

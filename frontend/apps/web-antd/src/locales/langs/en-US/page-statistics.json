@@ -1,6 +1,34 @@
 {
   "statistics": {
-    "performanceOverview": "Performance",
+    "title": "Statistics",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
+    "performanceOverview": "Performance Overview",
+    "customer": "Customer Analysis",
     "customerAnalysis": "Customer Analysis",
     "contract": "Contract",
     "payment": "Payment",
@@ -50,7 +78,16 @@
     "loadPaymentFailed": "Failed to load payment data",
     "loadEmployeeFailed": "Failed to load employee data",
     "currencyFormat": "10K",
-    "employee": "Employee",
+    "timeFilter": {
+      "month": "This Month",
+      "lastMonth": "Last Month",
+      "quarter": "This Quarter",
+      "lastQuarter": "Last Quarter",
+      "year": "This Year",
+      "all": "All",
+      "custom": "Custom"
+    },
+    "employee": "Employee Statistics",
     "department": "Department",
     "employeeStats": "Employee Statistics",
     "employeeCustomerCount": "Employee Customer Count",
@@ -58,6 +95,7 @@
     "conversionAnalysis": "Conversion Analysis",
     "totalCustomers": "Total Customers",
     "newCustomersThisMonth": "New This Month",
+    "newCustomers": "New Customers",
     "contractCustomers": "Deal Customers",
     "totalFollowUp": "Total Follow-ups",
     "customerFollowUp": "Customer Follow-ups",
@@ -117,6 +155,80 @@
     "pipelineCoverage": "Pipeline Coverage",
     "rankUnit": "",
     "contractUnit": "",
-    "timesUnit": "x"
+    "timesUnit": "x",
+    "performancePlan": {
+      "button": {
+        "view": "View Sales Plan",
+        "manage": "Manage Sales Plan",
+        "audit": "Audit Sales Plan"
+      },
+      "guide": {
+        "title": "Performance Plan Guide",
+        "brief": "Set personal/dept/company performance targets, track monthly completion after approval.",
+        "expand": "Expand",
+        "collapse": "Collapse",
+        "steps": [
+          {
+            "title": "Plan Type",
+            "desc": "Annual, quarterly or monthly cycles, by personal, department or company dimension."
+          },
+          {
+            "title": "Target Setting",
+            "desc": "Fill in target amounts and key metrics, decomposable to sub-departments or individuals."
+          },
+          {
+            "title": "Approval Flow",
+            "desc": "Multi-level approval after submission; takes effect after supervisor confirmation."
+          },
+          {
+            "title": "Progress Tracking",
+            "desc": "Compare actual performance with targets in real time, auto-calculate completion rate."
+          },
+          {
+            "title": "Monthly Summary",
+            "desc": "Summarize completion monthly and generate reports for management decisions."
+          }
+        ]
+      }
+    },
+    "agg": {
+      "button": {
+        "refresh": "Recalculate Statistics",
+        "manage": "Aggregation Manage",
+        "list": "Aggregation Batches"
+      }
+    },
+    "subscription": {
+      "button": {
+        "view": "View Subscription Stats"
+      }
+    },
+    "abc": {
+      "button": {
+        "view": "View ABC Analysis"
+      }
+    },
+    "employeeView": {
+      "subtitle": "Acquisition, activity & revenue — every member at a glance",
+      "deptAll": "All Departments",
+      "timeRange": "Time Range",
+      "teamOverview": "Team Overview",
+      "avgPer": "Avg",
+      "followTotal": "Total Follow-ups",
+      "wonRate": "Win Rate",
+      "topPerformers": "Contract Amount TOP 8",
+      "oppConversion": "Opportunity Conversion",
+      "open": "In Progress",
+      "followInvest": "Follow-up Activity",
+      "efficiency": "Efficiency Insights",
+      "avgFollowIntervalShort": "Avg Follow Interval",
+      "avgSalesCycleShort": "Avg Sales Cycle",
+      "noFollow30d": "No Follow-up in 30 Days",
+      "dayUnit": "d",
+      "headUnit": "members",
+      "rankBoard": "Leaderboard",
+      "avgCycleCol": "Avg Cycle (d)",
+      "followUpTotalCol": "Follow-ups"
+    }
   }
 }

@@ -16,6 +16,11 @@ pub use sea_orm;
 // 数据库连接类型别名
 pub type DbConn = DatabaseConnection;
 
+/// 获取当前 UTC 时间（NaiveDateTime），统一时间戳获取入口
+pub fn now_naive() -> chrono::NaiveDateTime {
+    chrono::Utc::now().naive_utc()
+}
+
 
 // 数据库连接
 pub async fn connect() -> Result<DatabaseConnection, DbErr> {

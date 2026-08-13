@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { WorkbenchQuickNavItem } from '@vben/common-ui';
 
+import type { QuickNavItem } from '#/api';
+
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -24,43 +26,80 @@ import {
   getWeekWorkloadApi,
 } from '#/api';
 import { getPlanListApi } from '#/api/core/statistics';
-import type { QuickNavItem } from '#/api';
 import { $t } from '#/locales';
 
-import TodoOverviewCard from '../components/TodoOverviewCard.vue';
-import WorkLogCard from '../components/WorkLogCard.vue';
-import QuickNavSettingsModal from '../components/QuickNavSettingsModal.vue';
-import QuickProcessModal from '../components/QuickProcessModal.vue';
+import ContractApprovalDrawer from '../../crm/contract/approval-drawer.vue';
 // 审批流抽屉组件（复用业务模块现有组件，工作台内嵌打开）
 import OrderApprovalDrawer from '../../sale/order/approval-drawer.vue';
-import ContractApprovalDrawer from '../../crm/contract/approval-drawer.vue';
+import QuickNavSettingsModal from '../components/QuickNavSettingsModal.vue';
+import QuickProcessModal from '../components/QuickProcessModal.vue';
+import TodoOverviewCard from '../components/TodoOverviewCard.vue';
+import WorkLogCard from '../components/WorkLogCard.vue';
+import { useDashboardPermission } from './config';
 
 const router = useRouter();
 const userStore = useUserStore();
 
+// ===== 工作台模块权限控制 =====
+const { canShow, filterOverviewTabs } = useDashboardPermission();
+// 待办概览卡可见 tab（按权限过滤）
+const visibleOverviewTabs = computed(() =>
+  filterOverviewTabs([
+    'followUp',
+    'approval',
+    'payment',
+    'contract',
+    'opportunity',
+    'planApproval',
+    'cc',
+  ]),
+);
+// 待办概览整卡：无任何 tab 权限则隐藏
+const showOverviewCard = computed(() => visibleOverviewTabs.value.length > 0);
+// 智能待办区：任一待办类型有权限则显示
+const showSmartTodo = computed(
+  () =>
+    canShow('approval') ||
+    canShow('followUp') ||
+    canShow('payment') ||
+    canShow('planApproval'),
+);
+// 欢迎语（含岗位/部门个性化）
+const welcomeText = computed(() => {
+  const info: any = userStore.userInfo || {};
+  const name = info.realName || info.nickname || '同事';
+  const tags = [
+    ...(Array.isArray(info.deptNames) ? info.deptNames : []),
+    ...(Array.isArray(info.postNames) ? info.postNames : []),
+  ]
+    .filter((t: any) => typeof t === 'string' && t.length > 0)
+    .slice(0, 2);
+  return tags.length > 0 ? `早安，${name}（${tags.join(' · ')}）` : `早安，${name}`;
+});
+
 // ===== 内嵌审批抽屉 =====
-const approvalDrawerOrderId = ref<number | null>(null);
-const approvalDrawerContractId = ref<number | null>(null);
+const approvalDrawerOrderId = ref<null | number>(null);
+const approvalDrawerContractId = ref<null | number>(null);
 const orderApprovalVisible = ref(false);
 const contractApprovalVisible = ref(false);
 const approvalCurrentUserId = computed(() => userStore.userInfo?.userId ? Number(userStore.userInfo.userId) : undefined);
 
 // 处理 QuickProcessModal 的查看审批流详情事件：在工作台内嵌打开抽屉
 function handleViewApproval(payload: {
-  businessType: string;
   businessId: number;
+  businessType: string;
   instanceId: number;
 }) {
   const { businessType, businessId } = payload;
   switch (businessType) {
-    case 'order': {
-      approvalDrawerOrderId.value = businessId;
-      orderApprovalVisible.value = true;
-      break;
-    }
     case 'contract': {
       approvalDrawerContractId.value = businessId;
       contractApprovalVisible.value = true;
+      break;
+    }
+    case 'order': {
+      approvalDrawerOrderId.value = businessId;
+      orderApprovalVisible.value = true;
       break;
     }
     default: {
@@ -266,7 +305,7 @@ const todoTotalCount = ref(0);
 const quickProcessVisible = ref(false);
 const currentTodoItem = ref<any>(null);
 // 当前点击的待办项（用于处理完后标记已处理）
-const currentClickedTodo = ref<SmartTodoItem | null>(null);
+const currentClickedTodo = ref<null | SmartTodoItem>(null);
 
 // 今日已处理待办缓存（跨天自动清空，当天保留显示删除线）
 const processedToday = ref<SmartTodoItem[]>([]);
@@ -351,25 +390,39 @@ const businessTypeMap: Record<string, string> = {
 };
 
 async function loadSmartTodos() {
+  // 无任何待办类型权限：直接跳过，避免无效请求
+  if (!showSmartTodo.value) {
+    todoItems.value = [];
+    todoTotalCount.value = 0;
+    return;
+  }
   todoLoading.value = true;
   try {
     const [approvalResp, followUpResp, paymentResp, planResp]: any[] =
       await Promise.all([
-        getTodoApprovalListApi({ pageNum: 1, pageSize: 2 }).catch(
-          () => ({ items: [], total: 0 }),
-        ),
-        getTodoFollowUpListApi({
-          pageNum: 1,
-          pageSize: 2,
-          rangeType: 'overdue',
-        }).catch(() => ({ items: [], total: 0 })),
-        getTodoPaymentListApi({ pageNum: 1, pageSize: 2, days: 7 }).catch(
-          () => ({ items: [], total: 0 }),
-        ),
-        getPlanListApi({
-          pendingMyApproval: true,
-          year: new Date().getFullYear(),
-        }).catch(() => []),
+        canShow('approval')
+          ? getTodoApprovalListApi({ pageNum: 1, pageSize: 2 }).catch(
+              () => ({ items: [], total: 0 }),
+            )
+          : Promise.resolve({ items: [], total: 0 }),
+        canShow('followUp')
+          ? getTodoFollowUpListApi({
+              pageNum: 1,
+              pageSize: 2,
+              rangeType: 'overdue',
+            }).catch(() => ({ items: [], total: 0 }))
+          : Promise.resolve({ items: [], total: 0 }),
+        canShow('payment')
+          ? getTodoPaymentListApi({ pageNum: 1, pageSize: 2, days: 7 }).catch(
+              () => ({ items: [], total: 0 }),
+            )
+          : Promise.resolve({ items: [], total: 0 }),
+        canShow('planApproval')
+          ? getPlanListApi({
+              pendingMyApproval: true,
+              year: new Date().getFullYear(),
+            }).catch(() => [])
+          : Promise.resolve([]),
       ]);
 
     const items: SmartTodoItem[] = [];
@@ -415,9 +468,9 @@ async function loadSmartTodos() {
       const timeDesc =
         remainingDays < 0
           ? `已逾期 ${Math.abs(remainingDays)} 天`
-          : remainingDays === 0
+          : (remainingDays === 0
             ? '今日到期'
-            : `还有 ${remainingDays} 天到期`;
+            : `还有 ${remainingDays} 天到期`);
       items.push({
         id: item.id,
         type: 'payment',
@@ -434,8 +487,8 @@ async function loadSmartTodos() {
       const empName = item.employeeName || '员工';
       const totalContract = Number(item.totalContractTarget || 0);
       const amtText =
-        totalContract >= 10000
-          ? `${(totalContract / 10000).toFixed(1)}万`
+        totalContract >= 10_000
+          ? `${(totalContract / 10_000).toFixed(1)}万`
           : `${totalContract}`;
       items.push({
         id: item.id,
@@ -527,7 +580,7 @@ function handleOverviewClick(tabKey: string) {
 
 // ===== 本周工作负载 =====
 const weekLoading = ref(false);
-const weekWorkload = ref<Array<{ day: string; count: number }>>([]);
+const weekWorkload = ref<Array<{ count: number; day: string; }>>([]);
 
 const weekMaxCount = computed(() => {
   return Math.max(1, ...weekWorkload.value.map((w) => w.count || 0));
@@ -567,8 +620,12 @@ function navTo(nav: WorkbenchQuickNavItem) {
 }
 
 // ===== WorkbenchHeader 动态数据加载 =====
-// 加载客户总数
+// 加载客户总数（无权限不请求，显示 --）
 async function loadCustomerCount() {
+  if (!canShow('customer')) {
+    customerCount.value = 0;
+    return;
+  }
   try {
     const res: any = await getCustomerListApi({ pageNum: 1, pageSize: 1 });
     customerCount.value = res?.total || 0;
@@ -577,8 +634,12 @@ async function loadCustomerCount() {
   }
 }
 
-// 加载商机总数（自己的商机数量）
+// 加载商机总数（无权限不请求，显示 --）
 async function loadOpportunityCount() {
+  if (!canShow('opportunity')) {
+    opportunityCount.value = 0;
+    return;
+  }
   try {
     const res: any = await getOpportunityListApi({ pageNum: 1, pageSize: 1 });
     opportunityCount.value = res?.total || 0;
@@ -616,13 +677,13 @@ onMounted(() => {
   <div class="p-5">
     <WorkbenchHeader
       :avatar="userStore.userInfo?.avatar || preferences.app.defaultAvatar"
-      :customer-count="customerCount"
-      :opportunity-count="opportunityCount"
+      :customer-count="canShow('customer') ? customerCount : null"
+      :opportunity-count="canShow('opportunity') ? opportunityCount : null"
       :todo-processed="todoProcessed"
       :todo-total="todoTotal"
     >
       <template #title>
-        早安, {{ userStore.userInfo?.realName }}, 开始您一天的工作吧！
+        {{ welcomeText }}，开始您一天的工作吧！
       </template>
       <template #description>
         {{ $t('page.dashboard.todoList') }} {{ todoCount }} 项
@@ -632,7 +693,11 @@ onMounted(() => {
     <div class="mt-5 flex flex-col gap-5 lg:flex-row">
       <!-- 左列 3/5 -->
       <div class="flex w-full flex-col gap-5 lg:w-3/5">
-        <TodoOverviewCard @click-card="handleOverviewClick" />
+        <TodoOverviewCard
+          v-if="showOverviewCard"
+          :visible-tabs="visibleOverviewTabs"
+          @click-card="handleOverviewClick"
+        />
         <WorkLogCard :refresh-key="workLogRefreshKey" />
       </div>
       <!-- 右列 2/5 -->
@@ -671,8 +736,8 @@ onMounted(() => {
           </button>
         </div>
 
-        <!-- 智能待办 -->
-        <Card>
+        <!-- 智能待办（无权限类型不显示） -->
+        <Card v-if="showSmartTodo">
           <template #title>
             <div class="flex items-center gap-2">
               <span

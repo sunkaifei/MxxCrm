@@ -28,6 +28,9 @@ pub struct Model {
     /// SKU编码（唯一，如 PROD-001-BLK-M）
     pub sku_code: Option<String>,
 
+    /// 条形码（每个规格可独立扫码）
+    pub barcode: Option<String>,
+
     /// 动态规格键值对，如 {"颜色": "红色", "尺寸": "S"}
     pub specs: Option<serde_json::Value>,
 

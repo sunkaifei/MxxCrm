@@ -11,6 +11,8 @@
 use crate::core::kit::global::Serialize;
 use crate::modules::system::entity::{admin, admin::Entity as Admin, admin_dept_merge, dept, dept::Entity as Dept};
 use crate::utils::string_utils::{deserialize_string_to_i32, deserialize_string_to_u64, deserialize_string_vec_to_u64_vec, serialize_option_u64_to_string, u64_to_string};
+use chrono::NaiveDate;
+use rust_decimal::Decimal;
 use sea_orm::prelude::DateTime;
 use sea_orm::*;
 use sea_query::{CommonTableExpression, Expr, IntoTableRef, Query, UnionType};
@@ -59,6 +61,18 @@ pub struct AdminSaveRequest {
     ///直属上级用户ID（用于审批流向上查找领导，NULL 表示无上级/顶层决策人）
     #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub direct_manager_id: Option<i64>,
+    ///入职时间
+    #[serde(default)]
+    pub hire_date: Option<NaiveDate>,
+    ///是否参与工资核算：0不参与 1参与（默认参与）
+    #[serde(default)]
+    pub salary_enabled: Option<i32>,
+    ///试用期月数（0或空=无试用期）
+    #[serde(default)]
+    pub probation_months: Option<i32>,
+    ///试用期工资比例（如0.60=60%，空=不打折）
+    #[serde(default)]
+    pub probation_ratio: Option<Decimal>,
 }
 
 
@@ -87,6 +101,10 @@ impl From<AdminSaveRequest> for AdminSaveDTO {
             remark: req.remark,
             sort: req.sort,
             direct_manager_id: req.direct_manager_id,
+            hire_date: req.hire_date,
+            salary_enabled: req.salary_enabled,
+            probation_months: req.probation_months,
+            probation_ratio: req.probation_ratio,
         }
     }
 }
@@ -129,6 +147,18 @@ pub struct AdminUpdateRequest {
     ///直属上级用户ID（用于审批流向上查找领导，NULL 表示无上级/顶层决策人）
     #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub direct_manager_id: Option<i64>,
+    ///入职时间
+    #[serde(default)]
+    pub hire_date: Option<NaiveDate>,
+    ///是否参与工资核算：0不参与 1参与（默认参与）
+    #[serde(default)]
+    pub salary_enabled: Option<i32>,
+    ///试用期月数（0或空=无试用期）
+    #[serde(default)]
+    pub probation_months: Option<i32>,
+    ///试用期工资比例（如0.60=60%，空=不打折）
+    #[serde(default)]
+    pub probation_ratio: Option<Decimal>,
 }
 
 impl From<AdminUpdateRequest> for AdminSaveDTO {
@@ -156,6 +186,10 @@ impl From<AdminUpdateRequest> for AdminSaveDTO {
             remark: req.remark,
             sort: req.sort,
             direct_manager_id: req.direct_manager_id,
+            hire_date: req.hire_date,
+            salary_enabled: req.salary_enabled,
+            probation_months: req.probation_months,
+            probation_ratio: req.probation_ratio,
         }
     }
 }
@@ -202,6 +236,14 @@ pub struct AdminSaveDTO {
     pub sort: Option<i32>,
     ///直属上级用户ID（用于审批流向上查找领导，NULL 表示无上级/顶层决策人）
     pub direct_manager_id: Option<i64>,
+    ///入职时间
+    pub hire_date: Option<NaiveDate>,
+    ///是否参与工资核算：0不参与 1参与
+    pub salary_enabled: Option<i32>,
+    ///试用期月数（0或空=无试用期）
+    pub probation_months: Option<i32>,
+    ///试用期工资比例（如0.60=60%，空=不打折）
+    pub probation_ratio: Option<Decimal>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -260,6 +302,10 @@ impl From<UserRegisterRequest> for AdminSaveRequest {
             remark: Some(remark),
             sort: None,
             direct_manager_id: None,
+            hire_date: None,
+            salary_enabled: Some(1),
+            probation_months: None,
+            probation_ratio: None,
         }
     }
 }
@@ -320,6 +366,10 @@ impl From<UpdateLoginRequest> for AdminSaveDTO {
             remark: None,
             sort: None,
             direct_manager_id: None,
+            hire_date: None,
+            salary_enabled: None,
+            probation_months: None,
+            probation_ratio: None,
         }
     }
 }
@@ -390,11 +440,16 @@ pub struct UserLoginVO {
     pub id: Option<i64>,
     pub username: Option<String>,
     pub nickname: Option<String>,
+    pub email: Option<String>,
     pub avatar: Option<String>,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
     /// 数据权限范围（1全部 2自定义 3本部门 4本部门及以下 5仅本人）
     pub data_scope: Option<i32>,
+    /// 用户岗位名称列表（用于工作台等按职能个性化）
+    pub post_names: Vec<String>,
+    /// 用户部门名称列表
+    pub dept_names: Vec<String>,
 }
 
 /// 管理员列表展示数据
@@ -441,6 +496,15 @@ pub struct AdminListVO {
     ///审核状态：0待审核 1已通过
     #[serde(default)]
     pub audit_status: i32,
+    ///入职时间
+    pub hire_date: Option<NaiveDate>,
+    ///是否参与工资核算：0不参与 1参与
+    #[serde(default)]
+    pub salary_enabled: i32,
+    ///试用期月数（0或空=无试用期）
+    pub probation_months: Option<i32>,
+    ///试用期工资比例（如0.60=60%，空=不打折）
+    pub probation_ratio: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -500,6 +564,14 @@ pub struct AdminDetailVO {
     pub direct_manager_id: Option<i64>,
     ///直属上级姓名（用于前端展示）
     pub direct_manager_name: Option<String>,
+    ///入职时间
+    pub hire_date: Option<NaiveDate>,
+    ///是否参与工资核算：0不参与 1参与
+    pub salary_enabled: Option<i32>,
+    ///试用期月数（0或空=无试用期）
+    pub probation_months: Option<i32>,
+    ///试用期工资比例（如0.60=60%，空=不打折）
+    pub probation_ratio: Option<Decimal>,
 }
 
 impl From<admin::Model> for AdminDetailVO {
@@ -531,6 +603,10 @@ impl From<admin::Model> for AdminDetailVO {
             sort: model.sort,
             direct_manager_id: model.direct_manager_id,
             direct_manager_name: None,
+            hire_date: model.hire_date,
+            salary_enabled: model.salary_enabled,
+            probation_months: model.probation_months,
+            probation_ratio: model.probation_ratio,
         }
     }
 }
@@ -627,6 +703,10 @@ impl AdminModel {
             password:        Set(form_data.password.to_owned()),
             status:          Set(form_data.status.to_owned()),
             direct_manager_id: Set(form_data.direct_manager_id.to_owned()),
+            hire_date:       Set(form_data.hire_date.to_owned()),
+            salary_enabled:  Set(form_data.salary_enabled.to_owned()),
+            probation_months: Set(form_data.probation_months.to_owned()),
+            probation_ratio: Set(form_data.probation_ratio.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -688,6 +768,10 @@ impl AdminModel {
         if let Some(v) = form_data.sort { payload.sort = Set(Some(v)); }
         if let Some(v) = form_data.password.clone() { payload.password = Set(Some(v)); }
         if let Some(v) = form_data.deleted { payload.deleted = Set(Some(v)); }
+        if let Some(v) = form_data.hire_date { payload.hire_date = Set(Some(v)); }
+        if let Some(v) = form_data.salary_enabled { payload.salary_enabled = Set(Some(v)); }
+        if let Some(v) = form_data.probation_months { payload.probation_months = Set(Some(v)); }
+        if let Some(v) = form_data.probation_ratio { payload.probation_ratio = Set(Some(v)); }
         // 直属上级：前端传正数表示设置上级，传 0/null 表示清除上级，字段缺失表示不更新
         if let Some(v) = form_data.direct_manager_id {
             if v > 0 {
@@ -974,6 +1058,10 @@ impl AdminModel {
             .column(admin::Column::Remark)
             .column(admin::Column::Sort)
             .column(admin::Column::DirectManagerId)
+            .column(admin::Column::HireDate)
+            .column(admin::Column::SalaryEnabled)
+            .column(admin::Column::ProbationMonths)
+            .column(admin::Column::ProbationRatio)
             .join_rev(
                 JoinType::LeftJoin,
                 admin_dept_merge::Relation::Admin.def(),

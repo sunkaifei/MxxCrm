@@ -1,21 +1,20 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
+import { ref } from 'vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import { $t } from '#/locales';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2, LogOut } from '@vben/icons';
-import { Button, Popconfirm, Switch, Tag } from 'ant-design-vue';
+import { Button, Dropdown, Menu, Popconfirm, Tag } from 'ant-design-vue';
 import UserDrawer from './drawer.vue';
 import UserDetailDrawer from '../../crm/components/UserDetailDrawer.vue';
 import {
-  auditUserApi,
   deleteUserApi,
   getUserListApi,
   kickOfflineApi,
   updateUserApi,
 } from '#/api';
+import { submitApprovalApi } from '#/api/core/system/approval';
 import { statusList } from '#/store';
 import { formatDateTime } from '@vben/utils';
 import { useAccessStore } from '@vben/stores';
@@ -161,6 +160,17 @@ const gridOptions: VxeGridProps = {
       width: 120,
     },
     {
+      title: $t('page.system.user.hireDate'),
+      field: 'hireDate',
+      width: 110,
+    },
+    {
+      title: $t('page.system.user.salaryEnabled'),
+      field: 'salaryEnabled',
+      width: 100,
+      slots: { default: 'salaryEnabled' },
+    },
+    {
       title: $t('ui.table.createTime'),
       field: 'createTime',
       width: 140,
@@ -171,7 +181,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 120,
+      width: 170,
     },
   ],
 };
@@ -187,6 +197,23 @@ async function handleStatusChanged(row: any, checked: boolean) {
   } finally {
     row.pending = false;
     gridApi.query();
+  }
+}
+
+// 提交审核：走系统审批流引擎（business_type=user），审批通过后自动启用用户
+async function handleSubmitAudit(row: any) {
+  row.pending = true;
+  try {
+    await submitApprovalApi({
+      flowCode: 'user_approval',
+      businessType: 'user',
+      businessId: row.id,
+      businessTitle: row.nickName || row.userName || `用户#${row.id}`,
+    });
+    window.$message.success('已提交审核，等待审批人处理');
+    gridApi.query();
+  } finally {
+    row.pending = false;
   }
 }
 
@@ -236,17 +263,6 @@ async function handleKickOffline(row: any) {
     row.pending = false;
   }
 }
-
-async function handleAudit(row: any, auditStatus: number) {
-  row.pending = true;
-  try {
-    await auditUserApi(row.id, auditStatus);
-    window.$message.success(auditStatus === 1 ? '审核已通过' : '已拒绝');
-    gridApi.query();
-  } finally {
-    row.pending = false;
-  }
-}
 </script>
 
 <template>
@@ -282,19 +298,20 @@ async function handleAudit(row: any, auditStatus: number) {
       </template>
 
       <template #status="{ row }">
-        <Switch
-          :disabled="!accessStore.hasAccessCode('system:admin:update') || row.userType === 1"
-          :checked="row.status === 1"
-          :loading="row.pending"
-          :checked-children="$t('ui.switch.active')"
-          :un-checked-children="$t('ui.switch.inactive')"
-          @change="(checked: any) => handleStatusChanged(row, checked)"
-        />
+        <Tag :color="row.status === 1 ? 'success' : 'default'">
+          {{ row.status === 1 ? $t('enum.status.ON') : $t('enum.status.OFF') }}
+        </Tag>
       </template>
 
       <template #online="{ row }">
         <Tag :color="row.online ? 'success' : 'default'">
           {{ row.online ? $t('page.system.setting.online') : $t('ui.switch.inactive') }}
+        </Tag>
+      </template>
+
+      <template #salaryEnabled="{ row }">
+        <Tag :color="row.salaryEnabled === 1 ? 'success' : 'default'">
+          {{ row.salaryEnabled === 1 ? $t('page.system.user.salaryYes') : $t('page.system.user.salaryNo') }}
         </Tag>
       </template>
 
@@ -312,65 +329,71 @@ async function handleAudit(row: any, auditStatus: number) {
       </template>
 
       <template #action="{ row }">
+        <!-- 待审核用户：提交审核走系统审批流引擎 -->
         <Button
-          type="primary"
-          link
-          v-access:code="['system:admin:update']"
-          :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
-        />
-
-        <Popconfirm
-          :title="
-            $t('ui.text.do_you_want_delete', {
-              moduleName: $t('page.system.user.module'),
-            })
-          "
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="() => handleDelete(row)"
+          v-if="row.auditStatus === 0 && row.userType !== 1 && accessStore.hasAccessCode('system:admin:audit')"
+          type="link"
+          class="!px-0"
+          :loading="row.pending"
+          @click="() => handleSubmitAudit(row)"
         >
-          <Button
-            danger
-            v-access:code="['system:admin:delete']"
-            link
-            :icon="h(LucideTrash2)"
-          />
-        </Popconfirm>
+          {{ $t('page.system.user.button.submitAudit') }}
+        </Button>
 
-        <Popconfirm
-          :title="$t('page.system.setting.kickConfirm')"
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="() => handleKickOffline(row)"
-        >
-          <Button
-            danger
-            type="primary"
-            link
-            v-access:code="['system:admin:kick']"
-            :icon="h(LogOut)"
-            :disabled="row.userType === 1"
-          />
-        </Popconfirm>
-
-        <!-- 审核：仅待审核用户（auditStatus=0）显示 -->
-        <Popconfirm
-          v-if="row.auditStatus === 0"
-          :title="`确认审核通过该用户？通过后将自动启用，可登录系统。`"
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="() => handleAudit(row, 1)"
-        >
-          <Button
-            type="primary"
-            link
-            v-access:code="['system:admin:audit']"
-            :disabled="row.userType === 1"
-          >
-            {{ $t('page.system.user.button.auditPass') }}
-          </Button>
-        </Popconfirm>
+        <!-- 更多操作下拉菜单：停用/启用、下线、编辑、删除 -->
+        <Dropdown placement="bottomRight">
+          <Button type="link">{{ $t('page.system.user.button.more') }}</Button>
+          <template #overlay>
+            <Menu>
+              <Menu.Item
+                v-if="row.userType !== 1 && accessStore.hasAccessCode('system:admin:update')"
+                key="toggleStatus"
+                @click="() => handleStatusChanged(row, row.status !== 1)"
+              >
+                {{ row.status === 1 ? $t('page.system.user.button.disable') : $t('page.system.user.button.enable') }}
+              </Menu.Item>
+              <Popconfirm
+                :title="$t('page.system.setting.kickConfirm')"
+                :ok-text="$t('ui.button.ok')"
+                :cancel-text="$t('ui.button.cancel')"
+                @confirm="() => handleKickOffline(row)"
+              >
+                <Menu.Item
+                  v-if="accessStore.hasAccessCode('system:admin:kick')"
+                  key="kick"
+                  :disabled="row.userType === 1"
+                >
+                  {{ $t('page.system.user.button.kickOffline') }}
+                </Menu.Item>
+              </Popconfirm>
+              <Menu.Item
+                v-if="accessStore.hasAccessCode('system:admin:update')"
+                key="edit"
+                @click="() => handleEdit(row)"
+              >
+                {{ $t('page.system.user.button.editAction') }}
+              </Menu.Item>
+              <Popconfirm
+                :title="
+                  $t('ui.text.do_you_want_delete', {
+                    moduleName: $t('page.system.user.module'),
+                  })
+                "
+                :ok-text="$t('ui.button.ok')"
+                :cancel-text="$t('ui.button.cancel')"
+                @confirm="() => handleDelete(row)"
+              >
+                <Menu.Item
+                  v-if="accessStore.hasAccessCode('system:admin:delete')"
+                  key="delete"
+                  danger
+                >
+                  {{ $t('page.system.user.button.deleteAction') }}
+                </Menu.Item>
+              </Popconfirm>
+            </Menu>
+          </template>
+        </Dropdown>
       </template>
     </Grid>
     <Drawer />

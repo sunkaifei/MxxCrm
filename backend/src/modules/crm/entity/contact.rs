@@ -46,6 +46,15 @@ pub struct Model {
     /// QQ号
     pub qq: Option<String>,
 
+    /// 国家
+    pub country: Option<String>,
+
+    /// 省/市/区
+    pub region: Option<String>,
+
+    /// 详细地址
+    pub address: Option<String>,
+
     /// 性别（0-男，1-女，2-未知/未指定）
     pub gender: Option<i32>,
 
@@ -63,6 +72,9 @@ pub struct Model {
 
     /// 备注
     pub notes: Option<String>,
+
+    /// 归属人（创建人）：人脉资产归属，可见性独立于客户归属
+    pub created_by: Option<i64>,
 
     /// 创建时间
     pub create_time: Option<DateTime>,

@@ -90,20 +90,37 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
             }
         }
     }
+    // 试用期工资比例校验：必须在 0~1 范围内
+    if let Some(ratio) = form_data.probation_ratio {
+        if ratio < rust_decimal::Decimal::ZERO || ratio > rust_decimal::Decimal::ONE {
+            return Err(Error::from("试用期工资比例必须在 0~1 范围内（如 0.6 表示 60%）"));
+        }
+    }
     let mut dto_data = AdminSaveDTO::from(form_data.clone());
 
     if let Some(password) = &form_data.password {
         if !password.is_empty() {
-            let hashed = hash(password, DEFAULT_COST).unwrap_or_default();
+            let hashed = hash(password, DEFAULT_COST)
+                .map_err(|e| Error::from(format!("密码加密失败: {}", e)))?;
             dto_data.password = Option::from(hashed);
         } else {
             let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
-            let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
+            let init_pwd = config.config_value.unwrap_or_default();
+            if init_pwd.is_empty() {
+                return Err(Error::from("系统未配置初始密码（initPassword），请联系管理员"));
+            }
+            let hashed = hash(init_pwd, DEFAULT_COST)
+                .map_err(|e| Error::from(format!("密码加密失败: {}", e)))?;
             dto_data.password = Option::from(hashed);
         }
     } else {
         let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
-        let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
+        let init_pwd = config.config_value.unwrap_or_default();
+        if init_pwd.is_empty() {
+            return Err(Error::from("系统未配置初始密码（initPassword），请联系管理员"));
+        }
+        let hashed = hash(init_pwd, DEFAULT_COST)
+            .map_err(|e| Error::from(format!("密码加密失败: {}", e)))?;
         dto_data.password = Option::from(hashed);
     }
     
@@ -292,6 +309,12 @@ pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result
             if manager.status.unwrap_or(0) != 1 {
                 return Err(Error::from("直属上级用户已停用，请选择其他用户"));
             }
+        }
+    }
+    // 试用期工资比例校验：必须在 0~1 范围内
+    if let Some(ratio) = form_data.probation_ratio {
+        if ratio < rust_decimal::Decimal::ZERO || ratio > rust_decimal::Decimal::ONE {
+            return Err(Error::from("试用期工资比例必须在 0~1 范围内（如 0.6 表示 60%）"));
         }
     }
     let dto_data = AdminSaveDTO::from(form_data.clone());
@@ -600,6 +623,10 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             direct_manager_name: None,
             online: false,
             audit_status: data.audit_status.unwrap_or(0),
+            hire_date: data.hire_date,
+            salary_enabled: data.salary_enabled.unwrap_or(1),
+            probation_months: data.probation_months,
+            probation_ratio: data.probation_ratio,
         });
 
     }

@@ -131,6 +131,19 @@ const {
 } = useExtraMenu(mixHeaderMenus);
 
 /**
+ * 翻译菜单名：目录级 i18n key 对应的往往是 { title, button } 对象，
+ * 直接 $t 会不命中；这里自动降级到 `${key}.title`。
+ */
+function translateMenu(key?: string | null): string {
+  if (!key) return '';
+  const direct = $t(key);
+  if (direct !== key && !direct.startsWith('[object ')) return direct;
+  const withTitle = $t(`${key}.title`);
+  if (withTitle !== `${key}.title`) return withTitle;
+  return key;
+}
+
+/**
  * 包装菜单，翻译菜单名称
  * @param menus 原始菜单数据
  * @param deep 是否深度包装。对于双列布局，只需要包装第一层，因为更深层的数据会在扩展菜单中重新包装
@@ -138,10 +151,10 @@ const {
 function wrapperMenus(menus: MenuRecordRaw[], deep: boolean = true) {
   return deep
     ? mapTree(menus, (item) => {
-        return { ...cloneDeep(item), name: $t(item.name) };
+        return { ...cloneDeep(item), name: translateMenu(item.name) };
       })
     : menus.map((item) => {
-        return { ...cloneDeep(item), name: $t(item.name) };
+        return { ...cloneDeep(item), name: translateMenu(item.name) };
       });
 }
 

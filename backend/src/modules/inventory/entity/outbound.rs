@@ -42,14 +42,24 @@ pub struct Model {
     pub audit_time: Option<DateTime>,
     /// 删除标识（0未删除 1已删除）
     pub deleted: Option<i32>,
-    /// 创建人
+    /// 创建人（制单人）
     pub created_by: Option<i64>,
+    /// 提交人（谁提交审核）
+    pub submitted_by: Option<i64>,
+    /// 审批实例ID（关联 approval_instance 表）
+    pub instance_id: Option<i64>,
     /// 更新人
     pub updated_by: Option<i64>,
     /// 创建时间
     pub create_time: Option<DateTime>,
     /// 更新时间
     pub update_time: Option<DateTime>,
+    /// 最近修改原因（已完成单据被修改时记录）
+    pub last_change_reason: Option<String>,
+    /// 最近修改人ID
+    pub last_change_by: Option<i64>,
+    /// 最近修改时间
+    pub last_change_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

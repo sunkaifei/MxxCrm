@@ -16,7 +16,7 @@ use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, 
 use crate::modules::system::entity::{tag, tag_merge};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
-use crate::modules::system::service::role_service;
+use crate::modules::system::service::data_scope_service;
 use sea_orm::{DbConn, DbErr, TransactionTrait, ColumnTrait, EntityTrait, QueryFilter};
 use std::collections::{HashMap, HashSet};
 
@@ -131,9 +131,7 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
         }
         "todayFollow" => {
             // 今日跟进线索：关联 followup 表过滤
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter().filter_map(|r| r.data_scope).min();
-            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
+            let user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await?;
 
             LeadModel::select_today_follow_page(
                 &db, page, page_size,
@@ -239,18 +237,6 @@ async fn batch_query_lead_tags(
     }
 
     Ok(result)
-}
-
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
 }
 
 /// 递归收集部门下的所有子部门ID（含自身）
@@ -480,6 +466,9 @@ pub async fn convert_to_customer(db: &DbConn, id: i64, user_id: i64) -> Result<i
         whatsapp: None,
         wechat: None,
         qq: None,
+        country: lead.country.clone(),
+        region: None,
+        address: None,
         gender: None,
         birthday: None,
         notes: None,
@@ -519,7 +508,9 @@ pub async fn convert_to_customer(db: &DbConn, id: i64, user_id: i64) -> Result<i
 
     // 同步该线索下的所有跟进记录到新客户（保留 lead_id 用于追溯）
     // source_type 升级为 2（客户跟进），但 lead_id 保留可识别原线索来源
-    let _ = FollowupModel::inherit_to_customer(&txn, id, customer_id).await;
+    FollowupModel::inherit_to_customer(&txn, id, customer_id)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
     // 更新线索状态为已成交，标记已转客户
     LeadModel::claim(&txn, id, user_id, customer_id)

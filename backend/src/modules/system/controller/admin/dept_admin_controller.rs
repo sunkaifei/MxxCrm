@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -35,8 +34,7 @@ pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::
     }
     
     //获取用户信息
-    let jwt_token:JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = DeptSaveDTO::from(sys_dept.clone());
 
     if let Some(leader_id) = form_data.leader_id {
@@ -101,8 +99,7 @@ pub async fn dept_update(state: web::Data<AppState>, req: HttpRequest, id: web::
     }
     
     //获取用户信息
-    let jwt_token:JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
 
     let mut form_data = DeptSaveDTO::from(sys_dept.clone());
     form_data.id = Some(dept_id);

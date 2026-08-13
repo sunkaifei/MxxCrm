@@ -1,8 +1,35 @@
 {
   "product": {
     "title": "产品",
+    "common": {
+      "button": {
+        "list": "列表",
+        "manage": "管理",
+        "create": "新增",
+        "save": "保存",
+        "edit": "编辑",
+        "update": "更新",
+        "delete": "删除",
+        "view": "查看",
+        "info": "详情",
+        "audit": "审核",
+        "approve": "审批",
+        "close": "关闭",
+        "export": "导出",
+        "import": "导入",
+        "print": "打印",
+        "toggle": "启用禁用",
+        "submit": "提交",
+        "assign": "分配",
+        "upload": "上传",
+        "download": "下载",
+        "refresh": "刷新",
+        "sync": "同步"
+      }
+    },
     "list": {
       "title": "产品列表",
+      "productCode": "产品编码",
       "button": {
         "create": "新增产品",
         "edit": "编辑产品",
@@ -20,8 +47,13 @@
     },
     "inbound": {
       "title": "入库管理",
+      "detail": "入库单详情",
+      "loading": "加载中...",
       "button": {
-        "create": "创建入库单"
+        "create": "创建入库单",
+        "update": "编辑入库",
+        "audit": "审核入库",
+        "delete": "删除入库"
       },
       "field": {
         "inboundNo": "入库单号",
@@ -31,7 +63,19 @@
         "totalQuantity": "总数量",
         "totalAmount": "总金额",
         "createdBy": "创建人",
-        "createTime": "创建时间"
+        "createTime": "创建时间",
+        "sourceOrderNo": "源单号",
+        "remark": "备注",
+        "items": "入库明细",
+        "itemProductCode": "产品编码",
+        "itemProductName": "产品名称",
+        "itemQuantity": "数量",
+        "itemUnitPrice": "单价",
+        "totalPrice": "金额",
+        "spec": "规格",
+        "unit": "单位",
+        "auditedBy": "审核人",
+        "auditTime": "审核时间"
       },
       "placeholder": {
         "inboundNo": "请输入入库单号",
@@ -49,7 +93,7 @@
       },
       "status": {
         "0": "草稿",
-        "1": "待审核",
+        "1": "审核中",
         "2": "已审核",
         "3": "已完成",
         "4": "已驳回",
@@ -57,15 +101,22 @@
       },
       "action": {
         "submitAudit": "提交审核",
-        "audit": "审核通过",
+        "audit": "审核",
+        "auditing": "审核中",
         "reject": "驳回",
         "edit": "编辑",
-        "delete": "删除"
+        "delete": "删除",
+        "more": "更多",
+        "downloadPdf": "下载PDF入库单"
       },
       "message": {
         "submitSuccess": "提交审核成功",
         "auditSuccess": "审核通过",
-        "rejectSuccess": "已驳回"
+        "rejectSuccess": "已驳回",
+        "popupBlocked": "弹窗被拦截，请允许弹出窗口后重试",
+        "printFailed": "打印数据加载失败",
+        "noItems": "暂无明细",
+        "noData": "暂无数据"
       },
       "drawer": {
         "title": {
@@ -90,8 +141,12 @@
     },
     "outbound": {
       "title": "出库管理",
+      "detail": "出库单详情",
       "button": {
-        "create": "创建出库单"
+        "create": "创建出库单",
+        "update": "编辑出库",
+        "audit": "审核出库",
+        "delete": "删除出库"
       },
       "field": {
         "outboundNo": "出库单号",
@@ -100,8 +155,19 @@
         "status": "状态",
         "totalQuantity": "总数量",
         "totalAmount": "总金额",
-        "createdBy": "创建人",
-        "createTime": "创建时间"
+        "createdBy": "制单人",
+        "createTime": "创建时间",
+        "sourceOrderNo": "源单号",
+        "remark": "备注",
+        "items": "出库明细",
+        "itemProductCode": "产品编码",
+        "itemProductName": "产品名称",
+        "itemQuantity": "数量",
+        "spec": "规格",
+        "unit": "单位",
+        "batchNo": "批次号",
+        "auditedBy": "审核人",
+        "auditTime": "审核时间"
       },
       "placeholder": {
         "outboundNo": "请输入出库单号",
@@ -131,12 +197,18 @@
         "audit": "审核通过",
         "reject": "驳回",
         "edit": "编辑",
-        "delete": "删除"
+        "delete": "删除",
+        "more": "更多",
+        "downloadPdf": "下载PDF出库单"
       },
       "message": {
         "submitSuccess": "提交审核成功",
         "auditSuccess": "审核通过",
-        "rejectSuccess": "已驳回"
+        "rejectSuccess": "已驳回",
+        "popupBlocked": "弹窗被拦截，请允许弹出窗口后重试",
+        "printFailed": "打印数据加载失败",
+        "noItems": "暂无明细",
+        "noData": "暂无数据"
       },
       "drawer": {
         "title": {
@@ -439,17 +511,67 @@
     },
     "brand": {
       "title": "品牌管理",
+      "detail": "品牌详情",
+      "loading": "加载中...",
       "button": {
         "create": "新增品牌",
         "update": "编辑品牌",
-        "delete": "删除品牌"
+        "delete": "删除品牌",
+        "createNew": "新建品牌",
+        "edit": "编辑品牌",
+        "view": "查看"
       },
       "field": {
         "name": "品牌名称",
+        "nameEn": "品牌英文名",
         "logo": "品牌Logo",
+        "country": "品牌原产国",
+        "website": "官网",
         "sort": "排序",
-        "description": "描述",
-        "status": "状态"
+        "description": "品牌介绍",
+        "remark": "备注",
+        "status": "状态",
+        "createTime": "创建时间",
+        "updateTime": "更新时间"
+      },
+      "status": {
+        "normal": "正常",
+        "disabled": "停用"
+      },
+      "action": {
+        "restore": "还原",
+        "maximize": "最大化"
+      },
+      "placeholder": {
+        "name": "请输入品牌名称",
+        "nameEn": "请输入品牌英文名",
+        "logo": "请输入Logo图片URL",
+        "description": "请输入品牌介绍",
+        "country": "请输入原产国",
+        "website": "https://example.com",
+        "status": "请选择状态",
+        "sortOrder": "排序号",
+        "remark": "请输入备注",
+        "keyword": "品牌名称"
+      }
+    },
+    "check": {
+      "button": {
+        "create": "创建盘点",
+        "update": "盘点录入",
+        "audit": "盘点审核"
+      }
+    },
+    "transfer": {
+      "button": {
+        "create": "创建调拨",
+        "audit": "调拨审核",
+        "delete": "删除调拨"
+      }
+    },
+    "alert": {
+      "button": {
+        "update": "编辑预警规则"
       }
     }
   },

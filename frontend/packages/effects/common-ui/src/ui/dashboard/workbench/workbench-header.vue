@@ -6,10 +6,10 @@ interface Props {
   /** 待办：已处理数/总数 */
   todoProcessed?: number;
   todoTotal?: number;
-  /** 客户数 */
-  customerCount?: number;
-  /** 商机数 */
-  opportunityCount?: number;
+  /** 客户数（null 表示无访问权限，显示 --） */
+  customerCount?: null | number;
+  /** 商机数（null 表示无访问权限，显示 --） */
+  opportunityCount?: null | number;
 }
 
 defineOptions({
@@ -46,11 +46,11 @@ withDefaults(defineProps<Props>(), {
 
       <div class="mx-12 flex flex-col justify-center text-right md:mx-16">
         <span class="text-foreground/80"> 客户 </span>
-        <span class="text-2xl">{{ customerCount }}</span>
+        <span class="text-2xl">{{ customerCount ?? '--' }}</span>
       </div>
       <div class="mr-4 flex flex-col justify-center text-right md:mr-10">
         <span class="text-foreground/80"> 商机 </span>
-        <span class="text-2xl">{{ opportunityCount }}</span>
+        <span class="text-2xl">{{ opportunityCount ?? '--' }}</span>
       </div>
     </div>
   </div>

@@ -11,8 +11,7 @@
 use crate::core::errors::error::Result;
 use actix_web::{HttpResponse, web, HttpRequest};
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -34,8 +33,7 @@ pub async fn insert_config(state: web::Data<AppState>, req: HttpRequest, item: w
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "配置信息名称已存在", "local")));
     }
     //获取用户信息
-    let jwt_token:JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = ConfigSaveDTO::from(item.0);
     form_data.create_by = admin.user_name.clone();
     form_data.update_by = admin.user_name;
@@ -86,8 +84,7 @@ pub async fn update_config(state: web::Data<AppState>, req: HttpRequest, id: web
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "配置信息名称已存在", "local")));
     }
     //获取用户信息
-    let jwt_token:JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = ConfigSaveDTO::from(item.0);
     form_data.id = config_id;
     form_data.update_by = admin.user_name;

@@ -23,8 +23,18 @@ const form = reactive({
   sessionTimeout: 8,
   maxDevices: 5,
   registerEnabled: false,
+  inboundAuditEnabled: true,
+  outboundAuditEnabled: true,
+  inboundAuditMode: 0,
+  outboundAuditMode: 0,
 });
 const saving = ref(false);
+
+// 审核模式选项：0=严格 1=宽松
+const auditModeOptions = [
+  { label: '严格模式', value: 0 },
+  { label: '宽松模式', value: 1 },
+];
 
 // 会话超时下拉选项（小时）
 const timeoutOptions = [
@@ -43,6 +53,10 @@ async function loadConfig() {
       form.sessionTimeout = data.sessionTimeout || 8;
       form.maxDevices = data.maxDevices ?? 5;
       form.registerEnabled = data.registerEnabled ?? false;
+      form.inboundAuditEnabled = data.inboundAuditEnabled ?? true;
+      form.outboundAuditEnabled = data.outboundAuditEnabled ?? true;
+      form.inboundAuditMode = data.inboundAuditMode ?? 0;
+      form.outboundAuditMode = data.outboundAuditMode ?? 0;
     }
   } catch {
     // 忽略加载错误
@@ -57,6 +71,10 @@ async function handleSaveConfig() {
       sessionTimeout: form.sessionTimeout,
       maxDevices: form.maxDevices,
       registerEnabled: form.registerEnabled,
+      inboundAuditEnabled: form.inboundAuditEnabled,
+      outboundAuditEnabled: form.outboundAuditEnabled,
+      inboundAuditMode: form.inboundAuditMode,
+      outboundAuditMode: form.outboundAuditMode,
     });
     window.$message.success($t('page.system.setting.saveSuccess'));
   } finally {
@@ -154,6 +172,68 @@ onMounted(() => {
           <Switch v-model:checked="form.registerEnabled" />
         </div>
 
+        <div class="mt-4">
+          <Button
+            type="primary"
+            :loading="saving"
+            v-access:code="['system:setting:update']"
+            @click="handleSaveConfig"
+          >
+            {{ $t('page.system.common.save') }}
+          </Button>
+        </div>
+      </Card>
+
+      <!-- 卡片四：库存审批策略 -->
+      <Card title="库存审批策略" class="mb-4">
+        <div class="config-row">
+          <div>
+            <div class="config-label">入库审核</div>
+            <div class="config-tip">开启后入库单需审核才能变更库存，关闭后保存即生效</div>
+          </div>
+          <Switch v-model:checked="form.inboundAuditEnabled" />
+        </div>
+        <div class="config-row mt-4">
+          <div>
+            <div class="config-label">出库审核</div>
+            <div class="config-tip">开启后出库单需审核才能变更库存，关闭后保存即生效</div>
+          </div>
+          <Switch v-model:checked="form.outboundAuditEnabled" />
+        </div>
+        <div class="config-row mt-4">
+          <div>
+            <div class="config-label">入库审核模式</div>
+            <div class="config-tip">
+              {{
+                form.inboundAuditMode === 1
+                  ? '宽松模式：库管等有权限角色可打开别人的草稿，可以编辑和提交'
+                  : '严格模式：仅制单人可提交，其他人只能查看草稿'
+              }}
+            </div>
+          </div>
+          <Select
+            v-model:value="form.inboundAuditMode"
+            style="width: 160px"
+            :options="auditModeOptions"
+          />
+        </div>
+        <div class="config-row mt-4">
+          <div>
+            <div class="config-label">出库审核模式</div>
+            <div class="config-tip">
+              {{
+                form.outboundAuditMode === 1
+                  ? '宽松模式：库管等有权限角色可打开别人的草稿，可以编辑和提交'
+                  : '严格模式：仅制单人可提交，其他人只能查看草稿'
+              }}
+            </div>
+          </div>
+          <Select
+            v-model:value="form.outboundAuditMode"
+            style="width: 160px"
+            :options="auditModeOptions"
+          />
+        </div>
         <div class="mt-4">
           <Button
             type="primary"

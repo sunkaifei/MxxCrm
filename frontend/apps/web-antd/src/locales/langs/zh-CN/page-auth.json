@@ -1,5 +1,35 @@
 {
   "auth": {
+    "title": "认证",
+    "common": {
+      "button": {
+        "list": "列表",
+        "manage": "管理",
+        "create": "新增",
+        "save": "保存",
+        "edit": "编辑",
+        "update": "更新",
+        "delete": "删除",
+        "view": "查看",
+        "info": "详情",
+        "audit": "审核",
+        "approve": "审批",
+        "close": "关闭",
+        "export": "导出",
+        "import": "导入",
+        "print": "打印",
+        "toggle": "启用禁用",
+        "submit": "提交",
+        "assign": "分配",
+        "upload": "上传",
+        "download": "下载",
+        "refresh": "刷新",
+        "sync": "同步",
+        "login": "登录",
+        "logout": "退出登录",
+        "register": "注册"
+      }
+    },
     "login": "登录",
     "register": "注册",
     "codeLogin": "验证码登录",

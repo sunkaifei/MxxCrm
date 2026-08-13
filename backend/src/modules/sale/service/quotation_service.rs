@@ -189,20 +189,6 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<QuotationDetailVO> {
     Ok((main, items, approvals).into())
 }
 
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
-
-
-
 pub async fn list(db: &DbConn, query: &QuotationListQuery, current_user_id: i64) -> Result<ResultPage<Vec<QuotationListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
@@ -328,6 +314,8 @@ pub async fn submit_approval(
         submitter_id: operator_id,
         submitter_name: Some(operator_name.to_string()),
         extra_data: Some(serde_json::json!({ "amount": grand_total })),
+        cc_user_ids: None,
+        cc_reason: None,
     };
     let instance_id = ApprovalService::submit(db, &submit_req).await?;
 
@@ -431,6 +419,10 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
 
     if detail.approval_status != Some(3) {
         return Err(Error::from("只有审批通过的报价单才能转为订单".to_string()));
+    }
+
+    if detail.status == Some(8) {
+        return Err(Error::from("该报价单已转为订单，不能重复转单".to_string()));
     }
 
     let items = QuotationItemModel::find_by_quotation_id(db, quotation_id).await?;
@@ -554,12 +546,72 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
 
     OrderItemModel::insert_batch(&txn, order_id, &order_items).await?;
 
+    // 当前报价单 → status=8（已转订单）
     QuotationModel::update_status_and_approval(&txn, quotation_id, Some(8), None).await?;
+
+    // 关闭同商机下其他报价单 + 更新商机状态
+    if let Some(opp_id) = detail.opportunity_id {
+        if opp_id > 0 {
+            use sea_orm::sea_query::Expr;
+
+            // 查出同商机的其他有效报价单（排除当前这张，排除已转单/已失效/已删除）
+            let other_quotations: Vec<quo_entity::Model> = Quotation::find()
+                .filter(quo_entity::Column::OpportunityId.eq(opp_id))
+                .filter(quo_entity::Column::Id.ne(quotation_id))
+                .filter(quo_entity::Column::Status.ne(8))  // 排除已转订单
+                .filter(quo_entity::Column::Status.ne(9))  // 排除已失效
+                .filter(quo_entity::Column::Deleted.eq(0))
+                .all(&txn)
+                .await?;
+
+            if !other_quotations.is_empty() {
+                let other_ids: Vec<i64> = other_quotations.iter().map(|q| q.id).collect();
+
+                // 批量更新为已失效（status=9）
+                Quotation::update_many()
+                    .col_expr(quo_entity::Column::Status, Expr::value(9))
+                    .filter(quo_entity::Column::Id.is_in(other_ids.clone()))
+                    .exec(&txn)
+                    .await?;
+
+                log::info!("[报价单转订单] 商机{}下{}张报价单已标记失效: {:?}", opp_id, other_ids.len(), other_ids);
+            }
+
+            // 同步更新商机状态：stage=4（赢单）、order_status=1（已下单）
+            Opportunity::update_many()
+                .col_expr(opp_entity::Column::Stage, Expr::value(4))
+                .col_expr(opp_entity::Column::OrderStatus, Expr::value(1))
+                .filter(opp_entity::Column::Id.eq(opp_id))
+                .filter(opp_entity::Column::Deleted.eq(0))
+                .exec(&txn)
+                .await?;
+
+            log::info!("[报价单转订单] 商机{}状态已更新: stage=赢单, order_status=已下单", opp_id);
+        }
+    }
 
     txn.commit().await?;
 
     // 转单后释放报价单冻结的库存（best-effort，不阻断转单）
     let _ = unfreeze_stock_for_quotation(db, quotation_id, created_by_i64).await;
+
+    // 释放同商机其他已失效报价单的冻结库存（best-effort）
+    if let Some(opp_id) = detail.opportunity_id {
+        if opp_id > 0 {
+            let closed_quotations = Quotation::find()
+                .filter(quo_entity::Column::OpportunityId.eq(opp_id))
+                .filter(quo_entity::Column::Id.ne(quotation_id))
+                .filter(quo_entity::Column::Status.eq(9))
+                .filter(quo_entity::Column::Deleted.eq(0))
+                .all(db)
+                .await
+                .unwrap_or_default();
+
+            for q in &closed_quotations {
+                let _ = unfreeze_stock_for_quotation(db, q.id, created_by_i64).await;
+            }
+        }
+    }
 
     Ok(order_id)
 }

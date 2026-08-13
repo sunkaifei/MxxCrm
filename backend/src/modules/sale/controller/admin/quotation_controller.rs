@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -55,8 +54,7 @@ pub struct QuotationApprovalRequest {
 pub async fn quotation_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<QuotationSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let user_id_str = user_id.to_string();
     let result = quotation_service::insert(db, &form_data, user_id_str).await;
 
@@ -105,8 +103,7 @@ pub async fn quotation_update(state: web::Data<AppState>, req: HttpRequest, form
     if form_data.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "报价单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let user_id_str = user_id.to_string();
 
     let quotation_id = form_data.id.unwrap_or_default();
@@ -184,8 +181,7 @@ pub async fn quotation_info(state: web::Data<AppState>, item: web::Query<InfoId>
 pub async fn quotation_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<QuotationListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     match quotation_service::list(db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
@@ -207,9 +203,7 @@ pub async fn quotation_submit_approval(
     if id == 0 {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "报价单ID不能为空", "local"));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or_default();
-    let operator_name = jwt_token.username.unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
     match quotation_service::submit_approval(db, id, operator_id, &operator_name, form_data.remark.clone()).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
@@ -227,9 +221,7 @@ pub async fn quotation_approve(
     if id == 0 {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "报价单ID不能为空", "local"));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or_default();
-    let operator_name = jwt_token.username.unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
     match quotation_service::approve(db, id, operator_id, &operator_name, form_data.remark.clone()).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
@@ -247,9 +239,7 @@ pub async fn quotation_reject(
     if id == 0 {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "报价单ID不能为空", "local"));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or_default();
-    let operator_name = jwt_token.username.unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
     match quotation_service::reject(db, id, operator_id, &operator_name, form_data.remark.clone()).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
@@ -258,8 +248,7 @@ pub async fn quotation_reject(
 
 pub async fn quotation_convert_order(state: web::Data<AppState>, req: HttpRequest, path: web::Path<InfoId>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = quotation_service::convert_to_order(db, path.id.unwrap_or_default(), jwt_token.id.unwrap_or_default().to_string()).await;
+    let result = quotation_service::convert_to_order(db, path.id.unwrap_or_default(), get_current_user_id(&req).to_string()).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 

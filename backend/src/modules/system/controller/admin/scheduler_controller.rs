@@ -11,8 +11,7 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::service::scheduler_service;
 
@@ -81,9 +80,8 @@ pub async fn trigger(
     form_data: web::Json<scheduler_service::SchedulerTriggerDTO>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or(0);
-    let operator_name = jwt_token.username.as_deref().unwrap_or("管理员");
+    let (operator_id, username) = get_current_user(&req);
+    let operator_name: &str = if username.is_empty() { "管理员" } else { &username };
 
     match scheduler_service::trigger_job(db, form_data.0, operator_id, operator_name).await {
         Ok(msg) => HttpResponse::Ok().content_type(MPACK)

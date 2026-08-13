@@ -1,6 +1,32 @@
 {
   "sale": {
     "title": "销售",
+    "common": {
+      "button": {
+        "list": "列表",
+        "manage": "管理",
+        "create": "新增",
+        "save": "保存",
+        "edit": "编辑",
+        "update": "更新",
+        "delete": "删除",
+        "view": "查看",
+        "info": "详情",
+        "audit": "审核",
+        "approve": "审批",
+        "close": "关闭",
+        "export": "导出",
+        "import": "导入",
+        "print": "打印",
+        "toggle": "启用禁用",
+        "submit": "提交",
+        "assign": "分配",
+        "upload": "上传",
+        "download": "下载",
+        "refresh": "刷新",
+        "sync": "同步"
+      }
+    },
     "quotation": {
       "title": "报价单管理",
       "button": {
@@ -9,7 +35,8 @@
         "delete": "删除报价单",
         "send": "发送报价",
         "accept": "转为订单",
-        "reject": "拒绝报价"
+        "reject": "拒绝报价",
+        "pdf": "生成报价单PDF"
       }
     },
     "order": {
@@ -20,7 +47,8 @@
         "delete": "删除订单",
         "confirm": "确认订单",
         "ship": "发货",
-        "complete": "完成订单"
+        "complete": "完成订单",
+        "pdf": "生成订单PDF"
       }
     },
     "orderItem": {
@@ -31,7 +59,10 @@
       "button": {
         "create": "登记回款",
         "edit": "编辑回款",
-        "delete": "删除回款"
+        "delete": "删除回款",
+        "confirm": "确认回款",
+        "reject": "驳回",
+        "apply": "申请回款"
       }
     },
     "paymentPlan": {
@@ -80,7 +111,8 @@
         "view": "查看完整内容",
         "create": "新增交付记录",
         "edit": "修改交付",
-        "resend": "重发通知"
+        "resend": "重发通知",
+        "delete": "删除"
       }
     },
     "cardPool": {
@@ -97,7 +129,8 @@
       "button": {
         "create": "新建权益",
         "edit": "修改权益",
-        "renew": "续约"
+        "renew": "续约",
+        "delete": "删除"
       }
     },
     "invoice": {

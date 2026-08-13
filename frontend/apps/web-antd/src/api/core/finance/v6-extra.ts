@@ -43,6 +43,14 @@ export const withdrawPayslipApi = async (data: {
   reason: string;
 }) => requestClient.post('/api/system/finance/payslip/withdraw', data);
 
+// 工资条详情（含提成明细）
+export const getPayslipDetailApi = async (id: number) =>
+  requestClient.get('/api/system/finance/payslip/detail', { params: { id } });
+
+// 员工确认工资条
+export const confirmPayslipApi = async (id: number) =>
+  requestClient.post('/api/system/finance/payslip/confirm', { id });
+
 // ===== 银行代发 =====
 export const getBankExportListApi = async (params?: any) =>
   requestClient.get('/api/system/finance/bank-export/list', { params });

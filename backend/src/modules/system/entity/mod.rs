@@ -36,6 +36,7 @@ pub mod mail_config;
 pub mod mail_template;
 pub mod mail_log;
 pub mod scheduler_job;
+pub mod audit_event;
 pub mod scheduler_log;
 pub mod pdf_template;
 pub mod pdf_record;

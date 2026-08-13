@@ -57,4 +57,8 @@ pub struct CustomerFunnelStatsVO {
 pub struct CustomerStatsQuery {
     pub year: Option<i32>,
     pub month: Option<i32>,
+    /// 自定义起始日期（YYYY-MM-DD），优先级高于 year/month
+    pub start_date: Option<String>,
+    /// 自定义结束日期（YYYY-MM-DD）
+    pub end_date: Option<String>,
 }

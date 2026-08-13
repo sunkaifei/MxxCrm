@@ -1,6 +1,32 @@
 {
   "crm": {
     "title": "客户",
+    "common": {
+      "button": {
+        "list": "列表",
+        "manage": "管理",
+        "create": "新增",
+        "save": "保存",
+        "edit": "编辑",
+        "update": "更新",
+        "delete": "删除",
+        "view": "查看",
+        "info": "详情",
+        "audit": "审核",
+        "approve": "审批",
+        "close": "关闭",
+        "export": "导出",
+        "import": "导入",
+        "print": "打印",
+        "toggle": "启用禁用",
+        "submit": "提交",
+        "assign": "分配",
+        "upload": "上传",
+        "download": "下载",
+        "refresh": "刷新",
+        "sync": "同步"
+      }
+    },
     "lead": {
       "title": "线索管理",
       "button": {
@@ -9,7 +35,8 @@
         "delete": "删除线索",
         "convert": "转为客户",
         "assign": "分配线索",
-        "info": "查看详情"
+        "info": "查看详情",
+        "transfer": "转移"
       },
       "guide": {
         "title": "线索管理说明",
@@ -48,7 +75,8 @@
         "delete": "删除客户",
         "assign": "分配客户",
         "view": "查看客户",
-        "followup": "客户跟进"
+        "followup": "客户跟进",
+        "transfer": "转移"
       },
       "tab": {
         "all": "全部客户",
@@ -235,7 +263,10 @@
         "submit": "提交审批",
         "view": "查看合同",
         "viewApproval": "查看审批",
-        "createOrder": "创建订单"
+        "createOrder": "创建订单",
+        "sign": "签订合同",
+        "execute": "执行合同",
+        "pdf": "生成合同PDF"
       },
       "guide": {
         "title": "合同管理说明",

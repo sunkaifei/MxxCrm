@@ -125,6 +125,7 @@ const specList = ref<Array<{
   costPrice: number;
   originalPrice: number;
   skuCode: string;
+  barcode: string;
   weight: number;
   volume: number;
   isDefault: boolean;
@@ -137,6 +138,7 @@ const specList = ref<Array<{
   costPrice: 0,
   originalPrice: 0,
   skuCode: '',
+  barcode: '',
   weight: 0,
   volume: 0,
   isDefault: false,
@@ -248,6 +250,7 @@ function generateSpecCombinations(specs: Array<{ name: string; values: string[] 
       costPrice: 0,
       originalPrice: 0,
       skuCode: '',
+      barcode: '',
       weight: 0,
       volume: 0,
       isDefault: index === 0,
@@ -269,6 +272,7 @@ watch(specType, (val) => {
       costPrice: 0,
       originalPrice: 0,
       skuCode: '',
+      barcode: '',
       weight: 0,
       volume: 0,
       isDefault: false,
@@ -373,6 +377,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         costPrice: s.costPrice,
         originalPrice: s.originalPrice,
         skuCode: s.skuCode,
+        barcode: s.barcode,
         weight: s.weight,
         volume: s.volume,
         isDefault: s.isDefault,
@@ -462,6 +467,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
           costPrice: 0,
           originalPrice: 0,
           skuCode: '',
+          barcode: '',
           weight: 0,
           volume: 0,
           isDefault: false,
@@ -560,6 +566,7 @@ async function loadProductDetail(id: number) {
           costPrice: s.costPrice ?? 0,
           originalPrice: s.originalPrice ?? 0,
           skuCode: s.skuCode || '',
+          barcode: s.barcode || '',
           weight: s.weight ?? 0,
           volume: s.volume ?? 0,
           isDefault: s.isDefault ?? false,
@@ -575,6 +582,7 @@ async function loadProductDetail(id: number) {
         costPrice: productData.costPrice ?? 0,
         originalPrice: productData.marketPrice ?? 0,
         skuCode: '',
+        barcode: productData.barcode ?? '',
         weight: productData.weight ?? 0,
         volume: 0,
         isDefault: false,
@@ -888,6 +896,7 @@ function setLoading(loading: boolean) {
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130">成本价</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130">原价</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-150">商品编号</th>
+                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-150">条形码</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-140">重量 (KG)</th>
                   <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-140">体积(m³)</th>
                   <th v-if="specType === 'multiple'" class="px-4 py-3 text-left text-sm font-medium text-gray-600 whitespace-nowrap sticky-col-right-group sticky-col-default">默认选中规格</th>
@@ -923,6 +932,9 @@ function setLoading(loading: boolean) {
                   </td>
                   <td class="px-4 py-3">
                     <Input v-model:value="spec.skuCode" placeholder="商品编号" size="small" style="width: 100%" />
+                  </td>
+                  <td class="px-4 py-3">
+                    <Input v-model:value="spec.barcode" placeholder="条形码" size="small" style="width: 100%" />
                   </td>
                   <td class="px-4 py-3">
                     <InputNumber v-model:value="spec.weight" :min="0" :precision="3" size="small" style="width: 100%" />

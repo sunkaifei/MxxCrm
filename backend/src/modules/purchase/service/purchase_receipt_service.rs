@@ -195,8 +195,8 @@ pub async fn to_inbound(db: &DbConn, receipt_id: i64, warehouse_id: i64, operato
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 
-    // 自动审核入库单以增加库存
-    crate::modules::inventory::service::inbound_service::audit(db, inbound_id, operator)
+    // 自动审核入库单以增加库存（系统自动完成，不走审批引擎）
+    crate::modules::inventory::service::inbound_service::do_complete_audit(db, inbound_id, operator)
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 

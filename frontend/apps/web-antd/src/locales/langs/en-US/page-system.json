@@ -14,6 +14,51 @@
   },
   "system": {
     "title": "System Management",
+    "audit": {
+      "title": "Audit Log",
+      "time": "Time",
+      "user": "Operator",
+      "module": "Module",
+      "action": "Action",
+      "target": "Target",
+      "summary": "Summary",
+      "ip": "IP Address",
+      "before": "Before",
+      "after": "After",
+      "keyword": "Keyword",
+      "timeRange": "Time Range",
+      "allModules": "All Modules",
+      "allActions": "All Actions"
+    },
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "assignRole": "Assign Role",
+        "assignMenu": "Assign Menu",
+        "assignDept": "Assign Department",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "user": {
       "module": "User",
       "title": "Employee Management",
@@ -47,6 +92,15 @@
       "lastLoginIp": "Last Login IP",
       "lastLoginTime": "Last Login Time",
       "role": "Role",
+      "hireDate": "Hire Date",
+      "probationMonths": "Probation (months)",
+      "probationMonthsTip": "0 means no probation; regularization date = hire date + probation months (pro-rated by day)",
+      "probationRatio": "Probation Salary Ratio",
+      "probationRatioTip": "e.g. 0.6 means 60% of regular salary during probation, applied to base salary only",
+      "salaryEnabled": "Payroll Enabled",
+      "salaryEnabledTip": "Turn off to exclude this employee from monthly payroll",
+      "salaryYes": "Yes",
+      "salaryNo": "No",
       "button": {
         "create": "Create",
         "delete": "Delete",
@@ -56,7 +110,14 @@
         "audit": "Audit",
         "auditPass": "Approve",
         "auditReject": "Reject",
-        "kickOffline": "Kick Offline"
+        "kickOffline": "Kick Offline",
+        "editAction": "Edit",
+        "deleteAction": "Delete",
+        "submitAudit": "Submit Audit",
+        "more": "More",
+        "enable": "Enable",
+        "disable": "Disable",
+        "edit": "Edit User"
       },
       "auditStatus": {
         "pending": "Pending",
@@ -207,7 +268,9 @@
         "create": "Add Notice",
         "edit": "Edit Notice",
         "delete": "Delete Notice",
-        "view": "View Notice"
+        "view": "View Notice",
+        "publish": "Publish",
+        "revoke": "Revoke"
       }
     },
     "log": {
@@ -297,7 +360,8 @@
         "create": "New Template",
         "edit": "Edit Template",
         "delete": "Delete Template",
-        "setDefault": "Set Default"
+        "setDefault": "Set Default",
+        "view": "View PDF Template"
       }
     },
     "pdfRecord": {
@@ -336,7 +400,8 @@
       "button": {
         "create": "Create Approval Flow",
         "edit": "Edit Approval Flow",
-        "toggle": "Enable/Disable"
+        "toggle": "Enable/Disable",
+        "delete": "Delete"
       }
     },
     "editLog": "Edit Log",
@@ -344,10 +409,27 @@
       "title": "Scheduled Tasks",
       "button": {
         "manage": "Manage"
+      },
+      "status": {
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "success": "Success",
+        "failed": "Failed",
+        "running": "Running",
+        "interrupted": "Interrupted",
+        "notRun": "Not Run"
+      },
+      "triggerType": {
+        "scheduled": "Scheduled",
+        "manual": "Manual",
+        "rerun": "Re-run"
       }
     },
     "integration": {
-      "title": "Third-Party Integration"
+      "title": "Third-Party Integration",
+      "button": {
+        "save": "Save"
+      }
     },
     "setting": {
       "title": "System Settings",
@@ -378,6 +460,9 @@
         "8h": "8 hours (Recommended)",
         "12h": "12 hours",
         "24h": "24 hours"
+      },
+      "button": {
+        "update": "Update"
       }
     }
   }

@@ -36,6 +36,9 @@ pub struct Model {
     /// 基本工资
     pub base_salary: Decimal,
 
+    /// 岗位津贴
+    pub position_allowance: Decimal,
+
     /// 提成金额
     pub commission_amount: Decimal,
 

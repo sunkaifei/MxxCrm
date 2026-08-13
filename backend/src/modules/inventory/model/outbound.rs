@@ -75,6 +75,8 @@ pub struct OutboundListItem {
     pub remark: Option<String>,
     pub created_by: Option<i64>,
     pub created_by_name: Option<String>,
+    pub submitted_by: Option<i64>,
+    pub submitted_by_name: Option<String>,
     pub create_time: Option<chrono::NaiveDateTime>,
     pub update_time: Option<chrono::NaiveDateTime>,
 }
@@ -94,6 +96,8 @@ impl From<outbound::Model> for OutboundListItem {
             remark: m.remark,
             created_by: m.created_by,
             created_by_name: None,
+            submitted_by: m.submitted_by,
+            submitted_by_name: None,
             create_time: m.create_time,
             update_time: m.update_time,
         }

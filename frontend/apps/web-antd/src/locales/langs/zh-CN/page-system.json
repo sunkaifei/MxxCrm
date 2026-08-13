@@ -14,6 +14,22 @@
   },
   "system": {
     "title": "系统",
+    "audit": {
+      "title": "审计日志",
+      "time": "时间",
+      "user": "操作人",
+      "module": "模块",
+      "action": "动作",
+      "target": "目标",
+      "summary": "摘要",
+      "ip": "IP 地址",
+      "before": "变更前",
+      "after": "变更后",
+      "keyword": "关键字",
+      "timeRange": "时间范围",
+      "allModules": "全部模块",
+      "allActions": "全部动作"
+    },
     "user": {
       "module": "用户",
       "title": "员工管理",
@@ -50,6 +66,15 @@
       "directManager": "直属上级",
       "directManagerTip": "用于审批流向上查找领导，未配置则视为顶层决策人（审批自动通过）",
       "directManagerPlaceholder": "请选择直属上级（可选）",
+      "hireDate": "入职时间",
+      "probationMonths": "试用期（月）",
+      "probationMonthsTip": "0 表示无试用期，转正日为入职日 + 试用期月数（不满月按天折算）",
+      "probationRatio": "试用期工资比例",
+      "probationRatioTip": "如 0.6 表示试用期工资为正式工资的 60%，仅作用于底薪",
+      "salaryEnabled": "参与工资核算",
+      "salaryEnabledTip": "关闭后该员工不参与月度工资核算",
+      "salaryYes": "参与",
+      "salaryNo": "不参与",
       "button": {
         "create": "创建账号",
         "delete": "删除账号",
@@ -59,7 +84,13 @@
         "audit": "审核",
         "auditPass": "通过",
         "auditReject": "拒绝",
-        "kickOffline": "踢下线"
+        "kickOffline": "踢下线",
+        "editAction": "编辑",
+        "deleteAction": "删除",
+        "submitAudit": "提交审核",
+        "more": "更多",
+        "enable": "启用",
+        "disable": "停用"
       },
       "auditStatus": {
         "pending": "待审核",
@@ -208,7 +239,9 @@
         "create": "新增公告",
         "edit": "编辑公告",
         "delete": "删除公告",
-        "view": "查看公告"
+        "view": "查看公告",
+        "publish": "发布",
+        "revoke": "撤回"
       }
     },
     "log": {
@@ -298,7 +331,8 @@
         "create": "新增模板",
         "edit": "编辑模板",
         "delete": "删除模板",
-        "setDefault": "设为默认"
+        "setDefault": "设为默认",
+        "view": "查看PDF模板"
       }
     },
     "pdfRecord": {
@@ -337,7 +371,8 @@
       "button": {
         "create": "新增审批流",
         "edit": "编辑审批流",
-        "toggle": "启用/禁用"
+        "toggle": "启用/禁用",
+        "delete": "删除"
       }
     },
     "editLog": "修改日志",
@@ -379,7 +414,34 @@
       "saveFailed": "保存失败",
       "deleteConfirm": "确认删除该记录吗？",
       "deleteSuccess": "删除成功",
-      "noData": "暂无数据"
+      "noData": "暂无数据",
+      "button": {
+        "list": "列表",
+        "manage": "管理",
+        "create": "新增",
+        "save": "保存",
+        "edit": "编辑",
+        "update": "更新",
+        "delete": "删除",
+        "view": "查看",
+        "info": "详情",
+        "audit": "审核",
+        "approve": "审批",
+        "close": "关闭",
+        "export": "导出",
+        "import": "导入",
+        "print": "打印",
+        "toggle": "启用禁用",
+        "submit": "提交",
+        "assign": "分配",
+        "assignRole": "分配角色",
+        "assignMenu": "分配菜单",
+        "assignDept": "分配部门",
+        "upload": "上传",
+        "download": "下载",
+        "refresh": "刷新",
+        "sync": "同步"
+      }
     },
     "scheduler": {
       "title": "定时任务",
@@ -391,6 +453,34 @@
       "descriptionPlaceholder": "任务描述（可选）",
       "cronPlaceholder": "秒 分 时 日 月 周，如 0 0 2 1 * *",
       "cronFormatTip": "格式：秒 分 时 日 月 周（6字段），例如 0 0 2 1 * * = 每月1号02:00",
+      "cronBuilder": {
+        "title": "执行频率",
+        "manual": "手动输入表达式（高级）",
+        "preview": "生成的表达式",
+        "type": {
+          "everyMinute": "每隔几分钟",
+          "everyHour": "每隔几小时",
+          "everyDay": "每天",
+          "everyWeek": "每周",
+          "everyMonth": "每月"
+        },
+        "every": "每",
+        "minutes": "分钟",
+        "hours": "小时",
+        "day": "日",
+        "hour": "时",
+        "minute": "分",
+        "week": "星期",
+        "weeks": {
+          "0": "周日",
+          "1": "周一",
+          "2": "周二",
+          "3": "周三",
+          "4": "周四",
+          "5": "周五",
+          "6": "周六"
+        }
+      },
       "logEmpty": "暂无执行日志",
       "button": {
         "manage": "管理",
@@ -421,11 +511,14 @@
         "disabled": "已禁用",
         "success": "成功",
         "failed": "失败",
+        "running": "运行中",
+        "interrupted": "中断",
         "notRun": "未执行"
       },
       "triggerType": {
         "scheduled": "定时",
-        "manual": "手动"
+        "manual": "手动",
+        "rerun": "补跑"
       },
       "message": {
         "loadFailed": "加载失败",
@@ -440,7 +533,10 @@
       }
     },
     "integration": {
-      "title": "第三方接口配置"
+      "title": "第三方接口配置",
+      "button": {
+        "save": "保存"
+      }
     },
     "setting": {
       "title": "系统设置",
@@ -471,6 +567,9 @@
         "8h": "8小时（推荐）",
         "12h": "12小时",
         "24h": "24小时"
+      },
+      "button": {
+        "update": "更新"
       }
     }
   }

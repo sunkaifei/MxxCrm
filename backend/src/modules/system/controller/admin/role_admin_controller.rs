@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
@@ -42,8 +41,7 @@ pub async fn role_insert(state: web::Data<AppState>, req: HttpRequest, form_data
     }
 
     // 获取用户信息
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = match admin_service::get_by_detail(&db, &jwt_token.id).await {
+    let admin = match admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await {
         Ok(admin) => admin,
         Err(_) => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取当前管理员信息错误", "local"))),
     };
@@ -101,8 +99,7 @@ pub async fn update_role(state: web::Data<AppState>, req: HttpRequest, id: web::
     let role_id = id.into_inner();
 
     // 获取用户信息
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = match admin_service::get_by_detail(&db, &jwt_token.id).await {
+    let admin = match admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await {
         Ok(admin) => admin,
         Err(_) => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取当前管理员信息错误", "local"))),
     };
@@ -163,9 +160,6 @@ pub async fn update_role_menus(state: web::Data<AppState>, req: HttpRequest, ite
     let db = &state.db;
     let sys_role = item.0;
 
-    // 获取用户信息
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
     // 检查角色ID是否为空
     let role_id = match sys_role.role_id {
         Some(id) => id,
@@ -184,7 +178,7 @@ pub async fn update_role_menus(state: web::Data<AppState>, req: HttpRequest, ite
     };
 
     // 获取用户可授权的菜单ID
-    let user_menu_ids = menu_service::get_menu_vec_ids(&db, &jwt_token.id).await?;
+    let user_menu_ids = menu_service::get_menu_vec_ids(&db, &Some(get_current_user_id(&req))).await?;
 
     // 检查用户是否有权限授权这些菜单
     if !contains_all_elements(&user_menu_ids, &menu_ids) {
@@ -196,6 +190,21 @@ pub async fn update_role_menus(state: web::Data<AppState>, req: HttpRequest, ite
     // v2.0: 角色菜单权限变更后，清除该角色所有用户的权限缓存
     if result.is_ok() {
         permission_cache_service::invalidate_by_role_id(db, role_id).await;
+        // 审计埋点：保存角色授权（D01-8，权限集合摘要）
+        crate::modules::system::service::audit_service::record(
+            db,
+            &req,
+            "auth",
+            "grant",
+            "role",
+            role_id,
+            format!("更新角色 #{} 菜单权限（{} 项）", role_id, menu_ids.len()),
+            None,
+            crate::modules::system::service::audit_service::snap(vec![
+                ("menu_ids", serde_json::json!(menu_ids)),
+                ("menu_count", serde_json::json!(menu_ids.len())),
+            ]),
+        ).await;
     }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
@@ -230,8 +239,6 @@ pub async fn get_role_menu_list_by_role_id(state: web::Data<AppState>, role_id: 
 pub async fn update_role_depts(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateRoleDeptRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let sys_role = item.0;
-
-    let _jwt_token: JWTToken = get_user(&req).unwrap_or_default();
 
     let role_id = match sys_role.role_id {
         Some(id) => id,

@@ -2,8 +2,7 @@ use crate::core::errors::error::Result;
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::ai::service::background_check_service;
 use crate::modules::system::service::admin_service;
@@ -18,15 +17,14 @@ pub struct BackgroundCheckRequest {
 
 pub async fn perform_background_check(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BackgroundCheckRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
 
     match background_check_service::perform_background_check(
         &db,
         &item.company_name,
         item.lead_id,
         item.company_id,
-        jwt_token.id.unwrap_or_default(),
+        get_current_user_id(&req),
         &admin.user_name.clone().unwrap_or_default(),
     ).await {
         Ok(result) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local"))),

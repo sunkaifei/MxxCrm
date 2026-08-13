@@ -234,6 +234,19 @@ impl DeliveryModel {
         Ok(result.rows_affected as i64)
     }
 
+    /// 批量软删除
+    pub async fn batch_delete<C: ConnectionTrait>(db: &C, ids: &[i64]) -> Result<i64, DbErr> {
+        if ids.is_empty() {
+            return Ok(0);
+        }
+        let result = DeliveryEntity::update_many()
+            .col_expr(order_delivery::Column::Deleted, sea_orm::sea_query::Expr::value(1))
+            .filter(order_delivery::Column::Id.is_in(ids.to_vec()))
+            .exec(db)
+            .await?;
+        Ok(result.rows_affected as i64)
+    }
+
     pub async fn get_max_delivery_no_today<C: ConnectionTrait>(
         db: &C, prefix: &str
     ) -> Result<Option<i64>, DbErr> {

@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::sale::service::exchange_service::{self, ExchangeItemInput, ExchangeListQuery};
@@ -32,8 +31,7 @@ pub struct ExchangeIdRequest {
 pub async fn create(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ExchangeCreateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = exchange_service::create_exchange(db, form_data.refund_id, form_data.order_id, form_data.items, jwt_token.id.unwrap_or_default()).await;
+    let result = exchange_service::create_exchange(db, form_data.refund_id, form_data.order_id, form_data.items, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -43,8 +41,8 @@ pub async fn submit(state: web::Data<AppState>, req: HttpRequest, form_data: web
     if form_data.id == 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match exchange_service::submit_exchange(db, form_data.id, jwt_token.id.unwrap_or_default(), &jwt_token.username.clone().unwrap_or_default()).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match exchange_service::submit_exchange(db, form_data.id, operator_id, &operator_name).await {
         Ok(id) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(id, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }

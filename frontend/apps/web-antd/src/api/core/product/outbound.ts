@@ -15,7 +15,8 @@ export const createOutboundApi = async (data: any) => {
 };
 
 export const updateOutboundApi = async (data: any) => {
-  return requestClient.put('/api/system/outbound/update', data);
+  const { id, ...rest } = data;
+  return requestClient.put('/api/system/outbound/update', rest, { params: { id } });
 };
 
 export const deleteOutboundApi = async (ids: number[]) => {
@@ -24,10 +25,18 @@ export const deleteOutboundApi = async (ids: number[]) => {
   });
 };
 
-export const auditOutboundApi = async (id: number) => {
-  return requestClient.post('/api/system/outbound/audit', { id });
+export const submitOutboundApi = async (id: number, ccUserIds: number[] = [], ccReason?: string) => {
+  return requestClient.put(`/api/system/outbound/submit/${id}`, { ccUserIds, ccReason });
 };
 
-export const rejectOutboundApi = async (id: number) => {
-  return requestClient.post('/api/system/outbound/reject', { id });
+export const auditOutboundApi = async (id: number, comment?: string) => {
+  return requestClient.post('/api/system/outbound/audit', { id, comment });
+};
+
+export const rejectOutboundApi = async (id: number, comment?: string) => {
+  return requestClient.post('/api/system/outbound/reject', { id, comment });
+};
+
+export const withdrawOutboundApi = async (id: number) => {
+  return requestClient.post('/api/system/outbound/withdraw', { id });
 };

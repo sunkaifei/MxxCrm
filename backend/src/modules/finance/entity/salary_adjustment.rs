@@ -10,6 +10,7 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use chrono::NaiveDate;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_finance_salary_adjustment")]
@@ -19,7 +20,7 @@ pub struct Model {
     pub id: i64,
     pub employee_id: i64,
     /// 调薪日期
-    pub adjustment_date: Option<DateTime>,
+    pub adjustment_date: Option<NaiveDate>,
     /// 调薪类型
     pub adjustment_type: Option<i32>,
     /// 调整前基本工资

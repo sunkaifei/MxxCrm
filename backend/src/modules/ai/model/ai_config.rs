@@ -136,13 +136,6 @@ impl AiConfigModel {
         }
     }
 
-    pub async fn find_by_key(db: &sea_orm::DbConn, key: &str) -> Result<Option<ai_config::Model>, DbErr> {
-        AiConfig::find()
-            .filter(ai_config::Column::ConfigKey.eq(key))
-            .one(db)
-            .await
-    }
-
     pub async fn find_by_key_unique(db: &sea_orm::DbConn, key: &Option<String>, id: &Option<i64>) -> Result<bool, DbErr> {
         if let Some(key_val) = key {
             let mut query = AiConfig::find().filter(ai_config::Column::ConfigKey.eq(key_val));

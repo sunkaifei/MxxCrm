@@ -144,6 +144,49 @@ async fn init_registry(registry: &SchedulerRegistry) {
         )
         .await;
 
+    // 统计日汇总（每日 02:00 刷新近 4 天，幂等覆盖，容忍补算）
+    registry
+        .register(
+            "stats_daily_agg",
+            Arc::new(|db: DatabaseConnection, params: Option<Json>| {
+                Box::pin(async move {
+                    use crate::modules::statistics::service::stats_agg_service;
+                    let today = chrono::Local::now().date_naive();
+                    let (start, end) = match params {
+                        Some(p) => {
+                            let s = p.get("start").and_then(|v| v.as_str()).and_then(|v| chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").ok());
+                            let e = p.get("end").and_then(|v| v.as_str()).and_then(|v| chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").ok());
+                            (s.unwrap_or(today - chrono::Duration::days(4)), e.unwrap_or(today - chrono::Duration::days(1)))
+                        }
+                        None => (today - chrono::Duration::days(4), today - chrono::Duration::days(1)),
+                    };
+                    let n = stats_agg_service::refresh_all(&db, start, end).await.map_err(|e| e.to_string())?;
+                    // 重算成功后清除统计缓存
+                    crate::modules::statistics::service::stats_cache::invalidate_all_stats_cache().await;
+                    Ok(format!("统计日汇总完成：{} ~ {}，写入 {} 行", start.format("%Y-%m-%d"), end.format("%Y-%m-%d"), n))
+                })
+            }),
+        )
+        .await;
+
+    // 统计月度全量重算（每月 1 日 03:30 全量重算近 12 个月，安全网兜底）
+    registry
+        .register(
+            "stats_monthly_full",
+            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
+                Box::pin(async move {
+                    use crate::modules::statistics::service::stats_agg_service;
+                    let today = chrono::Local::now().date_naive();
+                    let start = today - chrono::Duration::days(365);
+                    let end = today - chrono::Duration::days(1);
+                    let n = stats_agg_service::refresh_all(&db, start, end).await.map_err(|e| e.to_string())?;
+                    crate::modules::statistics::service::stats_cache::invalidate_all_stats_cache().await;
+                    Ok(format!("统计月度全量重算完成：{} ~ {}，写入 {} 行", start.format("%Y-%m-%d"), end.format("%Y-%m-%d"), n))
+                })
+            }),
+        )
+        .await;
+
     // 注册低库存采购建议扫描处理器
     registry
         .register(
@@ -188,6 +231,9 @@ pub async fn start_scheduler(db: DatabaseConnection) -> Result<JobScheduler, Job
     // 初始化注册器
     let registry = SCHEDULER_REGISTRY.get_or_init(|| async { SchedulerRegistry::new() }).await;
     init_registry(registry).await;
+
+    // D-4: 冷启动时执行完整扫描（中断标记 + 漏跑补偿）
+    scan_and_recover(&db, true).await;
 
     let sched = JobScheduler::new().await?;
 
@@ -261,6 +307,18 @@ async fn add_job_to_scheduler(
                 }
             };
 
+            // D-4: 两阶段日志——进入闭包先记录"运行中"(status=2)
+            // 任务执行中进程退出/调度器重载时该记录保持 status=2，
+            // 由下次启动时的 mark_interrupted_runs 标记为中断(status=3)
+            let log_id = match scheduler_service::start_run_log(&db, job_id, &job_code, 0, 0, "系统定时任务").await
+            {
+                Ok(id) => Some(id),
+                Err(e) => {
+                    log::warn!("[定时任务] {} 记录运行日志失败: {}", job_code, e);
+                    None
+                }
+            };
+
             // P2-6: 带指数退避重试的执行
             // 策略：首次失败后按 base * 2^attempt 秒间隔重试，最多 max_retries 次
             // 全部失败后记录最终错误并发送告警
@@ -295,7 +353,7 @@ async fn add_job_to_scheduler(
                                 delay_secs,
                                 e
                             );
-                            // P2-6: 中间失败仅记日志，不调用 record_scheduled_execution
+                            // P2-6: 中间失败仅记日志，不写运行日志
                             // 避免覆盖 last_run_status，最终状态由循环外统一记录
                             tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
                             attempt += 1;
@@ -313,24 +371,30 @@ async fn add_job_to_scheduler(
                 (0i32, None, last_error.clone())
             };
 
-            // P2-6: 先更新 last_retry_count（在 record_scheduled_execution 之前，避免 update_time 覆盖）
+            // P2-6: 先更新 last_retry_count（在 finish_run_log 之前，避免 update_time 覆盖）
             if let Err(e) = scheduler_service::update_job_retry_count(&db, job_id, attempt).await {
                 log::warn!("[定时任务] {} 更新重试次数失败：{}", job_code, e);
             }
 
-            // 记录最终执行日志
-            if let Err(e) = scheduler_service::record_scheduled_execution(
-                &db,
-                job_id,
-                &job_code,
-                status,
-                result_msg.as_deref(),
-                error_msg.as_deref(),
-                elapsed,
-            )
-            .await
-            {
-                log::error!("[定时任务] 记录日志失败: {}", e);
+            // D-4: 回填运行日志（status: 0=失败 1=成功），并刷新任务 last_run_*/next_run_time
+            if let Some(log_id) = log_id {
+                if let Err(e) = scheduler_service::finish_run_log(
+                    &db,
+                    log_id,
+                    job_id,
+                    &job_code,
+                    status,
+                    result_msg.as_deref(),
+                    error_msg.as_deref(),
+                    elapsed,
+                )
+                .await
+                {
+                    log::error!("[定时任务] 记录日志失败: {}", e);
+                }
+            } else {
+                // start_run_log 失败时兜底：仅刷新任务执行信息，不产生运行日志
+                log::warn!("[定时任务] {} 无运行日志句柄，跳过日志回填", job_code);
             }
 
             if status == 1 {
@@ -459,6 +523,9 @@ async fn start_scheduler_inner(db: DatabaseConnection) -> Result<JobScheduler, J
         .await;
     init_registry(registry).await;
 
+    // D-4: 热重载仅标记中断，不执行漏跑补偿（避免编辑任务触发非预期补跑）
+    scan_and_recover(&db, false).await;
+
     let sched = JobScheduler::new().await?;
 
     let jobs = scheduler_job::Entity::find()
@@ -485,4 +552,138 @@ async fn start_scheduler_inner(db: DatabaseConnection) -> Result<JobScheduler, J
     log::info!("[调度器] 调度器已启动，成功加载 {} 个任务", loaded);
 
     Ok(sched)
+}
+
+/// D-4: 启动/重载时扫描并恢复
+/// 1) 将遗留的"运行中"(status=2)日志标记为"中断"(status=3) —— 覆盖"任务中关闭"场景
+/// 2) 检测漏跑任务（仅冷启动 check_missed=true 时执行）—— 覆盖"任务前关闭（到点未触发）"场景：
+///    对幂等安全的任务自动补跑（trigger_type=2）；salary_calculate 仅告警不自动补跑
+/// 注：热重载（reload_scheduler）不执行漏跑补偿，避免用户编辑任务时触发非预期的补跑
+async fn scan_and_recover(db: &DatabaseConnection, check_missed: bool) {
+    // 1) 标记中断：早于当前时间的 status=2 日志均视为进程退出/重载导致的中断
+    let cutoff = chrono::Utc::now().naive_utc();
+    match scheduler_service::mark_interrupted_runs(db, cutoff).await {
+        Ok(interrupted) => {
+            let total: i64 = interrupted.iter().map(|(_, c)| c).sum();
+            if total > 0 {
+                log::warn!(
+                    "[调度器] 启动扫描：{} 个任务的 {} 条执行记录被标记为中断",
+                    interrupted.len(),
+                    total
+                );
+                let detail: Vec<String> = interrupted
+                    .iter()
+                    .map(|(code, c)| format!("{} x{}", code, c))
+                    .collect();
+                send_job_failure_alert(
+                    db,
+                    "scheduler_scan",
+                    &format!(
+                        "调度器检测到进程退出/重载导致 {} 条任务执行中断（已标记为中断状态）：{}",
+                        total,
+                        detail.join("、")
+                    ),
+                )
+                .await;
+            }
+        }
+        Err(e) => log::error!("[调度器] 启动扫描中断任务失败: {}", e),
+    }
+
+    // 2) 漏跑检测与补偿（仅冷启动执行）
+    if !check_missed {
+        return;
+    }
+
+    let missed = match scheduler_service::detect_missed_runs(db).await {
+        Ok(m) => m,
+        Err(e) => {
+            log::error!("[调度器] 漏跑检测失败: {}", e);
+            return;
+        }
+    };
+
+    for job in &missed {
+        let job_code = job.job_code.clone();
+        if is_auto_rerun_safe(&job_code) {
+            log::warn!("[调度器] {} 检测到漏跑，开始自动补跑", job_code);
+            rerun_job(db, job).await;
+        } else {
+            log::warn!("[调度器] {} 检测到漏跑（不自动补跑，仅告警）", job_code);
+            send_job_failure_alert(
+                db,
+                &job_code,
+                &format!(
+                    "定时任务 [{}] 在进程离线/关闭期间错过了一次执行，请检查是否需要手动执行",
+                    job_code
+                ),
+            )
+            .await;
+        }
+    }
+}
+
+/// D-4: 漏跑可自动补跑的安全任务集合（幂等安全：重复执行不产生脏数据）
+/// salary_calculate 涉及"先删后建"重算且为财务敏感操作，不自动补跑，仅告警
+fn is_auto_rerun_safe(job_code: &str) -> bool {
+    matches!(
+        job_code,
+        "article_publish" | "static_generate" | "content_collect" | "stock_snapshot_generate" | "low_stock_suggestion"
+    )
+}
+
+/// D-4: 补跑单个漏跑任务（trigger_type=2），内部走两阶段日志
+async fn rerun_job(db: &DatabaseConnection, job: &scheduler_job::Model) {
+    let job_id = job.id;
+    let job_code = job.job_code.clone();
+    let start = std::time::Instant::now();
+
+    let log_id = match scheduler_service::start_run_log(db, job_id, &job_code, 2, 0, "漏跑补偿").await {
+        Ok(id) => Some(id),
+        Err(e) => {
+            log::error!("[调度器] {} 补跑记录运行日志失败: {}", job_code, e);
+            None
+        }
+    };
+
+    match execute_handler_by_code(&job.handler, &job.handler_params, db).await {
+        Ok(msg) => {
+            if let Some(log_id) = log_id {
+                let _ = scheduler_service::finish_run_log(
+                    db,
+                    log_id,
+                    job_id,
+                    &job_code,
+                    1,
+                    Some(&msg),
+                    None,
+                    start.elapsed().as_millis() as i64,
+                )
+                .await;
+            }
+            log::info!("[调度器] {} 补跑成功：{}", job_code, msg);
+        }
+        Err(e) => {
+            if let Some(log_id) = log_id {
+                let _ = scheduler_service::finish_run_log(
+                    db,
+                    log_id,
+                    job_id,
+                    &job_code,
+                    0,
+                    None,
+                    Some(&e),
+                    start.elapsed().as_millis() as i64,
+                )
+                .await;
+            }
+            log::error!("[调度器] {} 补跑失败：{}", job_code, e);
+            send_job_failure_alert(
+                db,
+                &job_code,
+                &format!("定时任务 [{}] 漏跑自动补跑失败：{}", job_code, e),
+            )
+            .await;
+        }
+    }
 }

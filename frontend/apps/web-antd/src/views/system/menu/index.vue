@@ -17,6 +17,15 @@ import { useAccessStore } from '@vben/stores';
 
 const accessStore = useAccessStore();
 
+// 菜单名翻译（目录级对象兜底到 .title）
+function translateMenuName(key?: string | null): string {
+  if (!key) return '';
+  const direct = $t(key);
+  if (direct !== key && !direct.startsWith('[object ')) return direct;
+  const withTitle = $t(`${key}.title`);
+  return withTitle !== `${key}.title` ? withTitle : key;
+}
+
 const formOptions: VbenFormProps = {
   collapsed: false,
   showCollapseButton: false,
@@ -300,7 +309,7 @@ async function handleDelete(row: any) {
       </template>
 
       <template #title="{ row }">
-        <span class="mr-4">{{ $t(row.meta.name) }}</span>
+        <span class="mr-4">{{ translateMenuName(row.meta?.name) }}</span>
       </template>
 
       <template #type="{ row }">

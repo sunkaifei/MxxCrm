@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -51,15 +50,13 @@ pub async fn mail_config_info(state: web::Data<AppState>, item: web::Query<InfoI
 
 pub async fn mail_config_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<MailConfigSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = mail_config_service::insert(&db, form_data.into_inner(), jwt_token.id).await;
+    let result = mail_config_service::insert(&db, form_data.into_inner(), Some(get_current_user_id(&req))).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn mail_config_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<MailConfigUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = mail_config_service::update(&db, form_data.into_inner(), jwt_token.id).await;
+    let result = mail_config_service::update(&db, form_data.into_inner(), Some(get_current_user_id(&req))).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -85,8 +82,7 @@ pub async fn mail_config_set_default(state: web::Data<AppState>, req: HttpReques
     if item.id.is_none() {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "邮箱配置ID不能为空", "local"));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = mail_config_service::set_default(&db, item.id.unwrap(), jwt_token.id).await;
+    let result = mail_config_service::set_default(&db, item.id.unwrap(), Some(get_current_user_id(&req))).await;
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -127,15 +123,13 @@ pub async fn mail_template_options(state: web::Data<AppState>) -> HttpResponse {
 
 pub async fn mail_template_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<MailTemplateSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = mail_template_service::insert(&db, form_data.into_inner(), jwt_token.id).await;
+    let result = mail_template_service::insert(&db, form_data.into_inner(), Some(get_current_user_id(&req))).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn mail_template_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<MailTemplateUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = mail_template_service::update(&db, form_data.into_inner(), jwt_token.id).await;
+    let result = mail_template_service::update(&db, form_data.into_inner(), Some(get_current_user_id(&req))).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -159,8 +153,8 @@ pub async fn mail_template_bath_delete(state: web::Data<AppState>, item: web::Js
 
 pub async fn send_mail(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<SendMailRequest>) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match mail_service::send_mail(&db, form_data.into_inner(), jwt_token.id, jwt_token.username).await {
+    let (user_id, username) = get_current_user(&req);
+    match mail_service::send_mail(&db, form_data.into_inner(), Some(user_id), Some(username)).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }

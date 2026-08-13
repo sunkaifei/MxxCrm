@@ -1,7 +1,6 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::purchase::model::purchase_receipt::{ReceiptListQuery, ReceiptSaveRequest};
 use crate::modules::purchase::service::purchase_receipt_service;
@@ -10,10 +9,9 @@ use crate::core::web::permission_guard::require_permission;
 
 pub async fn receipt_save(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ReceiptSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
 
-    let result = purchase_receipt_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = purchase_receipt_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -47,7 +45,6 @@ pub async fn receipt_list(state: web::Data<AppState>, query: web::Query<ReceiptL
 
 pub async fn receipt_to_inbound(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
     let id = body.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
     let warehouse_id = body.get("warehouse_id").and_then(|v| v.as_i64()).unwrap_or(0);
@@ -56,7 +53,7 @@ pub async fn receipt_to_inbound(state: web::Data<AppState>, req: HttpRequest, bo
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "参数无效", "local")));
     }
 
-    let result = purchase_receipt_service::to_inbound(&db, id, warehouse_id, jwt_token.id.unwrap_or_default()).await;
+    let result = purchase_receipt_service::to_inbound(&db, id, warehouse_id, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 

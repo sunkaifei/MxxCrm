@@ -154,6 +154,10 @@ pub struct ApprovalSubmitRequest {
     pub submitter_id: i64,
     pub submitter_name: Option<String>,
     pub extra_data: Option<serde_json::Value>,
+    /// 提交时指定抄送人（可选，为空则不抄送）
+    pub cc_user_ids: Option<Vec<i64>>,
+    /// 抄送说明（可选）
+    pub cc_reason: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

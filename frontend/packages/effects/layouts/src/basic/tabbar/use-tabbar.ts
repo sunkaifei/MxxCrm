@@ -45,6 +45,20 @@ export function useTabbar() {
   } = useTabs();
 
   /**
+   * 菜单名 i18n 翻译（带 .title fallback）。
+   * 目录级 key（如 page.statistics.employee）在 locale 中是
+   * { title, button } 对象，直接 $t 不命中；这里兜底 `${key}.title`。
+   */
+  function translateTabTitle(key?: string | null): string {
+    if (!key) return '';
+    const direct = $t(key);
+    if (direct !== key && !direct.startsWith('[object ')) return direct;
+    const withTitle = $t(`${key}.title`);
+    if (withTitle !== `${key}.title`) return withTitle;
+    return key;
+  }
+
+  /**
    * 当前路径对应的tab的key
    */
   const currentActive = computed(() => {
@@ -90,7 +104,7 @@ export function useTabbar() {
       ...tab,
       meta: {
         ...tab?.meta,
-        title: $t(tab?.meta?.title as string),
+        title: translateTabTitle(tab?.meta?.title as string),
       },
     };
   }

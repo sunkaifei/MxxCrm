@@ -11,8 +11,7 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
 
 use crate::modules::crm::model::work_log::WorkLogCreateDTO;
@@ -21,8 +20,7 @@ use crate::modules::crm::service::work_log_service;
 /// GET /work-log/today - 今日工作日志（按 create_time 降序）
 pub async fn work_log_today(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     if user_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
@@ -38,8 +36,7 @@ pub async fn work_log_today(state: web::Data<AppState>, req: HttpRequest) -> Htt
 /// GET /work-log/week-workload - 本周工作负载（按 work_date 升序）
 pub async fn work_log_week_workload(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     if user_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
@@ -55,8 +52,7 @@ pub async fn work_log_week_workload(state: web::Data<AppState>, req: HttpRequest
 /// GET /work-log/today-summary - 今日待办汇总（已处理数 + 剩余数 + 完成率）
 pub async fn work_log_today_summary(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     if user_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
@@ -76,8 +72,7 @@ pub async fn work_log_create(
     payload: web::Json<WorkLogCreateDTO>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     if user_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));

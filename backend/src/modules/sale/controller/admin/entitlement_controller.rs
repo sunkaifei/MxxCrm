@@ -23,13 +23,12 @@
 
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::sale::model::entitlement::{
-    EntitlementListQuery, EntitlementRenewRequest, EntitlementSaveRequest,
+    EntitlementListQuery, EntitlementModel, EntitlementRenewRequest, EntitlementSaveRequest,
 };
 use crate::modules::sale::service::entitlement_service;
 
@@ -92,8 +91,7 @@ pub async fn save(
     form_data: web::Json<EntitlementSaveRequest>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     match entitlement_service::create(db, form_data.0, user_id).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
@@ -129,8 +127,7 @@ pub async fn renew(
     form_data: web::Json<EntitlementRenewRequest>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     match entitlement_service::renew(db, form_data.0, user_id).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
@@ -155,6 +152,25 @@ pub async fn by_customer(state: web::Data<AppState>, item: web::Query<InfoId>) -
     }
 }
 
+/// 批量删除权益
+pub async fn delete(
+    state: web::Data<AppState>,
+    item: web::Json<Vec<i64>>,
+) -> HttpResponse {
+    let db = &state.db;
+    let ids = item.into_inner();
+    if ids.is_empty() {
+        return HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, "请选择要删除的记录", "local"));
+    }
+    match EntitlementModel::batch_delete(db, &ids).await {
+        Ok(count) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::success(count, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
 /// 注册服务权益模块所有路由
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -164,6 +180,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/save", web::post().to(save).wrap(require_permission("sale:entitlement:save")))
             .route("/update", web::put().to(update).wrap(require_permission("sale:entitlement:update")))
             .route("/renew", web::post().to(renew).wrap(require_permission("sale:entitlement:save")))
+            .route("/delete", web::delete().to(delete).wrap(require_permission("sale:entitlement:delete")))
             .route("/by-customer", web::get().to(by_customer).wrap(require_permission("sale:entitlement:list"))),
     );
 }

@@ -188,8 +188,8 @@ pub async fn inbound(db: &DbConn, id: i64) -> Result<()> {
     // 创建入库单
     let inbound_id = inbound_service::create(db, &inbound_req, operator).await?;
 
-    // 自动审核入库单（更新库存 + 写流水）
-    inbound_service::audit(db, inbound_id, operator).await?;
+    // 自动审核入库单（更新库存 + 写流水，系统自动完成不走审批引擎）
+    inbound_service::do_complete_audit(db, inbound_id, operator).await?;
 
     // 更新工单状态为已入库
     ProductionOrderModel::update_status(db, id, production_order_status::INBOUNDED)

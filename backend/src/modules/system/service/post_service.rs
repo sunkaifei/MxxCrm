@@ -148,8 +148,7 @@ pub async fn select_by_admin_id(db: &DbConn, admin_id: &Option<i64>) -> Result<V
     let id_list: Vec<Option<i64>> = result_merge.iter().map(|data| data.post_id).collect();
     if !id_list.is_empty() {
         let vec_u64: Vec<i64> = id_list.into_iter()
-            .filter(|x| x.is_some())
-            .map(|x| x.unwrap())
+            .flatten()
             .collect();
         let post_data = PostModel::find_by_ids(&db, vec_u64).await?;
         let mut post_vo: Vec<PostDetailVO> = Vec::new();

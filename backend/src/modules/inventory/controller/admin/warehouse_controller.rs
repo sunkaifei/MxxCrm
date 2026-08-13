@@ -1,7 +1,6 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::inventory::model::warehouse::{WarehouseDetailVO, WarehouseListQuery, WarehouseSaveRequest, WarehouseUpdateRequest};
@@ -11,23 +10,21 @@ use crate::core::web::permission_guard::require_permission;
 
 pub async fn warehouse_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<WarehouseSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
 
-    let result = warehouse_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = warehouse_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn warehouse_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<WarehouseUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
 
     if form_data.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "仓库ID不能为空", "local")));
     }
 
-    let result = warehouse_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = warehouse_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 

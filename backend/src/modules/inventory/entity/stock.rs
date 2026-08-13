@@ -22,6 +22,8 @@ pub struct Model {
     pub product_id: Option<i64>,
     /// 仓库ID
     pub warehouse_id: Option<i64>,
+    /// SKU规格ID
+    pub sku_id: Option<i64>,
     /// 库存数量
     pub quantity: Option<Decimal>,
     /// 预留数量

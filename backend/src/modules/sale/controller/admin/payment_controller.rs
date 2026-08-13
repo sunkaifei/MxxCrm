@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
@@ -25,9 +24,7 @@ pub async fn payment_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = payment_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = payment_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -39,13 +36,11 @@ pub async fn payment_update(state: web::Data<AppState>, req: HttpRequest, form_d
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "收款记录ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = payment_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = payment_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
-pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
+pub async fn bath_delete_payment(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
 
@@ -58,7 +53,33 @@ pub async fn bath_delete_payment(state: web::Data<AppState>, item: web::Json<Bat
         .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
 
+    // 删除前快照（审计 before）
+    let mut before: Vec<(i64, Option<rust_decimal::Decimal>, Option<String>)> = Vec::new();
+    for id in &filtered_ids {
+        if let Ok(p) = payment_service::find_by_id(&db, *id).await {
+            before.push((*id, p.amount.map(|a| a), p.payment_no));
+        }
+    }
+
     let result = payment_service::batch_delete_by_ids(&db, &filtered_ids).await;
+    if result.is_ok() {
+        // 审计埋点：删除回款（D01-5）
+        for (id, amount, no) in &before {
+            crate::modules::system::service::audit_service::record(
+                db,
+                &req,
+                "payment",
+                "delete",
+                "payment",
+                *id,
+                format!("删除回款 {}", no.clone().unwrap_or_else(|| format!("#{}", id))),
+                crate::modules::system::service::audit_service::snap(vec![
+                    ("amount", serde_json::json!(amount)),
+                ]),
+                None,
+            ).await;
+        }
+    }
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -80,8 +101,7 @@ pub async fn payment_list(state: web::Data<AppState>, req: HttpRequest, query: w
     let db = &state.db;
     let query = query.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     match payment_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
@@ -106,12 +126,27 @@ pub async fn payment_confirm(
             .body(MetaResp::<String>::fail(400, "回款ID不能为空", "local")),
     };
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     match payment_service::confirm(db, payment_id, user_id).await {
-        Ok(id) => HttpResponse::Ok().content_type(MPACK)
-            .body(MetaResp::success(id, "local")),
+        Ok(id) => {
+            // 审计埋点：确认回款（D01-4）
+            crate::modules::system::service::audit_service::record(
+                db,
+                &req,
+                "payment",
+                "confirm",
+                "payment",
+                id,
+                format!("确认回款 #{}", id),
+                None,
+                crate::modules::system::service::audit_service::snap(vec![
+                    ("confirmed", serde_json::json!(true)),
+                ]),
+            ).await;
+            HttpResponse::Ok().content_type(MPACK)
+                .body(MetaResp::success(id, "local"))
+        }
         Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -146,8 +181,7 @@ pub async fn payment_apply(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     match payment_service::apply(db, &dto, user_id).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK)
@@ -227,8 +261,8 @@ pub async fn payment_submit(
 ) -> HttpResponse {
     let db = &state.db;
     let payment_id = path.into_inner();
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match payment_service::submit_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match payment_service::submit_payment(db, payment_id, operator_id, &operator_name).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)
@@ -245,8 +279,8 @@ pub async fn payment_approve(
 ) -> HttpResponse {
     let db = &state.db;
     let payment_id = path.into_inner();
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match payment_service::approve_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.0.reason).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match payment_service::approve_payment(db, payment_id, operator_id, &operator_name, form_data.0.reason).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)
@@ -263,8 +297,8 @@ pub async fn payment_approval_reject(
 ) -> HttpResponse {
     let db = &state.db;
     let payment_id = path.into_inner();
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match payment_service::reject_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.0.reason).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match payment_service::reject_payment(db, payment_id, operator_id, &operator_name, form_data.0.reason).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)

@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 
+use chrono::NaiveDate;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -63,6 +64,14 @@ pub struct Model {
     pub bank_account_name: Option<String>,
     ///审核状态：0待审核 1已通过（注册用户默认待审核）
     pub audit_status: Option<i32>,
+    ///入职时间
+    pub hire_date: Option<NaiveDate>,
+    ///是否参与工资核算：0不参与 1参与（默认参与）
+    pub salary_enabled: Option<i32>,
+    ///试用期月数（0或NULL=无试用期）
+    pub probation_months: Option<i32>,
+    ///试用期工资比例（如0.60=60%，NULL=不打折）
+    pub probation_ratio: Option<Decimal>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

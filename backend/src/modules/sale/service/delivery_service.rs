@@ -225,7 +225,8 @@ pub async fn trigger_auto_delivery<C: ConnectionTrait>(
                 };
                 let delivery_id = DeliveryModel::insert(db, &dto).await
                     .map_err(|e| Error::from(e.to_string()))?;
-                let _ = CardPoolModel::mark_sold(db, card_id, order_id).await;
+                CardPoolModel::mark_sold(db, card_id, order_id).await
+                    .map_err(|e| Error::from(e.to_string()))?;
                 delivery_ids.push(delivery_id);
             }
         }

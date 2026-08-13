@@ -3,6 +3,20 @@ import type { MenuType, Timestamp } from '#/store';
 import { requestClient } from '#/api/request';
 import { $t } from '#/locales';
 
+/**
+ * 菜单名 i18n 翻译（带 .title fallback）。
+ * 目录级 key（如 page.statistics.employee）在 locale 中是
+ * { title, button } 对象，直接 $t 不命中；这里兜底 `${key}.title`。
+ */
+function translateMenuName(key?: string | null): string {
+  if (!key) return '';
+  const direct = $t(key);
+  if (direct !== key && !direct.startsWith('[object ')) return direct;
+  const withTitle = $t(`${key}.title`);
+  if (withTitle !== `${key}.title`) return withTitle;
+  return key;
+}
+
 export namespace MenuApi {
   /** 菜单查询参数 */
   export interface MenuQuery {
@@ -168,8 +182,8 @@ export function buildMenuTree(menus: MenuApi.MenuForm[]): MenuApi.MenuForm[] {
     if (menu.type === 'BUTTON') continue;
     const parentId = String(menu.parentId);
     if (parentId !== '0' && menu.parentId !== undefined) continue;
-    if (menu?.name) menu.name = $t(menu?.name ?? '');
-    if (menu?.meta?.name) menu.meta.name = $t(menu?.meta?.name ?? '');
+    if (menu?.name) menu.name = translateMenuName(menu?.name ?? '');
+    if (menu?.meta?.name) menu.meta.name = translateMenuName(menu?.meta?.name ?? '');
     tree.push(menu);
   }
 
@@ -179,8 +193,8 @@ export function buildMenuTree(menus: MenuApi.MenuForm[]): MenuApi.MenuForm[] {
     const parentId = String(menu.parentId);
     if (parentId === '0' || menu.parentId === undefined) continue;
     if (travelMenuChild(tree, menu)) continue;
-    if (menu?.name) menu.name = $t(menu?.name ?? '');
-    if (menu?.meta?.name) menu.meta.name = $t(menu?.meta?.name ?? '');
+    if (menu?.name) menu.name = translateMenuName(menu?.name ?? '');
+    if (menu?.meta?.name) menu.meta.name = translateMenuName(menu?.meta?.name ?? '');
     tree.push(menu);
   }
 
@@ -195,16 +209,16 @@ function travelMenuChild(
   if (parent.type === 'BUTTON') return false;
   const parentId = String(parent.parentId);
   if (parentId === '0' || parent.parentId === undefined) {
-    if (parent?.name) parent.name = $t(parent?.name ?? '');
-    if (parent?.meta?.name) parent.meta.name = $t(parent?.meta?.name ?? '');
+    if (parent?.name) parent.name = translateMenuName(parent?.name ?? '');
+    if (parent?.meta?.name) parent.meta.name = translateMenuName(parent?.meta?.name ?? '');
     nodes.push(parent);
     return true;
   }
 
   for (const node of nodes) {
     if (String(node.id) === String(parent.parentId)) {
-      if (parent?.name) parent.name = $t(parent?.name ?? '');
-      if (parent?.meta?.name) parent.meta.name = $t(parent?.meta?.name ?? '');
+      if (parent?.name) parent.name = translateMenuName(parent?.name ?? '');
+      if (parent?.meta?.name) parent.meta.name = translateMenuName(parent?.meta?.name ?? '');
       node.children = node.children || [];
       node.children.push(parent);
       return true;

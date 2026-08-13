@@ -26,8 +26,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -61,8 +60,7 @@ const SHIPMENT_FIELD_LABELS: &[(&str, &str)] = &[
 pub async fn list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ShipmentListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     match shipment_service::get_list(db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
@@ -94,8 +92,7 @@ pub async fn save(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let result = shipment_service::create(db, &form_data, user_id).await;
 
     // 业务成功后记录「创建」操作日志
@@ -167,8 +164,7 @@ pub async fn update(
     if form_data.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let shipment_id = form_data.id.unwrap();
 
     // 先查 old 数据用于 diff
@@ -224,8 +220,7 @@ pub async fn delete(
     if item.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "发货单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let shipment_id = item.id.unwrap();
 
     // 先查 old 数据用于记录删除内容

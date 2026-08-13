@@ -14,22 +14,90 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
   deleteProductApi,
-  getBrandListApi,
   getCategoryListApi,
   getProductListApi,
   getProductSpecsApi,
-  getWarehouseListApi,
 } from '#/api';
 import { $t } from '#/locales';
 
 import ProductDrawer from './drawer.vue';
+import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
+import BrandSelectModal from '../inventory-check/BrandSelectModal.vue';
 
 const accessStore = useAccessStore();
 const router = useRouter();
 
-const warehouseOptions = ref<{ label: string; value: number }[]>([]);
-const categoryOptions = ref<{ label: string; value: number }[]>([]);
-const brandOptions = ref<{ label: string; value: number }[]>([]);
+// ============ 分类树数据 ============
+const categoryTreeData = ref<any[]>([]);
+
+/** 将扁平列表构建为树结构 */
+function buildCategoryTree(items: any[]): any[] {
+  const map = new Map<number, any>();
+  const roots: any[] = [];
+
+  // 第一遍：建节点
+  for (const item of items) {
+    const id = Number(item.id);
+    map.set(id, {
+      title: item.categoryName ?? item.name ?? '',
+      value: id,
+      key: id,
+      children: [],
+    });
+  }
+
+  // 第二遍：组装父子关系
+  for (const item of items) {
+    const id = Number(item.id);
+    const parentId = item.parentId ? Number(item.parentId) : (item.parent_id ? Number(item.parent_id) : 0);
+    const node = map.get(id)!;
+    if (parentId && map.has(parentId)) {
+      map.get(parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
+}
+
+// ============ 仓库弹窗选择 ============
+const warehouseSelectVisible = ref(false);
+
+function openWarehouseSelect() {
+  warehouseSelectVisible.value = true;
+}
+
+function onWarehouseSelected(warehouse: any) {
+  selectedWarehouseId.value = Number(warehouse.id);
+  gridApi.formApi?.setValues({
+    warehouseId: String(warehouse.id),
+    warehouseDisplay: warehouse.warehouseName ?? warehouse.name ?? '',
+  });
+}
+
+function clearWarehouse() {
+  selectedWarehouseId.value = undefined;
+  gridApi.formApi?.setValues({ warehouseId: '', warehouseDisplay: '' });
+}
+
+// ============ 品牌弹窗选择 ============
+const brandSelectVisible = ref(false);
+
+function openBrandSelect() {
+  brandSelectVisible.value = true;
+}
+
+function onBrandSelected(brand: any) {
+  gridApi.formApi?.setValues({
+    brandId: String(brand.id),
+    brandDisplay: brand.brandName ?? brand.name ?? '',
+  });
+}
+
+function clearBrand() {
+  gridApi.formApi?.setValues({ brandId: '', brandDisplay: '' });
+}
 
 /** 当前选中的仓库，用于在表格标题中展示仓库名称 */
 const selectedWarehouseId = ref<number | undefined>();
@@ -50,45 +118,14 @@ function parseSpecs(specs: any): Record<string, string> {
   return specs;
 }
 
-/** 加载仓库下拉选项 */
-async function loadWarehouses() {
-  try {
-    const res: any = await getWarehouseListApi({ pageSize: 200 });
-    const list = res?.list || res?.items || res || [];
-    warehouseOptions.value = list.map((w: any) => ({
-      label: w.name || w.warehouseName,
-      value: Number(w.id),
-    }));
-  } catch {
-    warehouseOptions.value = [];
-  }
-}
-
-/** 加载分类下拉选项 */
+/** 加载分类树 */
 async function loadCategories() {
   try {
-    const res: any = await getCategoryListApi({ pageSize: 200 });
+    const res: any = await getCategoryListApi({ pageSize: 999 });
     const list = res?.list || res?.items || res || [];
-    categoryOptions.value = list.map((c: any) => ({
-      label: c.name || c.categoryName,
-      value: Number(c.id),
-    }));
+    categoryTreeData.value = buildCategoryTree(list);
   } catch {
-    categoryOptions.value = [];
-  }
-}
-
-/** 加载品牌下拉选项 */
-async function loadBrands() {
-  try {
-    const res: any = await getBrandListApi({ pageSize: 200 });
-    const list = res?.list || res?.items || res || [];
-    brandOptions.value = list.map((b: any) => ({
-      label: b.name || b.brandName,
-      value: Number(b.id),
-    }));
-  } catch {
-    brandOptions.value = [];
+    categoryTreeData.value = [];
   }
 }
 
@@ -154,40 +191,64 @@ const formOptions: VbenFormProps = {
       },
     },
     {
-      component: 'Select',
-      fieldName: 'warehouseId',
+      component: 'Input',
+      fieldName: 'warehouseDisplay',
       label: '仓库',
       componentProps: {
-        placeholder: '全部仓库',
+        placeholder: '全部仓库（点击选择）',
+        readOnly: true,
         allowClear: true,
-        showSearch: true,
-        options: [],
-        onChange: (val: any) => {
-          selectedWarehouseId.value = val;
+        style: { cursor: 'pointer' },
+        onClick: () => openWarehouseSelect(),
+        onChange: (e: any) => {
+          if (!e?.target?.value) {
+            clearWarehouse();
+          }
         },
       },
     },
     {
-      component: 'Select',
+      component: 'Input',
+      fieldName: 'warehouseId',
+      dependencies: { triggerFields: ['warehouseDisplay'] },
+      formItemClass: 'hidden',
+    },
+    {
+      component: 'TreeSelect',
       fieldName: 'categoryId',
       label: '分类',
       componentProps: {
         placeholder: '全部分类',
         allowClear: true,
         showSearch: true,
-        options: [],
+        treeDefaultExpandAll: true,
+        treeNodeFilterProp: 'title',
+        fieldNames: { label: 'title', value: 'value', children: 'children' },
+        treeData: categoryTreeData,
       },
     },
     {
-      component: 'Select',
-      fieldName: 'brandId',
+      component: 'Input',
+      fieldName: 'brandDisplay',
       label: '品牌',
       componentProps: {
-        placeholder: '全部品牌',
+        placeholder: '全部品牌（点击选择）',
+        readOnly: true,
         allowClear: true,
-        showSearch: true,
-        options: [],
+        style: { cursor: 'pointer' },
+        onClick: () => openBrandSelect(),
+        onChange: (e: any) => {
+          if (!e?.target?.value) {
+            clearBrand();
+          }
+        },
       },
+    },
+    {
+      component: 'Input',
+      fieldName: 'brandId',
+      dependencies: { triggerFields: ['brandDisplay'] },
+      formItemClass: 'hidden',
     },
     {
       component: 'Select',
@@ -350,10 +411,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
 const tableTitle = computed(() => {
   const base = $t('page.product.list.title');
   if (!selectedWarehouseId.value) return base;
-  const name = warehouseOptions.value.find(
-    (w) => w.value === selectedWarehouseId.value,
-  )?.label;
-  return name ? `${base} — ${name}` : base;
+  const display = gridApi.formApi?.getValues?.()?.warehouseDisplay;
+  return display ? `${base} — ${display}` : base;
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
@@ -398,21 +457,7 @@ function handleCreate() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadWarehouses(), loadCategories(), loadBrands()]);
-  gridApi.formApi?.updateSchema?.([
-    {
-      fieldName: 'warehouseId',
-      componentProps: { options: warehouseOptions.value },
-    },
-    {
-      fieldName: 'categoryId',
-      componentProps: { options: categoryOptions.value },
-    },
-    {
-      fieldName: 'brandId',
-      componentProps: { options: brandOptions.value },
-    },
-  ]);
+  await loadCategories();
 });
 </script>
 
@@ -552,5 +597,19 @@ onMounted(async () => {
       </template>
     </Grid>
     <Drawer />
+
+    <!-- 仓库选择弹窗 -->
+    <WarehouseSelectModal
+      :visible="warehouseSelectVisible"
+      @update:visible="(val) => (warehouseSelectVisible = val)"
+      @select="onWarehouseSelected"
+    />
+
+    <!-- 品牌选择弹窗 -->
+    <BrandSelectModal
+      :visible="brandSelectVisible"
+      @update:visible="(val) => (brandSelectVisible = val)"
+      @select="onBrandSelected"
+    />
   </Page>
 </template>

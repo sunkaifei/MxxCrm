@@ -1,8 +1,35 @@
 {
   "product": {
     "title": "Product Management",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "list": {
       "title": "Product List",
+      "productCode": "Product Code",
       "button": {
         "create": "Add Product",
         "edit": "Edit Product",
@@ -20,8 +47,13 @@
     },
     "inbound": {
       "title": "Inbound Management",
+      "detail": "Inbound Detail",
+      "loading": "Loading...",
       "button": {
-        "create": "Create Inbound"
+        "create": "Create Inbound",
+        "update": "Edit Inbound",
+        "audit": "Audit Inbound",
+        "delete": "Delete Inbound"
       },
       "field": {
         "inboundNo": "Inbound No.",
@@ -31,7 +63,19 @@
         "totalQuantity": "Total Quantity",
         "totalAmount": "Total Amount",
         "createdBy": "Created By",
-        "createTime": "Create Time"
+        "createTime": "Create Time",
+        "sourceOrderNo": "Source Order No.",
+        "remark": "Remark",
+        "items": "Items",
+        "itemProductCode": "Product Code",
+        "itemProductName": "Product Name",
+        "itemQuantity": "Quantity",
+        "itemUnitPrice": "Unit Price",
+        "totalPrice": "Total Price",
+        "spec": "Spec",
+        "unit": "Unit",
+        "auditedBy": "Audited By",
+        "auditTime": "Audit Time"
       },
       "placeholder": {
         "inboundNo": "Enter inbound number",
@@ -49,7 +93,7 @@
       },
       "status": {
         "0": "Draft",
-        "1": "Pending",
+        "1": "Under Review",
         "2": "Approved",
         "3": "Completed",
         "4": "Rejected",
@@ -57,15 +101,22 @@
       },
       "action": {
         "submitAudit": "Submit Audit",
-        "audit": "Approve",
+        "audit": "Audit",
+        "auditing": "Auditing",
         "reject": "Reject",
         "edit": "Edit",
-        "delete": "Delete"
+        "delete": "Delete",
+        "more": "More",
+        "downloadPdf": "Download PDF"
       },
       "message": {
         "submitSuccess": "Submitted for audit",
         "auditSuccess": "Approved",
-        "rejectSuccess": "Rejected"
+        "rejectSuccess": "Rejected",
+        "popupBlocked": "Popup blocked, please allow popups and retry",
+        "printFailed": "Failed to load print data",
+        "noItems": "No items",
+        "noData": "No data"
       },
       "drawer": {
         "title": {
@@ -90,8 +141,12 @@
     },
     "outbound": {
       "title": "Outbound Management",
+      "detail": "Outbound Detail",
       "button": {
-        "create": "Create Outbound"
+        "create": "Create Outbound",
+        "update": "Edit Outbound",
+        "audit": "Audit Outbound",
+        "delete": "Delete Outbound"
       },
       "field": {
         "outboundNo": "Outbound No.",
@@ -100,8 +155,19 @@
         "status": "Status",
         "totalQuantity": "Total Quantity",
         "totalAmount": "Total Amount",
-        "createdBy": "Created By",
-        "createTime": "Create Time"
+        "createdBy": "Maker",
+        "createTime": "Create Time",
+        "sourceOrderNo": "Source Order No.",
+        "remark": "Remark",
+        "items": "Outbound Items",
+        "itemProductCode": "Product Code",
+        "itemProductName": "Product Name",
+        "itemQuantity": "Quantity",
+        "spec": "Spec",
+        "unit": "Unit",
+        "batchNo": "Batch No.",
+        "auditedBy": "Audited By",
+        "auditTime": "Audit Time"
       },
       "placeholder": {
         "outboundNo": "Enter outbound number",
@@ -131,12 +197,18 @@
         "audit": "Approve",
         "reject": "Reject",
         "edit": "Edit",
-        "delete": "Delete"
+        "delete": "Delete",
+        "more": "More",
+        "downloadPdf": "Download PDF"
       },
       "message": {
         "submitSuccess": "Submitted for audit",
         "auditSuccess": "Approved",
-        "rejectSuccess": "Rejected"
+        "rejectSuccess": "Rejected",
+        "popupBlocked": "Popup blocked, please allow popups and retry",
+        "printFailed": "Failed to load print data",
+        "noItems": "No items",
+        "noData": "No data"
       },
       "drawer": {
         "title": {
@@ -439,17 +511,67 @@
     },
     "brand": {
       "title": "Brand Management",
+      "detail": "Brand Detail",
+      "loading": "Loading...",
       "button": {
         "create": "Add Brand",
         "update": "Edit Brand",
-        "delete": "Delete Brand"
+        "delete": "Delete Brand",
+        "createNew": "New Brand",
+        "edit": "Edit Brand",
+        "view": "View"
       },
       "field": {
         "name": "Brand Name",
+        "nameEn": "Brand Name (EN)",
         "logo": "Brand Logo",
+        "country": "Country of Origin",
+        "website": "Website",
         "sort": "Sort",
         "description": "Description",
-        "status": "Status"
+        "remark": "Remark",
+        "status": "Status",
+        "createTime": "Created At",
+        "updateTime": "Updated At"
+      },
+      "status": {
+        "normal": "Active",
+        "disabled": "Disabled"
+      },
+      "action": {
+        "restore": "Restore",
+        "maximize": "Maximize"
+      },
+      "placeholder": {
+        "name": "Enter brand name",
+        "nameEn": "Enter brand name (EN)",
+        "logo": "Enter logo image URL",
+        "description": "Enter brand description",
+        "country": "Enter country of origin",
+        "website": "https://example.com",
+        "status": "Select status",
+        "sortOrder": "Sort order",
+        "remark": "Enter remark",
+        "keyword": "Brand Name"
+      }
+    },
+    "check": {
+      "button": {
+        "create": "Create Stocktake",
+        "update": "Enter Stocktake",
+        "audit": "Audit Stocktake"
+      }
+    },
+    "transfer": {
+      "button": {
+        "create": "Create Transfer",
+        "audit": "Audit Transfer",
+        "delete": "Delete Transfer"
+      }
+    },
+    "alert": {
+      "button": {
+        "update": "Edit Alert Rule"
       }
     }
   },

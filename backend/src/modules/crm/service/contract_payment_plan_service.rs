@@ -90,20 +90,6 @@ pub async fn delete(db: &DbConn, contract_id: i64) -> Result<i64> {
     Ok(result)
 }
 
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
-
-
-
 /// 分页查询回款计划列表
 ///
 /// # 参数

@@ -1,0 +1,65 @@
+2026-08-15 03:55:58 [src\core\kit\config.rs:36] INFO [mxx_crm::core::kit::config] - [配置] 尝试加载配置文件: production_config.ini (绝对路径: c:\codework\MxxCrm\backend\production_config.ini)
+2026-08-15 03:55:58 [src\core\kit\config.rs:50] INFO [mxx_crm::core::kit::config] - [配置] 配置文件不存在: c:\codework\MxxCrm\backend\production_config.ini
+2026-08-15 03:55:58 [src\core\kit\config.rs:36] INFO [mxx_crm::core::kit::config] - [配置] 尝试加载配置文件: config/production_config.ini (绝对路径: c:\codework\MxxCrm\backend\config/production_config.ini)
+2026-08-15 03:55:58 [src\core\kit\config.rs:38] INFO [mxx_crm::core::kit::config] - [配置] 找到配置文件: c:\codework\MxxCrm\backend\config/production_config.ini
+2026-08-15 03:55:58 [src\core\kit\config.rs:41] INFO [mxx_crm::core::kit::config] - [配置] 成功加载配置文件: c:\codework\MxxCrm\backend\config/production_config.ini
+2026-08-15 03:55:58 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-core-0.9.0\src\logger.rs:139] INFO [sqlx_core::logger] - summary="SELECT COUNT(*) FROM information_schema.tables …" db.statement="\n\nSELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'mxx_system_admin'\n" rows_affected=1 rows_returned=1 elapsed=7.8332ms elapsed_secs=0.0078332
+2026-08-15 03:55:58 [src\main.rs:184] INFO [mxx_crm] - starting HTTP server at https://www.mxxshop.com
+2026-08-15 03:55:58 [src\main.rs:133] INFO [mxx_crm] - Created storage directory: storage/upload/product/
+2026-08-15 03:55:58 [src\main.rs:133] INFO [mxx_crm] - Created storage directory: storage/upload/avatar/
+2026-08-15 03:55:58 [src\main.rs:133] INFO [mxx_crm] - Created storage directory: storage/upload/contract/
+2026-08-15 03:55:58 [src\main.rs:133] INFO [mxx_crm] - Created storage directory: storage/upload/invoice/
+2026-08-15 03:55:58 [src\main.rs:133] INFO [mxx_crm] - Created storage directory: storage/upload/quotation/
+2026-08-15 03:55:58 [src\main.rs:133] INFO [mxx_crm] - Created storage directory: storage/upload/payment/
+2026-08-15 03:55:58 [src\main.rs:133] INFO [mxx_crm] - Created storage directory: storage/upload/common/
+2026-08-15 03:55:58 [src\modules\system\service\typst_world.rs:53] INFO [mxx_crm::modules::system::service::typst_world] - 加载字体: assets/fonts/SourceHanSansSC-Regular.otf
+2026-08-15 03:55:58 [src\modules\system\service\typst_world.rs:53] INFO [mxx_crm::modules::system::service::typst_world] - 加载字体: assets/fonts/SourceHanSansSC-Bold.otf
+2026-08-15 03:55:58 [src\modules\system\service\typst_world.rs:53] INFO [mxx_crm::modules::system::service::typst_world] - 加载字体: assets/fonts/SourceHanSerifSC-Regular.otf
+2026-08-15 03:55:58 [src\modules\system\service\typst_world.rs:62] INFO [mxx_crm::modules::system::service::typst_world] - 字体加载完成，共 20 个字体
+[MxxB2B_admin] cache_type: mem
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "mxx_user_online" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_user_online_user_id" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_user_online_session_id" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_user_online_status" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "mxx_system_notification" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_notification_receiver" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_notification_read" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_notification_sender" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_notification_type" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "mxx_chat_session" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_chat_session_type" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_chat_session_last_time" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "mxx_chat_message" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_chat_message_session" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_chat_message_sender" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_chat_message_send_time" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_chat_message_create_time" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "mxx_chat_session_member" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_session_member_user" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_session_member_session" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_session_member_sid_uid" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "mxx_user_notification_setting" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_notify_setting_user" already exists, skipping
+2026-08-15 03:55:59 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_notify_setting_type" already exists, skipping
+2026-08-15 03:56:00 [src\main.rs:199] INFO [mxx_crm] - [消息系统] 数据库表初始化完成
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "mxx_system_session" already exists, skipping
+2026-08-15 03:56:00 [src\modules\system\service\session_service.rs:282] INFO [mxx_crm::modules::system::service::session_service] - [Session] 表 mxx_system_session 已就绪
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_session_user_id" already exists, skipping
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\sqlx-postgres-0.9.0\src\connection\stream.rs:185] INFO [sqlx_postgres::connection::stream] - relation "idx_session_token" already exists, skipping
+2026-08-15 03:56:00 [src\main.rs:215] INFO [mxx_crm] - [配置迁移] 旧配置迁移检查完成
+2026-08-15 03:56:00 [src\core\kit\scheduler.rs:566] WARN [mxx_crm::core::kit::scheduler] - [调度器] article_publish 检测到漏跑，开始自动补跑
+2026-08-15 03:56:00 [src\core\kit\scheduler.rs:621] INFO [mxx_crm::core::kit::scheduler] - [调度器] article_publish 补跑成功：定时发布完成：本次发布 0 篇文章
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\tokio-cron-scheduler-0.15.1\src\job_scheduler.rs:270] INFO [tokio_cron_scheduler::job_scheduler] - Uninited
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\tokio-cron-scheduler-0.15.1\src\job_scheduler.rs:277] INFO [tokio_cron_scheduler::job_scheduler] - Job creator created
+2026-08-15 03:56:00 [src\core\kit\scheduler.rs:210] INFO [mxx_crm::core::kit::scheduler] - [调度器] 已加载任务: 月度工资自动核算 (salary_monthly_calculate)
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\tokio-cron-scheduler-0.15.1\src\job_scheduler.rs:277] INFO [tokio_cron_scheduler::job_scheduler] - Job creator created
+2026-08-15 03:56:00 [src\core\kit\scheduler.rs:210] INFO [mxx_crm::core::kit::scheduler] - [调度器] 已加载任务: 统计日汇总 (stats_daily_agg)
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\tokio-cron-scheduler-0.15.1\src\job_scheduler.rs:277] INFO [tokio_cron_scheduler::job_scheduler] - Job creator created
+2026-08-15 03:56:00 [src\core\kit\scheduler.rs:210] INFO [mxx_crm::core::kit::scheduler] - [调度器] 已加载任务: 统计月度全量重算 (stats_monthly_full)
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\tokio-cron-scheduler-0.15.1\src\job_scheduler.rs:277] INFO [tokio_cron_scheduler::job_scheduler] - Job creator created
+2026-08-15 03:56:00 [src\core\kit\scheduler.rs:210] INFO [mxx_crm::core::kit::scheduler] - [调度器] 已加载任务: 文章定时发布 (article_publish)
+2026-08-15 03:56:00 [src\core\kit\scheduler.rs:219] INFO [mxx_crm::core::kit::scheduler] - [调度器] 调度器已启动，成功加载 4 个任务
+2026-08-15 03:56:00 [src\main.rs:225] INFO [mxx_crm] - [定时任务] 调度器启动成功
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\actix-server-2.6.0\src\builder.rs:310] INFO [actix_server::builder] - starting 56 workers
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\actix-server-2.6.0\src\server.rs:191] INFO [actix_server::server] - Actix runtime found; starting in Actix runtime
+2026-08-15 03:56:00 [C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\actix-server-2.6.0\src\server.rs:197] INFO [actix_server::server] - starting service: "actix-web-service-0.0.0.0:8080", workers: 56, listening on: 0.0.0.0:8080

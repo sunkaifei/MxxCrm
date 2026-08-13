@@ -112,6 +112,18 @@ pub async fn update(db: &DbConn, form_data: &ContractSaveDTO, updated_by: i64) -
     let result = ContractModel::update_by_id(&txn, &form_data.id, &dto).await?;
 
     txn.commit().await?;
+
+    // 统计回填检测（B2.2）：签约日期变更时定向重算目标月汇总（best-effort，失败不阻断）
+    {
+        let old_sign = existing.as_ref().and_then(|c| c.sign_date);
+        let new_sign = form_data.sign_date;
+        if old_sign != new_sign {
+            let _ = crate::modules::statistics::service::stats_agg_service::on_contract_date_changed(
+                db, old_sign, new_sign, updated_by,
+            ).await;
+        }
+    }
+
     Ok(result)
 }
 
@@ -165,20 +177,6 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContractDetailVO> {
         None => Err(Error::from("合同不存在".to_string())),
     }
 }
-
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
-
-
 
 pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) -> Result<ResultPage<Vec<ContractListVO>>> {
     let page = query.page_num.unwrap_or(1);
@@ -358,6 +356,8 @@ pub async fn submit_contract(db: &DbConn, contract_id: i64, operator_id: i64, op
         submitter_id: contract_owner_id,
         submitter_name: Some(contract_owner_name.clone()),
         extra_data: Some(serde_json::json!({ "amount": total_amount })),
+        cc_user_ids: None,
+        cc_reason: None,
     };
     let instance_id = ApprovalService::submit(db, &submit_req).await?;
 
@@ -532,14 +532,8 @@ async fn auto_create_outbound_for_contract(
         items: outbound_items,
     };
 
-    // 创建出库单
-    let outbound_id = outbound_service::create(db, &outbound_req, operator_id).await?;
-
-    // 提交审核
-    outbound_service::submit_audit(db, outbound_id).await?;
-
-    // 自动审核通过（扣减库存）
-    outbound_service::audit(db, outbound_id, operator_id).await?;
+    // 创建出库单（合同审批通过自动出库，直接自动审核完成扣减库存）
+    let outbound_id = outbound_service::create_and_auto_audit(db, &outbound_req, operator_id).await?;
 
     Ok(outbound_id)
 }

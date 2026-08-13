@@ -26,6 +26,10 @@ const businessTypeMap: Record<string, { label: string; color: string }> = {
   quotation: { label: '报价单', color: 'blue' },
   refund: { label: '退款', color: 'red' },
   visit: { label: '外勤', color: 'lime' },
+  hire: { label: '员工入职', color: 'geekblue' },
+  inbound: { label: '入库', color: 'lime' },
+  outbound: { label: '出库', color: 'volcano' },
+  user: { label: '用户审核', color: 'cyan' },
 };
 
 const instanceStatusList: Record<number, { label: string; color: string }> = {

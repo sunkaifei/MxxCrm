@@ -15,25 +15,56 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use rust_decimal::prelude::ToPrimitive;
 
 use crate::modules::finance::entity::{salary_record, salary_tax_detail};
+use crate::modules::finance::service::salary_service::{resolve_data_scope, SalaryDataScope};
+
+/// 根据当前用户数据权限，计算实际可导出的 employee_ids 过滤条件
+/// 返回 None 表示可导出全员（All 权限），Some(ids) 表示仅这些员工
+async fn resolve_export_scope(
+    db: &DatabaseConnection,
+    user_id: i64,
+    employee_ids: Option<&[i64]>,
+) -> Result<Option<Vec<i64>>, String> {
+    let (scope, allowed_ids) = resolve_data_scope(db, user_id).await?;
+    match scope {
+        SalaryDataScope::All => Ok(employee_ids.map(|ids| ids.to_vec())),
+        _ => {
+            // 非全量权限：取 allowed_ids 与传入 employee_ids 的交集
+            let allowed: std::collections::HashSet<i64> = allowed_ids.into_iter().collect();
+            let result: Vec<i64> = match employee_ids {
+                Some(ids) => ids.iter().filter(|id| allowed.contains(id)).copied().collect(),
+                None => allowed.into_iter().collect(),
+            };
+            Ok(Some(result))
+        }
+    }
+}
 
 /// V7-7: 导出工资单为 CSV（UTF-8 BOM，Excel 兼容）
 ///
 /// - year/month 必填
-/// - employee_ids 为空时导出全员
+/// - employee_ids 为空时按当前用户权限导出
 pub async fn export_salary_csv(
     db: &DatabaseConnection,
     year: i32,
     month: i32,
     employee_ids: Option<&[i64]>,
+    user_id: i64,
 ) -> Result<Vec<u8>, String> {
+    let scoped_ids = resolve_export_scope(db, user_id, employee_ids).await?;
+
     let mut stmt = salary_record::Entity::find()
         .filter(salary_record::Column::Year.eq(year))
         .filter(salary_record::Column::Month.eq(month))
         .filter(salary_record::Column::Deleted.eq(0));
 
-    if let Some(ids) = employee_ids {
+    if let Some(ref ids) = scoped_ids {
         if !ids.is_empty() {
-            stmt = stmt.filter(salary_record::Column::EmployeeId.is_in(ids.to_vec()));
+            stmt = stmt.filter(salary_record::Column::EmployeeId.is_in(ids.clone()));
+        } else {
+            // 权限范围内无数据，直接返回空表
+            let mut buf: Vec<u8> = vec![0xEF, 0xBB, 0xBF];
+            buf.extend(b"\xE5\x91\x98\xE5\xB7\xA5ID,\xE5\x91\x98\xE5\xB7\xA5\xE5\xA7\x93\xE5\x90\x8D,\xE9\x83\xA8\xE9\x97\xA8,\xE5\xB9\xB4,\xE6\x9C\x88,\xE5\x9F\xBA\xE6\x9C\xAC\xE5\xB7\xA5\xE8\xB5\x84,\xE6\x8F\x90\xE6\x88\x90\xE9\x87\x91\xE9\xA2\x9D,\xE7\xBB\xA9\xE6\x95\x88\xE5\xA5\x96\xE9\x87\x91,\xE5\x9B\xA2\xE9\x98\x9F\xE6\x8F\x90\xE6\x88\x90,\xE6\x89\xA3\xE6\xAC\xBE\xE9\x87\x91\xE9\xA2\x9D,\xE5\xBA\x94\xE5\x8F\x91\xE5\xB7\xA5\xE8\xB5\x84,\xE4\xB8\xAA\xE4\xBA\xBA\xE7\xA4\xBE\xE4\xBF\x9D,\xE4\xB8\xAA\xE4\xBA\xBA\xE5\x85\xAC\xE7\xA7\xAF\xE9\x87\x91,\xE5\x8D\x95\xE4\xBD\x8D\xE7\xA4\xBE\xE4\xBF\x9D,\xE5\x8D\x95\xE4\xBD\x8D\xE5\x85\xAC\xE7\xA7\xAF\xE9\x87\x91,\xE4\xB8\xAA\xE7\xA8\x8E\xE9\x87\x91\xE9\xA2\x9D,\xE5\xAE\x9E\xE5\x8F\x91\xE5\xB7\xA5\xE8\xB5\x84,\xE7\x8A\xB6\xE6\x80\x81,\xE5\xA4\x87\xE6\xB3\xA8\n");
+            return Ok(buf);
         }
     }
 
@@ -88,13 +119,26 @@ pub async fn export_tax_csv(
     db: &DatabaseConnection,
     year: i32,
     month: i32,
+    user_id: i64,
 ) -> Result<Vec<u8>, String> {
-    let details = salary_tax_detail::Entity::find()
+    let scoped_ids = resolve_export_scope(db, user_id, None).await?;
+
+    let mut stmt = salary_tax_detail::Entity::find()
         .filter(salary_tax_detail::Column::Year.eq(year))
-        .filter(salary_tax_detail::Column::Month.eq(month))
-        .all(db)
-        .await
-        .map_err(|e| e.to_string())?;
+        .filter(salary_tax_detail::Column::Month.eq(month));
+
+    if let Some(ref ids) = scoped_ids {
+        if !ids.is_empty() {
+            stmt = stmt.filter(salary_tax_detail::Column::EmployeeId.is_in(ids.clone()));
+        } else {
+            // 权限范围内无数据，返回空表
+            let mut buf: Vec<u8> = vec![0xEF, 0xBB, 0xBF];
+            buf.extend(b"\xE5\x91\x98\xE5\xB7\xA5ID,\xE5\xB9\xB4\xE5\xBA\xA6,\xE6\x9C\x88\xE4\xBB\xBD,\xE6\x9C\xAC\xE6\x9C\x88\xE6\x94\xB6\xE5\x85\xA5,\xE5\xBD\x93\xE6\x9C\x88\xE5\x87\x8F\xE9\x99\xA4\xE8\xB4\xB9\xE7\x94\xA8,\xE5\xBD\x93\xE6\x9C\x88\xE4\xB8\x93\xE9\xA1\xB9\xE6\x89\xA3\xE9\x99\xA4,\xE5\xBD\x93\xE6\x9C\x88\xE5\x85\xB6\xE4\xBB\x96\xE6\x89\xA3\xE9\x99\xA4,\xE7\xB4\xAF\xE8\xAE\xA1\xE6\x94\xB6\xE5\x85\xA5,\xE7\xB4\xAF\xE8\xAE\xA1\xE5\xBA\x94\xE7\xBA\xB3\xE7\xA8\x8E\xE6\x89\x80\xE5\xBE\x97\xE9\xA2\x9D,\xE9\x80\x82\xE7\x94\xA8\xE7\xA8\x8E\xE7\x8E\x87,\xE9\x80\x9F\xE7\xAE\x97\xE6\x89\xA3\xE9\x99\xA4\xE6\x95\xB0,\xE7\xB4\xAF\xE8\xAE\xA1\xE5\xBA\x94\xE7\xBA\xB3\xE7\xA8\x8E\xE9\xA2\x9D,\xE7\xB4\xAF\xE8\xAE\xA1\xE5\xB7\xB2\xE9\xA2\x84\xE6\x89\xA3,\xE6\x9C\xAC\xE6\x9C\x88\xE5\xBA\x94\xE7\xBA\xB3\xE7\xA8\x8E\xE9\xA2\x9D\n");
+            return Ok(buf);
+        }
+    }
+
+    let details = stmt.all(db).await.map_err(|e| e.to_string())?;
 
     let mut buf: Vec<u8> = vec![0xEF, 0xBB, 0xBF];
 
@@ -152,17 +196,26 @@ pub async fn export_salary_xlsx(
     year: i32,
     month: i32,
     employee_ids: Option<&[i64]>,
+    user_id: i64,
 ) -> Result<Vec<u8>, String> {
     use rust_xlsxwriter::{Format, Workbook};
+
+    let scoped_ids = resolve_export_scope(db, user_id, employee_ids).await?;
 
     let mut stmt = salary_record::Entity::find()
         .filter(salary_record::Column::Year.eq(year))
         .filter(salary_record::Column::Month.eq(month))
         .filter(salary_record::Column::Deleted.eq(0));
 
-    if let Some(ids) = employee_ids {
+    if let Some(ref ids) = scoped_ids {
         if !ids.is_empty() {
-            stmt = stmt.filter(salary_record::Column::EmployeeId.is_in(ids.to_vec()));
+            stmt = stmt.filter(salary_record::Column::EmployeeId.is_in(ids.clone()));
+        } else {
+            // 权限范围内无数据，返回空表
+            let mut workbook = Workbook::new();
+            let worksheet = workbook.add_worksheet();
+            worksheet.set_name("无数据").map_err(|e| e.to_string())?;
+            return workbook.save_to_buffer().map_err(|e| e.to_string());
         }
     }
 
@@ -234,15 +287,28 @@ pub async fn export_tax_xlsx(
     db: &DatabaseConnection,
     year: i32,
     month: i32,
+    user_id: i64,
 ) -> Result<Vec<u8>, String> {
     use rust_xlsxwriter::{Format, Workbook};
 
-    let details = salary_tax_detail::Entity::find()
+    let scoped_ids = resolve_export_scope(db, user_id, None).await?;
+
+    let mut stmt = salary_tax_detail::Entity::find()
         .filter(salary_tax_detail::Column::Year.eq(year))
-        .filter(salary_tax_detail::Column::Month.eq(month))
-        .all(db)
-        .await
-        .map_err(|e| e.to_string())?;
+        .filter(salary_tax_detail::Column::Month.eq(month));
+
+    if let Some(ref ids) = scoped_ids {
+        if !ids.is_empty() {
+            stmt = stmt.filter(salary_tax_detail::Column::EmployeeId.is_in(ids.clone()));
+        } else {
+            let mut workbook = Workbook::new();
+            let worksheet = workbook.add_worksheet();
+            worksheet.set_name("无数据").map_err(|e| e.to_string())?;
+            return workbook.save_to_buffer().map_err(|e| e.to_string());
+        }
+    }
+
+    let details = stmt.all(db).await.map_err(|e| e.to_string())?;
 
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();

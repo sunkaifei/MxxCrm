@@ -1,7 +1,6 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, ResultPage, MPACK};
 use crate::modules::purchase::model::purchase_order::{
@@ -12,23 +11,21 @@ use actix_web::{web, HttpRequest, HttpResponse};
 
 pub async fn purchase_order_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PurchaseOrderSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
-    
-    let result = purchase_order_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+
+    let result = purchase_order_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn purchase_order_update(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<PurchaseOrderUpdateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
-    
+
     if form_data.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "采购单ID不能为空", "local")));
     }
-    
-    let result = purchase_order_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+
+    let result = purchase_order_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -68,10 +65,9 @@ pub async fn purchase_order_list(state: web::Data<AppState>, query: web::Query<P
 
 pub async fn audit_purchase_order(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let po_id = path.into_inner();
-    
-    match purchase_order_service::audit_po(&db, po_id, jwt_token.id.unwrap_or_default()).await {
+
+    match purchase_order_service::audit_po(&db, po_id, get_current_user_id(&req)).await {
         Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("操作成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -79,10 +75,9 @@ pub async fn audit_purchase_order(state: web::Data<AppState>, req: HttpRequest, 
 
 pub async fn close_purchase_order(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let po_id = path.into_inner();
-    
-    match purchase_order_service::close_po(&db, po_id, jwt_token.id.unwrap_or_default()).await {
+
+    match purchase_order_service::close_po(&db, po_id, get_current_user_id(&req)).await {
         Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("操作成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -90,10 +85,9 @@ pub async fn close_purchase_order(state: web::Data<AppState>, req: HttpRequest, 
 
 pub async fn reject_purchase_order(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let po_id = path.into_inner();
-    
-    match purchase_order_service::reject_po(&db, po_id, jwt_token.id.unwrap_or_default(), None).await {
+
+    match purchase_order_service::reject_po(&db, po_id, get_current_user_id(&req), None).await {
         Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("操作成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }

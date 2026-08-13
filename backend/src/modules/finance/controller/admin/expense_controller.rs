@@ -12,8 +12,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -32,8 +31,7 @@ pub async fn expense_save(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     let result = if form_data.id.unwrap_or_default() > 0 {
         expense_service::update(db, &form_data, user_id).await
@@ -54,8 +52,7 @@ pub async fn expense_list(
 ) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     match expense_service::get_list(db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
@@ -100,12 +97,12 @@ pub async fn expense_submit(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
     match expense_service::submit_expense(
         db,
         form_data.expense_id,
-        jwt_token.id.unwrap_or_default(),
-        &jwt_token.username.unwrap_or_default(),
+        operator_id,
+        &operator_name,
     )
     .await
     {
@@ -126,11 +123,10 @@ pub async fn expense_approve(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match expense_service::approve_expense(
         db,
         form_data.expense_id,
-        jwt_token.id.unwrap_or_default(),
+        get_current_user_id(&req),
         form_data.reason,
     )
     .await
@@ -152,11 +148,10 @@ pub async fn expense_reject(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match expense_service::reject_expense(
         db,
         form_data.expense_id,
-        jwt_token.id.unwrap_or_default(),
+        get_current_user_id(&req),
         form_data.reason,
     )
     .await
@@ -178,8 +173,7 @@ pub async fn expense_payment(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match expense_service::make_payment(db, &form_data, jwt_token.id.unwrap_or_default()).await {
+    match expense_service::make_payment(db, &form_data, get_current_user_id(&req)).await {
         Ok(data) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),

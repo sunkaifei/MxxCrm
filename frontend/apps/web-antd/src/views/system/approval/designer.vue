@@ -1,18 +1,20 @@
 <script lang="ts" setup>
-import { computed, defineComponent, h, markRaw, onMounted, ref } from 'vue';
+import type { TableColumnsType } from 'ant-design-vue';
+
+import { computed, defineComponent, h, markRaw, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { VueFlow, useVueFlow, Handle, Position } from '@vue-flow/core';
-import '@vue-flow/core/dist/style.css';
-import '@vue-flow/core/dist/theme-default.css';
-import { ArrowLeft, Save } from 'lucide-vue-next';
-import { Button, Input, Select, Switch, message } from 'ant-design-vue';
+import { Handle, Position, useVueFlow, VueFlow } from '@vue-flow/core';
+import { Button, Input, message, Modal, Select, Switch, Table, Tag } from 'ant-design-vue';
+import { ArrowLeft, Search as LucideSearch, Save, UserPlus } from 'lucide-vue-next';
 
 import { getApprovalFlowDetailApi, saveApprovalFlowApi } from '#/api';
-import { getAdminOptionsApi } from '#/api/core/system/user';
-import { getRoleOptionsApi } from '#/api/core/system/role';
 import { getPostOptionsApi } from '#/api/core/system/post';
-import { searchUsersApi } from '#/api/core/message/chat';
+import { getRoleOptionsApi } from '#/api/core/system/role';
+import { getAdminOptionsApi, getUserListApi } from '#/api/core/system/user';
+
+import '@vue-flow/core/dist/style.css';
+import '@vue-flow/core/dist/theme-default.css';
 
 const route = useRoute();
 const router = useRouter();
@@ -20,7 +22,7 @@ const router = useRouter();
 // ============ Node type config ============
 const nodeStyleConfig: Record<
   number,
-  { bg: string; shape: string; defaultLabel: string }
+  { bg: string; defaultLabel: string; shape: string; }
 > = {
   1: { bg: '#52c41a', shape: 'circle', defaultLabel: '开始' },
   2: { bg: '#1890ff', shape: 'rect', defaultLabel: '审批' },
@@ -43,6 +45,10 @@ const businessTypeOptions = [
   { value: 'payment', label: '付款' },
   { value: 'expense', label: '报销' },
   { value: 'leave', label: '请假' },
+  { value: 'hire', label: '员工入职' },
+  { value: 'inbound', label: '入库' },
+  { value: 'outbound', label: '出库' },
+  { value: 'user', label: '用户审核' },
 ];
 
 const approverTypeOptions = [
@@ -86,7 +92,7 @@ async function loadOptions() {
       return (Array.isArray(list) ? list : [])
         .map((r: any) => ({
           label: r.label ?? '',
-          value: r.value != null && r.value !== '' ? Number(r.value) : NaN,
+          value: r.value != null && r.value !== '' ? Number(r.value) : Number.NaN,
         }))
         .filter((o: any) => o.label && !Number.isNaN(o.value));
     };
@@ -98,41 +104,175 @@ async function loadOptions() {
   }
 }
 
-// ============ CC user remote search (reuses searchUsersApi) ============
-const ccUserOptions = ref<{ label: string; value: number }[]>([]);
-const ccUserSearching = ref(false);
-let ccUserSearchTimer: any = null;
+// ============ CC user multi-select modal ============
+interface CcUserVO {
+  id: number;
+  userName?: string;
+  nickName?: string;
+  realName?: string;
+  name?: string;
+  deptName?: string;
+  departmentName?: string;
+  depts?: { deptName?: string }[];
+  mobile?: string;
+  phone?: string;
+  status?: number;
+}
 
-function handleCcUserSearch(keyword: string) {
-  if (ccUserSearchTimer) clearTimeout(ccUserSearchTimer);
-  if (!keyword.trim()) {
-    ccUserOptions.value = [];
-    return;
+const ccUserModalVisible = ref(false);
+const ccUserSearchKeyword = ref('');
+const ccUserTableData = ref<CcUserVO[]>([]);
+const ccUserTableLoading = ref(false);
+const ccUserSelectedMap = ref(new Map<number, CcUserVO>()); // 跨页选择保持
+
+const ccUserPagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0,
+  showSizeChanger: true,
+  showTotal: (total: number) => `共 ${total} 条`,
+});
+
+function getCcUserName(u: CcUserVO): string {
+  return u.nickName || u.realName || u.name || u.userName || `用户${u.id}`;
+}
+function getCcUserDept(u: CcUserVO): string {
+  if (u.depts && u.depts.length > 0) {
+    const names = u.depts.map((d) => d.deptName).filter(Boolean);
+    if (names.length > 0) return names.join('、');
   }
-  ccUserSearchTimer = setTimeout(async () => {
-    ccUserSearching.value = true;
-    try {
-      const res: any = await searchUsersApi({
-        keyword,
-        page: 1,
-        pageSize: 20,
-      });
-      const list: any[] = res.list || res || [];
-      ccUserOptions.value = list.map((u: any) => ({
-        label:
-          u.realName ||
-          u.nickName ||
-          u.userName ||
-          u.username ||
-          `用户${u.userId || u.id}`,
-        value: u.userId || u.id,
-      }));
-    } catch {
-      ccUserOptions.value = [];
-    } finally {
-      ccUserSearching.value = false;
-    }
+  return u.deptName || u.departmentName || '-';
+}
+
+const ccUserTableColumns: TableColumnsType = [
+  { title: '用户名', dataIndex: 'userName', width: 120 },
+  {
+    title: '姓名',
+    key: 'name',
+    width: 120,
+    customRender: ({ record }: any) => getCcUserName(record) || '-',
+  },
+  {
+    title: '部门',
+    key: 'dept',
+    width: 140,
+    customRender: ({ record }: any) => getCcUserDept(record),
+  },
+  {
+    title: '手机号',
+    key: 'mobile',
+    width: 130,
+    customRender: ({ record }: any) => record.mobile || record.phone || '-',
+  },
+  {
+    title: '状态',
+    key: 'status',
+    width: 80,
+    customRender: ({ record }: any) =>
+      h(Tag, { color: record.status === 1 ? 'green' : 'default', size: 'small' }, () =>
+        record.status === 1 ? '启用' : '禁用',
+      ),
+  },
+];
+
+let ccUserSearchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(ccUserSearchKeyword, () => {
+  if (ccUserSearchTimer) clearTimeout(ccUserSearchTimer);
+  ccUserSearchTimer = setTimeout(() => {
+    ccUserPagination.current = 1;
+    loadCcUserTable();
   }, 300);
+});
+
+async function loadCcUserTable() {
+  ccUserTableLoading.value = true;
+  try {
+    const res: any = await getUserListApi({
+      page: ccUserPagination.current,
+      pageSize: ccUserPagination.pageSize,
+      nickName: ccUserSearchKeyword.value || undefined,
+    });
+    ccUserTableData.value = (res?.items || []).map((u: any) => ({ ...u, id: Number(u.id) }));
+    ccUserPagination.total = res?.total || 0;
+  } catch {
+    ccUserTableData.value = [];
+    ccUserPagination.total = 0;
+  } finally {
+    ccUserTableLoading.value = false;
+  }
+}
+
+function openCcUserModal() {
+  ccUserModalVisible.value = true;
+  ccUserSearchKeyword.value = '';
+  ccUserPagination.current = 1;
+  // 初始化选中状态：从当前节点的 ccUserIds 构建 Map
+  ccUserSelectedMap.value = new Map();
+  const ids: number[] = (selectedNode.value?.data?.ccUserIds as number[]) || [];
+  for (const id of ids) {
+    // 尝试从 adminOptions 中获取回显名称
+    const matched = adminOptions.value.find((o) => o.value === id);
+    ccUserSelectedMap.value.set(id, {
+      id,
+      nickName: matched?.label || `用户${id}`,
+    } as CcUserVO);
+  }
+  void loadCcUserTable();
+}
+
+// 当前表格分页数据中，哪些 row 应该显示为选中（用于 checkbox 回显）
+const ccUserSelectedRowKeys = computed<number[]>(() =>
+  ccUserTableData.value
+    .filter((row) => ccUserSelectedMap.value.has(Number(row.id)))
+    .map((row) => Number(row.id)),
+);
+
+function handleCcUserSelectionChange(keys: any[], _rows: any[]) {
+  // 以新 keys 为准，先移除当前页中不再选中的行
+  const keySet = new Set(keys.map(Number));
+  for (const row of ccUserTableData.value) {
+    const id = Number(row.id);
+    if (keySet.has(id)) {
+      // 当前页选中 → 保证 Map 中有
+      if (!ccUserSelectedMap.value.has(id)) {
+        ccUserSelectedMap.value.set(id, row);
+      }
+    } else {
+      // 当前页取消选中 → 从 Map 移除
+      ccUserSelectedMap.value.delete(id);
+    }
+  }
+}
+
+function confirmCcUserSelection() {
+  if (!selectedNode.value?.data) return;
+  const ids = [...ccUserSelectedMap.value.keys()];
+  selectedNode.value.data.ccUserIds = ids;
+  ccUserModalVisible.value = false;
+}
+
+// 已选用户列表（用于右侧属性面板中展示）
+const selectedCcUserList = computed<{ id: number; name: string }[]>(() => {
+  const ids: number[] = (selectedNode.value?.data?.ccUserIds as number[]) || [];
+  return ids.map((id) => {
+    const matched = adminOptions.value.find((o) => o.value === id);
+    const picked = ccUserSelectedMap.value.get(id);
+    const name = matched?.label || (picked ? getCcUserName(picked) : `用户${id}`);
+    return { id, name };
+  });
+});
+
+function removeCcUser(id: number) {
+  if (!selectedNode.value?.data) return;
+  const arr: number[] = selectedNode.value.data.ccUserIds || [];
+  selectedNode.value.data.ccUserIds = arr.filter((x) => x !== id);
+  ccUserSelectedMap.value.delete(id);
+}
+
+function handleCcUserTablePagChange(pag: any) {
+  ccUserPagination.current = pag.current;
+  ccUserPagination.pageSize = pag.pageSize;
+  void loadCcUserTable();
 }
 
 // ============ Custom node component ============
@@ -168,8 +308,8 @@ const FlowNode = defineComponent({
           }),
         );
       }
-      children.push(h('span', { class: 'flow-node-label' }, label));
       children.push(
+        h('span', { class: 'flow-node-label' }, label),
         h(Handle, {
           type: 'source',
           position: Position.Bottom,
@@ -219,20 +359,6 @@ const {
 const selectedNode = computed<any>(() =>
   nodes.value.find((n) => n.id === selectedNodeId.value),
 );
-
-// Options for CC user select: merge echo labels (adminOptions entries matching
-// the currently selected node's ccUserIds) with remote search results.
-const ccUserSelectOptions = computed<{ label: string; value: number }[]>(() => {
-  const map = new Map<number, { label: string; value: number }>();
-  const selectedIds: number[] =
-    (selectedNode.value?.data?.ccUserIds as number[]) || [];
-  const selectedSet = new Set(selectedIds);
-  for (const o of adminOptions.value) {
-    if (selectedSet.has(o.value)) map.set(o.value, o);
-  }
-  for (const o of ccUserOptions.value) map.set(o.value, o);
-  return Array.from(map.values());
-});
 
 const selectedEdge = computed<any>(() =>
   edges.value.find((e) => e.id === selectedEdgeId.value),
@@ -347,7 +473,7 @@ function paletteDotStyle(item: any) {
 function miniNodeStyle(n: any) {
   const MINI_W = 140;
   const MINI_H = 90;
-  if (!nodes.value.length) return { display: 'none' };
+  if (nodes.value.length === 0) return { display: 'none' };
   const xs = nodes.value.map((nd) => nd.position.x);
   const ys = nodes.value.map((nd) => nd.position.y);
   const minX = Math.min(...xs);
@@ -394,16 +520,16 @@ async function loadFlow(id: number) {
           nodeType: n.nodeType ?? n.node_type ?? 2,
           nodeName: n.nodeName ?? n.node_name ?? '',
           approverType: n.approverType ?? n.approver_type ?? null,
-          approverId: n.approverId != null ? Number(n.approverId) : (n.approver_id != null ? Number(n.approver_id) : null),
+          approverId: n.approverId == null ? (n.approver_id == null ? null : Number(n.approver_id)) : Number(n.approverId),
           approveMode: n.approveMode ?? n.approve_mode ?? 1,
           isFinal: !!(n.isFinal ?? n.is_final ?? false),
           ccUserIds: (Array.isArray(n.ccUserIds)
             ? n.ccUserIds
-            : Array.isArray(n.cc_user_ids)
+            : (Array.isArray(n.cc_user_ids)
               ? n.cc_user_ids
-              : []
+              : [])
           )
-            .map((id: any) => Number(id))
+            .map(Number)
             .filter((id: number) => !Number.isNaN(id)),
         },
       };
@@ -421,8 +547,8 @@ async function loadFlow(id: number) {
       },
     }));
     setTimeout(() => fitView({ padding: 0.2 }), 120);
-  } catch (e: any) {
-    message.error(e?.message || '加载流程失败');
+  } catch (error: any) {
+    message.error(error?.message || '加载流程失败');
   }
 }
 
@@ -448,12 +574,12 @@ async function handleSave() {
         nodeName: n.data?.nodeName ?? '',
         nodeOrder: idx + 1,
         approverType: n.data?.approverType ?? null,
-        approverId: n.data?.approverId != null ? Number(n.data.approverId) : null,
+        approverId: n.data?.approverId == null ? null : Number(n.data.approverId),
         approveMode: n.data?.approveMode ?? 1,
         isFinal: n.data?.isFinal ? 1 : 0,
         ccUserIds: Array.isArray(n.data?.ccUserIds)
           ? n.data.ccUserIds
-              .map((id: any) => Number(id))
+              .map(Number)
               .filter((id: number) => !Number.isNaN(id))
           : [],
         positionX: Math.round(n.position?.x ?? 0),
@@ -470,8 +596,8 @@ async function handleSave() {
     await saveApprovalFlowApi(payload);
     message.success('保存成功');
     router.push('/system/approval');
-  } catch (e: any) {
-    message.error(e?.message || '保存失败');
+  } catch (error: any) {
+    message.error(error?.message || '保存失败');
   } finally {
     saving.value = false;
   }
@@ -737,17 +863,29 @@ onMounted(() => {
               </div>
               <div class="props-field">
                 <label>通过后抄送</label>
-                <Select
-                  v-model:value="selectedNode.data.ccUserIds"
-                  mode="multiple"
-                  show-search
-                  allow-clear
-                  :filter-option="false"
-                  :loading="ccUserSearching"
-                  :options="ccUserSelectOptions"
-                  placeholder="搜索用户姓名（可多选）"
-                  @search="handleCcUserSearch"
-                />
+                <div class="cc-picker">
+                  <Button
+                    type="dashed"
+                    block
+                    class="cc-picker-btn"
+                    :icon="h(UserPlus)"
+                    @click="openCcUserModal"
+                  >
+                    选择抄送人员（可多选）
+                  </Button>
+                  <div v-if="selectedCcUserList.length > 0" class="cc-selected-wrap">
+                    <Tag
+                      v-for="u in selectedCcUserList"
+                      :key="u.id"
+                      closable
+                      class="cc-user-tag"
+                      @close="removeCcUser(u.id)"
+                    >
+                      {{ u.name }}
+                    </Tag>
+                  </div>
+                  <div v-else class="cc-empty-hint">尚未选择抄送人员</div>
+                </div>
               </div>
             </template>
 
@@ -808,6 +946,51 @@ onMounted(() => {
         <div v-else class="props-empty-hint">请选择节点或连线进行配置</div>
       </div>
     </div>
+
+    <!-- CC User Multi-Select Modal -->
+    <Modal
+      v-model:open="ccUserModalVisible"
+      title="选择抄送人员（可多选，跨页保留选择）"
+      :width="820"
+      :destroy-on-close="true"
+      ok-text="确定"
+      cancel-text="取消"
+      @ok="confirmCcUserSelection"
+    >
+      <div class="mb-3">
+        <Input
+          v-model:value="ccUserSearchKeyword"
+          placeholder="输入姓名/昵称搜索"
+          allow-clear
+        >
+          <template #prefix>
+            <LucideSearch class="h-4 w-4 text-gray-400" />
+          </template>
+        </Input>
+      </div>
+      <div class="mb-2 text-xs text-gray-500">
+        已选择 <span class="text-blue-600 font-medium">{{ ccUserSelectedMap.size }}</span> 人
+        <span v-if="ccUserSelectedMap.size > 0">
+          （
+          <a class="text-xs" @click="ccUserSelectedMap = new Map()">清空选择</a>
+          ）
+        </span>
+      </div>
+      <Table
+        row-key="id"
+        :columns="ccUserTableColumns"
+        :data-source="ccUserTableData"
+        :loading="ccUserTableLoading"
+        :pagination="ccUserPagination"
+        size="small"
+        :scroll="{ x: 640 }"
+        :row-selection="{
+          selectedRowKeys: ccUserSelectedRowKeys,
+          onChange: handleCcUserSelectionChange,
+        }"
+        @change="handleCcUserTablePagChange"
+      />
+    </Modal>
   </div>
 </template>
 
@@ -1065,6 +1248,33 @@ onMounted(() => {
 
 .edge-cond :deep(.ant-input) {
   margin-bottom: 4px;
+}
+
+/* ===== CC user picker ===== */
+.cc-picker-btn {
+  justify-content: center;
+  border-style: dashed;
+}
+
+.cc-selected-wrap {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cc-user-tag {
+  margin: 0;
+}
+
+.cc-empty-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  padding: 6px;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 4px;
 }
 </style>
 

@@ -50,7 +50,34 @@
       "statusPlaceholder": "请选择状态",
       "yearPlaceholder": "请选择年份",
       "monthPlaceholder": "请选择月份",
-      "seq": "序号"
+      "seq": "序号",
+      "button": {
+        "list": "列表",
+        "manage": "管理",
+        "create": "新增",
+        "save": "保存",
+        "edit": "编辑",
+        "update": "更新",
+        "delete": "删除",
+        "view": "查看",
+        "info": "详情",
+        "audit": "审核",
+        "approve": "审批",
+        "close": "关闭",
+        "export": "导出",
+        "import": "导入",
+        "print": "打印",
+        "toggle": "启用禁用",
+        "submit": "提交",
+        "assign": "分配",
+        "assignRole": "分配角色",
+        "assignMenu": "分配菜单",
+        "assignDept": "分配部门",
+        "upload": "上传",
+        "download": "下载",
+        "refresh": "刷新",
+        "sync": "同步"
+      }
     },
     "commissionRule": {
       "title": "提成规则",
@@ -310,7 +337,8 @@
       }
     },
     "salary": {
-      "title": "工资核算",
+      "title": "工资管理",
+      "detailTitle": "工资详情",
       "detail": {
         "salaryInfo": "工资信息",
         "commissionDetail": "提成明细",
@@ -346,6 +374,7 @@
       "column": {
         "employeeName": "员工姓名",
         "department": "部门",
+        "hireDate": "入职时间",
         "yearMonth": "年月",
         "baseSalary": "底薪",
         "positionAllowance": "岗位津贴",
@@ -366,6 +395,7 @@
         "employeeConfirmed": "员工确认"
       },
       "status": {
+        "notCalculated": "未核算",
         "pending": "待审核",
         "approved": "已审核",
         "paid": "已发放"
@@ -1163,6 +1193,10 @@
     },
     "payslip": {
       "title": "工资条下发",
+      "tab": {
+        "all": "所有员工",
+        "my": "我的工资条"
+      },
       "button": {
         "list": "查看",
         "manage": "管理",
@@ -1182,14 +1216,19 @@
         "employeeId": "员工ID",
         "employeeName": "员工",
         "yearMonth": "年月",
+        "baseSalary": "基本工资",
         "totalSalary": "应发工资",
         "socialInsurancePersonal": "个人社保",
+        "socialInsuranceCompany": "单位社保",
+        "housingFundPersonal": "个人公积金",
+        "housingFundCompany": "单位公积金",
         "taxAmount": "个税",
         "netSalary": "实发工资",
         "sendStatus": "发送状态",
         "sendChannels": "发送渠道",
         "sendTime": "发送时间",
-        "readTime": "查阅时间"
+        "readTime": "查阅时间",
+        "confirmTime": "确认时间"
       },
       "sendStatus": {
         "unsent": "未发送",
@@ -1212,6 +1251,17 @@
         "itemColumn": "项目",
         "amountColumn": "金额",
         "noDetailData": "无明细数据",
+        "commissionTitle": "提成明细（可追溯）",
+        "commissionEmpty": "无提成明细",
+        "contractName": "合同名称",
+        "contractAmount": "合同金额",
+        "paymentAmount": "回款金额",
+        "commissionRate": "提成比例",
+        "commissionAmount": "提成金额",
+        "ruleName": "适用规则",
+        "confirmButton": "确认工资条",
+        "confirmSuccess": "确认成功",
+        "confirmFailed": "确认失败",
         "baseSalary": "底薪",
         "positionAllowance": "岗位津贴",
         "commission": "提成",
@@ -1222,7 +1272,9 @@
         "deferredCommission": "递延提成",
         "deduction": "扣款",
         "socialInsurancePersonal": "个人社保",
+        "socialInsuranceCompany": "单位社保",
         "housingFundPersonal": "个人公积金",
+        "housingFundCompany": "单位公积金",
         "tax": "个税",
         "totalSalary": "应发工资",
         "netSalary": "实发工资"

@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -80,9 +79,8 @@ pub async fn order_ship(
     body: web::Json<ShipRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let shipper_id = jwt_token.id.unwrap_or_default();
-    let shipper_name = jwt_token.username.unwrap_or_else(|| "管理员".to_string());
+    let (shipper_id, shipper_name) = get_current_user(&req);
+    let shipper_name = if shipper_name.is_empty() { "管理员".to_string() } else { shipper_name };
 
     let mut ship_req: ShipRequest = body.into_inner();
     // 注入订单ID/订单号（也可由前端传）

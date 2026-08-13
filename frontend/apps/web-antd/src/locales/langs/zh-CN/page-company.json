@@ -1,6 +1,32 @@
 {
   "company": {
     "title": "企业",
+    "common": {
+      "button": {
+        "list": "列表",
+        "manage": "管理",
+        "create": "新增",
+        "save": "保存",
+        "edit": "编辑",
+        "update": "更新",
+        "delete": "删除",
+        "view": "查看",
+        "info": "详情",
+        "audit": "审核",
+        "approve": "审批",
+        "close": "关闭",
+        "export": "导出",
+        "import": "导入",
+        "print": "打印",
+        "toggle": "启用禁用",
+        "submit": "提交",
+        "assign": "分配",
+        "upload": "上传",
+        "download": "下载",
+        "refresh": "刷新",
+        "sync": "同步"
+      }
+    },
     "aiSettings": {
       "title": "AI设置",
       "button": {
@@ -92,46 +118,6 @@
       "totalMessages": "共 {total} 条消息",
       "unread": "未读",
       "viewDetail": "查看详情"
-    }
-  },
-  "statistics": {
-    "title": "数据分析",
-    "index": "概览",
-    "performance": "业绩概览",
-    "performanceOverview": "业绩概览",
-    "customer": "客户转化",
-    "employee": "员工统计",
-    "contract": "合同排行",
-    "payment": "回款分析",
-    "performancePlan": {
-      "guide": {
-        "title": "业绩计划说明",
-        "brief": "设定个人/部门/公司的业绩目标，审批后按月跟踪完成率；展开查看完整流程。",
-        "expand": "展开说明",
-        "collapse": "收起",
-        "steps": [
-          {
-            "title": "计划类型",
-            "desc": "支持年度、季度、月度三种计划周期，可按个人、部门、公司维度设定。"
-          },
-          {
-            "title": "目标设定",
-            "desc": "填写目标金额与关键指标，可分解到子部门或个人。"
-          },
-          {
-            "title": "审批流程",
-            "desc": "提交后走多级审批，上级确认目标合理性后生效。"
-          },
-          {
-            "title": "进度跟踪",
-            "desc": "实时对比实际业绩与目标，自动计算完成率与差距。"
-          },
-          {
-            "title": "月度汇总",
-            "desc": "按月汇总完成情况，生成业绩报表供管理层决策。"
-          }
-        ]
-      }
     }
   }
 }

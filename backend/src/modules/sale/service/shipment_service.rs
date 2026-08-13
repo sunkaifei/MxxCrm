@@ -23,20 +23,6 @@ use rust_decimal::Decimal;
 use sea_orm::{ConnectionTrait, DbConn, EntityTrait, ColumnTrait, QueryFilter, TransactionTrait};
 use std::collections::HashSet;
 
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
-
-
-
 pub async fn get_list(db: &DbConn, query: &ShipmentListQuery, current_user_id: i64) -> Result<ResultPage<Vec<ShipmentListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);

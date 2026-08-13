@@ -1,6 +1,34 @@
 {
   "statistics": {
-    "performanceOverview": "业绩统计",
+    "title": "统计",
+    "common": {
+      "button": {
+        "list": "列表",
+        "manage": "管理",
+        "create": "新增",
+        "save": "保存",
+        "edit": "编辑",
+        "update": "更新",
+        "delete": "删除",
+        "view": "查看",
+        "info": "详情",
+        "audit": "审核",
+        "approve": "审批",
+        "close": "关闭",
+        "export": "导出",
+        "import": "导入",
+        "print": "打印",
+        "toggle": "启用禁用",
+        "submit": "提交",
+        "assign": "分配",
+        "upload": "上传",
+        "download": "下载",
+        "refresh": "刷新",
+        "sync": "同步"
+      }
+    },
+    "performanceOverview": "业绩概览",
+    "customer": "客户分析",
     "customerAnalysis": "客户分析",
     "contract": "合同统计",
     "payment": "回款统计",
@@ -50,7 +78,16 @@
     "loadPaymentFailed": "加载回款分析数据失败",
     "loadEmployeeFailed": "加载员工统计数据失败",
     "currencyFormat": "万",
-    "employee": "员工",
+    "timeFilter": {
+      "month": "本月",
+      "lastMonth": "上月",
+      "quarter": "本季度",
+      "lastQuarter": "上季度",
+      "year": "今年",
+      "all": "全部",
+      "custom": "自定义"
+    },
+    "employee": "员工统计",
     "department": "部门",
     "employeeStats": "员工统计分析",
     "employeeCustomerCount": "员工客户量统计",
@@ -58,6 +95,7 @@
     "conversionAnalysis": "成交率分析",
     "totalCustomers": "客户总数",
     "newCustomersThisMonth": "本月新增",
+    "newCustomers": "新增客户",
     "contractCustomers": "成交客户",
     "totalFollowUp": "总跟进次数",
     "customerFollowUp": "客户跟进",
@@ -117,6 +155,80 @@
     "pipelineCoverage": "Pipeline覆盖率",
     "rankUnit": "名",
     "contractUnit": "个",
-    "timesUnit": "倍"
+    "timesUnit": "倍",
+    "performancePlan": {
+      "button": {
+        "view": "销售计划查看",
+        "manage": "销售计划管理",
+        "audit": "销售计划审批"
+      },
+      "guide": {
+        "title": "业绩计划说明",
+        "brief": "设定个人/部门/公司的业绩目标，审批后按月跟踪完成率；展开查看完整流程。",
+        "expand": "展开说明",
+        "collapse": "收起",
+        "steps": [
+          {
+            "title": "计划类型",
+            "desc": "支持年度、季度、月度三种计划周期，可按个人、部门、公司维度设定。"
+          },
+          {
+            "title": "目标设定",
+            "desc": "填写目标金额与关键指标，可分解到子部门或个人。"
+          },
+          {
+            "title": "审批流程",
+            "desc": "提交后走多级审批，上级确认目标合理性后生效。"
+          },
+          {
+            "title": "进度跟踪",
+            "desc": "实时对比实际业绩与目标，自动计算完成率与差距。"
+          },
+          {
+            "title": "月度汇总",
+            "desc": "按月汇总完成情况，生成业绩报表供管理层决策。"
+          }
+        ]
+      }
+    },
+    "agg": {
+      "button": {
+        "refresh": "统计重算",
+        "manage": "汇总重算管理",
+        "list": "汇总批次查询"
+      }
+    },
+    "subscription": {
+      "button": {
+        "view": "订阅统计查看"
+      }
+    },
+    "abc": {
+      "button": {
+        "view": "ABC分析查看"
+      }
+    },
+    "employeeView": {
+      "subtitle": "客户获取 · 跟进投入 · 成交产出，一屏看清每位成员",
+      "deptAll": "全部部门",
+      "timeRange": "时间范围",
+      "teamOverview": "团队总览",
+      "avgPer": "人均",
+      "followTotal": "跟进总量",
+      "wonRate": "赢单率",
+      "topPerformers": "合同金额榜 TOP 8",
+      "oppConversion": "商机转化对比",
+      "open": "进行中",
+      "followInvest": "跟进投入分布",
+      "efficiency": "效率洞察",
+      "avgFollowIntervalShort": "平均跟进间隔",
+      "avgSalesCycleShort": "平均销售周期",
+      "noFollow30d": "30天未跟进客户",
+      "dayUnit": "天",
+      "headUnit": "人",
+      "rankBoard": "员工全景榜",
+      "avgCycleCol": "平均周期(天)",
+      "followUpTotalCol": "跟进总量"
+    }
   }
 }

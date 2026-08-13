@@ -6,7 +6,6 @@ import type { VbenFormSchema } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import { $t } from '#/locales';
 import { createTransferApi, getTransferInfoApi } from '#/api/core/product/transfer';
-import { getWarehouseListApi } from '#/api/core/product/warehouse';
 import {
   Button,
   Input,
@@ -17,6 +16,7 @@ import {
   message,
 } from 'ant-design-vue';
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
+import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
@@ -31,19 +31,42 @@ function toggleFullscreen() {
   isFullscreen.value = !isFullscreen.value;
 }
 
-// 仓库选项（异步加载）
-const warehouseOptions = ref<{ label: string; value: number }[]>([]);
+// ============ 仓库弹窗选择（源仓库 / 目标仓库共用） ============
+const warehouseSelectVisible = ref(false);
+// 标记当前选择的是源仓库还是目标仓库
+const warehouseSelectTarget = ref<'from' | 'to'>('from');
 
-async function loadWarehouseOptions() {
-  try {
-    const resp = await getWarehouseListApi({ page: 1, pageSize: 999 });
-    const list = resp?.data ?? resp ?? [];
-    warehouseOptions.value = (Array.isArray(list) ? list : []).map((w: any) => ({
-      label: w.warehouseName ?? w.name ?? w.label,
-      value: Number(w.id ?? w.value),
-    }));
-  } catch (e) {
-    console.error('[调拨] 加载仓库列表失败:', e);
+// 选择仓库时排除另一个已选仓库（源仓库和目标仓库不能相同）
+const warehouseExcludeId = computed(() => {
+  if (warehouseSelectTarget.value === 'from') {
+    // 选源仓库时，排除已选的目标仓库
+    return toWarehouseId.value;
+  }
+  // 选目标仓库时，排除已选的源仓库
+  return fromWarehouseId.value;
+});
+
+function openWarehouseSelect(target: 'from' | 'to') {
+  warehouseSelectTarget.value = target;
+  warehouseSelectVisible.value = true;
+}
+
+function onWarehouseSelected(warehouse: any) {
+  const id = String(warehouse.id);
+  const name = warehouse.warehouseName ?? warehouse.name ?? '';
+
+  if (warehouseSelectTarget.value === 'from') {
+    mainFormApi.setFieldValue('fromWarehouseId', id);
+    mainFormApi.setFieldValue('fromWarehouseDisplay', name);
+    fromWarehouseId.value = Number(warehouse.id);
+    // 源仓库切换时清空已选产品（库存数据失效）
+    if (tableItems.value.length > 0) {
+      tableItems.value = [];
+    }
+  } else {
+    mainFormApi.setFieldValue('toWarehouseId', id);
+    mainFormApi.setFieldValue('toWarehouseDisplay', name);
+    toWarehouseId.value = Number(warehouse.id);
   }
 }
 
@@ -66,6 +89,8 @@ const tableItems = ref<TransferItem[]>([]);
 const productSelectVisible = ref(false);
 // 源仓库ID（传给 ProductSelectModal 查询源仓库库存）
 const fromWarehouseId = ref<number | undefined>();
+// 目标仓库ID（用于排除重复选择）
+const toWarehouseId = ref<number | undefined>();
 
 // 已添加产品的排除列表（computed 确保响应式）
 const excludeProductIds = computed(() =>
@@ -152,39 +177,40 @@ const formSchema: VbenFormSchema[] = [
     formItemClass: 'col-span-2',
   },
   {
-    component: 'Select',
-    fieldName: 'fromWarehouseId',
+    component: 'Input',
+    fieldName: 'fromWarehouseDisplay',
     label: $t('page.product.inventory.transfer.drawer.sourceWarehouse'),
     rules: 'required',
     componentProps: {
-      placeholder: $t('page.product.inventory.transfer.drawer.sourceWarehousePlaceholder'),
-      options: warehouseOptions,
-      allowClear: true,
-      showSearch: true,
-      filterOption: (input: string, option: any) =>
-        (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
-      // 源仓库切换时清空已选产品（库存数据失效）
-      onChange: (val: any) => {
-        fromWarehouseId.value = val ? Number(val) : undefined;
-        if (tableItems.value.length > 0) {
-          tableItems.value = [];
-        }
-      },
+      placeholder: '点击选择源仓库',
+      readOnly: true,
+      style: { cursor: 'pointer' },
+      onClick: () => openWarehouseSelect('from'),
     },
   },
   {
-    component: 'Select',
-    fieldName: 'toWarehouseId',
+    component: 'Input',
+    fieldName: 'fromWarehouseId',
+    label: '',
+    formItemClass: 'hidden',
+  },
+  {
+    component: 'Input',
+    fieldName: 'toWarehouseDisplay',
     label: $t('page.product.inventory.transfer.drawer.targetWarehouse'),
     rules: 'required',
     componentProps: {
-      placeholder: $t('page.product.inventory.transfer.drawer.targetWarehousePlaceholder'),
-      options: warehouseOptions,
-      allowClear: true,
-      showSearch: true,
-      filterOption: (input: string, option: any) =>
-        (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+      placeholder: '点击选择目标仓库',
+      readOnly: true,
+      style: { cursor: 'pointer' },
+      onClick: () => openWarehouseSelect('to'),
     },
+  },
+  {
+    component: 'Input',
+    fieldName: 'toWarehouseId',
+    label: '',
+    formItemClass: 'hidden',
   },
   {
     component: 'Textarea',
@@ -265,7 +291,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       confirmLoading.value = false;
       tableItems.value = [];
       fromWarehouseId.value = undefined;
-      loadWarehouseOptions();
+      toWarehouseId.value = undefined;
       if (!drawerData.value.create && drawerData.value.row?.id) {
         loadDetail(drawerData.value.row.id);
       }
@@ -282,12 +308,18 @@ async function loadDetail(id: number) {
     const main = data.main ?? data;
     const items = data.items ?? [];
 
+    const fromId = num(main.from_warehouse_id ?? main.fromWarehouseId);
+    const toId = num(main.to_warehouse_id ?? main.toWarehouseId);
+
     mainFormApi.setValues({
-      fromWarehouseId: num(main.from_warehouse_id ?? main.fromWarehouseId),
-      toWarehouseId: num(main.to_warehouse_id ?? main.toWarehouseId),
+      fromWarehouseId: fromId ? String(fromId) : undefined,
+      fromWarehouseDisplay: main.from_warehouse_name ?? main.fromWarehouseName ?? '',
+      toWarehouseId: toId ? String(toId) : undefined,
+      toWarehouseDisplay: main.to_warehouse_name ?? main.toWarehouseName ?? '',
       remark: main.remark,
     });
-    fromWarehouseId.value = num(main.from_warehouse_id ?? main.fromWarehouseId);
+    fromWarehouseId.value = fromId;
+    toWarehouseId.value = toId;
 
     tableItems.value = items.map((item: any) => ({
       productId: Number(item.product_id ?? item.productId ?? 0),
@@ -424,6 +456,14 @@ async function loadDetail(id: number) {
       :warehouse-id="fromWarehouseId"
       @update:visible="(val) => (productSelectVisible = val)"
       @select="onProductSelected"
+    />
+
+    <!-- 仓库选择弹窗 -->
+    <WarehouseSelectModal
+      :visible="warehouseSelectVisible"
+      :exclude-id="warehouseExcludeId"
+      @update:visible="(val) => (warehouseSelectVisible = val)"
+      @select="onWarehouseSelected"
     />
   </Drawer>
 </template>

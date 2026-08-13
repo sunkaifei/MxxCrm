@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 
+use std::collections::{HashMap, HashSet};
 use crate::core::errors::error::{Error, Result};
 use crate::modules::inventory::model::alert::{self as alert_model, AlertRuleListQuery, AlertRuleListVO, AlertRuleListItem, AlertRuleSaveRequest};
 use crate::modules::product::entity::product as product_entity;
@@ -19,32 +20,85 @@ pub async fn get_list(db: &DatabaseConnection, query: &AlertRuleListQuery) -> Re
     let page = query.page_num.unwrap_or(1) as u64;
     let page_size = query.page_size.unwrap_or(10) as u64;
 
-    let (models, total) = alert_model::select_page(db, page, page_size, query.product_id, query.warehouse_id)
-        .await
-        .map_err(|e| Error::from(e.to_string()))?;
+    // 名称模糊匹配解析为 ID 列表（空 Vec 表示名称匹配不到任何记录）
+    let product_ids: Option<Vec<i64>> = match query.product_name.as_ref().map(|s| s.trim()) {
+        Some(name) if !name.is_empty() => {
+            let rows = product_entity::Entity::find()
+                .filter(product_entity::Column::Deleted.eq(0))
+                .filter(product_entity::Column::Name.like(format!("%{}%", name)))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(e.to_string()))?;
+            Some(rows.into_iter().map(|p| p.id).collect())
+        }
+        _ => None,
+    };
+
+    let warehouse_ids: Option<Vec<i64>> = match query.warehouse_name.as_ref().map(|s| s.trim()) {
+        Some(name) if !name.is_empty() => {
+            let rows = warehouse_entity::Entity::find()
+                .filter(warehouse_entity::Column::Deleted.eq(0))
+                .filter(warehouse_entity::Column::Name.like(format!("%{}%", name)))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(e.to_string()))?;
+            Some(rows.into_iter().map(|w| w.id).collect())
+        }
+        _ => None,
+    };
+
+    let (models, total) = alert_model::select_page(
+        db,
+        page,
+        page_size,
+        query.product_id,
+        query.warehouse_id,
+        product_ids.as_deref(),
+        warehouse_ids.as_deref(),
+    )
+    .await
+    .map_err(|e| Error::from(e.to_string()))?;
+
+    // 批量收集 product_id 和 warehouse_id，避免循环内逐条查询（N+1）
+    let product_id_set: HashSet<i64> = models.iter().filter_map(|m| m.product_id).collect();
+    let warehouse_id_set: HashSet<i64> = models.iter().filter_map(|m| m.warehouse_id).collect();
+
+    let product_map: HashMap<i64, String> = if product_id_set.is_empty() {
+        HashMap::new()
+    } else {
+        product_entity::Entity::find()
+            .filter(product_entity::Column::Id.is_in(product_id_set.into_iter().collect::<Vec<_>>()))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?
+            .into_iter()
+            .filter_map(|p| p.name.map(|n| (p.id, n)))
+            .collect()
+    };
+
+    let warehouse_map: HashMap<i64, String> = if warehouse_id_set.is_empty() {
+        HashMap::new()
+    } else {
+        warehouse_entity::Entity::find()
+            .filter(warehouse_entity::Column::Id.is_in(warehouse_id_set.into_iter().collect::<Vec<_>>()))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?
+            .into_iter()
+            .filter_map(|w| w.name.map(|n| (w.id, n)))
+            .collect()
+    };
 
     let mut items = Vec::new();
     for m in models {
         let product_name = if let Some(pid) = m.product_id {
-            product_entity::Entity::find_by_id(pid)
-                .one(db)
-                .await
-                .ok()
-                .flatten()
-                .map(|p| p.name)
-                .unwrap_or_default()
+            product_map.get(&pid).cloned()
         } else {
             Some("全部产品".to_string())
         };
 
         let warehouse_name = if let Some(wid) = m.warehouse_id {
-            warehouse_entity::Entity::find_by_id(wid)
-                .one(db)
-                .await
-                .ok()
-                .flatten()
-                .map(|w| w.name)
-                .unwrap_or_default()
+            warehouse_map.get(&wid).cloned()
         } else {
             Some("全部仓库".to_string())
         };

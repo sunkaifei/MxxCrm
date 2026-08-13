@@ -1,6 +1,32 @@
 {
   "attachment": {
     "title": "Attachment",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "file": {
       "title": "File Management",
       "button": {
@@ -88,7 +114,10 @@
       "title": "Category Management",
       "description": "Manage file categories with multi-level support",
       "button": {
-        "add": "Add Category"
+        "add": "Add Category",
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
       },
       "form": {
         "name": "Category Name",

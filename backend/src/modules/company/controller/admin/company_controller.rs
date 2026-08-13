@@ -9,6 +9,7 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -35,10 +36,9 @@ pub async fn get_company_info(state: web::Data<AppState>, req: HttpRequest) -> R
 
 pub async fn update_company_info(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CompanyInfoSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
 
-    let result = company_service::update_info(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = company_service::update_info(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -53,10 +53,9 @@ pub async fn get_account_list(state: web::Data<AppState>) -> Result<HttpResponse
 
 pub async fn save_account(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CompanyAccountSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
 
-    let result = company_service::save_account(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = company_service::save_account(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 

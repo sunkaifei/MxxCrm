@@ -1,6 +1,32 @@
 {
   "company": {
     "title": "Company",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "aiSettings": {
       "title": "AI Settings",
       "button": {
@@ -80,15 +106,5 @@
       "unread": "Unread",
       "viewDetail": "View detail"
     }
-  },
-  "statistics": {
-    "title": "Data Analytics",
-    "index": "Overview",
-    "performance": "Performance Overview",
-    "performanceOverview": "Performance Overview",
-    "customer": "Customer Conversion",
-    "employee": "Employee Statistics",
-    "contract": "Contract Ranking",
-    "payment": "Payment Analysis"
   }
 }

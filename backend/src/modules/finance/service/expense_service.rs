@@ -431,6 +431,8 @@ pub async fn submit_expense(db: &DbConn, expense_id: i64, operator_id: i64, oper
         extra_data: Some(serde_json::json!({
             "amount": expense.amount.unwrap_or(Decimal::from(0)),
         })),
+        cc_user_ids: None,
+        cc_reason: None,
     };
     let instance_id = ApprovalService::submit(db, &submit_req).await?;
 

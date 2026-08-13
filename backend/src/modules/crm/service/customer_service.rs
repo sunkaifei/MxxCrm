@@ -19,23 +19,9 @@ use crate::modules::company::service::code_rule_service;
 use crate::modules::system::entity::{admin::Entity as Admin, tag, tag_merge};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
-use crate::modules::system::service::role_service;
+use crate::modules::system::service::data_scope_service;
 use sea_orm::{DbConn, ColumnTrait, DatabaseTransaction, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, ConnectionTrait};
 use std::collections::{HashMap, HashSet};
-
-/// 递归获取指定部门及其所有子部门的ID列表
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 保留此函数签名是为了兼容现有调用方（如 followup_service）。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-pub async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
 
 /// 检查客户名称是否已存在（按 customer_type 区分查重字段）
 /// customer_type: 1=企业（按 company_name 查重），2=个人（按 person_name 查重）
@@ -137,7 +123,7 @@ pub async fn insert(db: &DbConn, form_data: &CustomerSaveRequest, created_by: i6
 
     // 4. 新建客户时，如果有负责人，记录初始分配历史
     if let Some(aid) = dto.assigned_to {
-        let _ = assign_history_service::record_claim(&txn, result, aid).await;
+        assign_history_service::record_claim(&txn, result, aid).await?;
     }
 
     txn.commit().await?;
@@ -532,11 +518,7 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
         "todayFollow" => {
             // 今日跟进客户：关联 followup 表过滤
             // 使用用户实际的数据权限范围
-            let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
-            let data_scope = roles.iter()
-                .filter_map(|r| r.data_scope)
-                .min();
-            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
+            let user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await?;
 
             let (list, total) = CustomerModel::select_today_follow_page(
                 &db, page, page_size,
@@ -634,7 +616,7 @@ pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64> {
         return Err(Error::from("领取失败，该客户可能已被他人领取"));
     }
     // 记录分配历史
-    let _ = assign_history_service::record_claim(&txn, id, user_id).await;
+    assign_history_service::record_claim(&txn, id, user_id).await?;
 
     txn.commit().await?;
     Ok(result)

@@ -11,6 +11,7 @@
 use serde::{Deserialize, Serialize};
 use rust_decimal::prelude::ToPrimitive;
 use crate::modules::finance::entity::{salary_record, commission_detail};
+use crate::modules::system::entity::admin;
 
 /// 工资记录DTO
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +24,8 @@ pub struct SalaryRecordDTO {
     pub year: i32,
     pub month: i32,
     pub base_salary: f64,
+    /// 岗位津贴
+    pub position_allowance: f64,
     pub commission_amount: f64,
     pub performance_bonus: f64,
     pub deduction_amount: f64,
@@ -48,6 +51,10 @@ pub struct SalaryRecordDTO {
     pub remark: Option<String>,
     pub create_time: Option<String>,
     pub update_time: Option<String>,
+    /// 入职时间（用于列表展示）
+    pub hire_date: Option<String>,
+    /// 是否已核算（false=该年月未生成工资记录，占位行）
+    pub calculated: bool,
 }
 
 impl From<salary_record::Model> for SalaryRecordDTO {
@@ -60,6 +67,7 @@ impl From<salary_record::Model> for SalaryRecordDTO {
             year: model.year,
             month: model.month,
             base_salary: model.base_salary.to_f64().unwrap_or_default(),
+            position_allowance: model.position_allowance.to_f64().unwrap_or_default(),
             commission_amount: model.commission_amount.to_f64().unwrap_or_default(),
             performance_bonus: model.performance_bonus.to_f64().unwrap_or_default(),
             deduction_amount: model.deduction_amount.to_f64().unwrap_or_default(),
@@ -77,6 +85,43 @@ impl From<salary_record::Model> for SalaryRecordDTO {
             remark: model.remark,
             create_time: model.create_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
             update_time: model.update_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
+            hire_date: None,
+            calculated: true,
+        }
+    }
+}
+
+impl SalaryRecordDTO {
+    /// 未核算占位记录：员工存在但该年月尚未生成工资记录
+    pub fn placeholder(emp: &admin::Model, year: i32, month: i32) -> Self {
+        Self {
+            id: 0,
+            employee_id: emp.id,
+            employee_name: emp.nick_name.clone().or_else(|| emp.user_name.clone()),
+            department_name: None,
+            year,
+            month,
+            base_salary: 0.0,
+            position_allowance: 0.0,
+            commission_amount: 0.0,
+            performance_bonus: 0.0,
+            deduction_amount: 0.0,
+            total_salary: 0.0,
+            social_insurance_personal: 0.0,
+            housing_fund_personal: 0.0,
+            social_insurance_company: 0.0,
+            housing_fund_company: 0.0,
+            tax_amount: 0.0,
+            net_salary: 0.0,
+            team_commission_amount: 0.0,
+            status: None,
+            employee_confirmed: None,
+            confirmed_time: None,
+            remark: None,
+            create_time: None,
+            update_time: None,
+            hire_date: emp.hire_date.map(|d| d.format("%Y-%m-%d").to_string()),
+            calculated: false,
         }
     }
 }
@@ -125,6 +170,7 @@ pub struct SalaryDetailDTO {
 
 /// 工资查询参数
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SalaryQuery {
     pub page: Option<i64>,
     pub page_size: Option<i64>,

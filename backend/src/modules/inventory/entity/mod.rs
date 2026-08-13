@@ -18,3 +18,4 @@ pub mod alert_rule;
 pub mod serial_number;
 pub mod bin_location;
 pub mod stock_bin;
+pub mod doc_change_log;

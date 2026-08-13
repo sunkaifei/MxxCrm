@@ -10,13 +10,13 @@
 
 use sea_orm::*;
 use sea_orm::sea_query::Expr;
-use chrono::{Utc, Datelike};
+use chrono::{Utc, Datelike, NaiveDate};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::{ToPrimitive, FromPrimitive};
 use std::collections::HashMap;
 
 use crate::modules::finance::entity::{
-    salary_record, salary_config, salary_calc_log,
+    salary_record, salary_config, salary_calc_log, salary_adjustment,
     commission_detail, commission_rule, commission_tier,
 };
 use crate::modules::finance::model::salary::{
@@ -34,57 +34,131 @@ pub async fn get_list(
     query: SalaryQuery,
     user_id: i64,
 ) -> Result<(Vec<SalaryRecordDTO>, i64), String> {
-    let mut stmt = salary_record::Entity::find()
-        .filter(salary_record::Column::Deleted.eq(0));
-
     // 数据权限过滤
     let (scope, allowed_ids) = resolve_data_scope(db, user_id).await?;
+
+    // 1. 查询参与工资核算的在职员工（全员占位的基础）
+    // 同时包含已关闭核算但仍有历史记录的员工（查询年月时他们的旧记录需要可见）
+    let mut emp_stmt = admin::Entity::find()
+        .filter(admin::Column::Deleted.eq(0));
+    // 按是否指定年月分两种策略
+    let has_period = query.year.is_some() && query.month.is_some();
+    if has_period {
+        // 指定年月：salary_enabled=1 的全员 + 该年月有工资记录的员工（即使已关闭核算）
+        let specified_year = query.year.unwrap();
+        let specified_month = query.month.unwrap();
+        let recorded_emp_ids: Vec<i64> = salary_record::Entity::find()
+            .filter(salary_record::Column::Year.eq(specified_year))
+            .filter(salary_record::Column::Month.eq(specified_month))
+            .filter(salary_record::Column::Deleted.eq(0))
+            .all(db).await.map_err(|e| e.to_string())?
+            .into_iter().map(|r| r.employee_id).collect();
+        let active_emps = admin::Column::SalaryEnabled.eq(1);
+        if recorded_emp_ids.is_empty() {
+            emp_stmt = emp_stmt.filter(active_emps.and(admin::Column::Status.eq(1)));
+        } else {
+            emp_stmt = emp_stmt.filter(
+                active_emps.and(admin::Column::Status.eq(1))
+                    .or(admin::Column::Id.is_in(recorded_emp_ids))
+            );
+        }
+    } else {
+        // 未指定年月：仅显示 salary_enabled=1 的在职员工
+        emp_stmt = emp_stmt
+            .filter(admin::Column::SalaryEnabled.eq(1))
+            .filter(admin::Column::Status.eq(1));
+    }
     match scope {
         SalaryDataScope::All => {},
         SalaryDataScope::SelfAndSubordinates | SalaryDataScope::SelfOnly => {
-            stmt = stmt.filter(salary_record::Column::EmployeeId.is_in(allowed_ids));
+            emp_stmt = emp_stmt.filter(admin::Column::Id.is_in(allowed_ids));
         }
     }
-
-    if let Some(year) = query.year {
-        stmt = stmt.filter(salary_record::Column::Year.eq(year));
-    }
-    if let Some(month) = query.month {
-        stmt = stmt.filter(salary_record::Column::Month.eq(month));
-    }
-    if let Some(status) = query.status {
-        stmt = stmt.filter(salary_record::Column::Status.eq(status));
-    }
     if let Some(employee_name) = &query.employee_name {
-        stmt = stmt.filter(salary_record::Column::EmployeeName.contains(employee_name));
+        let kw = employee_name.clone();
+        emp_stmt = emp_stmt.filter(
+            admin::Column::NickName
+                .contains(kw.clone())
+                .or(admin::Column::UserName.contains(kw)),
+        );
     }
-
-    stmt = stmt.order_by_desc(salary_record::Column::Year)
-        .order_by_desc(salary_record::Column::Month)
-        .order_by_desc(salary_record::Column::CreateTime);
-
-    let page = std::cmp::max(query.page.unwrap_or(1), 1);
-    let page_size = std::cmp::max(query.page_size.unwrap_or(20), 1);
-
-    let paginator = stmt.paginate(db, page_size as u64);
-    let total = paginator.num_items().await.map_err(|e| e.to_string())? as i64;
-    let items = paginator
-        .fetch_page((page - 1) as u64)
+    let employees = emp_stmt
+        .order_by_with_nulls(admin::Column::HireDate, sea_orm::Order::Asc, sea_orm::sea_query::NullOrdering::Last)
+        .all(db)
         .await
         .map_err(|e| e.to_string())?;
 
-    let dto_list: Vec<SalaryRecordDTO> = items.into_iter().map(SalaryRecordDTO::from).collect();
+    // 2. 查询已核算的工资记录（按年月/状态过滤）
+    let mut rec_stmt = salary_record::Entity::find()
+        .filter(salary_record::Column::Deleted.eq(0));
+    if let Some(year) = query.year {
+        rec_stmt = rec_stmt.filter(salary_record::Column::Year.eq(year));
+    }
+    if let Some(month) = query.month {
+        rec_stmt = rec_stmt.filter(salary_record::Column::Month.eq(month));
+    }
+    if let Some(status) = query.status {
+        rec_stmt = rec_stmt.filter(salary_record::Column::Status.eq(status));
+    }
+    let records = rec_stmt
+        .order_by_desc(salary_record::Column::CreateTime)
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    Ok((dto_list, total))
+    // 3. 合并：有记录的用记录，没有记录且指定了年月时生成"未核算"占位行
+    let emp_ids: Vec<i64> = employees.iter().map(|e| e.id).collect();
+    let mut record_map: HashMap<i64, salary_record::Model> = HashMap::new();
+    for r in records {
+        if emp_ids.contains(&r.employee_id) {
+            record_map.entry(r.employee_id).or_insert(r);
+        }
+    }
+    let has_period = query.year.is_some() && query.month.is_some();
+    let filter_status = query.status.is_some();
+    let mut dto_list: Vec<SalaryRecordDTO> = Vec::with_capacity(employees.len());
+    for emp in employees {
+        if let Some(rec) = record_map.get(&emp.id) {
+            dto_list.push(rec.clone().into());
+        } else if has_period && !filter_status {
+            dto_list.push(SalaryRecordDTO::placeholder(
+                &emp,
+                query.year.unwrap_or(0),
+                query.month.unwrap_or(0),
+            ));
+        }
+    }
+
+    // 4. 内存分页（全员占位合并后统一分页）
+    let total = dto_list.len() as i64;
+    let page = std::cmp::max(query.page.unwrap_or(1), 1);
+    let page_size = std::cmp::max(query.page_size.unwrap_or(20), 1);
+    let start = ((page - 1) * page_size) as usize;
+    let items: Vec<SalaryRecordDTO> = dto_list
+        .into_iter()
+        .skip(start)
+        .take(page_size as usize)
+        .collect();
+
+    Ok((items, total))
 }
 
 /// 详情含提成明细
-pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<SalaryDetailDTO, String> {
+pub async fn get_detail(db: &DatabaseConnection, id: i64, user_id: i64) -> Result<SalaryDetailDTO, String> {
     let record = salary_record::Entity::find_by_id(id)
         .one(db)
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "工资记录不存在".to_string())?;
+
+    // 数据权限校验：非全量角色只能查看自己及下属的工资详情
+    let (scope, allowed_ids) = resolve_data_scope(db, user_id).await?;
+    if scope != SalaryDataScope::All {
+        let allowed: std::collections::HashSet<i64> = allowed_ids.into_iter().collect();
+        if !allowed.contains(&record.employee_id) {
+            return Err("无权查看该工资记录".to_string());
+        }
+    }
 
     let dto: SalaryRecordDTO = record.into();
 
@@ -171,6 +245,22 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
 
     let txn = db.begin().await.map_err(|e| e.to_string())?;
 
+    // 0. 重算防护：该年月若已存在已审核(status=1)或已发放(status=2)的记录，禁止重算
+    let locked_count = salary_record::Entity::find()
+        .filter(salary_record::Column::Year.eq(year))
+        .filter(salary_record::Column::Month.eq(month))
+        .filter(salary_record::Column::Status.is_in(vec![1, 2]))
+        .filter(salary_record::Column::Deleted.eq(0))
+        .count(&txn)
+        .await
+        .map_err(|e| e.to_string())?;
+    if locked_count > 0 {
+        return Err(format!(
+            "{}年{}月已存在{}条已审核或已发放的工资记录，无法重新核算。请先将相关记录回退为待审核状态",
+            year, month, locked_count
+        ));
+    }
+
     // 1. 先删除该年月已有的"待审核"(status=0)工资记录及其提成明细
     let pending_records: Vec<salary_record::Model> = salary_record::Entity::find()
         .filter(salary_record::Column::Year.eq(year))
@@ -215,11 +305,6 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
         })
         .collect();
 
-    if fully_paid_plans.is_empty() {
-        txn.commit().await.map_err(|e| e.to_string())?;
-        return Ok(0);
-    }
-
     // 3. 获取相关合同信息
     let contract_ids: Vec<i64> = fully_paid_plans
         .iter()
@@ -256,20 +341,18 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
         }
     }
 
-    if employee_contracts.is_empty() {
-        txn.commit().await.map_err(|e| e.to_string())?;
-        return Ok(0);
-    }
-
-    // 5. 批量查询员工信息
-    let employee_ids: Vec<i64> = employee_contracts.keys().cloned().collect();
+    // 5. 批量查询参与工资核算的所有在职员工（全员参与，无回款业绩只发底薪）
     let admins = admin::Entity::find()
-        .filter(admin::Column::Id.is_in(employee_ids.clone()))
+        .filter(admin::Column::SalaryEnabled.eq(1))
+        .filter(admin::Column::Status.eq(1))
+        .filter(admin::Column::Deleted.eq(0))
         .all(&txn)
         .await
         .map_err(|e| e.to_string())?;
     let mut admin_map: HashMap<i64, admin::Model> = HashMap::new();
+    let mut employee_ids: Vec<i64> = Vec::new();
     for a in admins {
+        employee_ids.push(a.id);
         admin_map.insert(a.id, a);
     }
 
@@ -324,31 +407,49 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
     let now = Utc::now().naive_utc();
     let mut generated_count: i64 = 0;
 
-    // 6. 批量查询员工底薪配置（优先精确匹配 year+month，其次 year+month=null 全年配置）
-    let mut salary_config_map: HashMap<i64, salary_config::Model> = HashMap::new();
+    // 6. 批量查询员工底薪配置（工资档案模型，不限当年，支持跨年延续）
+    // 生效时间 = (year, month.unwrap_or(1))，全年配置视为当年1月生效
+    // 匹配规则：取生效时间 <= (核算year, 核算month) 中最近的一条
+    // 效果：设置一次后一直延续（含跨年）；调薪审批写入新配置后自动从生效月接管
     let configs = salary_config::Entity::find()
         .filter(salary_config::Column::EmployeeId.is_in(employee_ids.clone()))
-        .filter(salary_config::Column::Year.eq(year))
+        .filter(salary_config::Column::Year.lte(year))
         .filter(salary_config::Column::Status.eq(1))
         .filter(salary_config::Column::Deleted.eq(0))
         .all(&txn)
         .await
         .map_err(|e| e.to_string())?;
-    // 优先 month 精确匹配，其次 month=null 的全年配置
-    let mut fallback_configs: HashMap<i64, salary_config::Model> = HashMap::new();
+    let mut config_by_emp: HashMap<i64, Vec<salary_config::Model>> = HashMap::new();
     for cfg in configs {
-        if let Some(m) = cfg.month {
-            if m == month {
-                salary_config_map.insert(cfg.employee_id, cfg);
+        config_by_emp.entry(cfg.employee_id).or_default().push(cfg);
+    }
+    let mut salary_config_map: HashMap<i64, salary_config::Model> = HashMap::new();
+    for emp_id in &employee_ids {
+        if let Some(cfgs) = config_by_emp.get(emp_id) {
+            let chosen = cfgs
+                .iter()
+                .filter(|c| (c.year, c.month.unwrap_or(1)) <= (year, month))
+                .max_by_key(|c| (c.year, c.month.unwrap_or(1)));
+            if let Some(c) = chosen {
+                salary_config_map.insert(*emp_id, c.clone());
             }
-        } else {
-            fallback_configs.insert(cfg.employee_id, cfg);
         }
     }
-    for emp_id in &employee_ids {
-        salary_config_map.entry(*emp_id).or_insert_with(|| {
-            fallback_configs.get(emp_id).cloned().unwrap_or_default()
-        });
+
+    // 6.5 批量查询核算月内已审批通过的调薪记录（用于按天分段折算）
+    let mut month_adjustments: HashMap<i64, Vec<salary_adjustment::Model>> = HashMap::new();
+    if !employee_ids.is_empty() {
+        let adjustments = salary_adjustment::Entity::find()
+            .filter(salary_adjustment::Column::EmployeeId.is_in(employee_ids.clone()))
+            .filter(salary_adjustment::Column::Status.eq(1)) // 已通过
+            .filter(salary_adjustment::Column::AdjustmentDate.gte(month_start.and_hms_opt(0, 0, 0).unwrap_or_default()))
+            .filter(salary_adjustment::Column::AdjustmentDate.lt(next_month.and_hms_opt(0, 0, 0).unwrap_or_default()))
+            .all(&txn)
+            .await
+            .map_err(|e| e.to_string())?;
+        for a in adjustments {
+            month_adjustments.entry(a.employee_id).or_default().push(a);
+        }
     }
 
     // 7. 批量查询员工业绩计划完成率（用于绩效系数计算）
@@ -400,12 +501,9 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
         }
     }
 
-    // 8. 为每个员工匹配提成规则并计算
-    for (employee_id, contracts) in employee_contracts.into_iter() {
-        let admin_model = match admin_map.get(&employee_id) {
-            Some(a) => a.clone(),
-            None => continue,
-        };
+    // 8. 为每个员工匹配提成规则并计算（全员遍历，无回款业绩则提成为 0，只发底薪）
+    for (employee_id, admin_model) in admin_map.into_iter() {
+        let contracts = employee_contracts.get(&employee_id).cloned().unwrap_or_default();
         let employee_name = admin_model
             .nick_name
             .clone()
@@ -463,8 +561,17 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
 
         // 从底薪配置读取（含岗位津贴）
         let config = salary_config_map.get(&employee_id);
-        let base_salary = config.map(|c| c.base_salary).unwrap_or(Decimal::ZERO);
-        let position_allowance = config.and_then(|c| c.position_allowance).unwrap_or(Decimal::ZERO);
+        // 按天分段计算当月底薪+岗位津贴（覆盖：入职不满月按天、试用期打折、月中调薪折算）
+        let adjustments = month_adjustments.get(&employee_id).cloned().unwrap_or_default();
+        let (base_salary, position_allowance) = calc_segmented_base(
+            admin_model.hire_date,
+            admin_model.probation_months,
+            admin_model.probation_ratio,
+            config,
+            &adjustments,
+            month_start,
+            month_end,
+        );
         let base_with_allowance = base_salary + position_allowance;
 
         // 绩效奖金计算：
@@ -624,6 +731,7 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
             year: Set(year),
             month: Set(month),
             base_salary: Set(base_salary),
+            position_allowance: Set(position_allowance),
             commission_amount: Set(total_commission),
             performance_bonus: Set(performance_bonus),
             deduction_amount: Set(deduction_amount),
@@ -669,6 +777,105 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
     txn.commit().await.map_err(|e| e.to_string())?;
 
     Ok(generated_count)
+}
+
+/// 按天分段计算当月底薪+岗位津贴（按自然月天数折算）
+///
+/// 规则（统一为「段 × 天 / 自然月天数」）：
+/// 1. 入职不满月：只计算入职日到月底的天数，底薪 = 全额 × 在岗天数/当月自然天数
+/// 2. 试用期折扣：转正日 = 入职日 + 试用期月数，转正日前按试用期比例（如0.60）打折
+///    - 用户示例：6月15日入职 + 1个月试用期 → 6月15-30 试用期工资、7月1-14 试用期工资、7月15-31 正式工资
+/// 3. 月中调薪：调薪日(adjustment_date)当天起用新工资，之前用旧工资，均按天折算
+///    - 用户示例：8月5日调薪 → 8月1-4 按旧工资、8月5-31 按新工资
+/// 4. 岗位津贴不打折（试用期比例仅作用于底薪），但同样按天分段
+fn calc_segmented_base(
+    hire_date: Option<NaiveDate>,
+    probation_months: Option<i32>,
+    probation_ratio: Option<Decimal>,
+    config: Option<&salary_config::Model>,
+    adjustments: &[salary_adjustment::Model],
+    month_start: NaiveDate,
+    month_end: NaiveDate,
+) -> (Decimal, Decimal) {
+    let days_in_month = Decimal::from(month_end.day());
+    // 无入职时间或当月尚未入职 → 底薪/津贴为 0
+    let hire = match hire_date {
+        Some(h) => h,
+        None => return (Decimal::ZERO, Decimal::ZERO),
+    };
+    if hire > month_end {
+        return (Decimal::ZERO, Decimal::ZERO);
+    }
+    let work_start = std::cmp::max(hire, month_start);
+
+    // 转正日 = 入职日 + 试用期月数（当天起为正式工资）
+    let probation_end = match probation_months {
+        Some(m) if m > 0 => Some(add_months(hire, m as u32)),
+        _ => None,
+    };
+
+    // 调薪记录按调薪日升序
+    let mut sorted_adj: Vec<&salary_adjustment::Model> = adjustments.iter().collect();
+    sorted_adj.sort_by_key(|a| a.adjustment_date);
+
+    // 逐日累加当天适用底薪/津贴，最后按自然月天数折算
+    let mut total_base = Decimal::ZERO;
+    let mut total_allowance = Decimal::ZERO;
+    let mut d = work_start;
+    while d <= month_end {
+        let mut base = config.map(|c| c.base_salary).unwrap_or(Decimal::ZERO);
+        let mut allowance = config
+            .and_then(|c| c.position_allowance)
+            .unwrap_or(Decimal::ZERO);
+
+        if !sorted_adj.is_empty() {
+            // 找到调薪日 <= 当天 中最近一条 → 当天起用其新工资
+            if let Some(a) = sorted_adj
+                .iter()
+                .rev()
+                .find(|a| a.adjustment_date.map(|ad| ad <= d).unwrap_or(false))
+            {
+                base = a.new_base_salary.unwrap_or(base);
+                allowance = a.new_position_allowance.unwrap_or(allowance);
+            } else {
+                // 当天在本月第一次调薪之前 → 用其旧工资
+                let first = sorted_adj[0];
+                base = first.old_base_salary.unwrap_or(base);
+                allowance = first.old_position_allowance.unwrap_or(allowance);
+            }
+        }
+
+        // 试用期折扣（仅底薪，岗位津贴不打折）
+        if let Some(pe) = probation_end {
+            if d < pe {
+                if let Some(ratio) = probation_ratio {
+                    base *= ratio;
+                }
+            }
+        }
+
+        total_base += base;
+        total_allowance += allowance;
+        d = d + chrono::Duration::days(1);
+    }
+
+    (total_base / days_in_month, total_allowance / days_in_month)
+}
+
+/// 日期加月数（处理月末溢出，如 1月31日+1月 = 2月28/29日）
+fn add_months(date: NaiveDate, months: u32) -> NaiveDate {
+    let total = (date.month() - 1) + months;
+    let year = date.year() + (total / 12) as i32;
+    let month = total % 12 + 1;
+    let last_day = days_in_month(year, month);
+    NaiveDate::from_ymd_opt(year, month, std::cmp::min(date.day(), last_day)).unwrap_or(date)
+}
+
+/// 指定年月的天数
+fn days_in_month(year: i32, month: u32) -> u32 {
+    let (ny, nm) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+    let next_first = NaiveDate::from_ymd_opt(ny, nm, 1).unwrap();
+    (next_first - chrono::Duration::days(1)).day()
 }
 
 /// 匹配提成规则（最优匹配）
@@ -849,7 +1056,7 @@ pub async fn update(db: &DatabaseConnection, dto: SalaryUpdateDTO) -> Result<(),
         model.remark = Set(Some(remark));
     }
 
-    // 重新计算应发工资
+    // 重新计算应发工资（含岗位津贴）
     let existing = salary_record::Entity::find_by_id(dto.id)
         .one(db)
         .await
@@ -857,11 +1064,29 @@ pub async fn update(db: &DatabaseConnection, dto: SalaryUpdateDTO) -> Result<(),
         .ok_or_else(|| "工资记录不存在".to_string())?;
 
     let base = dto.base_salary.map(|v| Decimal::from_f64(v).unwrap_or_default()).unwrap_or(existing.base_salary);
+    let allowance = existing.position_allowance;
     let commission = existing.commission_amount;
+    let team_commission = existing.team_commission_amount;
     let bonus = dto.performance_bonus.map(|v| Decimal::from_f64(v).unwrap_or_default()).unwrap_or(existing.performance_bonus);
     let deduction = dto.deduction_amount.map(|v| Decimal::from_f64(v).unwrap_or_default()).unwrap_or(existing.deduction_amount);
-    let total = base + commission + bonus - deduction;
+    let total = base + allowance + commission + bonus + team_commission - deduction;
     model.total_salary = Set(total);
+
+    // 联动重算个税与实发工资
+    let personal_ins = existing.social_insurance_personal;
+    let personal_housing = existing.housing_fund_personal;
+    let employee_id_for_tax = existing.employee_id;
+    let tax_year = existing.year;
+    let tax_month = existing.month;
+    let new_tax: Decimal = match crate::modules::finance::service::tax_service::calculate_monthly_tax(
+        db, employee_id_for_tax, tax_year, tax_month, total.to_f64().unwrap_or(0.0),
+    ).await {
+        Ok(r) => r.monthly_tax,
+        Err(_) => existing.tax_amount,
+    };
+    let new_net = total - personal_ins - personal_housing - new_tax;
+    model.tax_amount = Set(new_tax);
+    model.net_salary = Set(new_net);
 
     if let Some(uid) = dto.updated_by {
         model.updated_by = Set(Some(uid));
@@ -976,14 +1201,21 @@ pub async fn get_summary(
     db: &DatabaseConnection,
     year: i32,
     month: i32,
+    user_id: i64,
 ) -> Result<SalarySummaryDTO, String> {
-    let records = salary_record::Entity::find()
+    let (scope, allowed_ids) = resolve_data_scope(db, user_id).await?;
+
+    let mut stmt = salary_record::Entity::find()
         .filter(salary_record::Column::Year.eq(year))
         .filter(salary_record::Column::Month.eq(month))
-        .filter(salary_record::Column::Deleted.eq(0))
-        .all(db)
-        .await
-        .map_err(|e| e.to_string())?;
+        .filter(salary_record::Column::Deleted.eq(0));
+
+    // 非全量权限：仅汇总自己及下属范围内的记录
+    if scope != SalaryDataScope::All {
+        stmt = stmt.filter(salary_record::Column::EmployeeId.is_in(allowed_ids));
+    }
+
+    let records = stmt.all(db).await.map_err(|e| e.to_string())?;
 
     let count = records.len() as i64;
     let total_base: Decimal = records.iter().map(|r| r.base_salary).sum();
@@ -1104,7 +1336,7 @@ pub async fn get_config_list(
     db: &DatabaseConnection,
     employee_id: Option<i64>,
     year: Option<i32>,
-) -> Result<Vec<salary_config::Model>, String> {
+) -> Result<Vec<serde_json::Value>, String> {
     let mut stmt = salary_config::Entity::find()
         .filter(salary_config::Column::Deleted.eq(0));
     if let Some(eid) = employee_id {
@@ -1113,11 +1345,48 @@ pub async fn get_config_list(
     if let Some(y) = year {
         stmt = stmt.filter(salary_config::Column::Year.eq(y));
     }
-    stmt.order_by_asc(salary_config::Column::EmployeeId)
+    let configs = stmt
+        .order_by_asc(salary_config::Column::EmployeeId)
         .order_by_asc(salary_config::Column::Year)
         .all(db)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // 批量查询员工姓名
+    let emp_ids: Vec<i64> = configs.iter().map(|c| c.employee_id).collect::<Vec<_>>();
+    let mut name_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    if !emp_ids.is_empty() {
+        let admins = admin::Entity::find()
+            .filter(admin::Column::Id.is_in(emp_ids))
+            .all(db)
+            .await
+            .map_err(|e| e.to_string())?;
+        for a in admins {
+            let name = a.nick_name.or(a.user_name).unwrap_or_default();
+            name_map.insert(a.id, name);
+        }
+    }
+
+    let result: Vec<serde_json::Value> = configs
+        .into_iter()
+        .map(|c| {
+            let emp_name = name_map.get(&c.employee_id).cloned().unwrap_or_default();
+            serde_json::json!({
+                "id": c.id,
+                "employeeId": c.employee_id,
+                "employeeName": emp_name,
+                "year": c.year,
+                "month": c.month,
+                "baseSalary": c.base_salary,
+                "positionAllowance": c.position_allowance,
+                "performanceBase": c.performance_base,
+                "performanceCoefficient": c.performance_coefficient,
+                "status": c.status,
+            })
+        })
+        .collect();
+
+    Ok(result)
 }
 
 /// 新增/更新底薪配置
@@ -1194,6 +1463,7 @@ pub async fn delete_config(db: &DatabaseConnection, id: i64) -> Result<(), Strin
 // ==================== 数据权限 ====================
 
 // 数据权限范围
+#[derive(Debug, Clone, PartialEq)]
 pub enum SalaryDataScope {
     All,
     SelfAndSubordinates,
@@ -1315,6 +1585,16 @@ pub async fn submit_confirm(
     // 申请重新核算需要理由
     if dto.action == 2 && dto.reason.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
         return Err("申请重新核算必须填写理由".to_string());
+    }
+
+    // 防重复提交：已确认(action=1)的记录不允许再操作；已申请重算(action=2)的记录不允许重复申请
+    if let Some(confirmed) = record.employee_confirmed {
+        if confirmed == 1 {
+            return Err("该工资记录已确认，无法重复操作".to_string());
+        }
+        if confirmed == 2 && dto.action == 2 {
+            return Err("该工资记录已申请重新核算，请等待财务处理".to_string());
+        }
     }
 
     // 更新工资记录的确认状态 + 创建确认/申诉记录（事务保证原子性）
@@ -1656,6 +1936,8 @@ pub async fn submit_salary_approval(
             submitter_id,
             submitter_name: Some(submitter_name.to_string()),
             extra_data: Some(extra),
+            cc_user_ids: None,
+            cc_reason: None,
         };
 
         match ApprovalService::submit(db, &req).await {

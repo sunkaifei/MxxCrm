@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 use sea_orm::EntityTrait;
@@ -33,9 +32,7 @@ pub async fn customer_insert(state: web::Data<AppState>, req: HttpRequest, form_
     let form_data = form_data.0;
 
     // 类型校验由 service 层处理（企业必填公司名，个人必填姓名）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = customer_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = customer_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -48,17 +45,14 @@ pub async fn customer_update(state: web::Data<AppState>, req: HttpRequest, form_
     }
 
     // 类型校验由 service 层处理
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = customer_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = customer_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的客户ID", "local"));
@@ -69,7 +63,37 @@ pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, 
         .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
 
+    // 删除前快照（审计 before）
+    let mut before: Vec<(i64, Option<String>, Option<i64>)> = Vec::new();
+    for id in &filtered_ids {
+        if let Ok(c) = customer_service::find_by_id(&db, *id).await {
+            before.push((
+                *id,
+                c.company_name.or(c.person_name).or(c.nickname),
+                c.assigned_to,
+            ));
+        }
+    }
+
     let result = customer_service::batch_delete_by_ids(&db, &filtered_ids, user_id).await;
+    if result.is_ok() {
+        // 审计埋点：删除客户（D01-6）
+        for (id, name, assigned) in &before {
+            crate::modules::system::service::audit_service::record(
+                db,
+                &req,
+                "customer",
+                "delete",
+                "customer",
+                *id,
+                format!("删除客户 {}", name.clone().unwrap_or_default()),
+                crate::modules::system::service::audit_service::snap(vec![
+                    ("assigned_to", serde_json::json!(assigned)),
+                ]),
+                None,
+            ).await;
+        }
+    }
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -91,8 +115,7 @@ pub async fn customer_list(state: web::Data<AppState>, req: HttpRequest, query: 
     let db = &state.db;
     let query = query.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     match customer_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
@@ -146,8 +169,7 @@ pub async fn customer_claim(state: web::Data<AppState>, req: HttpRequest, item: 
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     match customer_service::claim(&db, item.id.unwrap(), user_id).await {
         Ok(v) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local"))),
@@ -164,8 +186,7 @@ pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, 
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     match customer_service::add_to_pool(&db, item.id.unwrap(), user_id).await {
         Ok(v) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local"))),
@@ -232,8 +253,7 @@ pub async fn customer_financial_update(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let dto = form_data.into_inner();
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     // 获取操作人名称
     let editor_name = Admin::find_by_id(user_id)
@@ -292,7 +312,6 @@ pub async fn customer_transfer_preview(
     form_data: web::Json<crate::modules::crm::service::customer_transfer_service::TransferPreviewRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let _jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match customer_transfer_service::preview_transfer(db, &form_data.0).await {
         Ok(data) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
@@ -310,18 +329,36 @@ pub async fn customer_transfer(
     form_data: web::Json<crate::modules::crm::service::customer_transfer_service::TransferRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or_default();
-    let operator_name = jwt_token.username.clone();
+    let (operator_id, operator_name) = get_current_user(&req);
+    let transfer_customer_ids = form_data.customer_ids.clone();
+    let transfer_to_user = form_data.to_user_id;
 
     match customer_transfer_service::transfer_customer(
-        db, &form_data.0, operator_id, operator_name,
+        db, &form_data.0, operator_id, Some(operator_name),
     )
     .await
     {
-        Ok(data) => Ok(HttpResponse::Ok()
-            .content_type(MPACK)
-            .body(MetaResp::success(data, "local"))),
+        Ok(data) => {
+            // 审计埋点：转移客户（D01-7，before/after 负责人）
+            crate::modules::system::service::audit_service::record(
+                db,
+                &req,
+                "customer",
+                "transfer",
+                "customer_batch",
+                0,
+                format!("转移 {} 个客户给用户 #{}", transfer_customer_ids.len(), transfer_to_user.unwrap_or(0)),
+                crate::modules::system::service::audit_service::snap(vec![
+                    ("customer_ids", serde_json::json!(transfer_customer_ids)),
+                ]),
+                crate::modules::system::service::audit_service::snap(vec![
+                    ("to_user_id", serde_json::json!(transfer_to_user)),
+                ]),
+            ).await;
+            Ok(HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::success(data, "local")))
+        }
         Err(e) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),

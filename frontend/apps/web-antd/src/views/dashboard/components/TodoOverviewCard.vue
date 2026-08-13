@@ -12,88 +12,104 @@ defineOptions({
   name: 'TodoOverviewCard',
 });
 
+const props = withDefaults(
+  defineProps<{
+    /** 可见的 tabKey 列表（按权限过滤后传入），空数组/未传则显示全部 */
+    visibleTabs?: string[];
+  }>(),
+  {
+    visibleTabs: () => [],
+  },
+);
+
 const emit = defineEmits<{
-  (e: 'click-card', tabKey: string): void;
+  (e: 'clickCard', tabKey: string): void;
 }>();
 
 const loading = ref(false);
 const summary = ref<any>({});
 
 // 6 个指标方块配置
-const cards = computed(() => [
-  {
-    key: 'overdueFollowUp',
-    title: $t('page.dashboard.overdueFollowUp'),
-    value: summary.value.overdueFollowUp || 0,
-    color: '#ff4d4f',
-    bg: '#fff2f0',
-    icon: 'lucide:bell-ring',
-    tabKey: 'followUp',
-  },
-  {
-    key: 'todayFollowUp',
-    title: $t('page.dashboard.todayFollowUp'),
-    value: summary.value.todayFollowUp || 0,
-    color: '#faad14',
-    bg: '#fffbe6',
-    icon: 'lucide:calendar-check',
-    tabKey: 'followUp',
-  },
-  {
-    key: 'pendingApproval',
-    title: $t('page.dashboard.pendingApproval'),
-    value: summary.value.pendingApproval || 0,
-    color: '#1890ff',
-    bg: '#e6f7ff',
-    icon: 'lucide:file-check',
-    tabKey: 'approval',
-  },
-  {
-    key: 'pendingPayment',
-    title: $t('page.dashboard.pendingPayment'),
-    value: summary.value.pendingPayment || 0,
-    color: '#13c2c2',
-    bg: '#e6fffb',
-    icon: 'lucide:wallet',
-    tabKey: 'payment',
-  },
-  {
-    key: 'expiringContract',
-    title: $t('page.dashboard.expiringContract'),
-    value: summary.value.expiringContract || 0,
-    color: '#52c41a',
-    bg: '#f6ffed',
-    icon: 'lucide:file-text',
-    tabKey: 'contract',
-  },
-  {
-    key: 'stagnantOpportunity',
-    title: $t('page.dashboard.stagnantOpportunity'),
-    value: summary.value.stagnantOpportunity || 0,
-    color: '#eb2f96',
-    bg: '#fff0f6',
-    icon: 'lucide:alert-triangle',
-    tabKey: 'opportunity',
-  },
-  {
-    key: 'pendingPlanApproval',
-    title: $t('page.dashboard.pendingPlanApproval'),
-    value: summary.value.pendingPlanApproval || 0,
-    color: '#722ed1',
-    bg: '#f9f0ff',
-    icon: 'lucide:clipboard-check',
-    tabKey: 'planApproval',
-  },
-  {
-    key: 'unreadCc',
-    title: $t('page.dashboard.unreadCc'),
-    value: summary.value.unreadCc || 0,
-    color: '#fa8c16',
-    bg: '#fff7e6',
-    icon: 'lucide:mail',
-    tabKey: 'cc',
-  },
-]);
+const cards = computed(() => {
+  const all = [
+    {
+      key: 'overdueFollowUp',
+      title: $t('page.dashboard.overdueFollowUp'),
+      value: summary.value.overdueFollowUp || 0,
+      color: '#ff4d4f',
+      bg: '#fff2f0',
+      icon: 'lucide:bell-ring',
+      tabKey: 'followUp',
+    },
+    {
+      key: 'todayFollowUp',
+      title: $t('page.dashboard.todayFollowUp'),
+      value: summary.value.todayFollowUp || 0,
+      color: '#faad14',
+      bg: '#fffbe6',
+      icon: 'lucide:calendar-check',
+      tabKey: 'followUp',
+    },
+    {
+      key: 'pendingApproval',
+      title: $t('page.dashboard.pendingApproval'),
+      value: summary.value.pendingApproval || 0,
+      color: '#1890ff',
+      bg: '#e6f7ff',
+      icon: 'lucide:file-check',
+      tabKey: 'approval',
+    },
+    {
+      key: 'pendingPayment',
+      title: $t('page.dashboard.pendingPayment'),
+      value: summary.value.pendingPayment || 0,
+      color: '#13c2c2',
+      bg: '#e6fffb',
+      icon: 'lucide:wallet',
+      tabKey: 'payment',
+    },
+    {
+      key: 'expiringContract',
+      title: $t('page.dashboard.expiringContract'),
+      value: summary.value.expiringContract || 0,
+      color: '#52c41a',
+      bg: '#f6ffed',
+      icon: 'lucide:file-text',
+      tabKey: 'contract',
+    },
+    {
+      key: 'stagnantOpportunity',
+      title: $t('page.dashboard.stagnantOpportunity'),
+      value: summary.value.stagnantOpportunity || 0,
+      color: '#eb2f96',
+      bg: '#fff0f6',
+      icon: 'lucide:alert-triangle',
+      tabKey: 'opportunity',
+    },
+    {
+      key: 'pendingPlanApproval',
+      title: $t('page.dashboard.pendingPlanApproval'),
+      value: summary.value.pendingPlanApproval || 0,
+      color: '#722ed1',
+      bg: '#f9f0ff',
+      icon: 'lucide:clipboard-check',
+      tabKey: 'planApproval',
+    },
+    {
+      key: 'unreadCc',
+      title: $t('page.dashboard.unreadCc'),
+      value: summary.value.unreadCc || 0,
+      color: '#fa8c16',
+      bg: '#fff7e6',
+      icon: 'lucide:mail',
+      tabKey: 'cc',
+    },
+  ];
+  // visibleTabs 为空数组视为未过滤（显示全部），否则按权限过滤
+  return props.visibleTabs.length > 0
+    ? all.filter((card) => props.visibleTabs.includes(card.tabKey))
+    : all;
+});
 
 async function loadData() {
   loading.value = true;
@@ -107,7 +123,7 @@ async function loadData() {
 }
 
 function handleClick(tabKey: string) {
-  emit('click-card', tabKey);
+  emit('clickCard', tabKey);
 }
 
 onMounted(() => {

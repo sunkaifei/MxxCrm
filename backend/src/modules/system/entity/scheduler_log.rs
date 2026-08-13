@@ -18,9 +18,9 @@ pub struct Model {
     pub id: i64,
     pub job_id: i64,
     pub job_code: Option<String>,
-    /// 0=定时触发, 1=手动触发
+    /// 0=定时触发, 1=手动触发, 2=漏跑补跑
     pub trigger_type: Option<i32>,
-    /// 0=失败, 1=成功
+    /// 0=失败, 1=成功, 2=运行中, 3=中断
     pub status: Option<i32>,
     pub result_message: Option<String>,
     pub error_message: Option<String>,

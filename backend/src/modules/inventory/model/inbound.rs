@@ -77,6 +77,8 @@ pub struct InboundListItem {
     pub remark: Option<String>,
     pub created_by: Option<i64>,
     pub created_by_name: Option<String>,
+    pub submitted_by: Option<i64>,
+    pub submitted_by_name: Option<String>,
     pub create_time: Option<chrono::NaiveDateTime>,
     pub update_time: Option<chrono::NaiveDateTime>,
 }
@@ -96,6 +98,8 @@ impl From<inbound::Model> for InboundListItem {
             remark: m.remark,
             created_by: m.created_by,
             created_by_name: None,
+            submitted_by: m.submitted_by,
+            submitted_by_name: None,
             create_time: m.create_time,
             update_time: m.update_time,
         }
@@ -210,7 +214,7 @@ pub async fn update_by_id<C: ConnectionTrait>(
         .col_expr(inbound::Column::UpdateTime, Expr::value(now))
         .filter(inbound::Column::Id.eq(id))
         .filter(inbound::Column::Deleted.eq(0))
-        .filter(inbound::Column::Status.eq(0)) // 仅草稿可编辑
+        .filter(inbound::Column::Status.is_in([0, 4])) // 仅草稿/已驳回可编辑
         .exec(db)
         .await?;
     Ok(result.rows_affected as i64)

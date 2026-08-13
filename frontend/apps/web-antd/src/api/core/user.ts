@@ -14,6 +14,7 @@ export async function getUserInfoApi() {
     ...res,
     userId: res?.userId ?? String(res?.id ?? ''),
     realName: res?.realName ?? res?.nickname ?? res?.username ?? '',
+    email: res?.email ?? '',
   } as UserInfo;
 }
 

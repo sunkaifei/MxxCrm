@@ -6,6 +6,10 @@ export interface SettingConfigVO {
   sessionTimeout: number;
   maxDevices: number;
   registerEnabled: boolean;
+  inboundAuditEnabled: boolean;
+  outboundAuditEnabled: boolean;
+  inboundAuditMode: number;
+  outboundAuditMode: number;
 }
 
 /** 在线会话返回结构 */
@@ -28,6 +32,10 @@ export const updateSettingConfigApi = async (data: {
   sessionTimeout?: number;
   maxDevices?: number;
   registerEnabled?: boolean;
+  inboundAuditEnabled?: boolean;
+  outboundAuditEnabled?: boolean;
+  inboundAuditMode?: number;
+  outboundAuditMode?: number;
 }) => {
   return requestClient.put('/api/system/setting/config', data);
 };

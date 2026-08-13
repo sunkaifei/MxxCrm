@@ -28,8 +28,11 @@ const props = withDefaults(defineProps<{
   extraParams?: Record<string, any>;
   /** 弹窗宽度 */
   width?: string | number;
+  /** 需要排除（禁用）的用户ID列表 */
+  excludeIds?: number[];
 }>(), {
   width: '780px',
+  excludeIds: () => [],
 });
 
 const emit = defineEmits<{
@@ -101,7 +104,12 @@ function handleReset() {
   gridApi.query();
 }
 
+function isExcluded(row: any): boolean {
+  return props.excludeIds.includes(Number(row.id));
+}
+
 function handleSelect(row: any) {
+  if (isExcluded(row)) return;
   emit('select', row);
 }
 
@@ -150,7 +158,8 @@ watch(() => props.visible, (val) => {
       </template>
 
       <template #action="{ row }">
-        <Button type="primary" size="small" @click="handleSelect(row)">选择</Button>
+        <Button v-if="!isExcluded(row)" type="primary" size="small" @click="handleSelect(row)">选择</Button>
+        <Button v-else size="small" disabled>已添加</Button>
       </template>
     </Grid>
 

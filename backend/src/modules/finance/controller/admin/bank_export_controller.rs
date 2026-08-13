@@ -13,8 +13,7 @@ use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -76,9 +75,8 @@ pub async fn generate(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let creator_id = jwt_token.id.unwrap_or(0);
-    let creator_name = jwt_token.username.as_deref().unwrap_or("财务人员");
+    let (creator_id, username) = get_current_user(&req);
+    let creator_name: &str = if username.is_empty() { "财务人员" } else { &username };
 
     // 1. 生成文件内容
     let (file_content, file_name, total_count, total_amount) =
@@ -166,9 +164,8 @@ pub async fn generate_excel(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let creator_id = jwt_token.id.unwrap_or(0);
-    let creator_name = jwt_token.username.as_deref().unwrap_or("财务人员");
+    let (creator_id, username) = get_current_user(&req);
+    let creator_name: &str = if username.is_empty() { "财务人员" } else { &username };
 
     match bank_export_service::generate_excel_file(
         db, dto.year, dto.month, &dto.bank_type, creator_id, creator_name,

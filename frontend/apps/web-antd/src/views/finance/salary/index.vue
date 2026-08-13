@@ -324,6 +324,7 @@ const formOptions: VbenFormProps = {
       component: 'Select',
       fieldName: 'month',
       label: $t('page.finance.salary.config.column.month'),
+      defaultValue: now.getMonth() + 1,
       componentProps: {
         placeholder: $t('ui.placeholder.select'),
         allowClear: true,
@@ -404,8 +405,13 @@ const gridOptions: VxeGridProps = {
       minWidth: 120,
     },
     {
+      title: $t('page.finance.salary.column.hireDate'),
+      field: 'hireDate',
+      width: 110,
+    },
+    {
       title: $t('page.finance.salary.column.department'),
-      field: 'deptName',
+      field: 'departmentName',
       minWidth: 120,
     },
     {
@@ -421,6 +427,12 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'baseSalary' },
     },
     {
+      title: $t('page.finance.salary.column.positionAllowance'),
+      field: 'positionAllowance',
+      width: 120,
+      slots: { default: 'positionAllowance' },
+    },
+    {
       title: $t('page.finance.salary.column.commissionAmount'),
       field: 'commissionAmount',
       width: 120,
@@ -434,15 +446,15 @@ const gridOptions: VxeGridProps = {
     },
     {
       title: $t('page.finance.salary.column.deductionAmount'),
-      field: 'deduction',
+      field: 'deductionAmount',
       width: 120,
-      slots: { default: 'deduction' },
+      slots: { default: 'deductionAmount' },
     },
     {
       title: $t('page.finance.salary.column.totalSalary'),
-      field: 'totalAmount',
+      field: 'totalSalary',
       width: 140,
-      slots: { default: 'totalAmount' },
+      slots: { default: 'totalSalary' },
     },
     {
       title: $t('page.finance.salary.column.socialInsurancePersonal'),
@@ -493,10 +505,18 @@ const gridOptions: VxeGridProps = {
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 function goDetail(row: any) {
+  if (!row?.calculated && !row?.id) {
+    message.warning($t('page.finance.salary.status.notCalculated'));
+    return;
+  }
   void router.push({ path: `/finance/salary/detail/${row.id}` });
 }
 
 async function handleApprove(row: any) {
+  if (!row?.calculated && !row?.id) {
+    message.warning($t('page.finance.salary.status.notCalculated'));
+    return;
+  }
   row.pending = true;
   try {
     await approveSalaryApi(row.id);
@@ -510,6 +530,10 @@ async function handleApprove(row: any) {
 }
 
 async function handlePay(row: any) {
+  if (!row?.calculated && !row?.id) {
+    message.warning($t('page.finance.salary.status.notCalculated'));
+    return;
+  }
   row.pending = true;
   try {
     await paySalaryApi(row.id);
@@ -569,7 +593,11 @@ async function handleBatchPay() {
     message.warning($t('page.finance.salary.message.batchPaySelectRequired'));
     return;
   }
-  const ids = records.map((r: any) => r.id);
+  const ids = records.filter((r: any) => r.calculated && r.id).map((r: any) => r.id);
+  if (ids.length === 0) {
+    message.warning($t('page.finance.salary.status.notCalculated'));
+    return;
+  }
   try {
     await batchPaySalaryApi(ids);
     message.success($t('page.finance.salary.message.batchPaySuccess'));
@@ -582,6 +610,7 @@ async function handleBatchPay() {
 // 底薪配置表格列
 const configColumns = computed(() => [
   { title: $t('page.finance.salary.config.column.employeeId'), dataIndex: 'employeeId', width: 80 },
+  { title: $t('page.finance.salary.column.employeeName'), dataIndex: 'employeeName', width: 100 },
   {
     title: $t('page.finance.salary.config.column.year'),
     dataIndex: 'year',
@@ -1219,54 +1248,70 @@ onMounted(() => {
       </template>
 
       <template #baseSalary="{ row }">
-        <span :class="{ 'text-gray-400': !row.baseSalary }">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else :class="{ 'text-gray-400': !row.baseSalary }">
           {{ formatMoney(row.baseSalary) }}
         </span>
       </template>
+      <template #positionAllowance="{ row }">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else :class="{ 'text-gray-400': !row.positionAllowance }">
+          {{ formatMoney(row.positionAllowance) }}
+        </span>
+      </template>
       <template #commissionAmount="{ row }">
-        <span :class="{ 'text-gray-400': !row.commissionAmount }">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else :class="{ 'text-gray-400': !row.commissionAmount }">
           {{ formatMoney(row.commissionAmount) }}
         </span>
       </template>
       <template #performanceBonus="{ row }">
-        <span :class="{ 'text-gray-400': !row.performanceBonus }">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else :class="{ 'text-gray-400': !row.performanceBonus }">
           {{ formatMoney(row.performanceBonus) }}
         </span>
       </template>
       <template #deductionAmount="{ row }">
-        <span :class="{ 'text-gray-400': !row.deductionAmount }">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else :class="{ 'text-gray-400': !row.deductionAmount }">
           {{ formatMoney(row.deductionAmount) }}
         </span>
       </template>
       <template #totalSalary="{ row }">
-        <span class="font-semibold text-primary">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else class="font-semibold text-primary">
           {{ formatMoney(row.totalSalary) }}
         </span>
       </template>
 
       <template #socialInsurancePersonal="{ row }">
-        <span :class="{ 'text-gray-400': !row.socialInsurancePersonal }">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else :class="{ 'text-gray-400': !row.socialInsurancePersonal }">
           {{ formatMoney(row.socialInsurancePersonal) }}
         </span>
       </template>
       <template #housingFundPersonal="{ row }">
-        <span :class="{ 'text-gray-400': !row.housingFundPersonal }">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else :class="{ 'text-gray-400': !row.housingFundPersonal }">
           {{ formatMoney(row.housingFundPersonal) }}
         </span>
       </template>
       <template #taxAmount="{ row }">
-        <span :class="{ 'text-gray-400': !row.taxAmount }">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else :class="{ 'text-gray-400': !row.taxAmount }">
           {{ formatMoney(row.taxAmount) }}
         </span>
       </template>
       <template #netSalary="{ row }">
-        <span class="font-semibold" style="color: #1890ff">
+        <span v-if="!row.calculated" class="text-gray-400">-</span>
+        <span v-else class="font-semibold" style="color: #1890ff">
           {{ formatMoney(row.netSalary) }}
         </span>
       </template>
 
       <template #status="{ row }">
-        <Tag :color="statusMap[row.status]?.color || 'default'">
+        <Tag v-if="!row.calculated" color="warning">{{ $t('page.finance.salary.status.notCalculated') }}</Tag>
+        <Tag v-else :color="statusMap[row.status]?.color || 'default'">
           {{ statusMap[row.status]?.label || row.status }}
         </Tag>
       </template>
@@ -1283,8 +1328,12 @@ onMounted(() => {
       </template>
 
       <template #action="{ row }">
+        <!-- 未核算占位行：无可执行操作，提示先核算 -->
+        <span v-if="!row.calculated" class="text-gray-400">
+          {{ $t('page.finance.salary.status.notCalculated') }}
+        </span>
         <!-- 财务/超管：审核/发放/调整/详情/处理申诉 -->
-        <template v-if="isFullScope">
+        <template v-else-if="isFullScope">
           <Button type="link" size="small" @click="goDetail(row)">{{ $t('page.finance.salary.action.detail') }}</Button>
           <Button
             v-if="row.status === 0"

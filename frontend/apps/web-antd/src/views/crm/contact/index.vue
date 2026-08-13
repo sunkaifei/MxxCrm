@@ -4,19 +4,20 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { computed, h, ref, watch } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2, LucideSearch } from '@vben/icons';
+import { LucideFilePenLine, LucideSearch, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Card, Col, Drawer, Form, Input, Popconfirm, Row, Select, Tabs, Tag, Modal, message } from 'ant-design-vue';
+import { Button, Card, Col, Drawer, Form, Input, message, Modal, Popconfirm, Row, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteContactApi, getContactListApi } from '#/api';
 import { $t } from '#/locales';
+
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
-import ContactDrawer from './drawer.vue';
 import ContactDetail from './detail.vue';
+import ContactDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -29,7 +30,7 @@ const roleColorMap: Record<number, string> = {
 };
 
 const detailVisible = ref(false);
-const detailId = ref<number | null>(null);
+const detailId = ref<null | number>(null);
 
 function openDetail(row: any) {
   const id = row.id ?? row.id_;
@@ -72,6 +73,7 @@ const dataScope = computed(() => {
 
 const activeTab = ref('my');
 const allTabList = [
+  { key: 'all', label: '全部联系人' },
   { key: 'my', label: '我的联系人' },
   { key: 'subordinate', label: '下属联系人' },
 ];
@@ -79,16 +81,19 @@ const tabList = computed(() => {
   const scope = dataScope.value;
   let allowedKeys: string[];
   switch (scope) {
-    case 1:
+    case 1: {
+      allowedKeys = ['all', 'my', 'subordinate'];
+      break;
+    }
     case 2:
-    case 4:
+    case 4: {
       allowedKeys = ['my', 'subordinate'];
       break;
-    case 3:
-    case 5:
-    default:
+    }
+    default: {
       allowedKeys = ['my'];
       break;
+    }
   }
   return allTabList.filter(t => allowedKeys.includes(t.key));
 });
@@ -211,6 +216,14 @@ const gridOptions: VxeGridProps = {
       title: '首要', field: 'isPrimary', width: 60, align: 'center',
       formatter: ({ cellValue }: any) => cellValue ? '★' : '-',
     },
+    {
+      // 归属人（人脉资产归属）：我的人脉高亮标记；0/空 = 公共池
+      title: '归属人', field: 'ownerName', width: 110,
+      formatter: ({ cellValue, row }: any) =>
+        row?.createdBy === userStore.userInfo?.userId
+          ? `★ ${cellValue || '我'}`
+          : (cellValue || '公共池'),
+    },
     { title: '邮箱', field: 'email', width: 180 },
     { title: '手机', field: 'mobile', width: 130 },
     {
@@ -259,7 +272,7 @@ async function handleBatchDelete() {
 <template>
   <Page>
     <Card :bordered="false" class="mb-4">
-      <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="mb-4">
+      <Tabs v-model:active-key="activeTab" @change="handleTabChange" class="mb-4">
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
       </Tabs>
 

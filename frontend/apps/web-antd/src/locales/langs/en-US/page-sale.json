@@ -1,6 +1,32 @@
 {
   "sale": {
     "title": "Sales Management",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "quotation": {
       "title": "Quotation",
       "button": {
@@ -9,7 +35,8 @@
         "delete": "Delete Quotation",
         "send": "Send",
         "accept": "Convert to Order",
-        "reject": "Reject"
+        "reject": "Reject",
+        "pdf": "Generate Quotation PDF"
       }
     },
     "order": {
@@ -20,7 +47,8 @@
         "delete": "Delete Order",
         "confirm": "Confirm Order",
         "ship": "Ship",
-        "complete": "Complete Order"
+        "complete": "Complete Order",
+        "pdf": "Generate Order PDF"
       }
     },
     "orderItem": {
@@ -31,7 +59,10 @@
       "button": {
         "create": "Add Payment",
         "edit": "Edit Payment",
-        "delete": "Delete Payment"
+        "delete": "Delete Payment",
+        "confirm": "Confirm",
+        "reject": "Reject",
+        "apply": "Apply"
       }
     },
     "paymentPlan": {
@@ -80,7 +111,8 @@
         "view": "View Full",
         "create": "New Delivery",
         "edit": "Edit",
-        "resend": "Resend"
+        "resend": "Resend",
+        "delete": "Delete"
       }
     },
     "cardPool": {
@@ -97,7 +129,8 @@
       "button": {
         "create": "New",
         "edit": "Edit",
-        "renew": "Renew"
+        "renew": "Renew",
+        "delete": "Delete"
       }
     },
     "invoice": {

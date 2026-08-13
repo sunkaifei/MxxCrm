@@ -18,6 +18,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 
 use crate::modules::finance::entity::{salary_adjustment, salary_config};
+use crate::modules::message::service::notification_service::NotificationService;
 
 // ==================== DTO ====================
 
@@ -95,18 +96,18 @@ pub async fn create_adjustment(
 ) -> Result<i64, String> {
     let now = Utc::now().naive_utc();
 
-    // 解析调薪日期，未传则用当前时间
+    // 解析调薪日期，未传则用当前日期
     let adjustment_date = match dto.adjustment_date.as_deref() {
-        Some(s) => {
-            chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
-                .or_else(|_| chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S"))
-                .or_else(|_| {
-                    chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
-                        .map(|d| d.and_hms_opt(0, 0, 0).unwrap_or(now))
-                })
-                .map_err(|e| format!("调薪日期格式错误: {}", e))?
-        }
-        None => now,
+        Some(s) => chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+            .or_else(|_| {
+                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
+                    .map(|d| d.date())
+            })
+            .or_else(|_| {
+                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").map(|d| d.date())
+            })
+            .map_err(|e| format!("调薪日期格式错误: {}", e))?,
+        None => now.date(),
     };
 
     // 自动从 salary_config 读取 old 值（如果未提供）
@@ -121,8 +122,14 @@ pub async fn create_adjustment(
                 dto.old_performance_base,
             )
         } else {
-            // 查 salary_config 当前生效配置
-            let current = get_current_salary_config(db, dto.employee_id, adjustment_date.year()).await?;
+            // 查 salary_config 当前生效配置（工资档案模型，跨年延续）
+            let current = get_current_salary_config(
+                db,
+                dto.employee_id,
+                adjustment_date.year(),
+                adjustment_date.month() as i32,
+            )
+            .await?;
             let cfg_old_base = current.as_ref().map(|c| c.base_salary);
             let cfg_old_position = current.as_ref().and_then(|c| c.position_allowance);
             let cfg_old_perf = current.as_ref().and_then(|c| c.performance_base);
@@ -197,7 +204,7 @@ pub async fn approve_adjustment(
 
     // 同步到 salary_config
     // 取生效年月（adjustment_date 的年月）
-    let adjustment_date = record.adjustment_date.unwrap_or(now);
+    let adjustment_date = record.adjustment_date.unwrap_or(now.date());
     let year = adjustment_date.year();
     let month = Some(adjustment_date.month() as i32);
 
@@ -245,6 +252,7 @@ pub async fn reject_adjustment(
         return Err("只有待审批状态的调薪记录才能驳回".to_string());
     }
 
+    let emp_id = record.employee_id;
     let mut active: salary_adjustment::ActiveModel = record.into();
     active.status = Set(Some(2));
     active.approver_id = Set(Some(approver_id));
@@ -254,6 +262,16 @@ pub async fn reject_adjustment(
     active.update(&txn).await.map_err(|e| e.to_string())?;
 
     txn.commit().await.map_err(|e| e.to_string())?;
+
+    // 通知申请人调薪被驳回
+    let _ = NotificationService::send_system_notification(
+        db, emp_id,
+        "调薪申请已驳回".to_string(),
+        format!("您的调薪申请已被驳回，原因：{}", reason),
+        2,
+        Some("/finance/salary-adjustment".to_string()),
+    ).await;
+
     Ok(())
 }
 
@@ -274,32 +292,29 @@ pub async fn get_comparison(
 
 // ==================== 内部工具 ====================
 
-/// 查询员工当前生效的 salary_config
-/// 优先匹配 month，其次 month=null 的全年配置
+/// 查询员工当前生效的 salary_config（工资档案模型）
+/// 生效时间 = (year, month.unwrap_or(1))，取生效时间 <= (year, month) 中最近的一条
 async fn get_current_salary_config(
     db: &DatabaseConnection,
     employee_id: i64,
     year: i32,
+    month: i32,
 ) -> Result<Option<salary_config::Model>, String> {
     let configs = salary_config::Entity::find()
         .filter(salary_config::Column::EmployeeId.eq(employee_id))
-        .filter(salary_config::Column::Year.eq(year))
+        .filter(salary_config::Column::Year.lte(year))
         .filter(salary_config::Column::Status.eq(1))
         .filter(salary_config::Column::Deleted.eq(0))
         .all(db)
         .await
         .map_err(|e| e.to_string())?;
 
-    // 优先 month=当前月份 的，其次 month=null 的
-    let now = Utc::now().naive_utc();
-    let current_month = now.month() as i32;
-    if let Some(c) = configs.iter().find(|c| c.month == Some(current_month)) {
-        return Ok(Some(c.clone()));
-    }
-    if let Some(c) = configs.iter().find(|c| c.month.is_none()) {
-        return Ok(Some(c.clone()));
-    }
-    Ok(None)
+    configs
+        .iter()
+        .filter(|c| (c.year, c.month.unwrap_or(1)) <= (year, month))
+        .max_by_key(|c| (c.year, c.month.unwrap_or(1)))
+        .cloned()
+        .map_or(Ok(None), |c| Ok(Some(c)))
 }
 
 /// 新增或更新 salary_config

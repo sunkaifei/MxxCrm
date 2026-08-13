@@ -14,8 +14,7 @@ use crate::core::kit::global::AppState;
 use crate::core::web::response::MetaResp;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
-use crate::core::web::base_controller::get_user;
-use crate::core::kit::jwt_util::JWTToken;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::modules::inventory::service::transfer_service;
 use crate::modules::inventory::model::transfer::*;
 use crate::core::web::response::MPACK;
@@ -23,7 +22,6 @@ use crate::core::errors::error::Result as MyResult;
 
 pub async fn transfer_save(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data: TransferSaveRequest = serde_json::from_value(body.0).unwrap_or(TransferSaveRequest {
         from_warehouse_id: 0,
         to_warehouse_id: 0,
@@ -36,29 +34,27 @@ pub async fn transfer_save(state: web::Data<AppState>, req: HttpRequest, body: w
     if form_data.items.is_empty() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "调拨明细不能为空", "local")));
     }
-    let result = transfer_service::create(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = transfer_service::create(db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn transfer_outbound(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = path.into_inner();
     if id <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
-    let result = transfer_service::outbound(db, id, jwt_token.id.unwrap_or_default()).await;
+    let result = transfer_service::outbound(db, id, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn transfer_inbound(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = path.into_inner();
     if id <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
-    let result = transfer_service::inbound(db, id, jwt_token.id.unwrap_or_default()).await;
+    let result = transfer_service::inbound(db, id, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -94,9 +90,7 @@ pub async fn transfer_list(state: web::Data<AppState>, req: HttpRequest) -> Resu
 
 pub async fn transfer_batch_delete(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = req.query_string().split("&").find(|s| s.starts_with("id=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<String>().ok())).unwrap_or_default();
-    let _ = jwt_token;
     let ids: Vec<i64> = id.split(',').filter_map(|s| s.parse::<i64>().ok()).collect();
     if ids.is_empty() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "参数无效", "local")));

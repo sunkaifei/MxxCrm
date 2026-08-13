@@ -104,6 +104,8 @@ impl ApprovalService {
                                     txn, &req, &nk, 0, &[],
                                     Some(flow_snapshot),
                                 ).await?;
+                                // 提交时抄送（无审批直接通过场景同样记录）
+                                Self::insert_submit_cc(txn, instance_id, &nk, "", &req).await?;
                                 ApprovalModel::finish_instance(txn, instance_id, 3).await?;
                                 Ok(instance_id)
                             })
@@ -137,7 +139,7 @@ impl ApprovalService {
         ).await?;
 
         // 自审回避：从候选列表中过滤掉发起人自己
-        let candidates = ApprovalModel::filter_self_approvers(raw_candidates, req.submitter_id);
+        let mut candidates = ApprovalModel::filter_self_approvers(raw_candidates.clone(), req.submitter_id);
 
         let first_node_key = first_node.node_key.clone().unwrap_or_default();
         let first_node_name = first_node.node_name.clone().unwrap_or_default();
@@ -158,6 +160,8 @@ impl ApprovalService {
                         ).await?;
                         // 写入自动通过日志
                         Self::insert_auto_pass_log(txn, instance_id, &first_node_key, &first_node_name).await?;
+                        // 提交时抄送
+                        Self::insert_submit_cc(txn, instance_id, &first_node_key, &first_node_name, &req).await?;
                         // 流转到下一节点
                         Self::advance_to_next_node(txn, instance_id, &first_node_key, &nodes, &edges, sid, &ed).await?;
                         Ok(instance_id)
@@ -166,7 +170,13 @@ impl ApprovalService {
                 .await
                 .map_err(|e| Error::from(e.to_string()))?;
                 let _ = flow;
+                // 用户审核：直属上级自动通过完成时启用用户
+                Self::finish_user_audit_if_approved(db, instance_id).await;
                 return Ok(instance_id);
+            } else if !raw_candidates.is_empty() {
+                // 自审回避后候选为空但原候选非空（如指定角色下仅有提交人自己）：
+                // 退化为允许提交人自己审批，避免流程无法流转
+                candidates = raw_candidates;
             } else {
                 return Err(Error::from("审批节点未解析到候选审批人"));
             }
@@ -178,14 +188,17 @@ impl ApprovalService {
         let req = (*req).clone();
         let instance_id = db.transaction::<_, i64, Error>(|txn| {
             Box::pin(async move {
-                ApprovalModel::create_instance(
+                let instance_id = ApprovalModel::create_instance(
                     txn,
                     &req,
                     &first_node_key,
                     primary_approver,
                     &candidates,
                     Some(flow_snapshot),
-                ).await
+                ).await?;
+                // 提交时抄送
+                Self::insert_submit_cc(txn, instance_id, &first_node_key, &first_node_name, &req).await?;
+                Ok(instance_id)
             })
         })
         .await
@@ -193,6 +206,48 @@ impl ApprovalService {
 
         let _ = flow; // flow 已使用
         Ok(instance_id)
+    }
+
+    /// 提交审批时插入抄送记录 + 抄送日志（在实例创建的事务内调用，保证原子性）
+    /// 过滤提交人本人并去重，未指定抄送人时直接跳过
+    async fn insert_submit_cc(
+        txn: &impl ConnectionTrait,
+        instance_id: i64,
+        node_key: &str,
+        node_name: &str,
+        req: &ApprovalSubmitRequest,
+    ) -> Result<()> {
+        let Some(cc_ids) = &req.cc_user_ids else { return Ok(()) };
+        let mut ids: Vec<i64> = Vec::new();
+        for id in cc_ids {
+            if *id != req.submitter_id && !ids.contains(id) {
+                ids.push(*id);
+            }
+        }
+        if ids.is_empty() {
+            return Ok(());
+        }
+        ApprovalModel::insert_cc_records(
+            txn,
+            instance_id,
+            &ids,
+            Some(req.submitter_id),
+            req.submitter_name.clone(),
+            req.cc_reason.clone(),
+        ).await?;
+        // 写入抄送日志（action=8）
+        ApprovalModel::insert_log_with_target(
+            txn,
+            instance_id,
+            node_key,
+            node_name,
+            req.submitter_id,
+            req.submitter_name.clone(),
+            8,
+            req.cc_reason.clone(),
+            None, None, None, None,
+        ).await?;
+        Ok(())
     }
 
     /// 处理审批
@@ -241,6 +296,7 @@ impl ApprovalService {
         let wl_approver_name = req.approver_name.clone();
         let wl_action = req.action;
         let wl_comment = req.comment.clone();
+        let wl_instance_id = req.instance_id;
         let req = (*req).clone();
 
         // 审批日志写入 + 实例状态变更：事务包裹，保证原子性
@@ -295,6 +351,9 @@ impl ApprovalService {
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 
+        // 用户审核：审批通过（实例完成）后自动启用用户
+        Self::finish_user_audit_if_approved(db, wl_instance_id).await;
+
         // 工作日志埋点（审批通过/驳回），不影响主业务
         let action_name = if wl_action == 1 { "审批通过" } else { "驳回审批" };
         let result_val = if wl_action == 1 { 1 } else { 2 };
@@ -308,7 +367,7 @@ impl ApprovalService {
             business_title: instance.business_title.clone(),
             description: wl_comment,
             result: Some(result_val),
-            work_date: Some(chrono::Local::now().naive_local().date()),
+            work_date: Some(chrono::Utc::now().naive_utc().date()),
         };
         let _ = work_log_service::insert(db, &log_dto).await;
 
@@ -327,7 +386,22 @@ impl ApprovalService {
 
     // ============ Private helpers ============
 
-    /// 审批撤销/退回后回写业务侧审批状态（合同/订单）。
+    /// 用户审核审批：business_type="user" 的实例审批通过（status=3）后自动启用用户
+    /// （audit_status=1 + status=1），best-effort，失败不影响审批主流程
+    async fn finish_user_audit_if_approved(db: &DatabaseConnection, instance_id: i64) {
+        if let Ok(Some(inst)) = ApprovalModel::find_instance_by_id_raw(db, instance_id).await {
+            if inst.business_type.as_deref() == Some("user") && inst.status == Some(3) {
+                let _ = crate::modules::system::service::admin_service::update_audit_status(
+                    db,
+                    inst.business_id.unwrap_or_default(),
+                    1,
+                )
+                .await;
+            }
+        }
+    }
+
+    /// 审批撤销/退回后回写业务侧审批状态（合同/订单/入库单）。
     /// 失败时忽略错误（best-effort），不影响审批主流程。
     async fn sync_business_approval_status(
         db: &impl ConnectionTrait,
@@ -348,6 +422,31 @@ impl ApprovalService {
                 let _ = order::Entity::update_many()
                     .col_expr(order::Column::ApprovalStatus, value)
                     .filter(order::Column::Id.eq(business_id))
+                    .exec(db)
+                    .await;
+            }
+            // 入库单：审批引擎状态 0=撤回→草稿(0)，6=退回发起人→已驳回(4)
+            // （审批通过/驳回由入库单自身 audit/reject 流程处理，不经此处回写）
+            "inbound" => {
+                let biz_status = if approval_status == 6 { 4 } else { 0 };
+                let _ = crate::modules::inventory::entity::inbound::Entity::update_many()
+                    .col_expr(
+                        crate::modules::inventory::entity::inbound::Column::Status,
+                        sea_orm::sea_query::Expr::value(biz_status),
+                    )
+                    .filter(crate::modules::inventory::entity::inbound::Column::Id.eq(business_id))
+                    .exec(db)
+                    .await;
+            }
+            // 出库单：审批引擎状态 0=撤回→草稿(0)，6=退回发起人→已驳回(4)
+            "outbound" => {
+                let biz_status = if approval_status == 6 { 4 } else { 0 };
+                let _ = crate::modules::inventory::entity::outbound::Entity::update_many()
+                    .col_expr(
+                        crate::modules::inventory::entity::outbound::Column::Status,
+                        sea_orm::sea_query::Expr::value(biz_status),
+                    )
+                    .filter(crate::modules::inventory::entity::outbound::Column::Id.eq(business_id))
                     .exec(db)
                     .await;
             }
@@ -456,7 +555,7 @@ impl ApprovalService {
                     submitter_dept_id,
                 ).await?;
                 // 自审回避
-                let candidates = ApprovalModel::filter_self_approvers(raw_candidates, submitter_id);
+                let mut candidates = ApprovalModel::filter_self_approvers(raw_candidates.clone(), submitter_id);
 
                 let next_node_name = next_node.node_name.clone().unwrap_or_default();
                 let next_node_approver_type = next_node.approver_type;
@@ -467,6 +566,10 @@ impl ApprovalService {
                         ApprovalModel::update_instance_node(db, instance_id, next_key, 0, &[]).await?;
                         Self::insert_auto_pass_log(db, instance_id, next_key, &next_node_name).await?;
                         return Box::pin(Self::advance_to_next_node(db, instance_id, next_key, nodes, edges, submitter_id, extra_data)).await;
+                    } else if !raw_candidates.is_empty() {
+                        // 自审回避后候选为空但原候选非空（如指定角色下仅有提交人自己）：
+                        // 退化为允许提交人自己审批，避免流程无法流转
+                        candidates = raw_candidates;
                     } else {
                         return Err(Error::from("审批节点未解析到候选审批人"));
                     }
@@ -628,7 +731,7 @@ impl ApprovalService {
                             submitter_dept_id,
                         ).await?;
                         // 自审回避
-                        let candidates = ApprovalModel::filter_self_approvers(raw_candidates, submitter_id);
+                        let mut candidates = ApprovalModel::filter_self_approvers(raw_candidates.clone(), submitter_id);
 
                         let target_node_name = target.node_name.clone().unwrap_or_default();
                         let target_approver_type = target.approver_type;
@@ -639,6 +742,9 @@ impl ApprovalService {
                                 ApprovalModel::update_instance_node(db, instance_id, target_key, 0, &[]).await?;
                                 Self::insert_auto_pass_log(db, instance_id, target_key, &target_node_name).await?;
                                 return Box::pin(Self::advance_to_next_node(db, instance_id, target_key, nodes, edges, submitter_id, extra_data)).await;
+                            } else if !raw_candidates.is_empty() {
+                                // 自审回避后候选为空但原候选非空：退化为允许提交人自己审批
+                                candidates = raw_candidates;
                             } else {
                                 return Err(Error::from("审批节点未解析到候选审批人"));
                             }
@@ -661,6 +767,32 @@ impl ApprovalService {
 
     // ==================== 审批增强功能 ====================
 
+    /// 公共校验：加载审批实例 + 状态校验 + 取当前节点信息
+    /// 6 个增强功能的共同前置逻辑，消除重复样板
+    async fn load_active_instance(
+        db: &DatabaseConnection,
+        instance_id: i64,
+        action_name: &str,
+    ) -> Result<(ApprovalInstanceVO, String, String)> {
+        let instance = ApprovalModel::find_instance_by_id(db, instance_id)
+            .await?
+            .ok_or_else(|| Error::from("审批实例不存在"))?;
+
+        if instance.status != 1 && instance.status != 2 {
+            return Err(Error::from(format!("当前审批状态不允许{}", action_name)));
+        }
+
+        let current_node_key = instance.current_node_key.clone().unwrap_or_default();
+        let current_node_name = instance
+            .flow_nodes
+            .iter()
+            .find(|n| n.node_key == current_node_key)
+            .map(|n| n.node_name.clone())
+            .unwrap_or_default();
+
+        Ok((instance, current_node_key, current_node_name))
+    }
+
     /// 取消（撤回）审批实例 - 仅发起人可操作
     /// action=7, 实例状态置为 5=已撤回
     pub async fn cancel_instance(
@@ -669,25 +801,15 @@ impl ApprovalService {
         operator_id: i64,
         operator_name: &str,
     ) -> Result<()> {
-        let instance = ApprovalModel::find_instance_by_id(db, req.instance_id).await?
-            .ok_or_else(|| Error::from("审批实例不存在"))?;
+        let (instance, current_node_key, current_node_name) =
+            Self::load_active_instance(db, req.instance_id, "撤回").await?;
 
         // 权限校验：仅发起人可撤回
         if instance.submitter_id != operator_id {
             return Err(Error::from("仅发起人可撤回审批"));
         }
 
-        // 状态校验：仅进行中(1/2)可撤回
-        if instance.status != 1 && instance.status != 2 {
-            return Err(Error::from("当前审批状态不允许撤回"));
-        }
-
         let cancel_reason = req.cancel_reason.clone().unwrap_or_default();
-        let current_node_key = instance.current_node_key.clone().unwrap_or_default();
-        let current_node_name = instance.flow_nodes.iter()
-            .find(|n| n.node_key == current_node_key)
-            .map(|n| n.node_name.clone())
-            .unwrap_or_default();
         let instance_id = req.instance_id;
         let operator_name = operator_name.to_string();
 
@@ -735,24 +857,14 @@ impl ApprovalService {
         operator_id: i64,
         operator_name: &str,
     ) -> Result<()> {
-        let instance = ApprovalModel::find_instance_by_id(db, req.instance_id).await?
-            .ok_or_else(|| Error::from("审批实例不存在"))?;
+        let (instance, current_node_key, current_node_name) =
+            Self::load_active_instance(db, req.instance_id, "退回").await?;
 
         // 权限校验：审批人必须在候选池中
         if !instance.candidate_approvers.contains(&operator_id) {
             return Err(Error::from("您不是当前节点的审批人"));
         }
 
-        // 状态校验
-        if instance.status != 1 && instance.status != 2 {
-            return Err(Error::from("当前审批状态不允许退回"));
-        }
-
-        let current_node_key = instance.current_node_key.clone().unwrap_or_default();
-        let current_node_name = instance.flow_nodes.iter()
-            .find(|n| n.node_key == current_node_key)
-            .map(|n| n.node_name.clone())
-            .unwrap_or_default();
         let inst_submitter_id = instance.submitter_id;
         let inst_submitter_name = instance.submitter_name.clone();
         let inst_business_type = instance.business_type.clone();
@@ -829,7 +941,7 @@ impl ApprovalService {
                             inst_submitter_id,
                             submitter_dept_id,
                         ).await?;
-                        let candidates = ApprovalModel::filter_self_approvers(raw_candidates, inst_submitter_id);
+                        let mut candidates = ApprovalModel::filter_self_approvers(raw_candidates.clone(), inst_submitter_id);
 
                         if candidates.is_empty() {
                             // 动态节点（type=6/7）候选为空时自动通过，而非报错
@@ -839,8 +951,12 @@ impl ApprovalService {
                                 Self::insert_auto_pass_log(txn, req.instance_id, target_key, &target_node_name).await?;
                                 Self::advance_to_next_node(txn, req.instance_id, target_key, &nodes2, &edges2, inst_submitter_id, &inst_extra_data).await?;
                                 return Ok(());
+                            } else if !raw_candidates.is_empty() {
+                                // 自审回避后候选为空但原候选非空：退化为允许发起人自己审批
+                                candidates = raw_candidates;
+                            } else {
+                                return Err(Error::from("目标节点未解析到候选审批人"));
                             }
-                            return Err(Error::from("目标节点未解析到候选审批人"));
                         }
 
                         let primary_approver = candidates[0];
@@ -1048,24 +1164,13 @@ impl ApprovalService {
             return Err(Error::from("加签用户不能为空"));
         }
 
-        let instance = ApprovalModel::find_instance_by_id(db, req.instance_id).await?
-            .ok_or_else(|| Error::from("审批实例不存在"))?;
+        let (instance, current_node_key, current_node_name) =
+            Self::load_active_instance(db, req.instance_id, "加签").await?;
 
         // 权限校验：审批人必须在候选池中
         if !instance.candidate_approvers.contains(&operator_id) {
             return Err(Error::from("您不是当前节点的审批人"));
         }
-
-        // 状态校验
-        if instance.status != 1 && instance.status != 2 {
-            return Err(Error::from("当前审批状态不允许加签"));
-        }
-
-        let current_node_key = instance.current_node_key.clone().unwrap_or_default();
-        let current_node_name = instance.flow_nodes.iter()
-            .find(|n| n.node_key == current_node_key)
-            .map(|n| n.node_name.clone())
-            .unwrap_or_default();
 
         // 过滤掉已在候选池中的用户（避免重复）
         let new_users: Vec<i64> = req.target_user_ids.iter()

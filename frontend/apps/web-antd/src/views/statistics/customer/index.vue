@@ -1,23 +1,25 @@
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Card, Row, Col, Table } from 'ant-design-vue';
 import { LucideArrowRight } from '@vben/icons';
 import { $t } from '#/locales';
 import { getCustomerTypeStatsApi, getCustomerSourceStatsApi, getCustomerIndustryStatsApi, getCustomerFunnelApi } from '#/api/core/statistics';
+import TimeFilter from '../components/time-filter.vue';
 
 const customerTypeData = ref<any[]>([]);
 const customerSourceData = ref<any[]>([]);
 const customerIndustryData = ref<any[]>([]);
 const funnelData = ref<any[]>([]);
+const timeParams = ref<{ start_date?: string; end_date?: string; year?: number }>({});
 
 const loadData = async () => {
   try {
     const [typeRes, sourceRes, industryRes, funnelRes] = await Promise.all([
-      getCustomerTypeStatsApi(),
-      getCustomerSourceStatsApi(),
-      getCustomerIndustryStatsApi(),
-      getCustomerFunnelApi(),
+      getCustomerTypeStatsApi(timeParams.value),
+      getCustomerSourceStatsApi(timeParams.value),
+      getCustomerIndustryStatsApi(timeParams.value),
+      getCustomerFunnelApi(timeParams.value),
     ]);
 
     // requestClient.get 返回 { code, data, msg }，data 字段即为后端实际数据
@@ -64,9 +66,10 @@ const loadData = async () => {
   }
 };
 
-onMounted(() => {
+function handleTimeChange(params: { start_date?: string; end_date?: string; year?: number }) {
+  timeParams.value = params;
   loadData();
-});
+}
 
 function formatCurrency(val: number) {
   return `¥${(val / 10000).toFixed(1)}${$t('page.statistics.currencyFormat')}`;
@@ -76,22 +79,22 @@ const typeColumns = [
   { title: $t('page.statistics.customerTypeCol'), dataIndex: 'customerType' },
   { title: $t('page.statistics.totalCount'), dataIndex: 'totalCount', align: 'right' as const },
   { title: $t('page.statistics.contractCount'), dataIndex: 'contractCount', align: 'right' as const },
-  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, customRender: ({ text }) => `${Number(text).toFixed(2)}%` },
+  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, customRender: ({ text }: any) => `${Number(text).toFixed(2)}%` },
 ];
 
 const sourceColumns = [
   { title: $t('page.statistics.source'), dataIndex: 'source' },
   { title: $t('page.statistics.totalCount'), dataIndex: 'totalCount', align: 'right' as const },
   { title: $t('page.statistics.contractCount'), dataIndex: 'contractCount', align: 'right' as const },
-  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, customRender: ({ text }) => `${Number(text).toFixed(2)}%` },
+  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, customRender: ({ text }: any) => `${Number(text).toFixed(2)}%` },
 ];
 
 const industryColumns = [
   { title: $t('page.statistics.industryCol'), dataIndex: 'industry' },
   { title: $t('page.statistics.customerCount'), dataIndex: 'totalCount', align: 'right' as const },
   { title: $t('page.statistics.contractCount'), dataIndex: 'contractCount', align: 'right' as const },
-  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, customRender: ({ text }) => `${Number(text).toFixed(2)}%` },
-  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, customRender: ({ text }) => formatCurrency(text) },
+  { title: $t('page.statistics.conversionRate'), dataIndex: 'conversionRate', align: 'right' as const, customRender: ({ text }: any) => `${Number(text).toFixed(2)}%` },
+  { title: $t('page.statistics.contractAmount'), dataIndex: 'contractAmount', align: 'right' as const, customRender: ({ text }: any) => formatCurrency(text) },
 ];
 </script>
 
@@ -99,6 +102,8 @@ const industryColumns = [
   <Page auto-content-height>
     <div class="p-4">
       <h2 class="text-lg font-bold mb-4">{{ $t('page.statistics.customerConversion') }}</h2>
+
+      <TimeFilter @change="handleTimeChange" />
 
       <Card :title="$t('page.statistics.customerFunnel')" class="mb-6">
         <div class="flex items-center justify-center py-8">

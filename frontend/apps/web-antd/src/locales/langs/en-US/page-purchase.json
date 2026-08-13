@@ -1,12 +1,39 @@
 {
   "purchase": {
     "title": "Purchase Management",
+    "common": {
+      "button": {
+        "list": "List",
+        "manage": "Manage",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "info": "Detail",
+        "audit": "Audit",
+        "approve": "Approve",
+        "close": "Close",
+        "export": "Export",
+        "import": "Import",
+        "print": "Print",
+        "toggle": "Enable/Disable",
+        "submit": "Submit",
+        "assign": "Assign",
+        "upload": "Upload",
+        "download": "Download",
+        "refresh": "Refresh",
+        "sync": "Sync"
+      }
+    },
     "supplier": {
       "title": "Supplier Management",
       "button": {
         "create": "Add Supplier",
         "edit": "Edit Supplier",
-        "delete": "Delete Supplier"
+        "delete": "Delete Supplier",
+        "info": "Detail"
       }
     },
     "po": {
@@ -74,7 +101,8 @@
         "edit": "Edit PO",
         "delete": "Delete PO",
         "confirm": "Confirm PO",
-        "receive": "Receive"
+        "receive": "Receive",
+        "view": "View"
       }
     },
     "item": {
@@ -87,7 +115,8 @@
         "edit": "Edit Requisition",
         "delete": "Delete Requisition",
         "approve": "Approve",
-        "convert": "Convert to PO"
+        "convert": "Convert to PO",
+        "view": "View"
       }
     },
     "receipt": {
@@ -95,7 +124,8 @@
       "button": {
         "create": "Add Receipt",
         "delete": "Delete Receipt",
-        "inbound": "Create Inbound"
+        "inbound": "Create Inbound",
+        "edit": "Edit Receipt"
       }
     },
     "return": {
@@ -111,7 +141,9 @@
       "button": {
         "create": "Add Plan",
         "edit": "Edit Plan",
-        "delete": "Delete Plan"
+        "delete": "Delete Plan",
+        "view": "View",
+        "convert": "Convert"
       }
     },
     "report": {

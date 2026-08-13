@@ -93,20 +93,6 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<PaymentDetailVO> {
     }
 }
 
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
-
-
-
 pub async fn list(db: &DbConn, query: &PaymentListQuery, current_user_id: i64) -> Result<ResultPage<Vec<PaymentListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
@@ -237,6 +223,18 @@ pub async fn confirm(db: &DbConn, payment_id: i64, user_id: i64) -> Result<i64> 
     }
 
     txn.commit().await?;
+
+    // 统计回填检测（B2.2）：确认回款使该笔进入统计口径，若回款日期在历史需定向重算该月汇总（best-effort）
+    {
+        let pd = payment.payment_date;
+        let today = chrono::Local::now().date_naive();
+        if pd.map_or(false, |d| d < today) {
+            let _ = crate::modules::statistics::service::stats_agg_service::on_payment_date_changed(
+                db, None, pd, user_id,
+            ).await;
+        }
+    }
+
     Ok(payment_id)
 }
 
@@ -483,6 +481,8 @@ pub async fn submit_payment(db: &DbConn, payment_id: i64, operator_id: i64, oper
         submitter_id: operator_id,
         submitter_name: Some(operator_name.to_string()),
         extra_data: Some(serde_json::json!({ "amount": amount })),
+        cc_user_ids: None,
+        cc_reason: None,
     };
     let instance_id = ApprovalService::submit(db, &submit_req).await?;
 

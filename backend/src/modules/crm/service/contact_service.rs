@@ -72,7 +72,11 @@ pub async fn update(db: &DbConn, form_data: &ContactUpdateRequest, updated_by: i
                 // 记录修改日志（如有差异）
                 if let Some(old) = &old_model {
                     let old_json = serde_json::to_value(old).unwrap_or_default();
-                    let new_json = serde_json::to_value(&dto).unwrap_or_default();
+                    // 用更新后的模型做对比，避免 DTO 未携带的字段（首要/账单/收货联系人标志）被误报为"删除"
+                    let new_model = contact::Entity::find_by_id(contact_id.unwrap_or_default())
+                        .one(txn)
+                        .await?;
+                    let new_json = serde_json::to_value(&new_model).unwrap_or_default();
                     let editor_name = crate::modules::system::entity::admin::Entity::find_by_id(updated_by)
                         .one(txn)
                         .await
@@ -103,13 +107,12 @@ pub async fn update(db: &DbConn, form_data: &ContactUpdateRequest, updated_by: i
                         if let Some(ref current_record) = current {
                             if current_record.customer_id == customer_id {
                                 // 同一公司：只更新信息，不新增履历
+                                // 注意：is_primary/is_billing/is_shipping 不在此处设置（NotSet=不修改），
+                                // Set(None) 会把已有标志清空为 NULL
                                 let update_payload = customer_contact_merge::ActiveModel {
                                     id: Set(current_record.id),
                                     title: Set(title_opt.clone()),
                                     role_type: Set(dto.role_type.clone()),
-                                    is_primary: Set(None),
-                                    is_billing: Set(None),
-                                    is_shipping: Set(None),
                                     update_time: Set(Some(now)),
                                     ..Default::default()
                                 };
@@ -183,6 +186,107 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64>
     Ok(result)
 }
 
+/// 当前用户可见的联系人 ID 集合（按数据权限）
+///
+/// 可见性口径（三层并集）：
+/// 1. **我的人脉**：contact.created_by = 我（人脉资产归属，独立于客户，客户转移/删除不影响）
+/// 2. 现任/曾任于我权限范围内客户的联系人（历史任职沉淀，离职换绑后仍可见）
+/// 3. 超管/系统管理员：全部（返回 None）
+pub async fn visible_contact_ids(db: &DbConn, user_id: i64) -> Result<Option<Vec<i64>>> {
+    let accessible = crate::modules::system::service::data_scope_service
+        ::get_accessible_user_ids(db, user_id).await?;
+    match accessible {
+        None => Ok(None),
+        Some(user_ids) => {
+            // 数据权限内的用户（含本人）
+            let mut scope_users = user_ids;
+            if !scope_users.contains(&user_id) {
+                scope_users.push(user_id);
+            }
+
+            // 1) 我的人脉
+            let mut contact_ids: Vec<i64> = crate::modules::crm::entity::contact::Entity::find()
+                .filter(crate::modules::crm::entity::contact::Column::Deleted.eq(0))
+                .filter(crate::modules::crm::entity::contact::Column::CreatedBy.eq(user_id))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(e.to_string()))?
+                .iter()
+                .map(|c| c.id)
+                .collect();
+
+            // 2) 权限客户（现任或曾任）的联系人
+            let customer_ids: Vec<i64> = customer::Entity::find()
+                .filter(customer::Column::Deleted.eq(0))
+                .filter(customer::Column::AssignedTo.is_in(scope_users))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(e.to_string()))?
+                .iter()
+                .map(|c| c.id)
+                .collect();
+            if !customer_ids.is_empty() {
+                let customer_contact_ids: Vec<i64> = customer_contact_merge::Entity::find()
+                    .filter(customer_contact_merge::Column::CustomerId.is_in(customer_ids))
+                    .all(db)
+                    .await
+                    .map_err(|e| Error::from(e.to_string()))?
+                    .iter()
+                    .map(|m| m.contact_id)
+                    .collect();
+                contact_ids.extend(customer_contact_ids);
+            }
+
+            contact_ids.sort_unstable();
+            contact_ids.dedup();
+            Ok(Some(contact_ids))
+        }
+    }
+}
+
+/// 单个联系人是否对当前用户可见
+async fn is_contact_visible(db: &DbConn, id: i64, user_id: i64) -> Result<bool> {
+    Ok(match visible_contact_ids(db, user_id).await? {
+        None => true,
+        Some(ids) => ids.contains(&id),
+    })
+}
+
+/// 详情查询（带数据权限校验）：无权返回错误
+pub async fn find_by_id_checked(db: &DbConn, id: i64, user_id: i64) -> Result<ContactDetailVO> {
+    if !is_contact_visible(db, id, user_id).await? {
+        return Err(Error::from("无权访问该联系人"));
+    }
+    find_by_id(db, id).await
+}
+
+/// 更新（带数据权限校验）：无权返回错误
+pub async fn update_checked(db: &DbConn, form_data: &ContactUpdateRequest, updated_by: i64) -> Result<i64> {
+    if let Some(id) = form_data.id {
+        if !is_contact_visible(db, id, updated_by).await? {
+            return Err(Error::from("无权修改该联系人"));
+        }
+    }
+    update(db, form_data, updated_by).await
+}
+
+/// 批量删除（带数据权限校验）：仅删除可见联系人；全部不可见时报错
+pub async fn batch_delete_by_ids_checked(db: &DbConn, ids_vec: &Vec<i64>, user_id: i64) -> Result<i64> {
+    if ids_vec.is_empty() {
+        return Ok(0);
+    }
+    match visible_contact_ids(db, user_id).await? {
+        None => batch_delete_by_ids(db, ids_vec).await,
+        Some(visible) => {
+            let filtered: Vec<i64> = ids_vec.iter().filter(|id| visible.contains(id)).copied().collect();
+            if filtered.is_empty() {
+                return Err(Error::from("无权删除该联系人"));
+            }
+            batch_delete_by_ids(db, &filtered).await
+        }
+    }
+}
+
 pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContactDetailVO> {
     let contact = ContactModel::find_by_id(&db, id).await?;
     match contact {
@@ -219,6 +323,9 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContactDetailVO> {
                 whatsapp: item.whatsapp,
                 wechat: item.wechat,
                 qq: item.qq,
+                country: item.country,
+                region: item.region,
+                address: item.address,
                 gender: item.gender,
                 birthday: item.birthday,
                 notes: item.notes,
@@ -230,6 +337,37 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContactDetailVO> {
         }
         None => Err(Error::from("联系人不存在".to_string())),
     }
+}
+
+/// 绑定联系人到客户（带数据权限校验）
+///
+/// 权限规则（人脉资产化）：
+/// - 联系人必须对当前用户可见（我的人脉 / 曾任我客户 / 权限范围）
+/// - 目标客户必须对当前用户可见（负责人在数据权限内）
+/// 满足后即可将联系人绑定到自己负责的客户（跨销售人脉复用）
+pub async fn bind_contact_checked(db: &DbConn, req: &ContactBindRequest, user_id: i64) -> Result<i64> {
+    // 1) 联系人可见性
+    if !is_contact_visible(db, req.contact_id, user_id).await? {
+        return Err(Error::from("无权操作该联系人"));
+    }
+
+    // 2) 目标客户可见性（负责人在数据权限内，或本人负责）
+    let target = customer::Entity::find_by_id(req.customer_id)
+        .filter(customer::Column::Deleted.eq(0))
+        .one(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    let target = target.ok_or_else(|| Error::from("目标客户不存在"))?;
+    let visible = match crate::modules::system::service::data_scope_service
+        ::get_accessible_user_ids(db, user_id).await? {
+        None => true,
+        Some(ids) => target.assigned_to.map(|owner| ids.contains(&owner)).unwrap_or(false),
+    };
+    if !visible {
+        return Err(Error::from("无权将联系人绑定到该客户"));
+    }
+
+    bind_contact(db, req).await
 }
 
 pub async fn bind_contact(db: &DbConn, req: &ContactBindRequest) -> Result<i64> {
@@ -286,7 +424,30 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
                 .collect();
             Some(ids)
         }
-        _ => None,
+        _ => {
+            // all（含任意未知值兜底）：按数据权限过滤，绝不允许无权限标识落到"不过滤"分支
+            // 对齐 customer_service::list 的 all 分支（防越权：前端 tab 只是 UI，权限必须后端强制）
+            let accessible = crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?;
+            match accessible {
+                None => None, // 全部数据权限（超管/系统管理员）
+                Some(ids) => {
+                    if ids.is_empty() {
+                        return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
+                    }
+                    let cid_list: Vec<i64> = customer::Entity::find()
+                        .filter(customer::Column::Deleted.eq(0))
+                        .filter(customer::Column::AssignedTo.is_in(ids))
+                        .all(db)
+                        .await
+                        .map_err(|e| Error::from(e.to_string()))?
+                        .iter()
+                        .map(|c| c.id)
+                        .collect();
+                    Some(cid_list)
+                }
+            }
+        }
     };
 
     // 客户名称过滤
@@ -321,14 +482,13 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
         }
     }
 
-    // 通过客户ID获取联系人ID
+    // 通过客户ID获取联系人ID（含历史任职：曾在我客户工作过的人脉沉淀，离职/换绑后仍可见可换绑）
     let contact_ids = if let Some(cids) = &final_customer_ids {
         if cids.is_empty() {
             return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
         }
         let ids: Vec<i64> = customer_contact_merge::Entity::find()
             .filter(customer_contact_merge::Column::CustomerId.is_in(cids.clone()))
-            .filter(customer_contact_merge::Column::IsCurrent.eq(true))
             .all(db)
             .await
             .map_err(|e| Error::from(e.to_string()))?
@@ -387,6 +547,21 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
         }
     }
 
+    // 批量查询归属人姓名（管理员视角：人脉属于谁管理）
+    let owner_ids: Vec<i64> = list.iter().filter_map(|c| c.created_by.filter(|v| *v > 0)).collect();
+    let owner_name_map: std::collections::HashMap<i64, Option<String>> = if owner_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        crate::modules::system::entity::admin::Entity::find()
+            .filter(crate::modules::system::entity::admin::Column::Id.is_in(owner_ids))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?
+            .into_iter()
+            .map(|a| (a.id, a.nick_name.or(a.user_name)))
+            .collect()
+    };
+
     let data: Vec<ContactListVO> = list
         .into_iter()
         .map(|item| {
@@ -400,6 +575,8 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
                 mobile: item.mobile,
                 customer_id,
                 company_name,
+                created_by: item.created_by,
+                owner_name: item.created_by.and_then(|oid| owner_name_map.get(&oid).cloned().flatten()),
                 role_type,
                 create_time: item.create_time,
             }
@@ -407,20 +584,6 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
         .collect();
     Ok(ResultPage::new(data, total, page, page_size))
 }
-
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
-
-
 
 /// 获取客户下的联系人列表
 pub async fn find_by_customer(

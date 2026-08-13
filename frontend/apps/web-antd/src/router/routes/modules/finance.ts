@@ -33,7 +33,7 @@ const routes: RouteRecordRaw[] = [
         path: '/finance/salary/detail/:id',
         component: () => import('#/views/finance/salary/detail.vue'),
         meta: {
-          title: $t('page.finance.salary.detail'),
+          title: $t('page.finance.salary.detailTitle'),
           hideInMenu: true,
           activePath: '/finance/salary',
         },
@@ -124,6 +124,14 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/finance/team-commission/index.vue'),
         meta: {
           title: $t('page.finance.teamCommission.title'),
+        },
+      },
+      {
+        name: 'FinanceCommissionPool',
+        path: '/finance/commission-pool',
+        component: () => import('#/views/finance/commission-pool/index.vue'),
+        meta: {
+          title: $t('page.finance.pool.title'),
         },
       },
     ],

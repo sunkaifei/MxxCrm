@@ -8,8 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
@@ -28,8 +27,7 @@ pub struct ContractIdQuery {
 pub async fn payment_plan_page_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PaymentPlanListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     match contract_payment_plan_service::page_list(&db, &query, current_user_id).await {
         Ok(page_data) => {

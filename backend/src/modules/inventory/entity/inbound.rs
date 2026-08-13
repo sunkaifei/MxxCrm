@@ -28,8 +28,10 @@ pub struct Model {
     pub source_order_no: Option<String>,
     /// 入库仓库
     pub warehouse_id: Option<i64>,
-    /// 状态：0=草稿 1=待审核 2=已审核 3=已完成 4=已驳回
+    /// 状态：0=草稿 1=审核中 2=已审核 3=已完成 4=已驳回
     pub status: Option<i32>,
+    /// 审批实例ID（关联 mxx_system_approval_instance）
+    pub instance_id: Option<i64>,
     /// 总入库数量
     pub total_quantity: Option<Decimal>,
     /// 总入库金额
@@ -42,14 +44,22 @@ pub struct Model {
     pub audit_time: Option<DateTime>,
     /// 删除标识（0未删除 1已删除）
     pub deleted: Option<i32>,
-    /// 创建人
+    /// 创建人（制单人）
     pub created_by: Option<i64>,
+    /// 提交人（谁提交审核）
+    pub submitted_by: Option<i64>,
     /// 更新人
     pub updated_by: Option<i64>,
     /// 创建时间
     pub create_time: Option<DateTime>,
     /// 更新时间
     pub update_time: Option<DateTime>,
+    /// 最近修改原因（已完成单据被修改时记录）
+    pub last_change_reason: Option<String>,
+    /// 最近修改人ID
+    pub last_change_by: Option<i64>,
+    /// 最近修改时间
+    pub last_change_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -27,7 +27,7 @@ pub struct RefundSaveRequest {
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
-    pub refund_type: Option<i32>,
+    pub refund_type: Option<i16>,
     pub refund_reason: Option<String>,
     pub restocking_fee: Option<Decimal>,
     pub warehouse_id: Option<i64>,
@@ -53,7 +53,7 @@ pub struct RefundUpdateRequest {
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
-    pub refund_type: Option<i32>,
+    pub refund_type: Option<i16>,
     pub refund_reason: Option<String>,
     pub restocking_fee: Option<Decimal>,
     pub warehouse_id: Option<i64>,
@@ -74,8 +74,8 @@ pub struct RefundListQuery {
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
     pub keywords: Option<String>,
-    pub refund_status: Option<i32>,
-    pub approval_status: Option<i32>,
+    pub refund_status: Option<i16>,
+    pub approval_status: Option<i16>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub customer_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
@@ -98,7 +98,7 @@ pub struct RefundApprovalReq {
 #[serde(rename_all = "camelCase")]
 pub struct RefundQualityCheckReq {
     pub refund_id: i64,
-    pub quality_check_result: i32,
+    pub quality_check_result: i16,
     pub quality_check_remark: Option<String>,
 }
 
@@ -130,10 +130,10 @@ pub struct RefundSaveDTO {
     pub order_id: Option<i64>,
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
-    pub refund_type: Option<i32>,
+    pub refund_type: Option<i16>,
     pub refund_reason: Option<String>,
-    pub refund_status: Option<i32>,
-    pub approval_status: Option<i32>,
+    pub refund_status: Option<i16>,
+    pub approval_status: Option<i16>,
     pub total_amount: Option<Decimal>,
     pub restocking_fee: Option<Decimal>,
     pub refund_amount: Option<Decimal>,
@@ -179,9 +179,9 @@ pub struct RefundListVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
-    pub refund_type: Option<i32>,
-    pub refund_status: Option<i32>,
-    pub approval_status: Option<i32>,
+    pub refund_type: Option<i16>,
+    pub refund_status: Option<i16>,
+    pub approval_status: Option<i16>,
     pub total_amount: Option<Decimal>,
     pub restocking_fee: Option<Decimal>,
     pub refund_amount: Option<Decimal>,
@@ -205,10 +205,10 @@ pub struct RefundDetailVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
-    pub refund_type: Option<i32>,
+    pub refund_type: Option<i16>,
     pub refund_reason: Option<String>,
-    pub refund_status: Option<i32>,
-    pub approval_status: Option<i32>,
+    pub refund_status: Option<i16>,
+    pub approval_status: Option<i16>,
     pub instance_id: Option<i64>,
     pub total_amount: Option<Decimal>,
     pub restocking_fee: Option<Decimal>,
@@ -221,7 +221,7 @@ pub struct RefundDetailVO {
     pub receiver_address: Option<String>,
     pub logistics_no: Option<String>,
     pub logistics_company: Option<String>,
-    pub quality_check_result: Option<i32>,
+    pub quality_check_result: Option<i16>,
     pub quality_check_remark: Option<String>,
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub owner_user_id: Option<i64>,
@@ -432,10 +432,10 @@ impl RefundModel {
             order_id: Set(req.order_id),
             customer_id: Set(req.customer_id),
             customer_name: Set(req.customer_name.clone()),
-            refund_type: Set(req.refund_type.or(Some(2))),
+            refund_type: Set(req.refund_type.or(Some(2i16))),
             refund_reason: Set(req.refund_reason.clone()),
-            refund_status: Set(req.refund_status.or(Some(1))),
-            approval_status: Set(req.approval_status.or(Some(0))),
+            refund_status: Set(req.refund_status.or(Some(1i16))),
+            approval_status: Set(req.approval_status.or(Some(0i16))),
             instance_id: Set(None),
             total_amount: Set(req.total_amount.or(Some(Decimal::from(0)))),
             restocking_fee: Set(req.restocking_fee.or(Some(Decimal::from(0)))),
@@ -447,7 +447,7 @@ impl RefundModel {
             receiver_address: Set(req.receiver_address.clone()),
             logistics_no: Set(None),
             logistics_company: Set(None),
-            quality_check_result: Set(Some(0)),
+            quality_check_result: Set(Some(0i16)),
             quality_check_remark: Set(None),
             owner_user_id: Set(req.owner_user_id),
             dept_id: Set(req.dept_id),
@@ -456,7 +456,7 @@ impl RefundModel {
             create_time: Set(Some(now)),
             update_by: Set(req.update_by),
             update_time: Set(Some(now)),
-            deleted: Set(Some(0)),
+            deleted: Set(Some(0i16)),
             ..Default::default()
         };
         SaleRefund::insert(payload).exec(db).await.map(|r| r.last_insert_id)
@@ -496,7 +496,7 @@ impl RefundModel {
         Ok(result.rows_affected as i64)
     }
 
-    pub async fn update_status<C: ConnectionTrait>(db: &C, id: i64, refund_status: i32) -> Result<i64, DbErr> {
+    pub async fn update_status<C: ConnectionTrait>(db: &C, id: i64, refund_status: i16) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let result = SaleRefund::update_many()
             .set(refund::ActiveModel {
@@ -511,7 +511,7 @@ impl RefundModel {
         Ok(result.rows_affected as i64)
     }
 
-    pub async fn update_approval<C: ConnectionTrait>(db: &C, id: i64, approval_status: i32, instance_id: Option<i64>) -> Result<i64, DbErr> {
+    pub async fn update_approval<C: ConnectionTrait>(db: &C, id: i64, approval_status: i16, instance_id: Option<i64>) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let mut payload = refund::ActiveModel {
             approval_status: Set(Some(approval_status)),
@@ -530,7 +530,7 @@ impl RefundModel {
         Ok(result.rows_affected as i64)
     }
 
-    pub async fn update_quality_check<C: ConnectionTrait>(db: &C, id: i64, result: i32, remark: Option<String>) -> Result<i64, DbErr> {
+    pub async fn update_quality_check<C: ConnectionTrait>(db: &C, id: i64, result: i16, remark: Option<String>) -> Result<i64, DbErr> {
         let now = chrono::Local::now().naive_local().to_owned();
         let mut payload = refund::ActiveModel {
             quality_check_result: Set(Some(result)),
@@ -583,7 +583,7 @@ impl RefundModel {
     pub async fn batch_delete_by_ids<C: ConnectionTrait>(db: &C, ids: &Vec<i64>) -> Result<i64, DbErr> {
         SaleRefund::update_many()
             .set(refund::ActiveModel {
-                deleted: Set(Some(1)),
+                deleted: Set(Some(1i16)),
                 update_time: Set(Some(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             })
@@ -659,8 +659,8 @@ impl RefundModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        refund_status: Option<i32>,
-        approval_status: Option<i32>,
+        refund_status: Option<i16>,
+        approval_status: Option<i16>,
         customer_id: Option<i64>,
         order_id: Option<i64>,
         owner_user_id: Option<i64>,
@@ -716,8 +716,8 @@ impl RefundModel {
         page: i64,
         per_page: i64,
         keywords: Option<String>,
-        refund_status: Option<i32>,
-        approval_status: Option<i32>,
+        refund_status: Option<i16>,
+        approval_status: Option<i16>,
         customer_id: Option<i64>,
         order_id: Option<i64>,
         start_date: Option<String>,

@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
@@ -22,8 +21,7 @@ use crate::modules::sale::service::invoice_service;
 pub async fn invoice_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InvoiceSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = invoice_service::insert(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = invoice_service::insert(db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -33,8 +31,7 @@ pub async fn invoice_update(state: web::Data<AppState>, req: HttpRequest, form_d
     if form_data.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "发票ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = invoice_service::update(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = invoice_service::update(db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -67,8 +64,7 @@ pub async fn invoice_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
 pub async fn invoice_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<InvoiceListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     match invoice_service::get_list(db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
@@ -85,8 +81,8 @@ pub async fn invoice_list(state: web::Data<AppState>, req: HttpRequest, query: w
 pub async fn invoice_submit(state: web::Data<AppState>, req: HttpRequest, path: web::Path<i64>) -> Result<HttpResponse> {
     let db = &state.db;
     let invoice_id = path.into_inner();
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match invoice_service::submit_invoice(db, invoice_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match invoice_service::submit_invoice(db, invoice_id, operator_id, &operator_name).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -97,8 +93,8 @@ pub async fn invoice_approve(state: web::Data<AppState>, req: HttpRequest, path:
     let db = &state.db;
     let invoice_id = path.into_inner();
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match invoice_service::approve_invoice(db, invoice_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match invoice_service::approve_invoice(db, invoice_id, operator_id, &operator_name, form_data.reason).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -109,8 +105,8 @@ pub async fn invoice_reject(state: web::Data<AppState>, req: HttpRequest, path: 
     let db = &state.db;
     let invoice_id = path.into_inner();
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match invoice_service::reject_invoice(db, invoice_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match invoice_service::reject_invoice(db, invoice_id, operator_id, &operator_name, form_data.reason).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }

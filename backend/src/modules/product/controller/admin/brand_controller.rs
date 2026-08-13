@@ -1,7 +1,6 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
@@ -18,9 +17,7 @@ pub async fn brand_insert(state: web::Data<AppState>, req: HttpRequest, form_dat
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "品牌名称不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = brand_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = brand_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -36,9 +33,7 @@ pub async fn brand_update(state: web::Data<AppState>, req: HttpRequest, form_dat
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "品牌名称不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = brand_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = brand_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -101,7 +96,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
         web::scope("/product/brand")
             .route("/save", web::post().to(brand_insert).wrap(require_permission("product:brand:save")))
             .route("/update", web::put().to(brand_update).wrap(require_permission("product:brand:update")))
-            .route("/bath_delete", web::delete().to(batch_delete_brand).wrap(require_permission("product:brand:delete")))
+            .route("/batch_delete", web::delete().to(batch_delete_brand).wrap(require_permission("product:brand:delete")))
             .route("/info", web::get().to(brand_info).wrap(require_permission("product:brand:view")))
             .route("/list", web::get().to(brand_list).wrap(require_permission("product:brand:list")))
             .route("/all", web::get().to(brand_all).wrap(require_permission("product:brand:list"))),

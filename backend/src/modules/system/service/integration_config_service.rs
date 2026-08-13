@@ -102,6 +102,9 @@ pub async fn get_config_value(db: &DbConn, code: &str, key: &str) -> Option<Stri
 /// 如果 config_json 中包含敏感字段（key/secret/password/token），
 /// 自动对敏感字段做 AES 加密并标记 `is_encrypted=1`。
 pub async fn save(db: &DbConn, req: IntegrationConfigSaveRequest) -> Result<i64> {
+    // 保留原始提交的明文 JSON（用于更新时与现有明文比对还原未改的敏感字段）
+    let submitted_json_plain = req.config_json.clone();
+
     // 处理 config_json：检测敏感字段并加密
     let (config_json, is_encrypted) = match &req.config_json {
         Some(json) => {
@@ -118,14 +121,44 @@ pub async fn save(db: &DbConn, req: IntegrationConfigSaveRequest) -> Result<i64>
     let result = db.transaction::<_, i64, sea_orm::DbErr>(|txn| {
         Box::pin(async move {
             if let Some(id) = id_opt {
+                // 更新前：查出现有记录，还原用户未修改的敏感字段
+                // （前端表单回显的是脱敏值，未修改时提交的仍是脱敏值，需还原成明文避免覆盖）
+                let final_json = if let Some(ref new_json) = submitted_json_plain {
+                    let existing = Entity::find_by_id(id).one(txn).await?;
+                    if let Some(ref ex_model) = existing {
+                        let ex_plain = if ex_model.is_encrypted == Some(1) {
+                            ex_model.config_json.as_ref()
+                                .map(decrypt_sensitive_fields)
+                                .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()))
+                        } else {
+                            ex_model.config_json.clone().unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()))
+                        };
+                        Some(restore_unchanged_sensitive(new_json, &ex_plain))
+                    } else {
+                        submitted_json_plain.clone()
+                    }
+                } else {
+                    None
+                };
+
+                // 还原后重新检测是否含敏感字段并加密
+                let (final_json_encrypted, final_is_encrypted) = match &final_json {
+                    Some(json) => {
+                        let encrypted = encrypt_sensitive_fields(json);
+                        let has_sensitive = has_sensitive_keys(json);
+                        (Some(encrypted), if has_sensitive { 1 } else { 0 })
+                    }
+                    None => (None, 0),
+                };
+
                 let active = integration_config::ActiveModel {
                     category: Set(req.category),
                     integration_code: Set(req.integration_code),
                     integration_name: Set(req.integration_name),
-                    config_json: Set(config_json),
+                    config_json: Set(final_json_encrypted),
                     api_base_url: Set(req.api_base_url),
                     enabled: Set(req.enabled),
-                    is_encrypted: Set(Some(is_encrypted)),
+                    is_encrypted: Set(Some(final_is_encrypted)),
                     remark: Set(req.remark),
                     update_time: Set(Some(now)),
                     ..Default::default()
@@ -457,6 +490,47 @@ fn mask_value(val: &str) -> String {
     format!("{}****{}", first4, last4)
 }
 
+/// 更新时还原未修改的敏感字段
+///
+/// 遍历提交的 JSON，对每个敏感字段（key/secret/password/token）：
+/// - 若提交值等于对现有明文做脱敏后的结果，说明用户未修改（表单里回显的就是脱敏值），用现有明文还原
+/// - 否则说明用户输入了新值，保留提交值
+fn restore_unchanged_sensitive(
+    submitted: &serde_json::Value,
+    existing_plain: &serde_json::Value,
+) -> serde_json::Value {
+    match (submitted, existing_plain) {
+        (serde_json::Value::Object(sub_map), serde_json::Value::Object(ex_map)) => {
+            let mut new_map = serde_json::Map::new();
+            for (k, v) in sub_map {
+                if is_sensitive_key(k) {
+                    if let (Some(sub_str), Some(ex_str)) = (v.as_str(), ex_map.get(k).and_then(|x| x.as_str())) {
+                        // 提交值 == 现有明文的脱敏结果 → 用户没改，还原明文
+                        if sub_str == mask_value(ex_str) {
+                            new_map.insert(k.clone(), serde_json::Value::String(ex_str.to_string()));
+                            continue;
+                        }
+                    }
+                    // 深层对象/数组递归处理
+                    if let Some(ex_v) = ex_map.get(k) {
+                        new_map.insert(k.clone(), restore_unchanged_sensitive(v, ex_v));
+                    } else {
+                        new_map.insert(k.clone(), v.clone());
+                    }
+                } else {
+                    if let Some(ex_v) = ex_map.get(k) {
+                        new_map.insert(k.clone(), restore_unchanged_sensitive(v, ex_v));
+                    } else {
+                        new_map.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+            serde_json::Value::Object(new_map)
+        }
+        _ => submitted.clone(),
+    }
+}
+
 /// 递归检查 JSON 中是否包含敏感字段
 fn has_sensitive_keys(json: &serde_json::Value) -> bool {
     match json {
@@ -548,11 +622,6 @@ fn to_masked_vo(m: integration_config::Model) -> IntegrationConfigVO {
     }
 }
 
-/// 从 JSON 中提取字符串字段
-fn get_json_str(json: &serde_json::Value, key: &str) -> Option<String> {
-    json.get(key)?.as_str().map(|s| s.to_string())
-}
-
 /// 根据 category + code 执行接口测试
 async fn do_test(
     category: &str,
@@ -560,9 +629,10 @@ async fn do_test(
     config_json: &serde_json::Value,
     api_base_url: Option<&str>,
 ) -> (bool, String) {
+    use crate::core::kit::json_util;
     // AI 类：检查 api_key
     if category == "ai" {
-        let api_key = get_json_str(config_json, "api_key");
+        let api_key = json_util::get_str(config_json, "api_key");
         return match api_key {
             Some(k) if !k.is_empty() => (true, "AI 接口参数校验通过".to_string()),
             _ => (false, "缺少必要参数: api_key".to_string()),
@@ -571,7 +641,7 @@ async fn do_test(
 
     // 通知类 webhook：尝试 POST 测试消息
     if category == "notification" && code.ends_with("webhook") {
-        let webhook_url = match get_json_str(config_json, "webhook_url") {
+        let webhook_url = match json_util::get_str(config_json, "webhook_url") {
             Some(u) if !u.is_empty() => u,
             _ => return (false, "缺少必要参数: webhook_url".to_string()),
         };
@@ -588,8 +658,8 @@ async fn do_test(
     } else {
         match (category, code) {
             ("payment", "wechat_pay") => {
-                let app_id = get_json_str(config_json, "app_id");
-                let mchid = get_json_str(config_json, "mchid");
+                let app_id = json_util::get_str(config_json, "app_id");
+                let mchid = json_util::get_str(config_json, "mchid");
                 match (app_id, mchid) {
                     (Some(a), Some(m)) if !a.is_empty() && !m.is_empty() => {
                         (true, "参数校验通过".to_string())
@@ -598,8 +668,8 @@ async fn do_test(
                 }
             }
             ("logistics", "kuaidi100") => {
-                let customer = get_json_str(config_json, "customer");
-                let key = get_json_str(config_json, "key");
+                let customer = json_util::get_str(config_json, "customer");
+                let key = json_util::get_str(config_json, "key");
                 match (customer, key) {
                     (Some(c), Some(k)) if !c.is_empty() && !k.is_empty() => {
                         (true, "参数校验通过".to_string())
@@ -608,8 +678,8 @@ async fn do_test(
                 }
             }
             ("esign", "esign_cn") => {
-                let app_id = get_json_str(config_json, "app_id");
-                let app_secret = get_json_str(config_json, "app_secret");
+                let app_id = json_util::get_str(config_json, "app_id");
+                let app_secret = json_util::get_str(config_json, "app_secret");
                 match (app_id, app_secret) {
                     (Some(a), Some(s)) if !a.is_empty() && !s.is_empty() => {
                         (true, "参数校验通过".to_string())
@@ -618,8 +688,8 @@ async fn do_test(
                 }
             }
             ("invoice", "baiwang") => {
-                let device_no = get_json_str(config_json, "device_no");
-                let tax_no = get_json_str(config_json, "tax_no");
+                let device_no = json_util::get_str(config_json, "device_no");
+                let tax_no = json_util::get_str(config_json, "tax_no");
                 match (device_no, tax_no) {
                     (Some(d), Some(t)) if !d.is_empty() && !t.is_empty() => {
                         (true, "参数校验通过".to_string())
@@ -628,9 +698,9 @@ async fn do_test(
                 }
             }
             ("notification", "smtp_email") => {
-                let host = get_json_str(config_json, "host");
-                let username = get_json_str(config_json, "username");
-                let password = get_json_str(config_json, "password");
+                let host = json_util::get_str(config_json, "host");
+                let username = json_util::get_str(config_json, "username");
+                let password = json_util::get_str(config_json, "password");
                 match (host, username, password) {
                     (Some(h), Some(u), Some(p))
                         if !h.is_empty() && !u.is_empty() && !p.is_empty() =>
@@ -641,8 +711,8 @@ async fn do_test(
                 }
             }
             ("notification", "sms_aliyun") => {
-                let access_key = get_json_str(config_json, "access_key");
-                let secret_key = get_json_str(config_json, "secret_key");
+                let access_key = json_util::get_str(config_json, "access_key");
+                let secret_key = json_util::get_str(config_json, "secret_key");
                 match (access_key, secret_key) {
                     (Some(a), Some(s)) if !a.is_empty() && !s.is_empty() => {
                         (true, "参数校验通过".to_string())

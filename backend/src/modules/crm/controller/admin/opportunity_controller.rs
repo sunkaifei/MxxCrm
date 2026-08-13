@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
@@ -23,9 +22,7 @@ pub async fn opportunity_insert(state: web::Data<AppState>, req: HttpRequest, fo
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = opportunity_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = opportunity_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -37,9 +34,7 @@ pub async fn opportunity_update(state: web::Data<AppState>, req: HttpRequest, fo
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = opportunity_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = opportunity_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -78,8 +73,7 @@ pub async fn opportunity_list(state: web::Data<AppState>, req: HttpRequest, quer
     let db = &state.db;
     let query = query.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     match opportunity_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
@@ -99,8 +93,7 @@ pub async fn opportunity_convert_to_quotation(state: web::Data<AppState>, req: H
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let opp_id = item.id.unwrap();
 
     match opportunity_service::convert_to_quotation(&db, opp_id, user_id).await {
@@ -118,8 +111,7 @@ pub async fn opportunity_convert_to_order(state: web::Data<AppState>, req: HttpR
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let opp_id = item.id.unwrap();
 
     match opportunity_service::convert_to_order(&db, opp_id, user_id).await {

@@ -192,31 +192,3 @@ async fn resolve_dept_scope_users(
 
     Ok(user_ids)
 }
-
-/// 兼容旧接口：根据单一 data_scope 计算可见用户ID列表
-///
-/// 已弃用，建议使用 [`get_accessible_user_ids`]（自动处理多角色合并）。
-/// 保留此函数是为了逐步迁移调用方，避免一次性大范围重构。
-#[deprecated(note = "使用 get_accessible_user_ids(db, current_user_id) 替代，自动处理多角色合并")]
-pub async fn get_accessible_user_ids_by_scope(
-    db: &DbConn,
-    current_user_id: i64,
-    data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    match data_scope {
-        Some(1) => Ok(None),
-        Some(5) => Ok(Some(vec![current_user_id])),
-        Some(2) | Some(3) | Some(4) => {
-            let scope = data_scope.unwrap();
-            let mut user_ids = resolve_dept_scope_users(db, current_user_id, scope).await?;
-            if user_ids.is_empty() {
-                user_ids = vec![current_user_id];
-            }
-            Ok(Some(user_ids))
-        }
-        _ => {
-            // None 或其他未识别值：默认仅本人（保守策略）
-            Ok(Some(vec![current_user_id]))
-        }
-    }
-}

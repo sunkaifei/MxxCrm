@@ -126,9 +126,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
     setLoading(true);
     const values = await baseFormApi.getValues();
 
-    // parentId = "0" 视为 null（根目录）
+    // parentId = "0" 视为 null（根目录），否则转为数字
     const parentId = values.parentId && String(values.parentId) !== '0'
-      ? values.parentId
+      ? Number(values.parentId)
       : null;
 
     const payload = {

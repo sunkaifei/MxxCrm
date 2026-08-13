@@ -10,10 +10,11 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import type { VbenFormProps } from '@vben/common-ui';
 import {
+  deleteEntitlementApi,
   getEntitlementListApi,
   renewEntitlementApi,
   updateEntitlementApi,
-} from '#/api';
+} from '#/api/core/sale/entitlement';
 import { $t } from '#/locales';
 
 const accessStore = useAccessStore();
@@ -242,6 +243,24 @@ function handleToggleStatus(row: any) {
     },
   });
 }
+
+async function handleDelete(row: any) {
+  Modal.confirm({
+    title: '删除确认',
+    content: `确定要删除权益「${row.entitlementNo || ''}」吗？`,
+    okText: $t('ui.button.ok'),
+    cancelText: $t('ui.button.cancel'),
+    onOk: async () => {
+      try {
+        await deleteEntitlementApi([row.id]);
+        message.success('删除成功');
+        gridApi.query();
+      } catch {
+        message.error('删除失败');
+      }
+    },
+  });
+}
 </script>
 
 <template>
@@ -298,6 +317,15 @@ function handleToggleStatus(row: any) {
           @click="() => handleToggleStatus(row)"
         >
           {{ row.status === 3 ? '激活' : '暂停' }}
+        </Button>
+        <Button
+          v-if="accessStore.hasAccessCode('sale:entitlement:delete')"
+          type="link"
+          size="small"
+          danger
+          @click="() => handleDelete(row)"
+        >
+          删除
         </Button>
       </template>
     </Grid>

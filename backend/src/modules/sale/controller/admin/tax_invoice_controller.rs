@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::sale::service::tax_invoice_service::{self, TaxInvoiceListQuery};
@@ -38,8 +37,7 @@ pub struct TaxInvoiceVoidRequest {
 pub async fn create(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<TaxInvoiceCreateRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = tax_invoice_service::create_tax_invoice(db, form_data.invoice_id, form_data.platform, form_data.category, jwt_token.id.unwrap_or_default()).await;
+    let result = tax_invoice_service::create_tax_invoice(db, form_data.invoice_id, form_data.platform, form_data.category, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
