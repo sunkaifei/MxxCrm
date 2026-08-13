@@ -7,10 +7,26 @@ import { Button, Card, DatePicker, Form, Tabs } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { getStockReportApi, getTurnoverReportApi } from '#/api/core/product/report';
+import {
+  getCostReportApi,
+  getObsoleteReportApi,
+  getStockReportApi,
+  getTurnoverReportApi,
+} from '#/api/core/product/report';
 import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
+import WarehouseDetailDrawer from '../components/WarehouseDetailDrawer.vue';
+
+// 仓库详情抽屉
+const warehouseDetailVisible = ref(false);
+const warehouseDetailId = ref<number | null>(null);
+
+function openWarehouseDetail(row: any) {
+  if (!row.warehouseId) return;
+  warehouseDetailId.value = Number(row.warehouseId);
+  warehouseDetailVisible.value = true;
+}
 
 // 报表类型
 const reportTypeOptions = [
@@ -29,10 +45,10 @@ const searchForm = ref({
 
 function handleSearch() {
   switch (activeTab.value) {
-    case 'stock': stockGridApi.query(); break;
-    case 'turnover': turnoverGridApi.query(); break;
-    case 'stale': staleGridApi.query(); break;
-    case 'cost': costGridApi.query(); break;
+    case 'stock': { stockGridApi.query(); break; }
+    case 'turnover': { turnoverGridApi.query(); break; }
+    case 'stale': { staleGridApi.query(); break; }
+    case 'cost': { costGridApi.query(); break; }
   }
 }
 
@@ -41,14 +57,16 @@ function handleReset() {
   handleSearch();
 }
 
+function handleGridHeight(api: any, data: any[]) {
+  const gridEl = api.grid?.$el as HTMLElement | undefined;
+  if (gridEl) {
+    gridEl.style.height = data.length === 0 ? '200px' : '';
+  }
+}
+
 // 收发存报表
 const stockGridOptions: VxeGridProps = {
-  toolbarConfig: {
-    custom: true,
-    export: true,
-    refresh: true,
-    zoom: true,
-  },
+  toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
@@ -57,19 +75,14 @@ const stockGridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }) => {
-        const result = await getStockReportApi({
-          page: page.currentPage,
-          pageSize: page.pageSize,
-          dateStart: searchForm.value.dateRange?.[0],
-          dateEnd: searchForm.value.dateRange?.[1],
+      query: async () => {
+        const res: any = await getStockReportApi({
+          startDate: searchForm.value.dateRange?.[0],
+          endDate: searchForm.value.dateRange?.[1],
         });
-        const items = (result as any)?.items ?? [];
-        const gridEl = stockGridApi.grid?.$el as HTMLElement | undefined;
-        if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '200px' : '';
-        }
-        return result;
+        const items = Array.isArray(res) ? res : (res?.items ?? []);
+        handleGridHeight(stockGridApi, items);
+        return { items, total: items.length };
       },
     },
   },
@@ -77,22 +90,17 @@ const stockGridOptions: VxeGridProps = {
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: $t('page.product.inventory.report.field.productName'), field: 'productName', minWidth: 140 },
-    { title: $t('page.product.inventory.report.field.warehouseName'), field: 'warehouseName', width: 120 },
-    { title: $t('page.product.inventory.report.field.openingQty'), field: 'openingQuantity', width: 110 },
+    { title: $t('page.product.inventory.report.field.warehouseName'), field: 'warehouseName', width: 120, slots: { default: 'warehouseName' } },
+    { title: $t('page.product.inventory.report.field.openingQty'), field: 'beginQuantity', width: 110 },
     { title: $t('page.product.inventory.report.field.inboundQty'), field: 'inboundQuantity', width: 110 },
     { title: $t('page.product.inventory.report.field.outboundQty'), field: 'outboundQuantity', width: 110 },
-    { title: $t('page.product.inventory.report.field.closingQty'), field: 'closingQuantity', width: 110 },
+    { title: $t('page.product.inventory.report.field.closingQty'), field: 'endQuantity', width: 110 },
   ],
 };
 
 // 库存周转率报表
 const turnoverGridOptions: VxeGridProps = {
-  toolbarConfig: {
-    custom: true,
-    export: true,
-    refresh: true,
-    zoom: true,
-  },
+  toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
@@ -101,19 +109,14 @@ const turnoverGridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }) => {
-        const result = await getTurnoverReportApi({
-          page: page.currentPage,
-          pageSize: page.pageSize,
-          dateStart: searchForm.value.dateRange?.[0],
-          dateEnd: searchForm.value.dateRange?.[1],
+      query: async () => {
+        const res: any = await getTurnoverReportApi({
+          startDate: searchForm.value.dateRange?.[0],
+          endDate: searchForm.value.dateRange?.[1],
         });
-        const items = (result as any)?.items ?? [];
-        const gridEl = turnoverGridApi.grid?.$el as HTMLElement | undefined;
-        if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '200px' : '';
-        }
-        return result;
+        const items = Array.isArray(res) ? res : (res?.items ?? []);
+        handleGridHeight(turnoverGridApi, items);
+        return { items, total: items.length };
       },
     },
   },
@@ -121,21 +124,16 @@ const turnoverGridOptions: VxeGridProps = {
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: $t('page.product.inventory.report.field.productName'), field: 'productName', minWidth: 140 },
-    { title: $t('page.product.inventory.report.field.warehouseName'), field: 'warehouseName', width: 120 },
+    { title: $t('page.product.inventory.report.field.warehouseName'), field: 'warehouseName', width: 120, slots: { default: 'warehouseName' } },
     { title: $t('page.product.inventory.report.field.turnoverRate'), field: 'turnoverRate', width: 120 },
-    { title: $t('page.product.inventory.report.field.avgInventory'), field: 'avgInventory', width: 120 },
+    { title: $t('page.product.inventory.report.field.avgInventory'), field: 'avgQuantity', width: 120 },
     { title: $t('page.product.inventory.report.field.outboundQty'), field: 'outboundQuantity', width: 110 },
   ],
 };
 
 // 呆滞库存清单报表
 const staleGridOptions: VxeGridProps = {
-  toolbarConfig: {
-    custom: true,
-    export: true,
-    refresh: true,
-    zoom: true,
-  },
+  toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
@@ -144,20 +142,13 @@ const staleGridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }) => {
-        const result = await getStockReportApi({
-          page: page.currentPage,
-          pageSize: page.pageSize,
-          staleOnly: true,
-          dateStart: searchForm.value.dateRange?.[0],
-          dateEnd: searchForm.value.dateRange?.[1],
+      query: async () => {
+        const res: any = await getObsoleteReportApi({
+          days: 90,
         });
-        const items = (result as any)?.items ?? [];
-        const gridEl = staleGridApi.grid?.$el as HTMLElement | undefined;
-        if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '200px' : '';
-        }
-        return result;
+        const items = Array.isArray(res) ? res : (res?.items ?? []);
+        handleGridHeight(staleGridApi, items);
+        return { items, total: items.length };
       },
     },
   },
@@ -165,21 +156,16 @@ const staleGridOptions: VxeGridProps = {
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: $t('page.product.inventory.report.field.productName'), field: 'productName', minWidth: 140 },
-    { title: $t('page.product.inventory.report.field.warehouseName'), field: 'warehouseName', width: 120 },
-    { title: $t('page.product.inventory.report.field.currentQty'), field: 'currentQuantity', width: 110 },
-    { title: $t('page.product.inventory.report.field.staleDays'), field: 'staleDays', width: 110 },
-    { title: $t('page.product.inventory.report.field.lastMovement'), field: 'lastMovementTime', width: 160 },
+    { title: $t('page.product.inventory.report.field.warehouseName'), field: 'warehouseName', width: 120, slots: { default: 'warehouseName' } },
+    { title: $t('page.product.inventory.report.field.currentQty'), field: 'quantity', width: 110 },
+    { title: $t('page.product.inventory.report.field.staleDays'), field: 'obsoleteDays', width: 110 },
+    { title: $t('page.product.inventory.report.field.lastMovement'), field: 'lastOutboundTime', width: 160 },
   ],
 };
 
 // 库存成本报表
 const costGridOptions: VxeGridProps = {
-  toolbarConfig: {
-    custom: true,
-    export: true,
-    refresh: true,
-    zoom: true,
-  },
+  toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
@@ -188,20 +174,11 @@ const costGridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }) => {
-        const result = await getStockReportApi({
-          page: page.currentPage,
-          pageSize: page.pageSize,
-          costOnly: true,
-          dateStart: searchForm.value.dateRange?.[0],
-          dateEnd: searchForm.value.dateRange?.[1],
-        });
-        const items = (result as any)?.items ?? [];
-        const gridEl = costGridApi.grid?.$el as HTMLElement | undefined;
-        if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '200px' : '';
-        }
-        return result;
+      query: async () => {
+        const res: any = await getCostReportApi({});
+        const items = Array.isArray(res) ? res : (res?.items ?? []);
+        handleGridHeight(costGridApi, items);
+        return { items, total: items.length };
       },
     },
   },
@@ -209,8 +186,8 @@ const costGridOptions: VxeGridProps = {
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     { title: $t('page.product.inventory.report.field.productName'), field: 'productName', minWidth: 140 },
-    { title: $t('page.product.inventory.report.field.warehouseName'), field: 'warehouseName', width: 120 },
-    { title: $t('page.product.inventory.report.field.unitCost'), field: 'unitCost', width: 110 },
+    { title: $t('page.product.inventory.report.field.warehouseName'), field: 'warehouseName', width: 120, slots: { default: 'warehouseName' } },
+    { title: $t('page.product.inventory.report.field.unitCost'), field: 'lastInCost', width: 110 },
     { title: $t('page.product.inventory.report.field.totalCost'), field: 'totalCost', width: 110 },
     { title: $t('page.product.inventory.report.field.avgCost'), field: 'avgCost', width: 110 },
   ],
@@ -223,20 +200,11 @@ const [CostGrid, costGridApi] = useVbenVxeGrid({ gridOptions: costGridOptions })
 
 function handleTabChange(key: string | number) {
   activeTab.value = key as string;
-  // 切换 tab 后刷新对应表格
   switch (key) {
-    case 'stock':
-      stockGridApi.query();
-      break;
-    case 'turnover':
-      turnoverGridApi.query();
-      break;
-    case 'stale':
-      staleGridApi.query();
-      break;
-    case 'cost':
-      costGridApi.query();
-      break;
+    case 'stock': { stockGridApi.query(); break; }
+    case 'turnover': { turnoverGridApi.query(); break; }
+    case 'stale': { staleGridApi.query(); break; }
+    case 'cost': { costGridApi.query(); break; }
   }
 }
 </script>
@@ -272,16 +240,39 @@ function handleTabChange(key: string | number) {
     </Card>
 
     <div v-show="activeTab === 'stock'" class="mt-4">
-      <StockGrid :table-title="$t('page.product.inventory.report.type.stockReport')" />
+      <StockGrid :table-title="$t('page.product.inventory.report.type.stockReport')">
+        <template #warehouseName="{ row }">
+          <a class="text-primary hover:underline cursor-pointer" @click="openWarehouseDetail(row)">{{ row.warehouseName || '-' }}</a>
+        </template>
+      </StockGrid>
     </div>
     <div v-show="activeTab === 'turnover'" class="mt-4">
-      <TurnoverGrid :table-title="$t('page.product.inventory.report.type.turnover')" />
+      <TurnoverGrid :table-title="$t('page.product.inventory.report.type.turnover')">
+        <template #warehouseName="{ row }">
+          <a class="text-primary hover:underline cursor-pointer" @click="openWarehouseDetail(row)">{{ row.warehouseName || '-' }}</a>
+        </template>
+      </TurnoverGrid>
     </div>
     <div v-show="activeTab === 'stale'" class="mt-4">
-      <StaleGrid :table-title="$t('page.product.inventory.report.type.staleList')" />
+      <StaleGrid :table-title="$t('page.product.inventory.report.type.staleList')">
+        <template #warehouseName="{ row }">
+          <a class="text-primary hover:underline cursor-pointer" @click="openWarehouseDetail(row)">{{ row.warehouseName || '-' }}</a>
+        </template>
+      </StaleGrid>
     </div>
     <div v-show="activeTab === 'cost'" class="mt-4">
-      <CostGrid :table-title="$t('page.product.inventory.report.type.costReport')" />
+      <CostGrid :table-title="$t('page.product.inventory.report.type.costReport')">
+        <template #warehouseName="{ row }">
+          <a class="text-primary hover:underline cursor-pointer" @click="openWarehouseDetail(row)">{{ row.warehouseName || '-' }}</a>
+        </template>
+      </CostGrid>
     </div>
+
+    <!-- 仓库详情抽屉 -->
+    <WarehouseDetailDrawer
+      :visible="warehouseDetailVisible"
+      :warehouse-id="warehouseDetailId"
+      @update:visible="(val) => (warehouseDetailVisible = val)"
+    />
   </Page>
 </template>

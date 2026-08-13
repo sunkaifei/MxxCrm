@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
@@ -54,8 +53,7 @@ pub async fn contract_insert(state: web::Data<AppState>, req: HttpRequest, form_
     let db = &state.db;
     let form_data: ContractSaveDTO = form_data.0.into();
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     let result = contract_service::insert(&db, &form_data, user_id).await;
 
@@ -105,8 +103,7 @@ pub async fn contract_update(state: web::Data<AppState>, req: HttpRequest, form_
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "合同ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let contract_id = form_data.id.unwrap();
 
     let old_data = if let Ok(old) = contract_service::find_by_id(&db, contract_id).await {
@@ -189,8 +186,7 @@ pub async fn contract_info(state: web::Data<AppState>, item: web::Query<InfoId>)
 pub async fn contract_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ContractListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     match contract_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
@@ -210,9 +206,9 @@ pub async fn contract_submit(state: web::Data<AppState>, req: HttpRequest, item:
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "合同ID不能为空", "local"));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
 
-    match contract_service::submit_contract(&db, item.id.unwrap(), jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+    match contract_service::submit_contract(&db, item.id.unwrap(), operator_id, &operator_name).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -222,9 +218,9 @@ pub async fn contract_approve(state: web::Data<AppState>, req: HttpRequest, form
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
 
-    match contract_service::approve_contract(&db, &form_data, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+    match contract_service::approve_contract(&db, &form_data, operator_id, &operator_name).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -234,9 +230,9 @@ pub async fn contract_reject(state: web::Data<AppState>, req: HttpRequest, form_
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
 
-    match contract_service::reject_contract(&db, &form_data, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+    match contract_service::reject_contract(&db, &form_data, operator_id, &operator_name).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -254,9 +250,7 @@ pub async fn contract_sign(state: web::Data<AppState>, req: HttpRequest, path: w
     let contract_id = path.into_inner();
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    match contract_service::sign_contract(&db, contract_id, form_data.contract_file, form_data.contract_images, jwt_token.id.unwrap_or_default()).await {
+    match contract_service::sign_contract(&db, contract_id, form_data.contract_file, form_data.contract_images, get_current_user_id(&req)).await {
         Ok(_) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("签署成功".to_string(), "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -266,9 +260,7 @@ pub async fn contract_execute(state: web::Data<AppState>, req: HttpRequest, path
     let db = &state.db;
     let contract_id = path.into_inner();
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    match contract_service::execute_contract(&db, contract_id, jwt_token.id.unwrap_or_default()).await {
+    match contract_service::execute_contract(&db, contract_id, get_current_user_id(&req)).await {
         Ok(_) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("执行成功".to_string(), "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -316,9 +308,7 @@ pub async fn save_contract_commission_members(state: web::Data<AppState>, req: H
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    match contract_commission_service::save_contract_members(&db, form_data.contract_id, &form_data.members, jwt_token.id.unwrap_or_default()).await {
+    match contract_commission_service::save_contract_members(&db, form_data.contract_id, &form_data.members, get_current_user_id(&req)).await {
         Ok(_) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("保存成功".to_string(), "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }

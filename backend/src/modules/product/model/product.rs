@@ -29,6 +29,9 @@ pub struct SkuRequest {
     /// SKU编码
     pub sku_code: Option<String>,
 
+    /// 条形码（每个规格独立）
+    pub barcode: Option<String>,
+
     /// 动态规格JSON（前端 label 会映射为规格键值对）
     pub specs: Option<JsonValue>,
 
@@ -297,6 +300,8 @@ pub struct SkuVO {
     pub id: Option<i64>,
     pub product_id: Option<i64>,
     pub sku_code: Option<String>,
+    /// 条形码
+    pub barcode: Option<String>,
     /// 动态规格JSON
     pub specs: Option<JsonValue>,
     /// 规格组合标签
@@ -330,6 +335,7 @@ impl From<sku::Model> for SkuVO {
             id: Some(item.id),
             product_id: Some(item.product_id),
             sku_code: item.sku_code,
+            barcode: item.barcode,
             specs: item.specs.clone(),
             label,
             price: item.price,
@@ -635,6 +641,7 @@ impl ProductModel {
                         submitted_ids.insert(id);
                         ProductSku::update_many()
                             .col_expr(sku::Column::SkuCode, Expr::value(sku_code.clone()))
+                            .col_expr(sku::Column::Barcode, Expr::value(s.barcode.clone()))
                             .col_expr(sku::Column::Specs, Expr::value(specs_value.clone()))
                             .col_expr(sku::Column::Price, Expr::value(s.price.clone()))
                             .col_expr(sku::Column::CostPrice, Expr::value(s.cost_price.clone()))
@@ -658,6 +665,7 @@ impl ProductModel {
             let payload = sku::ActiveModel {
                 product_id: Set(product_id),
                 sku_code: Set(Some(sku_code)),
+                barcode: Set(s.barcode.clone()),
                 specs: Set(specs_value),
                 price: Set(s.price.clone()),
                 cost_price: Set(s.cost_price.clone()),

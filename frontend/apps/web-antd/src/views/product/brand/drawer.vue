@@ -22,68 +22,68 @@ function toggleFullscreen() {
 }
 
 const statusOptions = [
-  { label: '正常', value: 0 },
-  { label: '停用', value: 1 },
+  { label: $t('page.product.brand.status.normal'), value: 0 },
+  { label: $t('page.product.brand.status.disabled'), value: 1 },
 ];
 
 const formSchema: VbenFormSchema[] = [
   {
     component: 'Input',
     fieldName: 'name',
-    label: '品牌名称',
+    label: $t('page.product.brand.field.name'),
     rules: 'required',
-    componentProps: { placeholder: '请输入品牌名称', allowClear: true },
+    componentProps: { placeholder: $t('page.product.brand.placeholder.name'), allowClear: true },
   },
   {
     component: 'Input',
-    fieldName: 'englishName',
-    label: '品牌英文名',
-    componentProps: { placeholder: '请输入品牌英文名', allowClear: true },
+    fieldName: 'nameEn',
+    label: $t('page.product.brand.field.nameEn'),
+    componentProps: { placeholder: $t('page.product.brand.placeholder.nameEn'), allowClear: true },
   },
   {
     component: 'Input',
     fieldName: 'logo',
-    label: 'Logo',
-    componentProps: { placeholder: '请输入Logo图片URL', allowClear: true },
+    label: $t('page.product.brand.field.logo'),
+    componentProps: { placeholder: $t('page.product.brand.placeholder.logo'), allowClear: true },
   },
   {
     component: 'Textarea',
     fieldName: 'description',
-    label: '品牌介绍',
-    componentProps: { placeholder: '请输入品牌介绍', rows: 3, allowClear: true },
+    label: $t('page.product.brand.field.description'),
+    componentProps: { placeholder: $t('page.product.brand.placeholder.description'), rows: 3, allowClear: true },
     formItemClass: 'col-span-2',
   },
   {
     component: 'Input',
-    fieldName: 'originCountry',
-    label: '品牌原产国',
-    componentProps: { placeholder: '请输入原产国', allowClear: true },
+    fieldName: 'country',
+    label: $t('page.product.brand.field.country'),
+    componentProps: { placeholder: $t('page.product.brand.placeholder.country'), allowClear: true },
   },
   {
     component: 'Input',
     fieldName: 'website',
-    label: '官网',
-    componentProps: { placeholder: 'https://example.com', allowClear: true },
+    label: $t('page.product.brand.field.website'),
+    componentProps: { placeholder: $t('page.product.brand.placeholder.website'), allowClear: true },
   },
   {
     component: 'Select',
     fieldName: 'status',
-    label: '状态',
+    label: $t('page.product.brand.field.status'),
     defaultValue: 0,
-    componentProps: { placeholder: '请选择状态', options: statusOptions },
+    componentProps: { placeholder: $t('page.product.brand.placeholder.status'), options: statusOptions },
   },
   {
     component: 'InputNumber',
     fieldName: 'sortOrder',
-    label: '排序',
+    label: $t('page.product.brand.field.sort'),
     defaultValue: 0,
-    componentProps: { placeholder: '排序号', min: 0, precision: 0, style: { width: '100%' } },
+    componentProps: { placeholder: $t('page.product.brand.placeholder.sortOrder'), min: 0, precision: 0, style: { width: '100%' } },
   },
   {
     component: 'Textarea',
     fieldName: 'remark',
-    label: '备注',
-    componentProps: { placeholder: '请输入备注', rows: 2, allowClear: true },
+    label: $t('page.product.brand.field.remark'),
+    componentProps: { placeholder: $t('page.product.brand.placeholder.remark'), rows: 2, allowClear: true },
     formItemClass: 'col-span-2',
   },
 ];
@@ -145,10 +145,10 @@ async function loadDetail(id: number) {
 
     mainFormApi.setValues({
       name: data.name,
-      englishName: data.englishName,
+      nameEn: data.nameEn,
       logo: data.logo,
       description: data.description,
-      originCountry: data.originCountry,
+      country: data.country,
       website: data.website,
       status: num(data.status) ?? 0,
       sortOrder: num(data.sortOrder) ?? 0,
@@ -163,11 +163,11 @@ async function loadDetail(id: number) {
 <template>
   <Drawer
     :class="drawerClass"
-    :title="drawerData.create ? '新建品牌' : '编辑品牌'"
+    :title="drawerData.create ? $t('page.product.brand.button.createNew') : $t('page.product.brand.button.edit')"
     :confirm-loading="confirmLoading"
   >
     <template #extra>
-      <Tooltip :title="isFullscreen ? '还原' : '最大化'">
+      <Tooltip :title="isFullscreen ? $t('page.product.brand.action.restore') : $t('page.product.brand.action.maximize')">
         <button type="button" class="brand-drawer__fs-btn" @click="toggleFullscreen">
           <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 3 21 3 21 9" />

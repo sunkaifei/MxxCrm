@@ -1120,6 +1120,10 @@
     },
     "payslip": {
       "title": "Payslip Distribution",
+      "tab": {
+        "all": "All Employees",
+        "my": "My Payslips"
+      },
       "button": {
         "list": "View",
         "manage": "Manage",
@@ -1139,14 +1143,19 @@
         "employeeId": "Employee ID",
         "employeeName": "Employee",
         "yearMonth": "Period",
+        "baseSalary": "Base Salary",
         "totalSalary": "Gross Salary",
         "socialInsurancePersonal": "SI (Personal)",
+        "socialInsuranceCompany": "SI (Company)",
+        "housingFundPersonal": "HF (Personal)",
+        "housingFundCompany": "HF (Company)",
         "taxAmount": "Tax",
         "netSalary": "Net Salary",
         "sendStatus": "Send Status",
         "sendChannels": "Channels",
         "sendTime": "Send Time",
-        "readTime": "Read Time"
+        "readTime": "Read Time",
+        "confirmTime": "Confirm Time"
       },
       "sendStatus": {
         "unsent": "Unsent",
@@ -1169,6 +1178,17 @@
         "itemColumn": "Item",
         "amountColumn": "Amount",
         "noDetailData": "No detail data",
+        "commissionTitle": "Commission Details (Traceable)",
+        "commissionEmpty": "No commission details",
+        "contractName": "Contract",
+        "contractAmount": "Contract Amount",
+        "paymentAmount": "Payment Amount",
+        "commissionRate": "Rate",
+        "commissionAmount": "Commission",
+        "ruleName": "Rule",
+        "confirmButton": "Confirm Payslip",
+        "confirmSuccess": "Confirmed",
+        "confirmFailed": "Confirm failed",
         "baseSalary": "Base Salary",
         "positionAllowance": "Position Allowance",
         "commission": "Commission",
@@ -1179,7 +1199,9 @@
         "deferredCommission": "Deferred Commission",
         "deduction": "Deduction",
         "socialInsurancePersonal": "SI (Personal)",
+        "socialInsuranceCompany": "SI (Company)",
         "housingFundPersonal": "HF (Personal)",
+        "housingFundCompany": "HF (Company)",
         "tax": "Tax",
         "totalSalary": "Gross Salary",
         "netSalary": "Net Salary"

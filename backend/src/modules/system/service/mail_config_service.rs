@@ -34,20 +34,6 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<Option<MailConfigVO>> {
     Ok(m.map(|m| m.into()))
 }
 
-/// 根据 ID 查询邮箱配置（返回 entity，内部使用）
-pub async fn find_by_id_internal(db: &DbConn, id: i64) -> Result<Option<mail_config::Model>> {
-    MailConfigModel::find_by_id(db, id)
-        .await
-        .map_err(|e| Error::from(e.to_string()))
-}
-
-/// 获取默认邮箱配置（返回 entity，供发送邮件使用）
-pub async fn find_default(db: &DbConn) -> Result<Option<mail_config::Model>> {
-    MailConfigModel::find_default(db)
-        .await
-        .map_err(|e| Error::from(e.to_string()))
-}
-
 /// 新增邮箱配置
 /// 若 is_default=1，事务内先重置其他默认再插入
 pub async fn insert(db: &DbConn, req: MailConfigSaveRequest, user_id: Option<i64>) -> Result<i64> {

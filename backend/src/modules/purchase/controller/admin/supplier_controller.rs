@@ -1,7 +1,6 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::permission_guard::require_permission;
 
@@ -18,9 +17,7 @@ pub async fn supplier_insert(state: web::Data<AppState>, req: HttpRequest, form_
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = supplier_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = supplier_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -36,9 +33,7 @@ pub async fn supplier_update(state: web::Data<AppState>, req: HttpRequest, form_
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = supplier_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = supplier_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 

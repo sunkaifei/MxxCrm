@@ -12,8 +12,7 @@ use actix_web::{web, HttpRequest, HttpResponse, Result};
 use crate::core::web::permission_guard::require_permission;
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user;
 use crate::core::web::response::{MetaResp, ResultPage, MPACK};
 use crate::modules::crm::model::work_log::WorkLogCreateDTO;
 use crate::modules::crm::service::work_log_service;
@@ -67,12 +66,11 @@ pub async fn create(
     match result {
         Ok(data) => {
             // 工作日志埋点（回款登记），不影响主业务
-            let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-            let operator_id = jwt_token.id.unwrap_or_default();
+            let (operator_id, username) = get_current_user(&req);
             if operator_id > 0 {
                 let log_dto = WorkLogCreateDTO {
                     user_id: operator_id,
-                    user_name: jwt_token.username,
+                    user_name: Some(username),
                     action_type: Some(3),
                     action_name: Some("回款登记".to_string()),
                     business_type: Some("payment".to_string()),

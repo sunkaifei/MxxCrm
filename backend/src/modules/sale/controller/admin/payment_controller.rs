@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
@@ -25,9 +24,7 @@ pub async fn payment_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = payment_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = payment_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -39,9 +36,7 @@ pub async fn payment_update(state: web::Data<AppState>, req: HttpRequest, form_d
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "收款记录ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = payment_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = payment_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -80,8 +75,7 @@ pub async fn payment_list(state: web::Data<AppState>, req: HttpRequest, query: w
     let db = &state.db;
     let query = query.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     match payment_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
@@ -106,8 +100,7 @@ pub async fn payment_confirm(
             .body(MetaResp::<String>::fail(400, "回款ID不能为空", "local")),
     };
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     match payment_service::confirm(db, payment_id, user_id).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK)
@@ -146,8 +139,7 @@ pub async fn payment_apply(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     match payment_service::apply(db, &dto, user_id).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK)
@@ -227,8 +219,8 @@ pub async fn payment_submit(
 ) -> HttpResponse {
     let db = &state.db;
     let payment_id = path.into_inner();
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match payment_service::submit_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match payment_service::submit_payment(db, payment_id, operator_id, &operator_name).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)
@@ -245,8 +237,8 @@ pub async fn payment_approve(
 ) -> HttpResponse {
     let db = &state.db;
     let payment_id = path.into_inner();
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match payment_service::approve_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.0.reason).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match payment_service::approve_payment(db, payment_id, operator_id, &operator_name, form_data.0.reason).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)
@@ -263,8 +255,8 @@ pub async fn payment_approval_reject(
 ) -> HttpResponse {
     let db = &state.db;
     let payment_id = path.into_inner();
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match payment_service::reject_payment(db, payment_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.0.reason).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match payment_service::reject_payment(db, payment_id, operator_id, &operator_name, form_data.0.reason).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)

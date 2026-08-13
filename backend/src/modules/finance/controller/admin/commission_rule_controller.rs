@@ -13,8 +13,7 @@ use crate::core::web::permission_guard::require_permission;
 use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::core::web::response::ResultPage;
@@ -77,8 +76,7 @@ pub async fn save(
     let db = &state.db;
     let mut dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     if dto.id.is_some() {
         dto.updated_by = Some(user_id);

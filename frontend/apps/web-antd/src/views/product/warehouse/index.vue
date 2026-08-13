@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { h } from 'vue';
+import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
@@ -13,6 +13,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteWarehouseApi, getWarehouseListApi } from '#/api';
 import { $t } from '#/locales';
 
+import WarehouseDetailDrawer from '../components/WarehouseDetailDrawer.vue';
 import WarehouseDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
@@ -81,11 +82,13 @@ const gridOptions: VxeGridProps = {
       title: '仓库编码',
       field: 'code',
       width: 110,
+      slots: { default: 'code' },
     },
     {
       title: '仓库名称',
       field: 'warehouseName',
       minWidth: 140,
+      slots: { default: 'warehouseName' },
     },
     {
       title: '仓库类型',
@@ -178,6 +181,15 @@ async function handleDelete(row: any) {
 function handleCreate() {
   openDrawer(true);
 }
+
+// ============ 仓库详情抽屉 ============
+const detailVisible = ref(false);
+const detailId = ref<number | null>(null);
+
+function openDetail(row: any) {
+  detailId.value = Number(row.id);
+  detailVisible.value = true;
+}
 </script>
 
 <template>
@@ -192,6 +204,18 @@ function handleCreate() {
         >
           {{ $t('page.product.warehouse.button.create') }}
         </Button>
+      </template>
+
+      <template #code="{ row }">
+        <a class="text-primary hover:underline cursor-pointer" @click="openDetail(row)">
+          {{ row.code || '-' }}
+        </a>
+      </template>
+
+      <template #warehouseName="{ row }">
+        <a class="text-primary hover:underline cursor-pointer" @click="openDetail(row)">
+          {{ row.warehouseName || '-' }}
+        </a>
       </template>
 
       <template #warehouseType="{ row }">
@@ -233,5 +257,12 @@ function handleCreate() {
       </template>
     </Grid>
     <Drawer />
+
+    <!-- 仓库详情抽屉 -->
+    <WarehouseDetailDrawer
+      :visible="detailVisible"
+      :warehouse-id="detailId"
+      @update:visible="(val) => (detailVisible = val)"
+    />
   </Page>
 </template>

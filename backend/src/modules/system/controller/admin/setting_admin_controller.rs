@@ -36,6 +36,10 @@ pub struct SettingConfigUpdate {
     pub max_devices: Option<i64>,
     /// 是否开放员工注册
     pub register_enabled: Option<bool>,
+    /// 入库审核开关
+    pub inbound_audit_enabled: Option<bool>,
+    /// 出库审核开关
+    pub outbound_audit_enabled: Option<bool>,
 }
 
 /// 系统设置返回结构
@@ -48,6 +52,10 @@ pub struct SettingConfigVO {
     pub max_devices: i64,
     /// 是否开放员工注册
     pub register_enabled: bool,
+    /// 入库审核开关
+    pub inbound_audit_enabled: bool,
+    /// 出库审核开关
+    pub outbound_audit_enabled: bool,
 }
 
 /// 在线会话返回结构
@@ -73,11 +81,23 @@ pub async fn get_setting_config(state: web::Data<AppState>) -> Result<HttpRespon
     let max_devices = permission_cache_service::get_max_devices().await as i64;
     let register_enabled = permission_cache_service::is_register_enabled().await;
 
+    // 入库/出库审核开关：从 mxx_system_config 表按 key 查询，默认开启（"1"）
+    let inbound_audit_enabled = config_service::find_value_by_key_from_db("inbound_audit_enabled")
+        .await
+        .unwrap_or_else(|| "1".to_string())
+            == "1";
+    let outbound_audit_enabled = config_service::find_value_by_key_from_db("outbound_audit_enabled")
+        .await
+        .unwrap_or_else(|| "1".to_string())
+            == "1";
+
     let config = SettingConfigVO {
         multi_device,
         session_timeout: (timeout_secs as i64) / 3600,
         max_devices,
         register_enabled,
+        inbound_audit_enabled,
+        outbound_audit_enabled,
     };
 
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(config, "local")))
@@ -132,6 +152,24 @@ pub async fn update_setting_config(
             return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("保存失败: {}", e), "local")));
         }
         let _ = crate::core::kit::CONTEXT.cache_service.set_string("config:register_enabled", value).await;
+    }
+
+    // 5. 入库审核开关
+    if let Some(enabled) = item.inbound_audit_enabled {
+        let value = if enabled { "1" } else { "0" };
+        if let Err(e) = config_service::update_value_by_key(db, "inbound_audit_enabled", value).await {
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("保存失败: {}", e), "local")));
+        }
+        let _ = crate::core::kit::CONTEXT.cache_service.set_string("config:inbound_audit_enabled", value).await;
+    }
+
+    // 6. 出库审核开关
+    if let Some(enabled) = item.outbound_audit_enabled {
+        let value = if enabled { "1" } else { "0" };
+        if let Err(e) = config_service::update_value_by_key(db, "outbound_audit_enabled", value).await {
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("保存失败: {}", e), "local")));
+        }
+        let _ = crate::core::kit::CONTEXT.cache_service.set_string("config:outbound_audit_enabled", value).await;
     }
 
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("保存成功".to_string(), "local")))

@@ -1,8 +1,7 @@
 use crate::core::errors::error::Result;
 use actix_web::{HttpResponse, web, HttpRequest};
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::tag::{TagSaveDTO, TagSaveRequest, TagUpdateRequest, TagListQuery, TagMoveToGroupRequest, UpdateTagStatusRequest};
@@ -16,8 +15,7 @@ pub async fn save_tag(state: web::Data<AppState>, req: HttpRequest, payload: web
     if tag_request.tag_name.as_ref().map_or(true, |tag_name| tag_name.trim().is_empty()) {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "标签名称不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = TagSaveDTO::from(tag_request);
     form_data.created_by = admin.id;
     form_data.updated_by = admin.id;
@@ -39,8 +37,7 @@ pub async fn update_tag(state: web::Data<AppState>, req: HttpRequest, payload: w
     if tag_request.tag_name.as_ref().map_or(true, |tag_name| tag_name.trim().is_empty()) {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "标签名称不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = TagSaveDTO::from(tag_request);
     form_data.updated_by = admin.id;
     match tag_service::TagService::save(&db, form_data, admin.id).await {
@@ -199,8 +196,7 @@ pub async fn tag_suggest(state: web::Data<AppState>, query: web::Query<(String,)
 pub async fn save_tag_group(state: web::Data<AppState>, req: HttpRequest, payload: web::Json<TagGroupSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let group_request = payload.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = TagGroupSaveDTO::from(group_request);
     form_data.created_by = admin.id;
     form_data.updated_by = admin.id;
@@ -219,8 +215,7 @@ pub async fn update_tag_group(state: web::Data<AppState>, req: HttpRequest, payl
     if group_request.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "分组ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin = admin_service::get_by_detail(&db, &jwt_token.id).await?;
+    let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
     let mut form_data = TagGroupSaveDTO::from(group_request);
     form_data.updated_by = admin.id;
     match tag_group_service::TagGroupService::save(&db, form_data, admin.id).await {

@@ -1,10 +1,12 @@
 <script lang="tsx" setup>
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import { LucideBot, LucidePlus, LucideTrash2 } from '@vben/icons';
 
 import {
+  AutoComplete,
   Button,
   Card,
   Divider,
@@ -23,8 +25,6 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
-import { useRoute } from 'vue-router';
-
 import {
   deleteIntegrationApi,
   getIntegrationListApi,
@@ -35,17 +35,19 @@ import {
 
 // ─── 提供商模板（用于添加 AI 提供商弹窗） ───
 const PROVIDER_TEMPLATES: Array<{
-  id: string;
-  name: string;
-  defaultModel: string;
   defaultApiUrl: string;
+  defaultModel: string;
+  id: string;
+  models: string[];
+  name: string;
   needSecret?: boolean;
 }> = [
   {
     id: 'deepseek',
     name: 'DeepSeek',
-    defaultModel: 'deepseek-chat',
+    defaultModel: 'deepseek-v4-flash',
     defaultApiUrl: 'https://api.deepseek.com/v1/chat/completions',
+    models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
   },
   {
     id: 'doubao',
@@ -53,12 +55,14 @@ const PROVIDER_TEMPLATES: Array<{
     defaultModel: 'doubao-pro-32k',
     defaultApiUrl:
       'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+    models: ['doubao-pro-32k', 'doubao-pro-128k', 'doubao-lite-32k', 'doubao-lite-128k'],
   },
   {
     id: 'zhipu',
     name: '智谱',
     defaultModel: 'glm-4-plus',
     defaultApiUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    models: ['glm-4-plus', 'glm-4', 'glm-4-air', 'glm-4-flash', 'glm-3-turbo'],
   },
   {
     id: 'qwen',
@@ -66,12 +70,14 @@ const PROVIDER_TEMPLATES: Array<{
     defaultModel: 'qwen-plus',
     defaultApiUrl:
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    models: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-long'],
   },
   {
     id: 'moonshot',
     name: 'Moonshot',
     defaultModel: 'moonshot-v1-8k',
     defaultApiUrl: 'https://api.moonshot.cn/v1/chat/completions',
+    models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   },
   {
     id: 'wenxin',
@@ -80,12 +86,14 @@ const PROVIDER_TEMPLATES: Array<{
     defaultApiUrl:
       'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat',
     needSecret: true,
+    models: ['ernie-4.0', 'ernie-4.0-turbo-8k', 'ernie-3.5-8k', 'ernie-speed-128k'],
   },
   {
     id: 'custom_ai',
     name: '自定义模型',
     defaultModel: '',
     defaultApiUrl: '',
+    models: [],
   },
 ];
 
@@ -152,7 +160,7 @@ const aiPromptList = computed(() =>
 
 // 前端需要但 DB 中尚未预置的「占位提示词」（无 ID，只提示用户去后端接口或后续手动加）
 // （若后端初始化脚本已创建对应 prompt_* 行，这里不会重复出现）
-const MISSING_PROMPT_PLACEHOLDERS: Array<{ code: string; name: string; desc: string }> = [
+const MISSING_PROMPT_PLACEHOLDERS: Array<{ code: string; desc: string; name: string; }> = [
   {
     code: 'prompt_customer_insight',
     name: '客户画像分析提示词',
@@ -211,9 +219,9 @@ function initEditForm(item: any) {
     }
     // 占位提示词：默认 content 字段为空，等待第一次保存
     if (item.isPlaceholder) {
-      editingConfigs.value[item.integrationCode] = { content: '', ...(cj || {}) };
+      editingConfigs.value[item.integrationCode] = { content: '', ...cj };
     } else {
-      editingConfigs.value[item.id] = { ...(cj || {}) };
+      editingConfigs.value[item.id] = { ...cj };
     }
   }
 }
@@ -266,6 +274,17 @@ async function handleToggle(item: any, checked: boolean) {
 async function handleTest(item: any) {
   testing[item.id] = true;
   try {
+    // 先自动保存当前表单（用户可能填了 key 但没点保存，测试需要读最新数据）
+    await saveIntegrationApi({
+      id: item.id,
+      category: item.category,
+      integrationCode: item.integrationCode,
+      integrationName: item.integrationName,
+      configJson: getEditFormRef(item),
+      apiBaseUrl: item.apiBaseUrl,
+      enabled: item.enabled,
+      remark: item.remark,
+    });
     const res: any = await testIntegrationApi(item.id);
     if (res?.success) {
       message.success(`${item.integrationName} 连接成功`);
@@ -286,7 +305,7 @@ async function handleTestAll() {
   const items = activeCategory.value === 'ai' ? aiProviderList.value : currentList.value;
   for (const item of items) {
     if (item.isPlaceholder) continue;
-    // eslint-disable-next-line no-await-in-loop
+     
     await handleTest(item);
   }
 }
@@ -343,6 +362,7 @@ interface ConfigField {
   label: string;
   type: string;
   required?: boolean;
+  options?: string[];
 }
 
 function getConfigFields(code: string): ConfigField[] {
@@ -438,23 +458,36 @@ function getConfigFields(code: string): ConfigField[] {
     ecb: [] as ConfigField[],
   };
   // 通用 AI 提供商兜底（如果没列在上面，且不是 prompt_*，则默认字段）
+  let fields: ConfigField[];
   if (!map[code] && !code.startsWith('prompt_')) {
     const tpl = PROVIDER_TEMPLATES.find((t) => t.id === code);
-    if (tpl?.needSecret) {
-      return [
-        { key: 'api_key', label: 'API Key', type: 'password', required: true },
-        { key: 'secret_key', label: 'Secret Key', type: 'password', required: true },
-        { key: 'model', label: '模型', type: 'text' },
-        { key: 'temperature', label: 'Temperature', type: 'text' },
-      ];
-    }
-    return [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true },
-      { key: 'model', label: '模型', type: 'text' },
-      { key: 'temperature', label: 'Temperature', type: 'text' },
-    ];
+    fields = tpl?.needSecret
+      ? [
+          { key: 'api_key', label: 'API Key', type: 'password', required: true },
+          { key: 'secret_key', label: 'Secret Key', type: 'password', required: true },
+          { key: 'model', label: '模型', type: 'text' },
+          { key: 'temperature', label: 'Temperature', type: 'text' },
+        ]
+      : [
+          { key: 'api_key', label: 'API Key', type: 'password', required: true },
+          { key: 'model', label: '模型', type: 'text' },
+          { key: 'temperature', label: 'Temperature', type: 'text' },
+        ];
+  } else {
+    fields = map[code] || [];
   }
-  return map[code] || [];
+
+  // 给 model 字段附上对应提供商的预设模型列表（用于 AutoComplete 下拉选择）
+  const tplForModels = PROVIDER_TEMPLATES.find((t) => t.id === code);
+  if (tplForModels && tplForModels.models.length > 0) {
+    for (const f of fields) {
+      if (f.key === 'model') {
+        f.options = tplForModels.models;
+      }
+    }
+  }
+
+  return fields;
 }
 
 // ─── 已存在的提供商 integrationCode 集合（用于新增去重） ───
@@ -509,7 +542,7 @@ async function handleAddProviderSubmit() {
   if (addForm.temperature) cfgJson.temperature = addForm.temperature;
   if (addForm.secretKey) cfgJson.secret_key = addForm.secretKey;
 
-  saving['add_provider'] = true;
+  saving.add_provider = true;
   try {
     await saveIntegrationApi({
       category: 'ai',
@@ -527,14 +560,14 @@ async function handleAddProviderSubmit() {
   } catch {
     // global interceptor
   } finally {
-    saving['add_provider'] = false;
+    saving.add_provider = false;
   }
 }
 
 // ─── 通用渲染：单张配置卡片 ───
 function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable: false }) {
   return (
-    <Card size="small" class="mb-4" key={item.id || item.integrationCode}>
+    <Card class="mb-4" key={item.id || item.integrationCode} size="small">
       {{
         title: () => (
           <div class="flex items-center gap-2">
@@ -542,10 +575,10 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
               <LucideBot class="h-4 w-4 text-indigo-500" />
             ) : null}
             <span>{item.integrationName}</span>
-            {!item.isPlaceholder ? (
-              <Tag color={statusTag(item).color}>{statusTag(item).text}</Tag>
-            ) : (
+            {item.isPlaceholder ? (
               <Tag color="default">未创建</Tag>
+            ) : (
+              <Tag color={statusTag(item).color}>{statusTag(item).text}</Tag>
             )}
             {item.remark && (
               <Tooltip title={item.remark}>
@@ -556,27 +589,27 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
         ),
         extra: () => (
           <div class="flex items-center gap-2">
-            {!item.isPlaceholder ? (
+            {item.isPlaceholder ? null : (
               <Switch
                 checked={item.enabled === 1}
                 checked-children="启用"
-                un-checked-children="禁用"
                 onChange={(checked: any) => handleToggle(item, checked)}
+                un-checked-children="禁用"
               />
-            ) : null}
+            )}
             {opts.deletable && !item.isPlaceholder ? (
               <Popconfirm
-                title={`确认删除「${item.integrationName}」配置吗？`}
-                ok-text="确认删除"
                 cancel-text="取消"
+                ok-text="确认删除"
                 ok-type="danger"
                 onConfirm={() => handleDelete(item)}
+                title={`确认删除「${item.integrationName}」配置吗？`}
               >
                 <Button
-                  type="text"
-                  size="small"
                   danger
                   loading={!!deleting[item.id]}
+                  size="small"
+                  type="text"
                   v-slots={{ icon: () => <LucideTrash2 class="h-4 w-4" /> }}
                 />
               </Popconfirm>
@@ -605,36 +638,48 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
                           <span class="text-red-500">*</span>
                         ) : null}
                       </label>
-                      {field.type === 'number' ? (
-                        <InputNumber
-                          value={formRef[field.key]}
-                          size="small"
+                      {field.options && field.options.length > 0 ? (
+                        <AutoComplete
                           class="w-full"
-                          placeholder={`请输入${field.label}…`}
+                          filter-option={(input: string, option: any) =>
+                            option.value.toLowerCase().includes(input.toLowerCase())
+                          }
                           onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                          options={field.options.map((m: string) => ({ value: m }))}
+                          placeholder={`请选择或输入${field.label}…`}
+                          size="small"
+                          value={formRef[field.key]}
+                        />
+                      ) : field.type === 'number' ? (
+                        <InputNumber
+                          class="w-full"
+                          onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                          placeholder={`请输入${field.label}…`}
+                          size="small"
+                          value={formRef[field.key]}
                         />
                       ) : field.type === 'password' ? (
                         <InputPassword
-                          value={formRef[field.key]}
-                          size="small"
-                          placeholder={`请输入${field.label}…`}
                           allow-clear
                           onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                          placeholder={`请输入${field.label}…`}
+                          size="small"
+                          value={formRef[field.key]}
                         />
                       ) : field.type === 'textarea' ? (
                         <Input.TextArea
-                          value={formRef[field.key]}
-                          placeholder={`请输入${field.label}…`}
                           auto-size={{ minRows: 6, maxRows: 16 }}
                           onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                          placeholder={`请输入${field.label}…`}
+                          value={formRef[field.key]}
                         />
                       ) : (
                         <Input
-                          value={formRef[field.key]}
-                          size="small"
-                          placeholder={`请输入${field.label}…`}
                           allow-clear
                           onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                          placeholder={`请输入${field.label}…`}
+                          size="small"
+                          value={formRef[field.key]}
                         />
                       )}
                     </div>
@@ -643,7 +688,7 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
               ) : null}
 
               {/* API 地址（始终展示，AI 提供商必填） */}
-              {!item.integrationCode.startsWith('prompt_') ? (
+              {item.integrationCode.startsWith('prompt_') ? null : (
                 <div class="mt-4 flex flex-col gap-1">
                   <label class="text-xs text-gray-500">
                     API 基础地址
@@ -652,13 +697,13 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
                     ) : null}
                   </label>
                   <Input
-                    value={item.apiBaseUrl}
-                    size="small"
-                    placeholder="例如 https://api.deepseek.com/v1/chat/completions"
                     onUpdate:value={(v: any) => (item.apiBaseUrl = v)}
+                    placeholder="例如 https://api.deepseek.com/v1/chat/completions"
+                    size="small"
+                    value={item.apiBaseUrl}
                   />
                 </div>
-              ) : null}
+              )}
 
               {/* 上次测试信息 */}
               {!item.isPlaceholder && item.lastTestMessage ? (
@@ -678,23 +723,23 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
               <div class="mt-4 flex justify-end gap-2">
                 {!item.isPlaceholder && !isPromptItem(item) ? (
                   <Button
-                    size="small"
-                    loading={!!testing[item.id]}
                     disabled={item.enabled !== 1}
+                    loading={!!testing[item.id]}
                     onClick={() => handleTest(item)}
+                    size="small"
                   >
                     测试连接
                   </Button>
                 ) : null}
                 <Button
-                  type="primary"
-                  size="small"
                   loading={
                     item.isPlaceholder
                       ? !!saving[`ph_${item.integrationCode}`]
                       : !!saving[item.id]
                   }
                   onClick={() => handleSave(item)}
+                  size="small"
+                  type="primary"
                 >
                   {item.isPlaceholder ? '创建并保存' : '保存'}
                 </Button>
@@ -815,7 +860,7 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
       v-model:open="addModalVisible"
       title="添加 AI 提供商"
       :mask-closable="false"
-      :confirm-loading="!!saving['add_provider']"
+      :confirm-loading="!!saving.add_provider"
       ok-text="保存"
       cancel-text="取消"
       @ok="handleAddProviderSubmit"
@@ -891,9 +936,11 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
           <InputPassword v-model:value="addForm.secretKey" />
         </Form.Item>
         <Form.Item label="模型名称" name="model">
-          <Input
+          <AutoComplete
             v-model:value="addForm.model"
-            placeholder="例如 deepseek-chat / gpt-4o-mini 等"
+            placeholder="请选择或输入模型名称"
+            :options="(PROVIDER_TEMPLATES.find((t) => t.id === addForm.templateId)?.models || []).map((m: string) => ({ value: m }))"
+            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
           />
         </Form.Item>
         <Form.Item label="Temperature (默认 0.7)" name="temperature">

@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::inventory::model::stock::{
     InventoryDetailVO, InventoryListData, InventoryListQuery, SafetyStockRequest,
@@ -99,9 +98,8 @@ pub async fn inventory_log(state: web::Data<AppState>, req: HttpRequest) -> Resu
 /// 库存初始化
 pub async fn inventory_initial(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
-    let created_by = jwt_token.id.unwrap_or_default();
+    let created_by = get_current_user_id(&req);
 
     let mut form_data: InboundSaveRequest = serde_json::from_value(body)?;
     form_data.inbound_type = "initial".to_string();
@@ -115,8 +113,7 @@ pub async fn inventory_initial(state: web::Data<AppState>, req: HttpRequest, bod
 /// 库存冻结
 pub async fn inventory_freeze(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let freeze_by = jwt_token.id.unwrap_or_default();
+    let freeze_by = get_current_user_id(&req);
 
     let product_id = body.get("productId").and_then(|v| v.as_i64()).unwrap_or(0);
     let warehouse_id = body.get("warehouseId").and_then(|v| v.as_i64()).unwrap_or(0);
@@ -136,8 +133,7 @@ pub async fn inventory_freeze(state: web::Data<AppState>, req: HttpRequest, body
 /// 库存解冻
 pub async fn inventory_unfreeze(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let unfreeze_by = jwt_token.id.unwrap_or_default();
+    let unfreeze_by = get_current_user_id(&req);
 
     let product_id = body.get("productId").and_then(|v| v.as_i64()).unwrap_or(0);
     let warehouse_id = body.get("warehouseId").and_then(|v| v.as_i64()).unwrap_or(0);
@@ -213,8 +209,7 @@ pub async fn obsolete_stock_warning(state: web::Data<AppState>, req: HttpRequest
 /// 库存调整
 pub async fn inventory_adjust(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or_default();
+    let operator_id = get_current_user_id(&req);
 
     let product_id = body.get("productId").and_then(|v| v.as_i64()).unwrap_or(0);
     let warehouse_id = body.get("warehouseId").and_then(|v| v.as_i64()).unwrap_or(0);

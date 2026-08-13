@@ -45,6 +45,12 @@ pub struct InventoryListVO {
     pub warehouse_id: Option<i64>,
     /// 仓库名称
     pub warehouse_name: Option<String>,
+    /// SKU规格ID
+    pub sku_id: Option<i64>,
+    /// SKU编码
+    pub sku_code: Option<String>,
+    /// 规格描述（如 "颜色:红色 尺寸:XL"）
+    pub spec_text: Option<String>,
     /// 库存数量
     pub quantity: Option<Decimal>,
     /// 预留数量

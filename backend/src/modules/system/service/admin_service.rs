@@ -94,16 +94,27 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
 
     if let Some(password) = &form_data.password {
         if !password.is_empty() {
-            let hashed = hash(password, DEFAULT_COST).unwrap_or_default();
+            let hashed = hash(password, DEFAULT_COST)
+                .map_err(|e| Error::from(format!("密码加密失败: {}", e)))?;
             dto_data.password = Option::from(hashed);
         } else {
             let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
-            let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
+            let init_pwd = config.config_value.unwrap_or_default();
+            if init_pwd.is_empty() {
+                return Err(Error::from("系统未配置初始密码（initPassword），请联系管理员"));
+            }
+            let hashed = hash(init_pwd, DEFAULT_COST)
+                .map_err(|e| Error::from(format!("密码加密失败: {}", e)))?;
             dto_data.password = Option::from(hashed);
         }
     } else {
         let config = config_service::select_by_key(db, &"initPassword".to_string()).await?;
-        let hashed = hash(config.config_value.unwrap_or_default(), DEFAULT_COST).unwrap_or_default();
+        let init_pwd = config.config_value.unwrap_or_default();
+        if init_pwd.is_empty() {
+            return Err(Error::from("系统未配置初始密码（initPassword），请联系管理员"));
+        }
+        let hashed = hash(init_pwd, DEFAULT_COST)
+            .map_err(|e| Error::from(format!("密码加密失败: {}", e)))?;
         dto_data.password = Option::from(hashed);
     }
     

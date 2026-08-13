@@ -76,14 +76,6 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        name: 'StockLog',
-        path: '/stock-log',
-        component: () => import('#/views/product/inventory/log.vue'),
-        meta: {
-          title: $t('page.inventory.stockLog.title'),
-        },
-      },
-      {
         name: 'AlertRule',
         path: '/alert-rule',
         component: () => import('#/views/product/inventory-alert/rule.vue'),

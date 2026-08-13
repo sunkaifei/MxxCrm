@@ -1,12 +1,13 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
+import { h, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucidePlus, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
-import { Button, Drawer, Form, Input, InputNumber, Modal, Popconfirm, Switch, Tag, message } from 'ant-design-vue';
+import { Button, Drawer, Form, Input, InputNumber, Modal, Popconfirm, Select, Switch, Tag, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -17,10 +18,48 @@ import {
   getAlertRuleListApi,
   updateAlertRuleApi,
 } from '#/api/core/product/alert';
+import { getProductListApi } from '#/api';
 import { $t } from '#/locales';
 
-const accessStore = useAccessStore();
+import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 
+const accessStore = useAccessStore();
+const router = useRouter();
+
+// ============ 产品列表选项（异步加载） ============
+const productOptions = ref<{ label: string; value: number }[]>([]);
+
+async function loadProductOptions() {
+  try {
+    const res: any = await getProductListApi({ page: 1, pageSize: 999 });
+    const list = res?.list || res?.items || res || [];
+    productOptions.value = list.map((p: any) => ({
+      label: p.name || p.productName || '',
+      value: Number(p.id),
+    }));
+  } catch {
+    productOptions.value = [];
+  }
+}
+
+// ============ 仓库弹窗选择 ============
+const warehouseSelectVisible = ref(false);
+
+function openWarehouseSelect() {
+  warehouseSelectVisible.value = true;
+}
+
+function onWarehouseSelected(warehouse: any) {
+  editForm.value.warehouseId = Number(warehouse.id);
+  editForm.value.warehouseName = warehouse.warehouseName ?? warehouse.name ?? '';
+}
+
+function clearWarehouse() {
+  editForm.value.warehouseId = undefined;
+  editForm.value.warehouseName = '';
+}
+
+// ============ 列表筛选 ============
 const formOptions: VbenFormProps = {
   collapsed: false,
   showCollapseButton: false,
@@ -81,8 +120,16 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: $t('page.product.inventory.alert.field.productName'), field: 'productName', minWidth: 140 },
-    { title: $t('page.product.inventory.alert.field.warehouseName'), field: 'warehouseName', width: 120 },
+    {
+      title: $t('page.product.inventory.alert.field.productName'),
+      field: 'productName',
+      minWidth: 140,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.warehouseName'),
+      field: 'warehouseName',
+      width: 120,
+    },
     {
       title: $t('page.product.inventory.alert.field.minQuantity'),
       field: 'minQuantity',
@@ -128,23 +175,25 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
-// 编辑/新增抽屉
+// ============ 编辑/新增抽屉 ============
 const drawerVisible = ref(false);
 const drawerTitle = ref('');
 const isEdit = ref(false);
 const submitLoading = ref(false);
+
+// 注意：fieldName 使用后端 camelCase 字段名
 const editForm = ref({
   id: undefined as number | undefined,
   productId: undefined as number | undefined,
-  productName: '',
   warehouseId: undefined as number | undefined,
   warehouseName: '',
   minQuantity: 0,
   maxQuantity: 0,
-  staleDays: 0,
+  staleDays: 90,
   enableLowAlert: true,
-  enableHighAlert: true,
+  enableHighAlert: false,
   enableStaleAlert: false,
+  notifyUsers: '' as string,
 });
 
 function handleCreate() {
@@ -153,15 +202,15 @@ function handleCreate() {
   editForm.value = {
     id: undefined,
     productId: undefined,
-    productName: '',
     warehouseId: undefined,
     warehouseName: '',
     minQuantity: 0,
     maxQuantity: 0,
-    staleDays: 0,
+    staleDays: 90,
     enableLowAlert: true,
-    enableHighAlert: true,
+    enableHighAlert: false,
     enableStaleAlert: false,
+    notifyUsers: '',
   };
   drawerVisible.value = true;
 }
@@ -174,16 +223,16 @@ async function handleEdit(row: any) {
     const data = (info as any)?.data ?? row;
     editForm.value = {
       id: data.id,
-      productId: data.productId,
-      productName: data.productName || '',
-      warehouseId: data.warehouseId,
+      productId: data.productId ? Number(data.productId) : undefined,
+      warehouseId: data.warehouseId ? Number(data.warehouseId) : undefined,
       warehouseName: data.warehouseName || '',
       minQuantity: data.minQuantity ?? 0,
       maxQuantity: data.maxQuantity ?? 0,
-      staleDays: data.staleDays ?? 0,
-      enableLowAlert: !!data.enableLowAlert,
-      enableHighAlert: !!data.enableHighAlert,
-      enableStaleAlert: !!data.enableStaleAlert,
+      staleDays: data.staleDays ?? 90,
+      enableLowAlert: data.enableLowAlert ?? true,
+      enableHighAlert: data.enableHighAlert ?? false,
+      enableStaleAlert: data.enableStaleAlert ?? false,
+      notifyUsers: data.notifyUsers || '',
     };
   } catch {
     editForm.value = { ...row };
@@ -192,13 +241,42 @@ async function handleEdit(row: any) {
 }
 
 async function handleSubmit() {
+  // 至少启用一种预警
+  if (!editForm.value.enableLowAlert && !editForm.value.enableHighAlert && !editForm.value.enableStaleAlert) {
+    message.warning('请至少启用一种预警类型');
+    return;
+  }
+  // 低库存预警需要设置最低阈值
+  if (editForm.value.enableLowAlert && (!editForm.value.minQuantity || editForm.value.minQuantity <= 0)) {
+    message.warning('启用低库存预警时需设置最低数量');
+    return;
+  }
+  // 高库存预警需要设置最高阈值
+  if (editForm.value.enableHighAlert && (!editForm.value.maxQuantity || editForm.value.maxQuantity <= 0)) {
+    message.warning('启用高库存预警时需设置最高数量');
+    return;
+  }
+
   submitLoading.value = true;
   try {
+    // 构造提交数据，确保字段名与后端 camelCase 匹配
+    const payload = {
+      productId: editForm.value.productId || undefined,
+      warehouseId: editForm.value.warehouseId || undefined,
+      minQuantity: editForm.value.minQuantity || undefined,
+      maxQuantity: editForm.value.maxQuantity || undefined,
+      staleDays: editForm.value.staleDays ?? 90,
+      enableLowAlert: editForm.value.enableLowAlert,
+      enableHighAlert: editForm.value.enableHighAlert,
+      enableStaleAlert: editForm.value.enableStaleAlert,
+      notifyUsers: editForm.value.notifyUsers || undefined,
+    };
+
     if (isEdit.value) {
-      await updateAlertRuleApi(editForm.value);
+      await updateAlertRuleApi({ ...payload, id: editForm.value.id });
       message.success($t('ui.notification.update_success'));
     } else {
-      await createAlertRuleApi(editForm.value);
+      await createAlertRuleApi(payload);
       message.success($t('ui.notification.create_success'));
     }
     drawerVisible.value = false;
@@ -238,6 +316,10 @@ async function handleBatchDelete() {
     },
   });
 }
+
+onMounted(() => {
+  loadProductOptions();
+});
 </script>
 
 <template>
@@ -302,6 +384,7 @@ async function handleBatchDelete() {
       </template>
     </Grid>
 
+    <!-- 新增/编辑抽屉 -->
     <Drawer
       v-model:open="drawerVisible"
       :title="drawerTitle"
@@ -311,20 +394,40 @@ async function handleBatchDelete() {
       :closable="true"
     >
       <Form layout="vertical">
-        <Form.Item :label="$t('page.product.inventory.alert.field.productName')">
-          <Input v-model:value="editForm.productName" :placeholder="$t('ui.placeholder.input')" />
+        <!-- 产品选择：不选=全部产品 -->
+        <Form.Item label="产品（不选=全部产品）">
+          <Select
+            v-model:value="editForm.productId"
+            placeholder="全部产品（不选则对所有产品生效）"
+            allow-clear
+            show-search
+            :options="productOptions"
+            :filter-option="(input: string, option: any) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())"
+            style="width: 100%"
+          />
         </Form.Item>
-        <Form.Item :label="$t('page.product.inventory.alert.field.warehouseName')">
-          <Input v-model:value="editForm.warehouseName" :placeholder="$t('ui.placeholder.input')" />
+
+        <!-- 仓库选择：不选=全部仓库 -->
+        <Form.Item label="仓库（不选=全部仓库）">
+          <Input
+            :value="editForm.warehouseName || ''"
+            placeholder="全部仓库（不选则对所有仓库生效）"
+            readonly
+            allow-clear
+            style="cursor: pointer"
+            @click="openWarehouseSelect"
+            @change="(e: any) => { if (!e?.target?.value) clearWarehouse(); }"
+          />
         </Form.Item>
+
         <Form.Item :label="$t('page.product.inventory.alert.field.minQuantity')">
-          <InputNumber v-model:value="editForm.minQuantity" style="width: 100%" :min="0" />
+          <InputNumber v-model:value="editForm.minQuantity" style="width: 100%" :min="0" placeholder="最低库存阈值" />
         </Form.Item>
         <Form.Item :label="$t('page.product.inventory.alert.field.maxQuantity')">
-          <InputNumber v-model:value="editForm.maxQuantity" style="width: 100%" :min="0" />
+          <InputNumber v-model:value="editForm.maxQuantity" style="width: 100%" :min="0" placeholder="最高库存阈值" />
         </Form.Item>
         <Form.Item :label="$t('page.product.inventory.alert.field.staleDays')">
-          <InputNumber v-model:value="editForm.staleDays" style="width: 100%" :min="0" />
+          <InputNumber v-model:value="editForm.staleDays" style="width: 100%" :min="0" placeholder="呆滞天数（默认90）" />
         </Form.Item>
         <Form.Item :label="$t('page.product.inventory.alert.field.enableLowAlert')">
           <Switch v-model:checked="editForm.enableLowAlert" />
@@ -335,6 +438,13 @@ async function handleBatchDelete() {
         <Form.Item :label="$t('page.product.inventory.alert.field.enableStaleAlert')">
           <Switch v-model:checked="editForm.enableStaleAlert" />
         </Form.Item>
+        <Form.Item label="通知用户（逗号分隔的用户ID）">
+          <Input
+            v-model:value="editForm.notifyUsers"
+            placeholder="如：1,2,3（留空则不通知）"
+            allow-clear
+          />
+        </Form.Item>
       </Form>
       <template #footer>
         <div style="text-align: right">
@@ -343,5 +453,12 @@ async function handleBatchDelete() {
         </div>
       </template>
     </Drawer>
+
+    <!-- 仓库选择弹窗 -->
+    <WarehouseSelectModal
+      :visible="warehouseSelectVisible"
+      @update:visible="(val) => (warehouseSelectVisible = val)"
+      @select="onWarehouseSelected"
+    />
   </Page>
 </template>

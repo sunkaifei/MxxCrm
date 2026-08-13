@@ -26,14 +26,6 @@ pub fn timestamp() -> i64 {
     }
 }
 
-/// 要求输入: 2019-11-11 10:10:10
-#[inline]
-pub fn from_str(datetime_str: &str) -> DateTime<Local> {
-    let datetime = NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S")
-        .expect("Failed to parse datetime");
-    Local.from_local_datetime(&datetime).unwrap()
-}
-
 /// 当前的时间字符串
 #[inline]
 pub fn to_string() -> String {

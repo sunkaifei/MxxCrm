@@ -35,3 +35,8 @@ export const resendDeliveryApi = async (id: number) => {
     { params: { id } },
   );
 };
+
+// 批量删除交付记录
+export const deleteDeliveryApi = async (ids: number[]) => {
+  return requestClient.delete('/api/system/sale/delivery/delete', { data: ids });
+};

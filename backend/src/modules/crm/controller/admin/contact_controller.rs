@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
@@ -25,9 +24,7 @@ pub async fn contact_insert(state: web::Data<AppState>, req: HttpRequest, form_d
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = contact_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = contact_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -39,9 +36,7 @@ pub async fn contact_update(state: web::Data<AppState>, req: HttpRequest, form_d
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "联系人ID不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = contact_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = contact_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -79,9 +74,7 @@ pub async fn contact_info(state: web::Data<AppState>, item: web::Query<InfoId>) 
 pub async fn contact_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ContactListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    match contact_service::list(&db, &query, jwt_token.id.unwrap_or_default()).await {
+    match contact_service::list(&db, &query, get_current_user_id(&req)).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;

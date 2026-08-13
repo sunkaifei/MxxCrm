@@ -26,12 +26,12 @@ pub struct Model {
     pub customer_id: Option<i64>,
     pub customer_name: Option<String>,
     /// 退货类型：1=整单退货, 2=部分退货
-    pub refund_type: Option<i32>,
+    pub refund_type: Option<i16>,
     pub refund_reason: Option<String>,
     /// 退货状态：1=草稿,2=待审批,3=审批通过,4=待收货,5=已收货,6=质检中,7=已完成,8=已驳回,9=已取消
-    pub refund_status: Option<i32>,
+    pub refund_status: Option<i16>,
     /// 审批状态：0=草稿,1=待审批,2=审批中,3=已通过,4=已驳回
-    pub approval_status: Option<i32>,
+    pub approval_status: Option<i16>,
     pub instance_id: Option<i64>,
     pub total_amount: Option<Decimal>,
     pub restocking_fee: Option<Decimal>,
@@ -44,7 +44,7 @@ pub struct Model {
     pub logistics_no: Option<String>,
     pub logistics_company: Option<String>,
     /// 质检结果：0=未质检,1=合格,2=不合格
-    pub quality_check_result: Option<i32>,
+    pub quality_check_result: Option<i16>,
     pub quality_check_remark: Option<String>,
     pub owner_user_id: Option<i64>,
     pub dept_id: Option<i64>,
@@ -53,7 +53,7 @@ pub struct Model {
     pub create_time: Option<DateTime>,
     pub update_by: Option<i64>,
     pub update_time: Option<DateTime>,
-    pub deleted: Option<i32>,
+    pub deleted: Option<i16>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

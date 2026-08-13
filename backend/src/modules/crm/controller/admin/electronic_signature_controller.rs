@@ -22,8 +22,7 @@
 
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -63,8 +62,7 @@ pub async fn create(
     form_data: web::Json<CreateSignatureRequest>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
 
     let contract_id = match form_data.contract_id {
         Some(id) if id > 0 => id,

@@ -1,4 +1,4 @@
-use crate::core::errors::error::{Error, Result};
+use crate::core::errors::error::Result;
 use crate::modules::ai::model::ai_config::{AiConfigDetailVO, AiConfigListVO, AiConfigModel, AiConfigSaveDTO};
 use sea_orm::DbConn;
 
@@ -32,14 +32,6 @@ pub async fn update_by_id(db: &DbConn, id: &Option<i64>, form_data: &AiConfigSav
 pub async fn find_by_key_unique(db: &DbConn, key: &Option<String>, id: &Option<i64>) -> Result<bool> {
     let result = AiConfigModel::find_by_key_unique(db, key, id).await?;
     Ok(result)
-}
-
-pub async fn get_by_key(db: &DbConn, key: &str) -> Result<String> {
-    let config = AiConfigModel::find_by_key(db, key).await?;
-    match config {
-        Some(c) => Ok(c.config_value.unwrap_or_default()),
-        None => Err(Error::from(format!("配置项 {} 不存在", key))),
-    }
 }
 
 pub async fn get_by_detail(db: &DbConn, id: &Option<i64>) -> Result<Option<AiConfigDetailVO>> {

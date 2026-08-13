@@ -344,6 +344,20 @@
       "title": "Scheduled Tasks",
       "button": {
         "manage": "Manage"
+      },
+      "status": {
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "success": "Success",
+        "failed": "Failed",
+        "running": "Running",
+        "interrupted": "Interrupted",
+        "notRun": "Not Run"
+      },
+      "triggerType": {
+        "scheduled": "Scheduled",
+        "manual": "Manual",
+        "rerun": "Re-run"
       }
     },
     "integration": {

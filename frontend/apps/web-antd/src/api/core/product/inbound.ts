@@ -15,7 +15,8 @@ export const createInboundApi = async (data: any) => {
 };
 
 export const updateInboundApi = async (data: any) => {
-  return requestClient.put('/api/system/inbound/update', data);
+  const { id, ...rest } = data;
+  return requestClient.put('/api/system/inbound/update', rest, { params: { id } });
 };
 
 export const deleteInboundApi = async (ids: number[]) => {

@@ -14,8 +14,7 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::model::followup::{VisitCheckInRequest, VisitListQuery};
@@ -28,8 +27,7 @@ pub async fn visit_list(
     query: web::Query<VisitListQuery>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let query = query.0;
 
     match followup_service::visit_list(db, &query, current_user_id).await {
@@ -66,8 +64,7 @@ pub async fn visit_check_in(
     let db = &state.db;
     let form_data = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let created_by = jwt_token.id.unwrap_or_default();
+    let created_by = get_current_user_id(&req);
 
     if created_by <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
@@ -91,8 +88,7 @@ pub async fn visit_check_out(
     let db = &state.db;
     let id = id.into_inner();
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let updated_by = jwt_token.id.unwrap_or_default();
+    let updated_by = get_current_user_id(&req);
 
     if updated_by <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
@@ -110,8 +106,7 @@ pub async fn visit_check_out(
 /// GET /visit/statistics - 拜访统计（按人/按日统计）
 pub async fn visit_statistics(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     if current_user_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)

@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK, ResultPage};
@@ -173,8 +172,7 @@ pub async fn pdf_template_save(
     form_data: web::Json<PdfTemplateSaveRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = pdf_template_service::insert(&db, form_data.into_inner(), jwt_token.id).await;
+    let result = pdf_template_service::insert(&db, form_data.into_inner(), Some(get_current_user_id(&req))).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
@@ -186,8 +184,7 @@ pub async fn pdf_template_update(
     form_data: web::Json<PdfTemplateUpdateRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let result = pdf_template_service::update(&db, form_data.into_inner(), jwt_token.id).await;
+    let result = pdf_template_service::update(&db, form_data.into_inner(), Some(get_current_user_id(&req))).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
@@ -273,7 +270,6 @@ pub async fn pdf_generate(
     form_data: web::Json<PdfGenerateRequest>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let data = form_data.into_inner();
     let doc_type = data.doc_type.unwrap_or_default();
     let doc_id = data.doc_id.unwrap_or_default();
@@ -291,7 +287,7 @@ pub async fn pdf_generate(
         doc_id,
         template_id,
         "manual",
-        jwt_token.id,
+        Some(get_current_user_id(&req)),
     )
     .await
     {
@@ -419,7 +415,6 @@ pub async fn pdf_download(
     );
 
     // 写入下载日志（best-effort，不影响下载本身）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let ip = req
         .peer_addr()
         .map(|a| a.ip().to_string())
@@ -431,8 +426,8 @@ pub async fn pdf_download(
         doc_id: sea_orm::Set(record.doc_id),
         doc_no: sea_orm::Set(record.doc_no.clone()),
         file_name: sea_orm::Set(record.file_name.clone()),
-        operator_id: sea_orm::Set(jwt_token.id),
-        operator_name: sea_orm::Set(jwt_token.username),
+        operator_id: sea_orm::Set(Some(get_current_user_id(&req))),
+        operator_name: sea_orm::Set(Some(get_current_user(&req).1)),
         ip_address: sea_orm::Set(if ip.is_empty() { None } else { Some(ip) }),
         create_time: sea_orm::Set(Some(now)),
         ..Default::default()

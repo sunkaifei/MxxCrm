@@ -1104,7 +1104,7 @@ pub async fn get_config_list(
     db: &DatabaseConnection,
     employee_id: Option<i64>,
     year: Option<i32>,
-) -> Result<Vec<salary_config::Model>, String> {
+) -> Result<Vec<serde_json::Value>, String> {
     let mut stmt = salary_config::Entity::find()
         .filter(salary_config::Column::Deleted.eq(0));
     if let Some(eid) = employee_id {
@@ -1113,11 +1113,48 @@ pub async fn get_config_list(
     if let Some(y) = year {
         stmt = stmt.filter(salary_config::Column::Year.eq(y));
     }
-    stmt.order_by_asc(salary_config::Column::EmployeeId)
+    let configs = stmt
+        .order_by_asc(salary_config::Column::EmployeeId)
         .order_by_asc(salary_config::Column::Year)
         .all(db)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // 批量查询员工姓名
+    let emp_ids: Vec<i64> = configs.iter().map(|c| c.employee_id).collect::<Vec<_>>();
+    let mut name_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    if !emp_ids.is_empty() {
+        let admins = admin::Entity::find()
+            .filter(admin::Column::Id.is_in(emp_ids))
+            .all(db)
+            .await
+            .map_err(|e| e.to_string())?;
+        for a in admins {
+            let name = a.nick_name.or(a.user_name).unwrap_or_default();
+            name_map.insert(a.id, name);
+        }
+    }
+
+    let result: Vec<serde_json::Value> = configs
+        .into_iter()
+        .map(|c| {
+            let emp_name = name_map.get(&c.employee_id).cloned().unwrap_or_default();
+            serde_json::json!({
+                "id": c.id,
+                "employeeId": c.employee_id,
+                "employeeName": emp_name,
+                "year": c.year,
+                "month": c.month,
+                "baseSalary": c.base_salary,
+                "positionAllowance": c.position_allowance,
+                "performanceBase": c.performance_base,
+                "performanceCoefficient": c.performance_coefficient,
+                "status": c.status,
+            })
+        })
+        .collect();
+
+    Ok(result)
 }
 
 /// 新增/更新底薪配置

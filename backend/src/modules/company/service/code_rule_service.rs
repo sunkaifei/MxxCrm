@@ -605,9 +605,11 @@ pub async fn start_batch_regenerate(
                             // 更新客户编号
                             let mut active: customer::ActiveModel = c.clone().into();
                             active.customer_no = Set(Some(final_no));
-                            let _ = active.update(db).await;
+                            match active.update(db).await {
+                                Ok(_) => { total_affected += 1; }
+                                Err(e) => { log::warn!("客户编号更新失败: {}", e); }
+                            }
                         }
-                        total_affected += customers.len() as i64;
                     }
                 } else {
                     // 未指定年份，使用原有逻辑（仅更新编号为空的客户），按 id 升序

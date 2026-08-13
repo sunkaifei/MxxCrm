@@ -11,11 +11,12 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import type { VbenFormProps } from '@vben/common-ui';
 import {
+  deleteDeliveryApi,
   getDeliveryInfoApi,
   getDeliveryListApi,
   resendDeliveryApi,
   viewFullDeliveryApi,
-} from '#/api';
+} from '#/api/core/sale/delivery';
 import { $t } from '#/locales';
 
 const accessStore = useAccessStore();
@@ -251,6 +252,24 @@ function handleResend(row: any) {
     },
   });
 }
+
+async function handleDelete(row: any) {
+  Modal.confirm({
+    title: '删除确认',
+    content: `确定要删除交付单「${row.deliveryNo || ''}」吗？`,
+    okText: $t('ui.button.ok'),
+    cancelText: $t('ui.button.cancel'),
+    onOk: async () => {
+      try {
+        await deleteDeliveryApi([row.id]);
+        message.success('删除成功');
+        gridApi.query();
+      } catch {
+        message.error('删除失败');
+      }
+    },
+  });
+}
 </script>
 
 <template>
@@ -325,6 +344,15 @@ function handleResend(row: any) {
           @click="() => handleResend(row)"
         >
           {{ $t('page.sale.delivery.button.resend') }}
+        </Button>
+        <Button
+          v-if="accessStore.hasAccessCode('sale:delivery:delete')"
+          type="link"
+          size="small"
+          danger
+          @click="() => handleDelete(row)"
+        >
+          删除
         </Button>
       </template>
     </Grid>

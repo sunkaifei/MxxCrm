@@ -10,7 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::purchase::model::purchase_return::{PurchaseReturnListQuery, PurchaseReturnSaveRequest};
@@ -23,10 +23,9 @@ pub async fn save(
     form_data: web::Json<PurchaseReturnSaveRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
 
-    let result = purchase_return_service::insert(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = purchase_return_service::insert(db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
@@ -38,10 +37,9 @@ pub async fn update(
     form_data: web::Json<PurchaseReturnSaveRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token = get_user(&req).unwrap_or_default();
     let form_data = form_data.0;
 
-    let result = purchase_return_service::update(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = purchase_return_service::update(db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))

@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -53,8 +52,7 @@ const ORDER_FIELD_LABELS: &[(&str, &str)] = &[
 pub async fn order_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let result = order_service::insert(db, &form_data, user_id).await;
 
     if let Ok(order_id) = result {
@@ -98,8 +96,7 @@ pub async fn order_update(state: web::Data<AppState>, req: HttpRequest, form_dat
     if form_data.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let order_id = form_data.id.unwrap();
 
     let old_data = if let Ok(old_detail) = order_service::get_detail(db, order_id).await {
@@ -185,8 +182,7 @@ pub async fn order_info(state: web::Data<AppState>, item: web::Query<InfoId>) ->
 pub async fn order_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<OrderListQuery>) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     match order_service::get_list(db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
@@ -206,8 +202,8 @@ pub async fn order_submit(state: web::Data<AppState>, req: HttpRequest, item: we
     if item.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match order_service::submit_order(db, item.id.unwrap(), jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default()).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match order_service::submit_order(db, item.id.unwrap(), operator_id, &operator_name).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -217,8 +213,8 @@ pub async fn order_submit(state: web::Data<AppState>, req: HttpRequest, item: we
 pub async fn order_approve(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderApprovalReq>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match order_service::approve_order(db, form_data.order_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match order_service::approve_order(db, form_data.order_id, operator_id, &operator_name, form_data.reason).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -228,8 +224,8 @@ pub async fn order_approve(state: web::Data<AppState>, req: HttpRequest, form_da
 pub async fn order_reject(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OrderApprovalReq>) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match order_service::reject_order(db, form_data.order_id, jwt_token.id.unwrap_or_default(), &jwt_token.username.unwrap_or_default(), form_data.reason).await {
+    let (operator_id, operator_name) = get_current_user(&req);
+    match order_service::reject_order(db, form_data.order_id, operator_id, &operator_name, form_data.reason).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -252,8 +248,7 @@ pub async fn order_create_contract(state: web::Data<AppState>, req: HttpRequest,
     if item.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match order_service::create_contract_from_order(db, item.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
+    match order_service::create_contract_from_order(db, item.id.unwrap(), get_current_user_id(&req)).await {
         Ok(contract_id) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(contract_id, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }

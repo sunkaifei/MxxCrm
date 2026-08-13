@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::approval::model::approval::{
@@ -50,8 +49,7 @@ pub async fn save_flow(
     payload: web::Json<FlowSaveRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator = jwt_token.username.unwrap_or_default();
+    let (_, operator) = get_current_user(&req);
     match ApprovalService::save_flow(db, &payload.0, &operator).await {
         Ok(id) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
@@ -139,8 +137,7 @@ pub async fn submit_approval(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     // 安全修复：submitter_id 从 JWT 取，防止客户端伪造发起人身份
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let (current_user_id, username) = get_current_user(&req);
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
             .content_type(MPACK)
@@ -148,7 +145,7 @@ pub async fn submit_approval(
     }
     let mut req_data = payload.0;
     req_data.submitter_id = current_user_id;
-    req_data.submitter_name = Some(jwt_token.username.unwrap_or_default());
+    req_data.submitter_name = Some(username);
     match ApprovalService::submit(db, &req_data).await {
         Ok(id) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
@@ -166,8 +163,7 @@ pub async fn process_approval(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     // 安全修复：approver_id 从 JWT 取，防止客户端伪造审批人身份
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
             .content_type(MPACK)
@@ -207,8 +203,7 @@ pub async fn approval_list(
     query: web::Query<PageQuery>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let approver_id = jwt_token.id.unwrap_or_default();
+    let approver_id = get_current_user_id(&req);
     match ApprovalService::find_instance_list(db, approver_id, query.page_num, query.page_size).await {
         Ok(data) => {
             let page = data.current_page as u32;
@@ -232,14 +227,13 @@ pub async fn cancel_approval(
     payload: web::Json<ApprovalCancelRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let (current_user_id, username) = get_current_user(&req);
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
-    match ApprovalService::cancel_instance(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
+    match ApprovalService::cancel_instance(db, &payload.0, current_user_id, &username).await {
         Ok(_) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
@@ -256,14 +250,13 @@ pub async fn reject_to_approval(
     payload: web::Json<ApprovalRejectToRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let (current_user_id, username) = get_current_user(&req);
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
-    match ApprovalService::reject_to(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
+    match ApprovalService::reject_to(db, &payload.0, current_user_id, &username).await {
         Ok(_) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
@@ -280,14 +273,13 @@ pub async fn transfer_approval(
     payload: web::Json<ApprovalTransferRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let (current_user_id, username) = get_current_user(&req);
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
-    match ApprovalService::transfer(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
+    match ApprovalService::transfer(db, &payload.0, current_user_id, &username).await {
         Ok(_) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
@@ -304,14 +296,13 @@ pub async fn delegate_approval(
     payload: web::Json<ApprovalDelegateRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let (current_user_id, username) = get_current_user(&req);
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
-    match ApprovalService::delegate(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
+    match ApprovalService::delegate(db, &payload.0, current_user_id, &username).await {
         Ok(_) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
@@ -328,14 +319,13 @@ pub async fn add_sign_approval(
     payload: web::Json<ApprovalAddSignRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let (current_user_id, username) = get_current_user(&req);
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
-    match ApprovalService::add_sign(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
+    match ApprovalService::add_sign(db, &payload.0, current_user_id, &username).await {
         Ok(_) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
@@ -352,14 +342,13 @@ pub async fn add_cc_approval(
     payload: web::Json<ApprovalCcRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let (current_user_id, username) = get_current_user(&req);
     if current_user_id == 0 {
         return Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
     }
-    match ApprovalService::add_cc(db, &payload.0, current_user_id, &jwt_token.username.unwrap_or_default()).await {
+    match ApprovalService::add_cc(db, &payload.0, current_user_id, &username).await {
         Ok(_) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(true, "local"))),
@@ -376,8 +365,7 @@ pub async fn cc_list(
     query: web::Query<CcListQuery>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let is_read = query.is_read;
     match ApprovalService::find_cc_list(db, user_id, is_read, query.page, query.page_size).await {
         Ok(data) => {
@@ -400,8 +388,7 @@ pub async fn cc_mark_read(
     id: web::Path<i64>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     match ApprovalService::mark_cc_read(db, id.into_inner(), user_id).await {
         Ok(_) => Ok(HttpResponse::Ok()
             .content_type(MPACK)

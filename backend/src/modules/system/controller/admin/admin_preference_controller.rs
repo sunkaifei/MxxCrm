@@ -11,8 +11,7 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
 
 use crate::modules::system::model::admin_preference::QuickNavItem;
@@ -21,8 +20,7 @@ use crate::modules::system::service::admin_preference_service;
 /// GET /preference/quick-nav - 获取当前用户快捷导航配置
 pub async fn get_quick_nav(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin_id = jwt_token.id.unwrap_or_default();
+    let admin_id = get_current_user_id(&req);
     if admin_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
@@ -42,8 +40,7 @@ pub async fn save_quick_nav(
     payload: web::Json<Vec<QuickNavItem>>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin_id = jwt_token.id.unwrap_or_default();
+    let admin_id = get_current_user_id(&req);
     if admin_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
@@ -60,8 +57,7 @@ pub async fn save_quick_nav(
 /// GET /preference/sale-mode - 获取销售简易模式开关
 pub async fn get_sale_mode(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin_id = jwt_token.id.unwrap_or_default();
+    let admin_id = get_current_user_id(&req);
     if admin_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));
@@ -81,8 +77,7 @@ pub async fn save_sale_mode(
     payload: web::Json<bool>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let admin_id = jwt_token.id.unwrap_or_default();
+    let admin_id = get_current_user_id(&req);
     if admin_id <= 0 {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(401, "未登录", "local"));

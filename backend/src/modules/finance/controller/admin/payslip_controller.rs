@@ -12,8 +12,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -26,12 +25,14 @@ pub struct PayslipListQuery {
     pub month: Option<i32>,
     pub employee_id: Option<i64>,
     pub send_status: Option<i32>,
+    pub list_type: Option<String>, // "all" | "my"
     pub page: Option<i64>,
     pub page_size: Option<i64>,
 }
 
 pub async fn list(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<PayslipListQuery>,
 ) -> HttpResponse {
     let db = &state.db;
@@ -39,11 +40,18 @@ pub async fn list(
     let page = q.page.unwrap_or(1).max(1);
     let page_size = q.page_size.unwrap_or(20).max(1);
 
+    // list_type="my" 时强制按当前用户过滤
+    let employee_id = if q.list_type.as_deref() == Some("my") {
+        Some(get_current_user_id(&req))
+    } else {
+        q.employee_id
+    };
+
     match payslip_service::get_payslip_list(
         db,
         q.year,
         q.month,
-        q.employee_id,
+        employee_id,
         q.send_status,
         page,
         page_size,
@@ -234,8 +242,7 @@ pub async fn withdraw(
     dto: web::Json<WithdrawDTO>,
 ) -> HttpResponse {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let withdrawn_by = jwt_token.id.unwrap_or(0);
+    let withdrawn_by = get_current_user_id(&req);
     match payslip_service::withdraw_payslip(db, dto.payslip_id, withdrawn_by, &dto.reason).await {
         Ok(_) => HttpResponse::Ok().content_type("application/json")
             .body(MetaResp::success(serde_json::json!({}), "local")),
@@ -244,14 +251,54 @@ pub async fn withdraw(
     }
 }
 
+/// 工资条详情（含提成明细）
+pub async fn detail(
+    state: web::Data<AppState>,
+    query: web::Query<InfoId>,
+) -> HttpResponse {
+    let db = &state.db;
+    let item = query.0;
+    if item.id.is_none() {
+        return HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, "工资条ID不能为空", "local"));
+    }
+
+    match payslip_service::get_payslip_detail(db, item.id.unwrap()).await {
+        Ok(data) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
+/// 员工确认工资条
+pub async fn confirm(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    dto: web::Json<InfoId>,
+) -> HttpResponse {
+    let db = &state.db;
+    let payslip_id = dto.id.unwrap_or(0);
+    let employee_id = get_current_user_id(&req);
+
+    match payslip_service::confirm_payslip(db, payslip_id, employee_id).await {
+        Ok(_) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::success("确认成功".to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/finance/payslip")
             .route("/list", web::get().to(list).wrap(require_permission("finance:payslip:list")))
+            .route("/detail", web::get().to(detail).wrap(require_permission("finance:payslip:list")))
             .route("/generate", web::post().to(generate).wrap(require_permission("finance:payslip:manage")))
             .route("/send", web::post().to(send).wrap(require_permission("finance:payslip:manage")))
             .route("/batch-send", web::post().to(batch_send).wrap(require_permission("finance:payslip:manage")))
             .route("/mark-read", web::post().to(mark_read).wrap(require_permission("finance:payslip:list")))
+            .route("/confirm", web::post().to(confirm).wrap(require_permission("finance:payslip:list")))
             .route("/statistics", web::get().to(statistics).wrap(require_permission("finance:payslip:list")))
             // V8-4: 密码与撤回
             .route("/set-password", web::post().to(set_password).wrap(require_permission("finance:payslip:manage")))

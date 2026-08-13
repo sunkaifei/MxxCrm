@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::inventory::model::inbound::*;
 use crate::modules::inventory::service::inbound_service;
@@ -20,23 +19,21 @@ use crate::core::web::permission_guard::require_permission;
 
 pub async fn inbound_save(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
 
     let form_data: InboundSaveRequest = serde_json::from_value(body)?;
 
-    let result = inbound_service::create(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = inbound_service::create(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 pub async fn inbound_audit(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = body.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
     if id <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
-    let audit_by = jwt_token.id.unwrap_or_default();
+    let audit_by = get_current_user_id(&req);
     if audit_by <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取用户信息失败", "local")));
     }
@@ -46,12 +43,11 @@ pub async fn inbound_audit(state: web::Data<AppState>, req: HttpRequest, body: w
 
 pub async fn inbound_reject(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = body.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
     if id <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
-    let audit_by = jwt_token.id.unwrap_or_default();
+    let audit_by = get_current_user_id(&req);
     if audit_by <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取用户信息失败", "local")));
     }
@@ -93,8 +89,12 @@ pub async fn inbound_list(state: web::Data<AppState>, req: HttpRequest) -> Resul
 
 pub async fn inbound_update(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
+
+    // 提取修改原因（已完成单据修改时必填，由 service 层校验）
+    let change_reason = body.get("changeReason")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
 
     let form_data: InboundSaveRequest = serde_json::from_value(body)?;
     let id = req.query_string().split("&").find(|s| s.starts_with("id=")).and_then(|s| s.split("=").nth(1).and_then(|s| s.parse::<i64>().ok())).unwrap_or(0);
@@ -102,7 +102,7 @@ pub async fn inbound_update(state: web::Data<AppState>, req: HttpRequest, body: 
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "ID无效", "local")));
     }
 
-    let result = inbound_service::update(&db, id, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = inbound_service::update(&db, id, &form_data, get_current_user_id(&req), change_reason.as_deref()).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -166,13 +166,12 @@ pub async fn inbound_import(
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
 
     let items: Vec<InboundSaveRequest> = serde_json::from_value(body)
         .map_err(|e| crate::core::errors::error::Error::from(e.to_string()))?;
 
-    let result = inbound_service::import_list(&db, items, jwt_token.id.unwrap_or_default()).await;
+    let result = inbound_service::import_list(&db, items, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 

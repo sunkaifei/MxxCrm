@@ -12,8 +12,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::permission_guard::require_permission;
 
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user;
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::model::payment::{
@@ -67,9 +66,7 @@ pub async fn apply(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let applicant_id = jwt_token.id.unwrap_or_default();
-    let applicant_name = jwt_token.username.unwrap_or_default();
+    let (applicant_id, applicant_name) = get_current_user(&req);
 
     match payment_service::apply(db, dto, applicant_id, applicant_name).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK)
@@ -87,9 +84,7 @@ pub async fn approve(
     let db = &state.db;
     let dto = form_data.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let approver_id = jwt_token.id.unwrap_or_default();
-    let approver_name = jwt_token.username.unwrap_or_default();
+    let (approver_id, approver_name) = get_current_user(&req);
 
     match payment_service::approve(db, dto, approver_id, approver_name).await {
         Ok(_) => HttpResponse::Ok().content_type(MPACK)

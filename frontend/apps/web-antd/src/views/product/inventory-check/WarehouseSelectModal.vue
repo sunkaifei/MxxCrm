@@ -12,11 +12,30 @@ interface WarehouseItem {
   status?: number;
 }
 
-const props = defineProps<{ visible: boolean }>();
+const props = defineProps<{ visible: boolean; excludeId?: number }>();
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void;
   (e: 'select', warehouse: WarehouseItem): void;
 }>();
+
+// 内部状态，确保 Modal 能正确关闭
+const innerVisible = ref(false);
+
+watch(
+  () => props.visible,
+  (val) => {
+    innerVisible.value = val;
+    if (val) {
+      keyword.value = '';
+      loadData();
+    }
+  },
+);
+
+function closeModal() {
+  innerVisible.value = false;
+  emit('update:visible', false);
+}
 
 const keyword = ref('');
 const loading = ref(false);
@@ -30,16 +49,6 @@ const columns = [
   { title: '状态', dataIndex: 'status', width: 80 },
   { title: '操作', dataIndex: 'action', width: 70, fixed: 'right' as const },
 ];
-
-watch(
-  () => props.visible,
-  (val) => {
-    if (val) {
-      keyword.value = '';
-      loadData();
-    }
-  },
-);
 
 async function loadData() {
   loading.value = true;
@@ -55,6 +64,11 @@ async function loadData() {
       managerName: w.managerName ?? w.contactPerson ?? '',
       status: w.status ?? 1,
     }));
+
+    // 排除已选仓库（源仓库和目标仓库不能相同）
+    if (props.excludeId) {
+      list.value = list.value.filter((w) => w.id !== props.excludeId);
+    }
 
     if (keyword.value) {
       const kw = keyword.value.toLowerCase();
@@ -77,18 +91,18 @@ function onSearch() {
 
 // 点击"选择"按钮直接选中并关闭
 function onSelectClick(record: WarehouseItem) {
+  closeModal();
   emit('select', record);
-  emit('update:visible', false);
 }
 </script>
 
 <template>
   <Modal
-    :open="visible"
+    v-model:open="innerVisible"
     title="选择仓库"
     width="760px"
     :footer="null"
-    @cancel="emit('update:visible', false)"
+    @cancel="closeModal"
   >
     <!-- 搜索框 -->
     <div style="margin-bottom: 12px">

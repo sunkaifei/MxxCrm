@@ -14,8 +14,7 @@ use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::{MetaResp, MPACK};
 use actix_web::{HttpRequest, HttpResponse, web};
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::{InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::modules::system::model::admin::AdminModel;
@@ -215,8 +214,7 @@ pub async fn menu_list(state: web::Data<AppState>, query: web::Query<ListQuery>)
 pub async fn get_menu_options(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     //获取用户信息
-    let jwt_token:JWTToken = get_user(&req).unwrap_or_default();
-    let menu_result = menu_service::get_menu_options(&db, &jwt_token.id).await?;
+    let menu_result = menu_service::get_menu_options(&db, &Some(get_current_user_id(&req))).await?;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(menu_result, "local")))
 }
 
@@ -225,14 +223,14 @@ pub async fn get_menu_options(state: web::Data<AppState>, req: HttpRequest) -> R
 pub async fn get_user_menu(state: web::Data<AppState>,req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     //获取用户信息
-    let jwt_token:JWTToken = get_user(&req).unwrap_or_default();
-    let user_info = AdminModel::find_by_id(&db,&jwt_token.id).await?.ok_or_else(|| { Error::from(format!("msg={},code={}", "未获取到用户信息".to_string(), 404))})?;
+    let current_user_id = get_current_user_id(&req);
+    let user_info = AdminModel::find_by_id(&db,&Some(current_user_id)).await?.ok_or_else(|| { Error::from(format!("msg={},code={}", "未获取到用户信息".to_string(), 404))})?;
 
     //判断是否是管理员
     let is_admin = user_info.user_type == Option::from(1);
-    log::info!("[菜单] getUserMenus: user_id={:?}, user_type={:?}, is_admin={}", jwt_token.id, user_info.user_type, is_admin);
+    log::info!("[菜单] getUserMenus: user_id={:?}, user_type={:?}, is_admin={}", current_user_id, user_info.user_type, is_admin);
     //根据id查询路由
-    let result = get_user_router_tree(db, &is_admin, &jwt_token.id).await;
+    let result = get_user_router_tree(db, &is_admin, &Some(current_user_id)).await;
     match result {
         Ok(v) => {
             Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local")))

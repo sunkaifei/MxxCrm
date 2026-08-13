@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { useAccess } from '@vben/access';
 import { useAccessStore } from '@vben/stores';
 
 import {
@@ -28,7 +29,9 @@ import type { ColumnsType } from 'ant-design-vue/es/table';
 
 import {
   batchSendPayslipsApi,
+  confirmPayslipApi,
   generatePayslipsApi,
+  getPayslipDetailApi,
   getPayslipListApi,
   getPayslipStatisticsApi,
   sendPayslipApi,
@@ -39,6 +42,22 @@ import { PageUsageGuide } from '#/components/PageUsageGuide';
 const guideStepCount = 5;
 
 const accessStore = useAccessStore();
+const { hasAccessByRoles } = useAccess();
+
+// 全量权限：超级管理员、财务、总经理、老板
+const isFullScope = computed(() =>
+  hasAccessByRoles([
+    'super_admin',
+    'admin',
+    'finance',
+    'general_manager',
+    'boss',
+    'cw',
+  ]),
+);
+
+// 当前 Tab：全量权限默认 "all"，其他角色强制 "my"
+const activeTab = ref<'all' | 'my'>(isFullScope.value ? 'all' : 'my');
 
 const formatMoney = (val: any) => Number(val || 0).toFixed(2);
 
@@ -58,6 +77,8 @@ const sendStatusMap: Record<number, { label: string; color: string }> = {
   0: { label: $t('page.finance.payslip.sendStatus.unsent'), color: 'default' },
   1: { label: $t('page.finance.payslip.sendStatus.sent'), color: 'processing' },
   2: { label: $t('page.finance.payslip.sendStatus.read'), color: 'success' },
+  3: { label: $t('page.finance.payslip.sendStatus.confirmed'), color: 'green' },
+  4: { label: $t('page.finance.payslip.sendStatus.withdrawn'), color: 'error' },
 };
 
 // ===== 发送通道选项 =====
@@ -87,7 +108,10 @@ const selectedRowKeys = ref<number[]>([]);
 async function loadList() {
   loading.value = true;
   try {
-    const res: any = await getPayslipListApi(searchForm);
+    const res: any = await getPayslipListApi({
+      ...searchForm,
+      listType: activeTab.value,
+    });
     const data = res?.data || res;
     tableData.value = Array.isArray(data) ? data : data?.items || data?.list || [];
     loadStatistics();
@@ -197,20 +221,19 @@ async function handleSend() {
 
 // ===== 详情抽屉 =====
 const detailVisible = ref(false);
-const detailRecord = ref<any>(null);
+const detailLoading = ref(false);
+const detailData = ref<any>(null);
 
 const detailItems = computed(() => {
-  if (!detailRecord.value) return [];
-  const raw = detailRecord.value.detailJson || detailRecord.value.detail_json;
+  if (!detailData.value) return [];
+  const raw = detailData.value.detail || detailData.value.detailJson || detailData.value.detail_json;
   if (!raw) return [];
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    // 后端 detail_json 存的是对象（{baseSalary, commissionAmount, ...}），转为数组展示
     if (Array.isArray(parsed)) return parsed;
     if (parsed && typeof parsed === 'object') {
       const labelMap: Record<string, string> = {
         baseSalary: $t('page.finance.payslip.detail.baseSalary'),
-        positionAllowance: $t('page.finance.payslip.detail.positionAllowance'),
         commissionAmount: $t('page.finance.payslip.detail.commission'),
         performanceBonus: $t('page.finance.payslip.detail.performanceBonus'),
         teamCommissionAmount: $t('page.finance.payslip.detail.teamCommission'),
@@ -219,7 +242,9 @@ const detailItems = computed(() => {
         deferredCommission: $t('page.finance.payslip.detail.deferredCommission'),
         deductionAmount: $t('page.finance.payslip.detail.deduction'),
         socialInsurancePersonal: $t('page.finance.payslip.detail.socialInsurancePersonal'),
+        socialInsuranceCompany: $t('page.finance.payslip.detail.socialInsuranceCompany'),
         housingFundPersonal: $t('page.finance.payslip.detail.housingFundPersonal'),
+        housingFundCompany: $t('page.finance.payslip.detail.housingFundCompany'),
         taxAmount: $t('page.finance.payslip.detail.tax'),
         totalSalary: $t('page.finance.payslip.detail.totalSalary'),
         netSalary: $t('page.finance.payslip.detail.netSalary'),
@@ -234,81 +259,158 @@ const detailItems = computed(() => {
   }
 });
 
-function openDetail(record: any) {
-  detailRecord.value = record;
+const commissionList = computed(() => detailData.value?.commissions || []);
+
+const commissionColumns = computed(() => [
+  { title: '#', key: 'seq', width: 45, customRender: ({ index }: any) => index + 1 },
+  { title: $t('page.finance.payslip.detail.contractName'), dataIndex: 'contractName', ellipsis: true, customRender: ({ value }: any) => value || '-' },
+  { title: $t('page.finance.payslip.detail.contractAmount'), dataIndex: 'contractAmount', width: 120, align: 'right' as const, customRender: ({ value }: any) => value ? `¥${Number(value).toFixed(2)}` : '-' },
+  { title: $t('page.finance.payslip.detail.paymentAmount'), dataIndex: 'paymentAmount', width: 120, align: 'right' as const, customRender: ({ value }: any) => value ? `¥${Number(value).toFixed(2)}` : '-' },
+  { title: $t('page.finance.payslip.detail.commissionRate'), dataIndex: 'commissionRate', width: 90, align: 'right' as const, customRender: ({ value }: any) => value ? `${(Number(value) * 100).toFixed(1)}%` : '-' },
+  { title: $t('page.finance.payslip.detail.commissionAmount'), dataIndex: 'commissionAmount', width: 110, align: 'right' as const, customRender: ({ value }: any) => value ? `¥${Number(value).toFixed(2)}` : '-' },
+  { title: $t('page.finance.payslip.detail.ruleName'), dataIndex: 'ruleName', width: 140, ellipsis: true, customRender: ({ value }: any) => value || '-' },
+]);
+
+async function openDetail(record: any) {
   detailVisible.value = true;
+  detailData.value = null;
+  detailLoading.value = true;
+  try {
+    const res: any = await getPayslipDetailApi(record.id);
+    detailData.value = res?.data || res;
+  } catch {
+    detailData.value = record;
+  } finally {
+    detailLoading.value = false;
+  }
 }
 
-const columns: ColumnsType = [
-  { title: $t('page.finance.payslip.column.employeeId'), dataIndex: 'employeeId', width: 90 },
-  {
-    title: $t('page.finance.payslip.column.yearMonth'),
-    key: 'yearMonth',
-    width: 110,
-    customRender: ({ record }: any) => `${record.year}-${record.month}`,
-  },
-  {
-    title: $t('page.finance.payslip.column.totalSalary'),
-    dataIndex: 'totalSalary',
-    width: 110,
-    align: 'right',
-    customRender: ({ text }: any) => formatMoney(text),
-  },
-  {
-    title: $t('page.finance.payslip.column.socialInsurancePersonal'),
-    dataIndex: 'socialInsurancePersonal',
-    width: 110,
-    align: 'right',
-    customRender: ({ text }: any) => formatMoney(text),
-  },
-  {
-    title: $t('page.finance.payslip.column.taxAmount'),
-    dataIndex: 'taxAmount',
-    width: 100,
-    align: 'right',
-    customRender: ({ text }: any) => formatMoney(text),
-  },
-  {
-    title: $t('page.finance.payslip.column.netSalary'),
-    dataIndex: 'netSalary',
-    width: 120,
-    align: 'right',
-  },
-  {
-    title: $t('page.finance.payslip.column.sendStatus'),
-    dataIndex: 'sendStatus',
-    width: 100,
-  },
-  {
-    title: $t('page.finance.payslip.column.sendChannels'),
-    dataIndex: 'sendChannels',
-    width: 160,
-  },
-  {
-    title: $t('page.finance.payslip.column.sendTime'),
-    dataIndex: 'sendTime',
-    width: 170,
-    customRender: ({ text }: any) => text || '-',
-  },
-  {
-    title: $t('page.finance.payslip.column.readTime'),
-    dataIndex: 'readTime',
-    width: 170,
-    customRender: ({ text }: any) => text || '-',
-  },
-  {
-    title: $t('page.finance.common.action'),
-    key: 'action',
-    width: 160,
-    fixed: 'right',
-  },
-];
+// ===== 确认工资条 =====
+const confirming = ref(false);
+
+async function handleConfirm() {
+  if (!detailData.value?.id) return;
+  confirming.value = true;
+  try {
+    await confirmPayslipApi(detailData.value.id);
+    message.success($t('page.finance.payslip.detail.confirmSuccess'));
+    // 更新本地状态
+    if (detailData.value) {
+      detailData.value.sendStatus = 3;
+    }
+    loadList();
+  } catch (e: any) {
+    message.error(e?.message || $t('page.finance.payslip.detail.confirmFailed'));
+  } finally {
+    confirming.value = false;
+  }
+}
+
+// 快捷确认（列表操作列）
+async function handleQuickConfirm(record: any) {
+  try {
+    await confirmPayslipApi(record.id);
+    message.success($t('page.finance.payslip.detail.confirmSuccess'));
+    loadList();
+  } catch (e: any) {
+    message.error(e?.message || $t('page.finance.payslip.detail.confirmFailed'));
+  }
+}
+
+// ===== 表格列 =====
+const columns = computed<ColumnsType>(() => {
+  const cols: any[] = [
+    { title: $t('page.finance.payslip.column.employeeId'), dataIndex: 'employeeId', width: 90 },
+  ];
+
+  // "全部" Tab 才显示员工姓名列（"我的"不需要）
+  if (activeTab.value === 'all') {
+    cols.push({ title: $t('page.finance.payslip.column.employeeName'), dataIndex: 'employeeName', width: 100 });
+  }
+
+  cols.push(
+    {
+      title: $t('page.finance.payslip.column.yearMonth'),
+      key: 'yearMonth',
+      width: 100,
+      customRender: ({ record }: any) => `${record.year}-${record.month}`,
+    },
+    {
+      title: $t('page.finance.payslip.column.baseSalary'),
+      dataIndex: 'baseSalary',
+      width: 110,
+      align: 'right',
+      customRender: ({ record }: any) => {
+        const detail = record.detailJson || record.detail_json;
+        if (detail) {
+          try {
+            const parsed = typeof detail === 'string' ? JSON.parse(detail) : detail;
+            return formatMoney(parsed.baseSalary);
+          } catch { /* ignore */ }
+        }
+        return '-';
+      },
+    },
+    {
+      title: $t('page.finance.payslip.column.totalSalary'),
+      dataIndex: 'totalSalary',
+      width: 110,
+      align: 'right',
+      customRender: ({ text }: any) => formatMoney(text),
+    },
+    {
+      title: $t('page.finance.payslip.column.socialInsurancePersonal'),
+      dataIndex: 'socialInsurancePersonal',
+      width: 110,
+      align: 'right',
+      customRender: ({ text }: any) => formatMoney(text),
+    },
+    {
+      title: $t('page.finance.payslip.column.taxAmount'),
+      dataIndex: 'taxAmount',
+      width: 100,
+      align: 'right',
+      customRender: ({ text }: any) => formatMoney(text),
+    },
+    {
+      title: $t('page.finance.payslip.column.netSalary'),
+      dataIndex: 'netSalary',
+      width: 120,
+      align: 'right',
+    },
+    {
+      title: $t('page.finance.payslip.column.sendStatus'),
+      dataIndex: 'sendStatus',
+      width: 100,
+    },
+    {
+      title: $t('page.finance.payslip.column.confirmTime'),
+      dataIndex: 'confirmTime',
+      width: 170,
+      customRender: ({ text }: any) => text || '-',
+    },
+    {
+      title: $t('page.finance.common.action'),
+      key: 'action',
+      width: 200,
+      fixed: 'right',
+    },
+  );
+
+  return cols;
+});
 
 const rowSelection: any = {
   onChange: (keys: number[]) => {
     selectedRowKeys.value = keys;
   },
 };
+
+function onTabChange(key: string) {
+  activeTab.value = key as 'all' | 'my';
+  selectedRowKeys.value = [];
+  loadList();
+}
 
 onMounted(() => {
   loadList();
@@ -339,6 +441,7 @@ onMounted(() => {
         </div>
       </div>
     </PageUsageGuide>
+
     <!-- 统计卡片 -->
     <Card class="mb-4" :bordered="false">
       <Spin :spinning="statisticsLoading">
@@ -402,9 +505,32 @@ onMounted(() => {
     </Card>
 
     <Card :bordered="false" :title="$t('page.finance.payslip.title')">
+      <!-- Tab 切换 -->
+      <template #tabList>
+        <a-tag v-if="!isFullScope" color="blue" style="cursor: pointer; margin-bottom: 0">
+          {{ $t('page.finance.payslip.tab.my') }}
+        </a-tag>
+      </template>
       <template #extra>
+        <!-- Tab 切换按钮 -->
+        <div v-if="isFullScope" class="mr-4 inline-flex gap-2">
+          <Button
+            :type="activeTab === 'all' ? 'primary' : 'default'"
+            size="small"
+            @click="onTabChange('all')"
+          >
+            {{ $t('page.finance.payslip.tab.all') }}
+          </Button>
+          <Button
+            :type="activeTab === 'my' ? 'primary' : 'default'"
+            size="small"
+            @click="onTabChange('my')"
+          >
+            {{ $t('page.finance.payslip.tab.my') }}
+          </Button>
+        </div>
         <Button
-          v-if="accessStore.hasAccessCode('finance:payslip:manage')"
+          v-if="accessStore.hasAccessCode('finance:payslip:manage') && activeTab === 'all'"
           type="primary"
           class="mr-2"
           @click="generateVisible = true"
@@ -412,7 +538,7 @@ onMounted(() => {
           {{ $t('page.finance.payslip.button.generate') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('finance:payslip:manage')"
+          v-if="accessStore.hasAccessCode('finance:payslip:manage') && activeTab === 'all'"
           @click="openBatchSendModal"
         >
           {{ $t('page.finance.payslip.button.batchSend') }}
@@ -424,10 +550,10 @@ onMounted(() => {
         :data-source="tableData"
         :loading="loading"
         row-key="id"
-        :row-selection="rowSelection"
+        :row-selection="activeTab === 'all' ? rowSelection : undefined"
         :pagination="{ pageSize: 20 }"
         size="middle"
-        :scroll="{ x: 1300 }"
+        :scroll="{ x: 1400 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'netSalary'">
@@ -440,32 +566,40 @@ onMounted(() => {
               {{ sendStatusMap[record.sendStatus]?.label ?? '-' }}
             </Tag>
           </template>
-          <template v-else-if="column.dataIndex === 'sendChannels'">
-            <span v-if="!record.sendChannels">-</span>
-            <Tag
-              v-for="ch in String(record.sendChannels).split(',')"
-              v-else
-              :key="ch"
-              class="mb-1"
-            >
-              {{ channelLabelMap[ch] || ch }}
-            </Tag>
-          </template>
           <template v-else-if="column.key === 'action'">
-            <Button
-              v-if="
-                accessStore.hasAccessCode('finance:payslip:manage') &&
-                record.sendStatus !== 2
-              "
-              type="link"
-              size="small"
-              @click="openSendModal(record.id)"
-            >
-              {{ $t('page.finance.payslip.button.sendAction') }}
-            </Button>
-            <Button type="link" size="small" @click="openDetail(record)">
-              {{ $t('page.finance.common.viewDetail') }}
-            </Button>
+            <!-- 员工：确认 / 查看详情 -->
+            <template v-if="activeTab === 'my'">
+              <Button
+                v-if="record.sendStatus === 1 || record.sendStatus === 2"
+                type="link"
+                size="small"
+                @click="handleQuickConfirm(record)"
+              >
+                {{ $t('page.finance.payslip.detail.confirmButton') }}
+              </Button>
+              <Button type="link" size="small" @click="openDetail(record)">
+                {{ $t('page.finance.common.viewDetail') }}
+              </Button>
+            </template>
+            <!-- 财务：发送 / 查看详情 -->
+            <template v-else>
+              <Button
+                v-if="
+                  accessStore.hasAccessCode('finance:payslip:manage') &&
+                  record.sendStatus !== 2 &&
+                  record.sendStatus !== 3 &&
+                  record.sendStatus !== 4
+                "
+                type="link"
+                size="small"
+                @click="openSendModal(record.id)"
+              >
+                {{ $t('page.finance.payslip.button.sendAction') }}
+              </Button>
+              <Button type="link" size="small" @click="openDetail(record)">
+                {{ $t('page.finance.common.viewDetail') }}
+              </Button>
+            </template>
           </template>
         </template>
         <template #emptyText>
@@ -526,55 +660,91 @@ onMounted(() => {
     <Drawer
       v-model:open="detailVisible"
       :title="$t('page.finance.payslip.detail.title')"
-      width="520px"
+      width="640px"
       :body-style="{ padding: '16px' }"
     >
-      <div v-if="detailRecord">
-        <Row :gutter="16" class="mb-4">
-          <Col :span="12">
-            <Statistic
-              :title="$t('page.finance.payslip.detail.totalSalary')"
-              :value="formatMoney(detailRecord.totalSalary)"
-            />
-          </Col>
-          <Col :span="12">
-            <Statistic
-              :title="$t('page.finance.payslip.detail.netSalary')"
-              :value="formatMoney(detailRecord.netSalary)"
-              :value-style="{ color: '#1890ff', fontWeight: 'bold' }"
-            />
-          </Col>
-        </Row>
-        <Row :gutter="16" class="mb-4">
-          <Col :span="12">
-            <Statistic
-              :title="$t('page.finance.payslip.detail.socialInsurancePersonal')"
-              :value="formatMoney(detailRecord.socialInsurancePersonal)"
-            />
-          </Col>
-          <Col :span="12">
-            <Statistic
-              :title="$t('page.finance.payslip.detail.tax')"
-              :value="formatMoney(detailRecord.taxAmount)"
-            />
-          </Col>
-        </Row>
+      <Spin :spinning="detailLoading">
+        <div v-if="detailData">
+          <!-- 汇总 -->
+          <Row :gutter="16" class="mb-4">
+            <Col :span="8">
+              <Statistic
+                :title="$t('page.finance.payslip.detail.totalSalary')"
+                :value="formatMoney(detailData.totalSalary)"
+              />
+            </Col>
+            <Col :span="8">
+              <Statistic
+                :title="$t('page.finance.payslip.detail.netSalary')"
+                :value="formatMoney(detailData.netSalary)"
+                :value-style="{ color: '#1890ff', fontWeight: 'bold' }"
+              />
+            </Col>
+            <Col :span="8">
+              <Statistic
+                :title="$t('page.finance.payslip.column.taxAmount')"
+                :value="formatMoney(detailData.taxAmount)"
+                :value-style="{ color: '#ff4d4f' }"
+              />
+            </Col>
+          </Row>
 
-        <div v-if="detailItems.length > 0" class="mt-4">
-          <div class="mb-2 font-semibold">{{ $t('page.finance.payslip.detail.itemsTitle') }}</div>
-          <Table
-            :data-source="detailItems"
-            :pagination="false"
-            size="small"
-            row-key="itemCode"
-            :columns="[
-              { title: $t('page.finance.payslip.detail.itemColumn'), dataIndex: 'itemName' },
-              { title: $t('page.finance.payslip.detail.amountColumn'), dataIndex: 'amount', align: 'right' },
-            ]"
-          />
+          <!-- 工资构成明细 -->
+          <div v-if="detailItems.length > 0" class="mb-4">
+            <div class="mb-2 font-semibold">{{ $t('page.finance.payslip.detail.itemsTitle') }}</div>
+            <Table
+              :data-source="detailItems"
+              :pagination="false"
+              size="small"
+              row-key="key"
+              :columns="[
+                { title: $t('page.finance.payslip.detail.itemColumn'), dataIndex: 'label' },
+                { title: $t('page.finance.payslip.detail.amountColumn'), dataIndex: 'value', align: 'right' },
+              ]"
+            >
+              <template #bodyCell="{ column, record: row }">
+                <template v-if="column.dataIndex === 'value'">
+                  <span :class="{ 'font-semibold text-primary': row.key === 'netSalary' }">
+                    ¥{{ Number(row.value).toFixed(2) }}
+                  </span>
+                </template>
+              </template>
+            </Table>
+          </div>
+
+          <!-- 提成明细（可追溯） -->
+          <div v-if="commissionList.length > 0" class="mt-4">
+            <div class="mb-2 font-semibold">{{ $t('page.finance.payslip.detail.commissionTitle') }}</div>
+            <Table
+              :columns="commissionColumns"
+              :data-source="commissionList"
+              :pagination="false"
+              size="small"
+              row-key="contractId"
+              :scroll="{ x: 700 }"
+            />
+          </div>
+          <Empty v-else :description="$t('page.finance.payslip.detail.commissionEmpty')" />
+
+          <!-- 确认按钮 -->
+          <div v-if="detailData.sendStatus === 1 || detailData.sendStatus === 2" class="mt-6 text-center">
+            <Button
+              type="primary"
+              size="large"
+              :loading="confirming"
+              @click="handleConfirm"
+            >
+              {{ $t('page.finance.payslip.detail.confirmButton') }}
+            </Button>
+          </div>
+          <div v-else-if="detailData.sendStatus === 3" class="mt-6 text-center">
+            <Tag color="green" style="font-size: 14px; padding: 4px 16px">
+              {{ $t('page.finance.payslip.sendStatus.confirmed') }}
+            </Tag>
+          </div>
         </div>
         <Empty v-else :description="$t('page.finance.payslip.detail.noDetailData')" />
-      </div>
+      </Spin>
     </Drawer>
   </Page>
 </template>

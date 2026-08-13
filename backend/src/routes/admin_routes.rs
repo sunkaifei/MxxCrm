@@ -71,7 +71,9 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
             if user_id > 0 {
                 // v1.1: 统一会话校验（单设备精确匹配 / 多设备检查 token 集合）
                 // 确保踢人、改密、禁用在两种模式下都能即时生效
-                if !permission_cache_service::validate_session(user_id, &token).await {
+                // v1.2: 缓存未命中时降级查 DB session 表（mem 模式重启不丢登录态）
+                let db = req.app_data::<web::Data<AppState>>().map(|s| s.db.clone());
+                if !permission_cache_service::validate_session_with_db(user_id, &token, db.as_ref()).await {
                     return Err(error::ErrorUnauthorized("登录状态已失效，请重新登录"));
                 }
 

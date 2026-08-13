@@ -1,12 +1,12 @@
 <script lang="ts" setup>
-import { h } from 'vue';
+import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
-import { Button, message, Popconfirm } from 'ant-design-vue';
+import { Alert, Button, message, Popconfirm } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -16,6 +16,9 @@ import { $t } from '#/locales';
 import CategoryDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
+
+// 分类数量过多时显示提示
+const showCountAlert = ref(false);
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -43,29 +46,34 @@ const gridOptions: VxeGridProps = {
   },
   height: 'auto',
   exportConfig: {},
-  pagerConfig: {},
+  pagerConfig: {
+    enabled: false,
+  },
+  treeConfig: {
+    parentField: 'parentId',
+    rowField: 'id',
+    transform: true,
+  },
   cellConfig: { isHover: true } as any,
-  stripe: true,
 
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }, formValues) => {
-        return await getCategoryListApi({
-          page: page.currentPage,
-          pageSize: page.pageSize,
+      query: async (_, formValues) => {
+        const res: any = await getCategoryListApi({
+          page: 1,
+          pageSize: 99999,
           keywords: formValues.keywords,
         });
+        const list = res?.list || res?.items || res || [];
+        // 超过1000条时显示提示
+        showCountAlert.value = list.length > 1000;
+        return list;
       },
     },
   },
 
   columns: [
-    {
-      title: $t('ui.table.seq'),
-      type: 'seq',
-      width: 70,
-    },
     {
       title: '分类图片',
       field: 'image',
@@ -75,10 +83,19 @@ const gridOptions: VxeGridProps = {
     {
       title: '分类名称',
       field: 'name',
+      minWidth: 200,
+      treeNode: true,
     },
     {
       title: '排序号',
       field: 'sortOrder',
+      width: 100,
+    },
+    {
+      title: '描述',
+      field: 'description',
+      minWidth: 200,
+      ellipsis: true,
     },
     {
       title: $t('ui.table.action'),
@@ -91,6 +108,15 @@ const gridOptions: VxeGridProps = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+
+// 展开/折叠全部树节点
+function handleExpandAll() {
+  gridApi.grid?.setAllTreeExpand?.(true);
+}
+
+function handleCollapseAll() {
+  gridApi.grid?.clearTreeExpand?.();
+}
 
 const [Drawer, drawerApi] = useVbenDrawer({
   connectedComponent: CategoryDrawer,
@@ -132,6 +158,14 @@ function handleCreate() {
 
 <template>
   <Page auto-content-height>
+    <Alert
+      v-if="showCountAlert"
+      type="warning"
+      show-icon
+      message="分类数量较多，加载数据可能较慢，如有性能问题请联系官方获取最佳解决方案。"
+      style="margin-bottom: 8px"
+      closable
+    />
     <Grid :table-title="$t('page.product.category.title')">
       <template #toolbar-tools>
         <Button
@@ -141,6 +175,22 @@ function handleCreate() {
           @click="handleCreate"
         >
           {{ $t('page.product.category.button.create') }}
+        </Button>
+        <Button
+          type="default"
+          size="small"
+          class="mr-2"
+          @click="handleExpandAll"
+        >
+          展开全部
+        </Button>
+        <Button
+          type="default"
+          size="small"
+          class="mr-2"
+          @click="handleCollapseAll"
+        >
+          全部收缩
         </Button>
       </template>
 

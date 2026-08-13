@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::product::model::unit_conversion::{
@@ -26,12 +25,11 @@ pub async fn unit_conversion_save(
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
     let form_data: UnitConversionSaveRequest = serde_json::from_value(body)?;
 
     let result =
-        unit_conversion_service::save(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+        unit_conversion_service::save(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
@@ -43,7 +41,6 @@ pub async fn unit_conversion_update(
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let body = body.0;
     let form_data: UnitConversionSaveRequest = serde_json::from_value(body)?;
     let id = req
@@ -60,7 +57,7 @@ pub async fn unit_conversion_update(
     }
 
     let result =
-        unit_conversion_service::update(&db, id, &form_data, jwt_token.id.unwrap_or_default()).await;
+        unit_conversion_service::update(&db, id, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))

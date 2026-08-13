@@ -50,6 +50,12 @@ pub struct Model {
     pub create_time: Option<DateTime>,
     /// 更新时间
     pub update_time: Option<DateTime>,
+    /// 最近修改原因（已完成单据被修改时记录）
+    pub last_change_reason: Option<String>,
+    /// 最近修改人ID
+    pub last_change_by: Option<i64>,
+    /// 最近修改时间
+    pub last_change_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

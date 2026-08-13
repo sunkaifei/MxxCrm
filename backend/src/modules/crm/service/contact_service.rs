@@ -408,20 +408,6 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
     Ok(ResultPage::new(data, total, page, page_size))
 }
 
-/// 根据用户ID获取其数据权限范围内的所有用户ID
-///
-/// 已迁移至 [`data_scope_service::get_accessible_user_ids`]，支持多角色合并。
-/// 参数 `data_scope` 已弃用，内部会自动查询用户所有角色并合并权限。
-async fn get_accessible_user_ids(
-    db: &DbConn,
-    current_user_id: i64,
-    _data_scope: Option<i32>,
-) -> Result<Option<Vec<i64>>> {
-    crate::modules::system::service::data_scope_service::get_accessible_user_ids(db, current_user_id).await
-}
-
-
-
 /// 获取客户下的联系人列表
 pub async fn find_by_customer(
     db: &DbConn,

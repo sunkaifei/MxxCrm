@@ -11,6 +11,7 @@
 use sea_orm::*;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::modules::system::entity::{scheduler_job, scheduler_log};
 
@@ -227,27 +228,45 @@ pub async fn update_job(
     }
 }
 
-/// D-4: 根据 cron 表达式计算下次执行时间（简化实现，支持 5 字段标准 cron）
-/// 仅计算最近一次的下次执行时间，用于展示
-fn compute_next_run_time(cron_expr: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-    let parts: Vec<&str> = cron_expr.split_whitespace().collect();
-    if parts.len() < 5 {
+/// D-4: 根据 cron 表达式计算下次执行时间（简化实现，支持 5/6/7 字段标准 cron，首字段为秒时自动跳过）
+/// 从 from 时刻开始逐分钟向后扫描，最多 400 天，找到第一个匹配 cron 的时刻
+pub fn compute_next_run_time_from(
+    cron_expr: &str,
+    from: chrono::DateTime<chrono::Utc>,
+) -> Option<chrono::DateTime<chrono::Utc>> {
+    let parts_all: Vec<&str> = cron_expr.split_whitespace().collect();
+    // 支持 5 字段(分时日月周)；6 字段(秒分时日月周)；7 字段(秒分时日月周年)
+    let parts: Vec<&str> = match parts_all.len() {
+        5 => parts_all,
+        6 => parts_all[1..].to_vec(),
+        7 => parts_all[2..].to_vec(),
+        _ => return None,
+    };
+    if parts.len() != 5 {
         return None;
     }
 
-    let now = chrono::Utc::now();
-    // 简化策略：从当前时间开始，逐分钟向后扫描，最多扫描 7*24*60=10080 分钟（7天）
-    // 找到第一个匹配 cron 的时刻
     use chrono::Timelike;
-    let mut candidate = now.with_second(0).unwrap_or(now).with_nanosecond(0).unwrap_or(now) + chrono::Duration::minutes(1);
+    let mut candidate = from
+        .with_second(0)
+        .unwrap_or(from)
+        .with_nanosecond(0)
+        .unwrap_or(from)
+        + chrono::Duration::minutes(1);
 
-    for _ in 0..10080 {
+    let max_minutes: i64 = 400 * 24 * 60;
+    for _ in 0..max_minutes {
         if cron_matches(&parts, &candidate) {
             return Some(candidate);
         }
         candidate = candidate + chrono::Duration::minutes(1);
     }
     None
+}
+
+/// D-4: 从当前时间计算下次执行时间（用于展示）
+pub fn compute_next_run_time(cron_expr: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    compute_next_run_time_from(cron_expr, chrono::Utc::now())
 }
 
 /// 简化版 cron 匹配：支持 * / 数字 / 逗号分隔 / 横线范围
@@ -350,6 +369,9 @@ pub async fn trigger_job(
     //     return Err("任务已禁用，请先启用".to_string());
     // }
 
+    // D-4: 两阶段日志——先记录"运行中"(status=2)，执行中进程退出时由下次启动标记为中断
+    let log_id = start_run_log(db, job.id, &job.job_code, 1, operator_id, operator_name).await?;
+
     let start = std::time::Instant::now();
     let result = execute_handler(&job.handler, &job.handler_params, db).await;
     let elapsed = start.elapsed().as_millis() as i64;
@@ -359,31 +381,18 @@ pub async fn trigger_job(
         Err(e) => (0, None, Some(e)),
     };
 
-    // 写日志
-    let now = Utc::now().naive_utc();
-    let log = scheduler_log::ActiveModel {
-        job_id: Set(job.id),
-        job_code: Set(Some(job.job_code.clone())),
-        trigger_type: Set(Some(1)), // 手动
-        status: Set(Some(status)),
-        result_message: Set(result_msg.clone()),
-        error_message: Set(error_msg.clone()),
-        elapsed_ms: Set(Some(elapsed)),
-        operator_id: Set(Some(operator_id)),
-        operator_name: Set(Some(operator_name.to_string())),
-        start_time: Set(Some(now)),
-        end_time: Set(Some(now)),
-        ..Default::default()
-    };
-    log.insert(db).await.map_err(|e| e.to_string())?;
-
-    // 更新任务最后执行信息
-    let mut active: scheduler_job::ActiveModel = job.into();
-    active.last_run_time = Set(Some(now));
-    active.last_run_status = Set(Some(status));
-    active.last_run_result = Set(if status == 1 { result_msg.clone() } else { error_msg.clone() });
-    active.update_time = Set(Some(now));
-    active.update(db).await.map_err(|e| e.to_string())?;
+    // D-4: 回填运行日志并刷新任务 last_run_*/next_run_time
+    finish_run_log(
+        db,
+        log_id,
+        job.id,
+        &job.job_code,
+        status,
+        result_msg.as_deref(),
+        error_msg.as_deref(),
+        elapsed,
+    )
+    .await?;
 
     if status == 1 {
         Ok(result_msg.unwrap_or_else(|| "执行成功".to_string()))
@@ -455,10 +464,39 @@ fn parse_year_month_from_params(params: &Option<sea_orm::prelude::Json>) -> (i32
     }
 }
 
-/// 记录定时执行结果（供 scheduler.rs 调用）
-/// P2-6: 新增 retry_count 参数，用于更新 last_retry_count 字段
-pub async fn record_scheduled_execution(
+/// 记录任务运行开始（status=2 运行中）
+/// 任务执行过程中进程退出/重载时，该记录会保持"运行中"，由 mark_interrupted_runs 在下次启动时标记为中断
+pub async fn start_run_log(
     db: &DatabaseConnection,
+    job_id: i64,
+    job_code: &str,
+    trigger_type: i32,
+    operator_id: i64,
+    operator_name: &str,
+) -> Result<i64, String> {
+    let now = Utc::now().naive_utc();
+    let log = scheduler_log::ActiveModel {
+        job_id: Set(job_id),
+        job_code: Set(Some(job_code.to_string())),
+        trigger_type: Set(Some(trigger_type)), // 0=定时 1=手动 2=补跑
+        status: Set(Some(2)),                   // 运行中
+        result_message: Set(None),
+        error_message: Set(None),
+        elapsed_ms: Set(None),
+        operator_id: Set(Some(operator_id)),
+        operator_name: Set(Some(operator_name.to_string())),
+        start_time: Set(Some(now)),
+        end_time: Set(None),
+        ..Default::default()
+    };
+    let inserted = log.insert(db).await.map_err(|e| e.to_string())?;
+    Ok(inserted.id)
+}
+
+/// 记录任务运行结束（status: 0=失败 1=成功），并刷新任务 last_run_* 与 next_run_time
+pub async fn finish_run_log(
+    db: &DatabaseConnection,
+    log_id: i64,
     job_id: i64,
     job_code: &str,
     status: i32,
@@ -467,28 +505,44 @@ pub async fn record_scheduled_execution(
     elapsed_ms: i64,
 ) -> Result<(), String> {
     let now = Utc::now().naive_utc();
-    let log = scheduler_log::ActiveModel {
-        job_id: Set(job_id),
-        job_code: Set(Some(job_code.to_string())),
-        trigger_type: Set(Some(0)), // 定时
-        status: Set(Some(status)),
-        result_message: Set(result_msg.map(|s| s.to_string())),
-        error_message: Set(error_msg.map(|s| s.to_string())),
-        elapsed_ms: Set(Some(elapsed_ms)),
-        operator_id: Set(Some(0)),
-        operator_name: Set(Some("系统".to_string())),
-        start_time: Set(Some(now)),
-        end_time: Set(Some(now)),
-        ..Default::default()
-    };
-    log.insert(db).await.map_err(|e| e.to_string())?;
 
-    // 更新任务最后执行信息
-    if let Some(job) = scheduler_job::Entity::find_by_id(job_id).one(db).await.map_err(|e| e.to_string())? {
+    if let Some(log) = scheduler_log::Entity::find_by_id(log_id)
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        let mut active: scheduler_log::ActiveModel = log.into();
+        active.status = Set(Some(status));
+        active.result_message = Set(result_msg.map(|s| s.to_string()));
+        active.error_message = Set(error_msg.map(|s| s.to_string()));
+        active.elapsed_ms = Set(Some(elapsed_ms));
+        active.end_time = Set(Some(now));
+        active.update(db).await.map_err(|e| e.to_string())?;
+    } else {
+        log::warn!("[scheduler] finish_run_log: 日志不存在 id={}", log_id);
+    }
+
+    // 刷新任务最后执行信息 + 计算下次执行时间（修复 next_run_time 过期/缺失问题）
+    if let Some(job) = scheduler_job::Entity::find_by_id(job_id)
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        // 先取出 cron 表达式副本（job 后续会被 .into() 移动）
+        let cron_expr = job.cron_expression.clone();
         let mut active: scheduler_job::ActiveModel = job.into();
         active.last_run_time = Set(Some(now));
         active.last_run_status = Set(Some(status));
-        active.last_run_result = Set(if status == 1 { result_msg.map(|s| s.to_string()) } else { error_msg.map(|s| s.to_string()) });
+        active.last_run_result = Set(
+            if status == 1 {
+                result_msg.map(|s| s.to_string())
+            } else {
+                error_msg.map(|s| s.to_string())
+            },
+        );
+        active.next_run_time = Set(
+            compute_next_run_time_from(&cron_expr, Utc::now()).map(|t| t.naive_utc()),
+        );
         active.update_time = Set(Some(now));
         active.update(db).await.map_err(|e| e.to_string())?;
     }
@@ -496,7 +550,7 @@ pub async fn record_scheduled_execution(
 }
 
 /// P2-6: 更新任务的 last_retry_count 字段
-/// 在 record_scheduled_execution 调用前/后单独调用，避免重复读写 job 表
+/// 在 finish_run_log 调用前单独调用，避免 update_time 相互覆盖
 pub async fn update_job_retry_count(
     db: &DatabaseConnection,
     job_id: i64,
@@ -510,4 +564,86 @@ pub async fn update_job_retry_count(
         active.update(db).await.map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// 启动/重载时扫描：将早于 cutoff 的"运行中"日志标记为"中断"(status=3)
+/// 返回被标记的 (job_code, 条数) 列表，供上层记录日志与告警
+pub async fn mark_interrupted_runs(
+    db: &DatabaseConnection,
+    cutoff: chrono::NaiveDateTime,
+) -> Result<Vec<(String, i64)>, String> {
+    let logs = scheduler_log::Entity::find()
+        .filter(scheduler_log::Column::Status.eq(2))
+        .filter(scheduler_log::Column::StartTime.lt(cutoff))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut map: HashMap<String, i64> = HashMap::new();
+    let mut interrupted_job_ids: Vec<i64> = Vec::new();
+    for log in logs {
+        let mut active: scheduler_log::ActiveModel = log.clone().into();
+        active.status = Set(Some(3)); // 中断
+        active.error_message = Set(Some(
+            "任务执行过程中进程退出/调度器重载，已被系统标记为中断".to_string(),
+        ));
+        active.end_time = Set(Some(cutoff));
+        if let Err(e) = active.update(db).await {
+            log::warn!("[scheduler] 标记中断日志失败: id={}, err={}", log.id, e);
+        }
+        interrupted_job_ids.push(log.job_id);
+        let key = log.job_code.unwrap_or_default();
+        *map.entry(key).or_insert(0) += 1;
+    }
+
+    // 同步更新 job 表 last_run_status=3（中断），让任务列表能看到中断状态
+    for job_id in &interrupted_job_ids {
+        if let Ok(Some(job)) = scheduler_job::Entity::find_by_id(*job_id).one(db).await {
+            let mut active: scheduler_job::ActiveModel = job.into();
+            active.last_run_status = Set(Some(3));
+            active.last_run_result = Set(Some("任务执行过程中进程退出/调度器重载，已被系统标记为中断".to_string()));
+            active.update_time = Set(Some(cutoff));
+            let _ = active.update(db).await;
+        }
+    }
+
+    Ok(map.into_iter().collect())
+}
+
+/// 漏跑检测：返回存在"错过执行"的启用任务
+/// 判定规则：按 cron 从上次执行时间（或创建时间）计算的最近一次应执行时刻已早于当前时间 → 漏跑
+pub async fn detect_missed_runs(db: &DatabaseConnection) -> Result<Vec<scheduler_job::Model>, String> {
+    let jobs = scheduler_job::Entity::find()
+        .filter(scheduler_job::Column::Enabled.eq(1))
+        .filter(scheduler_job::Column::Deleted.eq(0))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let now = Utc::now();
+    let mut missed = Vec::new();
+    for job in jobs {
+        // 计算"应执行但可能已错过"的基准时刻
+        let from = job
+            .last_run_time
+            .map(|t| chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(t, chrono::Utc))
+            .unwrap_or_else(|| {
+                // 从未执行：以创建时间为基准
+                job.create_time
+                    .map(|t| chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(t, chrono::Utc))
+                    .unwrap_or(now)
+            });
+
+        if from >= now {
+            continue;
+        }
+
+        if let Some(next) = compute_next_run_time_from(&job.cron_expression, from) {
+            // 最近一次应执行时刻已到且未执行 → 漏跑
+            if next <= now {
+                missed.push(job);
+            }
+        }
+    }
+    Ok(missed)
 }

@@ -1,7 +1,6 @@
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::statistics::model::performance_target::{PerformanceTargetQuery, PerformanceTargetBatchSaveRequest, PerformanceRankingQuery};
@@ -48,8 +47,7 @@ pub async fn get_monthly_performance(state: web::Data<AppState>, req: HttpReques
     let query = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_target_service::get_monthly_performance(db, query.year, query.department_id, accessible_user_ids).await {
@@ -63,8 +61,7 @@ pub async fn get_performance_ranking(state: web::Data<AppState>, req: HttpReques
     let query = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_target_service::get_performance_ranking(db, query.year, query.month, query.order_by, query.department_id, accessible_user_ids).await {
@@ -81,8 +78,7 @@ pub async fn get_performance_comparison(state: web::Data<AppState>, req: HttpReq
     let q = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_overview_service::get_comparison(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
@@ -97,8 +93,7 @@ pub async fn get_performance_forecast(state: web::Data<AppState>, req: HttpReque
     let q = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_overview_service::get_forecast(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
@@ -113,8 +108,7 @@ pub async fn get_sales_funnel(state: web::Data<AppState>, req: HttpRequest, quer
     let q = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_overview_service::get_funnel(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
@@ -129,8 +123,7 @@ pub async fn get_customer_breakdown(state: web::Data<AppState>, req: HttpRequest
     let q = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_overview_service::get_customer_breakdown(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
@@ -145,8 +138,7 @@ pub async fn get_product_breakdown(state: web::Data<AppState>, req: HttpRequest,
     let q = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_overview_service::get_product_breakdown(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
@@ -161,8 +153,7 @@ pub async fn get_behavior_metrics(state: web::Data<AppState>, req: HttpRequest, 
     let q = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_overview_service::get_behavior_metrics(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
@@ -177,8 +168,7 @@ pub async fn get_region_breakdown(state: web::Data<AppState>, req: HttpRequest, 
     let q = query.into_inner();
 
     // 获取当前用户可访问的用户ID列表（按 data_scope 过滤）
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
     match performance_overview_service::get_region_breakdown(db, q.year, q.month, q.time_dimension, accessible_user_ids).await {
@@ -193,8 +183,7 @@ pub async fn get_personal_growth(state: web::Data<AppState>, req: HttpRequest, q
     let q = query.into_inner();
 
     // 个人成长档案：未指定 employee_id 时使用当前用户ID
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let employee_id = q.employee_id.unwrap_or(current_user_id);
 
     match performance_overview_service::get_personal_growth(db, Some(employee_id)).await {
@@ -209,8 +198,7 @@ pub async fn get_performance_milestone(state: web::Data<AppState>, req: HttpRequ
     let q = query.into_inner();
 
     // 业绩里程碑：未指定 employee_id 时使用当前用户ID
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     let employee_id = q.employee_id.unwrap_or(current_user_id);
 
     match performance_overview_service::get_milestone(db, q.year, Some(employee_id), current_user_id).await {

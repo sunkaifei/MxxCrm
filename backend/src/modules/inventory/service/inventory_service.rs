@@ -18,6 +18,7 @@ use crate::modules::inventory::model::stock::{
 };
 use crate::modules::inventory::service::stock_engine;
 use crate::modules::product::entity::product as product_entity;
+use crate::modules::product::entity::sku as sku_entity;
 use crate::modules::inventory::entity::warehouse as warehouse_entity;
 use rust_decimal::Decimal;
 use sea_orm::sea_query::Expr;
@@ -72,6 +73,30 @@ pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Re
             .ok()
             .flatten();
 
+        // 查询SKU信息
+        let sku: Option<sku_entity::Model> = if let Some(sku_id) = stock.sku_id.filter(|&id| id > 0) {
+            sku_entity::Entity::find_by_id(sku_id)
+                .one(db)
+                .await
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
+
+        // 格式化规格文本
+        let spec_text = sku.as_ref().and_then(|s| {
+            s.specs.as_ref().and_then(|v| {
+                if v.is_object() {
+                    let obj = v.as_object()?;
+                    let parts: Vec<String> = obj.iter().map(|(k, v)| format!("{}:{}", k, v.as_str().unwrap_or(""))).collect();
+                    if parts.is_empty() { None } else { Some(parts.join(" ")) }
+                } else {
+                    None
+                }
+            })
+        });
+
         result.push(InventoryListVO {
             id: Some(stock.id),
             product_id: stock.product_id,
@@ -79,6 +104,9 @@ pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Re
             product_code: product.as_ref().and_then(|p| p.product_no.clone()),
             warehouse_id: stock.warehouse_id,
             warehouse_name: warehouse.as_ref().and_then(|w| w.name.clone()),
+            sku_id: stock.sku_id,
+            sku_code: sku.as_ref().and_then(|s| s.sku_code.clone()),
+            spec_text,
             quantity: stock.quantity,
             reserved_quantity: stock.reserved_quantity,
             available_quantity: stock.available_quantity,

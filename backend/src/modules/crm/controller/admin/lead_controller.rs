@@ -9,8 +9,7 @@
 //!
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::permission_guard::require_permission;
 use actix_web::{web, HttpRequest, HttpResponse};
 
@@ -28,9 +27,7 @@ pub async fn lead_insert(state: web::Data<AppState>, req: HttpRequest, form_data
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = lead_service::insert(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = lead_service::insert(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -46,9 +43,7 @@ pub async fn lead_update(state: web::Data<AppState>, req: HttpRequest, form_data
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "公司名称不能为空", "local")));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = lead_service::update(&db, &form_data, jwt_token.id.unwrap_or_default()).await;
+    let result = lead_service::update(&db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -87,8 +82,7 @@ pub async fn lead_list(state: web::Data<AppState>, req: HttpRequest, query: web:
     let db = &state.db;
     let query = query.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     match lead_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
@@ -104,8 +98,7 @@ pub async fn lead_pool_list(state: web::Data<AppState>, req: HttpRequest, query:
     let db = &state.db;
     let query = query.0;
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
 
     match lead_service::list(&db, &query, current_user_id).await {
         Ok(page_data) => {
@@ -160,9 +153,7 @@ pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, fo
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "状态不能为空", "local"));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = lead_service::update_status(&db, query.id.unwrap(), query.status.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
+    let result = lead_service::update_status(&db, query.id.unwrap(), query.status.unwrap(), Some(get_current_user_id(&req))).await;
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -174,9 +165,7 @@ pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    let result = lead_service::add_to_pool(&db, query.id.unwrap(), Some(jwt_token.id.unwrap_or_default())).await;
+    let result = lead_service::add_to_pool(&db, query.id.unwrap(), Some(get_current_user_id(&req))).await;
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -188,9 +177,7 @@ pub async fn lead_claim(state: web::Data<AppState>, req: HttpRequest, form_data:
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    match lead_service::claim(&db, query.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
+    match lead_service::claim(&db, query.id.unwrap(), get_current_user_id(&req)).await {
         Ok(customer_id) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(customer_id, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -204,9 +191,7 @@ pub async fn lead_convert_to_customer(state: web::Data<AppState>, req: HttpReque
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-
-    match lead_service::convert_to_customer(&db, query.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
+    match lead_service::convert_to_customer(&db, query.id.unwrap(), get_current_user_id(&req)).await {
         Ok(customer_id) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(customer_id, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -221,7 +206,6 @@ pub async fn lead_transfer_preview(
     form_data: web::Json<crate::modules::crm::service::lead_transfer_service::LeadTransferPreviewRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let _jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match lead_transfer_service::preview_transfer(db, &form_data.0).await {
         Ok(data) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
@@ -239,15 +223,13 @@ pub async fn lead_transfer(
     form_data: web::Json<crate::modules::crm::service::lead_transfer_service::LeadTransferRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let operator_id = jwt_token.id.unwrap_or_default();
-    let operator_name = jwt_token.username.clone();
+    let (operator_id, operator_name) = get_current_user(&req);
 
     match lead_transfer_service::transfer_lead(
         db,
         &form_data.0,
         operator_id,
-        operator_name,
+        Some(operator_name),
     )
     .await
     {

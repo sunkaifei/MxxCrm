@@ -26,7 +26,7 @@ pub struct Model {
     pub job_type: Option<i32>,
     pub enabled: Option<i32>,
     pub last_run_time: Option<DateTime>,
-    /// 0=失败, 1=成功, null=未执行
+    /// 0=失败, 1=成功, 2=运行中, 3=中断, null=未执行
     pub last_run_status: Option<i32>,
     pub last_run_result: Option<String>,
     pub next_run_time: Option<DateTime>,

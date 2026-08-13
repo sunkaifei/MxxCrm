@@ -14,12 +14,20 @@ use rust_decimal::Decimal;
 use crate::core::errors::error::{Error, Result};
 use crate::modules::inventory::model::inbound::*;
 use crate::modules::inventory::model::batch::BatchCreateRequest;
-use crate::modules::inventory::entity::{inbound, inbound_item};
+use crate::modules::inventory::entity::{inbound, inbound_item, doc_change_log};
 use crate::modules::inventory::service::stock_engine;
 use crate::modules::inventory::service::batch_service;
 use crate::modules::inventory::entity::warehouse;
 use crate::modules::product::entity::product as product_entity;
 use crate::modules::system::entity::admin;
+
+/// 读取入库审核开关（从 mxx_system_config 表，默认开启）
+async fn is_audit_enabled() -> bool {
+    crate::modules::system::service::config_service::find_value_by_key_from_db("inbound_audit_enabled")
+        .await
+        .unwrap_or_else(|| "1".to_string())
+            == "1"
+}
 
 /// 生成入库单号：RK + yyyyMMdd + 4位流水号
 pub async fn generate_inbound_no(db: &DatabaseConnection) -> Result<String> {
@@ -52,6 +60,12 @@ pub async fn create(
     req: &InboundSaveRequest,
     created_by: i64,
 ) -> Result<i64> {
+    // 审核开关关闭：直接创建为已完成状态并执行库存增加（复用自动审核逻辑）
+    if !is_audit_enabled().await {
+        return create_and_auto_audit(db, req, created_by).await;
+    }
+
+    // 审核开启（默认）：创建为草稿状态，不执行库存变动
     let inbound_no = generate_inbound_no(db).await?;
 
     let txn = db.begin().await.map_err(|e| Error::from(e.to_string()))?;
@@ -96,6 +110,14 @@ pub async fn submit_audit(
 
     if model.status.unwrap_or(0) != 0 {
         return Err(Error::from("只有草稿状态才能提交审核"));
+    }
+
+    // 审核开关关闭：直接自动完成（先转待审核，再审核完成）
+    if !is_audit_enabled().await {
+        let operator = model.created_by.unwrap_or_default();
+        update_status(db, id, 1, operator).await
+            .map_err(|e| Error::from(e.to_string()))?;
+        return audit(db, id, operator).await;
     }
 
     let mut active: inbound::ActiveModel = model.into();
@@ -356,7 +378,7 @@ pub async fn create_and_auto_audit(
     Ok(inbound_id)
 }
 
-/// 获取入库单详情
+/// 获取入库单详情（扁平 camelCase 结构，供前端直接使用）
 pub async fn get_detail(
     db: &DatabaseConnection,
     id: i64,
@@ -372,20 +394,112 @@ pub async fn get_detail(
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 
+    // 查询仓库名称
+    let warehouse_name = if let Some(wid) = main.warehouse_id {
+        warehouse::Entity::find_by_id(wid)
+            .one(db)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|w| w.name)
+    } else {
+        None
+    };
+
+    // 查询创建人姓名
+    let created_by_name = if let Some(uid) = main.created_by {
+        admin::Entity::find_by_id(uid).one(db).await.ok().flatten()
+            .and_then(|a| a.nick_name.or(a.user_name))
+    } else {
+        None
+    };
+
+    // 查询审核人姓名
+    let audit_by_name = if let Some(uid) = main.audit_by {
+        admin::Entity::find_by_id(uid).one(db).await.ok().flatten()
+            .and_then(|a| a.nick_name.or(a.user_name))
+    } else {
+        None
+    };
+
+    // 构建扁平 camelCase 主表数据
+    let detail = serde_json::json!({
+        "id": main.id,
+        "inboundNo": main.inbound_no,
+        "inboundType": main.inbound_type,
+        "sourceOrderId": main.source_order_id,
+        "sourceOrderNo": main.source_order_no,
+        "warehouseId": main.warehouse_id,
+        "warehouseName": warehouse_name,
+        "status": main.status,
+        "totalQuantity": main.total_quantity,
+        "totalAmount": main.total_amount,
+        "remark": main.remark,
+        "auditBy": main.audit_by,
+        "auditByName": audit_by_name,
+        "auditTime": main.audit_time.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+        "createdBy": main.created_by,
+        "createdByName": created_by_name,
+        "createTime": main.create_time.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+        "updateTime": main.update_time.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+    });
+
+    // 构建明细数组（camelCase + 补充产品信息）
+    let mut items_json: Vec<serde_json::Value> = Vec::new();
+    for item in &items {
+        // 查产品信息
+        let (product_name, product_code, unit, spec) = if let Some(pid) = item.product_id {
+            let product = product_entity::Entity::find_by_id(pid).one(db).await.ok().flatten();
+            if let Some(p) = product {
+                (
+                    p.name.clone(),
+                    p.product_no.clone(),
+                    p.unit.clone(),
+                    p.spec_type.clone(),
+                )
+            } else {
+                (None, None, None, None)
+            }
+        } else {
+            (None, None, None, None)
+        };
+
+        items_json.push(serde_json::json!({
+            "id": item.id,
+            "inboundId": item.inbound_id,
+            "productId": item.product_id,
+            "productSku": item.product_sku,
+            "quantity": item.quantity,
+            "unitPrice": item.unit_price,
+            "totalPrice": item.amount,
+            "batchNo": item.batch_no,
+            "productionDate": item.production_date.map(|t| t.format("%Y-%m-%d").to_string()),
+            "expiryDate": item.expiry_date.map(|t| t.format("%Y-%m-%d").to_string()),
+            "remark": item.remark,
+            "productName": product_name,
+            "productCode": product_code,
+            "unit": unit,
+            "spec": spec,
+        }));
+    }
+
     Ok(serde_json::json!({
-        "main": main,
-        "items": items,
+        "detail": detail,
+        "items": items_json,
     }))
 }
 
-/// 编辑入库单（仅草稿状态可编辑）
+/// 编辑入库单
+/// - status=0（草稿）：直接编辑，无需原因
+/// - status=3（已完成）：审核关闭时必须填写修改原因，事务内回滚旧库存 → 软删除旧明细 → 插入新明细 → 重新入库 → 写调整流水 → 写修改日志
 pub async fn update(
     db: &DatabaseConnection,
     id: i64,
     req: &InboundSaveRequest,
     updated_by: i64,
+    change_reason: Option<&str>,
 ) -> Result<i64> {
-    // 检查状态：仅草稿(0)可编辑
+    // 查询入库单
     let inbound_order = inbound::Entity::find_by_id(id)
         .filter(inbound::Column::Deleted.eq(0))
         .one(db)
@@ -393,50 +507,217 @@ pub async fn update(
         .map_err(|e| Error::from(e.to_string()))?
         .ok_or_else(|| Error::from("入库单不存在"))?;
 
-    if inbound_order.status.unwrap_or(0) != 0 {
-        return Err(Error::from("仅草稿状态的入库单可编辑"));
+    let status = inbound_order.status.unwrap_or(0);
+
+    // 草稿状态：直接编辑（现有逻辑）
+    if status == 0 {
+        db.transaction::<_, _, DbErr>(|txn| {
+            let req = req.clone();
+            Box::pin(async move {
+                // 更新主表
+                update_by_id(txn, id, &req, updated_by).await?;
+
+                // 删除原明细（软删除）
+                inbound_item::Entity::update_many()
+                    .col_expr(inbound_item::Column::Deleted, Expr::value(1))
+                    .filter(inbound_item::Column::InboundId.eq(id))
+                    .exec(txn)
+                    .await?;
+
+                // 插入新明细
+                let now = chrono::Local::now().naive_local();
+                for item in &req.items {
+                    let item_active = inbound_item::ActiveModel {
+                        inbound_id: Set(Some(id)),
+                        product_id: Set(Some(item.product_id)),
+                        product_sku: Set(item.product_sku.clone()),
+                        quantity: Set(Some(item.quantity)),
+                        unit_price: Set(item.unit_price),
+                        amount: Set(item.amount),
+                        batch_no: Set(item.batch_no.clone()),
+                        remark: Set(item.remark.clone()),
+                        deleted: Set(Some(0)),
+                        create_time: Set(Some(now)),
+                        ..Default::default()
+                    };
+                    item_active.insert(txn).await?;
+                }
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+
+        return Ok(id);
     }
 
-    // 事务更新主表 + 删除原明细 + 插入新明细
-    db.transaction::<_, _, DbErr>(|txn| {
-        let req = req.clone();
-        Box::pin(async move {
-            // 更新主表
-            update_by_id(txn, id, &req, updated_by).await?;
+    // 已完成状态：仅在审核关闭时允许修改
+    if status == 3 {
+        if is_audit_enabled().await {
+            return Err(Error::from("审核模式下已完成的单据不可直接编辑"));
+        }
+        let reason = change_reason
+            .ok_or_else(|| Error::from("修改已完成的入库单必须填写修改原因"))?
+            .to_string();
 
-            // 删除原明细（软删除）
-            inbound_item::Entity::update_many()
-                .col_expr(inbound_item::Column::Deleted, Expr::value(1))
-                .filter(inbound_item::Column::InboundId.eq(id))
-                .exec(txn)
-                .await?;
+        let warehouse_id = inbound_order.warehouse_id.unwrap_or_default();
+        let inbound_no = inbound_order.inbound_no.clone().unwrap_or_default();
+        let inbound_type = inbound_order.inbound_type.clone().unwrap_or_default();
+        let before_main = serde_json::to_value(&inbound_order).unwrap_or_default();
+        let req_clone = req.clone();
 
-            // 插入新明细
-            let now = chrono::Local::now().naive_local();
-            for item in &req.items {
-                let item_active = inbound_item::ActiveModel {
-                    inbound_id: Set(Some(id)),
-                    product_id: Set(Some(item.product_id)),
-                    product_sku: Set(item.product_sku.clone()),
-                    quantity: Set(Some(item.quantity)),
-                    unit_price: Set(item.unit_price),
-                    amount: Set(item.amount),
-                    batch_no: Set(item.batch_no.clone()),
-                    remark: Set(item.remark.clone()),
-                    deleted: Set(Some(0)),
+        db.transaction::<_, _, DbErr>(|txn| {
+            let reason = reason.clone();
+            let inbound_no = inbound_no.clone();
+            let inbound_type = inbound_type.clone();
+            let req_clone = req_clone.clone();
+            let before_main = before_main.clone();
+            Box::pin(async move {
+                // 1. 查询旧明细 + 保存修改前快照
+                let old_items = inbound_item::Entity::find()
+                    .filter(inbound_item::Column::InboundId.eq(id))
+                    .filter(inbound_item::Column::Deleted.eq(0))
+                    .all(txn)
+                    .await?;
+                let before_snapshot = serde_json::json!({
+                    "main": before_main,
+                    "items": serde_json::to_value(&old_items).unwrap_or_default(),
+                });
+
+                // 2. 回滚旧库存（入库的反操作：减少库存）
+                for old_item in &old_items {
+                    let product_id = old_item.product_id.unwrap_or_default();
+                    let quantity = old_item.quantity.unwrap_or_default();
+                    if quantity != Decimal::ZERO {
+                        stock_engine::decrease_stock(txn, product_id, warehouse_id, quantity).await?;
+                        stock_engine::write_stock_log(
+                            txn,
+                            product_id,
+                            warehouse_id,
+                            None,
+                            "inbound",
+                            "adjust_rollback",
+                            Some(id),
+                            Some(&inbound_no),
+                            -quantity,
+                            Some(updated_by),
+                            Some("修改已完成入库单-回滚旧库存"),
+                        ).await?;
+                    }
+                }
+
+                // 3. 软删除旧明细
+                inbound_item::Entity::update_many()
+                    .col_expr(inbound_item::Column::Deleted, Expr::value(1))
+                    .filter(inbound_item::Column::InboundId.eq(id))
+                    .exec(txn)
+                    .await?;
+
+                // 4. 更新主表（已完成状态，带 status=3 过滤）
+                let now = chrono::Local::now().naive_local();
+                inbound::Entity::update_many()
+                    .col_expr(inbound::Column::InboundType, Expr::value(req_clone.inbound_type.clone()))
+                    .col_expr(inbound::Column::WarehouseId, Expr::value(req_clone.warehouse_id))
+                    .col_expr(inbound::Column::SourceOrderId, Expr::value(req_clone.source_order_id))
+                    .col_expr(inbound::Column::SourceOrderNo, Expr::value(req_clone.source_order_no.clone()))
+                    .col_expr(inbound::Column::TotalQuantity, Expr::value(req_clone.total_quantity))
+                    .col_expr(inbound::Column::TotalAmount, Expr::value(req_clone.total_amount))
+                    .col_expr(inbound::Column::Remark, Expr::value(req_clone.remark.clone()))
+                    .col_expr(inbound::Column::UpdatedBy, Expr::value(updated_by))
+                    .col_expr(inbound::Column::UpdateTime, Expr::value(now))
+                    .col_expr(inbound::Column::LastChangeReason, Expr::value(reason.clone()))
+                    .col_expr(inbound::Column::LastChangeBy, Expr::value(updated_by))
+                    .col_expr(inbound::Column::LastChangeTime, Expr::value(now))
+                    .filter(inbound::Column::Id.eq(id))
+                    .filter(inbound::Column::Status.eq(3))
+                    .filter(inbound::Column::Deleted.eq(0))
+                    .exec(txn)
+                    .await?;
+
+                // 5. 插入新明细
+                for item in &req_clone.items {
+                    let item_active = inbound_item::ActiveModel {
+                        inbound_id: Set(Some(id)),
+                        product_id: Set(Some(item.product_id)),
+                        product_sku: Set(item.product_sku.clone()),
+                        quantity: Set(Some(item.quantity)),
+                        unit_price: Set(item.unit_price),
+                        amount: Set(item.amount),
+                        batch_no: Set(item.batch_no.clone()),
+                        remark: Set(item.remark.clone()),
+                        deleted: Set(Some(0)),
+                        create_time: Set(Some(now)),
+                        ..Default::default()
+                    };
+                    item_active.insert(txn).await?;
+                }
+
+                // 6. 重新执行库存变动（增加新库存）+ 写调整流水
+                for item in &req_clone.items {
+                    let product_id = item.product_id;
+                    let quantity = item.quantity;
+                    if quantity != Decimal::ZERO {
+                        stock_engine::increase_stock(txn, product_id, req_clone.warehouse_id, quantity, item.unit_price).await?;
+                        stock_engine::write_stock_log(
+                            txn,
+                            product_id,
+                            req_clone.warehouse_id,
+                            None,
+                            "inbound",
+                            &format!("{}_adjust", inbound_type),
+                            Some(id),
+                            Some(&inbound_no),
+                            quantity,
+                            Some(updated_by),
+                            Some("修改已完成入库单-重新入库"),
+                        ).await?;
+                    }
+                }
+
+                // 7. 写修改日志（doc_change_log）
+                let after_snapshot = serde_json::json!({
+                    "main": {
+                        "inboundType": req_clone.inbound_type,
+                        "warehouseId": req_clone.warehouse_id,
+                        "totalQuantity": req_clone.total_quantity,
+                        "totalAmount": req_clone.total_amount,
+                        "remark": req_clone.remark,
+                    },
+                    "items": serde_json::to_value(&req_clone.items).unwrap_or_default(),
+                });
+                let operator_name = admin::Entity::find_by_id(updated_by)
+                    .one(txn)
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|a| a.nick_name.or(a.user_name));
+
+                let log_active = doc_change_log::ActiveModel {
+                    doc_type: Set(Some("inbound".to_string())),
+                    doc_id: Set(Some(id)),
+                    doc_no: Set(Some(inbound_no.clone())),
+                    action: Set(Some("update".to_string())),
+                    change_reason: Set(Some(reason.clone())),
+                    before_snapshot: Set(Some(before_snapshot)),
+                    after_snapshot: Set(Some(after_snapshot)),
+                    operator_id: Set(Some(updated_by)),
+                    operator_name: Set(operator_name),
                     create_time: Set(Some(now)),
                     ..Default::default()
                 };
-                item_active.insert(txn).await?;
-            }
+                log_active.insert(txn).await?;
 
-            Ok(())
+                Ok(())
+            })
         })
-    })
-    .await
-    .map_err(|e| Error::from(e.to_string()))?;
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
-    Ok(id)
+        return Ok(id);
+    }
+
+    Err(Error::from("当前状态的入库单不可编辑"))
 }
 
 /// 批量删除入库单（仅草稿状态可删除）
@@ -449,7 +730,7 @@ pub async fn batch_delete(
         .map_err(|e| Error::from(e.to_string()))
 }
 
-/// 获取入库单打印数据（主表 + 明细 + 仓库 + 操作人）
+/// 获取入库单打印数据（复用 get_detail 扁平 camelCase 结构 + 仓库/操作人信息）
 pub async fn get_print_data(
     db: &DatabaseConnection,
     id: i64,
@@ -466,45 +747,77 @@ pub async fn get_print_data(
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 
-    // 仓库信息
-    let warehouse_info = if let Some(wid) = main.warehouse_id {
+    // 仓库名称
+    let warehouse_name = if let Some(wid) = main.warehouse_id {
         warehouse::Entity::find_by_id(wid)
             .filter(warehouse::Column::Deleted.eq(0))
             .one(db)
             .await
-            .map_err(|e| Error::from(e.to_string()))?
+            .ok()
+            .flatten()
+            .and_then(|w| w.name)
     } else {
         None
     };
 
-    // 创建人信息
-    let creator_info = if let Some(cb) = main.created_by {
+    // 创建人姓名
+    let creator_name = if let Some(cb) = main.created_by {
         admin::Entity::find_by_id(cb).one(db).await.ok().flatten()
+            .and_then(|a| a.nick_name.or(a.user_name))
     } else {
         None
     };
 
-    // 审核人信息
-    let auditor_info = if let Some(ab) = main.audit_by {
+    // 审核人姓名
+    let auditor_name = if let Some(ab) = main.audit_by {
         admin::Entity::find_by_id(ab).one(db).await.ok().flatten()
+            .and_then(|a| a.nick_name.or(a.user_name))
     } else {
         None
     };
+
+    // 构建明细（camelCase + 产品信息）
+    let mut items_json: Vec<serde_json::Value> = Vec::new();
+    for item in &items {
+        let (product_name, product_code, unit, spec) = if let Some(pid) = item.product_id {
+            let product = product_entity::Entity::find_by_id(pid).one(db).await.ok().flatten();
+            if let Some(p) = product {
+                (p.name.clone(), p.product_no.clone(), p.unit.clone(), p.spec_type.clone())
+            } else {
+                (None, None, None, None)
+            }
+        } else {
+            (None, None, None, None)
+        };
+
+        items_json.push(serde_json::json!({
+            "productCode": product_code,
+            "productName": product_name,
+            "spec": spec,
+            "unit": unit,
+            "quantity": item.quantity,
+            "unitPrice": item.unit_price,
+            "totalPrice": item.amount,
+            "remark": item.remark,
+        }));
+    }
 
     Ok(serde_json::json!({
-        "main": main,
-        "items": items,
-        "warehouse": warehouse_info,
-        "creator": creator_info.as_ref().map(|a| serde_json::json!({
-            "id": a.id,
-            "nick_name": a.nick_name,
-            "user_name": a.user_name,
-        })),
-        "auditor": auditor_info.as_ref().map(|a| serde_json::json!({
-            "id": a.id,
-            "nick_name": a.nick_name,
-            "user_name": a.user_name,
-        })),
+        "main": {
+            "inboundNo": main.inbound_no,
+            "inboundType": main.inbound_type,
+            "status": main.status,
+            "totalQuantity": main.total_quantity,
+            "totalAmount": main.total_amount,
+            "remark": main.remark,
+            "warehouseName": warehouse_name,
+            "createTime": main.create_time.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+            "auditTime": main.audit_time.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+        },
+        "items": items_json,
+        "warehouse": { "name": warehouse_name },
+        "creator": { "nick_name": creator_name, "user_name": creator_name },
+        "auditor": { "nick_name": auditor_name, "user_name": auditor_name },
     }))
 }
 

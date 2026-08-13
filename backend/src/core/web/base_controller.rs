@@ -40,6 +40,21 @@ pub fn get_admin_id_or_default(req: &HttpRequest) -> i64 {
     get_user(req).unwrap_or_default().id.unwrap_or_default()
 }
 
+/// 提取当前登录用户 ID，未登录返回 0
+/// 等价于 `get_admin_id_or_default`，语义更清晰，推荐新代码使用
+pub fn get_current_user_id(req: &HttpRequest) -> i64 {
+    get_admin_id_or_default(req)
+}
+
+/// 提取当前登录用户（id + 用户名），未登录返回 (0, "")
+pub fn get_current_user(req: &HttpRequest) -> (i64, String) {
+    let token = get_user(req).unwrap_or_default();
+    (
+        token.id.unwrap_or_default(),
+        token.username.unwrap_or_default(),
+    )
+}
+
 /// 获取用户端用户信息
 pub fn get_user_client(req: &HttpRequest) -> Result<JWTToken> {
     let token = req

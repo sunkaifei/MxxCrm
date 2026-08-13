@@ -29,15 +29,3 @@ pub static ES_CLIENT: LazyLock<Elasticsearch> = LazyLock::new(|| {
     
     es_client
 });
-
-// lazy_static! {
-//     static ref SCHEDULER: Scheduler<Local> = {
-//         let (scheduler, sched_service) = Scheduler::<Local>::launch(tokio::time::sleep);
-//         scheduler
-//     };
-// 
-//     static ref SCHED_SERVICE: LocalSet<Local> = {
-//         let (scheduler, sched_service) = Scheduler::<Local>::launch(tokio::time::sleep);
-//         sched_service
-//     };
-// }

@@ -49,23 +49,14 @@ pub async fn send_mail(
         .as_ref()
         .ok_or_else(|| Error::from("SMTP 配置为空 (config_json 缺失)"))?;
 
-    // 从 JSON 中提取字段（兼容 字符串/数字 两种类型）
-    let get_str = |k: &str| -> Option<String> {
-        json.get(k).and_then(|v| v.as_str()).map(|s| s.to_string())
-    };
-    let get_i32 = |k: &str| -> Option<i32> {
-        json.get(k)
-            .and_then(|v| v.as_i64().map(|n| n as i32))
-            .or_else(|| json.get(k).and_then(|v| v.as_str().and_then(|s| s.parse::<i32>().ok())))
-    };
-
-    let from_email = get_str("from_email").unwrap_or_default();
-    let from_name = get_str("from_name").unwrap_or_default();
-    let host = get_str("host").unwrap_or_default();
-    let port: i32 = get_i32("port").unwrap_or(465);
-    let username = get_str("username").unwrap_or_default();
-    let password = get_str("password").unwrap_or_default();
-    let is_ssl: i32 = get_i32("is_ssl").unwrap_or(1);
+    use crate::core::kit::json_util;
+    let from_email = json_util::get_str(json, "from_email").unwrap_or_default();
+    let from_name = json_util::get_str(json, "from_name").unwrap_or_default();
+    let host = json_util::get_str(json, "host").unwrap_or_default();
+    let port: i32 = json_util::get_i32(json, "port").unwrap_or(465);
+    let username = json_util::get_str(json, "username").unwrap_or_default();
+    let password = json_util::get_str(json, "password").unwrap_or_default();
+    let is_ssl: i32 = json_util::get_i32(json, "is_ssl").unwrap_or(1);
 
     // 必填校验
     if host.is_empty() || username.is_empty() || password.is_empty() {

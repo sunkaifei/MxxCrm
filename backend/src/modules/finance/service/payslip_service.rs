@@ -13,7 +13,7 @@ use sea_orm::sea_query::Expr;
 use chrono::Utc;
 use rust_decimal::prelude::ToPrimitive;
 
-use crate::modules::finance::entity::{payslip, salary_record, notification_channel_config};
+use crate::modules::finance::entity::{payslip, salary_record, notification_channel_config, commission_detail};
 use crate::modules::system::entity::admin;
 use crate::modules::message::service::notification_service::NotificationService;
 
@@ -26,7 +26,7 @@ pub async fn get_payslip_list(
     send_status: Option<i32>,
     page: i64,
     page_size: i64,
-) -> Result<(Vec<payslip::Model>, i64), String> {
+) -> Result<(Vec<serde_json::Value>, i64), String> {
     let mut stmt = payslip::Entity::find();
 
     if let Some(y) = year {
@@ -57,7 +57,34 @@ pub async fn get_payslip_list(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok((items, total))
+    // 批量查询员工姓名
+    let emp_ids: Vec<i64> = items.iter().map(|p| p.employee_id).collect::<Vec<_>>();
+    let mut name_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    if !emp_ids.is_empty() {
+        let admins = admin::Entity::find()
+            .filter(admin::Column::Id.is_in(emp_ids))
+            .all(db)
+            .await
+            .map_err(|e| e.to_string())?;
+        for a in admins {
+            let name = a.nick_name.or(a.user_name).unwrap_or_default();
+            name_map.insert(a.id, name);
+        }
+    }
+
+    let result: Vec<serde_json::Value> = items
+        .into_iter()
+        .map(|p| {
+            let emp_name = name_map.get(&p.employee_id).cloned().unwrap_or_default();
+            let mut json = serde_json::to_value(&p).unwrap_or_default();
+            if let Some(obj) = json.as_object_mut() {
+                obj.insert("employeeName".to_string(), serde_json::Value::String(emp_name));
+            }
+            json
+        })
+        .collect();
+
+    Ok((result, total))
 }
 
 /// 为指定年月已发放工资记录生成工资条
@@ -111,9 +138,14 @@ pub async fn generate_payslips(
             "performanceBonus": record.performance_bonus.to_f64().unwrap_or_default(),
             "deductionAmount": record.deduction_amount.to_f64().unwrap_or_default(),
             "socialInsurancePersonal": record.social_insurance_personal.to_f64().unwrap_or_default(),
+            "socialInsuranceCompany": record.social_insurance_company.to_f64().unwrap_or_default(),
             "housingFundPersonal": record.housing_fund_personal.to_f64().unwrap_or_default(),
+            "housingFundCompany": record.housing_fund_company.to_f64().unwrap_or_default(),
             "taxAmount": record.tax_amount.to_f64().unwrap_or_default(),
             "teamCommissionAmount": record.team_commission_amount.to_f64().unwrap_or_default(),
+            "bonusAmount": record.bonus_amount.to_f64().unwrap_or_default(),
+            "allocatedCommission": record.allocated_commission.to_f64().unwrap_or_default(),
+            "deferredCommission": record.deferred_commission.to_f64().unwrap_or_default(),
             "totalSalary": record.total_salary.to_f64().unwrap_or_default(),
             "netSalary": record.net_salary.to_f64().unwrap_or_default(),
         });
@@ -478,6 +510,95 @@ pub async fn mark_read(db: &DatabaseConnection, payslip_id: i64) -> Result<(), S
     let txn = db.begin().await.map_err(|e| e.to_string())?;
     model.update(&txn).await.map_err(|e| e.to_string())?;
     txn.commit().await.map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// 获取工资条详情（含提成明细，可追溯）
+pub async fn get_payslip_detail(
+    db: &DatabaseConnection,
+    payslip_id: i64,
+) -> Result<serde_json::Value, String> {
+    let payslip_record = payslip::Entity::find_by_id(payslip_id)
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("工资条不存在")?;
+
+    // 查员工姓名
+    let employee_name = admin::Entity::find_by_id(payslip_record.employee_id)
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?
+        .and_then(|a| a.nick_name.or(a.user_name))
+        .unwrap_or_default();
+
+    // 解析 detail_json
+    let detail = payslip_record.detail_json.clone().unwrap_or(serde_json::json!({}));
+
+    // 查提成明细（通过 salary_record_id 关联）
+    let commissions = commission_detail::Entity::find()
+        .filter(commission_detail::Column::SalaryRecordId.eq(payslip_record.salary_record_id))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let commission_list: Vec<serde_json::Value> = commissions
+        .iter()
+        .map(|c| serde_json::json!({
+            "contractId": c.contract_id,
+            "contractName": c.contract_name,
+            "contractAmount": c.contract_amount,
+            "paymentAmount": c.payment_amount,
+            "commissionBase": c.commission_base,
+            "commissionRate": c.commission_rate,
+            "commissionAmount": c.commission_amount,
+            "ruleName": c.rule_name,
+        }))
+        .collect();
+
+    let mut result = serde_json::to_value(&payslip_record).unwrap_or_default();
+    if let Some(obj) = result.as_object_mut() {
+        obj.insert("employeeName".to_string(), serde_json::Value::String(employee_name));
+        obj.insert("detail".to_string(), detail);
+        obj.insert("commissions".to_string(), serde_json::Value::Array(commission_list));
+    }
+
+    Ok(result)
+}
+
+/// 员工确认工资条（send_status 改为 3=已确认）
+pub async fn confirm_payslip(
+    db: &DatabaseConnection,
+    payslip_id: i64,
+    employee_id: i64,
+) -> Result<(), String> {
+    let record = payslip::Entity::find_by_id(payslip_id)
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("工资条不存在")?;
+
+    // 权限校验：只能确认自己的工资条
+    if record.employee_id != employee_id {
+        return Err("只能确认自己的工资条".to_string());
+    }
+
+    let status = record.send_status.unwrap_or(0);
+    // 只有已发送(1)/已读(2)状态才能确认
+    if status != 1 && status != 2 && status != 3 {
+        return Err(format!("当前状态({})不可确认", status));
+    }
+
+    if status == 3 {
+        return Ok(()); // 已确认，幂等返回
+    }
+
+    let now = Utc::now().naive_utc();
+    let mut model: payslip::ActiveModel = record.into();
+    model.send_status = Set(Some(3));
+    model.confirm_time = Set(Some(now));
+    model.update(db).await.map_err(|e| e.to_string())?;
 
     Ok(())
 }

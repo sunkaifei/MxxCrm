@@ -12,7 +12,7 @@ use crate::core::web::response::ResultPage;
 use crate::modules::crm::model::followup::{FollowupDetailVO, FollowupListQuery, FollowupListVO, FollowupModel, FollowupSaveDTO, FollowupSaveRequest, FollowupUpdateRequest, VisitCheckInRequest, VisitListQuery, VisitStatisticsVO};
 use crate::modules::crm::model::work_log::WorkLogCreateDTO;
 use crate::modules::crm::entity::{customer, followup, lead};
-use crate::modules::crm::service::customer_service::get_accessible_user_ids;
+use crate::modules::system::service::data_scope_service;
 use crate::modules::crm::service::work_log_service;
 use crate::modules::system::service::admin_service::build_admin_name_map;
 use crate::modules::system::service::role_service;
@@ -41,7 +41,8 @@ pub async fn insert(db: &DbConn, form_data: &FollowupSaveRequest, created_by: i6
         }
 
         lead_active.id = Set(lead_id);
-        let _ = lead::Entity::update(lead_active).exec(&txn).await;
+        lead::Entity::update(lead_active).exec(&txn).await
+            .map_err(|e| Error::from(e.to_string()))?;
     }
 
     txn.commit().await?;
@@ -159,7 +160,7 @@ pub async fn list(db: &DbConn, query: &FollowupListQuery, current_user_id: i64) 
         }
         "todayFollow" => {
             // 今日跟进：按 data_scope 范围过滤 + 创建时间为今日
-            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
+            let user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await?;
             FollowupModel::select_today_follow_page(
                 &db, page, page_size,
                 query.customer_id, query.lead_id, query.opportunity_id,
@@ -203,7 +204,7 @@ async fn list_grouped(
     db: &DbConn,
     query: &FollowupListQuery,
     current_user_id: i64,
-    data_scope: Option<i32>,
+    _data_scope: Option<i32>,
     page: i64,
     page_size: i64,
     list_type: &str,
@@ -218,7 +219,7 @@ async fn list_grouped(
             (Some(subordinate_ids), None)
         }
         "todayFollow" => {
-            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
+            let user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await?;
             let today = chrono::Local::now().naive_local().date();
             let today_start = chrono::NaiveDateTime::new(today, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
             let today_end = chrono::NaiveDateTime::new(today, chrono::NaiveTime::from_hms_opt(23, 59, 59).unwrap());
@@ -226,7 +227,7 @@ async fn list_grouped(
         }
         _ => {
             // all：根据 data_scope 过滤
-            let user_ids = get_accessible_user_ids(db, current_user_id, data_scope).await?;
+            let user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await?;
             (user_ids, None)
         }
     };

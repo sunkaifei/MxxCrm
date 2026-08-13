@@ -15,7 +15,8 @@ export const createOutboundApi = async (data: any) => {
 };
 
 export const updateOutboundApi = async (data: any) => {
-  return requestClient.put('/api/system/outbound/update', data);
+  const { id, ...rest } = data;
+  return requestClient.put('/api/system/outbound/update', rest, { params: { id } });
 };
 
 export const deleteOutboundApi = async (ids: number[]) => {

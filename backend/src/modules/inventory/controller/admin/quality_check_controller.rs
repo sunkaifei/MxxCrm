@@ -10,8 +10,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -35,11 +34,10 @@ pub async fn quality_check_save(
     body: web::Json<QualityCheckSaveRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = body.0;
 
     let result =
-        quality_check_service::create(db, &form_data, jwt_token.id.unwrap_or_default()).await;
+        quality_check_service::create(db, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
@@ -52,7 +50,6 @@ pub async fn quality_check_update(
     body: web::Json<QualityCheckSaveRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let form_data = body.0;
     let id = form_data.id.unwrap_or(0);
     if id <= 0 {
@@ -62,7 +59,7 @@ pub async fn quality_check_update(
     }
 
     let result =
-        quality_check_service::update(db, id, &form_data, jwt_token.id.unwrap_or_default()).await;
+        quality_check_service::update(db, id, &form_data, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))
@@ -76,7 +73,6 @@ pub async fn quality_check_input(
     body: web::Json<QualityCheckResultRequest>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     let id = path.into_inner();
     if id <= 0 {
         return Ok(HttpResponse::Ok()
@@ -85,7 +81,7 @@ pub async fn quality_check_input(
     }
 
     let result =
-        quality_check_service::check(db, id, &body.0, jwt_token.id.unwrap_or_default()).await;
+        quality_check_service::check(db, id, &body.0, get_current_user_id(&req)).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
         .body(MetaResp::<i64>::handle_result(result)))

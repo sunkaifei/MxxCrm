@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { h } from 'vue';
+import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
@@ -7,11 +7,11 @@ import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Descriptions, DescriptionsItem, Drawer, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { deleteBrandApi, getBrandListApi } from '#/api';
+import { deleteBrandApi, getBrandInfoApi, getBrandListApi } from '#/api';
 import { $t } from '#/locales';
 
 import BrandDrawer from './drawer.vue';
@@ -19,8 +19,8 @@ import BrandDrawer from './drawer.vue';
 const accessStore = useAccessStore();
 
 const statusLabelMap: Record<number, string> = {
-  0: '正常',
-  1: '停用',
+  0: $t('page.product.brand.status.normal'),
+  1: $t('page.product.brand.status.disabled'),
 };
 
 const statusColorMap: Record<number, string> = {
@@ -35,8 +35,8 @@ const formOptions: VbenFormProps = {
   schema: [
     {
       component: 'Input',
-      fieldName: 'keywords',
-      label: '品牌名称',
+      fieldName: 'keyword',
+      label: $t('page.product.brand.placeholder.keyword'),
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
@@ -65,7 +65,7 @@ const gridOptions: VxeGridProps = {
         return await getBrandListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          keywords: formValues.keywords,
+          keyword: formValues.keyword,
         });
       },
     },
@@ -73,13 +73,13 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { type: 'seq', title: $t('ui.table.seq'), width: 60 },
-    { title: '品牌名称', field: 'name', width: 140 },
-    { title: '品牌英文名', field: 'englishName', width: 140 },
-    { title: 'Logo', field: 'logo', width: 90, slots: { default: 'logo' } },
-    { title: '品牌原产国', field: 'originCountry', width: 120 },
+    { title: $t('page.product.brand.field.name'), field: 'name', minWidth: 120, slots: { default: 'name' } },
+    { title: $t('page.product.brand.field.nameEn'), field: 'nameEn', minWidth: 120 },
+    { title: $t('page.product.brand.field.logo'), field: 'logo', width: 90, slots: { default: 'logo' } },
+    { title: $t('page.product.brand.field.country'), field: 'country', minWidth: 100 },
     { title: $t('ui.table.status'), field: 'status', width: 80, slots: { default: 'status' } },
-    { title: '排序', field: 'sortOrder', width: 70 },
-    { title: $t('ui.table.createTime'), field: 'createTime', width: 160, slots: { default: 'createTime' } },
+    { title: $t('page.product.brand.field.sort'), field: 'sortOrder', width: 70 },
+    { title: $t('ui.table.createTime'), field: 'createTime', minWidth: 150, slots: { default: 'createTime' } },
     { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 120 },
   ],
 };
@@ -112,6 +112,25 @@ async function handleDelete(row: any) {
     gridApi.query();
   }
 }
+
+// ===== 详情抽屉 =====
+const detailVisible = ref(false);
+const detailLoading = ref(false);
+const detailData = ref<any>({});
+
+async function openDetail(row: any) {
+  detailVisible.value = true;
+  detailLoading.value = true;
+  detailData.value = {};
+  try {
+    const resp = await getBrandInfoApi(row.id);
+    detailData.value = resp?.data ?? resp ?? {};
+  } catch {
+    detailData.value = { ...row };
+  } finally {
+    detailLoading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -125,6 +144,12 @@ async function handleDelete(row: any) {
           @click="handleCreate"
         >
           {{ $t('page.product.brand.button.create') }}
+        </Button>
+      </template>
+
+      <template #name="{ row }">
+        <Button type="link" class="!px-0" @click="openDetail(row)">
+          {{ row.name }}
         </Button>
       </template>
 
@@ -171,5 +196,62 @@ async function handleDelete(row: any) {
       </template>
     </Grid>
     <FormDrawer />
+
+    <!-- 品牌详情抽屉 -->
+    <Drawer
+      :open="detailVisible"
+      :width="520"
+      :title="$t('page.product.brand.detail') + ' - ' + (detailData.name || '')"
+      @close="detailVisible = false"
+    >
+      <div v-if="detailLoading" class="flex justify-center py-16">
+        <span class="text-gray-400">{{ $t('page.product.brand.loading') }}</span>
+      </div>
+      <Descriptions v-else :column="1" bordered size="small">
+        <DescriptionsItem :label="$t('page.product.brand.field.name')">
+          {{ detailData.name }}
+        </DescriptionsItem>
+        <DescriptionsItem :label="$t('page.product.brand.field.nameEn')">
+          {{ detailData.nameEn || '-' }}
+        </DescriptionsItem>
+        <DescriptionsItem :label="$t('page.product.brand.field.logo')">
+          <img
+            v-if="detailData.logo"
+            :src="detailData.logo"
+            alt=""
+            class="w-16 h-16 rounded object-cover border border-gray-100"
+          />
+          <span v-else class="text-gray-300">-</span>
+        </DescriptionsItem>
+        <DescriptionsItem :label="$t('page.product.brand.field.country')">
+          {{ detailData.country || '-' }}
+        </DescriptionsItem>
+        <DescriptionsItem :label="$t('page.product.brand.field.website')">
+          <a
+            v-if="detailData.website"
+            :href="detailData.website"
+            target="_blank"
+            class="text-blue-500 hover:underline"
+          >
+            {{ detailData.website }}
+          </a>
+          <span v-else class="text-gray-300">-</span>
+        </DescriptionsItem>
+        <DescriptionsItem :label="$t('page.product.brand.field.status')">
+          <Tag :color="statusColorMap[detailData.status]">
+            {{ statusLabelMap[detailData.status] || detailData.status }}
+          </Tag>
+        </DescriptionsItem>
+        <DescriptionsItem :label="$t('page.product.brand.field.description')">
+          {{ detailData.description || '-' }}
+        </DescriptionsItem>
+        <DescriptionsItem :label="$t('page.product.brand.field.createTime')">
+          {{ formatDateTime(detailData.createTime) || '-' }}
+        </DescriptionsItem>
+        <DescriptionsItem :label="$t('page.product.brand.field.updateTime')">
+          {{ formatDateTime(detailData.updateTime) || '-' }}
+        </DescriptionsItem>
+      </Descriptions>
+    </Drawer>
   </Page>
 </template>

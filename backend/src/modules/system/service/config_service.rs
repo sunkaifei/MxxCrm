@@ -66,6 +66,15 @@ pub async fn select_by_key(db: &DbConn, key: &String)-> Result<ConfigDetailVO>{
     Ok(result)
 }
 
+/// 通过全局 CONTEXT 获取 db 连接，按 key 查询配置值（供无法传入 db 的场景使用，如 permission_cache_service）
+pub async fn find_value_by_key_from_db(key: &str) -> Option<String> {
+    let db = crate::core::kit::CONTEXT.get_db()?;
+    match ConfigModel::find_by_key(&db, key).await {
+        Ok(Some(config)) => config.config_value,
+        _ => None,
+    }
+}
+
 /// 根据ID查询
 pub async fn get_by_detail(db: &DbConn, id: &Option<i64>) -> Result<Option<ConfigDetailVO>>{
     let config = ConfigModel::find_by_id(db, id).await?;

@@ -12,8 +12,7 @@
 
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
-use crate::core::kit::jwt_util::JWTToken;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -31,8 +30,7 @@ pub async fn refund_insert(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let result = refund_service::insert(db, &form_data, user_id).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
@@ -51,8 +49,7 @@ pub async fn refund_update(
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "退货单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let user_id = jwt_token.id.unwrap_or_default();
+    let user_id = get_current_user_id(&req);
     let result = refund_service::update(db, &form_data, user_id).await;
     Ok(HttpResponse::Ok()
         .content_type(MPACK)
@@ -110,8 +107,7 @@ pub async fn refund_list(
 ) -> HttpResponse {
     let db = &state.db;
     let query = query.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let current_user_id = jwt_token.id.unwrap_or_default();
+    let current_user_id = get_current_user_id(&req);
     match refund_service::get_list(db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
@@ -141,12 +137,12 @@ pub async fn refund_submit(
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "退货单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
+    let (operator_id, operator_name) = get_current_user(&req);
     match refund_service::submit_refund(
         db,
         item.id.unwrap(),
-        jwt_token.id.unwrap_or_default(),
-        &jwt_token.username.unwrap_or_default(),
+        operator_id,
+        &operator_name,
     )
     .await
     {
@@ -167,11 +163,10 @@ pub async fn refund_approve(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match refund_service::approve_refund(
         db,
         form_data.refund_id,
-        jwt_token.id.unwrap_or_default(),
+        get_current_user_id(&req),
         form_data.reason,
     )
     .await
@@ -193,11 +188,10 @@ pub async fn refund_reject(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
     match refund_service::reject_refund(
         db,
         form_data.refund_id,
-        jwt_token.id.unwrap_or_default(),
+        get_current_user_id(&req),
         form_data.reason,
     )
     .await
@@ -219,8 +213,7 @@ pub async fn refund_receive(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match refund_service::receive_refund(db, &form_data, jwt_token.id.unwrap_or_default()).await {
+    match refund_service::receive_refund(db, &form_data, get_current_user_id(&req)).await {
         Ok(data) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
@@ -238,8 +231,7 @@ pub async fn refund_quality_check(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match refund_service::quality_check(db, &form_data, jwt_token.id.unwrap_or_default()).await {
+    match refund_service::quality_check(db, &form_data, get_current_user_id(&req)).await {
         Ok(data) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
@@ -262,8 +254,7 @@ pub async fn refund_cancel(
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "退货单ID不能为空", "local")));
     }
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match refund_service::cancel_refund(db, item.id.unwrap(), jwt_token.id.unwrap_or_default()).await {
+    match refund_service::cancel_refund(db, item.id.unwrap(), get_current_user_id(&req)).await {
         Ok(data) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(data, "local"))),
@@ -281,8 +272,7 @@ pub async fn refund_payment(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let form_data = form_data.0;
-    let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    match refund_service::create_payment(db, &form_data, jwt_token.id.unwrap_or_default()).await {
+    match refund_service::create_payment(db, &form_data, get_current_user_id(&req)).await {
         Ok(payment_id) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(payment_id, "local"))),

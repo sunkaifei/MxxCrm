@@ -200,7 +200,7 @@ pub async fn restore_revision(
         author: Set(revision.author),
         description: Set(revision.description),
         content: Set(revision.content),
-        update_time: Set(Some(chrono::Local::now().naive_utc())),
+        update_time: Set(Some(chrono::Utc::now().naive_utc())),
         ..Default::default()
     };
 
@@ -269,7 +269,7 @@ pub async fn batch_set_recommend(db: &DbConn, ids: Vec<i64>, isrecommend: i32) -
     if ids.is_empty() {
         return Err(Error::from("文章ID不能为空"));
     }
-    let now = chrono::Local::now().naive_utc();
+    let now = chrono::Utc::now().naive_utc();
     let result = Article::update_many()
         .col_expr(article::Column::Isrecommend, sea_orm::sea_query::Expr::value(isrecommend))
         .col_expr(article::Column::UpdateTime, sea_orm::sea_query::Expr::value(now))

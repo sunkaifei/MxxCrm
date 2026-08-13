@@ -1,6 +1,7 @@
 use rust_decimal::Decimal;
 use crate::modules::inventory::entity::warehouse::{ActiveModel, Column, Entity, Model};
-use sea_orm::*;
+use sea_orm::entity::prelude::*;
+use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,6 +30,7 @@ pub struct WarehouseVO {
     pub warehouse_type_name: Option<String>,
     pub region: Option<String>,
     pub address: Option<String>,
+    pub area_sqm: Option<Decimal>,
     pub manager_id: Option<i64>,
     pub manager_name: Option<String>,
     pub contact_person: Option<String>,
@@ -59,6 +61,8 @@ pub struct WarehouseDetailVO {
     pub remark: Option<String>,
     pub sort_order: Option<i32>,
     pub picking_strategy: Option<String>,
+    pub create_time: Option<DateTime>,
+    pub update_time: Option<DateTime>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -124,6 +128,7 @@ impl From<Model> for WarehouseVO {
             warehouse_type_name: warehouse_type_name(model.warehouse_type),
             region: model.region,
             address: model.address,
+            area_sqm: model.area_sqm,
             manager_id: model.manager_id,
             manager_name: model.contact_person.clone(),
             contact_person: model.contact_person,
@@ -156,6 +161,8 @@ impl From<Model> for WarehouseDetailVO {
             remark: model.remark,
             sort_order: model.sort_order,
             picking_strategy: model.picking_strategy,
+            create_time: model.create_time,
+            update_time: model.update_time,
         }
     }
 }

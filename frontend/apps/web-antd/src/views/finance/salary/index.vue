@@ -582,6 +582,7 @@ async function handleBatchPay() {
 // 底薪配置表格列
 const configColumns = computed(() => [
   { title: $t('page.finance.salary.config.column.employeeId'), dataIndex: 'employeeId', width: 80 },
+  { title: $t('page.finance.salary.column.employeeName'), dataIndex: 'employeeName', width: 100 },
   {
     title: $t('page.finance.salary.config.column.year'),
     dataIndex: 'year',

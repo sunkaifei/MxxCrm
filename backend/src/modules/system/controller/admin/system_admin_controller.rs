@@ -27,7 +27,7 @@ use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserRegisterRequest, CheckUsernameResult, UserLoginVO, AdminModel};
 use crate::modules::system::model::admin::{ListQuery, TokenVO};
 use crate::modules::system::service::menu_service::find_user_role_keys;
-use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service, permission_cache_service};
+use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service, permission_cache_service, session_service};
 
 // 添加用户信息
 pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveRequest>) -> Result<HttpResponse> {
@@ -155,8 +155,10 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
 
     match JWTToken::new_with_expire(Some(user_info.id), user_info.user_name.clone(), user_role_keys.clone(), None, expire_secs).create_token(&config::section::<String>("server", "jwt_secret_admin", "".to_string())) {
         Ok(token) => {
+            let multi = permission_cache_service::is_multi_device_mode().await;
+
             // v1.1: 根据登录模式写入 token 缓存
-            if permission_cache_service::is_multi_device_mode().await {
+            if multi {
                 // 多设备模式：将 token 追加到用户 token 集合，并按最大设备数限制踢出最旧设备
                 let key = format!("user_tokens_{}", user_info.id);
                 let mut tokens: Vec<String> = CONTEXT.cache_service.get_json(&key).await.unwrap_or_default();
@@ -171,6 +173,24 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
             } else {
                 // 单设备模式：覆盖旧 token（现有逻辑不变）
                 CONTEXT.cache_service.set_string(&format!("user_{}", user_info.id.to_string().as_str()), &token.clone().as_str()).await?;
+            }
+
+            // v1.2: 同步写入 DB session 表（mem 模式重启后降级验证用）
+            // 单设备模式：先清掉该用户所有旧 DB session，确保旧 token 不能通过 DB 降级复活
+            // 多设备模式：直接追加（create_session 内部只清过期的）
+            if !multi {
+                if let Err(e) = session_service::get_session_store()
+                    .remove_session(&db, user_info.id)
+                    .await
+                {
+                    log::warn!("[登录] 清理旧 DB session 失败 user_id={}: {}", user_info.id, e);
+                }
+            }
+            if let Err(e) = session_service::get_session_store()
+                .create_session(&db, user_info.id, &token, &oper_ip.clone().unwrap_or_default(), expire_secs as i64)
+                .await
+            {
+                log::warn!("[登录] 写入 DB session 失败 user_id={}: {}", user_info.id, e);
             }
 
             // 记录登录成功日志（同步落库，登录响应延迟几毫秒可接受）

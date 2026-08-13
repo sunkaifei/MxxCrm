@@ -391,6 +391,34 @@
       "descriptionPlaceholder": "任务描述（可选）",
       "cronPlaceholder": "秒 分 时 日 月 周，如 0 0 2 1 * *",
       "cronFormatTip": "格式：秒 分 时 日 月 周（6字段），例如 0 0 2 1 * * = 每月1号02:00",
+      "cronBuilder": {
+        "title": "执行频率",
+        "manual": "手动输入表达式（高级）",
+        "preview": "生成的表达式",
+        "type": {
+          "everyMinute": "每隔几分钟",
+          "everyHour": "每隔几小时",
+          "everyDay": "每天",
+          "everyWeek": "每周",
+          "everyMonth": "每月"
+        },
+        "every": "每",
+        "minutes": "分钟",
+        "hours": "小时",
+        "day": "日",
+        "hour": "时",
+        "minute": "分",
+        "week": "星期",
+        "weeks": {
+          "1": "周一",
+          "2": "周二",
+          "3": "周三",
+          "4": "周四",
+          "5": "周五",
+          "6": "周六",
+          "0": "周日"
+        }
+      },
       "logEmpty": "暂无执行日志",
       "button": {
         "manage": "管理",
@@ -421,11 +449,14 @@
         "disabled": "已禁用",
         "success": "成功",
         "failed": "失败",
+        "running": "运行中",
+        "interrupted": "中断",
         "notRun": "未执行"
       },
       "triggerType": {
         "scheduled": "定时",
-        "manual": "手动"
+        "manual": "手动",
+        "rerun": "补跑"
       },
       "message": {
         "loadFailed": "加载失败",

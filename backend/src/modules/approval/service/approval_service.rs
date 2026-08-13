@@ -308,7 +308,7 @@ impl ApprovalService {
             business_title: instance.business_title.clone(),
             description: wl_comment,
             result: Some(result_val),
-            work_date: Some(chrono::Local::now().naive_local().date()),
+            work_date: Some(chrono::Utc::now().naive_utc().date()),
         };
         let _ = work_log_service::insert(db, &log_dto).await;
 
@@ -661,6 +661,32 @@ impl ApprovalService {
 
     // ==================== 审批增强功能 ====================
 
+    /// 公共校验：加载审批实例 + 状态校验 + 取当前节点信息
+    /// 6 个增强功能的共同前置逻辑，消除重复样板
+    async fn load_active_instance(
+        db: &DatabaseConnection,
+        instance_id: i64,
+        action_name: &str,
+    ) -> Result<(ApprovalInstanceVO, String, String)> {
+        let instance = ApprovalModel::find_instance_by_id(db, instance_id)
+            .await?
+            .ok_or_else(|| Error::from("审批实例不存在"))?;
+
+        if instance.status != 1 && instance.status != 2 {
+            return Err(Error::from(format!("当前审批状态不允许{}", action_name)));
+        }
+
+        let current_node_key = instance.current_node_key.clone().unwrap_or_default();
+        let current_node_name = instance
+            .flow_nodes
+            .iter()
+            .find(|n| n.node_key == current_node_key)
+            .map(|n| n.node_name.clone())
+            .unwrap_or_default();
+
+        Ok((instance, current_node_key, current_node_name))
+    }
+
     /// 取消（撤回）审批实例 - 仅发起人可操作
     /// action=7, 实例状态置为 5=已撤回
     pub async fn cancel_instance(
@@ -669,25 +695,15 @@ impl ApprovalService {
         operator_id: i64,
         operator_name: &str,
     ) -> Result<()> {
-        let instance = ApprovalModel::find_instance_by_id(db, req.instance_id).await?
-            .ok_or_else(|| Error::from("审批实例不存在"))?;
+        let (instance, current_node_key, current_node_name) =
+            Self::load_active_instance(db, req.instance_id, "撤回").await?;
 
         // 权限校验：仅发起人可撤回
         if instance.submitter_id != operator_id {
             return Err(Error::from("仅发起人可撤回审批"));
         }
 
-        // 状态校验：仅进行中(1/2)可撤回
-        if instance.status != 1 && instance.status != 2 {
-            return Err(Error::from("当前审批状态不允许撤回"));
-        }
-
         let cancel_reason = req.cancel_reason.clone().unwrap_or_default();
-        let current_node_key = instance.current_node_key.clone().unwrap_or_default();
-        let current_node_name = instance.flow_nodes.iter()
-            .find(|n| n.node_key == current_node_key)
-            .map(|n| n.node_name.clone())
-            .unwrap_or_default();
         let instance_id = req.instance_id;
         let operator_name = operator_name.to_string();
 
@@ -735,24 +751,14 @@ impl ApprovalService {
         operator_id: i64,
         operator_name: &str,
     ) -> Result<()> {
-        let instance = ApprovalModel::find_instance_by_id(db, req.instance_id).await?
-            .ok_or_else(|| Error::from("审批实例不存在"))?;
+        let (instance, current_node_key, current_node_name) =
+            Self::load_active_instance(db, req.instance_id, "退回").await?;
 
         // 权限校验：审批人必须在候选池中
         if !instance.candidate_approvers.contains(&operator_id) {
             return Err(Error::from("您不是当前节点的审批人"));
         }
 
-        // 状态校验
-        if instance.status != 1 && instance.status != 2 {
-            return Err(Error::from("当前审批状态不允许退回"));
-        }
-
-        let current_node_key = instance.current_node_key.clone().unwrap_or_default();
-        let current_node_name = instance.flow_nodes.iter()
-            .find(|n| n.node_key == current_node_key)
-            .map(|n| n.node_name.clone())
-            .unwrap_or_default();
         let inst_submitter_id = instance.submitter_id;
         let inst_submitter_name = instance.submitter_name.clone();
         let inst_business_type = instance.business_type.clone();
@@ -1048,24 +1054,13 @@ impl ApprovalService {
             return Err(Error::from("加签用户不能为空"));
         }
 
-        let instance = ApprovalModel::find_instance_by_id(db, req.instance_id).await?
-            .ok_or_else(|| Error::from("审批实例不存在"))?;
+        let (instance, current_node_key, current_node_name) =
+            Self::load_active_instance(db, req.instance_id, "加签").await?;
 
         // 权限校验：审批人必须在候选池中
         if !instance.candidate_approvers.contains(&operator_id) {
             return Err(Error::from("您不是当前节点的审批人"));
         }
-
-        // 状态校验
-        if instance.status != 1 && instance.status != 2 {
-            return Err(Error::from("当前审批状态不允许加签"));
-        }
-
-        let current_node_key = instance.current_node_key.clone().unwrap_or_default();
-        let current_node_name = instance.flow_nodes.iter()
-            .find(|n| n.node_key == current_node_key)
-            .map(|n| n.node_name.clone())
-            .unwrap_or_default();
 
         // 过滤掉已在候选池中的用户（避免重复）
         let new_users: Vec<i64> = req.target_user_ids.iter()
