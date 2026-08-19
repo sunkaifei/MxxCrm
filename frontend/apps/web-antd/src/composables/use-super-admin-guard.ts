@@ -25,9 +25,9 @@
 
 import { computed } from 'vue';
 
-import { Modal, message } from 'ant-design-vue';
-
 import { useUserStore } from '@vben/stores';
+
+import { message, Modal } from 'ant-design-vue';
 
 export function useSuperAdminGuard() {
   const userStore = useUserStore();

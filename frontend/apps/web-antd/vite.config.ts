@@ -1,20 +1,20 @@
-import { defineConfig } from '@vben/vite-config';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+import { defineConfig } from '@vben/vite-config';
 
 function getBackendPort(): number {
   try {
     const configPath = resolve(
-      __dirname,
+      import.meta.dirname,
       '../../../../backend/config/config.ini',
     );
-    const content = readFileSync(configPath, 'utf-8');
+    const content = readFileSync(configPath, 'utf8');
     const match = content.match(/^server_port\s*=\s*(\d+)/m);
     if (match) {
-      return parseInt(match[1], 10);
+      return Number.parseInt(match[1], 10);
     }
-  } catch {
-  }
+  } catch {}
   return 8080;
 }
 
@@ -22,7 +22,7 @@ const backendPort = getBackendPort();
 
 export default defineConfig(async () => {
   const vueI18nPath = resolve(
-    __dirname,
+    import.meta.dirname,
     '../../node_modules/.pnpm/vue-i18n@11.4.2_vue@3.5.34_typescript@6.0.3_/node_modules/vue-i18n/dist/vue-i18n.esm-bundler.js',
   );
   // monaco-editor@0.56 的 exports 字段对深层 worker 子路径映射有误
@@ -30,7 +30,10 @@ export default defineConfig(async () => {
   //  错误映射到 esm/vs/esm/vs/editor/editor.worker.js，路径重复）
   // 用 resolveId 钩子直接把 monaco-editor/esm/ 子路径映射到文件系统绝对路径，
   // 绕过 package.json exports 解析。比 resolve.alias 更可靠（alias 对 ?worker 后缀兼容性差）
-  const monacoEsmDir = resolve(__dirname, 'node_modules/monaco-editor/esm');
+  const monacoEsmDir = resolve(
+    import.meta.dirname,
+    'node_modules/monaco-editor/esm',
+  );
   return {
     application: {
       devtools: false,

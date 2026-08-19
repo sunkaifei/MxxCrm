@@ -1,23 +1,16 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { Page } from '@vben/common-ui';
-import {
-  LucideLoader2,
-  LucideGlobe,
-} from '@vben/icons';
 
-import {
-  Button,
-  Card,
-  message,
-  Alert,
-} from 'ant-design-vue';
+import { Page } from '@vben/common-ui';
+import { LucideGlobe, LucideLoader2 } from '@vben/icons';
+
+import { Alert, Button, Card, message } from 'ant-design-vue';
 
 import { collectorApi } from '#/api/core/website/collector';
 
 // --- State ---
 const running = ref(false);
-const lastResult = ref<{ success: boolean; message: string } | null>(null);
+const lastResult = ref<null | { message: string; success: boolean }>(null);
 
 // --- Methods ---
 async function handleRun() {
@@ -32,12 +25,12 @@ async function handleRun() {
       message: `采集完成，本次共采集 ${count} 篇文章`,
     };
     message.success(`采集完成，共 ${count} 篇`);
-  } catch (e: any) {
+  } catch (error: any) {
     lastResult.value = {
       success: false,
-      message: e?.message || '采集执行失败',
+      message: error?.message || '采集执行失败',
     };
-    message.error(e?.message || '采集执行失败');
+    message.error(error?.message || '采集执行失败');
   } finally {
     running.value = false;
   }
@@ -55,8 +48,9 @@ async function handleRun() {
             <div>
               <h3>内容采集器</h3>
               <p>
-                根据采集规则配置，定时从外部源（RSS/Atom feed）抓取内容并自动发布到文章系统。
-                采集规则需在数据库中配置 <code>mxx_website_collect_rule</code> 表。
+                根据采集规则配置，定时从外部源（RSS/Atom
+                feed）抓取内容并自动发布到文章系统。 采集规则需在数据库中配置
+                <code>mxx_website_collect_rule</code> 表。
               </p>
             </div>
           </div>
@@ -78,8 +72,10 @@ async function handleRun() {
             @click="handleRun"
           >
             <template #icon>
-              <component :is="running ? LucideLoader2 : LucideLoader2"
-                :class="{ spinning: running }" />
+              <component
+                :is="running ? LucideLoader2 : LucideLoader2"
+                :class="{ spinning: running }"
+              />
             </template>
             {{ running ? '采集中...' : '开始采集' }}
           </Button>
@@ -101,7 +97,9 @@ async function handleRun() {
         <div class="info-content">
           <h4>使用说明</h4>
           <ul>
-            <li>采集规则需在数据库 <code>mxx_website_collect_rule</code> 表中配置</li>
+            <li>
+              采集规则需在数据库 <code>mxx_website_collect_rule</code> 表中配置
+            </li>
             <li>支持 RSS 2.0 / Atom feed 格式采集</li>
             <li>系统定时任务会自动调用采集器，也可手动触发</li>
             <li>采集的文章会按规则配置自动归入指定栏目</li>
@@ -115,8 +113,8 @@ async function handleRun() {
 
 <style scoped>
 .collector-page {
-  padding: 24px;
   max-width: 1000px;
+  padding: 24px;
   margin: 0 auto;
 }
 
@@ -127,15 +125,15 @@ async function handleRun() {
 
 .guide-header {
   display: flex;
-  align-items: flex-start;
   gap: 16px;
+  align-items: flex-start;
 }
 
 .guide-icon {
-  font-size: 40px;
-  color: #1677ff;
   flex-shrink: 0;
   margin-top: 4px;
+  font-size: 40px;
+  color: #1677ff;
 }
 
 .guide-content h3 {
@@ -146,16 +144,16 @@ async function handleRun() {
 
 .guide-content p {
   margin: 0;
-  color: #595959;
   font-size: 14px;
   line-height: 1.6;
+  color: #595959;
 }
 
 .guide-content code {
-  background: #f5f5f5;
   padding: 2px 8px;
-  border-radius: 4px;
   font-size: 13px;
+  background: #f5f5f5;
+  border-radius: 4px;
 }
 
 .action-card {
@@ -186,8 +184,13 @@ async function handleRun() {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .result-alert {
@@ -195,8 +198,8 @@ async function handleRun() {
 }
 
 .info-card {
-  border-radius: 8px;
   background: #fafafa;
+  border-radius: 8px;
 }
 
 .info-content h4 {
@@ -206,17 +209,17 @@ async function handleRun() {
 }
 
 .info-content ul {
-  margin: 0;
   padding-left: 20px;
+  margin: 0;
   font-size: 14px;
-  color: #595959;
   line-height: 2;
+  color: #595959;
 }
 
 .info-content code {
-  background: #f5f5f5;
   padding: 1px 6px;
-  border-radius: 3px;
   font-size: 13px;
+  background: #f5f5f5;
+  border-radius: 3px;
 }
 </style>

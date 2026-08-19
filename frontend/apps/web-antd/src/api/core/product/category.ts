@@ -1,11 +1,16 @@
-import { requestClient } from '#/api/request';
 import { useAccessStore } from '@vben/stores';
+
+import { requestClient } from '#/api/request';
+
+type PageParams = Record<string, any>;
 
 export const getCategoryListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/product/category/list', { params });
 };
 export const getCategoryInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/product/category/info', { params: { id } });
+  return requestClient.get('/api/system/product/category/info', {
+    params: { id },
+  });
 };
 export const createCategoryApi = async (param: any) => {
   return requestClient.post('/api/system/product/category/save', param);

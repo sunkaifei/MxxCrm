@@ -47,7 +47,10 @@ onMounted(async () => {
       valueFormatter: (val: any) => `¥${Number(val).toLocaleString()}`,
     },
     xAxis: {
-      data: xData.length > 0 ? xData : Array.from({ length: 12 }).map((_, i) => `${i + 1}月`),
+      data:
+        xData.length > 0
+          ? xData
+          : Array.from({ length: 12 }).map((_, i) => `${i + 1}月`),
       type: 'category',
     },
     yAxis: {

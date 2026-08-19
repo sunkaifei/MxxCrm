@@ -1,4 +1,5 @@
 import { EOL } from 'node:os';
+
 import { dateUtil, readPackageJSON } from '@vben/node-utils';
 async function viteLicensePlugin(root = process.cwd()) {
   const {

@@ -1,18 +1,19 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 
+import { formatDateTime } from '@vben/utils';
+
 import {
   Card,
   Descriptions,
   DescriptionsItem,
-  Table,
-  Tag,
-  Tabs,
-  TabPane,
   Empty,
   Skeleton,
+  Table,
+  TabPane,
+  Tabs,
+  Tag,
 } from 'ant-design-vue';
-import { formatDateTime } from '@vben/utils';
 
 import { getRefundInfoApi } from '#/api';
 
@@ -90,10 +91,28 @@ const paymentMethodLabelMap: Record<number, string> = {
 };
 
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
-  { title: '产品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
+  {
+    title: '#',
+    width: 45,
+    key: 'seq',
+    customRender: ({ index }: any) => index + 1,
+    align: 'center' as const,
+  },
+  {
+    title: '产品名称',
+    dataIndex: 'productName',
+    key: 'productName',
+    width: 200,
+    ellipsis: true,
+  },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 120 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 60,
+    align: 'center' as const,
+  },
   {
     title: '退货数量',
     dataIndex: 'refundQty',
@@ -116,13 +135,18 @@ const itemColumns = [
     key: 'refundAmount',
     width: 120,
     align: 'right' as const,
-    customRender: ({ text }: any) =>
-      `¥ ${Number(text || 0).toFixed(2)}`,
+    customRender: ({ text }: any) => `¥ ${Number(text || 0).toFixed(2)}`,
   },
 ];
 
 const paymentColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
+  {
+    title: '#',
+    width: 45,
+    key: 'seq',
+    customRender: ({ index }: any) => index + 1,
+    align: 'center' as const,
+  },
   { title: '退款单号', dataIndex: 'paymentNo', key: 'paymentNo', width: 170 },
   {
     title: '退款方式',
@@ -146,9 +170,27 @@ const paymentColumns = [
     width: 160,
     customRender: ({ text }: any) => (text ? formatDateTime(text) : '-'),
   },
-  { title: '退款账号', dataIndex: 'paymentAccount', key: 'paymentAccount', width: 150, ellipsis: true },
-  { title: '第三方交易号', dataIndex: 'transactionNo', key: 'transactionNo', width: 150, ellipsis: true },
-  { title: '备注', dataIndex: 'remark', key: 'remark', width: 200, ellipsis: true },
+  {
+    title: '退款账号',
+    dataIndex: 'paymentAccount',
+    key: 'paymentAccount',
+    width: 150,
+    ellipsis: true,
+  },
+  {
+    title: '第三方交易号',
+    dataIndex: 'transactionNo',
+    key: 'transactionNo',
+    width: 150,
+    ellipsis: true,
+  },
+  {
+    title: '备注',
+    dataIndex: 'remark',
+    key: 'remark',
+    width: 200,
+    ellipsis: true,
+  },
 ];
 
 async function loadDetail(id: number) {
@@ -159,8 +201,8 @@ async function loadDetail(id: number) {
     detail.value = data;
     items.value = data.items || [];
     payments.value = data.payments || [];
-  } catch (e) {
-    console.error('[退货单详情] 加载失败:', e);
+  } catch (error) {
+    console.error('[退货单详情] 加载失败:', error);
     detail.value = {};
     items.value = [];
     payments.value = [];
@@ -189,18 +231,30 @@ watch(
             <div class="text-lg font-semibold">
               {{ detail.refundNo || '-' }}
             </div>
-            <Tag :color="refundStatusColorMap[detail.refundStatus] ?? 'default'">
+            <Tag
+              :color="refundStatusColorMap[detail.refundStatus] ?? 'default'"
+            >
               {{ refundStatusLabelMap[detail.refundStatus] ?? '-' }}
             </Tag>
-            <Tag :color="approvalStatusColorMap[detail.approvalStatus] ?? 'default'">
+            <Tag
+              :color="
+                approvalStatusColorMap[detail.approvalStatus] ?? 'default'
+              "
+            >
               审批：{{ approvalStatusLabelMap[detail.approvalStatus] ?? '-' }}
             </Tag>
             <Tag color="blue">
-              {{ refundTypeLabelMap[detail.refundType] || detail.refundType || '-' }}
+              {{
+                refundTypeLabelMap[detail.refundType] ||
+                detail.refundType ||
+                '-'
+              }}
             </Tag>
           </div>
           <div class="text-sm text-gray-500">
-            创建时间：{{ detail.createTime ? formatDateTime(detail.createTime) : '-' }}
+            创建时间：{{
+              detail.createTime ? formatDateTime(detail.createTime) : '-'
+            }}
           </div>
         </div>
       </Card>
@@ -241,16 +295,24 @@ watch(
           <Card title="金额信息" class="mb-4" :bordered="true">
             <Descriptions :column="2" bordered size="small">
               <DescriptionsItem label="退货总金额">
-                <span class="font-medium">¥ {{ Number(detail.totalAmount ?? 0).toFixed(2) }}</span>
+                <span class="font-medium"
+                  >¥ {{ Number(detail.totalAmount ?? 0).toFixed(2) }}</span
+                >
               </DescriptionsItem>
               <DescriptionsItem label="折让金额">
-                <span class="text-orange-500">¥ {{ Number(detail.restockingFee ?? 0).toFixed(2) }}</span>
+                <span class="text-orange-500"
+                  >¥ {{ Number(detail.restockingFee ?? 0).toFixed(2) }}</span
+                >
               </DescriptionsItem>
               <DescriptionsItem label="应退金额">
-                <span class="font-medium text-red-500">¥ {{ Number(detail.refundAmount ?? 0).toFixed(2) }}</span>
+                <span class="font-medium text-red-500"
+                  >¥ {{ Number(detail.refundAmount ?? 0).toFixed(2) }}</span
+                >
               </DescriptionsItem>
               <DescriptionsItem label="已退金额">
-                <span class="font-medium text-green-500">¥ {{ Number(detail.refundedAmount ?? 0).toFixed(2) }}</span>
+                <span class="font-medium text-green-500"
+                  >¥ {{ Number(detail.refundedAmount ?? 0).toFixed(2) }}</span
+                >
               </DescriptionsItem>
             </Descriptions>
           </Card>
@@ -278,8 +340,16 @@ watch(
           <Card title="质检信息" class="mb-4" :bordered="true">
             <Descriptions :column="2" bordered size="small">
               <DescriptionsItem label="质检结果">
-                <Tag :color="qualityCheckResultColorMap[detail.qualityCheckResult] ?? 'default'">
-                  {{ qualityCheckResultLabelMap[detail.qualityCheckResult] ?? '未质检' }}
+                <Tag
+                  :color="
+                    qualityCheckResultColorMap[detail.qualityCheckResult] ??
+                    'default'
+                  "
+                >
+                  {{
+                    qualityCheckResultLabelMap[detail.qualityCheckResult] ??
+                    '未质检'
+                  }}
                 </Tag>
               </DescriptionsItem>
               <DescriptionsItem label="质检备注">
@@ -294,13 +364,17 @@ watch(
                 {{ detail.createBy || '-' }}
               </DescriptionsItem>
               <DescriptionsItem label="创建时间">
-                {{ detail.createTime ? formatDateTime(detail.createTime) : '-' }}
+                {{
+                  detail.createTime ? formatDateTime(detail.createTime) : '-'
+                }}
               </DescriptionsItem>
               <DescriptionsItem label="更新人ID">
                 {{ detail.updateBy || '-' }}
               </DescriptionsItem>
               <DescriptionsItem label="更新时间">
-                {{ detail.updateTime ? formatDateTime(detail.updateTime) : '-' }}
+                {{
+                  detail.updateTime ? formatDateTime(detail.updateTime) : '-'
+                }}
               </DescriptionsItem>
             </Descriptions>
           </Card>
@@ -361,8 +435,15 @@ watch(
                     </Table.SummaryCell>
                     <Table.SummaryCell :index="3" :col-span="5">
                       <span class="text-gray-500 ml-2">
-                        应退：¥ {{ Number(detail.refundAmount ?? 0).toFixed(2) }}，
-                        待退：¥ {{ (Number(detail.refundAmount ?? 0) - Number(detail.refundedAmount ?? 0)).toFixed(2) }}
+                        应退：¥
+                        {{ Number(detail.refundAmount ?? 0).toFixed(2) }}，
+                        待退：¥
+                        {{
+                          (
+                            Number(detail.refundAmount ?? 0) -
+                            Number(detail.refundedAmount ?? 0)
+                          ).toFixed(2)
+                        }}
                       </span>
                     </Table.SummaryCell>
                   </Table.SummaryRow>

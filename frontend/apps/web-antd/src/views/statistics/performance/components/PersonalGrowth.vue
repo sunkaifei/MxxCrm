@@ -1,13 +1,12 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue';
-
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
+import { onMounted, ref } from 'vue';
+
 import { IconifyIcon } from '@vben/icons';
+import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { Card, Empty, Spin, Statistic } from 'ant-design-vue';
-
-import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { getPersonalGrowthApi } from '#/api';
 
@@ -19,8 +18,8 @@ const { renderEcharts: renderGrowth } = useEcharts(growthChartRef);
 
 function formatCurrency(val?: number) {
   if (!val) return '¥0';
-  if (val >= 100000000) return `¥${(val / 100000000).toFixed(2)}亿`;
-  if (val >= 10000) return `¥${(val / 10000).toFixed(1)}万`;
+  if (val >= 100_000_000) return `¥${(val / 100_000_000).toFixed(2)}亿`;
+  if (val >= 10_000) return `¥${(val / 10_000).toFixed(1)}万`;
   return `¥${val.toLocaleString()}`;
 }
 
@@ -127,7 +126,7 @@ onMounted(() => loadData());
           <Statistic
             title="累计合同数"
             :value="data.totalContractCount || 0"
-            :suffix="'份'"
+            suffix="份"
             :value-style="{ color: '#52c41a' }"
           />
           <Statistic

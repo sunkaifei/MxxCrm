@@ -1,21 +1,32 @@
 <script lang="ts" setup>
+import { computed, nextTick, ref } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { ref, computed, nextTick } from 'vue';
+
 import {
+  Button,
+  Divider,
+  Empty,
+  message,
+  Radio,
+  Space,
+  Tree,
+} from 'ant-design-vue';
+
+import {
+  getDeptTreeApi,
   getMenuOptionsApi,
-  updateRoleAuthApi,
-  updateRoleApi,
+  getRoleDeptIdsApi,
   getRoleInfoApi,
   getRoleMenuIdsApi,
-  getRoleDeptIdsApi,
+  updateRoleApi,
+  updateRoleAuthApi,
   updateRoleDeptApi,
-  getDeptTreeApi,
 } from '#/api';
 import { $t } from '#/locales';
-import { Tree, Button, Space, Divider, Radio, Empty, message } from 'ant-design-vue';
 
 const data = ref();
-const activeSection = ref<'menu' | 'dataScope'>('menu');
+const activeSection = ref<'dataScope' | 'menu'>('menu');
 
 // ---------- 菜单权限 ----------
 const treeData = ref<any[]>([]);
@@ -68,10 +79,22 @@ const deptCheckedKeys = ref<string[]>([]);
 const deptExpandedKeys = ref<string[]>([]);
 
 const dataScopeOptions = [
-  { value: 1, label: '全部数据', desc: '可查看系统中所有业务数据，不受部门和个人限制' },
+  {
+    value: 1,
+    label: '全部数据',
+    desc: '可查看系统中所有业务数据，不受部门和个人限制',
+  },
   { value: 2, label: '自定义数据', desc: '可查看指定部门及以下的业务数据' },
-  { value: 3, label: '本部门数据', desc: '只能查看所在部门所有成员负责的业务数据' },
-  { value: 4, label: '本部门及以下', desc: '可查看本部门及下属部门所有成员的业务数据' },
+  {
+    value: 3,
+    label: '本部门数据',
+    desc: '只能查看所在部门所有成员负责的业务数据',
+  },
+  {
+    value: 4,
+    label: '本部门及以下',
+    desc: '可查看本部门及下属部门所有成员的业务数据',
+  },
   { value: 5, label: '仅本人数据', desc: '只能查看自己负责的业务数据' },
 ];
 
@@ -95,9 +118,10 @@ const getAllDeptKeys = (data: any[]): string[] => {
 
 const buildDeptTreeData = (nodes: any[]): any[] => {
   return nodes.map((node) => {
-    const children = node.children && node.children.length > 0
-      ? buildDeptTreeData(node.children)
-      : undefined;
+    const children =
+      node.children && node.children.length > 0
+        ? buildDeptTreeData(node.children)
+        : undefined;
     return {
       title: node.label,
       key: String(node.value),
@@ -118,12 +142,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
     // 加载当前用户可授权的菜单树（后端 /menu/options 已按用户权限过滤）
     const menuList = await getMenuOptionsApi();
     // 菜单名 i18n（目录级 key 带 .title fallback）
-    const translateName = (key?: string | null): string => {
+    const translateName = (key?: null | string): string => {
       if (!key) return '';
       const direct = $t(key);
       if (direct !== key && !direct.startsWith('[object ')) return direct;
       const withTitle = $t(`${key}.title`);
-      return withTitle !== `${key}.title` ? withTitle : key;
+      return withTitle === `${key}.title` ? key : withTitle;
     };
     // 递归翻译菜单名称（包含 BUTTON 类型的权限按钮）
     const translateMenu = (items: any[]): any[] => {
@@ -140,13 +164,18 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     // 加载部门树
     const deptResult = await getDeptTreeApi();
-    const deptList = Array.isArray(deptResult) ? deptResult : deptResult?.data || [];
+    const deptList = Array.isArray(deptResult)
+      ? deptResult
+      : deptResult?.data || [];
     deptTreeData.value = buildDeptTreeData(deptList);
     deptExpandedKeys.value = getAllDeptKeys(deptTreeData.value);
 
     if (data.value?.row?.id) {
       const roleId = Number(data.value.row.id);
-      const isSuperAdmin = roleId === 1 || data.value.row.roleKey === 'super_admin' || data.value.row.roleKey === 'admin';
+      const isSuperAdmin =
+        roleId === 1 ||
+        data.value.row.roleKey === 'super_admin' ||
+        data.value.row.roleKey === 'admin';
 
       // 从API加载角色详情获取最新的dataScope
       try {
@@ -158,7 +187,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
           }
         }
       } catch {
-        dataScopeValue.value = isSuperAdmin ? 1 : (data.value.row.dataScope ?? 5);
+        dataScopeValue.value = isSuperAdmin
+          ? 1
+          : (data.value.row.dataScope ?? 5);
       }
 
       // 超级管理员默认全部数据权限
@@ -171,7 +202,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
         try {
           const roleDeptIds = await getRoleDeptIdsApi(roleId);
           if (roleDeptIds) {
-            const deptKeys = (Array.isArray(roleDeptIds) ? roleDeptIds : []).map(String);
+            const deptKeys = (
+              Array.isArray(roleDeptIds) ? roleDeptIds : []
+            ).map(String);
             setTimeout(() => {
               deptCheckedKeys.value = deptKeys;
             }, 100);
@@ -224,7 +257,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       return;
     }
     const roleId = Number(data.value.row.id);
-    const isSuperAdmin = roleId === 1 || data.value.row.roleKey === 'super_admin' || data.value.row.roleKey === 'admin';
+    const isSuperAdmin =
+      roleId === 1 ||
+      data.value.row.roleKey === 'super_admin' ||
+      data.value.row.roleKey === 'admin';
     setLoading(true);
     try {
       // 保存菜单权限（超级管理员后端会直接返回成功，不做实际修改）
@@ -232,7 +268,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
       let checkedIds: string[] = [];
       if (Array.isArray(checked)) {
         checkedIds = checked;
-      } else if (checked && typeof checked === 'object' && 'checked' in checked) {
+      } else if (
+        checked &&
+        typeof checked === 'object' &&
+        'checked' in checked
+      ) {
         checkedIds = (checked as { checked: string[] }).checked || [];
       }
       let authId: string[] = [...checkedIds];
@@ -273,8 +313,8 @@ function setLoading(loading: boolean) {
       <!-- 权限切换标签 -->
       <div class="flex gap-4 border-b border-gray-200 pb-3">
         <button
+          class="relative px-4 py-2 text-sm font-medium transition-colors"
           :class="[
-            'relative px-4 py-2 text-sm font-medium transition-colors',
             activeSection === 'menu'
               ? 'text-primary after:absolute after:bottom-[-3px] after:left-0 after:h-[2px] after:w-full after:bg-primary'
               : 'text-gray-500 hover:text-gray-700',
@@ -284,8 +324,8 @@ function setLoading(loading: boolean) {
           <span class="mr-1.5">🔐</span> 菜单权限
         </button>
         <button
+          class="relative px-4 py-2 text-sm font-medium transition-colors"
           :class="[
-            'relative px-4 py-2 text-sm font-medium transition-colors',
             activeSection === 'dataScope'
               ? 'text-primary after:absolute after:bottom-[-3px] after:left-0 after:h-[2px] after:w-full after:bg-primary'
               : 'text-gray-500 hover:text-gray-700',
@@ -302,16 +342,26 @@ function setLoading(loading: boolean) {
           配置角色可访问的功能菜单，勾选的菜单及其子菜单将被授权
         </div>
         <Space class="mb-3">
-          <Button size="small" @click="expandAll">{{ $t('ui.tree.expand_all') }}</Button>
-          <Button size="small" @click="collapseAll">{{ $t('ui.tree.collapse_all') }}</Button>
-          <Button size="small" type="primary" ghost @click="checkAll">{{ $t('ui.tree.select_all') }}</Button>
-          <Button size="small" @click="uncheckAll">{{ $t('ui.tree.unselect_all') }}</Button>
+          <Button size="small" @click="expandAll">
+            {{ $t('ui.tree.expand_all') }}
+          </Button>
+          <Button size="small" @click="collapseAll">
+            {{ $t('ui.tree.collapse_all') }}
+          </Button>
+          <Button size="small" type="primary" ghost @click="checkAll">
+            {{ $t('ui.tree.select_all') }}
+          </Button>
+          <Button size="small" @click="uncheckAll">
+            {{ $t('ui.tree.unselect_all') }}
+          </Button>
         </Space>
-        <div class="max-h-[420px] overflow-y-auto border border-gray-100 rounded-lg p-3">
+        <div
+          class="max-h-[420px] overflow-y-auto border border-gray-100 rounded-lg p-3"
+        >
           <Tree
             ref="treeRef"
-            v-model:expandedKeys="expandedKeys"
-            v-model:checkedKeys="checkedKeys"
+            v-model:expanded-keys="expandedKeys"
+            v-model:checked-keys="checkedKeys"
             :tree-data="treeData"
             checkable
             :check-strictly="true"
@@ -319,14 +369,16 @@ function setLoading(loading: boolean) {
             class="w-full"
           >
             <template #title="{ data: item }">
-              <span class="text-sm">{{ $t(item.meta?.name || item.name) }}</span>
+              <span class="text-sm">{{
+                $t(item.meta?.name || item.name)
+              }}</span>
             </template>
           </Tree>
           <div
             v-if="treeData.length === 0"
             class="py-12 text-center text-gray-400"
           >
-            <Empty :description="'暂无菜单数据'" />
+            <Empty description="暂无菜单数据" />
           </div>
         </div>
       </div>
@@ -337,16 +389,13 @@ function setLoading(loading: boolean) {
           配置角色可查看的业务数据范围，数据权限与菜单权限共同决定用户的最终可见范围
         </div>
 
-        <Radio.Group
-          v-model:value="dataScopeValue"
-          class="w-full"
-        >
+        <Radio.Group v-model:value="dataScopeValue" class="w-full">
           <div class="space-y-3">
             <div
               v-for="opt in dataScopeOptions"
               :key="opt.value"
+              class="relative flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all"
               :class="[
-                'relative flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all',
                 dataScopeValue === opt.value
                   ? 'border-primary bg-primary/5 shadow-sm'
                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
@@ -365,14 +414,13 @@ function setLoading(loading: boolean) {
         <!-- 自定义数据权限：部门选择 -->
         <div v-if="showDeptTree" class="mt-4">
           <Divider class="my-3" />
-          <div class="mb-2 text-sm font-medium text-gray-700">
-            选择可见部门
-          </div>
-          <div class="max-h-[280px] overflow-y-auto border border-gray-100 rounded-lg p-3">
+          <div class="mb-2 text-sm font-medium text-gray-700">选择可见部门</div>
+          <div
+            class="max-h-[280px] overflow-y-auto border border-gray-100 rounded-lg p-3"
+          >
             <Tree
-              ref="deptTreeRef"
-              v-model:expandedKeys="deptExpandedKeys"
-              v-model:checkedKeys="deptCheckedKeys"
+              v-model:expanded-keys="deptExpandedKeys"
+              v-model:checked-keys="deptCheckedKeys"
               :tree-data="deptTreeData"
               checkable
               :check-strictly="false"
@@ -383,7 +431,7 @@ function setLoading(loading: boolean) {
               v-if="deptTreeData.length === 0"
               class="py-8 text-center text-gray-400"
             >
-              <Empty :description="'暂无部门数据'" />
+              <Empty description="暂无部门数据" />
             </div>
           </div>
         </div>

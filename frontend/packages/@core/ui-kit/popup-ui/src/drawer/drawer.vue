@@ -36,7 +36,7 @@ import { ELEMENT_ID_MAIN_CONTENT } from '@vben-core/shared/constants';
 import { globalShareState } from '@vben-core/shared/global-state';
 import { cn } from '@vben-core/shared/utils';
 
-interface Props extends DrawerProps {
+interface Props extends /* @vue-ignore */ DrawerProps {
   drawerApi?: ExtendedDrawerApi;
 }
 

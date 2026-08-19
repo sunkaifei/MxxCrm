@@ -18,12 +18,15 @@ export interface NotificationDTO {
 }
 
 export const getNotificationListApi = async (params: {
+  isRead?: boolean;
   page: number;
   pageSize: number;
   type?: number;
-  isRead?: boolean;
 }) => {
-  return requestClient.get<PageResult<NotificationDTO>>('/api/system/my-notification/list', { params });
+  return requestClient.get<PageResult<NotificationDTO>>(
+    '/api/system/my-notification/list',
+    { params },
+  );
 };
 
 export const readNotificationApi = async (data: { id: string }) => {

@@ -13,26 +13,25 @@ import { computed, h, ref, watch } from 'vue';
 import { LucideSearch } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
-import {
-  Button,
-  Input,
-  Modal,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Input, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getContactListApi } from '#/api/core/crm/contact';
 
-const props = withDefaults(defineProps<{
-  /** 弹窗是否可见 */
-  visible: boolean;
-  /** 按客户ID过滤联系人（可选） */
-  customerId?: number | undefined;
-  /** 弹窗宽度 */
-  width?: string | number;
-}>(), {
-  width: '860px',
-});
+const props = withDefaults(
+  defineProps<{
+    /** 按客户ID过滤联系人（可选） */
+    customerId?: number | undefined;
+    /** 弹窗是否可见 */
+    visible: boolean;
+    /** 弹窗宽度 */
+    width?: number | string;
+  }>(),
+  {
+    customerId: undefined,
+    width: '860px',
+  },
+);
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
@@ -50,10 +49,14 @@ const keywords = ref('');
 
 // 角色映射
 const roleLabelMap: Record<number, string> = {
-  1: '首要', 2: '普通', 3: '其他',
+  1: '首要',
+  2: '普通',
+  3: '其他',
 };
 const roleColorMap: Record<number, string> = {
-  1: 'success', 2: 'default', 3: 'default',
+  1: 'success',
+  2: 'default',
+  3: 'default',
 };
 
 const gridOptions: VxeGridProps = {
@@ -61,7 +64,7 @@ const gridOptions: VxeGridProps = {
   pagerConfig: {},
   height: 420,
   cellConfig: { isHover: true } as any,
-  rowConfig: { height: 'auto' },
+  rowConfig: { height: 'auto' } as any,
   stripe: true,
 
   proxyConfig: {
@@ -81,17 +84,36 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { title: '#', type: 'seq', width: 50 },
-    { title: '姓名', field: 'name', width: 120, align: 'left', slots: { default: 'nameSlot' } },
+    {
+      title: '姓名',
+      field: 'name',
+      width: 120,
+      align: 'left',
+      slots: { default: 'nameSlot' },
+    },
     { title: '当前公司', field: 'companyName', minWidth: 180, align: 'left' },
     { title: '职位', field: 'title', width: 120 },
     {
-      title: '角色', field: 'roleType', width: 80, align: 'center', slots: { default: 'roleSlot' },
+      title: '角色',
+      field: 'roleType',
+      width: 80,
+      align: 'center',
+      slots: { default: 'roleSlot' },
     },
     { title: '手机', field: 'mobile', width: 130 },
     { title: '邮箱', field: 'email', width: 180 },
-    { title: '创建时间', field: 'createTime', width: 150, slots: { default: 'createdAt' } },
     {
-      title: '操作', field: 'action', fixed: 'right', slots: { default: 'action' }, width: 80,
+      title: '创建时间',
+      field: 'createTime',
+      width: 150,
+      slots: { default: 'createdAt' },
+    },
+    {
+      title: '操作',
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 80,
     },
   ],
 };
@@ -148,17 +170,24 @@ watch([() => props.visible, () => props.customerId], ([visible]) => {
         @press-enter="handleSearch"
       >
         <template #prefix>
-          <LucideSearch class="w-4 h-4" style="color: hsl(var(--muted-foreground))" />
+          <LucideSearch
+            class="w-4 h-4"
+            style="color: hsl(var(--muted-foreground))"
+          />
         </template>
       </Input>
-      <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+      <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">
+        搜索
+      </Button>
       <Button @click="handleReset">重置</Button>
     </div>
 
     <!-- 联系人列表表格 -->
     <Grid @row-dblclick="handleRowDblClick">
       <template #nameSlot="{ row }">
-        <span style="color: hsl(var(--primary))" class="font-medium">{{ row.name || '-' }}</span>
+        <span style="color: hsl(var(--primary))" class="font-medium">{{
+          row.name || '-'
+        }}</span>
       </template>
 
       <template #roleSlot="{ row }">
@@ -172,11 +201,16 @@ watch([() => props.visible, () => props.customerId], ([visible]) => {
       </template>
 
       <template #action="{ row }">
-        <Button type="primary" size="small" @click="handleSelect(row)">选择</Button>
+        <Button type="primary" size="small" @click="handleSelect(row)">
+          选择
+        </Button>
       </template>
     </Grid>
 
-    <div class="mt-2 text-xs text-right" style="color: hsl(var(--muted-foreground) / 0.6)">
+    <div
+      class="mt-2 text-xs text-right"
+      style="color: hsl(var(--muted-foreground) / 60%)"
+    >
       提示：双击行可快速选择
     </div>
   </Modal>
@@ -187,7 +221,8 @@ watch([() => props.visible, () => props.customerId], ([visible]) => {
 :deep(.vxe-table--body-wrapper) {
   cursor: pointer;
 }
+
 :deep(.vxe-table--body-wrapper .vxe-body--row:hover td) {
-  background-color: hsl(var(--primary) / 0.06) !important;
+  background-color: hsl(var(--primary) / 6%) !important;
 }
 </style>

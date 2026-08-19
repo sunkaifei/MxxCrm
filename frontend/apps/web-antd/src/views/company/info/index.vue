@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
@@ -15,11 +15,11 @@ import {
   Input,
   message,
   Modal,
-  Textarea,
   Popconfirm,
   Select,
   Table,
   Tag,
+  Textarea,
 } from 'ant-design-vue';
 
 import {
@@ -33,7 +33,9 @@ import {
 const accessStore = useAccessStore();
 
 // 通过权限码判断是否有编辑权限（超管拥有 company:info:edit 权限）
-const canEdit = computed(() => accessStore.hasAccessCode('company:info:update'));
+const canEdit = computed(() =>
+  accessStore.hasAccessCode('company:info:update'),
+);
 
 const loading = ref(false);
 const editMode = ref(false); // 编辑模式开关
@@ -70,7 +72,7 @@ const maskedLegalPhone = computed(() => {
   if (canEdit.value) return phone;
   const str = String(phone);
   if (str.length < 7) return str;
-  return str.slice(0, 3) + '****' + str.slice(-4);
+  return `${str.slice(0, 3)}****${str.slice(-4)}`;
 });
 
 // 加载企业信息
@@ -95,8 +97,8 @@ const handleSaveInfo = async () => {
     message.success('保存成功');
     editMode.value = false;
     loadCompanyInfo();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 };
 
@@ -141,8 +143,8 @@ const handleSaveAccount = async () => {
     message.success('保存成功');
     accountModalVisible.value = false;
     loadCompanyInfo();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 };
 
@@ -151,8 +153,8 @@ const handleDeleteAccount = async (id: number) => {
     await deleteCompanyAccountApi([id]);
     message.success('删除成功');
     loadCompanyInfo();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 };
 
@@ -251,11 +253,7 @@ onMounted(() => {
       </Descriptions>
 
       <!-- 编辑模式 -->
-      <Form
-        v-else
-        :label-col="{ span: 6 }"
-        :wrapper-col="{ span: 16 }"
-      >
+      <Form v-else :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
         <FormItem label="企业名称">
           <Input
             v-model:value="companyInfo.companyName"
@@ -348,11 +346,7 @@ onMounted(() => {
         <span>银行账户信息</span>
       </template>
       <template #extra>
-        <Button
-          v-if="canEdit"
-          type="primary"
-          @click="handleAddAccount"
-        >
+        <Button v-if="canEdit" type="primary" @click="handleAddAccount">
           新增账户
         </Button>
       </template>
@@ -443,10 +437,7 @@ onMounted(() => {
         </FormItem>
         <FormItem :wrapper-col="{ offset: 6, span: 16 }">
           <Button type="primary" @click="handleSaveAccount">确定</Button>
-          <Button
-            style="margin-left: 8px"
-            @click="accountModalVisible = false"
-          >
+          <Button style="margin-left: 8px" @click="accountModalVisible = false">
             取消
           </Button>
         </FormItem>

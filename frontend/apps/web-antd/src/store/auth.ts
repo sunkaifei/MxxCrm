@@ -10,7 +10,13 @@ import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { notification } from 'ant-design-vue';
 import { defineStore } from 'pinia';
 
-import { getAccessCodesApi, getUserInfoApi, loginApi, logoutApi, registerApi } from '#/api';
+import {
+  getAccessCodesApi,
+  getUserInfoApi,
+  loginApi,
+  logoutApi,
+  registerApi,
+} from '#/api';
 import { $t } from '#/locales';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -33,11 +39,15 @@ export const useAuthStore = defineStore('auth', () => {
     let userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
-      const { accessToken } = await loginApi(params);
+      const { accessToken, refreshToken } = await loginApi(params);
 
       // 如果成功获取到 accessToken
       if (accessToken) {
         accessStore.setAccessToken(accessToken);
+        // 登录认证整改 v1.0：持久化 refreshToken（双 Token 无感续期）
+        if (refreshToken) {
+          accessStore.setRefreshToken(refreshToken);
+        }
 
         // 获取用户信息并存储到 accessStore 中
         const [fetchUserInfoResult, accessCodesData] = await Promise.all([
@@ -83,7 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
    * @param params 注册表单数据
    */
   async function authRegister(params: Recordable<any>) {
-    let userInfo: null | UserInfo = null;
+    const userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
       await registerApi(params);
@@ -103,10 +113,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout(redirect: boolean = true) {
     try {
-      await logoutApi();
+      // 携带 refreshToken 供后端精确删除当前会话（多设备互不影响）
+      await logoutApi(accessStore.refreshToken);
     } catch {
       // 不做任何处理
     }
+    // 清空本地双凭据（resetAllStores 将 accessToken/refreshToken 一并复位）
+    accessStore.setAccessToken(null);
+    accessStore.setRefreshToken(null);
     resetAllStores();
     accessStore.setLoginExpired(false);
 

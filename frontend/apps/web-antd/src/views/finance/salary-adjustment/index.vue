@@ -27,7 +27,6 @@ import {
   TimelineItem,
 } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import { UserPickerModal } from '#/components/UserPickerModal';
 
 import {
   approveSalaryAdjustmentApi,
@@ -36,16 +35,15 @@ import {
   getSalaryAdjustmentListApi,
   rejectSalaryAdjustmentApi,
 } from '#/api/core/finance';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { UserPickerModal } from '#/components/UserPickerModal';
+import { $t } from '#/locales';
 
 const guideStepCount = 5;
 
 // ===== 权限 =====
 const { hasAccessByRoles } = useAccess();
-const canManage = computed(() =>
-  hasAccessByRoles(['super_admin', 'finance']),
-);
+const canManage = computed(() => hasAccessByRoles(['super_admin', 'finance']));
 
 // ===== 通用工具 =====
 function formatMoney(val: any) {
@@ -62,23 +60,41 @@ function formatDate(val: any) {
   }
 }
 
-const adjustmentTypeMap: Record<number, { label: string; color: string }> = {
-  1: { label: $t('page.finance.adjustment.adjustmentType.regularization'), color: 'blue' },
-  2: { label: $t('page.finance.adjustment.adjustmentType.annual'), color: 'cyan' },
-  3: { label: $t('page.finance.adjustment.adjustmentType.promotion'), color: 'gold' },
-  4: { label: $t('page.finance.adjustment.adjustmentType.transfer'), color: 'orange' },
-  5: { label: $t('page.finance.adjustment.adjustmentType.special'), color: 'purple' },
+const adjustmentTypeMap: Record<number, { color: string; label: string }> = {
+  1: {
+    label: $t('page.finance.adjustment.adjustmentType.regularization'),
+    color: 'blue',
+  },
+  2: {
+    label: $t('page.finance.adjustment.adjustmentType.annual'),
+    color: 'cyan',
+  },
+  3: {
+    label: $t('page.finance.adjustment.adjustmentType.promotion'),
+    color: 'gold',
+  },
+  4: {
+    label: $t('page.finance.adjustment.adjustmentType.transfer'),
+    color: 'orange',
+  },
+  5: {
+    label: $t('page.finance.adjustment.adjustmentType.special'),
+    color: 'purple',
+  },
 };
 
 const adjustmentTypeOptions = [
-  { value: 1, label: $t('page.finance.adjustment.adjustmentType.regularization') },
+  {
+    value: 1,
+    label: $t('page.finance.adjustment.adjustmentType.regularization'),
+  },
   { value: 2, label: $t('page.finance.adjustment.adjustmentType.annual') },
   { value: 3, label: $t('page.finance.adjustment.adjustmentType.promotion') },
   { value: 4, label: $t('page.finance.adjustment.adjustmentType.transfer') },
   { value: 5, label: $t('page.finance.adjustment.adjustmentType.special') },
 ];
 
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   0: { label: $t('page.finance.adjustment.status.pending'), color: 'blue' },
   1: { label: $t('page.finance.adjustment.status.approved'), color: 'green' },
   2: { label: $t('page.finance.adjustment.status.rejected'), color: 'red' },
@@ -94,8 +110,16 @@ const loading = ref(false);
 const tableData = ref<any[]>([]);
 
 const columns = computed(() => [
-  { title: $t('page.finance.adjustment.column.employeeId'), dataIndex: 'employeeId', width: 90 },
-  { title: $t('page.finance.adjustment.column.employeeName'), dataIndex: 'employeeName', width: 120 },
+  {
+    title: $t('page.finance.adjustment.column.employeeId'),
+    dataIndex: 'employeeId',
+    width: 90,
+  },
+  {
+    title: $t('page.finance.adjustment.column.employeeName'),
+    dataIndex: 'employeeName',
+    width: 120,
+  },
   {
     title: $t('page.finance.adjustment.column.adjustmentDate'),
     dataIndex: 'adjustmentDate',
@@ -144,7 +168,12 @@ const columns = computed(() => [
       return m ? h(Tag, { color: m.color }, () => m.label) : text;
     },
   },
-  { title: $t('page.finance.common.action'), key: 'action', width: 240, fixed: 'right' as const },
+  {
+    title: $t('page.finance.common.action'),
+    key: 'action',
+    width: 240,
+    fixed: 'right' as const,
+  },
 ]);
 
 async function loadData() {
@@ -155,8 +184,10 @@ async function loadData() {
     });
     const data = res?.data || res;
     tableData.value = Array.isArray(data) ? data : data?.items || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.adjustment.message.loadFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.adjustment.message.loadFailed'),
+    );
     tableData.value = [];
   } finally {
     loading.value = false;
@@ -208,9 +239,7 @@ async function submitForm() {
   try {
     await createSalaryAdjustmentApi({
       employeeId: adjustmentForm.employeeId,
-      adjustmentDate: dayjs(adjustmentForm.adjustmentDate).format(
-        'YYYY-MM-DD',
-      ),
+      adjustmentDate: dayjs(adjustmentForm.adjustmentDate).format('YYYY-MM-DD'),
       adjustmentType: adjustmentForm.adjustmentType,
       oldBaseSalary: adjustmentForm.oldBaseSalary,
       newBaseSalary: adjustmentForm.newBaseSalary,
@@ -222,8 +251,10 @@ async function submitForm() {
     message.success($t('page.finance.adjustment.message.createSuccess'));
     formVisible.value = false;
     await loadData();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.adjustment.message.createFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.adjustment.message.createFailed'),
+    );
   } finally {
     formSubmitting.value = false;
   }
@@ -235,8 +266,10 @@ async function handleApprove(id: number) {
     await approveSalaryAdjustmentApi(id);
     message.success($t('page.finance.adjustment.message.approveSuccess'));
     await loadData();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.adjustment.message.approveFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.adjustment.message.approveFailed'),
+    );
   }
 }
 
@@ -267,8 +300,10 @@ async function submitReject() {
     message.success($t('page.finance.adjustment.message.rejectSuccess'));
     rejectVisible.value = false;
     await loadData();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.adjustment.message.rejectFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.adjustment.message.rejectFailed'),
+    );
   } finally {
     rejectLoading.value = false;
   }
@@ -297,8 +332,10 @@ async function openHistoryDrawer(record: any) {
     const res: any = await getSalaryAdjustmentHistoryApi(record.employeeId);
     const data = res?.data || res;
     historyList.value = Array.isArray(data) ? data : data?.items || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.adjustment.message.loadHistoryFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.adjustment.message.loadHistoryFailed'),
+    );
     historyList.value = [];
   } finally {
     historyLoading.value = false;
@@ -318,11 +355,7 @@ onMounted(() => {
       :expand-text="$t('page.finance.adjustment.guide.expand')"
       :collapse-text="$t('page.finance.adjustment.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -338,10 +371,17 @@ onMounted(() => {
       <!-- 搜索栏 -->
       <div class="mb-4 flex flex-wrap items-center gap-3">
         <span>{{ $t('page.finance.adjustment.column.employeeId') }}：</span>
-        <UserPickerModal v-model:value="searchForm.employeeId" style="width: 160px" />
-        <Button type="primary" @click="loadData">{{ $t('page.finance.common.query') }}</Button>
-        <Button @click="loadData">{{ $t('page.finance.common.refresh') }}</Button>
-        <div class="flex-1" />
+        <UserPickerModal
+          v-model:value="searchForm.employeeId"
+          style="width: 160px"
+        />
+        <Button type="primary" @click="loadData">
+          {{ $t('page.finance.common.query') }}
+        </Button>
+        <Button @click="loadData">
+          {{ $t('page.finance.common.refresh') }}
+        </Button>
+        <div class="flex-1"></div>
         <Button v-if="canManage" type="primary" @click="openForm">
           {{ $t('page.finance.adjustment.button.create') }}
         </Button>
@@ -358,18 +398,10 @@ onMounted(() => {
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'action'">
-            <Button
-              type="link"
-              size="small"
-              @click="openDetailModal(record)"
-            >
+            <Button type="link" size="small" @click="openDetailModal(record)">
               {{ $t('page.finance.adjustment.button.detail') }}
             </Button>
-            <Button
-              type="link"
-              size="small"
-              @click="openHistoryDrawer(record)"
-            >
+            <Button type="link" size="small" @click="openHistoryDrawer(record)">
               {{ $t('page.finance.adjustment.button.history') }}
             </Button>
             <Popconfirm
@@ -377,7 +409,9 @@ onMounted(() => {
               :title="$t('page.finance.adjustment.modal.approveConfirm')"
               @confirm="handleApprove(record.id)"
             >
-              <Button type="link" size="small">{{ $t('page.finance.adjustment.button.approveAction') }}</Button>
+              <Button type="link" size="small">
+                {{ $t('page.finance.adjustment.button.approveAction') }}
+              </Button>
             </Popconfirm>
             <Button
               v-if="canManage && record.status === 0"
@@ -404,21 +438,32 @@ onMounted(() => {
       <Form layout="vertical" class="py-4" autocomplete="off">
         <Row :gutter="16">
           <Col :span="12">
-            <FormItem :label="$t('page.finance.adjustment.drawer.employeeId')" required>
+            <FormItem
+              :label="$t('page.finance.adjustment.drawer.employeeId')"
+              required
+            >
               <UserPickerModal v-model:value="adjustmentForm.employeeId" />
             </FormItem>
           </Col>
           <Col :span="12">
-            <FormItem :label="$t('page.finance.adjustment.drawer.adjustmentDate')" required>
+            <FormItem
+              :label="$t('page.finance.adjustment.drawer.adjustmentDate')"
+              required
+            >
               <DatePicker
                 v-model:value="adjustmentForm.adjustmentDate"
                 style="width: 100%"
-                :placeholder="$t('page.finance.adjustment.drawer.adjustmentDatePlaceholder')"
+                :placeholder="
+                  $t('page.finance.adjustment.drawer.adjustmentDatePlaceholder')
+                "
               />
             </FormItem>
           </Col>
         </Row>
-        <FormItem :label="$t('page.finance.adjustment.drawer.adjustmentType')" required>
+        <FormItem
+          :label="$t('page.finance.adjustment.drawer.adjustmentType')"
+          required
+        >
           <Select
             v-model:value="adjustmentForm.adjustmentType"
             :options="adjustmentTypeOptions"
@@ -427,7 +472,9 @@ onMounted(() => {
         </FormItem>
         <Row :gutter="16">
           <Col :span="6">
-            <FormItem :label="$t('page.finance.adjustment.drawer.oldBaseSalary')">
+            <FormItem
+              :label="$t('page.finance.adjustment.drawer.oldBaseSalary')"
+            >
               <InputNumber
                 v-model:value="adjustmentForm.oldBaseSalary"
                 :min="0"
@@ -438,7 +485,10 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.adjustment.drawer.newBaseSalary')" required>
+            <FormItem
+              :label="$t('page.finance.adjustment.drawer.newBaseSalary')"
+              required
+            >
               <InputNumber
                 v-model:value="adjustmentForm.newBaseSalary"
                 :min="0"
@@ -449,7 +499,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.adjustment.drawer.oldPositionAllowance')">
+            <FormItem
+              :label="$t('page.finance.adjustment.drawer.oldPositionAllowance')"
+            >
               <InputNumber
                 v-model:value="adjustmentForm.oldPositionAllowance"
                 :min="0"
@@ -460,7 +512,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.adjustment.drawer.newPositionAllowance')">
+            <FormItem
+              :label="$t('page.finance.adjustment.drawer.newPositionAllowance')"
+            >
               <InputNumber
                 v-model:value="adjustmentForm.newPositionAllowance"
                 :min="0"
@@ -471,7 +525,9 @@ onMounted(() => {
             </FormItem>
           </Col>
         </Row>
-        <FormItem :label="$t('page.finance.adjustment.drawer.newPerformanceBase')">
+        <FormItem
+          :label="$t('page.finance.adjustment.drawer.newPerformanceBase')"
+        >
           <InputNumber
             v-model:value="adjustmentForm.newPerformanceBase"
             :min="0"
@@ -484,7 +540,9 @@ onMounted(() => {
           <Input.TextArea
             v-model:value="adjustmentForm.reason"
             :rows="4"
-            :placeholder="$t('page.finance.adjustment.drawer.reasonPlaceholder')"
+            :placeholder="
+              $t('page.finance.adjustment.drawer.reasonPlaceholder')
+            "
             :maxlength="500"
             show-count
           />
@@ -502,16 +560,25 @@ onMounted(() => {
     >
       <div class="py-4">
         <p class="mb-2">
-          {{ $t('page.finance.common.employee') }}：{{ rejectTarget?.employeeName || rejectTarget?.employeeId }}
+          {{ $t('page.finance.common.employee') }}：{{
+            rejectTarget?.employeeName || rejectTarget?.employeeId
+          }}
         </p>
         <p class="mb-4">
-          {{ $t('page.finance.adjustment.drawer.adjustmentDate') }}：{{ formatDate(rejectTarget?.adjustmentDate) }}
+          {{ $t('page.finance.adjustment.drawer.adjustmentDate') }}：{{
+            formatDate(rejectTarget?.adjustmentDate)
+          }}
         </p>
-        <FormItem :label="$t('page.finance.adjustment.drawer.rejectReason')" required>
+        <FormItem
+          :label="$t('page.finance.adjustment.drawer.rejectReason')"
+          required
+        >
           <Input.TextArea
             v-model:value="rejectForm.reason"
             :rows="4"
-            :placeholder="$t('page.finance.adjustment.drawer.rejectReasonPlaceholder')"
+            :placeholder="
+              $t('page.finance.adjustment.drawer.rejectReasonPlaceholder')
+            "
             :maxlength="500"
             show-count
           />
@@ -528,31 +595,49 @@ onMounted(() => {
     >
       <div v-if="detailRecord" class="py-4">
         <Descriptions bordered :column="2" size="small">
-          <DescriptionsItem :label="$t('page.finance.adjustment.column.employeeId')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.employeeId')"
+          >
             {{ detailRecord.employeeId }}
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.column.employeeName')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.employeeName')"
+          >
             {{ detailRecord.employeeName || '-' }}
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.column.adjustmentDate')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.adjustmentDate')"
+          >
             {{ formatDate(detailRecord.adjustmentDate) }}
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.column.adjustmentType')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.adjustmentType')"
+          >
             {{ adjustmentTypeMap[detailRecord.adjustmentType]?.label || '-' }}
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.column.oldBaseSalary')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.oldBaseSalary')"
+          >
             {{ formatMoney(detailRecord.oldBaseSalary) }}
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.column.newBaseSalary')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.newBaseSalary')"
+          >
             {{ formatMoney(detailRecord.newBaseSalary) }}
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.column.oldPositionAllowance')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.oldPositionAllowance')"
+          >
             {{ formatMoney(detailRecord.oldPositionAllowance) }}
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.column.newPositionAllowance')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.newPositionAllowance')"
+          >
             {{ formatMoney(detailRecord.newPositionAllowance) }}
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.drawer.newPerformanceBase')">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.drawer.newPerformanceBase')"
+          >
             {{ formatMoney(detailRecord.newPerformanceBase) }}
           </DescriptionsItem>
           <DescriptionsItem :label="$t('page.finance.common.status')">
@@ -560,10 +645,17 @@ onMounted(() => {
               {{ statusMap[detailRecord.status]?.label }}
             </Tag>
           </DescriptionsItem>
-          <DescriptionsItem :label="$t('page.finance.adjustment.drawer.reason')" :span="2">
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.drawer.reason')"
+            :span="2"
+          >
             {{ detailRecord.reason || '-' }}
           </DescriptionsItem>
-          <DescriptionsItem v-if="detailRecord.rejectReason" :label="$t('page.finance.adjustment.drawer.rejectReason')" :span="2">
+          <DescriptionsItem
+            v-if="detailRecord.rejectReason"
+            :label="$t('page.finance.adjustment.drawer.rejectReason')"
+            :span="2"
+          >
             {{ detailRecord.rejectReason }}
           </DescriptionsItem>
         </Descriptions>
@@ -573,7 +665,11 @@ onMounted(() => {
     <!-- 历史时间轴抽屉 -->
     <Drawer
       v-model:open="historyVisible"
-      :title="$t('page.finance.adjustment.drawer.historyTitle', { employeeId: historyEmployee?.employeeId || '' })"
+      :title="
+        $t('page.finance.adjustment.drawer.historyTitle', {
+          employeeId: historyEmployee?.employeeId || '',
+        })
+      "
       width="640px"
       :body-style="{ padding: '24px' }"
     >
@@ -599,18 +695,30 @@ onMounted(() => {
           </div>
           <div class="text-sm text-gray-600">
             <div>
-              {{ $t('page.finance.adjustment.history.baseSalary') }}：{{ formatMoney(item.oldBaseSalary) }} →
+              {{ $t('page.finance.adjustment.history.baseSalary') }}：{{
+                formatMoney(item.oldBaseSalary)
+              }}
+              →
               <span class="font-semibold text-primary">
                 {{ formatMoney(item.newBaseSalary) }}
               </span>
             </div>
             <div>
-              {{ $t('page.finance.adjustment.history.positionAllowance') }}：{{ formatMoney(item.oldPositionAllowance) }} →
+              {{ $t('page.finance.adjustment.history.positionAllowance') }}：{{
+                formatMoney(item.oldPositionAllowance)
+              }}
+              →
               {{ formatMoney(item.newPositionAllowance) }}
             </div>
-            <div v-if="item.reason">{{ $t('page.finance.adjustment.history.reason') }}：{{ item.reason }}</div>
+            <div v-if="item.reason">
+              {{ $t('page.finance.adjustment.history.reason') }}：{{
+                item.reason
+              }}
+            </div>
             <div v-if="item.rejectReason" class="text-red-500">
-              {{ $t('page.finance.adjustment.history.rejectLabel') }}：{{ item.rejectReason }}
+              {{ $t('page.finance.adjustment.history.rejectLabel') }}：{{
+                item.rejectReason
+              }}
             </div>
           </div>
         </TimelineItem>

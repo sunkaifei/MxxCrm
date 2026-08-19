@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 
+import { formatDateTime } from '@vben/utils';
+
 import { Empty, Spin, Tag, Timeline } from 'ant-design-vue';
 
 import { getEditLogListApi } from '#/api';
-import { formatDateTime } from '@vben/utils';
 
 interface EditLogItem {
   field: string;
@@ -26,9 +27,9 @@ interface EditLogRecord {
 }
 
 const props = defineProps<{
-  shipmentId: number | null | undefined;
   // 触发刷新的 key（外部修改后递增此值）
   refreshKey?: number;
+  shipmentId: null | number | undefined;
 }>();
 
 const loading = ref(false);
@@ -78,7 +79,7 @@ function getFieldTagColor(field: string): string {
   return fieldTagColorMap[field] ?? 'default';
 }
 
-function getDisplayValue(field: string, val?: string | null): string {
+function getDisplayValue(field: string, val?: null | string): string {
   if (val === null || val === undefined || val === '') return '-';
   const mapper = valueLabelMap[field];
   if (mapper && mapper[val]) return mapper[val];
@@ -88,11 +89,10 @@ function getDisplayValue(field: string, val?: string | null): string {
 // 推断操作的圆点颜色
 function getDotColor(log: EditLogRecord): string {
   const actionItem = log.content?.find((c) => c.field === 'action');
-  if (actionItem?.new && actionColorMap[actionItem.new]) {
-    return actionColorMap[actionItem.new]!;
-  }
   // 普通修改用琥珀色
-  return '#F59E0B';
+  return actionItem?.new
+    ? (actionColorMap[actionItem.new] ?? '#F59E0B')
+    : '#F59E0B';
 }
 
 // 推断操作类型标签
@@ -127,8 +127,8 @@ async function fetchLogs() {
     });
     const data = res?.data ?? res ?? {};
     logs.value = data.items || data.list || data.rows || [];
-  } catch (e) {
-    console.error('[发货日志] 加载失败:', e);
+  } catch (error) {
+    console.error('[发货日志] 加载失败:', error);
     logs.value = [];
   } finally {
     loading.value = false;
@@ -198,20 +198,40 @@ watch(
               :key="idx"
               class="shipment-timeline__change"
             >
-              <Tag :color="getFieldTagColor(item.field)" class="shipment-timeline__field-tag">
+              <Tag
+                :color="getFieldTagColor(item.field)"
+                class="shipment-timeline__field-tag"
+              >
                 {{ item.fieldLabel }}
               </Tag>
               <div class="shipment-timeline__values">
-                <template v-if="item.old !== null && item.old !== undefined && item.new !== null && item.new !== undefined">
-                  <span class="shipment-timeline__old">{{ getDisplayValue(item.field, item.old) }}</span>
+                <template
+                  v-if="
+                    item.old !== null &&
+                    item.old !== undefined &&
+                    item.new !== null &&
+                    item.new !== undefined
+                  "
+                >
+                  <span class="shipment-timeline__old">{{
+                    getDisplayValue(item.field, item.old)
+                  }}</span>
                   <span class="shipment-timeline__arrow">→</span>
-                  <span class="shipment-timeline__new">{{ getDisplayValue(item.field, item.new) }}</span>
+                  <span class="shipment-timeline__new">{{
+                    getDisplayValue(item.field, item.new)
+                  }}</span>
                 </template>
-                <template v-else-if="item.new === null || item.new === undefined">
-                  <span class="shipment-timeline__deleted">删除: {{ getDisplayValue(item.field, item.old) }}</span>
+                <template
+                  v-else-if="item.new === null || item.new === undefined"
+                >
+                  <span class="shipment-timeline__deleted"
+                    >删除: {{ getDisplayValue(item.field, item.old) }}</span
+                  >
                 </template>
                 <template v-else>
-                  <span class="shipment-timeline__new">{{ getDisplayValue(item.field, item.new) }}</span>
+                  <span class="shipment-timeline__new">{{
+                    getDisplayValue(item.field, item.new)
+                  }}</span>
                 </template>
               </div>
             </div>
@@ -230,19 +250,19 @@ watch(
 
 <style scoped>
 .shipment-timeline {
-  --blp-bg: #FAFBFC;
-  --blp-border: #E5E7EB;
-  --blp-accent: #F59E0B;
-  --blp-deep: #0F2942;
-  --blp-success: #10B981;
-  --blp-danger: #EF4444;
-  --blp-info: #3B82F6;
+  --blp-bg: #fafbfc;
+  --blp-border: #e5e7eb;
+  --blp-accent: #f59e0b;
+  --blp-deep: #0f2942;
+  --blp-success: #10b981;
+  --blp-danger: #ef4444;
+  --blp-info: #3b82f6;
 
   padding: 16px;
+  font-family: 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   background: var(--blp-bg);
   border: 1px solid var(--blp-border);
   border-radius: 6px;
-  font-family: 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
 }
 
 .shipment-timeline__header {
@@ -256,11 +276,11 @@ watch(
 
 .shipment-timeline__title {
   display: flex;
-  align-items: center;
   gap: 8px;
-  color: var(--blp-deep);
-  font-weight: 600;
+  align-items: center;
   font-size: 13px;
+  font-weight: 600;
+  color: var(--blp-deep);
   letter-spacing: 0.5px;
 }
 
@@ -272,9 +292,9 @@ watch(
 }
 
 .shipment-timeline__count {
-  color: #6B7280;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+  color: #6b7280;
 }
 
 .shipment-timeline__list {
@@ -283,17 +303,17 @@ watch(
 
 .shipment-timeline__item-header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
-  flex-wrap: wrap;
-  gap: 4px;
 }
 
 .shipment-timeline__user {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .shipment-timeline__avatar {
@@ -302,32 +322,32 @@ watch(
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
-  color: #fff;
   font-size: 11px;
   font-weight: 600;
+  color: #fff;
+  border-radius: 50%;
 }
 
 .shipment-timeline__name {
-  color: #374151;
   font-size: 12px;
   font-weight: 500;
+  color: #374151;
 }
 
 .shipment-timeline__action-tag {
   padding: 1px 6px;
-  border: 1px solid currentColor;
-  border-radius: 2px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.5px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgb(255 255 255 / 60%);
+  border: 1px solid currentcolor;
+  border-radius: 2px;
 }
 
 .shipment-timeline__time {
-  color: #9CA3AF;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+  color: #9ca3af;
 }
 
 .shipment-timeline__changes {
@@ -342,10 +362,10 @@ watch(
 
 .shipment-timeline__change {
   display: flex;
-  align-items: flex-start;
   gap: 8px;
+  align-items: flex-start;
   padding: 4px 0;
-  border-bottom: 1px dotted #F3F4F6;
+  border-bottom: 1px dotted #f3f4f6;
 }
 
 .shipment-timeline__change:last-child {
@@ -355,40 +375,40 @@ watch(
 .shipment-timeline__field-tag {
   flex-shrink: 0;
   min-width: 80px;
-  text-align: center;
   font-family: inherit;
   font-size: 11px;
+  text-align: center;
 }
 
 .shipment-timeline__values {
-  flex: 1;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex: 1;
   flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
   font-size: 12px;
   line-height: 1.6;
 }
 
 .shipment-timeline__old {
-  color: #9CA3AF;
+  color: #9ca3af;
   text-decoration: line-through;
   text-decoration-color: var(--blp-danger);
 }
 
 .shipment-timeline__arrow {
-  color: var(--blp-accent);
   font-weight: bold;
+  color: var(--blp-accent);
 }
 
 .shipment-timeline__new {
-  color: var(--blp-success);
   font-weight: 500;
+  color: var(--blp-success);
 }
 
 .shipment-timeline__deleted {
-  color: var(--blp-danger);
   font-weight: 500;
+  color: var(--blp-danger);
 }
 
 .shipment-timeline__empty {

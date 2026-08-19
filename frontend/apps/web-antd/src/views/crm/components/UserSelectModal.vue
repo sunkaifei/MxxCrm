@@ -11,29 +11,28 @@ import { computed, h, ref, watch } from 'vue';
 
 import { LucideSearch } from '@vben/icons';
 
-import {
-  Button,
-  Input,
-  Modal,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Input, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getUserListApi } from '#/api/core/system/user';
 
-const props = withDefaults(defineProps<{
-  /** 弹窗是否可见 */
-  visible: boolean;
-  /** 额外的过滤条件 */
-  extraParams?: Record<string, any>;
-  /** 弹窗宽度 */
-  width?: string | number;
-  /** 需要排除（禁用）的用户ID列表 */
-  excludeIds?: number[];
-}>(), {
-  width: '780px',
-  excludeIds: () => [],
-});
+const props = withDefaults(
+  defineProps<{
+    /** 需要排除（禁用）的用户ID列表 */
+    excludeIds?: number[];
+    /** 额外的过滤条件 */
+    extraParams?: Record<string, any>;
+    /** 弹窗是否可见 */
+    visible: boolean;
+    /** 弹窗宽度 */
+    width?: number | string;
+  }>(),
+  {
+    excludeIds: () => [],
+    extraParams: () => ({}),
+    width: '780px',
+  },
+);
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
@@ -70,25 +69,45 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { title: '#', type: 'seq', width: 50 },
-    { title: '用户名', field: 'userName', width: 140, headerAlign: 'center', align: 'center' },
     {
-      title: '姓名', field: 'nickName', minWidth: 120,
-      formatter: ({ row }: any) => row.nickName || row.realName || row.name || row.userName || '-',
+      title: '用户名',
+      field: 'userName',
+      width: 140,
+      headerAlign: 'center',
+      align: 'center',
     },
     {
-      title: '部门', field: 'deptName', width: 140,
-      formatter: ({ cellValue, row }: any) => cellValue || row.departmentName || row.dept || '-',
+      title: '姓名',
+      field: 'nickName',
+      minWidth: 120,
+      formatter: ({ row }: any) =>
+        row.nickName || row.realName || row.name || row.userName || '-',
     },
     {
-      title: '手机号', field: 'mobile', width: 130,
+      title: '部门',
+      field: 'deptName',
+      width: 140,
+      formatter: ({ cellValue, row }: any) =>
+        cellValue || row.departmentName || row.dept || '-',
+    },
+    {
+      title: '手机号',
+      field: 'mobile',
+      width: 130,
       formatter: ({ cellValue, row }: any) => cellValue || row.phone || '-',
     },
     {
-      title: '状态', field: 'status', width: 80,
+      title: '状态',
+      field: 'status',
+      width: 80,
       slots: { default: 'statusSlot' },
     },
     {
-      title: '操作', field: 'action', fixed: 'right', slots: { default: 'action' }, width: 80,
+      title: '操作',
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 80,
     },
   ],
 };
@@ -117,12 +136,15 @@ function handleRowDblClick({ row }: { row: any }) {
   handleSelect(row);
 }
 
-watch(() => props.visible, (val) => {
-  if (val) {
-    keywords.value = '';
-    setTimeout(() => gridApi.query(), 100);
-  }
-});
+watch(
+  () => props.visible,
+  (val) => {
+    if (val) {
+      keywords.value = '';
+      setTimeout(() => gridApi.query(), 100);
+    }
+  },
+);
 </script>
 
 <template>
@@ -146,7 +168,9 @@ watch(() => props.visible, (val) => {
           <LucideSearch class="w-4 h-4 text-gray-400" />
         </template>
       </Input>
-      <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+      <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">
+        搜索
+      </Button>
       <Button @click="handleReset">重置</Button>
     </div>
 
@@ -158,7 +182,14 @@ watch(() => props.visible, (val) => {
       </template>
 
       <template #action="{ row }">
-        <Button v-if="!isExcluded(row)" type="primary" size="small" @click="handleSelect(row)">选择</Button>
+        <Button
+          v-if="!isExcluded(row)"
+          type="primary"
+          size="small"
+          @click="handleSelect(row)"
+        >
+          选择
+        </Button>
         <Button v-else size="small" disabled>已添加</Button>
       </template>
     </Grid>
@@ -173,6 +204,7 @@ watch(() => props.visible, (val) => {
 :deep(.vxe-table--body-wrapper) {
   cursor: pointer;
 }
+
 :deep(.vxe-table--body-wrapper .vxe-body--row:hover td) {
   background-color: #e6f4ff !important;
 }

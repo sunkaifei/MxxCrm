@@ -1,20 +1,25 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideEye, LucideTruck, LucideTrash2 } from '@vben/icons';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
+import { LucideEye, LucideTrash2, LucideTruck } from '@vben/icons';
+
 import {
   Button,
-  Tag,
-  Modal,
-  message,
-  Select,
   Input,
-  Textarea,
+  message,
+  Modal,
+  Select,
   Spin,
+  Tag,
+  Textarea,
 } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { orderApi } from '#/api/core/website/order';
 
 defineOptions({ name: 'WebsiteOrder' });
@@ -300,180 +305,184 @@ function formatAmount(val: any): string {
       :footer="null"
     >
       <Spin :spinning="detailLoading">
-      <div class="space-y-4">
-        <div class="grid grid-cols-2 gap-x-8 gap-y-3">
-          <div class="flex">
-            <span class="w-24 text-gray-500">订单号：</span>
-            <span>{{ detailData.orderNo || '—' }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">用户ID：</span>
-            <span>{{ detailData.userId || '—' }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">商品金额：</span>
-            <span>{{ formatAmount(detailData.totalAmount) }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">优惠金额：</span>
-            <span>{{ formatAmount(detailData.discountAmount) }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">运费：</span>
-            <span>{{ formatAmount(detailData.shippingFee) }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">实付金额：</span>
-            <span class="font-medium text-red-500">
-              {{ formatAmount(detailData.payAmount) }}
-            </span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">订单状态：</span>
-            <Tag v-if="detailData.status === 0" color="orange">待付款</Tag>
-            <Tag v-else-if="detailData.status === 1" color="blue">待发货</Tag>
-            <Tag v-else-if="detailData.status === 2" color="cyan">待收货</Tag>
-            <Tag v-else-if="detailData.status === 3" color="success">
-              已完成
-            </Tag>
-            <Tag v-else-if="detailData.status === 4" color="default">
-              已取消
-            </Tag>
-            <Tag v-else-if="detailData.status === 5" color="red">已关闭</Tag>
-            <span v-else>—</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">支付状态：</span>
-            <Tag v-if="detailData.payStatus === 0" color="default">未支付</Tag>
-            <Tag v-else-if="detailData.payStatus === 1" color="success">
-              已支付
-            </Tag>
-            <Tag v-else-if="detailData.payStatus === 2" color="orange">
-              已退款
-            </Tag>
-            <Tag v-else-if="detailData.payStatus === 3" color="warning">
-              部分退款
-            </Tag>
-            <span v-else>—</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">发货状态：</span>
-            <Tag v-if="detailData.shipStatus === 0" color="default">未发货</Tag>
-            <Tag v-else-if="detailData.shipStatus === 1" color="warning">
-              部分发货
-            </Tag>
-            <Tag v-else-if="detailData.shipStatus === 2" color="blue">
-              已发货
-            </Tag>
-            <Tag v-else-if="detailData.shipStatus === 3" color="success">
-              已签收
-            </Tag>
-            <span v-else>—</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">支付时间：</span>
-            <span>{{ detailData.payTime || '—' }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">发货时间：</span>
-            <span>{{ detailData.shipTime || '—' }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">完成时间：</span>
-            <span>{{ detailData.finishTime || '—' }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">交易单号：</span>
-            <span>{{ detailData.transactionId || '—' }}</span>
-          </div>
-          <div class="flex">
-            <span class="w-24 text-gray-500">下单时间：</span>
-            <span>{{ detailData.createTime || '—' }}</span>
-          </div>
-        </div>
-
-        <div class="border-t pt-3">
-          <h4 class="mb-2 font-semibold">收货信息</h4>
-          <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-x-8 gap-y-3">
             <div class="flex">
-              <span class="w-24 text-gray-500">收货人：</span>
-              <span>{{ detailData.consigneeName || '—' }}</span>
+              <span class="w-24 text-gray-500">订单号：</span>
+              <span>{{ detailData.orderNo || '—' }}</span>
             </div>
             <div class="flex">
-              <span class="w-24 text-gray-500">联系电话：</span>
-              <span>{{ detailData.consigneePhone || '—' }}</span>
+              <span class="w-24 text-gray-500">用户ID：</span>
+              <span>{{ detailData.userId || '—' }}</span>
             </div>
             <div class="flex">
-              <span class="w-24 text-gray-500">邮编：</span>
-              <span>{{ detailData.consigneeZipcode || '—' }}</span>
+              <span class="w-24 text-gray-500">商品金额：</span>
+              <span>{{ formatAmount(detailData.totalAmount) }}</span>
             </div>
-            <div class="col-span-2 flex">
-              <span class="w-24 shrink-0 text-gray-500">收货地址：</span>
-              <span>
-                {{ detailData.consigneeProvince }}
-                {{ detailData.consigneeCity }}
-                {{ detailData.consigneeDistrict }}
-                {{ detailData.consigneeAddress }}
+            <div class="flex">
+              <span class="w-24 text-gray-500">优惠金额：</span>
+              <span>{{ formatAmount(detailData.discountAmount) }}</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">运费：</span>
+              <span>{{ formatAmount(detailData.shippingFee) }}</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">实付金额：</span>
+              <span class="font-medium text-red-500">
+                {{ formatAmount(detailData.payAmount) }}
               </span>
             </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">订单状态：</span>
+              <Tag v-if="detailData.status === 0" color="orange">待付款</Tag>
+              <Tag v-else-if="detailData.status === 1" color="blue">待发货</Tag>
+              <Tag v-else-if="detailData.status === 2" color="cyan">待收货</Tag>
+              <Tag v-else-if="detailData.status === 3" color="success">
+                已完成
+              </Tag>
+              <Tag v-else-if="detailData.status === 4" color="default">
+                已取消
+              </Tag>
+              <Tag v-else-if="detailData.status === 5" color="red">已关闭</Tag>
+              <span v-else>—</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">支付状态：</span>
+              <Tag v-if="detailData.payStatus === 0" color="default">
+                未支付
+              </Tag>
+              <Tag v-else-if="detailData.payStatus === 1" color="success">
+                已支付
+              </Tag>
+              <Tag v-else-if="detailData.payStatus === 2" color="orange">
+                已退款
+              </Tag>
+              <Tag v-else-if="detailData.payStatus === 3" color="warning">
+                部分退款
+              </Tag>
+              <span v-else>—</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">发货状态：</span>
+              <Tag v-if="detailData.shipStatus === 0" color="default">
+                未发货
+              </Tag>
+              <Tag v-else-if="detailData.shipStatus === 1" color="warning">
+                部分发货
+              </Tag>
+              <Tag v-else-if="detailData.shipStatus === 2" color="blue">
+                已发货
+              </Tag>
+              <Tag v-else-if="detailData.shipStatus === 3" color="success">
+                已签收
+              </Tag>
+              <span v-else>—</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">支付时间：</span>
+              <span>{{ detailData.payTime || '—' }}</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">发货时间：</span>
+              <span>{{ detailData.shipTime || '—' }}</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">完成时间：</span>
+              <span>{{ detailData.finishTime || '—' }}</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">交易单号：</span>
+              <span>{{ detailData.transactionId || '—' }}</span>
+            </div>
+            <div class="flex">
+              <span class="w-24 text-gray-500">下单时间：</span>
+              <span>{{ detailData.createTime || '—' }}</span>
+            </div>
+          </div>
+
+          <div class="border-t pt-3">
+            <h4 class="mb-2 font-semibold">收货信息</h4>
+            <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div class="flex">
+                <span class="w-24 text-gray-500">收货人：</span>
+                <span>{{ detailData.consigneeName || '—' }}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-500">联系电话：</span>
+                <span>{{ detailData.consigneePhone || '—' }}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-500">邮编：</span>
+                <span>{{ detailData.consigneeZipcode || '—' }}</span>
+              </div>
+              <div class="col-span-2 flex">
+                <span class="w-24 shrink-0 text-gray-500">收货地址：</span>
+                <span>
+                  {{ detailData.consigneeProvince }}
+                  {{ detailData.consigneeCity }}
+                  {{ detailData.consigneeDistrict }}
+                  {{ detailData.consigneeAddress }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t pt-3">
+            <h4 class="mb-2 font-semibold">备注</h4>
+            <div class="space-y-1 text-sm">
+              <div class="flex">
+                <span class="w-24 text-gray-500">买家备注：</span>
+                <span>{{ detailData.buyerRemark || '—' }}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-500">卖家备注：</span>
+                <span>{{ detailData.sellerRemark || '—' }}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-500">取消原因：</span>
+                <span>{{ detailData.cancelReason || '—' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t pt-3">
+            <h4 class="mb-2 font-semibold">商品明细</h4>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b bg-gray-50 text-gray-600">
+                  <th class="px-3 py-2 text-left">商品名称</th>
+                  <th class="px-3 py-2 text-left">SKU编码</th>
+                  <th class="px-3 py-2 text-right">单价</th>
+                  <th class="px-3 py-2 text-right">数量</th>
+                  <th class="px-3 py-2 text-right">小计</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="item in detailData.items || []"
+                  :key="item.id"
+                  class="border-b"
+                >
+                  <td class="px-3 py-2">{{ item.productName || '—' }}</td>
+                  <td class="px-3 py-2">{{ item.skuCode || '—' }}</td>
+                  <td class="px-3 py-2 text-right">
+                    {{ formatAmount(item.price) }}
+                  </td>
+                  <td class="px-3 py-2 text-right">{{ item.quantity }}</td>
+                  <td class="px-3 py-2 text-right">
+                    {{ formatAmount(item.totalAmount) }}
+                  </td>
+                </tr>
+                <tr v-if="!(detailData.items && detailData.items.length > 0)">
+                  <td colspan="5" class="px-3 py-4 text-center text-gray-400">
+                    暂无商品明细
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-
-        <div class="border-t pt-3">
-          <h4 class="mb-2 font-semibold">备注</h4>
-          <div class="space-y-1 text-sm">
-            <div class="flex">
-              <span class="w-24 text-gray-500">买家备注：</span>
-              <span>{{ detailData.buyerRemark || '—' }}</span>
-            </div>
-            <div class="flex">
-              <span class="w-24 text-gray-500">卖家备注：</span>
-              <span>{{ detailData.sellerRemark || '—' }}</span>
-            </div>
-            <div class="flex">
-              <span class="w-24 text-gray-500">取消原因：</span>
-              <span>{{ detailData.cancelReason || '—' }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="border-t pt-3">
-          <h4 class="mb-2 font-semibold">商品明细</h4>
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b bg-gray-50 text-gray-600">
-                <th class="px-3 py-2 text-left">商品名称</th>
-                <th class="px-3 py-2 text-left">SKU编码</th>
-                <th class="px-3 py-2 text-right">单价</th>
-                <th class="px-3 py-2 text-right">数量</th>
-                <th class="px-3 py-2 text-right">小计</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="item in detailData.items || []"
-                :key="item.id"
-                class="border-b"
-              >
-                <td class="px-3 py-2">{{ item.productName || '—' }}</td>
-                <td class="px-3 py-2">{{ item.skuCode || '—' }}</td>
-                <td class="px-3 py-2 text-right">
-                  {{ formatAmount(item.price) }}
-                </td>
-                <td class="px-3 py-2 text-right">{{ item.quantity }}</td>
-                <td class="px-3 py-2 text-right">
-                  {{ formatAmount(item.totalAmount) }}
-                </td>
-              </tr>
-              <tr v-if="!(detailData.items && detailData.items.length)">
-                <td colspan="5" class="px-3 py-4 text-center text-gray-400">
-                  暂无商品明细
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
       </Spin>
     </Modal>
 
@@ -494,7 +503,9 @@ function formatAmount(val: any): string {
           <span>{{ shipRow.consigneeName || '—' }}</span>
         </div>
         <div class="flex items-center gap-3">
-          <span class="w-24"><span class="text-red-500">*</span> 物流单号：</span>
+          <span class="w-24"
+            ><span class="text-red-500">*</span> 物流单号：</span
+          >
           <Input
             v-model:value="shipForm.deliveryNo"
             placeholder="请输入物流单号"

@@ -13,24 +13,22 @@ import { computed, h, ref, watch } from 'vue';
 import { LucideSearch } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
-import {
-  Button,
-  Input,
-  Modal,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Input, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getQuotationListApi } from '#/api';
 
-const props = withDefaults(defineProps<{
-  /** 弹窗是否可见 */
-  visible: boolean;
-  /** 弹窗宽度 */
-  width?: string | number;
-}>(), {
-  width: '860px',
-});
+const props = withDefaults(
+  defineProps<{
+    /** 弹窗是否可见 */
+    visible: boolean;
+    /** 弹窗宽度 */
+    width?: number | string;
+  }>(),
+  {
+    width: '860px',
+  },
+);
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
@@ -48,15 +46,29 @@ const keywords = ref('');
 
 // 币种符号映射
 const currencySymbolMap: Record<number, string> = {
-  1: '¥', 2: '$', 3: '€', 4: '£', 5: '¥', 6: 'HK$', 7: 'A$',
+  1: '¥',
+  2: '$',
+  3: '€',
+  4: '£',
+  5: '¥',
+  6: 'HK$',
+  7: 'A$',
 };
 
 // 审批状态映射
 const approvalStatusLabelMap: Record<number, string> = {
-  0: '草稿', 1: '草稿', 2: '审批中', 3: '已通过', 4: '已驳回',
+  0: '草稿',
+  1: '草稿',
+  2: '审批中',
+  3: '已通过',
+  4: '已驳回',
 };
 const approvalStatusColorMap: Record<number, string> = {
-  0: 'default', 1: 'default', 2: 'processing', 3: 'success', 4: 'error',
+  0: 'default',
+  1: 'default',
+  2: 'processing',
+  3: 'success',
+  4: 'error',
 };
 
 const gridOptions: VxeGridProps = {
@@ -85,19 +97,42 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { title: '#', type: 'seq', width: 50 },
-    { title: '报价编号', field: 'quotationNo', width: 150, align: 'left', slots: { default: 'quotationNoSlot' } },
+    {
+      title: '报价编号',
+      field: 'quotationNo',
+      width: 150,
+      align: 'left',
+      slots: { default: 'quotationNoSlot' },
+    },
     { title: '标题', field: 'title', minWidth: 200, align: 'left' },
     { title: '客户名称', field: 'customerName', width: 150 },
     {
-      title: '报价金额', field: 'grandTotal', width: 130, align: 'right', slots: { default: 'amountSlot' },
+      title: '报价金额',
+      field: 'grandTotal',
+      width: 130,
+      align: 'right',
+      slots: { default: 'amountSlot' },
     },
     {
-      title: '审批状态', field: 'approvalStatus', width: 100, align: 'center', slots: { default: 'statusSlot' },
+      title: '审批状态',
+      field: 'approvalStatus',
+      width: 100,
+      align: 'center',
+      slots: { default: 'statusSlot' },
     },
     { title: '报价日期', field: 'quotationDate', width: 120 },
-    { title: '创建时间', field: 'createTime', width: 150, slots: { default: 'createdAt' } },
     {
-      title: '操作', field: 'action', fixed: 'right', slots: { default: 'action' }, width: 80,
+      title: '创建时间',
+      field: 'createTime',
+      width: 150,
+      slots: { default: 'createdAt' },
+    },
+    {
+      title: '操作',
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 80,
     },
   ],
 };
@@ -127,12 +162,15 @@ function handleRowDblClick({ row }: { row: any }) {
 }
 
 // 弹窗打开时自动加载数据
-watch(() => props.visible, (val) => {
-  if (val) {
-    keywords.value = '';
-    setTimeout(() => gridApi.query(), 100);
-  }
-});
+watch(
+  () => props.visible,
+  (val) => {
+    if (val) {
+      keywords.value = '';
+      setTimeout(() => gridApi.query(), 100);
+    }
+  },
+);
 </script>
 
 <template>
@@ -154,28 +192,43 @@ watch(() => props.visible, (val) => {
         @press-enter="handleSearch"
       >
         <template #prefix>
-          <LucideSearch class="w-4 h-4" style="color: hsl(var(--muted-foreground))" />
+          <LucideSearch
+            class="w-4 h-4"
+            style="color: hsl(var(--muted-foreground))"
+          />
         </template>
       </Input>
-      <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+      <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">
+        搜索
+      </Button>
       <Button @click="handleReset">重置</Button>
     </div>
 
     <!-- 报价单列表表格 -->
     <Grid @row-dblclick="handleRowDblClick">
       <template #quotationNoSlot="{ row }">
-        <span style="color: hsl(var(--primary))" class="font-medium">{{ row.quotationNo || '-' }}</span>
+        <span style="color: hsl(var(--primary))" class="font-medium">{{
+          row.quotationNo || '-'
+        }}</span>
       </template>
 
       <template #amountSlot="{ row }">
         <span v-if="row.grandTotal != null" class="font-medium">
-          {{ currencySymbolMap[row.currency] || '¥' }} {{ Number(row.grandTotal).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}
+          {{ currencySymbolMap[row.currency] || '¥' }}
+          {{
+            Number(row.grandTotal).toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+            })
+          }}
         </span>
-        <span v-else style="color: hsl(var(--muted-foreground) / 0.5)">-</span>
+        <span v-else style="color: hsl(var(--muted-foreground) / 50%)">-</span>
       </template>
 
       <template #statusSlot="{ row }">
-        <Tag :color="approvalStatusColorMap[row.approvalStatus] || 'default'" size="small">
+        <Tag
+          :color="approvalStatusColorMap[row.approvalStatus] || 'default'"
+          size="small"
+        >
           {{ approvalStatusLabelMap[row.approvalStatus] || '草稿' }}
         </Tag>
       </template>
@@ -185,11 +238,16 @@ watch(() => props.visible, (val) => {
       </template>
 
       <template #action="{ row }">
-        <Button type="primary" size="small" @click="handleSelect(row)">选择</Button>
+        <Button type="primary" size="small" @click="handleSelect(row)">
+          选择
+        </Button>
       </template>
     </Grid>
 
-    <div class="mt-2 text-xs text-right" style="color: hsl(var(--muted-foreground) / 0.6)">
+    <div
+      class="mt-2 text-xs text-right"
+      style="color: hsl(var(--muted-foreground) / 60%)"
+    >
       提示：双击行可快速选择
     </div>
   </Modal>
@@ -200,7 +258,8 @@ watch(() => props.visible, (val) => {
 :deep(.vxe-table--body-wrapper) {
   cursor: pointer;
 }
+
 :deep(.vxe-table--body-wrapper .vxe-body--row:hover td) {
-  background-color: hsl(var(--primary) / 0.06) !important;
+  background-color: hsl(var(--primary) / 6%) !important;
 }
 </style>

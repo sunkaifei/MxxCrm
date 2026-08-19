@@ -20,8 +20,6 @@ import {
   Tag,
 } from 'ant-design-vue';
 import { Plus } from 'lucide-vue-next';
-import { UserPickerModal } from '#/components/UserPickerModal';
-import { PageUsageGuide } from '#/components/PageUsageGuide';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -30,6 +28,8 @@ import {
   getMemberFeeListApi,
   updateMemberFeeApi,
 } from '#/api';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { UserPickerModal } from '#/components/UserPickerModal';
 import { $t } from '#/locales';
 
 // 会员费使用说明步骤数（与 i18n 中 page.finance.memberFee.guide.steps 数组对齐）
@@ -43,7 +43,9 @@ const formOptions: VbenFormProps = {
       component: 'InputNumber',
       fieldName: 'userId',
       label: $t('page.finance.memberFee.column.userId'),
-      componentProps: { placeholder: $t('page.finance.memberFee.placeholder.userId') },
+      componentProps: {
+        placeholder: $t('page.finance.memberFee.placeholder.userId'),
+      },
     },
     {
       component: 'Select',
@@ -104,7 +106,11 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'seq', width: 60, title: $t('page.finance.common.seq') },
     { field: 'id', title: 'ID', width: 80 },
-    { field: 'userId', title: $t('page.finance.memberFee.column.userId'), width: 100 },
+    {
+      field: 'userId',
+      title: $t('page.finance.memberFee.column.userId'),
+      width: 100,
+    },
     {
       field: 'memberType',
       title: $t('page.finance.memberFee.column.memberType'),
@@ -118,17 +124,37 @@ const gridOptions: VxeGridProps = {
       align: 'right',
       formatter: ({ cellValue }) => `¥${Number(cellValue || 0).toFixed(2)}`,
     },
-    { field: 'validStartTime', title: $t('page.finance.memberFee.column.validStartTime'), width: 160 },
-    { field: 'validEndTime', title: $t('page.finance.memberFee.column.validEndTime'), width: 160 },
+    {
+      field: 'validStartTime',
+      title: $t('page.finance.memberFee.column.validStartTime'),
+      width: 160,
+    },
+    {
+      field: 'validEndTime',
+      title: $t('page.finance.memberFee.column.validEndTime'),
+      width: 160,
+    },
     {
       field: 'status',
       title: $t('page.finance.memberFee.column.status'),
       width: 100,
       slots: { default: 'status' },
     },
-    { field: 'paymentRecordId', title: $t('page.finance.memberFee.column.paymentRecordId'), width: 140 },
-    { field: 'remark', title: $t('page.finance.memberFee.column.remark'), minWidth: 120 },
-    { field: 'createTime', title: $t('page.finance.memberFee.column.createTime'), width: 160 },
+    {
+      field: 'paymentRecordId',
+      title: $t('page.finance.memberFee.column.paymentRecordId'),
+      width: 140,
+    },
+    {
+      field: 'remark',
+      title: $t('page.finance.memberFee.column.remark'),
+      minWidth: 120,
+    },
+    {
+      field: 'createTime',
+      title: $t('page.finance.memberFee.column.createTime'),
+      width: 160,
+    },
     {
       field: 'action',
       title: $t('page.finance.common.action'),
@@ -224,8 +250,10 @@ async function handleSubmit() {
     }
     drawerVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.memberFee.message.saveFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.memberFee.message.saveFailed'),
+    );
   } finally {
     drawerLoading.value = false;
   }
@@ -236,15 +264,20 @@ async function handleDelete(row: any) {
     await deleteMemberFeeApi(row.id);
     message.success($t('page.finance.memberFee.message.deleteSuccess'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.memberFee.message.deleteFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.memberFee.message.deleteFailed'),
+    );
   }
 }
 
 const memberTypeMap: Record<number, { color: string; text: string }> = {
   1: { color: 'blue', text: $t('page.finance.memberFee.memberType.monthly') },
   2: { color: 'cyan', text: $t('page.finance.memberFee.memberType.yearly') },
-  3: { color: 'purple', text: $t('page.finance.memberFee.memberType.lifetime') },
+  3: {
+    color: 'purple',
+    text: $t('page.finance.memberFee.memberType.lifetime'),
+  },
 };
 const statusMap: Record<number, { color: string; text: string }> = {
   0: { color: 'default', text: $t('page.finance.memberFee.status.inactive') },
@@ -261,11 +294,7 @@ const statusMap: Record<number, { color: string; text: string }> = {
       :expand-text="$t('page.finance.memberFee.guide.expand')"
       :collapse-text="$t('page.finance.memberFee.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -311,28 +340,50 @@ const statusMap: Record<number, { color: string; text: string }> = {
 
     <Drawer
       v-model:open="drawerVisible"
-      :title="drawerMode === 'create'
-        ? $t('page.finance.memberFee.drawer.titleCreate')
-        : $t('page.finance.memberFee.drawer.titleEdit')"
+      :title="
+        drawerMode === 'create'
+          ? $t('page.finance.memberFee.drawer.titleCreate')
+          : $t('page.finance.memberFee.drawer.titleEdit')
+      "
       width="480"
       :confirm-loading="drawerLoading"
       @ok="handleSubmit"
     >
       <Form ref="formRef" layout="vertical" class="pt-4">
-        <FormItem :label="$t('page.finance.memberFee.column.userId')" name="userId" required>
+        <FormItem
+          :label="$t('page.finance.memberFee.column.userId')"
+          name="userId"
+          required
+        >
           <UserPickerModal v-model:value="formData.userId" />
         </FormItem>
-        <FormItem :label="$t('page.finance.memberFee.column.memberType')" name="memberType">
+        <FormItem
+          :label="$t('page.finance.memberFee.column.memberType')"
+          name="memberType"
+        >
           <Select
             v-model:value="formData.memberType"
             :options="[
-              { value: 1, label: $t('page.finance.memberFee.memberType.monthly') },
-              { value: 2, label: $t('page.finance.memberFee.memberType.yearly') },
-              { value: 3, label: $t('page.finance.memberFee.memberType.lifetime') },
+              {
+                value: 1,
+                label: $t('page.finance.memberFee.memberType.monthly'),
+              },
+              {
+                value: 2,
+                label: $t('page.finance.memberFee.memberType.yearly'),
+              },
+              {
+                value: 3,
+                label: $t('page.finance.memberFee.memberType.lifetime'),
+              },
             ]"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.memberFee.column.amount')" name="amount" required>
+        <FormItem
+          :label="$t('page.finance.memberFee.column.amount')"
+          name="amount"
+          required
+        >
           <InputNumber
             v-model:value="formData.amount"
             :min="0"
@@ -341,13 +392,30 @@ const statusMap: Record<number, { color: string; text: string }> = {
             style="width: 100%"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.memberFee.column.validStartTime')" name="validStartTime">
-          <Input v-model:value="formData.validStartTime" :placeholder="$t('page.finance.memberFee.placeholder.validStartTime')" />
+        <FormItem
+          :label="$t('page.finance.memberFee.column.validStartTime')"
+          name="validStartTime"
+        >
+          <Input
+            v-model:value="formData.validStartTime"
+            :placeholder="
+              $t('page.finance.memberFee.placeholder.validStartTime')
+            "
+          />
         </FormItem>
-        <FormItem :label="$t('page.finance.memberFee.column.validEndTime')" name="validEndTime">
-          <Input v-model:value="formData.validEndTime" :placeholder="$t('page.finance.memberFee.placeholder.validEndTime')" />
+        <FormItem
+          :label="$t('page.finance.memberFee.column.validEndTime')"
+          name="validEndTime"
+        >
+          <Input
+            v-model:value="formData.validEndTime"
+            :placeholder="$t('page.finance.memberFee.placeholder.validEndTime')"
+          />
         </FormItem>
-        <FormItem :label="$t('page.finance.memberFee.column.status')" name="status">
+        <FormItem
+          :label="$t('page.finance.memberFee.column.status')"
+          name="status"
+        >
           <Select
             v-model:value="formData.status"
             :options="[
@@ -357,16 +425,28 @@ const statusMap: Record<number, { color: string; text: string }> = {
             ]"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.memberFee.column.paymentRecordId')" name="paymentRecordId">
+        <FormItem
+          :label="$t('page.finance.memberFee.column.paymentRecordId')"
+          name="paymentRecordId"
+        >
           <InputNumber
             v-model:value="formData.paymentRecordId"
             :min="1"
-            :placeholder="$t('page.finance.memberFee.placeholder.paymentRecordId')"
+            :placeholder="
+              $t('page.finance.memberFee.placeholder.paymentRecordId')
+            "
             style="width: 100%"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.memberFee.column.remark')" name="remark">
-          <Input.TextArea v-model:value="formData.remark" :rows="2" :placeholder="$t('page.finance.memberFee.placeholder.remark')" />
+        <FormItem
+          :label="$t('page.finance.memberFee.column.remark')"
+          name="remark"
+        >
+          <Input.TextArea
+            v-model:value="formData.remark"
+            :rows="2"
+            :placeholder="$t('page.finance.memberFee.placeholder.remark')"
+          />
         </FormItem>
       </Form>
     </Drawer>

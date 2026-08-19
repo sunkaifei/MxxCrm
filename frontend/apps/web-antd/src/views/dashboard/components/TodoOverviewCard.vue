@@ -156,10 +156,7 @@ onMounted(() => {
             />
           </div>
           <div class="mt-2 text-xs text-gray-600">{{ card.title }}</div>
-          <div
-            class="mt-1 text-2xl font-bold"
-            :style="{ color: card.color }"
-          >
+          <div class="mt-1 text-2xl font-bold" :style="{ color: card.color }">
             {{ card.value }}
           </div>
         </div>

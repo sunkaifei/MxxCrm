@@ -5,19 +5,19 @@ import {
   Button,
   Input,
   InputNumber,
+  message,
   Modal,
   Radio,
   RadioGroup,
   Table,
-  message,
 } from 'ant-design-vue';
 
 import { allocateCommissionApi } from '#/api/core/finance';
 import { $t } from '#/locales';
 
 const props = defineProps<{
-  visible: boolean;
   record?: any;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -30,7 +30,9 @@ const members = ref<any[]>([]);
 
 // 待分配总额
 const totalAmount = computed(() =>
-  Number(props.record?.commissionAmount || props.record?.commission_amount || 0),
+  Number(
+    props.record?.commissionAmount || props.record?.commission_amount || 0,
+  ),
 );
 
 // 已分配总额
@@ -76,19 +78,19 @@ const columns = computed(() => {
   }
 
   // 非平均分配时显示金额输入列
-  if (allocateMethod.value !== 1) {
-    cols.push({
-      title: $t('page.finance.teamCommission.allocate.amount'),
-      dataIndex: 'amount',
-      key: 'amount',
-      width: 160,
-    });
-  } else {
+  if (allocateMethod.value === 1) {
     cols.push({
       title: $t('page.finance.teamCommission.allocate.amount'),
       dataIndex: 'amountDisplay',
       key: 'amountDisplay',
       width: 120,
+    });
+  } else {
+    cols.push({
+      title: $t('page.finance.teamCommission.allocate.amount'),
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 160,
     });
   }
 
@@ -121,7 +123,9 @@ function recalcAllocation() {
     if (totalPayment > 0) {
       members.value.forEach((m) => {
         const payment = Number(m.employeePayment || 0);
-        m.amount = Number(((totalAmount.value * payment) / totalPayment).toFixed(2));
+        m.amount = Number(
+          ((totalAmount.value * payment) / totalPayment).toFixed(2),
+        );
       });
     }
   }
@@ -193,7 +197,9 @@ async function handleSubmit() {
   if (allocateMethod.value === 3) {
     for (const m of members.value) {
       if (!m.amount || m.amount <= 0) {
-        message.warning($t('page.finance.teamCommission.allocate.amount') + '必填');
+        message.warning(
+          `${$t('page.finance.teamCommission.allocate.amount')}必填`,
+        );
         return;
       }
     }
@@ -209,13 +215,15 @@ async function handleSubmit() {
         employeeName: m.employeeName,
         amount: Number(m.amount || 0),
         employeePayment:
-          allocateMethod.value === 2 ? Number(m.employeePayment || 0) : undefined,
+          allocateMethod.value === 2
+            ? Number(m.employeePayment || 0)
+            : undefined,
       })),
     });
     message.success($t('page.finance.teamCommission.allocate.success'));
     emit('close', true);
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   } finally {
     loading.value = false;
   }
@@ -241,21 +249,35 @@ function formatMoney(val: any) {
   >
     <div class="allocate-summary">
       <div class="summary-item">
-        <span class="summary-label">{{ $t('page.finance.teamCommission.allocate.total') }}</span>
-        <span class="summary-value primary">¥{{ formatMoney(totalAmount) }}</span>
+        <span class="summary-label">{{
+          $t('page.finance.teamCommission.allocate.total')
+        }}</span>
+        <span class="summary-value primary"
+          >¥{{ formatMoney(totalAmount) }}</span
+        >
       </div>
       <div class="summary-item">
-        <span class="summary-label">{{ $t('page.finance.teamCommission.allocate.allocatedTotal') }}</span>
-        <span class="summary-value" :class="{ over: isOverLimit }">¥{{ formatMoney(allocatedTotal) }}</span>
+        <span class="summary-label">{{
+          $t('page.finance.teamCommission.allocate.allocatedTotal')
+        }}</span>
+        <span class="summary-value" :class="{ over: isOverLimit }"
+          >¥{{ formatMoney(allocatedTotal) }}</span
+        >
       </div>
       <div class="summary-item">
-        <span class="summary-label">{{ $t('page.finance.teamCommission.allocate.remaining') }}</span>
-        <span class="summary-value" :class="{ 'text-red': remaining < 0 }">¥{{ formatMoney(remaining) }}</span>
+        <span class="summary-label">{{
+          $t('page.finance.teamCommission.allocate.remaining')
+        }}</span>
+        <span class="summary-value" :class="{ 'text-red': remaining < 0 }"
+          >¥{{ formatMoney(remaining) }}</span
+        >
       </div>
     </div>
 
     <div class="allocate-method">
-      <span class="method-label">{{ $t('page.finance.teamCommission.allocate.method') }}:</span>
+      <span class="method-label"
+        >{{ $t('page.finance.teamCommission.allocate.method') }}:</span
+      >
       <RadioGroup v-model:value="allocateMethod" @change="handleMethodChange">
         <Radio v-for="opt in methodOptions" :key="opt.value" :value="opt.value">
           {{ opt.label }}
@@ -279,10 +301,10 @@ function formatMoney(val: any) {
     >
       <template #bodyCell="{ column, index }">
         <template v-if="column.key === 'employeeName'">
-          <div style="display: flex; gap: 4px;">
+          <div style="display: flex; gap: 4px">
             <InputNumber
               v-model:value="members[index].employeeId"
-              :placeholder="'ID'"
+              placeholder="ID"
               :min="0"
               style="width: 80px"
             />
@@ -312,7 +334,9 @@ function formatMoney(val: any) {
           />
         </template>
         <template v-else-if="column.key === 'amountDisplay'">
-          <span class="amount-display">¥{{ formatMoney(members[index].amount) }}</span>
+          <span class="amount-display"
+            >¥{{ formatMoney(members[index].amount) }}</span
+          >
         </template>
         <template v-else-if="column.key === 'action'">
           <Button type="link" danger size="small" @click="removeMember(index)">
@@ -327,8 +351,10 @@ function formatMoney(val: any) {
     </div>
 
     <template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <Button @click="handleClose">{{ $t('page.finance.common.cancel') }}</Button>
+      <div style="display: flex; gap: 8px; justify-content: flex-end">
+        <Button @click="handleClose">
+          {{ $t('page.finance.common.cancel') }}
+        </Button>
         <Button
           type="primary"
           :loading="loading"
@@ -347,9 +373,9 @@ function formatMoney(val: any) {
   display: flex;
   gap: 32px;
   padding: 12px 16px;
+  margin-bottom: 16px;
   background: #f8fafc;
   border-radius: 6px;
-  margin-bottom: 16px;
 }
 
 .summary-item {
@@ -383,8 +409,8 @@ function formatMoney(val: any) {
 
 .allocate-method {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   margin-bottom: 16px;
 }
 
@@ -400,12 +426,12 @@ function formatMoney(val: any) {
 }
 
 .over-limit-warn {
-  margin-top: 8px;
   padding: 8px 12px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #dc2626;
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 4px;
-  color: #dc2626;
-  font-size: 13px;
 }
 </style>

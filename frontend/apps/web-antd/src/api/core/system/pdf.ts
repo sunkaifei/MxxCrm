@@ -62,8 +62,8 @@ export const generatePdfApi = async (data: PdfGenerateRequest) =>
   requestClient.post('/api/system/pdf/generate', data);
 
 export const previewPdfApi = async (params: {
-  docType: string;
   docId: number | string;
+  docType: string;
   templateId?: number | string;
 }) => requestClient.get('/api/system/pdf/preview', { params });
 

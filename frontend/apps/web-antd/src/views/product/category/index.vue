@@ -1,15 +1,17 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import { Alert, Button, message, Popconfirm } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteCategoryApi, getCategoryListApi } from '#/api';
 import { $t } from '#/locales';
 
@@ -62,7 +64,7 @@ const gridOptions: VxeGridProps = {
       query: async (_, formValues) => {
         const res: any = await getCategoryListApi({
           page: 1,
-          pageSize: 99999,
+          pageSize: 99_999,
           keywords: formValues.keywords,
         });
         const list = res?.list || res?.items || res || [];
@@ -95,7 +97,7 @@ const gridOptions: VxeGridProps = {
       title: '描述',
       field: 'description',
       minWidth: 200,
-      ellipsis: true,
+      showOverflow: true,
     },
     {
       title: $t('ui.table.action'),

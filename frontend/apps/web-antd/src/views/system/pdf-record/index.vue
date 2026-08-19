@@ -1,12 +1,12 @@
 <script lang="ts" setup>
-import type { VbenFormProps } from '@vben/common-ui';
-
 import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, TabPane, Tabs, Tag } from 'ant-design-vue';
+import { Button, Card, Form, Input, Select, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -16,6 +16,7 @@ import {
 } from '#/api';
 import { $t } from '#/locales';
 
+// 当前激活的页签
 const activeTab = ref('generate');
 
 const docTypeOptions = [
@@ -35,58 +36,46 @@ const triggerTypeOptions = [
   { label: $t('page.system.pdfRecord.triggerAuto'), value: 'auto' },
 ];
 
-// ========== Tab1: 生成记录 ==========
-const genFormOptions: VbenFormProps = {
-  collapsed: false,
-  showCollapseButton: false,
-  submitOnEnter: true,
-  schema: [
-    {
-      component: 'Select',
-      fieldName: 'docType',
-      label: $t('page.system.pdfRecord.docType'),
-      componentProps: {
-        placeholder: $t('ui.placeholder.all'),
-        allowClear: true,
-        options: docTypeOptions,
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'docNo',
-      label: $t('page.system.pdfRecord.docNo'),
-      componentProps: {
-        placeholder: $t('ui.placeholder.search'),
-        allowClear: true,
-      },
-    },
-    {
-      component: 'Select',
-      fieldName: 'triggerType',
-      label: $t('page.system.pdfRecord.triggerType'),
-      componentProps: {
-        placeholder: $t('ui.placeholder.all'),
-        allowClear: true,
-        options: triggerTypeOptions,
-      },
-    },
-  ],
-};
+// ========== 搜索表单（参照 pdf-template：外置表单，Grid 不带 formOptions） ==========
+const searchForm = ref({
+  docType: undefined as string | undefined,
+  docNo: '',
+  triggerType: undefined as string | undefined,
+});
 
+function queryActiveGrid() {
+  if (activeTab.value === 'download') {
+    dlGridApi.query();
+  } else {
+    genGridApi.query();
+  }
+}
+
+function handleSearch() {
+  queryActiveGrid();
+}
+
+function handleReset() {
+  searchForm.value = { docType: undefined, docNo: '', triggerType: undefined };
+  queryActiveGrid();
+}
+
+// ========== Tab1: 生成记录 ==========
 const genGridOptions: VxeGridProps = {
   toolbarConfig: { refresh: true, zoom: true },
-  height: 'auto',
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
   stripe: true,
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }, formValues) => {
+      query: async ({ page }) => {
         return await getPdfRecordAllApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          ...formValues,
+          docType: searchForm.value.docType,
+          docNo: searchForm.value.docNo || undefined,
+          triggerType: searchForm.value.triggerType,
         });
       },
     },
@@ -144,50 +133,25 @@ const genGridOptions: VxeGridProps = {
   ],
 };
 
-const [GenGrid] = useVbenVxeGrid({ gridOptions: genGridOptions, formOptions: genFormOptions });
+const [GenGrid, genGridApi] = useVbenVxeGrid({
+  gridOptions: genGridOptions,
+});
 
 // ========== Tab2: 下载查看记录 ==========
-const dlFormOptions: VbenFormProps = {
-  collapsed: false,
-  showCollapseButton: false,
-  submitOnEnter: true,
-  schema: [
-    {
-      component: 'Select',
-      fieldName: 'docType',
-      label: $t('page.system.pdfRecord.docType'),
-      componentProps: {
-        placeholder: $t('ui.placeholder.all'),
-        allowClear: true,
-        options: docTypeOptions,
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'docNo',
-      label: $t('page.system.pdfRecord.docNo'),
-      componentProps: {
-        placeholder: $t('ui.placeholder.search'),
-        allowClear: true,
-      },
-    },
-  ],
-};
-
 const dlGridOptions: VxeGridProps = {
   toolbarConfig: { refresh: true, zoom: true },
-  height: 'auto',
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
   stripe: true,
   proxyConfig: {
     autoLoad: false,
     ajax: {
-      query: async ({ page }, formValues) => {
+      query: async ({ page }) => {
         return await getPdfDownloadLogApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          ...formValues,
+          docType: searchForm.value.docType,
+          docNo: searchForm.value.docNo || undefined,
         });
       },
     },
@@ -233,14 +197,12 @@ const dlGridOptions: VxeGridProps = {
 
 const [DlGrid, dlGridApi] = useVbenVxeGrid({
   gridOptions: dlGridOptions,
-  formOptions: dlFormOptions,
 });
 
-// Tab切换时加载数据
-function handleTabChange(key: string) {
-  if (key === 'download') {
-    dlGridApi.query();
-  }
+// Tab切换时重新加载列表（参照 pdf-template：切 Tab 即重查）
+function handleTabChange(key: number | string) {
+  activeTab.value = String(key);
+  queryActiveGrid();
 }
 
 async function handleDownload(row: any) {
@@ -258,9 +220,9 @@ async function handleDownload(row: any) {
     const link = document.createElement('a');
     link.href = url;
     link.download = row.fileName || 'document.pdf';
-    document.body.appendChild(link);
+    document.body.append(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
     window.URL.revokeObjectURL(url);
   } catch {
     // error handled by interceptor
@@ -269,85 +231,153 @@ async function handleDownload(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
-    <Tabs v-model:active-key="activeTab" @change="handleTabChange">
-      <TabPane
-        key="generate"
-        :tab="$t('page.system.pdfRecord.tabGenerate')"
+  <Page>
+    <!-- 参照 pdf-template：Card 包裹 Tabs + 外置搜索表单 -->
+    <Card :bordered="false" style="margin-bottom: 16px">
+      <Tabs
+        v-model:active-key="activeTab"
+        style="margin-bottom: 16px"
+        @change="handleTabChange"
       >
-        <GenGrid>
-          <template #docType="{ row }">
-            <Tag>{{ docTypeMap[row.docType] || row.docType }}</Tag>
-          </template>
+        <Tabs.TabPane
+          key="generate"
+          :tab="$t('page.system.pdfRecord.tabGenerate')"
+        />
+        <Tabs.TabPane
+          key="download"
+          :tab="$t('page.system.pdfRecord.tabDownload')"
+        />
+      </Tabs>
 
-          <template #fileSize="{ row }">
-            {{ row.fileSize ? (row.fileSize / 1024).toFixed(1) + ' KB' : '-' }}
-          </template>
+      <Form :model="searchForm" layout="inline" class="pdf-search-form">
+        <Form.Item :label="$t('page.system.pdfRecord.docType')" name="docType">
+          <Select
+            v-model:value="searchForm.docType"
+            :options="docTypeOptions"
+            :placeholder="$t('ui.placeholder.all')"
+            allow-clear
+            style="width: 160px"
+          />
+        </Form.Item>
+        <Form.Item :label="$t('page.system.pdfRecord.docNo')" name="docNo">
+          <Input
+            v-model:value="searchForm.docNo"
+            :placeholder="$t('ui.placeholder.search')"
+            allow-clear
+            style="width: 200px"
+            @press-enter="handleSearch"
+          />
+        </Form.Item>
+        <Form.Item
+          v-if="activeTab === 'generate'"
+          :label="$t('page.system.pdfRecord.triggerType')"
+          name="triggerType"
+        >
+          <Select
+            v-model:value="searchForm.triggerType"
+            :options="triggerTypeOptions"
+            :placeholder="$t('ui.placeholder.all')"
+            allow-clear
+            style="width: 140px"
+          />
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" @click="handleSearch">
+            {{ $t('ui.button.search') }}
+          </Button>
+        </Form.Item>
+        <Form.Item>
+          <Button @click="handleReset">{{ $t('ui.button.refresh') }}</Button>
+        </Form.Item>
+      </Form>
+    </Card>
 
-          <template #triggerType="{ row }">
-            <Tag :color="row.triggerType === 'auto' ? 'blue' : 'orange'">
-              {{
-                row.triggerType === 'auto'
-                  ? $t('page.system.pdfRecord.triggerAuto')
-                  : $t('page.system.pdfRecord.triggerManual')
-              }}
-            </Tag>
-          </template>
+    <GenGrid
+      v-show="activeTab === 'generate'"
+      :table-title="$t('page.system.pdfRecord.tabGenerate')"
+    >
+      <template #docType="{ row }">
+        <Tag>{{ docTypeMap[row.docType] || row.docType }}</Tag>
+      </template>
 
-          <template #status="{ row }">
-            <Tag :color="row.status === 1 ? 'green' : 'red'">
-              {{
-                row.status === 1
-                  ? $t('page.system.pdfRecord.statusSuccess')
-                  : $t('page.system.pdfRecord.statusFailed')
-              }}
-            </Tag>
-          </template>
+      <template #fileSize="{ row }">
+        {{ row.fileSize ? `${(row.fileSize / 1024).toFixed(1)} KB` : '-' }}
+      </template>
 
-          <template #createTime="{ row }">
-            {{ formatDateTime(row.createTime) }}
-          </template>
+      <template #triggerType="{ row }">
+        <Tag :color="row.triggerType === 'auto' ? 'blue' : 'orange'">
+          {{
+            row.triggerType === 'auto'
+              ? $t('page.system.pdfRecord.triggerAuto')
+              : $t('page.system.pdfRecord.triggerManual')
+          }}
+        </Tag>
+      </template>
 
-          <template #action="{ row }">
-            <Button
-              v-if="row.status === 1"
-              type="link"
-              size="small"
-              @click="handleDownload(row)"
-            >
-              {{ $t('page.system.pdfRecord.download') }}
-            </Button>
-            <span
-              v-else
-              :title="row.errorMsg"
-              class="text-xs text-red-500"
-            >
-              {{ row.errorMsg }}
-            </span>
-          </template>
-        </GenGrid>
-      </TabPane>
+      <template #status="{ row }">
+        <Tag :color="row.status === 1 ? 'green' : 'red'">
+          {{
+            row.status === 1
+              ? $t('page.system.pdfRecord.statusSuccess')
+              : $t('page.system.pdfRecord.statusFailed')
+          }}
+        </Tag>
+      </template>
 
-      <TabPane
-        key="download"
-        :tab="$t('page.system.pdfRecord.tabDownload')"
-      >
-        <DlGrid>
-          <template #docType="{ row }">
-            <Tag>{{ docTypeMap[row.docType] || row.docType }}</Tag>
-          </template>
+      <template #createTime="{ row }">
+        {{ formatDateTime(row.createTime) }}
+      </template>
 
-          <template #dlAction="{ row }">
-            <Button
-              type="link"
-              size="small"
-              @click="handleDownload({ id: row.recordId, fileName: row.fileName })"
-            >
-              {{ $t('page.system.pdfRecord.reDownload') }}
-            </Button>
-          </template>
-        </DlGrid>
-      </TabPane>
-    </Tabs>
+      <template #action="{ row }">
+        <Button
+          v-if="row.status === 1"
+          type="link"
+          size="small"
+          @click="handleDownload(row)"
+        >
+          {{ $t('page.system.pdfRecord.download') }}
+        </Button>
+        <span v-else :title="row.errorMsg" class="text-xs text-red-500">
+          {{ row.errorMsg }}
+        </span>
+      </template>
+    </GenGrid>
+
+    <DlGrid
+      v-show="activeTab === 'download'"
+      :table-title="$t('page.system.pdfRecord.tabDownload')"
+    >
+      <template #docType="{ row }">
+        <Tag>{{ docTypeMap[row.docType] || row.docType }}</Tag>
+      </template>
+
+      <template #dlAction="{ row }">
+        <Button
+          type="link"
+          size="small"
+          @click="
+            handleDownload({ id: row.recordId, fileName: row.fileName })
+          "
+        >
+          {{ $t('page.system.pdfRecord.reDownload') }}
+        </Button>
+      </template>
+    </DlGrid>
   </Page>
 </template>
+
+<style scoped>
+.pdf-search-form :deep(.ant-form-item) {
+  margin-right: 16px;
+  margin-bottom: 0;
+}
+
+/* 默认内容区最小高度 150px：空数据和少数据都生效；数据多时按内容自适应撑开 */
+:deep(.vxe-table--body-wrapper) {
+  min-height: 150px;
+}
+
+:deep(.vxe-grid) {
+  overflow: hidden;
+}
+</style>

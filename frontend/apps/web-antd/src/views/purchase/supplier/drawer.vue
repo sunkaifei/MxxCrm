@@ -1,20 +1,10 @@
 <script lang="ts" setup>
+import type { VbenFormSchema } from '@vben/common-ui';
+
 import { computed, ref } from 'vue';
-import dayjs from 'dayjs';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import type { VbenFormSchema } from '@vben/common-ui';
-import { $t } from '#/locales';
-import {
-  createSupplierApi,
-  createSupplierBrandApi,
-  deleteSupplierBrandApi,
-  getAllBrandsApi,
-  getBrandsBySupplierApi,
-  getSupplierInfoApi,
-  updateSupplierApi,
-} from '#/api';
+
 import {
   Button,
   DatePicker,
@@ -27,6 +17,19 @@ import {
   Tag,
   Tooltip,
 } from 'ant-design-vue';
+import dayjs from 'dayjs';
+
+import { useVbenForm } from '#/adapter/form';
+import {
+  createSupplierApi,
+  createSupplierBrandApi,
+  deleteSupplierBrandApi,
+  getAllBrandsApi,
+  getBrandsBySupplierApi,
+  getSupplierInfoApi,
+  updateSupplierApi,
+} from '#/api';
+import { $t } from '#/locales';
 
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
@@ -121,13 +124,23 @@ const formSchema: VbenFormSchema[] = [
     fieldName: 'level',
     label: '供应商等级',
     defaultValue: 3,
-    componentProps: { placeholder: '请选择等级', options: levelOptions, allowClear: true },
+    componentProps: {
+      placeholder: '请选择等级',
+      options: levelOptions,
+      allowClear: true,
+    },
   },
   {
     component: 'Select',
     fieldName: 'industry',
     label: '所属行业',
-    componentProps: { placeholder: '请选择行业', options: industryOptions, allowClear: true, showSearch: true, filterOption: true },
+    componentProps: {
+      placeholder: '请选择行业',
+      options: industryOptions,
+      allowClear: true,
+      showSearch: true,
+      filterOption: true,
+    },
   },
   {
     component: 'Select',
@@ -167,7 +180,13 @@ const formSchema: VbenFormSchema[] = [
     component: 'Select',
     fieldName: 'country',
     label: '国家',
-    componentProps: { placeholder: '请选择国家', options: countryOptions, allowClear: true, showSearch: true, filterOption: true },
+    componentProps: {
+      placeholder: '请选择国家',
+      options: countryOptions,
+      allowClear: true,
+      showSearch: true,
+      filterOption: true,
+    },
   },
   {
     component: 'Input',
@@ -185,7 +204,11 @@ const formSchema: VbenFormSchema[] = [
     component: 'Textarea',
     fieldName: 'address',
     label: '详细地址',
-    componentProps: { placeholder: '请输入详细地址', allowClear: true, rows: 2 },
+    componentProps: {
+      placeholder: '请输入详细地址',
+      allowClear: true,
+      rows: 2,
+    },
     formItemClass: 'col-span-2',
   },
   {
@@ -201,19 +224,33 @@ const formSchema: VbenFormSchema[] = [
     fieldName: 'currency',
     label: '结算币种',
     defaultValue: 1,
-    componentProps: { placeholder: '请选择币种', options: currencyOptions, allowClear: true },
+    componentProps: {
+      placeholder: '请选择币种',
+      options: currencyOptions,
+      allowClear: true,
+    },
   },
   {
     component: 'InputNumber',
     fieldName: 'creditLimit',
     label: '信用额度',
-    componentProps: { placeholder: '0.00', min: 0, precision: 2, style: { width: '100%' } },
+    componentProps: {
+      placeholder: '0.00',
+      min: 0,
+      precision: 2,
+      style: { width: '100%' },
+    },
   },
   {
     component: 'InputNumber',
     fieldName: 'creditDays',
     label: '信用天数',
-    componentProps: { placeholder: '0', min: 0, precision: 0, style: { width: '100%' } },
+    componentProps: {
+      placeholder: '0',
+      min: 0,
+      precision: 0,
+      style: { width: '100%' },
+    },
   },
   {
     component: 'Input',
@@ -237,7 +274,10 @@ const formSchema: VbenFormSchema[] = [
     component: 'Input',
     fieldName: 'taxId',
     label: '税务登记号',
-    componentProps: { placeholder: '请输入税号/统一社会信用代码', allowClear: true },
+    componentProps: {
+      placeholder: '请输入税号/统一社会信用代码',
+      allowClear: true,
+    },
   },
   {
     component: 'Input',
@@ -290,7 +330,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
       isFullscreen.value = false;
-      drawerData.value = drawerApi.getData<{ create: boolean; row?: any }>() || { create: true };
+      drawerData.value = drawerApi.getData<{
+        create: boolean;
+        row?: any;
+      }>() || { create: true };
       mainFormApi.resetForm();
       confirmLoading.value = false;
       if (!drawerData.value.create && drawerData.value.row?.id) {
@@ -305,7 +348,8 @@ async function loadDetail(id: number) {
     const resp = await getSupplierInfoApi(id);
     const data = resp?.data ?? resp;
     if (!data) return;
-    const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+    const num = (v: any) =>
+      v === null || v === undefined ? undefined : Number(v);
 
     mainFormApi.setValues({
       companyName: data.companyName,
@@ -332,14 +376,14 @@ async function loadDetail(id: number) {
 
     // 加载代理品牌
     loadSupplierBrands(id);
-  } catch (e) {
-    console.error('[供应商] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[供应商] 加载详情失败:', error);
   }
 }
 
 // ========== 代理品牌管理 ==========
 const supplierBrands = ref<any[]>([]);
-const allBrandOptions = ref<Array<{ value: number; label: string }>>([]);
+const allBrandOptions = ref<Array<{ label: string; value: number }>>([]);
 
 const authorizedOptions = [
   { label: '未授权', value: 0 },
@@ -360,11 +404,36 @@ const authorizedColorMap: Record<number, string> = {
 };
 
 const brandColumns = [
-  { title: '品牌名称', dataIndex: 'brandName', key: 'brandName', minWidth: 140 },
-  { title: '授权状态', dataIndex: 'isAuthorized', key: 'isAuthorized', width: 100 },
-  { title: '授权编号', dataIndex: 'authorizationNo', key: 'authorizationNo', width: 140 },
-  { title: '授权开始', dataIndex: 'authorizationStart', key: 'authorizationStart', width: 120 },
-  { title: '授权结束', dataIndex: 'authorizationEnd', key: 'authorizationEnd', width: 120 },
+  {
+    title: '品牌名称',
+    dataIndex: 'brandName',
+    key: 'brandName',
+    minWidth: 140,
+  },
+  {
+    title: '授权状态',
+    dataIndex: 'isAuthorized',
+    key: 'isAuthorized',
+    width: 100,
+  },
+  {
+    title: '授权编号',
+    dataIndex: 'authorizationNo',
+    key: 'authorizationNo',
+    width: 140,
+  },
+  {
+    title: '授权开始',
+    dataIndex: 'authorizationStart',
+    key: 'authorizationStart',
+    width: 120,
+  },
+  {
+    title: '授权结束',
+    dataIndex: 'authorizationEnd',
+    key: 'authorizationEnd',
+    width: 120,
+  },
   { title: '操作', key: 'action', width: 80 },
 ];
 
@@ -393,7 +462,7 @@ async function loadSupplierBrands(supplierId: number) {
   await loadAllBrands();
   try {
     const res = await getBrandsBySupplierApi({ supplierId });
-    const list = Array.isArray(res) ? res : (res as any)?.records ?? [];
+    const list = Array.isArray(res) ? res : ((res as any)?.records ?? []);
     supplierBrands.value = list.map((item: any) => ({
       ...item,
       brandName: getBrandName(item.brandId),
@@ -442,8 +511,10 @@ async function handleAddBrand() {
       brandId: addBrandForm.value.brandId,
       isAuthorized: addBrandForm.value.isAuthorized,
       authorizationNo: addBrandForm.value.authorizationNo || undefined,
-      authorizationStart: addBrandForm.value.authorizationStart?.format('YYYY-MM-DD'),
-      authorizationEnd: addBrandForm.value.authorizationEnd?.format('YYYY-MM-DD'),
+      authorizationStart:
+        addBrandForm.value.authorizationStart?.format('YYYY-MM-DD'),
+      authorizationEnd:
+        addBrandForm.value.authorizationEnd?.format('YYYY-MM-DD'),
     });
     message.success('添加品牌关联成功');
     addBrandVisible.value = false;
@@ -474,14 +545,38 @@ async function handleDeleteBrand(record: any) {
   >
     <template #extra>
       <Tooltip :title="isFullscreen ? '还原' : '最大化'">
-        <button type="button" class="supplier-drawer__fs-btn" @click="toggleFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          type="button"
+          class="supplier-drawer__fs-btn"
+          @click="toggleFullscreen"
+        >
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -512,7 +607,9 @@ async function handleDeleteBrand(record: any) {
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'isAuthorized'">
-                <Tag :color="authorizedColorMap[record.isAuthorized] || 'default'">
+                <Tag
+                  :color="authorizedColorMap[record.isAuthorized] || 'default'"
+                >
                   {{ authorizedLabelMap[record.isAuthorized] || '未知' }}
                 </Tag>
               </template>
@@ -548,12 +645,17 @@ async function handleDeleteBrand(record: any) {
             placeholder="请选择品牌"
             :options="allBrandOptions"
             show-search
-            :filter-option="(input: string, option: any) => option.label?.toLowerCase().includes(input.toLowerCase())"
+            :filter-option="
+              (input: string, option: any) =>
+                option.label?.toLowerCase().includes(input.toLowerCase())
+            "
             style="flex: 1"
           />
         </div>
         <div class="flex items-center">
-          <label class="w-28 text-right pr-3 text-sm text-gray-700">授权状态</label>
+          <label class="w-28 text-right pr-3 text-sm text-gray-700"
+            >授权状态</label
+          >
           <Select
             v-model:value="addBrandForm.isAuthorized"
             :options="authorizedOptions"
@@ -561,7 +663,9 @@ async function handleDeleteBrand(record: any) {
           />
         </div>
         <div class="flex items-center">
-          <label class="w-28 text-right pr-3 text-sm text-gray-700">授权编号</label>
+          <label class="w-28 text-right pr-3 text-sm text-gray-700"
+            >授权编号</label
+          >
           <Input
             v-model:value="addBrandForm.authorizationNo"
             placeholder="请输入授权编号"
@@ -570,7 +674,9 @@ async function handleDeleteBrand(record: any) {
           />
         </div>
         <div class="flex items-center">
-          <label class="w-28 text-right pr-3 text-sm text-gray-700">授权开始</label>
+          <label class="w-28 text-right pr-3 text-sm text-gray-700"
+            >授权开始</label
+          >
           <DatePicker
             v-model:value="addBrandForm.authorizationStart"
             placeholder="请选择日期"
@@ -578,7 +684,9 @@ async function handleDeleteBrand(record: any) {
           />
         </div>
         <div class="flex items-center">
-          <label class="w-28 text-right pr-3 text-sm text-gray-700">授权结束</label>
+          <label class="w-28 text-right pr-3 text-sm text-gray-700"
+            >授权结束</label
+          >
           <DatePicker
             v-model:value="addBrandForm.authorizationEnd"
             placeholder="请选择日期"
@@ -607,23 +715,23 @@ async function handleDeleteBrand(record: any) {
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .supplier-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .supplier-drawer__body {
+  height: calc(100vh - 150px);
   padding: 0 8px;
   overflow-y: auto;
-  height: calc(100vh - 150px);
 }
 
 .supplier-drawer__body .ant-divider {
@@ -637,8 +745,8 @@ async function handleDeleteBrand(record: any) {
 }
 
 .supplier-brand-section {
-  margin-top: 24px;
   padding-top: 16px;
+  margin-top: 24px;
   border-top: 1px solid #f0f0f0;
 }
 </style>

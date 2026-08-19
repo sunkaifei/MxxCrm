@@ -20,7 +20,6 @@ import {
   Tag,
 } from 'ant-design-vue';
 import { Plus } from 'lucide-vue-next';
-import { UserPickerModal } from '#/components/UserPickerModal';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -29,8 +28,9 @@ import {
   getRefundRecordListApi,
   updateRefundRecordApi,
 } from '#/api';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { UserPickerModal } from '#/components/UserPickerModal';
+import { $t } from '#/locales';
 
 // 退款记录使用说明步骤数（与 i18n 中 page.finance.refundRecord.guide.steps 数组对齐）
 const guideStepCount = 5;
@@ -43,7 +43,9 @@ const formOptions: VbenFormProps = {
       component: 'InputNumber',
       fieldName: 'userId',
       label: $t('page.finance.refundRecord.column.userId'),
-      componentProps: { placeholder: $t('page.finance.refundRecord.placeholder.userId') },
+      componentProps: {
+        placeholder: $t('page.finance.refundRecord.placeholder.userId'),
+      },
     },
     {
       component: 'Select',
@@ -90,8 +92,16 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'seq', width: 60, title: $t('page.finance.common.seq') },
     { field: 'id', title: 'ID', width: 80 },
-    { field: 'userId', title: $t('page.finance.refundRecord.column.userId'), width: 100 },
-    { field: 'paymentRecordId', title: $t('page.finance.refundRecord.column.paymentRecordId'), width: 140 },
+    {
+      field: 'userId',
+      title: $t('page.finance.refundRecord.column.userId'),
+      width: 100,
+    },
+    {
+      field: 'paymentRecordId',
+      title: $t('page.finance.refundRecord.column.paymentRecordId'),
+      width: 140,
+    },
     {
       field: 'amount',
       title: $t('page.finance.refundRecord.column.amount'),
@@ -105,11 +115,31 @@ const gridOptions: VxeGridProps = {
       width: 100,
       slots: { default: 'status' },
     },
-    { field: 'transactionId', title: $t('page.finance.refundRecord.column.transactionId'), width: 160 },
-    { field: 'refundTime', title: $t('page.finance.refundRecord.column.refundTime'), width: 160 },
-    { field: 'reason', title: $t('page.finance.refundRecord.column.reason'), minWidth: 160 },
-    { field: 'remark', title: $t('page.finance.refundRecord.column.remark'), minWidth: 120 },
-    { field: 'createTime', title: $t('page.finance.refundRecord.column.createTime'), width: 160 },
+    {
+      field: 'transactionId',
+      title: $t('page.finance.refundRecord.column.transactionId'),
+      width: 160,
+    },
+    {
+      field: 'refundTime',
+      title: $t('page.finance.refundRecord.column.refundTime'),
+      width: 160,
+    },
+    {
+      field: 'reason',
+      title: $t('page.finance.refundRecord.column.reason'),
+      minWidth: 160,
+    },
+    {
+      field: 'remark',
+      title: $t('page.finance.refundRecord.column.remark'),
+      minWidth: 120,
+    },
+    {
+      field: 'createTime',
+      title: $t('page.finance.refundRecord.column.createTime'),
+      width: 160,
+    },
     {
       field: 'action',
       title: $t('page.finance.common.action'),
@@ -205,8 +235,10 @@ async function handleSubmit() {
     }
     drawerVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.refundRecord.message.saveFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.refundRecord.message.saveFailed'),
+    );
   } finally {
     drawerLoading.value = false;
   }
@@ -217,8 +249,10 @@ async function handleDelete(row: any) {
     await deleteRefundRecordApi(row.id);
     message.success($t('page.finance.refundRecord.message.deleteSuccess'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.refundRecord.message.deleteFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.refundRecord.message.deleteFailed'),
+    );
   }
 }
 
@@ -237,11 +271,7 @@ const statusMap: Record<number, { color: string; text: string }> = {
       :expand-text="$t('page.finance.refundRecord.guide.expand')"
       :collapse-text="$t('page.finance.refundRecord.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -282,26 +312,42 @@ const statusMap: Record<number, { color: string; text: string }> = {
 
     <Drawer
       v-model:open="drawerVisible"
-      :title="drawerMode === 'create'
-        ? $t('page.finance.refundRecord.drawer.titleCreate')
-        : $t('page.finance.refundRecord.drawer.titleEdit')"
+      :title="
+        drawerMode === 'create'
+          ? $t('page.finance.refundRecord.drawer.titleCreate')
+          : $t('page.finance.refundRecord.drawer.titleEdit')
+      "
       width="480"
       :confirm-loading="drawerLoading"
       @ok="handleSubmit"
     >
       <Form ref="formRef" layout="vertical" class="pt-4">
-        <FormItem :label="$t('page.finance.refundRecord.column.userId')" name="userId" required>
+        <FormItem
+          :label="$t('page.finance.refundRecord.column.userId')"
+          name="userId"
+          required
+        >
           <UserPickerModal v-model:value="formData.userId" />
         </FormItem>
-        <FormItem :label="$t('page.finance.refundRecord.column.paymentRecordId')" name="paymentRecordId" required>
+        <FormItem
+          :label="$t('page.finance.refundRecord.column.paymentRecordId')"
+          name="paymentRecordId"
+          required
+        >
           <InputNumber
             v-model:value="formData.paymentRecordId"
-            :placeholder="$t('page.finance.refundRecord.placeholder.paymentRecordId')"
+            :placeholder="
+              $t('page.finance.refundRecord.placeholder.paymentRecordId')
+            "
             :min="1"
             style="width: 100%"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.refundRecord.column.amount')" name="amount" required>
+        <FormItem
+          :label="$t('page.finance.refundRecord.column.amount')"
+          name="amount"
+          required
+        >
           <InputNumber
             v-model:value="formData.amount"
             :min="0"
@@ -310,27 +356,69 @@ const statusMap: Record<number, { color: string; text: string }> = {
             style="width: 100%"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.refundRecord.column.status')" name="status">
+        <FormItem
+          :label="$t('page.finance.refundRecord.column.status')"
+          name="status"
+        >
           <Select
             v-model:value="formData.status"
             :options="[
-              { value: 0, label: $t('page.finance.refundRecord.status.pending') },
-              { value: 1, label: $t('page.finance.refundRecord.status.success') },
-              { value: 2, label: $t('page.finance.refundRecord.status.failed') },
+              {
+                value: 0,
+                label: $t('page.finance.refundRecord.status.pending'),
+              },
+              {
+                value: 1,
+                label: $t('page.finance.refundRecord.status.success'),
+              },
+              {
+                value: 2,
+                label: $t('page.finance.refundRecord.status.failed'),
+              },
             ]"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.refundRecord.column.transactionId')" name="transactionId">
-          <Input v-model:value="formData.transactionId" :placeholder="$t('page.finance.refundRecord.placeholder.transactionId')" />
+        <FormItem
+          :label="$t('page.finance.refundRecord.column.transactionId')"
+          name="transactionId"
+        >
+          <Input
+            v-model:value="formData.transactionId"
+            :placeholder="
+              $t('page.finance.refundRecord.placeholder.transactionId')
+            "
+          />
         </FormItem>
-        <FormItem :label="$t('page.finance.refundRecord.column.refundTime')" name="refundTime">
-          <Input v-model:value="formData.refundTime" :placeholder="$t('page.finance.refundRecord.placeholder.refundTime')" />
+        <FormItem
+          :label="$t('page.finance.refundRecord.column.refundTime')"
+          name="refundTime"
+        >
+          <Input
+            v-model:value="formData.refundTime"
+            :placeholder="
+              $t('page.finance.refundRecord.placeholder.refundTime')
+            "
+          />
         </FormItem>
-        <FormItem :label="$t('page.finance.refundRecord.column.reason')" name="reason">
-          <Input.TextArea v-model:value="formData.reason" :rows="2" :placeholder="$t('page.finance.refundRecord.placeholder.reason')" />
+        <FormItem
+          :label="$t('page.finance.refundRecord.column.reason')"
+          name="reason"
+        >
+          <Input.TextArea
+            v-model:value="formData.reason"
+            :rows="2"
+            :placeholder="$t('page.finance.refundRecord.placeholder.reason')"
+          />
         </FormItem>
-        <FormItem :label="$t('page.finance.refundRecord.column.remark')" name="remark">
-          <Input.TextArea v-model:value="formData.remark" :rows="2" :placeholder="$t('page.finance.refundRecord.placeholder.remark')" />
+        <FormItem
+          :label="$t('page.finance.refundRecord.column.remark')"
+          name="remark"
+        >
+          <Input.TextArea
+            v-model:value="formData.remark"
+            :rows="2"
+            :placeholder="$t('page.finance.refundRecord.placeholder.remark')"
+          />
         </FormItem>
       </Form>
     </Drawer>

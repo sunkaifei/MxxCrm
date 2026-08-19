@@ -1,42 +1,45 @@
 <script lang="ts" setup>
+import type { TemplateListVO } from '#/api/core/website/template';
+
 import { h, onMounted, ref } from 'vue';
+
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { useAccessStore } from '@vben/stores';
 import {
+  LucideDisplay,
+  LucideDownload,
+  LucideEye,
+  LucideFile,
+  LucideFilePenLine,
   LucideMonitor,
+  LucidePlus,
   LucideSmartphone,
   LucideTablet,
-  LucideDisplay,
-  LucidePlus,
-  LucideEye,
   LucideTag,
-  LucideUser,
   LucideTrash2,
-  LucideFile,
   LucideUpload,
-  LucideDownload,
-  LucideFilePenLine,
+  LucideUser,
 } from '@vben/icons';
+import { useAccessStore } from '@vben/stores';
+
 import {
   Button,
+  Empty,
   message,
   Modal,
-  Tag,
   Skeleton,
-  Empty,
+  Tag,
   Tooltip,
 } from 'ant-design-vue';
-import { templateApi, siteApi } from '#/api';
 
-// 无预览图时的占位图（内联 SVG，避免依赖外部服务）
-const NO_PREVIEW_IMG =
-  'data:image/svg+xml,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="#f0f0f0"/><text x="300" y="200" font-family="sans-serif" font-size="24" fill="#bfbfbf" text-anchor="middle" dominant-baseline="middle">No Preview</text></svg>',
-  );
-import type { TemplateListVO } from '#/api/core/website/template';
+import { siteApi, templateApi } from '#/api';
+
 import TemplateDrawer from './drawer.vue';
 import PagesDrawer from './pages-drawer.vue';
+
+// 无预览图时的占位图（内联 SVG，避免依赖外部服务）
+const NO_PREVIEW_IMG = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="#f0f0f0"/><text x="300" y="200" font-family="sans-serif" font-size="24" fill="#bfbfbf" text-anchor="middle" dominant-baseline="middle">No Preview</text></svg>',
+)}`;
 
 const accessStore = useAccessStore();
 
@@ -49,18 +52,18 @@ const pageSize = ref(12);
 
 // 预览
 const previewVisible = ref(false);
-const previewTemplate = ref<TemplateListVO | null>(null);
+const previewTemplate = ref<null | TemplateListVO>(null);
 const previewDetail = ref<any>(null);
 const previewLoading = ref(false);
 const previewMode = ref<'large' | 'site'>('large'); // 大图预览 / 站点预览
 
 // 应用到网站
 const applyVisible = ref(false);
-const applyTemplate = ref<TemplateListVO | null>(null);
+const applyTemplate = ref<null | TemplateListVO>(null);
 const applying = ref(false);
 
 // 页面管理の状态
-const selectedTemplate = ref<TemplateListVO | null>(null);
+const selectedTemplate = ref<null | TemplateListVO>(null);
 
 // --- 页面管理抽屉 ---
 const [PagesDrawerInstance, pagesDrawerApi] = useVbenDrawer({
@@ -139,13 +142,33 @@ function handlePageSizeChange(_current: number, size: number) {
 
 // --- 设备支持图标 ---
 function deviceBadges(row: TemplateListVO) {
-  const badges: { show: boolean; icon: any; label: string; color: string }[] = [
-    { show: row.terminalPc === 1, icon: LucideMonitor, label: '电脑端', color: 'blue' },
-    { show: row.terminalMobile === 1, icon: LucideSmartphone, label: '手机端', color: 'green' },
-    { show: row.terminalIpad === 1, icon: LucideTablet, label: '平板', color: 'orange' },
-    { show: row.terminalDisplay === 1, icon: LucideDisplay, label: '展示机', color: 'purple' },
+  const badges: { color: string; icon: any; label: string; show: boolean }[] = [
+    {
+      show: row.terminalPc === 1,
+      icon: LucideMonitor,
+      label: '电脑端',
+      color: 'blue',
+    },
+    {
+      show: row.terminalMobile === 1,
+      icon: LucideSmartphone,
+      label: '手机端',
+      color: 'green',
+    },
+    {
+      show: row.terminalIpad === 1,
+      icon: LucideTablet,
+      label: '平板',
+      color: 'orange',
+    },
+    {
+      show: row.terminalDisplay === 1,
+      icon: LucideDisplay,
+      label: '展示机',
+      color: 'purple',
+    },
   ];
-  return badges.filter(b => b.show);
+  return badges.filter((b) => b.show);
 }
 
 // --- 预览 ---
@@ -224,9 +247,9 @@ async function handleExport(item: TemplateListVO) {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${item.name || 'template'}.mtp`;
-    document.body.appendChild(a);
+    document.body.append(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     URL.revokeObjectURL(url);
     message.success('导出成功');
   } catch {
@@ -239,17 +262,17 @@ function handleImportTemplate() {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.mtp,.zip';
-  input.onchange = async (e: any) => {
+  input.addEventListener('change', async (e: any) => {
     const file = e.target?.files?.[0];
     if (!file) return;
     try {
       await templateApi.importTemplate(file);
       message.success('模板导入成功');
       loadTemplates();
-    } catch (err: any) {
-      message.error(err?.message || '导入失败');
+    } catch (error: any) {
+      message.error(error?.message || '导入失败');
     }
-  };
+  });
   input.click();
 }
 </script>
@@ -266,10 +289,7 @@ function handleImportTemplate() {
             <span class="topbar-count">共 {{ total }} 个模板</span>
           </div>
           <div class="topbar-actions">
-            <Button
-              type="primary"
-              @click="handleImportTemplate"
-            >
+            <Button type="primary" @click="handleImportTemplate">
               <template #icon><component :is="LucideUpload" /></template>
               导入模板
             </Button>
@@ -288,9 +308,13 @@ function handleImportTemplate() {
           <!-- 加载中 -->
           <div v-if="loading" class="template-grid">
             <div v-for="i in 6" :key="i" class="template-card-skeleton">
-              <div class="skeleton-image" />
+              <div class="skeleton-image"></div>
               <div class="skeleton-info">
-                <Skeleton active :paragraph="{ rows: 2, width: ['80%', '60%'] }" :avatar="{ size: 'small' }" />
+                <Skeleton
+                  active
+                  :paragraph="{ rows: 2, width: ['80%', '60%'] }"
+                  :avatar="{ size: 'small' }"
+                />
               </div>
             </div>
           </div>
@@ -302,11 +326,7 @@ function handleImportTemplate() {
 
           <!-- 模板卡片 -->
           <div v-else class="template-grid">
-            <div
-              v-for="item in templates"
-              :key="item.id"
-              class="template-card"
-            >
+            <div v-for="item in templates" :key="item.id" class="template-card">
               <!-- 预览图区域 -->
               <div class="card-image-wrapper">
                 <img
@@ -362,7 +382,10 @@ function handleImportTemplate() {
                         :color="dev.color"
                         size="small"
                       >
-                        <component :is="dev.icon" style="font-size: 11px; margin-right: 2px" />
+                        <component
+                          :is="dev.icon"
+                          style="margin-right: 2px; font-size: 11px"
+                        />
                         {{ dev.label }}
                       </Tag>
                     </template>
@@ -402,7 +425,9 @@ function handleImportTemplate() {
                     </Tooltip>
                     <Tooltip title="导出模板">
                       <Button size="small" @click="handleExport(item)">
-                        <template #icon><component :is="LucideDownload" /></template>
+                        <template #icon>
+                          <component :is="LucideDownload" />
+                        </template>
                       </Button>
                     </Tooltip>
                     <Tooltip title="应用到网站">
@@ -476,7 +501,7 @@ function handleImportTemplate() {
             :src="previewDetail.previewUrl"
             class="preview-iframe"
             frameborder="0"
-          />
+          ></iframe>
           <div v-else class="preview-iframe-empty">
             <Empty description="暂未设置演示网址" />
           </div>
@@ -488,16 +513,28 @@ function handleImportTemplate() {
             <h3 class="info-title">{{ previewDetail.name }}</h3>
             <div class="info-device-tags">
               <Tag v-if="previewDetail.terminalPc === 1" color="blue">
-                <component :is="LucideMonitor" style="font-size: 12px; margin-right: 3px" />电脑端
+                <component
+                  :is="LucideMonitor"
+                  style="margin-right: 3px; font-size: 12px"
+                />电脑端
               </Tag>
               <Tag v-if="previewDetail.terminalMobile === 1" color="green">
-                <component :is="LucideSmartphone" style="font-size: 12px; margin-right: 3px" />手机端
+                <component
+                  :is="LucideSmartphone"
+                  style="margin-right: 3px; font-size: 12px"
+                />手机端
               </Tag>
               <Tag v-if="previewDetail.terminalIpad === 1" color="orange">
-                <component :is="LucideTablet" style="font-size: 12px; margin-right: 3px" />平板
+                <component
+                  :is="LucideTablet"
+                  style="margin-right: 3px; font-size: 12px"
+                />平板
               </Tag>
               <Tag v-if="previewDetail.terminalDisplay === 1" color="purple">
-                <component :is="LucideDisplay" style="font-size: 12px; margin-right: 3px" />展示机
+                <component
+                  :is="LucideDisplay"
+                  style="margin-right: 3px; font-size: 12px"
+                />展示机
               </Tag>
             </div>
           </div>
@@ -505,12 +542,19 @@ function handleImportTemplate() {
           <div class="info-grid">
             <div class="info-item">
               <span class="info-label">模板文件夹</span>
-              <span class="info-value">{{ previewDetail.templateFolder || '—' }}</span>
+              <span class="info-value">{{
+                previewDetail.templateFolder || '—'
+              }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">演示网址</span>
               <span class="info-value">
-                <a v-if="previewDetail.previewUrl" :href="previewDetail.previewUrl" target="_blank" rel="noopener">
+                <a
+                  v-if="previewDetail.previewUrl"
+                  :href="previewDetail.previewUrl"
+                  target="_blank"
+                  rel="noopener"
+                >
                   {{ previewDetail.previewUrl }}
                 </a>
                 <span v-else style="color: #999">—</span>
@@ -520,7 +564,9 @@ function handleImportTemplate() {
 
           <div class="info-desc">
             <span class="info-label">简介说明</span>
-            <p class="info-desc-text">{{ previewDetail.remark || '暂无简介' }}</p>
+            <p class="info-desc-text">
+              {{ previewDetail.remark || '暂无简介' }}
+            </p>
           </div>
 
           <div class="info-actions">
@@ -528,16 +574,16 @@ function handleImportTemplate() {
               type="primary"
               size="large"
               :icon="h(LucideTag)"
-              @click="() => { previewVisible = false; previewTemplate && handleApply(previewTemplate); }"
+              @click="
+                () => {
+                  previewVisible = false;
+                  previewTemplate && handleApply(previewTemplate);
+                }
+              "
             >
               应用到网站
             </Button>
-            <Button
-              size="large"
-              @click="previewVisible = false"
-            >
-              关闭
-            </Button>
+            <Button size="large" @click="previewVisible = false"> 关闭 </Button>
           </div>
         </div>
       </div>
@@ -554,10 +600,12 @@ function handleImportTemplate() {
       @cancel="applyVisible = false"
     >
       <div style="padding: 8px 0">
-        <div style="color: #666; font-size: 14px; line-height: 1.8">
-          确认将模板 <strong style="color: #1677ff">{{ applyTemplate?.name }}</strong> 应用到当前站点吗？
+        <div style="font-size: 14px; line-height: 1.8; color: #666">
+          确认将模板
+          <strong style="color: #1677ff">{{ applyTemplate?.name }}</strong>
+          应用到当前站点吗？
           <br />
-          <span style="color: #999; font-size: 12px">
+          <span style="font-size: 12px; color: #999">
             单站模式下模板将直接应用到默认站点，切换后整站外观会立即改变。
           </span>
         </div>
@@ -582,33 +630,38 @@ function handleImportTemplate() {
   width: 100%;
   min-width: 0;
 }
+
 .template-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
 }
+
 .topbar-info {
   display: flex;
-  align-items: baseline;
   gap: 12px;
+  align-items: baseline;
 }
+
 .topbar-title {
   margin: 0;
   font-size: 22px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.88);
+  color: rgb(0 0 0 / 88%);
   letter-spacing: -0.5px;
 }
+
 .topbar-count {
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgb(0 0 0 / 45%);
 }
 
 /* ========== 卡片网格 ========== */
 .template-grid-wrapper {
   min-height: 400px;
 }
+
 .template-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -617,19 +670,24 @@ function handleImportTemplate() {
 
 /* ========== 模板卡片 ========== */
 .template-card {
-  background: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 6px rgba(0, 0, 0, 0.04);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background: #fff;
   border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 4%),
+    0 1px 6px rgb(0 0 0 / 4%);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
+
 .template-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   border-color: transparent;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  transform: translateY(-4px);
 }
 
 /* 预览图 */
@@ -640,12 +698,14 @@ function handleImportTemplate() {
   overflow: hidden;
   background: #f5f5f5;
 }
+
 .card-preview-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.5s ease;
 }
+
 .template-card:hover .card-preview-img {
   transform: scale(1.06);
 }
@@ -654,16 +714,22 @@ function handleImportTemplate() {
 .card-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.6) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 10%) 0%,
+    rgb(0 0 0 / 60%) 100%
+  );
   opacity: 0;
   transition: opacity 0.25s ease;
 }
+
 .template-card:hover .card-overlay {
   opacity: 1;
 }
+
 .overlay-buttons {
   display: flex;
   flex-direction: column;
@@ -680,52 +746,58 @@ function handleImportTemplate() {
 
 /* 信息区域 */
 .card-info {
-  padding: 14px 16px 12px;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
+  padding: 14px 16px 12px;
 }
+
 .card-title-row {
   margin-bottom: 2px;
 }
+
 .card-title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.88);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgb(0 0 0 / 88%);
+  white-space: nowrap;
 }
 
 .card-device-row,
 .card-desc-row {
   display: flex;
-  align-items: flex-start;
   gap: 6px;
+  align-items: flex-start;
   font-size: 12px;
   line-height: 1.6;
 }
+
 .device-label,
 .desc-label {
-  color: rgba(0, 0, 0, 0.45);
   flex-shrink: 0;
+  color: rgb(0 0 0 / 45%);
 }
+
 .device-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
+
 .no-device {
-  color: rgba(0, 0, 0, 0.35);
+  color: rgb(0 0 0 / 35%);
 }
+
 .desc-text {
-  color: rgba(0, 0, 0, 0.7);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  -webkit-line-clamp: 2;
+  color: rgb(0 0 0 / 70%);
+  -webkit-box-orient: vertical;
 }
 
 /* 底部 */
@@ -737,16 +809,19 @@ function handleImportTemplate() {
   margin-top: auto;
   border-top: 1px solid #f5f5f5;
 }
+
 .card-provider {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.55);
+  color: rgb(0 0 0 / 55%);
 }
+
 .provider-icon {
   font-size: 13px;
 }
+
 .card-actions {
   display: flex;
   gap: 6px;
@@ -754,16 +829,18 @@ function handleImportTemplate() {
 
 /* 骨架屏 */
 .template-card-skeleton {
+  overflow: hidden;
   background: #fff;
   border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
+
 .skeleton-image {
   width: 100%;
   aspect-ratio: 3 / 2;
   background: #f5f5f5;
 }
+
 .skeleton-info {
   padding: 14px 16px;
 }
@@ -787,109 +864,125 @@ function handleImportTemplate() {
 
 /* ========== 预览弹窗 ========== */
 :deep(.template-preview-modal .ant-modal-content) {
-  border-radius: 12px;
   overflow: hidden;
+  border-radius: 12px;
 }
+
 :deep(.template-preview-modal .ant-modal-body) {
   padding: 0;
 }
+
 .preview-loading {
   padding: 40px;
 }
+
 .preview-content {
   display: flex;
   min-height: 600px;
   max-height: 78vh;
 }
+
 .preview-large,
 .preview-site {
-  flex: 1;
-  background: #f0f2f5;
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
   overflow: auto;
+  background: #f0f2f5;
 }
+
 .preview-large-img {
+  display: block;
   max-width: 100%;
   max-height: 78vh;
   object-fit: contain;
-  display: block;
 }
+
 .preview-iframe {
   width: 100%;
   height: 78vh;
-  border: none;
   background: #fff;
+  border: none;
 }
+
 .preview-iframe-empty {
   padding: 80px 40px;
 }
 
 /* 详情面板 */
 .preview-info-panel {
-  width: 320px;
+  display: flex;
   flex-shrink: 0;
+  flex-direction: column;
+  width: 320px;
+  padding: 24px 20px;
   background: #fff;
   border-left: 1px solid #f0f0f0;
-  padding: 24px 20px;
-  display: flex;
-  flex-direction: column;
 }
+
 .info-header {
   margin-bottom: 16px;
 }
+
 .info-title {
   margin: 0 0 10px;
   font-size: 18px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.88);
+  color: rgb(0 0 0 / 88%);
 }
+
 .info-device-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
 .info-grid {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-bottom: 16px;
 }
+
 .info-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+
 .info-label {
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgb(0 0 0 / 45%);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
 .info-value {
   font-size: 14px;
-  color: rgba(0, 0, 0, 0.88);
+  color: rgb(0 0 0 / 88%);
   word-break: break-all;
 }
+
 .info-desc {
-  flex: 1;
-  margin-bottom: 16px;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 6px;
+  margin-bottom: 16px;
 }
+
 .info-desc-text {
   margin: 0;
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.75);
   line-height: 1.7;
+  color: rgb(0 0 0 / 75%);
 }
+
 .info-actions {
   display: flex;
   gap: 10px;
   padding-top: 16px;
   border-top: 1px solid #f0f0f0;
 }
-
 </style>

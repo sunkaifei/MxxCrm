@@ -1,15 +1,17 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteWarehouseApi, getWarehouseListApi } from '#/api';
 import { $t } from '#/locales';
 
@@ -36,7 +38,7 @@ const formOptions: VbenFormProps = {
 };
 
 function getWarehouseTypeTag(type: number) {
-  const map: Record<number, { label: string; color: string }> = {
+  const map: Record<number, { color: string; label: string }> = {
     1: { label: '原材料仓', color: 'blue' },
     2: { label: '成品仓', color: 'green' },
     3: { label: '半成品仓', color: 'orange' },
@@ -184,7 +186,7 @@ function handleCreate() {
 
 // ============ 仓库详情抽屉 ============
 const detailVisible = ref(false);
-const detailId = ref<number | null>(null);
+const detailId = ref<null | number>(null);
 
 function openDetail(row: any) {
   detailId.value = Number(row.id);
@@ -207,13 +209,19 @@ function openDetail(row: any) {
       </template>
 
       <template #code="{ row }">
-        <a class="text-primary hover:underline cursor-pointer" @click="openDetail(row)">
+        <a
+          class="text-primary hover:underline cursor-pointer"
+          @click="openDetail(row)"
+        >
           {{ row.code || '-' }}
         </a>
       </template>
 
       <template #warehouseName="{ row }">
-        <a class="text-primary hover:underline cursor-pointer" @click="openDetail(row)">
+        <a
+          class="text-primary hover:underline cursor-pointer"
+          @click="openDetail(row)"
+        >
           {{ row.warehouseName || '-' }}
         </a>
       </template>

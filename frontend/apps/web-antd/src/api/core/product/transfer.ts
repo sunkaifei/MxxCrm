@@ -7,7 +7,9 @@ export const getTransferListApi = async (params?: PageParams) => {
 };
 
 export const getTransferInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/inventory/transfer/info', { params: { id } });
+  return requestClient.get('/api/system/inventory/transfer/info', {
+    params: { id },
+  });
 };
 
 export const createTransferApi = async (data: any) => {
@@ -15,11 +17,15 @@ export const createTransferApi = async (data: any) => {
 };
 
 export const transferOutboundApi = async (id: number) => {
-  return requestClient.post('/api/system/inventory/transfer/outbound', { params: { id } });
+  return requestClient.post('/api/system/inventory/transfer/outbound', {
+    params: { id },
+  });
 };
 
 export const transferInboundApi = async (id: number) => {
-  return requestClient.post('/api/system/inventory/transfer/inbound', { params: { id } });
+  return requestClient.post('/api/system/inventory/transfer/inbound', {
+    params: { id },
+  });
 };
 
 export const deleteTransferApi = async (ids: number[]) => {

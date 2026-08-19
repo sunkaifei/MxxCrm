@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router';
+
 import { $t } from '#/locales';
 
 const routes: RouteRecordRaw[] = [
@@ -80,7 +81,7 @@ const routes: RouteRecordRaw[] = [
         path: '/alert-rule',
         component: () => import('#/views/product/inventory-alert/rule.vue'),
         meta: {
-          title: $t('page.inventory.alert.title') + ' - ' + $t('page.inventory.alert.action.viewRule'),
+          title: `${$t('page.inventory.alert.title')} - ${$t('page.inventory.alert.action.viewRule')}`,
         },
       },
     ],

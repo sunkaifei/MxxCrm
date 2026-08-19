@@ -4,7 +4,9 @@ export const getPurchaseOrderListApi = async (params?: Record<string, any>) => {
   return requestClient.get('/api/system/purchase/order/list', { params });
 };
 export const getPurchaseOrderInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/purchase/order/info', { params: { id } });
+  return requestClient.get('/api/system/purchase/order/info', {
+    params: { id },
+  });
 };
 export const createPurchaseOrderApi = async (param: any) => {
   return requestClient.post('/api/system/purchase/order/save', param);

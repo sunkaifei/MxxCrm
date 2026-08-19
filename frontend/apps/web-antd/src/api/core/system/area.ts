@@ -37,11 +37,15 @@ export const getCountriesApi = async () => {
 };
 
 export const getProvincesApi = async (country_code: string) => {
-  return requestClient.get('/api/system/area/provinces', { params: { country_code } });
+  return requestClient.get('/api/system/area/provinces', {
+    params: { country_code },
+  });
 };
 
 export const getChildrenApi = async (parent_id: number) => {
-  return requestClient.get('/api/system/area/children', { params: { parent_id } });
+  return requestClient.get('/api/system/area/children', {
+    params: { parent_id },
+  });
 };
 
 export const getAreaDetailApi = async (id: number) => {

@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { ColumnsType } from 'ant-design-vue/es/table';
+
 import { onMounted, reactive, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
@@ -20,15 +22,14 @@ import {
   Table,
   Tag,
 } from 'ant-design-vue';
-import type { ColumnsType } from 'ant-design-vue/es/table';
 
 import {
   deleteSalaryItemApi,
   getSalaryItemListApi,
   upsertSalaryItemApi,
 } from '#/api/core/finance';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { $t } from '#/locales';
 
 const guideStepCount = 5;
 
@@ -37,7 +38,7 @@ const accessStore = useAccessStore();
 const formatMoney = (val: any) => Number(val || 0).toFixed(2);
 
 // ===== 项目类型映射：1=增项,2=减项 =====
-const itemTypeMap: Record<number, { label: string; color: string }> = {
+const itemTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: $t('page.finance.salaryItem.itemType.addition'), color: 'green' },
   2: { label: $t('page.finance.salaryItem.itemType.deduction'), color: 'red' },
 };
@@ -69,9 +70,11 @@ async function loadList() {
   try {
     const res: any = await getSalaryItemListApi();
     const data = res?.data || res;
-    tableData.value = Array.isArray(data) ? data : data?.items || data?.list || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.loadFailed'));
+    tableData.value = Array.isArray(data)
+      ? data
+      : data?.items || data?.list || [];
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.loadFailed'));
     tableData.value = [];
   } finally {
     loading.value = false;
@@ -167,8 +170,8 @@ async function handleSubmit() {
     );
     formVisible.value = false;
     loadList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.saveFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.saveFailed'));
   } finally {
     formLoading.value = false;
   }
@@ -188,16 +191,24 @@ async function handleDelete(record: any) {
         await deleteSalaryItemApi(record.id);
         message.success($t('page.finance.common.deleteSuccess'));
         loadList();
-      } catch (e: any) {
-        message.error(e?.message || $t('page.finance.common.deleteFailed'));
+      } catch (error: any) {
+        message.error(error?.message || $t('page.finance.common.deleteFailed'));
       }
     },
   });
 }
 
 const columns: ColumnsType = [
-  { title: $t('page.finance.salaryItem.column.itemCode'), dataIndex: 'itemCode', width: 140 },
-  { title: $t('page.finance.salaryItem.column.itemName'), dataIndex: 'itemName', width: 160 },
+  {
+    title: $t('page.finance.salaryItem.column.itemCode'),
+    dataIndex: 'itemCode',
+    width: 140,
+  },
+  {
+    title: $t('page.finance.salaryItem.column.itemName'),
+    dataIndex: 'itemName',
+    width: 160,
+  },
   {
     title: $t('page.finance.salaryItem.column.itemType'),
     dataIndex: 'itemType',
@@ -259,11 +270,7 @@ onMounted(() => {
       :expand-text="$t('page.finance.salaryItem.guide.expand')"
       :collapse-text="$t('page.finance.salaryItem.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -371,26 +378,42 @@ onMounted(() => {
       @ok="handleSubmit"
     >
       <Form layout="vertical" class="py-4">
-        <FormItem :label="$t('page.finance.salaryItem.drawer.itemCode')" required>
+        <FormItem
+          :label="$t('page.finance.salaryItem.drawer.itemCode')"
+          required
+        >
           <Input
             v-model:value="formData.itemCode"
-            :placeholder="$t('page.finance.salaryItem.drawer.itemCodePlaceholder')"
+            :placeholder="
+              $t('page.finance.salaryItem.drawer.itemCodePlaceholder')
+            "
             :disabled="isEdit"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.salaryItem.drawer.itemName')" required>
+        <FormItem
+          :label="$t('page.finance.salaryItem.drawer.itemName')"
+          required
+        >
           <Input
             v-model:value="formData.itemName"
-            :placeholder="$t('page.finance.salaryItem.drawer.itemNamePlaceholder')"
+            :placeholder="
+              $t('page.finance.salaryItem.drawer.itemNamePlaceholder')
+            "
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.salaryItem.drawer.itemType')" required>
+        <FormItem
+          :label="$t('page.finance.salaryItem.drawer.itemType')"
+          required
+        >
           <Select
             v-model:value="formData.itemType"
             :options="itemTypeOptions"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.salaryItem.drawer.calcMode')" required>
+        <FormItem
+          :label="$t('page.finance.salaryItem.drawer.calcMode')"
+          required
+        >
           <Select
             v-model:value="formData.calcMode"
             :options="calcModeOptions"

@@ -50,7 +50,10 @@ export const refundApi = {
     requestClient.post(`/api/system/website_refund/handle/${id}`, data),
 
   markRefunded: (id: number, data?: MarkRefundedParams) =>
-    requestClient.post(`/api/system/website_refund/mark_refunded/${id}`, data ?? {}),
+    requestClient.post(
+      `/api/system/website_refund/mark_refunded/${id}`,
+      data ?? {},
+    ),
 
   batchDelete: (ids: number[]) =>
     requestClient.delete('/api/system/website_refund/batch_delete', {

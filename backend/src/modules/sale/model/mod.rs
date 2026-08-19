@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 pub mod invoice;
+pub mod invoice_edit_log;
 pub mod order;
 pub mod order_item;
 pub mod order_delivery;

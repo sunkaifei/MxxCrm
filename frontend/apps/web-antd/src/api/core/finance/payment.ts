@@ -17,8 +17,8 @@ export const applyFinancePaymentApi = async (data: any) => {
 };
 
 export const approveFinancePaymentApi = async (data: {
-  id: number;
   approved: boolean;
+  id: number;
   remark?: string;
 }) => {
   return requestClient.post('/api/system/finance/payment/approve', data);

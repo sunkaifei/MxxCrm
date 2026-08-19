@@ -1,16 +1,23 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
-import { LucideEye, LucideArrowRightLeft, LucideTrash2 } from '@vben/icons';
+import { LucideArrowRightLeft, LucideEye, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { createTransferApi, deleteTransferApi, getTransferListApi, transferInboundApi, transferOutboundApi } from '#/api/core/product/transfer';
+import {
+  deleteTransferApi,
+  getTransferListApi,
+  transferInboundApi,
+  transferOutboundApi,
+} from '#/api/core/product/transfer';
 import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
@@ -56,7 +63,10 @@ const formOptions: VbenFormProps = {
       fieldName: 'createTimeRange',
       label: $t('page.product.inventory.transfer.field.createTime'),
       componentProps: {
-        placeholder: [$t('ui.placeholder.startDate'), $t('ui.placeholder.endDate')],
+        placeholder: [
+          $t('ui.placeholder.startDate'),
+          $t('ui.placeholder.endDate'),
+        ],
         allowClear: true,
         valueFormat: 'YYYY-MM-DD',
         range: true,
@@ -67,12 +77,27 @@ const formOptions: VbenFormProps = {
 
 // 调拨状态标签映射
 function getTransferStatusTag(status: number) {
-  const map: Record<number, { label: string; color: string }> = {
-    0: { label: $t('page.product.inventory.transfer.status.0'), color: 'default' },
-    1: { label: $t('page.product.inventory.transfer.status.1'), color: 'processing' },
-    2: { label: $t('page.product.inventory.transfer.status.2'), color: 'warning' },
-    3: { label: $t('page.product.inventory.transfer.status.3'), color: 'success' },
-    4: { label: $t('page.product.inventory.transfer.status.4'), color: 'error' },
+  const map: Record<number, { color: string; label: string }> = {
+    0: {
+      label: $t('page.product.inventory.transfer.status.0'),
+      color: 'default',
+    },
+    1: {
+      label: $t('page.product.inventory.transfer.status.1'),
+      color: 'processing',
+    },
+    2: {
+      label: $t('page.product.inventory.transfer.status.2'),
+      color: 'warning',
+    },
+    3: {
+      label: $t('page.product.inventory.transfer.status.3'),
+      color: 'success',
+    },
+    4: {
+      label: $t('page.product.inventory.transfer.status.4'),
+      color: 'error',
+    },
   };
   return map[status] || { label: $t('ui.unknown'), color: 'default' };
 }
@@ -181,14 +206,18 @@ function openDrawer(create: boolean, row?: any) {
 }
 
 async function handleViewDetail(row: any) {
-  window.$message.info($t('page.product.inventory.transfer.action.viewDetail') + ' #' + row.transferNo);
+  window.$message.info(
+    `${$t('page.product.inventory.transfer.action.viewDetail')} #${row.transferNo}`,
+  );
 }
 
 async function handleOutbound(row: any) {
   row.pending = true;
   try {
     await transferOutboundApi(row.id);
-    window.$message.success($t('page.product.inventory.transfer.action.outboundSuccess'));
+    window.$message.success(
+      $t('page.product.inventory.transfer.action.outboundSuccess'),
+    );
   } finally {
     row.pending = false;
     gridApi.query();
@@ -199,7 +228,9 @@ async function handleInbound(row: any) {
   row.pending = true;
   try {
     await transferInboundApi(row.id);
-    window.$message.success($t('page.product.inventory.transfer.action.inboundSuccess'));
+    window.$message.success(
+      $t('page.product.inventory.transfer.action.inboundSuccess'),
+    );
   } finally {
     row.pending = false;
     gridApi.query();
@@ -248,7 +279,10 @@ async function handleDelete(row: any) {
           {{ $t('page.product.inventory.transfer.action.viewDetail') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('product:transfer:outbound') && row.status === 0"
+          v-if="
+            accessStore.hasAccessCode('product:transfer:outbound') &&
+            row.status === 0
+          "
           type="link"
           :icon="h(LucideArrowRightLeft)"
           @click="() => handleOutbound(row)"
@@ -256,7 +290,10 @@ async function handleDelete(row: any) {
           {{ $t('page.product.inventory.transfer.action.outbound') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('product:transfer:inbound') && row.status === 2"
+          v-if="
+            accessStore.hasAccessCode('product:transfer:inbound') &&
+            row.status === 2
+          "
           type="link"
           :icon="h(LucideArrowRightLeft)"
           @click="() => handleInbound(row)"

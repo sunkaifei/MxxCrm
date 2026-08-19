@@ -19,7 +19,9 @@ export const updateExpenseApi = async (data: any) => {
 };
 
 export const batchDeleteExpenseApi = async (ids: number[]) => {
-  return requestClient.post('/api/system/finance/expense/batch-delete', { ids });
+  return requestClient.post('/api/system/finance/expense/batch-delete', {
+    ids,
+  });
 };
 
 // ==================== 费用申请流程操作 ====================
@@ -31,22 +33,28 @@ export const submitExpenseApi = async (id: number) => {
 
 // 审批通过
 export const approveExpenseApi = async (id: number, reason?: string) => {
-  return requestClient.post('/api/system/finance/expense/approve', { id, reason });
+  return requestClient.post('/api/system/finance/expense/approve', {
+    id,
+    reason,
+  });
 };
 
 // 审批驳回
 export const rejectExpenseApi = async (id: number, reason?: string) => {
-  return requestClient.post('/api/system/finance/expense/reject', { id, reason });
+  return requestClient.post('/api/system/finance/expense/reject', {
+    id,
+    reason,
+  });
 };
 
 // 打款
 export const paymentExpenseApi = async (data: {
   id: number;
+  paymentAccount?: string;
   paymentAmount?: number;
   paymentDate?: string;
-  paymentAccount?: string;
-  transactionNo?: string;
   remark?: string;
+  transactionNo?: string;
 }) => {
   return requestClient.post('/api/system/finance/expense/payment', data);
 };
@@ -62,5 +70,7 @@ export const saveExpenseTypeApi = async (data: any) => {
 };
 
 export const deleteExpenseTypeApi = async (ids: number[]) => {
-  return requestClient.post('/api/system/finance/expense/type/batch-delete', { ids });
+  return requestClient.post('/api/system/finance/expense/type/batch-delete', {
+    ids,
+  });
 };

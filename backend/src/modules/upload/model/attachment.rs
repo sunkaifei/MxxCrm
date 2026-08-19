@@ -401,7 +401,8 @@ impl PageWhere {
 pub struct AttachmentModel;
 
 impl AttachmentModel {
-    pub async fn insert(db: &DbConn, form_data: &AttachmentSaveDTO) -> Result<i64, DbErr> {
+    /// 泛型连接：支持 &DbConn 与事务连接（&impl ConnectionTrait），保证上传附件与业务回写同事务
+    pub async fn insert<C: ConnectionTrait>(db: &C, form_data: &AttachmentSaveDTO) -> Result<i64, DbErr> {
         let payload = attachment::ActiveModel {
             type_id:       Set(form_data.type_id.to_owned()),
             name:          Set(form_data.name.to_owned()),
@@ -606,7 +607,7 @@ impl AttachmentModel {
     }
 
     /// 软删除：将 deleted 字段置为 1
-    pub async fn soft_delete_by_id(db: &DbConn, id: i64) -> Result<i64, DbErr> {
+    pub async fn soft_delete_by_id<C: ConnectionTrait>(db: &C, id: i64) -> Result<i64, DbErr> {
         let update_result = Attach::update_many()
             .set(attachment::ActiveModel {
                 deleted: Set(Some(1)),
@@ -664,8 +665,8 @@ impl AttachmentModel {
     }
 
     /// 按 entity_type + entity_id 查询附件列表
-    pub async fn find_by_entity(
-        db: &DbConn,
+    pub async fn find_by_entity<C: ConnectionTrait>(
+        db: &C,
         entity_type: &str,
         entity_id: i64,
     ) -> Result<Vec<attachment::Model>, DbErr> {

@@ -1,8 +1,11 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -10,7 +13,6 @@ import { formatDateTime } from '@vben/utils';
 import { Button, Popconfirm, Switch } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteConfigApi, getConfigListApi, updateConfigApi } from '#/api';
 import { $t } from '#/locales';
 import { statusList } from '#/store';

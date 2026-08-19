@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import type { PdfRecordVO } from '#/api/core/system/pdf';
+import type { PdfTemplateOptionVO } from '#/api/core/system/pdf-template';
+
 import { computed, onMounted, ref } from 'vue';
 
 import { Button, message, Modal, Select, Tag } from 'ant-design-vue';
@@ -8,12 +11,8 @@ import {
   generatePdfApi,
   getPdfRecordListApi,
   previewPdfApi,
-  type PdfRecordVO,
 } from '#/api/core/system/pdf';
-import {
-  getPdfTemplateOptionsApi,
-  type PdfTemplateOptionVO,
-} from '#/api/core/system/pdf-template';
+import { getPdfTemplateOptionsApi } from '#/api/core/system/pdf-template';
 
 interface Props {
   /** 单据类型：quotation/order/contract */
@@ -54,10 +53,10 @@ async function loadTemplateOptions() {
       value: t.id,
     }));
     if (!selectedTemplateId.value && templateOptions.value.length > 0) {
-      selectedTemplateId.value = templateOptions.value[0]!.value;
+      selectedTemplateId.value = templateOptions.value[0]?.value;
     }
-  } catch (e) {
-    console.error('加载 PDF 模板列表失败:', e);
+  } catch (error) {
+    console.error('加载 PDF 模板列表失败:', error);
   }
 }
 
@@ -69,8 +68,8 @@ async function loadRecords() {
       docId: props.docId,
     });
     records.value = Array.isArray(res) ? res : (res?.items ?? []);
-  } catch (e) {
-    console.error('加载 PDF 历史记录失败:', e);
+  } catch (error) {
+    console.error('加载 PDF 历史记录失败:', error);
   }
 }
 
@@ -89,9 +88,9 @@ async function handleGenerate() {
     });
     message.success('PDF 生成成功');
     await loadRecords();
-  } catch (e: any) {
-    console.error('生成 PDF 失败:', e);
-    message.error(e?.message || 'PDF 生成失败');
+  } catch (error: any) {
+    console.error('生成 PDF 失败:', error);
+    message.error(error?.message || 'PDF 生成失败');
   } finally {
     generating.value = false;
   }
@@ -118,9 +117,9 @@ async function handlePreview() {
           res?.content ??
           JSON.stringify(res, null, 2));
     previewVisible.value = true;
-  } catch (e: any) {
-    console.error('预览 PDF 失败:', e);
-    message.error(e?.message || '预览失败');
+  } catch (error: any) {
+    console.error('预览 PDF 失败:', error);
+    message.error(error?.message || '预览失败');
   } finally {
     previewing.value = false;
   }
@@ -135,13 +134,13 @@ async function handleDownload(record: PdfRecordVO) {
     const link = document.createElement('a');
     link.href = url;
     link.download = record.fileName || 'document.pdf';
-    document.body.appendChild(link);
+    document.body.append(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
     window.URL.revokeObjectURL(url);
-  } catch (e: any) {
-    console.error('下载 PDF 失败:', e);
-    message.error(e?.message || '下载失败');
+  } catch (error: any) {
+    console.error('下载 PDF 失败:', error);
+    message.error(error?.message || '下载失败');
   }
 }
 
@@ -173,11 +172,7 @@ onMounted(() => {
     </div>
 
     <div v-if="records.length > 0" class="history-list">
-      <div
-        v-for="record in records"
-        :key="record.id"
-        class="history-item"
-      >
+      <div v-for="record in records" :key="record.id" class="history-item">
         <span class="history-time">{{ record.createTime }}</span>
         <Tag v-if="record.triggerType === 'auto'" color="blue">自动</Tag>
         <Tag v-else color="orange">手动</Tag>
@@ -202,16 +197,16 @@ onMounted(() => {
 
 <style scoped>
 .pdf-generate-panel {
+  padding: 16px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
-  padding: 16px;
 }
 
 .panel-header {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 12px;
 }
 
@@ -223,8 +218,8 @@ onMounted(() => {
 
 .template-select {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 12px;
 }
 
@@ -238,34 +233,34 @@ onMounted(() => {
 
 .history-item {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   padding: 6px 0;
   font-size: 13px;
 }
 
 .history-time {
-  color: hsl(var(--muted-foreground));
   min-width: 160px;
+  color: hsl(var(--muted-foreground));
 }
 
 .status-failed {
-  color: #ef4444;
   font-size: 12px;
+  color: #ef4444;
 }
 
 .typst-source {
   max-height: 60vh;
-  overflow: auto;
-  margin: 0;
   padding: 12px;
-  background: #1e293b;
-  color: #e2e8f0;
-  border-radius: 6px;
-  font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+  margin: 0;
+  overflow: auto;
+  font-family: 'Fira Code', Consolas, Monaco, monospace;
   font-size: 13px;
   line-height: 1.6;
-  white-space: pre-wrap;
+  color: #e2e8f0;
   word-break: break-all;
+  white-space: pre-wrap;
+  background: #1e293b;
+  border-radius: 6px;
 }
 </style>

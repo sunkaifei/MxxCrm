@@ -1,20 +1,25 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
-import { Upload, message } from 'ant-design-vue';
 import type { UploadFile } from 'ant-design-vue';
-import { uploadFileApi } from '#/api/core/attachment/file';
+
+import { ref } from 'vue';
+
 import { LucideUpload } from '@vben/icons';
 
+import { message, Upload } from 'ant-design-vue';
+
+import { uploadFileApi } from '#/api/core/attachment/file';
+
 interface Props {
-  entityType: string;        // 业务类型（product/avatar/contract/invoice/quotation/payment/common）
-  entityId?: number;         // 业务ID（可选，先上传再创建业务时为空）
-  accept?: string;           // 接受的文件类型
-  maxCount?: number;         // 最大上传数
-  listType?: 'picture-card' | 'text';  // 列表样式
+  entityType: string; // 业务类型（product/avatar/contract/invoice/quotation/payment/common）
+  entityId?: number; // 业务ID（可选，先上传再创建业务时为空）
+  accept?: string; // 接受的文件类型
+  maxCount?: number; // 最大上传数
+  listType?: 'picture-card' | 'text'; // 列表样式
   disabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  entityId: undefined,
   accept: 'image/*',
   maxCount: 1,
   listType: 'picture-card',
@@ -22,9 +27,9 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  success: [response: any];
   change: [fileList: UploadFile[]];
   removed: [file: UploadFile];
+  success: [response: any];
 }>();
 
 const fileList = ref<UploadFile[]>([]);
@@ -34,15 +39,19 @@ const customRequest = async (options: any) => {
   const { file, onSuccess, onError, onProgress } = options;
   try {
     onProgress?.({ percent: 30 });
-    const result: any = await uploadFileApi(file, props.entityType, props.entityId);
+    const result: any = await uploadFileApi(
+      file,
+      props.entityType,
+      props.entityId,
+    );
     onProgress?.({ percent: 100 });
     onSuccess?.(result, file);
     emit('success', result);
     message.success('上传成功');
-  } catch (e: any) {
-    console.error('上传失败:', e);
-    onError?.(e);
-    message.error(e?.message || '上传失败');
+  } catch (error: any) {
+    console.error('上传失败:', error);
+    onError?.(error);
+    message.error(error?.message || '上传失败');
   }
 };
 
@@ -103,6 +112,7 @@ defineExpose({ reset, setFileList, fileList });
 .file-uploader {
   width: 100%;
 }
+
 .upload-btn {
   display: flex;
   flex-direction: column;
@@ -110,10 +120,12 @@ defineExpose({ reset, setFileList, fileList });
   justify-content: center;
   color: #8c8c8c;
 }
+
 .upload-icon {
-  font-size: 24px;
   margin-bottom: 4px;
+  font-size: 24px;
 }
+
 .upload-text {
   font-size: 13px;
 }

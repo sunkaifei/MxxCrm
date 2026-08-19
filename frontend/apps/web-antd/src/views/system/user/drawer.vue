@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { message } from 'ant-design-vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { $t } from '#/locales';
+
+import { message } from 'ant-design-vue';
+
 import { useVbenForm } from '#/adapter/form';
 import {
   createUserApi,
@@ -13,6 +15,7 @@ import {
   getUserDetailApi,
   updateUserApi,
 } from '#/api';
+import { $t } from '#/locales';
 import { statusList } from '#/store';
 
 const data = ref();
@@ -44,7 +47,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: '_div1',
       hideLabel: true,
       componentProps: { orientation: 'left', plain: true },
-      renderComponentContent: () => ({ default: () => $t('page.system.user.basicInfo') }),
+      renderComponentContent: () => ({
+        default: () => $t('page.system.user.basicInfo'),
+      }),
       formItemClass: 'col-span-2',
     },
     {
@@ -55,9 +60,12 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
       },
-      rules: z.string()
+      rules: z
+        .string()
         .min(1, { message: $t('ui.formRules.required') })
-        .regex(/^[a-zA-Z0-9_]+$/, { message: '用户名只能包含字母、数字和下划线，不能包含空格' }),
+        .regex(/^[a-zA-Z0-9_]+$/, {
+          message: '用户名只能包含字母、数字和下划线，不能包含空格',
+        }),
     },
     {
       component: 'Input',
@@ -78,12 +86,16 @@ const [BaseForm, baseFormApi] = useVbenForm({
         if: (_values, { formApi }: any) => !!formApi.getValues()?.create,
         componentProps: (_values, { formApi }: any) => {
           if (formApi.getValues()?.create) {
-            return { passwordStrength: true, placeholder: $t('ui.placeholder.input') };
+            return {
+              passwordStrength: true,
+              placeholder: $t('ui.placeholder.input'),
+            };
           }
           return {};
         },
       },
-      help: () => (isCreate.value ? $t('page.system.user.defaultPasswordTip') : ''),
+      help: () =>
+        isCreate.value ? $t('page.system.user.defaultPasswordTip') : '',
     },
     {
       component: 'Select',
@@ -103,7 +115,14 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
+        maxlength: 11,
       },
+      rules: z
+        .string()
+        .min(1, { message: $t('ui.formRules.required') })
+        .regex(/^1[3-9]\d{9}$/, {
+          message: $t('page.system.user.mobileFormatError'),
+        }),
     },
     {
       component: 'Input',
@@ -171,7 +190,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: '_div2',
       hideLabel: true,
       componentProps: { orientation: 'left', plain: true },
-      renderComponentContent: () => ({ default: () => $t('page.system.user.deptRoleInfo') }),
+      renderComponentContent: () => ({
+        default: () => $t('page.system.user.deptRoleInfo'),
+      }),
       formItemClass: 'col-span-2',
     },
     {
@@ -191,7 +212,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
       formItemClass: 'col-span-2',
       rules: z
         .array(z.any(), { required_error: $t('ui.formRules.required') })
-        .min(1, { message: $t('ui.formRules.selectAtLeastOne', { name: $t('page.system.user.dept') }) }),
+        .min(1, {
+          message: $t('ui.formRules.selectAtLeastOne', {
+            name: $t('page.system.user.dept'),
+          }),
+        }),
     },
     {
       component: 'ApiSelect',
@@ -209,7 +234,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
       rules: z
         .array(z.any(), { required_error: $t('ui.formRules.required') })
-        .min(1, { message: $t('ui.formRules.selectAtLeastOne', { name: $t('page.system.user.role') }) }),
+        .min(1, {
+          message: $t('ui.formRules.selectAtLeastOne', {
+            name: $t('page.system.user.role'),
+          }),
+        }),
     },
     {
       component: 'ApiSelect',
@@ -227,7 +256,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
       rules: z
         .array(z.any(), { required_error: $t('ui.formRules.required') })
-        .min(1, { message: $t('ui.formRules.selectAtLeastOne', { name: $t('page.system.user.post') }) }),
+        .min(1, {
+          message: $t('ui.formRules.selectAtLeastOne', {
+            name: $t('page.system.user.post'),
+          }),
+        }),
     },
     {
       component: 'ApiSelect',
@@ -249,7 +282,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: '_div3',
       hideLabel: true,
       componentProps: { orientation: 'left', plain: true },
-      renderComponentContent: () => ({ default: () => $t('page.system.user.statusInfo') }),
+      renderComponentContent: () => ({
+        default: () => $t('page.system.user.statusInfo'),
+      }),
       formItemClass: 'col-span-2',
     },
     {
@@ -309,7 +344,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     // 直属上级：清空时显式传 0，后端据此清除 direct_manager_id
     // 否则 undefined 会被 JSON 序列化时丢弃，导致后端无法区分"不更新"和"清空"
-    if (values.directManagerId === null || values.directManagerId === undefined || values.directManagerId === '') {
+    if (
+      values.directManagerId === null ||
+      values.directManagerId === undefined ||
+      values.directManagerId === ''
+    ) {
       values.directManagerId = 0;
     }
 
@@ -359,22 +398,21 @@ const [Drawer, drawerApi] = useVbenDrawer({
         const rowId = data.value?.row?.id;
         getUserDetailApi(rowId)
           .then((detail: any) => {
-            const row = { ...detail };
-            row.create = false;
+            const row = { ...detail, create: false };
             if (Array.isArray(row.roleIds)) {
               row.roleIds = row.roleIds
                 .filter((v: any) => v !== null && v !== undefined)
-                .map((v: any) => String(v));
+                .map(String);
             }
             if (Array.isArray(row.deptIds)) {
               row.deptIds = row.deptIds
                 .filter((v: any) => v !== null && v !== undefined)
-                .map((v: any) => String(v));
+                .map(String);
             }
             if (Array.isArray(row.postIds)) {
               row.postIds = row.postIds
                 .filter((v: any) => v !== null && v !== undefined)
-                .map((v: any) => String(v));
+                .map(String);
             }
             baseFormApi.setValues(row);
           })

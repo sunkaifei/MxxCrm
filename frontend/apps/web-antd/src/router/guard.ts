@@ -52,7 +52,10 @@ function setupAccessGuard(router: Router) {
 
     // 反篡改：sessionStorage 标记仍在 → 强制恢复锁屏状态
     try {
-      if (sessionStorage.getItem('__lock_active__') === '1' && !accessStore.isLockScreen) {
+      if (
+        sessionStorage.getItem('__lock_active__') === '1' &&
+        !accessStore.isLockScreen
+      ) {
         accessStore.isLockScreen = true;
       }
     } catch {
@@ -123,8 +126,8 @@ function setupAccessGuard(router: Router) {
     // 生成路由表
     // 当前登录用户拥有的角色标识列表
     let userInfo = userStore.userInfo;
-    let userRoles: string[] = [];
-    
+    let userRoles: string[];
+
     try {
       if (!userInfo) {
         userInfo = await authStore.fetchUserInfo();

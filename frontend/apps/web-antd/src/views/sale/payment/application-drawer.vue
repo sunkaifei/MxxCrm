@@ -1,18 +1,18 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import type { TableColumnsType } from 'ant-design-vue';
 
-import { useVbenDrawer } from '#/adapter/drawer';
+import { computed, ref } from 'vue';
 
 import {
   Button,
   InputNumber,
+  message,
   Popconfirm,
   Table,
   Tag,
-  message,
 } from 'ant-design-vue';
-import type { TableColumnsType } from 'ant-design-vue';
 
+import { useVbenDrawer } from '#/adapter/drawer';
 import {
   applyPaymentApi,
   cancelPaymentApplicationApi,
@@ -21,7 +21,7 @@ import {
 } from '#/api/core/sale/payment';
 
 interface PlanRow {
-  id: number | null;
+  id: null | number;
   stageName: string;
   planAmount: number;
   receivedAmount: number;
@@ -31,7 +31,7 @@ interface PlanRow {
 
 interface ApplicationRow {
   id: number;
-  planId: number | null;
+  planId: null | number;
   applyAmount: number;
   createTime: string;
 }
@@ -41,11 +41,11 @@ const submitting = ref(false);
 
 // 回款基本信息
 const paymentInfo = ref<{
-  paymentId: number | null;
   amount: number;
   appliedAmount: number;
+  contractId: null | number;
+  paymentId: null | number;
   unappliedAmount: number;
-  contractId: number | null;
 }>({
   paymentId: null,
   amount: 0,
@@ -61,10 +61,7 @@ const planRows = ref<PlanRow[]>([]);
 const applications = ref<ApplicationRow[]>([]);
 
 const totalApplyAmount = computed(() =>
-  planRows.value.reduce(
-    (sum, row) => sum + Number(row.applyAmount || 0),
-    0,
-  ),
+  planRows.value.reduce((sum, row) => sum + Number(row.applyAmount || 0), 0),
 );
 
 const remainingAfterApply = computed(
@@ -184,8 +181,8 @@ async function loadData(paymentId: number) {
         createTime: a.createTime ?? '',
       }),
     );
-  } catch (e) {
-    console.error('加载核销数据失败:', e);
+  } catch (error) {
+    console.error('加载核销数据失败:', error);
   } finally {
     loading.value = false;
   }
@@ -198,7 +195,8 @@ async function handleApply() {
   }
 
   const validItems = planRows.value.filter(
-    (row) => row.id != null && Number(row.applyAmount) > 0,
+    (row) =>
+      row.id !== null && row.id !== undefined && Number(row.applyAmount) > 0,
   );
 
   if (validItems.length === 0) {
@@ -299,25 +297,45 @@ const [Drawer, drawerApi] = useVbenDrawer({
         <div class="rounded-lg bg-blue-50 p-3">
           <div class="text-xs text-gray-500">回款总金额</div>
           <div class="text-lg font-bold text-blue-600 mt-1">
-            ¥{{ paymentInfo.amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+            ¥{{
+              paymentInfo.amount.toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            }}
           </div>
         </div>
         <div class="rounded-lg bg-green-50 p-3">
           <div class="text-xs text-gray-500">已核销金额</div>
           <div class="text-lg font-bold text-green-600 mt-1">
-            ¥{{ paymentInfo.appliedAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+            ¥{{
+              paymentInfo.appliedAmount.toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            }}
           </div>
         </div>
         <div class="rounded-lg bg-orange-50 p-3">
           <div class="text-xs text-gray-500">未核销金额</div>
           <div class="text-lg font-bold text-orange-600 mt-1">
-            ¥{{ paymentInfo.unappliedAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+            ¥{{
+              paymentInfo.unappliedAmount.toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            }}
           </div>
         </div>
         <div class="rounded-lg bg-purple-50 p-3">
           <div class="text-xs text-gray-500">本次核销总额</div>
           <div class="text-lg font-bold text-purple-600 mt-1">
-            ¥{{ totalApplyAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+            ¥{{
+              totalApplyAmount.toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            }}
           </div>
         </div>
       </div>
@@ -329,9 +347,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
           <Tag v-if="paymentInfo.contractId" color="blue">
             合同ID: {{ paymentInfo.contractId }}
           </Tag>
-          <Tag v-else color="default">
-            未关联合同，无可核销计划
-          </Tag>
+          <Tag v-else color="default"> 未关联合同，无可核销计划 </Tag>
         </div>
         <Table
           :columns="planColumns"
@@ -361,7 +377,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
             </template>
           </template>
           <template #emptyText>
-            <span class="text-gray-400">暂无可核销的计划（未关联合同或所有计划已核销完毕）</span>
+            <span class="text-gray-400"
+              >暂无可核销的计划（未关联合同或所有计划已核销完毕）</span
+            >
           </template>
         </Table>
       </div>
@@ -380,13 +398,15 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 : 'text-blue-600 font-bold'
             "
           >
-            ¥{{ remainingAfterApply.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+            ¥{{
+              remainingAfterApply.toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            }}
           </span>
         </div>
-        <div
-          v-if="remainingAfterApply < 0"
-          class="text-xs text-red-500"
-        >
+        <div v-if="remainingAfterApply < 0" class="text-xs text-red-500">
           核销总额超过未核销金额，请调整
         </div>
       </div>

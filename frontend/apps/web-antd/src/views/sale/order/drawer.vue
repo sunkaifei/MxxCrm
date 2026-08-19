@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import type { VbenFormSchema } from '@vben/common-ui';
 
-import { computed, ref, watch, reactive } from 'vue';
+import type { BankAccount, SalesFlowMode } from '#/api';
+
+import { computed, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { useVbenForm } from '@vben/common-ui';
@@ -10,44 +12,45 @@ import {
   Button,
   Input,
   InputNumber,
+  message,
   Select,
-  Tabs,
-  TabPane,
   Table,
+  TabPane,
+  Tabs,
   Tag,
   Tooltip,
-  message,
 } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
-import ProductSelectModal from '../components/ProductSelectModal.vue';
-import QuotationSelectModal from '../components/QuotationSelectModal.vue';
-import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
-import ContactSelectModal from '../../crm/components/ContactSelectModal.vue';
 import {
   createOrderApi,
-  getContractInfoApi,
-  getOrderInfoApi,
-  updateOrderApi,
-  getCustomerFinancialApi,
-  getCompanyInfoApi,
   getCompanyAccountListApi,
+  getCompanyInfoApi,
+  getContractInfoApi,
+  getCustomerFinancialApi,
+  getOrderInfoApi,
   getSalesFlowModeApi,
   getWarehouseListApi,
-  type BankAccount,
-  type SalesFlowMode,
+  updateOrderApi,
 } from '#/api';
 import { getQuotationInfoApi } from '#/api/core/sale/quotation';
 
-const props = withDefaults(
-  defineProps<{ fromQuotation?: any }>(),
-  { fromQuotation: () => null },
-);
+import ContactSelectModal from '../../crm/components/ContactSelectModal.vue';
+import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
+import ProductSelectModal from '../components/ProductSelectModal.vue';
+import QuotationSelectModal from '../components/QuotationSelectModal.vue';
+
+const props = withDefaults(defineProps<{ fromQuotation?: any }>(), {
+  fromQuotation: () => null,
+});
 
 const route = useRoute();
 
 // drawerData 在 onOpenChange 中手动赋值，避免引用尚未定义的 drawerApi
-const drawerData = ref<{ create: boolean; row: any }>({ create: true, row: {} });
+const drawerData = ref<{ create: boolean; row: any }>({
+  create: true,
+  row: {},
+});
 
 const isEdit = computed(() => !drawerData.value.create);
 const activeTab = ref('basic');
@@ -65,27 +68,22 @@ const flowMode = ref<SalesFlowMode>('both');
 const _showQuotationSelect = computed(
   () => flowMode.value === 'A' || flowMode.value === 'both',
 );
-void _showQuotationSelect;
+void _showQuotationSelect.value;
 // both 模式下用户选择的销售路径：standard=标准(报价单) simple=简易(商机)
-const salesMode = ref<'standard' | 'simple'>('standard');
+const salesMode = ref<'simple' | 'standard'>('standard');
 // both 模式下是否显示模式选择器
-const showModeSelector = computed(
-  () => flowMode.value === 'both' && !drawerData.value.create ? false : flowMode.value === 'both',
+const showModeSelector = computed(() =>
+  flowMode.value === 'both' && !drawerData.value.create
+    ? false
+    : flowMode.value === 'both',
 );
-// 是否显示报价单选择入口
-const _showQuotationEntry = computed(() => {
-  if (flowMode.value === 'A') return true;
-  if (flowMode.value === 'B') return false;
-  // both 模式
-  if (isEdit.value) return !!quotationInfo.value.id;
-  return salesMode.value === 'standard';
-});
 // 是否显示商机选择入口
 const showOpportunityEntry = computed(() => {
   if (flowMode.value === 'A') return false;
   if (flowMode.value === 'B') return true;
   // both 模式
-  if (isEdit.value) return !!opportunityInfo.value.id && !quotationInfo.value.id;
+  if (isEdit.value)
+    return !!opportunityInfo.value.id && !quotationInfo.value.id;
   return salesMode.value === 'simple';
 });
 // 客户名称字段始终禁用，由商机/报价单自动带入
@@ -100,7 +98,7 @@ const loadFlowMode = async () => {
 loadFlowMode();
 
 // 发货仓库（影响产品库存校验与发货归属）
-const warehouseOptions = ref<{ value: number; label: string }[]>([]);
+const warehouseOptions = ref<{ label: string; value: number }[]>([]);
 const warehouseId = ref<number | undefined>(undefined);
 
 async function loadWarehouses() {
@@ -112,8 +110,8 @@ async function loadWarehouses() {
       value: Number(w.id),
       label: w.warehouseName || w.name,
     }));
-  } catch (e) {
-    console.error('[订单] 加载仓库列表失败:', e);
+  } catch (error) {
+    console.error('[订单] 加载仓库列表失败:', error);
     warehouseOptions.value = [];
   }
 }
@@ -121,11 +119,19 @@ loadWarehouses();
 
 // 报价单选择
 const quotationModalVisible = ref(false);
-const quotationInfo = ref<{ id?: number; title?: string; quotationNo?: string }>({});
+const quotationInfo = ref<{
+  id?: number;
+  quotationNo?: string;
+  title?: string;
+}>({});
 
 // 商机选择
 const opportunityModalVisible = ref(false);
-const opportunityInfo = ref<{ id?: number; name?: string; customerName?: string }>({});
+const opportunityInfo = ref<{
+  customerName?: string;
+  id?: number;
+  name?: string;
+}>({});
 
 // 联系人选择
 const contactModalVisible = ref(false);
@@ -138,7 +144,10 @@ const isQuotationMode = computed(() => !!quotationInfo.value.id);
 function onOpportunitySelect(item: any) {
   // 记录切换前的客户ID，用于判断客户是否变化
   const previousCustomerId = contactFilterCustomerId.value;
-  opportunityInfo.value = { id: item.id, name: item.opportunityName || item.title || '' };
+  opportunityInfo.value = {
+    id: item.id,
+    name: item.opportunityName || item.title || '',
+  };
   basicFormApi.setValues({ opportunityId: item.id });
   // 自动带出商机负责人作为订单负责人
   if (item.assignedTo) {
@@ -160,7 +169,10 @@ function onOpportunitySelect(item: any) {
   // 继承商机关联的联系人信息（客户未变或新商机自带联系人时填充）
   if (item.contactId) {
     contactInfo.value = { id: item.contactId, name: item.contactName || '' };
-    basicFormApi.setValues({ contactId: item.contactId, contactName: item.contactName || '' });
+    basicFormApi.setValues({
+      contactId: item.contactId,
+      contactName: item.contactName || '',
+    });
   }
   // 选择商机后清除报价单
   clearQuotation();
@@ -190,7 +202,7 @@ function clearOpportunity() {
   basicFormApi.setValues({ opportunityId: undefined });
 }
 
-function selectSalesMode(mode: 'standard' | 'simple') {
+function selectSalesMode(mode: 'simple' | 'standard') {
   if (isEdit.value) return;
   salesMode.value = mode;
   // 切换模式时清空另一方的选择
@@ -232,7 +244,9 @@ function clearSource() {
 }
 
 // 合同信息（只读）
-const contractInfo = ref<{ id?: number; title?: string; contractNo?: string }>({});
+const contractInfo = ref<{ contractNo?: string; id?: number; title?: string }>(
+  {},
+);
 
 // 财务信息 - 收款方（我方企业，可编辑）
 const sellerInfo = reactive({
@@ -279,7 +293,11 @@ function onWarehouseChange() {
 async function onQuotationSelect(item: any) {
   // 记录切换前的客户ID，用于判断客户是否变化
   const previousCustomerId = contactFilterCustomerId.value;
-  quotationInfo.value = { id: item.id, title: item.title, quotationNo: item.quotationNo };
+  quotationInfo.value = {
+    id: item.id,
+    title: item.title,
+    quotationNo: item.quotationNo,
+  };
   basicFormApi.setValues({ quotationId: item.id });
   // 自动带出报价单负责人作为订单负责人
   if (item.ownerUserId) {
@@ -305,8 +323,14 @@ async function onQuotationSelect(item: any) {
     const detail = resp?.data ?? resp ?? {};
     // 继承报价单关联的联系人信息
     if (detail.contactId) {
-      contactInfo.value = { id: detail.contactId, name: detail.contactName || '' };
-      basicFormApi.setValues({ contactId: detail.contactId, contactName: detail.contactName || '' });
+      contactInfo.value = {
+        id: detail.contactId,
+        name: detail.contactName || '',
+      };
+      basicFormApi.setValues({
+        contactId: detail.contactId,
+        contactName: detail.contactName || '',
+      });
     }
     // 复制报价单产品明细到订单（一比一，含SKU/规格/单位/数量/单价/折扣/税率）
     items.value = Array.isArray(detail.items)
@@ -330,8 +354,8 @@ async function onQuotationSelect(item: any) {
     taxAmount.value = Number(detail.taxAmount) || 0;
     shippingFee.value = 0;
     otherFee.value = 0;
-  } catch (e) {
-    console.error('[订单] 加载报价单详情失败:', e);
+  } catch (error) {
+    console.error('[订单] 加载报价单详情失败:', error);
     items.value = [];
   }
 }
@@ -418,7 +442,11 @@ const basicFormSchema: VbenFormSchema[] = [
     fieldName: 'orderDate',
     label: '下单日期',
     rules: 'required',
-    componentProps: { placeholder: '请选择', style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+    componentProps: {
+      placeholder: '请选择',
+      style: 'width:100%',
+      valueFormat: 'YYYY-MM-DD',
+    },
   },
   {
     component: 'Input',
@@ -455,13 +483,22 @@ const basicFormSchema: VbenFormSchema[] = [
     component: 'DatePicker',
     fieldName: 'deliveryDate',
     label: '预计交付日期',
-    componentProps: { placeholder: '请选择', style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+    componentProps: {
+      placeholder: '请选择',
+      style: 'width:100%',
+      valueFormat: 'YYYY-MM-DD',
+    },
   },
   {
     component: 'Textarea',
     fieldName: 'remark',
     label: '备注',
-    componentProps: { placeholder: '备注信息', rows: 3, showCount: true, maxlength: 500 },
+    componentProps: {
+      placeholder: '备注信息',
+      rows: 3,
+      showCount: true,
+      maxlength: 500,
+    },
     wrapperClass: 'col-span-2',
   },
 ];
@@ -497,7 +534,11 @@ const shippingFormSchema: VbenFormSchema[] = [
     component: 'Select',
     fieldName: 'shippingMethod',
     label: '配送方式',
-    componentProps: { placeholder: '请选择', options: shippingMethodOptions, allowClear: true },
+    componentProps: {
+      placeholder: '请选择',
+      options: shippingMethodOptions,
+      allowClear: true,
+    },
   },
   {
     component: 'Input',
@@ -512,27 +553,45 @@ const paymentFormSchema: VbenFormSchema[] = [
     component: 'Select',
     fieldName: 'paymentMethod',
     label: '支付方式',
-    componentProps: { placeholder: '请选择', options: paymentMethodOptions, allowClear: true },
+    componentProps: {
+      placeholder: '请选择',
+      options: paymentMethodOptions,
+      allowClear: true,
+    },
     rules: 'required',
   },
   {
     component: 'DatePicker',
     fieldName: 'paymentDueDate',
     label: '付款截止日期',
-    componentProps: { placeholder: '请选择', style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+    componentProps: {
+      placeholder: '请选择',
+      style: 'width:100%',
+      valueFormat: 'YYYY-MM-DD',
+    },
     rules: 'required',
   },
   {
     component: 'InputNumber',
     fieldName: 'paidAmount',
     label: '已付金额',
-    componentProps: { placeholder: '已付金额', style: 'width:100%', precision: 2, disabled: true },
+    componentProps: {
+      placeholder: '已付金额',
+      style: 'width:100%',
+      precision: 2,
+      disabled: true,
+    },
   },
   {
     component: 'InputNumber',
     fieldName: 'unpaidAmount',
     label: '未付金额',
-    componentProps: { placeholder: '未付金额', style: 'width:100%', precision: 2, disabled: true },
+    componentProps: {
+      placeholder: '未付金额',
+      style: 'width:100%',
+      precision: 2,
+      disabled: true,
+    },
   },
 ];
 
@@ -566,9 +625,9 @@ function calcLineAmount(item: any): number {
   const disc = Number(item.discountRate) || 100;
   const tax = Number(item.taxRate) || 0;
   const gross = qty * price;
-  const discountAmt = gross * (100 - disc) / 100;
+  const discountAmt = (gross * (100 - disc)) / 100;
   const afterDisc = gross - discountAmt;
-  const taxAmt = afterDisc * tax / 100;
+  const taxAmt = (afterDisc * tax) / 100;
   const lineAmt = afterDisc + taxAmt;
   return Math.round(lineAmt * 100) / 100;
 }
@@ -596,7 +655,14 @@ const unpaidAmountComp = computed(() => {
 });
 
 watch(
-  [productAmount, shippingFee, taxAmount, discountAmount, otherFee, totalAmount],
+  [
+    productAmount,
+    shippingFee,
+    taxAmount,
+    discountAmount,
+    otherFee,
+    totalAmount,
+  ],
   () => {
     paymentFormApi.setValues({
       paidAmount: Number(drawerData.value.row?.paidAmount) || 0,
@@ -607,32 +673,74 @@ watch(
 );
 
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
+  {
+    title: '#',
+    width: 45,
+    key: 'seq',
+    customRender: ({ index }: any) => index + 1,
+    align: 'center' as const,
+  },
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 240 },
-  { title: '类型', dataIndex: 'productType', key: 'productType', width: 90, align: 'center' as const },
+  {
+    title: '类型',
+    dataIndex: 'productType',
+    key: 'productType',
+    width: 90,
+    align: 'center' as const,
+  },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' as const },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 55,
+    align: 'center' as const,
+  },
   { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
-  { title: '库存', dataIndex: 'stock', key: 'stock', width: 70, align: 'center' as const },
-  { title: '单价', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' as const },
-  { title: '折扣率(%)', dataIndex: 'discountRate', key: 'discountRate', width: 75 },
+  {
+    title: '库存',
+    dataIndex: 'stock',
+    key: 'stock',
+    width: 70,
+    align: 'center' as const,
+  },
+  {
+    title: '单价',
+    dataIndex: 'unitPrice',
+    key: 'unitPrice',
+    width: 95,
+    align: 'right' as const,
+  },
+  {
+    title: '折扣率(%)',
+    dataIndex: 'discountRate',
+    key: 'discountRate',
+    width: 75,
+  },
   { title: '税率(%)', dataIndex: 'taxRate', key: 'taxRate', width: 75 },
-  { title: '金额', dataIndex: 'amount', key: 'amount', width: 105, align: 'right' as const },
+  {
+    title: '金额',
+    dataIndex: 'amount',
+    key: 'amount',
+    width: 105,
+    align: 'right' as const,
+  },
   { title: '操作', key: 'action', width: 55, align: 'center' as const },
 ];
 
 // === 07-虚拟商品：商品类型映射（用于明细行徽标渲染） ===
 const productTypeLabels: Record<number, string> = {
-  1: '实物', 2: '虚拟', 3: '服务', 4: '订阅',
+  1: '实物',
+  2: '虚拟',
+  3: '服务',
+  4: '订阅',
 };
 const productTypeColors: Record<number, string> = {
-  1: 'blue', 2: 'purple', 3: 'orange', 4: 'green',
+  1: 'blue',
+  2: 'purple',
+  3: 'orange',
+  4: 'green',
 };
-
-function _addItem() {
-  void _addItem;
-  openProductModal();
-}
 
 function removeItem(index: number) {
   items.value.splice(index, 1);
@@ -645,17 +753,23 @@ async function loadSellerFinancialInfo() {
       getCompanyAccountListApi(),
     ]);
     sellerAccountList.value = Array.isArray(accountList) ? accountList : [];
-    const defaultAccount = sellerAccountList.value.find((a: any) => a.isDefault === 1) || sellerAccountList.value[0];
-    sellerInfo.companyName = companyInfo?.companyName || companyInfo?.companyAbbr || '';
+    const defaultAccount =
+      sellerAccountList.value.find((a: any) => a.isDefault === 1) ||
+      sellerAccountList.value[0];
+    sellerInfo.companyName =
+      companyInfo?.companyName || companyInfo?.companyAbbr || '';
     sellerInfo.bankName = defaultAccount?.bankName || '';
     sellerInfo.accountName = defaultAccount?.accountName || '';
     sellerInfo.accountNumber = defaultAccount?.accountNumber || '';
-  } catch (e) {
-    console.error('[财务信息] 加载收款方信息失败:', e);
+  } catch (error) {
+    console.error('[财务信息] 加载收款方信息失败:', error);
   }
 }
 
-async function loadBuyerFinancialInfo(customerId: number, customerName?: string) {
+async function loadBuyerFinancialInfo(
+  customerId: number,
+  customerName?: string,
+) {
   if (!customerId) {
     buyerInfo.companyName = customerName || '';
     buyerInfo.accountName = '';
@@ -669,14 +783,18 @@ async function loadBuyerFinancialInfo(customerId: number, customerName?: string)
     const data = resp?.data ?? resp ?? null;
     const bankAccounts: BankAccount[] = data?.bankAccounts || [];
     // 为没有 id 的账户生成稳定 id（用于下拉选择）
-    buyerAccountList.value = bankAccounts.map((a: any, i: number) => ({ ...a, _idx: i }));
-    const defaultAccount = bankAccounts.find((a) => a.isDefault) || bankAccounts[0];
+    buyerAccountList.value = bankAccounts.map((a: any, i: number) => ({
+      ...a,
+      _idx: i,
+    }));
+    const defaultAccount =
+      bankAccounts.find((a) => a.isDefault) || bankAccounts[0];
     buyerInfo.companyName = customerName || '';
     buyerInfo.accountName = defaultAccount?.accountName || '';
     buyerInfo.bankName = defaultAccount?.bankName || '';
     buyerInfo.accountNumber = defaultAccount?.accountNumber || '';
-  } catch (e) {
-    console.error('[财务信息] 加载付款方信息失败:', e);
+  } catch (error) {
+    console.error('[财务信息] 加载付款方信息失败:', error);
     buyerInfo.companyName = customerName || '';
     buyerInfo.accountName = '';
     buyerInfo.bankName = '';
@@ -740,7 +858,10 @@ async function loadOrderDetail(orderId: number) {
     warehouseId.value = data.warehouseId ?? undefined;
     // 报价单信息
     quotationInfo.value = data.quotationId
-      ? { id: data.quotationId, title: data.quotationTitle || data.quotationNo || '' }
+      ? {
+          id: data.quotationId,
+          title: data.quotationTitle || data.quotationNo || '',
+        }
       : {};
     // 商机信息
     opportunityInfo.value = data.opportunityId
@@ -757,7 +878,10 @@ async function loadOrderDetail(orderId: number) {
     contactFilterCustomerId.value = data.customerId;
     // 合同信息（只读）
     contractInfo.value = data.contractId
-      ? { id: data.contractId, title: data.contractTitle || data.contractNo || '' }
+      ? {
+          id: data.contractId,
+          title: data.contractTitle || data.contractNo || '',
+        }
       : {};
     shippingFormApi.setValues({
       receiverName: data.receiverName,
@@ -778,11 +902,13 @@ async function loadOrderDetail(orderId: number) {
     if (data.buyerCompanyName) buyerInfo.companyName = data.buyerCompanyName;
     if (data.buyerAccountName) buyerInfo.accountName = data.buyerAccountName;
     if (data.buyerBankName) buyerInfo.bankName = data.buyerBankName;
-    if (data.buyerAccountNumber) buyerInfo.accountNumber = data.buyerAccountNumber;
+    if (data.buyerAccountNumber)
+      buyerInfo.accountNumber = data.buyerAccountNumber;
     if (data.sellerCompanyName) sellerInfo.companyName = data.sellerCompanyName;
     if (data.sellerBankName) sellerInfo.bankName = data.sellerBankName;
     if (data.sellerAccountName) sellerInfo.accountName = data.sellerAccountName;
-    if (data.sellerAccountNumber) sellerInfo.accountNumber = data.sellerAccountNumber;
+    if (data.sellerAccountNumber)
+      sellerInfo.accountNumber = data.sellerAccountNumber;
     items.value = Array.isArray(data.items)
       ? data.items.map((it: any) => ({
           id: it.id,
@@ -794,17 +920,17 @@ async function loadOrderDetail(orderId: number) {
           productType: it.productType ?? 1,
           quantity: Number(it.quantity) || 1,
           unitPrice: Number(it.unitPrice) || 0,
-          discountRate: Number(it.discountRate) ?? Number(it.discount_rate) ?? 100,
-          taxRate: Number(it.taxRate) ?? Number(it.tax_rate) ?? 0,
+          discountRate: Number(it.discountRate ?? it.discount_rate ?? 100),
+          taxRate: Number(it.taxRate ?? it.tax_rate ?? 0),
           amount: Number(it.amount) || 0,
         }))
       : [];
-    shippingFee.value = Number(data.shippingFee) ?? 0;
-    taxAmount.value = Number(data.taxAmount) ?? 0;
-    discountAmount.value = Number(data.discountAmount) ?? 0;
-    otherFee.value = Number(data.otherFee) ?? 0;
-  } catch (e) {
-    console.error('[订单] 加载详情失败:', e);
+    shippingFee.value = Number(data.shippingFee) || 0;
+    taxAmount.value = Number(data.taxAmount) || 0;
+    discountAmount.value = Number(data.discountAmount) || 0;
+    otherFee.value = Number(data.otherFee) || 0;
+  } catch (error) {
+    console.error('[订单] 加载详情失败:', error);
     items.value = [];
     shippingFee.value = 0;
     taxAmount.value = 0;
@@ -816,17 +942,13 @@ async function loadOrderDetail(orderId: number) {
 // 数据加载统一在 onOpenChange 中通过 loadOrderDetail 处理，无需额外 watch
 
 async function handleSubmit() {
-  console.log('[订单提交] ========== 开始提交流程 ==========');
-  console.log('[订单提交] isEdit:', isEdit.value, 'rowId:', drawerData.value.row?.id);
-
   try {
     // 1. 表单验证
     let validResult;
     try {
       validResult = await basicFormApi.validate();
-      console.log('[订单提交] 基本表单验证结果:', validResult);
-    } catch (e) {
-      console.error('[订单提交] 基本表单验证异常:', e);
+    } catch (error) {
+      console.error('[订单提交] 基本表单验证异常:', error);
       activeTab.value = 'basic';
       message.warning('请完善基本信息');
       return;
@@ -846,7 +968,6 @@ async function handleSubmit() {
     }
 
     // 3. 商品明细检查
-    console.log('[订单提交] 商品明细数量:', items.value.length);
     if (items.value.length === 0) {
       message.error('请至少添加一条商品明细');
       activeTab.value = 'items';
@@ -857,7 +978,6 @@ async function handleSubmit() {
     const basicValues = await basicFormApi.getValues();
     const shippingValues = await shippingFormApi.getValues();
     const paymentValues = await paymentFormApi.getValues();
-    console.log('[订单提交] 表单数据收集完成:', { basicValues, shippingValues, paymentValues });
 
     // 销售流程模式校验
     if (!quotationInfo.value.id && !basicValues.opportunityId) {
@@ -954,7 +1074,6 @@ async function handleSubmit() {
     const submitData = isEdit.value
       ? { ...data, id: drawerData.value.row.id }
       : data;
-    console.log('[订单提交] 提交数据:', submitData);
 
     if (isEdit.value) {
       await updateOrderApi(submitData);
@@ -964,8 +1083,8 @@ async function handleSubmit() {
       message.success('创建成功');
     }
     closeDrawer();
-  } catch (e) {
-    console.error('[订单提交] 提交失败:', e);
+  } catch (error) {
+    console.error('[订单提交] 提交失败:', error);
     message.error('操作失败');
   } finally {
     submitting.value = false;
@@ -1015,7 +1134,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
           deliveryDate: q.deliveryDate,
           remark: q.remark,
         });
-        quotationInfo.value = { id: q.id, title: q.title, quotationNo: q.quotationNo };
+        quotationInfo.value = {
+          id: q.id,
+          title: q.title,
+          quotationNo: q.quotationNo,
+        };
         // 继承报价单联系人信息
         contactFilterCustomerId.value = q.customerId;
         contactInfo.value = q.contactId
@@ -1112,14 +1235,38 @@ watch(submitting, (val) => {
   >
     <template #extra>
       <Tooltip :title="isFullscreen ? '退出全屏' : '全屏'">
-        <button type="button" class="sale-order-drawer__fs-btn" @click="toggleFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          type="button"
+          class="sale-order-drawer__fs-btn"
+          @click="toggleFullscreen"
+        >
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M8 3H5a2 2 0 0 0-2 2v3" />
             <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
             <path d="M3 16v3a2 2 0 0 0 2 2h3" />
             <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M8 3v3a2 2 0 0 1-2 2H3" />
             <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
             <path d="M3 16h3a2 2 0 0 1 2 2v3" />
@@ -1128,7 +1275,7 @@ watch(submitting, (val) => {
         </button>
       </Tooltip>
     </template>
-    <Tabs v-model:activeKey="activeTab">
+    <Tabs v-model:active-key="activeTab">
       <TabPane key="basic" tab="基本信息">
         <!-- 销售模式选择器（仅 both 模式 + 新建时显示） -->
         <div v-if="showModeSelector" class="sales-mode-selector">
@@ -1138,12 +1285,23 @@ watch(submitting, (val) => {
             @click="selectSalesMode('standard')"
           >
             <div class="mode-card__icon mode-card__icon--standard">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10 9 9 9 8 9"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
               </svg>
             </div>
             <div class="mode-card__content">
@@ -1151,8 +1309,17 @@ watch(submitting, (val) => {
               <div class="mode-card__desc">从报价单转订单，完整流程</div>
             </div>
             <div class="mode-card__check" v-if="salesMode === 'standard'">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
           </div>
@@ -1167,9 +1334,18 @@ watch(submitting, (val) => {
             @click="selectSalesMode('simple')"
           >
             <div class="mode-card__icon mode-card__icon--simple">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
             </div>
             <div class="mode-card__content">
@@ -1177,8 +1353,17 @@ watch(submitting, (val) => {
               <div class="mode-card__desc">从商机直接转订单，快捷开单</div>
             </div>
             <div class="mode-card__check" v-if="salesMode === 'simple'">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
           </div>
@@ -1195,19 +1380,45 @@ watch(submitting, (val) => {
               :class="{ 'source-field-input--filled': sourceFilled }"
               @click="openSourceModal"
             >
-              <span v-if="sourceFilled" class="source-field-value">{{ sourceValue }}</span>
-              <span v-else class="source-field-placeholder">请选择{{ sourceLabel }}</span>
+              <span v-if="sourceFilled" class="source-field-value">{{
+                sourceValue
+              }}</span>
+              <span v-else class="source-field-placeholder"
+                >请选择{{ sourceLabel }}</span
+              >
               <div class="source-field-actions" v-if="sourceFilled && !isEdit">
-                <button type="button" class="source-field-btn" @click.stop="clearSource">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
+                <button
+                  type="button"
+                  class="source-field-btn"
+                  @click.stop="clearSource"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
               <div class="source-field-arrow" v-else>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="9 18 15 12 9 6"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="9 18 15 12 9 6" />
                 </svg>
               </div>
             </div>
@@ -1220,7 +1431,11 @@ watch(submitting, (val) => {
         <div v-if="contractInfo.id" class="source-select-row">
           <span class="source-select-label">关联合同：</span>
           <div class="flex-1">
-            <span class="text-sm">{{ contractInfo.title || contractInfo.contractNo || `合同 #${contractInfo.id}` }}</span>
+            <span class="text-sm">{{
+              contractInfo.title ||
+              contractInfo.contractNo ||
+              `合同 #${contractInfo.id}`
+            }}</span>
           </div>
         </div>
 
@@ -1246,8 +1461,11 @@ watch(submitting, (val) => {
       <TabPane key="items" tab="商品明细">
         <!-- 发货仓库（必选，影响产品库存校验） -->
         <div class="mb-3 flex items-center gap-2 px-1">
-          <span class="shrink-0 text-sm" style="width: 82px; color: hsl(var(--foreground))">
-            <span style="color: hsl(0 84% 60%)">*</span>发货仓库：
+          <span
+            class="shrink-0 text-sm"
+            style="width: 82px; color: hsl(var(--foreground))"
+          >
+            <span style="color: hsl(0deg 84% 60%)">*</span>发货仓库：
           </span>
           <Select
             v-model:value="warehouseId"
@@ -1260,21 +1478,46 @@ watch(submitting, (val) => {
         </div>
 
         <!-- 报价单模式提示 -->
-        <div v-if="isQuotationMode" class="mb-3 px-3 py-2 rounded text-xs" style="background: hsl(var(--primary) / 0.06); color: hsl(var(--primary)); border: 1px solid hsl(var(--primary) / 0.2);">
+        <div
+          v-if="isQuotationMode"
+          class="mb-3 px-3 py-2 rounded text-xs"
+          style="
+            color: hsl(var(--primary));
+            background: hsl(var(--primary) / 6%);
+            border: 1px solid hsl(var(--primary) / 20%);
+          "
+        >
           当前为报价单模式，产品明细一比一来源于报价单，不可增删改
         </div>
 
         <!-- 空状态 -->
         <div v-if="items.length === 0" class="py-12 text-center">
-          <div class="mb-4" style="color: hsl(var(--muted-foreground))">暂无商品，请添加产品到订单</div>
-          <Button v-if="!isQuotationMode" type="primary" @click="openProductModal">添加产品</Button>
+          <div class="mb-4" style="color: hsl(var(--muted-foreground))">
+            暂无商品，请添加产品到订单
+          </div>
+          <Button
+            v-if="!isQuotationMode"
+            type="primary"
+            @click="openProductModal"
+          >
+            添加产品
+          </Button>
         </div>
 
         <!-- 商品列表 -->
         <template v-else>
           <div class="mb-3 flex justify-between items-center">
-            <span class="text-sm" style="color: hsl(var(--muted-foreground))">共 {{ items.length }} 项</span>
-            <Button v-if="!isQuotationMode" type="primary" size="small" @click="openProductModal">继续添加</Button>
+            <span class="text-sm" style="color: hsl(var(--muted-foreground))"
+              >共 {{ items.length }} 项</span
+            >
+            <Button
+              v-if="!isQuotationMode"
+              type="primary"
+              size="small"
+              @click="openProductModal"
+            >
+              继续添加
+            </Button>
           </div>
           <Table
             :columns="itemColumns"
@@ -1288,13 +1531,26 @@ watch(submitting, (val) => {
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'product'">
                 <div class="flex flex-col">
-                  <span class="font-medium">{{ record.productName || '-' }}</span>
-                  <span class="text-xs" style="color: hsl(var(--muted-foreground))">{{ record.productCode || '' }}</span>
+                  <span class="font-medium">{{
+                    record.productName || '-'
+                  }}</span>
+                  <span
+                    class="text-xs"
+                    style="color: hsl(var(--muted-foreground))"
+                    >{{ record.productCode || '' }}</span
+                  >
                 </div>
               </template>
               <template v-else-if="column.key === 'productType'">
-                <Tag :color="productTypeColors[Number(record.productType) || 1] || 'default'">
-                  {{ productTypeLabels[Number(record.productType) || 1] || '实物' }}
+                <Tag
+                  :color="
+                    productTypeColors[Number(record.productType) || 1] ||
+                    'default'
+                  "
+                >
+                  {{
+                    productTypeLabels[Number(record.productType) || 1] || '实物'
+                  }}
                 </Tag>
               </template>
               <template v-else-if="column.key === 'spec'">
@@ -1318,13 +1574,21 @@ watch(submitting, (val) => {
                 <span
                   v-if="record.stock !== undefined && record.stock !== null"
                   :style="{
-                    color: Number(record.quantity) > Number(record.stock) ? 'hsl(30 90% 50%)' : 'inherit',
-                    fontWeight: Number(record.quantity) > Number(record.stock) ? 600 : 400,
+                    color:
+                      Number(record.quantity) > Number(record.stock)
+                        ? 'hsl(30 90% 50%)'
+                        : 'inherit',
+                    fontWeight:
+                      Number(record.quantity) > Number(record.stock)
+                        ? 600
+                        : 400,
                   }"
                 >
                   {{ record.stock }}
                 </span>
-                <span v-else style="color: hsl(var(--muted-foreground))">—</span>
+                <span v-else style="color: hsl(var(--muted-foreground))"
+                  >—</span
+                >
               </template>
               <template v-else-if="column.key === 'unitPrice'">
                 <InputNumber
@@ -1362,11 +1626,23 @@ watch(submitting, (val) => {
                 />
               </template>
               <template v-else-if="column.key === 'amount'">
-                <span class="font-medium">{{ (record.amount || 0).toFixed(2) }}</span>
+                <span class="font-medium">{{
+                  (record.amount || 0).toFixed(2)
+                }}</span>
               </template>
               <template v-else-if="column.key === 'action'">
-                <Button v-if="!isQuotationMode" type="link" danger size="small" @click="removeItem(index)">删除</Button>
-                <span v-else style="color: hsl(var(--muted-foreground))">—</span>
+                <Button
+                  v-if="!isQuotationMode"
+                  type="link"
+                  danger
+                  size="small"
+                  @click="removeItem(index)"
+                >
+                  删除
+                </Button>
+                <span v-else style="color: hsl(var(--muted-foreground))"
+                  >—</span
+                >
               </template>
             </template>
           </Table>
@@ -1375,11 +1651,19 @@ watch(submitting, (val) => {
         <!-- 金额汇总（始终显示） -->
         <div class="mt-4 flex flex-col items-end gap-2 pr-4">
           <div class="flex items-center gap-2">
-            <span class="w-32 text-right" style="color: hsl(var(--muted-foreground))">商品金额合计：</span>
+            <span
+              class="w-32 text-right"
+              style="color: hsl(var(--muted-foreground))"
+              >商品金额合计：</span
+            >
             <span class="w-32 text-right">{{ productAmount.toFixed(2) }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-24 text-right" style="color: hsl(var(--muted-foreground))">整单折扣：</span>
+            <span
+              class="w-24 text-right"
+              style="color: hsl(var(--muted-foreground))"
+              >整单折扣：</span
+            >
             <InputNumber
               v-model:value="discountAmount"
               :min="0"
@@ -1388,7 +1672,11 @@ watch(submitting, (val) => {
             />
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-24 text-right" style="color: hsl(var(--muted-foreground))">运费：</span>
+            <span
+              class="w-24 text-right"
+              style="color: hsl(var(--muted-foreground))"
+              >运费：</span
+            >
             <InputNumber
               v-model:value="shippingFee"
               :min="0"
@@ -1397,7 +1685,11 @@ watch(submitting, (val) => {
             />
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-24 text-right" style="color: hsl(var(--muted-foreground))">税额：</span>
+            <span
+              class="w-24 text-right"
+              style="color: hsl(var(--muted-foreground))"
+              >税额：</span
+            >
             <InputNumber
               v-model:value="taxAmount"
               :min="0"
@@ -1406,7 +1698,11 @@ watch(submitting, (val) => {
             />
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-24 text-right" style="color: hsl(var(--muted-foreground))">其他费用：</span>
+            <span
+              class="w-24 text-right"
+              style="color: hsl(var(--muted-foreground))"
+              >其他费用：</span
+            >
             <InputNumber
               v-model:value="otherFee"
               :min="0"
@@ -1416,7 +1712,10 @@ watch(submitting, (val) => {
           </div>
           <div class="flex items-center gap-2 border-t pt-2">
             <span class="w-24 text-right font-medium">订单总金额：</span>
-            <span class="w-32 text-right text-lg font-bold" style="color: hsl(0 84% 60%)">
+            <span
+              class="w-32 text-right text-lg font-bold"
+              style="color: hsl(0deg 84% 60%)"
+            >
               {{ totalAmount.toFixed(2) }}
             </span>
           </div>
@@ -1439,11 +1738,20 @@ watch(submitting, (val) => {
             <div class="financial-card buyer-card">
               <div class="financial-card-header">
                 <div class="financial-card-icon buyer-icon">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                   </svg>
                 </div>
                 <div class="financial-card-title">
@@ -1456,7 +1764,12 @@ watch(submitting, (val) => {
                   placeholder="选择已有账户"
                   allow-clear
                   size="small"
-                  :options="buyerAccountList.map((a) => ({ label: `${a.bankName || '—'} · ${(a.accountNumber || '').slice(-4) || '—'}`, value: a._idx }))"
+                  :options="
+                    buyerAccountList.map((a) => ({
+                      label: `${a.bankName || '—'} · ${(a.accountNumber || '').slice(-4) || '—'}`,
+                      value: a._idx,
+                    }))
+                  "
                   @change="onBuyerAccountChange"
                 />
               </div>
@@ -1471,7 +1784,9 @@ watch(submitting, (val) => {
                   />
                 </div>
                 <div class="fin-item">
-                  <span class="fin-label"><span class="fin-required">*</span>开户行</span>
+                  <span class="fin-label"
+                    ><span class="fin-required">*</span>开户行</span
+                  >
                   <Input
                     v-model:value="buyerInfo.bankName"
                     class="fin-input"
@@ -1480,7 +1795,9 @@ watch(submitting, (val) => {
                   />
                 </div>
                 <div class="fin-item">
-                  <span class="fin-label"><span class="fin-required">*</span>账户名称</span>
+                  <span class="fin-label"
+                    ><span class="fin-required">*</span>账户名称</span
+                  >
                   <Input
                     v-model:value="buyerInfo.accountName"
                     class="fin-input"
@@ -1489,7 +1806,9 @@ watch(submitting, (val) => {
                   />
                 </div>
                 <div class="fin-item">
-                  <span class="fin-label"><span class="fin-required">*</span>银行账号</span>
+                  <span class="fin-label"
+                    ><span class="fin-required">*</span>银行账号</span
+                  >
                   <Input
                     v-model:value="buyerInfo.accountNumber"
                     class="fin-input mono"
@@ -1501,18 +1820,36 @@ watch(submitting, (val) => {
             </div>
 
             <div class="financial-arrow">
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
+              <svg
+                viewBox="0 0 24 24"
+                width="28"
+                height="28"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
               </svg>
             </div>
 
             <div class="financial-card seller-card">
               <div class="financial-card-header">
                 <div class="financial-card-icon seller-icon">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                 </div>
                 <div class="financial-card-title">
@@ -1525,7 +1862,12 @@ watch(submitting, (val) => {
                   placeholder="选择已有账户"
                   allow-clear
                   size="small"
-                  :options="sellerAccountList.map((a) => ({ label: `${a.bankName || '—'} · ${(a.accountNumber || '').slice(-4) || '—'}`, value: a.id }))"
+                  :options="
+                    sellerAccountList.map((a) => ({
+                      label: `${a.bankName || '—'} · ${(a.accountNumber || '').slice(-4) || '—'}`,
+                      value: a.id,
+                    }))
+                  "
                   @change="onSellerAccountChange"
                 />
               </div>
@@ -1576,24 +1918,36 @@ watch(submitting, (val) => {
               <div class="pay-item">
                 <span class="pay-label">支付方式</span>
                 <span class="pay-value">
-                  {{ paymentMethodOptions.find((o) => o.value === orderDetail?.paymentMethod)?.label || '—' }}
+                  {{
+                    paymentMethodOptions.find(
+                      (o) => o.value === orderDetail?.paymentMethod,
+                    )?.label || '—'
+                  }}
                 </span>
               </div>
               <div class="pay-item">
                 <span class="pay-label">付款截止日期</span>
-                <span class="pay-value">{{ orderDetail?.paymentDueDate || '—' }}</span>
+                <span class="pay-value">{{
+                  orderDetail?.paymentDueDate || '—'
+                }}</span>
               </div>
               <div class="pay-item amount-item">
                 <span class="pay-label">订单总金额</span>
-                <span class="pay-value amount-total">{{ totalAmount.toFixed(2) }}</span>
+                <span class="pay-value amount-total">{{
+                  totalAmount.toFixed(2)
+                }}</span>
               </div>
               <div class="pay-item amount-item">
                 <span class="pay-label">已支付金额</span>
-                <span class="pay-value amount-paid">{{ (Number(orderDetail?.paidAmount) || 0).toFixed(2) }}</span>
+                <span class="pay-value amount-paid">{{
+                  (Number(orderDetail?.paidAmount) || 0).toFixed(2)
+                }}</span>
               </div>
               <div class="pay-item amount-item highlight">
                 <span class="pay-label">待支付金额</span>
-                <span class="pay-value amount-unpaid">{{ unpaidAmountComp.toFixed(2) }}</span>
+                <span class="pay-value amount-unpaid">{{
+                  unpaidAmountComp.toFixed(2)
+                }}</span>
               </div>
             </div>
           </div>
@@ -1611,37 +1965,37 @@ watch(submitting, (val) => {
 /* ========== 销售模式选择器 ========== */
 .sales-mode-selector {
   display: flex;
-  align-items: stretch;
   gap: 0;
-  margin-bottom: 20px;
+  align-items: stretch;
   padding: 4px;
+  margin-bottom: 20px;
   background: hsl(var(--muted));
-  border-radius: 14px;
   border: 1px solid hsl(var(--border));
+  border-radius: 14px;
 }
 
 .mode-card {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  border: 2px solid transparent;
+  display: flex;
+  flex: 1;
+  gap: 14px;
+  align-items: center;
+  padding: 16px 18px;
+  cursor: pointer;
   background: transparent;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mode-card:hover {
-  background: hsl(var(--background) / 0.7);
+  background: hsl(var(--background) / 70%);
 }
 
 .mode-card--active {
   background: hsl(var(--background));
   border-color: hsl(var(--primary));
-  box-shadow: 0 4px 14px hsl(var(--primary) / 0.12);
+  box-shadow: 0 4px 14px hsl(var(--primary) / 12%);
 }
 
 .mode-card--active:hover {
@@ -1649,36 +2003,36 @@ watch(submitting, (val) => {
 }
 
 .mode-card__icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 46px;
   height: 46px;
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
   transition: all 0.3s ease;
 }
 
 .mode-card__icon--standard {
-  background: hsl(217 92% 90%);
-  color: hsl(217 91% 45%);
+  color: hsl(217deg 91% 45%);
+  background: hsl(217deg 92% 90%);
 }
 
 .mode-card__icon--simple {
-  background: hsl(38 92% 86%);
-  color: hsl(32 95% 44%);
+  color: hsl(32deg 95% 44%);
+  background: hsl(38deg 92% 86%);
 }
 
 .mode-card--active .mode-card__icon--standard {
-  background: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 45%));
   color: #fff;
-  box-shadow: 0 4px 12px hsl(217 91% 60% / 0.35);
+  background: linear-gradient(135deg, hsl(217deg 91% 60%), hsl(217deg 91% 45%));
+  box-shadow: 0 4px 12px hsl(217deg 91% 60% / 35%);
 }
 
 .mode-card--active .mode-card__icon--simple {
-  background: linear-gradient(135deg, hsl(38 92% 50%), hsl(32 95% 44%));
   color: #fff;
-  box-shadow: 0 4px 12px hsl(38 92% 50% / 0.35);
+  background: linear-gradient(135deg, hsl(38deg 92% 50%), hsl(32deg 95% 44%));
+  box-shadow: 0 4px 12px hsl(38deg 92% 50% / 35%);
 }
 
 .mode-card__content {
@@ -1689,58 +2043,66 @@ watch(submitting, (val) => {
 .mode-card__title {
   font-size: 15px;
   font-weight: 600;
-  color: hsl(var(--foreground));
   line-height: 1.4;
+  color: hsl(var(--foreground));
 }
 
 .mode-card__desc {
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
   margin-top: 3px;
+  font-size: 12px;
   line-height: 1.4;
+  color: hsl(var(--muted-foreground));
 }
 
 .mode-card__check {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  color: #fff;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  animation: checkPop 0.3s ease;
+  width: 22px;
+  height: 22px;
+  color: #fff;
+  background: hsl(var(--primary));
+  border-radius: 50%;
+  animation: check-pop 0.3s ease;
 }
 
 .mode-card--active .mode-card__check {
   background: hsl(var(--primary));
 }
 
-@keyframes checkPop {
-  0% { transform: scale(0); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
+@keyframes check-pop {
+  0% {
+    transform: scale(0);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .mode-card__divider {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   padding: 0 8px;
-  color: hsl(var(--muted-foreground));
   font-size: 13px;
   font-weight: 500;
-  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
 }
 
 /* ========== 来源选择行 ========== */
 .source-select-row {
   display: flex;
-  align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  align-items: center;
   padding: 0 4px;
+  margin-top: 8px;
 }
 
 .source-select-label {
@@ -1754,24 +2116,24 @@ watch(submitting, (val) => {
 /* ========== 来源选择字段（表单样式） ========== */
 .source-field-row {
   display: flex;
-  align-items: flex-start;
   gap: 12px;
+  align-items: flex-start;
   margin-bottom: 18px;
 }
 
 .source-field-label {
   flex-shrink: 0;
   width: 80px;
-  text-align: right;
   font-size: 14px;
-  color: hsl(var(--foreground));
   line-height: 32px;
+  color: hsl(var(--foreground));
+  text-align: right;
   white-space: nowrap;
 }
 
 .source-field-required {
-  color: hsl(0 84% 60%);
   margin-right: 4px;
+  color: hsl(0deg 84% 60%);
 }
 
 .source-field-control {
@@ -1784,20 +2146,20 @@ watch(submitting, (val) => {
   align-items: center;
   height: 32px;
   padding: 0 11px;
+  cursor: pointer;
+  background: hsl(var(--background));
   border: 1px solid hsl(var(--border));
   border-radius: 6px;
-  cursor: pointer;
   transition: all 0.2s ease;
-  background: hsl(var(--background));
 }
 
 .source-field-input:hover {
-  border-color: hsl(var(--primary) / 0.6);
+  border-color: hsl(var(--primary) / 60%);
 }
 
 .source-field-input--filled {
+  background: hsl(var(--primary) / 6%);
   border-color: hsl(var(--primary));
-  background: hsl(var(--primary) / 0.06);
 }
 
 .source-field-input--filled:hover {
@@ -1806,25 +2168,25 @@ watch(submitting, (val) => {
 
 .source-field-value {
   flex: 1;
-  font-size: 14px;
-  color: hsl(var(--primary));
-  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--primary));
   white-space: nowrap;
 }
 
 .source-field-placeholder {
   flex: 1;
   font-size: 14px;
-  color: hsl(var(--muted-foreground) / 0.6);
+  color: hsl(var(--muted-foreground) / 60%);
 }
 
 .source-field-actions {
   display: flex;
-  align-items: center;
-  gap: 4px;
   flex-shrink: 0;
+  gap: 4px;
+  align-items: center;
 }
 
 .source-field-btn {
@@ -1833,25 +2195,25 @@ watch(submitting, (val) => {
   justify-content: center;
   width: 18px;
   height: 18px;
-  border: none;
-  border-radius: 50%;
-  background: hsl(var(--muted-foreground) / 0.15);
+  padding: 0;
   color: hsl(var(--muted-foreground));
   cursor: pointer;
+  background: hsl(var(--muted-foreground) / 15%);
+  border: none;
+  border-radius: 50%;
   transition: all 0.2s;
-  padding: 0;
 }
 
 .source-field-btn:hover {
-  background: hsl(0 84% 60%);
   color: #fff;
+  background: hsl(0deg 84% 60%);
 }
 
 .source-field-arrow {
-  flex-shrink: 0;
-  color: hsl(var(--muted-foreground) / 0.6);
   display: flex;
+  flex-shrink: 0;
   align-items: center;
+  color: hsl(var(--muted-foreground) / 60%);
 }
 
 .sale-order-drawer {
@@ -1870,11 +2232,11 @@ watch(submitting, (val) => {
   height: 28px;
   padding: 0;
   margin-right: 8px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
   color: hsl(var(--muted-foreground));
   cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
@@ -1890,18 +2252,20 @@ watch(submitting, (val) => {
 
 .financial-row {
   display: flex;
-  align-items: stretch;
   gap: 16px;
+  align-items: stretch;
   margin-bottom: 20px;
 }
 
 .financial-card {
-  flex: 1;
-  border-radius: 12px;
-  padding: 20px;
   position: relative;
+  flex: 1;
+  padding: 20px;
   overflow: hidden;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border-radius: 12px;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .financial-card:hover {
@@ -1909,71 +2273,75 @@ watch(submitting, (val) => {
 }
 
 .buyer-card {
-  background: hsl(210 100% 96% / 0.5);
-  border: 1px solid hsl(210 100% 80% / 0.4);
-  box-shadow: 0 2px 8px hsl(210 100% 50% / 0.08);
+  background: hsl(210deg 100% 96% / 50%);
+  border: 1px solid hsl(210deg 100% 80% / 40%);
+  box-shadow: 0 2px 8px hsl(210deg 100% 50% / 8%);
 }
 
 .buyer-card:hover {
-  box-shadow: 0 6px 20px hsl(210 100% 50% / 0.15);
+  box-shadow: 0 6px 20px hsl(210deg 100% 50% / 15%);
 }
 
 .seller-card {
-  background: hsl(120 60% 95% / 0.5);
-  border: 1px solid hsl(120 60% 70% / 0.4);
-  box-shadow: 0 2px 8px hsl(120 60% 40% / 0.08);
+  background: hsl(120deg 60% 95% / 50%);
+  border: 1px solid hsl(120deg 60% 70% / 40%);
+  box-shadow: 0 2px 8px hsl(120deg 60% 40% / 8%);
 }
 
 .seller-card:hover {
-  box-shadow: 0 6px 20px hsl(120 60% 40% / 0.15);
+  box-shadow: 0 6px 20px hsl(120deg 60% 40% / 15%);
 }
 
 .financial-card-header {
   display: flex;
-  align-items: center;
   gap: 14px;
-  margin-bottom: 18px;
+  align-items: center;
   padding-bottom: 16px;
+  margin-bottom: 18px;
   border-bottom: 1px dashed hsl(var(--border));
 }
 
 .financial-account-select {
-  margin-left: auto;
   width: 220px;
+  margin-left: auto;
 }
 
 .financial-card-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
 }
 
 .buyer-icon {
-  background: linear-gradient(135deg, hsl(210 100% 45%), hsl(210 100% 55%));
   color: #fff;
-  box-shadow: 0 4px 12px hsl(210 100% 50% / 0.3);
+  background: linear-gradient(
+    135deg,
+    hsl(210deg 100% 45%),
+    hsl(210deg 100% 55%)
+  );
+  box-shadow: 0 4px 12px hsl(210deg 100% 50% / 30%);
 }
 
 .seller-icon {
-  background: linear-gradient(135deg, hsl(120 60% 35%), hsl(120 60% 45%));
   color: #fff;
-  box-shadow: 0 4px 12px hsl(120 60% 40% / 0.3);
+  background: linear-gradient(135deg, hsl(120deg 60% 35%), hsl(120deg 60% 45%));
+  box-shadow: 0 4px 12px hsl(120deg 60% 40% / 30%);
 }
 
 .financial-card-title .title-main {
   font-size: 16px;
   font-weight: 600;
-  color: hsl(var(--foreground));
   line-height: 1.3;
+  color: hsl(var(--foreground));
 }
 
 .financial-card-title .title-sub {
+  margin-top: 2px;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
-  margin-top: 2px;
 }
 
 .financial-card-body {
@@ -1984,36 +2352,36 @@ watch(submitting, (val) => {
 
 .fin-item {
   display: flex;
-  align-items: flex-start;
   gap: 12px;
+  align-items: flex-start;
 }
 
 .fin-label {
   flex-shrink: 0;
   width: 80px;
-  font-size: 13px;
-  color: hsl(var(--muted-foreground));
-  line-height: 1.6;
   padding-top: 5px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
 }
 
 .fin-required {
-  color: hsl(0 84% 60%);
   margin-right: 2px;
   font-weight: 600;
+  color: hsl(0deg 84% 60%);
 }
 
 .fin-value {
   flex: 1;
   font-size: 13px;
-  color: hsl(var(--foreground));
   font-weight: 500;
   line-height: 1.6;
+  color: hsl(var(--foreground));
   word-break: break-all;
 }
 
 .fin-value.mono {
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
   letter-spacing: 0.3px;
 }
@@ -2033,57 +2401,65 @@ watch(submitting, (val) => {
 }
 
 .fin-input.ant-input:hover {
-  background: hsl(var(--accent) / 0.5);
+  background: hsl(var(--accent) / 50%);
   border-color: hsl(var(--border));
 }
 
 .fin-input.ant-input:focus {
   background: hsl(var(--background));
   border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 10%);
 }
 
 .fin-input.mono.ant-input {
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
   letter-spacing: 0.3px;
 }
 
 .fin-input.ant-input::placeholder {
-  color: hsl(var(--muted-foreground) / 0.6);
   font-weight: 400;
+  color: hsl(var(--muted-foreground) / 60%);
 }
 
 .financial-arrow {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  color: hsl(var(--muted-foreground) / 0.6);
   padding: 0 4px;
-  flex-shrink: 0;
-  animation: arrowPulse 2s ease-in-out infinite;
+  color: hsl(var(--muted-foreground) / 60%);
+  animation: arrow-pulse 2s ease-in-out infinite;
 }
 
-@keyframes arrowPulse {
-  0%, 100% { opacity: 0.5; transform: translateX(0); }
-  50% { opacity: 1; transform: translateX(4px); }
+@keyframes arrow-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateX(4px);
+  }
 }
 
 /* 支付汇总卡片 */
 .payment-summary-card {
-  background: hsl(var(--background));
-  border-radius: 12px;
   padding: 20px 24px;
-  border: 1px solid hsl(var(--border) / 0.5);
-  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.04);
   margin-bottom: 20px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border) / 50%);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px hsl(0deg 0% 0% / 4%);
 }
 
 .payment-summary-title {
+  padding-left: 10px;
+  margin-bottom: 16px;
   font-size: 15px;
   font-weight: 600;
   color: hsl(var(--foreground));
-  margin-bottom: 16px;
-  padding-left: 10px;
   border-left: 3px solid hsl(var(--primary));
 }
 
@@ -2112,8 +2488,8 @@ watch(submitting, (val) => {
 }
 
 .pay-item.highlight {
-  background: hsl(30 100% 92% / 0.5);
-  border: 1px solid hsl(30 100% 75% / 0.4);
+  background: hsl(30deg 100% 92% / 50%);
+  border: 1px solid hsl(30deg 100% 75% / 40%);
 }
 
 .pay-label {
@@ -2134,31 +2510,33 @@ watch(submitting, (val) => {
 
 .amount-paid {
   font-size: 16px;
-  color: hsl(120 60% 40%);
+  color: hsl(120deg 60% 40%);
 }
 
 .amount-unpaid {
   font-size: 18px;
-  color: hsl(30 90% 50%);
   font-weight: 700;
+  color: hsl(30deg 90% 50%);
 }
 
 .payment-form-section {
-  background: hsl(var(--background));
-  border-radius: 12px;
   padding: 20px 24px;
-  border: 1px solid hsl(var(--border) / 0.5);
-  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.04);
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border) / 50%);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px hsl(0deg 0% 0% / 4%);
 }
 
 @media (max-width: 1200px) {
   .financial-row {
     flex-direction: column;
   }
+
   .financial-arrow {
-    transform: rotate(90deg);
     padding: 4px 0;
+    transform: rotate(90deg);
   }
+
   .payment-summary-grid {
     grid-template-columns: repeat(3, 1fr);
   }

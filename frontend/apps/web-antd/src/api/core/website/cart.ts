@@ -37,8 +37,7 @@ export const cartApi = {
     requestClient.get('/api/user/cart/list', { params }),
 
   /** 添加商品到购物车 */
-  add: (data: CartAddDTO) =>
-    requestClient.post('/api/user/cart/add', data),
+  add: (data: CartAddDTO) => requestClient.post('/api/user/cart/add', data),
 
   /** 更新购物车项（数量/选中状态） */
   update: (id: number, data: CartUpdateDTO) =>

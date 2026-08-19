@@ -97,7 +97,9 @@ export const updateMediaApi = async (id: number, data: MediaSaveDTO) => {
 };
 
 export const deleteMediaApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/website/media/batch_delete', { data: { ids } });
+  return requestClient.delete('/api/system/website/media/batch_delete', {
+    data: { ids },
+  });
 };
 
 export const getMediaCategoryAllApi = async () => {
@@ -108,10 +110,18 @@ export const addMediaCategoryApi = async (data: MediaCategorySaveDTO) => {
   return requestClient.post('/api/system/website/media/category/add', data);
 };
 
-export const updateMediaCategoryApi = async (id: number, data: MediaCategorySaveDTO) => {
-  return requestClient.put(`/api/system/website/media/category/update/${id}`, data);
+export const updateMediaCategoryApi = async (
+  id: number,
+  data: MediaCategorySaveDTO,
+) => {
+  return requestClient.put(
+    `/api/system/website/media/category/update/${id}`,
+    data,
+  );
 };
 
 export const deleteMediaCategoryApi = async (id: number) => {
-  return requestClient.delete(`/api/system/website/media/category/delete/${id}`);
+  return requestClient.delete(
+    `/api/system/website/media/category/delete/${id}`,
+  );
 };

@@ -4,19 +4,20 @@ import { computed } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { Card, Empty, Spin, Tag } from 'ant-design-vue';
+
 import { formatPercentDisplay } from '#/utils/format';
 
 interface Props {
   loading?: boolean;
   data?: {
     completedAmount?: number;
-    pipelineAmount?: number;
-    historicalWinRate?: number;
     forecastAmount?: number;
-    targetAmount?: number;
     gapAmount?: number;
-    status?: string;
+    historicalWinRate?: number;
+    pipelineAmount?: number;
     pipelineCoverage?: number;
+    status?: string;
+    targetAmount?: number;
   };
 }
 
@@ -27,19 +28,55 @@ const props = withDefaults(defineProps<Props>(), {
 
 function formatCurrency(val?: number) {
   if (!val) return '¥0';
-  if (val >= 100000000) return `¥${(val / 100000000).toFixed(2)}亿`;
-  if (val >= 10000) return `¥${(val / 10000).toFixed(1)}万`;
+  if (val >= 100_000_000) return `¥${(val / 100_000_000).toFixed(2)}亿`;
+  if (val >= 10_000) return `¥${(val / 10_000).toFixed(1)}万`;
   return `¥${val.toLocaleString()}`;
 }
 
-const statusConfig = computed<{ color: string; bg: string; text: string; icon: string }>(() => {
-  const map: Record<string, { color: string; bg: string; text: string; icon: string }> = {
-    green: { color: '#52c41a', bg: '#f6ffed', text: '达标在望', icon: 'lucide:check-circle' },
-    yellow: { color: '#faad14', bg: '#fffbe6', text: '关注缺口', icon: 'lucide:alert-circle' },
-    red: { color: '#ff4d4f', bg: '#fff2f0', text: '缺口预警', icon: 'lucide:alert-triangle' },
-    warning: { color: '#fa8c16', bg: '#fff7e6', text: '预警', icon: 'lucide:alert-triangle' },
+const statusConfig = computed<{
+  bg: string;
+  color: string;
+  icon: string;
+  text: string;
+}>(() => {
+  const map: Record<
+    string,
+    { bg: string; color: string; icon: string; text: string }
+  > = {
+    green: {
+      color: '#52c41a',
+      bg: '#f6ffed',
+      text: '达标在望',
+      icon: 'lucide:check-circle',
+    },
+    yellow: {
+      color: '#faad14',
+      bg: '#fffbe6',
+      text: '关注缺口',
+      icon: 'lucide:alert-circle',
+    },
+    red: {
+      color: '#ff4d4f',
+      bg: '#fff2f0',
+      text: '缺口预警',
+      icon: 'lucide:alert-triangle',
+    },
+    warning: {
+      color: '#fa8c16',
+      bg: '#fff7e6',
+      text: '预警',
+      icon: 'lucide:alert-triangle',
+    },
   };
-  return (map[props.data?.status || 'yellow'] ?? map.yellow)!;
+  return (
+    map[props.data?.status || 'yellow'] ??
+    map.yellow ?? {
+      color: '#faad14',
+      bg: '#fffbe6',
+      text: '关注缺口',
+      icon: 'lucide:alert-circle',
+    }
+  );
 });
 
 const coverageText = computed(() => {
@@ -72,16 +109,26 @@ const coverageText = computed(() => {
         <!-- 主预测数据 -->
         <div
           class="main-metric mb-3"
-          :style="{ background: statusConfig.bg, borderColor: statusConfig.color }"
+          :style="{
+            background: statusConfig.bg,
+            borderColor: statusConfig.color,
+          }"
         >
           <div class="text-xs text-gray-500 mb-1">预测达成金额</div>
-          <div class="text-2xl font-bold" :style="{ color: statusConfig.color }">
+          <div
+            class="text-2xl font-bold"
+            :style="{ color: statusConfig.color }"
+          >
             {{ formatCurrency(data.forecastAmount) }}
           </div>
           <div class="text-xs text-gray-500 mt-1">
             = 已完成 {{ formatCurrency(data.completedAmount) }}
             + 在途商机可能贡献
-            {{ formatCurrency((data.pipelineAmount || 0) * (data.historicalWinRate || 0)) }}
+            {{
+              formatCurrency(
+                (data.pipelineAmount || 0) * (data.historicalWinRate || 0),
+              )
+            }}
           </div>
         </div>
 
@@ -107,7 +154,10 @@ const coverageText = computed(() => {
           </div>
           <div class="metric-block">
             <div class="text-xs text-gray-500">缺口</div>
-            <div class="text-sm font-semibold" :style="{ color: statusConfig.color }">
+            <div
+              class="text-sm font-semibold"
+              :style="{ color: statusConfig.color }"
+            >
               {{ formatCurrency(data.gapAmount) }}
             </div>
           </div>
@@ -117,7 +167,10 @@ const coverageText = computed(() => {
         <div class="mt-3 pt-3 border-t border-gray-100">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
-              <IconifyIcon icon="lucide:activity" class="text-sm text-gray-500" />
+              <IconifyIcon
+                icon="lucide:activity"
+                class="text-sm text-gray-500"
+              />
               <span class="text-xs text-gray-500">Pipeline 健康度</span>
             </div>
             <Tag :color="coverageText.color">
@@ -141,14 +194,14 @@ const coverageText = computed(() => {
 
 .main-metric {
   padding: 12px 14px;
-  border-radius: 8px;
   border-left: 4px solid;
+  border-radius: 8px;
 }
 
 .metric-block {
   padding: 8px 10px;
+  text-align: center;
   background: #fafafa;
   border-radius: 6px;
-  text-align: center;
 }
 </style>

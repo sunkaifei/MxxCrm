@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
+
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, h, ref, watch } from 'vue';
@@ -14,23 +15,33 @@ import { Button, Drawer, message, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteFollowupApi, getFollowupListApi } from '#/api';
 import { $t } from '#/locales';
-import LeadDetail from '../lead/detail.vue';
+
 import CustomerDetail from '../customer/detail.vue';
+import LeadDetail from '../lead/detail.vue';
 import OpportunityDetail from '../opportunity/detail.vue';
 import FollowupDetail from './detail.vue';
 
 // 跟进方式映射
 const activityLabelMap: Record<number, string> = {
-  1: '电话', 2: '拜访', 3: '邮件', 4: '会议',
-  5: 'WhatsApp', 6: '微信', 7: '其他',
+  1: '电话',
+  2: '拜访',
+  3: '邮件',
+  4: '会议',
+  5: 'WhatsApp',
+  6: '微信',
+  7: '其他',
 };
 
 // 跟进来源类型映射：1=线索跟进, 2=客户跟进, 3=商机跟进
 const sourceTypeLabelMap: Record<number, string> = {
-  1: '线索跟进', 2: '客户跟进', 3: '商机跟进',
+  1: '线索跟进',
+  2: '客户跟进',
+  3: '商机跟进',
 };
 const sourceTypeColorMap: Record<number, string> = {
-  1: 'blue', 2: 'green', 3: 'orange',
+  1: 'blue',
+  2: 'green',
+  3: 'orange',
 };
 
 const userStore = useUserStore();
@@ -41,7 +52,9 @@ const accessStore = useAccessStore();
 // 3=本部门 → my+todayFollow  4=本部门及以下 → all+my+subordinate+todayFollow
 // 5=仅本人 → my+todayFollow
 const dataScope = computed(() => {
-  const scope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  const scope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
   const roles = userStore.userInfo?.roles ?? [];
   if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
   return typeof scope === 'number' ? scope : 5;
@@ -72,8 +85,6 @@ const tabList = computed(() => {
       allowedKeys = ['my', 'subordinate', 'todayFollow'];
       break;
     }
-    case 3:
-    case 5:
     default: {
       allowedKeys = ['my', 'todayFollow'];
       break;
@@ -86,78 +97,96 @@ watch(
   tabList,
   (newTabs) => {
     const keys = newTabs.map((t) => t.key);
-    if (!keys.includes(activeTab.value) && keys.length > 0) {
-      activeTab.value = keys[0]!;
+    const firstKey = keys[0];
+    if (!keys.includes(activeTab.value) && firstKey !== undefined) {
+      activeTab.value = firstKey;
     }
   },
   { immediate: true },
 );
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = String(key);
   gridApi.query();
 }
 
 // 详情抽屉
 const detailVisible = ref(false);
-const detailId = ref<number | null>(null);
+const detailId = ref<null | number>(null);
 
 function openDetail(row: any) {
   const id = row.id ?? row.id_;
-  if (!id) { message.error('跟进记录ID不存在'); return; }
+  if (!id) {
+    message.error('跟进记录ID不存在');
+    return;
+  }
   detailId.value = Number(id);
   detailVisible.value = true;
 }
-function closeDetail() { detailVisible.value = false; detailId.value = null; }
+function closeDetail() {
+  detailVisible.value = false;
+  detailId.value = null;
+}
 
 // 线索详情抽屉
 const leadDetailVisible = ref(false);
-const leadDetailId = ref<number | null>(null);
+const leadDetailId = ref<null | number>(null);
 const leadDetailKey = ref(0);
 
 // 客户详情抽屉
 const customerDetailVisible = ref(false);
-const customerDetailId = ref<number | null>(null);
+const customerDetailId = ref<null | number>(null);
 const customerDetailKey = ref(0);
 
 // 商机详情抽屉
 const opportunityDetailVisible = ref(false);
-const opportunityDetailId = ref<number | null>(null);
+const opportunityDetailId = ref<null | number>(null);
 const opportunityDetailKey = ref(0);
 
 // 根据 sourceType 打开对应来源详情页
 // 1=线索跟进 → 线索详情  2=客户跟进 → 客户详情  3=商机跟进 → 商机详情
 function openSourceDetail(row: any) {
   const sourceType = row.sourceType;
-  if (sourceType === 1) {
-    const id = row.leadId ?? row.lead_id;
-    if (!id) {
-      message.error('线索ID不存在');
-      return;
+  switch (sourceType) {
+    case 1: {
+      const id = row.leadId ?? row.lead_id;
+      if (!id) {
+        message.error('线索ID不存在');
+        return;
+      }
+      leadDetailId.value = Number(id);
+      leadDetailKey.value++;
+      leadDetailVisible.value = true;
+
+      break;
     }
-    leadDetailId.value = Number(id);
-    leadDetailKey.value++;
-    leadDetailVisible.value = true;
-  } else if (sourceType === 2) {
-    const id = row.customerId ?? row.customer_id;
-    if (!id) {
-      message.error('客户ID不存在');
-      return;
+    case 2: {
+      const id = row.customerId ?? row.customer_id;
+      if (!id) {
+        message.error('客户ID不存在');
+        return;
+      }
+      customerDetailId.value = Number(id);
+      customerDetailKey.value++;
+      customerDetailVisible.value = true;
+
+      break;
     }
-    customerDetailId.value = Number(id);
-    customerDetailKey.value++;
-    customerDetailVisible.value = true;
-  } else if (sourceType === 3) {
-    const id = row.opportunityId ?? row.opportunity_id;
-    if (!id) {
-      message.error('商机ID不存在');
-      return;
+    case 3: {
+      const id = row.opportunityId ?? row.opportunity_id;
+      if (!id) {
+        message.error('商机ID不存在');
+        return;
+      }
+      opportunityDetailId.value = Number(id);
+      opportunityDetailKey.value++;
+      opportunityDetailVisible.value = true;
+
+      break;
     }
-    opportunityDetailId.value = Number(id);
-    opportunityDetailKey.value++;
-    opportunityDetailVisible.value = true;
-  } else {
-    message.warning('未知来源类型');
+    default: {
+      message.warning('未知来源类型');
+    }
   }
 }
 
@@ -270,16 +299,36 @@ const gridOptions: VxeGridProps = {
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     {
-      title: '来源', field: 'sourceType', width: 100, align: 'center',
+      title: '来源',
+      field: 'sourceType',
+      width: 100,
+      align: 'center',
       slots: { default: 'sourceType' },
     },
-    { title: '跟进内容', field: 'content', minWidth: 240, headerAlign: 'center', align: 'left', slots: { default: 'content' } },
     {
-      title: '客户/线索', field: 'customerName', width: 150, headerAlign: 'center', align: 'left', slots: { default: 'customerName' },
+      title: '跟进内容',
+      field: 'content',
+      minWidth: 240,
+      headerAlign: 'center',
+      align: 'left',
+      slots: { default: 'content' },
     },
     {
-      title: '跟进方式', field: 'activityType', width: 90,
-      formatter: ({ cellValue }: any) => cellValue != null ? (activityLabelMap[cellValue] || cellValue) : '-',
+      title: '客户/线索',
+      field: 'customerName',
+      width: 150,
+      headerAlign: 'center',
+      align: 'left',
+      slots: { default: 'customerName' },
+    },
+    {
+      title: '跟进方式',
+      field: 'activityType',
+      width: 90,
+      formatter: ({ cellValue }: any) =>
+        cellValue === null || cellValue === undefined
+          ? '-'
+          : activityLabelMap[cellValue] || cellValue,
       cellRender: {
         name: 'Tag',
         options: [
@@ -294,18 +343,29 @@ const gridOptions: VxeGridProps = {
       },
     },
     {
-      title: '跟进时间', field: 'followTime', slots: { default: 'followTimeSlot' }, width: 160,
+      title: '跟进时间',
+      field: 'followTime',
+      slots: { default: 'followTimeSlot' },
+      width: 160,
     },
     {
-      title: '下次跟进', field: 'nextFollowDate', width: 120,
+      title: '下次跟进',
+      field: 'nextFollowDate',
+      width: 120,
       formatter: ({ cellValue }: any) => cellValue || '-',
     },
     {
-      title: '跟进人', field: 'createdByName', width: 100,
+      title: '跟进人',
+      field: 'createdByName',
+      width: 100,
       formatter: ({ cellValue }: any) => cellValue || '-',
     },
     {
-      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 120,
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 120,
     },
   ],
 };
@@ -317,8 +377,16 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
   <Page>
     <Grid :table-title="$t('page.crm.followup.title')">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="mb-4">
-          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs
+          v-model:active-key="activeTab"
+          @change="handleTabChange"
+          class="mb-4"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
         </Tabs>
       </template>
 
@@ -327,46 +395,150 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
       </template>
 
       <template #sourceType="{ row }">
-        <Tag v-if="row.sourceType != null" :color="sourceTypeColorMap[row.sourceType] || 'default'">
+        <Tag
+          v-if="row.sourceType != null"
+          :color="sourceTypeColorMap[row.sourceType] || 'default'"
+        >
           {{ sourceTypeLabelMap[row.sourceType] || row.sourceType }}
         </Tag>
         <span v-else>-</span>
       </template>
 
       <template #content="{ row }">
-        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.content?.length > 60 ? row.content.slice(0, 60) + '...' : row.content || '-' }}</a>
+        <a
+          class="cursor-pointer text-blue-600 hover:text-blue-800"
+          @click="() => openDetail(row)"
+          >{{
+            row.content?.length > 60
+              ? `${row.content.slice(0, 60)}...`
+              : row.content || '-'
+          }}</a
+        >
       </template>
 
       <template #customerName="{ row }">
-        <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openSourceDetail(row)">
-          {{ row.sourceType === 1 ? (row.leadName || '-') : (row.customerName || '-') }}
+        <a
+          class="cursor-pointer text-blue-600 hover:text-blue-800"
+          @click="() => openSourceDetail(row)"
+        >
+          {{
+            row.sourceType === 1 ? row.leadName || '-' : row.customerName || '-'
+          }}
         </a>
       </template>
 
       <template #action="{ row }">
-        <Button v-if="accessStore.hasAccessCode('crm:followup:view')" type="link" :icon="h(LucideEye)" @click="() => openDetail(row)" />
-        <Popconfirm v-if="!isSubordinateView && accessStore.hasAccessCode('crm:followup:delete')" title="确定删除该跟进记录？" ok-text="确认" cancel-text="取消" @confirm="handleDelete(row)">
+        <Button
+          v-if="accessStore.hasAccessCode('crm:followup:view')"
+          type="link"
+          :icon="h(LucideEye)"
+          @click="() => openDetail(row)"
+        />
+        <Popconfirm
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('crm:followup:delete')
+          "
+          title="确定删除该跟进记录？"
+          ok-text="确认"
+          cancel-text="取消"
+          @confirm="handleDelete(row)"
+        >
           <Button type="link" danger>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+            </svg>
           </Button>
         </Popconfirm>
       </template>
     </Grid>
 
-    <Drawer v-model:open="detailVisible" :width="'min(860px, 92vw)'" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="跟进记录详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeDetail">
+    <Drawer
+      v-model:open="detailVisible"
+      width="min(860px, 92vw)"
+      placement="right"
+      :destroy-on-close="true"
+      :mask-closable="true"
+      :closable="true"
+      title="跟进记录详情"
+      :body-style="{
+        padding: 0,
+        maxHeight: 'calc(100vh - 110px)',
+        overflow: 'auto',
+      }"
+      @close="closeDetail"
+    >
       <FollowupDetail v-if="detailId" :id="detailId" />
     </Drawer>
 
-    <Drawer v-model:open="leadDetailVisible" :width="'min(1100px, 95vw)'" placement="right" :destroy-on-close="false" :mask-closable="false" :closable="true" title="线索详情" :body-style="{ padding: 0, overflow: 'auto', height: '100%' }" @close="closeLeadDetail">
-      <LeadDetail v-if="leadDetailVisible" :key="leadDetailKey" :id="leadDetailId" />
+    <Drawer
+      v-model:open="leadDetailVisible"
+      width="min(1100px, 95vw)"
+      placement="right"
+      :destroy-on-close="false"
+      :mask-closable="false"
+      :closable="true"
+      title="线索详情"
+      :body-style="{ padding: 0, overflow: 'auto', height: '100%' }"
+      @close="closeLeadDetail"
+    >
+      <LeadDetail
+        v-if="leadDetailVisible"
+        :key="leadDetailKey"
+        :id="leadDetailId"
+      />
     </Drawer>
 
-    <Drawer v-model:open="customerDetailVisible" :width="'min(1000px, 95vw)'" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="客户详情" :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }" @close="closeCustomerDetail">
-      <CustomerDetail v-if="customerDetailId" :key="customerDetailKey" :id="customerDetailId" />
+    <Drawer
+      v-model:open="customerDetailVisible"
+      width="min(1000px, 95vw)"
+      placement="right"
+      :destroy-on-close="true"
+      :mask-closable="true"
+      :closable="true"
+      title="客户详情"
+      :body-style="{
+        padding: 0,
+        maxHeight: 'calc(100vh - 110px)',
+        overflow: 'auto',
+      }"
+      @close="closeCustomerDetail"
+    >
+      <CustomerDetail
+        v-if="customerDetailId"
+        :key="customerDetailKey"
+        :id="customerDetailId"
+      />
     </Drawer>
 
-    <Drawer v-model:open="opportunityDetailVisible" :width="'min(1100px, 95vw)'" placement="right" :destroy-on-close="true" :mask-closable="true" :closable="true" title="商机详情" :body-style="{ padding: 0, overflow: 'auto', height: '100%' }" @close="closeOpportunityDetail">
-      <OpportunityDetail v-if="opportunityDetailId" :key="opportunityDetailKey" :id="opportunityDetailId" />
+    <Drawer
+      v-model:open="opportunityDetailVisible"
+      width="min(1100px, 95vw)"
+      placement="right"
+      :destroy-on-close="true"
+      :mask-closable="true"
+      :closable="true"
+      title="商机详情"
+      :body-style="{ padding: 0, overflow: 'auto', height: '100%' }"
+      @close="closeOpportunityDetail"
+    >
+      <OpportunityDetail
+        v-if="opportunityDetailId"
+        :key="opportunityDetailKey"
+        :id="opportunityDetailId"
+      />
     </Drawer>
   </Page>
 </template>

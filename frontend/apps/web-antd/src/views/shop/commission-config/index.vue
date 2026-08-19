@@ -1,22 +1,25 @@
 <script lang="ts" setup>
-import { ref, reactive, onMounted } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
+
 import {
   Button,
+  Card,
   Form,
   Input,
   message,
-  Card,
-  Table,
   Space,
+  Table,
 } from 'ant-design-vue';
+
 import { commissionApi } from '#/api';
 
 const loading = ref(false);
 
 const formData = reactive({
   defaultRate: 5,
-  shopRates: [] as Array<{ shopId: number; shopName: string; rate: number }>,
+  shopRates: [] as Array<{ rate: number; shopId: number; shopName: string }>,
 });
 
 const tableColumns = [
@@ -57,8 +60,8 @@ async function loadConfig() {
   try {
     const config = await commissionApi.getConfig();
     Object.assign(formData, config);
-  } catch (e) {
-    console.error('Load config error:', e);
+  } catch (error) {
+    console.error('Load config error:', error);
   } finally {
     loading.value = false;
   }
@@ -73,8 +76,8 @@ async function handleSave() {
       ),
     });
     message.success('保存成功');
-  } catch (e) {
-    console.error('Save config error:', e);
+  } catch (error) {
+    console.error('Save config error:', error);
   }
 }
 
@@ -136,9 +139,9 @@ onMounted(() => {
                   />
                 </template>
                 <template v-else-if="column.key === 'action'">
-                  <Button type="link" danger @click="removeShopRate(index)"
-                    >删除</Button
-                  >
+                  <Button type="link" danger @click="removeShopRate(index)">
+                    删除
+                  </Button>
                 </template>
               </template>
             </Table>

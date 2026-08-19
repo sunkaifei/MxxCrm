@@ -96,15 +96,17 @@ const loadData = async () => {
       user_id: filters.user_id,
     };
     if (filters.range && filters.range[0] && filters.range[1]) {
-      params.start_date = filters.range[0].format?.('YYYY-MM-DD') ?? filters.range[0];
-      params.end_date = filters.range[1].format?.('YYYY-MM-DD') ?? filters.range[1];
+      params.start_date =
+        filters.range[0].format?.('YYYY-MM-DD') ?? filters.range[0];
+      params.end_date =
+        filters.range[1].format?.('YYYY-MM-DD') ?? filters.range[1];
     }
     const res: any = await getAuditListApi(params);
     const d = res?.data ?? res;
     tableData.value = d ?? [];
     total.value = res?.meta?.total ?? tableData.value.length;
-  } catch (e) {
-    console.error('load audit list failed', e);
+  } catch (error) {
+    console.error('load audit list failed', error);
   } finally {
     loading.value = false;
   }
@@ -126,7 +128,10 @@ const expandedRowRender = (record: any) => {
     json
       ? `<div style="margin-bottom:8px"><div style="font-weight:600;margin-bottom:4px">${title}</div><pre style="max-height:240px;overflow:auto;background:var(--ant-color-fill-2);padding:8px;border-radius:6px;font-size:12px;margin:0">${JSON.stringify(json, null, 2)}</pre></div>`
       : '';
-  return block($t('page.system.audit.before'), record.before_json) + block($t('page.system.audit.after'), record.after_json);
+  return (
+    block($t('page.system.audit.before'), record.before_json) +
+    block($t('page.system.audit.after'), record.after_json)
+  );
 };
 
 onMounted(() => {
@@ -195,7 +200,7 @@ onMounted(() => {
           :pagination="{
             current: filters.page,
             pageSize: filters.page_size,
-            total: total,
+            total,
             showSizeChanger: true,
             showTotal: (t: number) => `${t}`,
             onChange: handlePageChange,
@@ -205,6 +210,7 @@ onMounted(() => {
           size="small"
         >
           <template #expandedRowRender="{ record }">
+            <!-- eslint-disable-next-line vue/no-v-html -- 审计详情结构化渲染，可信来源 -->
             <div v-html="expandedRowRender(record)"></div>
           </template>
         </Table>

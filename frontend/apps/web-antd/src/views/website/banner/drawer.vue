@@ -1,9 +1,13 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
-import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message, Upload } from 'ant-design-vue';
 import type { UploadFile } from 'ant-design-vue';
+
+import { computed, ref } from 'vue';
+
+import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message, Upload } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import { addBannerApi, updateBannerApi } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
 
@@ -167,19 +171,16 @@ function handleImageRemove() {
 }
 
 function syncImageFileList(url: string) {
-  if (url) {
-    imageFileList.value = [
-      { uid: '-1', name: 'banner', status: 'done' as const, url },
-    ];
-  } else {
-    imageFileList.value = [];
-  }
+  imageFileList.value = url
+    ? [{ uid: '-1', name: 'banner', status: 'done' as const, url }]
+    : [];
 }
 
 function formatTime(value: any): string | undefined {
   if (!value) return undefined;
   if (typeof value === 'string') return value;
-  if (typeof value?.format === 'function') return value.format('YYYY-MM-DD HH:mm:ss');
+  if (typeof value?.format === 'function')
+    return value.format('YYYY-MM-DD HH:mm:ss');
   return undefined;
 }
 
@@ -242,17 +243,24 @@ function setLoading(loading: boolean) {
       <div class="text-sm font-medium mb-2">Banner 图片</div>
       <Upload
         :file-list="imageFileList"
-        :before-upload="(file: File) => { handleImageUpload(file); return false; }"
+        :before-upload="
+          (file: File) => {
+            handleImageUpload(file);
+            return false;
+          }
+        "
         :remove="handleImageRemove"
         list-type="picture-card"
         accept="image/*"
       >
-        <div v-if="imageFileList.length < 1">
+        <div v-if="imageFileList.length === 0">
           <div class="text-2xl leading-none mb-1">+</div>
           <div class="text-xs">上传图片</div>
         </div>
       </Upload>
-      <div class="text-xs text-gray-400 mt-1">建议尺寸 1920x500，支持 JPG/PNG/GIF</div>
+      <div class="text-xs text-gray-400 mt-1">
+        建议尺寸 1920x500，支持 JPG/PNG/GIF
+      </div>
     </div>
   </Drawer>
 </template>

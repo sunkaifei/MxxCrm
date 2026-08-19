@@ -16,7 +16,9 @@ export const createOutboundApi = async (data: any) => {
 
 export const updateOutboundApi = async (data: any) => {
   const { id, ...rest } = data;
-  return requestClient.put('/api/system/outbound/update', rest, { params: { id } });
+  return requestClient.put('/api/system/outbound/update', rest, {
+    params: { id },
+  });
 };
 
 export const deleteOutboundApi = async (ids: number[]) => {
@@ -25,8 +27,15 @@ export const deleteOutboundApi = async (ids: number[]) => {
   });
 };
 
-export const submitOutboundApi = async (id: number, ccUserIds: number[] = [], ccReason?: string) => {
-  return requestClient.put(`/api/system/outbound/submit/${id}`, { ccUserIds, ccReason });
+export const submitOutboundApi = async (
+  id: number,
+  ccUserIds: number[] = [],
+  ccReason?: string,
+) => {
+  return requestClient.put(`/api/system/outbound/submit/${id}`, {
+    ccUserIds,
+    ccReason,
+  });
 };
 
 export const auditOutboundApi = async (id: number, comment?: string) => {

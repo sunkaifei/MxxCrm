@@ -4,6 +4,7 @@ import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, createVNode, h, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import { CircleCheckBig, CircleX, LucideEye } from '@vben/icons';
@@ -13,13 +14,12 @@ import { formatDateTime } from '@vben/utils';
 import {
   Button,
   Input,
+  message,
   Modal,
   Select,
   Tag,
   Timeline,
-  message,
 } from 'ant-design-vue';
-import { useRoute, useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -40,7 +40,7 @@ const userStore = useUserStore();
 const route = useRoute();
 const router = useRouter();
 
-const businessTypeMap: Record<string, { label: string; color: string }> = {
+const businessTypeMap: Record<string, { color: string; label: string }> = {
   contract: { label: '合同', color: 'geekblue' },
   expense: { label: '报销', color: 'volcano' },
   invoice: { label: '发票', color: 'purple' },
@@ -58,7 +58,7 @@ const businessTypeMap: Record<string, { label: string; color: string }> = {
 };
 
 // 实例状态：1=待审批,2=审批中,3=已通过,4=已驳回,5=已撤回,6=待修改
-const approvalStatusList: Record<number, { label: string; color: string }> = {
+const approvalStatusList: Record<number, { color: string; label: string }> = {
   1: { label: '待审批', color: 'processing' },
   2: { label: '审批中', color: 'warning' },
   3: { label: '已通过', color: 'success' },
@@ -98,6 +98,7 @@ const commentRef = ref('');
 
 // ============ 增强功能弹窗状态 ============
 const modalState = ref<{
+  row: any;
   type:
     | 'addCc'
     | 'addSign'
@@ -106,7 +107,6 @@ const modalState = ref<{
     | 'rejectTo'
     | 'transfer'
     | null;
-  row: any;
 }>({ type: null, row: null });
 
 // 表单字段
@@ -230,7 +230,11 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 // 是否当前节点候选审批人（含转办/委派后扩展的池）
 function isCandidateApprover(row: any) {
   const list: number[] = row.candidateApprovers || [];
-  return currentUserId.value != null && list.includes(Number(currentUserId.value));
+  return (
+    currentUserId.value !== null &&
+    currentUserId.value !== undefined &&
+    list.includes(Number(currentUserId.value))
+  );
 }
 
 // 实例是否处于可操作状态（待审批/审批中/待修改）
@@ -241,7 +245,9 @@ function isActionable(row: any) {
 // 当前用户是否为发起人
 function isSubmitter(row: any) {
   return (
-    currentUserId.value != null && Number(row.submitterId) === Number(currentUserId.value)
+    currentUserId.value !== null &&
+    currentUserId.value !== undefined &&
+    Number(row.submitterId) === Number(currentUserId.value)
   );
 }
 
@@ -272,8 +278,8 @@ async function openDetail(row: any) {
     const res: any = await getApprovalDetailApi(row.id);
     detailData.value = res?.data?.data ?? res?.data ?? res ?? null;
     detailVisible.value = true;
-  } catch (e: any) {
-    message.error(e?.message || '加载详情失败');
+  } catch (error: any) {
+    message.error(error?.message || '加载详情失败');
   }
 }
 
@@ -341,7 +347,7 @@ function handleUserSearch(keyword: string) {
           `用户${u.userId || u.id}`,
         value: u.userId || u.id,
       }));
-    } catch (e) {
+    } catch {
       userOptions.value = [];
     } finally {
       userSearching.value = false;
@@ -362,13 +368,7 @@ function resetModalForm() {
 }
 
 function openModal(
-  type:
-    | 'addCc'
-    | 'addSign'
-    | 'cancel'
-    | 'delegate'
-    | 'rejectTo'
-    | 'transfer',
+  type: 'addCc' | 'addSign' | 'cancel' | 'delegate' | 'rejectTo' | 'transfer',
   row: any,
 ) {
   resetModalForm();
@@ -381,7 +381,9 @@ function closeModal() {
 
 const modalVisible = computed({
   get: () => modalState.value.type !== null,
-  set: (v: boolean) => { if (!v) closeModal(); },
+  set: (v: boolean) => {
+    if (!v) closeModal();
+  },
 });
 
 const modalTitle = computed(() => {
@@ -419,6 +421,33 @@ async function handleSubmit() {
   if (!type || !row) return;
   try {
     switch (type) {
+      case 'addCc': {
+        if (targetUserIds.value.length === 0) {
+          message.warning('请选择抄送用户');
+          return;
+        }
+        await addCcApprovalApi({
+          ccReason: ccReason.value || undefined,
+          instanceId: row.id,
+          userIds: targetUserIds.value,
+        });
+        message.success('已添加抄送');
+        break;
+      }
+      case 'addSign': {
+        if (targetUserIds.value.length === 0) {
+          message.warning('请选择加签用户');
+          return;
+        }
+        await addSignApprovalApi({
+          addSignType: addSignType.value,
+          comment: commentText.value || undefined,
+          instanceId: row.id,
+          targetUserIds: targetUserIds.value,
+        });
+        message.success('已加签');
+        break;
+      }
       case 'cancel': {
         await cancelApprovalApi({
           cancelReason: cancelReason.value || undefined,
@@ -427,12 +456,28 @@ async function handleSubmit() {
         message.success('已撤回审批');
         break;
       }
+      case 'delegate': {
+        if (!targetUserId.value) {
+          message.warning('请选择被委派人');
+          return;
+        }
+        await delegateApprovalApi({
+          comment: commentText.value || undefined,
+          instanceId: row.id,
+          targetUserId: targetUserId.value,
+          targetUserName: targetUserName.value || undefined,
+        });
+        message.success('已委派');
+        break;
+      }
       case 'rejectTo': {
         await rejectToApprovalApi({
           comment: commentText.value || undefined,
           instanceId: row.id,
           rejectToNodeKey:
-            rejectToNodeKey.value === '' ? undefined : rejectToNodeKey.value || undefined,
+            rejectToNodeKey.value === ''
+              ? undefined
+              : rejectToNodeKey.value || undefined,
         });
         message.success('已退回');
         break;
@@ -451,47 +496,6 @@ async function handleSubmit() {
         message.success('已转办');
         break;
       }
-      case 'delegate': {
-        if (!targetUserId.value) {
-          message.warning('请选择被委派人');
-          return;
-        }
-        await delegateApprovalApi({
-          comment: commentText.value || undefined,
-          instanceId: row.id,
-          targetUserId: targetUserId.value,
-          targetUserName: targetUserName.value || undefined,
-        });
-        message.success('已委派');
-        break;
-      }
-      case 'addSign': {
-        if (!targetUserIds.value.length) {
-          message.warning('请选择加签用户');
-          return;
-        }
-        await addSignApprovalApi({
-          addSignType: addSignType.value,
-          comment: commentText.value || undefined,
-          instanceId: row.id,
-          targetUserIds: targetUserIds.value,
-        });
-        message.success('已加签');
-        break;
-      }
-      case 'addCc': {
-        if (!targetUserIds.value.length) {
-          message.warning('请选择抄送用户');
-          return;
-        }
-        await addCcApprovalApi({
-          ccReason: ccReason.value || undefined,
-          instanceId: row.id,
-          userIds: targetUserIds.value,
-        });
-        message.success('已添加抄送');
-        break;
-      }
     }
     closeModal();
     gridApi.query();
@@ -499,8 +503,8 @@ async function handleSubmit() {
     if (detailVisible.value && detailData.value?.id === row.id) {
       openDetail(row);
     }
-  } catch (e: any) {
-    message.error(e?.message || '操作失败');
+  } catch (error: any) {
+    message.error(error?.message || '操作失败');
   }
 }
 
@@ -628,7 +632,9 @@ onMounted(async () => {
         <div class="flex justify-between items-center">
           <span class="text-gray-500">业务类型：</span>
           <Tag
-            :color="businessTypeMap[detailData.businessType]?.color || 'default'"
+            :color="
+              businessTypeMap[detailData.businessType]?.color || 'default'
+            "
           >
             {{
               businessTypeMap[detailData.businessType]?.label ||
@@ -708,7 +714,9 @@ onMounted(async () => {
 
         <!-- 详情内快捷操作（仅在状态为待审批/审批中时显示） -->
         <div
-          v-if="canProcess(detailData) || canCancel(detailData) || canCc(detailData)"
+          v-if="
+            canProcess(detailData) || canCancel(detailData) || canCc(detailData)
+          "
           class="flex flex-wrap gap-2 pt-2 border-t border-gray-100"
         >
           <Button
@@ -773,7 +781,9 @@ onMounted(async () => {
         </div>
 
         <!-- 审批记录 -->
-        <div v-if="detailData.approvalLogs && detailData.approvalLogs.length > 0">
+        <div
+          v-if="detailData.approvalLogs && detailData.approvalLogs.length > 0"
+        >
           <h4 class="text-lg font-semibold mb-4">审批记录</h4>
           <Timeline>
             <Timeline.Item
@@ -826,7 +836,11 @@ onMounted(async () => {
         </div>
 
         <!-- 转办 / 委派：单选用户 -->
-        <div v-if="modalState.type === 'transfer' || modalState.type === 'delegate'">
+        <div
+          v-if="
+            modalState.type === 'transfer' || modalState.type === 'delegate'
+          "
+        >
           <div class="mb-2 text-sm text-gray-600">
             {{ modalState.type === 'transfer' ? '转办给：' : '委派给：' }}
           </div>
@@ -840,10 +854,12 @@ onMounted(async () => {
             placeholder="输入姓名/用户名搜索"
             style="width: 100%"
             @search="handleUserSearch"
-            @change="(v: any) => {
-              const opt = userOptions.find(o => o.value === v);
-              targetUserName = opt?.label || '';
-            }"
+            @change="
+              (v: any) => {
+                const opt = userOptions.find((o) => o.value === v);
+                targetUserName = opt?.label || '';
+              }
+            "
           />
           <div class="mt-1 text-xs text-gray-400">
             <template v-if="modalState.type === 'transfer'">
@@ -913,7 +929,9 @@ onMounted(async () => {
         <div
           v-if="
             modalState.type &&
-            ['addSign', 'delegate', 'rejectTo', 'transfer'].includes(modalState.type)
+            ['addSign', 'delegate', 'rejectTo', 'transfer'].includes(
+              modalState.type,
+            )
           "
         >
           <div class="mb-2 text-sm text-gray-600">审批意见：</div>

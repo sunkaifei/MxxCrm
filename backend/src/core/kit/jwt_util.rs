@@ -14,12 +14,14 @@ use jsonwebtoken::{decode, encode, errors::ErrorKind, DecodingKey, EncodingKey, 
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-
+/// JWT 载荷（登录认证整改 v1.0 瘦身版）
+///
+/// 项目硬约束：JWT 内禁止携带权限列表，仅允许 id / username 与标准 claims。
+/// 权限一律通过 `permission_cache_service` 缓存读取（实时生效）。
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct JWTToken {
     pub id: Option<i64>,
     pub username: Option<String>,
-    pub permissions: Vec<String>,
     pub aud: String,
     // (audience)：受众
     pub exp: usize,
@@ -35,18 +37,18 @@ pub struct JWTToken {
 }
 
 impl JWTToken {
-    pub fn new(id: Option<i64>, username: Option<String>, permissions: Vec<String>, issuer: Option<&str>) -> JWTToken {
+    pub fn new(id: Option<i64>, username: Option<String>, issuer: Option<&str>) -> JWTToken {
         let now = SystemTime::now();
         let now = now.duration_since(UNIX_EPOCH).expect("获取系统时间失败");
-        
+
         //根据 issuer 选择不同的过期时间
         let issuer_str = issuer.unwrap_or("mxx_B2B_admin");
         let jwt_expire = if issuer_str == "mxx_B2B_user" {
-            let expire = config::section::<i64>("server", "jwt_expire_user", 86400);
+            let expire = config::section::<i64>("server", "jwt_expire_user", 28800);
             log::debug!("[JWT] 用户端过期时间配置: {} 秒", expire);
             expire
         } else {
-            let expire = config::section::<i64>("server", "jwt_expire_admin", 1800);
+            let expire = config::section::<i64>("server", "jwt_expire_admin", 28800);
             log::debug!("[JWT] 管理端过期时间配置: {} 秒", expire);
             expire
         };
@@ -55,7 +57,6 @@ impl JWTToken {
         JWTToken {
             id,
             username,
-            permissions,
             aud: String::from("mxx_B2B"), // (audience)：受众
             exp: (now + expire_duration).as_secs() as usize,
             iat: now.as_secs() as usize,  // (Issued At)：签发时间
@@ -68,13 +69,11 @@ impl JWTToken {
 
     /// 使用指定的过期时间（秒）构造 JWTToken
     ///
-    /// 用于登录安全设置页动态配置会话超时：由异步调用方（登录接口）从缓存/配置表
-    /// 读取过期时间后传入，解决 `new()` 同步读取配置文件、无法动态生效的问题。
-    /// 保留原 `new()` 供测试与不关心动态过期时间的调用方继续使用。
+    /// 用于登录/刷新接口从缓存/配置表读取过期时间后传入，
+    /// 实现会话超时动态配置（整改 v1.0：过期时间统一以 DB 配置为唯一真源）。
     pub fn new_with_expire(
         id: Option<i64>,
         username: Option<String>,
-        permissions: Vec<String>,
         issuer: Option<&str>,
         expire_secs: u64,
     ) -> JWTToken {
@@ -87,7 +86,6 @@ impl JWTToken {
         JWTToken {
             id,
             username,
-            permissions,
             aud: String::from("mxx_B2B"),
             exp: (now + expire_duration).as_secs() as usize,
             iat: now.as_secs() as usize,
@@ -112,7 +110,7 @@ impl JWTToken {
             Err(_) => Err(Error::from(format!("{}", "新建token失败".to_string()))),
         }
     }
-    
+
     /// verify token invalid
     /// secret: your secret string
     pub fn verify(secret: &str, token: &str) -> Result<JWTToken> {
@@ -129,17 +127,11 @@ impl JWTToken {
 
             Err(err) => match *err.kind() {
                 ErrorKind::InvalidToken => return Err(Error::from(format!("{}", "InvalidToken".to_string()))), // Example on how to handle a specific error
-                ErrorKind::InvalidIssuer => return Err(Error::from(format!("{}", "InvalidIssuer".to_string()))), // Example on how to handle a specific error
-                ErrorKind::ExpiredSignature => return Err(Error::from(format!("{}", "token 已经超时了".to_string()))), // Example on how to handle a specific error
+                ErrorKind::InvalidIssuer => return Err(Error::from(format!("{}", "InvalidIssuer".to_string()))),
+                ErrorKind::ExpiredSignature => return Err(Error::from(format!("{}", "token 已经超时了".to_string()))),
                 _ => Err(Error::from(format!("{}", "token校验失败".to_string()))),
             },
         }
-    }
-
-    pub fn refresh(&self, secret: &str, jwt_exp: usize) -> Result<String> {
-        let mut jwt = self.clone();
-        jwt.exp = jwt.exp + jwt_exp;
-        jwt.create_token(&secret)
     }
 
     pub fn new_temp(openid: String, expire_secs: i64) -> JWTToken {
@@ -150,7 +142,6 @@ impl JWTToken {
         JWTToken {
             id: None,
             username: Some(openid),
-            permissions: vec![],
             aud: String::from("mxx_B2B"), // (audience)：受众
             exp: (now + expire_duration).as_secs() as usize,
             iat: now.as_secs() as usize,  // (Issued At)：签发时间
@@ -168,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_jwt() {
-        let jwt = JWTToken::new(Some(1), Some("koobe".to_string()), vec![], None);
+        let jwt = JWTToken::new(Some(1), Some("koobe".to_string()), None);
         let res = jwt.create_token("123");
         match res {
             Ok(token) => {

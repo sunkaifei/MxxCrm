@@ -21,9 +21,7 @@ onMounted(async () => {
   }
 
   const xData = months.map((m: any) => `${m.month}月`);
-  const contractData = months.map((m: any) =>
-    Number(m.contractActual ?? 0),
-  );
+  const contractData = months.map((m: any) => Number(m.contractActual ?? 0));
   const paymentData = months.map((m: any) => Number(m.paymentActual ?? 0));
 
   renderEcharts({
@@ -57,7 +55,10 @@ onMounted(async () => {
     xAxis: {
       axisTick: { show: false },
       boundaryGap: false,
-      data: xData.length > 0 ? xData : Array.from({ length: 12 }).map((_, i) => `${i + 1}月`),
+      data:
+        xData.length > 0
+          ? xData
+          : Array.from({ length: 12 }).map((_, i) => `${i + 1}月`),
       type: 'category',
     },
     yAxis: [

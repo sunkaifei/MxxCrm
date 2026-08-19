@@ -1,25 +1,40 @@
 <script lang="ts" setup>
+import type { TemplateTagVO } from '#/api/core/website/template-data';
+
 import { computed, h, onMounted, ref } from 'vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
 import {
+  LucideClock,
+  LucideEye,
   LucideMaximize2,
   LucideMinimize2,
-  LucideEye,
-  LucideClock,
   LucideTag,
 } from '@vben/icons';
-import { Button, Collapse, CollapsePanel, Empty, message, Modal, Tabs, TabPane, Input } from 'ant-design-vue';
+
+import {
+  Button,
+  Collapse,
+  CollapsePanel,
+  Empty,
+  Input,
+  message,
+  Modal,
+  TabPane,
+  Tabs,
+} from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import {
   addTemplateDataApi,
-  updateTemplateDataApi,
-  previewTemplateDataApi,
   getTemplateDataDetailApi,
   getTemplateTagsApi,
+  previewTemplateDataApi,
+  updateTemplateDataApi,
 } from '#/api';
-import type { TemplateTagVO } from '#/api/core/website/template-data';
 import { $t } from '#/locales';
 import { statusList } from '#/store';
+
 import RevisionModal from '../template-data/revision-modal.vue';
 
 // 类型选项
@@ -36,9 +51,13 @@ const typeOptions = [
   { value: 15, label: '页脚' },
 ];
 
-const drawerData = ref<{ templateId: number; row?: any }>({ templateId: 0 });
+const drawerData = ref<{ row?: any; templateId: number }>({ templateId: 0 });
 const isCreate = computed(() => !drawerData.value?.row?.id);
-const drawerTitle = computed(() => (isCreate.value ? '新增页面' : '编辑页面 - ' + (drawerData.value?.row?.name || '')));
+const drawerTitle = computed(() =>
+  isCreate.value
+    ? '新增页面'
+    : `编辑页面 - ${drawerData.value?.row?.name || ''}`,
+);
 
 // 全屏切换
 const isFullscreen = ref(false);
@@ -50,7 +69,7 @@ function toggleFullscreen() {
 
 // 版本历史
 const revisionVisible = ref(false);
-const revisionTemplateDataId = ref<number | null>(null);
+const revisionTemplateDataId = ref<null | number>(null);
 
 function openRevisionModal() {
   if (drawerData.value?.row?.id) {
@@ -82,10 +101,11 @@ const tagsByCategory = computed(() => {
 
   const map = new Map<string, TemplateTagVO[]>();
   for (const tag of filtered) {
-    if (!map.has(tag.category)) map.set(tag.category, []);
-    map.get(tag.category)!.push(tag);
+    const list = map.get(tag.category) ?? [];
+    list.push(tag);
+    map.set(tag.category, list);
   }
-  return Array.from(map.entries()).map(([category, tags]) => ({
+  return [...map.entries()].map(([category, tags]) => ({
     category,
     tags,
   }));
@@ -124,7 +144,7 @@ async function insertTagExample(example: string) {
     // 降级：追加到末尾
     const values = await baseFormApi.getValues();
     const current = values?.temptext || '';
-    await baseFormApi.setValues({ temptext: current + '\n' + example });
+    await baseFormApi.setValues({ temptext: `${current}\n${example}` });
     message.success('已追加到末尾');
   }
 }
@@ -132,7 +152,6 @@ async function insertTagExample(example: string) {
 onMounted(() => {
   loadTags();
 });
-
 
 // 表单
 const [BaseForm, baseFormApi] = useVbenForm({
@@ -261,7 +280,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen) {
     if (isOpen) {
       isFullscreen.value = false;
-      drawerData.value = drawerApi.getData<{ templateId: number; row?: any }>();
+      drawerData.value = drawerApi.getData<{ row?: any; templateId: number }>();
       if (drawerData.value?.row?.id) {
         // 如果是编辑模式，获取详情
         loadDetail(drawerData.value.row.id);
@@ -290,7 +309,7 @@ function setLoading(loading: boolean) {
 }
 
 // 提供给外部调用的 API
-function open(data: { templateId: number; row?: any }) {
+function open(data: { row?: any; templateId: number }) {
   drawerApi.setData(data);
   drawerApi.open();
 }
@@ -352,11 +371,7 @@ defineExpose({ open, close });
             :tab="`${group.category} (${group.tags.length})`"
           >
             <div class="tag-list">
-              <div
-                v-for="tag in group.tags"
-                :key="tag.name"
-                class="tag-card"
-              >
+              <div v-for="tag in group.tags" :key="tag.name" class="tag-card">
                 <div class="tag-card-header">
                   <span class="tag-name">{{ tag.name }}</span>
                   <Button
@@ -369,7 +384,10 @@ defineExpose({ open, close });
                 </div>
                 <p class="tag-desc">{{ tag.description }}</p>
                 <pre class="tag-syntax">{{ tag.syntax }}</pre>
-                <div v-if="tag.params && tag.params.length > 0" class="tag-params">
+                <div
+                  v-if="tag.params && tag.params.length > 0"
+                  class="tag-params"
+                >
                   <span class="tag-params-title">参数：</span>
                   <span v-for="p in tag.params" :key="p[0]" class="tag-param">
                     <code>{{ p[0] }}</code> {{ p[1] }}
@@ -420,7 +438,7 @@ defineExpose({ open, close });
         :srcdoc="previewHtml"
         class="preview-iframe"
         title="template-preview"
-      />
+      ></iframe>
     </Modal>
   </Drawer>
 </template>
@@ -447,9 +465,9 @@ defineExpose({ open, close });
 
 /* 标签文档面板 */
 .tags-panel {
+  padding-top: 4px;
   margin-top: 12px;
   border-top: 1px dashed #e8e8e8;
-  padding-top: 4px;
 }
 
 .tag-list {
@@ -460,16 +478,18 @@ defineExpose({ open, close });
 }
 
 .tag-card {
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
   padding: 10px 12px;
   background: #fafafa;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .tag-card:hover {
   border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 2px 8px rgb(37 99 235 / 10%);
 }
 
 .tag-card-header {
@@ -480,39 +500,39 @@ defineExpose({ open, close });
 }
 
 .tag-name {
-  font-weight: 600;
-  color: #0f172a;
   font-family: SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .tag-desc {
   margin: 0 0 8px;
   font-size: 12px;
-  color: #64748b;
   line-height: 1.5;
+  color: #64748b;
 }
 
 .tag-syntax {
-  margin: 0;
   padding: 8px 10px;
-  background: #0f172a;
-  color: #e2e8f0;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: SFMono-Regular, Menlo, Consolas, monospace;
+  margin: 0;
   overflow-x: auto;
-  white-space: pre-wrap;
+  font-family: SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #e2e8f0;
   word-break: break-all;
+  white-space: pre-wrap;
+  background: #0f172a;
+  border-radius: 4px;
 }
 
 .tag-params {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #475569;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #475569;
 }
 
 .tag-params-title {
@@ -521,11 +541,11 @@ defineExpose({ open, close });
 }
 
 .tag-param code {
-  background: #e2e8f0;
-  color: #1d4ed8;
   padding: 1px 5px;
-  border-radius: 3px;
   font-size: 11px;
+  color: #1d4ed8;
+  background: #e2e8f0;
+  border-radius: 3px;
 }
 
 /* 响应式：小屏幕全宽 */

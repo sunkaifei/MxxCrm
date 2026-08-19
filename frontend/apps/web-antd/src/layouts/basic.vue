@@ -1,38 +1,33 @@
 <script lang="ts" setup>
 import type { NotificationItem } from '@vben/layouts';
 
+import type { ChatSessionDTO } from '#/api/core/message/chat';
+
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
-import { VBEN_GITHUB_URL } from '@vben/constants';
 import { useWatermark } from '@vben/hooks';
-import { CircleHelp, SvgGithubIcon } from '@vben/icons';
-import {
-  BasicLayout,
-  Notification,
-  UserDropdown,
-} from '@vben/layouts';
+import { BasicLayout, Notification, UserDropdown } from '@vben/layouts';
 import { preferences, usePreferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
-import { openWindow } from '@vben/utils';
+
 import dayjs from 'dayjs';
 
-import { $t } from '#/locales';
 import {
-  getNotificationListApi,
-  readAllNotificationApi,
-  readNotificationApi,
   getMyNoticeListApi,
-  readNoticeApi,
+  getNotificationListApi,
   readAllNoticeApi,
+  readAllNotificationApi,
+  readNoticeApi,
+  readNotificationApi,
 } from '#/api';
 import {
-  getUnreadCountApi,
   getSessionListApi,
+  getUnreadCountApi,
   markReadApi,
-  type ChatSessionDTO,
 } from '#/api/core/message/chat';
+import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
 
@@ -60,8 +55,8 @@ function getNotifTypeName(type: any): string {
 
 // ===== 聊天总未读数（右上角铃铛实时提醒） =====
 const chatUnreadCount = ref(0);
-let chatWs: WebSocket | null = null;
-let chatWsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let chatWs: null | WebSocket = null;
+let chatWsReconnectTimer: null | ReturnType<typeof setTimeout> = null;
 let chatWsReconnectAttempts = 0;
 const CHAT_WS_RECONNECT_MAX = 10;
 const CHAT_WS_RECONNECT_INTERVAL = 3000;
@@ -75,11 +70,11 @@ function playNoticeSound() {
       noticeAudio.preload = 'auto';
     }
     noticeAudio.currentTime = 0;
-    noticeAudio.play().catch((e) => {
-      console.debug('[Notice] 提示音播放被阻止', e);
+    noticeAudio.play().catch((error) => {
+      console.warn('[Notice] 提示音播放被阻止', error);
     });
-  } catch (e) {
-    console.warn('[Notice] 提示音初始化失败', e);
+  } catch (error) {
+    console.warn('[Notice] 提示音初始化失败', error);
   }
 }
 
@@ -98,18 +93,22 @@ const totalUnreadCount = computed(() => {
 
 // 系统通知按类型分组（仅未读）
 const groupedNotifications = computed(() => {
-  const groups = new Map<string, { type: string; count: number; items: any[] }>();
+  const groups = new Map<
+    string,
+    { count: number; items: any[]; type: string }
+  >();
   for (const n of notifications.value) {
     if (n.isRead) continue;
     const typeName = getNotifTypeName((n as any).type);
-    if (!groups.has(typeName)) {
-      groups.set(typeName, { type: typeName, count: 0, items: [] });
+    let g = groups.get(typeName);
+    if (!g) {
+      g = { type: typeName, count: 0, items: [] };
+      groups.set(typeName, g);
     }
-    const g = groups.get(typeName)!;
     g.count++;
     g.items.push(n);
   }
-  return Array.from(groups.values());
+  return [...groups.values()];
 });
 
 // 下拉列表显示的混合内容（聊天会话 + 分组通知）
@@ -119,7 +118,7 @@ const mergedNotifications = computed<NotificationItem[]>(() => {
   // 1. 聊天会话未读（按最后消息时间倒序），显示发送人 + 未读条数
   const unreadSessions = chatSessions.value
     .filter((s) => s.unreadCount > 0)
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       const ta = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
       const tb = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
       return tb - ta;
@@ -153,8 +152,6 @@ const mergedNotifications = computed<NotificationItem[]>(() => {
   return list;
 });
 
-const showDot = computed(() => totalUnreadCount.value > 0);
-
 function getChatWsUrl(): string {
   const token = accessStore.accessToken || '';
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -166,70 +163,78 @@ function getChatWsUrl(): string {
 async function refreshChatUnreadCount() {
   try {
     const count = await getUnreadCountApi();
-    console.log('[ChatWS] 当前聊天未读总数:', count);
+    console.warn('[ChatWS] 当前聊天未读总数:', count);
     chatUnreadCount.value = typeof count === 'number' ? count : 0;
-  } catch (e) {
-    console.warn('[ChatWS] 获取未读数失败', e);
+  } catch (error) {
+    console.warn('[ChatWS] 获取未读数失败', error);
   }
 }
 
 function connectChatWs() {
-  if (chatWs && (chatWs.readyState === WebSocket.OPEN || chatWs.readyState === WebSocket.CONNECTING)) {
+  if (
+    chatWs &&
+    (chatWs.readyState === WebSocket.OPEN ||
+      chatWs.readyState === WebSocket.CONNECTING)
+  ) {
     return;
   }
   try {
     chatWs = new WebSocket(getChatWsUrl());
-  } catch (e) {
-    console.warn('[ChatWS] 创建失败', e);
+  } catch (error) {
+    console.warn('[ChatWS] 创建失败', error);
     scheduleChatWsReconnect();
     return;
   }
 
-  chatWs.onopen = () => {
-    console.log('[ChatWS] 连接已建立');
+  chatWs.addEventListener('open', () => {
+    console.warn('[ChatWS] 连接已建立');
     chatWsReconnectAttempts = 0;
     // 连接成功后立即拉取一次未读数
     refreshChatUnreadCount();
-  };
+  });
 
-  chatWs.onmessage = (event) => {
+  chatWs.addEventListener('message', (event) => {
     let payload: any;
     try {
       payload = JSON.parse(event.data);
-    } catch (e) {
+    } catch {
       return;
     }
     // 收到聊天消息或已读回执时刷新未读总数和会话列表
     if (payload?.type === 'chat_message' || payload?.type === 'message_read') {
-      console.log('[ChatWS] 收到推送，刷新未读数和会话列表', payload?.type);
+      console.warn('[ChatWS] 收到推送，刷新未读数和会话列表', payload?.type);
       loadChatSessions();
     }
     // 收到公告发布推送：刷新系统通知列表 + 播放提示音
     if (payload?.type === 'notice_publish') {
-      console.log('[ChatWS] 收到公告发布推送', payload?.data);
+      console.warn('[ChatWS] 收到公告发布推送', payload?.data);
       loadSystemNotifications();
       playNoticeSound();
     }
-  };
+  });
 
-  chatWs.onclose = (e) => {
-    console.log('[ChatWS] 关闭', e.code, e.reason);
-    chatWs = null;
-    if (e.code !== 1000) {
-      scheduleChatWsReconnect();
-    }
-  };
+  chatWs.addEventListener('close', handleChatWsClose);
 
-  chatWs.onerror = (e) => {
+  chatWs.addEventListener('error', (e) => {
     console.error('[ChatWS] 错误', e);
-  };
+  });
+}
+
+// 连接关闭处理：记录日志并在异常关闭（非 1000）时触发重连
+function handleChatWsClose(e: CloseEvent) {
+  console.warn('[ChatWS] 关闭', e.code, e.reason);
+  chatWs = null;
+  if (e.code !== 1000) {
+    scheduleChatWsReconnect();
+  }
 }
 
 function scheduleChatWsReconnect() {
   if (chatWsReconnectTimer) return;
   if (chatWsReconnectAttempts >= CHAT_WS_RECONNECT_MAX) return;
   chatWsReconnectAttempts++;
-  const delay = CHAT_WS_RECONNECT_INTERVAL * Math.min(chatWsReconnectAttempts, 5);
+  const delay =
+    CHAT_WS_RECONNECT_INTERVAL * Math.min(chatWsReconnectAttempts, 5);
   chatWsReconnectTimer = setTimeout(() => {
     chatWsReconnectTimer = null;
     connectChatWs();
@@ -242,7 +247,7 @@ function disconnectChatWs() {
     chatWsReconnectTimer = null;
   }
   if (chatWs) {
-    chatWs.onclose = null;
+    chatWs.removeEventListener('close', handleChatWsClose);
     chatWs.close(1000, 'page unmount');
     chatWs = null;
   }
@@ -316,14 +321,14 @@ async function loadSystemNotifications() {
 
     // 合并公告和消息（公告在前，消息在后）
     notifications.value = [...noticeItems, ...msgItems];
-  } catch (e) {
-    console.warn('加载系统通知失败', e);
+  } catch (error) {
+    console.warn('加载系统通知失败', error);
   }
 }
 
 // 去除 HTML 标签，提取纯文本（公告内容是富文本）
 function stripHtml(html: string): string {
-  const text = html?.replace(/<[^>]+>/g, '').trim() || '';
+  const text = html?.replaceAll(/<[^>]+>/g, '').trim() || '';
   return text.length > 80 ? `${text.slice(0, 80)}...` : text;
 }
 
@@ -337,8 +342,8 @@ async function loadChatSessions() {
       0,
     );
     chatUnreadCount.value = total;
-  } catch (e) {
-    console.warn('加载聊天会话失败', e);
+  } catch (error) {
+    console.warn('加载聊天会话失败', error);
   }
 }
 
@@ -372,7 +377,9 @@ async function markRead(id: number | string) {
   // 聊天会话：id 形如 "chat_<sessionId>"
   if (idStr.startsWith('chat_')) {
     const sessionId = idStr.slice(5);
-    const session = chatSessions.value.find((s) => String(s.sessionId) === sessionId);
+    const session = chatSessions.value.find(
+      (s) => String(s.sessionId) === sessionId,
+    );
     if (session && session.unreadCount > 0) {
       session.unreadCount = 0;
       // 重新计算总数
@@ -382,8 +389,8 @@ async function markRead(id: number | string) {
       );
       try {
         await markReadApi({ sessionId });
-      } catch (e) {
-        console.warn('标记聊天会话已读失败', e);
+      } catch (error) {
+        console.warn('标记聊天会话已读失败', error);
       }
     }
     return;
@@ -407,8 +414,8 @@ async function markRead(id: number | string) {
         } else if (item.id) {
           await readNotificationApi({ id: String(item.id) });
         }
-      } catch (e) {
-        console.warn('标记通知已读失败', e);
+      } catch (error) {
+        console.warn('标记通知已读失败', error);
       }
     }
     return;
@@ -421,8 +428,8 @@ async function markRead(id: number | string) {
     if (item) item.isRead = true;
     try {
       if (!Number.isNaN(noticeId)) await readNoticeApi(noticeId);
-    } catch (e) {
-      console.warn('标记公告已读失败', e);
+    } catch (error) {
+      console.warn('标记公告已读失败', error);
     }
     return;
   }
@@ -433,8 +440,8 @@ async function markRead(id: number | string) {
     item.isRead = true;
     try {
       await readNotificationApi({ id: String(id) });
-    } catch (e) {
-      console.warn('标记已读失败', e);
+    } catch (error) {
+      console.warn('标记已读失败', error);
     }
   }
 }
@@ -452,7 +459,7 @@ function remove(id: number | string) {
     );
     return;
   }
-  if (idStr.startsWith('group_')) return;  // 分组项不支持单条移除
+  if (idStr.startsWith('group_')) return; // 分组项不支持单条移除
   notifications.value = notifications.value.filter((item) => item.id !== id);
 }
 
@@ -461,14 +468,14 @@ async function handleMakeAll() {
   notifications.value.forEach((item) => (item.isRead = true));
   try {
     await readAllNotificationApi();
-  } catch (e) {
-    console.warn('系统通知全部已读失败', e);
+  } catch (error) {
+    console.warn('系统通知全部已读失败', error);
   }
   // 公告全部已读
   try {
     await readAllNoticeApi();
-  } catch (e) {
-    console.warn('公告全部已读失败', e);
+  } catch (error) {
+    console.warn('公告全部已读失败', error);
   }
   // 把所有聊天会话未读清零
   const unreadSessions = chatSessions.value.filter((s) => s.unreadCount > 0);
@@ -476,7 +483,7 @@ async function handleMakeAll() {
     s.unreadCount = 0;
     try {
       await markReadApi({ sessionId: String(s.sessionId) });
-    } catch (e) {
+    } catch {
       // 忽略单条失败
     }
   }
@@ -493,7 +500,7 @@ const handleClick = (item: NotificationItem) => {
   }
   if (item.link) {
     const idStr = String(item.id ?? '');
-    const query: Record<string, any> = { ...(item.query || {}) };
+    const query: Record<string, any> = { ...item.query };
     // 聊天会话项：携带 sessionId，让消息页自动打开对应会话
     if (idStr.startsWith('chat_')) {
       query.sessionId = idStr.slice(5);
@@ -651,21 +658,21 @@ watch(
 .chat-unread-badge {
   position: absolute;
   top: -2px;
-  right: 0px;
+  right: 0;
+  z-index: 10;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  background: #fa5151;
-  color: #fff;
   font-size: 11px;
-  line-height: 18px;
-  text-align: center;
-  border-radius: 9px;
-  box-shadow: 0 1px 3px rgba(250, 81, 81, 0.4);
   font-weight: 500;
-  cursor: pointer;
+  line-height: 18px;
+  color: #fff;
+  text-align: center;
   pointer-events: auto;
-  z-index: 10;
+  cursor: pointer;
+  background: #fa5151;
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgb(250 81 81 / 40%);
 }
 
 /* 隐藏通知下拉列表中每条未读项的蓝色小圆点（改用红色数字徽标提示） */

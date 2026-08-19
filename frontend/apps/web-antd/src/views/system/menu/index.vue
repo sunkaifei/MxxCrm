@@ -1,29 +1,32 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { ref } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
+import { useAccessStore } from '@vben/stores';
 
 import { Button, InputNumber, Popconfirm, Switch, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteMenuApi, getMenuTreeApi, updateMenuApi } from '#/api';
 import { $t } from '#/locales';
 import { MenuType, statusList } from '#/store';
 
 import MenuDrawer from './drawer.vue';
-import { useAccessStore } from '@vben/stores';
 
 const accessStore = useAccessStore();
 
 // 菜单名翻译（目录级对象兜底到 .title）
-function translateMenuName(key?: string | null): string {
+function translateMenuName(key?: null | string): string {
   if (!key) return '';
   const direct = $t(key);
   if (direct !== key && !direct.startsWith('[object ')) return direct;
   const withTitle = $t(`${key}.title`);
-  return withTitle !== `${key}.title` ? withTitle : key;
+  return withTitle === `${key}.title` ? key : withTitle;
 }
 
 const formOptions: VbenFormProps = {
@@ -90,7 +93,9 @@ const gridOptions: VxeGridProps = {
           const $el = gridApi.grid?.$el as HTMLElement | undefined;
           if (!$el) return;
           const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
-          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          const fixedRightBody = $el.querySelector(
+            '.vxe-table--fixed-right-wrapper tbody',
+          );
           if (!mainBody || !fixedRightBody) {
             if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
             return;
@@ -102,7 +107,7 @@ const gridOptions: VxeGridProps = {
           for (let i = 0; i < len; i++) {
             const h = (rows1[i] as HTMLElement).offsetHeight;
             if (h === 0) continue;
-            (rows2[i] as HTMLElement).style.height = h + 'px';
+            (rows2[i] as HTMLElement).style.height = `${h}px`;
             const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
             tds.forEach((td: Element) => {
               const cell = td.querySelector('.vxe-cell');
@@ -110,7 +115,7 @@ const gridOptions: VxeGridProps = {
                 (cell as HTMLElement).style.display = 'flex';
                 (cell as HTMLElement).style.alignItems = 'center';
                 (cell as HTMLElement).style.justifyContent = 'center';
-                (cell as HTMLElement).style.height = h + 'px';
+                (cell as HTMLElement).style.height = `${h}px`;
               }
             });
           }
@@ -223,8 +228,8 @@ async function handleStatusChanged(row: any, checked: boolean) {
   }
 }
 
-const editingSortId = ref<number | null>(null);
-const editingSortRowId = ref<number | null>(null);
+const editingSortId = ref<null | number>(null);
+const editingSortRowId = ref<null | number>(null);
 
 async function handleSortBlur(row: any) {
   if (editingSortId.value === null) return;
@@ -354,46 +359,53 @@ async function handleDelete(row: any) {
           size="small"
           style="width: 60px"
           @blur="handleSortBlur(row)"
-          @pressEnter="handleSortBlur(row)"
+          @press-enter="handleSortBlur(row)"
         />
         <span
           v-else
           class="cursor-pointer inline-block min-w-[30px] text-center"
-          @dblclick="editingSortRowId = row.id; editingSortId = (row.meta?.sort ?? row.sort ?? 0)"
-        >{{ row.meta?.sort ?? row.sort ?? 0 }}</span>
+          @dblclick="
+            editingSortRowId = row.id;
+            editingSortId = row.meta?.sort ?? row.sort ?? 0;
+          "
+          >{{ row.meta?.sort ?? row.sort ?? 0 }}</span
+        >
       </template>
 
       <template #action="{ row }">
         <div class="flex items-center justify-center" style="gap: 12px">
-        <a
-          v-if="row.type !== MenuType.BUTTON && accessStore.hasAccessCode('system:menu:add')"
-          class="text-blue-600 cursor-pointer"
-          @click="() => handleCreateChild(row)"
-        >
-          {{ $t('page.system.menu.button.createChild') }}
-        </a>
+          <a
+            v-if="
+              row.type !== MenuType.BUTTON &&
+              accessStore.hasAccessCode('system:menu:add')
+            "
+            class="text-blue-600 cursor-pointer"
+            @click="() => handleCreateChild(row)"
+          >
+            {{ $t('page.system.menu.button.createChild') }}
+          </a>
 
-        <a
-          v-if="accessStore.hasAccessCode('system:menu:update')"
-          class="text-blue-600 cursor-pointer"
-          @click="() => handleEdit(row)"
-        >
-          编辑
-        </a>
+          <a
+            v-if="accessStore.hasAccessCode('system:menu:update')"
+            class="text-blue-600 cursor-pointer"
+            @click="() => handleEdit(row)"
+          >
+            编辑
+          </a>
 
-        <Popconfirm
-          v-if="accessStore.hasAccessCode('system:menu:delete')"
-          :title="
-            $t('ui.text.do_you_want_delete', {
-              moduleName: $t('page.system.menu.module'),
-            })
-          "
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="() => handleDelete(row)"
-        >
-          <a class="text-red-500 cursor-pointer">删除</a>
-        </Popconfirm>
+          <Popconfirm
+            v-if="accessStore.hasAccessCode('system:menu:delete')"
+            :title="
+              $t('ui.text.do_you_want_delete', {
+                moduleName: $t('page.system.menu.module'),
+              })
+            "
+            :ok-text="$t('ui.button.ok')"
+            :cancel-text="$t('ui.button.cancel')"
+            @confirm="() => handleDelete(row)"
+          >
+            <a class="text-red-500 cursor-pointer">删除</a>
+          </Popconfirm>
         </div>
       </template>
     </Grid>

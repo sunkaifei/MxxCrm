@@ -38,9 +38,19 @@ async function loadMessages(lang: SupportedLanguagesType) {
   const messages = appLocaleMessages?.default || {};
 
   // 深度合并工具函数
-  function deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+  function deepMerge(
+    target: Record<string, any>,
+    source: Record<string, any>,
+  ): Record<string, any> {
     for (const [k, v] of Object.entries(source)) {
-      if (v && typeof v === 'object' && !Array.isArray(v) && target[k] && typeof target[k] === 'object' && !Array.isArray(target[k])) {
+      if (
+        v &&
+        typeof v === 'object' &&
+        !Array.isArray(v) &&
+        target[k] &&
+        typeof target[k] === 'object' &&
+        !Array.isArray(target[k])
+      ) {
         deepMerge(target[k], v);
       } else {
         target[k] = v;
@@ -54,7 +64,7 @@ async function loadMessages(lang: SupportedLanguagesType) {
   for (const [key, value] of Object.entries(messages)) {
     if (key.startsWith('page-')) {
       if (!merged.page) merged.page = {};
-      deepMerge(merged.page, value as Record<string, any>);
+      deepMerge(merged.page, value as unknown as Record<string, any>);
     } else {
       merged[key] = value;
     }

@@ -1,16 +1,27 @@
 <script lang="ts" setup>
-import { ref, h } from 'vue';
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { SkuTemplateDetailVO, SkuTemplateListVO } from '#/api';
+
+import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
-import { LucideSettings, LucidePlus, LucideTrash2 } from '@vben/icons';
+import { LucidePlus, LucideSettings, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Input, message, Modal, Popconfirm, Select, Tag } from 'ant-design-vue';
+import {
+  Button,
+  Input,
+  message,
+  Modal,
+  Popconfirm,
+  Select,
+  Tag,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
   deleteSkuTemplateApi,
   getSkuTemplateInfoApi,
@@ -19,7 +30,6 @@ import {
   saveTemplateSpecsApi,
   updateSkuTemplateApi,
 } from '#/api';
-import type { SkuTemplateListVO, SkuTemplateDetailVO } from '#/api';
 import { $t } from '#/locales';
 
 const accessStore = useAccessStore();
@@ -120,7 +130,12 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 /** ============= 新增/编辑模板弹窗 ============= */
 
 const showTemplateModal = ref(false);
-const editingTemplate = ref<{ id?: number; templateName: string; productType?: string; description?: string }>({
+const editingTemplate = ref<{
+  description?: string;
+  id?: number;
+  productType?: string;
+  templateName: string;
+}>({
   templateName: '',
 });
 
@@ -181,7 +196,7 @@ async function handleDeleteTemplate(id: number) {
 /** ============= 规格配置抽屉 ============= */
 
 const specDrawerLoading = ref(false);
-const selectedTemplate = ref<SkuTemplateDetailVO | null>(null);
+const selectedTemplate = ref<null | SkuTemplateDetailVO>(null);
 const specList = ref<Array<{ name: string; values: string[] }>>([]);
 
 async function openSpecDrawer(row: SkuTemplateListVO) {
@@ -250,7 +265,8 @@ function handleBlurSpecValue(specIdx: number, valIdx: number) {
     if (trimmed === '') {
       removeSpecValue(specIdx, valIdx);
     } else {
-      if (specList.value[specIdx]) specList.value[specIdx].values[valIdx] = trimmed;
+      if (specList.value[specIdx])
+        specList.value[specIdx].values[valIdx] = trimmed;
     }
   }
 }
@@ -260,33 +276,32 @@ async function handleSaveSpecs() {
   if (!selectedTemplate.value?.id) return;
 
   const validSpecs = specList.value
-      .filter((s) => s.name.trim())
-      .map((s) => ({
-        name: s.name.trim(),
-        sortOrder: 0,
-        values: s.values
-          .map((v) => v.trim())
-          .filter(Boolean)
-          .map((v, idx) => ({ value: v, sortOrder: idx })),
-      }));
+    .filter((s) => s.name.trim())
+    .map((s) => ({
+      name: s.name.trim(),
+      sortOrder: 0,
+      values: s.values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .map((v, idx) => ({ value: v, sortOrder: idx })),
+    }));
 
-    if (validSpecs.length === 0) {
-      message.warning('请至少定义一个有效规格（名称+规格值）');
-      return;
-    }
+  if (validSpecs.length === 0) {
+    message.warning('请至少定义一个有效规格（名称+规格值）');
+    return;
+  }
 
-    try {
-      const resp = await saveTemplateSpecsApi({
-        templateId: Number(selectedTemplate.value.id),
-        specs: validSpecs,
-      });
-      console.log('save specs response:', resp);
-      message.success('规格保存成功');
-      gridApi.query();
-      drawerApi.close();
-    } catch (e: any) {
-      message.error(`规格保存失败: ${e?.message || ''}`);
-    }
+  try {
+    await saveTemplateSpecsApi({
+      templateId: Number(selectedTemplate.value.id),
+      specs: validSpecs,
+    });
+    message.success('规格保存成功');
+    gridApi.query();
+    drawerApi.close();
+  } catch (error: any) {
+    message.error(`规格保存失败: ${error?.message || ''}`);
+  }
 }
 </script>
 
@@ -323,7 +338,10 @@ async function handleSaveSpecs() {
           规格配置
         </Button>
         <Button type="link" @click="openEditTemplate(row)">编辑</Button>
-        <Popconfirm title="确定删除此模板？" @confirm="handleDeleteTemplate(Number(row.id))">
+        <Popconfirm
+          title="确定删除此模板？"
+          @confirm="handleDeleteTemplate(Number(row.id))"
+        >
           <Button type="link" danger :icon="h(LucideTrash2)">删除</Button>
         </Popconfirm>
       </template>
@@ -338,7 +356,9 @@ async function handleSaveSpecs() {
     >
       <div class="flex flex-col gap-4 py-2">
         <div>
-          <label class="text-sm font-medium text-gray-700">模板名称 <span class="text-red-500">*</span></label>
+          <label class="text-sm font-medium text-gray-700"
+            >模板名称 <span class="text-red-500">*</span></label
+          >
           <Input
             v-model:value="editingTemplate.templateName"
             placeholder="请输入模板名称，如：服装SKU模板"
@@ -368,18 +388,25 @@ async function handleSaveSpecs() {
 
     <!-- 规格配置抽屉 -->
     <Drawer
-      :title="selectedTemplate ? `规格配置 - ${selectedTemplate.templateName}` : '规格配置'"
+      :title="
+        selectedTemplate
+          ? `规格配置 - ${selectedTemplate.templateName}`
+          : '规格配置'
+      "
       class="sku-drawer"
       :loading="specDrawerLoading"
     >
-
       <div v-if="selectedTemplate" class="sku-container">
         <!-- 模板信息卡片 -->
         <div class="info-card mb-4">
           <div class="flex items-center justify-between">
             <div>
-              <span class="text-lg font-semibold">{{ selectedTemplate.templateName }}</span>
-              <Tag class="ml-2">{{ getProductTypeLabel(selectedTemplate.productType) }}</Tag>
+              <span class="text-lg font-semibold">{{
+                selectedTemplate.templateName
+              }}</span>
+              <Tag class="ml-2">
+                {{ getProductTypeLabel(selectedTemplate.productType) }}
+              </Tag>
             </div>
           </div>
           <div class="text-sm text-gray-400 mt-1">
@@ -442,7 +469,12 @@ async function handleSaveSpecs() {
                   </Button>
                 </div>
               </div>
-              <Button type="text" danger size="small" @click="removeSpecRow(sIdx)">
+              <Button
+                type="text"
+                danger
+                size="small"
+                @click="removeSpecRow(sIdx)"
+              >
                 删除
               </Button>
             </div>
@@ -472,17 +504,17 @@ async function handleSaveSpecs() {
 }
 
 .info-card {
+  padding: 16px;
   background: linear-gradient(135deg, #f0f5ff 0%, #e6f7ff 100%);
   border: 1px solid #91d5ff;
   border-radius: 8px;
-  padding: 16px;
 }
 
 .section-card {
+  padding: 16px;
   background: #fff;
   border: 1px solid #f0f0f0;
   border-radius: 8px;
-  padding: 16px;
 }
 
 .section-header {
@@ -494,10 +526,10 @@ async function handleSaveSpecs() {
 
 .section-title {
   display: flex;
-  align-items: center;
   gap: 8px;
-  font-weight: 600;
+  align-items: center;
   font-size: 14px;
+  font-weight: 600;
 }
 
 .step-badge {
@@ -506,23 +538,23 @@ async function handleSaveSpecs() {
   justify-content: center;
   width: 24px;
   height: 24px;
-  background: #1890ff;
-  color: #fff;
-  border-radius: 50%;
   font-size: 13px;
   font-weight: 600;
+  color: #fff;
+  background: #1890ff;
+  border-radius: 50%;
 }
 
 .empty-tip {
-  text-align: center;
   padding: 32px 0;
-  color: #bfbfbf;
   font-size: 13px;
+  color: #bfbfbf;
+  text-align: center;
 }
 
 .spec-item {
-  margin-bottom: 12px;
   padding: 12px;
+  margin-bottom: 12px;
   background: #fafafa;
   border: 1px solid #f0f0f0;
   border-radius: 6px;
@@ -534,26 +566,26 @@ async function handleSaveSpecs() {
 
 .spec-row {
   display: flex;
-  align-items: flex-start;
   gap: 8px;
+  align-items: flex-start;
 }
 
 .spec-label {
+  min-width: 50px;
   font-size: 12px;
   font-weight: 500;
+  line-height: 24px;
   color: #666;
   white-space: nowrap;
-  line-height: 24px;
-  min-width: 50px;
 }
 
 .spec-value-tag {
   display: inline-flex;
-  align-items: center;
   gap: 2px;
+  align-items: center;
+  padding: 1px 4px;
   background: #fff;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
-  padding: 1px 4px;
 }
 </style>

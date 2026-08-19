@@ -97,6 +97,7 @@ impl From<DeptUpdateRequest> for DeptSaveDTO {
 }
 
 
+#[derive(Debug, Clone)]
 pub struct DeptSaveDTO {
     pub id: Option<i64>,
     pub parent_id: Option<i64>,

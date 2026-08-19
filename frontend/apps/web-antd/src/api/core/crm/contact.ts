@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getContactListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/contact/list', { params });
 };

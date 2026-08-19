@@ -1,10 +1,14 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getReceiptListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/purchase/receipt/list', { params });
 };
 export const getReceiptInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/purchase/receipt/info', { params: { id } });
+  return requestClient.get('/api/system/purchase/receipt/info', {
+    params: { id },
+  });
 };
 export const createReceiptApi = async (param: any) => {
   return requestClient.post('/api/system/purchase/receipt/save', param);

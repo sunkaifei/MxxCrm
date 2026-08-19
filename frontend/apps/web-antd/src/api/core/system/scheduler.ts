@@ -17,8 +17,8 @@ export const updateSchedulerJobApi = async (data: any) => {
 };
 
 export const toggleSchedulerJobApi = async (data: {
-  id: number;
   enabled: number;
+  id: number;
 }) => {
   return requestClient.post(`${BASE}/toggle`, data);
 };

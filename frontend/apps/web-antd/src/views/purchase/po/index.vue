@@ -1,8 +1,11 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -10,8 +13,14 @@ import { formatDateTime } from '@vben/utils';
 import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { auditPurchaseOrderApi, closePurchaseOrderApi, deletePurchaseOrderApi, getAllBrandsApi, getPurchaseOrderListApi, rejectPurchaseOrderApi } from '#/api';
+import {
+  auditPurchaseOrderApi,
+  closePurchaseOrderApi,
+  deletePurchaseOrderApi,
+  getAllBrandsApi,
+  getPurchaseOrderListApi,
+  rejectPurchaseOrderApi,
+} from '#/api';
 import { $t } from '#/locales';
 
 import PurchaseOrderDrawer from './drawer.vue';
@@ -37,16 +46,56 @@ onMounted(() => {
 });
 
 const statusOptions = [
-  { label: $t('page.purchase.po.status.draft'), value: 'draft', color: 'default' },
-  { label: $t('page.purchase.po.status.pending_audit'), value: 'pending_audit', color: 'blue' },
-  { label: $t('page.purchase.po.status.audited'), value: 'audited', color: 'green' },
-  { label: $t('page.purchase.po.status.ordered'), value: 'ordered', color: 'orange' },
-  { label: $t('page.purchase.po.status.in_transit'), value: 'in_transit', color: 'purple' },
-  { label: $t('page.purchase.po.status.partial_received'), value: 'partial_received', color: 'cyan' },
-  { label: $t('page.purchase.po.status.received'), value: 'received', color: 'geekblue' },
-  { label: $t('page.purchase.po.status.completed'), value: 'completed', color: 'green' },
-  { label: $t('page.purchase.po.status.cancelled'), value: 'cancelled', color: 'red' },
-  { label: $t('page.purchase.po.status.rejected'), value: 'rejected', color: 'red' },
+  {
+    label: $t('page.purchase.po.status.draft'),
+    value: 'draft',
+    color: 'default',
+  },
+  {
+    label: $t('page.purchase.po.status.pending_audit'),
+    value: 'pending_audit',
+    color: 'blue',
+  },
+  {
+    label: $t('page.purchase.po.status.audited'),
+    value: 'audited',
+    color: 'green',
+  },
+  {
+    label: $t('page.purchase.po.status.ordered'),
+    value: 'ordered',
+    color: 'orange',
+  },
+  {
+    label: $t('page.purchase.po.status.in_transit'),
+    value: 'in_transit',
+    color: 'purple',
+  },
+  {
+    label: $t('page.purchase.po.status.partial_received'),
+    value: 'partial_received',
+    color: 'cyan',
+  },
+  {
+    label: $t('page.purchase.po.status.received'),
+    value: 'received',
+    color: 'geekblue',
+  },
+  {
+    label: $t('page.purchase.po.status.completed'),
+    value: 'completed',
+    color: 'green',
+  },
+  {
+    label: $t('page.purchase.po.status.cancelled'),
+    value: 'cancelled',
+    color: 'red',
+  },
+  {
+    label: $t('page.purchase.po.status.rejected'),
+    value: 'rejected',
+    color: 'red',
+  },
 ];
 
 const formOptions: VbenFormProps = {
@@ -82,7 +131,7 @@ const formOptions: VbenFormProps = {
       componentProps: {
         placeholder: $t('ui.placeholder.select'),
         allowClear: true,
-        options: statusOptions.map(s => ({ label: s.label, value: s.value })),
+        options: statusOptions.map((s) => ({ label: s.label, value: s.value })),
       },
     },
   ],
@@ -246,21 +295,39 @@ async function handleReject(row: any) {
       </template>
 
       <template #status="{ row }">
-        <Tag :color="statusOptions.find(s => s.value === row.status)?.color || 'default'">
-          {{ statusOptions.find(s => s.value === row.status)?.label || row.status }}
+        <Tag
+          :color="
+            statusOptions.find((s) => s.value === row.status)?.color ||
+            'default'
+          "
+        >
+          {{
+            statusOptions.find((s) => s.value === row.status)?.label ||
+            row.status
+          }}
         </Tag>
       </template>
 
       <template #action="{ row }">
         <Button
-          v-if="accessStore.hasAccessCode('purchase:order:audit') && (row.status === 'draft' || row.status === 'pending_audit')"
+          v-if="
+            accessStore.hasAccessCode('purchase:order:audit') &&
+            (row.status === 'draft' || row.status === 'pending_audit')
+          "
           type="link"
           @click="() => handleAudit(row)"
         >
-          {{ row.status === 'draft' ? $t('page.purchase.po.action.submitAudit') : $t('page.purchase.po.action.auditPass') }}
+          {{
+            row.status === 'draft'
+              ? $t('page.purchase.po.action.submitAudit')
+              : $t('page.purchase.po.action.auditPass')
+          }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('purchase:order:audit') && row.status === 'pending_audit'"
+          v-if="
+            accessStore.hasAccessCode('purchase:order:audit') &&
+            row.status === 'pending_audit'
+          "
           type="link"
           danger
           @click="() => handleReject(row)"
@@ -268,7 +335,10 @@ async function handleReject(row: any) {
           {{ $t('page.purchase.po.action.reject') }}
         </Button>
         <Button
-          v-if="accessStore.hasAccessCode('purchase:order:close') && row.status === 'audited'"
+          v-if="
+            accessStore.hasAccessCode('purchase:order:close') &&
+            row.status === 'audited'
+          "
           type="link"
           danger
           @click="() => handleClose(row)"

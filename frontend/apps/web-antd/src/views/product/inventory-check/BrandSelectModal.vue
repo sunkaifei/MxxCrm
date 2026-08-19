@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
-import { Modal, Input, Table, Tag, Button } from 'ant-design-vue';
+
+import { Button, Input, Modal, Table } from 'ant-design-vue';
+
 import { getBrandListApi } from '#/api';
 
 interface BrandItem {
@@ -57,8 +59,8 @@ async function loadData() {
         b.brandName.toLowerCase().includes(kw),
       );
     }
-  } catch (e) {
-    console.error('[品牌选择] 加载失败:', e);
+  } catch (error) {
+    console.error('[品牌选择] 加载失败:', error);
   } finally {
     loading.value = false;
   }
@@ -68,9 +70,15 @@ function onSearch() {
   loadData();
 }
 
-function onSelectClick(record: BrandItem) {
+function onSelectClick(record: Record<string, any>) {
   closeModal();
-  emit('select', record);
+  emit('select', {
+    id: Number(record.id),
+    brandName: String(record.brandName ?? ''),
+    logo: record.logo,
+    remark: record.remark,
+    sort: record.sort,
+  });
 }
 
 const columns = [
@@ -96,7 +104,9 @@ const columns = [
         @press-enter="onSearch"
       >
         <template #suffix>
-          <span style="cursor: pointer; color: #999" @click="onSearch">搜索</span>
+          <span style="color: #999; cursor: pointer" @click="onSearch"
+            >搜索</span
+          >
         </template>
       </Input>
     </div>
@@ -112,11 +122,7 @@ const columns = [
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.dataIndex === 'action'">
-          <Button
-            type="link"
-            size="small"
-            @click="onSelectClick(record)"
-          >
+          <Button type="link" size="small" @click="onSelectClick(record)">
             选择
           </Button>
         </template>

@@ -40,7 +40,9 @@ export const getCommissionRuleOptionsApi = async () => {
 
 // 设置默认方案
 export const setCommissionDefaultApi = async (id: number) => {
-  return requestClient.post('/api/system/finance/commission-rule/set-default', { id });
+  return requestClient.post('/api/system/finance/commission-rule/set-default', {
+    id,
+  });
 };
 
 // 获取默认方案
@@ -52,10 +54,18 @@ export const getCommissionDefaultApi = async () => {
 // 注意：使用 /contract/commission/preview（只需 crm:contract:list 权限），
 // 而非 /finance/commission/preview（需要 finance:commission:manage 权限）
 export const previewCommissionApi = async (contractId: number) => {
-  return requestClient.post('/api/system/contract/commission/preview', { id: contractId });
+  return requestClient.post('/api/system/contract/commission/preview', {
+    id: contractId,
+  });
 };
 
 // 月度结算
-export const monthlySettleCommissionApi = async (year: number, month: number) => {
-  return requestClient.post('/api/system/finance/commission/monthly-settle', { year, month });
+export const monthlySettleCommissionApi = async (
+  year: number,
+  month: number,
+) => {
+  return requestClient.post('/api/system/finance/commission/monthly-settle', {
+    year,
+    month,
+  });
 };

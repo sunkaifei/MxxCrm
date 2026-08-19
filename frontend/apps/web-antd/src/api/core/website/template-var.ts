@@ -69,7 +69,9 @@ export const deleteTemplateVarApi = async (ids: number[]) => {
 };
 
 export const getTemplateRevisionListApi = async (templateDataId: number) => {
-  return requestClient.get(`/api/system/template/revision/list/${templateDataId}`);
+  return requestClient.get(
+    `/api/system/template/revision/list/${templateDataId}`,
+  );
 };
 
 export const getTemplateRevisionDetailApi = async (id: number) => {

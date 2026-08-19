@@ -13,12 +13,39 @@
       </div>
     </PageUsageGuide>
 -->
+<script lang="ts" setup>
+import { ref } from 'vue';
+
+import { LucideChevronDown, LucideChevronUp, LucideInfo } from '@vben/icons';
+
+import { Button } from 'ant-design-vue';
+
+withDefaults(
+  defineProps<{
+    brief?: string;
+    collapseText?: string;
+    expandText?: string;
+    title: string;
+  }>(),
+  {
+    brief: '',
+    expandText: '展开说明',
+    collapseText: '收起',
+  },
+);
+
+const expanded = ref(false);
+</script>
+
 <template>
   <div class="page-guide-wrapper">
     <!-- 头部：标题 + 简介 + 展开按钮（一行） -->
     <div class="page-guide-header">
       <div class="flex items-center gap-2 flex-shrink-0">
-        <LucideInfo class="guide-icon" :style="{ color: 'hsl(var(--primary))' }" />
+        <LucideInfo
+          class="guide-icon"
+          :style="{ color: 'hsl(var(--primary))' }"
+        />
         <span class="guide-title">{{ title }}</span>
       </div>
       <div class="flex items-center flex-1 min-w-0 guide-brief-wrapper">
@@ -31,62 +58,43 @@
         @click="expanded = !expanded"
       >
         {{ expanded ? collapseText : expandText }}
-        <component :is="expanded ? LucideChevronUp : LucideChevronDown" class="guide-arrow" />
+        <component
+          :is="expanded ? LucideChevronUp : LucideChevronDown"
+          class="guide-arrow"
+        />
       </Button>
     </div>
 
     <!-- 展开态：步骤说明（通过 slot 传入，支持任意结构） -->
     <div v-show="expanded" class="page-guide-body">
       <div class="page-guide-steps">
-        <slot />
+        <slot></slot>
       </div>
     </div>
   </div>
 </template>
 
-<script lang="ts" setup>
-import { ref } from 'vue';
-import { Button } from 'ant-design-vue';
-import { LucideInfo, LucideChevronDown, LucideChevronUp } from '@vben/icons';
-
-withDefaults(
-  defineProps<{
-    title: string;
-    brief?: string;
-    expandText?: string;
-    collapseText?: string;
-  }>(),
-  {
-    brief: '',
-    expandText: '展开说明',
-    collapseText: '收起',
-  },
-);
-
-const expanded = ref(false);
-</script>
-
 <style scoped>
 .page-guide-wrapper {
+  padding: 10px 14px;
+  margin-bottom: 12px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.03);
-  margin-bottom: 12px;
+  box-shadow: 0 1px 2px hsl(0deg 0% 0% / 3%);
 }
 
 .page-guide-header {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   min-height: 28px;
 }
 
 .guide-icon {
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
-  flex-shrink: 0;
 }
 
 .guide-title {
@@ -101,33 +109,34 @@ const expanded = ref(false);
 }
 
 .guide-brief {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
 }
 
 .guide-arrow {
+  display: inline-block;
   width: 14px;
   height: 14px;
-  display: inline-block;
   vertical-align: middle;
 }
 
 .page-guide-body {
-  animation: guideFadeSlide 0.2s ease-out;
   padding-top: 10px;
   margin-top: 8px;
   border-top: 1px dashed hsl(var(--border));
+  animation: guide-fade-slide 0.2s ease-out;
 }
 
-@keyframes guideFadeSlide {
+@keyframes guide-fade-slide {
   from {
     opacity: 0;
     transform: translateY(-6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -144,11 +153,13 @@ const expanded = ref(false);
   .page-guide-header {
     flex-wrap: wrap;
   }
+
   .guide-brief-wrapper {
+    flex: 0 0 100%;
     order: 3;
     width: 100%;
-    flex: 0 0 100%;
   }
+
   .guide-brief {
     white-space: normal;
   }
@@ -162,18 +173,18 @@ const expanded = ref(false);
 }
 
 .page-guide-steps :deep(.page-guide-step-index) {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: hsl(var(--primary) / 0.1);
-  color: hsl(var(--primary));
-  font-size: 12px;
-  font-weight: 600;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 10%);
+  border-radius: 50%;
 }
 
 .page-guide-steps :deep(.page-guide-step-content) {
@@ -184,14 +195,14 @@ const expanded = ref(false);
 .page-guide-steps :deep(.page-guide-step-title) {
   font-size: 13px;
   font-weight: 500;
-  color: hsl(var(--foreground));
   line-height: 1.5;
+  color: hsl(var(--foreground));
 }
 
 .page-guide-steps :deep(.page-guide-step-desc) {
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-  line-height: 1.6;
   margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
 }
 </style>

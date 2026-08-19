@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { DictDataOptionVO, TransferPreviewVO } from '#/api';
+
 /**
  * 客户转移弹窗组件
  *
@@ -35,6 +37,7 @@ import {
 import {
   Button,
   Empty,
+  message,
   Modal,
   Radio,
   RadioGroup,
@@ -42,17 +45,15 @@ import {
   Spin,
   Tag,
   Textarea,
-  message,
 } from 'ant-design-vue';
 
-import UserSelectModal from './UserSelectModal.vue';
 import {
   getDictOptionsApi,
   previewCustomerTransferApi,
   transferCustomerApi,
-  type DictDataOptionVO,
-  type TransferPreviewVO,
 } from '#/api';
+
+import UserSelectModal from './UserSelectModal.vue';
 
 interface Props {
   /** 弹窗是否可见 */
@@ -63,7 +64,10 @@ interface Props {
 
 interface Emits {
   (e: 'update:visible', value: boolean): void;
-  (e: 'success', data: { transferredCount: number; affectedTotal: number }): void;
+  (
+    e: 'success',
+    data: { affectedTotal: number; transferredCount: number },
+  ): void;
 }
 
 const props = defineProps<Props>();
@@ -77,11 +81,11 @@ const innerVisible = computed({
 
 // ===== 用户选择器 =====
 const userSelectVisible = ref(false);
-const selectedUser = ref<{
+const selectedUser = ref<null | {
   id?: number;
   nickName?: string;
   userName?: string;
-} | null>(null);
+}>(null);
 
 function openUserSelect() {
   userSelectVisible.value = true;
@@ -117,17 +121,17 @@ async function loadReasonOptions() {
     const defaultItem =
       reasonOptions.value.find((it) => it.isDefault === 1) ||
       reasonOptions.value[0];
-    if (defaultItem && !form.transferReason) {
-      form.transferReason = defaultItem.label;
+    if (defaultItem && !form.value.transferReason) {
+      form.value.transferReason = defaultItem.label;
     }
-  } catch (e) {
+  } catch {
     // 字典加载失败时使用兜底选项
     reasonOptions.value = [
       { label: '员工离职交接', value: '1', isDefault: 1 },
       { label: '员工调岗', value: '2', isDefault: 0 },
       { label: '其他', value: '8', isDefault: 0 },
     ];
-    form.transferReason = '员工离职交接';
+    form.value.transferReason = '员工离职交接';
   } finally {
     reasonLoading.value = false;
   }
@@ -140,7 +144,7 @@ const form = ref({
 });
 
 // ===== 预览数据 =====
-const previewData = ref<TransferPreviewVO | null>(null);
+const previewData = ref<null | TransferPreviewVO>(null);
 const previewLoading = ref(false);
 
 async function loadPreview() {
@@ -156,7 +160,7 @@ async function loadPreview() {
       toUserId: selectedUser.value.id,
     });
     previewData.value = data;
-  } catch (e: any) {
+  } catch {
     previewData.value = null;
   } finally {
     previewLoading.value = false;
@@ -235,17 +239,14 @@ const statItems = computed(() => {
   ];
 });
 
-const hasAffectedData = computed(() => {
-  if (!previewData.value) return false;
-  return (previewData.value.affectedTotal ?? 0) > 0;
-});
-
 // ===== 提交转移 =====
 const submitting = ref(false);
 
 function handleSubmit() {
   // 校验
-  if (!selectedUser.value?.id) {
+  const user = selectedUser.value;
+  const userId = user?.id;
+  if (!userId) {
     message.warning('请先选择新负责人');
     return;
   }
@@ -260,7 +261,7 @@ function handleSubmit() {
   Modal.confirm({
     title: '确认转移客户？',
     content: `即将把 ${customerCount} 个客户及其关联数据（共 ${affectedTotal} 条）转移给「${
-      selectedUser.value.nickName || selectedUser.value.userName
+      user.nickName || user.userName
     }」，此操作不可撤销。`,
     okText: '确认转移',
     cancelText: '再想想',
@@ -271,7 +272,7 @@ function handleSubmit() {
       try {
         const result = await transferCustomerApi({
           customerIds: props.customerIds,
-          toUserId: selectedUser.value!.id!,
+          toUserId: userId,
           transferReason: form.value.transferReason,
           remark: form.value.remark?.trim() || undefined,
         });
@@ -284,10 +285,10 @@ function handleSubmit() {
         });
         // 关闭弹窗
         innerVisible.value = false;
-      } catch (e: any) {
+      } catch (error: any) {
         // requestClient 已有全局错误处理，这里兜底
-        // eslint-disable-next-line no-console
-        console.error('[TransferModal] 转移失败', e);
+
+        console.error('[TransferModal] 转移失败', error);
       } finally {
         submitting.value = false;
       }
@@ -397,7 +398,10 @@ watch(
             <component :is="item.icon" />
           </div>
           <div class="stat-info">
-            <div class="stat-value" :style="{ color: item.value > 0 ? item.color : '#bfbfbf' }">
+            <div
+              class="stat-value"
+              :style="{ color: item.value > 0 ? item.color : '#bfbfbf' }"
+            >
               {{ item.value }}
             </div>
             <div class="stat-label">{{ item.label }}</div>
@@ -419,16 +423,19 @@ watch(
         <span class="required-mark">*</span>
       </div>
       <Spin :spinning="reasonLoading">
-        <RadioGroup v-model:value="form.transferReason" class="reason-radio-group">
-                  <Radio
-                    v-for="opt in reasonOptions"
-                    :key="opt.value"
-                    :value="opt.label"
-                    class="reason-radio-item"
-                  >
-                    {{ opt.label }}
-                  </Radio>
-                </RadioGroup>
+        <RadioGroup
+          v-model:value="form.transferReason"
+          class="reason-radio-group"
+        >
+          <Radio
+            v-for="opt in reasonOptions"
+            :key="opt.value"
+            :value="opt.label"
+            class="reason-radio-item"
+          >
+            {{ opt.label }}
+          </Radio>
+        </RadioGroup>
       </Spin>
 
       <div class="remark-wrap">
@@ -478,18 +485,18 @@ watch(
 /* ===== 顶部信息卡片 ===== */
 .transfer-header-card {
   display: flex;
-  align-items: stretch;
   gap: 12px;
+  align-items: stretch;
   padding: 16px;
+  margin-bottom: 20px;
   background: linear-gradient(135deg, #f5f9ff 0%, #f0f5ff 100%);
   border: 1px solid #d6e4ff;
   border-radius: 8px;
-  margin-bottom: 20px;
 }
 
 .header-item {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 8px;
   padding: 4px 0;
@@ -497,10 +504,10 @@ watch(
 
 .header-item-label {
   display: flex;
-  align-items: center;
   gap: 6px;
-  color: #595959;
+  align-items: center;
   font-size: 13px;
+  color: #595959;
 }
 
 .header-icon {
@@ -511,15 +518,15 @@ watch(
 
 .header-item-value {
   display: flex;
-  align-items: baseline;
   gap: 4px;
+  align-items: baseline;
 }
 
 .value-num {
   font-size: 28px;
   font-weight: 600;
-  color: #1677ff;
   line-height: 1;
+  color: #1677ff;
 }
 
 .value-unit {
@@ -530,8 +537,8 @@ watch(
 .header-arrow {
   display: flex;
   align-items: center;
-  color: #bfbfbf;
   padding: 0 4px;
+  color: #bfbfbf;
 }
 
 .header-arrow svg {
@@ -547,14 +554,14 @@ watch(
 
 .header-user-selected {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .user-tag {
+  padding: 2px 10px;
   margin: 0;
   font-size: 13px;
-  padding: 2px 10px;
 }
 
 .change-link,
@@ -581,12 +588,12 @@ watch(
 
 .section-title {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 500;
   color: #262626;
-  margin-bottom: 12px;
 }
 
 .title-bar {
@@ -603,13 +610,13 @@ watch(
 
 .preview-loading,
 .preview-empty {
-  padding: 16px;
-  background: #fafafa;
-  border-radius: 6px;
-  min-height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 100px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 6px;
 }
 
 .preview-grid {
@@ -620,20 +627,20 @@ watch(
 
 .stat-card {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   padding: 10px 8px;
   background: #fafafa;
-  border-radius: 6px;
   border: 1px solid #f0f0f0;
+  border-radius: 6px;
   transition: all 0.2s ease;
 }
 
 .stat-card:hover {
   background: #fff;
   border-color: #d9d9d9;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 4%);
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .stat-card.stat-zero {
@@ -641,13 +648,13 @@ watch(
 }
 
 .stat-icon-wrap {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }
 
 .stat-icon-wrap svg {
@@ -670,8 +677,8 @@ watch(
 
 .stat-label {
   font-size: 11px;
-  color: #8c8c8c;
   line-height: 1;
+  color: #8c8c8c;
 }
 
 /* ===== 交接原因 + 备注 ===== */
@@ -696,25 +703,25 @@ watch(
 
 .remark-label {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
   font-size: 13px;
   color: #595959;
-  margin-bottom: 6px;
 }
 
 .optional-tag {
+  padding: 1px 6px;
   font-size: 11px;
   color: #8c8c8c;
   background: #f5f5f5;
-  padding: 1px 6px;
   border-radius: 2px;
 }
 
 .required-mark {
-  color: #ff4d4f;
-  font-size: 14px;
   margin-left: 2px;
+  font-size: 14px;
+  color: #ff4d4f;
 }
 
 .remark-textarea {
@@ -724,11 +731,11 @@ watch(
 /* ===== 底部操作 ===== */
 .footer-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 8px;
+  justify-content: flex-end;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
   margin-top: 8px;
+  border-top: 1px solid #f0f0f0;
 }
 
 /* ===== 响应式 ===== */
@@ -743,8 +750,8 @@ watch(
   }
 
   .header-arrow {
-    transform: rotate(90deg);
     padding: 0;
+    transform: rotate(90deg);
   }
 }
 </style>

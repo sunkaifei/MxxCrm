@@ -1,103 +1,31 @@
-<template>
-  <div class="inventory-process-wrapper">
-    <!-- 头部：标题 + 提示 + 操作按钮 -->
-    <div class="inventory-process-header">
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <LucideInfo class="process-icon-info" style="color: hsl(var(--primary))" />
-        <span class="font-medium text-sm" style="color: hsl(var(--foreground))">仓储流程</span>
-      </div>
-      <div class="flex items-center gap-2 flex-1 min-w-0 process-tip-wrapper">
-        <span v-if="tipText" class="text-xs process-tip-text" style="color: hsl(var(--muted-foreground))">{{ tipText }}</span>
-      </div>
-      <Button type="link" size="small" @click="expanded = !expanded" class="!p-0 !h-auto flex-shrink-0">
-        {{ expanded ? '收起' : '详细说明' }}
-        <component :is="expanded ? LucideChevronUp : LucideChevronDown" class="inline-icon" />
-      </Button>
-    </div>
-
-    <!-- 折叠态：横向步骤卡片条 -->
-    <div v-show="!expanded" class="step-bar">
-      <template v-for="(step, index) in steps" :key="step.key">
-        <div
-          class="step-bar-item"
-          :class="getCollapsedStepClass(step.key)"
-          @click="goToStep(step.key)"
-        >
-          <div class="step-bar-index" :class="getStepBadgeClass(step.key)">
-            <component :is="step.icon" class="step-bar-icon" />
-          </div>
-          <span class="step-bar-title">{{ step.title }}</span>
-        </div>
-        <!-- 分隔箭头（最后一个不显示） -->
-        <div v-if="index < steps.length - 1" class="step-bar-separator">
-          <span class="step-bar-separator-text">&gt;</span>
-        </div>
-      </template>
-    </div>
-
-    <!-- 展开态：详细卡片 -->
-    <div v-show="expanded" class="inventory-process-detail">
-      <div class="step-detail-grid">
-        <div
-          v-for="(step, idx) in steps"
-          :key="step.key"
-          class="step-detail-cell"
-        >
-          <div class="step-detail-card p-3 rounded-lg" :class="getStepCardClass(step.key)">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="step-detail-index" :class="getStepBadgeClass(step.key)">
-                <span class="step-detail-index-num">{{ idx + 1 }}</span>
-              </div>
-              <div class="flex items-center gap-1.5 flex-1 min-w-0">
-                <component :is="step.icon" class="step-detail-icon" :style="getStepIconColor(step.key)" />
-                <span class="font-medium text-sm truncate" :style="getStepTitleColor(step.key)">{{ step.title }}</span>
-              </div>
-            </div>
-            <div class="text-xs leading-relaxed step-detail-desc" style="color: hsl(var(--muted-foreground))">{{ step.desc }}</div>
-            <!-- 盘点类型特殊说明 -->
-            <div v-if="step.key === 'check' && isCurrentStep(step.key)" class="mt-2 text-xs step-detail-tags">
-              <span class="step-tag" v-for="tag in checkTags" :key="tag.key">
-                <component :is="tag.icon" class="step-tag-icon" />
-                {{ tag.label }}
-              </span>
-            </div>
-            <div v-if="step.nextTip && isCurrentStep(step.key)" class="mt-2 text-xs flex items-center gap-1 px-2 py-1 rounded inline-flex step-detail-tip" style="color: hsl(var(--primary)); background: hsl(var(--primary) / 0.08);">
-              <LucideArrowRight class="tip-arrow-icon" />
-              <span>{{ step.nextTip }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Button } from 'ant-design-vue';
+
 import {
-  LucideInfo,
+  LucideArrowRight,
+  LucideArrowRightLeft,
+  LucideCalendar,
+  LucideCheckCircle,
   LucideChevronDown,
   LucideChevronUp,
-  LucideArrowRight,
-  LucideCheckCircle,
-  LucideArrowRightLeft,
-  LucideTarget,
+  LucideInfo,
   LucidePackage,
+  LucideTarget,
   LucideTrendingUp,
-  LucideCalendar,
   LucideXCircle,
 } from '@vben/icons';
 
+import { Button } from 'ant-design-vue';
+
 type StepKey =
-  | 'inbound'
-  | 'stock'
-  | 'outbound'
-  | 'check'
-  | 'transfer'
   | 'alert'
-  | 'report';
+  | 'check'
+  | 'inbound'
+  | 'outbound'
+  | 'report'
+  | 'stock'
+  | 'transfer';
 
 interface ProcessStep {
   key: StepKey;
@@ -245,44 +173,165 @@ function goToStep(key: StepKey) {
 }
 </script>
 
+<template>
+  <div class="inventory-process-wrapper">
+    <!-- 头部：标题 + 提示 + 操作按钮 -->
+    <div class="inventory-process-header">
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <LucideInfo
+          class="process-icon-info"
+          style="color: hsl(var(--primary))"
+        />
+        <span class="font-medium text-sm" style="color: hsl(var(--foreground))"
+          >仓储流程</span
+        >
+      </div>
+      <div class="flex items-center gap-2 flex-1 min-w-0 process-tip-wrapper">
+        <span
+          v-if="tipText"
+          class="text-xs process-tip-text"
+          style="color: hsl(var(--muted-foreground))"
+          >{{ tipText }}</span
+        >
+      </div>
+      <Button
+        type="link"
+        size="small"
+        @click="expanded = !expanded"
+        class="!p-0 !h-auto flex-shrink-0"
+      >
+        {{ expanded ? '收起' : '详细说明' }}
+        <component
+          :is="expanded ? LucideChevronUp : LucideChevronDown"
+          class="inline-icon"
+        />
+      </Button>
+    </div>
+
+    <!-- 折叠态：横向步骤卡片条 -->
+    <div v-show="!expanded" class="step-bar">
+      <template v-for="(step, index) in steps" :key="step.key">
+        <div
+          class="step-bar-item"
+          :class="getCollapsedStepClass(step.key)"
+          @click="goToStep(step.key)"
+        >
+          <div class="step-bar-index" :class="getStepBadgeClass(step.key)">
+            <component :is="step.icon" class="step-bar-icon" />
+          </div>
+          <span class="step-bar-title">{{ step.title }}</span>
+        </div>
+        <!-- 分隔箭头（最后一个不显示） -->
+        <div v-if="index < steps.length - 1" class="step-bar-separator">
+          <span class="step-bar-separator-text">&gt;</span>
+        </div>
+      </template>
+    </div>
+
+    <!-- 展开态：详细卡片 -->
+    <div v-show="expanded" class="inventory-process-detail">
+      <div class="step-detail-grid">
+        <div
+          v-for="(step, idx) in steps"
+          :key="step.key"
+          class="step-detail-cell"
+        >
+          <div
+            class="step-detail-card p-3 rounded-lg"
+            :class="getStepCardClass(step.key)"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <div
+                class="step-detail-index"
+                :class="getStepBadgeClass(step.key)"
+              >
+                <span class="step-detail-index-num">{{ idx + 1 }}</span>
+              </div>
+              <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                <component
+                  :is="step.icon"
+                  class="step-detail-icon"
+                  :style="getStepIconColor(step.key)"
+                />
+                <span
+                  class="font-medium text-sm truncate"
+                  :style="getStepTitleColor(step.key)"
+                  >{{ step.title }}</span
+                >
+              </div>
+            </div>
+            <div
+              class="text-xs leading-relaxed step-detail-desc"
+              style="color: hsl(var(--muted-foreground))"
+            >
+              {{ step.desc }}
+            </div>
+            <!-- 盘点类型特殊说明 -->
+            <div
+              v-if="step.key === 'check' && isCurrentStep(step.key)"
+              class="mt-2 text-xs step-detail-tags"
+            >
+              <span class="step-tag" v-for="tag in checkTags" :key="tag.key">
+                <component :is="tag.icon" class="step-tag-icon" />
+                {{ tag.label }}
+              </span>
+            </div>
+            <div
+              v-if="step.nextTip && isCurrentStep(step.key)"
+              class="mt-2 text-xs flex items-center gap-1 px-2 py-1 rounded inline-flex step-detail-tip"
+              style="
+                color: hsl(var(--primary));
+                background: hsl(var(--primary) / 8%);
+              "
+            >
+              <LucideArrowRight class="tip-arrow-icon" />
+              <span>{{ step.nextTip }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <style scoped>
 /* ========== 外层统一卡片 ========== */
 .inventory-process-wrapper {
+  padding: 10px 14px;
+  margin-bottom: 12px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.03);
-  margin-bottom: 12px;
+  box-shadow: 0 1px 2px hsl(0deg 0% 0% / 3%);
 }
 
 .inventory-process-header {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   min-height: 32px;
   padding-bottom: 8px;
-  border-bottom: 1px dashed hsl(var(--border));
   margin-bottom: 10px;
+  border-bottom: 1px dashed hsl(var(--border));
 }
 
 .process-icon-info {
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
-  flex-shrink: 0;
 }
 
 .inline-icon {
+  display: inline-block;
   width: 14px;
   height: 14px;
-  display: inline-block;
   vertical-align: middle;
 }
 
 .tip-arrow-icon {
+  flex-shrink: 0;
   width: 12px;
   height: 12px;
-  flex-shrink: 0;
 }
 
 .process-tip-wrapper {
@@ -292,44 +341,44 @@ function goToStep(key: StepKey) {
 }
 
 .process-tip-text {
-  white-space: nowrap;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  white-space: nowrap;
 }
 
 /* ========== 折叠态：横向步骤条 ========== */
 .step-bar {
   display: flex;
-  width: 100%;
-  border-radius: 8px;
-  overflow: hidden;
   align-items: stretch;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
 }
 
 .step-bar-item {
-  flex: 1;
+  position: relative;
   display: flex;
+  flex: 1;
+  gap: 6px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  min-width: 0;
   padding: 12px 8px;
   cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
-  min-width: 0;
   background: transparent;
   border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
 .step-bar-index {
+  display: flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.2s ease;
 }
 
@@ -340,43 +389,43 @@ function goToStep(key: StepKey) {
 }
 
 .step-bar-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* 折叠态：当前步骤 */
 .step-bar-current {
-  background: hsl(var(--primary) / 0.08);
+  background: hsl(var(--primary) / 8%);
 }
 
 .step-bar-current .step-bar-title {
-  color: hsl(var(--primary));
   font-weight: 600;
+  color: hsl(var(--primary));
 }
 
 .step-bar-current .step-bar-index {
   background: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 12%);
 }
 
 .step-bar-current:hover {
-  background: hsl(var(--primary) / 0.15);
+  background: hsl(var(--primary) / 15%);
 }
 
 /* 折叠态：已完成步骤 */
 .step-bar-past .step-bar-title {
-  color: hsl(142 71% 45%);
+  color: hsl(142deg 71% 45%);
 }
 
 .step-bar-past .step-bar-index {
-  background: hsl(142 71% 45%);
+  background: hsl(142deg 71% 45%);
 }
 
 .step-bar-past:hover {
-  background: hsl(142 71% 45% / 0.08);
+  background: hsl(142deg 71% 45% / 8%);
 }
 
 /* 折叠态：未开始步骤 */
@@ -385,45 +434,46 @@ function goToStep(key: StepKey) {
 }
 
 .step-bar-default .step-bar-index {
-  background: hsl(var(--muted-foreground) / 0.25);
+  background: hsl(var(--muted-foreground) / 25%);
 }
 
 .step-bar-default:hover {
-  background: hsl(var(--muted) / 0.5);
+  background: hsl(var(--muted) / 50%);
 }
 
 .step-bar-default:hover .step-bar-index {
-  background: hsl(var(--muted-foreground) / 0.4);
+  background: hsl(var(--muted-foreground) / 40%);
 }
 
 /* 步骤之间的分隔箭头 */
 .step-bar-separator {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   padding: 0 4px;
-  color: hsl(var(--muted-foreground) / 0.4);
+  color: hsl(var(--muted-foreground) / 40%);
 }
 
 .step-bar-separator-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 16px;
   font-weight: 600;
   line-height: 1;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* ========== 展开态：详细卡片 ========== */
 .inventory-process-detail {
-  animation: fadeSlideDown 0.25s ease-out;
   padding-top: 4px;
+  animation: fade-slide-down 0.25s ease-out;
 }
 
-@keyframes fadeSlideDown {
+@keyframes fade-slide-down {
   from {
     opacity: 0;
     transform: translateY(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -448,42 +498,42 @@ function goToStep(key: StepKey) {
 }
 
 .step-detail-card {
-  background: hsl(var(--muted) / 0.5);
+  min-height: 110px;
+  margin: 0;
+  cursor: pointer;
+  background: hsl(var(--muted) / 50%);
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
   transition: all 0.2s ease;
-  cursor: pointer;
-  min-height: 110px;
-  margin: 0;
 }
 
 .step-detail-card:hover {
-  border-color: hsl(var(--muted-foreground) / 0.3);
-  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.06);
+  border-color: hsl(var(--muted-foreground) / 30%);
+  box-shadow: 0 2px 8px hsl(0deg 0% 0% / 6%);
 }
 
 .step-detail-index {
+  display: flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.2s ease;
 }
 
 .step-detail-index-num {
   font-size: 12px;
   font-weight: 600;
-  color: white;
   line-height: 1;
+  color: white;
 }
 
 .step-detail-icon {
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
-  flex-shrink: 0;
 }
 
 .step-detail-desc {
@@ -505,58 +555,58 @@ function goToStep(key: StepKey) {
 
 .step-tag {
   display: inline-flex;
-  align-items: center;
   gap: 3px;
+  align-items: center;
   padding: 2px 8px;
-  border-radius: 4px;
   font-size: 11px;
-  background: hsl(var(--primary) / 0.06);
   color: hsl(var(--primary));
-  border: 1px solid hsl(var(--primary) / 0.15);
+  background: hsl(var(--primary) / 6%);
+  border: 1px solid hsl(var(--primary) / 15%);
+  border-radius: 4px;
 }
 
 .step-tag-icon {
+  flex-shrink: 0;
   width: 11px;
   height: 11px;
-  flex-shrink: 0;
 }
 
 /* 徽章：当前 */
 .badge-current {
   background: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 12%);
 }
 
 /* 徽章：已完成 */
 .badge-past {
-  background: hsl(142 71% 45%);
+  background: hsl(142deg 71% 45%);
 }
 
 /* 徽章：未开始 */
 .badge-default {
-  background: hsl(var(--muted-foreground) / 0.25);
+  background: hsl(var(--muted-foreground) / 25%);
 }
 
 /* 展开卡片：当前 */
 .step-card-current {
-  background: hsl(var(--primary) / 0.06);
-  border-color: hsl(var(--primary) / 0.3);
+  background: hsl(var(--primary) / 6%);
+  border-color: hsl(var(--primary) / 30%);
 }
 
 .step-card-current:hover {
-  border-color: hsl(var(--primary) / 0.5);
-  box-shadow: 0 4px 12px hsl(var(--primary) / 0.12);
+  border-color: hsl(var(--primary) / 50%);
+  box-shadow: 0 4px 12px hsl(var(--primary) / 12%);
 }
 
 /* 展开卡片：已完成 */
 .step-card-past {
-  background: hsl(142 71% 45% / 0.06);
-  border-color: hsl(142 71% 45% / 0.3);
+  background: hsl(142deg 71% 45% / 6%);
+  border-color: hsl(142deg 71% 45% / 30%);
 }
 
 .step-card-past:hover {
-  border-color: hsl(142 71% 45% / 0.5);
-  box-shadow: 0 4px 12px hsl(142 71% 45% / 0.12);
+  border-color: hsl(142deg 71% 45% / 50%);
+  box-shadow: 0 4px 12px hsl(142deg 71% 45% / 12%);
 }
 
 /* ========== 响应式 ========== */
@@ -564,9 +614,11 @@ function goToStep(key: StepKey) {
   .step-bar-item {
     padding: 12px 6px;
   }
+
   .step-bar-title {
     font-size: 12px;
   }
+
   .step-detail-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -576,11 +628,13 @@ function goToStep(key: StepKey) {
   .step-bar {
     flex-wrap: wrap;
   }
+
   .step-bar-item {
     flex: 0 0 calc(25% - 0px);
     border-bottom: 1px solid hsl(var(--border));
   }
-  .step-bar-item:nth-last-child(-n+3) {
+
+  .step-bar-item:nth-last-child(-n + 3) {
     border-bottom: none;
   }
 
@@ -600,17 +654,19 @@ function goToStep(key: StepKey) {
     flex: 0 0 calc(33.333% - 0px);
     border-bottom: 1px solid hsl(var(--border));
   }
-  .step-bar-item:nth-last-child(-n+3) {
+
+  .step-bar-item:nth-last-child(-n + 3) {
     border-bottom: none;
   }
 
   .inventory-process-header {
     flex-wrap: wrap;
   }
+
   .process-tip-wrapper {
+    flex: 0 0 100%;
     order: 3;
     width: 100%;
-    flex: 0 0 100%;
   }
 
   .step-detail-grid {

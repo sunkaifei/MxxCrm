@@ -1,10 +1,9 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 
-import { Modal, Input, Table, Button, Tag, Empty } from 'ant-design-vue';
+import { Button, Empty, Input, Modal, Table, Tag } from 'ant-design-vue';
 
-import { getProductListApi } from '#/api';
-import { getProductSpecsApi } from '#/api';
+import { getProductListApi, getProductSpecsApi } from '#/api';
 import { getInventoryListApi } from '#/api/core/product/inventory';
 
 interface SelectedSku {
@@ -23,19 +22,23 @@ interface SelectedSku {
 
 const props = withDefaults(
   defineProps<{
-    visible: boolean;
     excludeIds?: number[];
-    /** 已添加的 SKU 标识列表（格式 `productId-skuId`，新数据） */
-    excludeSkuKeys?: string[];
     /** 已添加的 SKU 编码列表（如 SKU-20-Black-Silicone，兼容历史数据） */
     excludeSkuCodes?: string[];
-    /** 仓库ID（用于查询真实库存） */
-    warehouseId?: number;
+    /** 已添加的 SKU 标识列表（格式 `productId-skuId`，新数据） */
+    excludeSkuKeys?: string[];
     /** 严格库存模式：开启后 warehouseId 有值时，库存<=0 的 SKU 不可选 */
     strictStock?: boolean;
+    visible: boolean;
+    /** 仓库ID（用于查询真实库存） */
+    warehouseId?: number;
   }>(),
   {
+    excludeIds: () => [],
+    excludeSkuCodes: () => [],
+    excludeSkuKeys: () => [],
     strictStock: false,
+    warehouseId: undefined,
   },
 );
 const emit = defineEmits<{
@@ -45,14 +48,10 @@ const emit = defineEmits<{
 
 // computed: 完全响应式，props 变化时自动更新
 const excludeIdSet = computed(
-  () => new Set((props.excludeIds ?? []).map((id) => Number(id))),
+  () => new Set((props.excludeIds ?? []).map(Number)),
 );
-const excludeSkuKeySet = computed(
-  () => new Set(props.excludeSkuKeys ?? []),
-);
-const excludeSkuCodeSet = computed(
-  () => new Set(props.excludeSkuCodes ?? []),
-);
+const excludeSkuKeySet = computed(() => new Set(props.excludeSkuKeys));
+const excludeSkuCodeSet = computed(() => new Set(props.excludeSkuCodes));
 
 // 判断单规格产品是否已添加（多规格产品不整体排除）
 function isProductAdded(record: any): boolean {
@@ -155,7 +154,7 @@ async function loadProductSpecs() {
   const products = productList.value;
   // 并行请求所有产品的规格
   await Promise.allSettled(
-    products.map(async (product: any, i: number) => {
+    products.map(async (product: any) => {
       try {
         const res: any = await getProductSpecsApi(product.id);
         const data = res?.data ?? res;
@@ -165,13 +164,11 @@ async function loadProductSpecs() {
         if (skus.length === 1) {
           // 单规格：优先从 specs 对象提取 key:value
           const specs = parseSpecsObj(skus[0]?.specs);
-          if (specs) {
-            specText = Object.entries(specs)
-              .map(([k, v]) => `${k}:${v}`)
-              .join(' / ');
-          } else {
-            specText = '';
-          }
+          specText = specs
+            ? Object.entries(specs)
+                .map(([k, v]) => `${k}:${v}`)
+                .join(' / ')
+            : '';
         } else if (skus.length > 1) {
           // 多规格：汇总各维度可选值
           const specMap = new Map<string, Set<string>>();
@@ -179,8 +176,9 @@ async function loadProductSpecs() {
             const specs = parseSpecsObj(sku?.specs);
             if (specs) {
               for (const [key, val] of Object.entries(specs)) {
-                if (!specMap.has(key)) specMap.set(key, new Set());
-                specMap.get(key)!.add(String(val));
+                const valueSet = specMap.get(key) ?? new Set<string>();
+                valueSet.add(String(val));
+                specMap.set(key, valueSet);
               }
             }
           }
@@ -202,8 +200,8 @@ async function loadProductSpecs() {
 
         // 强制替换数组引用，确保 Table 组件重新渲染
         productList.value = [...productList.value];
-      } catch (e) {
-        console.error('[ProductSelectModal] 加载规格失败:', product.id, e);
+      } catch (error) {
+        console.error('[ProductSelectModal] 加载规格失败:', product.id, error);
       }
     }),
   );
@@ -231,7 +229,9 @@ async function onExpand(expanded: boolean, record: any) {
       }
     }
   } else {
-    expandedRowKeys.value = expandedRowKeys.value.filter((k) => k !== record.id);
+    expandedRowKeys.value = expandedRowKeys.value.filter(
+      (k) => k !== record.id,
+    );
   }
 }
 
@@ -261,10 +261,10 @@ function selectSingleProduct(product: any) {
   const existing = selectedSkus.value.findIndex(
     (s) => s.productId === item.productId && !s.skuId,
   );
-  if (existing >= 0) {
-    selectedSkus.value.splice(existing, 1);
-  } else {
+  if (existing === -1) {
     selectedSkus.value.push(item);
+  } else {
+    selectedSkus.value.splice(existing, 1);
   }
 }
 
@@ -272,14 +272,11 @@ function selectSku(product: any, sku: any) {
   if (isOutOfStock(sku)) return;
   // 优先用 specs 生成带规格名的文本（如 颜色:红色），label 作为兜底
   const specsObj = parseSpecsObj(sku.specs);
-  let specText = '';
-  if (specsObj) {
-    specText = Object.entries(specsObj)
-      .map(([k, v]) => `${k}:${v}`)
-      .join(' / ');
-  } else {
-    specText = sku.label || '';
-  }
+  const specText = specsObj
+    ? Object.entries(specsObj)
+        .map(([k, v]) => `${k}:${v}`)
+        .join(' / ')
+    : sku.label || '';
 
   const item: SelectedSku = {
     productId: Number(product.id),
@@ -296,10 +293,10 @@ function selectSku(product: any, sku: any) {
   };
 
   const existing = selectedSkus.value.findIndex((s) => s.skuId === item.skuId);
-  if (existing >= 0) {
-    selectedSkus.value.splice(existing, 1);
-  } else {
+  if (existing === -1) {
     selectedSkus.value.push(item);
+  } else {
+    selectedSkus.value.splice(existing, 1);
   }
 }
 
@@ -344,7 +341,7 @@ const skuColumns = [
 ];
 
 // 把 specs（可能是 JSON 字符串或对象）统一解析为对象
-function parseSpecsObj(specs: any): Record<string, any> | null {
+function parseSpecsObj(specs: any): null | Record<string, any> {
   if (!specs) return null;
   if (typeof specs === 'string') {
     try {
@@ -414,7 +411,12 @@ function formatSpecs(specs: any): string {
       }"
       :expanded-row-keys="expandedRowKeys"
       :row-expandable="(record: any) => isMultiSpec(record)"
-      :row-class-name="(record: any) => (!isMultiSpec(record) && isOutOfStock(record)) ? 'stock-row--disabled' : ''"
+      :row-class-name="
+        (record: any) =>
+          !isMultiSpec(record) && isOutOfStock(record)
+            ? 'stock-row--disabled'
+            : ''
+      "
       size="small"
       row-key="id"
       :scroll="{ y: 400 }"
@@ -422,7 +424,9 @@ function formatSpecs(specs: any): string {
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'specInfo'">
-          <span v-if="record.specInfo" class="text-xs">{{ record.specInfo }}</span>
+          <span v-if="record.specInfo" class="text-xs">{{
+            record.specInfo
+          }}</span>
           <span v-else-if="isMultiSpec(record)">
             <Tag color="blue" style="font-size: 11px">多规格</Tag>
           </span>
@@ -476,11 +480,17 @@ function formatSpecs(specs: any): string {
 
       <!-- 展开行：SKU列表 -->
       <template #expandedRowRender="{ record }">
-        <div v-if="skuLoadingMap[record.id]" class="py-4 text-center text-gray-400">
+        <div
+          v-if="skuLoadingMap[record.id]"
+          class="py-4 text-center text-gray-400"
+        >
           加载中...
         </div>
         <div v-else-if="!skuMap[record.id] || skuMap[record.id]?.length === 0">
-          <Empty description="暂无SKU数据" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
+          <Empty
+            description="暂无SKU数据"
+            :image="Empty.PRESENTED_IMAGE_SIMPLE"
+          />
         </div>
         <Table
           v-else
@@ -489,12 +499,18 @@ function formatSpecs(specs: any): string {
           :pagination="false"
           size="small"
           row-key="id"
-          :row-class-name="(sku: any) => isOutOfStock(sku) ? 'stock-row--disabled' : ''"
+          :row-class-name="
+            (sku: any) => (isOutOfStock(sku) ? 'stock-row--disabled' : '')
+          "
         >
           <template #bodyCell="{ column, record: sku }">
             <template v-if="column.key === 'specText'">
-              <span v-if="parseSpecsObj(sku.specs)" class="font-medium">{{ formatSpecs(sku.specs) }}</span>
-              <span v-else-if="sku.label" class="font-medium">{{ sku.label }}</span>
+              <span v-if="parseSpecsObj(sku.specs)" class="font-medium">{{
+                formatSpecs(sku.specs)
+              }}</span>
+              <span v-else-if="sku.label" class="font-medium">{{
+                sku.label
+              }}</span>
               <span v-else class="text-gray-400">无规格</span>
             </template>
             <template v-else-if="column.key === 'price'">
@@ -536,7 +552,9 @@ function formatSpecs(specs: any): string {
 
     <!-- 已选列表 -->
     <div v-if="selectedSkus.length > 0" class="mt-4 border-t pt-3">
-      <div class="mb-2 text-sm font-medium">已选产品（{{ selectedSkus.length }}）</div>
+      <div class="mb-2 text-sm font-medium">
+        已选产品（{{ selectedSkus.length }}）
+      </div>
       <div class="space-y-2">
         <div
           v-for="(item, idx) in selectedSkus"
@@ -546,10 +564,19 @@ function formatSpecs(specs: any): string {
           <div class="flex items-center gap-2">
             <span class="font-medium">{{ item.productName }}</span>
             <Tag v-if="item.spec" color="blue">{{ item.spec }}</Tag>
-            <span class="text-gray-400">¥{{ item.unitPrice.toFixed(2) }}/{{ item.unit || '个' }}</span>
-            <Tag v-if="item.stock !== undefined && item.stock !== null" color="orange">库存: {{ item.stock }}</Tag>
+            <span class="text-gray-400"
+              >¥{{ item.unitPrice.toFixed(2) }}/{{ item.unit || '个' }}</span
+            >
+            <Tag
+              v-if="item.stock !== undefined && item.stock !== null"
+              color="orange"
+            >
+              库存: {{ item.stock }}
+            </Tag>
           </div>
-          <Button type="link" danger size="small" @click="removeSelected(idx)">移除</Button>
+          <Button type="link" danger size="small" @click="removeSelected(idx)">
+            移除
+          </Button>
         </div>
       </div>
     </div>
@@ -559,8 +586,8 @@ function formatSpecs(specs: any): string {
 <style>
 /* 严格库存模式：库存<=0 的行显示灰色、不可选 */
 .stock-row--disabled > td {
-  background-color: hsl(var(--muted)) !important;
   color: hsl(var(--muted-foreground)) !important;
   cursor: not-allowed;
+  background-color: hsl(var(--muted)) !important;
 }
 </style>

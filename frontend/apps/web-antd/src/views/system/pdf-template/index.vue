@@ -4,7 +4,12 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { h, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideFilePenLine, LucidePlus, LucideSearch, LucideTrash2 } from '@vben/icons';
+import {
+  LucideFilePenLine,
+  LucidePlus,
+  LucideSearch,
+  LucideTrash2,
+} from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -23,12 +28,12 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { demoPdfApi } from '#/api/core/system/pdf';
 import {
   bathDeletePdfTemplateApi,
   getPdfTemplateListApi,
   setDefaultPdfTemplateApi,
 } from '#/api/core/system/pdf-template';
-import { demoPdfApi } from '#/api/core/system/pdf';
 import { $t } from '#/locales';
 import { statusList } from '#/store';
 
@@ -160,7 +165,7 @@ const gridOptions: VxeGridProps = {
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
 
 // 切换 Tab 时重新加载列表
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
@@ -228,7 +233,9 @@ async function handlePreview(row: any) {
   try {
     const blob: any = await demoPdfApi(row.id);
     const pdfBlob =
-      blob instanceof Blob ? blob : new Blob([blob], { type: 'application/pdf' });
+      blob instanceof Blob
+        ? blob
+        : new Blob([blob], { type: 'application/pdf' });
     previewUrl.value = window.URL.createObjectURL(pdfBlob);
   } catch {
     window.$message.error('演示PDF生成失败');
@@ -284,10 +291,7 @@ function handlePreviewClose() {
               </Form.Item>
             </Col>
             <Col :xs="24" :sm="24" :md="12">
-              <Form.Item
-                :label="$t('ui.table.status')"
-                name="status"
-              >
+              <Form.Item :label="$t('ui.table.status')" name="status">
                 <Select
                   v-model:value="searchForm.status"
                   :options="statusList"
@@ -301,21 +305,13 @@ function handlePreviewClose() {
         </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <Button
-            type="default"
-            :icon="h(LucideSearch)"
-            @click="handleSearch"
-          >
+          <Button type="default" :icon="h(LucideSearch)" @click="handleSearch">
             {{ $t('ui.button.search') }}
           </Button>
           <Button type="default" @click="handleReset">
             {{ $t('ui.button.refresh') }}
           </Button>
-          <Button
-            type="primary"
-            :icon="h(LucidePlus)"
-            @click="handleCreate"
-          >
+          <Button type="primary" :icon="h(LucidePlus)" @click="handleCreate">
             {{ $t('page.system.pdfTemplate.button.create') }}
           </Button>
         </div>
@@ -361,9 +357,7 @@ function handlePreviewClose() {
       <template #status="{ row }">
         <Tag :color="row.status === 1 ? 'success' : 'default'">
           {{
-            row.status === 1
-              ? $t('ui.switch.active')
-              : $t('ui.switch.inactive')
+            row.status === 1 ? $t('ui.switch.active') : $t('ui.switch.inactive')
           }}
         </Tag>
       </template>
@@ -423,7 +417,7 @@ function handlePreviewClose() {
           :src="previewUrl"
           class="w-full"
           style="height: calc(100vh - 160px); border: none"
-        />
+        ></iframe>
       </Spin>
     </Drawer>
   </Page>

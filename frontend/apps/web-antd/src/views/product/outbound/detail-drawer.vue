@@ -25,6 +25,7 @@ import {
   Form,
   FormItem,
   Input,
+  message,
   Modal,
   Select,
   Spin,
@@ -32,11 +33,9 @@ import {
   Tag,
   Textarea,
   Tooltip,
-  message,
 } from 'ant-design-vue';
 
-import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
-import { $t } from '#/locales';
+import { searchUsersApi } from '#/api/core/message/chat';
 import {
   auditOutboundApi,
   getOutboundInfoApi,
@@ -51,11 +50,12 @@ import {
   rejectToApprovalApi,
   transferApprovalApi,
 } from '#/api/core/system/approval';
-import { searchUsersApi } from '#/api/core/message/chat';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
+import { $t } from '#/locales';
 
 const props = defineProps<{
+  outboundId?: null | number;
   visible: boolean;
-  outboundId?: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -69,7 +69,9 @@ const { isSuperAdmin } = useSuperAdminGuard();
 const loading = ref(false);
 const detail = ref<any>(null);
 const isFullscreen = ref(false);
-const currentUserId = Number(userStore.userInfo?.userId || userStore.userInfo?.id || 0);
+const currentUserId = Number(
+  userStore.userInfo?.userId || userStore.userInfo?.id || 0,
+);
 
 // ===== 审批操作状态 =====
 const actionLoading = ref(false);
@@ -82,25 +84,59 @@ const approveComment = ref('');
 const instance = computed(() => detail.value?.instance || null);
 
 // ===== 类型 & 状态映射 =====
-const typeMap: Record<string, { label: string; color: string; icon: string }> = {
-  sale: { label: $t('page.product.outbound.type.sale'), color: 'blue', icon: '📤' },
-  material: { label: $t('page.product.outbound.type.material'), color: 'cyan', icon: '🔧' },
-  shortage: { label: $t('page.product.outbound.type.shortage'), color: 'orange', icon: '📉' },
-  scrap: { label: $t('page.product.outbound.type.scrap'), color: 'red', icon: '🗑️' },
-  freeze: { label: $t('page.product.outbound.type.freeze'), color: 'purple', icon: '❄️' },
-  other: { label: $t('page.product.outbound.type.other'), color: 'default', icon: '📦' },
-};
+const typeMap: Record<string, { color: string; icon: string; label: string }> =
+  {
+    sale: {
+      label: $t('page.product.outbound.type.sale'),
+      color: 'blue',
+      icon: '📤',
+    },
+    material: {
+      label: $t('page.product.outbound.type.material'),
+      color: 'cyan',
+      icon: '🔧',
+    },
+    shortage: {
+      label: $t('page.product.outbound.type.shortage'),
+      color: 'orange',
+      icon: '📉',
+    },
+    scrap: {
+      label: $t('page.product.outbound.type.scrap'),
+      color: 'red',
+      icon: '🗑️',
+    },
+    freeze: {
+      label: $t('page.product.outbound.type.freeze'),
+      color: 'purple',
+      icon: '❄️',
+    },
+    other: {
+      label: $t('page.product.outbound.type.other'),
+      color: 'default',
+      icon: '📦',
+    },
+  };
 
-const statusMap: Record<number, { label: string; color: string; step: number }> = {
+const statusMap: Record<
+  number,
+  { color: string; label: string; step: number }
+> = {
   0: { label: $t('page.product.outbound.status.0'), color: 'default', step: 0 },
-  1: { label: $t('page.product.outbound.status.1'), color: 'processing', step: 1 },
+  1: {
+    label: $t('page.product.outbound.status.1'),
+    color: 'processing',
+    step: 1,
+  },
   2: { label: $t('page.product.outbound.status.2'), color: 'warning', step: 2 },
   3: { label: $t('page.product.outbound.status.3'), color: 'success', step: 3 },
   4: { label: $t('page.product.outbound.status.4'), color: 'error', step: 1 },
 };
 
 function getType(val?: string) {
-  return typeMap[val || ''] || { label: val || '-', color: 'default', icon: '📦' };
+  return (
+    typeMap[val || ''] || { label: val || '-', color: 'default', icon: '📦' }
+  );
 }
 
 function getStatus(val?: number) {
@@ -113,10 +149,30 @@ const drawerWidth = computed(() => (isFullscreen.value ? '100%' : '75%'));
 const auditSteps = computed(() => {
   const s = getStatus(detail.value?.status).step;
   return [
-    { key: 'draft', label: $t('page.product.outbound.status.0'), done: s >= 0, active: s === 0 },
-    { key: 'pending', label: $t('page.product.outbound.status.1'), done: s >= 1, active: s === 1 },
-    { key: 'approved', label: $t('page.product.outbound.status.2'), done: s >= 2, active: s === 2 },
-    { key: 'done', label: $t('page.product.outbound.status.3'), done: s >= 3, active: s === 3 },
+    {
+      key: 'draft',
+      label: $t('page.product.outbound.status.0'),
+      done: s >= 0,
+      active: s === 0,
+    },
+    {
+      key: 'pending',
+      label: $t('page.product.outbound.status.1'),
+      done: s >= 1,
+      active: s === 1,
+    },
+    {
+      key: 'approved',
+      label: $t('page.product.outbound.status.2'),
+      done: s >= 2,
+      active: s === 2,
+    },
+    {
+      key: 'done',
+      label: $t('page.product.outbound.status.3'),
+      done: s >= 3,
+      active: s === 3,
+    },
   ];
 });
 
@@ -156,14 +212,25 @@ const canApprove = computed(() => {
 
 // 抄送：提交人或当前审批人均可（审核中）
 const canCc = computed(() => {
-  return detail.value?.status === 1 && (isSelfSubmitted.value || isCandidateApprover.value);
+  return (
+    detail.value?.status === 1 &&
+    (isSelfSubmitted.value || isCandidateApprover.value)
+  );
 });
 
 // 转办 / 委派 / 加签 / 退回：仅当前审批人
-const canTransfer = computed(() => detail.value?.status === 1 && isCandidateApprover.value);
-const canDelegate = computed(() => detail.value?.status === 1 && isCandidateApprover.value);
-const canAddSign = computed(() => detail.value?.status === 1 && isCandidateApprover.value);
-const canRejectTo = computed(() => detail.value?.status === 1 && isCandidateApprover.value);
+const canTransfer = computed(
+  () => detail.value?.status === 1 && isCandidateApprover.value,
+);
+const canDelegate = computed(
+  () => detail.value?.status === 1 && isCandidateApprover.value,
+);
+const canAddSign = computed(
+  () => detail.value?.status === 1 && isCandidateApprover.value,
+);
+const canRejectTo = computed(
+  () => detail.value?.status === 1 && isCandidateApprover.value,
+);
 
 // 撤回：仅单据提交人本人（审批人/超管不显示）
 const canWithdraw = computed(() => {
@@ -183,8 +250,7 @@ const availableActions = computed<string[]>(() => {
   // 审核中：审批引擎增强操作
   if (status === 1) {
     if (canApprove.value) {
-      actions.push('approve');
-      actions.push('reject');
+      actions.push('approve', 'reject');
     }
     if (canWithdraw.value) {
       actions.push('withdraw');
@@ -200,19 +266,55 @@ const availableActions = computed<string[]>(() => {
 
 // ===== 明细表格列 =====
 const itemColumns = computed(() => [
-  { title: '#', key: 'seq', width: 45, customRender: ({ index }: any) => index + 1 },
-  { title: $t('page.product.outbound.field.itemProductCode'), dataIndex: 'productCode', width: 120, customRender: ({ value }: any) => value || '-' },
-  { title: $t('page.product.outbound.field.itemProductName'), dataIndex: 'productName', ellipsis: true, customRender: ({ value }: any) => value || '-' },
-  { title: $t('page.product.outbound.field.spec'), dataIndex: 'spec', width: 100, customRender: ({ value }: any) => value || '-' },
-  { title: $t('page.product.outbound.field.unit'), dataIndex: 'unit', width: 70, customRender: ({ value }: any) => value || '-' },
+  {
+    title: '#',
+    key: 'seq',
+    width: 45,
+    customRender: ({ index }: any) => index + 1,
+  },
+  {
+    title: $t('page.product.outbound.field.itemProductCode'),
+    dataIndex: 'productCode',
+    width: 120,
+    customRender: ({ value }: any) => value || '-',
+  },
+  {
+    title: $t('page.product.outbound.field.itemProductName'),
+    dataIndex: 'productName',
+    ellipsis: true,
+    customRender: ({ value }: any) => value || '-',
+  },
+  {
+    title: $t('page.product.outbound.field.spec'),
+    dataIndex: 'spec',
+    width: 100,
+    customRender: ({ value }: any) => value || '-',
+  },
+  {
+    title: $t('page.product.outbound.field.unit'),
+    dataIndex: 'unit',
+    width: 70,
+    customRender: ({ value }: any) => value || '-',
+  },
   {
     title: $t('page.product.outbound.field.itemQuantity'),
     dataIndex: 'quantity',
     width: 90,
     customRender: ({ value }: any) => value ?? '-',
   },
-  { title: $t('page.product.outbound.field.batchNo'), dataIndex: 'batchNo', width: 110, customRender: ({ value }: any) => value || '-' },
-  { title: $t('page.product.outbound.field.remark'), dataIndex: 'remark', width: 120, ellipsis: true, customRender: ({ value }: any) => value || '-' },
+  {
+    title: $t('page.product.outbound.field.batchNo'),
+    dataIndex: 'batchNo',
+    width: 110,
+    customRender: ({ value }: any) => value || '-',
+  },
+  {
+    title: $t('page.product.outbound.field.remark'),
+    dataIndex: 'remark',
+    width: 120,
+    ellipsis: true,
+    customRender: ({ value }: any) => value || '-',
+  },
 ]);
 
 // ===== 数据加载 =====
@@ -222,11 +324,13 @@ async function loadDetail(id: number) {
     const res: any = await getOutboundInfoApi(id);
     const raw = res?.data ?? res;
     // 后端返回 { detail: {...}, items: [...], instance: {...} }，扁平化到顶层
-    if (raw?.detail) {
-      detail.value = { ...raw.detail, items: raw.items ?? [], instance: raw.instance ?? null };
-    } else {
-      detail.value = raw;
-    }
+    detail.value = raw?.detail
+      ? {
+          ...raw.detail,
+          items: raw.items ?? [],
+          instance: raw.instance ?? null,
+        }
+      : raw;
   } catch {
     detail.value = null;
   } finally {
@@ -392,7 +496,9 @@ function resetModalForm() {
   userOptions.value = [];
 }
 
-function openModal(type: 'addCc' | 'addSign' | 'delegate' | 'rejectTo' | 'transfer') {
+function openModal(
+  type: 'addCc' | 'addSign' | 'delegate' | 'rejectTo' | 'transfer',
+) {
   resetModalForm();
   modalState.value = { type };
 }
@@ -441,6 +547,47 @@ async function handleModalSubmit() {
   if (!type || !instanceId) return;
   try {
     switch (type) {
+      case 'addCc': {
+        if (targetUserIds.value.length === 0) {
+          message.warning('请选择抄送用户');
+          return;
+        }
+        await addCcApprovalApi({
+          instanceId,
+          userIds: targetUserIds.value,
+          ccReason: ccReason.value || undefined,
+        });
+        message.success('已添加抄送');
+        break;
+      }
+      case 'addSign': {
+        if (targetUserIds.value.length === 0) {
+          message.warning('请选择加签用户');
+          return;
+        }
+        await addSignApprovalApi({
+          instanceId,
+          addSignType: addSignType.value,
+          targetUserIds: targetUserIds.value,
+          comment: commentText.value || undefined,
+        });
+        message.success('已加签');
+        break;
+      }
+      case 'delegate': {
+        if (!targetUserId.value) {
+          message.warning('请选择被委派人');
+          return;
+        }
+        await delegateApprovalApi({
+          instanceId,
+          targetUserId: targetUserId.value,
+          targetUserName: targetUserName.value || undefined,
+          comment: commentText.value || undefined,
+        });
+        message.success('已委派');
+        break;
+      }
       case 'rejectTo': {
         await rejectToApprovalApi({
           instanceId,
@@ -467,52 +614,11 @@ async function handleModalSubmit() {
         message.success('已转办');
         break;
       }
-      case 'delegate': {
-        if (!targetUserId.value) {
-          message.warning('请选择被委派人');
-          return;
-        }
-        await delegateApprovalApi({
-          instanceId,
-          targetUserId: targetUserId.value,
-          targetUserName: targetUserName.value || undefined,
-          comment: commentText.value || undefined,
-        });
-        message.success('已委派');
-        break;
-      }
-      case 'addSign': {
-        if (!targetUserIds.value.length) {
-          message.warning('请选择加签用户');
-          return;
-        }
-        await addSignApprovalApi({
-          instanceId,
-          addSignType: addSignType.value,
-          targetUserIds: targetUserIds.value,
-          comment: commentText.value || undefined,
-        });
-        message.success('已加签');
-        break;
-      }
-      case 'addCc': {
-        if (!targetUserIds.value.length) {
-          message.warning('请选择抄送用户');
-          return;
-        }
-        await addCcApprovalApi({
-          instanceId,
-          userIds: targetUserIds.value,
-          ccReason: ccReason.value || undefined,
-        });
-        message.success('已添加抄送');
-        break;
-      }
     }
     closeModal();
     await reload();
-  } catch (e: any) {
-    message.error(e?.message || '操作失败');
+  } catch (error: any) {
+    message.error(error?.message || '操作失败');
   }
 }
 
@@ -539,19 +645,50 @@ watch(
     :width="drawerWidth"
     placement="right"
     :title="$t('page.product.outbound.detail')"
-    :body-style="{ padding: '0', display: 'flex', flexDirection: 'column', height: '100%' }"
+    :body-style="{
+      padding: '0',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+    }"
     @close="emit('update:visible', false)"
   >
     <template #extra>
-      <Tooltip :title="isFullscreen ? $t('page.product.outbound.drawer.restore') : $t('page.product.outbound.drawer.fullscreen')">
+      <Tooltip
+        :title="
+          isFullscreen
+            ? $t('page.product.outbound.drawer.restore')
+            : $t('page.product.outbound.drawer.fullscreen')
+        "
+      >
         <Button type="text" size="small" @click="isFullscreen = !isFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -568,23 +705,48 @@ watch(
           <!-- ===== 头部卡片：单号 + 状态 + 类型 ===== -->
           <div class="detail-header">
             <div class="header-left">
-              <div class="header-icon" :style="{ background: `hsl(var(--primary) / 0.1)` }">
-                <span class="text-xl">{{ getType(detail.outboundType).icon }}</span>
+              <div
+                class="header-icon"
+                :style="{ background: `hsl(var(--primary) / 0.1)` }"
+              >
+                <span class="text-xl">{{
+                  getType(detail.outboundType).icon
+                }}</span>
               </div>
               <div class="header-info">
                 <div class="header-title-row">
                   <h2 class="header-title">{{ detail.outboundNo || '-' }}</h2>
-                  <Tag :color="getStatus(detail.status).color" class="header-status-tag">
+                  <Tag
+                    :color="getStatus(detail.status).color"
+                    class="header-status-tag"
+                  >
                     {{ getStatus(detail.status).label }}
                   </Tag>
                 </div>
                 <div class="header-meta">
-                  <Tag :color="getType(detail.outboundType).color" class="header-type-tag">
+                  <Tag
+                    :color="getType(detail.outboundType).color"
+                    class="header-type-tag"
+                  >
                     {{ getType(detail.outboundType).label }}
                   </Tag>
-                  <span class="header-meta-item">{{ $t('page.product.outbound.field.warehouse') }}：{{ detail.warehouseName || '-' }}</span>
-                  <span class="header-meta-item">{{ $t('page.product.outbound.field.createTime') }}：{{ detail.createTime || '-' }}</span>
-                  <span v-if="detail.submittedByName || detail.createdByName" class="header-meta-item">提交人：{{ detail.submittedByName || detail.createdByName }}</span>
+                  <span class="header-meta-item"
+                    >{{ $t('page.product.outbound.field.warehouse') }}：{{
+                      detail.warehouseName || '-'
+                    }}</span
+                  >
+                  <span class="header-meta-item"
+                    >{{ $t('page.product.outbound.field.createTime') }}：{{
+                      detail.createTime || '-'
+                    }}</span
+                  >
+                  <span
+                    v-if="detail.submittedByName || detail.createdByName"
+                    class="header-meta-item"
+                    >提交人：{{
+                      detail.submittedByName || detail.createdByName
+                    }}</span
+                  >
                 </div>
               </div>
             </div>
@@ -603,29 +765,51 @@ watch(
               }"
             >
               <div class="progress-dot">
-                <svg v-if="step.done && !step.active" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  v-if="step.done && !step.active"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="white"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 <span v-else-if="step.active" class="progress-pulse"></span>
                 <span v-else class="progress-num">{{ i + 1 }}</span>
               </div>
               <span class="progress-label">{{ step.label }}</span>
-              <div v-if="i < auditSteps.length - 1" class="progress-bar" :class="{ 'bar-filled': step.done }"></div>
+              <div
+                v-if="i < auditSteps.length - 1"
+                class="progress-bar"
+                :class="{ 'bar-filled': step.done }"
+              ></div>
             </div>
           </div>
 
           <!-- ===== 汇总数据卡片 ===== -->
           <div class="summary-cards">
             <div class="summary-card">
-              <div class="summary-label">{{ $t('page.product.outbound.field.totalQuantity') }}</div>
+              <div class="summary-label">
+                {{ $t('page.product.outbound.field.totalQuantity') }}
+              </div>
               <div class="summary-value">{{ detail.totalQuantity ?? '-' }}</div>
             </div>
             <div class="summary-card summary-card--primary">
-              <div class="summary-label">{{ $t('page.product.outbound.field.totalAmount') }}</div>
-              <div class="summary-value">¥{{ Number(detail.totalAmount ?? 0).toFixed(2) }}</div>
+              <div class="summary-label">
+                {{ $t('page.product.outbound.field.totalAmount') }}
+              </div>
+              <div class="summary-value">
+                ¥{{ Number(detail.totalAmount ?? 0).toFixed(2) }}
+              </div>
             </div>
             <div class="summary-card">
-              <div class="summary-label">{{ $t('page.product.outbound.field.items') }}</div>
+              <div class="summary-label">
+                {{ $t('page.product.outbound.field.items') }}
+              </div>
               <div class="summary-value">{{ detail.items?.length ?? 0 }}</div>
             </div>
           </div>
@@ -633,32 +817,50 @@ watch(
           <Divider style="margin: 16px 0 12px" />
 
           <!-- ===== 基本信息 ===== -->
-          <div class="section-title">{{ $t('page.product.outbound.drawer.basicInfo') }}</div>
+          <div class="section-title">
+            {{ $t('page.product.outbound.drawer.basicInfo') }}
+          </div>
           <div class="info-grid">
             <div class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.outboundNo') }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.outboundNo')
+              }}</span>
               <span class="info-value">{{ detail.outboundNo || '-' }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.outboundType') }}</span>
-              <span class="info-value">{{ getType(detail.outboundType).label }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.outboundType')
+              }}</span>
+              <span class="info-value">{{
+                getType(detail.outboundType).label
+              }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.warehouse') }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.warehouse')
+              }}</span>
               <span class="info-value">{{ detail.warehouseName || '-' }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.status') }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.status')
+              }}</span>
               <span class="info-value">
-                <Tag :color="getStatus(detail.status).color">{{ getStatus(detail.status).label }}</Tag>
+                <Tag :color="getStatus(detail.status).color">{{
+                  getStatus(detail.status).label
+                }}</Tag>
               </span>
             </div>
             <div v-if="detail.sourceOrderNo" class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.sourceOrderNo') }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.sourceOrderNo')
+              }}</span>
               <span class="info-value">{{ detail.sourceOrderNo }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.createdBy') }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.createdBy')
+              }}</span>
               <span class="info-value">{{ detail.createdByName || '-' }}</span>
             </div>
             <div v-if="detail.submittedByName" class="info-item">
@@ -666,27 +868,37 @@ watch(
               <span class="info-value">{{ detail.submittedByName }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.createTime') }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.createTime')
+              }}</span>
               <span class="info-value">{{ detail.createTime || '-' }}</span>
             </div>
             <div v-if="detail.auditByName" class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.auditedBy') }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.auditedBy')
+              }}</span>
               <span class="info-value">{{ detail.auditByName }}</span>
             </div>
             <div v-if="detail.auditTime" class="info-item">
-              <span class="info-label">{{ $t('page.product.outbound.field.auditTime') }}</span>
+              <span class="info-label">{{
+                $t('page.product.outbound.field.auditTime')
+              }}</span>
               <span class="info-value">{{ detail.auditTime }}</span>
             </div>
           </div>
 
           <!-- ===== 备注 ===== -->
           <div v-if="detail.remark" class="remark-box">
-            <span class="info-label">{{ $t('page.product.outbound.field.remark') }}</span>
+            <span class="info-label">{{
+              $t('page.product.outbound.field.remark')
+            }}</span>
             <p class="remark-text">{{ detail.remark }}</p>
           </div>
 
           <!-- ===== 出库明细表 ===== -->
-          <div class="section-title" style="margin-top: 20px">{{ $t('page.product.outbound.field.items') }}</div>
+          <div class="section-title" style="margin-top: 20px">
+            {{ $t('page.product.outbound.field.items') }}
+          </div>
           <Table
             :columns="itemColumns"
             :data-source="detail.items || []"
@@ -698,12 +910,17 @@ watch(
             bordered
           >
             <template #emptyText>
-              <Empty :description="$t('page.product.outbound.message.noItems')" />
+              <Empty
+                :description="$t('page.product.outbound.message.noItems')"
+              />
             </template>
           </Table>
         </div>
 
-        <Empty v-else-if="!loading" :description="$t('page.product.outbound.message.noData')" />
+        <Empty
+          v-else-if="!loading"
+          :description="$t('page.product.outbound.message.noData')"
+        />
       </Spin>
     </div>
 
@@ -711,11 +928,20 @@ watch(
     <div v-if="detail && availableActions.length > 0" class="action-footer">
       <div class="action-footer-left">
         <span class="action-hint">
-          <template v-if="detail.status === 0 && canSubmit">草稿状态，确认内容后提交审批</template>
-          <template v-else-if="detail.status === 1 && canApprove">待审核，可审核通过 / 驳回 / 加签 / 抄送 / 转办 / 委派 / 退回</template>
-          <template v-else-if="detail.status === 1 && isSelfSubmitted">您提交的单据，等待库管审核；可撤回或抄送他人</template>
+          <template v-if="detail.status === 0 && canSubmit"
+            >草稿状态，确认内容后提交审批</template
+          >
+          <template v-else-if="detail.status === 1 && canApprove"
+            >待审核，可审核通过 / 驳回 / 加签 / 抄送 / 转办 / 委派 /
+            退回</template
+          >
+          <template v-else-if="detail.status === 1 && isSelfSubmitted"
+            >您提交的单据，等待库管审核；可撤回或抄送他人</template
+          >
           <template v-else-if="detail.status === 3">已完成</template>
-          <template v-else-if="detail.status === 4">已驳回，可修改后重新提交</template>
+          <template v-else-if="detail.status === 4"
+            >已驳回，可修改后重新提交</template
+          >
         </span>
       </div>
       <div class="action-footer-right">
@@ -845,7 +1071,10 @@ watch(
       destroy-on-close
       :confirm-loading="actionLoading"
       @ok="handleSubmit"
-      @cancel="submitCcUserIds = []; submitCcReason = ''"
+      @cancel="
+        submitCcUserIds = [];
+        submitCcReason = '';
+      "
     >
       <div class="space-y-4 py-2">
         <div>
@@ -896,7 +1125,11 @@ watch(
         </div>
 
         <!-- 转办 / 委派：单选用户 -->
-        <div v-if="modalState.type === 'transfer' || modalState.type === 'delegate'">
+        <div
+          v-if="
+            modalState.type === 'transfer' || modalState.type === 'delegate'
+          "
+        >
           <div class="mb-2 text-sm text-gray-600">
             {{ modalState.type === 'transfer' ? '转办给：' : '委派给：' }}
           </div>
@@ -910,10 +1143,12 @@ watch(
             placeholder="输入姓名/用户名搜索"
             style="width: 100%"
             @search="handleUserSearch"
-            @change="(v: any) => {
-              const opt = userOptions.find((o) => o.value === v);
-              targetUserName = opt?.label || '';
-            }"
+            @change="
+              (v: any) => {
+                const opt = userOptions.find((o) => o.value === v);
+                targetUserName = opt?.label || '';
+              }
+            "
           />
           <div class="mt-1 text-xs text-gray-400">
             <template v-if="modalState.type === 'transfer'">
@@ -968,7 +1203,14 @@ watch(
         </div>
 
         <!-- 退回 / 转办 / 委派 / 加签：审批意见 -->
-        <div v-if="modalState.type && ['addSign', 'delegate', 'rejectTo', 'transfer'].includes(modalState.type)">
+        <div
+          v-if="
+            modalState.type &&
+            ['addSign', 'delegate', 'rejectTo', 'transfer'].includes(
+              modalState.type,
+            )
+          "
+        >
           <div class="mb-2 text-sm text-gray-600">审批意见：</div>
           <Input.TextArea
             v-model:value="commentText"
@@ -1000,8 +1242,8 @@ watch(
 /* ===== 整体布局 ===== */
 .detail-scroll-area {
   flex: 1;
-  overflow-y: auto;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .outbound-detail {
@@ -1011,9 +1253,9 @@ watch(
 /* ===== 头部卡片 ===== */
 .detail-header {
   display: flex;
+  gap: 16px;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
   padding: 16px 20px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
@@ -1022,20 +1264,20 @@ watch(
 
 .header-left {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
   flex: 1;
+  gap: 14px;
+  align-items: flex-start;
   min-width: 0;
 }
 
 .header-icon {
+  display: flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 52px;
   height: 52px;
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .header-info {
@@ -1045,34 +1287,34 @@ watch(
 
 .header-title-row {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   margin-bottom: 6px;
 }
 
 .header-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
   margin: 0;
-  line-height: 1.3;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: hsl(var(--foreground));
+  white-space: nowrap;
 }
 
 .header-status-tag {
   flex-shrink: 0;
-  font-size: 12px;
   padding: 2px 10px;
+  font-size: 12px;
   border-radius: 4px;
 }
 
 .header-meta {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 6px 14px;
+  align-items: center;
 }
 
 .header-type-tag {
@@ -1089,28 +1331,28 @@ watch(
 .audit-progress {
   display: flex;
   align-items: flex-start;
-  margin-top: 20px;
   padding: 0 8px;
+  margin-top: 20px;
 }
 
 .progress-step {
+  position: relative;
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
-  flex: 1;
-  position: relative;
 }
 
 .progress-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
   font-size: 12px;
   font-weight: 600;
-  z-index: 1;
+  border-radius: 50%;
   transition: all 0.3s ease;
 }
 
@@ -1119,33 +1361,41 @@ watch(
 }
 
 .step-pending .progress-dot {
-  background: hsl(var(--muted) / 0.6);
+  color: hsl(var(--muted-foreground) / 60%);
+  background: hsl(var(--muted) / 60%);
   border: 2px solid hsl(var(--border));
-  color: hsl(var(--muted-foreground) / 0.6);
 }
 
 .step-done .progress-dot {
-  background: hsl(142 71% 45%);
-  border: 2px solid hsl(142 71% 45%);
+  background: hsl(142deg 71% 45%);
+  border: 2px solid hsl(142deg 71% 45%);
 }
 
 .step-active .progress-dot {
   background: hsl(var(--primary));
   border: 2px solid hsl(var(--primary));
-  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.12);
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 12%);
 }
 
 .progress-pulse {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   background: white;
+  border-radius: 50%;
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.7); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(0.7);
+  }
 }
 
 .progress-label {
@@ -1155,30 +1405,30 @@ watch(
 }
 
 .step-pending .progress-label {
-  color: hsl(var(--muted-foreground) / 0.6);
+  color: hsl(var(--muted-foreground) / 60%);
 }
 
 .step-done .progress-label {
-  color: hsl(142 71% 35%);
+  color: hsl(142deg 71% 35%);
 }
 
 .step-active .progress-label {
-  color: hsl(var(--primary));
   font-weight: 600;
+  color: hsl(var(--primary));
 }
 
 .progress-bar {
   position: absolute;
   top: 14px;
   left: 50%;
+  z-index: 0;
   width: 100%;
   height: 2px;
   background: hsl(var(--border));
-  z-index: 0;
 }
 
 .bar-filled {
-  background: hsl(142 71% 45%);
+  background: hsl(142deg 71% 45%);
 }
 
 /* ===== 汇总卡片 ===== */
@@ -1191,21 +1441,21 @@ watch(
 .summary-card {
   flex: 1;
   padding: 14px 16px;
-  border-radius: 10px;
-  background: hsl(var(--muted) / 0.4);
-  border: 1px solid hsl(var(--border));
   text-align: center;
+  background: hsl(var(--muted) / 40%);
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
 }
 
 .summary-card--primary {
-  background: hsl(var(--primary) / 0.06);
-  border-color: hsl(var(--primary) / 0.2);
+  background: hsl(var(--primary) / 6%);
+  border-color: hsl(var(--primary) / 20%);
 }
 
 .summary-label {
+  margin-bottom: 4px;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
-  margin-bottom: 4px;
 }
 
 .summary-value {
@@ -1220,62 +1470,62 @@ watch(
 
 /* ===== 信息网格 ===== */
 .section-title {
+  padding-left: 8px;
+  margin-bottom: 10px;
   font-size: 14px;
   font-weight: 600;
-  color: hsl(var(--foreground));
-  margin-bottom: 10px;
-  padding-left: 8px;
-  border-left: 3px solid hsl(var(--primary));
   line-height: 1.2;
+  color: hsl(var(--foreground));
+  border-left: 3px solid hsl(var(--primary));
 }
 
 .info-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0;
+  overflow: hidden;
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
-  overflow: hidden;
 }
 
 .info-item {
   padding: 10px 14px;
-  border-bottom: 1px solid hsl(var(--border));
-  border-right: 1px solid hsl(var(--border));
   background: hsl(var(--card));
+  border-right: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .info-item:nth-child(3n) {
   border-right: none;
 }
 
-.info-item:nth-last-child(-n+3):nth-child(3n+1),
-.info-item:nth-last-child(-n+3):nth-child(3n+1) ~ .info-item {
+.info-item:nth-last-child(-n + 3):nth-child(3n + 1),
+.info-item:nth-last-child(-n + 3):nth-child(3n + 1) ~ .info-item {
   border-bottom: none;
 }
 
 .info-label {
   display: block;
+  margin-bottom: 3px;
   font-size: 11px;
   color: hsl(var(--muted-foreground));
-  margin-bottom: 3px;
 }
 
 .info-value {
   display: block;
   font-size: 13px;
-  color: hsl(var(--foreground));
   font-weight: 500;
+  color: hsl(var(--foreground));
   word-break: break-all;
 }
 
 /* ===== 备注框 ===== */
 .remark-box {
-  margin-top: 12px;
   padding: 12px 14px;
-  background: hsl(var(--muted) / 0.3);
+  margin-top: 12px;
+  background: hsl(var(--muted) / 30%);
+  border-left: 3px solid hsl(var(--primary) / 30%);
   border-radius: 8px;
-  border-left: 3px solid hsl(var(--primary) / 0.3);
 }
 
 .remark-box .info-label {
@@ -1283,10 +1533,10 @@ watch(
 }
 
 .remark-text {
-  font-size: 13px;
-  color: hsl(var(--foreground));
-  line-height: 1.6;
   margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
 }
 
 /* ===== 明细表格 ===== */
@@ -1295,26 +1545,26 @@ watch(
 }
 
 .items-table :deep(.ant-table-thead > tr > th) {
-  background: hsl(var(--muted) / 0.5);
-  font-weight: 600;
   font-size: 12px;
+  font-weight: 600;
+  background: hsl(var(--muted) / 50%);
 }
 
 .items-table :deep(.ant-table-tbody > tr > td) {
-  font-size: 13px;
   padding: 8px 12px;
+  font-size: 13px;
 }
 
 /* ===== D. 底部操作栏 ===== */
 .action-footer {
-  flex-shrink: 0;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  border-top: 1px solid hsl(var(--border));
   background: hsl(var(--card));
-  box-shadow: 0 -2px 8px hsl(var(--foreground) / 0.04);
+  border-top: 1px solid hsl(var(--border));
+  box-shadow: 0 -2px 8px hsl(var(--foreground) / 4%);
 }
 
 .action-footer-left {
@@ -1328,8 +1578,8 @@ watch(
 
 .action-footer-right {
   display: flex;
-  gap: 8px;
   flex-shrink: 0;
+  gap: 8px;
 }
 
 /* ===== 响应式 ===== */
@@ -1353,8 +1603,8 @@ watch(
 
   .header-meta {
     flex-direction: column;
-    align-items: flex-start;
     gap: 4px;
+    align-items: flex-start;
   }
 
   .action-footer {

@@ -1,21 +1,42 @@
 <script lang="ts" setup>
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideSearch, LucidePlus, LucideTrash2, LucideUsers } from '@vben/icons';
+import { LucidePlus, LucideSearch, LucideUsers } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Card, Col, Dropdown, Drawer, Form, Input, Modal, Popconfirm, Row, Select, Tabs, Tag, message } from 'ant-design-vue';
+import {
+  Button,
+  Card,
+  Col,
+  Drawer,
+  Dropdown,
+  Form,
+  Input,
+  message,
+  Modal,
+  Row,
+  Select,
+  Tabs,
+  Tag,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteLeadApi, getLeadListApi, addLeadToPoolApi, convertLeadToCustomerApi, performBackgroundCheckApi } from '#/api';
-import { $t } from '#/locales';
+import {
+  addLeadToPoolApi,
+  convertLeadToCustomerApi,
+  deleteLeadApi,
+  getLeadListApi,
+  performBackgroundCheckApi,
+} from '#/api';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
-import LeadDetail from './detail.vue';
+import { $t } from '#/locales';
+
 import LeadTransferModal from '../components/LeadTransferModal.vue';
+import LeadDetail from './detail.vue';
 
 // 线索管理使用说明步骤数（与 i18n 中 page.crm.lead.guide.steps 数组对齐）
 const guideStepCount = 5;
@@ -28,7 +49,9 @@ const userStore = useUserStore();
 // 3=本部门 → my+todayFollow  4=本部门及以下 → my+subordinate+todayFollow
 // 5=仅本人 → my+todayFollow
 const dataScope = computed(() => {
-  const scope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
+  const scope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
   const roles = userStore.userInfo?.roles ?? [];
   if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
   return typeof scope === 'number' ? scope : 5;
@@ -51,30 +74,36 @@ const tabList = computed(() => {
   const scope = dataScope.value;
   let allowedKeys: string[];
   switch (scope) {
-    case 1:
+    case 1: {
       allowedKeys = ['all', 'my', 'subordinate', 'todayFollow'];
       break;
+    }
     case 2:
-    case 4:
+    case 4: {
       allowedKeys = ['my', 'subordinate', 'todayFollow'];
       break;
-    case 3:
-    case 5:
-    default:
+    }
+    default: {
       allowedKeys = ['my', 'todayFollow'];
       break;
+    }
   }
-  return allTabList.filter(t => allowedKeys.includes(t.key));
+  return allTabList.filter((t) => allowedKeys.includes(t.key));
 });
 // 当Tab权限变化时，确保当前激活的Tab仍然可见
-watch(tabList, (newTabs) => {
-  const keys = newTabs.map(t => t.key);
-  if (!keys.includes(activeTab.value) && keys.length > 0) {
-    activeTab.value = keys[0]!;
-  }
-}, { immediate: true });
+watch(
+  tabList,
+  (newTabs) => {
+    const keys = newTabs.map((t) => t.key);
+    const firstKey = keys[0];
+    if (!keys.includes(activeTab.value) && firstKey !== undefined) {
+      activeTab.value = firstKey;
+    }
+  },
+  { immediate: true },
+);
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
@@ -106,24 +135,45 @@ function handleReset() {
 }
 
 const sourceLabelMap: Record<string, string> = {
-  website: '官网', exhibition: '展会', social: '社交媒体', referral: '客户转介',
-  cold_call: '陌生拜访', customs: '海关数据', email: '邮件营销', alibaba: '阿里国际站',
-  amazon: 'Amazon', tiktok: 'TikTok', wechat: '微信', other: '其他',
+  website: '官网',
+  exhibition: '展会',
+  social: '社交媒体',
+  referral: '客户转介',
+  cold_call: '陌生拜访',
+  customs: '海关数据',
+  email: '邮件营销',
+  alibaba: '阿里国际站',
+  amazon: 'Amazon',
+  tiktok: 'TikTok',
+  wechat: '微信',
+  other: '其他',
 };
 
 const industryLabelMap: Record<number, string> = {
-  1: '零售', 2: '批发', 3: '制造', 4: '贸易代理',
-  5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
+  1: '零售',
+  2: '批发',
+  3: '制造',
+  4: '贸易代理',
+  5: '电商',
+  6: '微商',
+  7: '社交电商',
+  8: '其他',
 };
 
 const statusLabelMap: Record<number, string> = {
-  1: '新客', 2: '跟进中', 3: '已成交', 4: '无效线索',
-  5: '已回收', 6: '未核查', 7: '核查中', 8: '有效线索',
+  1: '新客',
+  2: '跟进中',
+  3: '已成交',
+  4: '无效线索',
+  5: '已回收',
+  6: '未核查',
+  7: '核查中',
+  8: '有效线索',
 };
 
 // ============ 统一详情抽屉 ============
 const detailVisible = ref(false);
-const detailId = ref<number | null>(null);
+const detailId = ref<null | number>(null);
 const detailCreate = ref(false);
 const detailKey = ref(0);
 
@@ -154,7 +204,10 @@ function openCreate() {
 
 function openDetail(row: any) {
   const id = row.id ?? row.id_;
-  if (!id) { message.error('线索ID不存在'); return; }
+  if (!id) {
+    message.error('线索ID不存在');
+    return;
+  }
   detailCreate.value = false;
   detailId.value = Number(id);
   detailKey.value++;
@@ -208,7 +261,9 @@ const gridOptions: VxeGridProps = {
           const $el = gridApi.grid?.$el as HTMLElement | undefined;
           if (!$el) return;
           const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
-          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          const fixedRightBody = $el.querySelector(
+            '.vxe-table--fixed-right-wrapper tbody',
+          );
           if (!mainBody || !fixedRightBody) {
             if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
             return;
@@ -220,7 +275,7 @@ const gridOptions: VxeGridProps = {
           for (let i = 0; i < len; i++) {
             const h = (rows1[i] as HTMLElement).offsetHeight;
             if (h === 0) continue;
-            (rows2[i] as HTMLElement).style.height = h + 'px';
+            (rows2[i] as HTMLElement).style.height = `${h}px`;
             const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
             tds.forEach((td: Element) => {
               const cell = td.querySelector('.vxe-cell');
@@ -228,7 +283,7 @@ const gridOptions: VxeGridProps = {
                 (cell as HTMLElement).style.display = 'flex';
                 (cell as HTMLElement).style.alignItems = 'center';
                 (cell as HTMLElement).style.justifyContent = 'center';
-                (cell as HTMLElement).style.height = h + 'px';
+                (cell as HTMLElement).style.height = `${h}px`;
               }
             });
           }
@@ -246,26 +301,57 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: '公司名称', field: 'companyName', minWidth: 180, headerAlign: 'center', align: 'left', slots: { default: 'companyName' } },
-    { title: '所属行业', field: 'industry', width: 100, formatter: ({ cellValue }: any) => industryLabelMap[cellValue] || cellValue || '-' },
-    { title: '联系人', field: 'contactName', width: 100 },
-    { title: '状态', field: 'status', width: 90, formatter: ({ cellValue }: any) => statusLabelMap[cellValue] || cellValue || '-' },
     {
-      title: '来源', field: 'source', width: 100,
-      formatter: ({ cellValue }: any) => sourceLabelMap[cellValue] || cellValue || '-',
+      title: '公司名称',
+      field: 'companyName',
+      minWidth: 180,
+      headerAlign: 'center',
+      align: 'left',
+      slots: { default: 'companyName' },
+    },
+    {
+      title: '所属行业',
+      field: 'industry',
+      width: 100,
+      formatter: ({ cellValue }: any) =>
+        industryLabelMap[cellValue] || cellValue || '-',
+    },
+    { title: '联系人', field: 'contactName', width: 100 },
+    {
+      title: '状态',
+      field: 'status',
+      width: 90,
+      formatter: ({ cellValue }: any) =>
+        statusLabelMap[cellValue] || cellValue || '-',
+    },
+    {
+      title: '来源',
+      field: 'source',
+      width: 100,
+      formatter: ({ cellValue }: any) =>
+        sourceLabelMap[cellValue] || cellValue || '-',
     },
     { title: '邮箱', field: 'email', width: 160 },
     { title: '手机', field: 'mobile', width: 130 },
     { title: '国家', field: 'country', width: 80 },
     {
-      title: '负责人', field: 'assignee', width: 90,
+      title: '负责人',
+      field: 'assignee',
+      width: 90,
       formatter: ({ cellValue }: any) => cellValue || '-',
     },
     {
-      title: $t('ui.table.createTime'), field: 'createTime', slots: { default: 'createTime' }, width: 160,
+      title: $t('ui.table.createTime'),
+      field: 'createTime',
+      slots: { default: 'createTime' },
+      width: 160,
     },
     {
-      title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 220,
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 220,
     },
   ],
 };
@@ -274,13 +360,21 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
 
 async function handleDelete(row: any) {
   row.pending = true;
-  try { await deleteLeadApi([row.id]); message.success($t('ui.notification.delete_success')); }
-  finally { row.pending = false; gridApi.query(); }
+  try {
+    await deleteLeadApi([row.id]);
+    message.success($t('ui.notification.delete_success'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
 }
 
 async function handleBatchDelete() {
   const records = gridApi.grid?.getCheckboxRecords();
-  if (!records?.length) { message.warning('请先选择要删除的线索'); return; }
+  if (!records?.length) {
+    message.warning('请先选择要删除的线索');
+    return;
+  }
   Modal.confirm({
     title: '批量删除',
     content: `确定批量删除 ${records.length} 条线索？`,
@@ -290,7 +384,9 @@ async function handleBatchDelete() {
         await deleteLeadApi(ids);
         message.success(`已删除 ${records.length} 条线索`);
         gridApi.query();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     },
   });
 }
@@ -314,8 +410,16 @@ function handleTransfer(row: any) {
   transferVisible.value = true;
 }
 
-function onTransferSuccess({ transferredCount, affectedTotal }: { transferredCount: number; affectedTotal: number }) {
-  message.success(`转移成功：${transferredCount} 条线索，影响 ${affectedTotal} 条关联数据`);
+function onTransferSuccess({
+  transferredCount,
+  affectedTotal,
+}: {
+  affectedTotal: number;
+  transferredCount: number;
+}) {
+  message.success(
+    `转移成功：${transferredCount} 条线索，影响 ${affectedTotal} 条关联数据`,
+  );
   gridApi.query();
 }
 
@@ -381,32 +485,11 @@ async function handleConvertToCustomer(row: any) {
   });
 }
 
-function handleMoreMenuClick({ key }: { key: string }, row: any) {
-  switch (key) {
-    case 'convert':
-      handleConvertToCustomer(row);
-      break;
-    case 'pool':
-      handleAddToPool(row);
-      break;
-    case 'delete':
-      Modal.confirm({
-        title: $t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.lead.title') }),
-        okText: $t('ui.button.ok'),
-        cancelText: $t('ui.button.cancel'),
-        onOk: () => handleDelete(row),
-      });
-      break;
-  }
-}
-
 async function handleAIAssessment(row: any) {
   if (!row.companyName || !row.companyName.trim()) {
     message.error('公司名称不能为空');
     return;
   }
-
-  console.log(`[AI评估] 开始评估: companyName=${row.companyName}, leadId=${row.id}`);
 
   const loading = Modal.info({
     title: 'AI评估中',
@@ -415,25 +498,27 @@ async function handleAIAssessment(row: any) {
   });
 
   try {
-    const res = await performBackgroundCheckApi({
+    await performBackgroundCheckApi({
       company_name: row.companyName,
       lead_id: row.id,
     });
-    console.log('[AI评估] 后端返回结果:', res);
     loading.destroy();
     message.success('AI评估完成，结果已保存');
     openDetail(row);
-  } catch (err: any) {
+  } catch (error: any) {
     loading.destroy();
-    const msg = err?.message || err?.msg || '评估失败，请检查API配置是否正常';
-    console.error('[AI评估] 失败:', err);
+    const msg =
+      error?.message || error?.msg || '评估失败，请检查API配置是否正常';
+    console.error('[AI评估] 失败:', error);
     message.error(msg);
   }
 }
 
 function handleDeleteConfirm(row: any) {
   Modal.confirm({
-    title: $t('ui.text.do_you_want_delete', { moduleName: $t('page.crm.lead.title') }),
+    title: $t('ui.text.do_you_want_delete', {
+      moduleName: $t('page.crm.lead.title'),
+    }),
     okText: $t('ui.button.ok'),
     cancelText: $t('ui.button.cancel'),
     onOk: () => handleDelete(row),
@@ -449,11 +534,7 @@ function handleDeleteConfirm(row: any) {
       :expand-text="$t('page.crm.lead.guide.expand')"
       :collapse-text="$t('page.crm.lead.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -466,32 +547,65 @@ function handleDeleteConfirm(row: any) {
       </div>
     </PageUsageGuide>
     <Card :bordered="false" class="lead-filter-card mb-[15px]">
-      <Tabs v-model:activeKey="activeTab" @change="handleTabChange" class="lead-tabs">
+      <Tabs
+        v-model:active-key="activeTab"
+        @change="handleTabChange"
+        class="lead-tabs"
+      >
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
       </Tabs>
 
-      <Form :model="searchForm" layout="inline" :label-col="{ style: { width: '80px' } }" class="lead-filter-form">
+      <Form
+        :model="searchForm"
+        layout="inline"
+        :label-col="{ style: { width: '80px' } }"
+        class="lead-filter-form"
+      >
         <div class="lead-filter-grid">
           <Row :gutter="[20, 14]" style="width: 100%">
             <Col :xs="24" :sm="24" :md="12">
               <Form.Item label="公司名称" name="companyName">
-                <Input v-model:value="searchForm.companyName" placeholder="请输入公司名称" allow-clear style="width: 100%" />
+                <Input
+                  v-model:value="searchForm.companyName"
+                  placeholder="请输入公司名称"
+                  allow-clear
+                  style="width: 100%"
+                />
               </Form.Item>
             </Col>
             <Col :xs="24" :sm="24" :md="12">
               <Form.Item label="联系人" name="contactName">
-                <Input v-model:value="searchForm.contactName" placeholder="请输入联系人姓名" allow-clear style="width: 100%" />
+                <Input
+                  v-model:value="searchForm.contactName"
+                  placeholder="请输入联系人姓名"
+                  allow-clear
+                  style="width: 100%"
+                />
               </Form.Item>
             </Col>
             <Col :xs="24" :sm="24" :md="12">
               <Form.Item label="手机" name="mobile">
-                <Input v-model:value="searchForm.mobile" placeholder="请输入手机号" allow-clear style="width: 100%" />
+                <Input
+                  v-model:value="searchForm.mobile"
+                  placeholder="请输入手机号"
+                  allow-clear
+                  style="width: 100%"
+                />
               </Form.Item>
             </Col>
             <Col :xs="24" :sm="24" :md="12">
               <Form.Item label="行业" name="industry">
-                <Select v-model:value="searchForm.industry" placeholder="请选择行业" allow-clear style="width: 100%">
-                  <Select.Option v-for="(label, key) in industryLabelMap" :key="key" :value="Number(key)">
+                <Select
+                  v-model:value="searchForm.industry"
+                  placeholder="请选择行业"
+                  allow-clear
+                  style="width: 100%"
+                >
+                  <Select.Option
+                    v-for="(label, key) in industryLabelMap"
+                    :key="key"
+                    :value="Number(key)"
+                  >
                     {{ label }}
                   </Select.Option>
                 </Select>
@@ -499,8 +613,17 @@ function handleDeleteConfirm(row: any) {
             </Col>
             <Col :xs="24" :sm="24" :md="12">
               <Form.Item label="状态" name="status">
-                <Select v-model:value="searchForm.status" placeholder="请选择状态" allow-clear style="width: 100%">
-                  <Select.Option v-for="(label, key) in statusLabelMap" :key="key" :value="Number(key)">
+                <Select
+                  v-model:value="searchForm.status"
+                  placeholder="请选择状态"
+                  allow-clear
+                  style="width: 100%"
+                >
+                  <Select.Option
+                    v-for="(label, key) in statusLabelMap"
+                    :key="key"
+                    :value="Number(key)"
+                  >
                     {{ label }}
                   </Select.Option>
                 </Select>
@@ -508,8 +631,17 @@ function handleDeleteConfirm(row: any) {
             </Col>
             <Col :xs="24" :sm="24" :md="12">
               <Form.Item label="来源" name="source">
-                <Select v-model:value="searchForm.source" placeholder="请选择来源" allow-clear style="width: 100%">
-                  <Select.Option v-for="(label, key) in sourceLabelMap" :key="key" :value="key">
+                <Select
+                  v-model:value="searchForm.source"
+                  placeholder="请选择来源"
+                  allow-clear
+                  style="width: 100%"
+                >
+                  <Select.Option
+                    v-for="(label, key) in sourceLabelMap"
+                    :key="key"
+                    :value="key"
+                  >
                     {{ label }}
                   </Select.Option>
                 </Select>
@@ -519,11 +651,15 @@ function handleDeleteConfirm(row: any) {
         </div>
 
         <div class="lead-filter-actions">
-          <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+          <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">
+            搜索
+          </Button>
           <Button type="default" @click="handleReset">重置</Button>
           <span class="lead-filter-divider"></span>
           <Button
-            v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:save')"
+            v-if="
+              !isSubordinateView && accessStore.hasAccessCode('crm:lead:save')
+            "
             type="primary"
             ghost
             :icon="h(LucidePlus)"
@@ -538,26 +674,47 @@ function handleDeleteConfirm(row: any) {
     <Grid :table-title="$t('page.crm.lead.title')">
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:transfer')"
+          v-if="
+            !isSubordinateView && accessStore.hasAccessCode('crm:lead:transfer')
+          "
           :icon="h(LucideUsers)"
           class="mr-2"
           @click="handleBatchTransfer"
-        >批量转移线索</Button>
-        <Button v-if="!isSubordinateView" @click="handleBatchDelete" class="mr-2" danger ghost>批量删除</Button>
+        >
+          批量转移线索
+        </Button>
+        <Button
+          v-if="!isSubordinateView"
+          @click="handleBatchDelete"
+          class="mr-2"
+          danger
+          ghost
+        >
+          批量删除
+        </Button>
       </template>
 
-      <template #createTime="{ row }">{{ formatDateTime(row.createTime) }}</template>
+      <template #createTime="{ row }">
+        {{ formatDateTime(row.createTime) }}
+      </template>
 
       <template #companyName="{ row }">
         <div>
-          <a class="cursor-pointer text-blue-600 hover:text-blue-800" @click="() => openDetail(row)">{{ row.companyName }}</a>
-          <div v-if="row.tags && row.tags.length" class="mt-1 flex flex-wrap gap-1">
+          <a
+            class="cursor-pointer text-blue-600 hover:text-blue-800"
+            @click="() => openDetail(row)"
+            >{{ row.companyName }}</a
+          >
+          <div
+            v-if="row.tags && row.tags.length > 0"
+            class="mt-1 flex flex-wrap gap-1"
+          >
             <Tag
               v-for="tag in row.tags"
               :key="tag.id"
               :color="tag.tagColor || 'blue'"
               class="!mr-0 !mb-1"
-              style="font-size: 12px; line-height: 18px;"
+              style="font-size: 12px; line-height: 18px"
             >
               {{ tag.tagName }}
             </Tag>
@@ -582,8 +739,14 @@ function handleDeleteConfirm(row: any) {
                 <div
                   v-if="!isSubordinateView"
                   class="more-menu-item"
-                  :class="{ disabled: row.status === 3 || !!row.convertedToCustomerId }"
-                  @click="() => ! (row.status === 3 || row.convertedToCustomerId) && handleConvertToCustomer(row)"
+                  :class="{
+                    disabled: row.status === 3 || !!row.convertedToCustomerId,
+                  }"
+                  @click="
+                    () =>
+                      !(row.status === 3 || row.convertedToCustomerId) &&
+                      handleConvertToCustomer(row)
+                  "
                 >
                   <span>一键转客户</span>
                 </div>
@@ -595,12 +758,28 @@ function handleDeleteConfirm(row: any) {
                 >
                   <span>退回到公海</span>
                 </div>
-                <div v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:transfer')" class="more-menu-item" @click="() => handleTransfer(row)">
+                <div
+                  v-if="
+                    !isSubordinateView &&
+                    accessStore.hasAccessCode('crm:lead:transfer')
+                  "
+                  class="more-menu-item"
+                  @click="() => handleTransfer(row)"
+                >
                   <span>转移</span>
                 </div>
-                <div v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:delete')" class="more-menu-divider" />
                 <div
-                  v-if="!isSubordinateView && accessStore.hasAccessCode('crm:lead:delete')"
+                  v-if="
+                    !isSubordinateView &&
+                    accessStore.hasAccessCode('crm:lead:delete')
+                  "
+                  class="more-menu-divider"
+                ></div>
+                <div
+                  v-if="
+                    !isSubordinateView &&
+                    accessStore.hasAccessCode('crm:lead:delete')
+                  "
                   class="more-menu-item danger"
                   @click="() => handleDeleteConfirm(row)"
                 >
@@ -646,85 +825,105 @@ function handleDeleteConfirm(row: any) {
 <style scoped>
 /* ============ 筛选卡片：精致 CRM 风格 ============ */
 .lead-filter-card {
+  background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
   border-radius: 10px;
-  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
-  box-shadow: 0 1px 3px rgba(22, 119, 255, 0.04), 0 4px 12px rgba(0, 21, 71, 0.04);
+  box-shadow:
+    0 1px 3px rgb(22 119 255 / 4%),
+    0 4px 12px rgb(0 21 71 / 4%);
   transition: box-shadow 0.3s ease;
 }
+
 .lead-filter-card:hover {
-  box-shadow: 0 2px 6px rgba(22, 119, 255, 0.06), 0 6px 18px rgba(0, 21, 71, 0.06);
+  box-shadow:
+    0 2px 6px rgb(22 119 255 / 6%),
+    0 6px 18px rgb(0 21 71 / 6%);
 }
+
 .lead-filter-card :deep(.ant-card-body) {
   padding: 18px 20px 20px;
 }
+
 /* Tab 选项卡：更克制的下划线与字距 */
 .lead-tabs :deep(.ant-tabs-nav) {
   margin-bottom: 16px;
 }
+
 .lead-tabs :deep(.ant-tabs-tab) {
   padding: 8px 4px;
   font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.2px;
   color: #595959;
+  letter-spacing: 0.2px;
   transition: color 0.2s ease;
 }
+
 .lead-tabs :deep(.ant-tabs-tab-active .ant-tabs-tab-btn) {
-  color: #1677ff;
   font-weight: 600;
+  color: #1677ff;
 }
+
 .lead-tabs :deep(.ant-tabs-ink-bar) {
-  background: linear-gradient(90deg, #1677ff, #4096ff);
   height: 2.5px;
+  background: linear-gradient(90deg, #1677ff, #4096ff);
   border-radius: 2px;
 }
+
 /* 表单：去除 inline 布局带来的底部留白 */
 .lead-filter-form :deep(.ant-form-item) {
-  margin-bottom: 0;
   align-items: center;
+  margin-bottom: 0;
 }
+
 .lead-filter-form :deep(.ant-form-item-label) {
   padding-bottom: 0;
 }
+
 .lead-filter-form :deep(.ant-form-item-label > label) {
   font-size: 13px;
-  color: #595959;
   font-weight: 500;
+  color: #595959;
   letter-spacing: 0.2px;
 }
+
 .lead-filter-form :deep(.ant-input),
 .lead-filter-form :deep(.ant-select .ant-select-selector) {
   border-radius: 7px;
   transition: all 0.2s ease;
 }
+
 .lead-filter-form :deep(.ant-input:hover),
 .lead-filter-form :deep(.ant-select:hover .ant-select-selector) {
   border-color: #91caff;
 }
+
 .lead-filter-form :deep(.ant-input:focus),
 .lead-filter-form :deep(.ant-select-focused .ant-select-selector) {
   border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+  box-shadow: 0 0 0 2px rgb(22 119 255 / 10%);
 }
+
 /* 筛选区容器：PC 端 70% 宽度，居中且留白 */
 .lead-filter-grid {
   width: 100%;
 }
+
 @media (min-width: 992px) {
   .lead-filter-grid {
     width: 70%;
   }
 }
+
 /* 操作按钮行：左对齐 + 细分隔线 */
 .lead-filter-actions {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 16px;
+  align-items: center;
   padding-top: 14px;
+  margin-top: 16px;
   border-top: 1px dashed #e8eaf0;
 }
+
 .lead-filter-divider {
   display: inline-block;
   width: 1px;
@@ -732,13 +931,16 @@ function handleDeleteConfirm(row: any) {
   margin: 0 4px;
   background: #e8eaf0;
 }
+
 .lead-filter-actions :deep(.ant-btn-primary) {
   border-radius: 7px;
-  box-shadow: 0 2px 4px rgba(22, 119, 255, 0.16);
+  box-shadow: 0 2px 4px rgb(22 119 255 / 16%);
 }
+
 .lead-filter-actions :deep(.ant-btn-primary:hover) {
-  box-shadow: 0 3px 8px rgba(22, 119, 255, 0.24);
+  box-shadow: 0 3px 8px rgb(22 119 255 / 24%);
 }
+
 .lead-filter-actions :deep(.ant-btn-default) {
   border-radius: 7px;
 }
@@ -746,58 +948,70 @@ function handleDeleteConfirm(row: any) {
 /* ============ 表格操作区 ============ */
 .action-btns {
   display: inline-flex;
-  align-items: center;
   gap: 15px;
+  align-items: center;
   font-size: 13px;
 }
+
 .action-btn {
-  cursor: pointer;
-  color: #1677ff;
   line-height: 1;
+  color: #1677ff;
   text-decoration: none;
+  cursor: pointer;
 }
+
 .action-btn:hover {
   color: #4096ff;
 }
+
 .more-btn {
   white-space: nowrap;
 }
+
 .lead-more-menu {
   min-width: 130px;
+  padding: 4px 0;
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 6px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-  padding: 4px 0;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 8%);
 }
+
 .more-menu-item {
   padding: 8px 14px;
-  cursor: pointer;
   font-size: 13px;
   color: #333;
+  cursor: pointer;
   transition: background 0.2s;
 }
+
 .more-menu-item:hover {
   background: #f5f5f5;
 }
+
 .more-menu-item.danger {
   color: #ff4d4f;
 }
+
 .more-menu-item.danger:hover {
   background: #fff1f0;
 }
+
 .more-menu-item.disabled {
   color: #bbb;
   cursor: not-allowed;
 }
+
 .more-menu-item.disabled:hover {
   background: transparent;
 }
+
 .more-menu-divider {
   height: 1px;
-  background: #f0f0f0;
   margin: 4px 0;
+  background: #f0f0f0;
 }
+
 :deep(.vxe-table--fixed-right-wrapper .vxe-body--column .vxe-cell) {
   display: flex !important;
   align-items: center !important;

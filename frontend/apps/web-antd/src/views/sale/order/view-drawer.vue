@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { TableColumnsType } from 'ant-design-vue';
 
-import { computed, h, ref } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 
 import { formatDateTime } from '@vben/utils';
 
@@ -12,18 +12,18 @@ import {
   DescriptionsItem,
   Drawer,
   Empty,
+  message,
   Modal,
   Skeleton,
   Table,
   Tag,
   Timeline,
   TimelineItem,
-  message,
 } from 'ant-design-vue';
 
 import {
-  getOrderInfoApi,
   getOrderApprovalDetailApi,
+  getOrderInfoApi,
   updateOrderStatusApi,
 } from '#/api';
 
@@ -42,15 +42,15 @@ import {
 } from './constants';
 
 const props = defineProps<{
+  orderId: null | number;
   visible: boolean;
-  orderId: number | null;
 }>();
 
 const emit = defineEmits<{
-  'update:visible': [val: boolean];
-  refresh: [];
   // 详情抽屉底部操作按钮触发的动作，父组件根据 type 决定调用哪个 handler（避免父组件重复实现）
   action: [type: string, row: any];
+  refresh: [];
+  'update:visible': [val: boolean];
 }>();
 
 const loading = ref(false);
@@ -65,8 +65,8 @@ const orderStatusValue = computed(() => Number(detail.value.orderStatus) || 0);
 const approvalStatusValue = computed(
   () => Number(detail.value.approvalStatus) || 0,
 );
-const paymentStatusValue = computed(() =>
-  Number(detail.value.paymentStatus || detail.value.payStatus) || 0,
+const paymentStatusValue = computed(
+  () => Number(detail.value.paymentStatus || detail.value.payStatus) || 0,
 );
 const currencySymbol = computed(
   () => currencySymbolMap[Number(detail.value.currency)] || '¥',
@@ -76,12 +76,8 @@ const currencyCode = computed(
 );
 
 // 金额
-const productAmount = computed(() =>
-  Number(detail.value.productAmount || 0),
-);
-const discountAmount = computed(() =>
-  Number(detail.value.discountAmount || 0),
-);
+const productAmount = computed(() => Number(detail.value.productAmount || 0));
+const discountAmount = computed(() => Number(detail.value.discountAmount || 0));
 const taxAmount = computed(() => Number(detail.value.taxAmount || 0));
 const shippingFee = computed(() => Number(detail.value.shippingFee || 0));
 const otherFee = computed(() => Number(detail.value.otherFee || 0));
@@ -198,13 +194,16 @@ async function fetchDetail() {
       try {
         const apprRes = await getOrderApprovalDetailApi(props.orderId);
         const apprData = (apprRes?.data ?? apprRes) as any;
-        approvals.value = Array.isArray(apprData?.records)
-          ? apprData.records
-          : Array.isArray(apprData?.approvals)
-            ? apprData.approvals
-            : Array.isArray(apprData?.nodes)
-              ? apprData.nodes
-              : [];
+        // 按字段优先级取审批记录列表
+        let apprList: any[] = [];
+        if (Array.isArray(apprData?.records)) {
+          apprList = apprData.records;
+        } else if (Array.isArray(apprData?.approvals)) {
+          apprList = apprData.approvals;
+        } else if (Array.isArray(apprData?.nodes)) {
+          apprList = apprData.nodes;
+        }
+        approvals.value = apprList;
       } catch {
         approvals.value = [];
       }
@@ -246,7 +245,7 @@ function handleVoid() {
     onOk: async () => {
       if (!remark.trim()) {
         message.warning('请输入作废原因');
-        return Promise.reject();
+        throw new Error('请输入作废原因');
       }
       actionLoading.value = true;
       try {
@@ -258,8 +257,8 @@ function handleVoid() {
         message.success('订单已作废');
         await fetchDetail();
         emit('refresh');
-      } catch (e: any) {
-        message.error(e?.message || '作废失败');
+      } catch (error: any) {
+        message.error(error?.message || '作废失败');
       } finally {
         actionLoading.value = false;
       }
@@ -282,8 +281,8 @@ function handleStatusUpdate(status: number, label: string) {
         message.success(`已更新为${label}`);
         await fetchDetail();
         emit('refresh');
-      } catch (e: any) {
-        message.error(e?.message || '操作失败');
+      } catch (error: any) {
+        message.error(error?.message || '操作失败');
       } finally {
         actionLoading.value = false;
       }
@@ -296,7 +295,6 @@ function close() {
 }
 
 // 监听 visible + orderId 变化加载
-import { watch } from 'vue';
 watch(
   () => [props.visible, props.orderId],
   ([v, id]) => {
@@ -322,8 +320,15 @@ watch(
     placement="right"
     :destroy-on-close="true"
     :mask-closable="true"
-    :body-style="{ padding: 0, overflow: 'auto', background: 'hsl(var(--muted) / 30%)' }"
-    :header-style="{ padding: '16px 24px', borderBottom: '1px solid hsl(var(--border))' }"
+    :body-style="{
+      padding: 0,
+      overflow: 'auto',
+      background: 'hsl(var(--muted) / 30%)',
+    }"
+    :header-style="{
+      padding: '16px 24px',
+      borderBottom: '1px solid hsl(var(--border))',
+    }"
     @close="close"
   >
     <Skeleton v-if="loading" active :paragraph="{ rows: 8 }" class="p-6" />
@@ -414,8 +419,8 @@ watch(
             class="view-drawer__kpi-value"
             :class="{ 'view-drawer__kpi-value--minus': discountAmount > 0 }"
           >
-            {{ discountAmount > 0 ? '-' : ''
-            }}{{ currencySymbol }}{{ formatMoney(discountAmount) }}
+            {{ discountAmount > 0 ? '-' : '' }}{{ currencySymbol
+            }}{{ formatMoney(discountAmount) }}
           </div>
         </div>
         <div class="view-drawer__kpi-item">
@@ -464,37 +469,37 @@ watch(
           <Card size="small" class="view-drawer__card">
             <template #title>
               <div class="view-drawer__card-title">
-                <span class="view-drawer__card-title-bar" />基本信息
+                <span class="view-drawer__card-title-bar"></span>基本信息
               </div>
             </template>
             <Descriptions :column="2" size="small" :colon="false">
-              <DescriptionsItem label="订单标题">{{
-                detail.title || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="订单编号">{{
-                detail.orderNo || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="客户名称">{{
-                detail.customerName || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="联系人">{{
-                detail.contactName || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="下单日期">{{
-                detail.orderDate || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="交货日期">{{
-                detail.deliveryDate || '-'
-              }}</DescriptionsItem>
+              <DescriptionsItem label="订单标题">
+                {{ detail.title || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="订单编号">
+                {{ detail.orderNo || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="客户名称">
+                {{ detail.customerName || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="联系人">
+                {{ detail.contactName || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="下单日期">
+                {{ detail.orderDate || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="交货日期">
+                {{ detail.deliveryDate || '-' }}
+              </DescriptionsItem>
               <DescriptionsItem label="币种">
                 {{ currencyCode }}
                 <span v-if="detail.exchangeRate" class="text-xs opacity-60">
                   (汇率: {{ detail.exchangeRate }})
                 </span>
               </DescriptionsItem>
-              <DescriptionsItem label="负责人">{{
-                detail.ownerUserName || '-'
-              }}</DescriptionsItem>
+              <DescriptionsItem label="负责人">
+                {{ detail.ownerUserName || '-' }}
+              </DescriptionsItem>
               <DescriptionsItem label="创建时间">
                 {{ formatDateTime(detail.createTime) }}
               </DescriptionsItem>
@@ -508,7 +513,7 @@ watch(
           <Card size="small" class="view-drawer__card">
             <template #title>
               <div class="view-drawer__card-title">
-                <span class="view-drawer__card-title-bar" />产品明细
+                <span class="view-drawer__card-title-bar"></span>产品明细
                 <span class="view-drawer__card-title-count">
                   共 {{ items.length }} 项
                 </span>
@@ -535,9 +540,7 @@ watch(
                       class="view-drawer__product-code"
                     >
                       {{ record.productCode
-                      }}<span v-if="record.productCode && record.sku">
-                        ·
-                      </span>
+                      }}<span v-if="record.productCode && record.sku"> · </span>
                       <span v-if="record.sku">SKU: {{ record.sku }}</span>
                     </div>
                   </div>
@@ -549,7 +552,9 @@ watch(
             <div v-if="items.length > 0" class="view-drawer__summary">
               <div class="view-drawer__summary-row">
                 <span>商品总额</span>
-                <span>{{ currencySymbol }}{{ formatMoney(productAmount) }}</span>
+                <span
+                  >{{ currencySymbol }}{{ formatMoney(productAmount) }}</span
+                >
               </div>
               <div class="view-drawer__summary-row">
                 <span>折扣</span>
@@ -585,7 +590,7 @@ watch(
           <Card size="small" class="view-drawer__card">
             <template #title>
               <div class="view-drawer__card-title">
-                <span class="view-drawer__card-title-bar" />财务信息
+                <span class="view-drawer__card-title-bar"></span>财务信息
               </div>
             </template>
             <div class="view-drawer__finance">
@@ -594,18 +599,18 @@ watch(
                   付款方（客户）
                 </div>
                 <Descriptions :column="1" size="small" :colon="false">
-                  <DescriptionsItem label="公司名称">{{
-                    detail.buyerCompanyName || '-'
-                  }}</DescriptionsItem>
-                  <DescriptionsItem label="账户名称">{{
-                    detail.buyerAccountName || '-'
-                  }}</DescriptionsItem>
-                  <DescriptionsItem label="开户行">{{
-                    detail.buyerBankName || '-'
-                  }}</DescriptionsItem>
-                  <DescriptionsItem label="账号">{{
-                    detail.buyerAccountNumber || '-'
-                  }}</DescriptionsItem>
+                  <DescriptionsItem label="公司名称">
+                    {{ detail.buyerCompanyName || '-' }}
+                  </DescriptionsItem>
+                  <DescriptionsItem label="账户名称">
+                    {{ detail.buyerAccountName || '-' }}
+                  </DescriptionsItem>
+                  <DescriptionsItem label="开户行">
+                    {{ detail.buyerBankName || '-' }}
+                  </DescriptionsItem>
+                  <DescriptionsItem label="账号">
+                    {{ detail.buyerAccountNumber || '-' }}
+                  </DescriptionsItem>
                 </Descriptions>
               </div>
               <div class="view-drawer__finance-block">
@@ -613,18 +618,18 @@ watch(
                   收款方（我方）
                 </div>
                 <Descriptions :column="1" size="small" :colon="false">
-                  <DescriptionsItem label="公司名称">{{
-                    detail.sellerCompanyName || '-'
-                  }}</DescriptionsItem>
-                  <DescriptionsItem label="账户名称">{{
-                    detail.sellerAccountName || '-'
-                  }}</DescriptionsItem>
-                  <DescriptionsItem label="开户行">{{
-                    detail.sellerBankName || '-'
-                  }}</DescriptionsItem>
-                  <DescriptionsItem label="账号">{{
-                    detail.sellerAccountNumber || '-'
-                  }}</DescriptionsItem>
+                  <DescriptionsItem label="公司名称">
+                    {{ detail.sellerCompanyName || '-' }}
+                  </DescriptionsItem>
+                  <DescriptionsItem label="账户名称">
+                    {{ detail.sellerAccountName || '-' }}
+                  </DescriptionsItem>
+                  <DescriptionsItem label="开户行">
+                    {{ detail.sellerBankName || '-' }}
+                  </DescriptionsItem>
+                  <DescriptionsItem label="账号">
+                    {{ detail.sellerAccountNumber || '-' }}
+                  </DescriptionsItem>
                 </Descriptions>
               </div>
             </div>
@@ -632,9 +637,9 @@ watch(
               <DescriptionsItem label="支付方式">
                 {{ paymentMethodLabelMap[Number(detail.paymentMethod)] || '-' }}
               </DescriptionsItem>
-              <DescriptionsItem label="支付截止日期">{{
-                detail.paymentDueDate || '-'
-              }}</DescriptionsItem>
+              <DescriptionsItem label="支付截止日期">
+                {{ detail.paymentDueDate || '-' }}
+              </DescriptionsItem>
             </Descriptions>
           </Card>
 
@@ -642,28 +647,30 @@ watch(
           <Card size="small" class="view-drawer__card">
             <template #title>
               <div class="view-drawer__card-title">
-                <span class="view-drawer__card-title-bar" />收发货信息
+                <span class="view-drawer__card-title-bar"></span>收发货信息
               </div>
             </template>
             <Descriptions :column="2" size="small" :colon="false">
               <DescriptionsItem label="配送方式">
-                {{ shippingMethodLabelMap[Number(detail.shippingMethod)] || '-' }}
+                {{
+                  shippingMethodLabelMap[Number(detail.shippingMethod)] || '-'
+                }}
               </DescriptionsItem>
-              <DescriptionsItem label="物流单号">{{
-                detail.trackingNo || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="收货人">{{
-                detail.receiverName || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="收货电话">{{
-                detail.receiverPhone || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="收货地址" :span="2">{{
-                detail.shippingAddress || '-'
-              }}</DescriptionsItem>
-              <DescriptionsItem label="账单地址" :span="2">{{
-                detail.billingAddress || '-'
-              }}</DescriptionsItem>
+              <DescriptionsItem label="物流单号">
+                {{ detail.trackingNo || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="收货人">
+                {{ detail.receiverName || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="收货电话">
+                {{ detail.receiverPhone || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="收货地址" :span="2">
+                {{ detail.shippingAddress || '-' }}
+              </DescriptionsItem>
+              <DescriptionsItem label="账单地址" :span="2">
+                {{ detail.billingAddress || '-' }}
+              </DescriptionsItem>
             </Descriptions>
             <div v-if="shipments.length > 0" class="view-drawer__shipments">
               <div class="view-drawer__shipments-title">
@@ -691,7 +698,7 @@ watch(
           <Card size="small" class="view-drawer__card">
             <template #title>
               <div class="view-drawer__card-title">
-                <span class="view-drawer__card-title-bar" />审批进度
+                <span class="view-drawer__card-title-bar"></span>审批进度
               </div>
             </template>
             <Empty v-if="approvals.length === 0" description="暂无审批记录" />
@@ -736,7 +743,10 @@ watch(
                 <div class="mt-1 text-sm">
                   审批人：{{ item.approverName || item.operatorName || '-' }}
                 </div>
-                <div v-if="item.approvalRemark || item.reason" class="mt-1 text-sm">
+                <div
+                  v-if="item.approvalRemark || item.reason"
+                  class="mt-1 text-sm"
+                >
                   意见：{{ item.approvalRemark || item.reason }}
                 </div>
               </TimelineItem>
@@ -747,7 +757,7 @@ watch(
           <Card v-if="detail.remark" size="small" class="view-drawer__card">
             <template #title>
               <div class="view-drawer__card-title">
-                <span class="view-drawer__card-title-bar" />备注
+                <span class="view-drawer__card-title-bar"></span>备注
               </div>
             </template>
             <p class="view-drawer__remark">{{ detail.remark }}</p>
@@ -760,7 +770,7 @@ watch(
           <Card size="small" class="view-drawer__side-card">
             <template #title>
               <div class="view-drawer__card-title">
-                <span class="view-drawer__card-title-bar" />关联单据
+                <span class="view-drawer__card-title-bar"></span>关联单据
               </div>
             </template>
             <div class="view-drawer__related">
@@ -789,8 +799,8 @@ watch(
                   <div class="view-drawer__related-name">
                     {{
                       detail.quotationTitle ||
-                        detail.quotationNo ||
-                        `#${detail.quotationId}`
+                      detail.quotationNo ||
+                      `#${detail.quotationId}`
                     }}
                   </div>
                 </div>
@@ -807,8 +817,8 @@ watch(
                   <div class="view-drawer__related-name">
                     {{
                       detail.contractTitle ||
-                        detail.contractNo ||
-                        `#${detail.contractId}`
+                      detail.contractNo ||
+                      `#${detail.contractId}`
                     }}
                   </div>
                 </div>
@@ -831,13 +841,13 @@ watch(
           <Card size="small" class="view-drawer__side-card">
             <template #title>
               <div class="view-drawer__card-title">
-                <span class="view-drawer__card-title-bar" />系统信息
+                <span class="view-drawer__card-title-bar"></span>系统信息
               </div>
             </template>
             <Descriptions :column="1" size="small" :colon="false">
-              <DescriptionsItem label="订单ID">{{
-                detail.id || '-'
-              }}</DescriptionsItem>
+              <DescriptionsItem label="订单ID">
+                {{ detail.id || '-' }}
+              </DescriptionsItem>
               <DescriptionsItem label="创建人">
                 {{ detail.createByName || detail.createBy || '-' }}
               </DescriptionsItem>
@@ -942,7 +952,12 @@ watch(
           >
             完成
           </Button>
-          <Button v-if="canVoid" danger :loading="actionLoading" @click="handleVoid">
+          <Button
+            v-if="canVoid"
+            danger
+            :loading="actionLoading"
+            @click="handleVoid"
+          >
             作废
           </Button>
         </div>
@@ -958,16 +973,16 @@ watch(
 
 /* ===== 状态横幅 ===== */
 .view-drawer__banner {
+  position: relative;
   display: flex;
+  gap: 24px;
   align-items: stretch;
   justify-content: space-between;
-  gap: 24px;
   padding: 20px 24px;
+  overflow: hidden;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 10px;
-  position: relative;
-  overflow: hidden;
 }
 
 .view-drawer__banner-main {
@@ -977,25 +992,25 @@ watch(
 
 .view-drawer__banner-title-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
   margin-bottom: 12px;
 }
 
 .view-drawer__banner-title {
+  margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: hsl(var(--foreground));
-  margin: 0;
   line-height: 1.3;
+  color: hsl(var(--foreground));
   letter-spacing: -0.01em;
 }
 
 .view-drawer__banner-tags {
   display: flex;
-  gap: 6px;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
 .view-drawer__banner-meta {
@@ -1013,8 +1028,8 @@ watch(
 .view-drawer__banner-meta-label {
   font-size: 11px;
   color: hsl(var(--muted-foreground));
-  letter-spacing: 0.04em;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .view-drawer__banner-meta-value {
@@ -1028,22 +1043,22 @@ watch(
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
+  min-width: 200px;
   padding-left: 24px;
   border-left: 1px solid hsl(var(--border));
-  min-width: 200px;
 }
 
 .view-drawer__banner-amount-label {
   font-size: 11px;
   color: hsl(var(--muted-foreground));
-  letter-spacing: 0.06em;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .view-drawer__banner-amount-value {
   display: flex;
-  align-items: baseline;
   gap: 4px;
+  align-items: baseline;
   margin-top: 4px;
   color: hsl(var(--primary));
 }
@@ -1085,26 +1100,26 @@ watch(
 }
 
 .view-drawer__kpi-item:hover {
-  border-color: hsl(var(--primary) / 0.4);
+  border-color: hsl(var(--primary) / 40%);
   transform: translateY(-1px);
 }
 
 .view-drawer__kpi-item--paid {
-  background: hsl(var(--success) / 0.06);
-  border-color: hsl(var(--success) / 0.2);
+  background: hsl(var(--success) / 6%);
+  border-color: hsl(var(--success) / 20%);
 }
 
 .view-drawer__kpi-item--unpaid {
-  background: hsl(var(--warning) / 0.06);
-  border-color: hsl(var(--warning) / 0.2);
+  background: hsl(var(--warning) / 6%);
+  border-color: hsl(var(--warning) / 20%);
 }
 
 .view-drawer__kpi-label {
+  margin-bottom: 4px;
   font-size: 11px;
   color: hsl(var(--muted-foreground));
-  letter-spacing: 0.04em;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  letter-spacing: 0.04em;
 }
 
 .view-drawer__kpi-value {
@@ -1153,15 +1168,15 @@ watch(
 
 /* ===== 卡片 ===== */
 .view-drawer__card {
-  border-radius: 8px;
-  border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
 }
 
 .view-drawer__card-title {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   font-size: 14px;
   font-weight: 600;
   color: hsl(var(--foreground));
@@ -1176,10 +1191,10 @@ watch(
 }
 
 .view-drawer__card-title-count {
+  margin-left: 4px;
   font-size: 12px;
   font-weight: 400;
   color: hsl(var(--muted-foreground));
-  margin-left: 4px;
 }
 
 /* ===== 产品单元格 ===== */
@@ -1201,15 +1216,15 @@ watch(
 
 /* ===== 金额汇总 ===== */
 .view-drawer__summary {
-  margin-top: 12px;
-  padding: 10px 14px;
-  background: hsl(var(--muted) / 40%);
-  border-radius: 6px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-left: auto;
   width: 260px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  margin-left: auto;
+  background: hsl(var(--muted) / 40%);
+  border-radius: 6px;
 }
 
 .view-drawer__summary-row {
@@ -1224,16 +1239,16 @@ watch(
 }
 
 .view-drawer__summary-row--total {
-  margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px dashed hsl(var(--border));
+  margin-top: 6px;
   font-size: 14px;
   color: hsl(var(--foreground));
+  border-top: 1px dashed hsl(var(--border));
 }
 
 .view-drawer__summary-row--total strong {
-  color: hsl(var(--primary));
   font-size: 15px;
+  color: hsl(var(--primary));
 }
 
 /* ===== 财务信息 ===== */
@@ -1244,50 +1259,50 @@ watch(
 }
 
 .view-drawer__finance-block-title {
+  padding-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 12px;
   font-weight: 600;
   color: hsl(var(--muted-foreground));
-  letter-spacing: 0.04em;
   text-transform: uppercase;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
+  letter-spacing: 0.04em;
   border-bottom: 1px solid hsl(var(--border));
 }
 
 /* ===== 发货记录 ===== */
 .view-drawer__shipments {
-  margin-top: 12px;
   padding-top: 10px;
+  margin-top: 12px;
   border-top: 1px solid hsl(var(--border));
 }
 
 .view-drawer__shipments-title {
+  margin-bottom: 10px;
   font-size: 12px;
   font-weight: 600;
   color: hsl(var(--muted-foreground));
-  margin-bottom: 10px;
 }
 
 .view-drawer__shipment-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
   gap: 8px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* ===== 审批记录 ===== */
 .view-drawer__approval-header {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 /* ===== 备注 ===== */
 .view-drawer__remark {
-  font-size: 14px;
-  color: hsl(var(--foreground) / 0.85);
-  line-height: 1.6;
   margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: hsl(var(--foreground) / 85%);
   white-space: pre-wrap;
 }
 
@@ -1300,45 +1315,49 @@ watch(
 
 .view-drawer__related-item {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   padding: 10px 12px;
+  cursor: pointer;
   background: hsl(var(--muted) / 30%);
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .view-drawer__related-item:hover {
-  background: hsl(var(--primary) / 0.06);
-  border-color: hsl(var(--primary) / 0.3);
+  background: hsl(var(--primary) / 6%);
+  border-color: hsl(var(--primary) / 30%);
   transform: translateX(2px);
 }
 
 .view-drawer__related-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
   font-size: 12px;
   font-weight: 700;
   color: white;
-  flex-shrink: 0;
+  border-radius: 6px;
 }
 
 .view-drawer__related-item--opportunity .view-drawer__related-icon {
-  background: linear-gradient(135deg, hsl(262 83% 58%), hsl(262 83% 48%));
+  background: linear-gradient(135deg, hsl(262deg 83% 58%), hsl(262deg 83% 48%));
 }
 
 .view-drawer__related-item--quotation .view-drawer__related-icon {
-  background: linear-gradient(135deg, hsl(212 100% 50%), hsl(212 100% 40%));
+  background: linear-gradient(
+    135deg,
+    hsl(212deg 100% 50%),
+    hsl(212deg 100% 40%)
+  );
 }
 
 .view-drawer__related-item--contract .view-drawer__related-icon {
-  background: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 35%));
+  background: linear-gradient(135deg, hsl(142deg 71% 45%), hsl(142deg 71% 35%));
 }
 
 .view-drawer__related-info {
@@ -1353,31 +1372,31 @@ watch(
 }
 
 .view-drawer__related-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 13px;
   font-weight: 500;
   color: hsl(var(--foreground));
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .view-drawer__related-arrow {
   font-size: 16px;
-  color: hsl(var(--muted-foreground));
   font-weight: 300;
+  color: hsl(var(--muted-foreground));
 }
 
 .view-drawer__related-empty {
-  text-align: center;
   padding: 16px;
-  color: hsl(var(--muted-foreground));
   font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
 }
 
 /* ===== 侧边栏：警告卡片 ===== */
 .view-drawer__side-card--alert {
-  background: hsl(var(--destructive) / 0.04);
-  border-color: hsl(var(--destructive) / 0.2);
+  background: hsl(var(--destructive) / 4%);
+  border-color: hsl(var(--destructive) / 20%);
 }
 
 .view-drawer__alert {
@@ -1388,8 +1407,8 @@ watch(
 
 .view-drawer__alert-icon {
   font-size: 20px;
-  color: hsl(var(--destructive));
   line-height: 1;
+  color: hsl(var(--destructive));
 }
 
 .view-drawer__alert-title {
@@ -1399,23 +1418,23 @@ watch(
 }
 
 .view-drawer__alert-desc {
+  margin-top: 2px;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
-  margin-top: 2px;
 }
 
 /* ===== 底部操作栏 ===== */
 .view-drawer__footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
   gap: 8px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .view-drawer__footer-actions {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-end;
 }
 
@@ -1436,11 +1455,11 @@ watch(
   }
 
   .view-drawer__banner-amount {
-    border-left: none;
-    border-top: 1px solid hsl(var(--border));
-    padding-left: 0;
-    padding-top: 12px;
     align-items: flex-start;
+    padding-top: 12px;
+    padding-left: 0;
+    border-top: 1px solid hsl(var(--border));
+    border-left: none;
   }
 
   .view-drawer__finance {

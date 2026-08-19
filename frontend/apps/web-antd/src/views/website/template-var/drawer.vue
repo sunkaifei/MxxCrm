@@ -1,14 +1,18 @@
 <script lang="ts" setup>
+import type { TemplateVarSaveDTO } from '#/api/core/website/template-var';
+
 import { computed, ref } from 'vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
+
 import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import {
   addTemplateVarApi,
   getTemplateVarDetailApi,
   updateTemplateVarApi,
 } from '#/api';
-import type { TemplateVarSaveDTO } from '#/api/core/website/template-var';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -220,9 +224,10 @@ function collectVarValue(values: Record<string, any>): string {
       return values.varValueText ?? '';
     }
     case 2: {
-      return values.varValueNumber != null
-        ? String(values.varValueNumber)
-        : '';
+      return values.varValueNumber === null ||
+        values.varValueNumber === undefined
+        ? ''
+        : String(values.varValueNumber);
     }
     case 3: {
       return values.varValueBool ? 'true' : 'false';

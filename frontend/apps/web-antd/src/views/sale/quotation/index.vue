@@ -5,23 +5,42 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, ref } from 'vue';
 
-import { useWindowSize } from '@vueuse/core';
 import { Page, useVbenDrawer } from '@vben/common-ui';
+import { LucideChevronDown } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Alert, Button, Drawer, Dropdown, Menu, Tabs, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
-import { LucideChevronDown } from '@vben/icons';
+import { useWindowSize } from '@vueuse/core';
+import {
+  Alert,
+  Button,
+  Drawer,
+  Dropdown,
+  Menu,
+  message,
+  Modal,
+  Popconfirm,
+  Tabs,
+  Tag,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteQuotationApi, getQuotationInfoApi, getQuotationListApi, submitQuotationApprovalApi, generatePdfApi, downloadPdfApi } from '#/api';
+import {
+  deleteQuotationApi,
+  downloadPdfApi,
+  generatePdfApi,
+  getQuotationInfoApi,
+  getQuotationListApi,
+  submitQuotationApprovalApi,
+} from '#/api';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
+
+import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue';
+import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 import OrderDrawer from '../order/drawer.vue';
 import QuotationDetail from './detail.vue';
 import QuotationDrawer from './drawer.vue';
-import SalesProcessGuide from '../components/SalesProcessGuide.vue';
-import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -29,21 +48,29 @@ const userStore = useUserStore();
 const { isSuperAdmin, guardBusiness } = useSuperAdminGuard();
 
 // 当前用户ID（用于判断是否为报价单负责人，仅负责人可提交审批）
-const currentUserId = computed(() => (userStore.userInfo as any)?.userId ?? (userStore.userInfo as any)?.id);
+const currentUserId = computed(
+  () => (userStore.userInfo as any)?.userId ?? (userStore.userInfo as any)?.id,
+);
 
 // 全部报价单 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
 const canViewAll = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 1;
 });
 
 // 下属报价单 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
 const canViewSubordinate = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 2 || dataScope === 3 || dataScope === 4;
 });
 
@@ -61,16 +88,18 @@ const tabList = computed(() => {
   if (canViewAll.value) keys.push('all');
   keys.push('my');
   if (canViewSubordinate.value) keys.push('subordinate');
-  return allTabList.filter(t => keys.includes(t.key));
+  return allTabList.filter((t) => keys.includes(t.key));
 });
 
 const activeTab = ref('my');
 
 // 抽屉宽度自适应：大屏固定960，小屏取90%视口宽度
 const { width: winWidth } = useWindowSize();
-const drawerWidth = computed(() => Math.min(960, Math.round(winWidth.value * 0.9)));
+const drawerWidth = computed(() =>
+  Math.min(960, Math.round(winWidth.value * 0.9)),
+);
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
@@ -138,7 +167,11 @@ const formOptions: VbenFormProps = {
       component: 'Select',
       fieldName: 'approvalStatus',
       label: '审批状态',
-      componentProps: { placeholder: '全部', allowClear: true, options: approvalStatusOptions },
+      componentProps: {
+        placeholder: '全部',
+        allowClear: true,
+        options: approvalStatusOptions,
+      },
     },
   ],
 };
@@ -155,22 +188,75 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getQuotationListApi({ page: page.currentPage, pageSize: page.pageSize, listType: activeTab.value, ...formValues });
+        return await getQuotationListApi({
+          page: page.currentPage,
+          pageSize: page.pageSize,
+          listType: activeTab.value,
+          ...formValues,
+        });
       },
     },
   },
   columns: [
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: '报价编号', field: 'quotationNo', width: 150, headerAlign: 'center', align: 'left', slots: { default: 'quotationNo' } },
-    { title: '标题', field: 'title', width: 200, headerAlign: 'center', align: 'left', slots: { default: 'title' } },
-    { title: '客户名称', field: 'customerName', width: 140, headerAlign: 'center', align: 'left', slots: { default: 'customerName' } },
-    { title: '报价金额', field: 'grandTotal', width: 140, slots: { default: 'grandTotal' } },
-    { title: '审批状态', field: 'approvalStatus', width: 100, slots: { default: 'approvalStatus' } },
+    {
+      title: '报价编号',
+      field: 'quotationNo',
+      width: 150,
+      headerAlign: 'center',
+      align: 'left',
+      slots: { default: 'quotationNo' },
+    },
+    {
+      title: '标题',
+      field: 'title',
+      width: 200,
+      headerAlign: 'center',
+      align: 'left',
+      slots: { default: 'title' },
+    },
+    {
+      title: '客户名称',
+      field: 'customerName',
+      width: 140,
+      headerAlign: 'center',
+      align: 'left',
+      slots: { default: 'customerName' },
+    },
+    {
+      title: '报价金额',
+      field: 'grandTotal',
+      width: 140,
+      slots: { default: 'grandTotal' },
+    },
+    {
+      title: '审批状态',
+      field: 'approvalStatus',
+      width: 100,
+      slots: { default: 'approvalStatus' },
+    },
     { title: '报价日期', field: 'quotationDate', width: 110 },
-    { title: '负责人', field: 'ownerUserName', width: 100, headerAlign: 'center', align: 'left' },
-    { title: '创建时间', field: 'createTime', width: 160, slots: { default: 'createTime' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 240 },
+    {
+      title: '负责人',
+      field: 'ownerUserName',
+      width: 100,
+      headerAlign: 'center',
+      align: 'left',
+    },
+    {
+      title: '创建时间',
+      field: 'createTime',
+      width: 160,
+      slots: { default: 'createTime' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 240,
+    },
   ],
 };
 
@@ -201,7 +287,9 @@ function handleCreate() {
   if (guardBusiness('报价单')) return;
   openDrawer(true);
 }
-function handleEdit(row: any) { openDrawer(false, row); }
+function handleEdit(row: any) {
+  openDrawer(false, row);
+}
 
 async function handleDelete(row: any) {
   row.pending = true;
@@ -229,7 +317,8 @@ async function handleBatchDelete() {
 function handleSubmitApproval(row: any) {
   Modal.confirm({
     title: '提交审批',
-    content: '确认提交此报价单进行审批？提交后将进入审批流程，审批期间无法修改。',
+    content:
+      '确认提交此报价单进行审批？提交后将进入审批流程，审批期间无法修改。',
     okText: '确认提交',
     cancelText: '取消',
     onOk: async () => {
@@ -267,7 +356,10 @@ function openDetail(row: any) {
 async function handleDownloadPdf(row: any) {
   row.pending = true;
   try {
-    const res: any = await generatePdfApi({ docType: 'quotation', docId: row.id });
+    const res: any = await generatePdfApi({
+      docType: 'quotation',
+      docId: row.id,
+    });
     const data = res?.data ?? res;
     const recordId = data?.recordId;
     if (!recordId) {
@@ -275,14 +367,17 @@ async function handleDownloadPdf(row: any) {
       return;
     }
     const blob: any = await downloadPdfApi(recordId);
-    const pdfBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/pdf' });
+    const pdfBlob =
+      blob instanceof Blob
+        ? blob
+        : new Blob([blob], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
     link.href = url;
     link.download = `报价单_${row.quotationNo || row.id}.pdf`;
-    document.body.appendChild(link);
+    document.body.append(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
     window.URL.revokeObjectURL(url);
     window.$message.success('PDF下载成功');
   } finally {
@@ -292,7 +387,9 @@ async function handleDownloadPdf(row: any) {
 
 function handleDetailEdit(id: string) {
   detailVisible.value = false;
-  const record = gridApi.grid.getTableData().fullData.find((r: any) => String(r.id) === id);
+  const record = gridApi.grid
+    .getTableData()
+    .fullData.find((r: any) => String(r.id) === id);
   if (record) openDrawer(false, record);
 }
 </script>
@@ -305,17 +402,29 @@ function handleDetailEdit(id: string) {
       type="info"
       show-icon
       message="您当前是超级管理员，仅可查看数据。创建报价单等业务操作请使用业务账号登录。"
-      style="margin-bottom: 12px;"
+      style="margin-bottom: 12px"
     />
     <Grid :table-title="$t('page.sale.quotation.title')">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
-          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
         </Tabs>
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && !isSuperAdmin && accessStore.hasAccessCode('sale:quotation:save')"
+          v-if="
+            !isSubordinateView &&
+            !isSuperAdmin &&
+            accessStore.hasAccessCode('sale:quotation:save')
+          "
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -323,7 +432,10 @@ function handleDetailEdit(id: string) {
           新建报价单
         </Button>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:quotation:delete')"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:quotation:delete')
+          "
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -332,20 +444,30 @@ function handleDetailEdit(id: string) {
       </template>
 
       <template #quotationNo="{ row }">
-        <a class="text-blue-600 cursor-pointer" @click="openDetail(row)">{{ row.quotationNo }}</a>
+        <a class="text-blue-600 cursor-pointer" @click="openDetail(row)">{{
+          row.quotationNo
+        }}</a>
       </template>
 
       <template #title="{ row }">
-        <a class="text-blue-600 cursor-pointer" @click="openDetail(row)">{{ row.title }}</a>
+        <a class="text-blue-600 cursor-pointer" @click="openDetail(row)">{{
+          row.title
+        }}</a>
       </template>
 
       <template #customerName="{ row }">
-        <a v-if="row.customerId" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="() => openCustomerDetail(row)">{{ row.customerName || '-' }}</a>
+        <a
+          v-if="row.customerId"
+          class="text-blue-600 cursor-pointer hover:text-blue-800"
+          @click="() => openCustomerDetail(row)"
+          >{{ row.customerName || '-' }}</a
+        >
         <span v-else>{{ row.customerName || '-' }}</span>
       </template>
 
       <template #grandTotal="{ row }">
-        {{ currencySymbolMap[row.currency] || '¥' }} {{ row.grandTotal?.toLocaleString?.() ?? row.grandTotal }}
+        {{ currencySymbolMap[row.currency] || '¥' }}
+        {{ row.grandTotal?.toLocaleString?.() ?? row.grandTotal }}
       </template>
 
       <template #approvalStatus="{ row }">
@@ -360,7 +482,14 @@ function handleDetailEdit(id: string) {
 
       <template #action="{ row }">
         <a
-          v-if="!isSubordinateView && currentUserId === row.ownerUserId && accessStore.hasAccessCode('sale:quotation:update') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+          v-if="
+            !isSubordinateView &&
+            currentUserId === row.ownerUserId &&
+            accessStore.hasAccessCode('sale:quotation:update') &&
+            (!row.approvalStatus ||
+              row.approvalStatus === 1 ||
+              row.approvalStatus === 4)
+          "
           class="text-blue-600 cursor-pointer mr-3"
           @click="() => handleSubmitApproval(row)"
         >
@@ -387,15 +516,29 @@ function handleDetailEdit(id: string) {
                 下载报价PDF
               </Menu.Item>
               <Menu.Item
-                v-if="!isSubordinateView && accessStore.hasAccessCode('sale:quotation:update') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
+                v-if="
+                  !isSubordinateView &&
+                  accessStore.hasAccessCode('sale:quotation:update') &&
+                  (!row.approvalStatus ||
+                    row.approvalStatus === 1 ||
+                    row.approvalStatus === 4)
+                "
                 key="edit"
                 @click="() => handleEdit(row)"
               >
                 修改
               </Menu.Item>
               <Popconfirm
-                v-if="!isSubordinateView && accessStore.hasAccessCode('sale:quotation:delete') && (!row.approvalStatus || row.approvalStatus === 1 || row.approvalStatus === 4)"
-                :title="$t('ui.text.do_you_want_delete', { moduleName: '报价单' })"
+                v-if="
+                  !isSubordinateView &&
+                  accessStore.hasAccessCode('sale:quotation:delete') &&
+                  (!row.approvalStatus ||
+                    row.approvalStatus === 1 ||
+                    row.approvalStatus === 4)
+                "
+                :title="
+                  $t('ui.text.do_you_want_delete', { moduleName: '报价单' })
+                "
                 :ok-text="$t('ui.button.ok')"
                 :cancel-text="$t('ui.button.cancel')"
                 @confirm="handleDelete(row)"
@@ -417,8 +560,15 @@ function handleDetailEdit(id: string) {
       :destroy-on-close="true"
       :body-style="{ padding: 0 }"
     >
-      <QuotationDetail v-if="detailVisible" :id="detailId" @edit="handleDetailEdit" />
+      <QuotationDetail
+        v-if="detailVisible"
+        :id="detailId"
+        @edit="handleDetailEdit"
+      />
     </Drawer>
-    <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
+    <CustomerDetailDrawer
+      v-model:visible="customerDetailVisible"
+      :id="customerDetailId"
+    />
   </Page>
 </template>

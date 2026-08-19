@@ -44,7 +44,9 @@ export interface DictDataOptionVO {
 }
 
 /** 预览转移影响范围 */
-export const previewCustomerTransferApi = async (data: TransferPreviewRequest) => {
+export const previewCustomerTransferApi = async (
+  data: TransferPreviewRequest,
+) => {
   return requestClient.post<TransferPreviewVO>(
     '/api/system/customer/transfer/preview',
     data,

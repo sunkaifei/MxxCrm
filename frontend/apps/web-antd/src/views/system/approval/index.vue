@@ -4,13 +4,13 @@ import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Modal, Tag, Tooltip, message } from 'ant-design-vue';
+import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
 import { RefreshCw } from 'lucide-vue-next';
-import { useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -22,7 +22,7 @@ import { $t } from '#/locales';
 
 const router = useRouter();
 
-const businessTypeMap: Record<string, { label: string; color: string }> = {
+const businessTypeMap: Record<string, { color: string; label: string }> = {
   contract: { label: '合同', color: 'blue' },
   quotation: { label: '报价单', color: 'green' },
   order: { label: '订单', color: 'cyan' },
@@ -162,8 +162,8 @@ async function handleToggle(row: any) {
     await toggleApprovalFlowApi(row.id);
     message.success(row.enabled ? '已禁用' : '已启用');
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || '操作失败');
+  } catch (error: any) {
+    message.error(error?.message || '操作失败');
   } finally {
     row.pending = false;
   }
@@ -181,8 +181,8 @@ async function handleDelete(row: any) {
         await deleteApprovalFlowApi(row.id);
         message.success('删除成功');
         gridApi.query();
-      } catch (e: any) {
-        message.error(e?.message || '删除失败');
+      } catch (error: any) {
+        message.error(error?.message || '删除失败');
       }
     },
   });
@@ -224,11 +224,7 @@ async function handleDelete(row: any) {
 
       <template #action="{ row }">
         <Button type="link" @click="goDesigner(row.id)">设计</Button>
-        <Button
-          type="link"
-          :loading="row.pending"
-          @click="handleToggle(row)"
-        >
+        <Button type="link" :loading="row.pending" @click="handleToggle(row)">
           {{ row.enabled ? '禁用' : '启用' }}
         </Button>
         <Tooltip
@@ -237,12 +233,7 @@ async function handleDelete(row: any) {
         >
           <Button type="link" danger disabled>删除</Button>
         </Tooltip>
-        <Button
-          v-else
-          type="link"
-          danger
-          @click="handleDelete(row)"
-        >
+        <Button v-else type="link" danger @click="handleDelete(row)">
           删除
         </Button>
       </template>

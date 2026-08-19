@@ -1,20 +1,22 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Drawer, Empty, Tag, Timeline } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { getEditLogListApi } from '#/api/core/system/edit-log';
 
 defineOptions({ name: 'EditLog' });
 
 // 业务类型映射
-const businessTypeMap: Record<number, { label: string; color: string }> = {
+const businessTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: '报价单', color: 'blue' },
   2: { label: '订单', color: 'green' },
   3: { label: '合同', color: 'purple' },
@@ -175,7 +177,11 @@ const [Grid] = useVbenVxeGrid({ gridOptions, formOptions });
     <div v-if="currentLog" class="edit-log-detail">
       <div class="detail-header">
         <div class="flex items-center gap-2 mb-2">
-          <Tag :color="businessTypeMap[currentLog.businessType]?.color || 'default'">
+          <Tag
+            :color="
+              businessTypeMap[currentLog.businessType]?.color || 'default'
+            "
+          >
             {{ businessTypeMap[currentLog.businessType]?.label || '-' }}
           </Tag>
           <span class="text-sm text-gray-500">{{ currentLog.businessNo }}</span>
@@ -230,33 +236,40 @@ const [Grid] = useVbenVxeGrid({ gridOptions, formOptions });
 .edit-log-detail {
   padding: 0;
 }
+
 .detail-header {
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color-base, #f0f0f0);
   margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-color-base, #f0f0f0);
 }
+
 .change-item {
   padding: 6px 0;
 }
+
 .change-field {
   margin-bottom: 2px;
 }
+
 .change-values {
   display: flex;
-  align-items: center;
   gap: 6px;
-  font-size: 13px;
+  align-items: center;
   padding-left: 4px;
+  font-size: 13px;
 }
+
 .old-val {
   color: var(--text-color-secondary, #999);
   text-decoration: line-through;
 }
+
 .arrow {
   color: var(--text-color-secondary, #999);
 }
+
 .new-val {
-  color: #52c41a;
   font-weight: 500;
+  color: #52c41a;
 }
 </style>

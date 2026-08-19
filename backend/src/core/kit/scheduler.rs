@@ -201,6 +201,19 @@ async fn init_registry(registry: &SchedulerRegistry) {
             }),
         )
         .await;
+
+    // 注册数据库备份处理器（docs/数据备份-开发手册.md 应用内调度方案）
+    // pg_dump -Fc 全量 → pg_restore --list 校验 → 记录 mxx_system_backup_log → 清理超期备份
+    registry
+        .register(
+            "db_backup",
+            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
+                Box::pin(async move {
+                    crate::modules::system::service::backup_service::run_backup(&db).await
+                })
+            }),
+        )
+        .await;
 }
 
 /// V7-4: 从 handler_params 解析 year/month，缺失时回退为"上月"
@@ -294,16 +307,30 @@ async fn add_job_to_scheduler(
             log::info!("[定时任务] 开始执行: {}", job_code);
             let start = std::time::Instant::now();
 
-            // 查询最新的任务配置
-            let current_job = match scheduler_job::Entity::find_by_id(job_id).one(&db).await {
-                Ok(Some(j)) => j,
-                Ok(None) => {
-                    log::error!("[定时任务] 任务不存在: id={}", job_id);
-                    return;
-                }
-                Err(e) => {
-                    log::error!("[定时任务] 查询任务失败: id={}, err={}", job_id, e);
-                    return;
+            // 查询最新的任务配置（连接池瞬时超时时短间隔重试，避免整个周期被跳过）
+            let mut query_attempt = 0;
+            let current_job = loop {
+                match scheduler_job::Entity::find_by_id(job_id).one(&db).await {
+                    Ok(Some(j)) => break j,
+                    Ok(None) => {
+                        log::error!("[定时任务] 任务不存在: id={}", job_id);
+                        return;
+                    }
+                    Err(e) => {
+                        if query_attempt < 2 {
+                            query_attempt += 1;
+                            log::warn!(
+                                "[定时任务] 查询任务配置失败，第 {} 次重试: id={}, err={}",
+                                query_attempt,
+                                job_id,
+                                e
+                            );
+                            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                        } else {
+                            log::error!("[定时任务] 查询任务失败: id={}, err={}", job_id, e);
+                            return;
+                        }
+                    }
                 }
             };
 
@@ -628,7 +655,7 @@ async fn scan_and_recover(db: &DatabaseConnection, check_missed: bool) {
 fn is_auto_rerun_safe(job_code: &str) -> bool {
     matches!(
         job_code,
-        "article_publish" | "static_generate" | "content_collect" | "stock_snapshot_generate" | "low_stock_suggestion"
+        "article_publish" | "static_generate" | "content_collect" | "stock_snapshot_generate" | "low_stock_suggestion" | "db_backup"
     )
 }
 

@@ -1,8 +1,10 @@
 <script lang="ts" setup>
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import type { VbenFormProps } from '@vben/common-ui';
 
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { defineAsyncComponent, h, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import {
@@ -23,8 +25,6 @@ import {
   message,
   Popconfirm,
 } from 'ant-design-vue';
-
-import { useRouter } from 'vue-router';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -166,8 +166,7 @@ async function handleTemplateSubmit() {
     message.warning('请输入模板名称');
     return;
   }
-  const bodyText =
-    templateBody.value?.replace(/<[^>]+>/g, '').trim() || '';
+  const bodyText = templateBody.value?.replaceAll(/<[^>]+>/g, '').trim() || '';
   if (!bodyText) {
     message.warning('请输入模板正文');
     return;
@@ -180,11 +179,9 @@ async function handleTemplateSubmit() {
       subject: templateForm.subject,
       body: templateBody.value,
     };
-    if (templateIsEdit.value) {
-      await updateMailTemplateApi(payload);
-    } else {
-      await createMailTemplateApi(payload);
-    }
+    await (templateIsEdit.value
+      ? updateMailTemplateApi(payload)
+      : createMailTemplateApi(payload));
     message.success(
       templateIsEdit.value
         ? $t('ui.notification.update_success')
@@ -214,25 +211,17 @@ async function handleTemplateDelete(row: any) {
 <template>
   <Page>
     <!-- 顶部提示：邮箱账号配置已迁移 -->
-    <Alert
-      class="mb-4"
-      type="info"
-      show-icon
-      :banner="false"
-      :closable="false"
-    >
+    <Alert class="mb-4" type="info" show-icon :banner="false" :closable="false">
       <template #message>
         <div class="flex items-center justify-between">
           <div>
             <span class="font-medium">邮箱账号（SMTP）配置已统一迁移到</span>
-            <span class="font-medium text-blue-600">「系统设置 → 第三方接口配置 → 通知配置 → SMTP邮件」</span>
+            <span class="font-medium text-blue-600"
+              >「系统设置 → 第三方接口配置 → 通知配置 → SMTP邮件」</span
+            >
             <span>，您可以在那里完成发送账号的配置、测试和启用 / 禁用。</span>
           </div>
-          <Button
-            type="link"
-            size="small"
-            @click="gotoIntegrationConfig"
-          >
+          <Button type="link" size="small" @click="gotoIntegrationConfig">
             <template #icon>
               <ExternalLink class="h-4 w-4" />
             </template>
@@ -272,11 +261,7 @@ async function handleTemplateDelete(row: any) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleTemplateDelete(row)"
         >
-          <Button
-            danger
-            link
-            :icon="h(LucideTrash2)"
-          />
+          <Button danger link :icon="h(LucideTrash2)" />
         </Popconfirm>
       </template>
     </TemplateGrid>

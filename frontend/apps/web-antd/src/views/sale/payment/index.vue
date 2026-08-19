@@ -1,16 +1,18 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { computed, h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, message, Modal, Popconfirm, Tag, Tabs } from 'ant-design-vue';
+import { Button, message, Modal, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
   confirmPaymentApi,
   deletePaymentApi,
@@ -18,25 +20,32 @@ import {
   rejectPaymentApi,
 } from '#/api/core/sale/payment';
 import { $t } from '#/locales';
+
+import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue';
+import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 import ApplicationDrawer from './application-drawer.vue';
 import PaymentDrawer from './drawer.vue';
-import SalesProcessGuide from '../components/SalesProcessGuide.vue';
-import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
 
 const canViewAll = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 1;
 });
 
 const canViewSubordinate = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 2 || dataScope === 3 || dataScope === 4;
 });
 
@@ -51,7 +60,7 @@ const tabList = computed(() => {
   if (canViewAll.value) keys.push('all');
   keys.push('my');
   if (canViewSubordinate.value) keys.push('subordinate');
-  return allTabList.filter(t => keys.includes(t.key));
+  return allTabList.filter((t) => keys.includes(t.key));
 });
 
 const activeTab = ref('my');
@@ -59,7 +68,7 @@ const activeTab = ref('my');
 // 是否为下属视图（下属视图下只能查看，不能操作）
 const isSubordinateView = computed(() => activeTab.value === 'subordinate');
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
@@ -78,7 +87,7 @@ function openCustomerDetail(row: any) {
   customerDetailVisible.value = true;
 }
 
-const paymentMethodMap: Record<number, { label: string; color: string }> = {
+const paymentMethodMap: Record<number, { color: string; label: string }> = {
   1: { label: '银行转账', color: 'blue' },
   2: { label: '支付宝', color: 'cyan' },
   3: { label: '微信支付', color: 'green' },
@@ -87,7 +96,7 @@ const paymentMethodMap: Record<number, { label: string; color: string }> = {
   6: { label: '其他', color: 'default' },
 };
 
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   1: { label: '待确认', color: 'default' },
   2: { label: '已确认', color: 'green' },
   3: { label: '已驳回', color: 'red' },
@@ -189,7 +198,9 @@ const gridOptions: VxeGridProps = {
           const $el = gridApi.grid?.$el as HTMLElement | undefined;
           if (!$el) return;
           const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
-          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          const fixedRightBody = $el.querySelector(
+            '.vxe-table--fixed-right-wrapper tbody',
+          );
           if (!mainBody || !fixedRightBody) {
             if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
             return;
@@ -201,7 +212,7 @@ const gridOptions: VxeGridProps = {
           for (let i = 0; i < len; i++) {
             const h = (rows1[i] as HTMLElement).offsetHeight;
             if (h === 0) continue;
-            (rows2[i] as HTMLElement).style.height = h + 'px';
+            (rows2[i] as HTMLElement).style.height = `${h}px`;
             const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
             tds.forEach((td: Element) => {
               const cell = td.querySelector('.vxe-cell');
@@ -209,7 +220,7 @@ const gridOptions: VxeGridProps = {
                 (cell as HTMLElement).style.display = 'flex';
                 (cell as HTMLElement).style.alignItems = 'center';
                 (cell as HTMLElement).style.justifyContent = 'center';
-                (cell as HTMLElement).style.height = h + 'px';
+                (cell as HTMLElement).style.height = `${h}px`;
               }
             });
           }
@@ -386,15 +397,25 @@ function handleReject(row: any) {
 <template>
   <Page>
     <SalesProcessGuide current-step="payment" />
-    <Grid :table-title="''">
+    <Grid table-title="">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
-          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
         </Tabs>
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:save')"
+          v-if="
+            !isSubordinateView && accessStore.hasAccessCode('sale:payment:save')
+          "
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -404,38 +425,69 @@ function handleReject(row: any) {
       </template>
 
       <template #orderNo="{ row }">
-        <a v-if="row.orderNo" class="text-blue-500 hover:underline" @click="() => $router.push(`/sale/order?orderNo=${row.orderNo}`)">
+        <a
+          v-if="row.orderNo"
+          class="text-blue-500 hover:underline"
+          @click="() => $router.push(`/sale/order?orderNo=${row.orderNo}`)"
+        >
           {{ row.orderNo }}
         </a>
         <span v-else class="text-gray-300">-</span>
       </template>
 
       <template #customerName="{ row }">
-        <a v-if="row.customerId" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="() => openCustomerDetail(row)">{{ row.customerName || '-' }}</a>
+        <a
+          v-if="row.customerId"
+          class="text-blue-600 cursor-pointer hover:text-blue-800"
+          @click="() => openCustomerDetail(row)"
+          >{{ row.customerName || '-' }}</a
+        >
         <span v-else class="text-gray-300">{{ row.customerName || '-' }}</span>
       </template>
 
       <template #amount="{ row }">
         <span class="font-medium text-blue-600">
-          ¥{{ Number(row.amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+          ¥{{
+            Number(row.amount || 0).toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          }}
         </span>
       </template>
 
       <template #unappliedAmount="{ row }">
-        <span :class="Number(row.unappliedAmount || 0) > 0 ? 'text-orange-600 font-medium' : 'text-gray-400'">
-          ¥{{ Number(row.unappliedAmount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+        <span
+          :class="
+            Number(row.unappliedAmount || 0) > 0
+              ? 'text-orange-600 font-medium'
+              : 'text-gray-400'
+          "
+        >
+          ¥{{
+            Number(row.unappliedAmount || 0).toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          }}
         </span>
       </template>
 
       <template #paymentMethod="{ row }">
-        <Tag v-if="row.paymentMethod && paymentMethodMap[row.paymentMethod]" :color="paymentMethodMap[row.paymentMethod]?.color">
+        <Tag
+          v-if="row.paymentMethod && paymentMethodMap[row.paymentMethod]"
+          :color="paymentMethodMap[row.paymentMethod]?.color"
+        >
           {{ paymentMethodMap[row.paymentMethod]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
       </template>
 
       <template #status="{ row }">
-        <Tag v-if="row.status && statusMap[row.status]" :color="statusMap[row.status]?.color">
+        <Tag
+          v-if="row.status && statusMap[row.status]"
+          :color="statusMap[row.status]?.color"
+        >
           {{ statusMap[row.status]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
@@ -447,7 +499,11 @@ function handleReject(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:confirm') && row.status === 1"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:payment:confirm') &&
+            row.status === 1
+          "
           type="link"
           size="small"
           @click="() => handleConfirm(row)"
@@ -455,7 +511,11 @@ function handleReject(row: any) {
           确认
         </Button>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:confirm') && row.status === 1"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:payment:confirm') &&
+            row.status === 1
+          "
           type="link"
           size="small"
           danger
@@ -464,7 +524,11 @@ function handleReject(row: any) {
           驳回
         </Button>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:confirm') && row.status === 2"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:payment:confirm') &&
+            row.status === 2
+          "
           type="link"
           size="small"
           @click="() => openApplicationDrawer(row)"
@@ -472,7 +536,10 @@ function handleReject(row: any) {
           核销
         </Button>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:update')"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:payment:update')
+          "
           type="link"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
@@ -488,7 +555,10 @@ function handleReject(row: any) {
           @confirm="() => handleDelete(row)"
         >
           <Button
-            v-if="!isSubordinateView && accessStore.hasAccessCode('sale:payment:delete')"
+            v-if="
+              !isSubordinateView &&
+              accessStore.hasAccessCode('sale:payment:delete')
+            "
             type="link"
             danger
             :icon="h(LucideTrash2)"
@@ -498,6 +568,9 @@ function handleReject(row: any) {
     </Grid>
     <Drawer />
     <AppDrawer />
-    <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
+    <CustomerDetailDrawer
+      v-model:visible="customerDetailVisible"
+      :id="customerDetailId"
+    />
   </Page>
 </template>

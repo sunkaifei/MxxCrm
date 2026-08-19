@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 import { Profile } from '@vben/common-ui';
 import { useUserStore } from '@vben/stores';
 
 import { updateAvatarApi } from '#/api';
+import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
 
-import ProfileBase from './base-setting.vue';
-import ProfileNotificationSetting from './notification-setting.vue';
-import ProfilePasswordSetting from './password-setting.vue';
-import ProfileSecuritySetting from './security-setting.vue';
 import AvatarCropper from './avatar-cropper.vue';
+import ProfileBase from './base-info.vue';
+import EmergencyContacts from './emergency-contacts.vue';
+import IdFinance from './id-finance.vue';
+import ProfilePasswordSetting from './password-setting.vue';
+import QuickEntry from './quick-entry.vue';
+import ResumeTimeline from './resume-timeline.vue';
 
 const userStore = useUserStore();
 const authStore = useAuthStore();
@@ -23,10 +26,18 @@ onMounted(async () => {
   if (!userStore.userInfo) {
     await authStore.fetchUserInfo();
   }
+  // 快捷入口"安全设置"跳转：监听切 tab 事件
+  window.addEventListener('profile:switch-password', handleSwitchPassword);
+});
+onUnmounted(() => {
+  window.removeEventListener('profile:switch-password', handleSwitchPassword);
 });
 
+function handleSwitchPassword() {
+  tabsValue.value = 'password';
+}
+
 // 头像上传成功后：先持久化到后端用户记录（含 ?v= 缓存破坏版本号），再更新本地缓存。
-// 这样刷新页面重新拉取 getUserInfo 时仍能拿到最新头像地址，且浏览器不会命中旧缓存。
 const handleAvatarSuccess = async (url: string) => {
   await updateAvatarApi(url);
   if (userStore.userInfo) {
@@ -34,23 +45,17 @@ const handleAvatarSuccess = async (url: string) => {
   }
 };
 
+async function handleRefreshUserInfo() {
+  await authStore.fetchUserInfo();
+}
+
 const tabs = ref([
-  {
-    label: '基本设置',
-    value: 'basic',
-  },
-  {
-    label: '安全设置',
-    value: 'security',
-  },
-  {
-    label: '修改密码',
-    value: 'password',
-  },
-  {
-    label: '新消息提醒',
-    value: 'notice',
-  },
+  { label: $t('page.system.profile.tabBasic'), value: 'basic' },
+  { label: $t('page.system.profile.tabIdFinance'), value: 'idfinance' },
+  { label: $t('page.system.profile.tabResume'), value: 'resume' },
+  { label: $t('page.system.profile.tabEmergency'), value: 'emergency' },
+  { label: $t('page.system.profile.tabQuick'), value: 'quick' },
+  { label: $t('page.system.profile.tabPassword'), value: 'password' },
 ]);
 </script>
 
@@ -58,33 +63,47 @@ const tabs = ref([
   <div class="profile-page-wrapper">
     <Profile
       v-model:model-value="tabsValue"
-      title="个人中心"
+      :title="$t('page.system.profile.title')"
       :user-info="userStore.userInfo"
       :tabs="tabs"
     >
       <template #avatar>
-        <div
-          class="avatar-wrapper"
-          @click="avatarModalVisible = true"
-        >
+        <div class="avatar-wrapper" @click="avatarModalVisible = true">
           <img
-            :src="userStore.userInfo?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default'"
+            :src="
+              userStore.userInfo?.avatar ||
+              'https://api.dicebear.com/7.x/avataaars/svg?seed=default'
+            "
             class="avatar-img"
           />
           <div class="avatar-mask">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-              <circle cx="12" cy="13" r="4"/>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+              />
+              <circle cx="12" cy="13" r="4" />
             </svg>
-            <span>更换头像</span>
+            <span>{{ $t('page.system.profile.changeAvatar') }}</span>
           </div>
         </div>
       </template>
       <template #content>
-        <ProfileBase v-if="tabsValue === 'basic'" />
-        <ProfileSecuritySetting v-if="tabsValue === 'security'" />
+        <ProfileBase v-if="tabsValue === 'basic'" @refresh="handleRefreshUserInfo" />
+        <IdFinance v-if="tabsValue === 'idfinance'" />
+        <ResumeTimeline v-if="tabsValue === 'resume'" />
+        <EmergencyContacts v-if="tabsValue === 'emergency'" />
+        <QuickEntry v-if="tabsValue === 'quick'" />
         <ProfilePasswordSetting v-if="tabsValue === 'password'" />
-        <ProfileNotificationSetting v-if="tabsValue === 'notice'" />
       </template>
     </Profile>
 
@@ -101,9 +120,9 @@ const tabs = ref([
   position: relative;
   width: 80px;
   height: 80px;
-  border-radius: 50%;
   overflow: hidden;
   cursor: pointer;
+  border-radius: 50%;
 }
 
 .avatar-img {
@@ -115,17 +134,17 @@ const tabs = ref([
 
 .avatar-mask {
   position: absolute;
+  right: 0;
   bottom: 0;
   left: 0;
-  right: 0;
-  height: 28px;
-  background: rgba(0, 0, 0, 0.5);
   display: flex;
+  gap: 4px;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  color: white;
+  height: 28px;
   font-size: 11px;
+  color: white;
+  background: rgb(0 0 0 / 50%);
   opacity: 0;
   transition: opacity 0.3s;
 }

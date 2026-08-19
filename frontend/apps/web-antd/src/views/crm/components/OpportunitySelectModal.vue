@@ -13,26 +13,25 @@ import { computed, h, ref, watch } from 'vue';
 import { LucideSearch } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
-import {
-  Button,
-  Input,
-  Modal,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Input, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getOpportunityListApi } from '#/api/core/crm/opportunity';
 
-const props = withDefaults(defineProps<{
-  /** 弹窗是否可见 */
-  visible: boolean;
-  /** 按客户ID过滤商机（可选） */
-  customerId?: number | undefined;
-  /** 弹窗宽度 */
-  width?: string | number;
-}>(), {
-  width: '860px',
-});
+const props = withDefaults(
+  defineProps<{
+    /** 按客户ID过滤商机（可选） */
+    customerId?: number | undefined;
+    /** 弹窗是否可见 */
+    visible: boolean;
+    /** 弹窗宽度 */
+    width?: number | string;
+  }>(),
+  {
+    customerId: undefined,
+    width: '860px',
+  },
+);
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
@@ -50,21 +49,46 @@ const keywords = ref('');
 
 // 币种标签映射
 const currencyLabelMap: Record<number, string> = {
-  1: 'CNY', 2: 'USD', 3: 'EUR', 4: 'GBP', 5: 'JPY', 6: 'HKD', 7: 'AUD',
+  1: 'CNY',
+  2: 'USD',
+  3: 'EUR',
+  4: 'GBP',
+  5: 'JPY',
+  6: 'HKD',
+  7: 'AUD',
 };
 
 // 阶段映射
 const stageLabelMap: Record<number, string> = {
-  0: '资格审查', 1: '需求分析', 2: '方案报价', 3: '商务谈判', 4: '已成交', 5: '已输单',
+  0: '资格审查',
+  1: '需求分析',
+  2: '方案报价',
+  3: '商务谈判',
+  4: '已成交',
+  5: '已输单',
 };
 const stageColorMap: Record<number, string> = {
-  0: 'default', 1: 'processing', 2: 'warning', 3: 'processing', 4: 'success', 5: 'error',
+  0: 'default',
+  1: 'processing',
+  2: 'warning',
+  3: 'processing',
+  4: 'success',
+  5: 'error',
 };
 // 来源映射
 const sourceLabelMap: Record<number, string> = {
-  1: '官网', 2: '展会', 3: '社交媒体', 4: '客户转介',
-  5: '陌生拜访', 6: '海关数据', 7: '邮件营销', 8: '阿里国际站',
-  9: 'Amazon', 10: 'TikTok', 11: '微信', 12: '其他',
+  1: '官网',
+  2: '展会',
+  3: '社交媒体',
+  4: '客户转介',
+  5: '陌生拜访',
+  6: '海关数据',
+  7: '邮件营销',
+  8: '阿里国际站',
+  9: 'Amazon',
+  10: 'TikTok',
+  11: '微信',
+  12: '其他',
 };
 
 const gridOptions: VxeGridProps = {
@@ -72,7 +96,7 @@ const gridOptions: VxeGridProps = {
   pagerConfig: {},
   height: 420,
   cellConfig: { isHover: true } as any,
-  rowConfig: { height: 'auto' },
+  rowConfig: { height: 'auto' } as any,
   stripe: true,
 
   proxyConfig: {
@@ -94,26 +118,55 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { title: '#', type: 'seq', width: 50 },
-    { title: '商机名称', field: 'title', minWidth: 200, align: 'left', slots: { default: 'titleSlot' } },
+    {
+      title: '商机名称',
+      field: 'title',
+      minWidth: 200,
+      align: 'left',
+      slots: { default: 'titleSlot' },
+    },
     { title: '客户', field: 'customerName', width: 150 },
     {
-      title: '销售阶段', field: 'stage', width: 110, slots: { default: 'stageSlot' },
+      title: '销售阶段',
+      field: 'stage',
+      width: 110,
+      slots: { default: 'stageSlot' },
     },
     {
-      title: '预算金额', field: 'amount', width: 130, align: 'right', slots: { default: 'amountSlot' },
+      title: '预算金额',
+      field: 'amount',
+      width: 130,
+      align: 'right',
+      slots: { default: 'amountSlot' },
     },
     {
-      title: '概率', field: 'probability', width: 70, align: 'center',
-      formatter: ({ cellValue }: any) => (cellValue == null ? '-' : `${cellValue}%`),
+      title: '概率',
+      field: 'probability',
+      width: 70,
+      align: 'center',
+      formatter: ({ cellValue }: any) =>
+        cellValue === null || cellValue === undefined ? '-' : `${cellValue}%`,
     },
     {
-      title: '来源', field: 'source', width: 100,
-      formatter: ({ cellValue }: any) => sourceLabelMap[cellValue] || cellValue || '-',
+      title: '来源',
+      field: 'source',
+      width: 100,
+      formatter: ({ cellValue }: any) =>
+        sourceLabelMap[cellValue] || cellValue || '-',
     },
     { title: '预计成交日', field: 'expectedCloseDate', width: 120 },
-    { title: '创建时间', field: 'createTime', width: 150, slots: { default: 'createdAt' } },
     {
-      title: '操作', field: 'action', fixed: 'right', slots: { default: 'action' }, width: 80,
+      title: '创建时间',
+      field: 'createTime',
+      width: 150,
+      slots: { default: 'createdAt' },
+    },
+    {
+      title: '操作',
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 80,
     },
   ],
 };
@@ -173,14 +226,18 @@ watch([() => props.visible, () => props.customerId], ([visible]) => {
           <LucideSearch class="w-4 h-4 text-gray-400" />
         </template>
       </Input>
-      <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+      <Button type="primary" :icon="h(LucideSearch)" @click="handleSearch">
+        搜索
+      </Button>
       <Button @click="handleReset">重置</Button>
     </div>
 
     <!-- 商机列表表格 -->
     <Grid @row-dblclick="handleRowDblClick">
       <template #titleSlot="{ row }">
-        <span class="text-blue-600 font-medium">{{ row.title || row.name || '-' }}</span>
+        <span class="text-blue-600 font-medium">{{
+          row.title || row.name || '-'
+        }}</span>
       </template>
 
       <template #stageSlot="{ row }">
@@ -191,7 +248,12 @@ watch([() => props.visible, () => props.customerId], ([visible]) => {
 
       <template #amountSlot="{ row }">
         <span v-if="row.amount != null" class="font-medium">
-          {{ currencyLabelMap[row.currency] || '' }} {{ Number(row.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}
+          {{ currencyLabelMap[row.currency] || '' }}
+          {{
+            Number(row.amount).toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+            })
+          }}
         </span>
         <span v-else class="text-gray-300">-</span>
       </template>
@@ -201,7 +263,9 @@ watch([() => props.visible, () => props.customerId], ([visible]) => {
       </template>
 
       <template #action="{ row }">
-        <Button type="primary" size="small" @click="handleSelect(row)">选择</Button>
+        <Button type="primary" size="small" @click="handleSelect(row)">
+          选择
+        </Button>
       </template>
     </Grid>
 
@@ -216,6 +280,7 @@ watch([() => props.visible, () => props.customerId], ([visible]) => {
 :deep(.vxe-table--body-wrapper) {
   cursor: pointer;
 }
+
 :deep(.vxe-table--body-wrapper .vxe-body--row:hover td) {
   background-color: #e6f4ff !important;
 }

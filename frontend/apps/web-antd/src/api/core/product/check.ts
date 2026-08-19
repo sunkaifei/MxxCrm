@@ -35,7 +35,9 @@ export const getCheckListApi = async (params?: PageParams) => {
 };
 
 export const getCheckInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/inventory/check/info', { params: { id } });
+  return requestClient.get('/api/system/inventory/check/info', {
+    params: { id },
+  });
 };
 
 export const createCheckApi = async (data: any) => {
@@ -71,7 +73,9 @@ export const submitCheckApi = async (id: number) => {
 
 /** 录入实盘数量 */
 export const inputCheckApi = async (id: number, items: any[]) => {
-  return requestClient.put(`/api/system/inventory/check/input/${id}`, { items });
+  return requestClient.put(`/api/system/inventory/check/input/${id}`, {
+    items,
+  });
 };
 
 /** 完成盘点（自动生成出入库单+调库存） */

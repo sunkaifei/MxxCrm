@@ -65,6 +65,9 @@
     "version": "pnpm exec changeset version && pnpm install --no-frozen-lockfile",
     "catalog": "pnpx codemod pnpm/catalog"
   },
+  "dependencies": {
+    "@iconify/json": "catalog:"
+  },
   "devDependencies": {
     "@changesets/changelog-github": "catalog:",
     "@changesets/cli": "catalog:",
@@ -105,8 +108,5 @@
     "node": "^20.19.0 || ^22.18.0 || ^24.0.0",
     "pnpm": ">=10.0.0"
   },
-  "packageManager": "pnpm@10.33.0",
-  "dependencies": {
-    "@iconify/json": "catalog:"
-  }
+  "packageManager": "pnpm@10.33.0"
 }

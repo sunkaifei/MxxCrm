@@ -1,29 +1,34 @@
 <script lang="ts" setup>
-import { h, reactive, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, reactive, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
 import {
-  LucidePlus,
   LucideEdit,
   LucideKeyRound,
-  LucideUserCheck,
+  LucidePlus,
   LucideTrash2,
+  LucideUserCheck,
 } from '@vben/icons';
+
 import {
   Button,
-  Tag,
-  Modal,
-  message,
-  Select,
-  Input,
-  InputPassword,
-  Textarea,
   Drawer,
   Form,
   FormItem,
+  Input,
+  InputPassword,
+  message,
+  Modal,
+  Select,
+  Tag,
+  Textarea,
 } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { userApi } from '#/api/core/website/user';
 
 defineOptions({ name: 'WebsiteUser' });
@@ -370,7 +375,10 @@ async function handleDelete(row: any) {
           />
         </FormItem>
         <FormItem name="realName" label="真实姓名">
-          <Input v-model:value="formData.realName" placeholder="请输入真实姓名" />
+          <Input
+            v-model:value="formData.realName"
+            placeholder="请输入真实姓名"
+          />
         </FormItem>
         <FormItem name="phone" label="手机号">
           <Input v-model:value="formData.phone" placeholder="请输入手机号" />

@@ -1,8 +1,11 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -10,7 +13,6 @@ import { formatDateTime } from '@vben/utils';
 import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deletePurchaseReturnApi, getPurchaseReturnListApi } from '#/api';
 import { $t } from '#/locales';
 
@@ -97,9 +99,25 @@ const gridOptions: VxeGridProps = {
     { title: '供应商', field: 'supplierName', width: 160 },
     { title: '退货日期', field: 'returnDate', width: 110 },
     { title: '总金额', field: 'totalAmount', width: 110 },
-    { title: $t('ui.table.status'), field: 'status', width: 100, slots: { default: 'status' } },
-    { title: $t('ui.table.createTime'), field: 'createTime', width: 160, slots: { default: 'createTime' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 120 },
+    {
+      title: $t('ui.table.status'),
+      field: 'status',
+      width: 100,
+      slots: { default: 'status' },
+    },
+    {
+      title: $t('ui.table.createTime'),
+      field: 'createTime',
+      width: 160,
+      slots: { default: 'createTime' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 120,
+    },
   ],
 };
 
@@ -118,8 +136,12 @@ function openDrawer(create: boolean, row?: any) {
   drawerApi.open();
 }
 
-function handleCreate() { openDrawer(true); }
-function handleEdit(row: any) { openDrawer(false, row); }
+function handleCreate() {
+  openDrawer(true);
+}
+function handleEdit(row: any) {
+  openDrawer(false, row);
+}
 
 async function handleDelete(row: any) {
   row.pending = true;
@@ -135,7 +157,7 @@ async function handleDelete(row: any) {
 
 <template>
   <Page auto-content-height>
-    <Grid :table-title="'采购退货管理'">
+    <Grid table-title="采购退货管理">
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('purchase:return:save')"

@@ -262,9 +262,14 @@ const delegatedSlots = computed(() => {
 
   for (const key of Object.keys(slots)) {
     if (
-      !['empty', 'form', 'form-header', 'loading', TOOLBAR_ACTIONS, TOOLBAR_TOOLS].includes(
-        key,
-      )
+      ![
+        'empty',
+        'form',
+        'form-header',
+        'loading',
+        TOOLBAR_ACTIONS,
+        TOOLBAR_TOOLS,
+      ].includes(key)
     ) {
       resultSlots.push(key);
     }

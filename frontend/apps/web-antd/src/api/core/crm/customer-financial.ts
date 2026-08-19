@@ -26,6 +26,8 @@ export const getCustomerFinancialApi = async (customerId: number) => {
   return requestClient.get(`/api/system/customer/financial/${customerId}`);
 };
 
-export const updateCustomerFinancialApi = async (params: CustomerFinancialVO & { customerId: number }) => {
+export const updateCustomerFinancialApi = async (
+  params: CustomerFinancialVO & { customerId: number },
+) => {
   return requestClient.put('/api/system/customer/financial/update', params);
 };

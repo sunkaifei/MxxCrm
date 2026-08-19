@@ -1,25 +1,32 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
+import type { TableColumnsType } from 'ant-design-vue';
+
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, ref } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import {
   LucideFilePenLine,
   LucideList,
   LucidePlus,
   LucideTrash2,
 } from '@vben/icons';
-import { Button, Modal, Popconfirm, Table, Tag, message } from 'ant-design-vue';
-import type { TableColumnsType } from 'ant-design-vue';
-import ContentModelDrawer from './drawer.vue';
-import ContentModelFieldDrawer from './field-drawer.vue';
+
+import { Button, message, Modal, Popconfirm, Table, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteContentModelApi,
   deleteContentModelFieldApi,
   getContentModelFieldListApi,
   getContentModelListApi,
 } from '#/api';
+
+import ContentModelDrawer from './drawer.vue';
+import ContentModelFieldDrawer from './field-drawer.vue';
 
 const fieldTypeMap: Record<number, string> = {
   1: '单行文本',

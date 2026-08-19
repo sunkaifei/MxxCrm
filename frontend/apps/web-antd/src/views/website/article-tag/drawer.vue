@@ -1,10 +1,14 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
-import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message } from 'ant-design-vue';
-import { articleTagApi } from '#/api/core/website/article-tag';
 import type { ArticleTagSaveDTO } from '#/api/core/website/article-tag';
+
+import { computed, ref } from 'vue';
+
+import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import { articleTagApi } from '#/api/core/website/article-tag';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);

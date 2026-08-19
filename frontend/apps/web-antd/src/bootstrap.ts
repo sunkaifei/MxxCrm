@@ -8,15 +8,14 @@ import '@vben/styles';
 import '@vben/styles/antd';
 
 import { useTitle } from '@vueuse/core';
-
 import { message } from 'ant-design-vue';
 
 import { $t, setupI18n } from '#/locales';
 
 import { initComponentAdapter } from './adapter/component';
 import { initSetupVbenForm } from './adapter/form';
-import { registerLucideIcons } from './icons';
 import App from './app.vue';
+import { registerLucideIcons } from './icons';
 import { router } from './router';
 
 async function bootstrap(namespace: string) {

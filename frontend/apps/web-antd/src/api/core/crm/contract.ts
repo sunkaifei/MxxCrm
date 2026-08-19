@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getContractListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/contract/list', { params });
 };
@@ -23,23 +25,39 @@ export const submitContractApi = async (contractId: number) => {
 };
 
 // 上传签署件（确认签署）
-export const signContractApi = async (id: number, data: { contractFile?: string; contractImages?: string }) =>
-  requestClient.post(`/api/system/contract/sign/${id}`, data);
+export const signContractApi = async (
+  id: number,
+  data: { contractFile?: string; contractImages?: string },
+) => requestClient.post(`/api/system/contract/sign/${id}`, data);
 
 // 确认执行（已签署 → 执行中）
 export const executeContractApi = async (id: number) =>
   requestClient.post(`/api/system/contract/execute/${id}`);
 
-export const approveContractApi = async (contractId: number, reason?: string) => {
-  return requestClient.post('/api/system/contract/approve', { contractId, reason });
+export const approveContractApi = async (
+  contractId: number,
+  reason?: string,
+) => {
+  return requestClient.post('/api/system/contract/approve', {
+    contractId,
+    reason,
+  });
 };
 
-export const rejectContractApi = async (contractId: number, reason?: string) => {
-  return requestClient.post('/api/system/contract/reject', { contractId, reason });
+export const rejectContractApi = async (
+  contractId: number,
+  reason?: string,
+) => {
+  return requestClient.post('/api/system/contract/reject', {
+    contractId,
+    reason,
+  });
 };
 
 export const getContractApprovalDetailApi = async (contractId: number) => {
-  return requestClient.get(`/api/system/contract/approval-detail/${contractId}`);
+  return requestClient.get(
+    `/api/system/contract/approval-detail/${contractId}`,
+  );
 };
 
 // 查询合同回款计划
@@ -66,5 +84,7 @@ export const deleteContractPaymentPlanApi = async (contractId: number) => {
 
 // 分页查询回款计划列表
 export const getPaymentPlanPageListApi = async (params?: PageParams) => {
-  return requestClient.get('/api/system/contract/payment-plan/page-list', { params });
+  return requestClient.get('/api/system/contract/payment-plan/page-list', {
+    params,
+  });
 };

@@ -30,7 +30,13 @@ onMounted(async () => {
   );
 
   renderEcharts({
-    grid: { bottom: 0, containLabel: true, left: '3%', right: '4%', top: '10%' },
+    grid: {
+      bottom: 0,
+      containLabel: true,
+      left: '3%',
+      right: '4%',
+      top: '10%',
+    },
     legend: { data: ['客户数', '成单数'], top: 0 },
     series: [
       {

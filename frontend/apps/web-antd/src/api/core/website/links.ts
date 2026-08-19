@@ -35,11 +35,9 @@ export const linksApi = {
   list: (params: LinkListParams) =>
     requestClient.get('/api/system/links/list', { params }),
 
-  detail: (id: number) =>
-    requestClient.get(`/api/system/links/detail/${id}`),
+  detail: (id: number) => requestClient.get(`/api/system/links/detail/${id}`),
 
-  add: (data: LinkSaveDTO) =>
-    requestClient.post('/api/system/links/add', data),
+  add: (data: LinkSaveDTO) => requestClient.post('/api/system/links/add', data),
 
   update: (id: number, data: LinkSaveDTO) =>
     requestClient.put(`/api/system/links/update/${id}`, data),

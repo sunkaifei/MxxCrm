@@ -91,11 +91,12 @@ export const templateApi = {
 
   /** 删除模板 */
   delete: (ids: number[]) =>
-    requestClient.delete('/api/system/template/batch_delete', { data: { ids } }),
+    requestClient.delete('/api/system/template/batch_delete', {
+      data: { ids },
+    }),
 
   /** 公共模板下拉选项 */
-  commonOptions: () =>
-    requestClient.get('/api/system/template/common_options'),
+  commonOptions: () => requestClient.get('/api/system/template/common_options'),
 
   /** 导出模板为 .mtp 文件 */
   exportTemplate: (id: number) =>

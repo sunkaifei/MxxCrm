@@ -1,24 +1,30 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import {
   LucideDownload,
   LucideFilePenLine,
   LucidePlus,
   LucideTrash2,
 } from '@vben/icons';
-import { Button, Popconfirm, Tag, message } from 'ant-design-vue';
-import TemplateVarDrawer from './drawer.vue';
+
+import { Button, message, Popconfirm, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteTemplateVarApi,
   getAllTemplateVarsApi,
   getTemplateVarListApi,
 } from '#/api';
 
-const varTypeMap: Record<number, { label: string; color: string }> = {
+import TemplateVarDrawer from './drawer.vue';
+
+const varTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: '文本', color: 'blue' },
   2: { label: '数字', color: 'cyan' },
   3: { label: '布尔', color: 'orange' },
@@ -214,7 +220,11 @@ async function handleExportAll() {
       </template>
 
       <template #varValue="{ row }">
-        <span :title="row.varValue" class="inline-block truncate" style="max-width: 260px">
+        <span
+          :title="row.varValue"
+          class="inline-block truncate"
+          style="max-width: 260px"
+        >
           {{ row.varValue || '—' }}
         </span>
       </template>
@@ -243,10 +253,7 @@ async function handleExportAll() {
         >
           编辑
         </Button>
-        <Popconfirm
-          title="确定要删除该变量吗？"
-          @confirm="handleDelete(row)"
-        >
+        <Popconfirm title="确定要删除该变量吗？" @confirm="handleDelete(row)">
           <Button type="primary" link danger :icon="h(LucideTrash2)">
             删除
           </Button>

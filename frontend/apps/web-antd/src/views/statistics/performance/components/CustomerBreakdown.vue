@@ -1,13 +1,12 @@
 <script lang="ts" setup>
-import { onMounted, ref, watch } from 'vue';
-
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
+import { onMounted, ref, watch } from 'vue';
+
 import { IconifyIcon } from '@vben/icons';
+import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { Card, Empty, Spin, Table, Tag } from 'ant-design-vue';
-
-import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { getCustomerBreakdownApi } from '#/api';
 
@@ -30,7 +29,12 @@ const { renderEcharts: renderAbc } = useEcharts(abcChartRef);
 const top10Columns = [
   { title: '排名', dataIndex: 'rank', width: 70 },
   { title: '客户名称', dataIndex: 'customerName' },
-  { title: '贡献金额', dataIndex: 'amount', align: 'right' as const, width: 130 },
+  {
+    title: '贡献金额',
+    dataIndex: 'amount',
+    align: 'right' as const,
+    width: 130,
+  },
   {
     title: '同比',
     dataIndex: 'growth',
@@ -41,7 +45,7 @@ const top10Columns = [
 
 function formatCurrency(val?: number) {
   if (!val) return '¥0';
-  if (val >= 10000) return `¥${(val / 10000).toFixed(1)}万`;
+  if (val >= 10_000) return `¥${(val / 10_000).toFixed(1)}万`;
   return `¥${val.toLocaleString()}`;
 }
 
@@ -134,19 +138,25 @@ onMounted(() => loadData());
       <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- 新老客户 -->
         <div>
-          <div class="text-sm font-medium mb-2 text-gray-700">新客户 vs 老客户业绩占比</div>
+          <div class="text-sm font-medium mb-2 text-gray-700">
+            新客户 vs 老客户业绩占比
+          </div>
           <EchartsUI ref="newVsOldChartRef" height="220px" />
         </div>
         <!-- ABC 分级 -->
         <div>
-          <div class="text-sm font-medium mb-2 text-gray-700">A/B/C 客户分级贡献</div>
+          <div class="text-sm font-medium mb-2 text-gray-700">
+            A/B/C 客户分级贡献
+          </div>
           <EchartsUI ref="abcChartRef" height="220px" />
         </div>
       </div>
 
       <!-- Top10 客户排行 -->
       <div v-if="data?.top10?.length > 0" class="mt-4">
-        <div class="text-sm font-medium mb-2 text-gray-700">Top 10 客户贡献排行</div>
+        <div class="text-sm font-medium mb-2 text-gray-700">
+          Top 10 客户贡献排行
+        </div>
         <Table
           :columns="top10Columns"
           :data-source="data?.top10 || []"
@@ -160,7 +170,8 @@ onMounted(() => loadData());
             </template>
             <template v-else-if="column.dataIndex === 'growth'">
               <Tag :color="record.growth >= 0 ? 'green' : 'red'">
-                {{ record.growth >= 0 ? '+' : '' }}{{ Number(record.growth || 0).toFixed(2) }}%
+                {{ record.growth >= 0 ? '+' : ''
+                }}{{ Number(record.growth || 0).toFixed(2) }}%
               </Tag>
             </template>
           </template>

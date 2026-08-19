@@ -1,23 +1,25 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { $t } from '#/locales';
-import { useVbenForm } from '#/adapter/form';
+
 import {
   Button,
   DatePicker,
   Input,
   InputNumber,
+  message,
   Modal,
   Radio,
   Select,
   Table,
-  Tabs,
   TabPane,
+  Tabs,
   Tag,
   Tooltip,
-  message,
 } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import {
   createContractApi,
   deleteContractPaymentPlanApi,
@@ -25,19 +27,24 @@ import {
   saveContractPaymentPlanApi,
   updateContractApi,
 } from '#/api';
-import { requestClient } from '#/api/request';
-import { getOrderInfoApi } from '#/api/core/sale/order';
 import { getContactListApi } from '#/api/core/crm/contact';
-import { getCommissionRuleOptionsApi, previewCommissionApi } from '#/api/core/finance/commission-rule';
+import {
+  getCommissionRuleOptionsApi,
+  previewCommissionApi,
+} from '#/api/core/finance/commission-rule';
+import { getOrderInfoApi } from '#/api/core/sale/order';
 import { getUserListApi } from '#/api/core/system/user';
+import { requestClient } from '#/api/request';
+import { $t } from '#/locales';
+
 import OrderSelectModal from '../components/OrderSelectModal.vue';
 import UserSelectModal from '../components/UserSelectModal.vue';
 
 const props = defineProps<{
-  /** 是否为只读模式（查看详情） */
-  readonly?: boolean;
   /** 是否从订单创建（客户和订单信息不可修改） */
   fromOrder?: boolean;
+  /** 是否为只读模式（查看详情） */
+  readonly?: boolean;
 }>();
 
 const data = ref();
@@ -50,22 +57,23 @@ const isReadonly = computed(() => {
   if (props.readonly) return true;
   // 已提交审批后不可编辑（approvalStatus > 0 表示已进入审批流程）
   const row = data.value?.row;
-  if (row && row.approvalStatus !== undefined && row.approvalStatus !== 0 && row.approvalStatus !== 4) {
+  if (
+    row &&
+    row.approvalStatus !== undefined &&
+    row.approvalStatus !== 0 &&
+    row.approvalStatus !== 4
+  ) {
     return true;
   }
   return false;
 });
 
-// 从订单创建时，客户和商机不可修改
-const isFromOrder = computed(() => props.fromOrder || data.value?.fromOrder);
-
-// 客户字段锁定：客户信息来自订单，始终锁定
-const isCustomerLocked = computed(() => true);
-
 // 投影标题：编辑 vs 查看
 const getTitle = computed(() => {
   if (isReadonly.value) {
-    return $t('page.crm.contract.detailTitle', { moduleName: $t('page.crm.contract.title') });
+    return $t('page.crm.contract.detailTitle', {
+      moduleName: $t('page.crm.contract.title'),
+    });
   }
   return data.value?.create
     ? $t('ui.modal.create', { moduleName: $t('page.crm.contract.title') })
@@ -76,9 +84,9 @@ const userOptions = ref<any[]>([]);
 
 // ========== 选择器状态 ==========
 // 已选中的客户（显示用，客户信息从订单继承）
-const selectedCustomer = ref<{ id: number; name: string } | null>(null);
+const selectedCustomer = ref<null | { id: number; name: string }>(null);
 // 已选中的订单（显示用）
-const selectedOrder = ref<{ id: number; name: string } | null>(null);
+const selectedOrder = ref<null | { id: number; name: string }>(null);
 // 弹窗可见状态
 const orderSelectVisible = ref(false);
 // 联系人下拉选项（根据客户加载）
@@ -88,7 +96,9 @@ const contactOptions = ref<any[]>([]);
 const paymentPlans = ref<any[]>([]);
 const activeTabKey = ref('basic');
 // 生成方式
-const generateMethod = ref<'manual' | 'sign' | 'invoice' | 'settle' | 'ship'>('manual');
+const generateMethod = ref<'invoice' | 'manual' | 'settle' | 'ship' | 'sign'>(
+  'manual',
+);
 // 逾期利率(%)
 const overdueRate = ref<number | undefined>(undefined);
 
@@ -122,13 +132,15 @@ const planColumns = [
 
 // ========== 提成配置相关 ==========
 const getContractMembersApi = (contractId: number) => {
-  return requestClient.get('/api/system/contract/commission-members', { params: { id: contractId } });
+  return requestClient.get('/api/system/contract/commission-members', {
+    params: { id: contractId },
+  });
 };
 const saveContractMembersApi = (data: any) => {
-  return requestClient.post('/api/system/contract/commission-members/save', data);
-};
-const setContractRuleApi = (data: any) => {
-  return requestClient.post('/api/system/contract/commission-rule/set', data);
+  return requestClient.post(
+    '/api/system/contract/commission-members/save',
+    data,
+  );
 };
 
 const commissionRuleOptions = ref<any[]>([]);
@@ -141,14 +153,10 @@ const roleTypeOptions = [
   { value: 3, label: '技术支持' },
   { value: 4, label: '其他' },
 ];
-const _commissionModeOptions = [
-  { value: 1, label: '按方案自动计算' },
-  { value: 2, label: '手动指定分成' },
-];
 const previewResult = ref<any[]>([]);
 const previewVisible = ref(false);
 const userSelectVisible = ref(false);
-const editingMemberIndex = ref<number | null>(null);
+const editingMemberIndex = ref<null | number>(null);
 
 // ========== 订单商品明细（从订单创建合同时展示） ==========
 const orderItems = ref<any[]>([]);
@@ -169,10 +177,20 @@ async function loadOrderInfo(orderId: number) {
 }
 
 const memberColumns = [
-  { title: '序号', key: 'index', width: 60, customRender: ({ index }: any) => index + 1 },
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    customRender: ({ index }: any) => index + 1,
+  },
   { title: '人员姓名', key: 'userName', dataIndex: 'userName' },
   { title: '角色类型', key: 'roleType', dataIndex: 'roleType', width: 140 },
-  { title: '分成比例(%)', key: 'shareRatio', dataIndex: 'shareRatio', width: 140 },
+  {
+    title: '分成比例(%)',
+    key: 'shareRatio',
+    dataIndex: 'shareRatio',
+    width: 140,
+  },
   { title: '排序', key: 'sort', dataIndex: 'sort', width: 100 },
   { title: '操作', key: 'action', width: 80 },
 ];
@@ -211,15 +229,6 @@ const remainingPercent = computed(() => {
 
 // 合同总金额缓存
 const contractTotalAmount = ref(0);
-
-async function syncContractTotal() {
-  try {
-    const values = await baseFormApi.getValues();
-    contractTotalAmount.value = Number(values.totalAmount) || 0;
-  } catch {
-    contractTotalAmount.value = 0;
-  }
-}
 
 function addPlan() {
   const sort = paymentPlans.value.length + 1;
@@ -268,8 +277,8 @@ async function loadCommissionRuleOptions() {
         label: item.name || item.ruleName || item.planName || item.title,
       }));
     }
-  } catch (e) {
-    console.error('Failed to load commission rule options:', e);
+  } catch (error) {
+    console.error('Failed to load commission rule options:', error);
   }
 }
 
@@ -290,24 +299,9 @@ async function loadCommissionData(contractId: number) {
         sort: m.sort ?? 0,
       }));
     }
-  } catch (e) {
-    console.error('Failed to load commission data:', e);
+  } catch (error) {
+    console.error('Failed to load commission data:', error);
   }
-}
-
-function _handleModeChange(value: number) {
-  commissionMode.value = value;
-}
-
-function addCommissionMember() {
-  const sort = commissionMembers.value.length + 1;
-  commissionMembers.value.push({
-    userId: undefined,
-    userName: '',
-    roleType: 1,
-    shareRatio: 0,
-    sort,
-  });
 }
 
 function handleAddMemberBySelect() {
@@ -317,7 +311,8 @@ function handleAddMemberBySelect() {
 
 function handleSelectUser(row: any) {
   const userId = row.id;
-  const userName = row.nickName || row.realName || row.name || row.userName || '';
+  const userName =
+    row.nickName || row.realName || row.name || row.userName || '';
 
   if (editingMemberIndex.value === null) {
     const exists = commissionMembers.value.some((m) => m.userId === userId);
@@ -335,7 +330,9 @@ function handleSelectUser(row: any) {
     });
   } else {
     const index = editingMemberIndex.value;
-    const exists = commissionMembers.value.some((m, i) => i !== index && m.userId === userId);
+    const exists = commissionMembers.value.some(
+      (m, i) => i !== index && m.userId === userId,
+    );
     if (exists) {
       message.warning('该员工已在分成列表中');
       return;
@@ -379,8 +376,8 @@ async function previewCommission() {
     const list = res?.data?.data || res?.data || res?.items || res || [];
     previewResult.value = Array.isArray(list) ? list : [];
     previewVisible.value = true;
-  } catch (e) {
-    console.error('Failed to preview commission:', e);
+  } catch (error) {
+    console.error('Failed to preview commission:', error);
   }
 }
 
@@ -389,26 +386,39 @@ const drawerClass = computed(() =>
 );
 
 // ========== 合同状态映射（系统自动驱动，非用户选择）==========
-const contractStatusMap: Record<number, { label: string; color: string; description: string }> = {
-  0: { label: '草稿', color: 'default', description: '已创建，待提交审批' },
-  1: { label: '待审批', color: 'processing', description: '已提交，等待审批人处理' },
+const DEFAULT_CONTRACT_STATUS = {
+  label: '草稿',
+  color: 'default',
+  description: '已创建，待提交审批',
+};
+const contractStatusMap: Record<
+  number,
+  { color: string; description: string; label: string }
+> = {
+  0: DEFAULT_CONTRACT_STATUS,
+  1: {
+    label: '待审批',
+    color: 'processing',
+    description: '已提交，等待审批人处理',
+  },
   2: { label: '审批中', color: 'warning', description: '正在多级审批流转中' },
-  3: { label: '执行中', color: 'success', description: '审批通过，合同生效执行中' },
+  3: {
+    label: '执行中',
+    color: 'success',
+    description: '审批通过，合同生效执行中',
+  },
   4: { label: '已完成', color: 'cyan', description: '合同全部履行完毕' },
   5: { label: '已终止', color: 'error', description: '合同被终止作废' },
 };
 
 // 当前行的审批状态
-const currentApprovalStatus = computed(() => data.value?.row?.approvalStatus ?? 0);
-const currentStatusInfo = computed(() => contractStatusMap[currentApprovalStatus.value] || contractStatusMap[0]);
-
-const contractTypeList = computed(() => [
-  { value: 1, label: '销售合同' },
-  { value: 2, label: '采购合同' },
-  { value: 3, label: '服务合同' },
-  { value: 4, label: '合作协议' },
-  { value: 5, label: '其他' },
-]);
+const currentApprovalStatus = computed(
+  () => data.value?.row?.approvalStatus ?? 0,
+);
+const currentStatusInfo = computed(
+  () =>
+    contractStatusMap[currentApprovalStatus.value] ?? DEFAULT_CONTRACT_STATUS,
+);
 
 const currencyList = computed(() => [
   { value: 1, label: 'CNY - 人民币' },
@@ -419,7 +429,6 @@ const currencyList = computed(() => [
   { value: 6, label: 'HKD - 港币' },
   { value: 7, label: 'AUD - 澳元' },
 ]);
-
 
 // ========== 订单选择 ==========
 function openOrderSelect() {
@@ -432,7 +441,10 @@ async function handleSelectOrder(row: any) {
   selectedOrder.value = { id: row.id, name: row.orderNo || row.title || '' };
   // 自动填充客户信息（从订单继承）
   if (row.customerId) {
-    selectedCustomer.value = { id: row.customerId, name: row.customerName || '' };
+    selectedCustomer.value = {
+      id: row.customerId,
+      name: row.customerName || '',
+    };
     await baseFormApi.setValues({ _customerDisplay: row.customerName || '' });
     // 加载该客户的联系人列表
     await loadContactsByCustomer(row.customerId);
@@ -444,17 +456,27 @@ async function handleSelectOrder(row: any) {
     await baseFormApi.setValues({ assignedTo: row.assignedTo });
   }
   // 同步设置表单字段值，用于验证
-  await baseFormApi.setValues({ _orderDisplay: row.orderNo || row.title || '' });
+  await baseFormApi.setValues({
+    _orderDisplay: row.orderNo || row.title || '',
+  });
   // 设置默认对方签署人为订单联系人
   if (row.contactName) {
     // 若订单联系人不在联系人列表中，则补充为可选项
-    const exists = contactOptions.value.some((c: any) => c.value === row.contactName);
+    const exists = contactOptions.value.some(
+      (c: any) => c.value === row.contactName,
+    );
     if (!exists) {
-      contactOptions.value.push({ value: row.contactName, label: row.contactName, phone: '' });
+      contactOptions.value.push({
+        value: row.contactName,
+        label: row.contactName,
+        phone: '',
+      });
     }
     await baseFormApi.setValues({ theirSignerName: row.contactName });
     // 同时填充联系电话（从联系人列表中查找）
-    const contact = contactOptions.value.find((c: any) => c.value === row.contactName);
+    const contact = contactOptions.value.find(
+      (c: any) => c.value === row.contactName,
+    );
     if (contact && contact.phone) {
       await baseFormApi.setValues({ theirSignerPhone: contact.phone });
     }
@@ -465,19 +487,21 @@ async function handleSelectOrder(row: any) {
 /** 根据客户ID加载联系人列表并填充到 contactOptions */
 async function loadContactsByCustomer(customerId: number) {
   try {
-    const res: any = await getContactListApi({ customerId, page: 1, pageSize: 100 });
+    const res: any = await getContactListApi({
+      customerId,
+      page: 1,
+      pageSize: 100,
+    });
     const list = res?.items || res?.data?.items || res?.data || [];
-    if (Array.isArray(list)) {
-      contactOptions.value = list.map((c: any) => ({
-        value: c.name,
-        label: c.name,
-        phone: c.mobile || c.phone || '',
-      }));
-    } else {
-      contactOptions.value = [];
-    }
-  } catch (e) {
-    console.error('Failed to load contacts by customer:', e);
+    contactOptions.value = Array.isArray(list)
+      ? list.map((c: any) => ({
+          value: c.name,
+          label: c.name,
+          phone: c.mobile || c.phone || '',
+        }))
+      : [];
+  } catch (error) {
+    console.error('Failed to load contacts by customer:', error);
     contactOptions.value = [];
   }
 }
@@ -491,8 +515,8 @@ async function loadUserOptions() {
         label: item.realName || item.userName,
       }));
     }
-  } catch (e) {
-    console.error('Failed to load user options:', e);
+  } catch (error) {
+    console.error('Failed to load user options:', error);
   }
 }
 
@@ -608,9 +632,13 @@ const [BaseForm, baseFormApi] = useVbenForm({
           (option?.label || '').toLowerCase().includes(input.toLowerCase()),
         options: contactOptions,
         onChange: async (val: string) => {
-          const contact = contactOptions.value.find((c: any) => c.value === val);
+          const contact = contactOptions.value.find(
+            (c: any) => c.value === val,
+          );
           if (contact) {
-            await baseFormApi.setValues({ theirSignerPhone: contact.phone || '' });
+            await baseFormApi.setValues({
+              theirSignerPhone: contact.phone || '',
+            });
           }
         },
       },
@@ -653,7 +681,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: 'remark',
       label: '备注',
       formItemClass: 'col-span-2',
-      componentProps: { placeholder: $t('ui.placeholder.input'), allowClear: true, rows: 2 },
+      componentProps: {
+        placeholder: $t('ui.placeholder.input'),
+        allowClear: true,
+        rows: 2,
+      },
     },
   ],
 });
@@ -724,7 +756,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
         }
       }
       const planTotal = paymentPlans.value.reduce(
-        (s, p) => s + (Number(p.plannedAmount) || 0), 0,
+        (s, p) => s + (Number(p.plannedAmount) || 0),
+        0,
       );
       const contractTotal = Number(values.totalAmount) || 0;
       if (contractTotal > 0 && Math.abs(planTotal - contractTotal) > 0.01) {
@@ -752,7 +785,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
       const total = getTotalShareRatio();
       if (Math.abs(total - 1) > 0.001) {
-        message.warning(`分成比例合计必须为100%，当前为${(total * 100).toFixed(2)}%`);
+        message.warning(
+          `分成比例合计必须为100%，当前为${(total * 100).toFixed(2)}%`,
+        );
         activeTabKey.value = 'commission';
         return;
       }
@@ -801,24 +836,28 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
 
       // 保存提成配置
-      if (contractId) {
-        if (commissionMode.value === 2 && commissionMembers.value.length > 0) {
-          await saveContractMembersApi({
-            contractId,
-            members: commissionMembers.value.map((m) => ({
-              id: m.id,
-              userId: m.userId,
-              userName: m.userName,
-              roleType: m.roleType,
-              shareRatio: (Number(m.shareRatio) || 0) / 100,
-              sort: m.sort,
-            })),
-          });
-        }
+      if (
+        contractId &&
+        commissionMode.value === 2 &&
+        commissionMembers.value.length > 0
+      ) {
+        await saveContractMembersApi({
+          contractId,
+          members: commissionMembers.value.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            userName: m.userName,
+            roleType: m.roleType,
+            shareRatio: (Number(m.shareRatio) || 0) / 100,
+            sort: m.sort,
+          })),
+        });
       }
 
       message.success(
-        isCreate ? $t('ui.notification.create_success') : $t('ui.notification.update_success'),
+        isCreate
+          ? $t('ui.notification.create_success')
+          : $t('ui.notification.update_success'),
       );
       drawerApi.setData({ needRefresh: true });
       drawerApi.close();
@@ -856,14 +895,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       // 恢复已选择的客户和订单显示
       if (row.customerId) {
-        selectedCustomer.value = { id: row.customerId, name: row.customerName || '' };
+        selectedCustomer.value = {
+          id: row.customerId,
+          name: row.customerName || '',
+        };
         // 同步到表单字段用于验证
         row._customerDisplay = row.customerName || '';
         // 加载该客户的联系人列表（用于对方签署人下拉）
         await loadContactsByCustomer(Number(row.customerId));
         // 若已有对方签署人不在联系人列表中，则补充为可选项
         if (row.theirSignerName) {
-          const exists = contactOptions.value.some((c: any) => c.value === row.theirSignerName);
+          const exists = contactOptions.value.some(
+            (c: any) => c.value === row.theirSignerName,
+          );
           if (!exists) {
             contactOptions.value.push({
               value: row.theirSignerName,
@@ -874,7 +918,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
         }
       }
       if (row.orderId) {
-        selectedOrder.value = { id: row.orderId, name: row.orderNo || row.orderTitle || '' };
+        selectedOrder.value = {
+          id: row.orderId,
+          name: row.orderNo || row.orderTitle || '',
+        };
         // 同步到表单字段用于验证
         row._orderDisplay = row.orderNo || row.orderTitle || '';
       }
@@ -886,25 +933,32 @@ const [Drawer, drawerApi] = useVbenDrawer({
         if (row.id) {
           try {
             const res: any = await getContractPaymentPlanApi(row.id);
-            const plans = res?.data?.data || res?.data || res?.items || res || [];
+            const plans =
+              res?.data?.data || res?.data || res?.items || res || [];
             if (Array.isArray(plans) && plans.length > 0) {
               paymentPlans.value = plans.map((plan: any) => ({
                 id: plan.id,
                 periodName: plan.stageName || plan.periodName || '',
                 paymentType: plan.paymentType ?? 1,
-                plannedAmount: Number(plan.planAmount ?? plan.plannedAmount ?? 0),
+                plannedAmount: Number(
+                  plan.planAmount ?? plan.plannedAmount ?? 0,
+                ),
                 plannedDate: plan.planDate ?? plan.plannedDate ?? undefined,
                 remark: plan.remark || '',
                 sort: plan.sort ?? 0,
               }));
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
         // 加载提成配置
         if (row.id) {
           try {
             await loadCommissionData(row.id);
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
         contractTotalAmount.value = Number(row.totalAmount) || 0;
       }
@@ -939,40 +993,67 @@ function toggleMaximize() {
         class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
         @click="toggleMaximize"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="w-5 h-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+          />
         </svg>
       </button>
     </template>
 
     <!-- ====== 只读模式：顶部状态条 ====== -->
-    <div v-if="isReadonly || !data?.create" class="mb-4 flex items-center gap-3">
+    <div
+      v-if="isReadonly || !data?.create"
+      class="mb-4 flex items-center gap-3"
+    >
       <span class="text-sm text-gray-500">当前状态：</span>
       <Tag :color="currentStatusInfo.color" class="text-sm px-3 py-0.5">
         {{ currentStatusInfo.label }}
       </Tag>
-      <span class="text-xs text-gray-400">{{ currentStatusInfo.description }}</span>
+      <span class="text-xs text-gray-400">{{
+        currentStatusInfo.description
+      }}</span>
       <!-- 审批中锁定提示 -->
-      <Tag v-if="isReadonly && currentApprovalStatus > 0 && currentApprovalStatus !== 4" color="warning" class="text-xs">
+      <Tag
+        v-if="
+          isReadonly && currentApprovalStatus > 0 && currentApprovalStatus !== 4
+        "
+        color="warning"
+        class="text-xs"
+      >
         🔒 审批流程中，信息不可修改
       </Tag>
     </div>
 
     <!-- ====== Tabs 导航 ====== -->
-    <Tabs v-model:activeKey="activeTabKey" class="contract-drawer-tabs">
+    <Tabs v-model:active-key="activeTabKey" class="contract-drawer-tabs">
       <!-- ====== Tab 1: 基本信息 ====== -->
       <TabPane key="basic" tab="基本信息" force-render>
         <BaseForm>
           <!-- 客户显示 slot（只读，客户信息从订单继承） -->
-          <template #_customerDisplay="{ model }">
+          <template #_customerDisplay>
             <div class="flex items-center gap-2 w-full">
-              <span class="flex-1 text-gray-800 truncate">{{ selectedCustomer?.name || '-' }}</span>
+              <span class="flex-1 text-gray-800 truncate">{{
+                selectedCustomer?.name || '-'
+              }}</span>
             </div>
           </template>
 
           <!-- 订单选择 slot -->
-          <template #_orderDisplay="{ model }">
-            <div class="flex items-center gap-2 w-full" @click="openOrderSelect()">
+          <template #_orderDisplay>
+            <div
+              class="flex items-center gap-2 w-full"
+              @click="openOrderSelect()"
+            >
               <Input
                 v-if="!isReadonly"
                 :value="selectedOrder?.name || ''"
@@ -981,10 +1062,19 @@ function toggleMaximize() {
                 class="flex-1 cursor-pointer select-modal-input"
               >
                 <template #suffix>
-                  <Button type="link" size="small" class="!p-0 !text-blue-600 font-medium" @click.stop="openOrderSelect">选择</Button>
+                  <Button
+                    type="link"
+                    size="small"
+                    class="!p-0 !text-blue-600 font-medium"
+                    @click.stop="openOrderSelect"
+                  >
+                    选择
+                  </Button>
                 </template>
               </Input>
-              <span v-else class="flex-1 text-gray-800 truncate">{{ selectedOrder?.name || '-' }}</span>
+              <span v-else class="flex-1 text-gray-800 truncate">{{
+                selectedOrder?.name || '-'
+              }}</span>
             </div>
           </template>
         </BaseForm>
@@ -992,8 +1082,12 @@ function toggleMaximize() {
         <!-- 订单商品明细（从订单创建合同时展示） -->
         <div v-if="orderItems.length > 0" class="order-items-section">
           <div class="order-items-header">
-            <span class="text-sm font-semibold text-gray-700">订单商品明细</span>
-            <span v-if="orderInfo?.orderNo" class="text-xs text-gray-400 ml-2">订单号：{{ orderInfo.orderNo }}</span>
+            <span class="text-sm font-semibold text-gray-700"
+              >订单商品明细</span
+            >
+            <span v-if="orderInfo?.orderNo" class="text-xs text-gray-400 ml-2"
+              >订单号：{{ orderInfo.orderNo }}</span
+            >
           </div>
           <Table
             :columns="orderItemColumns"
@@ -1012,7 +1106,11 @@ function toggleMaximize() {
                 ¥{{ Number(record.amount || 0).toFixed(2) }}
               </template>
               <template v-else-if="column.dataIndex === 'taxRate'">
-                {{ record.taxRate != null ? Number(record.taxRate).toFixed(0) + '%' : '-' }}
+                {{
+                  record.taxRate != null
+                    ? `${Number(record.taxRate).toFixed(0)}%`
+                    : '-'
+                }}
               </template>
             </template>
           </Table>
@@ -1034,25 +1132,58 @@ function toggleMaximize() {
       <TabPane key="paymentPlan" tab="回款计划">
         <div class="w-full space-y-4">
           <!-- 提示 -->
-          <div class="flex items-start gap-2 text-sm text-gray-500 bg-blue-50/50 rounded-lg px-4 py-3 border border-blue-100">
-            <svg class="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div
+            class="flex items-start gap-2 text-sm text-gray-500 bg-blue-50/50 rounded-lg px-4 py-3 border border-blue-100"
+          >
+            <svg
+              class="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <span>请添加合同的回款计划，用于智能提醒到期、逾期情况</span>
-            <Tooltip title="系统会根据回款计划自动计算应收账款，并在到期前提醒相关人员。支持按签订、开票、结算、发货等节点触发。">
-              <span class="ml-auto text-blue-500 cursor-help underline decoration-dotted">如何自动生成？</span>
+            <Tooltip
+              title="系统会根据回款计划自动计算应收账款，并在到期前提醒相关人员。支持按签订、开票、结算、发货等节点触发。"
+            >
+              <span
+                class="ml-auto text-blue-500 cursor-help underline decoration-dotted"
+                >如何自动生成？</span
+              >
             </Tooltip>
           </div>
 
           <!-- 工具栏：只读时隐藏操作项 -->
           <div v-if="!isReadonly" class="flex items-center gap-4 flex-wrap">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-600 whitespace-nowrap">生成方式:</span>
-              <Select v-model:value="generateMethod" :options="generateMethodOptions" style="width: 240px" />
+              <span class="text-sm font-medium text-gray-600 whitespace-nowrap"
+                >生成方式:</span
+              >
+              <Select
+                v-model:value="generateMethod"
+                :options="generateMethodOptions"
+                style="width: 240px"
+              />
             </div>
             <div class="flex items-center gap-2 ml-auto">
-              <span class="text-sm text-gray-500 whitespace-nowrap">设定逾期利率:</span>
-              <InputNumber v-model:value="overdueRate" :min="0" :max="100" :precision="2" addon-after="%" placeholder="可选" style="width: 140px" />
+              <span class="text-sm text-gray-500 whitespace-nowrap"
+                >设定逾期利率:</span
+              >
+              <InputNumber
+                v-model:value="overdueRate"
+                :min="0"
+                :max="100"
+                :precision="2"
+                addon-after="%"
+                placeholder="可选"
+                style="width: 140px"
+              />
             </div>
           </div>
 
@@ -1072,72 +1203,186 @@ function toggleMaximize() {
                 <span class="text-gray-400 text-sm">{{ index + 1 }}</span>
               </template>
               <template v-else-if="column.dataIndex === 'periodName'">
-                <Input v-if="!isReadonly" v-model:value="record.periodName" placeholder="如：第1期" size="small" />
+                <Input
+                  v-if="!isReadonly"
+                  v-model:value="record.periodName"
+                  placeholder="如：第1期"
+                  size="small"
+                />
                 <span v-else>{{ record.periodName || '-' }}</span>
               </template>
               <template v-else-if="column.dataIndex === 'paymentType'">
-                <Select v-if="!isReadonly" v-model:value="record.paymentType" :options="paymentTypeOptions" placeholder="选择" size="small" style="width: 100%" />
-                <span v-else>{{ paymentTypeOptions.find(o => o.value === record.paymentType)?.label || '-' }}</span>
+                <Select
+                  v-if="!isReadonly"
+                  v-model:value="record.paymentType"
+                  :options="paymentTypeOptions"
+                  placeholder="选择"
+                  size="small"
+                  style="width: 100%"
+                />
+                <span v-else>{{
+                  paymentTypeOptions.find((o) => o.value === record.paymentType)
+                    ?.label || '-'
+                }}</span>
               </template>
               <template v-else-if="column.dataIndex === 'plannedAmount'">
-                <InputNumber v-if="!isReadonly" v-model:value="record.plannedAmount" :min="0" :precision="2" size="small" style="width: 100%" placeholder="金额" />
-                <span v-else>¥{{ Number(record.plannedAmount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}</span>
+                <InputNumber
+                  v-if="!isReadonly"
+                  v-model:value="record.plannedAmount"
+                  :min="0"
+                  :precision="2"
+                  size="small"
+                  style="width: 100%"
+                  placeholder="金额"
+                />
+                <span v-else
+                  >¥{{
+                    Number(record.plannedAmount || 0).toLocaleString('zh-CN', {
+                      minimumFractionDigits: 2,
+                    })
+                  }}</span
+                >
               </template>
               <template v-else-if="column.dataIndex === 'percentStr'">
-                <span class="text-sm" :class="contractTotalAmount > 0 && record.plannedAmount ? 'text-gray-700' : 'text-gray-300'">
-                  {{ contractTotalAmount > 0 && record.plannedAmount ? ((record.plannedAmount / contractTotalAmount) * 100).toFixed(1) + '%' : '-' }}
+                <span
+                  class="text-sm"
+                  :class="
+                    contractTotalAmount > 0 && record.plannedAmount
+                      ? 'text-gray-700'
+                      : 'text-gray-300'
+                  "
+                >
+                  {{
+                    contractTotalAmount > 0 && record.plannedAmount
+                      ? `${((record.plannedAmount / contractTotalAmount) * 100).toFixed(1)}%`
+                      : '-'
+                  }}
                 </span>
               </template>
               <template v-else-if="column.dataIndex === 'plannedDate'">
-                <DatePicker v-if="!isReadonly" v-model:value="record.plannedDate" value-format="YYYY-MM-DD" placeholder="选择日期" size="small" style="width: 100%" />
+                <DatePicker
+                  v-if="!isReadonly"
+                  v-model:value="record.plannedDate"
+                  value-format="YYYY-MM-DD"
+                  placeholder="选择日期"
+                  size="small"
+                  style="width: 100%"
+                />
                 <span v-else>{{ record.plannedDate || '-' }}</span>
               </template>
               <template v-else-if="column.dataIndex === 'remark'">
-                <Input v-if="!isReadonly" v-model:value="record.remark" placeholder="备注" size="small" />
+                <Input
+                  v-if="!isReadonly"
+                  v-model:value="record.remark"
+                  placeholder="备注"
+                  size="small"
+                />
                 <span v-else>{{ record.remark || '-' }}</span>
               </template>
               <template v-else-if="column.dataIndex === 'action'">
-                <Button v-if="!isReadonly" type="link" danger size="small" @click="removePlan(index)">删除</Button>
+                <Button
+                  v-if="!isReadonly"
+                  type="link"
+                  danger
+                  size="small"
+                  @click="removePlan(index)"
+                >
+                  删除
+                </Button>
               </template>
             </template>
           </Table>
 
           <!-- 添加行（仅编辑模式） -->
           <div v-if="!isReadonly" class="flex justify-start">
-            <Button type="dashed" block class="w-40" @click="addPlan">+ 添加行</Button>
+            <Button type="dashed" block class="w-40" @click="addPlan">
+              + 添加行
+            </Button>
           </div>
 
           <!-- 空状态 -->
-          <div v-if="isReadonly && paymentPlans.length === 0" class="text-center py-8 text-gray-400 text-sm">
+          <div
+            v-if="isReadonly && paymentPlans.length === 0"
+            class="text-center py-8 text-gray-400 text-sm"
+          >
             暂无回款计划
           </div>
 
           <!-- 底部汇总栏 -->
-          <div v-if="paymentPlans.length > 0" class="rounded-lg border px-4 py-3" :class="
-            Math.abs(remainingPercent) <= 1 ? 'border-green-200 bg-green-50/50'
-            : remainingPercent > 0 ? 'border-orange-200 bg-orange-50/50'
-            : 'border-red-200 bg-red-50/50'
-          ">
+          <div
+            v-if="paymentPlans.length > 0"
+            class="rounded-lg border px-4 py-3"
+            :class="
+              Math.abs(remainingPercent) <= 1
+                ? 'border-green-200 bg-green-50/50'
+                : remainingPercent > 0
+                  ? 'border-orange-200 bg-orange-50/50'
+                  : 'border-red-200 bg-red-50/50'
+            "
+          >
             <div class="flex items-center gap-6 flex-wrap text-sm">
               <div>
                 <span class="text-gray-500">计划总额：</span>
-                <span class="font-semibold text-gray-800">¥{{ planSummary.totalAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+                <span class="font-semibold text-gray-800"
+                  >¥{{
+                    planSummary.totalAmount.toLocaleString('zh-CN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  }}</span
+                >
               </div>
               <div>
                 <span class="text-gray-500">合同总额：</span>
-                <span class="font-semibold text-gray-800">¥{{ contractTotalAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+                <span class="font-semibold text-gray-800"
+                  >¥{{
+                    contractTotalAmount.toLocaleString('zh-CN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  }}</span
+                >
               </div>
               <div>
                 <span class="text-gray-500">剩余</span>
-                <span class="font-semibold ml-1" :class="
-                  Math.abs(remainingPercent) <= 1 ? 'text-green-600'
-                  : remainingPercent > 0 ? 'text-orange-600' : 'text-red-600'
-                ">{{ remainingPercent > 0 ? '+' : '' }}{{ remainingPercent.toFixed(1) }}%</span>
-                <span class="text-gray-500 ml-1">（¥{{ Math.abs(remainingAmount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}）</span>
+                <span
+                  class="font-semibold ml-1"
+                  :class="
+                    Math.abs(remainingPercent) <= 1
+                      ? 'text-green-600'
+                      : remainingPercent > 0
+                        ? 'text-orange-600'
+                        : 'text-red-600'
+                  "
+                  >{{ remainingPercent > 0 ? '+' : ''
+                  }}{{ remainingPercent.toFixed(1) }}%</span
+                >
+                <span class="text-gray-500 ml-1"
+                  >（¥{{
+                    Math.abs(remainingAmount).toLocaleString('zh-CN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  }}）</span
+                >
               </div>
-              <Button v-if="!isReadonly && remainingPercent > 1" type="link" size="small" class="ml-auto" @click="distributeRemaining">平均分配剩余金额</Button>
-              <span v-else-if="Math.abs(remainingPercent) <= 1" class="ml-auto text-green-600 text-xs font-medium">✓ 金额匹配</span>
-              <span v-else class="ml-auto text-red-500 text-xs font-medium">⚠ 超出合同金额</span>
+              <Button
+                v-if="!isReadonly && remainingPercent > 1"
+                type="link"
+                size="small"
+                class="ml-auto"
+                @click="distributeRemaining"
+              >
+                平均分配剩余金额
+              </Button>
+              <span
+                v-else-if="Math.abs(remainingPercent) <= 1"
+                class="ml-auto text-green-600 text-xs font-medium"
+                >✓ 金额匹配</span
+              >
+              <span v-else class="ml-auto text-red-500 text-xs font-medium"
+                >⚠ 超出合同金额</span
+              >
             </div>
           </div>
         </div>
@@ -1154,17 +1399,27 @@ function toggleMaximize() {
                 :options="commissionRuleOptions"
                 :disabled="isReadonly"
                 placeholder="请选择提成方案（不选则用默认方案）"
-                allowClear
+                allow-clear
                 style="width: 320px"
               />
-              <Button type="link" size="small" class="ml-2" @click="previewCommission">试算提成</Button>
+              <Button
+                type="link"
+                size="small"
+                class="ml-2"
+                @click="previewCommission"
+              >
+                试算提成
+              </Button>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-label">提成模式</div>
             <div class="form-content">
-              <Radio.Group v-model:value="commissionMode" :disabled="isReadonly">
+              <Radio.Group
+                v-model:value="commissionMode"
+                :disabled="isReadonly"
+              >
                 <Radio :value="1">按方案自动计算</Radio>
                 <Radio :value="2">手动指定分成</Radio>
               </Radio.Group>
@@ -1174,10 +1429,25 @@ function toggleMaximize() {
           <div v-if="commissionMode === 2" class="mt-4">
             <div class="flex items-center mb-2">
               <span class="font-medium">分成人员配置</span>
-              <span class="ml-2 text-sm" :class="Math.abs(getTotalShareRatio() - 1) <= 0.001 ? 'text-green-600' : 'text-red-500'">
+              <span
+                class="ml-2 text-sm"
+                :class="
+                  Math.abs(getTotalShareRatio() - 1) <= 0.001
+                    ? 'text-green-600'
+                    : 'text-red-500'
+                "
+              >
                 合计：{{ (getTotalShareRatio() * 100).toFixed(2) }}%
               </span>
-              <Button v-if="!isReadonly" type="primary" size="small" class="ml-auto" @click="handleAddMemberBySelect">添加人员</Button>
+              <Button
+                v-if="!isReadonly"
+                type="primary"
+                size="small"
+                class="ml-auto"
+                @click="handleAddMemberBySelect"
+              >
+                添加人员
+              </Button>
             </div>
 
             <Table
@@ -1191,25 +1461,57 @@ function toggleMaximize() {
               <template #bodyCell="{ column, record, index }">
                 <template v-if="column.key === 'userName'">
                   <div v-if="!isReadonly" class="flex items-center gap-2">
-                    <span class="flex-1 truncate">{{ record.userName || '-' }}</span>
-                    <Button type="link" size="small" class="!p-0 shrink-0" @click="handleSelectMemberUser(index)">
+                    <span class="flex-1 truncate">{{
+                      record.userName || '-'
+                    }}</span>
+                    <Button
+                      type="link"
+                      size="small"
+                      class="!p-0 shrink-0"
+                      @click="handleSelectMemberUser(index)"
+                    >
                       {{ record.userName ? '更换' : '选择' }}
                     </Button>
                   </div>
                   <span v-else>{{ record.userName || '-' }}</span>
                 </template>
                 <template v-else-if="column.key === 'roleType'">
-                  <Select v-model:value="record.roleType" :disabled="isReadonly" :options="roleTypeOptions" style="width: 120px" />
+                  <Select
+                    v-model:value="record.roleType"
+                    :disabled="isReadonly"
+                    :options="roleTypeOptions"
+                    style="width: 120px"
+                  />
                 </template>
                 <template v-else-if="column.key === 'shareRatio'">
-                  <InputNumber v-model:value="record.shareRatio" :disabled="isReadonly" :min="0" :max="100" :step="1" style="width: 100px" />
+                  <InputNumber
+                    v-model:value="record.shareRatio"
+                    :disabled="isReadonly"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                    style="width: 100px"
+                  />
                   <span class="ml-1">%</span>
                 </template>
                 <template v-else-if="column.key === 'sort'">
-                  <InputNumber v-model:value="record.sort" :disabled="isReadonly" :min="0" style="width: 80px" />
+                  <InputNumber
+                    v-model:value="record.sort"
+                    :disabled="isReadonly"
+                    :min="0"
+                    style="width: 80px"
+                  />
                 </template>
                 <template v-else-if="column.key === 'action'">
-                  <Button v-if="!isReadonly" type="link" danger size="small" @click="removeCommissionMember(index)">删除</Button>
+                  <Button
+                    v-if="!isReadonly"
+                    type="link"
+                    danger
+                    size="small"
+                    @click="removeCommissionMember(index)"
+                  >
+                    删除
+                  </Button>
                 </template>
               </template>
             </Table>
@@ -1231,14 +1533,35 @@ function toggleMaximize() {
     />
 
     <!-- ====== 提成试算弹窗 ====== -->
-    <Modal v-model:open="previewVisible" title="提成试算结果" width="700px" :footer="null">
+    <Modal
+      v-model:open="previewVisible"
+      title="提成试算结果"
+      width="700px"
+      :footer="null"
+    >
       <Table :data-source="previewResult" :pagination="false" size="small">
-        <Table.Column title="人员" dataIndex="userName" key="userName" />
+        <Table.Column title="人员" data-index="userName" key="userName" />
         <Table.Column title="方案类型" data-index="ruleType" key="ruleType" />
-        <Table.Column title="计算基数" data-index="calcBaseAmount" key="calcBaseAmount" />
-        <Table.Column title="提成比例" data-index="commissionRate" key="commissionRate" />
-        <Table.Column title="分成比例" data-index="shareRatio" key="shareRatio" />
-        <Table.Column title="提成金额" data-index="commissionAmount" key="commissionAmount" />
+        <Table.Column
+          title="计算基数"
+          data-index="calcBaseAmount"
+          key="calcBaseAmount"
+        />
+        <Table.Column
+          title="提成比例"
+          data-index="commissionRate"
+          key="commissionRate"
+        />
+        <Table.Column
+          title="分成比例"
+          data-index="shareRatio"
+          key="shareRatio"
+        />
+        <Table.Column
+          title="提成金额"
+          data-index="commissionAmount"
+          key="commissionAmount"
+        />
       </Table>
     </Modal>
   </Drawer>
@@ -1246,70 +1569,82 @@ function toggleMaximize() {
 
 <style scoped>
 .contract-drawer-tabs :deep(.ant-tabs-nav) {
-  margin-bottom: 16px;
   padding: 0 4px;
+  margin-bottom: 16px;
 }
+
 .contract-drawer-tabs :deep(.ant-tabs-tab) {
-  font-size: 15px;
   padding: 8px 20px;
+  font-size: 15px;
   font-weight: 500;
 }
+
 /* 选择输入框样式 */
 .select-modal-input :deep(.ant-input) {
+  cursor: pointer;
   background-color: #fafafa;
   border-color: #d9d9d9;
-  cursor: pointer;
 }
+
 .select-modal-input :deep(.ant-input:hover) {
   border-color: #1677ff;
 }
+
 /* 选择弹窗中的行悬停效果 */
 :deep(.ant-table-tbody > tr.ant-row-hover:hover > td) {
   background-color: #e6f4ff !important;
 }
+
 /* 提成配置样式 */
 .commission-config {
   padding: 8px 4px;
 }
+
 .form-row {
   display: flex;
   align-items: flex-start;
   margin-bottom: 16px;
 }
+
 .form-label {
-  width: 100px;
   flex-shrink: 0;
+  width: 100px;
   padding-top: 6px;
+  padding-right: 12px;
   color: #666;
   text-align: right;
-  padding-right: 12px;
 }
+
 .form-content {
-  flex: 1;
   display: flex;
-  align-items: center;
+  flex: 1;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 /* 回款计划表格 - 无数据时高度150px，有数据时按内容自适应 */
 .payment-plan-table :deep(.ant-table) {
   height: auto;
 }
+
 /* 无数据时设置占位高度 */
 .payment-plan-table :deep(.ant-table-placeholder) {
-  min-height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 150px;
 }
+
 .payment-plan-table :deep(.ant-table-placeholder .ant-empty) {
   margin: 0;
 }
+
 /* 有数据时移除固定高度，按内容自适应 */
 .payment-plan-table :deep(.ant-table-body) {
   max-height: none !important;
   overflow-y: visible !important;
 }
+
 /* 表格内容区域 */
 .payment-plan-table :deep(.ant-table-content) {
   min-height: auto;
@@ -1317,31 +1652,35 @@ function toggleMaximize() {
 
 /* 订单商品明细区域 */
 .order-items-section {
-  margin-top: 16px;
   padding: 12px 16px;
+  margin-top: 16px;
   background: var(--background-color-light, #fafafa);
   border: 1px solid var(--border-color-base, #f0f0f0);
   border-radius: 8px;
 }
+
 .order-items-header {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
   padding-bottom: 8px;
+  margin-bottom: 10px;
   border-bottom: 1px solid var(--border-color-base, #f0f0f0);
 }
+
 .order-items-table :deep(.ant-table) {
   height: auto;
 }
+
 .order-items-table :deep(.ant-table-body) {
   max-height: none !important;
   overflow-y: visible !important;
 }
+
 .order-items-summary {
   display: flex;
   align-items: center;
-  margin-top: 8px;
   padding-top: 8px;
+  margin-top: 8px;
   border-top: 1px solid var(--border-color-base, #f0f0f0);
 }
 </style>

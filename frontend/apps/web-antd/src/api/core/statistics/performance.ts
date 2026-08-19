@@ -3,8 +3,8 @@ import { requestClient } from '#/api/request';
 /** 业绩目标（个人/部门/全公司） */
 export const getPerformanceTargetApi = async (params?: {
   employee_id?: number;
-  year?: number;
   month?: number;
+  year?: number;
 }) => {
   return requestClient.get('/api/system/statistics/performance/target', {
     params,
@@ -21,10 +21,10 @@ export const savePerformanceTargetApi = async (param: { targets: any[] }) => {
 
 /** 月度业绩趋势 */
 export const getMonthlyPerformanceApi = async (params?: {
-  year?: number;
   department_id?: number;
-  time_dimension?: string;
   month?: number;
+  time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.get('/api/system/statistics/performance/monthly', {
     params,
@@ -33,11 +33,11 @@ export const getMonthlyPerformanceApi = async (params?: {
 
 /** 业绩排名（部门/销售员） */
 export const getPerformanceRankingApi = async (params?: {
-  year?: number;
+  department_id?: number;
   month?: number;
   order_by?: string;
-  department_id?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.get('/api/system/statistics/performance/ranking', {
     params,
@@ -46,21 +46,20 @@ export const getPerformanceRankingApi = async (params?: {
 
 /** 业绩对比（同比/环比） */
 export const getPerformanceComparisonApi = async (params?: {
-  year?: number;
   month?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
-  return requestClient.get(
-    '/api/system/statistics/performance/comparison',
-    { params },
-  );
+  return requestClient.get('/api/system/statistics/performance/comparison', {
+    params,
+  });
 };
 
 /** 业绩预测（含缺口/Pipeline覆盖率） */
 export const getPerformanceForecastApi = async (params?: {
-  year?: number;
   month?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.get('/api/system/statistics/performance/forecast', {
     params,
@@ -69,9 +68,9 @@ export const getPerformanceForecastApi = async (params?: {
 
 /** 销售漏斗（5阶段转化率+平均周期+赢单率） */
 export const getSalesFunnelApi = async (params?: {
-  year?: number;
   month?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.get('/api/system/statistics/performance/funnel', {
     params,
@@ -80,9 +79,9 @@ export const getSalesFunnelApi = async (params?: {
 
 /** 客户维度拆解（新老/ABC/Top10） */
 export const getCustomerBreakdownApi = async (params?: {
-  year?: number;
   month?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.get(
     '/api/system/statistics/performance/customer-breakdown',
@@ -92,9 +91,9 @@ export const getCustomerBreakdownApi = async (params?: {
 
 /** 产品维度拆解（产品排行+品类占比） */
 export const getProductBreakdownApi = async (params?: {
-  year?: number;
   month?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.get(
     '/api/system/statistics/performance/product-breakdown',
@@ -104,9 +103,9 @@ export const getProductBreakdownApi = async (params?: {
 
 /** 行为指标（拜访/电话/跟进/转化率+趋势） */
 export const getBehaviorMetricsApi = async (params?: {
-  year?: number;
   month?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.get('/api/system/statistics/performance/behavior', {
     params,
@@ -115,9 +114,9 @@ export const getBehaviorMetricsApi = async (params?: {
 
 /** 区域维度拆解（省份业绩分布） */
 export const getRegionBreakdownApi = async (params?: {
-  year?: number;
   month?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.get(
     '/api/system/statistics/performance/region-breakdown',
@@ -137,21 +136,20 @@ export const getPersonalGrowthApi = async (params?: {
 
 /** 里程碑（当前已达+下一档+所有档位） */
 export const getPerformanceMilestoneApi = async (params?: {
-  year?: number;
   employee_id?: number;
+  year?: number;
 }) => {
-  return requestClient.get(
-    '/api/system/statistics/performance/milestone',
-    { params },
-  );
+  return requestClient.get('/api/system/statistics/performance/milestone', {
+    params,
+  });
 };
 
 /** 业绩报表导出（Excel/PDF） */
 export const exportPerformanceApi = async (params: {
   format: 'excel' | 'pdf';
-  year?: number;
   month?: number;
   time_dimension?: string;
+  year?: number;
 }) => {
   return requestClient.post(
     '/api/system/statistics/performance/export',

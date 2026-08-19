@@ -1,3 +1,1 @@
-import { useVbenDrawer } from '@vben/common-ui';
-
-export { useVbenDrawer };
+export { useVbenDrawer } from '@vben/common-ui';

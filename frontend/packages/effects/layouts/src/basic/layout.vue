@@ -134,7 +134,7 @@ const {
  * 翻译菜单名：目录级 i18n key 对应的往往是 { title, button } 对象，
  * 直接 $t 会不命中；这里自动降级到 `${key}.title`。
  */
-function translateMenu(key?: string | null): string {
+function translateMenu(key?: null | string): string {
   if (!key) return '';
   const direct = $t(key);
   if (direct !== key && !direct.startsWith('[object ')) return direct;

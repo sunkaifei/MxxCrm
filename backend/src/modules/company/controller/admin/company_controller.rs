@@ -15,18 +15,25 @@ use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::company::model::company::{CompanyAccountSaveRequest, CompanyInfoSaveRequest};
 use crate::modules::company::service::company_service;
+use crate::modules::system::service::permission_cache_service;
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::permission_guard::require_permission;
 
 /// 判断当前用户是否有企业信息编辑权限（有编辑权限则不脱敏法人电话）
-fn can_edit_company(jwt_token: &JWTToken) -> bool {
-    jwt_token.permissions.iter().any(|p| p == "company:info:update")
+///
+/// 整改 v1.0：JWT 已瘦身不含权限，改从权限缓存读取（实时生效）
+async fn can_edit_company(db: &sea_orm::DbConn, user_id: i64) -> bool {
+    permission_cache_service::get_or_load_permissions(db, user_id)
+        .await
+        .iter()
+        .any(|p| p == "company:info:update")
 }
 
 pub async fn get_company_info(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let jwt_token: JWTToken = get_user(&req).unwrap_or_default();
-    let mask_sensitive = !can_edit_company(&jwt_token);
+    let user_id = jwt_token.id.unwrap_or_default();
+    let mask_sensitive = !can_edit_company(db, user_id).await;
 
     match company_service::get_info(&db, mask_sensitive).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),

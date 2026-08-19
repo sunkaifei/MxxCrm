@@ -4,31 +4,41 @@ import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Tabs, Modal, Tag, Dropdown, Input, Menu } from 'ant-design-vue';
-import { useRouter } from 'vue-router';
+import {
+  Button,
+  Drawer,
+  Dropdown,
+  Input,
+  Menu,
+  Modal,
+  Tabs,
+  Tag,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
-  deleteOrderApi,
-  getShipmentListApi,
-  getOrderListApi,
-  signShipmentApi,
-  updateOrderStatusApi,
-  submitOrderApi,
   createContractFromOrderApi,
+  deleteOrderApi,
+  getOrderListApi,
+  getShipmentListApi,
+  signShipmentApi,
+  submitOrderApi,
+  updateOrderStatusApi,
 } from '#/api';
 import { $t } from '#/locales';
-import OrderDrawer from './drawer.vue';
-import ShipmentDrawer from '../shipment/drawer.vue';
-import SalesProcessGuide from '../components/SalesProcessGuide.vue';
-import OrderApprovalDrawer from './approval-drawer.vue';
-import OrderViewDrawer from './view-drawer.vue';
+
 import CustomerDetail from '../../crm/customer/detail.vue';
+import SalesProcessGuide from '../components/SalesProcessGuide.vue';
+import ShipmentDrawer from '../shipment/drawer.vue';
+import OrderApprovalDrawer from './approval-drawer.vue';
+import OrderDrawer from './drawer.vue';
+import OrderViewDrawer from './view-drawer.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -37,16 +47,22 @@ const router = useRouter();
 // 全部订单 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
 const canViewAll = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 1;
 });
 
 // 下属订单 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
 const canViewSubordinate = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 2 || dataScope === 3 || dataScope === 4;
 });
 
@@ -61,7 +77,7 @@ const tabList = computed(() => {
   if (canViewAll.value) keys.push('all');
   keys.push('my');
   if (canViewSubordinate.value) keys.push('subordinate');
-  return allTabList.filter(t => keys.includes(t.key));
+  return allTabList.filter((t) => keys.includes(t.key));
 });
 
 const activeTab = ref('my');
@@ -69,7 +85,13 @@ const activeTab = ref('my');
 // 是否为下属视图（下属视图下只能查看，不能操作）
 const isSubordinateView = computed(() => activeTab.value === 'subordinate');
 
-function handleTabChange(key: string | number) {
+// 是否超级管理员/系统管理员
+const isSuperAdmin = computed(() => {
+  const roles = userStore.userInfo?.roles ?? [];
+  return roles.includes('super_admin') || roles.includes('system_admin');
+});
+
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
@@ -252,7 +274,9 @@ const gridOptions: VxeGridProps = {
           const $el = gridApi.grid?.$el as HTMLElement | undefined;
           if (!$el) return;
           const mainBody = $el.querySelector('.vxe-table--body-wrapper tbody');
-          const fixedRightBody = $el.querySelector('.vxe-table--fixed-right-wrapper tbody');
+          const fixedRightBody = $el.querySelector(
+            '.vxe-table--fixed-right-wrapper tbody',
+          );
           if (!mainBody || !fixedRightBody) {
             if (retry < 3) setTimeout(() => syncFixedColumn(retry + 1), 200);
             return;
@@ -264,7 +288,7 @@ const gridOptions: VxeGridProps = {
           for (let i = 0; i < len; i++) {
             const h = (rows1[i] as HTMLElement).offsetHeight;
             if (h === 0) continue;
-            (rows2[i] as HTMLElement).style.height = h + 'px';
+            (rows2[i] as HTMLElement).style.height = `${h}px`;
             const tds = (rows2[i] as HTMLElement).querySelectorAll('td');
             tds.forEach((td: Element) => {
               const cell = td.querySelector('.vxe-cell');
@@ -272,7 +296,7 @@ const gridOptions: VxeGridProps = {
                 (cell as HTMLElement).style.display = 'flex';
                 (cell as HTMLElement).style.alignItems = 'center';
                 (cell as HTMLElement).style.justifyContent = 'center';
-                (cell as HTMLElement).style.height = h + 'px';
+                (cell as HTMLElement).style.height = `${h}px`;
               }
             });
           }
@@ -288,7 +312,12 @@ const gridOptions: VxeGridProps = {
   },
   columns: [
     { type: 'checkbox', width: 50 },
-    { title: $t('ui.table.seq'), type: 'seq', width: 60, headerAlign: 'center' },
+    {
+      title: $t('ui.table.seq'),
+      type: 'seq',
+      width: 60,
+      headerAlign: 'center',
+    },
     {
       title: '订单号',
       field: 'orderNo',
@@ -296,8 +325,21 @@ const gridOptions: VxeGridProps = {
       headerAlign: 'center',
       slots: { default: 'orderNo' },
     },
-    { title: '订单标题', field: 'title', width: 200, headerAlign: 'center', slots: { default: 'title' } },
-    { title: '客户名称', field: 'customerName', width: 180, headerAlign: 'center', align: 'left', slots: { default: 'customerName' } },
+    {
+      title: '订单标题',
+      field: 'title',
+      width: 200,
+      headerAlign: 'center',
+      slots: { default: 'title' },
+    },
+    {
+      title: '客户名称',
+      field: 'customerName',
+      width: 180,
+      headerAlign: 'center',
+      align: 'left',
+      slots: { default: 'customerName' },
+    },
     {
       title: '订单金额',
       field: 'totalAmount',
@@ -319,8 +361,18 @@ const gridOptions: VxeGridProps = {
       headerAlign: 'center',
       slots: { default: 'paymentStatus' },
     },
-    { title: '负责人', field: 'ownerUserName', width: 90, headerAlign: 'center' },
-    { title: '下单日期', field: 'orderDate', width: 110, headerAlign: 'center' },
+    {
+      title: '负责人',
+      field: 'ownerUserName',
+      width: 90,
+      headerAlign: 'center',
+    },
+    {
+      title: '下单日期',
+      field: 'orderDate',
+      width: 110,
+      headerAlign: 'center',
+    },
     {
       title: '审批状态',
       field: 'approvalStatus',
@@ -394,6 +446,14 @@ function handleViewDrawerAction(type: string, row: any) {
       handleEdit(row);
       break;
     }
+    case 'ship': {
+      openShipmentDrawer(row);
+      break;
+    }
+    case 'signContract': {
+      handleCreateContract(row);
+      break;
+    }
     case 'submitApproval': {
       handleSubmitApproval(row);
       break;
@@ -401,10 +461,6 @@ function handleViewDrawerAction(type: string, row: any) {
     case 'viewApproval': {
       approvalOrderId.value = row.id;
       approvalDrawerVisible.value = true;
-      break;
-    }
-    case 'signContract': {
-      handleCreateContract(row);
       break;
     }
     case 'viewContract': {
@@ -427,10 +483,6 @@ function handleViewDrawerAction(type: string, row: any) {
           query: { viewQuotationId: row.quotationId },
         });
       }
-      break;
-    }
-    case 'ship': {
-      openShipmentDrawer(row);
       break;
     }
   }
@@ -590,13 +642,13 @@ function handleVoidOrder(row: any) {
 // ========== 审批流 ==========
 
 const approvalDrawerVisible = ref(false);
-const approvalOrderId = ref<number | null>(null);
+const approvalOrderId = ref<null | number>(null);
 const currentUserId = ref<number | undefined>(undefined);
 
 // ========== 详情抽屉 ==========
 
 const viewDrawerVisible = ref(false);
-const viewDrawerOrderId = ref<number | null>(null);
+const viewDrawerOrderId = ref<null | number>(null);
 
 // 从 accessStore 中获取当前用户ID
 const userInfo = (window as any).$userInfo || {};
@@ -660,7 +712,7 @@ async function handleCreateContract(row: any) {
 }
 // ========== 客户详情抽屉 ==========
 const customerDetailVisible = ref(false);
-const customerDetailId = ref<number | null>(null);
+const customerDetailId = ref<null | number>(null);
 const customerDetailKey = ref(0);
 
 function openCustomerDetail(customerId: number) {
@@ -681,15 +733,27 @@ function closeCustomerDetail() {
 <template>
   <Page>
     <SalesProcessGuide current-step="order" />
-    <Grid :table-title="''">
+    <Grid table-title="">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
-          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
         </Tabs>
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && !isSuperAdmin && accessStore.hasAccessCode('sale:order:save')"
+          v-if="
+            !isSubordinateView &&
+            !isSuperAdmin &&
+            accessStore.hasAccessCode('sale:order:save')
+          "
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -697,7 +761,9 @@ function closeCustomerDetail() {
           新建订单
         </Button>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:order:delete')"
+          v-if="
+            !isSubordinateView && accessStore.hasAccessCode('sale:order:delete')
+          "
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -773,7 +839,8 @@ function closeCustomerDetail() {
           class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))"
           @click="() => handleView(row)"
-        >详情</a>
+          >详情</a
+        >
         <!-- 提交审批：草稿(0)或已驳回(4)状态 -->
         <a
           v-if="
@@ -784,29 +851,36 @@ function closeCustomerDetail() {
           class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))"
           @click="() => handleSubmitApproval(row)"
-        >提交审批</a>
+          >提交审批</a
+        >
         <!-- 查看审批：待审批(1)或审批中(2)或已通过(3)或已驳回(4) -->
         <a
           v-if="
             accessStore.hasAccessCode('sale:order:list') &&
-            row.approvalStatus >= 1 && row.approvalStatus <= 4
+            row.approvalStatus >= 1 &&
+            row.approvalStatus <= 4
           "
           class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))"
           @click="() => handleViewApproval(row)"
-        >审批</a>
+          >审批</a
+        >
         <!-- 更多操作：编辑/删除/订单作废 -->
-        <Dropdown v-if="
-          !isSubordinateView &&
-          ((accessStore.hasAccessCode('sale:order:update') &&
-            (row.approvalStatus === 0 || row.approvalStatus === 4)) ||
-          (accessStore.hasAccessCode('sale:order:delete') &&
-            (row.approvalStatus === 0 || row.approvalStatus === 4)) ||
-          (accessStore.hasAccessCode('sale:order:update') &&
-            row.approvalStatus === 3 && !row.contractId))
-        ">
-          <a class="cursor-pointer mx-1"
-          style="color: hsl(var(--primary))">更多<span class="text-xs">▾</span></a>
+        <Dropdown
+          v-if="
+            !isSubordinateView &&
+            ((accessStore.hasAccessCode('sale:order:update') &&
+              (row.approvalStatus === 0 || row.approvalStatus === 4)) ||
+              (accessStore.hasAccessCode('sale:order:delete') &&
+                (row.approvalStatus === 0 || row.approvalStatus === 4)) ||
+              (accessStore.hasAccessCode('sale:order:update') &&
+                row.approvalStatus === 3 &&
+                !row.contractId))
+          "
+        >
+          <a class="cursor-pointer mx-1" style="color: hsl(var(--primary))"
+            >更多<span class="text-xs">▾</span></a
+          >
           <template #overlay>
             <Menu>
               <!-- 编辑：草稿(0)或已驳回(4)，审批中(2)/已通过(3)不可编辑 -->
@@ -825,11 +899,12 @@ function closeCustomerDetail() {
                 v-if="
                   !isSubordinateView &&
                   accessStore.hasAccessCode('sale:order:update') &&
-                  row.approvalStatus === 3 && !row.contractId
+                  row.approvalStatus === 3 &&
+                  !row.contractId
                 "
                 @click="() => handleVoidOrder(row)"
               >
-                <span style="color: hsl(0 84% 60%)">订单作废</span>
+                <span style="color: hsl(0deg 84% 60%)">订单作废</span>
               </Menu.Item>
               <!-- 删除：草稿(0)或已驳回(4)允许，审批中(2)/已通过(3)不可删除 -->
               <Menu.Item
@@ -840,7 +915,7 @@ function closeCustomerDetail() {
                 "
                 @click="() => handleDelete(row)"
               >
-                <span style="color: hsl(0 84% 60%)">删除</span>
+                <span style="color: hsl(0deg 84% 60%)">删除</span>
               </Menu.Item>
             </Menu>
           </template>
@@ -849,23 +924,27 @@ function closeCustomerDetail() {
         <a
           v-if="
             accessStore.hasAccessCode('sale:order:update') &&
-            row.approvalStatus === 3 && row.contractId
+            row.approvalStatus === 3 &&
+            row.contractId
           "
           class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))"
           @click="() => handleViewContract(row)"
-        >查看合同</a>
+          >查看合同</a
+        >
         <!-- 签署合同：审批已通过(3)且未关联合同 -->
         <a
           v-if="
             !isSubordinateView &&
             accessStore.hasAccessCode('sale:order:update') &&
-            row.approvalStatus === 3 && !row.contractId
+            row.approvalStatus === 3 &&
+            !row.contractId
           "
           class="cursor-pointer mx-1 font-medium"
-          style="color: hsl(142 71% 45%)"
+          style="color: hsl(142deg 71% 45%)"
           @click="() => handleCreateContract(row)"
-        >签署合同</a>
+          >签署合同</a
+        >
         <a
           v-if="
             !isSubordinateView &&
@@ -875,7 +954,8 @@ function closeCustomerDetail() {
           class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))"
           @click="() => handleStockUp(row)"
-        >备货</a>
+          >备货</a
+        >
         <a
           v-if="
             !isSubordinateView &&
@@ -887,7 +967,8 @@ function closeCustomerDetail() {
           class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))"
           @click="() => openShipmentDrawer(row)"
-        >发货</a>
+          >发货</a
+        >
         <a
           v-if="
             !isSubordinateView &&
@@ -897,7 +978,8 @@ function closeCustomerDetail() {
           class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))"
           @click="() => handleSign(row)"
-        >签收</a>
+          >签收</a
+        >
         <a
           v-if="
             !isSubordinateView &&
@@ -907,7 +989,8 @@ function closeCustomerDetail() {
           class="cursor-pointer mx-1"
           style="color: hsl(var(--primary))"
           @click="() => handleComplete(row)"
-        >完成</a>
+          >完成</a
+        >
       </template>
     </Grid>
     <FormDrawer />
@@ -944,14 +1027,16 @@ function closeCustomerDetail() {
     <Modal
       v-model:open="voidRemarkVisible"
       title="订单作废备注"
-      :ok-text="'确认作废'"
-      :cancel-text="'取消'"
+      ok-text="确认作废"
+      cancel-text="取消"
       :ok-button-props="{ danger: true }"
       @ok="submitVoidOrder"
       @cancel="cancelVoidModal"
     >
       <div class="py-2">
-        <p class="mb-3" style="color: hsl(var(--muted-foreground))">请填写作废原因（必填）：</p>
+        <p class="mb-3" style="color: hsl(var(--muted-foreground))">
+          请填写作废原因（必填）：
+        </p>
         <Input.TextArea
           v-model:value="voidRemarkText"
           :rows="4"

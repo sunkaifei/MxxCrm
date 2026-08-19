@@ -10,11 +10,14 @@ export namespace AuthApi {
   /** 登录接口返回值 */
   export interface LoginResult {
     accessToken: string;
+    /** 刷新凭据（64 字节随机数 hex，128 字符），每次登录/刷新重新签发 */
+    refreshToken?: string;
   }
 
+  /** 刷新接口返回值（旋转替换：新旧 refreshToken 均有效载荷） */
   export interface RefreshTokenResult {
-    data: string;
-    status: number;
+    accessToken: string;
+    refreshToken?: string;
   }
 
   /** 注册接口参数 */
@@ -45,23 +48,23 @@ export async function loginApi(data: AuthApi.LoginParams) {
 }
 
 /**
- * 刷新accessToken
+ * 刷新 accessToken（登录认证整改 v1.0：双 Token 无感续期）
+ * 路径与后端注册路由完全一致：POST /api/system/auth/refresh
+ * 使用 baseRequestClient（不挂认证拦截器），刷新请求自身 401 不再递归刷新
  */
-export async function refreshTokenApi() {
+export async function refreshTokenApi(refreshToken: null | string) {
   return baseRequestClient.post<AuthApi.RefreshTokenResult>(
     '/api/system/auth/refresh',
-    {
-      withCredentials: true,
-    },
+    { refreshToken },
   );
 }
 
 /**
- * 退出登录
+ * 退出登录（精确登出当前会话：优先携带 refreshToken 供后端定位会话行）
  */
-export async function logoutApi() {
+export async function logoutApi(refreshToken?: null | string) {
   return baseRequestClient.delete('/api/auth/logout', {
-    withCredentials: true,
+    data: { refreshToken },
   });
 }
 
@@ -92,7 +95,10 @@ export async function getRegisterStatusApi() {
  * 检查用户名是否已存在
  */
 export async function checkUsernameApi(username: string) {
-  return baseRequestClient.get<AuthApi.CheckUsernameResult>('/api/system/auth/check-username', {
-    params: { username },
-  });
+  return baseRequestClient.get<AuthApi.CheckUsernameResult>(
+    '/api/system/auth/check-username',
+    {
+      params: { username },
+    },
+  );
 }

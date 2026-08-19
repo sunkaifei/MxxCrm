@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 pub mod invoice_service;
+pub mod invoice_edit_log_service;
 pub mod order_item_service;
 pub mod order_service;
 pub mod payment_service;

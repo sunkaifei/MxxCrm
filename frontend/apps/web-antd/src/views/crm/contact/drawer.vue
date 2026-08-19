@@ -1,16 +1,26 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { $t } from '#/locales';
-import { useVbenForm } from '#/adapter/form';
+
 import { message } from 'ant-design-vue';
-import { createContactApi, updateContactApi, getCustomerListApi, getContactInfoApi, checkContactDuplicateApi, getCountriesApi } from '#/api';
+
+import { useVbenForm } from '#/adapter/form';
+import {
+  checkContactDuplicateApi,
+  createContactApi,
+  getContactInfoApi,
+  getCountriesApi,
+  getCustomerListApi,
+  updateContactApi,
+} from '#/api';
 import { requestClient } from '#/api/request';
+import { $t } from '#/locales';
 
 const data = ref();
 
 const currentCompanyName = ref<string>('');
-const currentCustomerId = ref<number | null>(null);
+const currentCustomerId = ref<null | number>(null);
 
 const getTitle = computed(() =>
   data.value?.create
@@ -26,13 +36,13 @@ const drawerClass = computed(() =>
 // 格式校验规则
 const validateMobile = (_rule: any, value: string) => {
   if (!value || !value.trim()) {
-    return Promise.reject('请输入手机号');
+    return Promise.reject(new Error('请输入手机号'));
   }
   // 支持11位手机号或带国际区号格式
   if (/^1[3-9]\d{9}$/.test(value) || /^\+\d{1,4}\s?\d{6,14}$/.test(value)) {
     return Promise.resolve();
   }
-  return Promise.reject('请输入正确的手机号格式');
+  return Promise.reject(new Error('请输入正确的手机号格式'));
 };
 
 const validatePhone = (_rule: any, value: string) => {
@@ -41,7 +51,7 @@ const validatePhone = (_rule: any, value: string) => {
   if (/^\d{3,4}-?\d{7,8}$/.test(value)) {
     return Promise.resolve();
   }
-  return Promise.reject('请输入正确的座机格式，如 010-12345678');
+  return Promise.reject(new Error('请输入正确的座机格式，如 010-12345678'));
 };
 
 const validateEmail = (_rule: any, value: string) => {
@@ -49,7 +59,7 @@ const validateEmail = (_rule: any, value: string) => {
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
     return Promise.resolve();
   }
-  return Promise.reject('请输入正确的邮箱格式');
+  return Promise.reject(new Error('请输入正确的邮箱格式'));
 };
 
 const validateQq = (_rule: any, value: string) => {
@@ -57,7 +67,7 @@ const validateQq = (_rule: any, value: string) => {
   if (/^[1-9]\d{4,11}$/.test(value)) {
     return Promise.resolve();
   }
-  return Promise.reject('QQ号应为5-12位数字');
+  return Promise.reject(new Error('QQ号应为5-12位数字'));
 };
 
 const validateWhatsapp = (_rule: any, value: string) => {
@@ -66,13 +76,15 @@ const validateWhatsapp = (_rule: any, value: string) => {
   if (/^[a-zA-Z0-9+\-_.\s]{3,50}$/.test(value)) {
     return Promise.resolve();
   }
-  return Promise.reject('WhatsApp 长度应为 3-50 位，支持字母、数字及 + - _ . 空格');
+  return Promise.reject(
+    new Error('WhatsApp 长度应为 3-50 位，支持字母、数字及 + - _ . 空格'),
+  );
 };
 
 // 实时查重校验
 const checkDuplicate = async (field: string, valuePromise: Promise<string>) => {
   const value = await valuePromise;
-  if (!value || !value.trim()) return Promise.resolve();
+  if (!value || !value.trim()) return;
   // 列表 VO 的 id 序列化为字符串，后端期望 i64，需转 Number
   const editId = data.value?.create ? undefined : Number(data.value?.row?.id);
   try {
@@ -82,11 +94,12 @@ const checkDuplicate = async (field: string, valuePromise: Promise<string>) => {
     });
     const item = (results as any[])?.find((r: any) => r.field === field);
     if (item?.duplicated) {
-      return Promise.reject(`该${fieldLabelMap[field]}已被「${item.contactName || '其他联系人'}」使用`);
+      throw new Error(
+        `该${fieldLabelMap[field]}已被「${item.contactName || '其他联系人'}」使用`,
+      );
     }
-    return Promise.resolve();
   } catch {
-    return Promise.resolve();
+    // 查重接口异常时静默忽略，不影响表单校验
   }
 };
 
@@ -114,11 +127,13 @@ async function loadChinaArea() {
   if (chinaAreaOptions.value.length > 0) return; // 已加载则跳过
   try {
     const result: any = await requestClient.get('/api/system/region/treelist');
-    const tree = Array.isArray(result) ? result : (result as any)?.data ?? [];
+    const tree = Array.isArray(result) ? result : ((result as any)?.data ?? []);
     // RegionTreeVO { id, parentId, title, regionName, sort, status, children }
     // → Cascader { value, label, children }
     chinaAreaOptions.value = convertRegionTreeToCascader(tree);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 // 将 region 树转为 Cascader 选项（value/label 用 regionName，便于回填"省/市/区"文本）
@@ -236,9 +251,15 @@ const [BaseForm, baseFormApi] = useVbenForm({
           });
           const items = res?.items || [];
           if (currentCompanyName.value && currentCustomerId.value) {
-            const exists = items.some((item: any) => String(item.id) === String(currentCustomerId.value));
+            const exists = items.some(
+              (item: any) =>
+                String(item.id) === String(currentCustomerId.value),
+            );
             if (!exists) {
-              items.unshift({ id: String(currentCustomerId.value), companyName: currentCompanyName.value });
+              items.unshift({
+                id: String(currentCustomerId.value),
+                companyName: currentCompanyName.value,
+              });
             }
           }
           return items;
@@ -273,7 +294,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
       label: '邮箱',
       rules: [
         { validator: validateEmail, trigger: 'blur' },
-        { validator: () => checkDuplicate('email', getEmailValue()), trigger: 'blur' },
+        {
+          validator: () => checkDuplicate('email', getEmailValue()),
+          trigger: 'blur',
+        },
       ],
       componentProps: { placeholder: 'email@example.com', allowClear: true },
     },
@@ -284,7 +308,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
       required: true,
       rules: [
         { validator: validateMobile, trigger: 'blur' },
-        { validator: () => checkDuplicate('mobile', getMobileValue()), trigger: 'blur' },
+        {
+          validator: () => checkDuplicate('mobile', getMobileValue()),
+          trigger: 'blur',
+        },
       ],
       componentProps: { placeholder: '手机号', allowClear: true },
     },
@@ -294,7 +321,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
       label: '座机',
       rules: [
         { validator: validatePhone, trigger: 'blur' },
-        { validator: () => checkDuplicate('phone', getPhoneValue()), trigger: 'blur' },
+        {
+          validator: () => checkDuplicate('phone', getPhoneValue()),
+          trigger: 'blur',
+        },
       ],
       componentProps: { placeholder: '座机号码', allowClear: true },
     },
@@ -302,9 +332,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       component: 'Input',
       fieldName: 'whatsapp',
       label: 'WhatsApp',
-      rules: [
-        { validator: validateWhatsapp, trigger: 'blur' },
-      ],
+      rules: [{ validator: validateWhatsapp, trigger: 'blur' }],
       componentProps: { placeholder: 'WhatsApp 号码或账号', allowClear: true },
     },
     {
@@ -312,7 +340,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: 'wechat',
       label: '微信',
       rules: [
-        { validator: () => checkDuplicate('wechat', getWechatValue()), trigger: 'blur' },
+        {
+          validator: () => checkDuplicate('wechat', getWechatValue()),
+          trigger: 'blur',
+        },
       ],
       componentProps: { placeholder: '微信号', allowClear: true },
     },
@@ -322,7 +353,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
       label: 'QQ号',
       rules: [
         { validator: validateQq, trigger: 'blur' },
-        { validator: () => checkDuplicate('qq', getQqValue()), trigger: 'blur' },
+        {
+          validator: () => checkDuplicate('qq', getQqValue()),
+          trigger: 'blur',
+        },
       ],
       componentProps: { placeholder: 'QQ号', allowClear: true },
     },
@@ -339,7 +373,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
         api: async () => {
           const result: any = await getCountriesApi();
           const items = Array.isArray(result) ? result : [];
-          return items.map((item: any) => ({ label: item.name, value: item.name }));
+          return items.map((item: any) => ({
+            label: item.name,
+            value: item.name,
+          }));
         },
         labelField: 'label',
         valueField: 'value',
@@ -433,7 +470,9 @@ function getQqValue() {
 }
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  onCancel() { drawerApi.close(); },
+  onCancel() {
+    drawerApi.close();
+  },
   async onConfirm() {
     const validate = await baseFormApi.validate();
     if (!validate.valid) return;
@@ -445,9 +484,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       // 省市合并：中国取 Cascader 数组转"省/市/区"文本，其他国家直接取输入文本
       if (isChinaCountry(rawFields.country)) {
-        rawFields.region = Array.isArray(regionChina) && regionChina.length > 0
-          ? regionChina.join('/')
-          : undefined;
+        rawFields.region =
+          Array.isArray(regionChina) && regionChina.length > 0
+            ? regionChina.join('/')
+            : undefined;
       }
 
       // 清理空值：空字符串/null/undefined 不提交，后端按 None 处理
@@ -466,13 +506,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
         payload.customerId = Number(customerId);
       }
 
-      const result = isCreate
-        ? await createContactApi(payload)
-        : await updateContactApi(payload);
+      await (isCreate ? createContactApi(payload) : updateContactApi(payload));
 
-      message.success(isCreate
-        ? $t('ui.notification.create_success')
-        : $t('ui.notification.update_success'));
+      message.success(
+        isCreate
+          ? $t('ui.notification.create_success')
+          : $t('ui.notification.update_success'),
+      );
       drawerApi.setData({ needRefresh: true });
       drawerApi.close();
     } catch {

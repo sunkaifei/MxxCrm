@@ -49,7 +49,7 @@ export function useTabbar() {
    * 目录级 key（如 page.statistics.employee）在 locale 中是
    * { title, button } 对象，直接 $t 不命中；这里兜底 `${key}.title`。
    */
-  function translateTabTitle(key?: string | null): string {
+  function translateTabTitle(key?: null | string): string {
     if (!key) return '';
     const direct = $t(key);
     if (direct !== key && !direct.startsWith('[object ')) return direct;

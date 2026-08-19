@@ -1073,6 +1073,34 @@ impl ApprovalModel {
         Self::find_instance_list_filtered(db, approver_id, None, None, None, page_num, page_size).await
     }
 
+    /// 查询某业务单据的全部审批实例（历史），按提交时间正序
+    /// 用于发票"流转记录"按单据维度聚合展示：历次提交（含已驳回/已撤回的旧实例）全部保留、可完整追溯。
+    pub async fn find_instance_history(
+        db: &DatabaseConnection,
+        business_type: &str,
+        business_id: i64,
+    ) -> Result<Vec<ApprovalInstanceVO>> {
+        let ids: Vec<i64> = InstanceEntity::find()
+            .filter(InstanceColumn::BusinessType.eq(business_type))
+            .filter(InstanceColumn::BusinessId.eq(business_id))
+            .order_by_asc(InstanceColumn::SubmittedAt)
+            .order_by_asc(InstanceColumn::Id)
+            .all(db)
+            .await
+            .map_err(|e| Error::from(format!("查询审批实例历史失败: {}", e)))?
+            .into_iter()
+            .map(|i| i.id)
+            .collect();
+
+        let mut instances = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(vo) = Self::find_instance_by_id(db, id).await? {
+                instances.push(vo);
+            }
+        }
+        Ok(instances)
+    }
+
     pub async fn find_instance_list_filtered(
         db: &DatabaseConnection,
         approver_id: i64,

@@ -10,13 +10,24 @@
  */
 import { computed, ref, watch } from 'vue';
 
-import { Button, Drawer, Descriptions, DescriptionsItem, Tag, Image, Spin, Empty, Divider, Tooltip } from 'ant-design-vue';
+import {
+  Button,
+  Descriptions,
+  DescriptionsItem,
+  Divider,
+  Drawer,
+  Empty,
+  Image,
+  Spin,
+  Tag,
+  Tooltip,
+} from 'ant-design-vue';
 
 import { getProductInfoApi } from '#/api/core/product/product';
 
 const props = defineProps<{
+  productId?: null | number;
   visible: boolean;
-  productId?: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -30,7 +41,7 @@ const loading = ref(false);
 const detail = ref<any>(null);
 const specs = ref<any[]>([]);
 
-const productTypeMap: Record<number, { text: string; color: string }> = {
+const productTypeMap: Record<number, { color: string; text: string }> = {
   1: { text: '实物商品', color: 'blue' },
   2: { text: '虚拟商品', color: 'cyan' },
   3: { text: '服务', color: 'purple' },
@@ -50,17 +61,6 @@ function formatPrice(val: any): string {
 function formatDimensions(val: any): string {
   if (!val) return '-';
   return val;
-}
-
-function getCarouselImages(val: any): string[] {
-  if (!val) return [];
-  if (Array.isArray(val)) return val;
-  try {
-    const parsed = JSON.parse(val);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
 }
 
 async function loadDetail(id: number) {
@@ -102,13 +102,33 @@ watch(
     <template #extra>
       <Tooltip :title="isFullscreen ? '还原' : '最大化'">
         <Button type="text" size="small" @click="isFullscreen = !isFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -121,7 +141,9 @@ watch(
       <div v-if="detail" class="space-y-1">
         <!-- 产品头部：图片 + 名称 -->
         <div class="flex items-start gap-4 mb-2">
-          <div class="flex-shrink-0 w-[88px] h-[88px] rounded-lg overflow-hidden border border-solid border-border bg-muted/40 flex items-center justify-center">
+          <div
+            class="flex-shrink-0 w-[88px] h-[88px] rounded-lg overflow-hidden border border-solid border-border bg-muted/40 flex items-center justify-center"
+          >
             <Image
               v-if="detail.imageUrl"
               :src="detail.imageUrl"
@@ -129,8 +151,18 @@ watch(
               :height="88"
               style="object-fit: cover"
             />
-            <div v-else class="w-full h-full flex items-center justify-center text-3xl text-muted-foreground/40">
-              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5">
+            <div
+              v-else
+              class="w-full h-full flex items-center justify-center text-3xl text-muted-foreground/40"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="36"
+                height="36"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <path d="M21 15l-5-5L5 21" />
@@ -142,8 +174,14 @@ watch(
               {{ detail.name || '-' }}
             </h2>
             <div class="flex flex-wrap items-center gap-1.5">
-              <Tag v-if="detail.productType" :color="productTypeMap[detail.productType]?.color || 'default'">
-                {{ productTypeMap[detail.productType]?.text || `类型${detail.productType}` }}
+              <Tag
+                v-if="detail.productType"
+                :color="productTypeMap[detail.productType]?.color || 'default'"
+              >
+                {{
+                  productTypeMap[detail.productType]?.text ||
+                  `类型${detail.productType}`
+                }}
               </Tag>
               <Tag :color="detail.isActive ? 'green' : 'red'">
                 {{ detail.isActive ? '在售' : '停售' }}
@@ -163,55 +201,129 @@ watch(
 
         <!-- 价格信息 -->
         <div class="grid grid-cols-3 gap-2 mb-3">
-          <div class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20">
+          <div
+            class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20"
+          >
             <div class="text-xs text-muted-foreground mb-1">成本价</div>
-            <div class="text-base font-semibold text-foreground">{{ formatPrice(detail.costPrice) }}</div>
+            <div class="text-base font-semibold text-foreground">
+              {{ formatPrice(detail.costPrice) }}
+            </div>
           </div>
-          <div class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20">
+          <div
+            class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20"
+          >
             <div class="text-xs text-muted-foreground mb-1">销售价</div>
-            <div class="text-base font-semibold text-primary">{{ formatPrice(detail.salePrice) }}</div>
+            <div class="text-base font-semibold text-primary">
+              {{ formatPrice(detail.salePrice) }}
+            </div>
           </div>
-          <div class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20">
+          <div
+            class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20"
+          >
             <div class="text-xs text-muted-foreground mb-1">市场价</div>
-            <div class="text-base font-semibold text-muted-foreground">{{ formatPrice(detail.marketPrice) }}</div>
+            <div class="text-base font-semibold text-muted-foreground">
+              {{ formatPrice(detail.marketPrice) }}
+            </div>
           </div>
         </div>
 
         <!-- 基本信息 -->
-        <Descriptions title="基本信息" :column="2" size="small" bordered :labelStyle="{ width: '100px' }">
-          <DescriptionsItem label="产品编号">{{ detail.productNo || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="SKU编码">{{ detail.sku || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="条码">{{ detail.barcode || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="单位">{{ detail.unit || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="规格类型">{{ specTypeMap[detail.specType] || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="币种">{{ detail.currency || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="重量(kg)">{{ detail.weight ?? '-' }}</DescriptionsItem>
-          <DescriptionsItem label="尺寸">{{ formatDimensions(detail.dimensions) }}</DescriptionsItem>
+        <Descriptions
+          title="基本信息"
+          :column="2"
+          size="small"
+          bordered
+          :label-style="{ width: '100px' }"
+        >
+          <DescriptionsItem label="产品编号">
+            {{ detail.productNo || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="SKU编码">
+            {{ detail.sku || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="条码">
+            {{ detail.barcode || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="单位">
+            {{ detail.unit || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="规格类型">
+            {{ specTypeMap[detail.specType] || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="币种">
+            {{ detail.currency || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="重量(kg)">
+            {{ detail.weight ?? '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="尺寸">
+            {{ formatDimensions(detail.dimensions) }}
+          </DescriptionsItem>
         </Descriptions>
 
         <!-- 库存预警参数 -->
-        <Descriptions title="库存参数" :column="2" size="small" bordered class="mt-4" :labelStyle="{ width: '100px' }">
-          <DescriptionsItem label="安全库存">{{ detail.safetyStock ?? '-' }}</DescriptionsItem>
-          <DescriptionsItem label="最大库存">{{ detail.maxStock ?? '-' }}</DescriptionsItem>
-          <DescriptionsItem label="预警天数">{{ detail.warningDays ?? '-' }}天</DescriptionsItem>
-          <DescriptionsItem label="是否自产">{{ detail.isSelfProduced === 1 ? '是' : '否' }}</DescriptionsItem>
-          <DescriptionsItem label="生产提前期">{{ detail.productionLeadTime ? `${detail.productionLeadTime}天` : '-' }}</DescriptionsItem>
-          <DescriptionsItem label="虚拟库存">{{ detail.isVirtualStock === 1 ? '是' : '否' }}</DescriptionsItem>
+        <Descriptions
+          title="库存参数"
+          :column="2"
+          size="small"
+          bordered
+          class="mt-4"
+          :label-style="{ width: '100px' }"
+        >
+          <DescriptionsItem label="安全库存">
+            {{ detail.safetyStock ?? '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="最大库存">
+            {{ detail.maxStock ?? '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="预警天数">
+            {{ detail.warningDays ?? '-' }}天
+          </DescriptionsItem>
+          <DescriptionsItem label="是否自产">
+            {{ detail.isSelfProduced === 1 ? '是' : '否' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="生产提前期">
+            {{
+              detail.productionLeadTime ? `${detail.productionLeadTime}天` : '-'
+            }}
+          </DescriptionsItem>
+          <DescriptionsItem label="虚拟库存">
+            {{ detail.isVirtualStock === 1 ? '是' : '否' }}
+          </DescriptionsItem>
         </Descriptions>
 
         <!-- 多规格信息 -->
-        <Descriptions v-if="specs && specs.length > 0" title="规格信息" :column="1" size="small" bordered class="mt-4">
-          <DescriptionsItem v-for="(spec, idx) in specs" :key="idx" :label="spec.specName || spec.name || `规格${idx + 1}`">
-            <span class="font-mono text-sm">{{ spec.skuCode || spec.sku || '-' }}</span>
-            <span class="ml-3 text-muted-foreground">¥{{ spec.salePrice ?? spec.price ?? '-' }}</span>
-            <span class="ml-3 text-muted-foreground">库存: {{ spec.stock ?? '-' }}</span>
+        <Descriptions
+          v-if="specs && specs.length > 0"
+          title="规格信息"
+          :column="1"
+          size="small"
+          bordered
+          class="mt-4"
+        >
+          <DescriptionsItem
+            v-for="(spec, idx) in specs"
+            :key="idx"
+            :label="spec.specName || spec.name || `规格${idx + 1}`"
+          >
+            <span class="font-mono text-sm">{{
+              spec.skuCode || spec.sku || '-'
+            }}</span>
+            <span class="ml-3 text-muted-foreground"
+              >¥{{ spec.salePrice ?? spec.price ?? '-' }}</span
+            >
+            <span class="ml-3 text-muted-foreground"
+              >库存: {{ spec.stock ?? '-' }}</span
+            >
           </DescriptionsItem>
         </Descriptions>
 
         <!-- 产品描述 -->
         <div v-if="detail.description" class="mt-4">
           <div class="text-sm font-medium text-foreground mb-2">产品描述</div>
-          <div class="text-sm text-muted-foreground leading-relaxed rounded-lg bg-muted/20 p-3">
+          <div
+            class="text-sm text-muted-foreground leading-relaxed rounded-lg bg-muted/20 p-3"
+          >
             {{ detail.description }}
           </div>
         </div>

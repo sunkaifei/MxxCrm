@@ -1,20 +1,27 @@
 <script lang="ts" setup>
+import type { VbenFormSchema } from '@vben/common-ui';
+
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormSchema } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { $t } from '#/locales';
-import { createTransferApi, getTransferInfoApi } from '#/api/core/product/transfer';
+
 import {
   Button,
   Input,
   InputNumber,
+  message,
   Table,
   Tag,
   Tooltip,
-  message,
 } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import {
+  createTransferApi,
+  getTransferInfoApi,
+} from '#/api/core/product/transfer';
+import { $t } from '#/locales';
+
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 
@@ -79,9 +86,9 @@ interface TransferItem {
   spec?: string;
   unit?: string;
   /** 源仓库库存（ProductSelectModal 按 warehouseId 返回） */
-  stock?: number | null;
+  stock?: null | number;
   /** 调拨数量 */
-  quantity?: number | null;
+  quantity?: null | number;
   remark?: string;
 }
 
@@ -94,14 +101,12 @@ const toWarehouseId = ref<number | undefined>();
 
 // 已添加产品的排除列表（computed 确保响应式）
 const excludeProductIds = computed(() =>
-  tableItems.value
-    .filter((i) => !i.productSku)
-    .map((i) => Number(i.productId)),
+  tableItems.value.filter((i) => !i.productSku).map((i) => Number(i.productId)),
 );
 const excludeSkuCodes = computed(() =>
   tableItems.value
-    .filter((i) => i.productSku && i.productSku !== '')
-    .map((i) => i.productSku!),
+    .map((i) => i.productSku)
+    .filter((sku): sku is string => !!sku && sku !== ''),
 );
 
 // 调拨数量超过源仓库库存校验
@@ -112,7 +117,9 @@ function isOverStock(record: any): boolean {
 }
 
 // 是否存在库存不足的项
-const hasStockError = computed(() => tableItems.value.some((i) => isOverStock(i)));
+const hasStockError = computed(() =>
+  tableItems.value.some((i) => isOverStock(i)),
+);
 
 function openProductSelect() {
   mainFormApi.getValues().then((values) => {
@@ -161,10 +168,20 @@ const itemColumns = computed(() => [
   { title: '产品名称', dataIndex: 'productName', width: 160, ellipsis: true },
   { title: '规格', dataIndex: 'spec', width: 130, ellipsis: true },
   { title: '单位', dataIndex: 'unit', width: 70, align: 'center' as const },
-  { title: '源仓库库存', dataIndex: 'stock', width: 100, align: 'right' as const },
+  {
+    title: '源仓库库存',
+    dataIndex: 'stock',
+    width: 100,
+    align: 'right' as const,
+  },
   { title: '调拨数量', dataIndex: 'quantity', width: 140 },
   { title: '备注', dataIndex: 'remark', width: 160 },
-  { title: $t('ui.table.action'), dataIndex: 'action', width: 70, fixed: 'right' as const },
+  {
+    title: $t('ui.table.action'),
+    dataIndex: 'action',
+    width: 70,
+    fixed: 'right' as const,
+  },
 ]);
 
 const formSchema: VbenFormSchema[] = [
@@ -173,7 +190,9 @@ const formSchema: VbenFormSchema[] = [
     fieldName: '_div1',
     hideLabel: true,
     componentProps: { orientation: 'left', plain: true },
-    renderComponentContent: () => ({ default: () => $t('page.product.inventory.transfer.drawer.info') }),
+    renderComponentContent: () => ({
+      default: () => $t('page.product.inventory.transfer.drawer.info'),
+    }),
     formItemClass: 'col-span-2',
   },
   {
@@ -216,7 +235,13 @@ const formSchema: VbenFormSchema[] = [
     component: 'Textarea',
     fieldName: 'remark',
     label: $t('page.product.inventory.transfer.drawer.remark'),
-    componentProps: { placeholder: $t('page.product.inventory.transfer.drawer.remarkPlaceholder'), allowClear: true, rows: 2 },
+    componentProps: {
+      placeholder: $t(
+        'page.product.inventory.transfer.drawer.remarkPlaceholder',
+      ),
+      allowClear: true,
+      rows: 2,
+    },
     formItemClass: 'col-span-2',
   },
 ];
@@ -244,7 +269,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       // 数量与库存校验
       for (const item of tableItems.value) {
-        if (item.quantity === null || item.quantity === undefined || Number(item.quantity) <= 0) {
+        if (
+          item.quantity === null ||
+          item.quantity === undefined ||
+          Number(item.quantity) <= 0
+        ) {
           message.warning(`请填写产品「${item.productName}」的调拨数量`);
           return;
         }
@@ -286,7 +315,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
       isFullscreen.value = false;
-      drawerData.value = drawerApi.getData<{ create: boolean; row?: any }>() || { create: true };
+      drawerData.value = drawerApi.getData<{
+        create: boolean;
+        row?: any;
+      }>() || { create: true };
       mainFormApi.resetForm();
       confirmLoading.value = false;
       tableItems.value = [];
@@ -304,7 +336,8 @@ async function loadDetail(id: number) {
     const resp = await getTransferInfoApi(id);
     const data = resp?.data ?? resp;
     if (!data) return;
-    const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+    const num = (v: any) =>
+      v === null || v === undefined ? undefined : Number(v);
     const main = data.main ?? data;
     const items = data.items ?? [];
 
@@ -313,7 +346,8 @@ async function loadDetail(id: number) {
 
     mainFormApi.setValues({
       fromWarehouseId: fromId ? String(fromId) : undefined,
-      fromWarehouseDisplay: main.from_warehouse_name ?? main.fromWarehouseName ?? '',
+      fromWarehouseDisplay:
+        main.from_warehouse_name ?? main.fromWarehouseName ?? '',
       toWarehouseId: toId ? String(toId) : undefined,
       toWarehouseDisplay: main.to_warehouse_name ?? main.toWarehouseName ?? '',
       remark: main.remark,
@@ -328,11 +362,14 @@ async function loadDetail(id: number) {
       spec: '',
       unit: '',
       stock: null,
-      quantity: item.quantity !== null && item.quantity !== undefined ? Number(item.quantity) : undefined,
+      quantity:
+        item.quantity !== null && item.quantity !== undefined
+          ? Number(item.quantity)
+          : undefined,
       remark: item.remark ?? '',
     }));
-  } catch (e) {
-    console.error('[调拨] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[调拨] 加载详情失败:', error);
   }
 }
 </script>
@@ -340,19 +377,53 @@ async function loadDetail(id: number) {
 <template>
   <Drawer
     :class="drawerClass"
-    :title="drawerData.create ? $t('page.product.inventory.transfer.drawer.title.create') : $t('page.product.inventory.transfer.drawer.title.edit')"
+    :title="
+      drawerData.create
+        ? $t('page.product.inventory.transfer.drawer.title.create')
+        : $t('page.product.inventory.transfer.drawer.title.edit')
+    "
     :confirm-loading="confirmLoading"
   >
     <template #extra>
-      <Tooltip :title="isFullscreen ? $t('page.product.inventory.transfer.drawer.restore') : $t('page.product.inventory.transfer.drawer.fullscreen')">
-        <button type="button" class="transfer-drawer__fs-btn" @click="toggleFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <Tooltip
+        :title="
+          isFullscreen
+            ? $t('page.product.inventory.transfer.drawer.restore')
+            : $t('page.product.inventory.transfer.drawer.fullscreen')
+        "
+      >
+        <button
+          type="button"
+          class="transfer-drawer__fs-btn"
+          @click="toggleFullscreen"
+        >
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -368,7 +439,9 @@ async function loadDetail(id: number) {
 
       <!-- 调拨明细分隔线 + 统计 -->
       <div class="transfer-items-header">
-        <span class="transfer-items-title">{{ $t('page.product.inventory.transfer.drawer.detail') }}</span>
+        <span class="transfer-items-title">{{
+          $t('page.product.inventory.transfer.drawer.detail')
+        }}</span>
         <div v-if="tableItems.length > 0" class="transfer-items-stats">
           <Tag>共 {{ tableItems.length }}</Tag>
           <Tag v-if="hasStockError" color="error">库存不足</Tag>
@@ -395,7 +468,11 @@ async function loadDetail(id: number) {
         <template #bodyCell="{ column, record, index }">
           <!-- 源仓库库存（只读） -->
           <template v-if="column.dataIndex === 'stock'">
-            <span v-if="record.stock === null || record.stock === undefined" class="text-gray-400">-</span>
+            <span
+              v-if="record.stock === null || record.stock === undefined"
+              class="text-gray-400"
+              >-</span
+            >
             <span v-else class="font-medium">{{ record.stock }}</span>
           </template>
 
@@ -429,21 +506,14 @@ async function loadDetail(id: number) {
 
           <!-- 操作：删除 -->
           <template v-else-if="column.dataIndex === 'action'">
-            <Button
-              type="link"
-              danger
-              size="small"
-              @click="removeItem(index)"
-            >
+            <Button type="link" danger size="small" @click="removeItem(index)">
               {{ $t('ui.button.delete') }}
             </Button>
           </template>
         </template>
 
         <template #emptyText>
-          <div class="transfer-items-empty">
-            请添加调拨明细
-          </div>
+          <div class="transfer-items-empty">请添加调拨明细</div>
         </template>
       </Table>
     </div>
@@ -485,23 +555,23 @@ async function loadDetail(id: number) {
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .transfer-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .transfer-drawer__body {
+  height: calc(100vh - 150px);
   padding: 0 8px;
   overflow-y: auto;
-  height: calc(100vh - 150px);
 }
 
 .transfer-drawer__body .ant-divider {
@@ -518,8 +588,8 @@ async function loadDetail(id: number) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 16px 0 8px;
   padding-top: 12px;
+  margin: 16px 0 8px;
   border-top: 1px solid #f0f0f0;
 }
 
@@ -536,8 +606,8 @@ async function loadDetail(id: number) {
 
 .transfer-items-toolbar {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 8px;
 }
 
@@ -547,15 +617,15 @@ async function loadDetail(id: number) {
 
 .transfer-items-empty {
   padding: 24px 0;
-  color: #999;
   font-size: 13px;
+  color: #999;
   text-align: center;
 }
 
 .transfer-stock-warn {
   margin-top: 2px;
   font-size: 11px;
-  color: #ff4d4f;
   line-height: 1.2;
+  color: #ff4d4f;
 }
 </style>

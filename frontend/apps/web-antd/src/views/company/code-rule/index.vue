@@ -1,13 +1,37 @@
 <script lang="ts" setup>
-import { h, ref, computed } from 'vue';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { computed, h, ref } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
-import { Button, Card, Checkbox, message, Modal, Popconfirm, Switch, Tag, Tooltip } from 'ant-design-vue';
+
+import {
+  Button,
+  Card,
+  Checkbox,
+  message,
+  Modal,
+  Popconfirm,
+  Switch,
+  Tag,
+  Tooltip,
+} from 'ant-design-vue';
+
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
+import {
+  batchRegenerateApi,
+  deleteCodeRuleApi,
+  getCodeRuleListApi,
+  toggleCodeRuleEnabledApi,
+} from '#/api';
+import { $t } from '#/locales';
+
+import CodeRuleDrawer from './drawer.vue';
 
 // 段位类型映射
 const SEGMENT_LABELS: Record<string, string> = {
@@ -23,34 +47,45 @@ const SEGMENT_LABELS: Record<string, string> = {
 
 // 根据 segments 配置生成预览字符串
 function buildPreviewText(row: any): string {
-  const segments: Array<{ type: string; value?: string; format?: string }> = row.segments ?? [];
-  if (!segments.length) return '-';
+  const segments: Array<{ format?: string; type: string; value?: string }> =
+    row.segments ?? [];
+  if (segments.length === 0) return '-';
   const separator = row.separator || '-';
-  return segments.map((seg) => {
-    switch (seg.type) {
-      case 'company': return seg.value || row.companyAbbr || '公司';
-      case 'biz_type': return seg.value || row.bizTypeCode || 'XX';
-      case 'year': return '2026';
-      case 'dept': return seg.value || 'DEPT';
-      case 'seq': {
-        const len = row.seqLength || 4;
-        return String(1).padStart(len, '0');
+  return segments
+    .map((seg) => {
+      switch (seg.type) {
+        case 'biz_type': {
+          return seg.value || row.bizTypeCode || 'XX';
+        }
+        case 'company': {
+          return seg.value || row.companyAbbr || '公司';
+        }
+        case 'date': {
+          return '202601';
+        }
+        case 'dept': {
+          return seg.value || 'DEPT';
+        }
+        case 'fixed': {
+          return seg.value || '';
+        }
+        case 'seq': {
+          const len = row.seqLength || 4;
+          return String(1).padStart(len, '0');
+        }
+        case 'version': {
+          return 'V1';
+        }
+        case 'year': {
+          return '2026';
+        }
+        default: {
+          return '';
+        }
       }
-      case 'version': return 'V1';
-      case 'fixed': return seg.value || '';
-      case 'date': return '202601';
-      default: return '';
-    }
-  }).join(separator);
+    })
+    .join(separator);
 }
-import {
-  batchRegenerateApi,
-  deleteCodeRuleApi,
-  getCodeRuleListApi,
-  toggleCodeRuleEnabledApi,
-} from '#/api';
-import { $t } from '#/locales';
-import CodeRuleDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
 
@@ -63,7 +98,10 @@ const formOptions: VbenFormProps = {
       component: 'Input',
       fieldName: 'moduleCode',
       label: $t('page.company.codeRule.moduleCode'),
-      componentProps: { placeholder: $t('ui.placeholder.input'), allowClear: true },
+      componentProps: {
+        placeholder: $t('ui.placeholder.input'),
+        allowClear: true,
+      },
     },
     {
       component: 'Select',
@@ -104,11 +142,31 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'checkbox', width: 50 },
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: $t('page.company.codeRule.moduleCode'), field: 'moduleCode', width: 130 },
-    { title: $t('page.company.codeRule.moduleName'), field: 'moduleName', width: 130 },
-    { title: $t('page.company.codeRule.ruleName'), field: 'ruleName', width: 110  },
-    { title: $t('page.company.codeRule.bizTypeCode'), field: 'bizTypeCode', width: 110 },
-    { title: $t('page.company.codeRule.separator'), field: 'separator', width: 80 },
+    {
+      title: $t('page.company.codeRule.moduleCode'),
+      field: 'moduleCode',
+      width: 130,
+    },
+    {
+      title: $t('page.company.codeRule.moduleName'),
+      field: 'moduleName',
+      width: 130,
+    },
+    {
+      title: $t('page.company.codeRule.ruleName'),
+      field: 'ruleName',
+      width: 110,
+    },
+    {
+      title: $t('page.company.codeRule.bizTypeCode'),
+      field: 'bizTypeCode',
+      width: 110,
+    },
+    {
+      title: $t('page.company.codeRule.separator'),
+      field: 'separator',
+      width: 80,
+    },
     {
       title: $t('page.company.codeRule.preview'),
       field: 'preview',
@@ -203,12 +261,14 @@ const availableYears = computed(() => {
 
 async function handleBatchRegenerate() {
   const rows = gridApi.grid?.getCheckboxRecords() ?? [];
-  if (!rows.length) {
+  if (rows.length === 0) {
     message.warning('请先勾选要更新编号的模块');
     return;
   }
 
-  const moduleCodes = rows.map((r: any) => r.moduleCode).filter(Boolean) as string[];
+  const moduleCodes = rows
+    .map((r: any) => r.moduleCode)
+    .filter(Boolean) as string[];
   const hasCustomer = moduleCodes.includes('customer');
 
   if (hasCustomer) {
@@ -239,7 +299,10 @@ async function handleBatchRegenerate() {
   await doBatchRegenerate(moduleCodes, undefined);
 }
 
-async function doBatchRegenerate(moduleCodes: string[], years: number[] | undefined) {
+async function doBatchRegenerate(
+  moduleCodes: string[],
+  years: number[] | undefined,
+) {
   batchRegenerating.value = true;
   try {
     await batchRegenerateApi({ moduleCodes, years });
@@ -251,7 +314,7 @@ async function doBatchRegenerate(moduleCodes: string[], years: number[] | undefi
 }
 
 async function confirmYearRegenerate() {
-  if (!selectedYears.value.length) {
+  if (selectedYears.value.length === 0) {
     message.warning('请至少选择一个年份');
     return;
   }
@@ -267,10 +330,25 @@ async function confirmYearRegenerate() {
         <div class="text-sm leading-6">
           <div class="font-medium text-base mb-2">编码规则配置说明</div>
           <ul class="list-disc pl-5 space-y-1 text-gray-600">
-            <li><strong>段位配置</strong>：编码由多个段位组合而成，支持公司简称、业务类型、年份、部门、流水号、版本号、固定文本、日期等段位。</li>
-            <li><strong>公司简称</strong>：在规则编辑中自定义，无需从企业信息表读取。</li>
-            <li><strong>流水号</strong>：根据年份自动递增，每年从 0001 开始。新增时自动生成编号。</li>
-            <li><strong>一键更新</strong>：勾选模块后点击"一键更新"，可按年份重新编号（<span class="text-red-500">覆盖已有编号且不可撤销</span>）。</li>
+            <li>
+              <strong>段位配置</strong
+              >：编码由多个段位组合而成，支持公司简称、业务类型、年份、部门、流水号、版本号、固定文本、日期等段位。
+            </li>
+            <li>
+              <strong>公司简称</strong
+              >：在规则编辑中自定义，无需从企业信息表读取。
+            </li>
+            <li>
+              <strong>流水号</strong>：根据年份自动递增，每年从 0001
+              开始。新增时自动生成编号。
+            </li>
+            <li>
+              <strong>一键更新</strong
+              >：勾选模块后点击"一键更新"，可按年份重新编号（<span
+                class="text-red-500"
+                >覆盖已有编号且不可撤销</span
+              >）。
+            </li>
             <li>配置完成后即生效，新增记录自动按规则生成编号。</li>
           </ul>
         </div>
@@ -285,65 +363,90 @@ async function confirmYearRegenerate() {
           >
             {{ $t('page.company.codeRule.button.add') }}
           </Button>
-        <Button
-          v-if="accessStore.hasAccessCode('company:code:regenerate')"
-          type="default"
-          class="mr-2"
-          :loading="batchRegenerating"
-          @click="handleBatchRegenerate"
-        >
-          <template #icon>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-          </template>
-          {{ $t('page.company.codeRule.button.regenerate') }}
-        </Button>
-      </template>
-
-      <template #preview="{ row }">
-        <Tooltip :title="row.segments?.map((s: any) => SEGMENT_LABELS[s.type] || s.type).join(' + ') || ''">
-          <Tag color="blue">{{ buildPreviewText(row) }}</Tag>
-        </Tooltip>
-      </template>
-
-      <template #enabled="{ row }">
-        <Switch
-          :disabled="!accessStore.hasAccessCode('company:code:update')"
-          v-model:checked="row.enabled"
-          :checked-value="1"
-          :un-checked-value="0"
-          :loading="row.pending"
-          @change="(checked: boolean) => handleEnabledChanged(row, checked)"
-        />
-      </template>
-
-      <template #createdAt="{ row }">
-        {{ formatDateTime(row.createTime) }}
-      </template>
-
-      <template #action="{ row }">
-        <Button
-          v-if="accessStore.hasAccessCode('company:code:update')"
-          type="link"
-          :icon="h(LucideFilePenLine)"
-          @click="handleEdit(row)"
-        />
-        <Popconfirm
-          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.company.codeRule.module') })"
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="handleDelete(row)"
-        >
           <Button
-            v-if="accessStore.hasAccessCode('company:code:delete')"
-            type="link"
-            danger
-            :icon="h(LucideTrash2)"
+            v-if="accessStore.hasAccessCode('company:code:regenerate')"
+            type="default"
+            class="mr-2"
+            :loading="batchRegenerating"
+            @click="handleBatchRegenerate"
+          >
+            <template #icon>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                <path d="M16 16h5v5" />
+              </svg>
+            </template>
+            {{ $t('page.company.codeRule.button.regenerate') }}
+          </Button>
+        </template>
+
+        <template #preview="{ row }">
+          <Tooltip
+            :title="
+              row.segments
+                ?.map((s: any) => SEGMENT_LABELS[s.type] || s.type)
+                .join(' + ') || ''
+            "
+          >
+            <Tag color="blue">{{ buildPreviewText(row) }}</Tag>
+          </Tooltip>
+        </template>
+
+        <template #enabled="{ row }">
+          <Switch
+            :disabled="!accessStore.hasAccessCode('company:code:update')"
+            v-model:checked="row.enabled"
+            :checked-value="1"
+            :un-checked-value="0"
+            :loading="row.pending"
+            @change="(checked) => handleEnabledChanged(row, !!checked)"
           />
-        </Popconfirm>
-      </template>
-    </Grid>
+        </template>
+
+        <template #createdAt="{ row }">
+          {{ formatDateTime(row.createTime) }}
+        </template>
+
+        <template #action="{ row }">
+          <Button
+            v-if="accessStore.hasAccessCode('company:code:update')"
+            type="link"
+            :icon="h(LucideFilePenLine)"
+            @click="handleEdit(row)"
+          />
+          <Popconfirm
+            :title="
+              $t('ui.text.do_you_want_delete', {
+                moduleName: $t('page.company.codeRule.module'),
+              })
+            "
+            :ok-text="$t('ui.button.ok')"
+            :cancel-text="$t('ui.button.cancel')"
+            @confirm="handleDelete(row)"
+          >
+            <Button
+              v-if="accessStore.hasAccessCode('company:code:delete')"
+              type="link"
+              danger
+              :icon="h(LucideTrash2)"
+            />
+          </Popconfirm>
+        </template>
+      </Grid>
     </div>
-  <Drawer />
+    <Drawer />
 
     <!-- 年份选择模态框 -->
     <Modal
@@ -355,14 +458,22 @@ async function confirmYearRegenerate() {
       @ok="confirmYearRegenerate"
     >
       <div class="space-y-4">
-        <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
-          <strong>风险提示：</strong>更新后客户编号将重新从 0001 开始按年份顺序编号（按创建时间排序），
+        <div
+          class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700"
+        >
+          <strong>风险提示：</strong>更新后客户编号将重新从 0001
+          开始按年份顺序编号（按创建时间排序），
           旧编号将作废，可能导致之前打印或导出的资料与系统不一致。此操作不可撤销，请谨慎操作。
         </div>
         <div>
           <div class="font-medium mb-2">选择要更新的年份：</div>
           <Checkbox.Group v-model:value="selectedYears">
-            <Checkbox v-for="y in availableYears" :key="y" :value="y" class="!ml-0 !mr-4 !mb-2">
+            <Checkbox
+              v-for="y in availableYears"
+              :key="y"
+              :value="y"
+              class="!ml-0 !mr-4 !mb-2"
+            >
               {{ y }} 年
             </Checkbox>
           </Checkbox.Group>
@@ -382,16 +493,11 @@ async function confirmYearRegenerate() {
 /* ===== 顶部说明卡片：左/右上角 2px，底边 0，与下方间距 15px ===== */
 .code-rule-wrapper > .ant-card {
   margin-bottom: 15px !important;
-  border-top-left-radius: 2px !important;
-  border-top-right-radius: 2px !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+  border-radius: 2px 2px 0 0 !important;
 }
+
 .code-rule-wrapper > .ant-card > .ant-card-body {
-  border-top-left-radius: 2px !important;
-  border-top-right-radius: 2px !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+  border-radius: 2px 2px 0 0 !important;
 }
 
 /* ===== 下方 Grid 根 div：覆盖 Tailwind rounded-md（6px→0）===== */

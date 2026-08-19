@@ -1,12 +1,14 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
-import { Modal, Button, List, Tag, message, Spin } from 'ant-design-vue';
+
+import { Button, List, message, Modal, Spin, Tag } from 'ant-design-vue';
+
 import { getTemplateRevisionListApi } from '#/api';
 import CodeEditor from '#/components/CodeEditor/index.vue';
 
 const props = defineProps<{
+  templateDataId: null | number;
   visible: boolean;
-  templateDataId: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -26,7 +28,9 @@ async function loadRevisions() {
   try {
     const res: any = await getTemplateRevisionListApi(props.templateDataId);
     const data = res?.data || res;
-    revisions.value = Array.isArray(data) ? data : data?.items || data?.list || [];
+    revisions.value = Array.isArray(data)
+      ? data
+      : data?.items || data?.list || [];
   } catch {
     revisions.value = [];
   } finally {
@@ -34,9 +38,12 @@ async function loadRevisions() {
   }
 }
 
-watch(() => props.visible, (val) => {
-  if (val) loadRevisions();
-});
+watch(
+  () => props.visible,
+  (val) => {
+    if (val) loadRevisions();
+  },
+);
 
 function handlePreview(item: any) {
   previewContent.value = item.temptext || '';
@@ -80,7 +87,11 @@ function handleClose() {
             <List.Item.Meta>
               <template #title>
                 <span>版本 #{{ item.id }}</span>
-                <Tag v-if="item.revisionNote" color="blue" style="margin-left: 8px;">
+                <Tag
+                  v-if="item.revisionNote"
+                  color="blue"
+                  style="margin-left: 8px"
+                >
                   {{ item.revisionNote }}
                 </Tag>
               </template>
@@ -89,13 +100,22 @@ function handleClose() {
               </template>
             </List.Item.Meta>
             <template #actions>
-              <Button type="link" size="small" @click="handlePreview(item)">查看</Button>
-              <Button type="link" size="small" danger @click="handleRollback(item)">回滚</Button>
+              <Button type="link" size="small" @click="handlePreview(item)">
+                查看
+              </Button>
+              <Button
+                type="link"
+                size="small"
+                danger
+                @click="handleRollback(item)"
+              >
+                回滚
+              </Button>
             </template>
           </List.Item>
         </template>
       </List>
-      <div v-else style="text-align: center; padding: 40px; color: #999;">
+      <div v-else style="padding: 40px; color: #999; text-align: center">
         暂无版本历史
       </div>
     </Spin>

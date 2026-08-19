@@ -14,11 +14,11 @@ import {
   FormItem,
   Input,
   InputNumber,
+  message,
   Modal,
   Popconfirm,
   Switch,
   Tag,
-  message,
 } from 'ant-design-vue';
 import { Plus, RefreshCw } from 'lucide-vue-next';
 
@@ -219,8 +219,8 @@ async function handleSubmit() {
     );
     modalVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   } finally {
     modalLoading.value = false;
   }
@@ -231,8 +231,8 @@ async function handleDelete(row: any) {
     await deleteExpenseTypeApi([row.id]);
     message.success($t('page.finance.common.deleteSuccess'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.deleteFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.deleteFailed'));
   }
 }
 </script>
@@ -241,7 +241,12 @@ async function handleDelete(row: any) {
   <Page auto-content-height>
     <Grid :table-title="$t('page.finance.expenseType.manageTitle')">
       <template #toolbar-tools>
-        <Button type="primary" class="mr-2" :icon="h(Plus)" @click="handleCreate">
+        <Button
+          type="primary"
+          class="mr-2"
+          :icon="h(Plus)"
+          @click="handleCreate"
+        >
           {{ $t('page.finance.expenseType.drawer.titleCreate') }}
         </Button>
         <Button class="mr-2" :icon="h(RefreshCw)" @click="gridApi.query()">
@@ -251,18 +256,28 @@ async function handleDelete(row: any) {
 
       <template #typeName="{ row }">
         <span class="font-medium">{{ row.typeName }}</span>
-        <Tag v-if="row.isSystem" color="purple" class="ml-2">{{ $t('page.finance.expenseType.tag.system') }}</Tag>
+        <Tag v-if="row.isSystem" color="purple" class="ml-2">
+          {{ $t('page.finance.expenseType.tag.system') }}
+        </Tag>
       </template>
 
       <template #status="{ row }">
         <Tag :color="row.status === 1 ? 'green' : 'red'">
-          {{ row.status === 1 ? $t('page.finance.expenseType.status.enabled') : $t('page.finance.expenseType.status.disabled') }}
+          {{
+            row.status === 1
+              ? $t('page.finance.expenseType.status.enabled')
+              : $t('page.finance.expenseType.status.disabled')
+          }}
         </Tag>
       </template>
 
       <template #isSystem="{ row }">
-        <Tag v-if="row.isSystem" color="purple">{{ $t('page.finance.common.yes') }}</Tag>
-        <span v-else class="text-gray-400">{{ $t('page.finance.common.no') }}</span>
+        <Tag v-if="row.isSystem" color="purple">
+          {{ $t('page.finance.common.yes') }}
+        </Tag>
+        <span v-else class="text-gray-400">{{
+          $t('page.finance.common.no')
+        }}</span>
       </template>
 
       <template #createdAt="{ row }">
@@ -274,18 +289,30 @@ async function handleDelete(row: any) {
           type="link"
           :title="$t('page.finance.common.edit')"
           @click="handleEdit(row)"
-        >{{ $t('page.finance.common.edit') }}</Button>
+        >
+          {{ $t('page.finance.common.edit') }}
+        </Button>
         <Popconfirm
           v-if="!row.isSystem"
-          :title="$t('page.finance.expenseType.drawer.deleteConfirm', { name: row.typeName })"
+          :title="
+            $t('page.finance.expenseType.drawer.deleteConfirm', {
+              name: row.typeName,
+            })
+          "
           :ok-text="$t('page.finance.common.delete')"
           ok-type="danger"
           :cancel-text="$t('page.finance.common.cancel')"
           @confirm="handleDelete(row)"
         >
-          <Button type="link" danger :title="$t('page.finance.common.delete')">{{ $t('page.finance.common.delete') }}</Button>
+          <Button type="link" danger :title="$t('page.finance.common.delete')">
+            {{ $t('page.finance.common.delete') }}
+          </Button>
         </Popconfirm>
-        <span v-else class="text-gray-300 cursor-not-allowed" :title="$t('page.finance.expenseType.message.systemBuiltinNoDelete')">
+        <span
+          v-else
+          class="text-gray-300 cursor-not-allowed"
+          :title="$t('page.finance.expenseType.message.systemBuiltinNoDelete')"
+        >
           {{ $t('page.finance.common.delete') }}
         </span>
       </template>
@@ -294,7 +321,11 @@ async function handleDelete(row: any) {
     <!-- 新增/编辑弹窗 -->
     <Modal
       v-model:open="modalVisible"
-      :title="isEditType ? $t('page.finance.expenseType.drawer.titleEdit') : $t('page.finance.expenseType.drawer.titleCreate')"
+      :title="
+        isEditType
+          ? $t('page.finance.expenseType.drawer.titleEdit')
+          : $t('page.finance.expenseType.drawer.titleCreate')
+      "
       :confirm-loading="modalLoading"
       :mask-closable="false"
       :destroy-on-close="true"
@@ -311,26 +342,43 @@ async function handleDelete(row: any) {
         <FormItem
           name="typeName"
           :label="$t('page.finance.expenseType.column.typeName')"
-          :rules="[{ required: true, message: $t('page.finance.expenseType.drawer.typeNameRequired') }]"
+          :rules="[
+            {
+              required: true,
+              message: $t('page.finance.expenseType.drawer.typeNameRequired'),
+            },
+          ]"
         >
           <Input
             v-model:value="formData.typeName"
-            :placeholder="$t('page.finance.expenseType.drawer.typeNameRequired')"
+            :placeholder="
+              $t('page.finance.expenseType.drawer.typeNameRequired')
+            "
             allow-clear
           />
         </FormItem>
         <FormItem
           name="typeCode"
           :label="$t('page.finance.expenseType.column.typeCode')"
-          :rules="[{ required: true, message: $t('page.finance.expenseType.drawer.typeCodeRequired') }]"
+          :rules="[
+            {
+              required: true,
+              message: $t('page.finance.expenseType.drawer.typeCodeRequired'),
+            },
+          ]"
         >
           <Input
             v-model:value="formData.typeCode"
-            :placeholder="$t('page.finance.expenseType.drawer.typeCodeRequired')"
+            :placeholder="
+              $t('page.finance.expenseType.drawer.typeCodeRequired')
+            "
             allow-clear
           />
         </FormItem>
-        <FormItem name="sort" :label="$t('page.finance.expenseType.column.sort')">
+        <FormItem
+          name="sort"
+          :label="$t('page.finance.expenseType.column.sort')"
+        >
           <InputNumber
             v-model:value="formData.sort"
             :min="0"
@@ -338,12 +386,21 @@ async function handleDelete(row: any) {
             :placeholder="$t('page.finance.expenseType.drawer.sortPlaceholder')"
           />
         </FormItem>
-        <FormItem name="status" :label="$t('page.finance.expenseType.column.status')">
+        <FormItem
+          name="status"
+          :label="$t('page.finance.expenseType.column.status')"
+        >
           <Switch
             :checked="formData.status === 1"
             :checked-children="$t('page.finance.expenseType.status.enabled')"
-            :un-checked-children="$t('page.finance.expenseType.status.disabled')"
-            @change="(checked: boolean | string | number) => { formData.status = checked ? 1 : 0 }"
+            :un-checked-children="
+              $t('page.finance.expenseType.status.disabled')
+            "
+            @change="
+              (checked: boolean | string | number) => {
+                formData.status = checked ? 1 : 0;
+              }
+            "
           />
         </FormItem>
       </Form>

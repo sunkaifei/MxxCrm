@@ -29,7 +29,9 @@ export const renewEntitlementApi = async (data: any) => {
 
 // 批量删除权益
 export const deleteEntitlementApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/sale/entitlement/delete', { data: ids });
+  return requestClient.delete('/api/system/sale/entitlement/delete', {
+    data: ids,
+  });
 };
 
 // 按客户查询

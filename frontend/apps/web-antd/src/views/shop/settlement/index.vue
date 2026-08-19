@@ -1,11 +1,16 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideEye, LucideCheckCircle } from '@vben/icons';
-import { Button, Tag, Modal, Descriptions, message } from 'ant-design-vue';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
+import { LucideCheckCircle, LucideEye } from '@vben/icons';
+
+import { Button, Descriptions, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { settlementApi } from '#/api';
 
 const detailModalVisible = ref(false);
@@ -225,37 +230,33 @@ async function viewDetail(row: any) {
 
     <Modal v-model:open="detailModalVisible" title="结算详情" width="800">
       <Descriptions :column="2" bordered>
-        <Descriptions.Item label="结算单号">{{
-          detailData?.settlementNo || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="状态">
-          <Tag :color="getStatusColor(detailData?.status)">{{
-            getStatusText(detailData?.status)
-          }}</Tag>
+        <Descriptions.Item label="结算单号">
+          {{ detailData?.settlementNo || '-' }}
         </Descriptions.Item>
-        <Descriptions.Item label="店铺名称">{{
-          detailData?.shopName || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="结算周期"
-          >{{ detailData?.periodStart || '-' }} ~
-          {{ detailData?.periodEnd || '-' }}</Descriptions.Item
-        >
-        <Descriptions.Item label="订单数量"
-          >{{ detailData?.orderCount || 0 }}单</Descriptions.Item
-        >
-        <Descriptions.Item label="付款时间">{{
-          detailData?.payTime || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="总交易额"
-          >¥{{
-            ((detailData?.totalAmount || 0) / 100).toFixed(2)
-          }}</Descriptions.Item
-        >
-        <Descriptions.Item label="平台佣金"
-          >¥{{
-            ((detailData?.commissionAmount || 0) / 100).toFixed(2)
-          }}</Descriptions.Item
-        >
+        <Descriptions.Item label="状态">
+          <Tag :color="getStatusColor(detailData?.status)">
+            {{ getStatusText(detailData?.status) }}
+          </Tag>
+        </Descriptions.Item>
+        <Descriptions.Item label="店铺名称">
+          {{ detailData?.shopName || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="结算周期">
+          {{ detailData?.periodStart || '-' }} ~
+          {{ detailData?.periodEnd || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="订单数量">
+          {{ detailData?.orderCount || 0 }}单
+        </Descriptions.Item>
+        <Descriptions.Item label="付款时间">
+          {{ detailData?.payTime || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="总交易额">
+          ¥{{ ((detailData?.totalAmount || 0) / 100).toFixed(2) }}
+        </Descriptions.Item>
+        <Descriptions.Item label="平台佣金">
+          ¥{{ ((detailData?.commissionAmount || 0) / 100).toFixed(2) }}
+        </Descriptions.Item>
         <Descriptions.Item label="结算金额" :span="2">
           <span class="text-green-500 text-xl font-medium"
             >¥{{ ((detailData?.settlementAmount || 0) / 100).toFixed(2) }}</span

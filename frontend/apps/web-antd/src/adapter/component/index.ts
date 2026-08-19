@@ -31,15 +31,6 @@ import type {
 } from 'ant-design-vue';
 import type { RangePickerProps } from 'ant-design-vue/es/date-picker';
 
-// CodeEditor 组件 props 类型定义
-interface CodeEditorProps {
-  height?: string;
-  language?: string;
-  options?: Record<string, any>;
-  readOnly?: boolean;
-  theme?: string;
-}
-
 import type { Component, Ref } from 'vue';
 
 import type {
@@ -76,6 +67,15 @@ import { $t } from '@vben/locales';
 import { isEmpty } from '@vben/utils';
 
 import { message, Modal, notification } from 'ant-design-vue';
+
+// CodeEditor 组件 props 类型定义
+interface CodeEditorProps {
+  height?: string;
+  language?: string;
+  options?: Record<string, any>;
+  readOnly?: boolean;
+  theme?: string;
+}
 
 type AdapterUploadProps = UploadProps & {
   aspectRatio?: string;

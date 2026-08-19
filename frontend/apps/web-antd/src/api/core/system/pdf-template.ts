@@ -20,3 +20,16 @@ export const bathDeletePdfTemplateApi = async (ids: number[]) =>
 
 export const setDefaultPdfTemplateApi = async (id: number) =>
   requestClient.put('/api/system/pdf-template/set_default', { id });
+
+// PDF模板选项（按单据类型获取可用模板下拉选项）
+export interface PdfTemplateOptionVO {
+  id: number | string;
+  name?: string;
+  templateCode?: string;
+  isDefault?: number;
+}
+
+export const getPdfTemplateOptionsApi = async (docType: string) =>
+  requestClient.get('/api/system/pdf-template/options', {
+    params: { docType },
+  });

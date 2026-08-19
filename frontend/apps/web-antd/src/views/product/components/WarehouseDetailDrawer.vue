@@ -7,13 +7,23 @@
  */
 import { computed, ref, watch } from 'vue';
 
-import { Button, Drawer, Descriptions, DescriptionsItem, Tag, Spin, Empty, Divider, Tooltip } from 'ant-design-vue';
+import {
+  Button,
+  Descriptions,
+  DescriptionsItem,
+  Divider,
+  Drawer,
+  Empty,
+  Spin,
+  Tag,
+  Tooltip,
+} from 'ant-design-vue';
 
 import { getWarehouseInfoApi } from '#/api/core/product/warehouse';
 
 const props = defineProps<{
   visible: boolean;
-  warehouseId?: number | null;
+  warehouseId?: null | number;
 }>();
 
 const emit = defineEmits<{
@@ -26,7 +36,7 @@ const detail = ref<any>(null);
 const isFullscreen = ref(false);
 const drawerWidth = computed(() => (isFullscreen.value ? '100%' : '75%'));
 
-const warehouseTypeMap: Record<number, { text: string; color: string }> = {
+const warehouseTypeMap: Record<number, { color: string; text: string }> = {
   1: { text: '原材料仓', color: 'orange' },
   2: { text: '成品仓', color: 'green' },
   3: { text: '半成品仓', color: 'blue' },
@@ -100,13 +110,33 @@ watch(
     <template #extra>
       <Tooltip :title="isFullscreen ? '还原' : '最大化'">
         <Button type="text" size="small" @click="isFullscreen = !isFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -119,8 +149,19 @@ watch(
       <div v-if="detail" class="space-y-1">
         <!-- 仓库头部 -->
         <div class="flex items-center gap-3 mb-2">
-          <div class="flex-shrink-0 w-[48px] h-[48px] rounded-lg bg-primary/10 flex items-center justify-center">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="hsl(var(--primary))" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <div
+            class="flex-shrink-0 w-[48px] h-[48px] rounded-lg bg-primary/10 flex items-center justify-center"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="28"
+              height="28"
+              fill="none"
+              stroke="hsl(var(--primary))"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M3 21V8l9-5 9 5v13" />
               <path d="M3 21h18" />
               <path d="M9 21v-7h6v7" />
@@ -132,13 +173,23 @@ watch(
               {{ detail.warehouseName || '-' }}
             </h2>
             <div class="flex flex-wrap items-center gap-1.5">
-              <Tag v-if="detail.warehouseType" :color="warehouseTypeMap[detail.warehouseType]?.color || 'default'">
-                {{ warehouseTypeMap[detail.warehouseType]?.text || `类型${detail.warehouseType}` }}
+              <Tag
+                v-if="detail.warehouseType"
+                :color="
+                  warehouseTypeMap[detail.warehouseType]?.color || 'default'
+                "
+              >
+                {{
+                  warehouseTypeMap[detail.warehouseType]?.text ||
+                  `类型${detail.warehouseType}`
+                }}
               </Tag>
               <Tag :color="detail.isActive ? 'green' : 'red'">
                 {{ detail.isActive ? '启用' : '停用' }}
               </Tag>
-              <span class="text-xs text-muted-foreground">编码：{{ detail.code || '-' }}</span>
+              <span class="text-xs text-muted-foreground"
+                >编码：{{ detail.code || '-' }}</span
+              >
             </div>
           </div>
         </div>
@@ -147,45 +198,102 @@ watch(
 
         <!-- 统计卡片 -->
         <div class="grid grid-cols-3 gap-2 mb-3">
-          <div class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20">
+          <div
+            class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20"
+          >
             <div class="text-xs text-muted-foreground mb-1">面积(㎡)</div>
-            <div class="text-base font-semibold text-foreground">{{ detail.areaSqm ?? '-' }}</div>
+            <div class="text-base font-semibold text-foreground">
+              {{ detail.areaSqm ?? '-' }}
+            </div>
           </div>
-          <div class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20">
+          <div
+            class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20"
+          >
             <div class="text-xs text-muted-foreground mb-1">拣货策略</div>
-            <div class="text-sm font-medium text-foreground">{{ pickingStrategyMap[detail.pickingStrategy] || detail.pickingStrategy || '-' }}</div>
+            <div class="text-sm font-medium text-foreground">
+              {{
+                pickingStrategyMap[detail.pickingStrategy] ||
+                detail.pickingStrategy ||
+                '-'
+              }}
+            </div>
           </div>
-          <div class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20">
+          <div
+            class="rounded-lg border border-solid border-border p-3 text-center bg-muted/20"
+          >
             <div class="text-xs text-muted-foreground mb-1">排序</div>
-            <div class="text-base font-semibold text-foreground">{{ detail.sortOrder ?? '-' }}</div>
+            <div class="text-base font-semibold text-foreground">
+              {{ detail.sortOrder ?? '-' }}
+            </div>
           </div>
         </div>
 
         <!-- 基本信息 -->
-        <Descriptions title="基本信息" :column="2" size="small" bordered :labelStyle="{ width: '90px' }">
-          <DescriptionsItem label="仓库名称">{{ detail.warehouseName || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="仓库编码">{{ detail.code || '-' }}</DescriptionsItem>
+        <Descriptions
+          title="基本信息"
+          :column="2"
+          size="small"
+          bordered
+          :label-style="{ width: '90px' }"
+        >
+          <DescriptionsItem label="仓库名称">
+            {{ detail.warehouseName || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="仓库编码">
+            {{ detail.code || '-' }}
+          </DescriptionsItem>
           <DescriptionsItem label="仓库类型">
-            <Tag v-if="detail.warehouseType" :color="warehouseTypeMap[detail.warehouseType]?.color">
+            <Tag
+              v-if="detail.warehouseType"
+              :color="warehouseTypeMap[detail.warehouseType]?.color"
+            >
               {{ warehouseTypeMap[detail.warehouseType]?.text || '-' }}
             </Tag>
             <span v-else>-</span>
           </DescriptionsItem>
-          <DescriptionsItem label="所属区域">{{ detail.region || '-' }}</DescriptionsItem>
+          <DescriptionsItem label="所属区域">
+            {{ detail.region || '-' }}
+          </DescriptionsItem>
         </Descriptions>
 
         <!-- 联系信息 -->
-        <Descriptions title="联系信息" :column="1" size="small" bordered class="mt-4" :labelStyle="{ width: '90px' }">
-          <DescriptionsItem label="仓库地址">{{ detail.address || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="联系人">{{ detail.contactPerson || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="联系电话">{{ detail.contactPhone || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="备用电话">{{ detail.backupPhone || '-' }}</DescriptionsItem>
-          <DescriptionsItem label="物流类型">{{ formatLogistics(detail.logisticsTypes) }}</DescriptionsItem>
+        <Descriptions
+          title="联系信息"
+          :column="1"
+          size="small"
+          bordered
+          class="mt-4"
+          :label-style="{ width: '90px' }"
+        >
+          <DescriptionsItem label="仓库地址">
+            {{ detail.address || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="联系人">
+            {{ detail.contactPerson || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="联系电话">
+            {{ detail.contactPhone || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="备用电话">
+            {{ detail.backupPhone || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="物流类型">
+            {{ formatLogistics(detail.logisticsTypes) }}
+          </DescriptionsItem>
         </Descriptions>
 
         <!-- 其他信息 -->
-        <Descriptions v-if="detail.remark" title="备注" :column="1" size="small" bordered class="mt-4">
-          <DescriptionsItem label="备注内容">{{ detail.remark }}</DescriptionsItem>
+        <Descriptions
+          v-if="detail.remark"
+          title="备注"
+          :column="1"
+          size="small"
+          bordered
+          class="mt-4"
+        >
+          <DescriptionsItem label="备注内容">
+            {{ detail.remark }}
+          </DescriptionsItem>
         </Descriptions>
 
         <!-- 时间信息 -->

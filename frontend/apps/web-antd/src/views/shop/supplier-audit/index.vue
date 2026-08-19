@@ -1,11 +1,16 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideEye, LucideCheck, LucideX } from '@vben/icons';
-import { Button, Tag, Modal, message, Descriptions } from 'ant-design-vue';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
+import { LucideCheck, LucideEye, LucideX } from '@vben/icons';
+
+import { Button, Descriptions, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { supplierAuditApi } from '#/api';
 
 const auditModalVisible = ref(false);
@@ -137,8 +142,8 @@ async function handleAudit(status: number) {
     message.success(status === 1 ? '审核通过' : '审核驳回');
     auditModalVisible.value = false;
     gridApi.query();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 }
 
@@ -242,21 +247,21 @@ function viewDetail(row: any) {
 
     <Modal v-model:open="detailModalVisible" title="申请详情" width="600">
       <Descriptions :column="2" bordered>
-        <Descriptions.Item label="店铺名称">{{
-          detailData?.shopName || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="联系人">{{
-          detailData?.contactName || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="联系电话">{{
-          detailData?.contactPhone || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="店铺简介" :span="2">{{
-          detailData?.shopDesc || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="审核备注" :span="2">{{
-          detailData?.auditRemark || '-'
-        }}</Descriptions.Item>
+        <Descriptions.Item label="店铺名称">
+          {{ detailData?.shopName || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="联系人">
+          {{ detailData?.contactName || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="联系电话">
+          {{ detailData?.contactPhone || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="店铺简介" :span="2">
+          {{ detailData?.shopDesc || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="审核备注" :span="2">
+          {{ detailData?.auditRemark || '-' }}
+        </Descriptions.Item>
       </Descriptions>
     </Modal>
   </Page>

@@ -80,7 +80,9 @@ export const LucideUser = createIconifyIcon('lucide:user');
 export const LucideFileText = createIconifyIcon('lucide:file-text');
 
 // 线索/跟进记录详情
-export const LucideArrowRightLeft = createIconifyIcon('lucide:arrow-right-left');
+export const LucideArrowRightLeft = createIconifyIcon(
+  'lucide:arrow-right-left',
+);
 export const LucideTimer = createIconifyIcon('lucide:timer');
 export const LucideTarget = createIconifyIcon('lucide:target');
 export const LucideUpload = createIconifyIcon('lucide:upload');
@@ -93,7 +95,9 @@ export const LucideTruck = createIconifyIcon('lucide:truck');
 export const LucideUsers = createIconifyIcon('lucide:users');
 export const LucideWallet = createIconifyIcon('lucide:wallet');
 export const LucidePieChart = createIconifyIcon('lucide:pie-chart');
-export const LucideLayoutDashboard = createIconifyIcon('lucide:layout-dashboard');
+export const LucideLayoutDashboard = createIconifyIcon(
+  'lucide:layout-dashboard',
+);
 export const LucideArrowRight = createIconifyIcon('lucide:arrow-right');
 export const LucideFileSignature = createIconifyIcon('lucide:file-signature');
 export const LucideReceipt = createIconifyIcon('lucide:receipt');

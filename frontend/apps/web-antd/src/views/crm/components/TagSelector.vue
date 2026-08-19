@@ -1,13 +1,24 @@
 <script lang="ts" setup>
-import { ref, watch, computed, h } from 'vue';
-import { Button, Tag, Modal, Input, Spin, Empty, message } from 'ant-design-vue';
+import { computed, h, ref, watch } from 'vue';
+
 import { LucidePlus } from '@vben/icons';
+
 import {
-  getAllTagsApi,
+  Button,
+  Empty,
+  Input,
+  message,
+  Modal,
+  Spin,
+  Tag,
+} from 'ant-design-vue';
+
+import {
   addTagsToEntityApi,
-  removeTagsFromEntityApi,
-  getTagsByEntityApi,
+  getAllTagsApi,
   getTagGroupListApi,
+  getTagsByEntityApi,
+  removeTagsFromEntityApi,
 } from '#/api';
 
 interface TagVO {
@@ -27,8 +38,8 @@ interface TagGroupVO {
 
 const props = withDefaults(
   defineProps<{
+    entityId?: null | number;
     entityType: string;
-    entityId?: number | null;
   }>(),
   {
     entityId: null,
@@ -41,7 +52,9 @@ const emit = defineEmits<{
 
 // Current selected tags
 const selectedTags = ref<TagVO[]>([]);
-const selectedTagIds = computed(() => new Set(selectedTags.value.map((t) => t.id)));
+const selectedTagIds = computed(
+  () => new Set(selectedTags.value.map((t) => t.id)),
+);
 
 // Modal state
 const modalVisible = ref(false);
@@ -111,7 +124,10 @@ const groupedTags = computed(() => {
       )
     : allTags.value;
 
-  const map: Record<string, { groupName: string; groupColor: string; tags: TagVO[] }> = {};
+  const map: Record<
+    string,
+    { groupColor: string; groupName: string; tags: TagVO[] }
+  > = {};
   for (const tag of filtered) {
     const key = tag.groupName;
     if (!map[key]) {
@@ -281,16 +297,12 @@ defineExpose({ saveToEntity, loadEntityTags, selectedTags });
         <div v-if="groupedTags.length === 0 && !modalLoading" class="py-8">
           <Empty description="暂无标签" />
         </div>
-        <div
-          v-for="group in groupedTags"
-          :key="group.groupName"
-          class="mb-4"
-        >
+        <div v-for="group in groupedTags" :key="group.groupName" class="mb-4">
           <div class="flex items-center gap-2 mb-2">
             <span
               class="inline-block w-2 h-2 rounded-full"
               :style="{ backgroundColor: group.groupColor }"
-            />
+            ></span>
             <span class="text-sm font-medium text-gray-600">
               {{ group.groupName }}
             </span>
@@ -306,7 +318,10 @@ defineExpose({ saveToEntity, loadEntityTags, selectedTags });
               @click="toggleTag(tag.id)"
             >
               <Tag :color="tag.tagColor">
-                {{ tag.tagName }}<span v-if="tempSelectedIds.has(tag.id)" class="ml-0.5">✓</span>
+                {{ tag.tagName
+                }}<span v-if="tempSelectedIds.has(tag.id)" class="ml-0.5"
+                  >✓</span
+                >
               </Tag>
             </div>
           </div>

@@ -8,39 +8,70 @@ import { h, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Modal, Tag, message } from 'ant-design-vue';
-import { LucideFilePenLine, Power, RefreshCw, Star, StarOff, Trash2 } from 'lucide-vue-next';
+import { Button, message, Modal, Tag } from 'ant-design-vue';
+import {
+  LucideFilePenLine,
+  Power,
+  RefreshCw,
+  Star,
+  StarOff,
+  Trash2,
+} from 'lucide-vue-next';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteCommissionRuleApi,
-  getCommissionRuleListApi,
   getCommissionRuleDetailApi,
+  getCommissionRuleListApi,
   setCommissionDefaultApi,
   toggleCommissionRuleApi,
 } from '#/api/core/finance';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { $t } from '#/locales';
 
 import CommissionRuleDrawer from './drawer.vue';
-import { PageUsageGuide } from '#/components/PageUsageGuide';
 
 const guideStepCount = 5;
 const drawerVisible = ref(false);
 const drawerData = ref<any>(null);
 
-const triggerConditionMap: Record<number, { label: string; color: string }> = {
-  1: { label: $t('page.finance.commissionRule.triggerCondition.contractSign'), color: 'blue' },
-  2: { label: $t('page.finance.commissionRule.triggerCondition.paymentReceived'), color: 'green' },
-  3: { label: $t('page.finance.commissionRule.triggerCondition.orderComplete'), color: 'orange' },
-  4: { label: $t('page.finance.commissionRule.triggerCondition.invoiceIssued'), color: 'purple' },
+const triggerConditionMap: Record<number, { color: string; label: string }> = {
+  1: {
+    label: $t('page.finance.commissionRule.triggerCondition.contractSign'),
+    color: 'blue',
+  },
+  2: {
+    label: $t('page.finance.commissionRule.triggerCondition.paymentReceived'),
+    color: 'green',
+  },
+  3: {
+    label: $t('page.finance.commissionRule.triggerCondition.orderComplete'),
+    color: 'orange',
+  },
+  4: {
+    label: $t('page.finance.commissionRule.triggerCondition.invoiceIssued'),
+    color: 'purple',
+  },
 };
 
-const ruleTypeMap: Record<number, { label: string; color: string }> = {
-  1: { label: $t('page.finance.commissionRule.ruleType.personal'), color: 'blue' },
+const ruleTypeMap: Record<number, { color: string; label: string }> = {
+  1: {
+    label: $t('page.finance.commissionRule.ruleType.personal'),
+    color: 'blue',
+  },
   2: { label: $t('page.finance.commissionRule.ruleType.team'), color: 'green' },
-  3: { label: $t('page.finance.commissionRule.ruleType.manager'), color: 'orange' },
-  4: { label: $t('page.finance.commissionRule.ruleType.director'), color: 'purple' },
-  5: { label: $t('page.finance.commissionRule.ruleType.leader'), color: 'cyan' },
+  3: {
+    label: $t('page.finance.commissionRule.ruleType.manager'),
+    color: 'orange',
+  },
+  4: {
+    label: $t('page.finance.commissionRule.ruleType.director'),
+    color: 'purple',
+  },
+  5: {
+    label: $t('page.finance.commissionRule.ruleType.leader'),
+    color: 'cyan',
+  },
 };
 
 const applyScopeMap: Record<number, string> = {
@@ -193,7 +224,7 @@ async function handleEdit(row: any) {
   try {
     const res = await getCommissionRuleDetailApi(row.id);
     drawerData.value = res.data || row;
-  } catch (e) {
+  } catch {
     drawerData.value = row;
   }
   drawerVisible.value = true;
@@ -211,10 +242,14 @@ async function handleToggle(row: any) {
   row.pending = true;
   try {
     await toggleCommissionRuleApi(row.id);
-    message.success(row.enabled ? $t('page.finance.commissionRule.message.disabled') : $t('page.finance.commissionRule.message.enabled'));
+    message.success(
+      row.enabled
+        ? $t('page.finance.commissionRule.message.disabled')
+        : $t('page.finance.commissionRule.message.enabled'),
+    );
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   } finally {
     row.pending = false;
   }
@@ -223,26 +258,32 @@ async function handleToggle(row: any) {
 async function handleSetDefault(row: any) {
   try {
     await setCommissionDefaultApi(row.id);
-    message.success($t('page.finance.commissionRule.message.setDefaultSuccess'));
+    message.success(
+      $t('page.finance.commissionRule.message.setDefaultSuccess'),
+    );
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   }
 }
 
 async function handleCancelDefault(row: any) {
   Modal.confirm({
     title: $t('page.finance.commissionRule.message.cancelDefaultTitle'),
-    content: $t('page.finance.commissionRule.message.cancelDefaultContent', { name: row.ruleName }),
+    content: $t('page.finance.commissionRule.message.cancelDefaultContent', {
+      name: row.ruleName,
+    }),
     okText: $t('page.finance.common.confirm'),
     cancelText: $t('page.finance.common.cancel'),
     onOk: async () => {
       try {
         await setCommissionDefaultApi(0);
-        message.success($t('page.finance.commissionRule.message.cancelDefaultSuccess'));
+        message.success(
+          $t('page.finance.commissionRule.message.cancelDefaultSuccess'),
+        );
         gridApi.query();
-      } catch (e: any) {
-        message.error(e?.message || $t('page.finance.common.failed'));
+      } catch (error: any) {
+        message.error(error?.message || $t('page.finance.common.failed'));
       }
     },
   });
@@ -251,7 +292,9 @@ async function handleCancelDefault(row: any) {
 async function handleDelete(row: any) {
   Modal.confirm({
     title: $t('page.finance.commissionRule.message.deleteTitle'),
-    content: $t('page.finance.commissionRule.message.deleteContent', { name: row.ruleName }),
+    content: $t('page.finance.commissionRule.message.deleteContent', {
+      name: row.ruleName,
+    }),
     okText: $t('page.finance.common.delete'),
     okType: 'danger',
     cancelText: $t('page.finance.common.cancel'),
@@ -260,8 +303,8 @@ async function handleDelete(row: any) {
         await deleteCommissionRuleApi(row.id);
         message.success($t('page.finance.common.deleteSuccess'));
         gridApi.query();
-      } catch (e: any) {
-        message.error(e?.message || $t('page.finance.common.deleteFailed'));
+      } catch (error: any) {
+        message.error(error?.message || $t('page.finance.common.deleteFailed'));
       }
     },
   });
@@ -303,14 +346,22 @@ async function handleDelete(row: any) {
       </template>
 
       <template #triggerCondition="{ row }">
-        <Tag :color="triggerConditionMap[row.triggerCondition]?.color || 'default'">
-          {{ triggerConditionMap[row.triggerCondition]?.label || row.triggerCondition }}
+        <Tag
+          :color="triggerConditionMap[row.triggerCondition]?.color || 'default'"
+        >
+          {{
+            triggerConditionMap[row.triggerCondition]?.label ||
+            row.triggerCondition
+          }}
         </Tag>
       </template>
 
       <template #ruleType="{ row }">
         <Tag :color="ruleTypeMap[row.ruleType]?.color || 'default'">
-          {{ ruleTypeMap[row.ruleType]?.label || $t('page.finance.commissionRule.message.unknown') }}
+          {{
+            ruleTypeMap[row.ruleType]?.label ||
+            $t('page.finance.commissionRule.message.unknown')
+          }}
         </Tag>
       </template>
 
@@ -319,13 +370,19 @@ async function handleDelete(row: any) {
       </template>
 
       <template #isDefault="{ row }">
-        <Tag v-if="row.isDefault" color="gold">{{ $t('page.finance.commissionRule.defaultTag') }}</Tag>
+        <Tag v-if="row.isDefault" color="gold">
+          {{ $t('page.finance.commissionRule.defaultTag') }}
+        </Tag>
         <span v-else>-</span>
       </template>
 
       <template #enabled="{ row }">
         <Tag :color="row.enabled ? 'green' : 'red'">
-          {{ row.enabled ? $t('page.finance.common.enabled') : $t('page.finance.common.disabled') }}
+          {{
+            row.enabled
+              ? $t('page.finance.common.enabled')
+              : $t('page.finance.common.disabled')
+          }}
         </Tag>
       </template>
 
@@ -354,7 +411,11 @@ async function handleDelete(row: any) {
           type="link"
           :icon="h(Power, { size: 14 })"
           :loading="row.pending"
-          :title="row.enabled ? $t('page.finance.common.disabled') : $t('page.finance.common.enabled')"
+          :title="
+            row.enabled
+              ? $t('page.finance.common.disabled')
+              : $t('page.finance.common.enabled')
+          "
           @click="handleToggle(row)"
         />
         <Button

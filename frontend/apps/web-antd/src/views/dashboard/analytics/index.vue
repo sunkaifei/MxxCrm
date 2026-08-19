@@ -9,12 +9,14 @@ import {
   AnalysisChartsTabs,
   AnalysisOverview,
 } from '@vben/common-ui';
-import { LucideFileText, LucideUsers, LucideBanknote, LucideTarget } from '@vben/icons';
-
 import {
-  getCustomerFunnelApi,
-  getPaymentCompletionApi,
-} from '#/api';
+  LucideBanknote,
+  LucideFileText,
+  LucideTarget,
+  LucideUsers,
+} from '@vben/icons';
+
+import { getCustomerFunnelApi, getPaymentCompletionApi } from '#/api';
 
 import AnalyticsTrends from './analytics-trends.vue';
 import AnalyticsVisitsData from './analytics-visits-data.vue';
@@ -60,8 +62,6 @@ const chartTabs: TabOption[] = [
   { label: '回款月度趋势', value: 'visits' },
 ];
 
-import { formatPercentDisplay } from '#/utils/format';
-
 const currentYear = new Date().getFullYear();
 
 async function loadOverview() {
@@ -74,17 +74,32 @@ async function loadOverview() {
     const f = funnel ?? {};
     const c = completion ?? {};
 
-    overviewItems.value[0]!.value = f.totalCustomers ?? 0;
-    overviewItems.value[0]!.totalValue = f.totalLeads ?? 0;
+    const [
+      overviewCustomers,
+      overviewContracts,
+      overviewPayments,
+      overviewRate,
+    ] = overviewItems.value;
 
-    overviewItems.value[1]!.value = c.totalContractAmount ?? 0;
-    overviewItems.value[1]!.totalValue = c.totalContractAmount ?? 0;
+    if (overviewCustomers) {
+      overviewCustomers.value = f.totalCustomers ?? 0;
+      overviewCustomers.totalValue = f.totalLeads ?? 0;
+    }
 
-    overviewItems.value[2]!.value = c.totalPaymentAmount ?? 0;
-    overviewItems.value[2]!.totalValue = c.totalPaymentAmount ?? 0;
+    if (overviewContracts) {
+      overviewContracts.value = c.totalContractAmount ?? 0;
+      overviewContracts.totalValue = c.totalContractAmount ?? 0;
+    }
 
-    overviewItems.value[3]!.value = Number(c.completionRate) || 0;
-    overviewItems.value[3]!.totalValue = c.unpaidAmount ?? 0;
+    if (overviewPayments) {
+      overviewPayments.value = c.totalPaymentAmount ?? 0;
+      overviewPayments.totalValue = c.totalPaymentAmount ?? 0;
+    }
+
+    if (overviewRate) {
+      overviewRate.value = Number(c.completionRate) || 0;
+      overviewRate.totalValue = c.unpaidAmount ?? 0;
+    }
   } catch {
     // keep zeros on error
   }
@@ -120,10 +135,7 @@ onMounted(() => {
       >
         <AnalyticsVisitsSource />
       </AnalysisChartCard>
-      <AnalysisChartCard
-        class="mt-5 md:mt-0 md:w-1/3"
-        title="客户类型分布"
-      >
+      <AnalysisChartCard class="mt-5 md:mt-0 md:w-1/3" title="客户类型分布">
         <AnalyticsVisitsSales />
       </AnalysisChartCard>
     </div>

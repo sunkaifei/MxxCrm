@@ -1,22 +1,24 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import {
+  LucideCheckCircle,
   LucideFilePenLine,
   LucidePlay,
   LucideSearch,
   LucideSquare,
   LucideTrash2,
-  LucideCheckCircle,
 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
   cancelCheckApi,
   completeCheckApi,
@@ -28,9 +30,9 @@ import { getWarehouseListApi } from '#/api/core/product/warehouse';
 import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
+import DetailDrawer from './detail-drawer.vue';
 import CheckDrawer from './drawer.vue';
 import InputDrawer from './input-drawer.vue';
-import DetailDrawer from './detail-drawer.vue';
 
 const accessStore = useAccessStore();
 
@@ -46,8 +48,8 @@ async function loadWarehouseOptions() {
         value: Number(w.id ?? w.value),
       }),
     );
-  } catch (e) {
-    console.error('[InventoryCheck] 加载仓库选项失败:', e);
+  } catch (error) {
+    console.error('[InventoryCheck] 加载仓库选项失败:', error);
   }
 }
 
@@ -73,7 +75,7 @@ function getStatusOptions() {
 }
 
 function getCheckTypeTag(type: number) {
-  const map: Record<number, { label: string; color: string }> = {
+  const map: Record<number, { color: string; label: string }> = {
     1: { label: $t('page.product.inventory.check.type.1'), color: 'blue' },
     2: { label: $t('page.product.inventory.check.type.2'), color: 'cyan' },
     3: { label: $t('page.product.inventory.check.type.3'), color: 'purple' },
@@ -82,9 +84,12 @@ function getCheckTypeTag(type: number) {
 }
 
 function getStatusTag(status: number) {
-  const map: Record<number, { label: string; color: string }> = {
+  const map: Record<number, { color: string; label: string }> = {
     0: { label: $t('page.product.inventory.check.status.0'), color: 'default' },
-    1: { label: $t('page.product.inventory.check.status.1'), color: 'processing' },
+    1: {
+      label: $t('page.product.inventory.check.status.1'),
+      color: 'processing',
+    },
     2: { label: $t('page.product.inventory.check.status.2'), color: 'success' },
     3: { label: $t('page.product.inventory.check.status.3'), color: 'default' },
   };
@@ -296,7 +301,9 @@ async function handleSubmit(row: any) {
   row.pending = true;
   try {
     await submitCheckApi(row.id);
-    window.$message.success($t('page.product.inventory.check.action.submitSuccess'));
+    window.$message.success(
+      $t('page.product.inventory.check.action.submitSuccess'),
+    );
   } finally {
     row.pending = false;
     gridApi.query();
@@ -314,7 +321,9 @@ async function handleComplete(row: any) {
   row.pending = true;
   try {
     await completeCheckApi(row.id);
-    window.$message.success($t('page.product.inventory.check.action.completeSuccess'));
+    window.$message.success(
+      $t('page.product.inventory.check.action.completeSuccess'),
+    );
   } finally {
     row.pending = false;
     gridApi.query();
@@ -326,7 +335,9 @@ async function handleCancel(row: any) {
   row.pending = true;
   try {
     await cancelCheckApi(row.id);
-    window.$message.success($t('page.product.inventory.check.action.cancelSuccess'));
+    window.$message.success(
+      $t('page.product.inventory.check.action.cancelSuccess'),
+    );
   } finally {
     row.pending = false;
     gridApi.query();
@@ -356,8 +367,26 @@ function handleDetail(row: any) {
       </template>
 
       <template #checkType="{ row }">
-        <Tag :color="getCheckTypeTag(row.stocktakeType === 'full' ? 1 : row.stocktakeType === 'dynamic' ? 3 : 2).color">
-          {{ getCheckTypeTag(row.stocktakeType === 'full' ? 1 : row.stocktakeType === 'dynamic' ? 3 : 2).label }}
+        <Tag
+          :color="
+            getCheckTypeTag(
+              row.stocktakeType === 'full'
+                ? 1
+                : row.stocktakeType === 'dynamic'
+                  ? 3
+                  : 2,
+            ).color
+          "
+        >
+          {{
+            getCheckTypeTag(
+              row.stocktakeType === 'full'
+                ? 1
+                : row.stocktakeType === 'dynamic'
+                  ? 3
+                  : 2,
+            ).label
+          }}
         </Tag>
       </template>
 
@@ -368,13 +397,17 @@ function handleDetail(row: any) {
       </template>
 
       <template #surplusCount="{ row }">
-        <span :class="{ 'text-green-600 font-medium': (row.surplusCount ?? 0) > 0 }">
+        <span
+          :class="{ 'text-green-600 font-medium': (row.surplusCount ?? 0) > 0 }"
+        >
           {{ row.surplusCount ?? 0 }}
         </span>
       </template>
 
       <template #shortageCount="{ row }">
-        <span :class="{ 'text-red-600 font-medium': (row.shortageCount ?? 0) > 0 }">
+        <span
+          :class="{ 'text-red-600 font-medium': (row.shortageCount ?? 0) > 0 }"
+        >
           {{ row.shortageCount ?? 0 }}
         </span>
       </template>
@@ -398,7 +431,11 @@ function handleDetail(row: any) {
           </Popconfirm>
           <Popconfirm
             v-if="accessStore.hasAccessCode('product:check:delete')"
-            :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.product.inventory.check.title') })"
+            :title="
+              $t('ui.text.do_you_want_delete', {
+                moduleName: $t('page.product.inventory.check.title'),
+              })
+            "
             @confirm="() => handleDelete(row)"
           >
             <Button type="link" size="small" danger :icon="h(LucideTrash2)" />

@@ -1,14 +1,18 @@
 <script lang="ts" setup>
+import type { ContentModelSaveDTO } from '#/api/core/website/content-model';
+
 import { computed, ref } from 'vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
+
 import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import {
   addContentModelApi,
   getContentModelDetailApi,
   updateContentModelApi,
 } from '#/api';
-import type { ContentModelSaveDTO } from '#/api/core/website/content-model';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);

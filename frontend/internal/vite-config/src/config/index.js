@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { defineApplicationConfig } from './application';
 import { defineLibraryConfig } from './library';
 export * from './application';

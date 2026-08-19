@@ -1,15 +1,21 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucidePlus } from '@vben/icons';
-import { Button, Tag, Modal, message } from 'ant-design-vue';
-import BlockDrawer from './drawer.vue';
+
+import { Button, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteBlockApi, getBlockListApi } from '#/api';
 
-const blockTypeMap: Record<number, { label: string; color: string }> = {
+import BlockDrawer from './drawer.vue';
+
+const blockTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: '文本', color: 'blue' },
   2: { label: 'HTML', color: 'purple' },
   3: { label: '图片', color: 'green' },
@@ -165,11 +171,7 @@ function truncate(text: string, len = 60): string {
   <Page auto-content-height>
     <Grid table-title="区块管理">
       <template #toolbar-tools>
-        <Button
-          type="primary"
-          :icon="h(LucidePlus)"
-          @click="handleAdd"
-        >
+        <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
           新增区块
         </Button>
       </template>

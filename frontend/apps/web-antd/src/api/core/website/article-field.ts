@@ -61,7 +61,9 @@ export interface ArticleFieldValueVO {
 }
 
 // Article Field APIs
-export const getArticleFieldListApi = async (params?: ArticleFieldListQuery) => {
+export const getArticleFieldListApi = async (
+  params?: ArticleFieldListQuery,
+) => {
   return requestClient.get('/api/system/article/field/list', { params });
 };
 
@@ -70,20 +72,25 @@ export const getArticleFieldDetailApi = async (id: number) => {
 };
 
 export const getArticleFieldByCategoryApi = async (categoryId: number) => {
-  return requestClient.get(`/api/system/article/field/by_category/${categoryId}`);
+  return requestClient.get(
+    `/api/system/article/field/by_category/${categoryId}`,
+  );
 };
 
 export const addArticleFieldApi = async (data: ArticleFieldSaveDTO) => {
   return requestClient.post('/api/system/article/field/add', data);
 };
 
-export const updateArticleFieldApi = async (id: number, data: ArticleFieldSaveDTO) => {
+export const updateArticleFieldApi = async (
+  id: number,
+  data: ArticleFieldSaveDTO,
+) => {
   return requestClient.put(`/api/system/article/field/update/${id}`, data);
 };
 
 export const deleteArticleFieldApi = async (ids: (number | string)[]) => {
   return requestClient.delete('/api/system/article/field/batch_delete', {
-    data: { ids: ids.map((v) => String(v)) },
+    data: { ids: ids.map(String) },
   });
 };
 
@@ -91,6 +98,8 @@ export const getArticleFieldValuesApi = async (articleId: number) => {
   return requestClient.get(`/api/system/article/field/values/${articleId}`);
 };
 
-export const saveArticleFieldValuesApi = async (data: ArticleFieldValueBatchDTO) => {
+export const saveArticleFieldValuesApi = async (
+  data: ArticleFieldValueBatchDTO,
+) => {
   return requestClient.post('/api/system/article/field/save_values', data);
 };

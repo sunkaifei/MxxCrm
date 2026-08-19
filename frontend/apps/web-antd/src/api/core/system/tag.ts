@@ -24,7 +24,10 @@ export const batchDeleteTagApi = async (params: any) => {
   return requestClient.delete('/api/system/tag/batch_delete', { data: params });
 };
 
-export const updateTagStatusApi = async (params: { id: number; status: number }) => {
+export const updateTagStatusApi = async (params: {
+  id: number;
+  status: number;
+}) => {
   return requestClient.put('/api/system/tag/status', params);
 };
 
@@ -56,7 +59,10 @@ export const removeTagsFromEntityApi = async (param: any) => {
   return requestClient.post('/api/system/tag/entity/remove', param);
 };
 
-export const getTagsByEntityApi = async (entityType: string, entityId: number) => {
+export const getTagsByEntityApi = async (
+  entityType: string,
+  entityId: number,
+) => {
   return requestClient.get(`/api/system/tag/entity/${entityType}/${entityId}`);
 };
 

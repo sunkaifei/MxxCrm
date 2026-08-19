@@ -9,24 +9,25 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, Modal, Popconfirm, Tag, Tabs } from 'ant-design-vue';
+import { Button, Drawer, Modal, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
+  approveRefundApi,
+  cancelRefundApi,
   deleteRefundApi,
   getRefundListApi,
-  submitRefundApi,
-  approveRefundApi,
-  rejectRefundApi,
-  receiveRefundApi,
   qualityCheckRefundApi,
-  cancelRefundApi,
+  receiveRefundApi,
+  rejectRefundApi,
+  submitRefundApi,
 } from '#/api';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
-import RefundDrawer from './drawer.vue';
-import RefundDetail from './detail.vue';
+import { $t } from '#/locales';
+
 import CustomerDetail from '../../crm/customer/detail.vue';
+import RefundDetail from './detail.vue';
+import RefundDrawer from './drawer.vue';
 
 // 销售退款使用说明步骤数（与 i18n 中 page.sale.refund.guide.steps 数组对齐）
 const guideStepCount = 5;
@@ -75,7 +76,7 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
@@ -215,7 +216,8 @@ const gridOptions: VxeGridProps = {
           listType: activeTab.value,
         };
         if (formValues.keywords) params.keywords = formValues.keywords;
-        if (formValues.refundStatus) params.refundStatus = formValues.refundStatus;
+        if (formValues.refundStatus)
+          params.refundStatus = formValues.refundStatus;
         if (formValues.approvalStatus)
           params.approvalStatus = formValues.approvalStatus;
         if (formValues.dateRange && formValues.dateRange.length === 2) {
@@ -235,7 +237,12 @@ const gridOptions: VxeGridProps = {
   },
   columns: [
     { type: 'checkbox', width: 50 },
-    { title: $t('ui.table.seq'), type: 'seq', width: 60, headerAlign: 'center' },
+    {
+      title: $t('ui.table.seq'),
+      type: 'seq',
+      width: 60,
+      headerAlign: 'center',
+    },
     {
       title: '退货单号',
       field: 'refundNo',
@@ -335,7 +342,7 @@ function handleEdit(row: any) {
 
 // ========== 详情抽屉 ==========
 const detailVisible = ref(false);
-const detailId = ref<number | null>(null);
+const detailId = ref<null | number>(null);
 const detailKey = ref(0);
 
 function handleView(row: any) {
@@ -351,7 +358,7 @@ function closeDetail() {
 
 // ========== 客户详情抽屉 ==========
 const customerDetailVisible = ref(false);
-const customerDetailId = ref<number | null>(null);
+const customerDetailId = ref<null | number>(null);
 const customerDetailKey = ref(0);
 
 function openCustomerDetail(customerId: number) {
@@ -437,18 +444,17 @@ async function handleReject(row: any) {
   Modal.confirm({
     title: '审批驳回',
     content: () =>
-      h(
-        'div',
-        { style: 'display:flex;flex-direction:column;gap:8px;' },
-        [
-          h('span', '确定要驳回该退货单吗？'),
-          h('textarea', {
-            placeholder: '请输入驳回原因',
-            style: 'min-height:80px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
-            onInput: (e: any) => { reason = e.target.value; },
-          }),
-        ],
-      ),
+      h('div', { style: 'display:flex;flex-direction:column;gap:8px;' }, [
+        h('span', '确定要驳回该退货单吗？'),
+        h('textarea', {
+          placeholder: '请输入驳回原因',
+          style:
+            'min-height:80px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
+          onInput: (e: any) => {
+            reason = e.target.value;
+          },
+        }),
+      ]),
     okText: '确认驳回',
     cancelText: '取消',
     onOk: async () => {
@@ -470,23 +476,23 @@ async function handleReceive(row: any) {
   Modal.confirm({
     title: '仓库收货',
     content: () =>
-      h(
-        'div',
-        { style: 'display:flex;flex-direction:column;gap:8px;' },
-        [
-          h('span', '确认收货该退货单？'),
-          h('input', {
-            placeholder: '退货物流单号（可选）',
-            style: 'padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
-            onInput: (e: any) => { logisticsNo = e.target.value; },
-          }),
-          h('input', {
-            placeholder: '退货物流公司（可选）',
-            style: 'padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
-            onInput: (e: any) => { logisticsCompany = e.target.value; },
-          }),
-        ],
-      ),
+      h('div', { style: 'display:flex;flex-direction:column;gap:8px;' }, [
+        h('span', '确认收货该退货单？'),
+        h('input', {
+          placeholder: '退货物流单号（可选）',
+          style: 'padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
+          onInput: (e: any) => {
+            logisticsNo = e.target.value;
+          },
+        }),
+        h('input', {
+          placeholder: '退货物流公司（可选）',
+          style: 'padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
+          onInput: (e: any) => {
+            logisticsCompany = e.target.value;
+          },
+        }),
+      ]),
     okText: '确认收货',
     cancelText: '取消',
     onOk: async () => {
@@ -512,27 +518,33 @@ async function handleQualityCheck(row: any) {
   Modal.confirm({
     title: '质检完成',
     content: () =>
-      h(
-        'div',
-        { style: 'display:flex;flex-direction:column;gap:8px;' },
-        [
-          h('div', { style: 'display:flex;align-items:center;gap:12px;' }, [
-            h('span', '质检结果：'),
-            h('select', {
-              style: 'padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;flex:1;',
-              onChange: (e: any) => { result = Number(e.target.value); },
-            }, [
+      h('div', { style: 'display:flex;flex-direction:column;gap:8px;' }, [
+        h('div', { style: 'display:flex;align-items:center;gap:12px;' }, [
+          h('span', '质检结果：'),
+          h(
+            'select',
+            {
+              style:
+                'padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;flex:1;',
+              onChange: (e: any) => {
+                result = Number(e.target.value);
+              },
+            },
+            [
               h('option', { value: 1 }, '合格'),
               h('option', { value: 2 }, '不合格'),
-            ]),
-          ]),
-          h('textarea', {
-            placeholder: '质检备注（可选）',
-            style: 'min-height:80px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
-            onInput: (e: any) => { remark = e.target.value; },
-          }),
-        ],
-      ),
+            ],
+          ),
+        ]),
+        h('textarea', {
+          placeholder: '质检备注（可选）',
+          style:
+            'min-height:80px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
+          onInput: (e: any) => {
+            remark = e.target.value;
+          },
+        }),
+      ]),
     okText: '确认',
     cancelText: '取消',
     onOk: async () => {
@@ -579,11 +591,7 @@ async function handleCancel(row: any) {
       :expand-text="$t('page.sale.refund.guide.expand')"
       :collapse-text="$t('page.sale.refund.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -595,15 +603,25 @@ async function handleCancel(row: any) {
         </div>
       </div>
     </PageUsageGuide>
-    <Grid :table-title="''">
+    <Grid table-title="">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
-          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
         </Tabs>
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:refund:save')"
+          v-if="
+            !isSubordinateView && accessStore.hasAccessCode('sale:refund:save')
+          "
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -611,7 +629,10 @@ async function handleCancel(row: any) {
           新建退货单
         </Button>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:refund:delete')"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:refund:delete')
+          "
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -659,7 +680,9 @@ async function handleCancel(row: any) {
 
       <template #refundStatus="{ row }">
         <Tag :color="refundStatusColorMap[row.refundStatus] ?? 'default'">
-          {{ refundStatusLabelMap[row.refundStatus] ?? row.refundStatus ?? '-' }}
+          {{
+            refundStatusLabelMap[row.refundStatus] ?? row.refundStatus ?? '-'
+          }}
         </Tag>
       </template>
 
@@ -678,17 +701,21 @@ async function handleCancel(row: any) {
           v-if="accessStore.hasAccessCode('sale:refund:list')"
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleView(row)"
-        >查看</a>
+          >查看</a
+        >
         <!-- 编辑：草稿(1)或已驳回(8)或已取消(9) -->
         <a
           v-if="
             !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:update') &&
-            (row.refundStatus === 1 || row.refundStatus === 8 || row.refundStatus === 9)
+            (row.refundStatus === 1 ||
+              row.refundStatus === 8 ||
+              row.refundStatus === 9)
           "
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleEdit(row)"
-        >编辑</a>
+          >编辑</a
+        >
         <!-- 提交审批：草稿(1)或已驳回(8) -->
         <a
           v-if="
@@ -698,7 +725,8 @@ async function handleCancel(row: any) {
           "
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleSubmitApproval(row)"
-        >提交审批</a>
+          >提交审批</a
+        >
         <!-- 审批通过：待审批(2) -->
         <a
           v-if="
@@ -708,7 +736,8 @@ async function handleCancel(row: any) {
           "
           class="text-green-600 cursor-pointer mx-1"
           @click="() => handleApprove(row)"
-        >审批通过</a>
+          >审批通过</a
+        >
         <!-- 审批驳回：待审批(2) -->
         <a
           v-if="
@@ -718,7 +747,8 @@ async function handleCancel(row: any) {
           "
           class="text-orange-600 cursor-pointer mx-1"
           @click="() => handleReject(row)"
-        >驳回</a>
+          >驳回</a
+        >
         <!-- 仓库收货：审批通过(3)/待收货(4) -->
         <a
           v-if="
@@ -728,7 +758,8 @@ async function handleCancel(row: any) {
           "
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleReceive(row)"
-        >收货</a>
+          >收货</a
+        >
         <!-- 质检完成：已收货(5)/质检中(6) -->
         <a
           v-if="
@@ -738,23 +769,29 @@ async function handleCancel(row: any) {
           "
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleQualityCheck(row)"
-        >质检</a>
+          >质检</a
+        >
         <!-- 取消：草稿(1)/待审批(2)/已驳回(8) -->
         <a
           v-if="
             !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:update') &&
-            (row.refundStatus === 1 || row.refundStatus === 2 || row.refundStatus === 8)
+            (row.refundStatus === 1 ||
+              row.refundStatus === 2 ||
+              row.refundStatus === 8)
           "
           class="text-orange-600 cursor-pointer mx-1"
           @click="() => handleCancel(row)"
-        >取消</a>
+          >取消</a
+        >
         <!-- 删除：仅草稿(1)/已驳回(8)/已取消(9) -->
         <Popconfirm
           v-if="
             !isSubordinateView &&
             accessStore.hasAccessCode('sale:refund:delete') &&
-            (row.refundStatus === 1 || row.refundStatus === 8 || row.refundStatus === 9)
+            (row.refundStatus === 1 ||
+              row.refundStatus === 8 ||
+              row.refundStatus === 9)
           "
           :title="$t('ui.text.do_you_want_delete', { moduleName: '退货单' })"
           :ok-text="$t('ui.button.ok')"

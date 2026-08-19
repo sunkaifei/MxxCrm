@@ -1,11 +1,16 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
 import { LucideEye } from '@vben/icons';
-import { Button, Tag, Modal, Descriptions } from 'ant-design-vue';
+
+import { Button, Descriptions, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { orderApi } from '#/api/core/shop/order';
 
 const detailModalVisible = ref(false);
@@ -248,56 +253,48 @@ async function viewDetail(row: any) {
 
     <Modal v-model:open="detailModalVisible" title="订单详情" width="800">
       <Descriptions :column="2" bordered>
-        <Descriptions.Item label="订单编号">{{
-          detailData?.orderNo || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="状态">
-          <Tag :color="getStatusColor(detailData?.status)">{{
-            getStatusText(detailData?.status)
-          }}</Tag>
+        <Descriptions.Item label="订单编号">
+          {{ detailData?.orderNo || '-' }}
         </Descriptions.Item>
-        <Descriptions.Item label="店铺名称">{{
-          detailData?.shopName || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="商品数量"
-          >{{ detailData?.goodsCount || 0 }}件</Descriptions.Item
-        >
-        <Descriptions.Item label="订单金额"
-          >¥{{
-            ((detailData?.totalAmount || 0) / 100).toFixed(2)
-          }}</Descriptions.Item
-        >
-        <Descriptions.Item label="运费"
-          >¥{{
-            ((detailData?.freightAmount || 0) / 100).toFixed(2)
-          }}</Descriptions.Item
-        >
-        <Descriptions.Item label="平台佣金"
-          >¥{{
-            ((detailData?.commissionAmount || 0) / 100).toFixed(2)
-          }}</Descriptions.Item
-        >
-        <Descriptions.Item label="结算金额"
-          >¥{{
-            ((detailData?.settlementAmount || 0) / 100).toFixed(2)
-          }}</Descriptions.Item
-        >
-        <Descriptions.Item label="收货人" :span="2"
-          >{{ detailData?.receiverName }}
-          {{ detailData?.receiverPhone }}</Descriptions.Item
-        >
-        <Descriptions.Item label="收货地址" :span="2">{{
-          detailData?.receiverAddress || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="支付时间">{{
-          detailData?.payTime || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="发货时间">{{
-          detailData?.deliveryTime || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="签收时间">{{
-          detailData?.receiveTime || '-'
-        }}</Descriptions.Item>
+        <Descriptions.Item label="状态">
+          <Tag :color="getStatusColor(detailData?.status)">
+            {{ getStatusText(detailData?.status) }}
+          </Tag>
+        </Descriptions.Item>
+        <Descriptions.Item label="店铺名称">
+          {{ detailData?.shopName || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="商品数量">
+          {{ detailData?.goodsCount || 0 }}件
+        </Descriptions.Item>
+        <Descriptions.Item label="订单金额">
+          ¥{{ ((detailData?.totalAmount || 0) / 100).toFixed(2) }}
+        </Descriptions.Item>
+        <Descriptions.Item label="运费">
+          ¥{{ ((detailData?.freightAmount || 0) / 100).toFixed(2) }}
+        </Descriptions.Item>
+        <Descriptions.Item label="平台佣金">
+          ¥{{ ((detailData?.commissionAmount || 0) / 100).toFixed(2) }}
+        </Descriptions.Item>
+        <Descriptions.Item label="结算金额">
+          ¥{{ ((detailData?.settlementAmount || 0) / 100).toFixed(2) }}
+        </Descriptions.Item>
+        <Descriptions.Item label="收货人" :span="2">
+          {{ detailData?.receiverName }}
+          {{ detailData?.receiverPhone }}
+        </Descriptions.Item>
+        <Descriptions.Item label="收货地址" :span="2">
+          {{ detailData?.receiverAddress || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="支付时间">
+          {{ detailData?.payTime || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="发货时间">
+          {{ detailData?.deliveryTime || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="签收时间">
+          {{ detailData?.receiveTime || '-' }}
+        </Descriptions.Item>
         <Descriptions.Item
           label="取消原因"
           :span="2"

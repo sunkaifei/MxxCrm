@@ -1,20 +1,29 @@
 <script lang="ts" setup>
 import { computed, defineAsyncComponent, ref } from 'vue';
-import { message, Select as ASelect, Tag, Button, Popconfirm } from 'ant-design-vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { $t } from '#/locales';
+
+import {
+  Select as ASelect,
+  Button,
+  message,
+  Popconfirm,
+  Tag,
+} from 'ant-design-vue';
+
 import { useVbenForm } from '#/adapter/form';
 import {
   createNoticeApi,
-  updateNoticeApi,
+  NOTICE_LEVEL_OPTIONS,
+  NOTICE_PUBLISH_STATUS,
+  NOTICE_TARGET_TYPE_OPTIONS,
+  NOTICE_TYPE_OPTIONS,
   publishNoticeApi,
   revokeNoticeApi,
-  NOTICE_TYPE_OPTIONS,
-  NOTICE_LEVEL_OPTIONS,
-  NOTICE_TARGET_TYPE_OPTIONS,
-  NOTICE_PUBLISH_STATUS,
+  updateNoticeApi,
 } from '#/api';
 import { getColleagueListApi } from '#/api/core/message/chat';
+import { $t } from '#/locales';
 
 // 异步加载富文本编辑器
 const RichTextEditor = defineAsyncComponent(
@@ -37,9 +46,13 @@ const rowRevokeTime = ref<string>('');
 const rowCreateTime = ref<string>('');
 
 // 是否已发布（用于控制可编辑性）
-const isPublished = computed(() => rowPublishStatus.value === NOTICE_PUBLISH_STATUS.PUBLISHED);
+const isPublished = computed(
+  () => rowPublishStatus.value === NOTICE_PUBLISH_STATUS.PUBLISHED,
+);
 // 是否已撤回
-const isRevoked = computed(() => rowPublishStatus.value === NOTICE_PUBLISH_STATUS.REVOKED);
+const isRevoked = computed(
+  () => rowPublishStatus.value === NOTICE_PUBLISH_STATUS.REVOKED,
+);
 // 是否禁止编辑（已发布状态不可编辑）
 const isReadonly = computed(() => isPublished.value);
 
@@ -58,16 +71,18 @@ async function loadColleagues() {
   colleagueLoading.value = true;
   try {
     const res: any = await getColleagueListApi({ page: 1, pageSize: 500 });
-    const list = Array.isArray(res) ? res : (res?.list || res?.records || []);
+    const list = Array.isArray(res) ? res : res?.list || res?.records || [];
     colleagueOptions.value = list.map((u: any) => {
       const name = u.nickName || u.userName || `用户${u.id}`;
       return {
-        label: u.depts?.[0]?.deptName ? `${name}（${u.depts[0].deptName}）` : name,
+        label: u.depts?.[0]?.deptName
+          ? `${name}（${u.depts[0].deptName}）`
+          : name,
         value: String(u.id),
       };
     });
-  } catch (e) {
-    console.error('加载同事列表失败', e);
+  } catch (error) {
+    console.error('加载同事列表失败', error);
   } finally {
     colleagueLoading.value = false;
   }
@@ -101,7 +116,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
         allowClear: true,
         options: NOTICE_TYPE_OPTIONS,
       },
-      rules: z.any().refine((v) => v != null, { message: '请选择公告类型' }),
+      rules: z.any().refine((v) => v !== null && v !== undefined, {
+        message: '请选择公告类型',
+      }),
     },
     {
       component: 'Select',
@@ -113,7 +130,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
         allowClear: true,
         options: NOTICE_LEVEL_OPTIONS,
       },
-      rules: z.any().refine((v) => v != null, { message: '请选择公告等级' }),
+      rules: z.any().refine((v) => v !== null && v !== undefined, {
+        message: '请选择公告等级',
+      }),
     },
     {
       component: 'RadioGroup',
@@ -210,7 +229,8 @@ async function handleSave(saveAndPublish: boolean) {
   }
 
   // 校验富文本内容
-  const contentText = richContent.value?.replace(/<[^>]+>/g, '').trim() || '';
+  const contentText =
+    richContent.value?.replaceAll(/<[^>]+>/g, '').trim() || '';
   if (!contentText) {
     message.warning('请输入公告内容');
     return;
@@ -287,12 +307,15 @@ async function handleRevoke() {
 // 发布状态徽标
 const publishStatusMeta = computed(() => {
   switch (rowPublishStatus.value) {
-    case NOTICE_PUBLISH_STATUS.PUBLISHED:
+    case NOTICE_PUBLISH_STATUS.PUBLISHED: {
       return { text: '已发布', color: 'success', dot: '#52c41a' };
-    case NOTICE_PUBLISH_STATUS.REVOKED:
+    }
+    case NOTICE_PUBLISH_STATUS.REVOKED: {
       return { text: '已撤回', color: 'warning', dot: '#faad14' };
-    default:
+    }
+    default: {
       return { text: '未发布', color: 'default', dot: '#bfbfbf' };
+    }
   }
 });
 
@@ -301,16 +324,21 @@ const levelMeta = computed(() => {
   const values = baseFormApi.form.values;
   const level = values?.level;
   switch (level) {
-    case 'urgent':
-      return { text: '紧急', color: '#f5222d' };
-    case 'high':
+    case 'high': {
       return { text: '高', color: '#fa8c16' };
-    case 'normal':
-      return { text: '普通', color: '#1890ff' };
-    case 'low':
+    }
+    case 'low': {
       return { text: '低', color: '#8c8c8c' };
-    default:
+    }
+    case 'normal': {
+      return { text: '普通', color: '#1890ff' };
+    }
+    case 'urgent': {
+      return { text: '紧急', color: '#f5222d' };
+    }
+    default: {
       return null;
+    }
   }
 });
 
@@ -330,7 +358,10 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
           <div class="info-card__title">
             <span class="info-card__title-text">发布信息</span>
             <Tag :color="publishStatusMeta.color" class="info-card__status">
-              <span class="status-dot" :style="{ background: publishStatusMeta.dot }"></span>
+              <span
+                class="status-dot"
+                :style="{ background: publishStatusMeta.dot }"
+              ></span>
               {{ publishStatusMeta.text }}
             </Tag>
           </div>
@@ -371,11 +402,17 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
             <span
               v-if="levelMeta"
               class="level-badge"
-              :style="{ background: `${levelMeta.color}1a`, color: levelMeta.color, borderColor: `${levelMeta.color}40` }"
+              :style="{
+                background: `${levelMeta.color}1a`,
+                color: levelMeta.color,
+                borderColor: `${levelMeta.color}40`,
+              }"
             >
               {{ levelMeta.text }}
             </span>
-            <span v-if="isReadonly" class="readonly-hint">已发布，不可编辑</span>
+            <span v-if="isReadonly" class="readonly-hint"
+              >已发布，不可编辑</span
+            >
           </div>
         </header>
         <div class="info-card__body info-card__body--form">
@@ -399,8 +436,9 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
               :options="colleagueOptions"
               :loading="colleagueLoading"
               placeholder="请选择目标用户（可多选，支持搜索）"
-              :filter-option="(input: string, option: any) =>
-                option.label.toLowerCase().includes(input.toLowerCase())
+              :filter-option="
+                (input: string, option: any) =>
+                  option.label.toLowerCase().includes(input.toLowerCase())
               "
               style="width: 100%"
               :max-tag-count="15"
@@ -440,9 +478,7 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
             cancel-text="取消"
             @confirm="handleRevoke"
           >
-            <Button danger :loading="saving">
-              撤回公告
-            </Button>
+            <Button danger :loading="saving"> 撤回公告 </Button>
           </Popconfirm>
         </div>
 
@@ -456,17 +492,10 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
 
           <!-- 未发布/已撤回状态：保存 + 保存并发布 -->
           <template v-else>
-            <Button
-              :loading="saving"
-              @click="handleSave(false)"
-            >
+            <Button :loading="saving" @click="handleSave(false)">
               {{ isCreate ? '保存草稿' : '保存' }}
             </Button>
-            <Button
-              type="primary"
-              :loading="saving"
-              @click="handleSave(true)"
-            >
+            <Button type="primary" :loading="saving" @click="handleSave(true)">
               {{ isRevoked ? '重新发布' : '保存并发布' }}
             </Button>
           </template>
@@ -486,10 +515,10 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
 
 /* 卡片基础样式 */
 .info-card {
-  background: #ffffff;
+  overflow: hidden;
+  background: #fff;
   border: 1px solid #eef0f3;
   border-radius: 8px;
-  overflow: hidden;
   transition: border-color 0.2s ease;
 }
 
@@ -499,20 +528,20 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
 
 /* 发布信息卡：用淡蓝底色区分 */
 .info-card--publish {
-  background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #f8faff 0%, #fff 100%);
   border-color: #d6e4ff;
 }
 
 .info-card__header {
   padding: 14px 18px 8px;
-  border-bottom: 1px solid #f5f5f5;
   background: transparent;
+  border-bottom: 1px solid #f5f5f5;
 }
 
 .info-card__title {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
 }
 
 .info-card__title-text {
@@ -524,40 +553,40 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
 
 .info-card__hint {
   font-size: 12px;
-  color: #8c8c8c;
   font-weight: 400;
+  color: #8c8c8c;
 }
 
 .info-card__status {
   display: inline-flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   padding: 2px 10px;
+  margin-left: 4px;
   font-size: 12px;
   border-radius: 10px;
-  margin-left: 4px;
 }
 
 .status-dot {
+  display: inline-block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  display: inline-block;
 }
 
 .level-badge {
-  font-size: 11px;
   padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid;
+  font-size: 11px;
   font-weight: 500;
+  border: 1px solid;
+  border-radius: 4px;
 }
 
 .readonly-hint {
-  font-size: 12px;
-  color: #fa8c16;
   margin-left: auto;
+  font-size: 12px;
   font-weight: 400;
+  color: #fa8c16;
 }
 
 .info-card__body {
@@ -586,14 +615,14 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
 }
 
 .info-item__label {
+  flex-shrink: 0;
   width: 80px;
   color: #8c8c8c;
-  flex-shrink: 0;
 }
 
 .info-item__value {
-  color: #262626;
   font-weight: 500;
+  color: #262626;
 }
 
 .info-item__value--warning {
@@ -601,14 +630,14 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
 }
 
 .info-item__value--muted {
-  color: #bfbfbf;
   font-weight: 400;
+  color: #bfbfbf;
 }
 
 /* 指定用户选择器 */
 .user-selector {
-  margin: 12px 18px 18px;
   padding: 14px;
+  margin: 12px 18px 18px;
   background: #fafbfc;
   border: 1px dashed #d9dde3;
   border-radius: 6px;
@@ -623,20 +652,20 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
 
 .user-selector__label {
   font-size: 13px;
-  color: #262626;
   font-weight: 500;
+  color: #262626;
 }
 
 .required-mark {
-  color: #f5222d;
   margin-right: 2px;
+  color: #f5222d;
 }
 
 .user-selector__count {
+  padding: 2px 8px;
   font-size: 12px;
   color: #1890ff;
   background: #e6f7ff;
-  padding: 2px 8px;
   border-radius: 10px;
 }
 
@@ -651,16 +680,16 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
 
 .slide-fade-enter-from,
 .slide-fade-leave-to {
+  max-height: 0;
   opacity: 0;
   transform: translateY(-8px);
-  max-height: 0;
 }
 
 .slide-fade-enter-to,
 .slide-fade-leave-from {
+  max-height: 500px;
   opacity: 1;
   transform: translateY(0);
-  max-height: 500px;
 }
 
 /* 底部操作区 */
@@ -669,14 +698,14 @@ const selectedUserCount = computed(() => targetUserIds.value.length);
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-top: 1px solid #f0f0f0;
   background: #fafbfc;
+  border-top: 1px solid #f0f0f0;
 }
 
 .drawer-footer__left,
 .drawer-footer__right {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 </style>

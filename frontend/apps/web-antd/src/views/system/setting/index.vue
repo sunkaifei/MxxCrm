@@ -3,18 +3,9 @@ import { onMounted, reactive, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import {
-  Button,
-  Card,
-  InputNumber,
-  Select,
-  Switch,
-} from 'ant-design-vue';
+import { Button, Card, InputNumber, Select, Switch } from 'ant-design-vue';
 
-import {
-  getSettingConfigApi,
-  updateSettingConfigApi,
-} from '#/api';
+import { getSettingConfigApi, updateSettingConfigApi } from '#/api';
 import { $t } from '#/locales';
 
 // ==================== 系统设置表单 ====================
@@ -189,14 +180,18 @@ onMounted(() => {
         <div class="config-row">
           <div>
             <div class="config-label">入库审核</div>
-            <div class="config-tip">开启后入库单需审核才能变更库存，关闭后保存即生效</div>
+            <div class="config-tip">
+              开启后入库单需审核才能变更库存，关闭后保存即生效
+            </div>
           </div>
           <Switch v-model:checked="form.inboundAuditEnabled" />
         </div>
         <div class="config-row mt-4">
           <div>
             <div class="config-label">出库审核</div>
-            <div class="config-tip">开启后出库单需审核才能变更库存，关闭后保存即生效</div>
+            <div class="config-tip">
+              开启后出库单需审核才能变更库存，关闭后保存即生效
+            </div>
           </div>
           <Switch v-model:checked="form.outboundAuditEnabled" />
         </div>
@@ -256,9 +251,9 @@ onMounted(() => {
 
 .config-row {
   display: flex;
+  gap: 16px;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
 }
 
 .config-label {
@@ -269,7 +264,7 @@ onMounted(() => {
 .config-tip {
   margin-top: 4px;
   font-size: 12px;
-  color: rgba(0, 0, 0, 45%);
+  color: rgb(0 0 0 / 45%);
 }
 
 .mb-4 {

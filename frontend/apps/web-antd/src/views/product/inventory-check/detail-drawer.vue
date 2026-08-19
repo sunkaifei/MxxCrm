@@ -2,7 +2,18 @@
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import { Card, Descriptions, DescriptionsItem, Statistic, Table, Tabs, TabPane, Tag } from 'ant-design-vue';
+
+import {
+  Card,
+  Descriptions,
+  DescriptionsItem,
+  Statistic,
+  Table,
+  TabPane,
+  Tabs,
+  Tag,
+} from 'ant-design-vue';
+
 import { getCheckInfoApi } from '#/api/core/product/check';
 import { $t } from '#/locales';
 
@@ -42,48 +53,59 @@ async function loadDetail(id: number) {
     };
     // 字段映射：snake_case → camelCase，product_sku 存的实际是产品编号
     const rawItems = data.items ?? [];
-    allItems.value = rawItems.map((item: any) => ({
-      ...item,
-      productName: item.product_name ?? item.productName ?? '',
-      productCode: item.product_code ?? item.productCode ?? '',
-      productSku: item.product_sku ?? item.productSku ?? '',
-      systemQuantity: Number(item.system_quantity ?? item.systemQuantity ?? 0),
-      actualQuantity:
-        item.actual_quantity !== null && item.actual_quantity !== undefined
-          ? Number(item.actual_quantity)
-          : item.actualQuantity !== null && item.actualQuantity !== undefined
-            ? Number(item.actualQuantity)
-            : null,
-      difference:
-        item.difference !== null && item.difference !== undefined
-          ? Number(item.difference)
-          : Number(item.difference ?? 0),
-    }));
-  } catch (e) {
-    console.error('[盘点详情] 加载失败:', e);
+    allItems.value = rawItems.map((item: any) => {
+      let actualQuantity: null | number = null;
+      if (item.actual_quantity !== null && item.actual_quantity !== undefined) {
+        actualQuantity = Number(item.actual_quantity);
+      } else if (
+        item.actualQuantity !== null &&
+        item.actualQuantity !== undefined
+      ) {
+        actualQuantity = Number(item.actualQuantity);
+      }
+      return {
+        ...item,
+        productName: item.product_name ?? item.productName ?? '',
+        productCode: item.product_code ?? item.productCode ?? '',
+        productSku: item.product_sku ?? item.productSku ?? '',
+        systemQuantity: Number(
+          item.system_quantity ?? item.systemQuantity ?? 0,
+        ),
+        actualQuantity,
+        difference:
+          item.difference !== null && item.difference !== undefined
+            ? Number(item.difference)
+            : Number(item.difference ?? 0),
+      };
+    });
+  } catch (error) {
+    console.error('[盘点详情] 加载失败:', error);
   }
 }
 
 // 汇总统计
 const surplusCount = computed(
-  () => allItems.value.filter((i) => {
-    const diff = Number(i.difference ?? 0);
-    return diff > 0;
-  }).length,
+  () =>
+    allItems.value.filter((i) => {
+      const diff = Number(i.difference ?? 0);
+      return diff > 0;
+    }).length,
 );
 
 const shortageCount = computed(
-  () => allItems.value.filter((i) => {
-    const diff = Number(i.difference ?? 0);
-    return diff < 0;
-  }).length,
+  () =>
+    allItems.value.filter((i) => {
+      const diff = Number(i.difference ?? 0);
+      return diff < 0;
+    }).length,
 );
 
 const matchCount = computed(
-  () => allItems.value.filter((i) => {
-    const diff = Number(i.difference ?? 0);
-    return diff === 0;
-  }).length,
+  () =>
+    allItems.value.filter((i) => {
+      const diff = Number(i.difference ?? 0);
+      return diff === 0;
+    }).length,
 );
 
 // 按 Tab 筛选
@@ -101,9 +123,20 @@ const filteredItems = computed(() => {
 });
 
 function getDiffTag(diff: number) {
-  if (diff > 0) return { label: $t('page.product.inventory.check.type.surplus'), color: 'success' };
-  if (diff < 0) return { label: $t('page.product.inventory.check.type.shortage'), color: 'error' };
-  return { label: $t('page.product.inventory.check.type.match'), color: 'default' };
+  if (diff > 0)
+    return {
+      label: $t('page.product.inventory.check.type.surplus'),
+      color: 'success',
+    };
+  if (diff < 0)
+    return {
+      label: $t('page.product.inventory.check.type.shortage'),
+      color: 'error',
+    };
+  return {
+    label: $t('page.product.inventory.check.type.match'),
+    color: 'default',
+  };
 }
 
 const columns = [
@@ -130,14 +163,16 @@ const columns = [
     dataIndex: 'systemQuantity',
     width: 100,
     align: 'right' as const,
-    customRender: ({ text }: any) => (text !== null && text !== undefined ? Number(text) : '0'),
+    customRender: ({ text }: any) =>
+      text !== null && text !== undefined ? Number(text) : '0',
   },
   {
     title: $t('page.product.inventory.check.field.actualQuantity'),
     dataIndex: 'actualQuantity',
     width: 100,
     align: 'right' as const,
-    customRender: ({ text }: any) => (text !== null && text !== undefined ? Number(text) : '-'),
+    customRender: ({ text }: any) =>
+      text !== null && text !== undefined ? Number(text) : '-',
   },
   {
     title: $t('page.product.inventory.check.field.difference'),
@@ -212,23 +247,45 @@ const columns = [
       bordered
       class="check-detail-desc"
     >
-      <DescriptionsItem :label="$t('page.product.inventory.check.field.checkNo')">
+      <DescriptionsItem
+        :label="$t('page.product.inventory.check.field.checkNo')"
+      >
         {{ mainInfo.stocktakeNo }}
       </DescriptionsItem>
-      <DescriptionsItem :label="$t('page.product.inventory.check.field.warehouse')">
+      <DescriptionsItem
+        :label="$t('page.product.inventory.check.field.warehouse')"
+      >
         {{ mainInfo.warehouseName || drawerData.row?.warehouseName || '-' }}
       </DescriptionsItem>
-      <DescriptionsItem :label="$t('page.product.inventory.check.field.status')">
-        <Tag>{{ $t(`page.product.inventory.check.status.${mainInfo.status ?? 0}`) }}</Tag>
+      <DescriptionsItem
+        :label="$t('page.product.inventory.check.field.status')"
+      >
+        <Tag>
+          {{
+            $t(`page.product.inventory.check.status.${mainInfo.status ?? 0}`)
+          }}
+        </Tag>
       </DescriptionsItem>
     </Descriptions>
 
     <!-- 明细表格 + Tab 筛选 -->
-    <Tabs v-model:activeKey="activeTab" class="check-detail-tabs">
-      <TabPane key="all" :tab="`${$t('page.product.inventory.check.tab.all')} (${allItems.length})`" />
-      <TabPane key="surplus" :tab="`${$t('page.product.inventory.check.type.surplus')} (${surplusCount})`" />
-      <TabPane key="shortage" :tab="`${$t('page.product.inventory.check.type.shortage')} (${shortageCount})`" />
-      <TabPane key="match" :tab="`${$t('page.product.inventory.check.type.match')} (${matchCount})`" />
+    <Tabs v-model:active-key="activeTab" class="check-detail-tabs">
+      <TabPane
+        key="all"
+        :tab="`${$t('page.product.inventory.check.tab.all')} (${allItems.length})`"
+      />
+      <TabPane
+        key="surplus"
+        :tab="`${$t('page.product.inventory.check.type.surplus')} (${surplusCount})`"
+      />
+      <TabPane
+        key="shortage"
+        :tab="`${$t('page.product.inventory.check.type.shortage')} (${shortageCount})`"
+      />
+      <TabPane
+        key="match"
+        :tab="`${$t('page.product.inventory.check.type.match')} (${matchCount})`"
+      />
     </Tabs>
 
     <Table
@@ -242,7 +299,10 @@ const columns = [
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.dataIndex === 'differenceType'">
-          <Tag :color="getDiffTag(Number(record.difference ?? 0)).color" :bordered="false">
+          <Tag
+            :color="getDiffTag(Number(record.difference ?? 0)).color"
+            :bordered="false"
+          >
             {{ getDiffTag(Number(record.difference ?? 0)).label }}
           </Tag>
         </template>

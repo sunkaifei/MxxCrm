@@ -1,4 +1,5 @@
 import type { PluginOption } from 'vite';
+
 import type { NitroMockPluginOptions } from '../typing';
 export declare const viteNitroMockPlugin: ({
   mockServerPackage,

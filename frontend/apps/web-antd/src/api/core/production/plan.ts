@@ -1,10 +1,14 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getProductionPlanListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/production/plan/list', { params });
 };
 export const getProductionPlanInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/production/plan/info', { params: { id } });
+  return requestClient.get('/api/system/production/plan/info', {
+    params: { id },
+  });
 };
 export const createProductionPlanApi = async (param: any) => {
   return requestClient.post('/api/system/production/plan/save', param);

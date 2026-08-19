@@ -36,12 +36,12 @@ interface UserVO {
 
 const props = withDefaults(
   defineProps<{
-    /** v-model 绑定的用户ID */
-    value?: number;
-    /** 占位文本 */
-    placeholder?: string;
     /** 是否禁用 */
     disabled?: boolean;
+    /** 占位文本 */
+    placeholder?: string;
+    /** v-model 绑定的用户ID */
+    value?: number;
   }>(),
   {
     value: undefined,
@@ -52,7 +52,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'update:value', value: number | undefined): void;
-  (e: 'change', user: UserVO | undefined): void;
+  (e: 'change', user: undefined | UserVO): void;
 }>();
 
 const modalVisible = ref(false);
@@ -149,8 +149,8 @@ async function loadData() {
     });
     tableData.value = res?.items || [];
     pagination.total = res?.total || 0;
-  } catch (e) {
-    console.error('加载用户列表失败:', e);
+  } catch (error) {
+    console.error('加载用户列表失败:', error);
     tableData.value = [];
     pagination.total = 0;
   } finally {
@@ -181,7 +181,10 @@ function handleTableChange(pag: any) {
 
 function handleSelect(row: UserVO) {
   selectedUser.value = row;
-  emit('update:value', row.id !== undefined && row.id !== null ? Number(row.id) : undefined);
+  emit(
+    'update:value',
+    row.id !== undefined && row.id !== null ? Number(row.id) : undefined,
+  );
   emit('change', row);
   modalVisible.value = false;
 }
@@ -201,7 +204,10 @@ function customRow(record: UserVO) {
 }
 
 function rowClassName(record: UserVO) {
-  if (selectedUser.value && Number(selectedUser.value.id) === Number(record.id)) {
+  if (
+    selectedUser.value &&
+    Number(selectedUser.value.id) === Number(record.id)
+  ) {
     return 'user-picker-row-selected';
   }
   return '';
@@ -221,8 +227,8 @@ watch(
     try {
       const detail: any = await getUserDetailApi(val);
       selectedUser.value = detail as UserVO;
-    } catch (e) {
-      console.error('加载用户详情失败:', e);
+    } catch (error) {
+      console.error('加载用户详情失败:', error);
     }
   },
   { immediate: true },

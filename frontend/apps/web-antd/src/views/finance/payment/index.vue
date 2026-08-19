@@ -13,10 +13,10 @@ import {
   DatePicker,
   Form,
   FormItem,
+  message,
   Modal,
   Tag,
   Textarea,
-  message,
 } from 'ant-design-vue';
 import { RefreshCw } from 'lucide-vue-next';
 
@@ -33,20 +33,26 @@ import PaymentDrawer from './drawer.vue';
 
 const drawerVisible = ref(false);
 
-const paymentTypeMap: Record<number, { label: string; color: string }> = {
+const paymentTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: $t('page.finance.payment.paymentType.prepay'), color: 'blue' },
   2: { label: $t('page.finance.payment.paymentType.final'), color: 'orange' },
   3: { label: $t('page.finance.payment.paymentType.full'), color: 'green' },
 };
 
-const paymentMethodMap: Record<number, { label: string; color: string }> = {
-  1: { label: $t('page.finance.payment.paymentMethod.bankTransfer'), color: 'blue' },
+const paymentMethodMap: Record<number, { color: string; label: string }> = {
+  1: {
+    label: $t('page.finance.payment.paymentMethod.bankTransfer'),
+    color: 'blue',
+  },
   2: { label: $t('page.finance.payment.paymentMethod.cash'), color: 'green' },
   3: { label: $t('page.finance.payment.paymentMethod.check'), color: 'orange' },
-  4: { label: $t('page.finance.payment.paymentMethod.other'), color: 'default' },
+  4: {
+    label: $t('page.finance.payment.paymentMethod.other'),
+    color: 'default',
+  },
 };
 
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   0: { label: $t('page.finance.payment.status.pending'), color: 'default' },
   1: { label: $t('page.finance.payment.status.approved'), color: 'processing' },
   2: { label: $t('page.finance.payment.status.paid'), color: 'green' },
@@ -224,8 +230,10 @@ async function handleApproveSubmit() {
     message.success($t('page.finance.payment.message.approveSuccess'));
     approveVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.payment.message.approveFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.payment.message.approveFailed'),
+    );
   } finally {
     approveLoading.value = false;
   }
@@ -259,8 +267,10 @@ async function handleConfirmSubmit() {
     message.success($t('page.finance.payment.message.confirmSuccess'));
     confirmVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.payment.message.confirmFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.payment.message.confirmFailed'),
+    );
   } finally {
     confirmLoading.value = false;
   }
@@ -287,12 +297,17 @@ async function handleCancelSubmit() {
   }
   cancelLoading.value = true;
   try {
-    await cancelFinancePaymentApi({ id: cancelForm.id, remark: cancelForm.remark });
+    await cancelFinancePaymentApi({
+      id: cancelForm.id,
+      remark: cancelForm.remark,
+    });
     message.success($t('page.finance.payment.message.cancelSuccess'));
     cancelVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.payment.message.cancelFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.payment.message.cancelFailed'),
+    );
   } finally {
     cancelLoading.value = false;
   }
@@ -338,18 +353,10 @@ async function handleCancelSubmit() {
       </template>
 
       <template #action="{ row }">
-        <Button
-          v-if="row.status === 0"
-          type="link"
-          @click="openApprove(row)"
-        >
+        <Button v-if="row.status === 0" type="link" @click="openApprove(row)">
           {{ $t('page.finance.payment.button.approveAction') }}
         </Button>
-        <Button
-          v-if="row.status === 1"
-          type="link"
-          @click="openConfirm(row)"
-        >
+        <Button v-if="row.status === 1" type="link" @click="openConfirm(row)">
           {{ $t('page.finance.payment.button.confirm') }}
         </Button>
         <Button
@@ -394,7 +401,9 @@ async function handleCancelSubmit() {
           <Textarea
             v-model:value="approveForm.remark"
             :rows="3"
-            :placeholder="$t('page.finance.payment.modal.approveRemarkPlaceholder')"
+            :placeholder="
+              $t('page.finance.payment.modal.approveRemarkPlaceholder')
+            "
           />
         </FormItem>
       </Form>
@@ -407,12 +416,17 @@ async function handleCancelSubmit() {
       @ok="handleConfirmSubmit"
     >
       <Form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" class="py-4">
-        <FormItem :label="$t('page.finance.payment.modal.paymentDate')" required>
+        <FormItem
+          :label="$t('page.finance.payment.modal.paymentDate')"
+          required
+        >
           <DatePicker
             v-model:value="confirmForm.paymentDate"
             value-format="YYYY-MM-DD"
             style="width: 100%"
-            :placeholder="$t('page.finance.payment.modal.paymentDatePlaceholder')"
+            :placeholder="
+              $t('page.finance.payment.modal.paymentDatePlaceholder')
+            "
           />
         </FormItem>
       </Form>
@@ -425,11 +439,16 @@ async function handleCancelSubmit() {
       @ok="handleCancelSubmit"
     >
       <Form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }" class="py-4">
-        <FormItem :label="$t('page.finance.payment.modal.cancelReason')" required>
+        <FormItem
+          :label="$t('page.finance.payment.modal.cancelReason')"
+          required
+        >
           <Textarea
             v-model:value="cancelForm.remark"
             :rows="3"
-            :placeholder="$t('page.finance.payment.modal.cancelReasonPlaceholder')"
+            :placeholder="
+              $t('page.finance.payment.modal.cancelReasonPlaceholder')
+            "
           />
         </FormItem>
       </Form>

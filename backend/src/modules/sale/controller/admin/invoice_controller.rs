@@ -15,7 +15,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::sale::model::invoice::{InvoiceApprovalReq, InvoiceListQuery, InvoiceSaveRequest, InvoiceUpdateRequest};
+use crate::modules::sale::model::invoice::{InvoiceApprovalReq, InvoiceListQuery, InvoiceSaveRequest, InvoiceUpdateRequest, InvoiceVoidRequest};
 use crate::modules::sale::service::invoice_service;
 
 pub async fn invoice_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InvoiceSaveRequest>) -> Result<HttpResponse> {
@@ -112,11 +112,45 @@ pub async fn invoice_reject(state: web::Data<AppState>, req: HttpRequest, path: 
     }
 }
 
+/// 作废/红冲发票（业务动作：仅已开票可操作，需理由；终态不可再变）
+pub async fn invoice_void(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InvoiceVoidRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let form_data = form_data.0;
+    let id = form_data.id.unwrap_or_default();
+    if id == 0 {
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "发票ID不能为空", "local")));
+    }
+    let (operator_id, _) = get_current_user(&req);
+    match invoice_service::void_invoice(db, id, form_data.action.unwrap_or(0), form_data.reason, operator_id).await {
+        Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(true, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
 /// 审批详情
 pub async fn invoice_approval_detail(state: web::Data<AppState>, path: web::Path<i64>) -> HttpResponse {
     let db = &state.db;
     let invoice_id = path.into_inner();
     match invoice_service::get_invoice_approval_detail(db, invoice_id).await {
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 审批历史（完整链路追溯：全部审批实例 + 修改留痕）
+pub async fn invoice_history(state: web::Data<AppState>, path: web::Path<i64>) -> HttpResponse {
+    let db = &state.db;
+    let invoice_id = path.into_inner();
+    match invoice_service::get_invoice_history(db, invoice_id).await {
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 审批流预览（提交审核页展示将经过的审批环节）
+pub async fn invoice_approval_preview(state: web::Data<AppState>) -> HttpResponse {
+    let db = &state.db;
+    match invoice_service::get_invoice_approval_preview(db).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
@@ -175,25 +209,41 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .wrap(require_permission("sale:invoice:update")),
             )
             // POST /sale/invoice/{id}/approve - 审批通过
+            // 仅登录鉴权：安全边界在引擎候选池校验（与 /approval/process 一致），
+            // 审批人（如财务专员）不一定持有 sale:invoice:update 业务权限码
             .route(
                 "/{id}/approve",
-                web::post()
-                    .to(invoice_approve)
-                    .wrap(require_permission("sale:invoice:update")),
+                web::post().to(invoice_approve),
             )
-            // POST /sale/invoice/{id}/reject - 驳回
+            // POST /sale/invoice/{id}/reject - 驳回（同上，仅登录 + 候选池校验）
             .route(
                 "/{id}/reject",
+                web::post().to(invoice_reject),
+            )
+            // POST /sale/invoice/void - 作废/红冲（业务动作，仅已开票，需理由）
+            .route(
+                "/void",
                 web::post()
-                    .to(invoice_reject)
+                    .to(invoice_void)
                     .wrap(require_permission("sale:invoice:update")),
             )
             // GET /sale/invoice/{id}/approval-detail - 审批详情
+            // 仅登录鉴权：审批人需查看待审批发票摘要（与引擎实例详情一致）
             .route(
                 "/{id}/approval-detail",
-                web::get()
-                    .to(invoice_approval_detail)
-                    .wrap(require_permission("sale:invoice:list")),
+                web::get().to(invoice_approval_detail),
+            )
+            // GET /sale/invoice/{id}/history - 审批历史（完整链路追溯：全部实例 + 修改留痕）
+            // 仅登录鉴权：发起人/审批人查看"流转记录"（与 approval-detail 一致）
+            .route(
+                "/{id}/history",
+                web::get().to(invoice_history),
+            )
+            // GET /sale/invoice/approval-preview - 审批流预览（提交审核页）
+            // 仅登录鉴权：提交人提交前查看审批环节
+            .route(
+                "/approval-preview",
+                web::get().to(invoice_approval_preview),
             ),
     );
 }

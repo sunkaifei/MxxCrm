@@ -22,9 +22,7 @@ import {
   getEmployeeCustomerCountApi,
   getEmployeeFollowUpApi,
 } from '#/api/core/statistics';
-import {
-  getDeptTreeApi,
-} from '#/api/core/system/dept';
+import { getDeptTreeApi } from '#/api/core/system/dept';
 import { $t } from '#/locales';
 
 import TimeFilter from '../components/time-filter.vue';
@@ -40,7 +38,11 @@ const loading = ref(false);
 const customerRows = ref<any[]>([]);
 const followRows = ref<any[]>([]);
 const conversionRows = ref<any[]>([]);
-const timeParams = ref<{ end_date?: string; start_date?: string; year?: number }>({});
+const timeParams = ref<{
+  end_date?: string;
+  start_date?: string;
+  year?: number;
+}>({});
 const departmentId = ref<number>();
 
 function extractList(res: any): any[] {
@@ -66,7 +68,11 @@ async function loadData() {
   }
 }
 
-function handleTimeChange(params: { end_date?: string; start_date?: string; year?: number }) {
+function handleTimeChange(params: {
+  end_date?: string;
+  start_date?: string;
+  year?: number;
+}) {
   timeParams.value = params;
   loadData();
 }
@@ -176,7 +182,8 @@ const mergedRows = computed<MergedRow[]>(() => {
     row.opportunityFollowUp = Number(f.opportunityFollowUp) || 0;
     row.totalFollowUp = Number(f.totalFollowUp) || 0;
     row.avgFollowInterval = Number(f.avgFollowInterval) || 0;
-    row.customersWithoutFollow30Days = Number(f.customersWithoutFollow30Days) || 0;
+    row.customersWithoutFollow30Days =
+      Number(f.customersWithoutFollow30Days) || 0;
     map.set(k, row);
   }
   for (const v of conversionRows.value) {
@@ -220,7 +227,9 @@ const mergedRows = computed<MergedRow[]>(() => {
     row.avgSalesCycleDays = Number(v.avgSalesCycleDays) || 0;
     map.set(k, row);
   }
-  return [...map.values()].toSorted((a, b) => b.contractAmount - a.contractAmount);
+  return [...map.values()].toSorted(
+    (a, b) => b.contractAmount - a.contractAmount,
+  );
 });
 
 // ---------- 团队 KPI ----------
@@ -283,19 +292,35 @@ const kpiCards = computed(() => [
 // ---------- 效率洞察 ----------
 const efficiency = computed(() => {
   const rows = mergedRows.value;
-  if (rows.length === 0) return [
-    { key: 'interval', value: '-' },
-    { key: 'cycle', value: '-' },
-    { key: 'deal', value: '-' },
-    { key: 'noFollow', value: '-' },
-  ];
+  if (rows.length === 0)
+    return [
+      { key: 'interval', unit: '', value: '-' },
+      { key: 'cycle', unit: '', value: '-' },
+      { key: 'deal', unit: '', value: '-' },
+      { key: 'noFollow', unit: '', value: '-' },
+    ];
   const avg = (fn: (r: MergedRow) => number) =>
     rows.reduce((acc, r) => acc + fn(r), 0) / rows.length;
-  const noFollow = rows.reduce((acc, r) => acc + r.customersWithoutFollow30Days, 0);
+  const noFollow = rows.reduce(
+    (acc, r) => acc + r.customersWithoutFollow30Days,
+    0,
+  );
   return [
-    { key: 'interval', unit: $t('page.statistics.employeeView.dayUnit'), value: avg((r) => r.avgFollowInterval).toFixed(1) },
-    { key: 'cycle', unit: $t('page.statistics.employeeView.dayUnit'), value: avg((r) => r.avgSalesCycleDays).toFixed(1) },
-    { key: 'deal', unit: '', value: formatCurrency(avg((r) => r.avgContractAmount)) },
+    {
+      key: 'interval',
+      unit: $t('page.statistics.employeeView.dayUnit'),
+      value: avg((r) => r.avgFollowInterval).toFixed(1),
+    },
+    {
+      key: 'cycle',
+      unit: $t('page.statistics.employeeView.dayUnit'),
+      value: avg((r) => r.avgSalesCycleDays).toFixed(1),
+    },
+    {
+      key: 'deal',
+      unit: '',
+      value: formatCurrency(avg((r) => r.avgContractAmount)),
+    },
     { key: 'noFollow', unit: '', value: String(noFollow) },
   ];
 });
@@ -466,7 +491,8 @@ const boardColumns = computed(() => [
     title: $t('page.statistics.totalCustomers'),
     align: 'right' as const,
     dataIndex: 'totalCustomers',
-    sorter: (a: any, b: any) => num(a, 'totalCustomers') - num(b, 'totalCustomers'),
+    sorter: (a: any, b: any) =>
+      num(a, 'totalCustomers') - num(b, 'totalCustomers'),
   },
   {
     title: $t('page.statistics.newCustomers'),
@@ -478,14 +504,16 @@ const boardColumns = computed(() => [
     title: $t('page.statistics.contractCustomers'),
     align: 'right' as const,
     dataIndex: 'contractCustomers',
-    sorter: (a: any, b: any) => num(a, 'contractCustomers') - num(b, 'contractCustomers'),
+    sorter: (a: any, b: any) =>
+      num(a, 'contractCustomers') - num(b, 'contractCustomers'),
   },
   {
     title: $t('page.statistics.conversionRate'),
     align: 'center' as const,
     dataIndex: 'customerConversionRate',
     width: 140,
-    sorter: (a: any, b: any) => num(a, 'customerConversionRate') - num(b, 'customerConversionRate'),
+    sorter: (a: any, b: any) =>
+      num(a, 'customerConversionRate') - num(b, 'customerConversionRate'),
     customRender: ({ text }: any) =>
       h(Progress, {
         percent: Math.min(Number(text) || 0, 100),
@@ -498,14 +526,16 @@ const boardColumns = computed(() => [
     title: $t('page.statistics.employeeView.followUpTotalCol'),
     align: 'right' as const,
     dataIndex: 'totalFollowUp',
-    sorter: (a: any, b: any) => num(a, 'totalFollowUp') - num(b, 'totalFollowUp'),
+    sorter: (a: any, b: any) =>
+      num(a, 'totalFollowUp') - num(b, 'totalFollowUp'),
   },
   {
     title: $t('page.statistics.opportunityWinRate'),
     align: 'center' as const,
     dataIndex: 'opportunityWinRate',
     width: 140,
-    sorter: (a: any, b: any) => num(a, 'opportunityWinRate') - num(b, 'opportunityWinRate'),
+    sorter: (a: any, b: any) =>
+      num(a, 'opportunityWinRate') - num(b, 'opportunityWinRate'),
     customRender: ({ text }: any) =>
       h(Progress, {
         percent: Math.min(Number(text) || 0, 100),
@@ -519,28 +549,40 @@ const boardColumns = computed(() => [
     align: 'right' as const,
     dataIndex: 'contractAmount',
     defaultSortOrder: 'descend' as const,
-    sorter: (a: any, b: any) => num(a, 'contractAmount') - num(b, 'contractAmount'),
+    sorter: (a: any, b: any) =>
+      num(a, 'contractAmount') - num(b, 'contractAmount'),
     customRender: ({ text }: any) =>
-      h('span', { class: 'font-semibold text-teal-700' }, formatCurrency(Number(text) || 0)),
+      h(
+        'span',
+        { class: 'font-semibold text-teal-700' },
+        formatCurrency(Number(text) || 0),
+      ),
   },
   {
     title: $t('page.statistics.avgDealSize'),
     align: 'right' as const,
     dataIndex: 'avgContractAmount',
-    sorter: (a: any, b: any) => num(a, 'avgContractAmount') - num(b, 'avgContractAmount'),
+    sorter: (a: any, b: any) =>
+      num(a, 'avgContractAmount') - num(b, 'avgContractAmount'),
     customRender: ({ text }: any) => formatCurrency(Number(text) || 0),
   },
   {
     title: $t('page.statistics.employeeView.avgCycleCol'),
     align: 'right' as const,
     dataIndex: 'avgSalesCycleDays',
-    sorter: (a: any, b: any) => num(a, 'avgSalesCycleDays') - num(b, 'avgSalesCycleDays'),
+    sorter: (a: any, b: any) =>
+      num(a, 'avgSalesCycleDays') - num(b, 'avgSalesCycleDays'),
   },
 ]);
 
 /** 排名徽章（前三金银铜） */
 function rankBadge(rank: number) {
-  const cls = rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : 'rank-3');
+  let cls = 'rank-3';
+  if (rank === 1) {
+    cls = 'rank-1';
+  } else if (rank === 2) {
+    cls = 'rank-2';
+  }
   return h('span', { class: ['rank-badge', cls] }, String(rank));
 }
 </script>
@@ -559,14 +601,23 @@ function rankBadge(rank: number) {
       </div>
 
       <!-- 筛选卡片：部门 + 时间 统一收纳 -->
-      <Card class="filter-card fade-up mb-4" body-style="padding: 12px 16px">
+      <Card
+        class="filter-card fade-up mb-4"
+        :body-style="{ padding: '12px 16px' }"
+      >
         <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
           <div class="flex items-center gap-2">
-            <span class="filter-label">{{ $t('page.statistics.department') }}</span>
+            <span class="filter-label">{{
+              $t('page.statistics.department')
+            }}</span>
             <TreeSelect
               :allow-clear="true"
               :dropdown-style="{ maxHeight: '320px', overflow: 'auto' }"
-              :field-names="{ children: 'children', label: 'label', value: 'value' }"
+              :field-names="{
+                children: 'children',
+                label: 'label',
+                value: 'value',
+              }"
               :placeholder="$t('page.statistics.employeeView.deptAll')"
               :tree-data="deptTreeData"
               :value="departmentId"
@@ -577,7 +628,9 @@ function rankBadge(rank: number) {
           </div>
           <div class="filter-divider hidden lg:block"></div>
           <div class="flex items-center gap-2">
-            <span class="filter-label">{{ $t('page.statistics.employeeView.timeRange') }}</span>
+            <span class="filter-label">{{
+              $t('page.statistics.employeeView.timeRange')
+            }}</span>
             <TimeFilter @change="handleTimeChange" />
           </div>
         </div>
@@ -601,20 +654,34 @@ function rankBadge(rank: number) {
         <!-- 图表行 1：金额榜 + 商机转化 -->
         <Row :gutter="[16, 16]" class="mt-4">
           <Col :xs="24" :lg="10">
-            <Card class="chart-card fade-up" :style="{ animationDelay: '120ms' }">
+            <Card
+              class="chart-card fade-up"
+              :style="{ animationDelay: '120ms' }"
+            >
               <template #title>
-                <span class="card-kicker">{{ $t('page.statistics.employeeView.topPerformers') }}</span>
+                <span class="card-kicker">{{
+                  $t('page.statistics.employeeView.topPerformers')
+                }}</span>
               </template>
-              <div v-if="mergedRows.length === 0" class="chart-empty">{{ emptyHint }}</div>
+              <div v-if="mergedRows.length === 0" class="chart-empty">
+                {{ emptyHint }}
+              </div>
               <EchartsUI v-else ref="topChartRef" height="320px" />
             </Card>
           </Col>
           <Col :xs="24" :lg="14">
-            <Card class="chart-card fade-up" :style="{ animationDelay: '180ms' }">
+            <Card
+              class="chart-card fade-up"
+              :style="{ animationDelay: '180ms' }"
+            >
               <template #title>
-                <span class="card-kicker">{{ $t('page.statistics.employeeView.oppConversion') }}</span>
+                <span class="card-kicker">{{
+                  $t('page.statistics.employeeView.oppConversion')
+                }}</span>
               </template>
-              <div v-if="mergedRows.length === 0" class="chart-empty">{{ emptyHint }}</div>
+              <div v-if="mergedRows.length === 0" class="chart-empty">
+                {{ emptyHint }}
+              </div>
               <EchartsUI v-else ref="oppChartRef" height="320px" />
             </Card>
           </Col>
@@ -623,39 +690,65 @@ function rankBadge(rank: number) {
         <!-- 图表行 2：跟进投入 + 效率洞察 -->
         <Row :gutter="[16, 16]" class="mt-4">
           <Col :xs="24" :lg="14">
-            <Card class="chart-card fade-up" :style="{ animationDelay: '240ms' }">
+            <Card
+              class="chart-card fade-up"
+              :style="{ animationDelay: '240ms' }"
+            >
               <template #title>
-                <span class="card-kicker">{{ $t('page.statistics.employeeView.followInvest') }}</span>
+                <span class="card-kicker">{{
+                  $t('page.statistics.employeeView.followInvest')
+                }}</span>
               </template>
-              <div v-if="mergedRows.length === 0" class="chart-empty">{{ emptyHint }}</div>
+              <div v-if="mergedRows.length === 0" class="chart-empty">
+                {{ emptyHint }}
+              </div>
               <EchartsUI v-else ref="followChartRef" height="280px" />
             </Card>
           </Col>
           <Col :xs="24" :lg="10">
-            <Card class="chart-card fade-up" :style="{ animationDelay: '300ms' }">
+            <Card
+              class="chart-card fade-up"
+              :style="{ animationDelay: '300ms' }"
+            >
               <template #title>
-                <span class="card-kicker">{{ $t('page.statistics.employeeView.efficiency') }}</span>
+                <span class="card-kicker">{{
+                  $t('page.statistics.employeeView.efficiency')
+                }}</span>
               </template>
               <div class="eff-grid">
                 <div v-for="e in efficiency" :key="e.key" class="eff-item">
                   <template v-if="e.key === 'interval'">
-                    <div class="eff-label">{{ $t('page.statistics.employeeView.avgFollowIntervalShort') }}</div>
+                    <div class="eff-label">
+                      {{
+                        $t(
+                          'page.statistics.employeeView.avgFollowIntervalShort',
+                        )
+                      }}
+                    </div>
                     <div class="eff-value">
                       {{ e.value }}<span class="eff-unit">{{ e.unit }}</span>
                     </div>
                   </template>
                   <template v-else-if="e.key === 'cycle'">
-                    <div class="eff-label">{{ $t('page.statistics.employeeView.avgSalesCycleShort') }}</div>
+                    <div class="eff-label">
+                      {{
+                        $t('page.statistics.employeeView.avgSalesCycleShort')
+                      }}
+                    </div>
                     <div class="eff-value">
                       {{ e.value }}<span class="eff-unit">{{ e.unit }}</span>
                     </div>
                   </template>
                   <template v-else-if="e.key === 'deal'">
-                    <div class="eff-label">{{ $t('page.statistics.avgDealSize') }}</div>
+                    <div class="eff-label">
+                      {{ $t('page.statistics.avgDealSize') }}
+                    </div>
                     <div class="eff-value">{{ e.value }}</div>
                   </template>
                   <template v-else>
-                    <div class="eff-label">{{ $t('page.statistics.employeeView.noFollow30d') }}</div>
+                    <div class="eff-label">
+                      {{ $t('page.statistics.employeeView.noFollow30d') }}
+                    </div>
                     <div class="eff-value eff-warn">{{ e.value }}</div>
                   </template>
                 </div>
@@ -665,9 +758,14 @@ function rankBadge(rank: number) {
         </Row>
 
         <!-- 员工全景榜 -->
-        <Card class="mt-4 board-card fade-up" :style="{ animationDelay: '360ms' }">
+        <Card
+          class="mt-4 board-card fade-up"
+          :style="{ animationDelay: '360ms' }"
+        >
           <template #title>
-            <span class="card-kicker">{{ $t('page.statistics.employeeView.rankBoard') }}</span>
+            <span class="card-kicker">{{
+              $t('page.statistics.employeeView.rankBoard')
+            }}</span>
           </template>
           <Table
             :columns="boardColumns"
@@ -697,8 +795,8 @@ function rankBadge(rank: number) {
 .filter-label {
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.04em;
   color: var(--ink);
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
@@ -723,26 +821,26 @@ function rankBadge(rank: number) {
 .kpi-card {
   position: relative;
   padding: 14px 16px;
+  overflow: hidden;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  overflow: hidden;
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
 }
 
 .kpi-card::before {
-  content: '';
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
+  content: '';
   background: var(--accent);
 }
 
 .kpi-card:hover {
-  transform: translateY(-2px);
   box-shadow: 0 8px 20px -8px rgb(0 0 0 / 15%);
+  transform: translateY(-2px);
 }
 
 .kpi-label {
@@ -762,16 +860,16 @@ function rankBadge(rank: number) {
 .kpi-sub {
   margin-top: 4px;
   font-size: 11px;
-  color: #9ca3af;
   font-variant-numeric: tabular-nums;
+  color: #9ca3af;
 }
 
 /* ---- 卡片小标题（编辑部风格 kicker） ---- */
 .card-kicker {
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.06em;
   color: var(--ink);
+  letter-spacing: 0.06em;
 }
 
 .chart-card {
@@ -783,8 +881,8 @@ function rankBadge(rank: number) {
   align-items: center;
   justify-content: center;
   height: 280px;
-  color: #9ca3af;
   font-size: 13px;
+  color: #9ca3af;
 }
 
 /* ---- 效率洞察 2x2 ---- */
@@ -796,9 +894,9 @@ function rankBadge(rank: number) {
 
 .eff-item {
   padding: 14px;
-  border-radius: 10px;
   background: linear-gradient(145deg, #f8fafc, #f1f5f9);
   border: 1px solid #e2e8f0;
+  border-radius: 10px;
 }
 
 .eff-label {
@@ -828,14 +926,14 @@ function rankBadge(rank: number) {
 /* ---- 排名徽章 ---- */
 :deep(.rank-badge) {
   display: inline-flex;
-  width: 24px;
-  height: 24px;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
+  width: 24px;
+  height: 24px;
   font-size: 12px;
   font-weight: 700;
   color: #fff;
+  border-radius: 9999px;
 }
 
 :deep(.rank-1) {

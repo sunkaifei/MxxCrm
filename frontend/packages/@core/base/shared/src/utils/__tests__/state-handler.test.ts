@@ -33,8 +33,8 @@ describe('stateHandler', () => {
       handler.setConditionFalse(); // 明确触发 condition 为 false
     }, 10);
 
-    // 等待过程中，期望 Promise 被 reject
-    await expect(handler.waitForCondition()).rejects.toThrow();
+    // 等待过程中，期望 Promise 被 reject（setConditionFalse 以 undefined 为由 reject）
+    await expect(handler.waitForCondition()).rejects.toBeUndefined();
     expect(handler.isConditionTrue()).toBe(false);
   });
 

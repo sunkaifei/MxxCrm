@@ -19,11 +19,9 @@ export function getBaseRules<
   if (!schema || isString(schema)) return null;
   const def = (schema as any)?._def;
   if (!def) return null;
-  if ('innerType' in def)
-    return getBaseRules(def.innerType as ChildType);
+  if ('innerType' in def) return getBaseRules(def.innerType as ChildType);
 
-  if ('schema' in def)
-    return getBaseRules(def.schema as ChildType);
+  if ('schema' in def) return getBaseRules(def.schema as ChildType);
 
   return schema as ChildType;
 }
@@ -39,18 +37,13 @@ export function getDefaultValueInZodStack(schema: ZodTypeAny): any {
   const def = (typedSchema as any)?._def;
   if (!def) return undefined;
 
-  if (def.typeName === 'ZodDefault')
-    return def.defaultValue();
+  if (def.typeName === 'ZodDefault') return def.defaultValue();
 
   if ('innerType' in def) {
-    return getDefaultValueInZodStack(
-      def.innerType as unknown as ZodTypeAny,
-    );
+    return getDefaultValueInZodStack(def.innerType as unknown as ZodTypeAny);
   }
   if ('schema' in def) {
-    return getDefaultValueInZodStack(
-      (def as any).schema as ZodTypeAny,
-    );
+    return getDefaultValueInZodStack((def as any).schema as ZodTypeAny);
   }
 
   return undefined;

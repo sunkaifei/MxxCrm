@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getCustomerListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/customer/list', { params });
 };
@@ -21,8 +23,8 @@ export const deleteCustomerApi = async (ids: number[]) => {
 // 检查客户名称是否已存在（按 customerType 区分字段：1=企业按 companyName，2=个人按 personName）
 export const checkCustomerNameApi = async (params: {
   customerType: number;
-  name: string;
   excludeId?: number;
+  name: string;
 }) => {
   return requestClient.get('/api/system/customer/check-name', { params });
 };
@@ -34,5 +36,7 @@ export const getCustomerContactsApi = async (id: number) => {
 
 // 获取客户分配历史（负责人时间轴）
 export const getCustomerAssignHistoryApi = async (id: number) => {
-  return requestClient.get('/api/system/customer/assign-history', { params: { id } });
+  return requestClient.get('/api/system/customer/assign-history', {
+    params: { id },
+  });
 };

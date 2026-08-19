@@ -1,14 +1,14 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
+// @ts-expect-error vue-i18n 在当前模块解析下缺少类型声明
+import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import { LockKeyhole } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 
-import { Avatar, Button, InputPassword } from 'ant-design-vue';
 import { useDateFormat, useNow } from '@vueuse/core';
-// @ts-ignore
-import { useI18n } from 'vue-i18n';
+import { Avatar, Button, InputPassword } from 'ant-design-vue';
 
 const router = useRouter();
 const accessStore = useAccessStore();
@@ -25,7 +25,7 @@ const date = useDateFormat(now, 'YYYY-MM-DD dddd', { locales: locale.value });
 const submitting = ref(false);
 const errorTip = ref('');
 const password = ref('');
-const ready = ref(false);  // hash 准备好后才能输入
+const ready = ref(false); // hash 准备好后才能输入
 
 // 标记页是否被劫持（防 F12 删除 isLockScreen 绕过）
 const ACTIVE_KEY = '__lock_active__';
@@ -67,7 +67,7 @@ const avatar = computed(
 async function sha256(text: string): Promise<string> {
   const buf = new TextEncoder().encode(text);
   const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-  return Array.from(new Uint8Array(hashBuf))
+  return [...new Uint8Array(hashBuf)]
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
@@ -129,7 +129,7 @@ function handleContextMenu(e: MouseEvent) {
 <template>
   <div
     class="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900"
-    style="user-select: none; -webkit-user-select: none"
+    style="user-select: none"
     role="dialog"
     aria-modal="true"
     @contextmenu="handleContextMenu"

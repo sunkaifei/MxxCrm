@@ -24,7 +24,7 @@ type ShortcutKey =
   | 'year';
 
 const emit = defineEmits<{
-  change: [params: { start_date?: string; end_date?: string; year?: number }];
+  change: [params: { end_date?: string; start_date?: string; year?: number }];
 }>();
 
 const shortcut = ref<ShortcutKey>('month');
@@ -52,16 +52,14 @@ const options = computed(() => [
 function resolveRange(): [Dayjs | null, Dayjs | null] {
   const now = dayjs();
   switch (shortcut.value) {
-    case 'month': {
-      return [now.startOf('month'), now.endOf('month')];
+    case 'custom': {
+      return customRange.value
+        ? [customRange.value[0], customRange.value[1]]
+        : [null, null];
     }
     case 'lastMonth': {
       const lm = now.subtract(1, 'month');
       return [lm.startOf('month'), lm.endOf('month')];
-    }
-    case 'quarter': {
-      const q = Math.floor(now.month() / 3) + 1;
-      return quarterRange(now.year(), q);
     }
     case 'lastQuarter': {
       const curQ = Math.floor(now.month() / 3) + 1;
@@ -69,15 +67,16 @@ function resolveRange(): [Dayjs | null, Dayjs | null] {
         ? quarterRange(now.year() - 1, 4)
         : quarterRange(now.year(), curQ - 1);
     }
+    case 'month': {
+      return [now.startOf('month'), now.endOf('month')];
+    }
+    case 'quarter': {
+      const q = Math.floor(now.month() / 3) + 1;
+      return quarterRange(now.year(), q);
+    }
     case 'year': {
       return [now.startOf('year'), now.endOf('year')];
     }
-    case 'custom': {
-      return customRange.value
-        ? [customRange.value[0], customRange.value[1]]
-        : [null, null];
-    }
-    case 'all':
     default: {
       return [null, null];
     }
@@ -130,7 +129,7 @@ emitChange();
     <RangePicker
       v-if="shortcut === 'custom'"
       :allow-clear="false"
-      :value="(customRange as any)"
+      :value="customRange as any"
       @change="handleCustomChange"
     />
   </div>

@@ -42,7 +42,7 @@ const pendingList = ref<any[]>([]);
 const detailVisible = ref(false);
 const detailLoading = ref(false);
 const currentPlanDetail = ref<any>(null);
-const currentPlanId = ref<number | null>(null);
+const currentPlanId = ref<null | number>(null);
 
 // 审批弹窗
 const approvalModalVisible = ref(false);
@@ -58,9 +58,9 @@ async function loadPendingList() {
       year: props.year,
       pendingMyApproval: true,
     });
-    pendingList.value = Array.isArray(res) ? res : (res?.data || []);
-  } catch (e: any) {
-    console.error('加载待审批列表失败', e);
+    pendingList.value = Array.isArray(res) ? res : res?.data || [];
+  } catch (error: any) {
+    console.error('加载待审批列表失败', error);
     pendingList.value = [];
   } finally {
     loading.value = false;
@@ -75,8 +75,8 @@ async function viewDetail(planId: number) {
   try {
     const res: any = await getPlanDetailApi(planId);
     currentPlanDetail.value = res?.data || res;
-  } catch (e: any) {
-    message.error(e?.message || '加载详情失败');
+  } catch (error: any) {
+    message.error(error?.message || '加载详情失败');
   } finally {
     detailLoading.value = false;
   }
@@ -115,8 +115,8 @@ async function submitApproval() {
     detailVisible.value = false;
     await loadPendingList();
     emit('refresh');
-  } catch (e: any) {
-    message.error(e?.message || '操作失败');
+  } catch (error: any) {
+    message.error(error?.message || '操作失败');
   } finally {
     submitting.value = false;
   }
@@ -140,7 +140,7 @@ watch(
 // ===== 格式化 =====
 function formatCurrency(val: any): string {
   const num = Number(val || 0);
-  if (num >= 10000) return `¥${(num / 10000).toFixed(2)}万`;
+  if (num >= 10_000) return `¥${(num / 10_000).toFixed(2)}万`;
   return `¥${num.toLocaleString()}`;
 }
 
@@ -265,7 +265,9 @@ const actionMap: Record<number, { color: string; text: string }> = {
             <div class="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span class="text-gray-500">员工：</span>
-                <span class="font-medium">{{ currentPlanDetail.employeeName }}</span>
+                <span class="font-medium">{{
+                  currentPlanDetail.employeeName
+                }}</span>
               </div>
               <div>
                 <span class="text-gray-500">年份：</span>
@@ -277,12 +279,16 @@ const actionMap: Record<number, { color: string; text: string }> = {
               </div>
               <div>
                 <span class="text-gray-500">版本：</span>
-                <span class="font-medium">v{{ currentPlanDetail.version || 1 }}</span>
+                <span class="font-medium"
+                  >v{{ currentPlanDetail.version || 1 }}</span
+                >
               </div>
               <div>
                 <span class="text-gray-500">审批层级：</span>
                 <span class="font-medium">
-                  第{{ currentPlanDetail.approvalLevel }}级 / 共{{ currentPlanDetail.totalLevels }}级
+                  第{{ currentPlanDetail.approvalLevel }}级 / 共{{
+                    currentPlanDetail.totalLevels
+                  }}级
                 </span>
               </div>
               <div>
@@ -300,26 +306,53 @@ const actionMap: Record<number, { color: string; text: string }> = {
               size="small"
               row-key="month"
             >
-              <Table.Column title="月份" dataIndex="month" :width="80">
+              <Table.Column title="月份" data-index="month" :width="80">
                 <template #default="{ text }">{{ text }}月</template>
               </Table.Column>
-              <Table.Column title="合同目标金额" dataIndex="contractTargetAmount" align="right">
-                <template #default="{ text }">{{ formatCurrency(text) }}</template>
+              <Table.Column
+                title="合同目标金额"
+                data-index="contractTargetAmount"
+                align="right"
+              >
+                <template #default="{ text }">
+                  {{ formatCurrency(text) }}
+                </template>
               </Table.Column>
-              <Table.Column title="回款目标金额" dataIndex="paymentTargetAmount" align="right">
-                <template #default="{ text }">{{ formatCurrency(text) }}</template>
+              <Table.Column
+                title="回款目标金额"
+                data-index="paymentTargetAmount"
+                align="right"
+              >
+                <template #default="{ text }">
+                  {{ formatCurrency(text) }}
+                </template>
               </Table.Column>
-              <Table.Column title="合同数量" dataIndex="contractTargetCount" align="right" />
+              <Table.Column
+                title="合同数量"
+                data-index="contractTargetCount"
+                align="right"
+              />
             </Table>
           </Card>
 
           <!-- 审批节点链 -->
-          <Card v-if="currentPlanDetail.approvalNodes?.length" size="small" class="mb-4" title="审批链">
+          <Card
+            v-if="currentPlanDetail.approvalNodes?.length"
+            size="small"
+            class="mb-4"
+            title="审批链"
+          >
             <Timeline>
               <TimelineItem
                 v-for="node in currentPlanDetail.approvalNodes"
                 :key="node.id"
-                :color="node.status === 1 ? 'green' : node.status === 2 ? 'red' : 'blue'"
+                :color="
+                  node.status === 1
+                    ? 'green'
+                    : node.status === 2
+                      ? 'red'
+                      : 'blue'
+                "
               >
                 <div class="flex items-center gap-2">
                   <span class="font-medium">第{{ node.level }}级</span>
@@ -339,9 +372,17 @@ const actionMap: Record<number, { color: string; text: string }> = {
           </Card>
 
           <!-- 审批记录 -->
-          <Card v-if="currentPlanDetail.approvalLogs?.length" size="small" class="mb-4" title="审批记录">
+          <Card
+            v-if="currentPlanDetail.approvalLogs?.length"
+            size="small"
+            class="mb-4"
+            title="审批记录"
+          >
             <Timeline>
-              <TimelineItem v-for="log in currentPlanDetail.approvalLogs" :key="log.id">
+              <TimelineItem
+                v-for="log in currentPlanDetail.approvalLogs"
+                :key="log.id"
+              >
                 <div class="flex items-center gap-2">
                   <Tag
                     v-if="actionMap[log.action as number]"
@@ -350,7 +391,9 @@ const actionMap: Record<number, { color: string; text: string }> = {
                     {{ actionMap[log.action as number]?.text }}
                   </Tag>
                   <span class="font-medium">{{ log.operatorName }}</span>
-                  <span class="text-xs text-gray-400">{{ log.createTime }}</span>
+                  <span class="text-xs text-gray-400">{{
+                    log.createTime
+                  }}</span>
                 </div>
                 <div v-if="log.reason" class="text-xs text-gray-500 mt-1">
                   {{ log.reason }}
@@ -395,7 +438,11 @@ const actionMap: Record<number, { color: string; text: string }> = {
         <Input.TextArea
           v-model:value="approvalComment"
           :rows="4"
-          :placeholder="approvalAction === 'approve' ? '请输入审批意见（可选）' : '请输入驳回原因（必填）'"
+          :placeholder="
+            approvalAction === 'approve'
+              ? '请输入审批意见（可选）'
+              : '请输入驳回原因（必填）'
+          "
           :maxlength="500"
           show-count
         />

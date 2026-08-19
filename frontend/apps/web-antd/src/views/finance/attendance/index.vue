@@ -22,7 +22,6 @@ import {
   Table,
   Upload,
 } from 'ant-design-vue';
-import { UserPickerModal } from '#/components/UserPickerModal';
 
 import {
   batchImportAttendanceApi,
@@ -31,16 +30,15 @@ import {
   getAttendanceListApi,
   upsertAttendanceApi,
 } from '#/api/core/finance';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { UserPickerModal } from '#/components/UserPickerModal';
+import { $t } from '#/locales';
 
 const guideStepCount = 5;
 
 // ===== 权限 =====
 const { hasAccessByRoles } = useAccess();
-const canManage = computed(() =>
-  hasAccessByRoles(['super_admin', 'finance']),
-);
+const canManage = computed(() => hasAccessByRoles(['super_admin', 'finance']));
 
 // ===== 通用工具 =====
 function formatMoney(val: any) {
@@ -58,7 +56,7 @@ const now = new Date();
 // ===== 搜索栏 =====
 const searchForm = reactive({
   year: now.getFullYear() as number | undefined,
-  month: now.getMonth() + 1 as number | undefined,
+  month: (now.getMonth() + 1) as number | undefined,
   employeeId: undefined as number | undefined,
 });
 
@@ -161,8 +159,8 @@ async function loadData() {
     });
     const data = res?.data || res;
     tableData.value = Array.isArray(data) ? data : data?.items || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.loadFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.loadFailed'));
     tableData.value = [];
   } finally {
     loading.value = false;
@@ -241,8 +239,8 @@ async function submitForm() {
     message.success($t('page.finance.common.saveSuccess'));
     formVisible.value = false;
     await loadData();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.saveFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.saveFailed'));
   } finally {
     formSubmitting.value = false;
   }
@@ -253,8 +251,8 @@ async function handleDelete(id: number) {
     await deleteAttendanceApi(id);
     message.success($t('page.finance.common.deleteSuccess'));
     await loadData();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.deleteFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.deleteFailed'));
   }
 }
 
@@ -276,8 +274,10 @@ async function openCalcModal(record: any) {
       month: record.month,
     });
     calcResult.value = res?.data || res || {};
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.attendance.message.calcFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.attendance.message.calcFailed'),
+    );
     calcResult.value = {};
   } finally {
     calcLoading.value = false;
@@ -305,8 +305,10 @@ async function handleImportSubmit() {
     message.success($t('page.finance.attendance.message.importSuccess'));
     importVisible.value = false;
     await loadData();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.attendance.message.importFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.attendance.message.importFailed'),
+    );
   } finally {
     importLoading.value = false;
   }
@@ -334,11 +336,7 @@ onMounted(() => {
       :expand-text="$t('page.finance.attendance.guide.expand')"
       :collapse-text="$t('page.finance.attendance.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -370,12 +368,17 @@ onMounted(() => {
           style="width: 120px"
         />
         <span>{{ $t('page.finance.common.employeeId') }}：</span>
-        <UserPickerModal v-model:value="searchForm.employeeId" style="width: 160px" />
+        <UserPickerModal
+          v-model:value="searchForm.employeeId"
+          style="width: 160px"
+        />
         <Button type="primary" @click="loadData">
           {{ $t('page.finance.common.query') }}
         </Button>
-        <Button @click="loadData">{{ $t('page.finance.common.refresh') }}</Button>
-        <div class="flex-1" />
+        <Button @click="loadData">
+          {{ $t('page.finance.common.refresh') }}
+        </Button>
+        <div class="flex-1"></div>
         <Button v-if="canManage" type="primary" @click="openForm()">
           {{ $t('page.finance.attendance.button.create') }}
         </Button>
@@ -395,11 +398,7 @@ onMounted(() => {
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'action'">
-            <Button
-              type="link"
-              size="small"
-              @click="openCalcModal(record)"
-            >
+            <Button type="link" size="small" @click="openCalcModal(record)">
               {{ $t('page.finance.attendance.button.calc') }}
             </Button>
             <Button
@@ -439,12 +438,21 @@ onMounted(() => {
       <Form layout="vertical" class="py-4" autocomplete="off">
         <Row :gutter="16">
           <Col :span="8">
-            <FormItem :label="$t('page.finance.attendance.drawer.employeeId')" required>
-              <UserPickerModal v-model:value="attendanceForm.employeeId" :disabled="!!attendanceForm.id" />
+            <FormItem
+              :label="$t('page.finance.attendance.drawer.employeeId')"
+              required
+            >
+              <UserPickerModal
+                v-model:value="attendanceForm.employeeId"
+                :disabled="!!attendanceForm.id"
+              />
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.attendance.search.yearLabel')" required>
+            <FormItem
+              :label="$t('page.finance.attendance.search.yearLabel')"
+              required
+            >
               <InputNumber
                 v-model:value="attendanceForm.year"
                 :min="2020"
@@ -454,7 +462,10 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.attendance.search.monthLabel')" required>
+            <FormItem
+              :label="$t('page.finance.attendance.search.monthLabel')"
+              required
+            >
               <Select
                 v-model:value="attendanceForm.month"
                 :options="monthOptions"
@@ -477,7 +488,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.attendance.drawer.actualWorkDays')">
+            <FormItem
+              :label="$t('page.finance.attendance.drawer.actualWorkDays')"
+            >
               <InputNumber
                 v-model:value="attendanceForm.actualWorkDays"
                 :min="0"
@@ -498,7 +511,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.attendance.drawer.earlyLeaveCount')">
+            <FormItem
+              :label="$t('page.finance.attendance.drawer.earlyLeaveCount')"
+            >
               <InputNumber
                 v-model:value="attendanceForm.earlyLeaveCount"
                 :min="0"
@@ -520,7 +535,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.attendance.drawer.personalLeaveDays')">
+            <FormItem
+              :label="$t('page.finance.attendance.drawer.personalLeaveDays')"
+            >
               <InputNumber
                 v-model:value="attendanceForm.personalLeaveDays"
                 :min="0"
@@ -531,7 +548,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.attendance.drawer.sickLeaveDays')">
+            <FormItem
+              :label="$t('page.finance.attendance.drawer.sickLeaveDays')"
+            >
               <InputNumber
                 v-model:value="attendanceForm.sickLeaveDays"
                 :min="0"
@@ -547,7 +566,9 @@ onMounted(() => {
         </div>
         <Row :gutter="16">
           <Col :span="8">
-            <FormItem :label="$t('page.finance.attendance.drawer.overtimeWeekday')">
+            <FormItem
+              :label="$t('page.finance.attendance.drawer.overtimeWeekday')"
+            >
               <InputNumber
                 v-model:value="attendanceForm.overtimeHoursWeekday"
                 :min="0"
@@ -558,7 +579,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.attendance.drawer.overtimeWeekend')">
+            <FormItem
+              :label="$t('page.finance.attendance.drawer.overtimeWeekend')"
+            >
               <InputNumber
                 v-model:value="attendanceForm.overtimeHoursWeekend"
                 :min="0"
@@ -569,7 +592,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.attendance.drawer.overtimeHoliday')">
+            <FormItem
+              :label="$t('page.finance.attendance.drawer.overtimeHoliday')"
+            >
               <InputNumber
                 v-model:value="attendanceForm.overtimeHoursHoliday"
                 :min="0"
@@ -598,14 +623,10 @@ onMounted(() => {
         {{ $t('page.finance.attendance.calc.calculating') }}
       </div>
       <div v-else-if="calcResult">
-        <Descriptions
-          bordered
-          :column="2"
-          size="small"
-          class="mb-4"
-        >
+        <Descriptions bordered :column="2" size="small" class="mb-4">
           <DescriptionsItem :label="$t('page.finance.common.yearMonth')">
-            {{ calcTarget?.year }}{{ $t('page.finance.common.year') }}{{ calcTarget?.month }}{{ $t('page.finance.common.month') }}
+            {{ calcTarget?.year }}{{ $t('page.finance.common.year')
+            }}{{ calcTarget?.month }}{{ $t('page.finance.common.month') }}
           </DescriptionsItem>
           <DescriptionsItem :label="$t('page.finance.common.employeeId')">
             {{ calcTarget?.employeeId }}
@@ -668,7 +689,8 @@ onMounted(() => {
             :title="$t('page.finance.attendance.calc.netAdjustment')"
             :value="calcResult.netAdjustment || 0"
             :value-style="{
-              color: (calcResult.netAdjustment || 0) >= 0 ? '#52c41a' : '#ff4d4f',
+              color:
+                (calcResult.netAdjustment || 0) >= 0 ? '#52c41a' : '#ff4d4f',
               fontWeight: 'bold',
               fontSize: '20px',
             }"

@@ -9,13 +9,13 @@ import { Page } from '@vben/common-ui';
 import { LucideEye } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Tag, message } from 'ant-design-vue';
+import { Button, message, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getCcListApi, markCcReadApi } from '#/api';
 import { $t } from '#/locales';
 
-const businessTypeMap: Record<string, { label: string; color: string }> = {
+const businessTypeMap: Record<string, { color: string; label: string }> = {
   contract: { label: '合同', color: 'geekblue' },
   expense: { label: '报销', color: 'volcano' },
   invoice: { label: '发票', color: 'purple' },
@@ -32,7 +32,7 @@ const businessTypeMap: Record<string, { label: string; color: string }> = {
   user: { label: '用户审核', color: 'cyan' },
 };
 
-const instanceStatusList: Record<number, { label: string; color: string }> = {
+const instanceStatusList: Record<number, { color: string; label: string }> = {
   1: { label: '待审批', color: 'processing' },
   2: { label: '审批中', color: 'warning' },
   3: { label: '已通过', color: 'success' },
@@ -160,8 +160,8 @@ async function handleMarkRead(row: any) {
     await markCcReadApi(row.id);
     message.success('已标记为已读');
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || '操作失败');
+  } catch (error: any) {
+    message.error(error?.message || '操作失败');
   }
 }
 </script>

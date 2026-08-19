@@ -12,8 +12,8 @@ import {
   InputNumber,
   message,
   Table,
-  Tabs,
   TabPane,
+  Tabs,
   Tooltip,
   Upload,
 } from 'ant-design-vue';
@@ -25,13 +25,14 @@ import {
   getExpenseTypeListApi,
   updateExpenseApi,
 } from '#/api';
+import { $t } from '#/locales';
+
 import CustomerSelectModal from '../../crm/components/CustomerSelectModal.vue';
 import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
 import OrderSelectModal from '../../crm/components/OrderSelectModal.vue';
-import { $t } from '#/locales';
 
 // drawerData 在 onOpenChange 中手动赋值，避免引用尚未定义的 drawerApi
-const drawerData = ref<{ create: boolean; row: any; readonly?: boolean }>({
+const drawerData = ref<{ create: boolean; readonly?: boolean; row: any }>({
   create: true,
   row: {},
 });
@@ -45,9 +46,9 @@ const submitting = ref(false);
 const expenseTypeOptions = ref<{ label: string; value: number }[]>([]);
 
 // ===== 关联业务 =====
-const selectedCustomer = ref<{ id: number; name: string } | null>(null);
-const selectedOpportunity = ref<{ id: number; name: string } | null>(null);
-const selectedOrder = ref<{ id: number; name: string } | null>(null);
+const selectedCustomer = ref<null | { id: number; name: string }>(null);
+const selectedOpportunity = ref<null | { id: number; name: string }>(null);
+const selectedOrder = ref<null | { id: number; name: string }>(null);
 
 // ===== 选择器弹窗可见性 =====
 const customerSelectVisible = ref(false);
@@ -80,8 +81,8 @@ async function loadExpenseTypes() {
       label: t.typeName || t.name || '',
       value: t.id,
     }));
-  } catch (e) {
-    console.error('[expense] load expense types failed:', e);
+  } catch (error) {
+    console.error('[expense] load expense types failed:', error);
     expenseTypeOptions.value = [];
   }
 }
@@ -117,12 +118,16 @@ async function loadExpenseDetail(id: number) {
       };
     }
     // 回填费用明细
-    items.value = Array.isArray(data.items) ? data.items.map((it: any) => ({ ...it })) : [];
+    items.value = Array.isArray(data.items)
+      ? data.items.map((it: any) => ({ ...it }))
+      : [];
     // 回填附件
-    attachmentList.value = Array.isArray(data.attachments) ? data.attachments : [];
+    attachmentList.value = Array.isArray(data.attachments)
+      ? data.attachments
+      : [];
     remark.value = data.remark || '';
-  } catch (e) {
-    console.error('[expense] load detail failed:', e);
+  } catch (error) {
+    console.error('[expense] load detail failed:', error);
   }
 }
 
@@ -132,7 +137,9 @@ const basicFormSchema: VbenFormSchema[] = [
     fieldName: 'title',
     label: $t('page.finance.expense.drawer.expenseTitle'),
     rules: 'required',
-    componentProps: { placeholder: $t('page.finance.expense.drawer.expenseTitlePlaceholder') },
+    componentProps: {
+      placeholder: $t('page.finance.expense.drawer.expenseTitlePlaceholder'),
+    },
     wrapperClass: 'col-span-2',
   },
   {
@@ -168,12 +175,38 @@ const [BasicForm, basicFormApi] = useVbenForm({
 
 // 费用明细列
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
-  { title: $t('page.finance.expense.drawer.itemDate'), key: 'itemDate', width: 160 },
-  { title: $t('page.finance.expense.drawer.amount'), key: 'amount', width: 130 },
-  { title: $t('page.finance.expense.drawer.category'), key: 'category', width: 140 },
-  { title: $t('page.finance.expense.drawer.description'), key: 'description', minWidth: 180 },
-  { title: $t('page.finance.expense.drawer.attachment'), key: 'attachment', width: 120 },
+  {
+    title: '#',
+    width: 45,
+    key: 'seq',
+    customRender: ({ index }: any) => index + 1,
+    align: 'center' as const,
+  },
+  {
+    title: $t('page.finance.expense.drawer.itemDate'),
+    key: 'itemDate',
+    width: 160,
+  },
+  {
+    title: $t('page.finance.expense.drawer.amount'),
+    key: 'amount',
+    width: 130,
+  },
+  {
+    title: $t('page.finance.expense.drawer.category'),
+    key: 'category',
+    width: 140,
+  },
+  {
+    title: $t('page.finance.expense.drawer.description'),
+    key: 'description',
+    minWidth: 180,
+  },
+  {
+    title: $t('page.finance.expense.drawer.attachment'),
+    key: 'attachment',
+    width: 120,
+  },
   { title: $t('page.finance.common.action'), key: 'action', width: 70 },
 ];
 
@@ -198,11 +231,8 @@ const totalAmount = computed(() => {
 
 // 处理明细附件（单文件）
 function handleItemAttachmentChange(index: number, info: any) {
-  if (info.fileList && info.fileList.length > 0) {
-    items.value[index].attachment = info.fileList[0];
-  } else {
-    items.value[index].attachment = null;
-  }
+  items.value[index].attachment =
+    info.fileList && info.fileList.length > 0 ? info.fileList[0] : null;
 }
 
 // 主表附件上传（多文件）
@@ -221,8 +251,8 @@ async function handleSubmit() {
     let validResult;
     try {
       validResult = await basicFormApi.validate();
-    } catch (e) {
-      console.error('[expense] form validation error:', e);
+    } catch (error) {
+      console.error('[expense] form validation error:', error);
       activeTab.value = 'basic';
       message.warning($t('page.finance.expense.drawer.improveBaseInfo'));
       return;
@@ -237,7 +267,9 @@ async function handleSubmit() {
     for (let i = 0; i < items.value.length; i++) {
       const it = items.value[i];
       if (Number(it.amount || 0) <= 0) {
-        message.error($t('page.finance.expense.drawer.rowAmountRequired', { index: i + 1 }));
+        message.error(
+          $t('page.finance.expense.drawer.rowAmountRequired', { index: i + 1 }),
+        );
         activeTab.value = 'items';
         return;
       }
@@ -292,8 +324,8 @@ async function handleSubmit() {
       message.success($t('page.finance.expense.drawer.createSuccess'));
     }
     closeDrawer();
-  } catch (e) {
-    console.error('[expense] submit failed:', e);
+  } catch (error) {
+    console.error('[expense] submit failed:', error);
     message.error($t('page.finance.common.failed'));
   } finally {
     submitting.value = false;
@@ -311,8 +343,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       const data = drawerApi.getData() as {
         create?: boolean;
-        row?: any;
         readonly?: boolean;
+        row?: any;
       };
       drawerData.value = {
         create: data?.create ?? true,
@@ -343,41 +375,67 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 <template>
   <Drawer
-    :title="isReadonly ? $t('page.finance.expense.drawer.titleDetail') : isEdit ? $t('page.finance.expense.drawer.titleEdit') : $t('page.finance.expense.drawer.titleCreate')"
+    :title="
+      isReadonly
+        ? $t('page.finance.expense.drawer.titleDetail')
+        : isEdit
+          ? $t('page.finance.expense.drawer.titleEdit')
+          : $t('page.finance.expense.drawer.titleCreate')
+    "
     :class="drawerClass"
     :destroy-on-close="true"
     :z-index="2000"
     :show-footer="!isReadonly"
   >
     <template #extra>
-      <Tooltip :title="isReadonly ? $t('page.finance.expense.drawer.readonlyMode') : $t('page.finance.expense.drawer.editMode')">
+      <Tooltip
+        :title="
+          isReadonly
+            ? $t('page.finance.expense.drawer.readonlyMode')
+            : $t('page.finance.expense.drawer.editMode')
+        "
+      >
         <span class="text-xs text-gray-400 px-2">
-          {{ isReadonly ? $t('page.finance.expense.drawer.readonly') : $t('page.finance.expense.drawer.editable') }}
+          {{
+            isReadonly
+              ? $t('page.finance.expense.drawer.readonly')
+              : $t('page.finance.expense.drawer.editable')
+          }}
         </span>
       </Tooltip>
     </template>
-    <Tabs v-model:activeKey="activeTab">
+    <Tabs v-model:active-key="activeTab">
       <TabPane key="basic" :tab="$t('page.finance.expense.drawer.baseInfo')">
         <BasicForm />
         <!-- 关联业务 -->
         <div class="mt-3 px-1">
-          <div class="text-sm font-medium mb-2 text-gray-700">{{ $t('page.finance.expense.drawer.relatedBusiness') }}</div>
+          <div class="text-sm font-medium mb-2 text-gray-700">
+            {{ $t('page.finance.expense.drawer.relatedBusiness') }}
+          </div>
           <div class="grid grid-cols-1 gap-3">
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">{{ $t('page.finance.expense.drawer.customer') }}：</span>
+              <span class="text-sm text-gray-500 shrink-0" style="width: 82px"
+                >{{ $t('page.finance.expense.drawer.customer') }}：</span
+              >
               <div class="flex-1">
                 <a
                   v-if="selectedCustomer"
                   class="text-blue-600 cursor-pointer"
                   @click="!isReadonly && (customerSelectVisible = true)"
                 >
-                  {{ selectedCustomer.name || $t('page.finance.expense.drawer.customerHash', { id: selectedCustomer.id }) }}
+                  {{
+                    selectedCustomer.name ||
+                    $t('page.finance.expense.drawer.customerHash', {
+                      id: selectedCustomer.id,
+                    })
+                  }}
                 </a>
                 <a
                   v-else-if="!isReadonly"
                   class="text-blue-600 cursor-pointer"
                   @click="customerSelectVisible = true"
-                >{{ $t('page.finance.expense.drawer.customerSelect') }}</a>
+                  >{{ $t('page.finance.expense.drawer.customerSelect') }}</a
+                >
                 <span v-else>-</span>
               </div>
               <Button
@@ -386,23 +444,33 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 size="small"
                 danger
                 @click="selectedCustomer = null"
-              >{{ $t('page.finance.expense.drawer.clear') }}</Button>
+              >
+                {{ $t('page.finance.expense.drawer.clear') }}
+              </Button>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">{{ $t('page.finance.expense.drawer.opportunity') }}：</span>
+              <span class="text-sm text-gray-500 shrink-0" style="width: 82px"
+                >{{ $t('page.finance.expense.drawer.opportunity') }}：</span
+              >
               <div class="flex-1">
                 <a
                   v-if="selectedOpportunity"
                   class="text-blue-600 cursor-pointer"
                   @click="!isReadonly && (opportunitySelectVisible = true)"
                 >
-                  {{ selectedOpportunity.name || $t('page.finance.expense.drawer.opportunityHash', { id: selectedOpportunity.id }) }}
+                  {{
+                    selectedOpportunity.name ||
+                    $t('page.finance.expense.drawer.opportunityHash', {
+                      id: selectedOpportunity.id,
+                    })
+                  }}
                 </a>
                 <a
                   v-else-if="!isReadonly"
                   class="text-blue-600 cursor-pointer"
                   @click="opportunitySelectVisible = true"
-                >{{ $t('page.finance.expense.drawer.opportunitySelect') }}</a>
+                  >{{ $t('page.finance.expense.drawer.opportunitySelect') }}</a
+                >
                 <span v-else>-</span>
               </div>
               <Button
@@ -411,23 +479,33 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 size="small"
                 danger
                 @click="selectedOpportunity = null"
-              >{{ $t('page.finance.expense.drawer.clear') }}</Button>
+              >
+                {{ $t('page.finance.expense.drawer.clear') }}
+              </Button>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 shrink-0" style="width: 82px">{{ $t('page.finance.expense.drawer.order') }}：</span>
+              <span class="text-sm text-gray-500 shrink-0" style="width: 82px"
+                >{{ $t('page.finance.expense.drawer.order') }}：</span
+              >
               <div class="flex-1">
                 <a
                   v-if="selectedOrder"
                   class="text-blue-600 cursor-pointer"
                   @click="!isReadonly && (orderSelectVisible = true)"
                 >
-                  {{ selectedOrder.name || $t('page.finance.expense.drawer.orderHash', { id: selectedOrder.id }) }}
+                  {{
+                    selectedOrder.name ||
+                    $t('page.finance.expense.drawer.orderHash', {
+                      id: selectedOrder.id,
+                    })
+                  }}
                 </a>
                 <a
                   v-else-if="!isReadonly"
                   class="text-blue-600 cursor-pointer"
                   @click="orderSelectVisible = true"
-                >{{ $t('page.finance.expense.drawer.orderSelect') }}</a>
+                  >{{ $t('page.finance.expense.drawer.orderSelect') }}</a
+                >
                 <span v-else>-</span>
               </div>
               <Button
@@ -436,13 +514,17 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 size="small"
                 danger
                 @click="selectedOrder = null"
-              >{{ $t('page.finance.expense.drawer.clear') }}</Button>
+              >
+                {{ $t('page.finance.expense.drawer.clear') }}
+              </Button>
             </div>
           </div>
         </div>
         <!-- 备注 -->
         <div class="mt-4 px-1">
-          <label class="text-sm text-gray-500">{{ $t('page.finance.expense.drawer.remark') }}：</label>
+          <label class="text-sm text-gray-500"
+            >{{ $t('page.finance.expense.drawer.remark') }}：</label
+          >
           <Input
             v-model:value="remark"
             :placeholder="$t('page.finance.expense.drawer.remarkPlaceholder')"
@@ -453,13 +535,27 @@ const [Drawer, drawerApi] = useVbenDrawer({
         </div>
       </TabPane>
 
-      <TabPane key="items" :tab="$t('page.finance.expense.drawer.expenseDetail')">
+      <TabPane
+        key="items"
+        :tab="$t('page.finance.expense.drawer.expenseDetail')"
+      >
         <div class="mb-3 flex justify-between items-center">
           <span class="text-sm text-gray-500">
-            {{ $t('page.finance.expense.drawer.totalItems', { count: items.length }) }}
-            <span class="font-medium text-red-500">{{ totalAmount.toFixed(2) }}</span>
+            {{
+              $t('page.finance.expense.drawer.totalItems', {
+                count: items.length,
+              })
+            }}
+            <span class="font-medium text-red-500">{{
+              totalAmount.toFixed(2)
+            }}</span>
           </span>
-          <Button v-if="!isReadonly" type="primary" size="small" @click="addItem">
+          <Button
+            v-if="!isReadonly"
+            type="primary"
+            size="small"
+            @click="addItem"
+          >
             {{ $t('page.finance.expense.drawer.addItem') }}
           </Button>
         </div>
@@ -477,7 +573,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
               <DatePicker
                 v-model:value="record.itemDate"
                 value-format="YYYY-MM-DD"
-                :placeholder="$t('page.finance.expense.drawer.itemDatePlaceholder')"
+                :placeholder="
+                  $t('page.finance.expense.drawer.itemDatePlaceholder')
+                "
                 size="small"
                 style="width: 100%"
                 :disabled="isReadonly"
@@ -490,14 +588,18 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 :precision="2"
                 style="width: 100%"
                 size="small"
-                :placeholder="$t('page.finance.expense.drawer.amountPlaceholder')"
+                :placeholder="
+                  $t('page.finance.expense.drawer.amountPlaceholder')
+                "
                 :disabled="isReadonly"
               />
             </template>
             <template v-else-if="column.key === 'category'">
               <Input
                 v-model:value="record.category"
-                :placeholder="$t('page.finance.expense.drawer.categoryPlaceholder')"
+                :placeholder="
+                  $t('page.finance.expense.drawer.categoryPlaceholder')
+                "
                 size="small"
                 :disabled="isReadonly"
               />
@@ -505,7 +607,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
             <template v-else-if="column.key === 'description'">
               <Input
                 v-model:value="record.description"
-                :placeholder="$t('page.finance.expense.drawer.descriptionPlaceholder')"
+                :placeholder="
+                  $t('page.finance.expense.drawer.descriptionPlaceholder')
+                "
                 size="small"
                 :disabled="isReadonly"
               />
@@ -519,7 +623,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 :show-upload-list="true"
                 @change="(info: any) => handleItemAttachmentChange(index, info)"
               >
-                <Button type="link" size="small">{{ $t('page.finance.expense.drawer.upload') }}</Button>
+                <Button type="link" size="small">
+                  {{ $t('page.finance.expense.drawer.upload') }}
+                </Button>
               </Upload>
               <span v-else>{{ record.attachment?.name || '-' }}</span>
             </template>
@@ -530,14 +636,18 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 danger
                 size="small"
                 @click="removeItem(index)"
-              >{{ $t('page.finance.common.delete') }}</Button>
+              >
+                {{ $t('page.finance.common.delete') }}
+              </Button>
             </template>
           </template>
         </Table>
         <!-- 金额汇总 -->
         <div class="mt-4 flex justify-end pr-4">
           <div class="flex items-center gap-2 border-t pt-2">
-            <span class="font-medium">{{ $t('page.finance.expense.drawer.detailTotal') }}</span>
+            <span class="font-medium">{{
+              $t('page.finance.expense.drawer.detailTotal')
+            }}</span>
             <span class="text-lg font-bold text-red-500">
               {{ totalAmount.toFixed(2) }}
             </span>
@@ -545,7 +655,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
         </div>
       </TabPane>
 
-      <TabPane key="attachment" :tab="$t('page.finance.expense.drawer.attachment')">
+      <TabPane
+        key="attachment"
+        :tab="$t('page.finance.expense.drawer.attachment')"
+      >
         <div class="mb-3 text-sm text-gray-500">
           {{ $t('page.finance.expense.drawer.attachmentTip') }}
         </div>
@@ -557,9 +670,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
           :show-upload-list="true"
           @change="handleAttachmentChange"
         >
-          <Button type="primary">{{ $t('page.finance.expense.drawer.clickUpload') }}</Button>
+          <Button type="primary">
+            {{ $t('page.finance.expense.drawer.clickUpload') }}
+          </Button>
         </Upload>
-        <div v-if="isReadonly && attachmentList.length === 0" class="text-gray-400 text-center py-8">
+        <div
+          v-if="isReadonly && attachmentList.length === 0"
+          class="text-gray-400 text-center py-8"
+        >
           {{ $t('page.finance.expense.drawer.noAttachment') }}
         </div>
       </TabPane>
@@ -568,27 +686,39 @@ const [Drawer, drawerApi] = useVbenDrawer({
     <!-- 客户选择弹窗 -->
     <CustomerSelectModal
       v-model:visible="customerSelectVisible"
-      @select="(row: any) => {
-        selectedCustomer = { id: row.id, name: row.customerName || row.name || '' };
-        customerSelectVisible = false;
-      }"
+      @select="
+        (row: any) => {
+          selectedCustomer = {
+            id: row.id,
+            name: row.customerName || row.name || '',
+          };
+          customerSelectVisible = false;
+        }
+      "
     />
     <!-- 商机选择弹窗 -->
     <OpportunitySelectModal
       v-model:visible="opportunitySelectVisible"
       :customer-id="selectedCustomer?.id"
-      @select="(row: any) => {
-        selectedOpportunity = { id: row.id, name: row.opportunityName || row.title || '' };
-        opportunitySelectVisible = false;
-      }"
+      @select="
+        (row: any) => {
+          selectedOpportunity = {
+            id: row.id,
+            name: row.opportunityName || row.title || '',
+          };
+          opportunitySelectVisible = false;
+        }
+      "
     />
     <!-- 订单选择弹窗 -->
     <OrderSelectModal
       v-model:visible="orderSelectVisible"
-      @select="(row: any) => {
-        selectedOrder = { id: row.id, name: row.orderNo || row.title || '' };
-        orderSelectVisible = false;
-      }"
+      @select="
+        (row: any) => {
+          selectedOrder = { id: row.id, name: row.orderNo || row.title || '' };
+          orderSelectVisible = false;
+        }
+      "
     />
   </Drawer>
 </template>

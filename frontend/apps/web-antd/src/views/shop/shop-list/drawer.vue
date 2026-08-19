@@ -1,8 +1,11 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
+
 import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import { shopApi } from '#/api';
 
 const data = ref();

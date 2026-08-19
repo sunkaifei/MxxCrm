@@ -1,4 +1,3 @@
-import { $t } from '#/locales';
 import type { SegmentConfig } from '#/api';
 
 /**
@@ -106,17 +105,34 @@ export function segTypeNeedLength(type: string): boolean {
 /**
  * 生成新段位的默认值
  */
-export function createDefaultSegment(type: string, sort: number): SegmentConfig {
+export function createDefaultSegment(
+  type: string,
+  sort: number,
+): SegmentConfig {
   const seg: SegmentConfig = { type: type as SegmentConfig['type'], sort };
-  if (type === 'year') {
-    seg.format = 'yyyy';
-    seg.source = 'current';
-  } else if (type === 'date') {
-    seg.format = 'yyyyMMdd';
-  } else if (type === 'seq') {
-    seg.length = 4;
-  } else if (type === 'version') {
-    seg.value = 'V1';
+  switch (type) {
+    case 'date': {
+      seg.format = 'yyyyMMdd';
+
+      break;
+    }
+    case 'seq': {
+      seg.length = 4;
+
+      break;
+    }
+    case 'version': {
+      seg.value = 'V1';
+
+      break;
+    }
+    case 'year': {
+      seg.format = 'yyyy';
+      seg.source = 'current';
+
+      break;
+    }
+    // No default
   }
   return seg;
 }
@@ -124,7 +140,10 @@ export function createDefaultSegment(type: string, sort: number): SegmentConfig 
 /**
  * 段位类型是否可以重复添加（除固定文本外，其他段位类型不可重复）
  */
-export function canAddSegmentType(type: string, segments: SegmentConfig[]): boolean {
+export function canAddSegmentType(
+  type: string,
+  segments: SegmentConfig[],
+): boolean {
   if (type === 'fixed') return true;
   return !segments.some((s) => s.type === type);
 }
@@ -139,19 +158,44 @@ export function segmentsToPreviewText(
   deptCode = 'XS',
   separator = '-',
 ): string {
-  const sorted = [...segments].sort((a, b) => a.sort - b.sort);
+  const sorted = segments.toSorted((a, b) => a.sort - b.sort);
   const parts: string[] = [];
   for (const seg of sorted) {
     let part = '';
     switch (seg.type) {
-      case 'company': part = companyAbbr; break;
-      case 'biz_type': part = bizType; break;
-      case 'year': part = '2026'; break;
-      case 'dept': part = deptCode; break;
-      case 'seq': part = '0'.repeat(seg.length ?? 4) + '1'; part = part.slice(-Math.max(1, seg.length ?? 4)); break;
-      case 'version': part = seg.value ?? 'V1'; break;
-      case 'fixed': part = seg.value ?? ''; break;
-      case 'date': part = '20260704'; break;
+      case 'biz_type': {
+        part = bizType;
+        break;
+      }
+      case 'company': {
+        part = companyAbbr;
+        break;
+      }
+      case 'date': {
+        part = '20260704';
+        break;
+      }
+      case 'dept': {
+        part = deptCode;
+        break;
+      }
+      case 'fixed': {
+        part = seg.value ?? '';
+        break;
+      }
+      case 'seq': {
+        part = `${'0'.repeat(seg.length ?? 4)}1`;
+        part = part.slice(-Math.max(1, seg.length ?? 4));
+        break;
+      }
+      case 'version': {
+        part = seg.value ?? 'V1';
+        break;
+      }
+      case 'year': {
+        part = '2026';
+        break;
+      }
     }
     if (part) parts.push(part);
   }

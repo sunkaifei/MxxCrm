@@ -3,25 +3,18 @@ import { h, ref, watch } from 'vue';
 
 import { LucideSearch, LucideUserPlus } from '@vben/icons';
 
-import {
-  Avatar,
-  Button,
-  Input,
-  List,
-  Modal,
-  Empty,
-} from 'ant-design-vue';
+import { Avatar, Button, Empty, Input, List, Modal } from 'ant-design-vue';
 
-import {
-  searchUsersApi,
-  startSessionApi,
-} from '#/api/core/message/chat';
+import { searchUsersApi, startSessionApi } from '#/api/core/message/chat';
 
-const props = withDefaults(defineProps<{
-  visible: boolean;
-}>(), {
-  visible: false,
-});
+const props = withDefaults(
+  defineProps<{
+    visible?: boolean;
+  }>(),
+  {
+    visible: false,
+  },
+);
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
@@ -70,8 +63,8 @@ async function handleSearch() {
       pageSize: 20,
     });
     users.value = res.list || [];
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   } finally {
     loading.value = false;
   }
@@ -82,17 +75,23 @@ async function handleSelect(user: any) {
     const res = await startSessionApi({ receiverId: user.userId || user.id });
     emit('select', res || user);
     innerVisible.value = false;
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 }
 
 function getAvatar(user: any) {
-  return user.avatar || user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.userId || user.id || user.userName}`;
+  return (
+    user.avatar ||
+    user.avatarUrl ||
+    `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.userId || user.id || user.userName}`
+  );
 }
 
 function getName(user: any) {
-  return user.nickName || user.realName || user.name || user.userName || '未知用户';
+  return (
+    user.nickName || user.realName || user.name || user.userName || '未知用户'
+  );
 }
 </script>
 
@@ -117,11 +116,8 @@ function getName(user: any) {
       </Input>
     </div>
 
-    <div style="max-height: 400px; overflow-y: auto;">
-      <List
-        :data-source="users"
-        :loading="loading"
-      >
+    <div style="max-height: 400px; overflow-y: auto">
+      <List :data-source="users" :loading="loading">
         <template #renderItem="{ item }">
           <List.Item
             class="cursor-pointer hover:bg-gray-50 rounded-lg px-2 transition-colors"

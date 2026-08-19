@@ -1,18 +1,24 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { $t } from '#/locales';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2, LucidePencil } from '@vben/icons';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
+import { LucideFilePenLine, LucidePencil, LucideTrash2 } from '@vben/icons';
+import { useAccessStore } from '@vben/stores';
+import { formatDateTime } from '@vben/utils';
+
 import { Button, Popconfirm, Switch } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { deleteRoleApi, getRoleListApi, updateRoleApi } from '#/api';
+import { $t } from '#/locales';
+import { statusList } from '#/store';
+
 import RoleDrawer from './drawer.vue';
 import SetAuthDrawer from './set-auth.vue';
-import { deleteRoleApi, getRoleListApi, updateRoleApi } from '#/api';
-import { formatDateTime } from '@vben/utils';
-import { useAccessStore } from '@vben/stores';
-import { statusList } from '#/store';
 
 const accessStore = useAccessStore();
 

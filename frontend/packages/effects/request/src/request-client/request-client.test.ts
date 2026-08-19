@@ -50,24 +50,20 @@ describe('requestClient', () => {
 
   it('should handle network errors', async () => {
     mock.onGet('/test/error').networkError();
-    try {
-      await requestClient.get('/test/error');
-      expect(true).toBe(false);
-    } catch (error: any) {
-      expect(error.isAxiosError).toBe(true);
-      expect(error.message).toBe('Network Error');
-    }
+    const error: any = await requestClient
+      .get('/test/error')
+      .catch((error_) => error_);
+    expect(error.isAxiosError).toBe(true);
+    expect(error.message).toBe('Network Error');
   });
 
   it('should handle timeout', async () => {
     mock.onGet('/test/timeout').timeout();
-    try {
-      await requestClient.get('/test/timeout');
-      expect(true).toBe(false);
-    } catch (error: any) {
-      expect(error.isAxiosError).toBe(true);
-      expect(error.code).toBe('ECONNABORTED');
-    }
+    const error: any = await requestClient
+      .get('/test/timeout')
+      .catch((error_) => error_);
+    expect(error.isAxiosError).toBe(true);
+    expect(error.code).toBe('ECONNABORTED');
   });
 
   it('should successfully upload a file', async () => {

@@ -74,7 +74,9 @@ const welcomeText = computed(() => {
   ]
     .filter((t: any) => typeof t === 'string' && t.length > 0)
     .slice(0, 2);
-  return tags.length > 0 ? `早安，${name}（${tags.join(' · ')}）` : `早安，${name}`;
+  return tags.length > 0
+    ? `早安，${name}（${tags.join(' · ')}）`
+    : `早安，${name}`;
 });
 
 // ===== 内嵌审批抽屉 =====
@@ -82,7 +84,9 @@ const approvalDrawerOrderId = ref<null | number>(null);
 const approvalDrawerContractId = ref<null | number>(null);
 const orderApprovalVisible = ref(false);
 const contractApprovalVisible = ref(false);
-const approvalCurrentUserId = computed(() => userStore.userInfo?.userId ? Number(userStore.userInfo.userId) : undefined);
+const approvalCurrentUserId = computed(() =>
+  userStore.userInfo?.userId ? Number(userStore.userInfo.userId) : undefined,
+);
 
 // 处理 QuickProcessModal 的查看审批流详情事件：在工作台内嵌打开抽屉
 function handleViewApproval(payload: {
@@ -209,9 +213,7 @@ const defaultQuickNavSimple: WorkbenchQuickNavItem[] = [
 
 // 根据简易模式返回默认导航
 function getDefaultQuickNavItems(): WorkbenchQuickNavItem[] {
-  return saleSimpleMode.value
-    ? defaultQuickNavSimple
-    : defaultQuickNavStandard;
+  return saleSimpleMode.value ? defaultQuickNavSimple : defaultQuickNavStandard;
 }
 
 // 展平菜单树，只保留有 path 的叶子节点
@@ -257,7 +259,7 @@ async function loadQuickNav() {
     const allMenus = flattenMenus(menuResp?.items || menuResp || []);
 
     // 按 sort 顺序匹配前 6 个
-    const sortedPref = [...savedPref].sort(
+    const sortedPref = savedPref.toSorted(
       (a, b) => (a.sort ?? 0) - (b.sort ?? 0),
     );
     const items: WorkbenchQuickNavItem[] = [];
@@ -278,8 +280,7 @@ async function loadQuickNav() {
         url: menu.path,
       });
     }
-    quickNavItems.value =
-      items.length > 0 ? items : getDefaultQuickNavItems();
+    quickNavItems.value = items.length > 0 ? items : getDefaultQuickNavItems();
   } catch {
     quickNavItems.value = getDefaultQuickNavItems();
   }
@@ -401,9 +402,10 @@ async function loadSmartTodos() {
     const [approvalResp, followUpResp, paymentResp, planResp]: any[] =
       await Promise.all([
         canShow('approval')
-          ? getTodoApprovalListApi({ pageNum: 1, pageSize: 2 }).catch(
-              () => ({ items: [], total: 0 }),
-            )
+          ? getTodoApprovalListApi({ pageNum: 1, pageSize: 2 }).catch(() => ({
+              items: [],
+              total: 0,
+            }))
           : Promise.resolve({ items: [], total: 0 }),
         canShow('followUp')
           ? getTodoFollowUpListApi({
@@ -465,12 +467,14 @@ async function loadSmartTodos() {
       const remainingDays = item.remainingDays ?? 0;
       const contractTitle = item.contractTitle || '';
       const stageName = item.stageName || '回款阶段';
-      const timeDesc =
-        remainingDays < 0
-          ? `已逾期 ${Math.abs(remainingDays)} 天`
-          : (remainingDays === 0
-            ? '今日到期'
-            : `还有 ${remainingDays} 天到期`);
+      let timeDesc: string;
+      if (remainingDays < 0) {
+        timeDesc = `已逾期 ${Math.abs(remainingDays)} 天`;
+      } else if (remainingDays === 0) {
+        timeDesc = '今日到期';
+      } else {
+        timeDesc = `还有 ${remainingDays} 天到期`;
+      }
       items.push({
         id: item.id,
         type: 'payment',
@@ -510,9 +514,7 @@ async function loadSmartTodos() {
     // 未处理项最多 5 条
     const pendingItems = items.slice(0, 5);
     // 今日已处理项：排除仍出现在未处理列表中的（防重复），最多追加 3 条
-    const pendingKeys = new Set(
-      pendingItems.map((i) => `${i.type}-${i.id}`),
-    );
+    const pendingKeys = new Set(pendingItems.map((i) => `${i.type}-${i.id}`));
     const doneItems = processedToday.value
       .filter((p) => !pendingKeys.has(`${p.type}-${p.id}`))
       .slice(0, 3);
@@ -540,8 +542,7 @@ function handleTodoClick(item: SmartTodoItem) {
     type: item.type,
     // 审批类型：raw.businessId 是业务ID（如订单ID），raw.id 是审批实例ID，不能覆盖
     // 其他类型：raw.id 即为业务ID，作为 businessId 传给快速处理弹窗
-    businessId:
-      item.type === 'approval' ? raw.businessId : raw.id,
+    businessId: item.type === 'approval' ? raw.businessId : raw.id,
     businessTitle: item.title,
   };
   quickProcessVisible.value = true;
@@ -580,7 +581,7 @@ function handleOverviewClick(tabKey: string) {
 
 // ===== 本周工作负载 =====
 const weekLoading = ref(false);
-const weekWorkload = ref<Array<{ count: number; day: string; }>>([]);
+const weekWorkload = ref<Array<{ count: number; day: string }>>([]);
 
 const weekMaxCount = computed(() => {
   return Math.max(1, ...weekWorkload.value.map((w) => w.count || 0));
@@ -682,9 +683,7 @@ onMounted(() => {
       :todo-processed="todoProcessed"
       :todo-total="todoTotal"
     >
-      <template #title>
-        {{ welcomeText }}，开始您一天的工作吧！
-      </template>
+      <template #title> {{ welcomeText }}，开始您一天的工作吧！ </template>
       <template #description>
         {{ $t('page.dashboard.todoList') }} {{ todoCount }} 项
       </template>

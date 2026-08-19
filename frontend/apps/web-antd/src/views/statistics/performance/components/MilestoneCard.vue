@@ -11,7 +11,7 @@ interface Milestone {
   label: string;
   amount: number;
   achieved: boolean;
-  achievedDate?: string | null;
+  achievedDate?: null | string;
 }
 
 interface Props {
@@ -26,8 +26,8 @@ const data = ref<any>({});
 
 function formatCurrency(val?: number) {
   if (!val) return '¥0';
-  if (val >= 100000000) return `¥${(val / 100000000).toFixed(2)}亿`;
-  if (val >= 10000) return `¥${(val / 10000).toFixed(1)}万`;
+  if (val >= 100_000_000) return `¥${(val / 100_000_000).toFixed(2)}亿`;
+  if (val >= 10_000) return `¥${(val / 10_000).toFixed(1)}万`;
   return `¥${val.toLocaleString()}`;
 }
 
@@ -38,7 +38,10 @@ const futureMilestone = computed(() => data.value?.futureMilestone);
 
 // 计算距离下一档的进度
 const progressPercent = computed(() => {
-  if (!futureMilestone.value?.achieved && futureMilestone.value?.remaining !== undefined) {
+  if (
+    !futureMilestone.value?.achieved &&
+    futureMilestone.value?.remaining !== undefined
+  ) {
     const next = nextMilestone.value;
     const future = futureMilestone.value;
     if (!next || !future) return 0;
@@ -88,7 +91,7 @@ onMounted(() => loadData());
           v-if="futureMilestone"
           class="current-milestone-card mb-4"
           :class="{
-            'achieved': futureMilestone.achieved,
+            achieved: futureMilestone.achieved,
             'in-progress': !futureMilestone.achieved,
           }"
         >
@@ -117,7 +120,7 @@ onMounted(() => loadData());
               <div
                 class="progress-fill"
                 :style="{ width: `${progressPercent}%` }"
-              />
+              ></div>
             </div>
             <div class="flex justify-between mt-1 text-xs text-gray-500">
               <span>{{ nextMilestone?.label || '起点' }}</span>
@@ -133,10 +136,10 @@ onMounted(() => loadData());
             v-for="m in milestones"
             :key="m.label"
             class="milestone-item"
-            :class="{ 'achieved': m.achieved }"
+            :class="{ achieved: m.achieved }"
           >
             <div class="flex items-center gap-3">
-              <div class="medal" :class="{ 'achieved': m.achieved }">
+              <div class="medal" :class="{ achieved: m.achieved }">
                 <IconifyIcon
                   :icon="m.achieved ? 'lucide:award' : 'lucide:circle'"
                   class="text-xl"
@@ -145,7 +148,9 @@ onMounted(() => loadData());
               <div class="flex-1">
                 <div class="flex items-center gap-2">
                   <span class="font-semibold">{{ m.label }}</span>
-                  <Tag v-if="m.achieved" color="success" style="margin: 0">已达成</Tag>
+                  <Tag v-if="m.achieved" color="success" style="margin: 0">
+                    已达成
+                  </Tag>
                   <Tag v-else color="default" style="margin: 0">未达成</Tag>
                 </div>
                 <div class="text-xs text-gray-500 mt-1">
@@ -166,9 +171,9 @@ onMounted(() => loadData());
 <style scoped>
 .current-milestone-card {
   padding: 16px;
-  border-radius: 10px;
   background: linear-gradient(135deg, #fffbe6 0%, #fff7e6 100%);
   border: 1px solid #ffe58f;
+  border-radius: 10px;
 }
 
 .current-milestone-card.achieved {
@@ -180,9 +185,9 @@ onMounted(() => loadData());
   position: relative;
   width: 100%;
   height: 12px;
+  overflow: hidden;
   background: rgb(255 255 255 / 60%);
   border-radius: 6px;
-  overflow: hidden;
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 6%);
 }
 
@@ -201,8 +206,8 @@ onMounted(() => loadData());
 
 .milestone-item {
   padding: 12px;
-  border-radius: 8px;
   background: #fafafa;
+  border-radius: 8px;
   transition: all 0.3s;
 }
 
@@ -211,24 +216,24 @@ onMounted(() => loadData());
 }
 
 .milestone-item:hover {
-  transform: translateX(2px);
   box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
+  transform: translateX(2px);
 }
 
 .medal {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 36px;
+  height: 36px;
   color: #bfbfbf;
+  background: #f0f0f0;
+  border-radius: 50%;
 }
 
 .medal.achieved {
-  background: linear-gradient(135deg, #ffd666 0%, #faad14 100%);
   color: white;
+  background: linear-gradient(135deg, #ffd666 0%, #faad14 100%);
   box-shadow: 0 2px 8px rgb(250 173 20 / 40%);
 }
 </style>

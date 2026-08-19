@@ -60,9 +60,8 @@ async function loadConfig() {
     if (res?.data) {
       config.value = { ...config.value, ...res.data };
     }
-  } catch (e) {
+  } catch {
     // 配置不存在时使用默认值
-    console.log('使用默认配置');
   } finally {
     loading.value = false;
   }
@@ -72,10 +71,13 @@ async function loadConfig() {
 async function handleSave() {
   saving.value = true;
   try {
-    await requestClient.post('/api/system/performance-config/save', config.value);
+    await requestClient.post(
+      '/api/system/performance-config/save',
+      config.value,
+    );
     message.success('配置已保存');
-  } catch (e: any) {
-    message.error(e?.message || '保存失败');
+  } catch (error: any) {
+    message.error(error?.message || '保存失败');
   } finally {
     saving.value = false;
   }
@@ -121,7 +123,10 @@ const cardVisibilityOptions = [
       <!-- 顶部说明 -->
       <Card class="mb-4">
         <div class="flex items-start gap-3">
-          <IconifyIcon icon="lucide:settings" class="text-xl text-primary mt-1" />
+          <IconifyIcon
+            icon="lucide:settings"
+            class="text-xl text-primary mt-1"
+          />
           <div>
             <div class="text-base font-semibold">业绩概览页面配置</div>
             <div class="text-sm text-gray-500 mt-1">
@@ -179,14 +184,18 @@ const cardVisibilityOptions = [
           <div class="flex items-center justify-between p-3 border rounded">
             <div>
               <div class="font-medium">显示其他员工的实际业绩</div>
-              <div class="text-xs text-gray-500">关闭后，普通销售只能看到自己的实际金额</div>
+              <div class="text-xs text-gray-500">
+                关闭后，普通销售只能看到自己的实际金额
+              </div>
             </div>
             <Switch v-model:checked="config.showOtherEmployeeActual" />
           </div>
           <div class="flex items-center justify-between p-3 border rounded">
             <div>
               <div class="font-medium">显示其他员工的目标金额</div>
-              <div class="text-xs text-gray-500">关闭后，普通销售只能看到自己的目标</div>
+              <div class="text-xs text-gray-500">
+                关闭后，普通销售只能看到自己的目标
+              </div>
             </div>
             <Switch v-model:checked="config.showOtherEmployeeTarget" />
           </div>
@@ -204,14 +213,20 @@ const cardVisibilityOptions = [
         <div class="grid grid-cols-2 gap-4">
           <div>
             <div class="text-sm font-medium mb-2">合同业绩计算口径</div>
-            <RadioGroup v-model:value="config.contractCalcBasis" direction="vertical">
+            <RadioGroup
+              v-model:value="config.contractCalcBasis"
+              direction="vertical"
+            >
               <Radio value="sign_date">按合同签订日（推荐）</Radio>
               <Radio value="create_time">按合同创建日</Radio>
             </RadioGroup>
           </div>
           <div>
             <div class="text-sm font-medium mb-2">回款业绩计算口径</div>
-            <RadioGroup v-model:value="config.paymentCalcBasis" direction="vertical">
+            <RadioGroup
+              v-model:value="config.paymentCalcBasis"
+              direction="vertical"
+            >
               <Radio value="payment_date">按回款日（推荐）</Radio>
               <Radio value="confirm_time">按确认日</Radio>
             </RadioGroup>
@@ -246,7 +261,10 @@ const cardVisibilityOptions = [
             </div>
             <Switch v-model:checked="config.forcePlanRequired" />
           </div>
-          <div v-if="config.forcePlanRequired" class="flex items-center gap-4 p-3 border rounded">
+          <div
+            v-if="config.forcePlanRequired"
+            class="flex items-center gap-4 p-3 border rounded"
+          >
             <span class="text-gray-600">每年</span>
             <InputNumber
               v-model:value="config.planDueMonth"

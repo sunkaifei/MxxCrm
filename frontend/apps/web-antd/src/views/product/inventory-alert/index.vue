@@ -1,14 +1,16 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 
 import { Button, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { getAlertListApi } from '#/api/core/product/alert';
 import { $t } from '#/locales';
 
@@ -22,8 +24,14 @@ const accessStore = useAccessStore();
 
 // 预警类型选项
 const alertTypeOptions = [
-  { label: $t('page.product.inventory.alert.type.lowStock'), value: 'low_stock' },
-  { label: $t('page.product.inventory.alert.type.highStock'), value: 'high_stock' },
+  {
+    label: $t('page.product.inventory.alert.type.lowStock'),
+    value: 'low_stock',
+  },
+  {
+    label: $t('page.product.inventory.alert.type.highStock'),
+    value: 'high_stock',
+  },
   { label: $t('page.product.inventory.alert.type.stale'), value: 'stale' },
 ];
 
@@ -54,9 +62,9 @@ function openRuleDrawer() {
 
 // ============ 产品/仓库详情抽屉 ============
 const productDetailVisible = ref(false);
-const productDetailId = ref<number | null>(null);
+const productDetailId = ref<null | number>(null);
 const warehouseDetailVisible = ref(false);
-const warehouseDetailId = ref<number | null>(null);
+const warehouseDetailId = ref<null | number>(null);
 
 function openProductDetail(row: any) {
   if (!row.productId) return;
@@ -122,10 +130,19 @@ const formOptions: VbenFormProps = {
 
 // 预警类型标签映射
 function getAlertTypeTag(type: string) {
-  const map: Record<string, { label: string; color: string }> = {
-    low_stock: { label: $t('page.product.inventory.alert.type.lowStock'), color: 'error' },
-    high_stock: { label: $t('page.product.inventory.alert.type.highStock'), color: 'warning' },
-    stale: { label: $t('page.product.inventory.alert.type.stale'), color: 'geekblue' },
+  const map: Record<string, { color: string; label: string }> = {
+    low_stock: {
+      label: $t('page.product.inventory.alert.type.lowStock'),
+      color: 'error',
+    },
+    high_stock: {
+      label: $t('page.product.inventory.alert.type.highStock'),
+      color: 'warning',
+    },
+    stale: {
+      label: $t('page.product.inventory.alert.type.stale'),
+      color: 'geekblue',
+    },
   };
   return map[type] || { label: $t('ui.unknown'), color: 'default' };
 }
@@ -160,14 +177,51 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: $t('page.product.inventory.alert.field.productName'), field: 'productName', minWidth: 140, slots: { default: 'productName' } },
-    { title: $t('page.product.inventory.alert.field.warehouseName'), field: 'warehouseName', width: 120, slots: { default: 'warehouseName' } },
-    { title: $t('page.product.inventory.alert.field.currentQuantity'), field: 'quantity', width: 110 },
-    { title: $t('page.product.inventory.alert.field.minQuantity'), field: 'alertMinQuantity', width: 110 },
-    { title: $t('page.product.inventory.alert.field.maxQuantity'), field: 'alertMaxQuantity', width: 110 },
-    { title: $t('page.product.inventory.alert.field.staleDays'), field: 'obsoleteDays', width: 100 },
-    { title: $t('page.product.inventory.alert.field.alertType'), field: 'alertType', width: 110, slots: { default: 'alertType' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 100 },
+    {
+      title: $t('page.product.inventory.alert.field.productName'),
+      field: 'productName',
+      minWidth: 140,
+      slots: { default: 'productName' },
+    },
+    {
+      title: $t('page.product.inventory.alert.field.warehouseName'),
+      field: 'warehouseName',
+      width: 120,
+      slots: { default: 'warehouseName' },
+    },
+    {
+      title: $t('page.product.inventory.alert.field.currentQuantity'),
+      field: 'quantity',
+      width: 110,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.minQuantity'),
+      field: 'alertMinQuantity',
+      width: 110,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.maxQuantity'),
+      field: 'alertMaxQuantity',
+      width: 110,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.staleDays'),
+      field: 'obsoleteDays',
+      width: 100,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.alertType'),
+      field: 'alertType',
+      width: 110,
+      slots: { default: 'alertType' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 100,
+    },
   ],
 };
 
@@ -190,13 +244,19 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
       </template>
 
       <template #productName="{ row }">
-        <a class="text-primary hover:underline cursor-pointer" @click="openProductDetail(row)">
+        <a
+          class="text-primary hover:underline cursor-pointer"
+          @click="openProductDetail(row)"
+        >
           {{ row.productName || '-' }}
         </a>
       </template>
 
       <template #warehouseName="{ row }">
-        <a class="text-primary hover:underline cursor-pointer" @click="openWarehouseDetail(row)">
+        <a
+          class="text-primary hover:underline cursor-pointer"
+          @click="openWarehouseDetail(row)"
+        >
           {{ row.warehouseName || '-' }}
         </a>
       </template>
@@ -207,7 +267,7 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
         </Tag>
       </template>
 
-      <template #action="{ row }">
+      <template #action>
         <Button
           v-if="accessStore.hasAccessCode('product:alert:list')"
           type="link"

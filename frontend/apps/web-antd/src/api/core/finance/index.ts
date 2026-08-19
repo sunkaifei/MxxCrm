@@ -1,5 +1,5 @@
-export * from './commission-rule';
 export * from './commission-pool';
+export * from './commission-rule';
 export * from './expense';
 export * from './member-fee';
 export * from './payment';

@@ -1,23 +1,39 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, h } from 'vue';
+import { h, onMounted, reactive, ref } from 'vue';
+
 import {
-  Button, Table, Tag, Modal, message, Select, InputNumber, Input,
-  Space, Descriptions, Timeline, Form,
+  Button,
+  Descriptions,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Timeline,
 } from 'ant-design-vue';
 
 import {
-  getPlanListApi, createPlanApi, submitPlanApi,
-  approvePlanApi, rejectPlanApi, modifyPlanApi,
-  getPlanDetailApi, getPlanModifyDetailApi,
+  approvePlanApi,
+  createPlanApi,
+  getPlanDetailApi,
+  getPlanListApi,
+  getPlanModifyDetailApi,
+  modifyPlanApi,
+  rejectPlanApi,
+  submitPlanApi,
 } from '#/api/core/statistics';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { $t } from '#/locales';
 
 // 业绩计划使用说明步骤数（与 i18n 中 page.statistics.performancePlan.guide.steps 数组对齐）
 const guideStepCount = 5;
 
 // ---- Status Config ----
-const STATUS_MAP: Record<number, { text: string; color: string }> = {
+const STATUS_MAP: Record<number, { color: string; text: string }> = {
   0: { text: '草稿', color: 'default' },
   1: { text: '待审批', color: 'orange' },
   2: { text: '已通过', color: 'green' },
@@ -80,8 +96,8 @@ const loadData = async () => {
       status: filters.status,
     });
     plans.value = res.data?.data || [];
-  } catch (e: any) {
-    console.error('加载计划列表失败', e);
+  } catch (error: any) {
+    console.error('加载计划列表失败', error);
   } finally {
     loading.value = false;
   }
@@ -108,8 +124,8 @@ const handleCreate = async () => {
     message.success('创建成功');
     createVisible.value = false;
     loadData();
-  } catch (e: any) {
-    message.error(e?.message || '创建失败');
+  } catch (error: any) {
+    message.error(error?.message || '创建失败');
   } finally {
     createLoading.value = false;
   }
@@ -124,8 +140,8 @@ const handleSubmit = async (planId: number) => {
         await submitPlanApi(planId);
         message.success('提交成功，等待审批');
         loadData();
-      } catch (e: any) {
-        message.error(e?.message || '提交失败');
+      } catch (error: any) {
+        message.error(error?.message || '提交失败');
       }
     },
   });
@@ -136,8 +152,8 @@ const openDetail = async (planId: number) => {
     const res = await getPlanDetailApi(planId);
     detailData.value = res.data?.data;
     detailVisible.value = true;
-  } catch (e: any) {
-    message.error(e?.message || '加载详情失败');
+  } catch (error: any) {
+    message.error(error?.message || '加载详情失败');
   }
 };
 
@@ -160,8 +176,8 @@ const handleReview = async () => {
     }
     reviewVisible.value = false;
     loadData();
-  } catch (e: any) {
-    message.error(e?.message || '操作失败');
+  } catch (error: any) {
+    message.error(error?.message || '操作失败');
   } finally {
     reviewLoading.value = false;
   }
@@ -177,8 +193,8 @@ const openModify = async (planId: number) => {
     modifyForm.planId = planId;
     modifyForm.reason = '';
     modifyVisible.value = true;
-  } catch (e: any) {
-    message.error(e?.message || '加载修改数据失败');
+  } catch (error: any) {
+    message.error(error?.message || '加载修改数据失败');
   }
 };
 
@@ -197,8 +213,8 @@ const handleModify = async () => {
     message.success('修改申请已提交，等待审批');
     modifyVisible.value = false;
     loadData();
-  } catch (e: any) {
-    message.error(e?.message || '提交失败');
+  } catch (error: any) {
+    message.error(error?.message || '提交失败');
   } finally {
     modifyLoading.value = false;
   }
@@ -224,35 +240,82 @@ const columns: any = [
   { title: '员工', dataIndex: 'employeeName', width: 100 },
   { title: '年份', dataIndex: 'year', width: 70 },
   {
-    title: '合同总额', dataIndex: 'totalContractTarget', width: 120,
-    customRender: ({ text }: any) => text ? `¥${text.toLocaleString()}` : '-',
+    title: '合同总额',
+    dataIndex: 'totalContractTarget',
+    width: 120,
+    customRender: ({ text }: any) => (text ? `¥${text.toLocaleString()}` : '-'),
   },
   {
-    title: '回款总额', dataIndex: 'totalPaymentTarget', width: 120,
-    customRender: ({ text }: any) => text ? `¥${text.toLocaleString()}` : '-',
+    title: '回款总额',
+    dataIndex: 'totalPaymentTarget',
+    width: 120,
+    customRender: ({ text }: any) => (text ? `¥${text.toLocaleString()}` : '-'),
   },
   {
-    title: '状态', dataIndex: 'status', width: 80,
+    title: '状态',
+    dataIndex: 'status',
+    width: 80,
     customRender: ({ text }: any) => {
-      const cfg = STATUS_MAP[text as number] || { text: '未知', color: 'default' };
+      const cfg = STATUS_MAP[text as number] || {
+        text: '未知',
+        color: 'default',
+      };
       return h(Tag, { color: cfg.color }, { default: () => cfg.text });
     },
   },
   { title: '版本', dataIndex: 'version', width: 60 },
   {
-    title: '操作', key: 'actions', width: 260,
+    title: '操作',
+    key: 'actions',
+    width: 260,
     customRender: ({ record }: any) => {
       const btns: any[] = [];
       if (record.status === 0 || record.status === 3) {
-        btns.push(h(Button, { type: 'link', onClick: () => handleSubmit(record.id) }, { default: () => '提交' }));
+        btns.push(
+          h(
+            Button,
+            { type: 'link', onClick: () => handleSubmit(record.id) },
+            { default: () => '提交' },
+          ),
+        );
       }
-      btns.push(h(Button, { type: 'link', onClick: () => openDetail(record.id) }, { default: () => '详情' }));
+      btns.push(
+        h(
+          Button,
+          { type: 'link', onClick: () => openDetail(record.id) },
+          { default: () => '详情' },
+        ),
+      );
       if (record.status === 1) {
-        btns.push(h(Button, { type: 'link', style: { color: '#52c41a' }, onClick: () => openReview(record.id, 'approve') }, { default: () => '通过' }));
-        btns.push(h(Button, { type: 'link', danger: true, onClick: () => openReview(record.id, 'reject') }, { default: () => '驳回' }));
+        btns.push(
+          h(
+            Button,
+            {
+              type: 'link',
+              style: { color: '#52c41a' },
+              onClick: () => openReview(record.id, 'approve'),
+            },
+            { default: () => '通过' },
+          ),
+          h(
+            Button,
+            {
+              type: 'link',
+              danger: true,
+              onClick: () => openReview(record.id, 'reject'),
+            },
+            { default: () => '驳回' },
+          ),
+        );
       }
       if (record.status === 2) {
-        btns.push(h(Button, { type: 'link', onClick: () => openModify(record.id) }, { default: () => '申请修改' }));
+        btns.push(
+          h(
+            Button,
+            { type: 'link', onClick: () => openModify(record.id) },
+            { default: () => '申请修改' },
+          ),
+        );
       }
       return h(Space, null, { default: () => btns });
     },
@@ -273,18 +336,18 @@ onMounted(() => {
       :expand-text="$t('page.statistics.performancePlan.guide.expand')"
       :collapse-text="$t('page.statistics.performancePlan.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
-            {{ $t(`page.statistics.performancePlan.guide.steps[${i - 1}].title`) }}
+            {{
+              $t(`page.statistics.performancePlan.guide.steps[${i - 1}].title`)
+            }}
           </div>
           <div class="page-guide-step-desc">
-            {{ $t(`page.statistics.performancePlan.guide.steps[${i - 1}].desc`) }}
+            {{
+              $t(`page.statistics.performancePlan.guide.steps[${i - 1}].desc`)
+            }}
           </div>
         </div>
       </div>
@@ -293,11 +356,26 @@ onMounted(() => {
     <div class="mb-4 flex items-center justify-between">
       <Space>
         <span>年份：</span>
-        <Select v-model:value="filters.year" style="width: 100px" @change="loadData">
-          <SelectOption v-for="y in [currentYear - 1, currentYear, currentYear + 1]" :key="y" :value="y">{{ y }}</SelectOption>
+        <Select
+          v-model:value="filters.year"
+          style="width: 100px"
+          @change="loadData"
+        >
+          <SelectOption
+            v-for="y in [currentYear - 1, currentYear, currentYear + 1]"
+            :key="y"
+            :value="y"
+          >
+            {{ y }}
+          </SelectOption>
         </Select>
         <span>状态：</span>
-        <Select v-model:value="filters.status" style="width: 120px" allowClear @change="loadData">
+        <Select
+          v-model:value="filters.status"
+          style="width: 120px"
+          allow-clear
+          @change="loadData"
+        >
           <SelectOption :value="0">草稿</SelectOption>
           <SelectOption :value="1">待审批</SelectOption>
           <SelectOption :value="2">已通过</SelectOption>
@@ -329,7 +407,13 @@ onMounted(() => {
       <Form layout="vertical">
         <Form.Item label="目标年份" required>
           <Select v-model:value="createForm.year" style="width: 120px">
-            <SelectOption v-for="y in [currentYear + 1, currentYear + 2]" :key="y" :value="y">{{ y }}</SelectOption>
+            <SelectOption
+              v-for="y in [currentYear + 1, currentYear + 2]"
+              :key="y"
+              :value="y"
+            >
+              {{ y }}
+            </SelectOption>
           </Select>
         </Form.Item>
         <Form.Item label="月度目标明细" required>
@@ -343,16 +427,31 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(mt, _idx) in createForm.monthlyTargets" :key="mt.month">
+              <tr v-for="mt in createForm.monthlyTargets" :key="mt.month">
                 <td class="border px-2 py-1">{{ mt.month }}月</td>
                 <td class="border px-2 py-1">
-                  <InputNumber v-model:value="mt.contractTargetAmount" :min="0" :precision="2" style="width: 100%" />
+                  <InputNumber
+                    v-model:value="mt.contractTargetAmount"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                  />
                 </td>
                 <td class="border px-2 py-1">
-                  <InputNumber v-model:value="mt.paymentTargetAmount" :min="0" :precision="2" style="width: 100%" />
+                  <InputNumber
+                    v-model:value="mt.paymentTargetAmount"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                  />
                 </td>
                 <td class="border px-2 py-1">
-                  <InputNumber v-model:value="mt.contractTargetCount" :min="0" :precision="0" style="width: 100%" />
+                  <InputNumber
+                    v-model:value="mt.contractTargetCount"
+                    :min="0"
+                    :precision="0"
+                    style="width: 100%"
+                  />
                 </td>
               </tr>
             </tbody>
@@ -360,7 +459,9 @@ onMounted(() => {
         </Form.Item>
         <div class="flex justify-end gap-3">
           <Button @click="createVisible = false">取消</Button>
-          <Button type="primary" :loading="createLoading" @click="handleCreate">保存草稿</Button>
+          <Button type="primary" :loading="createLoading" @click="handleCreate">
+            保存草稿
+          </Button>
         </div>
       </Form>
     </Modal>
@@ -375,13 +476,27 @@ onMounted(() => {
     >
       <template v-if="detailData">
         <Descriptions bordered size="small" :column="2" class="mb-4">
-          <Descriptions.Item label="员工">{{ detailData.employeeName || '-' }}</Descriptions.Item>
-          <Descriptions.Item label="年份">{{ detailData.year }}</Descriptions.Item>
-          <Descriptions.Item label="状态">
-            <Tag :color="STATUS_MAP[detailData.status]?.color">{{ STATUS_MAP[detailData.status]?.text }}</Tag>
+          <Descriptions.Item label="员工">
+            {{ detailData.employeeName || '-' }}
           </Descriptions.Item>
-          <Descriptions.Item label="版本">v{{ detailData.version }}</Descriptions.Item>
-          <Descriptions.Item v-if="detailData.applyReason" label="申请理由" :span="2">{{ detailData.applyReason }}</Descriptions.Item>
+          <Descriptions.Item label="年份">
+            {{ detailData.year }}
+          </Descriptions.Item>
+          <Descriptions.Item label="状态">
+            <Tag :color="STATUS_MAP[detailData.status]?.color">
+              {{ STATUS_MAP[detailData.status]?.text }}
+            </Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="版本">
+            v{{ detailData.version }}
+          </Descriptions.Item>
+          <Descriptions.Item
+            v-if="detailData.applyReason"
+            label="申请理由"
+            :span="2"
+          >
+            {{ detailData.applyReason }}
+          </Descriptions.Item>
         </Descriptions>
 
         <h4 class="mb-2 font-medium">月度目标明细</h4>
@@ -389,8 +504,18 @@ onMounted(() => {
           :data-source="detailData.monthlyTargets || []"
           :columns="[
             { title: '月份', dataIndex: 'month', width: 60 },
-            { title: '合同金额', dataIndex: 'contractTargetAmount', customRender: ({ text }: any) => text ? `¥${text.toLocaleString()}` : '-' },
-            { title: '回款金额', dataIndex: 'paymentTargetAmount', customRender: ({ text }: any) => text ? `¥${text.toLocaleString()}` : '-' },
+            {
+              title: '合同金额',
+              dataIndex: 'contractTargetAmount',
+              customRender: ({ text }: any) =>
+                text ? `¥${text.toLocaleString()}` : '-',
+            },
+            {
+              title: '回款金额',
+              dataIndex: 'paymentTargetAmount',
+              customRender: ({ text }: any) =>
+                text ? `¥${text.toLocaleString()}` : '-',
+            },
             { title: '合同数量', dataIndex: 'contractTargetCount' },
           ]"
           row-key="month"
@@ -404,17 +529,29 @@ onMounted(() => {
         <Timeline v-if="detailData.approvalLogs?.length">
           <TimelineItem v-for="log in detailData.approvalLogs" :key="log.id">
             <template #dot>
-              <span :class="log.action === 2 ? 'text-green-500' : log.action === 3 ? 'text-red-500' : 'text-blue-500'">
+              <span
+                :class="
+                  log.action === 2
+                    ? 'text-green-500'
+                    : log.action === 3
+                      ? 'text-red-500'
+                      : 'text-blue-500'
+                "
+              >
                 ●
               </span>
             </template>
             <div>
               <strong>{{ log.operatorName }}</strong>
-              <span class="mx-1 text-gray-400">{{ ACTION_LABEL[log.action] || '操作' }}</span>
+              <span class="mx-1 text-gray-400">{{
+                ACTION_LABEL[log.action] || '操作'
+              }}</span>
               <Tag class="ml-1">{{ STATUS_LABEL[log.previousStatus] }}</Tag>
               <ArrowRightOutlined class="mx-1 text-gray-400" />
               <Tag>{{ STATUS_LABEL[log.newStatus] }}</Tag>
-              <div v-if="log.reason" class="text-gray-500 text-sm mt-1">原因：{{ log.reason }}</div>
+              <div v-if="log.reason" class="text-gray-500 text-sm mt-1">
+                原因：{{ log.reason }}
+              </div>
               <div class="text-gray-400 text-xs mt-1">{{ log.createTime }}</div>
             </div>
           </TimelineItem>
@@ -433,10 +570,14 @@ onMounted(() => {
       cancel-text="取消"
     >
       <Form layout="vertical">
-        <Form.Item :label="reviewAction === 'approve' ? '审批意见（可选）' : '驳回原因'">
+        <Form.Item
+          :label="reviewAction === 'approve' ? '审批意见（可选）' : '驳回原因'"
+        >
           <Input.TextArea
             v-model:value="reviewForm.reason"
-            :placeholder="reviewAction === 'approve' ? '可选填写审批意见' : '请填写驳回原因'"
+            :placeholder="
+              reviewAction === 'approve' ? '可选填写审批意见' : '请填写驳回原因'
+            "
             :rows="3"
           />
         </Form.Item>
@@ -453,7 +594,11 @@ onMounted(() => {
     >
       <Form layout="vertical">
         <Form.Item label="申请修改理由" required>
-          <Input.TextArea v-model:value="modifyForm.reason" placeholder="请详细说明修改原因" :rows="3" />
+          <Input.TextArea
+            v-model:value="modifyForm.reason"
+            placeholder="请详细说明修改原因"
+            :rows="3"
+          />
         </Form.Item>
         <Form.Item label="修改后的月度目标">
           <table class="w-full border-collapse">
@@ -466,16 +611,31 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(mt, _idx) in modifyForm.monthlyTargets" :key="mt.month">
+              <tr v-for="mt in modifyForm.monthlyTargets" :key="mt.month">
                 <td class="border px-2 py-1">{{ mt.month }}月</td>
                 <td class="border px-2 py-1">
-                  <InputNumber v-model:value="mt.contractTargetAmount" :min="0" :precision="2" style="width: 100%" />
+                  <InputNumber
+                    v-model:value="mt.contractTargetAmount"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                  />
                 </td>
                 <td class="border px-2 py-1">
-                  <InputNumber v-model:value="mt.paymentTargetAmount" :min="0" :precision="2" style="width: 100%" />
+                  <InputNumber
+                    v-model:value="mt.paymentTargetAmount"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                  />
                 </td>
                 <td class="border px-2 py-1">
-                  <InputNumber v-model:value="mt.contractTargetCount" :min="0" :precision="0" style="width: 100%" />
+                  <InputNumber
+                    v-model:value="mt.contractTargetCount"
+                    :min="0"
+                    :precision="0"
+                    style="width: 100%"
+                  />
                 </td>
               </tr>
             </tbody>
@@ -483,7 +643,9 @@ onMounted(() => {
         </Form.Item>
         <div class="flex justify-end gap-3">
           <Button @click="modifyVisible = false">取消</Button>
-          <Button type="primary" :loading="modifyLoading" @click="handleModify">提交修改申请</Button>
+          <Button type="primary" :loading="modifyLoading" @click="handleModify">
+            提交修改申请
+          </Button>
         </div>
       </Form>
     </Modal>

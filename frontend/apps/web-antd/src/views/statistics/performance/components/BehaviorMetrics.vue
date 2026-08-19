@@ -1,13 +1,12 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
-
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
+import { computed, onMounted, ref, watch } from 'vue';
+
 import { IconifyIcon } from '@vben/icons';
+import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { Card, Empty, Spin } from 'ant-design-vue';
-
-import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { getBehaviorMetricsApi } from '#/api';
 
@@ -162,11 +161,17 @@ onMounted(() => loadData());
             :style="{ background: card.bg }"
           >
             <div class="flex items-center justify-between mb-2">
-              <IconifyIcon :icon="card.icon" :style="{ color: card.color, fontSize: '20px' }" />
+              <IconifyIcon
+                :icon="card.icon"
+                :style="{ color: card.color, fontSize: '20px' }"
+              />
             </div>
             <div class="text-xs text-gray-600">{{ card.title }}</div>
             <div class="text-xl font-bold mt-1" :style="{ color: card.color }">
-              {{ card.value }}<span v-if="card.suffix" class="text-sm">{{ card.suffix }}</span>
+              {{ card.value
+              }}<span v-if="card.suffix" class="text-sm">{{
+                card.suffix
+              }}</span>
             </div>
           </div>
         </div>
@@ -189,7 +194,7 @@ onMounted(() => loadData());
 }
 
 .metric-card:hover {
-  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  transform: translateY(-2px);
 }
 </style>

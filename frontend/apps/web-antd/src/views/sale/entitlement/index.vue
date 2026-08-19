@@ -1,14 +1,16 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 
-import { Button, Modal, Tag, message } from 'ant-design-vue';
+import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import type { VbenFormProps } from '@vben/common-ui';
 import {
   deleteEntitlementApi,
   getEntitlementListApi,
@@ -20,7 +22,7 @@ import { $t } from '#/locales';
 const accessStore = useAccessStore();
 
 // 权益状态映射：1=待激活 2=生效中 3=已暂停 4=已到期 5=已取消
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   1: { label: '待激活', color: 'default' },
   2: { label: '生效中', color: 'green' },
   3: { label: '已暂停', color: 'orange' },
@@ -29,7 +31,7 @@ const statusMap: Record<number, { label: string; color: string }> = {
 };
 
 // 权益类型映射：1=服务期 2=订阅 3=技术支持 4=资源包 5=SLA
-const entitlementTypeMap: Record<number, { label: string; color: string }> = {
+const entitlementTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: '服务期', color: 'blue' },
   2: { label: '订阅', color: 'cyan' },
   3: { label: '技术支持', color: 'orange' },
@@ -41,7 +43,7 @@ const entitlementTypeMap: Record<number, { label: string; color: string }> = {
 const renewVisible = ref(false);
 const renewLoading = ref(false);
 const renewRow = ref<any>({});
-const newOrderId = ref<undefined | number>(undefined);
+const newOrderId = ref<number | undefined>(undefined);
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -271,13 +273,19 @@ async function handleDelete(row: any) {
           v-if="row.entitlementType && entitlementTypeMap[row.entitlementType]"
           :color="entitlementTypeMap[row.entitlementType]?.color"
         >
-          {{ row.entitlementTypeName || entitlementTypeMap[row.entitlementType]?.label }}
+          {{
+            row.entitlementTypeName ||
+            entitlementTypeMap[row.entitlementType]?.label
+          }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
       </template>
 
       <template #status="{ row }">
-        <Tag v-if="row.status && statusMap[row.status]" :color="statusMap[row.status]?.color">
+        <Tag
+          v-if="row.status && statusMap[row.status]"
+          :color="statusMap[row.status]?.color"
+        >
           {{ row.statusName || statusMap[row.status]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
@@ -342,9 +350,7 @@ async function handleDelete(row: any) {
         <p class="mb-3">
           权益编号：<span class="font-mono">{{ renewRow.entitlementNo }}</span>
         </p>
-        <p class="mb-4">
-          请输入续约订单ID，续约后将延长该权益的服务期限。
-        </p>
+        <p class="mb-4">请输入续约订单ID，续约后将延长该权益的服务期限。</p>
         <a-input-number
           v-model:value="newOrderId"
           placeholder="请输入续约订单ID"

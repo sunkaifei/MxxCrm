@@ -50,6 +50,8 @@
     "ok": "OK",
     "cancel": "Cancel",
     "edit": "Edit",
+    "save": "Save",
+    "add": "Add",
     "create": "Create {moduleName}",
     "update": "Update {moduleName}",
     "delete": "Delete {moduleName}",

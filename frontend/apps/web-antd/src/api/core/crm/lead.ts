@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getLeadListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/lead/list', { params });
 };
@@ -13,9 +15,14 @@ export const updateLeadApi = async (param: any) => {
   return requestClient.put('/api/system/lead/update', param);
 };
 export const deleteLeadApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/lead/bath_delete', { data: { ids } });
+  return requestClient.delete('/api/system/lead/bath_delete', {
+    data: { ids },
+  });
 };
-export const updateLeadStatusApi = async (id: number, status: number | string) => {
+export const updateLeadStatusApi = async (
+  id: number,
+  status: number | string,
+) => {
   return requestClient.put('/api/system/lead/update-status', { id, status });
 };
 export const addLeadToPoolApi = async (id: number) => {

@@ -1,56 +1,58 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import type { TreeProps } from 'ant-design-vue';
+
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
 import {
-  LucideUpload,
-  LucideGrid3x3,
-  LucideList,
-  LucideTrash2,
-  LucideEye,
   LucideDownload,
-  LucideImage,
+  LucideEye,
+  LucideFile,
   LucideFileText,
   LucideFilm,
-  LucideFile,
+  LucideGrid3x3,
+  LucideImage,
+  LucideList,
   LucideSearch,
+  LucideTrash2,
+  LucideUpload,
 } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
 import {
   Button,
+  Checkbox,
+  Empty,
   Input,
-  Tree,
-  Modal,
   message,
+  Modal,
+  Pagination,
   Popconfirm,
   Popover,
-  Tooltip,
-  Empty,
-  Pagination,
-  Tag,
   Select,
+  Tag,
+  Tooltip,
+  Tree,
   Upload,
-  Checkbox,
 } from 'ant-design-vue';
-import type { TreeProps } from 'ant-design-vue';
-
-const SelectOption = Select.Option;
 
 import {
   deleteFileApi,
   downloadFileApi,
-  getFileListApi,
   getAttachmentCategoryTreeApi,
+  getFileListApi,
   uploadFileApi,
 } from '#/api';
 import { $t } from '#/locales';
+
+const SelectOption = Select.Option;
 
 // --- State ---
 const viewMode = ref<'grid' | 'list'>('grid');
 const searchKeyword = ref('');
 const searchEntityType = ref<string | undefined>(undefined);
 const selectedFileType = ref('all');
-const selectedCategoryId = ref<number | null>(null);
+const selectedCategoryId = ref<null | number>(null);
 const selectedIds = ref<Set<number>>(new Set());
 const treeData = ref<any[]>([]);
 const fileList = ref<any[]>([]);
@@ -60,14 +62,41 @@ const pagination = ref({ current: 1, pageSize: 24, total: 0 });
 const previewVisible = ref(false);
 const previewImage = ref('');
 const previewTitle = ref('');
-const previewBlobUrl = ref<string | null>(null);
+const previewBlobUrl = ref<null | string>(null);
 
 const uploadPopover = ref(false);
 const uploadEntityType = ref('common');
 
-const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'];
-const docExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md'];
-const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm'];
+const imageExtensions = new Set([
+  'bmp',
+  'gif',
+  'ico',
+  'jpeg',
+  'jpg',
+  'png',
+  'svg',
+  'webp',
+]);
+const docExtensions = new Set([
+  'doc',
+  'docx',
+  'md',
+  'pdf',
+  'ppt',
+  'pptx',
+  'txt',
+  'xls',
+  'xlsx',
+]);
+const videoExtensions = new Set([
+  'avi',
+  'flv',
+  'mkv',
+  'mov',
+  'mp4',
+  'webm',
+  'wmv',
+]);
 
 const entityTypeOptions = [
   { value: 'product', color: 'blue' },
@@ -104,32 +133,54 @@ const getEntityTypeLabel = (type: string) => {
   return $t(`page.attachment.file.entityTypes.${type}`);
 };
 
-const isImage = (ext: string) => imageExtensions.includes(ext?.toLowerCase());
-const isDoc = (ext: string) => docExtensions.includes(ext?.toLowerCase());
-const isVideo = (ext: string) => videoExtensions.includes(ext?.toLowerCase());
+const isImage = (ext: string) => imageExtensions.has(ext?.toLowerCase());
+const isDoc = (ext: string) => docExtensions.has(ext?.toLowerCase());
+const isVideo = (ext: string) => videoExtensions.has(ext?.toLowerCase());
 
 const getFileIcon = (item: any) => {
   const ext = item.ext?.toLowerCase();
-  if (imageExtensions.includes(ext)) return LucideImage;
-  if (docExtensions.includes(ext)) return LucideFileText;
-  if (videoExtensions.includes(ext)) return LucideFilm;
+  if (imageExtensions.has(ext)) return LucideImage;
+  if (docExtensions.has(ext)) return LucideFileText;
+  if (videoExtensions.has(ext)) return LucideFilm;
   return LucideFile;
 };
 
 const isItemPublic = (item: any) => !!(item.isPublic ?? item.is_public);
-const getItemEntityType = (item: any) => item.entityType || item.entity_type || '';
-const getItemUploadedBy = (item: any) => item.uploadedName || item.uploaded_name || item.uploadedBy || item.uploaded_by || '-';
+const getItemEntityType = (item: any) =>
+  item.entityType || item.entity_type || '';
+const getItemUploadedBy = (item: any) =>
+  item.uploadedName ||
+  item.uploaded_name ||
+  item.uploadedBy ||
+  item.uploaded_by ||
+  '-';
 
 const displayList = computed(() => {
   let list = fileList.value;
-  if (selectedFileType.value === 'image') {
-    list = list.filter((item) => isImage(item.ext));
-  } else if (selectedFileType.value === 'doc') {
-    list = list.filter((item) => isDoc(item.ext));
-  } else if (selectedFileType.value === 'video') {
-    list = list.filter((item) => isVideo(item.ext));
-  } else if (selectedFileType.value === 'other') {
-    list = list.filter((item) => !isImage(item.ext) && !isDoc(item.ext) && !isVideo(item.ext));
+  switch (selectedFileType.value) {
+    case 'doc': {
+      list = list.filter((item) => isDoc(item.ext));
+
+      break;
+    }
+    case 'image': {
+      list = list.filter((item) => isImage(item.ext));
+
+      break;
+    }
+    case 'other': {
+      list = list.filter(
+        (item) => !isImage(item.ext) && !isDoc(item.ext) && !isVideo(item.ext),
+      );
+
+      break;
+    }
+    case 'video': {
+      list = list.filter((item) => isVideo(item.ext));
+
+      break;
+    }
+    // No default
   }
   return list;
 });
@@ -156,7 +207,8 @@ const formatTotalSize = (bytes: number) => {
   if (!bytes) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
 
@@ -168,10 +220,12 @@ const loadCategoryTree = async () => {
     treeData.value = list.map((item: any) => ({
       title: item.label,
       key: item.value,
-      children: item.children?.length ? buildTreeData(item.children) : undefined,
+      children: item.children?.length
+        ? buildTreeData(item.children)
+        : undefined,
     }));
-  } catch (e) {
-    console.error('加载分类树失败', e);
+  } catch (error) {
+    console.error('加载分类树失败', error);
   }
 };
 
@@ -253,7 +307,7 @@ const handlePreview = async (item: any) => {
       previewBlobUrl.value = url;
       previewImage.value = url;
       previewVisible.value = true;
-    } catch (e) {
+    } catch {
       message.error($t('page.attachment.file.message.previewFail'));
     }
   }
@@ -272,11 +326,11 @@ const handleDownload = async (item: any) => {
     const a = document.createElement('a');
     a.href = url;
     a.download = item.originalName || item.name || `file_${item.id}`;
-    document.body.appendChild(a);
+    document.body.append(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     URL.revokeObjectURL(url);
-  } catch (e) {
+  } catch {
     message.error($t('page.attachment.file.message.downloadFail'));
   }
 };
@@ -286,20 +340,20 @@ const handleDelete = async (item: any) => {
     await deleteFileApi([item.id]);
     message.success($t('ui.notification.delete_success'));
     loadFileList();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 };
 
 const handleBatchDelete = async () => {
   if (selectedIds.value.size === 0) return;
   try {
-    await deleteFileApi(Array.from(selectedIds.value));
+    await deleteFileApi([...selectedIds.value]);
     message.success($t('ui.notification.delete_success'));
     selectedIds.value = new Set();
     loadFileList();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 };
 
@@ -324,9 +378,9 @@ const uploadFile = async (options: any) => {
     message.success('上传成功');
     uploadPopover.value = false;
     loadFileList();
-  } catch (e: any) {
-    onError?.(e);
-    message.error(e?.message || '上传失败');
+  } catch (error: any) {
+    onError?.(error);
+    message.error(error?.message || '上传失败');
   }
 };
 
@@ -347,13 +401,17 @@ onBeforeUnmount(() => {
       <!-- ===== Sidebar ===== -->
       <aside class="aside-bar">
         <div class="aside-header">
-          <h3 class="aside-title">{{ $t('page.attachment.file.search.category') }}</h3>
+          <h3 class="aside-title">
+            {{ $t('page.attachment.file.search.category') }}
+          </h3>
         </div>
         <div class="aside-tree">
           <Tree
             :tree-data="treeData"
             :default-expand-all="true"
-            :selected-keys="selectedCategoryId ? [String(selectedCategoryId)] : []"
+            :selected-keys="
+              selectedCategoryId ? [String(selectedCategoryId)] : []
+            "
             @select="onSelectCategory"
           />
           <div v-if="treeData.length === 0" class="aside-empty">
@@ -404,12 +462,23 @@ onBeforeUnmount(() => {
                 <span class="stat-tab-num">{{ statsData.videos }}</span>
                 <span class="stat-tab-label">视频</span>
               </div>
-              <div class="stat-divider-v" />
+              <div class="stat-divider-v"></div>
               <div class="stat-size">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" class="stat-size-icon">
-                  <path d="M22 12H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-                  <line x1="6" y1="16" x2="6.01" y2="16" /><line x1="10" y1="16" x2="10.01" y2="16" />
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="stat-size-icon"
+                >
+                  <path d="M22 12H2" />
+                  <path
+                    d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+                  />
+                  <line x1="6" y1="16" x2="6.01" y2="16" />
+                  <line x1="10" y1="16" x2="10.01" y2="16" />
                 </svg>
                 <span>{{ formatTotalSize(statsData.totalSize) }}</span>
               </div>
@@ -461,7 +530,11 @@ onBeforeUnmount(() => {
                         v-model:value="uploadEntityType"
                         style="width: 100%; margin-bottom: 12px"
                       >
-                        <SelectOption v-for="opt in entityTypeOptions" :key="opt.value" :value="opt.value">
+                        <SelectOption
+                          v-for="opt in entityTypeOptions"
+                          :key="opt.value"
+                          :value="opt.value"
+                        >
                           {{ getEntityTypeLabel(opt.value) }}
                         </SelectOption>
                       </Select>
@@ -472,11 +545,15 @@ onBeforeUnmount(() => {
                         list-type="text"
                       >
                         <Button type="primary" block>
-                          <template #icon><component :is="LucideUpload" /></template>
+                          <template #icon>
+                            <component :is="LucideUpload" />
+                          </template>
                           选择文件上传
                         </Button>
                       </Upload>
-                      <div class="upload-tip">支持图片、文档、PDF、视频等格式</div>
+                      <div class="upload-tip">
+                        支持图片、文档、PDF、视频等格式
+                      </div>
                     </div>
                   </template>
                   <Button type="primary">
@@ -496,11 +573,14 @@ onBeforeUnmount(() => {
                 placeholder="搜索文件名、上传人…"
                 class="filter-search"
                 allow-clear
-                @pressEnter="handleSearch"
+                @press-enter="handleSearch"
                 @change="handleSearch"
               >
                 <template #prefix>
-                  <component :is="LucideSearch" style="color: #bfbfbf; font-size: 14px" />
+                  <component
+                    :is="LucideSearch"
+                    style="font-size: 14px; color: #bfbfbf"
+                  />
                 </template>
               </Input>
 
@@ -511,7 +591,11 @@ onBeforeUnmount(() => {
                 allow-clear
                 @change="handleSearch"
               >
-                <SelectOption v-for="opt in entityTypeOptions" :key="opt.value" :value="opt.value">
+                <SelectOption
+                  v-for="opt in entityTypeOptions"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
                   {{ getEntityTypeLabel(opt.value) }}
                 </SelectOption>
               </Select>
@@ -524,13 +608,22 @@ onBeforeUnmount(() => {
 
         <!-- Content area -->
         <div class="content-area">
-          <div class="content-card" :class="{ 'is-empty': displayList.length === 0 }">
-            <div v-if="!loading && displayList.length === 0" class="empty-wrapper">
+          <div
+            class="content-card"
+            :class="{ 'is-empty': displayList.length === 0 }"
+          >
+            <div
+              v-if="!loading && displayList.length === 0"
+              class="empty-wrapper"
+            >
               <Empty description="暂无文件" />
             </div>
 
             <!-- ===== Grid View ===== -->
-            <div v-if="viewMode === 'grid' && displayList.length > 0" class="grid-wrap">
+            <div
+              v-if="viewMode === 'grid' && displayList.length > 0"
+              class="grid-wrap"
+            >
               <div
                 v-for="item in displayList"
                 :key="item.id"
@@ -548,10 +641,17 @@ onBeforeUnmount(() => {
                     loading="lazy"
                   />
                   <div v-else class="gc-placeholder">
-                    <component :is="getFileIcon(item)" class="gc-placeholder-icon" />
+                    <component
+                      :is="getFileIcon(item)"
+                      class="gc-placeholder-icon"
+                    />
                   </div>
                   <div v-if="isImage(item.ext)" class="gc-hover-mask">
-                    <Button size="small" ghost @click.stop="handlePreview(item)">
+                    <Button
+                      size="small"
+                      ghost
+                      @click.stop="handlePreview(item)"
+                    >
                       <template #icon><component :is="LucideEye" /></template>
                       预览
                     </Button>
@@ -568,22 +668,44 @@ onBeforeUnmount(() => {
                   </div>
                   <div class="gc-meta">
                     <span class="gc-size">{{ formatSize(item.size) }}</span>
-                    <span class="gc-ext">{{ (item.ext || '').toUpperCase() }}</span>
+                    <span class="gc-ext">{{
+                      (item.ext || '').toUpperCase()
+                    }}</span>
                   </div>
                   <div class="gc-footer">
-                    <Tag :color="getEntityTypeColor(getItemEntityType(item))" class="gc-tag">
+                    <Tag
+                      :color="getEntityTypeColor(getItemEntityType(item))"
+                      class="gc-tag"
+                    >
                       {{ getEntityTypeLabel(getItemEntityType(item)) }}
                     </Tag>
                     <div class="gc-actions">
                       <Tooltip title="下载">
-                        <Button type="text" size="small" @click.stop="handleDownload(item)">
-                          <template #icon><component :is="LucideDownload" style="font-size:14px" /></template>
+                        <Button
+                          type="text"
+                          size="small"
+                          @click.stop="handleDownload(item)"
+                        >
+                          <template #icon>
+                            <component
+                              :is="LucideDownload"
+                              style="font-size: 14px"
+                            />
+                          </template>
                         </Button>
                       </Tooltip>
-                      <Popconfirm title="确定删除？" @confirm.stop="handleDelete(item)">
+                      <Popconfirm
+                        title="确定删除？"
+                        @confirm.stop="handleDelete(item)"
+                      >
                         <Tooltip title="删除">
                           <Button type="text" size="small" danger @click.stop>
-                            <template #icon><component :is="LucideTrash2" style="font-size:14px" /></template>
+                            <template #icon>
+                              <component
+                                :is="LucideTrash2"
+                                style="font-size: 14px"
+                              />
+                            </template>
                           </Button>
                         </Tooltip>
                       </Popconfirm>
@@ -592,17 +714,24 @@ onBeforeUnmount(() => {
                   <!-- 悬停展开：上传人 / 上传时间 -->
                   <div class="gc-extra">
                     <span class="gc-extra-label">上传人</span>
-                    <span class="gc-extra-value">{{ getItemUploadedBy(item) }}</span>
+                    <span class="gc-extra-value">{{
+                      getItemUploadedBy(item)
+                    }}</span>
                     <span class="gc-extra-dot">·</span>
                     <span class="gc-extra-label">时间</span>
-                    <span class="gc-extra-value">{{ formatDateTime(item.createTime || item.create_time) }}</span>
+                    <span class="gc-extra-value">{{
+                      formatDateTime(item.createTime || item.create_time)
+                    }}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <!-- ===== List View ===== -->
-            <div v-if="viewMode === 'list' && displayList.length > 0" class="list-wrap">
+            <div
+              v-if="viewMode === 'list' && displayList.length > 0"
+              class="list-wrap"
+            >
               <table class="file-table">
                 <thead>
                   <tr>
@@ -636,9 +765,16 @@ onBeforeUnmount(() => {
                             :src="item.uploadUrl || item.upload_url"
                             class="cell-thumb"
                           />
-                          <component v-else :is="getFileIcon(item)" class="cell-icon" />
+                          <component
+                            v-else
+                            :is="getFileIcon(item)"
+                            class="cell-icon"
+                          />
                         </div>
-                        <span class="cell-filename" :title="item.originalName || item.name">
+                        <span
+                          class="cell-filename"
+                          :title="item.originalName || item.name"
+                        >
                           {{ item.originalName || item.name }}
                         </span>
                       </div>
@@ -648,20 +784,45 @@ onBeforeUnmount(() => {
                         {{ getEntityTypeLabel(getItemEntityType(item)) }}
                       </Tag>
                     </td>
-                    <td><span class="cell-ext">{{ (item.ext || '-').toUpperCase() }}</span></td>
+                    <td>
+                      <span class="cell-ext">{{
+                        (item.ext || '-').toUpperCase()
+                      }}</span>
+                    </td>
                     <td>{{ formatSize(item.size) }}</td>
                     <td>
-                      <Tag :color="isItemPublic(item) ? 'green' : 'default'" style="font-size:11px">
+                      <Tag
+                        :color="isItemPublic(item) ? 'green' : 'default'"
+                        style="font-size: 11px"
+                      >
                         {{ isItemPublic(item) ? '公开' : '私有' }}
                       </Tag>
                     </td>
                     <td>{{ getItemUploadedBy(item) }}</td>
-                    <td>{{ formatDateTime(item.createTime || item.create_time) }}</td>
+                    <td>
+                      {{ formatDateTime(item.createTime || item.create_time) }}
+                    </td>
                     <td @click.stop>
                       <div class="cell-actions">
-                        <Button v-if="isImage(item.ext)" type="link" size="small" @click="handlePreview(item)">预览</Button>
-                        <Button type="link" size="small" @click="handleDownload(item)">下载</Button>
-                        <Popconfirm title="确定删除？" @confirm="handleDelete(item)">
+                        <Button
+                          v-if="isImage(item.ext)"
+                          type="link"
+                          size="small"
+                          @click="handlePreview(item)"
+                        >
+                          预览
+                        </Button>
+                        <Button
+                          type="link"
+                          size="small"
+                          @click="handleDownload(item)"
+                        >
+                          下载
+                        </Button>
+                        <Popconfirm
+                          title="确定删除？"
+                          @confirm="handleDelete(item)"
+                        >
                           <Button type="link" size="small" danger>删除</Button>
                         </Popconfirm>
                       </div>
@@ -682,7 +843,7 @@ onBeforeUnmount(() => {
                 show-quick-jumper
                 size="small"
                 @change="handlePageChange"
-                @showSizeChange="handlePageChange"
+                @show-size-change="handlePageChange"
               />
             </div>
           </div>
@@ -708,7 +869,9 @@ onBeforeUnmount(() => {
 
 <style>
 /* ============================================= */
+
 /*  Attachment File Management - Professional    */
+
 /* ============================================= */
 
 .attachment-page {
@@ -719,6 +882,7 @@ onBeforeUnmount(() => {
 
 .attachment-layout {
   display: flex;
+
   /* 使用 min-height 而非 height，让整体高度随右侧列表内容自适应扩展，
      不被视口或左侧分类树高度限制 */
   min-height: calc(100vh - 110px);
@@ -726,18 +890,19 @@ onBeforeUnmount(() => {
 
 /* ---- Sidebar ---- */
 .aside-bar {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
   width: 220px;
   background: #fff;
   border-right: 1px solid #e8e8e8;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
 }
 
 .aside-header {
   padding: 16px 16px 12px;
   border-bottom: 1px solid #f0f0f0;
 }
+
 .aside-title {
   margin: 0;
   font-size: 14px;
@@ -747,30 +912,31 @@ onBeforeUnmount(() => {
 
 .aside-tree {
   flex: 1;
-  overflow-y: auto;
   padding: 8px 12px;
+  overflow-y: auto;
 }
 
 .aside-empty {
-  text-align: center;
   padding: 40px 0;
   color: #bfbfbf;
+  text-align: center;
 }
 
 /* ---- Main ---- */
 .main-area {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
+
   /* 去掉 overflow: hidden，让内容自然撑开，不在内部形成滚动条 */
   background: #f5f5f5;
 }
 
 /* ---- Toolbar ---- */
 .toolbar {
+  flex-shrink: 0;
   background: #fff;
   border-bottom: 1px solid #f0f0f0;
-  flex-shrink: 0;
 }
 
 .toolbar-top {
@@ -782,28 +948,32 @@ onBeforeUnmount(() => {
 
 .stat-tabs {
   display: flex;
-  align-items: center;
   gap: 0;
+  align-items: center;
 }
 
 .stat-tab {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   padding: 6px 16px;
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.2s;
 }
+
 .stat-tab:hover {
   background: #f5f5f5;
 }
+
 .stat-tab.active {
   background: #e6f4ff;
 }
+
 .stat-tab.active .stat-tab-num {
   color: #1677ff;
 }
+
 .stat-tab.active .stat-tab-label {
   color: #1677ff;
 }
@@ -812,6 +982,7 @@ onBeforeUnmount(() => {
   font-size: 16px;
   color: #8c8c8c;
 }
+
 .stat-tab.active .stat-tab-icon {
   color: #1677ff;
 }
@@ -819,8 +990,8 @@ onBeforeUnmount(() => {
 .stat-tab-num {
   font-size: 18px;
   font-weight: 700;
-  color: #262626;
   line-height: 1;
+  color: #262626;
 }
 
 .stat-tab-label {
@@ -831,17 +1002,18 @@ onBeforeUnmount(() => {
 .stat-divider-v {
   width: 1px;
   height: 28px;
-  background: #f0f0f0;
   margin: 0 12px;
+  background: #f0f0f0;
 }
 
 .stat-size {
   display: flex;
-  align-items: center;
   gap: 6px;
-  color: #595959;
+  align-items: center;
   font-size: 13px;
+  color: #595959;
 }
+
 .stat-size-icon {
   width: 18px;
   height: 18px;
@@ -850,17 +1022,18 @@ onBeforeUnmount(() => {
 
 .toolbar-actions {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
 }
 
 .view-toggle {
   display: flex;
   gap: 2px;
+  overflow: hidden;
   border: 1px solid #d9d9d9;
   border-radius: 6px;
-  overflow: hidden;
 }
+
 .view-toggle .ant-btn {
   border: none;
   border-radius: 0;
@@ -872,8 +1045,8 @@ onBeforeUnmount(() => {
 
 .filter-row {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
 }
 
 .filter-search {
@@ -888,34 +1061,40 @@ onBeforeUnmount(() => {
 .upload-popover {
   width: 280px;
 }
+
 .upload-popover-header {
-  font-weight: 600;
-  font-size: 14px;
   margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
 }
+
 .upload-tip {
+  margin-top: 8px;
   font-size: 12px;
   color: #8c8c8c;
-  margin-top: 8px;
   text-align: center;
 }
 
 /* ---- Content ---- */
 .content-area {
   flex: 1;
+
   /* 去掉 overflow-y: auto，不在内部形成滚动条，让外层页面自然滚动 */
 }
 
 .content-card {
-  padding: 15px;
-  border: 1px solid #f0f0f0;
+  box-sizing: border-box;
   width: 100%;
+
   /* 最小高度占满容器，内容多时自适应扩展，不遮挡内部元素 */
   min-height: 100%;
-  box-sizing: border-box;
+  padding: 15px;
+
   /* 使用 visible 让悬停展开的 .gc-extra 浮层不被裁剪 */
   overflow: visible;
+  border: 1px solid #f0f0f0;
 }
+
 .content-card.is-empty {
   display: flex;
   align-items: center;
@@ -937,32 +1116,36 @@ onBeforeUnmount(() => {
 
 .grid-card {
   position: relative;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
   cursor: pointer;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
   transition: all 0.2s;
 }
+
 .grid-card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   border-color: #d9d9d9;
+  border-bottom-right-radius: 0;
+
   /* 悬停时取消底部圆角，让 .gc-extra 顶部边框无缝接续 */
   border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
 }
+
 .grid-card.is-selected {
   border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22,119,255,0.15);
+  box-shadow: 0 0 0 2px rgb(22 119 255 / 15%);
 }
 
 .gc-thumb {
   position: relative;
   width: 100%;
   padding-top: 75%;
-  background: #fafafa;
   overflow: hidden;
+  background: #fafafa;
   border-radius: 8px 8px 0 0;
 }
+
 .gc-img {
   position: absolute;
   inset: 0;
@@ -970,6 +1153,7 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: cover;
 }
+
 .gc-placeholder {
   position: absolute;
   inset: 0;
@@ -978,73 +1162,83 @@ onBeforeUnmount(() => {
   justify-content: center;
   background: #fafafa;
 }
+
 .gc-placeholder-icon {
   font-size: 40px;
   color: #bfbfbf;
 }
+
 .gc-hover-mask {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.35);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgb(0 0 0 / 35%);
   opacity: 0;
   transition: opacity 0.2s;
 }
+
 .grid-card:hover .gc-hover-mask {
   opacity: 1;
 }
+
 .gc-check {
   position: absolute;
   top: 8px;
   left: 8px;
-  background: rgba(255,255,255,0.85);
-  border-radius: 4px;
   padding: 2px;
   line-height: 0;
+  background: rgb(255 255 255 / 85%);
+  border-radius: 4px;
 }
 
 .gc-body {
   padding: 10px 12px;
 }
+
 .gc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 13px;
   font-weight: 500;
   color: #262626;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .gc-meta {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-top: 4px;
   font-size: 12px;
   color: #8c8c8c;
 }
+
 .gc-ext {
-  background: #f5f5f5;
   padding: 0 6px;
-  border-radius: 3px;
   font-size: 11px;
   color: #595959;
+  background: #f5f5f5;
+  border-radius: 3px;
 }
+
 .gc-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
   padding-top: 8px;
+  margin-top: 8px;
   border-top: 1px solid #f5f5f5;
 }
+
 .gc-tag {
-  font-size: 11px;
-  line-height: 18px;
   padding: 0 6px;
   margin: 0;
+  font-size: 11px;
+  line-height: 18px;
 }
+
 .gc-actions {
   display: flex;
   gap: 2px;
@@ -1054,138 +1248,156 @@ onBeforeUnmount(() => {
 .gc-extra {
   position: absolute;
   top: 100%;
-  left: -1px;
   right: -1px;
+  left: -1px;
   z-index: 20;
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 4px;
+  align-items: center;
   padding: 8px 12px;
   font-size: 12px;
   line-height: 18px;
   color: #8c8c8c;
+  pointer-events: none;
   background: #fff;
   border: 1px solid #f0f0f0;
   border-top: 1px solid #f5f5f5;
   border-radius: 0 0 8px 8px;
   opacity: 0;
   transform: translateY(-4px);
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
+
 .grid-card:hover .gc-extra {
-  opacity: 1;
-  transform: translateY(0);
   pointer-events: auto;
+
   /* 与卡片悬停状态保持一致的边框和阴影，视觉上连成一体 */
   border-color: #d9d9d9;
   border-top-color: #f5f5f5;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+  opacity: 1;
+  transform: translateY(0);
 }
+
 .gc-extra-label {
   color: #bfbfbf;
 }
+
 .gc-extra-value {
   color: #595959;
 }
+
 .gc-extra-dot {
-  color: #d9d9d9;
   margin: 0 2px;
+  color: #d9d9d9;
 }
 
 /* ===== List View ===== */
 .list-wrap {
   background: #fff;
-  border-radius: 8px;
   border: 1px solid #f0f0f0;
+  border-radius: 8px;
 }
 
 .file-table {
   width: 100%;
   border-collapse: collapse;
 }
+
 .file-table th,
 .file-table td {
   padding: 10px 12px;
+  font-size: 13px;
   text-align: left;
   border-bottom: 1px solid #f0f0f0;
-  font-size: 13px;
 }
+
 .file-table th {
-  background: #fafafa;
   font-weight: 500;
   color: #595959;
   white-space: nowrap;
+  background: #fafafa;
 }
+
 .file-row:hover {
   background: #fafafa;
 }
+
 .file-row.row-selected {
   background: #e6f4ff;
 }
 
 .cell-name {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
 }
+
 .cell-icon-wrap {
-  width: 36px;
-  height: 36px;
-  border-radius: 4px;
-  overflow: hidden;
-  flex-shrink: 0;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
   background: #fafafa;
+  border-radius: 4px;
 }
+
 .cell-thumb {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .cell-icon {
   font-size: 18px;
   color: #8c8c8c;
 }
+
 .cell-filename {
+  max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 300px;
 }
+
 .cell-ext {
   font-size: 12px;
-  color: #595959;
   font-weight: 500;
+  color: #595959;
 }
+
 .cell-actions {
   display: flex;
-  gap: 2px;
   flex-wrap: nowrap;
+  gap: 2px;
 }
 
 /* ---- Pagination ---- */
 .pagination-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-top: 16px;
+  justify-content: space-between;
   padding: 12px 4px 4px;
-  border-top: 1px solid #f0f0f0;
+  margin-top: 16px;
   background: #fafafa;
+  border-top: 1px solid #f0f0f0;
   border-radius: 0 0 6px 6px;
 }
+
 .page-total {
-  font-size: 13px;
-  color: #595959;
   padding: 4px 10px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #595959;
   background: #fff;
   border: 1px solid #f0f0f0;
   border-radius: 4px;
-  line-height: 20px;
 }
 
 /* ---- Preview Modal ---- */
@@ -1193,9 +1405,10 @@ onBeforeUnmount(() => {
   padding: 0;
   line-height: 0;
 }
+
 .preview-img {
+  display: block;
   max-width: 90vw;
   max-height: 85vh;
-  display: block;
 }
 </style>

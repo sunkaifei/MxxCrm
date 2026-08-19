@@ -37,7 +37,10 @@ export const downloadFileApi = (id: number, mode = 'preview') => {
 };
 
 // 按业务实体查询附件
-export const getAttachmentsByEntityApi = (entityType: string, entityId: number) => {
+export const getAttachmentsByEntityApi = (
+  entityType: string,
+  entityId: number,
+) => {
   return requestClient.get('/api/system/attachment/by-entity', {
     params: { entityType, entityId },
   });
@@ -46,8 +49,8 @@ export const getAttachmentsByEntityApi = (entityType: string, entityId: number) 
 // 绑定附件到业务实体
 export const bindAttachmentApi = (data: {
   attachmentIds: number[];
-  entityType: string;
   entityId: number;
+  entityType: string;
 }) => {
   return requestClient.post('/api/system/attachment/bind', data);
 };
@@ -55,8 +58,8 @@ export const bindAttachmentApi = (data: {
 // 解绑附件
 export const unbindAttachmentApi = (data: {
   attachmentIds: number[];
-  entityType: string;
   entityId: number;
+  entityType: string;
 }) => {
   return requestClient.post('/api/system/attachment/unbind', data);
 };

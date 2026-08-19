@@ -17,7 +17,10 @@ import {
 const { RangePicker } = DatePicker;
 
 const activeKey = ref('summary');
-const dateRange = ref<[dayjs.Dayjs, dayjs.Dayjs]>([dayjs().subtract(30, 'day'), dayjs()]);
+const dateRange = ref<[dayjs.Dayjs, dayjs.Dayjs]>([
+  dayjs().subtract(30, 'day'),
+  dayjs(),
+]);
 const loading = ref(false);
 
 // 汇总数据
@@ -39,27 +42,38 @@ async function fetchData() {
       endDate: dateRange.value[1]?.format('YYYY-MM-DD'),
     };
 
-    const [summaryRes, supplierRes, productRes, departmentRes, brandRes] = await Promise.all([
-      getPurchaseReportSummaryApi(params),
-      getPurchaseReportBySupplierApi(params),
-      getPurchaseReportByProductApi(params),
-      getPurchaseReportByDepartmentApi(params),
-      getPurchaseReportByBrandApi(params),
-    ]);
+    const [summaryRes, supplierRes, productRes, departmentRes, brandRes] =
+      await Promise.all([
+        getPurchaseReportSummaryApi(params),
+        getPurchaseReportBySupplierApi(params),
+        getPurchaseReportByProductApi(params),
+        getPurchaseReportByDepartmentApi(params),
+        getPurchaseReportByBrandApi(params),
+      ]);
 
     summaryData.value = summaryRes;
-    supplierData.value = Array.isArray(supplierRes) ? supplierRes : supplierRes?.records ?? [];
-    productData.value = Array.isArray(productRes) ? productRes : productRes?.records ?? [];
-    departmentData.value = Array.isArray(departmentRes) ? departmentRes : departmentRes?.records ?? [];
-    brandData.value = Array.isArray(brandRes) ? brandRes : brandRes?.records ?? [];
+    supplierData.value = Array.isArray(supplierRes)
+      ? supplierRes
+      : (supplierRes?.records ?? []);
+    productData.value = Array.isArray(productRes)
+      ? productRes
+      : (productRes?.records ?? []);
+    departmentData.value = Array.isArray(departmentRes)
+      ? departmentRes
+      : (departmentRes?.records ?? []);
+    brandData.value = Array.isArray(brandRes)
+      ? brandRes
+      : (brandRes?.records ?? []);
   } finally {
     loading.value = false;
   }
 }
 
-function onRangeChange(dates: [dayjs.Dayjs, dayjs.Dayjs] | null) {
-  if (dates) {
-    dateRange.value = dates;
+function onRangeChange(
+  dates: [dayjs.Dayjs, dayjs.Dayjs] | [string, string] | null,
+) {
+  if (dates && dayjs.isDayjs(dates[0]) && dayjs.isDayjs(dates[1])) {
+    dateRange.value = [dates[0], dates[1]];
     fetchData();
   }
 }
@@ -76,7 +90,9 @@ const summaryCards = [
 ];
 
 // 各状态数量映射
-function statusKeys(data: Record<string, any>): { key: string; label: string; value: number }[] {
+function statusKeys(
+  data: Record<string, any>,
+): { key: string; label: string; value: number }[] {
   const statusMap: Record<string, string> = {
     pendingCount: '待审核',
     approvedCount: '已审核',
@@ -91,7 +107,12 @@ function statusKeys(data: Record<string, any>): { key: string; label: string; va
 // 供应商统计列
 const supplierColumns = [
   { title: '供应商ID', dataIndex: 'supplierId', key: 'supplierId', width: 120 },
-  { title: '供应商名称', dataIndex: 'supplierName', key: 'supplierName', minWidth: 160 },
+  {
+    title: '供应商名称',
+    dataIndex: 'supplierName',
+    key: 'supplierName',
+    minWidth: 160,
+  },
   { title: '采购单数', dataIndex: 'orderCount', key: 'orderCount', width: 100 },
   { title: '总金额', dataIndex: 'totalAmount', key: 'totalAmount', width: 140 },
 ];
@@ -99,9 +120,19 @@ const supplierColumns = [
 // 产品统计列
 const productColumns = [
   { title: '产品ID', dataIndex: 'productId', key: 'productId', width: 100 },
-  { title: '产品名称', dataIndex: 'productName', key: 'productName', minWidth: 160 },
+  {
+    title: '产品名称',
+    dataIndex: 'productName',
+    key: 'productName',
+    minWidth: 160,
+  },
   { title: 'SKU', dataIndex: 'sku', key: 'sku', width: 140 },
-  { title: '总数量', dataIndex: 'totalQuantity', key: 'totalQuantity', width: 100 },
+  {
+    title: '总数量',
+    dataIndex: 'totalQuantity',
+    key: 'totalQuantity',
+    width: 100,
+  },
   { title: '总金额', dataIndex: 'totalAmount', key: 'totalAmount', width: 140 },
 ];
 
@@ -116,7 +147,12 @@ const departmentColumns = [
 // 品牌统计列
 const brandColumns = [
   { title: '品牌ID', dataIndex: 'brandId', key: 'brandId', width: 100 },
-  { title: '品牌名称', dataIndex: 'brandName', key: 'brandName', minWidth: 160 },
+  {
+    title: '品牌名称',
+    dataIndex: 'brandName',
+    key: 'brandName',
+    minWidth: 160,
+  },
   { title: '明细数', dataIndex: 'detailCount', key: 'detailCount', width: 100 },
   { title: '总金额', dataIndex: 'totalAmount', key: 'totalAmount', width: 140 },
 ];
@@ -137,10 +173,12 @@ const brandColumns = [
       </Card>
 
       <Card :bordered="false">
-        <Tabs v-model:activeKey="activeKey">
+        <Tabs v-model:active-key="activeKey">
           <Tabs.TabPane key="summary" tab="汇总统计">
             <div v-if="summaryData && Object.keys(summaryData).length > 0">
-              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+              <div
+                class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6"
+              >
                 <Card
                   v-for="card in summaryCards"
                   :key="card.key"
@@ -180,7 +218,11 @@ const brandColumns = [
               :columns="supplierColumns"
               :data-source="supplierData"
               :loading="loading"
-              :pagination="{ pageSize: 20, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }"
+              :pagination="{
+                pageSize: 20,
+                showSizeChanger: true,
+                showTotal: (total: number) => `共 ${total} 条`,
+              }"
               :row-key="(record: any) => record.supplierId"
               bordered
               size="middle"
@@ -192,7 +234,11 @@ const brandColumns = [
               :columns="productColumns"
               :data-source="productData"
               :loading="loading"
-              :pagination="{ pageSize: 20, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }"
+              :pagination="{
+                pageSize: 20,
+                showSizeChanger: true,
+                showTotal: (total: number) => `共 ${total} 条`,
+              }"
               :row-key="(record: any) => record.productId"
               bordered
               size="middle"
@@ -204,7 +250,11 @@ const brandColumns = [
               :columns="departmentColumns"
               :data-source="departmentData"
               :loading="loading"
-              :pagination="{ pageSize: 20, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }"
+              :pagination="{
+                pageSize: 20,
+                showSizeChanger: true,
+                showTotal: (total: number) => `共 ${total} 条`,
+              }"
               :row-key="(record: any) => record.deptId"
               bordered
               size="middle"
@@ -216,7 +266,11 @@ const brandColumns = [
               :columns="brandColumns"
               :data-source="brandData"
               :loading="loading"
-              :pagination="{ pageSize: 20, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }"
+              :pagination="{
+                pageSize: 20,
+                showSizeChanger: true,
+                showTotal: (total: number) => `共 ${total} 条`,
+              }"
               :row-key="(record: any) => record.brandId"
               bordered
               size="middle"

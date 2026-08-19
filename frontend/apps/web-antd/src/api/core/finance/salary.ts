@@ -11,8 +11,8 @@ export const getSalaryDetailApi = async (id: number) => {
 };
 
 export const calculateSalaryApi = async (data: {
-  year: number;
   month: number;
+  year: number;
 }) => {
   return requestClient.post('/api/system/finance/salary/calculate', data);
 };
@@ -40,8 +40,8 @@ export const batchPaySalaryApi = async (ids: number[]) => {
 };
 
 export const getSalarySummaryApi = async (params: {
-  year: number;
   month: number;
+  year: number;
 }) => {
   return requestClient.get('/api/system/finance/salary/summary', { params });
 };
@@ -58,18 +58,15 @@ export const getSalaryConfigListApi = async (params?: {
 };
 
 export const upsertSalaryConfigApi = async (data: {
-  employeeId: number;
-  year: number;
-  month?: number;
   baseSalary: number;
-  positionAllowance?: number;
+  employeeId: number;
+  month?: number;
   performanceBase?: number;
   performanceCoefficient?: number;
+  positionAllowance?: number;
+  year: number;
 }) => {
-  return requestClient.post(
-    '/api/system/finance/salary/config/upsert',
-    data,
-  );
+  return requestClient.post('/api/system/finance/salary/config/upsert', data);
 };
 
 export const deleteSalaryConfigApi = async (id: number) => {
@@ -81,10 +78,10 @@ export const deleteSalaryConfigApi = async (id: number) => {
 // ===== 核算日志 =====
 
 export const getSalaryCalcLogListApi = async (params?: {
-  year?: number;
   month?: number;
   page?: number;
   pageSize?: number;
+  year?: number;
 }) => {
   return requestClient.get('/api/system/finance/salary/calc-log/list', {
     params,
@@ -94,9 +91,9 @@ export const getSalaryCalcLogListApi = async (params?: {
 // ===== 工资确认/申诉 =====
 
 export const confirmSalaryApi = async (data: {
-  salaryRecordId: number;
   action: number; // 1=确认, 2=申请重新核算
   reason?: string;
+  salaryRecordId: number;
 }) => {
   return requestClient.post('/api/system/finance/salary/confirm', data);
 };
@@ -111,26 +108,23 @@ export const getMyConfirmsApi = async (params?: {
 };
 
 export const getPendingConfirmsApi = async (params?: {
+  employeeId?: number;
+  month?: number;
   page?: number;
   pageSize?: number;
-  employeeId?: number;
-  year?: number;
-  month?: number;
   status?: number;
+  year?: number;
 }) => {
-  return requestClient.get(
-    '/api/system/finance/salary/confirm/pending-list',
-    {
-      params,
-    },
-  );
+  return requestClient.get('/api/system/finance/salary/confirm/pending-list', {
+    params,
+  });
 };
 
 // ===== 导出（V8-5）=====
 
 export const exportSalaryApi = async (params: {
-  year: number;
   month: number;
+  year: number;
 }) => {
   return requestClient.get('/api/system/finance/salary/export-salary', {
     params,
@@ -138,10 +132,7 @@ export const exportSalaryApi = async (params: {
   });
 };
 
-export const exportTaxApi = async (params: {
-  year: number;
-  month: number;
-}) => {
+export const exportTaxApi = async (params: { month: number; year: number }) => {
   return requestClient.get('/api/system/finance/salary/export-tax', {
     params,
     responseType: 'blob',
@@ -150,8 +141,8 @@ export const exportTaxApi = async (params: {
 
 // V9: 真实 xlsx 导出（含表头样式与金额格式）
 export const exportSalaryXlsxApi = async (params: {
-  year: number;
   month: number;
+  year: number;
 }) => {
   return requestClient.get('/api/system/finance/salary/export-salary-xlsx', {
     params,
@@ -160,8 +151,8 @@ export const exportSalaryXlsxApi = async (params: {
 };
 
 export const exportTaxXlsxApi = async (params: {
-  year: number;
   month: number;
+  year: number;
 }) => {
   return requestClient.get('/api/system/finance/salary/export-tax-xlsx', {
     params,
@@ -172,8 +163,8 @@ export const exportTaxXlsxApi = async (params: {
 // ===== V8-1: 工资单审批流对接 =====
 
 export const submitSalaryApprovalApi = async (params: {
-  year: number;
   month: number;
+  year: number;
 }) => {
   return requestClient.post(
     '/api/system/finance/salary/submit-approval',
@@ -183,19 +174,17 @@ export const submitSalaryApprovalApi = async (params: {
 };
 
 export const syncSalaryApprovalApi = async (params: {
-  year: number;
   month: number;
+  year: number;
 }) => {
-  return requestClient.post(
-    '/api/system/finance/salary/sync-approval',
-    null,
-    { params },
-  );
+  return requestClient.post('/api/system/finance/salary/sync-approval', null, {
+    params,
+  });
 };
 
 export const handleConfirmApi = async (data: {
-  confirmId: number;
   action: number; // 1=同意重算, 2=驳回
+  confirmId: number;
   remark?: string;
 }) => {
   return requestClient.post('/api/system/finance/salary/confirm/handle', data);

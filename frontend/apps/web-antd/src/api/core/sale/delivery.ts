@@ -7,7 +7,9 @@ export const getDeliveryListApi = async (params: any) => {
 
 // 交付详情（脱敏）
 export const getDeliveryInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/sale/delivery/info', { params: { id } });
+  return requestClient.get('/api/system/sale/delivery/info', {
+    params: { id },
+  });
 };
 
 // 查看完整内容（需 sale:delivery:view 权限）
@@ -38,5 +40,7 @@ export const resendDeliveryApi = async (id: number) => {
 
 // 批量删除交付记录
 export const deleteDeliveryApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/sale/delivery/delete', { data: ids });
+  return requestClient.delete('/api/system/sale/delivery/delete', {
+    data: ids,
+  });
 };

@@ -1,29 +1,33 @@
 <script lang="ts" setup>
-import { ref, h, onMounted } from 'vue';
+import type { ArticleTagVO } from '#/api/core/website/article-tag';
+
+import { h, onMounted, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
-import { useAccessStore } from '@vben/stores';
 import {
+  LucideEdit,
   LucidePlus,
   LucideSearch,
   LucideTrash2,
-  LucideEdit,
 } from '@vben/icons';
+import { useAccessStore } from '@vben/stores';
+
 import {
+  Input as AInput,
   Button,
+  Form,
   Input,
-  Table,
-  Modal,
+  InputNumber,
   message,
+  Modal,
+  Popconfirm,
+  Switch,
+  Table,
   Tag,
   Tooltip,
-  Popconfirm,
-  Form,
-  Input as AInput,
-  InputNumber,
-  Switch,
 } from 'ant-design-vue';
+
 import { articleTagApi } from '#/api';
-import type { ArticleTagVO } from '#/api/core/website/article-tag';
 
 const accessStore = useAccessStore();
 
@@ -40,9 +44,9 @@ const saving = ref(false);
 
 // Form
 const formState = ref<{
+  color?: string;
   name?: string;
   slug?: string;
-  color?: string;
   sort?: number;
   status?: number;
 }>({
@@ -82,7 +86,13 @@ function handleSearch() {
 // --- Create / Edit ---
 function openCreate() {
   editingRecord.value = null;
-  formState.value = { name: '', slug: '', color: '#1677ff', sort: 0, status: 1 };
+  formState.value = {
+    name: '',
+    slug: '',
+    color: '#1677ff',
+    sort: 0,
+    status: 1,
+  };
   drawerVisible.value = true;
 }
 
@@ -110,8 +120,8 @@ async function handleSave() {
     }
     drawerVisible.value = false;
     loadData();
-  } catch (err: any) {
-    message.error(err?.message || '操作失败');
+  } catch (error: any) {
+    message.error(error?.message || '操作失败');
   } finally {
     saving.value = false;
   }
@@ -164,16 +174,25 @@ const columns = [
     customRender: ({ record }: { record: ArticleTagVO }) =>
       h('div', { style: 'white-space:nowrap' }, [
         h(Tooltip, { title: '编辑' }, () =>
-          h(Button, {
-            type: 'link',
-            size: 'small',
-            onClick: () => openEdit(record),
-          }, () => h(LucideEdit, { style: 'font-size:14px' })),
-        ),
-        h(Popconfirm, { title: '确定删除此标签？', onConfirm: () => handleDelete(record) }, () =>
-          h(Tooltip, { title: '删除' }, () =>
-            h(Button, { type: 'link', size: 'small', danger: true }, () => h(LucideTrash2, { style: 'font-size:14px' })),
+          h(
+            Button,
+            {
+              type: 'link',
+              size: 'small',
+              onClick: () => openEdit(record),
+            },
+            () => h(LucideEdit, { style: 'font-size:14px' }),
           ),
+        ),
+        h(
+          Popconfirm,
+          { title: '确定删除此标签？', onConfirm: () => handleDelete(record) },
+          () =>
+            h(Tooltip, { title: '删除' }, () =>
+              h(Button, { type: 'link', size: 'small', danger: true }, () =>
+                h(LucideTrash2, { style: 'font-size:14px' }),
+              ),
+            ),
         ),
       ]),
   },
@@ -191,10 +210,13 @@ const columns = [
             placeholder="搜索标签名称…"
             allow-clear
             style="width: 260px"
-            @pressEnter="handleSearch"
+            @press-enter="handleSearch"
           >
             <template #prefix>
-              <component :is="LucideSearch" style="color: #bfbfbf; font-size: 14px" />
+              <component
+                :is="LucideSearch"
+                style="font-size: 14px; color: #bfbfbf"
+              />
             </template>
           </Input>
           <Button type="primary" @click="handleSearch">搜索</Button>
@@ -214,7 +236,7 @@ const columns = [
       <!-- Table -->
       <div class="table-wrap">
         <Table
-          :dataSource="dataSource"
+          :data-source="dataSource"
           :columns="columns"
           :loading="loading"
           :pagination="{
@@ -230,7 +252,7 @@ const columns = [
               loadData();
             },
           }"
-          rowKey="id"
+          row-key="id"
           size="middle"
           bordered
         />
@@ -248,15 +270,9 @@ const columns = [
       @ok="handleSave"
       @cancel="drawerVisible = false"
     >
-      <Form
-        :model="formState"
-        layout="vertical"
-      >
+      <Form :model="formState" layout="vertical">
         <Form.Item label="标签名称" required>
-          <AInput
-            v-model:value="formState.name"
-            placeholder="请输入标签名称"
-          />
+          <AInput v-model:value="formState.name" placeholder="请输入标签名称" />
         </Form.Item>
         <Form.Item label="别名（slug）">
           <AInput
@@ -265,7 +281,7 @@ const columns = [
           />
         </Form.Item>
         <Form.Item label="标签颜色">
-          <div style="display: flex; align-items: center; gap: 8px">
+          <div style="display: flex; gap: 8px; align-items: center">
             <AInput
               v-model:value="formState.color"
               placeholder="#1677ff"
@@ -279,20 +295,20 @@ const columns = [
                 backgroundColor: formState.color,
                 border: '1px solid #d9d9d9',
               }"
-            />
+            ></div>
           </div>
         </Form.Item>
         <Form.Item label="排序">
-          <InputNumber
-            v-model:value="formState.sort"
-            :min="0"
-            :max="9999"
-          />
+          <InputNumber v-model:value="formState.sort" :min="0" :max="9999" />
         </Form.Item>
         <Form.Item label="状态">
           <Switch
             :checked="formState.status === 1"
-            @change="(val: any) => { formState.status = val ? 1 : 0 }"
+            @change="
+              (val: any) => {
+                formState.status = val ? 1 : 0;
+              }
+            "
           />
         </Form.Item>
       </Form>
@@ -307,28 +323,28 @@ const columns = [
 
 .toolbar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 0;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
 }
 
 .toolbar-left {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .toolbar-right {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .table-wrap {
+  padding: 16px;
   background: #fff;
   border-radius: 8px;
-  padding: 16px;
 }
 </style>

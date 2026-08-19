@@ -20,16 +20,25 @@ export const generateSkusApi = async (productId: number) => {
 };
 
 /** 批量保存SKU */
-export const batchSaveSkusApi = async (param: { productId: number; skus: any[] }) => {
+export const batchSaveSkusApi = async (param: {
+  productId: number;
+  skus: any[];
+}) => {
   return requestClient.post('/api/system/product/sku/batchSave', param);
 };
 
 /** 获取可用规格值（淘宝式级联选择） */
-export const getAvailableSpecValuesApi = async (param: { productId: number; selectedSpecs: Record<string, string> }) => {
+export const getAvailableSpecValuesApi = async (param: {
+  productId: number;
+  selectedSpecs: Record<string, string>;
+}) => {
   return requestClient.post('/api/system/product/spec/availableValues', param);
 };
 
 /** 根据规格组合获取对应的SKU */
-export const getSkuBySpecsApi = async (param: { productId: number; specs: Record<string, string> }) => {
+export const getSkuBySpecsApi = async (param: {
+  productId: number;
+  specs: Record<string, string>;
+}) => {
   return requestClient.post('/api/system/product/sku/getBySpecs', param);
 };

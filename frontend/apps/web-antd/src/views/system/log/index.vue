@@ -1,8 +1,11 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -17,7 +20,6 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteLogApi, getLogListApi } from '#/api';
 import { $t } from '#/locales';
 
@@ -143,9 +145,7 @@ const gridOptions: VxeGridProps = {
     ajax: {
       query: async ({ page }, formValues) => {
         const { dateRange, ...rest } = formValues || {};
-        const [beginTime, endTime] = Array.isArray(dateRange)
-          ? dateRange
-          : [];
+        const [beginTime, endTime] = Array.isArray(dateRange) ? dateRange : [];
         return await getLogListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
@@ -267,9 +267,7 @@ async function handleViewDetail(row: any) {
 
       <template #status="{ row }">
         <Tag :color="statusColorMap[row.status] || 'default'">
-          {{
-            $t(statusTextKey[row.status] || 'page.system.log.statusNormal')
-          }}
+          {{ $t(statusTextKey[row.status] || 'page.system.log.statusNormal') }}
         </Tag>
       </template>
 

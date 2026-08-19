@@ -91,6 +91,21 @@ pub async fn get_session_timeout_secs() -> u64 {
     }
 }
 
+/// 读取 accessToken 有效期配置（秒），优先缓存，miss 时回查数据库
+///
+/// 整改 v1.0 新增：JWT（accessToken）过期时间与 refreshToken（会话）过期时间分离，
+/// accessToken 短期（默认 7200 秒），refreshToken 走 session_timeout 滑动续期。
+pub async fn get_access_token_expire_secs() -> u64 {
+    match CONTEXT.cache_service.get_string("config:access_token_expire").await {
+        Ok(v) if !v.is_empty() => v.parse::<u64>().unwrap_or(7200),
+        _ => {
+            let db_val = config_service::find_value_by_key_from_db("access_token_expire").await.unwrap_or_else(|| "7200".to_string());
+            let _ = CONTEXT.cache_service.set_string("config:access_token_expire", &db_val).await;
+            db_val.parse::<u64>().unwrap_or(7200)
+        }
+    }
+}
+
 /// 读取多设备模式最大在线设备数，0=不限制
 pub async fn get_max_devices() -> usize {
     match CONTEXT.cache_service.get_string("config:login_max_devices").await {

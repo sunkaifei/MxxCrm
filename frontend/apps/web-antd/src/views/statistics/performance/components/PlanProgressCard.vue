@@ -19,8 +19,8 @@ const summary = ref<any>({});
 function formatCurrency(val: any) {
   const num = Number(val);
   if (!num || Number.isNaN(num)) return '¥0';
-  if (num >= 100000000) return `¥${(num / 100000000).toFixed(2)}亿`;
-  if (num >= 10000) return `¥${(num / 10000).toFixed(2)}万`;
+  if (num >= 100_000_000) return `¥${(num / 100_000_000).toFixed(2)}亿`;
+  if (num >= 10_000) return `¥${(num / 10_000).toFixed(2)}万`;
   return `¥${num.toLocaleString()}`;
 }
 
@@ -47,7 +47,9 @@ const team = computed(() => summary.value?.team || {});
 // 有下属时 team.memberCount > 1
 const hasTeam = computed(() => Number(team.value?.memberCount || 0) > 1);
 
-const personalRate = computed(() => Number(personal.value?.completionRate || 0));
+const personalRate = computed(() =>
+  Number(personal.value?.completionRate || 0),
+);
 const teamRate = computed(() => Number(team.value?.completionRate || 0));
 
 watch(
@@ -75,7 +77,11 @@ onMounted(() => loadData());
         <Empty description="暂无计划数据" />
       </div>
 
-      <div v-else class="grid gap-4" :class="hasTeam ? 'md:grid-cols-2' : 'grid-cols-1'">
+      <div
+        v-else
+        class="grid gap-4"
+        :class="hasTeam ? 'md:grid-cols-2' : 'grid-cols-1'"
+      >
         <!-- 个人进度 -->
         <div class="p-4 rounded-lg bg-blue-50/60">
           <div class="flex items-center justify-between mb-3">

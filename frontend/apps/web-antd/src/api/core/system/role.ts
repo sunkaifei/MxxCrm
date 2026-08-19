@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 /**
  * 获取角色列表
  */
@@ -73,7 +75,7 @@ export const getRoleDeptIdsApi = async (roleId: number) => {
  */
 export const updateRoleDeptApi = async (
   id: number,
-  deptIds: (string | number)[],
+  deptIds: (number | string)[],
 ) => {
   return requestClient.put('/api/system/role/assign_data_scope', {
     roleId: String(id),

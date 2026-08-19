@@ -7,9 +7,9 @@ import { Tooltip } from 'ant-design-vue';
 
 interface Props {
   /** 时间进度百分比（0-100） */
-  timeProgress: number;
+  timeProgress?: number;
   /** 业绩进度百分比（0-100+） */
-  performanceProgress: number;
+  performanceProgress?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -92,7 +92,7 @@ const gap = computed(() =>
                 width: `${Math.min(timeProgress, 100)}%`,
                 background: 'linear-gradient(90deg, #1890ff 0%, #69c0ff 100%)',
               }"
-            />
+            ></div>
           </div>
           <div class="text-xs mt-1 text-blue-600 font-medium">
             {{ timeProgress.toFixed(2) }}%
@@ -109,7 +109,7 @@ const gap = computed(() =>
                 width: `${Math.min(performanceProgress, 100)}%`,
                 background: `linear-gradient(90deg, ${statusConfig.color} 0%, ${statusConfig.color}aa 100%)`,
               }"
-            />
+            ></div>
           </div>
           <div
             class="text-xs mt-1 font-medium"
@@ -140,9 +140,9 @@ const gap = computed(() =>
   position: relative;
   width: 100%;
   height: 10px;
+  overflow: hidden;
   background: rgb(255 255 255 / 60%);
   border-radius: 5px;
-  overflow: hidden;
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 6%);
 }
 

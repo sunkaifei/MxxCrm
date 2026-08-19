@@ -7,7 +7,11 @@ use crate::modules::approval::model::approval::*;
 use crate::modules::crm::entity::contract;
 use crate::modules::crm::model::work_log::WorkLogCreateDTO;
 use crate::modules::crm::service::work_log_service;
+use crate::modules::sale::entity::invoice;
 use crate::modules::sale::entity::order;
+use crate::modules::system::entity::admin::{Entity as AdminEntity};
+use crate::modules::system::entity::admin_role_merge::{Column as RoleMergeColumn, Entity as RoleMergeEntity};
+use crate::modules::system::entity::role::{Column as RoleColumn, Entity as RoleEntity};
 
 use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, TransactionTrait};
 
@@ -41,6 +45,14 @@ impl ApprovalService {
 
     /// 提交审批
     pub async fn submit(db: &DatabaseConnection, req: &ApprovalSubmitRequest) -> Result<i64> {
+        let mut req = (*req).clone();
+        // 用户审核（business_type=user）：按被审核用户角色动态注入 userLevel（供条件分支分流），
+        // 并携带被审核用户部门 userDeptId（供部门负责人链 type=7 节点基于被审核用户解析）
+        if req.business_type == "user" {
+            if let Some(extra) = Self::build_user_audit_extra(db, &req).await? {
+                req.extra_data = Some(extra);
+            }
+        }
         let flow_data = ApprovalModel::find_flow_by_code(db, &req.flow_code).await?;
         let (flow, nodes, edges) = flow_data.ok_or_else(|| Error::from("审批流模板不存在或未启用"))?;
 
@@ -97,7 +109,7 @@ impl ApprovalService {
                         // 直接到结束节点，说明不需要审批（如条件不满足直接通过）
                         // 创建实例并直接完成（事务保证原子性）
                         let nk = node.node_key.clone().unwrap_or_default();
-                        let req = (*req).clone();
+                        let req = req.clone();
                         let instance_id = db.transaction::<_, i64, Error>(|txn| {
                             Box::pin(async move {
                                 let instance_id = ApprovalModel::create_instance(
@@ -126,8 +138,8 @@ impl ApprovalService {
             return Err(Error::from("第一个节点必须是审批节点或条件分支"));
         }
 
-        // 解析发起人部门
-        let submitter_dept_id = ApprovalModel::find_user_dept_id(db, req.submitter_id).await?;
+        // 解析发起人部门（用户审核场景优先取被审核用户部门）
+        let submitter_dept_id = Self::resolve_flow_dept_id(db, req.submitter_id, &extra_data).await?;
 
         // 解析候选审批人列表（支持多审批人场景：角色/岗位下所有用户）
         let raw_candidates = ApprovalModel::resolve_approvers(
@@ -151,7 +163,7 @@ impl ApprovalService {
                 // 创建实例（占位，current_approver_id=0 表示系统自动通过），随后立即自动流转
                 let ed = req.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
                 let sid = req.submitter_id;
-                let req = (*req).clone();
+                let req = req.clone();
                 let instance_id = db.transaction::<_, i64, Error>(|txn| {
                     Box::pin(async move {
                         let instance_id = ApprovalModel::create_instance(
@@ -185,7 +197,7 @@ impl ApprovalService {
         // 当前审批人取候选列表的第一个（或签/会签模式下所有人可见，依次审批按顺序）
         let primary_approver = candidates[0];
 
-        let req = (*req).clone();
+        let req = req.clone();
         let instance_id = db.transaction::<_, i64, Error>(|txn| {
             Box::pin(async move {
                 let instance_id = ApprovalModel::create_instance(
@@ -279,6 +291,11 @@ impl ApprovalService {
         let flow_data = ApprovalModel::find_instance_by_id_raw(db, req.instance_id).await?
             .ok_or_else(|| Error::from("审批实例不存在"))?;
         let (nodes, edges) = ApprovalModel::get_instance_flow_data(db, &flow_data).await?;
+
+        // 驳回时必须填写理由（后端兜底校验，不能只依赖前端）
+        if req.action == 2 && req.comment.as_deref().map(str::trim).unwrap_or("").is_empty() {
+            return Err(Error::from("驳回时必须填写理由"));
+        }
 
         let current_node_key = instance.current_node_key.as_ref()
             .ok_or_else(|| Error::from("当前节点为空"))?;
@@ -384,7 +401,87 @@ impl ApprovalService {
         ApprovalModel::find_instance_by_id(db, id).await
     }
 
+    /// 某业务单据的全部审批实例（历史），按提交时间正序
+    /// 用于发票"流转记录"按单据维度聚合展示：历次提交（含已驳回/已撤回的旧实例）全部保留、可完整追溯。
+    pub async fn find_instance_history(
+        db: &DatabaseConnection,
+        business_type: &str,
+        business_id: i64,
+    ) -> Result<Vec<ApprovalInstanceVO>> {
+        ApprovalModel::find_instance_history(db, business_type, business_id).await
+    }
+
     // ============ Private helpers ============
+
+    /// 构建用户审核（business_type=user）的 extra_data：
+    /// - userLevel：按被审核用户角色名分级（含「总监」→director；含「经理/管理员」→manager；其余→employee），
+    ///   供审批流条件分支（如 userLevel=="director"）分流
+    /// - userDeptId：被审核用户所在部门，供部门负责人链(type=7)节点基于被审核用户解析
+    /// 被审核用户不存在时返回 None（不注入，走默认 employee 链）
+    async fn build_user_audit_extra(
+        db: &DatabaseConnection,
+        req: &ApprovalSubmitRequest,
+    ) -> Result<Option<serde_json::Value>> {
+        let admin = AdminEntity::find_by_id(req.business_id)
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        if admin.is_none() {
+            return Ok(None);
+        }
+
+        let role_names = Self::find_user_role_names(db, req.business_id).await?;
+        let level = if role_names.iter().any(|r| r.contains("总监")) {
+            "director"
+        } else if role_names.iter().any(|r| r.contains("经理") || r.contains("管理员")) {
+            "manager"
+        } else {
+            "employee"
+        };
+
+        let mut extra = req.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
+        if let serde_json::Value::Object(map) = &mut extra {
+            map.insert("userLevel".to_string(), serde_json::json!(level));
+            if let Ok(Some(dept_id)) = ApprovalModel::find_user_dept_id(db, req.business_id).await {
+                map.insert("userDeptId".to_string(), serde_json::json!(dept_id));
+            }
+        }
+        Ok(Some(extra))
+    }
+
+    /// 查询用户的所有角色名称（未删除角色），用于角色分级
+    async fn find_user_role_names(db: &impl ConnectionTrait, user_id: i64) -> Result<Vec<String>> {
+        let merges = RoleMergeEntity::find()
+            .filter(RoleMergeColumn::AdminId.eq(user_id))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        let role_ids: Vec<i64> = merges.into_iter().filter_map(|m| m.role_id).collect();
+        if role_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let roles = RoleEntity::find()
+            .filter(RoleColumn::Id.is_in(role_ids))
+            .filter(RoleColumn::Deleted.eq(0))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        Ok(roles.into_iter().filter_map(|r| r.role_name).collect())
+    }
+
+    /// 解析审批流推进时"部门负责人链(type=7)"节点的起始部门ID
+    /// 用户审核场景（extra_data 含 userDeptId）取被审核用户所在部门，
+    /// 其他场景回退到发起人所在部门
+    async fn resolve_flow_dept_id(
+        db: &impl ConnectionTrait,
+        submitter_id: i64,
+        extra_data: &serde_json::Value,
+    ) -> Result<Option<i64>> {
+        if let Some(dept_id) = extra_data.get("userDeptId").and_then(|v| v.as_i64()) {
+            return Ok(Some(dept_id));
+        }
+        ApprovalModel::find_user_dept_id(db, submitter_id).await
+    }
 
     /// 用户审核审批：business_type="user" 的实例审批通过（status=3）后自动启用用户
     /// （audit_status=1 + status=1），best-effort，失败不影响审批主流程
@@ -401,7 +498,7 @@ impl ApprovalService {
         }
     }
 
-    /// 审批撤销/退回后回写业务侧审批状态（合同/订单/入库单）。
+    /// 审批撤销/退回后回写业务侧审批状态（合同/订单/发票/出入库单）。
     /// 失败时忽略错误（best-effort），不影响审批主流程。
     async fn sync_business_approval_status(
         db: &impl ConnectionTrait,
@@ -424,6 +521,25 @@ impl ApprovalService {
                     .filter(order::Column::Id.eq(business_id))
                     .exec(db)
                     .await;
+            }
+            // 发票：撤回/退回后回写审批状态，保证发票可重新提交（否则会卡在"待审批"无法重提）
+            "invoice" => {
+                // 引擎状态 6=退回发起人 → 已驳回(4)，其余（撤回等）→ 草稿(0)
+                let biz_status = if approval_status == 6 { 4 } else { 0 };
+                let mut update = invoice::Entity::update_many()
+                    .col_expr(
+                        invoice::Column::ApprovalStatus,
+                        sea_orm::sea_query::Expr::value(biz_status),
+                    )
+                    .filter(invoice::Column::Id.eq(business_id));
+                // 撤回（biz_status=0）：instance_id 清空，实例保留为历史（参考规则 2.3 / 验收 C8、H2）
+                if biz_status == 0 {
+                    update = update.col_expr(
+                        invoice::Column::InstanceId,
+                        sea_orm::sea_query::Expr::value(None::<i64>),
+                    );
+                }
+                let _ = update.exec(db).await;
             }
             // 入库单：审批引擎状态 0=撤回→草稿(0)，6=退回发起人→已驳回(4)
             // （审批通过/驳回由入库单自身 audit/reject 流程处理，不经此处回写）
@@ -546,7 +662,7 @@ impl ApprovalService {
             }
             Some(2) => {
                 // 审批节点 - 解析候选审批人列表
-                let submitter_dept_id = ApprovalModel::find_user_dept_id(db, submitter_id).await?;
+                let submitter_dept_id = Self::resolve_flow_dept_id(db, submitter_id, extra_data).await?;
                 let raw_candidates = ApprovalModel::resolve_approvers(
                     db,
                     next_node.approver_type,
@@ -722,7 +838,7 @@ impl ApprovalService {
                         return Ok(());
                     }
                     Some(2) => {
-                        let submitter_dept_id = ApprovalModel::find_user_dept_id(db, submitter_id).await?;
+                        let submitter_dept_id = Self::resolve_flow_dept_id(db, submitter_id, extra_data).await?;
                         let raw_candidates = ApprovalModel::resolve_approvers(
                             db,
                             target.approver_type,
@@ -809,7 +925,11 @@ impl ApprovalService {
             return Err(Error::from("仅发起人可撤回审批"));
         }
 
+        // 撤回时必须填写理由（后端兜底校验，不能只依赖前端）
         let cancel_reason = req.cancel_reason.clone().unwrap_or_default();
+        if cancel_reason.trim().is_empty() {
+            return Err(Error::from("撤回时必须填写理由"));
+        }
         let instance_id = req.instance_id;
         let operator_name = operator_name.to_string();
 
@@ -863,6 +983,13 @@ impl ApprovalService {
         // 权限校验：审批人必须在候选池中
         if !instance.candidate_approvers.contains(&operator_id) {
             return Err(Error::from("您不是当前节点的审批人"));
+        }
+
+        // 退回到发起人时必须填写理由（后端兜底校验，不能只依赖前端）
+        if req.reject_to_node_key.is_none()
+            && req.comment.as_deref().map(str::trim).unwrap_or("").is_empty()
+        {
+            return Err(Error::from("退回发起人时必须填写理由"));
         }
 
         let inst_submitter_id = instance.submitter_id;
@@ -933,7 +1060,7 @@ impl ApprovalService {
                             .find(|n| n.node_key.as_deref() == Some(target_key))
                             .ok_or_else(|| Error::from("目标节点配置不存在"))?;
 
-                        let submitter_dept_id = ApprovalModel::find_user_dept_id(txn, inst_submitter_id).await?;
+                        let submitter_dept_id = Self::resolve_flow_dept_id(txn, inst_submitter_id, &inst_extra_data).await?;
                         let raw_candidates = ApprovalModel::resolve_approvers(
                             txn,
                             target_node_cfg.approver_type,

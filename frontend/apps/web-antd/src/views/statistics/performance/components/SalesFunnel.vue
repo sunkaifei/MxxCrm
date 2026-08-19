@@ -3,9 +3,8 @@ import type { EchartsUIType } from '@vben/plugins/echarts';
 
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
-import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
-
 import { IconifyIcon } from '@vben/icons';
+import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { Card, Empty, Spin, Statistic, Tag } from 'ant-design-vue';
 
@@ -28,8 +27,8 @@ const { renderEcharts } = useEcharts(chartRef);
 function formatCurrency(val?: any) {
   const num = Number(val);
   if (!num || Number.isNaN(num)) return '¥0';
-  if (num >= 100000000) return `¥${(num / 100000000).toFixed(2)}亿`;
-  if (num >= 10000) return `¥${(num / 10000).toFixed(1)}万`;
+  if (num >= 100_000_000) return `¥${(num / 100_000_000).toFixed(2)}亿`;
+  if (num >= 10_000) return `¥${(num / 10_000).toFixed(1)}万`;
   return `¥${num.toLocaleString()}`;
 }
 
@@ -53,7 +52,12 @@ async function loadData() {
 
 function renderChart() {
   const stages = data.value?.stages || [];
-  const funnelData: { name: string; value: number; amount: number; conversionRate: number }[] = stages.map((s: any) => ({
+  const funnelData: {
+    amount: number;
+    conversionRate: number;
+    name: string;
+    value: number;
+  }[] = stages.map((s: any) => ({
     name: s.stage,
     value: Number(s.count || 0),
     amount: Number(s.amount || 0),
@@ -65,10 +69,7 @@ function renderChart() {
       trigger: 'item',
       formatter: (params: any) => {
         const d = params.data;
-        const lines = [
-          `<b>${d.name}</b>`,
-          `数量: ${d.value} 个`,
-        ];
+        const lines = [`<b>${d.name}</b>`, `数量: ${d.value} 个`];
         if (d.amount) lines.push(`金额: ${formatCurrency(d.amount)}`);
         if (d.conversionRate)
           lines.push(`转化率: ${Number(d.conversionRate).toFixed(2)}%`);
@@ -90,9 +91,10 @@ function renderChart() {
         bottom: 20,
         width: '80%',
         min: 0,
-        max: funnelData.length
-          ? Math.max(...funnelData.map((d) => d.value), 1)
-          : 1,
+        max:
+          funnelData.length > 0
+            ? Math.max(...funnelData.map((d) => d.value), 1)
+            : 1,
         minSize: '20%',
         maxSize: '100%',
         sort: 'descending',
@@ -117,15 +119,15 @@ function renderChart() {
           label: { fontSize: 14 },
         },
         data: funnelData,
-                color: [
-                  '#1890ff',
-                  '#13c2c2',
-                  '#722ed1',
-                  '#eb2f96',
-                  '#fa8c16',
-                  '#52c41a',
-                ],
-              },
+        color: [
+          '#1890ff',
+          '#13c2c2',
+          '#722ed1',
+          '#eb2f96',
+          '#fa8c16',
+          '#52c41a',
+        ],
+      },
     ],
   });
 }

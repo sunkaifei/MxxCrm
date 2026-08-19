@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { message } from 'ant-design-vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { $t } from '#/locales';
+
+import { message } from 'ant-design-vue';
+
 import { useVbenForm } from '#/adapter/form';
 import { createApiApi, getApiListApi, updateApiApi } from '#/api';
+import { $t } from '#/locales';
 import { methodList } from '#/store';
 
 const data = ref();

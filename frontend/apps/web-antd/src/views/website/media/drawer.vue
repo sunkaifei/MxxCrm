@@ -1,8 +1,11 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
+
 import { Image, message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import {
   getMediaCategoryAllApi,
   getMediaDetailApi,
@@ -21,7 +24,9 @@ const buildCategoryTree = (list: any[]): any[] =>
     title: item.categoryName,
     value: item.id,
     key: item.id,
-    children: item.children?.length ? buildCategoryTree(item.children) : undefined,
+    children: item.children?.length
+      ? buildCategoryTree(item.children)
+      : undefined,
   }));
 
 async function loadCategoryTree() {
@@ -29,8 +34,8 @@ async function loadCategoryTree() {
     const result: any = await getMediaCategoryAllApi();
     const list = Array.isArray(result) ? result : result?.data || [];
     categoryTreeData.value = buildCategoryTree(list);
-  } catch (e) {
-    console.error('加载分类树失败', e);
+  } catch (error) {
+    console.error('加载分类树失败', error);
     categoryTreeData.value = [];
   }
 }
@@ -176,8 +181,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
           const detailData = detail?.data || detail || row;
           currentMedia.value = detailData;
           baseFormApi.setValues(detailData);
-        } catch (e) {
-          console.error('加载详情失败', e);
+        } catch (error) {
+          console.error('加载详情失败', error);
           currentMedia.value = row;
           baseFormApi.setValues(row);
         }
@@ -234,7 +239,9 @@ const fileSize = computed(() => {
         </div>
         <div v-if="currentMedia.fileExt" class="info-row">
           <span class="info-label">类型：</span>
-          <span class="info-value">{{ (currentMedia.fileExt || '').toUpperCase() }}</span>
+          <span class="info-value">{{
+            (currentMedia.fileExt || '').toUpperCase()
+          }}</span>
         </div>
       </div>
     </div>
@@ -247,8 +254,8 @@ const fileSize = computed(() => {
 .media-preview {
   display: flex;
   gap: 16px;
-  padding: 0 16px 16px;
   align-items: flex-start;
+  padding: 0 16px 16px;
 }
 
 .media-preview-info {
@@ -259,20 +266,20 @@ const fileSize = computed(() => {
 .info-row {
   display: flex;
   align-items: center;
-  font-size: 13px;
   margin-bottom: 6px;
+  font-size: 13px;
 }
 
 .info-label {
-  color: rgba(0, 0, 0, 0.45);
   flex-shrink: 0;
   width: 60px;
+  color: rgb(0 0 0 / 45%);
 }
 
 .info-value {
-  color: rgba(0, 0, 0, 0.75);
   overflow: hidden;
   text-overflow: ellipsis;
+  color: rgb(0 0 0 / 75%);
   white-space: nowrap;
 }
 </style>

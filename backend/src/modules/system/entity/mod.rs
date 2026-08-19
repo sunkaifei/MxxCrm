@@ -38,9 +38,14 @@ pub mod mail_log;
 pub mod scheduler_job;
 pub mod audit_event;
 pub mod scheduler_log;
+pub mod backup_log;
 pub mod pdf_template;
 pub mod pdf_record;
 pub mod pdf_download_log;
 pub mod exchange_rate;
 pub mod integration_config;
+pub mod system_session;
+pub mod hr_resume;
+pub mod hr_emergency_contact;
+pub mod hr_profile_log;
 

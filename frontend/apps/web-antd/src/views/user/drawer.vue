@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { message } from 'ant-design-vue';
 
 import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message } from 'ant-design-vue';
 
 import { useVbenForm } from '#/adapter/form';
 import { createUserManageApi, updateUserManageApi } from '#/api';
@@ -118,11 +119,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const values: FormValues = await baseFormApi.getValues();
 
     try {
-      if (data.value?.create) {
-        await createUserManageApi(values as any);
-      } else {
-        await updateUserManageApi(data.value.row.id, values as any);
-      }
+      await (data.value?.create
+        ? createUserManageApi(values as any)
+        : updateUserManageApi(data.value.row.id, values as any));
 
       message.success(
         data.value?.create

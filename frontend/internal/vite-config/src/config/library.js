@@ -1,5 +1,7 @@
 import { readPackageJSON } from '@vben/node-utils';
+
 import { defineConfig, mergeConfig } from 'vite';
+
 import { loadLibraryPlugins } from '../plugins';
 import { getCommonConfig } from './common';
 function defineLibraryConfig(userConfigPromise) {

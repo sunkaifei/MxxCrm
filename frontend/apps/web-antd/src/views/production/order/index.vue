@@ -1,24 +1,34 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
-import { LucideCheck, LucideCheckCircle, LucideXCircle, LucideArrowRight, LucideFilePenLine, LucideTrash2, LucidePackage } from '@vben/icons';
+import {
+  LucideArrowRight,
+  LucideCheck,
+  LucideCheckCircle,
+  LucideFilePenLine,
+  LucidePackage,
+  LucideTrash2,
+  LucideXCircle,
+} from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
   closeProductionOrderApi,
   completeProductionOrderApi,
   deleteProductionOrderApi,
   getProductionOrderListApi,
+  inboundProductionOrderApi,
   releaseProductionOrderApi,
   startProductionOrderApi,
-  inboundProductionOrderApi,
 } from '#/api';
 import { $t } from '#/locales';
 
@@ -119,9 +129,25 @@ const gridOptions: VxeGridProps = {
     { title: '计划开工日', field: 'plannedStartDate', width: 110 },
     { title: '计划完工日', field: 'plannedEndDate', width: 110 },
     { title: '实际完工日', field: 'actualEndDate', width: 110 },
-    { title: $t('ui.table.status'), field: 'status', width: 100, slots: { default: 'status' } },
-    { title: $t('ui.table.createTime'), field: 'createTime', width: 160, slots: { default: 'createTime' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 280 },
+    {
+      title: $t('ui.table.status'),
+      field: 'status',
+      width: 100,
+      slots: { default: 'status' },
+    },
+    {
+      title: $t('ui.table.createTime'),
+      field: 'createTime',
+      width: 160,
+      slots: { default: 'createTime' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 280,
+    },
   ],
 };
 
@@ -140,8 +166,12 @@ function openDrawer(create: boolean, row?: any) {
   drawerApi.open();
 }
 
-function handleCreate() { openDrawer(true); }
-function handleEdit(row: any) { openDrawer(false, row); }
+function handleCreate() {
+  openDrawer(true);
+}
+function handleEdit(row: any) {
+  openDrawer(false, row);
+}
 
 async function handleDelete(row: any) {
   row.pending = true;
@@ -297,7 +327,9 @@ async function handleClose(row: any) {
             />
           </Popconfirm>
         </template>
-        <template v-if="row.status === 0 || row.status === 1 || row.status === 2">
+        <template
+          v-if="row.status === 0 || row.status === 1 || row.status === 2"
+        >
           <Popconfirm
             title="确认关闭？"
             :ok-text="$t('ui.button.ok')"

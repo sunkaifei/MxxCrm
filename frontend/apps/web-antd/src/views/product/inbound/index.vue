@@ -1,18 +1,23 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import { Button, Dropdown, Menu, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { requestClient } from '#/api/request';
-import { deleteInboundApi, getInboundListApi } from '#/api/core/product/inbound';
+import {
+  deleteInboundApi,
+  getInboundListApi,
+} from '#/api/core/product/inbound';
 import { getSettingConfigApi } from '#/api/core/system/setting';
+import { requestClient } from '#/api/request';
 import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
@@ -100,26 +105,39 @@ const formOptions: VbenFormProps = {
 
 // 入库类型标签映射
 function getInboundTypeTag(type: string) {
-  const map: Record<string, { label: string; color: string }> = {
-    purchase: { label: $t('page.product.inbound.type.purchase'), color: 'blue' },
+  const map: Record<string, { color: string; label: string }> = {
+    purchase: {
+      label: $t('page.product.inbound.type.purchase'),
+      color: 'blue',
+    },
     return: { label: $t('page.product.inbound.type.return'), color: 'orange' },
     surplus: { label: $t('page.product.inbound.type.surplus'), color: 'green' },
     initial: { label: $t('page.product.inbound.type.initial'), color: 'cyan' },
     other: { label: $t('page.product.inbound.type.other'), color: 'default' },
   };
-  return map[type] || { label: $t('page.product.inbound.type.unknown'), color: 'default' };
+  return (
+    map[type] || {
+      label: $t('page.product.inbound.type.unknown'),
+      color: 'default',
+    }
+  );
 }
 
 // 入库状态标签映射
 function getInboundStatusTag(status: number) {
-  const map: Record<number, { label: string; color: string }> = {
+  const map: Record<number, { color: string; label: string }> = {
     0: { label: $t('page.product.inbound.status.0'), color: 'default' },
     1: { label: $t('page.product.inbound.status.1'), color: 'processing' },
     2: { label: $t('page.product.inbound.status.2'), color: 'warning' },
     3: { label: $t('page.product.inbound.status.3'), color: 'success' },
     4: { label: $t('page.product.inbound.status.4'), color: 'error' },
   };
-  return map[status] || { label: $t('page.product.inbound.status.unknown'), color: 'default' };
+  return (
+    map[status] || {
+      label: $t('page.product.inbound.status.unknown'),
+      color: 'default',
+    }
+  );
 }
 
 // 审核通过时不可编辑/删除
@@ -159,16 +177,58 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: $t('page.product.inbound.field.inboundNo'), field: 'inboundNo', width: 160, slots: { default: 'inboundNo' } },
-    { title: $t('page.product.inbound.field.inboundType'), field: 'inboundType', width: 110, slots: { default: 'inboundType' } },
-    { title: $t('page.product.inbound.field.warehouse'), field: 'warehouseName', minWidth: 120, slots: { default: 'warehouseName' } },
-    { title: $t('page.product.inbound.field.status'), field: 'status', width: 100, slots: { default: 'status' } },
-    { title: $t('page.product.inbound.field.totalQuantity'), field: 'totalQuantity', width: 100 },
-    { title: $t('page.product.inbound.field.totalAmount'), field: 'totalAmount', width: 110 },
-    { title: $t('page.product.inbound.field.createdBy'), field: 'createdByName', width: 100 },
+    {
+      title: $t('page.product.inbound.field.inboundNo'),
+      field: 'inboundNo',
+      width: 160,
+      slots: { default: 'inboundNo' },
+    },
+    {
+      title: $t('page.product.inbound.field.inboundType'),
+      field: 'inboundType',
+      width: 110,
+      slots: { default: 'inboundType' },
+    },
+    {
+      title: $t('page.product.inbound.field.warehouse'),
+      field: 'warehouseName',
+      minWidth: 120,
+      slots: { default: 'warehouseName' },
+    },
+    {
+      title: $t('page.product.inbound.field.status'),
+      field: 'status',
+      width: 100,
+      slots: { default: 'status' },
+    },
+    {
+      title: $t('page.product.inbound.field.totalQuantity'),
+      field: 'totalQuantity',
+      width: 100,
+    },
+    {
+      title: $t('page.product.inbound.field.totalAmount'),
+      field: 'totalAmount',
+      width: 110,
+    },
+    {
+      title: $t('page.product.inbound.field.createdBy'),
+      field: 'createdByName',
+      width: 100,
+    },
     { title: '提交人', field: 'submittedByName', width: 100 },
-    { title: $t('page.product.inbound.field.createTime'), field: 'createTime', width: 160 },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 220 },
+    {
+      title: $t('page.product.inbound.field.createTime'),
+      field: 'createTime',
+      width: 160,
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 220,
+    },
   ],
 };
 
@@ -211,7 +271,7 @@ function handleCreate() {
 
 // ===== 仓库详情抽屉 =====
 const warehouseDetailVisible = ref(false);
-const warehouseDetailId = ref<number | null>(null);
+const warehouseDetailId = ref<null | number>(null);
 
 function openWarehouseDetail(row: any) {
   if (!row.warehouseId) return;
@@ -221,7 +281,7 @@ function openWarehouseDetail(row: any) {
 
 // ===== 入库单详情抽屉 =====
 const inboundDetailVisible = ref(false);
-const inboundDetailId = ref<number | null>(null);
+const inboundDetailId = ref<null | number>(null);
 
 function openInboundDetail(row: any) {
   inboundDetailId.value = row.id;
@@ -231,7 +291,9 @@ function openInboundDetail(row: any) {
 // ===== PDF 打印 =====
 async function handlePrintPdf(row: any) {
   try {
-    const resp: any = await requestClient.get(`/api/system/inbound/print/${row.id}`);
+    const resp: any = await requestClient.get(
+      `/api/system/inbound/print/${row.id}`,
+    );
     const data = resp?.data ?? resp;
     const main = data?.main ?? {};
     const items = data?.items ?? [];
@@ -247,7 +309,9 @@ async function handlePrintPdf(row: any) {
     const sName = submitter?.nick_name || submitter?.user_name || '-';
     const aName = auditor?.nick_name || auditor?.user_name || '-';
 
-    const itemsHtml = items.map((it: any, i: number) => `
+    const itemsHtml = items
+      .map(
+        (it: any, i: number) => `
       <tr>
         <td>${i + 1}</td>
         <td>${it.productCode || '-'}</td>
@@ -258,8 +322,11 @@ async function handlePrintPdf(row: any) {
         <td style="text-align:right">${it.unitPrice ?? '-'}</td>
         <td style="text-align:right">${it.totalPrice ?? '-'}</td>
         <td>${it.remark || '-'}</td>
-      </tr>`).join('');
+      </tr>`,
+      )
+      .join('');
 
+    // 结束 script 标签的斜杠用 \u002f 转义，避免字面闭合标签截断 .vue 的 SFC script 块
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>入库单 - ${main.inboundNo || ''}</title>
       <style>
         body { font-family: 'Microsoft YaHei', sans-serif; padding: 30px; color: #333; }
@@ -304,7 +371,7 @@ async function handlePrintPdf(row: any) {
       <div class="no-print" style="text-align:center;margin-top:20px">
         <button onclick="window.print()" style="padding:8px 30px;font-size:14px;cursor:pointer">打印 / 保存为PDF</button>
       </div>
-      <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }<\/script>
+      <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }<\u002Fscript>
     </body></html>`;
 
     const win = window.open('', '_blank');
@@ -362,7 +429,11 @@ async function handlePrintPdf(row: any) {
       <template #action="{ row }">
         <!-- 草稿单：打开详情页，查看内容确认后再提交审批（不在列表直接提交） -->
         <Button
-          v-if="inboundAuditEnabled && row.status === 0 && accessStore.hasAccessCode('product:inbound:update')"
+          v-if="
+            inboundAuditEnabled &&
+            row.status === 0 &&
+            accessStore.hasAccessCode('product:inbound:update')
+          "
           type="link"
           @click="() => openInboundDetail(row)"
         >
@@ -390,28 +461,45 @@ async function handlePrintPdf(row: any) {
           <template #overlay>
             <Menu>
               <Menu.Item
-                v-if="accessStore.hasAccessCode('product:inbound:update') && !isLockedByApproval(row)"
+                v-if="
+                  accessStore.hasAccessCode('product:inbound:update') &&
+                  !isLockedByApproval(row)
+                "
                 key="edit"
                 @click="() => handleEdit(row)"
               >
-                <template #icon><LucideFilePenLine class="inline" :size="14" /></template>
+                <template #icon>
+                  <LucideFilePenLine class="inline" :size="14" />
+                </template>
                 {{ $t('page.product.inbound.action.edit') }}
               </Menu.Item>
               <Menu.Item key="print" @click="() => handlePrintPdf(row)">
                 {{ $t('page.product.inbound.action.downloadPdf') }}
               </Menu.Item>
               <Menu.Divider
-                v-if="accessStore.hasAccessCode('product:inbound:delete') && !isLockedByApproval(row)"
+                v-if="
+                  accessStore.hasAccessCode('product:inbound:delete') &&
+                  !isLockedByApproval(row)
+                "
               />
               <Popconfirm
-                v-if="accessStore.hasAccessCode('product:inbound:delete') && !isLockedByApproval(row)"
-                :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.product.inbound.title') })"
+                v-if="
+                  accessStore.hasAccessCode('product:inbound:delete') &&
+                  !isLockedByApproval(row)
+                "
+                :title="
+                  $t('ui.text.do_you_want_delete', {
+                    moduleName: $t('page.product.inbound.title'),
+                  })
+                "
                 :ok-text="$t('ui.button.ok')"
                 :cancel-text="$t('ui.button.cancel')"
                 @confirm="() => handleDelete(row)"
               >
                 <Menu.Item key="delete" danger>
-                  <template #icon><LucideTrash2 class="inline" :size="14" /></template>
+                  <template #icon>
+                    <LucideTrash2 class="inline" :size="14" />
+                  </template>
                   {{ $t('page.product.inbound.action.delete') }}
                 </Menu.Item>
               </Popconfirm>
@@ -425,9 +513,16 @@ async function handlePrintPdf(row: any) {
     <Drawer />
 
     <!-- 仓库详情抽屉 -->
-    <WarehouseDetailDrawer v-model:visible="warehouseDetailVisible" :warehouse-id="warehouseDetailId" />
+    <WarehouseDetailDrawer
+      v-model:visible="warehouseDetailVisible"
+      :warehouse-id="warehouseDetailId"
+    />
 
     <!-- 入库单详情抽屉 -->
-    <InboundDetailDrawer v-model:visible="inboundDetailVisible" :inbound-id="inboundDetailId" @refresh="() => gridApi.query()" />
+    <InboundDetailDrawer
+      v-model:visible="inboundDetailVisible"
+      :inbound-id="inboundDetailId"
+      @refresh="() => gridApi.query()"
+    />
   </Page>
 </template>

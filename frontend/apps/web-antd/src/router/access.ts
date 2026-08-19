@@ -20,7 +20,7 @@ const forbiddenComponent = () => import('#/views/_core/fallback/forbidden.vue');
  * 目录级 key（如 page.statistics.employee）在 locale 中是
  * { title, button } 对象，直接 $t 不命中；这里兜底 `${key}.title`。
  */
-function translateMenuTitle(key?: string | null): string {
+function translateMenuTitle(key?: null | string): string {
   if (!key) return '';
   const direct = $t(key);
   if (direct !== key && !direct.startsWith('[object ')) return direct;

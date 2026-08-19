@@ -1,11 +1,16 @@
 <script lang="ts" setup>
-import { h, onMounted, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideEye } from '@vben/icons';
-import { Button, Tag, Modal, message, Select } from 'ant-design-vue';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, onMounted, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
+import { LucideEye, LucideFilePenLine } from '@vben/icons';
+
+import { Button, message, Modal, Select, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { messageApi } from '#/api';
 import { getAdminOptionsApi } from '#/api/core/system/user';
 

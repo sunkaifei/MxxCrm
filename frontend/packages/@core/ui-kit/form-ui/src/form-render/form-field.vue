@@ -189,21 +189,20 @@ const fieldRules = computed(() => {
   // vee-validate rule: (value, ctx) => true | string | Promise<true | string>
   if (Array.isArray(rules)) {
     const rulesArr = rules;
-    return (value: any) => {
+    return async (value: any) => {
       const validators = rulesArr
         .map((r: any) => (isFunction(r) ? r : r?.validator))
         .filter(Boolean) as Array<(rule: any, value: any) => Promise<any>>;
-      return validators.reduce(async (prev, validator) => {
-        const prevResult = await prev;
-        if (prevResult !== true) return prevResult;
+      // 依次执行每个 validator，任一失败即短路返回错误信息，全部通过返回 true
+      for (const validator of validators) {
         try {
           await validator(undefined, value);
-          return true as const;
-        } catch (err: any) {
-          if (typeof err === 'string') return err;
-          return err?.message || '校验失败';
+        } catch (error: any) {
+          if (typeof error === 'string') return error;
+          return error?.message || '校验失败';
         }
-      }, Promise.resolve(true as const));
+      }
+      return true;
     };
   }
 

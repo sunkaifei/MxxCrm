@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -11,34 +11,49 @@ import {
 } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 
-import { Button, Input, Avatar, Badge, Empty, Spin, Image, message } from 'ant-design-vue';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Empty,
+  Image,
+  Input,
+  message,
+  Spin,
+} from 'ant-design-vue';
 
 import { uploadFileApi } from '#/api/core/attachment/file';
 import {
+  getColleagueListApi,
+  getMessageListApi,
+  getSessionListApi,
+  markReadApi,
+  sendMessageApi,
+  startSessionApi,
+} from '#/api/core/message/chat';
+import {
   getNotificationListApi,
   getNotificationUnreadCountApi,
-  readNotificationApi,
   readAllNotificationApi,
 } from '#/api/core/message/notification';
 import {
   getMyNoticeListApi,
-  readNoticeApi,
   readAllNoticeApi,
+  readNoticeApi,
 } from '#/api/core/system/notice';
-import {
-  getSessionListApi,
-  getMessageListApi,
-  sendMessageApi,
-  getColleagueListApi,
-  startSessionApi,
-  markReadApi,
-} from '#/api/core/message/chat';
 
 defineOptions({ name: 'CompanyMessage' });
 
 const userStore = useUserStore();
-const currentUserAvatar = computed(() => (userStore.userInfo as any)?.avatar || undefined);
-const currentUserRealName = computed(() => (userStore.userInfo as any)?.realName || (userStore.userInfo as any)?.username || '我');
+const currentUserAvatar = computed(
+  () => (userStore.userInfo as any)?.avatar || undefined,
+);
+const currentUserRealName = computed(
+  () =>
+    (userStore.userInfo as any)?.realName ||
+    (userStore.userInfo as any)?.username ||
+    '我',
+);
 
 // 通知右上角铃铛（basic.vue）实时刷新未读数与下拉列表
 function notifyBellRefresh() {
@@ -81,7 +96,7 @@ async function openFromRouteQuery() {
   }
 }
 
-type LeftTab = 'notification' | 'colleague';
+type LeftTab = 'colleague' | 'notification';
 
 const CONTENT_TYPE_TEXT = 1;
 const CONTENT_TYPE_IMAGE = 2;
@@ -99,17 +114,14 @@ const NOTIFICATION_TYPES = [
 ];
 
 // 通知类型名称 -> 数字 type 反向映射（用于路由参数解析，必须在 NOTIFICATION_TYPES 之后）
-const NOTIF_NAME_TO_TYPE: Record<string, number> = NOTIFICATION_TYPES.reduce(
-  (map, item) => {
-    if (item.type !== 0) map[item.name] = item.type;
-    return map;
-  },
-  {} as Record<string, number>,
-);
+const NOTIF_NAME_TO_TYPE: Record<string, number> = {};
+for (const item of NOTIFICATION_TYPES) {
+  if (item.type !== 0) NOTIF_NAME_TO_TYPE[item.name] = item.type;
+}
 
 const leftTab = ref<LeftTab>('notification');
 const activeNotifType = ref(0);
-const activeChatId = ref<number | null>(null);
+const activeChatId = ref<null | number>(null);
 const notifLoading = ref(false);
 const userLoading = ref(false);
 const searchKeyword = ref('');
@@ -120,17 +132,21 @@ const notificationUnread = ref(0);
 // ===== 公告（来自 notice 模块，独立于消息通知） =====
 const noticeList = ref<any[]>([]);
 const noticeLoading = ref(false);
-const expandedNoticeId = ref<number | null>(null);
+const expandedNoticeId = ref<null | number>(null);
 
-const noticeUnreadCount = computed(() =>
-  noticeList.value.filter((n: any) => n.is_read !== 1).length,
+const noticeUnreadCount = computed(
+  () => noticeList.value.filter((n: any) => n.is_read !== 1).length,
 );
 
 // 公告按发布时间倒序排列（最新在前）
 const sortedNoticeList = computed(() => {
-  return [...noticeList.value].sort((a, b) => {
-    const ta = a.publish_time ? new Date(String(a.publish_time).replace(' ', 'T')).getTime() : 0;
-    const tb = b.publish_time ? new Date(String(b.publish_time).replace(' ', 'T')).getTime() : 0;
+  return noticeList.value.toSorted((a, b) => {
+    const ta = a.publish_time
+      ? new Date(String(a.publish_time).replace(' ', 'T')).getTime()
+      : 0;
+    const tb = b.publish_time
+      ? new Date(String(b.publish_time).replace(' ', 'T')).getTime()
+      : 0;
     return tb - ta;
   });
 });
@@ -142,7 +158,7 @@ const messageList = ref<any[]>([]);
 const messageInput = ref('');
 const messageLoading = ref(false);
 const chatContainerRef = ref<HTMLElement | null>(null);
-const activeSessionId = ref<string | null>(null);
+const activeSessionId = ref<null | string>(null);
 const imageInputRef = ref<HTMLInputElement | null>(null);
 const uploadingImage = ref(false);
 
@@ -165,8 +181,8 @@ function getUnreadCountForTab(type: number): number {
 }
 
 // ===== 实时推送：WebSocket 客户端 =====
-let ws: WebSocket | null = null;
-let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let ws: null | WebSocket = null;
+let wsReconnectTimer: null | ReturnType<typeof setTimeout> = null;
 let wsReconnectAttempts = 0;
 const WS_RECONNECT_MAX = 10;
 const WS_RECONNECT_INTERVAL = 3000;
@@ -178,8 +194,8 @@ function initAudio() {
   try {
     audioElement.value = new Audio('/sounds/news.mp3');
     audioElement.value.preload = 'auto';
-  } catch (e) {
-    console.warn('[音频] 初始化失败', e);
+  } catch (error) {
+    console.warn('[音频] 初始化失败', error);
   }
 }
 
@@ -188,8 +204,8 @@ function playNotificationSound() {
   if (!audioElement.value) initAudio();
   if (audioElement.value) {
     audioElement.value.currentTime = 0;
-    audioElement.value.play().catch((e) => {
-      console.debug('[音频] 播放被阻止', e);
+    audioElement.value.play().catch((error) => {
+      console.warn('[音频] 播放被阻止', error);
     });
   }
 }
@@ -204,40 +220,46 @@ function getWsUrl(): string {
   return `${protocol}://${host}/ws/message?token=${encodeURIComponent(token)}`;
 }
 
+// WebSocket 关闭处理（命名以便 disconnectWebSocket 成对注销）
+function handleWsClose(e: CloseEvent) {
+  console.warn('[WebSocket] 关闭', e.code, e.reason);
+  ws = null;
+  if (e.code !== 1000) {
+    // 非正常关闭，尝试重连
+    scheduleReconnect();
+  }
+}
+
 // 建立 WebSocket 连接
 function connectWebSocket() {
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+  if (
+    ws &&
+    (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)
+  ) {
     return;
   }
   try {
     ws = new WebSocket(getWsUrl());
-  } catch (e) {
-    console.error('[WebSocket] 创建失败', e);
+  } catch (error) {
+    console.error('[WebSocket] 创建失败', error);
     scheduleReconnect();
     return;
   }
 
-  ws.onopen = () => {
-    console.log('[WebSocket] 连接已建立');
+  ws.addEventListener('open', () => {
+    console.warn('[WebSocket] 连接已建立');
     wsReconnectAttempts = 0;
-  };
+  });
 
-  ws.onmessage = (event) => {
+  ws.addEventListener('message', (event) => {
     handleWsMessage(event.data);
-  };
+  });
 
-  ws.onerror = (e) => {
+  ws.addEventListener('error', (e) => {
     console.error('[WebSocket] 错误', e);
-  };
+  });
 
-  ws.onclose = (e) => {
-    console.log('[WebSocket] 关闭', e.code, e.reason);
-    ws = null;
-    if (e.code !== 1000) {
-      // 非正常关闭，尝试重连
-      scheduleReconnect();
-    }
-  };
+  ws.addEventListener('close', handleWsClose);
 }
 
 // 重连调度
@@ -249,7 +271,7 @@ function scheduleReconnect() {
   }
   wsReconnectAttempts++;
   const delay = WS_RECONNECT_INTERVAL * Math.min(wsReconnectAttempts, 5);
-  console.log(`[WebSocket] ${delay}ms 后第 ${wsReconnectAttempts} 次重连`);
+  console.warn(`[WebSocket] ${delay}ms 后第 ${wsReconnectAttempts} 次重连`);
   wsReconnectTimer = setTimeout(() => {
     wsReconnectTimer = null;
     connectWebSocket();
@@ -263,7 +285,7 @@ function disconnectWebSocket() {
     wsReconnectTimer = null;
   }
   if (ws) {
-    ws.onclose = null;
+    ws.removeEventListener('close', handleWsClose);
     ws.close(1000, 'page unmount');
     ws = null;
   }
@@ -274,7 +296,7 @@ async function handleWsMessage(data: any) {
   let payload: any;
   try {
     payload = JSON.parse(data);
-  } catch (e) {
+  } catch {
     console.warn('[WebSocket] 消息解析失败', data);
     return;
   }
@@ -282,29 +304,47 @@ async function handleWsMessage(data: any) {
   const { type, data: msgData } = payload || {};
   if (!type) return;
 
-  if (type === 'chat_message') {
-    await handleIncomingChatMessage(msgData);
-  } else if (type === 'message_read') {
-    // 对方已读回执：更新自己发送的消息为已读状态
-    handleMessageReadReceipt(msgData);
-  } else if (type === 'system_notification') {
-    // 系统通知：刷新未读数和通知列表
-    await Promise.all([loadNotificationUnread(), loadNotifications()]);
-    playNotificationSound();
-  } else if (type === 'notice_publish') {
-    // 公告发布：刷新公告列表
-    await loadNotices();
-    playNotificationSound();
+  switch (type) {
+    case 'chat_message': {
+      await handleIncomingChatMessage(msgData);
+
+      break;
+    }
+    case 'message_read': {
+      // 对方已读回执：更新自己发送的消息为已读状态
+      handleMessageReadReceipt(msgData);
+
+      break;
+    }
+    case 'notice_publish': {
+      // 公告发布：刷新公告列表
+      await loadNotices();
+      playNotificationSound();
+
+      break;
+    }
+    case 'system_notification': {
+      // 系统通知：刷新未读数和通知列表
+      await Promise.all([loadNotificationUnread(), loadNotifications()]);
+      playNotificationSound();
+
+      break;
+    }
+    // No default
   }
 }
 
 // 处理"对方已读"回执
 function handleMessageReadReceipt(msg: any) {
-  if (!msg || !Array.isArray(msg.messageIds) || msg.messageIds.length === 0) return;
+  if (!msg || !Array.isArray(msg.messageIds) || msg.messageIds.length === 0)
+    return;
 
   // 如果当前正在查看该会话，更新消息列表中匹配的消息为已读
-  if (activeSessionId.value && String(msg.sessionId) === String(activeSessionId.value)) {
-    const idSet = new Set(msg.messageIds.map((id: any) => String(id)));
+  if (
+    activeSessionId.value &&
+    String(msg.sessionId) === String(activeSessionId.value)
+  ) {
+    const idSet = new Set(msg.messageIds.map(String));
     for (const m of messageList.value) {
       if (idSet.has(String(m.messageId || m.id))) {
         m.readStatus = 1;
@@ -322,7 +362,10 @@ async function handleIncomingChatMessage(msg: any) {
   // 后端 UserLoginVO 返回的字段是 id（非 userId），这里同时兼容两种字段名
   const userInfo: any = userStore.userInfo;
   const currentUserId = userInfo?.id ?? userInfo?.userId;
-  const isFromSelf = currentUserId != null && String(msg.senderId) === String(currentUserId);
+  const isFromSelf =
+    currentUserId !== null &&
+    currentUserId !== undefined &&
+    String(msg.senderId) === String(currentUserId);
 
   // 仅当他人发来的消息才播放提醒音
   if (!isFromSelf) {
@@ -331,7 +374,9 @@ async function handleIncomingChatMessage(msg: any) {
 
   // 如果推送附带了 unreadCount，直接更新对应会话的未读数（避免再拉一次列表）
   if (typeof msg.unreadCount === 'number' && !isFromSelf) {
-    const session = sessionList.value.find((s: any) => s.sessionId === msg.sessionId);
+    const session = sessionList.value.find(
+      (s: any) => s.sessionId === msg.sessionId,
+    );
     if (session) {
       session.unreadCount = msg.unreadCount;
     } else {
@@ -344,10 +389,13 @@ async function handleIncomingChatMessage(msg: any) {
   }
 
   // 如果当前正在查看该消息所属会话，追加到消息列表
-  if (activeSessionId.value && String(msg.sessionId) === String(activeSessionId.value)) {
+  if (
+    activeSessionId.value &&
+    String(msg.sessionId) === String(activeSessionId.value)
+  ) {
     // 检查消息是否已在列表中（避免重复）
-    const exists = messageList.value.some((m: any) =>
-      String(m.messageId || m.id) === String(msg.messageId),
+    const exists = messageList.value.some(
+      (m: any) => String(m.messageId || m.id) === String(msg.messageId),
     );
     if (!exists) {
       messageList.value.push({
@@ -373,11 +421,13 @@ async function handleIncomingChatMessage(msg: any) {
     if (!isFromSelf) {
       try {
         await markReadApi({ sessionId: activeSessionId.value });
-        const session = sessionList.value.find((s: any) => s.sessionId === activeSessionId.value);
+        const session = sessionList.value.find(
+          (s: any) => s.sessionId === activeSessionId.value,
+        );
         if (session) session.unreadCount = 0;
         // 通知右上角铃铛实时刷新
         notifyBellRefresh();
-      } catch (e) {
+      } catch {
         // 忽略
       }
     }
@@ -414,17 +464,21 @@ const chatList = computed(() => {
     if (a.lastMessageTime && !b.lastMessageTime) return -1;
     if (!a.lastMessageTime && b.lastMessageTime) return 1;
     if (a.lastMessageTime && b.lastMessageTime) {
-      return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+      return (
+        new Date(b.lastMessageTime).getTime() -
+        new Date(a.lastMessageTime).getTime()
+      );
     }
     return 0;
   });
 
   const keyword = searchKeyword.value.trim().toLowerCase();
   if (!keyword) return list;
-  return list.filter((u) =>
-    (u.displayName || '').toLowerCase().includes(keyword) ||
-    (u.userName || '').toLowerCase().includes(keyword) ||
-    (u.deptName || '').toLowerCase().includes(keyword),
+  return list.filter(
+    (u) =>
+      (u.displayName || '').toLowerCase().includes(keyword) ||
+      (u.userName || '').toLowerCase().includes(keyword) ||
+      (u.deptName || '').toLowerCase().includes(keyword),
   );
 });
 
@@ -436,8 +490,8 @@ async function loadNotifications() {
       pageSize: 100,
     });
     notificationList.value = res.list || [];
-  } catch (e) {
-    console.error('加载通知失败', e);
+  } catch (error) {
+    console.error('加载通知失败', error);
   } finally {
     notifLoading.value = false;
   }
@@ -447,8 +501,8 @@ async function loadNotificationUnread() {
   try {
     const res = await getNotificationUnreadCountApi();
     notificationUnread.value = res || 0;
-  } catch (e) {
-    console.error('加载未读通知数失败', e);
+  } catch (error) {
+    console.error('加载未读通知数失败', error);
   }
 }
 
@@ -459,9 +513,9 @@ async function loadUsers() {
       page: 1,
       pageSize: 200,
     });
-    allUsers.value = Array.isArray(res) ? res : (res.list || res.records || []);
-  } catch (e) {
-    console.error('加载同事列表失败', e);
+    allUsers.value = Array.isArray(res) ? res : res.list || res.records || [];
+  } catch (error) {
+    console.error('加载同事列表失败', error);
   } finally {
     userLoading.value = false;
   }
@@ -471,8 +525,8 @@ async function loadSessions() {
   try {
     const res: any = await getSessionListApi({ page: 1, pageSize: 100 });
     sessionList.value = res.list || [];
-  } catch (e) {
-    console.error('加载会话列表失败', e);
+  } catch (error) {
+    console.error('加载会话列表失败', error);
   }
 }
 
@@ -490,23 +544,26 @@ async function handleSelectChat(user: any) {
       try {
         await markReadApi({ sessionId: res.sessionId });
         // 更新本地会话列表中的未读数
-        const session = sessionList.value.find((s: any) => s.sessionId === res.sessionId);
+        const session = sessionList.value.find(
+          (s: any) => s.sessionId === res.sessionId,
+        );
         if (session) {
           session.unreadCount = 0;
         }
         // 通知右上角铃铛实时刷新
         notifyBellRefresh();
-      } catch (e) {
-        console.warn('[标记已读] 失败', e);
+      } catch (error) {
+        console.warn('[标记已读] 失败', error);
       }
       await loadSessions();
     } else {
       activeSessionId.value = null;
       message.error('创建会话失败：未返回会话ID');
     }
-  } catch (e: any) {
-    console.error('[选择同事] 加载消息失败', e);
-    const errMsg = e?.response?.data?.msg || e?.message || '创建会话失败';
+  } catch (error: any) {
+    console.error('[选择同事] 加载消息失败', error);
+    const errMsg =
+      error?.response?.data?.msg || error?.message || '创建会话失败';
     message.error(errMsg);
     activeSessionId.value = null;
   }
@@ -520,10 +577,10 @@ async function loadMessages(sessionId: string) {
       page: 1,
       pageSize: 50,
     });
-    messageList.value = (res.list || []).reverse();
+    messageList.value = (res.list || []).toReversed();
     scrollToBottom();
-  } catch (e) {
-    console.error('加载消息失败', e);
+  } catch (error) {
+    console.error('加载消息失败', error);
   } finally {
     messageLoading.value = false;
   }
@@ -586,8 +643,8 @@ async function handleImageChange(e: Event) {
     });
     await loadMessages(activeSessionId.value);
     await loadSessions();
-  } catch (e) {
-    console.error('发送图片失败', e);
+  } catch (error) {
+    console.error('发送图片失败', error);
     message.error('发送图片失败');
   } finally {
     uploadingImage.value = false;
@@ -624,8 +681,8 @@ async function handleSendMessage() {
     });
     await loadMessages(activeSessionId.value);
     await loadSessions();
-  } catch (e) {
-    console.error('发送消息失败', e);
+  } catch (error) {
+    console.error('发送消息失败', error);
     window.$message?.error('发送失败');
   }
 }
@@ -643,8 +700,14 @@ function getAvatarText(user: any) {
 
 function getAvatarColor(userId: number) {
   const colors = [
-    '#1890ff', '#52c41a', '#faad14', '#f5222d',
-    '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16',
+    '#1890ff',
+    '#52c41a',
+    '#faad14',
+    '#f5222d',
+    '#722ed1',
+    '#13c2c2',
+    '#eb2f96',
+    '#fa8c16',
   ];
   return colors[userId % colors.length];
 }
@@ -657,8 +720,9 @@ function formatTime(timeStr: string) {
   const oneDay = 24 * 60 * 60 * 1000;
 
   if (diff < 60 * 1000) return '刚刚';
-  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60000)}分钟前`;
-  if (diff < oneDay) return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60_000)}分钟前`;
+  if (diff < oneDay)
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
   if (diff < oneDay * 2) return '昨天';
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
@@ -670,26 +734,34 @@ function formatMessageTime(timeStr: string): string {
   try {
     // 后端可能返回 "2026-07-25 05:15:08" 或 ISO 8601 格式
     d = new Date(timeStr.replace(' ', 'T'));
-  } catch (e) {
+  } catch {
     return '';
   }
-  if (isNaN(d.getTime())) return '';
+  if (Number.isNaN(d.getTime())) return '';
 
   const pad = (n: number) => n.toString().padStart(2, '0');
   const hhmm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
   const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const msgStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  const msgStart = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+  ).getTime();
   const dayDiff = Math.round((todayStart - msgStart) / (24 * 60 * 60 * 1000));
 
-  if (dayDiff === 0) return hhmm;                       // 今天
-  if (dayDiff === 1) return `昨天 ${hhmm}`;             // 昨天
-  if (dayDiff === 2) return `前天 ${hhmm}`;            // 前天
+  if (dayDiff === 0) return hhmm; // 今天
+  if (dayDiff === 1) return `昨天 ${hhmm}`; // 昨天
+  if (dayDiff === 2) return `前天 ${hhmm}`; // 前天
   if (now.getFullYear() === d.getFullYear()) {
-    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`;  // 今年
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`; // 今年
   }
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`;  // 更早
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`; // 更早
 }
 
 // 判断是否需要显示时间分隔条（与上一条消息间隔超过 5 分钟）
@@ -697,8 +769,8 @@ function shouldShowTimeSeparator(currentMsg: any, prevMsg: any): boolean {
   if (!prevMsg) return true;
   const cur = new Date((currentMsg.sendTime || '').replace(' ', 'T')).getTime();
   const prev = new Date((prevMsg.sendTime || '').replace(' ', 'T')).getTime();
-  if (isNaN(cur) || isNaN(prev)) return true;
-  return cur - prev > 5 * 60 * 1000;  // 5 分钟
+  if (Number.isNaN(cur) || Number.isNaN(prev)) return true;
+  return cur - prev > 5 * 60 * 1000; // 5 分钟
 }
 
 function getNotifTypeName(type: number) {
@@ -718,8 +790,8 @@ async function handleReadAllNotif() {
     notificationUnread.value = 0;
     // 通知右上角铃铛实时刷新
     notifyBellRefresh();
-  } catch (e) {
-    console.error('全部已读失败', e);
+  } catch (error) {
+    console.error('全部已读失败', error);
   }
 }
 
@@ -731,8 +803,8 @@ async function loadNotices() {
     const res: any = await getMyNoticeListApi({ page: 1, pageSize: 100 });
     // 后端 ResultPage 返回 items 字段（非 list）
     noticeList.value = res?.items || res?.list || [];
-  } catch (e) {
-    console.error('加载公告失败', e);
+  } catch (error) {
+    console.error('加载公告失败', error);
   } finally {
     noticeLoading.value = false;
   }
@@ -748,15 +820,13 @@ async function toggleNoticeExpand(item: any) {
   expandedNoticeId.value = itemId;
   // 未读公告：本地立即标记已读 → 左侧徽标减1 + 顶部铃铛减1
   if (item.is_read !== 1) {
-    item.is_read = 1;           // 本地立即更新，noticeUnreadCount 立即减1 → 左侧徽标减1
+    item.is_read = 1; // 本地立即更新，noticeUnreadCount 立即减1 → 左侧徽标减1
     try {
-      console.log('[Notice] 标记已读请求, id=', itemId, 'URL=', `/api/system/notice/user/${itemId}/read`);
-      const res = await readNoticeApi(itemId);
-      console.log('[Notice] 标记已读响应:', res);
+      await readNoticeApi(itemId);
       // API 成功后再通知顶部铃铛刷新 → 顶部未读数减1
       notifyBellRefresh();
-    } catch (e) {
-      console.error('[Notice] 标记公告已读失败', e);
+    } catch (error) {
+      console.error('[Notice] 标记公告已读失败', error);
       // 失败时回滚本地状态
       item.is_read = 0;
     }
@@ -768,8 +838,8 @@ async function handleReadAllNotices() {
     await readAllNoticeApi();
     noticeList.value.forEach((n: any) => (n.is_read = 1));
     notifyBellRefresh();
-  } catch (e) {
-    console.error('公告全部已读失败', e);
+  } catch (error) {
+    console.error('公告全部已读失败', error);
   }
 }
 
@@ -794,7 +864,11 @@ onUnmounted(() => {
 watch(
   () => [leftTab.value, chatList.value.length],
   async () => {
-    if (leftTab.value === 'colleague' && chatList.value.length > 0 && !activeChatId.value) {
+    if (
+      leftTab.value === 'colleague' &&
+      chatList.value.length > 0 &&
+      !activeChatId.value
+    ) {
       const firstUser = chatList.value[0];
       if (firstUser) {
         await handleSelectChat(firstUser);
@@ -805,7 +879,7 @@ watch(
 );
 
 function ensureString(val: any): string {
-  if (val == null) return '';
+  if (val === null || val === undefined) return '';
   if (typeof val === 'string') return val;
   if (typeof val === 'object') {
     try {
@@ -835,8 +909,11 @@ function ensureString(val: any): string {
                 v-if="notificationUnread > 0"
                 :count="notificationUnread"
                 size="small"
-                :number-style="{ backgroundColor: '#ff4d4f', transform: 'scale(0.8)' }"
-                offset="[-4px, 0]"
+                :number-style="{
+                  backgroundColor: '#ff4d4f',
+                  transform: 'scale(0.8)',
+                }"
+                :offset="['-4px', 0]"
               />
             </div>
             <div
@@ -858,13 +935,19 @@ function ensureString(val: any): string {
               :class="{ active: activeNotifType === tab.type }"
               @click="activeNotifType = tab.type"
             >
-              <span class="notif-type-dot" :style="{ backgroundColor: tab.color }" />
+              <span
+                class="notif-type-dot"
+                :style="{ backgroundColor: tab.color }"
+              ></span>
               <span class="notif-type-name">{{ tab.name }}</span>
               <Badge
                 v-if="getUnreadCountForTab(tab.type) > 0"
                 :count="getUnreadCountForTab(tab.type)"
                 size="small"
-                :number-style="{ backgroundColor: '#ff4d4f', transform: 'scale(0.8)' }"
+                :number-style="{
+                  backgroundColor: '#ff4d4f',
+                  transform: 'scale(0.8)',
+                }"
               />
             </div>
           </div>
@@ -872,10 +955,7 @@ function ensureString(val: any): string {
 
         <div v-else class="colleague-sidebar">
           <div class="search-bar">
-            <Input
-              v-model:value="searchKeyword"
-              placeholder="搜索同事"
-            >
+            <Input v-model:value="searchKeyword" placeholder="搜索同事">
               <template #prefix>
                 <LucideSearch :size="16" />
               </template>
@@ -894,7 +974,11 @@ function ensureString(val: any): string {
                 <Avatar
                   class="msg-avatar"
                   :src="user.avatar || undefined"
-                  :style="{ backgroundColor: user.avatar ? 'transparent' : getAvatarColor(user.id) }"
+                  :style="{
+                    backgroundColor: user.avatar
+                      ? 'transparent'
+                      : getAvatarColor(user.id),
+                  }"
                 >
                   {{ getAvatarText(user) }}
                 </Avatar>
@@ -902,9 +986,13 @@ function ensureString(val: any): string {
                   <div class="msg-title-row">
                     <span class="msg-title">
                       {{ user.displayName }}
-                      <span v-if="user.deptName" class="dept-tag">{{ user.deptName }}</span>
+                      <span v-if="user.deptName" class="dept-tag">{{
+                        user.deptName
+                      }}</span>
                     </span>
-                    <span class="msg-time">{{ formatTime(user.lastMessageTime) }}</span>
+                    <span class="msg-time">{{
+                      formatTime(user.lastMessageTime)
+                    }}</span>
                   </div>
                   <div class="msg-desc">
                     {{ user.lastMessage || '暂无消息' }}
@@ -914,7 +1002,11 @@ function ensureString(val: any): string {
                   {{ user.unreadCount > 99 ? '99+' : user.unreadCount }}
                 </div>
               </div>
-              <Empty v-if="chatList.length === 0" description="暂无同事" class="list-empty" />
+              <Empty
+                v-if="chatList.length === 0"
+                description="暂无同事"
+                class="list-empty"
+              />
             </template>
           </div>
         </div>
@@ -952,17 +1044,31 @@ function ensureString(val: any): string {
                     'is-expanded': expandedNoticeId === Number(item.id),
                   }"
                 >
-                  <div class="notice-card-header" @click="toggleNoticeExpand(item)">
+                  <div
+                    class="notice-card-header"
+                    @click="toggleNoticeExpand(item)"
+                  >
                     <div class="notice-card-title-row">
-                      <span v-if="item.is_read !== 1" class="notice-unread-dot"></span>
-                      <span class="notice-card-title">{{ item.title || '系统公告' }}</span>
+                      <span
+                        v-if="item.is_read !== 1"
+                        class="notice-unread-dot"
+                      ></span>
+                      <span class="notice-card-title">{{
+                        item.title || '系统公告'
+                      }}</span>
                       <span class="notice-expand-icon">
-                        {{ expandedNoticeId === Number(item.id) ? '收起' : '查看' }}
+                        {{
+                          expandedNoticeId === Number(item.id) ? '收起' : '查看'
+                        }}
                       </span>
                     </div>
                     <div class="notice-card-meta">
-                      <span class="notice-publisher">{{ item.publish_name || '系统' }}</span>
-                      <span class="notice-card-time">{{ formatTime(item.publish_time) }}</span>
+                      <span class="notice-publisher">{{
+                        item.publish_name || '系统'
+                      }}</span>
+                      <span class="notice-card-time">{{
+                        formatTime(item.publish_time)
+                      }}</span>
                     </div>
                   </div>
                   <!-- 展开状态：富文本内容 -->
@@ -971,11 +1077,16 @@ function ensureString(val: any): string {
                       v-show="expandedNoticeId === Number(item.id)"
                       class="notice-card-content"
                     >
+                      <!-- eslint-disable-next-line vue/no-v-html -- 后端富文本公告内容，可信来源 -->
                       <div v-html="item.content"></div>
                     </div>
                   </transition>
                 </div>
-                <Empty v-if="sortedNoticeList.length === 0" description="暂无公告" class="list-empty" />
+                <Empty
+                  v-if="sortedNoticeList.length === 0"
+                  description="暂无公告"
+                  class="list-empty"
+                />
               </template>
             </div>
           </template>
@@ -988,24 +1099,44 @@ function ensureString(val: any): string {
                 {{ getNotifTypeName(activeNotifType) }}
               </div>
               <div class="header-actions">
-                <Button type="link" size="small" @click="handleReadAllNotif">全部已读</Button>
+                <Button type="link" size="small" @click="handleReadAllNotif">
+                  全部已读
+                </Button>
               </div>
             </div>
             <div class="notification-detail">
               <Spin v-if="notifLoading" class="notif-loading" />
               <template v-else>
-                <div v-for="item in filteredNotifications" :key="item.id" class="notification-item">
-                  <div class="notif-icon" :style="{ backgroundColor: getNotifTypeColor(item.type) + '20', color: getNotifTypeColor(item.type) }">
+                <div
+                  v-for="item in filteredNotifications"
+                  :key="item.id"
+                  class="notification-item"
+                >
+                  <div
+                    class="notif-icon"
+                    :style="{
+                      backgroundColor: `${getNotifTypeColor(item.type)}20`,
+                      color: getNotifTypeColor(item.type),
+                    }"
+                  >
                     <SvgBellIcon :size="16" />
                   </div>
                   <div class="notif-body">
                     <div class="notif-title-row">
                       <span class="notif-title">{{ item.title }}</span>
                       <Badge v-if="!item.isRead" color="red" size="small" />
-                      <span class="notif-time">{{ formatTime(item.createTime) }}</span>
+                      <span class="notif-time">{{
+                        formatTime(item.createTime)
+                      }}</span>
                     </div>
                     <div class="notif-content">{{ item.content }}</div>
-                    <div class="notif-type-tag" :style="{ color: getNotifTypeColor(item.type), backgroundColor: getNotifTypeColor(item.type) + '15' }">
+                    <div
+                      class="notif-type-tag"
+                      :style="{
+                        color: getNotifTypeColor(item.type),
+                        backgroundColor: `${getNotifTypeColor(item.type)}15`,
+                      }"
+                    >
                       {{ getNotifTypeName(item.type) }}
                     </div>
                     <div v-if="item.linkUrl" class="notif-link">
@@ -1013,7 +1144,10 @@ function ensureString(val: any): string {
                     </div>
                   </div>
                 </div>
-                <Empty v-if="filteredNotifications.length === 0" description="暂无通知" />
+                <Empty
+                  v-if="filteredNotifications.length === 0"
+                  description="暂无通知"
+                />
               </template>
             </div>
           </template>
@@ -1023,17 +1157,30 @@ function ensureString(val: any): string {
           <div v-if="activeChatId" class="chat-header">
             <Avatar
               class="chat-header-avatar"
-              :src="allUsers.find(u => u.id === activeChatId)?.avatar || undefined"
-              :style="{ backgroundColor: allUsers.find(u => u.id === activeChatId)?.avatar ? 'transparent' : getAvatarColor(activeChatId as number) }"
+              :src="
+                allUsers.find((u) => u.id === activeChatId)?.avatar || undefined
+              "
+              :style="{
+                backgroundColor: allUsers.find((u) => u.id === activeChatId)
+                  ?.avatar
+                  ? 'transparent'
+                  : getAvatarColor(activeChatId as number),
+              }"
             >
-              {{ getAvatarText(allUsers.find(u => u.id === activeChatId)) }}
+              {{ getAvatarText(allUsers.find((u) => u.id === activeChatId)) }}
             </Avatar>
             <div>
               <div class="chat-title">
-                {{ allUsers.find(u => u.id === activeChatId)?.nickName || allUsers.find(u => u.id === activeChatId)?.userName }}
+                {{
+                  allUsers.find((u) => u.id === activeChatId)?.nickName ||
+                  allUsers.find((u) => u.id === activeChatId)?.userName
+                }}
               </div>
               <div class="chat-subtitle">
-                {{ allUsers.find(u => u.id === activeChatId)?.depts?.[0]?.deptName || '' }}
+                {{
+                  allUsers.find((u) => u.id === activeChatId)?.depts?.[0]
+                    ?.deptName || ''
+                }}
               </div>
             </div>
           </div>
@@ -1046,7 +1193,10 @@ function ensureString(val: any): string {
             <div ref="chatContainerRef" class="chat-messages">
               <Spin v-if="messageLoading" class="chat-loading" />
               <template v-else>
-                <template v-for="(msg, idx) in messageList" :key="msg.messageId || msg.id">
+                <template
+                  v-for="(msg, idx) in messageList"
+                  :key="msg.messageId || msg.id"
+                >
                   <!-- 时间分隔条（首条消息或距上一条超过 5 分钟时显示） -->
                   <div
                     v-if="shouldShowTimeSeparator(msg, messageList[idx - 1])"
@@ -1056,39 +1206,66 @@ function ensureString(val: any): string {
                   </div>
                   <div
                     class="chat-msg-row"
-                    :class="msg.isMine || msg.senderType === 2 ? 'is-mine' : 'is-other'"
+                    :class="
+                      msg.isMine || msg.senderType === 2
+                        ? 'is-mine'
+                        : 'is-other'
+                    "
                   >
                     <Avatar
                       v-if="!(msg.isMine || msg.senderType === 2)"
                       class="msg-avatar-small"
-                      :style="{ backgroundColor: getAvatarColor(activeChatId as number) }"
+                      :style="{
+                        backgroundColor: getAvatarColor(activeChatId as number),
+                      }"
                     >
-                      {{ getAvatarText(allUsers.find(u => u.id === activeChatId)) }}
+                      {{
+                        getAvatarText(
+                          allUsers.find((u) => u.id === activeChatId),
+                        )
+                      }}
                     </Avatar>
 
-                    <div class="msg-bubble-wrap" :class="{ 'mine-wrap': msg.isMine || msg.senderType === 2 }">
+                    <div
+                      class="msg-bubble-wrap"
+                      :class="{
+                        'mine-wrap': msg.isMine || msg.senderType === 2,
+                      }"
+                    >
                       <template v-if="msg.contentType === 2 || msg.fileUrl">
-                        <div class="msg-image-wrapper" :class="{ 'mine-img': msg.isMine || msg.senderType === 2 }">
-                          <Image
-                            :src="msg.fileUrl"
-                            class="msg-image"
-                            :preview="{ mask: true }"
-                          />
+                        <div
+                          class="msg-image-wrapper"
+                          :class="{
+                            'mine-img': msg.isMine || msg.senderType === 2,
+                          }"
+                        >
+                          <Image :src="msg.fileUrl" class="msg-image" />
                         </div>
                       </template>
                       <template v-else>
                         <div
                           class="msg-bubble"
-                          :class="(msg.isMine || msg.senderType === 2) ? 'mine' : 'other'"
-                        >{{ ensureString(msg.content) }}</div>
+                          :class="
+                            msg.isMine || msg.senderType === 2
+                              ? 'mine'
+                              : 'other'
+                          "
+                        >
+                          {{ ensureString(msg.content) }}
+                        </div>
                       </template>
                       <!-- 自己发的消息显示已读/未读状态（不再显示时间） -->
                       <div
                         v-if="msg.isMine || msg.senderType === 2"
                         class="msg-read-status"
-                        :class="{ 'is-read': msg.readStatus === 1, 'is-unread': msg.readStatus !== 1 }"
+                        :class="{
+                          'is-read': msg.readStatus === 1,
+                          'is-unread': msg.readStatus !== 1,
+                        }"
                       >
-                        <span>{{ msg.readStatus === 1 ? '已读' : '未读' }}</span>
+                        <span>{{
+                          msg.readStatus === 1 ? '已读' : '未读'
+                        }}</span>
                       </div>
                       <!-- 对方消息不再显示时间 -->
                     </div>
@@ -1097,13 +1274,21 @@ function ensureString(val: any): string {
                       v-if="msg.isMine || msg.senderType === 2"
                       class="msg-avatar-small own-avatar"
                       :src="currentUserAvatar"
-                      :style="{ backgroundColor: currentUserAvatar ? 'transparent' : '#07c160' }"
+                      :style="{
+                        backgroundColor: currentUserAvatar
+                          ? 'transparent'
+                          : '#07c160',
+                      }"
                     >
                       {{ currentUserRealName.charAt(0) }}
                     </Avatar>
                   </div>
                 </template>
-                <Empty v-if="messageList.length === 0" description="暂无消息，开始聊天吧" class="chat-empty" />
+                <Empty
+                  v-if="messageList.length === 0"
+                  description="暂无消息，开始聊天吧"
+                  class="chat-empty"
+                />
               </template>
             </div>
 
@@ -1123,7 +1308,7 @@ function ensureString(val: any): string {
                   :disabled="uploadingImage"
                   @click="handleChooseImage"
                 >
-                  <LucideImage :size="16" style="margin-right: 4px;" />
+                  <LucideImage :size="16" style="margin-right: 4px" />
                   图片
                 </Button>
               </div>
@@ -1134,9 +1319,13 @@ function ensureString(val: any): string {
                 @keydown="handleKeydown"
               />
               <div class="input-actions">
-                <Button type="primary" :loading="uploadingImage" @click="handleSendMessage">
+                <Button
+                  type="primary"
+                  :loading="uploadingImage"
+                  @click="handleSendMessage"
+                >
                   发送
-                  <LucideArrowRight :size="16" style="margin-left: 4px;" />
+                  <LucideArrowRight :size="16" style="margin-left: 4px" />
                 </Button>
               </div>
             </div>
@@ -1149,6 +1338,7 @@ function ensureString(val: any): string {
 
 <style scoped>
 /* ===== WeChat PC Design System ===== */
+
 /* Color tokens:
    Primary: #07C160 (WeChat green)
    Sidebar: #F4F4F4  | Main: #FFFFFF
@@ -1159,27 +1349,35 @@ function ensureString(val: any): string {
 
 .msg-container {
   display: flex;
-  height: 100%;
   width: 100%;
-  background: #fff;
+  height: 100%;
   overflow: hidden;
-  font-family: "PingFang SC", "Microsoft YaHei", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family:
+    'PingFang SC',
+    'Microsoft YaHei',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  background: #fff;
 }
 
 /* ===== Sidebar (white background for design consistency) ===== */
 .msg-sidebar {
-  width: 280px;
-  flex-shrink: 0;
-  border-right: 1px solid #e5e5e5;
   display: flex;
+  flex-shrink: 0;
   flex-direction: column;
+  width: 280px;
   background: #fff;
+  border-right: 1px solid #e5e5e5;
 }
 
 .sidebar-header {
-  border-bottom: 1px solid #e5e5e5;
   background: #fff;
+  border-bottom: 1px solid #e5e5e5;
 }
 
 .header-tabs {
@@ -1187,17 +1385,17 @@ function ensureString(val: any): string {
 }
 
 .header-tab {
-  flex: 1;
-  padding: 16px 0;
-  text-align: center;
-  cursor: pointer;
-  font-size: 13px;
-  color: #888;
   position: relative;
   display: flex;
+  flex: 1;
+  gap: 5px;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  padding: 16px 0;
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+  cursor: pointer;
   transition: color 0.15s ease;
 }
 
@@ -1206,27 +1404,27 @@ function ensureString(val: any): string {
 }
 
 .header-tab.active {
-  color: #07c160;
   font-weight: 500;
+  color: #07c160;
 }
 
 .header-tab.active::after {
-  content: "";
   position: absolute;
   bottom: 0;
   left: 50%;
-  transform: translateX(-50%);
   width: 24px;
   height: 3px;
+  content: '';
   background: #07c160;
   border-radius: 2px;
+  transform: translateX(-50%);
 }
 
 /* ===== Notification Type List ===== */
 .notif-sidebar {
   flex: 1;
-  overflow-y: auto;
   padding: 6px 0;
+  overflow-y: auto;
 }
 
 .notif-type-list {
@@ -1236,13 +1434,13 @@ function ensureString(val: any): string {
 
 .notif-type-item {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   padding: 10px 20px;
-  cursor: pointer;
-  transition: background 0.12s;
   font-size: 13px;
   color: #333;
+  cursor: pointer;
+  transition: background 0.12s;
 }
 
 .notif-type-item:hover {
@@ -1250,16 +1448,16 @@ function ensureString(val: any): string {
 }
 
 .notif-type-item.active {
-  background: #d6d6d6;
-  color: #07c160;
   font-weight: 500;
+  color: #07c160;
+  background: #d6d6d6;
 }
 
 .notif-type-dot {
+  flex-shrink: 0;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  flex-shrink: 0;
 }
 
 .notif-type-name {
@@ -1268,8 +1466,8 @@ function ensureString(val: any): string {
 
 /* ===== Colleague Sidebar ===== */
 .colleague-sidebar {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-height: 0;
 }
@@ -1282,14 +1480,14 @@ function ensureString(val: any): string {
 
 .search-bar :deep(.ant-input-affix-wrapper) {
   background: #fff;
-  border-radius: 6px;
   border-color: #e0e0e0;
+  border-radius: 6px;
 }
 
 .search-bar :deep(.ant-input-affix-wrapper:focus),
 .search-bar :deep(.ant-input-affix-wrapper-focused) {
   border-color: #07c160;
-  box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.12);
+  box-shadow: 0 0 0 2px rgb(7 193 96 / 12%);
 }
 
 .user-list {
@@ -1309,12 +1507,12 @@ function ensureString(val: any): string {
 
 /* Chat list item - WeChat PC hover/active */
 .msg-list-item {
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background 0.12s;
   position: relative;
   display: flex;
   align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
 }
 
 .msg-list-item:hover {
@@ -1327,32 +1525,32 @@ function ensureString(val: any): string {
 
 /* WeChat PC avatars: 6px radius (not fully round) */
 .msg-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-weight: 500;
-  font-size: 14px;
-  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
   margin-right: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  border-radius: 6px;
 }
 
 .msg-avatar :deep(img) {
-  border-radius: 6px;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 6px;
 }
 
 .msg-content {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  flex: 1;
   flex-direction: column;
   justify-content: center;
+  min-width: 0;
 }
 
 .msg-title-row {
@@ -1363,74 +1561,74 @@ function ensureString(val: any): string {
 }
 
 .msg-title {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 14px;
   font-weight: 400;
   color: #1a1a1a;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 130px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .dept-tag {
-  font-size: 11px;
-  color: #b2b2b2;
-  font-weight: normal;
   flex-shrink: 0;
+  font-size: 11px;
+  font-weight: normal;
+  color: #b2b2b2;
 }
 
 .msg-time {
-  font-size: 11px;
-  color: #b2b2b2;
   flex-shrink: 0;
   margin-left: 8px;
+  font-size: 11px;
+  color: #b2b2b2;
 }
 
 .msg-desc {
-  font-size: 12px;
-  color: #888;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
+  color: #888;
   white-space: nowrap;
 }
 
 .unread-dot {
+  position: absolute;
+  top: 50%;
+  right: 12px;
   min-width: 8px;
   height: 8px;
   background: #fa5151;
   border-radius: 50%;
-  position: absolute;
-  right: 12px;
-  top: 50%;
   transform: translateY(-50%);
 }
 
 /* 未读消息数字徽标（替代原 unread-dot 红点） */
 .unread-badge {
+  position: absolute;
+  top: 50%;
+  right: 12px;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  background: #fa5151;
-  color: #fff;
   font-size: 11px;
-  line-height: 18px;
-  text-align: center;
-  border-radius: 9px;
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  box-shadow: 0 1px 3px rgba(250, 81, 81, 0.4);
   font-weight: 500;
+  line-height: 18px;
+  color: #fff;
+  text-align: center;
+  background: #fa5151;
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgb(250 81 81 / 40%);
+  transform: translateY(-50%);
 }
 
 /* ===== Main Area ===== */
 .msg-main {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   background: #fff;
@@ -1438,36 +1636,36 @@ function ensureString(val: any): string {
 
 /* Chat header */
 .chat-header {
-  padding: 14px 20px;
-  border-bottom: 1px solid #e5e5e5;
   display: flex;
-  align-items: center;
   flex-shrink: 0;
+  align-items: center;
+  padding: 14px 20px;
   background: #fff;
+  border-bottom: 1px solid #e5e5e5;
 }
 
 .chat-header-avatar {
+  flex-shrink: 0;
   width: 38px;
   height: 38px;
-  border-radius: 6px;
   margin-right: 12px;
-  flex-shrink: 0;
   font-size: 13px;
+  border-radius: 6px;
 }
 
 .chat-header-avatar :deep(img) {
-  border-radius: 6px;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 6px;
 }
 
 .chat-title {
+  display: flex;
+  align-items: center;
   font-size: 15px;
   font-weight: 500;
   color: #1a1a1a;
-  display: flex;
-  align-items: center;
 }
 
 .header-actions {
@@ -1481,14 +1679,14 @@ function ensureString(val: any): string {
 }
 
 .chat-subtitle {
+  margin-top: 2px;
   font-size: 12px;
   color: #b2b2b2;
-  margin-top: 2px;
 }
 
 .empty-chat {
-  flex: 1;
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
 }
@@ -1496,8 +1694,8 @@ function ensureString(val: any): string {
 /* ===== Notification Detail ===== */
 .notification-detail {
   flex: 1;
-  overflow-y: auto;
   padding: 16px 20px;
+  overflow-y: auto;
   background: #fff;
 }
 
@@ -1511,9 +1709,9 @@ function ensureString(val: any): string {
   display: flex;
   gap: 12px;
   padding: 14px 16px;
+  margin-bottom: 10px;
   background: #f7f7f7;
   border-radius: 8px;
-  margin-bottom: 10px;
   transition: background 0.12s;
 }
 
@@ -1522,13 +1720,13 @@ function ensureString(val: any): string {
 }
 
 .notif-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }
 
 .notif-body {
@@ -1538,8 +1736,8 @@ function ensureString(val: any): string {
 
 .notif-title-row {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 6px;
 }
 
@@ -1550,16 +1748,16 @@ function ensureString(val: any): string {
 }
 
 .notif-time {
+  flex-shrink: 0;
   margin-left: auto;
   font-size: 12px;
   color: #b2b2b2;
-  flex-shrink: 0;
 }
 
 .notif-content {
   font-size: 13px;
-  color: #555;
   line-height: 1.6;
+  color: #555;
 }
 
 .notif-link {
@@ -1573,16 +1771,16 @@ function ensureString(val: any): string {
 
 .notif-type-tag {
   display: inline-block;
-  margin-top: 6px;
   padding: 2px 8px;
+  margin-top: 6px;
   font-size: 11px;
   border-radius: 4px;
 }
 
 /* ===== Chat Body (white background per requirement) ===== */
 .chat-body {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-height: 0;
   background: #fff;
@@ -1591,8 +1789,8 @@ function ensureString(val: any): string {
 /* Chat messages - white background */
 .chat-messages {
   flex: 1;
-  overflow-y: auto;
   padding: 20px;
+  overflow-y: auto;
   background: #fff;
 }
 
@@ -1609,8 +1807,8 @@ function ensureString(val: any): string {
 /* Message rows */
 .chat-msg-row {
   display: flex;
-  margin-bottom: 16px;
   align-items: flex-start;
+  margin-bottom: 16px;
   animation: bubble-fade-in 0.2s ease;
 }
 
@@ -1619,6 +1817,7 @@ function ensureString(val: any): string {
     opacity: 0;
     transform: translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1635,74 +1834,74 @@ function ensureString(val: any): string {
 
 /* Small avatars in chat - WeChat PC 6px radius */
 .msg-avatar-small {
+  flex-shrink: 0;
   width: 38px;
   height: 38px;
-  border-radius: 6px;
   margin-right: 10px;
-  flex-shrink: 0;
   font-size: 13px;
+  border-radius: 6px;
 }
 
 .msg-avatar-small :deep(img) {
-  border-radius: 6px;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 6px;
 }
 
 /* Own avatar on right side */
 .own-avatar {
+  order: 2;
   margin-right: 0;
   margin-left: 10px;
-  order: 2;
 }
 
 /* Message bubbles - WeChat PC style with tails */
 .msg-bubble {
+  position: relative;
   padding: 9px 13px;
-  border-radius: 6px;
   font-size: 14px;
   line-height: 1.6;
-  word-wrap: break-word;
-  position: relative;
   word-break: break-all;
+  overflow-wrap: break-word;
+  border-radius: 6px;
 }
 
 /* Mine bubble - WeChat green */
 .msg-bubble.mine {
-  background: #95ec69;
   color: #1a1a1a;
+  background: #95ec69;
 }
 
 /* Other bubble - white with subtle border */
 .msg-bubble.other {
-  background: #fff;
   color: #1a1a1a;
+  background: #fff;
   border: 1px solid #ebebeb;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 3%);
 }
 
 /* Bubble tails (small triangles pointing to avatars) */
 .msg-bubble.other::before {
-  content: "";
   position: absolute;
-  left: -6px;
   top: 13px;
+  left: -6px;
   width: 0;
   height: 0;
+  content: '';
   border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
   border-right: 6px solid #fff;
+  border-bottom: 5px solid transparent;
   filter: drop-shadow(-1px 0 0 #ebebeb);
 }
 
 .msg-bubble.mine::before {
-  content: "";
   position: absolute;
-  right: -6px;
   top: 13px;
+  right: -6px;
   width: 0;
   height: 0;
+  content: '';
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
   border-left: 6px solid #95ec69;
@@ -1721,14 +1920,14 @@ function ensureString(val: any): string {
 
 /* 自己发送消息的已读/未读状态标签 */
 .msg-read-status {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 0 4px;
+  margin-top: 4px;
   font-size: 11px;
   line-height: 1;
-  margin-top: 4px;
-  padding: 0 4px;
   user-select: none;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .msg-read-status.is-read {
@@ -1754,18 +1953,18 @@ function ensureString(val: any): string {
 
 /* 消息时间分隔条（微信风格：居中灰色文字） */
 .msg-time-separator {
-  text-align: center;
+  margin: 12px 0 8px;
   font-size: 12px;
   color: #b2b2b2;
-  margin: 12px 0 8px;
+  text-align: center;
   user-select: none;
 }
 
 /* ===== Chat Input Area ===== */
 .chat-input-area {
   padding: 10px 16px 12px;
-  border-top: 1px solid #e5e5e5;
   background: #fff;
+  border-top: 1px solid #e5e5e5;
 }
 
 .chat-input-area :deep(.ant-input) {
@@ -1775,7 +1974,7 @@ function ensureString(val: any): string {
 .chat-input-area :deep(.ant-input:focus),
 .chat-input-area :deep(.ant-input-focused) {
   border-color: #07c160;
-  box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.1);
+  box-shadow: 0 0 0 2px rgb(7 193 96 / 10%);
 }
 
 .input-actions {
@@ -1806,16 +2005,16 @@ function ensureString(val: any): string {
 }
 
 .input-toolbar :deep(.ant-btn-text:hover) {
-  background: #f0f0f0 !important;
   color: #07c160;
+  background: #f0f0f0 !important;
 }
 
 /* Image messages */
 .msg-image-wrapper {
   max-width: 240px;
-  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
+  border-radius: 6px;
 }
 
 .msg-image-wrapper.mine-img {
@@ -1823,8 +2022,8 @@ function ensureString(val: any): string {
 }
 
 .msg-image {
-  width: 100%;
   display: block;
+  width: 100%;
   border-radius: 6px;
 }
 
@@ -1834,12 +2033,14 @@ function ensureString(val: any): string {
 }
 
 .notice-card {
-  background: #f7f7f7;
-  border-radius: 8px;
   margin-bottom: 10px;
   overflow: hidden;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  background: #f7f7f7;
   border-left: 3px solid transparent;
+  border-radius: 8px;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .notice-card:hover {
@@ -1847,8 +2048,8 @@ function ensureString(val: any): string {
 }
 
 .notice-card.is-unread {
-  border-left-color: #07c160;
   background: #f0fdf4;
+  border-left-color: #07c160;
 }
 
 .notice-card.is-unread:hover {
@@ -1857,7 +2058,7 @@ function ensureString(val: any): string {
 
 .notice-card.is-expanded {
   background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
 }
 
 .notice-card-header {
@@ -1868,47 +2069,47 @@ function ensureString(val: any): string {
 
 .notice-card-title-row {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 6px;
 }
 
 .notice-unread-dot {
+  flex-shrink: 0;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   background: #fa5151;
-  flex-shrink: 0;
+  border-radius: 50%;
 }
 
 .notice-card-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1a1a1a;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
   white-space: nowrap;
 }
 
 .notice-expand-icon {
-  font-size: 12px;
-  color: #07c160;
   flex-shrink: 0;
   padding: 2px 8px;
+  font-size: 12px;
+  color: #07c160;
+  background: rgb(7 193 96 / 8%);
   border-radius: 4px;
-  background: rgba(7, 193, 96, 0.08);
   transition: background 0.15s;
 }
 
 .notice-expand-icon:hover {
-  background: rgba(7, 193, 96, 0.15);
+  background: rgb(7 193 96 / 15%);
 }
 
 .notice-card-meta {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   font-size: 12px;
   color: #b2b2b2;
 }
@@ -1923,17 +2124,17 @@ function ensureString(val: any): string {
 
 .notice-card-content {
   padding: 0 16px 16px;
-  font-size: 14px;
-  color: #333;
-  line-height: 1.8;
-  border-top: 1px solid #f0f0f0;
   padding-top: 14px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #333;
+  border-top: 1px solid #f0f0f0;
 }
 
 .notice-card-content :deep(img) {
   max-width: 100%;
-  border-radius: 4px;
   margin: 8px 0;
+  border-radius: 4px;
 }
 
 .notice-card-content :deep(p) {
@@ -1943,22 +2144,22 @@ function ensureString(val: any): string {
 /* 展开/折叠过渡动画 */
 .notice-expand-enter-active,
 .notice-expand-leave-active {
-  transition: all 0.25s ease;
   overflow: hidden;
+  transition: all 0.25s ease;
 }
 
 .notice-expand-enter-from,
 .notice-expand-leave-to {
-  opacity: 0;
   max-height: 0;
   padding-top: 0;
   padding-bottom: 0;
+  opacity: 0;
 }
 
 .notice-expand-enter-to,
 .notice-expand-leave-from {
-  opacity: 1;
   max-height: 2000px;
+  opacity: 1;
 }
 
 /* ===== Scrollbars (WeChat PC style: thin and subtle) ===== */

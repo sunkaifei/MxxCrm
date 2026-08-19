@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { ColumnsType } from 'ant-design-vue/es/table';
+
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
@@ -20,7 +22,6 @@ import {
   Tabs,
   Tag,
 } from 'ant-design-vue';
-import type { ColumnsType } from 'ant-design-vue/es/table';
 
 import {
   calculateTeamCommissionApi,
@@ -29,10 +30,11 @@ import {
   getTeamCommissionListApi,
   getTeamCommissionSummaryApi,
 } from '#/api/core/finance';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
-import AllocateModal from './AllocateModal.vue';
+import { $t } from '#/locales';
+
 import CommissionPoolPanel from '../commission-pool/CommissionPoolPanel.vue';
+import AllocateModal from './AllocateModal.vue';
 
 const guideStepCount = 5;
 const accessStore = useAccessStore();
@@ -77,9 +79,9 @@ async function loadList() {
       : list?.items || list?.list || [];
     const summary = summaryRes?.data || summaryRes || [];
     summaryData.value = Array.isArray(summary) ? summary : [];
-  } catch (e: any) {
+  } catch (error: any) {
     message.error(
-      e?.message || $t('page.finance.teamCommission.message.loadFailed'),
+      error?.message || $t('page.finance.teamCommission.message.loadFailed'),
     );
     tableData.value = [];
     summaryData.value = [];
@@ -117,9 +119,9 @@ async function handleCalculate() {
     );
     calcVisible.value = false;
     loadList();
-  } catch (e: any) {
+  } catch (error: any) {
     message.error(
-      e?.message || $t('page.finance.teamCommission.message.calcFailed'),
+      error?.message || $t('page.finance.teamCommission.message.calcFailed'),
     );
   } finally {
     calcLoading.value = false;
@@ -127,7 +129,7 @@ async function handleCalculate() {
 }
 
 // ===== 状态映射 =====
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   0: {
     label: $t('page.finance.teamCommission.status.pending'),
     color: 'default',
@@ -320,9 +322,9 @@ async function loadPending() {
     pendingData.value = Array.isArray(list)
       ? list
       : list?.items || list?.list || [];
-  } catch (e: any) {
+  } catch (error: any) {
     message.error(
-      e?.message || $t('page.finance.teamCommission.message.loadFailed'),
+      error?.message || $t('page.finance.teamCommission.message.loadFailed'),
     );
     pendingData.value = [];
   } finally {
@@ -387,8 +389,7 @@ const logColumns: ColumnsType = [
     title: $t('page.finance.teamCommission.column.allocateMethod'),
     dataIndex: 'allocateMethod',
     width: 120,
-    customRender: ({ text }: any) =>
-      allocateMethodMap[text as number] || '-',
+    customRender: ({ text }: any) => allocateMethodMap[text as number] || '-',
   },
   {
     title: $t('page.finance.teamCommission.allocate.payment'),
@@ -413,9 +414,9 @@ async function loadAllocationLog() {
     logData.value = Array.isArray(list)
       ? list
       : list?.items || list?.list || [];
-  } catch (e: any) {
+  } catch (error: any) {
     message.error(
-      e?.message || $t('page.finance.teamCommission.message.loadFailed'),
+      error?.message || $t('page.finance.teamCommission.message.loadFailed'),
     );
     logData.value = [];
   } finally {
@@ -522,9 +523,7 @@ onMounted(() => {
       <Col :span="8">
         <Card :bordered="false">
           <Statistic
-            :title="
-              $t('page.finance.teamCommission.statistic.totalCommission')
-            "
+            :title="$t('page.finance.teamCommission.statistic.totalCommission')"
             :value="formatMoney(totalCommission)"
             prefix="¥"
             :value-style="{ color: '#52c41a' }"
@@ -544,7 +543,7 @@ onMounted(() => {
         </Button>
       </template>
 
-      <Tabs v-model:activeKey="activeTab">
+      <Tabs v-model:active-key="activeTab">
         <!-- Tab 1: 提成明细 -->
         <Tabs.TabPane
           key="list"
@@ -629,7 +628,9 @@ onMounted(() => {
                 >
                   {{
                     record.allocateStatus === 2
-                      ? $t('page.finance.teamCommission.allocateStatus.allocated')
+                      ? $t(
+                          'page.finance.teamCommission.allocateStatus.allocated',
+                        )
                       : $t('page.finance.teamCommission.allocateStatus.pending')
                   }}
                 </Tag>

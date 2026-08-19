@@ -1,23 +1,14 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
+import type { SalesFlowMode } from '#/api';
+
+import { computed, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 
-import {
-  Button,
-  Card,
-  message,
-  Spin,
-  Tag,
-  Tooltip,
-} from 'ant-design-vue';
+import { Button, Card, message, Spin, Tag, Tooltip } from 'ant-design-vue';
 
-import {
-  getSalesFlowModeApi,
-  setSalesFlowModeApi,
-  type SalesFlowMode,
-} from '#/api';
+import { getSalesFlowModeApi, setSalesFlowModeApi } from '#/api';
 
 const accessStore = useAccessStore();
 
@@ -36,12 +27,12 @@ const isDirty = computed(() => selectedMode.value !== currentMode.value);
 
 // 三种模式定义
 const modeOptions: Array<{
-  value: SalesFlowMode;
-  title: string;
+  badge?: string;
   description: string;
   flow: string;
-  badge?: string;
   recommended?: boolean;
+  title: string;
+  value: SalesFlowMode;
 }> = [
   {
     value: 'A',
@@ -77,8 +68,8 @@ const loadMode = async () => {
       mode === 'A' || mode === 'B' || mode === 'both' ? mode : 'both';
     currentMode.value = safeMode;
     selectedMode.value = safeMode;
-  } catch (e) {
-    console.error('加载销售流程模式失败', e);
+  } catch (error) {
+    console.error('加载销售流程模式失败', error);
     currentMode.value = 'both';
     selectedMode.value = 'both';
   } finally {
@@ -100,8 +91,8 @@ const handleSave = async () => {
     await setSalesFlowModeApi(selectedMode.value);
     currentMode.value = selectedMode.value;
     message.success('销售流程模式已更新');
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   } finally {
     saving.value = false;
   }
@@ -147,7 +138,11 @@ onMounted(() => {
             <div class="mode-card-header">
               <div class="mode-title">
                 {{ opt.title }}
-                <Tag v-if="opt.badge" :color="opt.recommended ? 'green' : 'default'" class="ml-2">
+                <Tag
+                  v-if="opt.badge"
+                  :color="opt.recommended ? 'green' : 'default'"
+                  class="ml-2"
+                >
                   {{ opt.badge }}
                 </Tag>
               </div>
@@ -174,9 +169,18 @@ onMounted(() => {
         <div class="mode-tips">
           <div class="tip-title">说明</div>
           <ul>
-            <li><b>标准流程</b>：所有订单必须从报价单转化而来，商机列表"更多"操作只显示"转报价单"。</li>
-            <li><b>简易流程</b>：商机可直接转订单，订单表单中"关联报价单"字段隐藏，"关联商机"改为必填。</li>
-            <li><b>两种都允许</b>：商机列表"更多"操作同时显示"转报价单"和"转订单"，业务员自行选择。</li>
+            <li>
+              <b>标准流程</b
+              >：所有订单必须从报价单转化而来，商机列表"更多"操作只显示"转报价单"。
+            </li>
+            <li>
+              <b>简易流程</b
+              >：商机可直接转订单，订单表单中"关联报价单"字段隐藏，"关联商机"改为必填。
+            </li>
+            <li>
+              <b>两种都允许</b
+              >：商机列表"更多"操作同时显示"转报价单"和"转订单"，业务员自行选择。
+            </li>
             <li>配置变更不影响已有数据，仅在新建/转单时按当前模式校验。</li>
           </ul>
         </div>
@@ -221,21 +225,21 @@ onMounted(() => {
 .mode-card {
   position: relative;
   padding: 20px;
+  cursor: pointer;
+  background: #fff;
   border: 2px solid #e8e8e8;
   border-radius: 8px;
-  cursor: pointer;
   transition: all 0.2s;
-  background: #fff;
 }
 
 .mode-card:hover:not(.disabled) {
   border-color: #1677ff;
-  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.12);
+  box-shadow: 0 2px 8px rgb(22 119 255 / 12%);
 }
 
 .mode-card.active {
-  border-color: #1677ff;
   background: #f0f7ff;
+  border-color: #1677ff;
 }
 
 .mode-card.disabled {
@@ -245,8 +249,8 @@ onMounted(() => {
 
 .mode-card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 12px;
 }
 
@@ -264,69 +268,69 @@ onMounted(() => {
 }
 
 .mode-flow {
-  font-size: 14px;
-  color: #1677ff;
-  font-weight: 500;
   margin-bottom: 8px;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1677ff;
 }
 
 .mode-desc {
   font-size: 13px;
-  color: #666;
   line-height: 1.6;
+  color: #666;
 }
 
 .mode-check {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #1677ff;
-  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #fff;
+  background: #1677ff;
+  border-radius: 50%;
 }
 
 .mode-tips {
   padding: 16px;
   background: #fafafa;
-  border-radius: 6px;
   border-left: 4px solid #1677ff;
+  border-radius: 6px;
 }
 
 .tip-title {
+  margin-bottom: 8px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 8px;
   color: #1f1f1f;
 }
 
 .mode-tips ul {
-  margin: 0;
   padding-left: 20px;
+  margin: 0;
 }
 
 .mode-tips li {
   font-size: 13px;
-  color: #555;
   line-height: 1.8;
+  color: #555;
 }
 
 .mode-actions {
-  margin-top: 20px;
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
+  margin-top: 20px;
 }
 
 .dirty-tip {
   margin-left: 12px;
-  color: #faad14;
   font-size: 13px;
+  color: #faad14;
 }
 
 .ml-2 {

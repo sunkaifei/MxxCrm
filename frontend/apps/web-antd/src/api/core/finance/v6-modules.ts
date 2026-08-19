@@ -19,8 +19,7 @@ export const upsertEmployeeTaxConfigApi = async (data: any) =>
 export const getTaxDetailListApi = async (params: {
   employeeId: number;
   year: number;
-}) =>
-  requestClient.get('/api/system/finance/tax/detail/list', { params });
+}) => requestClient.get('/api/system/finance/tax/detail/list', { params });
 export const calculateAnnualBonusTaxApi = async (data: {
   bonusAmount: number;
 }) =>
@@ -53,10 +52,9 @@ export const getAttendanceListApi = async (params?: any) =>
   requestClient.get('/api/system/finance/attendance/list', { params });
 export const getAttendanceDetailApi = async (params: {
   employeeId: number;
-  year: number;
   month: number;
-}) =>
-  requestClient.get('/api/system/finance/attendance/detail', { params });
+  year: number;
+}) => requestClient.get('/api/system/finance/attendance/detail', { params });
 export const upsertAttendanceApi = async (data: any) =>
   requestClient.post('/api/system/finance/attendance/upsert', data);
 export const deleteAttendanceApi = async (id: number) =>
@@ -65,8 +63,8 @@ export const batchImportAttendanceApi = async (data: any[]) =>
   requestClient.post('/api/system/finance/attendance/batch-import', data);
 export const calculateAttendanceDeductionApi = async (params: {
   employeeId: number;
-  year: number;
   month: number;
+  year: number;
 }) =>
   requestClient.get('/api/system/finance/attendance/calculate-deduction', {
     params,
@@ -86,8 +84,7 @@ export const approveSalaryAdjustmentApi = async (id: number) =>
 export const rejectSalaryAdjustmentApi = async (data: {
   id: number;
   reason: string;
-}) =>
-  requestClient.post('/api/system/finance/salary-adjustment/reject', data);
+}) => requestClient.post('/api/system/finance/salary-adjustment/reject', data);
 export const getSalaryAdjustmentComparisonApi = async (employeeId: number) =>
   requestClient.get('/api/system/finance/salary-adjustment/comparison', {
     params: { employeeId },

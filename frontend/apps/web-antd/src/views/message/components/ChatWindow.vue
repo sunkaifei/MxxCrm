@@ -4,26 +4,22 @@ import type { ChatMessageDTO, ChatSessionDTO } from '#/api/core/message/chat';
 import { nextTick, onMounted, ref, watch } from 'vue';
 
 import {
+  LucideMessageCircle,
   LucideMoreHorizontal,
   LucideSettings,
   LucideTrash2,
-  LucideMessageCircle,
 } from '@vben/icons';
 
-import {
-  Button,
-  Dropdown,
-  Empty,
-} from 'ant-design-vue';
+import { Button, Dropdown, Empty } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import MessageBubble from './MessageBubble.vue';
 import MessageInput from './MessageInput.vue';
 
 const props = defineProps<{
-  session: ChatSessionDTO | null;
-  messages: ChatMessageDTO[];
   loading?: boolean;
+  messages: ChatMessageDTO[];
+  session: ChatSessionDTO | null;
 }>();
 
 const emit = defineEmits<{
@@ -92,15 +88,18 @@ function handleSend(content: string) {
 
 function handleMenuClick(action: string) {
   switch (action) {
-    case 'pin':
-      emit('pin', !props.session?.isPinned);
-      break;
-    case 'mute':
-      emit('mute', !props.session?.isMuted);
-      break;
-    case 'delete':
+    case 'delete': {
       emit('delete');
       break;
+    }
+    case 'mute': {
+      emit('mute', !props.session?.isMuted);
+      break;
+    }
+    case 'pin': {
+      emit('pin', !props.session?.isPinned);
+      break;
+    }
   }
 }
 
@@ -110,10 +109,15 @@ defineExpose({ scrollToBottom });
 <template>
   <div class="flex flex-col h-full">
     <template v-if="session">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
+      <div
+        class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white"
+      >
         <div class="flex items-center">
           <img
-            :src="session.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + session.sessionId"
+            :src="
+              session.avatarUrl ||
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.sessionId}`
+            "
             class="w-9 h-9 rounded-full mr-3"
             :alt="session.sessionName"
           />
@@ -164,15 +168,14 @@ defineExpose({ scrollToBottom });
         class="flex-1 overflow-y-auto px-4 py-4 bg-[#f5f5f5]"
       >
         <template v-if="messages.length > 0">
-          <div
-            v-for="(message, index) in messages"
-            :key="message.messageId"
-          >
+          <div v-for="(message, index) in messages" :key="message.messageId">
             <div
               v-if="shouldShowTimeDivider(index)"
               class="flex justify-center my-4"
             >
-              <span class="text-xs text-gray-400 bg-gray-200 px-3 py-1 rounded-full">
+              <span
+                class="text-xs text-gray-400 bg-gray-200 px-3 py-1 rounded-full"
+              >
                 {{ formatDividerTime(message.sendTime) }}
               </span>
             </div>
@@ -184,10 +187,7 @@ defineExpose({ scrollToBottom });
         </div>
       </div>
 
-      <MessageInput
-        ref="messageInputRef"
-        @send="handleSend"
-      />
+      <MessageInput ref="messageInputRef" @send="handleSend" />
     </template>
 
     <div

@@ -46,9 +46,10 @@ export const articleTagApi = {
 
   /** 删除 */
   delete: (ids: number[]) =>
-    requestClient.delete('/api/system/article/tag/batch_delete', { data: { ids } }),
+    requestClient.delete('/api/system/article/tag/batch_delete', {
+      data: { ids },
+    }),
 
   /** 获取所有启用的标签（用于下拉选择） */
-  all: () =>
-    requestClient.get('/api/system/article/tag/all'),
+  all: () => requestClient.get('/api/system/article/tag/all'),
 };

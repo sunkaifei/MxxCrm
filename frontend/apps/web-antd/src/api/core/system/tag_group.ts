@@ -21,5 +21,7 @@ export const deleteTagGroupApi = async (id: number) => {
 };
 
 export const batchDeleteTagGroupApi = async (params: any) => {
-  return requestClient.delete('/api/system/tag/group/batch_delete', { data: params });
+  return requestClient.delete('/api/system/tag/group/batch_delete', {
+    data: params,
+  });
 };

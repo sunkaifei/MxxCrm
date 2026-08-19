@@ -1,21 +1,34 @@
 <script lang="ts" setup>
-import { computed, ref, defineAsyncComponent, watch, onMounted } from 'vue';
+import type { SkuTemplateListVO } from '#/api';
+
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { $t } from '#/locales';
-import { message, Tabs, Radio, Upload, Input, InputNumber, Select, Switch } from 'ant-design-vue';
-import { LucideUpload, LucideX, LucideMaximize2 } from '@vben/icons';
+import { LucideMaximize2, LucideUpload, LucideX } from '@vben/icons';
+
+import {
+  Input,
+  InputNumber,
+  message,
+  Radio,
+  Select,
+  Switch,
+  Tabs,
+  Upload,
+} from 'ant-design-vue';
+
 import {
   createProductApi,
   getAllBrandsApi,
   getCategoryListApi,
   getProductInfoApi,
+  getSkuTemplateInfoApi,
+  getSkuTemplateListApi,
   updateProductApi,
   uploadCategoryImageApi,
-  getSkuTemplateListApi,
-  getSkuTemplateInfoApi,
 } from '#/api';
 import { getProductSpecsApi } from '#/api/core/product/spec';
-import type { SkuTemplateListVO } from '#/api';
+import { $t } from '#/locales';
 const data = ref();
 const activeTab = ref('basic');
 const isFullscreen = ref(false);
@@ -40,7 +53,10 @@ onMounted(() => {
 function toggleFullscreen() {
   isFullscreen.value = !isFullscreen.value;
   drawerApi.setState({
-    class: ['product-drawer', isFullscreen.value ? 'drawer-fullscreen' : 'drawer-75'],
+    class: [
+      'product-drawer',
+      isFullscreen.value ? 'drawer-fullscreen' : 'drawer-75',
+    ],
   });
 }
 
@@ -62,9 +78,9 @@ const formData = ref({
   dimensions: '',
   isActive: true,
   detail: '',
-  productType: 1 as number,         // 商品类型：1=实物（默认）
-  fulfillmentType: 1 as number,      // 履约方式：1=物流配送（默认）
-  isVirtualStock: 0 as number,       // 虚拟库存：0=否（默认）
+  productType: 1 as number, // 商品类型：1=实物（默认）
+  fulfillmentType: 1 as number, // 履约方式：1=物流配送（默认）
+  isVirtualStock: 0 as number, // 虚拟库存：0=否（默认）
 });
 
 // 商品类型选项
@@ -88,66 +104,91 @@ const allFulfillmentOptions = [
 const fulfillmentOptions = computed(() => {
   const pt = formData.value.productType;
   if (pt === 1) return [{ label: '物流配送', value: 1 }];
-  if (pt === 2) return [{ label: '自动交付', value: 2 }, { label: '手动交付', value: 3 }];
-  if (pt === 3 || pt === 4) return [{ label: '服务履行', value: 4 }, { label: '手动交付', value: 3 }];
+  if (pt === 2)
+    return [
+      { label: '自动交付', value: 2 },
+      { label: '手动交付', value: 3 },
+    ];
+  if (pt === 3 || pt === 4)
+    return [
+      { label: '服务履行', value: 4 },
+      { label: '手动交付', value: 3 },
+    ];
   return allFulfillmentOptions;
 });
 
 // 商品类型变更时自动设置默认履约方式
 function onProductTypeChange(val: number) {
-  if (val === 1) formData.value.fulfillmentType = 1;
-  else if (val === 2) formData.value.fulfillmentType = 2;
-  else if (val === 3 || val === 4) formData.value.fulfillmentType = 4;
+  switch (val) {
+    case 1: {
+      formData.value.fulfillmentType = 1;
+      break;
+    }
+    case 2: {
+      formData.value.fulfillmentType = 2;
+      break;
+    }
+    case 3:
+    case 4: {
+      formData.value.fulfillmentType = 4;
+      // No default
+      break;
+    }
+  }
 }
 
 // 非实物商品才显示虚拟库存开关
 const showVirtualStock = computed(() => formData.value.productType !== 1);
 
-const categoryOptions = ref<Array<{ value: number; label: string }>>([]);
-const brandOptions = ref<Array<{ value: number; label: string }>>([]);
+const categoryOptions = ref<Array<{ label: string; value: number }>>([]);
+const brandOptions = ref<Array<{ label: string; value: number }>>([]);
 
 // Lazy loaded wangeditor editor
-const ProductEditor = defineAsyncComponent(() => import('./product-editor.vue'));
+const ProductEditor = defineAsyncComponent(
+  () => import('./product-editor.vue'),
+);
 
-const specType = ref<'single' | 'multiple'>('single');
+const specType = ref<'multiple' | 'single'>('single');
 
 // 多规格模板选择
 const selectedTemplateId = ref<number | undefined>(undefined);
-const templateOptions = ref<Array<{ value: number; label: string }>>([]);
+const templateOptions = ref<Array<{ label: string; value: number }>>([]);
 const templateSpecs = ref<Array<{ name: string; values: string[] }>>([]);
 
-const specList = ref<Array<{
-  _key: number;
-  id?: number | string;
-  label: string;
-  imageUrl: string;
-  price: number;
-  costPrice: number;
-  originalPrice: number;
-  skuCode: string;
-  barcode: string;
-  weight: number;
-  volume: number;
-  isDefault: boolean;
-  isActive: boolean;
-}>>([{
-  _key: 1,
-  label: '',
-  imageUrl: '',
-  price: 0,
-  costPrice: 0,
-  originalPrice: 0,
-  skuCode: '',
-  barcode: '',
-  weight: 0,
-  volume: 0,
-  isDefault: false,
-  isActive: true,
-}]);
+const specList = ref<
+  Array<{
+    _key: number;
+    barcode: string;
+    costPrice: number;
+    id?: number | string;
+    imageUrl: string;
+    isActive: boolean;
+    isDefault: boolean;
+    label: string;
+    originalPrice: number;
+    price: number;
+    skuCode: string;
+    volume: number;
+    weight: number;
+  }>
+>([
+  {
+    _key: 1,
+    label: '',
+    imageUrl: '',
+    price: 0,
+    costPrice: 0,
+    originalPrice: 0,
+    skuCode: '',
+    barcode: '',
+    weight: 0,
+    volume: 0,
+    isDefault: false,
+    isActive: true,
+  },
+]);
 
 let specKeyCounter = 1;
-
-
 
 async function handleSpecImageUpload(file: File, specItem: any) {
   try {
@@ -158,8 +199,8 @@ async function handleSpecImageUpload(file: File, specItem: any) {
     } else {
       message.error('图片上传失败');
     }
-  } catch (e: any) {
-    message.error(`图片上传失败: ${e?.message || '未知错误'}`);
+  } catch (error: any) {
+    message.error(`图片上传失败: ${error?.message || '未知错误'}`);
   }
   return false;
 }
@@ -220,7 +261,9 @@ async function handleTemplateChange(templateId: any) {
 }
 
 /** 根据规格定义生成笛卡尔积组合 */
-function generateSpecCombinations(specs: Array<{ name: string; values: string[] }>) {
+function generateSpecCombinations(
+  specs: Array<{ name: string; values: string[] }>,
+) {
   if (specs.length === 0) {
     specList.value = [];
     return;
@@ -264,20 +307,22 @@ watch(specType, (val) => {
   if (val === 'single') {
     selectedTemplateId.value = undefined;
     templateSpecs.value = [];
-    specList.value = [{
-      _key: 1,
-      label: '',
-      imageUrl: '',
-      price: 0,
-      costPrice: 0,
-      originalPrice: 0,
-      skuCode: '',
-      barcode: '',
-      weight: 0,
-      volume: 0,
-      isDefault: false,
-      isActive: true,
-    }];
+    specList.value = [
+      {
+        _key: 1,
+        label: '',
+        imageUrl: '',
+        price: 0,
+        costPrice: 0,
+        originalPrice: 0,
+        skuCode: '',
+        barcode: '',
+        weight: 0,
+        volume: 0,
+        isDefault: false,
+        isActive: true,
+      },
+    ];
   } else {
     specList.value = [];
     selectedTemplateId.value = undefined;
@@ -296,8 +341,8 @@ async function handleCoverUpload(file: File) {
     } else {
       message.error('封面图上传失败');
     }
-  } catch (e: any) {
-    message.error(`封面图上传失败: ${e?.message || '未知错误'}`);
+  } catch (error: any) {
+    message.error(`封面图上传失败: ${error?.message || '未知错误'}`);
   }
   return false;
 }
@@ -306,7 +351,7 @@ function removeCoverImage() {
   coverImageUrl.value = '';
 }
 
-const carouselImages = ref<Array<{ url: string; uid: number }>>([]);
+const carouselImages = ref<Array<{ uid: number; url: string }>>([]);
 let carouselKeyCounter = 0;
 
 async function handleCarouselUpload(file: File) {
@@ -319,15 +364,15 @@ async function handleCarouselUpload(file: File) {
     } else {
       message.error('轮播图上传失败');
     }
-  } catch (e: any) {
-    message.error(`轮播图上传失败: ${e?.message || '未知错误'}`);
+  } catch (error: any) {
+    message.error(`轮播图上传失败: ${error?.message || '未知错误'}`);
   }
   return false;
 }
 
 function removeCarouselImage(uid: number) {
   const idx = carouselImages.value.findIndex((img) => img.uid === uid);
-  if (idx >= 0) {
+  if (idx !== -1) {
     carouselImages.value.splice(idx, 1);
   }
 }
@@ -358,8 +403,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
     setLoading(true);
 
     const specs = specList.value.map((s) => {
-      let specsValue: Record<string, string> | null = null;
-      if (specType.value === 'multiple' && s.label && templateSpecs.value.length > 0) {
+      let specsValue: null | Record<string, string> = null;
+      if (
+        specType.value === 'multiple' &&
+        s.label &&
+        templateSpecs.value.length > 0
+      ) {
         const values = s.label.split(' / ');
         const specsObj: Record<string, string> = {};
         templateSpecs.value.forEach((spec, index) => {
@@ -395,7 +444,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
       skus: specs.length > 0 ? specs : undefined,
       productType: formData.value.productType,
       fulfillmentType: formData.value.fulfillmentType,
-      isVirtualStock: showVirtualStock.value ? formData.value.isVirtualStock : 0,
+      isVirtualStock: showVirtualStock.value
+        ? formData.value.isVirtualStock
+        : 0,
     };
 
     try {
@@ -459,20 +510,22 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (row.id && data.value?.create === false) {
         loadProductDetail(row.id);
       } else {
-        specList.value = [{
-          _key: 1,
-          label: '',
-          imageUrl: '',
-          price: 0,
-          costPrice: 0,
-          originalPrice: 0,
-          skuCode: '',
-          barcode: '',
-          weight: 0,
-          volume: 0,
-          isDefault: false,
-          isActive: true,
-        }];
+        specList.value = [
+          {
+            _key: 1,
+            label: '',
+            imageUrl: '',
+            price: 0,
+            costPrice: 0,
+            originalPrice: 0,
+            skuCode: '',
+            barcode: '',
+            weight: 0,
+            volume: 0,
+            isDefault: false,
+            isActive: true,
+          },
+        ];
       }
 
       try {
@@ -526,11 +579,17 @@ async function loadProductDetail(id: number) {
         dimensions: productData.dimensions || '',
         isActive: productData.isActive ?? true,
         detail: productData.detail || '',
+        productType: productData.productType ?? 1,
+        fulfillmentType: productData.fulfillmentType ?? 1,
+        isVirtualStock: productData.isVirtualStock ?? 0,
       };
 
       coverImageUrl.value = productData.imageUrl || '';
 
-      if (productData.carouselImages && Array.isArray(productData.carouselImages)) {
+      if (
+        productData.carouselImages &&
+        Array.isArray(productData.carouselImages)
+      ) {
         carouselKeyCounter = 0;
         carouselImages.value = productData.carouselImages.map((url: string) => {
           carouselKeyCounter++;
@@ -542,9 +601,13 @@ async function loadProductDetail(id: number) {
       selectedTemplateId.value = productData.templateId || undefined;
     }
 
-    const skuSource = specsData?.skus && Array.isArray(specsData.skus) ? specsData.skus :
-                      productData?.skus && Array.isArray(productData.skus) ? productData.skus : [];
-    
+    let skuSource: any[] = [];
+    if (specsData?.skus && Array.isArray(specsData.skus)) {
+      skuSource = specsData.skus;
+    } else if (productData?.skus && Array.isArray(productData.skus)) {
+      skuSource = productData.skus;
+    }
+
     if (skuSource.length > 0) {
       specKeyCounter = 0;
       specList.value = skuSource.map((s: any) => {
@@ -554,8 +617,14 @@ async function loadProductDetail(id: number) {
           label = s.label;
         } else if (typeof s.specs === 'string') {
           label = s.specs;
-        } else if (s.specs && typeof s.specs === 'object' && !Array.isArray(s.specs)) {
-          label = Object.entries(s.specs).map(([k, v]) => `${k}：${v}`).join(' / ');
+        } else if (
+          s.specs &&
+          typeof s.specs === 'object' &&
+          !Array.isArray(s.specs)
+        ) {
+          label = Object.entries(s.specs)
+            .map(([k, v]) => `${k}：${v}`)
+            .join(' / ');
         }
         return {
           _key: specKeyCounter,
@@ -574,26 +643,30 @@ async function loadProductDetail(id: number) {
         };
       });
     } else if (specType.value === 'single') {
-      specList.value = [{
-        _key: 1,
-        label: '',
-        imageUrl: '',
-        price: productData.salePrice ?? 0,
-        costPrice: productData.costPrice ?? 0,
-        originalPrice: productData.marketPrice ?? 0,
-        skuCode: '',
-        barcode: productData.barcode ?? '',
-        weight: productData.weight ?? 0,
-        volume: 0,
-        isDefault: false,
-        isActive: productData.isActive ?? true,
-      }];
+      specList.value = [
+        {
+          _key: 1,
+          label: '',
+          imageUrl: '',
+          price: productData.salePrice ?? 0,
+          costPrice: productData.costPrice ?? 0,
+          originalPrice: productData.marketPrice ?? 0,
+          skuCode: '',
+          barcode: productData.barcode ?? '',
+          weight: productData.weight ?? 0,
+          volume: 0,
+          isDefault: false,
+          isActive: productData.isActive ?? true,
+        },
+      ];
     }
 
     if (specsData?.specs && Array.isArray(specsData.specs)) {
       templateSpecs.value = specsData.specs.map((s: any) => ({
         name: s.name || '',
-        values: (s.values || []).map((v: any) => String(v.value || '')).filter((v: string) => v !== ''),
+        values: (s.values || [])
+          .map((v: any) => String(v.value || ''))
+          .filter((v: string) => v !== ''),
       }));
     }
   } catch {
@@ -617,7 +690,7 @@ function setLoading(loading: boolean) {
         <LucideMaximize2 class="w-4 h-4 text-gray-600" />
       </button>
     </template>
-    <Tabs v-model:activeKey="activeTab" class="mt-2">
+    <Tabs v-model:active-key="activeTab" class="mt-2">
       <Tabs.TabPane key="basic" tab="基本信息">
         <div class="pt-6 space-y-5">
           <div class="basic-form-row">
@@ -661,7 +734,10 @@ function setLoading(loading: boolean) {
                   allow-clear
                   :options="brandOptions"
                   show-search
-                  :filter-option="(input: string, option: any) => option.label?.toLowerCase().includes(input.toLowerCase())"
+                  :filter-option="
+                    (input: string, option: any) =>
+                      option.label?.toLowerCase().includes(input.toLowerCase())
+                  "
                   style="width: 100%"
                 />
               </div>
@@ -754,14 +830,31 @@ function setLoading(loading: boolean) {
             </label>
             <div class="basic-form-control">
               <div class="flex items-start gap-3">
-                <div v-if="coverImageUrl" class="relative w-20 h-20 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
-                  <img :src="coverImageUrl" alt="封面图" class="w-full h-full object-cover" />
-                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer" @click="removeCoverImage">
+                <div
+                  v-if="coverImageUrl"
+                  class="relative w-20 h-20 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0"
+                >
+                  <img
+                    :src="coverImageUrl"
+                    alt="封面图"
+                    class="w-full h-full object-cover"
+                  />
+                  <div
+                    class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                    @click="removeCoverImage"
+                  >
                     <LucideX class="text-white w-4 h-4" />
                   </div>
                 </div>
-                <Upload v-else :show-upload-list="false" :before-upload="handleCoverUpload" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
-                  <div class="flex flex-col items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors">
+                <Upload
+                  v-else
+                  :show-upload-list="false"
+                  :before-upload="handleCoverUpload"
+                  accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                >
+                  <div
+                    class="flex flex-col items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors"
+                  >
                     <LucideUpload class="w-4 h-4 text-gray-400" />
                     <span class="text-xs text-gray-400 mt-0.5">上传图片</span>
                   </div>
@@ -779,13 +872,26 @@ function setLoading(loading: boolean) {
                   :key="img.uid"
                   class="relative w-20 h-20 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0"
                 >
-                  <img :src="img.url" alt="轮播图" class="w-full h-full object-cover" />
-                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer" @click="removeCarouselImage(img.uid)">
+                  <img
+                    :src="img.url"
+                    alt="轮播图"
+                    class="w-full h-full object-cover"
+                  />
+                  <div
+                    class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                    @click="removeCarouselImage(img.uid)"
+                  >
                     <LucideX class="text-white w-4 h-4" />
                   </div>
                 </div>
-                <Upload :show-upload-list="false" :before-upload="handleCarouselUpload" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
-                  <div class="flex flex-col items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors">
+                <Upload
+                  :show-upload-list="false"
+                  :before-upload="handleCarouselUpload"
+                  accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                >
+                  <div
+                    class="flex flex-col items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors"
+                  >
                     <LucideUpload class="w-4 h-4 text-gray-400" />
                     <span class="text-xs text-gray-400 mt-0.5">上传图片</span>
                   </div>
@@ -812,7 +918,11 @@ function setLoading(loading: boolean) {
                 v-model:value="formData.productType"
                 @change="(e: any) => onProductTypeChange(e.target.value)"
               >
-                <Radio v-for="opt in productTypeOptions" :key="opt.value" :value="opt.value">
+                <Radio
+                  v-for="opt in productTypeOptions"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
                   {{ opt.label }}
                 </Radio>
               </Radio.Group>
@@ -847,7 +957,10 @@ function setLoading(loading: boolean) {
       <Tabs.TabPane key="spec" tab="商品规格">
         <div class="space-y-5 pt-4">
           <div class="flex items-center gap-6">
-            <label class="w-24 text-sm font-medium text-gray-700 text-right pr-3">商品规格</label>
+            <label
+              class="w-24 text-sm font-medium text-gray-700 text-right pr-3"
+              >商品规格</label
+            >
             <Radio.Group v-model:value="specType" class="flex gap-4">
               <Radio value="single">单规格</Radio>
               <Radio value="multiple">多规格</Radio>
@@ -856,7 +969,10 @@ function setLoading(loading: boolean) {
 
           <!-- 多规格：模板选择 -->
           <div v-if="specType === 'multiple'" class="flex items-center gap-6">
-            <label class="w-24 text-sm font-medium text-gray-700 text-right pr-3">规格模板</label>
+            <label
+              class="w-24 text-sm font-medium text-gray-700 text-right pr-3"
+              >规格模板</label
+            >
             <div class="flex-1 max-w-md">
               <Select
                 v-model:value="selectedTemplateId"
@@ -870,86 +986,223 @@ function setLoading(loading: boolean) {
           </div>
 
           <!-- 多规格：模板规格预览 -->
-          <div v-if="specType === 'multiple' && templateSpecs.length > 0" class="flex flex-wrap gap-3">
+          <div
+            v-if="specType === 'multiple' && templateSpecs.length > 0"
+            class="flex flex-wrap gap-3"
+          >
             <div
               v-for="ts in templateSpecs"
               :key="ts.name"
               class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2"
             >
-              <span class="text-sm font-medium text-blue-700">{{ ts.name }}：</span>
-              <span class="text-sm text-blue-600">{{ ts.values.join('、') }}</span>
+              <span class="text-sm font-medium text-blue-700"
+                >{{ ts.name }}：</span
+              >
+              <span class="text-sm text-blue-600">{{
+                ts.values.join('、')
+              }}</span>
             </div>
           </div>
 
           <div
             ref="skuWrapperRef"
             class="border rounded-lg sku-table-wrapper"
-            :class="{ 'scrolled-right': isLeftScrolled, 'scrolled-left': isRightScrolled }"
+            :class="{
+              'scrolled-right': isLeftScrolled,
+              'scrolled-left': isRightScrolled,
+            }"
             @scroll="handleSkuScroll"
           >
             <table class="sku-table">
               <thead class="bg-gray-50">
                 <tr>
-                  <th v-if="specType === 'multiple'" class="px-4 py-3 text-left text-sm font-medium text-gray-600 whitespace-nowrap sticky-col-spec">规格组合</th>
-                  <th :class="['px-4 py-3 text-left text-sm font-medium text-gray-600', { 'sticky-col-image': specType === 'multiple' }]">图片</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130">售价</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130">成本价</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130">原价</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-150">商品编号</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-150">条形码</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-140">重量 (KG)</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-140">体积(m³)</th>
-                  <th v-if="specType === 'multiple'" class="px-4 py-3 text-left text-sm font-medium text-gray-600 whitespace-nowrap sticky-col-right-group sticky-col-default">默认选中规格</th>
-                  <th v-if="specType === 'multiple'" class="px-4 py-3 text-left text-sm font-medium text-gray-600 whitespace-nowrap sticky-col-right-group sticky-col-action">操作</th>
+                  <th
+                    v-if="specType === 'multiple'"
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 whitespace-nowrap sticky-col-spec"
+                  >
+                    规格组合
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600"
+                    :class="[{ 'sticky-col-image': specType === 'multiple' }]"
+                  >
+                    图片
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130"
+                  >
+                    售价
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130"
+                  >
+                    成本价
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-130"
+                  >
+                    原价
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-150"
+                  >
+                    商品编号
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-150"
+                  >
+                    条形码
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-140"
+                  >
+                    重量 (KG)
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 min-w-140"
+                  >
+                    体积(m³)
+                  </th>
+                  <th
+                    v-if="specType === 'multiple'"
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 whitespace-nowrap sticky-col-right-group sticky-col-default"
+                  >
+                    默认选中规格
+                  </th>
+                  <th
+                    v-if="specType === 'multiple'"
+                    class="px-4 py-3 text-left text-sm font-medium text-gray-600 whitespace-nowrap sticky-col-right-group sticky-col-action"
+                  >
+                    操作
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="spec in specList" :key="spec._key" class="border-t">
-                  <td v-if="specType === 'multiple'" class="px-4 py-3 sticky-col-spec">
-                    <span class="text-sm font-medium text-gray-700 whitespace-nowrap">{{ spec.label }}</span>
+                  <td
+                    v-if="specType === 'multiple'"
+                    class="px-4 py-3 sticky-col-spec"
+                  >
+                    <span
+                      class="text-sm font-medium text-gray-700 whitespace-nowrap"
+                      >{{ spec.label }}</span
+                    >
                   </td>
-                  <td :class="['px-4 py-3', { 'sticky-col-image': specType === 'multiple' }]">
-                    <div v-if="spec.imageUrl" class="relative w-12 h-12 rounded-lg border border-gray-200 overflow-hidden">
-                      <img :src="spec.imageUrl" alt="规格图片" class="w-full h-full object-cover" />
-                      <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer" @click="removeSpecImage(spec)">
+                  <td
+                    class="px-4 py-3"
+                    :class="[{ 'sticky-col-image': specType === 'multiple' }]"
+                  >
+                    <div
+                      v-if="spec.imageUrl"
+                      class="relative w-12 h-12 rounded-lg border border-gray-200 overflow-hidden"
+                    >
+                      <img
+                        :src="spec.imageUrl"
+                        alt="规格图片"
+                        class="w-full h-full object-cover"
+                      />
+                      <div
+                        class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                        @click="removeSpecImage(spec)"
+                      >
                         <LucideX class="text-white w-3 h-3" />
                       </div>
                     </div>
-                    <Upload v-else :show-upload-list="false" :before-upload="(file: File) => handleSpecImageUpload(file, spec)" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
-                      <div class="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors">
+                    <Upload
+                      v-else
+                      :show-upload-list="false"
+                      :before-upload="
+                        (file: File) => handleSpecImageUpload(file, spec)
+                      "
+                      accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                    >
+                      <div
+                        class="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors"
+                      >
                         <LucideUpload class="w-4 h-4 text-gray-400" />
                       </div>
                     </Upload>
                   </td>
                   <td class="px-4 py-3">
-                    <InputNumber v-model:value="spec.price" :min="0" :precision="2" size="small" style="width: 100%" />
+                    <InputNumber
+                      v-model:value="spec.price"
+                      :min="0"
+                      :precision="2"
+                      size="small"
+                      style="width: 100%"
+                    />
                   </td>
                   <td class="px-4 py-3">
-                    <InputNumber v-model:value="spec.costPrice" :min="0" :precision="2" size="small" style="width: 100%" />
+                    <InputNumber
+                      v-model:value="spec.costPrice"
+                      :min="0"
+                      :precision="2"
+                      size="small"
+                      style="width: 100%"
+                    />
                   </td>
                   <td class="px-4 py-3">
-                    <InputNumber v-model:value="spec.originalPrice" :min="0" :precision="2" size="small" style="width: 100%" />
+                    <InputNumber
+                      v-model:value="spec.originalPrice"
+                      :min="0"
+                      :precision="2"
+                      size="small"
+                      style="width: 100%"
+                    />
                   </td>
                   <td class="px-4 py-3">
-                    <Input v-model:value="spec.skuCode" placeholder="商品编号" size="small" style="width: 100%" />
+                    <Input
+                      v-model:value="spec.skuCode"
+                      placeholder="商品编号"
+                      size="small"
+                      style="width: 100%"
+                    />
                   </td>
                   <td class="px-4 py-3">
-                    <Input v-model:value="spec.barcode" placeholder="条形码" size="small" style="width: 100%" />
+                    <Input
+                      v-model:value="spec.barcode"
+                      placeholder="条形码"
+                      size="small"
+                      style="width: 100%"
+                    />
                   </td>
                   <td class="px-4 py-3">
-                    <InputNumber v-model:value="spec.weight" :min="0" :precision="3" size="small" style="width: 100%" />
+                    <InputNumber
+                      v-model:value="spec.weight"
+                      :min="0"
+                      :precision="3"
+                      size="small"
+                      style="width: 100%"
+                    />
                   </td>
                   <td class="px-4 py-3">
-                    <InputNumber v-model:value="spec.volume" :min="0" :precision="6" size="small" style="width: 100%" />
+                    <InputNumber
+                      v-model:value="spec.volume"
+                      :min="0"
+                      :precision="6"
+                      size="small"
+                      style="width: 100%"
+                    />
                   </td>
-                  <td v-if="specType === 'multiple'" class="px-4 py-3 sticky-col-right-group sticky-col-default">
+                  <td
+                    v-if="specType === 'multiple'"
+                    class="px-4 py-3 sticky-col-right-group sticky-col-default"
+                  >
                     <div class="flex items-center">
-                      <Switch :checked="spec.isDefault" @change="(val: any) => handleDefaultChange(spec, val ?? false)" />
+                      <Switch
+                        :checked="spec.isDefault"
+                        @change="
+                          (val: any) => handleDefaultChange(spec, val ?? false)
+                        "
+                      />
                     </div>
                   </td>
-                  <td v-if="specType === 'multiple'" class="px-4 py-3 sticky-col-right-group sticky-col-action">
+                  <td
+                    v-if="specType === 'multiple'"
+                    class="px-4 py-3 sticky-col-right-group sticky-col-action"
+                  >
                     <div class="flex items-center">
-                       <Switch
+                      <Switch
                         v-model:checked="spec.isActive"
                         checked-children="显示"
                         un-checked-children="隐藏"
@@ -987,10 +1240,10 @@ function setLoading(loading: boolean) {
 
 .basic-form-row {
   display: flex;
-  align-items: center;
-  min-height: 32px;
   flex: 1;
+  align-items: center;
   min-width: 0;
+  min-height: 32px;
 }
 
 .basic-form-pair {
@@ -1003,44 +1256,43 @@ function setLoading(loading: boolean) {
 }
 
 .basic-form-label {
+  flex-shrink: 0;
   width: 120px;
   padding-right: 16px;
-  text-align: right;
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
-  flex-shrink: 0;
   line-height: 32px;
+  color: #374151;
+  text-align: right;
 }
 
 .basic-form-label.required {
-  padding-left: 12px;
   position: relative;
+  padding-left: 12px;
 }
 
 .required-star {
-  color: #ef4444;
   position: absolute;
-  left: 0;
   top: 0;
+  left: 0;
   line-height: 32px;
+  color: #ef4444;
 }
 
 .basic-form-control {
-  width: 360px;
   flex-shrink: 0;
+  width: 360px;
 }
 
 /* SKU 表格：水平滚动 + 左右列固定 */
 .sku-table-wrapper {
-  overflow-x: auto;
-  overflow-y: hidden;
   padding-bottom: 16px;
+  overflow: auto hidden;
 }
 
 .sku-table {
-  min-width: 1300px;
   width: 100%;
+  min-width: 1300px;
 }
 
 /* 左侧固定列 - 规格组合 */
@@ -1048,8 +1300,8 @@ function setLoading(loading: boolean) {
   position: sticky;
   left: 0;
   z-index: 2;
-  background: #fff;
   min-width: 160px;
+  background: #fff;
 }
 
 /* 左侧固定列 - 图片 */
@@ -1060,39 +1312,35 @@ function setLoading(loading: boolean) {
   background: #fff;
 }
 
-/* 右侧固定列分组层：默认选中规格 + 操作 */
+/* 右侧固定列分组层：默认选中规格 + 操作；左侧始终显示渐变阴影和边框（参照 vxe-table fixed right 效果） */
 .sticky-col-right-group {
-  background: #fff;
   z-index: 2;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -8px 0 12px -6px rgb(0 0 0 / 15%);
 }
 
 /* 默认选中规格列（固定列，紧邻操作列左侧） */
 .sticky-col-default {
   position: sticky;
   right: 78px;
-  width: 78px;
   box-sizing: border-box;
+  width: 78px;
 }
 
 /* 操作列（固定在最右侧） */
 .sticky-col-action {
   position: sticky;
   right: 0;
-  width: 78px;
   box-sizing: border-box;
+  width: 78px;
 }
 
 /* 向右滚动时，左侧固定列右侧加阴影和边框 */
 .sku-table-wrapper.scrolled-right .sticky-col-spec,
 .sku-table-wrapper.scrolled-right .sticky-col-image {
-  box-shadow: 3px 0 6px -3px rgba(0,0,0,0.12);
   border-right: 1px solid #e5e7eb;
-}
-
-/* 右侧固定列分组左侧始终显示渐变阴影和边框（参照 vxe-table fixed right 效果） */
-.sticky-col-right-group {
-  box-shadow: -8px 0 12px -6px rgba(0,0,0,0.15);
-  border-left: 1px solid #e5e7eb;
+  box-shadow: 3px 0 6px -3px rgb(0 0 0 / 12%);
 }
 
 /* thead 中的左侧固定列需要更高层级 */
@@ -1107,10 +1355,21 @@ thead .sticky-col-right-group {
 }
 
 /* 中间可滚动列最小宽度 */
-.min-w-110 { min-width: 110px; }
-.min-w-130 { min-width: 130px; }
-.min-w-140 { min-width: 140px; }
-.min-w-150 { min-width: 150px; }
+.min-w-110 {
+  min-width: 110px;
+}
+
+.min-w-130 {
+  min-width: 130px;
+}
+
+.min-w-140 {
+  min-width: 140px;
+}
+
+.min-w-150 {
+  min-width: 150px;
+}
 </style>
 
 <style>
@@ -1118,6 +1377,7 @@ thead .sticky-col-right-group {
 .product-drawer.drawer-75.w-130 {
   width: 75% !important;
 }
+
 .product-drawer.drawer-fullscreen.w-130 {
   width: 100% !important;
 }

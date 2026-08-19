@@ -1,15 +1,18 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
+
 import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import {
   addMediaCategoryApi,
   getMediaCategoryAllApi,
   updateMediaCategoryApi,
 } from '#/api';
 
-const data = ref<{ create?: boolean; row?: any; parentId?: number }>({});
+const data = ref<{ create?: boolean; parentId?: number; row?: any }>({});
 const isCreate = computed(() => data.value?.create);
 const getTitle = computed(() => (isCreate.value ? '新增分类' : '编辑分类'));
 

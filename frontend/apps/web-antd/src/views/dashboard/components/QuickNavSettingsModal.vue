@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { QuickNavItem } from '#/api';
+
 import { computed, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
@@ -12,7 +14,6 @@ import {
   saveQuickNavPreferenceApi,
   saveSaleSimpleModeApi,
 } from '#/api';
-import type { QuickNavItem } from '#/api';
 import { $t } from '#/locales';
 
 defineOptions({
@@ -102,7 +103,8 @@ async function loadData() {
     // 按已保存的配置排序选出已选模块
     const selectedMap = new Map<number, number>();
     savedPref.forEach((p) => {
-      if (p?.menuId != null) selectedMap.set(p.menuId, p.sort ?? 0);
+      if (p?.menuId !== null && p?.menuId !== undefined)
+        selectedMap.set(p.menuId, p.sort ?? 0);
     });
 
     const selected: MenuOption[] = [];
@@ -110,7 +112,7 @@ async function loadData() {
 
     // 先按 sort 顺序填充已选
     const sortedSelectedIds = [...selectedMap.entries()]
-      .sort((a, b) => a[1] - b[1])
+      .toSorted((a, b) => a[1] - b[1])
       .map(([id]) => id);
 
     for (const id of sortedSelectedIds) {
@@ -145,11 +147,11 @@ watch(
 
 // ===== 原生 HTML5 拖拽实现 =====
 const dragIndex = ref(-1);
-const dragFrom = ref<'selected' | 'available'>('selected');
+const dragFrom = ref<'available' | 'selected'>('selected');
 
 function onDragStart(
   index: number,
-  from: 'selected' | 'available',
+  from: 'available' | 'selected',
   e: DragEvent,
 ) {
   dragIndex.value = index;
@@ -228,12 +230,10 @@ function close() {
 async function handleSave() {
   saving.value = true;
   try {
-    const payload: QuickNavItem[] = selectedItems.value.map(
-      (item, idx) => ({
-        menuId: item.id,
-        sort: idx,
-      }),
-    );
+    const payload: QuickNavItem[] = selectedItems.value.map((item, idx) => ({
+      menuId: item.id,
+      sort: idx,
+    }));
     // 并行保存快捷导航配置和简易模式开关
     await Promise.all([
       saveQuickNavPreferenceApi(payload),
@@ -262,9 +262,14 @@ async function handleSave() {
     <Spin :spinning="loading">
       <div class="space-y-4">
         <!-- 销售简易模式开关 -->
-        <div class="flex items-center justify-between rounded border border-blue-100 bg-blue-50 px-3 py-2.5">
+        <div
+          class="flex items-center justify-between rounded border border-blue-100 bg-blue-50 px-3 py-2.5"
+        >
           <div class="flex items-center gap-2">
-            <IconifyIcon icon="lucide:zap" class="size-4 shrink-0 text-blue-500" />
+            <IconifyIcon
+              icon="lucide:zap"
+              class="size-4 shrink-0 text-blue-500"
+            />
             <div>
               <div class="text-sm font-medium text-gray-800">
                 {{ $t('page.dashboard.saleSimpleMode') }}
@@ -300,17 +305,17 @@ async function handleSave() {
               <div class="flex items-center gap-2">
                 <span
                   class="inline-flex items-center gap-1 text-xs"
-                  :class="
-                    idx < 6
-                      ? 'text-green-600'
-                      : 'text-gray-400'
-                  "
+                  :class="idx < 6 ? 'text-green-600' : 'text-gray-400'"
                 >
                   <span
                     class="inline-block size-1.5 rounded-full"
                     :class="idx < 6 ? 'bg-green-500' : 'bg-gray-300'"
                   ></span>
-                  {{ idx < 6 ? $t('page.dashboard.show') : $t('page.dashboard.hide') }}
+                  {{
+                    idx < 6
+                      ? $t('page.dashboard.show')
+                      : $t('page.dashboard.hide')
+                  }}
                 </span>
                 <a
                   class="cursor-pointer text-xs text-red-500 hover:underline"
@@ -346,7 +351,9 @@ async function handleSave() {
             >
               <div class="flex min-w-0 items-center gap-2">
                 <IconifyIcon :icon="item.icon" class="size-4 shrink-0" />
-                <span class="truncate text-sm text-gray-700">{{ item.title }}</span>
+                <span class="truncate text-sm text-gray-700">{{
+                  item.title
+                }}</span>
               </div>
               <a
                 class="cursor-pointer text-xs text-blue-500 hover:underline"

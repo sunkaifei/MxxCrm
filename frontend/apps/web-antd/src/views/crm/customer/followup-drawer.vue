@@ -1,12 +1,30 @@
 <script lang="ts" setup>
-import { ref, watch, computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+
 import {
-  Button, Card, message, Tag, DatePicker,
-  Select, Textarea, Timeline, Empty,
-} from 'ant-design-vue';
-import { LucideChevronDown, LucideChevronUp, LucidePhone, LucideMail, LucideUser, LucideBuilding2, LucideGlobe } from '@vben/icons';
+  LucideBuilding2,
+  LucideChevronDown,
+  LucideChevronUp,
+  LucideGlobe,
+  LucideMail,
+  LucidePhone,
+  LucideUser,
+} from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
+
+import {
+  Button,
+  Card,
+  DatePicker,
+  Empty,
+  message,
+  Select,
+  Tag,
+  Textarea,
+  Timeline,
+} from 'ant-design-vue';
 import dayjs from 'dayjs';
+
 import { getCustomerInfoApi, saveFollowupApi } from '#/api';
 
 const props = defineProps<{ id: number }>();
@@ -26,22 +44,45 @@ const followupForm = ref({
 const followupRecords = ref<any[]>([]);
 
 const sourceLabelMap: Record<string, string> = {
-  Website: '官网', Exhibition: '展会', Social: '社交媒体', Referral: '客户转介',
-  ColdCall: '陌生拜访', Customs: '海关数据', Email: '邮件营销', Alibaba: '阿里国际站',
-  Amazon: 'Amazon', Tiktok: 'TikTok', Wechat: '微信', Other: '其他',
+  Website: '官网',
+  Exhibition: '展会',
+  Social: '社交媒体',
+  Referral: '客户转介',
+  ColdCall: '陌生拜访',
+  Customs: '海关数据',
+  Email: '邮件营销',
+  Alibaba: '阿里国际站',
+  Amazon: 'Amazon',
+  Tiktok: 'TikTok',
+  Wechat: '微信',
+  Other: '其他',
 };
 
 const industryLabelMap: Record<number, string> = {
-  1: '零售', 2: '批发', 3: '制造', 4: '贸易代理',
-  5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
+  1: '零售',
+  2: '批发',
+  3: '制造',
+  4: '贸易代理',
+  5: '电商',
+  6: '微商',
+  7: '社交电商',
+  8: '其他',
 };
 
 const levelLabelMap: Record<string, string> = {
-  1: '无级别', 2: '重点客户', 3: '优质客户', 4: '普通客户', 5: '其他',
+  1: '无级别',
+  2: '重点客户',
+  3: '优质客户',
+  4: '普通客户',
+  5: '其他',
 };
 
 const levelColorMap: Record<string, string> = {
-  1: 'default', 2: 'red', 3: 'orange', 4: 'blue', 5: 'green',
+  1: 'default',
+  2: 'red',
+  3: 'orange',
+  4: 'blue',
+  5: 'green',
 };
 
 const followMethodOptions = [
@@ -55,14 +96,15 @@ const followMethodOptions = [
 ];
 
 function getMethodOption(value: any) {
-  return followMethodOptions.find(o => o.value === value);
+  return followMethodOptions.find((o) => o.value === value);
 }
 
 // 跟进记录倒序（最新在前）
 const reversedFollowupRecords = computed(() =>
-  [...followupRecords.value].sort((a, b) =>
-    new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
-  )
+  followupRecords.value.toSorted(
+    (a, b) =>
+      new Date(b.createTime).getTime() - new Date(a.createTime).getTime(),
+  ),
 );
 
 async function fetchDetail() {
@@ -123,13 +165,21 @@ watch(() => props.id, fetchDetail, { immediate: true });
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <LucideBuilding2 class="w-5 h-5 text-gray-400" />
-                <span class="font-bold text-lg">{{ customer?.companyName || '-' }}</span>
-                <Tag v-if="customer?.level" :color="levelColorMap[customer.level] || 'blue'">
+                <span class="font-bold text-lg">{{
+                  customer?.companyName || '-'
+                }}</span>
+                <Tag
+                  v-if="customer?.level"
+                  :color="levelColorMap[customer.level] || 'blue'"
+                >
                   {{ levelLabelMap[customer.level] || customer.level }}
                 </Tag>
               </div>
               <Button type="link" @click="toggleMoreInfo" class="text-blue-600">
-                <LucideChevronDown v-if="!showMoreInfo" class="inline w-4 h-4 mr-1" />
+                <LucideChevronDown
+                  v-if="!showMoreInfo"
+                  class="inline w-4 h-4 mr-1"
+                />
                 <LucideChevronUp v-else class="inline w-4 h-4 mr-1" />
                 {{ showMoreInfo ? '隐藏信息' : '显示更多' }}
               </Button>
@@ -151,7 +201,9 @@ watch(() => props.id, fetchDetail, { immediate: true });
               </div>
               <div class="text-sm">
                 <span class="text-gray-400">来源：</span>
-                <span>{{ sourceLabelMap[customer?.source] || customer?.source || '-' }}</span>
+                <span>{{
+                  sourceLabelMap[customer?.source] || customer?.source || '-'
+                }}</span>
               </div>
             </div>
 
@@ -159,11 +211,17 @@ watch(() => props.id, fetchDetail, { immediate: true });
               <div class="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span class="text-gray-400">行业：</span>
-                  <span>{{ industryLabelMap[customer?.industry] || customer?.industry || '-' }}</span>
+                  <span>{{
+                    industryLabelMap[customer?.industry] ||
+                    customer?.industry ||
+                    '-'
+                  }}</span>
                 </div>
                 <div>
                   <span class="text-gray-400">级别：</span>
-                  <span>{{ levelLabelMap[customer?.level] || customer?.level || '-' }}</span>
+                  <span>{{
+                    levelLabelMap[customer?.level] || customer?.level || '-'
+                  }}</span>
                 </div>
                 <div>
                   <span class="text-gray-400">国家：</span>
@@ -179,8 +237,15 @@ watch(() => props.id, fetchDetail, { immediate: true });
                 </div>
                 <div>
                   <span class="text-gray-400">网站：</span>
-                  <a v-if="customer?.website" :href="customer.website" target="_blank" class="text-blue-600 hover:underline">
-                    <LucideGlobe class="inline w-3.5 h-3.5 mr-0.5" />{{ customer.website }}
+                  <a
+                    v-if="customer?.website"
+                    :href="customer.website"
+                    target="_blank"
+                    class="text-blue-600 hover:underline"
+                  >
+                    <LucideGlobe class="inline w-3.5 h-3.5 mr-0.5" />{{
+                      customer.website
+                    }}
                   </a>
                   <span v-else>-</span>
                 </div>
@@ -199,7 +264,10 @@ watch(() => props.id, fetchDetail, { immediate: true });
 
         <div class="flex-1 overflow-auto">
           <Card size="small" title="跟进记录">
-            <Empty v-if="!reversedFollowupRecords.length" description="暂无跟进记录" />
+            <Empty
+              v-if="reversedFollowupRecords.length === 0"
+              description="暂无跟进记录"
+            />
             <Timeline v-else>
               <Timeline.Item
                 v-for="(record, index) in reversedFollowupRecords"
@@ -207,16 +275,32 @@ watch(() => props.id, fetchDetail, { immediate: true });
                 :color="getMethodOption(record.activityType)?.color || 'gray'"
               >
                 <div class="flex flex-wrap items-center gap-2 mb-1">
-                  <Tag :color="getMethodOption(record.activityType)?.color || 'default'">
+                  <Tag
+                    :color="
+                      getMethodOption(record.activityType)?.color || 'default'
+                    "
+                  >
                     {{ getMethodOption(record.activityType)?.label || '未知' }}
                   </Tag>
-                  <span class="text-xs text-gray-400">{{ formatDateTime(record.createTime) }}</span>
-                  <span v-if="record.createdByName" class="text-xs text-gray-400">
+                  <span class="text-xs text-gray-400">{{
+                    formatDateTime(record.createTime)
+                  }}</span>
+                  <span
+                    v-if="record.createdByName"
+                    class="text-xs text-gray-400"
+                  >
                     · {{ record.createdByName }}
                   </span>
                 </div>
-                <div class="text-sm text-gray-800 whitespace-pre-wrap break-all">{{ record.content }}</div>
-                <div v-if="record.nextFollowDate" class="mt-1 text-xs text-orange-500">
+                <div
+                  class="text-sm text-gray-800 whitespace-pre-wrap break-all"
+                >
+                  {{ record.content }}
+                </div>
+                <div
+                  v-if="record.nextFollowDate"
+                  class="mt-1 text-xs text-orange-500"
+                >
                   下次联系：{{ record.nextFollowDate }}
                 </div>
               </Timeline.Item>
@@ -241,7 +325,9 @@ watch(() => props.id, fetchDetail, { immediate: true });
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">下次联系时间</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >下次联系时间</label
+              >
               <DatePicker
                 v-model:value="followupForm.nextFollowAt as any"
                 class="w-full"
@@ -250,7 +336,9 @@ watch(() => props.id, fetchDetail, { immediate: true });
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">跟进方式</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >跟进方式</label
+              >
               <Select
                 v-model:value="followupForm.method"
                 class="w-full"

@@ -4,6 +4,7 @@ import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, h, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { useAccess } from '@vben/access';
 import { Page } from '@vben/common-ui';
@@ -32,8 +33,6 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 import { RefreshCw } from 'lucide-vue-next';
-import { useRouter } from 'vue-router';
-import { UserPickerModal } from '#/components/UserPickerModal';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -58,8 +57,9 @@ import {
   syncSalaryApprovalApi,
   upsertSalaryConfigApi,
 } from '#/api/core/finance';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { UserPickerModal } from '#/components/UserPickerModal';
+import { $t } from '#/locales';
 
 const guideStepCount = 5;
 
@@ -98,7 +98,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   hour12: false,
 });
 
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   0: { label: $t('page.finance.salary.status.pending'), color: 'blue' },
   1: { label: $t('page.finance.salary.status.approved'), color: 'orange' },
   2: { label: $t('page.finance.salary.status.paid'), color: 'green' },
@@ -211,11 +211,15 @@ function openConfigForm(record?: any) {
 
 async function submitConfigForm() {
   if (!configForm.employeeId) {
-    message.warning($t('page.finance.salary.config.message.employeeIdRequired'));
+    message.warning(
+      $t('page.finance.salary.config.message.employeeIdRequired'),
+    );
     return;
   }
   if (configForm.baseSalary < 0) {
-    message.warning($t('page.finance.salary.config.message.baseSalaryNegative'));
+    message.warning(
+      $t('page.finance.salary.config.message.baseSalaryNegative'),
+    );
     return;
   }
   configFormSubmitting.value = true;
@@ -232,8 +236,8 @@ async function submitConfigForm() {
     message.success($t('page.finance.common.saveSuccess'));
     configFormVisible.value = false;
     await loadConfigList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.saveFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.saveFailed'));
   } finally {
     configFormSubmitting.value = false;
   }
@@ -251,8 +255,8 @@ async function deleteConfig(id: number) {
         await deleteSalaryConfigApi(id);
         message.success($t('page.finance.common.deleteSuccess'));
         await loadConfigList();
-      } catch (e: any) {
-        message.error(e?.message || $t('page.finance.common.deleteFailed'));
+      } catch (error: any) {
+        message.error(error?.message || $t('page.finance.common.deleteFailed'));
       }
     },
   });
@@ -281,12 +285,12 @@ async function loadLogList() {
   }
 }
 
-const logTriggerMap: Record<number, { text: string; color: string }> = {
+const logTriggerMap: Record<number, { color: string; text: string }> = {
   0: { text: $t('page.finance.salary.log.trigger.manual'), color: 'blue' },
   1: { text: $t('page.finance.salary.log.trigger.auto'), color: 'purple' },
 };
 
-const logResultMap: Record<number, { text: string; color: string }> = {
+const logResultMap: Record<number, { color: string; text: string }> = {
   0: { text: $t('page.finance.salary.log.result.failed'), color: 'red' },
   1: { text: $t('page.finance.salary.log.result.success'), color: 'green' },
 };
@@ -298,8 +302,14 @@ function formatMoney(val: any) {
 
 function formatMoneyShort(val: any) {
   const num = Number(val || 0);
-  if (num >= 100000000) return $t('page.finance.salary.format.yi', { value: (num / 100000000).toFixed(2) });
-  if (num >= 10000) return $t('page.finance.salary.format.wan', { value: (num / 10000).toFixed(1) });
+  if (num >= 100_000_000)
+    return $t('page.finance.salary.format.yi', {
+      value: (num / 100_000_000).toFixed(2),
+    });
+  if (num >= 10_000)
+    return $t('page.finance.salary.format.wan', {
+      value: (num / 10_000).toFixed(1),
+    });
   return `¥${num.toLocaleString()}`;
 }
 
@@ -522,8 +532,10 @@ async function handleApprove(row: any) {
     await approveSalaryApi(row.id);
     message.success($t('page.finance.salary.message.approveSuccess'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.salary.message.approveFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.salary.message.approveFailed'),
+    );
   } finally {
     row.pending = false;
   }
@@ -539,8 +551,10 @@ async function handlePay(row: any) {
     await paySalaryApi(row.id);
     message.success($t('page.finance.salary.message.paySuccess'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.salary.message.payFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.salary.message.payFailed'),
+    );
   } finally {
     row.pending = false;
   }
@@ -558,14 +572,14 @@ async function handleCalculate() {
       month: calcForm.month,
     });
     const count = res?.data ?? res;
-    message.success(
-      $t('page.finance.salary.modal.calcSuccess', { count }),
-    );
+    message.success($t('page.finance.salary.modal.calcSuccess', { count }));
     calcVisible.value = false;
     gridApi.query();
     loadSummary();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.salary.message.calcFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.salary.message.calcFailed'),
+    );
   } finally {
     calcLoading.value = false;
   }
@@ -574,7 +588,9 @@ async function handleCalculate() {
 async function handleBatchApprove() {
   const records = gridApi.grid.getCheckboxRecords();
   if (records.length === 0) {
-    message.warning($t('page.finance.salary.message.batchApproveSelectRequired'));
+    message.warning(
+      $t('page.finance.salary.message.batchApproveSelectRequired'),
+    );
     return;
   }
   const ids = records.map((r: any) => r.id);
@@ -582,8 +598,10 @@ async function handleBatchApprove() {
     await batchApproveSalaryApi(ids);
     message.success($t('page.finance.salary.message.batchApproveSuccess'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.salary.message.batchApproveFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.salary.message.batchApproveFailed'),
+    );
   }
 }
 
@@ -593,7 +611,9 @@ async function handleBatchPay() {
     message.warning($t('page.finance.salary.message.batchPaySelectRequired'));
     return;
   }
-  const ids = records.filter((r: any) => r.calculated && r.id).map((r: any) => r.id);
+  const ids = records
+    .filter((r: any) => r.calculated && r.id)
+    .map((r: any) => r.id);
   if (ids.length === 0) {
     message.warning($t('page.finance.salary.status.notCalculated'));
     return;
@@ -602,26 +622,40 @@ async function handleBatchPay() {
     await batchPaySalaryApi(ids);
     message.success($t('page.finance.salary.message.batchPaySuccess'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.salary.message.batchPayFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.salary.message.batchPayFailed'),
+    );
   }
 }
 
 // 底薪配置表格列
 const configColumns = computed(() => [
-  { title: $t('page.finance.salary.config.column.employeeId'), dataIndex: 'employeeId', width: 80 },
-  { title: $t('page.finance.salary.column.employeeName'), dataIndex: 'employeeName', width: 100 },
+  {
+    title: $t('page.finance.salary.config.column.employeeId'),
+    dataIndex: 'employeeId',
+    width: 80,
+  },
+  {
+    title: $t('page.finance.salary.column.employeeName'),
+    dataIndex: 'employeeName',
+    width: 100,
+  },
   {
     title: $t('page.finance.salary.config.column.year'),
     dataIndex: 'year',
     width: 80,
-    customRender: ({ text }: any) => $t('page.finance.salary.format.year', { year: text }),
+    customRender: ({ text }: any) =>
+      $t('page.finance.salary.format.year', { year: text }),
   },
   {
     title: $t('page.finance.salary.config.column.month'),
     dataIndex: 'month',
     width: 80,
-    customRender: ({ text }: any) => (text ? $t('page.finance.salary.format.month', { month: text }) : $t('page.finance.salary.config.fullYear')),
+    customRender: ({ text }: any) =>
+      text
+        ? $t('page.finance.salary.format.month', { month: text })
+        : $t('page.finance.salary.config.fullYear'),
   },
   {
     title: $t('page.finance.salary.config.column.baseSalary'),
@@ -645,9 +679,17 @@ const configColumns = computed(() => [
     title: $t('page.finance.salary.config.column.performanceCoefficient'),
     dataIndex: 'performanceCoefficient',
     width: 100,
-    customRender: ({ text }: any) => (text ? `${Number(text).toFixed(2)}` : $t('page.finance.salary.config.auto')),
+    customRender: ({ text }: any) =>
+      text
+        ? `${Number(text).toFixed(2)}`
+        : $t('page.finance.salary.config.auto'),
   },
-  { title: $t('page.finance.salary.config.column.action'), key: 'action', width: 140, fixed: 'right' as const },
+  {
+    title: $t('page.finance.salary.config.column.action'),
+    key: 'action',
+    width: 140,
+    fixed: 'right' as const,
+  },
 ]);
 
 // 核算日志表格列
@@ -656,7 +698,8 @@ const logColumns = computed(() => [
     title: $t('page.finance.salary.log.column.yearMonth'),
     key: 'yearMonth',
     width: 120,
-    customRender: ({ record }: any) => `${$t('page.finance.salary.format.year', { year: record.year })}${$t('page.finance.salary.format.month', { month: record.month })}`,
+    customRender: ({ record }: any) =>
+      `${$t('page.finance.salary.format.year', { year: record.year })}${$t('page.finance.salary.format.month', { month: record.month })}`,
   },
   {
     title: $t('page.finance.salary.log.column.triggerType'),
@@ -736,8 +779,10 @@ async function handleConfirmSalary() {
     message.success($t('page.finance.salary.message.confirmSuccess'));
     confirmVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.salary.message.confirmFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.salary.message.confirmFailed'),
+    );
   } finally {
     confirmLoading.value = false;
   }
@@ -771,8 +816,10 @@ async function handleAppealSalary() {
     message.success($t('page.finance.salary.message.recalcSubmitted'));
     appealVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.salary.message.submitFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.salary.message.submitFailed'),
+    );
   } finally {
     appealLoading.value = false;
   }
@@ -795,16 +842,33 @@ const pendingStatusOptions = [
   { value: 3, label: $t('page.finance.salary.confirmStatus.appealing') },
 ];
 const pendingColumns = [
-  { title: $t('page.finance.salary.pending.column.employee'), dataIndex: 'employeeName', width: 100 },
+  {
+    title: $t('page.finance.salary.pending.column.employee'),
+    dataIndex: 'employeeName',
+    width: 100,
+  },
   {
     title: $t('page.finance.salary.pending.column.yearMonth'),
     dataIndex: 'year',
     width: 100,
     customRender: ({ record }: any) => `${record.year}-${record.month}`,
   },
-  { title: $t('page.finance.salary.pending.column.reason'), dataIndex: 'reason', ellipsis: true },
-  { title: $t('page.finance.salary.pending.column.createTime'), dataIndex: 'createTime', width: 170 },
-  { title: $t('page.finance.salary.pending.column.action'), dataIndex: 'operation', width: 160, fixed: 'right' as const },
+  {
+    title: $t('page.finance.salary.pending.column.reason'),
+    dataIndex: 'reason',
+    ellipsis: true,
+  },
+  {
+    title: $t('page.finance.salary.pending.column.createTime'),
+    dataIndex: 'createTime',
+    width: 170,
+  },
+  {
+    title: $t('page.finance.salary.pending.column.action'),
+    dataIndex: 'operation',
+    width: 160,
+    fixed: 'right' as const,
+  },
 ];
 
 async function loadPendingList() {
@@ -849,9 +913,9 @@ function downloadBlob(blob: Blob, filename: string) {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  document.body.appendChild(link);
+  document.body.append(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
   URL.revokeObjectURL(url);
 }
 
@@ -860,17 +924,23 @@ async function handleExportSalary(format: 'csv' | 'xlsx' = 'xlsx') {
   exportingSalary.value = true;
   try {
     const params = { year: summaryYear.value, month: summaryMonth.value };
-    const res: any = format === 'xlsx'
-      ? await exportSalaryXlsxApi(params)
-      : await exportSalaryApi(params);
-    const mime = format === 'xlsx'
-      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      : 'text/csv;charset=utf-8';
-    const blob = res instanceof Blob ? res : new Blob([res as any], { type: mime });
-    downloadBlob(blob, `salary_${summaryYear.value}-${summaryMonth.value}.${format}`);
+    const res: any =
+      format === 'xlsx'
+        ? await exportSalaryXlsxApi(params)
+        : await exportSalaryApi(params);
+    const mime =
+      format === 'xlsx'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'text/csv;charset=utf-8';
+    const blob =
+      res instanceof Blob ? res : new Blob([res as any], { type: mime });
+    downloadBlob(
+      blob,
+      `salary_${summaryYear.value}-${summaryMonth.value}.${format}`,
+    );
     message.success($t('page.finance.common.success'));
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   } finally {
     exportingSalary.value = false;
   }
@@ -880,17 +950,23 @@ async function handleExportTax(format: 'csv' | 'xlsx' = 'xlsx') {
   exportingTax.value = true;
   try {
     const params = { year: summaryYear.value, month: summaryMonth.value };
-    const res: any = format === 'xlsx'
-      ? await exportTaxXlsxApi(params)
-      : await exportTaxApi(params);
-    const mime = format === 'xlsx'
-      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      : 'text/csv;charset=utf-8';
-    const blob = res instanceof Blob ? res : new Blob([res as any], { type: mime });
-    downloadBlob(blob, `tax_${summaryYear.value}-${summaryMonth.value}.${format}`);
+    const res: any =
+      format === 'xlsx'
+        ? await exportTaxXlsxApi(params)
+        : await exportTaxApi(params);
+    const mime =
+      format === 'xlsx'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'text/csv;charset=utf-8';
+    const blob =
+      res instanceof Blob ? res : new Blob([res as any], { type: mime });
+    downloadBlob(
+      blob,
+      `tax_${summaryYear.value}-${summaryMonth.value}.${format}`,
+    );
     message.success($t('page.finance.common.success'));
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   } finally {
     exportingTax.value = false;
   }
@@ -935,8 +1011,8 @@ async function handleSubmitApproval() {
         const data = res?.data || res;
         message.success(data?.message || $t('page.finance.common.success'));
         gridApi.query();
-      } catch (e: any) {
-        message.error(e?.message || $t('page.finance.common.failed'));
+      } catch (error: any) {
+        message.error(error?.message || $t('page.finance.common.failed'));
       } finally {
         submittingApproval.value = false;
       }
@@ -954,8 +1030,8 @@ async function handleSyncApproval() {
     const data = res?.data || res;
     message.success(data?.message || $t('page.finance.common.success'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   } finally {
     syncingApproval.value = false;
   }
@@ -975,8 +1051,10 @@ async function handleApproveAppeal(record: any) {
         message.success($t('page.finance.salary.modal.approveRecalcSuccess'));
         loadPendingList();
         gridApi.query();
-      } catch (e: any) {
-        message.error(e?.message || $t('page.finance.salary.modal.handleFailed'));
+      } catch (error: any) {
+        message.error(
+          error?.message || $t('page.finance.salary.modal.handleFailed'),
+        );
       }
     },
   });
@@ -995,8 +1073,10 @@ async function handleRejectAppeal(record: any) {
         });
         message.success($t('page.finance.salary.modal.rejectAppealSuccess'));
         loadPendingList();
-      } catch (e: any) {
-        message.error(e?.message || $t('page.finance.salary.modal.handleFailed'));
+      } catch (error: any) {
+        message.error(
+          error?.message || $t('page.finance.salary.modal.handleFailed'),
+        );
       }
     },
   });
@@ -1015,11 +1095,7 @@ onMounted(() => {
       :expand-text="$t('page.finance.salary.guide.expand')"
       :collapse-text="$t('page.finance.salary.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -1036,12 +1112,24 @@ onMounted(() => {
       <Spin :spinning="summaryLoading">
         <div class="mb-3 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <IconifyIcon icon="lucide:trending-up" class="text-lg text-primary" />
+            <IconifyIcon
+              icon="lucide:trending-up"
+              class="text-lg text-primary"
+            />
             <span class="font-semibold">
-              {{ $t('page.finance.salary.summary.title', { year: summaryYear, month: summaryMonth }) }}
+              {{
+                $t('page.finance.salary.summary.title', {
+                  year: summaryYear,
+                  month: summaryMonth,
+                })
+              }}
             </span>
           </div>
-          <Button size="small" :aria-label="$t('page.finance.salary.tooltip.refreshSummary')" @click="loadSummary">
+          <Button
+            size="small"
+            :aria-label="$t('page.finance.salary.tooltip.refreshSummary')"
+            @click="loadSummary"
+          >
             <template #icon>
               <IconifyIcon icon="lucide:refresh-cw" aria-hidden="true" />
             </template>
@@ -1160,7 +1248,10 @@ onMounted(() => {
         <Button
           v-if="showFinanceButtons"
           class="mr-2"
-          @click="configVisible = true; loadConfigList()"
+          @click="
+            configVisible = true;
+            loadConfigList();
+          "
         >
           <template #icon>
             <IconifyIcon icon="lucide:settings" />
@@ -1170,7 +1261,10 @@ onMounted(() => {
         <Button
           v-if="showFinanceButtons"
           class="mr-2"
-          @click="logVisible = true; loadLogList()"
+          @click="
+            logVisible = true;
+            loadLogList();
+          "
         >
           <template #icon>
             <IconifyIcon icon="lucide:history" />
@@ -1244,7 +1338,8 @@ onMounted(() => {
       </template>
 
       <template #yearMonth="{ row }">
-        {{ $t('page.finance.salary.format.year', { year: row.year }) }}{{ $t('page.finance.salary.format.month', { month: row.month }) }}
+        {{ $t('page.finance.salary.format.year', { year: row.year })
+        }}{{ $t('page.finance.salary.format.month', { month: row.month }) }}
       </template>
 
       <template #baseSalary="{ row }">
@@ -1310,14 +1405,18 @@ onMounted(() => {
       </template>
 
       <template #status="{ row }">
-        <Tag v-if="!row.calculated" color="warning">{{ $t('page.finance.salary.status.notCalculated') }}</Tag>
+        <Tag v-if="!row.calculated" color="warning">
+          {{ $t('page.finance.salary.status.notCalculated') }}
+        </Tag>
         <Tag v-else :color="statusMap[row.status]?.color || 'default'">
           {{ statusMap[row.status]?.label || row.status }}
         </Tag>
       </template>
 
       <template #employeeConfirmed="{ row }">
-        <Tag v-if="row.employeeConfirmed === 0" color="default">{{ $t('page.finance.salary.confirmStatus.unconfirmed') }}</Tag>
+        <Tag v-if="row.employeeConfirmed === 0" color="default">
+          {{ $t('page.finance.salary.confirmStatus.unconfirmed') }}
+        </Tag>
         <Tag v-else-if="row.employeeConfirmed === 1" color="green">
           {{ $t('page.finance.salary.confirmStatus.confirmed') }}
         </Tag>
@@ -1334,7 +1433,9 @@ onMounted(() => {
         </span>
         <!-- 财务/超管：审核/发放/调整/详情/处理申诉 -->
         <template v-else-if="isFullScope">
-          <Button type="link" size="small" @click="goDetail(row)">{{ $t('page.finance.salary.action.detail') }}</Button>
+          <Button type="link" size="small" @click="goDetail(row)">
+            {{ $t('page.finance.salary.action.detail') }}
+          </Button>
           <Button
             v-if="row.status === 0"
             type="link"
@@ -1372,7 +1473,9 @@ onMounted(() => {
         </template>
         <!-- 管理员：详情 -->
         <template v-else-if="isManagerScope">
-          <Button type="link" size="small" @click="goDetail(row)">{{ $t('page.finance.salary.action.detail') }}</Button>
+          <Button type="link" size="small" @click="goDetail(row)">
+            {{ $t('page.finance.salary.action.detail') }}
+          </Button>
         </template>
         <!-- 普通员工（销售）：确认工资/申请重新核算 -->
         <template v-else>
@@ -1404,7 +1507,9 @@ onMounted(() => {
       @ok="handleCalculate"
     >
       <div class="py-4">
-        <div class="mb-3 flex items-center gap-2 rounded bg-blue-50 p-3 text-sm text-blue-600">
+        <div
+          class="mb-3 flex items-center gap-2 rounded bg-blue-50 p-3 text-sm text-blue-600"
+        >
           <IconifyIcon icon="lucide:info" />
           <span>{{ $t('page.finance.salary.modal.calcContentManual') }}</span>
         </div>
@@ -1458,7 +1563,12 @@ onMounted(() => {
             <Button type="link" size="small" @click="openConfigForm(record)">
               {{ $t('page.finance.common.edit') }}
             </Button>
-            <Button type="link" size="small" danger @click="deleteConfig(record.id)">
+            <Button
+              type="link"
+              size="small"
+              danger
+              @click="deleteConfig(record.id)"
+            >
               {{ $t('page.finance.common.delete') }}
             </Button>
           </template>
@@ -1468,17 +1578,30 @@ onMounted(() => {
       <!-- 配置表单弹窗 -->
       <Modal
         v-model:open="configFormVisible"
-        :title="configForm.id ? $t('page.finance.salary.config.editTitle') : $t('page.finance.salary.config.createTitle')"
+        :title="
+          configForm.id
+            ? $t('page.finance.salary.config.editTitle')
+            : $t('page.finance.salary.config.createTitle')
+        "
         :confirm-loading="configFormSubmitting"
         @ok="submitConfigForm"
       >
         <Form layout="vertical" class="py-4" autocomplete="off">
-          <FormItem :label="$t('page.finance.salary.config.label.employeeId')" required>
-            <UserPickerModal v-model:value="configForm.employeeId" :disabled="!!configForm.id" />
+          <FormItem
+            :label="$t('page.finance.salary.config.label.employeeId')"
+            required
+          >
+            <UserPickerModal
+              v-model:value="configForm.employeeId"
+              :disabled="!!configForm.id"
+            />
           </FormItem>
           <Row :gutter="16">
             <Col :span="12">
-              <FormItem :label="$t('page.finance.salary.config.label.year')" required>
+              <FormItem
+                :label="$t('page.finance.salary.config.label.year')"
+                required
+              >
                 <InputNumber
                   v-model:value="configForm.year"
                   :min="2020"
@@ -1495,13 +1618,18 @@ onMounted(() => {
                   v-model:value="configForm.month"
                   :options="monthOptions"
                   allow-clear
-                  :placeholder="$t('page.finance.salary.config.placeholder.month')"
+                  :placeholder="
+                    $t('page.finance.salary.config.placeholder.month')
+                  "
                   style="width: 100%"
                 />
               </FormItem>
             </Col>
           </Row>
-          <FormItem :label="$t('page.finance.salary.config.label.baseSalary')" required>
+          <FormItem
+            :label="$t('page.finance.salary.config.label.baseSalary')"
+            required
+          >
             <InputNumber
               v-model:value="configForm.baseSalary"
               :min="0"
@@ -1514,7 +1642,11 @@ onMounted(() => {
           </FormItem>
           <Row :gutter="16">
             <Col :span="12">
-              <FormItem :label="$t('page.finance.salary.config.label.positionAllowance')">
+              <FormItem
+                :label="
+                  $t('page.finance.salary.config.label.positionAllowance')
+                "
+              >
                 <InputNumber
                   v-model:value="configForm.positionAllowance"
                   :min="0"
@@ -1527,7 +1659,9 @@ onMounted(() => {
               </FormItem>
             </Col>
             <Col :span="12">
-              <FormItem :label="$t('page.finance.salary.config.label.performanceBase')">
+              <FormItem
+                :label="$t('page.finance.salary.config.label.performanceBase')"
+              >
                 <InputNumber
                   v-model:value="configForm.performanceBase"
                   :min="0"
@@ -1540,7 +1674,11 @@ onMounted(() => {
               </FormItem>
             </Col>
           </Row>
-          <FormItem :label="$t('page.finance.salary.config.label.performanceCoefficient')">
+          <FormItem
+            :label="
+              $t('page.finance.salary.config.label.performanceCoefficient')
+            "
+          >
             <InputNumber
               v-model:value="configForm.performanceCoefficient"
               :min="0"
@@ -1548,7 +1686,11 @@ onMounted(() => {
               :step="0.1"
               :precision="2"
               style="width: 100%"
-              :placeholder="$t('page.finance.salary.config.placeholder.performanceCoefficient')"
+              :placeholder="
+                $t(
+                  'page.finance.salary.config.placeholder.performanceCoefficient',
+                )
+              "
               name="performanceCoefficient"
               autocomplete="off"
             />
@@ -1597,11 +1739,26 @@ onMounted(() => {
           :message="$t('page.finance.salary.modal.confirmAlertMessage')"
           class="mb-4"
         />
-        <p>{{ $t('page.finance.salary.label.employee') }}{{ confirmTarget?.employeeName }}</p>
         <p>
-          {{ $t('page.finance.salary.label.yearMonth') }}{{ $t('page.finance.salary.format.year', { year: confirmTarget?.year }) }}{{ $t('page.finance.salary.format.month', { month: confirmTarget?.month }) }}
+          {{ $t('page.finance.salary.label.employee')
+          }}{{ confirmTarget?.employeeName }}
         </p>
-        <p>{{ $t('page.finance.salary.label.totalSalary') }}{{ formatMoney(confirmTarget?.totalSalary) }}</p>
+        <p>
+          {{ $t('page.finance.salary.label.yearMonth')
+          }}{{
+            $t('page.finance.salary.format.year', {
+              year: confirmTarget?.year,
+            })
+          }}{{
+            $t('page.finance.salary.format.month', {
+              month: confirmTarget?.month,
+            })
+          }}
+        </p>
+        <p>
+          {{ $t('page.finance.salary.label.totalSalary')
+          }}{{ formatMoney(confirmTarget?.totalSalary) }}
+        </p>
       </div>
     </Modal>
 
@@ -1619,18 +1776,34 @@ onMounted(() => {
           :message="$t('page.finance.salary.modal.recalcAlertMessage')"
           class="mb-4"
         />
-        <p class="mb-2">{{ $t('page.finance.salary.label.employee') }}{{ appealTarget?.employeeName }}</p>
         <p class="mb-2">
-          {{ $t('page.finance.salary.label.yearMonth') }}{{ $t('page.finance.salary.format.year', { year: appealTarget?.year }) }}{{ $t('page.finance.salary.format.month', { month: appealTarget?.month }) }}
+          {{ $t('page.finance.salary.label.employee')
+          }}{{ appealTarget?.employeeName }}
         </p>
         <p class="mb-2">
-          {{ $t('page.finance.salary.label.totalSalary') }}{{ formatMoney(appealTarget?.totalSalary) }}
+          {{ $t('page.finance.salary.label.yearMonth')
+          }}{{
+            $t('page.finance.salary.format.year', { year: appealTarget?.year })
+          }}{{
+            $t('page.finance.salary.format.month', {
+              month: appealTarget?.month,
+            })
+          }}
         </p>
-        <FormItem :label="$t('page.finance.salary.modal.recalcReason')" required>
+        <p class="mb-2">
+          {{ $t('page.finance.salary.label.totalSalary')
+          }}{{ formatMoney(appealTarget?.totalSalary) }}
+        </p>
+        <FormItem
+          :label="$t('page.finance.salary.modal.recalcReason')"
+          required
+        >
           <Input.TextArea
             v-model:value="appealForm.reason"
             :rows="4"
-            :placeholder="$t('page.finance.salary.modal.recalcReasonPlaceholderLong')"
+            :placeholder="
+              $t('page.finance.salary.modal.recalcReasonPlaceholderLong')
+            "
             :maxlength="500"
             show-count
           />
@@ -1648,7 +1821,10 @@ onMounted(() => {
       <!-- V8-6: 申诉列表筛选条件 -->
       <Form layout="inline" class="mb-3" :model="pendingFilter">
         <FormItem :label="$t('page.finance.common.employeeId')">
-          <UserPickerModal v-model:value="pendingFilter.employeeId" style="width: 160px" />
+          <UserPickerModal
+            v-model:value="pendingFilter.employeeId"
+            style="width: 160px"
+          />
         </FormItem>
         <FormItem :label="$t('page.finance.common.year')">
           <InputNumber

@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { ColumnsType } from 'ant-design-vue/es/table';
+
 import { onMounted, reactive, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
@@ -21,7 +23,6 @@ import {
   Table,
   Tag,
 } from 'ant-design-vue';
-import type { ColumnsType } from 'ant-design-vue/es/table';
 
 import {
   downloadBankFileApi,
@@ -29,8 +30,8 @@ import {
   generateBankFileApi,
   getBankExportListApi,
 } from '#/api/core/finance';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { $t } from '#/locales';
 
 const guideStepCount = 5;
 
@@ -68,8 +69,11 @@ const bankTypeLabelMap: Record<string, string> = {
 };
 
 // 状态映射：0=生成中,1=成功,2=失败
-const statusMap: Record<number, { label: string; color: string }> = {
-  0: { label: $t('page.finance.bankExport.status.generating'), color: 'processing' },
+const statusMap: Record<number, { color: string; label: string }> = {
+  0: {
+    label: $t('page.finance.bankExport.status.generating'),
+    color: 'processing',
+  },
   1: { label: $t('page.finance.bankExport.status.success'), color: 'success' },
   2: { label: $t('page.finance.bankExport.status.failed'), color: 'error' },
 };
@@ -83,9 +87,13 @@ async function loadList() {
   try {
     const res: any = await getBankExportListApi(searchForm);
     const data = res?.data || res;
-    tableData.value = Array.isArray(data) ? data : data?.items || data?.list || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.bankExport.message.loadFailed'));
+    tableData.value = Array.isArray(data)
+      ? data
+      : data?.items || data?.list || [];
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.bankExport.message.loadFailed'),
+    );
     tableData.value = [];
   } finally {
     loading.value = false;
@@ -118,9 +126,9 @@ function downloadBlob(blob: Blob, filename: string) {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  document.body.appendChild(link);
+  document.body.append(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
   URL.revokeObjectURL(url);
 }
 
@@ -139,11 +147,12 @@ async function handleGenerate() {
     // V9: Excel 格式走新接口，直接下载二进制；TXT 格式走原接口，弹窗预览
     if (generateForm.fileFormat === 'xlsx') {
       const res: any = await generateBankExcelFileApi(params);
-      const blob = res instanceof Blob
-        ? res
-        : new Blob([res as any], {
-            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          });
+      const blob =
+        res instanceof Blob
+          ? res
+          : new Blob([res as any], {
+              type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            });
       const fileName = `bank_${params.year}-${params.month}-${params.bankType}.xlsx`;
       downloadBlob(blob, fileName);
       message.success($t('page.finance.bankExport.modal.exportSuccess'));
@@ -159,8 +168,10 @@ async function handleGenerate() {
       resultVisible.value = true;
       loadList();
     }
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.bankExport.message.generateFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.bankExport.message.generateFailed'),
+    );
   } finally {
     generateLoading.value = false;
   }
@@ -183,7 +194,11 @@ const columns: ColumnsType = [
     width: 120,
     customRender: ({ text }: any) => bankTypeLabelMap[text] || text || '-',
   },
-  { title: $t('page.finance.bankExport.column.fileName'), dataIndex: 'fileName', ellipsis: true },
+  {
+    title: $t('page.finance.bankExport.column.fileName'),
+    dataIndex: 'fileName',
+    ellipsis: true,
+  },
   {
     title: $t('page.finance.bankExport.column.totalCount'),
     dataIndex: 'totalCount',
@@ -234,11 +249,7 @@ onMounted(() => {
       :expand-text="$t('page.finance.bankExport.guide.expand')"
       :collapse-text="$t('page.finance.bankExport.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -280,7 +291,9 @@ onMounted(() => {
           />
         </FormItem>
         <FormItem>
-          <Button type="primary" @click="loadList">{{ $t('page.finance.common.query') }}</Button>
+          <Button type="primary" @click="loadList">
+            {{ $t('page.finance.common.query') }}
+          </Button>
         </FormItem>
       </Form>
     </Card>
@@ -358,7 +371,10 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.bankExport.modal.bankShort')" required>
+            <FormItem
+              :label="$t('page.finance.bankExport.modal.bankShort')"
+              required
+            >
               <Select
                 v-model:value="generateForm.bankType"
                 :options="bankTypeOptions"
@@ -369,7 +385,10 @@ onMounted(() => {
         </Row>
         <Row :gutter="16">
           <Col :span="24">
-            <FormItem :label="$t('page.finance.bankExport.modal.fileFormat')" required>
+            <FormItem
+              :label="$t('page.finance.bankExport.modal.fileFormat')"
+              required
+            >
               <Select
                 v-model:value="generateForm.fileFormat"
                 :options="fileFormatOptions"
@@ -406,12 +425,18 @@ onMounted(() => {
           <Col :span="8">
             <Statistic
               :title="$t('page.finance.bankExport.modal.bankShort')"
-              :value="bankTypeLabelMap[resultData.bankType] || resultData.bankType || '-'"
+              :value="
+                bankTypeLabelMap[resultData.bankType] ||
+                resultData.bankType ||
+                '-'
+              "
             />
           </Col>
         </Row>
 
-        <div class="mb-2 font-semibold">{{ $t('page.finance.bankExport.modal.previewTitle') }}</div>
+        <div class="mb-2 font-semibold">
+          {{ $t('page.finance.bankExport.modal.previewTitle') }}
+        </div>
         <Input.TextArea
           :value="resultData.fileContent || resultData.content || ''"
           :rows="12"

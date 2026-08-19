@@ -1,28 +1,32 @@
 <script lang="ts" setup>
-import { computed, h, ref } from 'vue';
+import type { VbenFormSchema } from '@vben/common-ui';
+
+import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormSchema } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import {
-  createCheckApi,
-  getCheckInfoApi,
-  updateCheckApi,
-  toFrontendType,
-} from '#/api/core/product/check';
-import { getInventoryListApi } from '#/api/core/product/inventory';
-import { getAdminOptionsApi } from '#/api/core/system/user';
-import { $t } from '#/locales';
+
 import {
   Button,
   InputNumber,
-  Select,
   message,
   Modal,
+  Select,
   Table,
   Tag,
   Tooltip,
 } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import {
+  createCheckApi,
+  getCheckInfoApi,
+  toFrontendType,
+  updateCheckApi,
+} from '#/api/core/product/check';
+import { getInventoryListApi } from '#/api/core/product/inventory';
+import { getAdminOptionsApi } from '#/api/core/system/user';
+import { $t } from '#/locales';
+
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 import WarehouseSelectModal from './WarehouseSelectModal.vue';
 
@@ -40,7 +44,7 @@ async function loadAssignees() {
   try {
     const resp: any = await getAdminOptionsApi();
     const data = resp?.data ?? resp;
-    const list = Array.isArray(data) ? data : data?.list ?? [];
+    const list = Array.isArray(data) ? data : (data?.list ?? []);
     assigneeOptions.value = list.map((u: any) => ({
       label: u.nickName ?? u.nickname ?? u.name ?? u.label,
       value: Number(u.id ?? u.value),
@@ -137,9 +141,9 @@ interface StocktakeItem {
   productName: string;
   productSku?: string;
   productCode?: string;
-  systemQuantity?: number | null;
-  actualQuantity?: number | null;
-  difference?: number | null;
+  systemQuantity?: null | number;
+  actualQuantity?: null | number;
+  difference?: null | number;
   diffReason?: string;
   handling?: string;
   remark?: string;
@@ -195,25 +199,26 @@ async function fetchSystemStock() {
     // 回填系统库存到表格
     tableItems.value.forEach((item) => {
       const stock = stockMap.get(item.productId);
-      item.systemQuantity = stock !== undefined ? stock : 0;
+      item.systemQuantity = stock === undefined ? 0 : stock;
     });
-  } catch (e) {
-    console.error('[库存盘点] 获取库存失败:', e);
+  } catch (error) {
+    console.error('[库存盘点] 获取库存失败:', error);
   } finally {
     stockLoading.value = false;
   }
 }
 
 // 计算差异
-function computeDiff(item: StocktakeItem): number | null {
-  if (item.actualQuantity === null || item.actualQuantity === undefined) return null;
+function computeDiff(item: Record<string, any> | StocktakeItem): null | number {
+  if (item.actualQuantity === null || item.actualQuantity === undefined)
+    return null;
   const system = Number(item.systemQuantity ?? 0);
   const actual = Number(item.actualQuantity);
   return actual - system;
 }
 
 // 差异类型标签
-function getDiffTag(diff: number | null) {
+function getDiffTag(diff: null | number) {
   if (diff === null) return { label: '-', color: 'default' };
   if (diff > 0) return { label: '盘盈', color: 'success' };
   if (diff < 0) return { label: '盘亏', color: 'error' };
@@ -221,8 +226,11 @@ function getDiffTag(diff: number | null) {
 }
 
 // 实盘数量变化时自动计算差异
-function onActualQuantityChange(item: StocktakeItem, val: number | null) {
-  item.actualQuantity = val;
+function onActualQuantityChange(
+  item: Record<string, any> | StocktakeItem,
+  val: null | number | string,
+) {
+  item.actualQuantity = val === null ? null : Number(val);
   item.difference = computeDiff(item);
 }
 
@@ -310,7 +318,9 @@ function openProductSelect() {
 }
 
 function onProductSelected(items: any[]) {
-  const existingKeys = new Set(tableItems.value.map((i) => `${i.productId}-${i.skuId || 0}`));
+  const existingKeys = new Set(
+    tableItems.value.map((i) => `${i.productId}-${i.skuId || 0}`),
+  );
   let added = 0;
   for (const item of items) {
     const key = `${item.productId}-${item.skuId || 0}`;
@@ -351,7 +361,7 @@ function removeSelected() {
     return;
   }
   tableItems.value = tableItems.value.filter(
-    (item) => !selectedRowKeys.value.includes(item.id),
+    (item) => item.id === undefined || !selectedRowKeys.value.includes(item.id),
   );
   selectedRowKeys.value = [];
 }
@@ -384,7 +394,9 @@ const formSchema: VbenFormSchema[] = [
     fieldName: '_div1',
     hideLabel: true,
     componentProps: { orientation: 'left', plain: true },
-    renderComponentContent: () => ({ default: () => $t('page.product.inventory.check.drawer.basicInfo') }),
+    renderComponentContent: () => ({
+      default: () => $t('page.product.inventory.check.drawer.basicInfo'),
+    }),
     formItemClass: 'col-span-2',
   },
   {
@@ -394,7 +406,9 @@ const formSchema: VbenFormSchema[] = [
     defaultValue: 2,
     rules: 'required',
     componentProps: {
-      placeholder: $t('page.product.inventory.check.drawer.checkTypePlaceholder'),
+      placeholder: $t(
+        'page.product.inventory.check.drawer.checkTypePlaceholder',
+      ),
       options: checkTypeOptions,
       allowClear: true,
     },
@@ -416,7 +430,7 @@ const formSchema: VbenFormSchema[] = [
     fieldName: 'warehouseId',
     label: '',
     formItemClass: 'hidden',
-    dependency: { triggerFields: ['warehouseId'] },
+    dependencies: { triggerFields: ['warehouseId'] },
   },
   {
     component: 'Textarea',
@@ -455,7 +469,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       confirmLoading.value = true;
       const values = await mainFormApi.getValues();
 
-      const { _div1, _div2, warehouseDisplay, warehouseId, ...rest } = values as any;
+      const { _div1, _div2, _warehouseDisplay, warehouseId, ...rest } =
+        values as any;
 
       const data = {
         ...rest,
@@ -492,10 +507,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
   async onOpenChange(isOpen: boolean) {
     if (isOpen) {
       isFullscreen.value = false;
-      drawerData.value =
-        drawerApi.getData<{ create: boolean; row?: any }>() || {
-          create: true,
-        };
+      drawerData.value = drawerApi.getData<{
+        create: boolean;
+        row?: any;
+      }>() || {
+        create: true,
+      };
       await mainFormApi.resetForm();
       confirmLoading.value = false;
       tableItems.value = [];
@@ -527,7 +544,9 @@ async function loadDetail(id: number) {
       remark: main.remark,
     });
     selectedWarehouseName.value = main.warehouseName ?? '';
-    selectedWarehouseId.value = main.warehouseId ? Number(main.warehouseId) : undefined;
+    selectedWarehouseId.value = main.warehouseId
+      ? Number(main.warehouseId)
+      : undefined;
 
     tableItems.value = items.map((item: any) => ({
       id: item.id,
@@ -552,8 +571,8 @@ async function loadDetail(id: number) {
       handling: '',
       remark: item.remark ?? '',
     }));
-  } catch (e) {
-    console.error('[库存盘点] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[库存盘点] 加载详情失败:', error);
   }
 }
 </script>
@@ -561,11 +580,21 @@ async function loadDetail(id: number) {
 <template>
   <Drawer
     :class="drawerClass"
-    :title="drawerData.create ? $t('page.product.inventory.check.drawer.createTitle') : $t('page.product.inventory.check.drawer.editTitle')"
+    :title="
+      drawerData.create
+        ? $t('page.product.inventory.check.drawer.createTitle')
+        : $t('page.product.inventory.check.drawer.editTitle')
+    "
     :confirm-loading="confirmLoading"
   >
     <template #extra>
-      <Tooltip :title="isFullscreen ? $t('page.product.inventory.check.drawer.restore') : $t('page.product.inventory.check.drawer.fullscreen')">
+      <Tooltip
+        :title="
+          isFullscreen
+            ? $t('page.product.inventory.check.drawer.restore')
+            : $t('page.product.inventory.check.drawer.fullscreen')
+        "
+      >
         <button
           type="button"
           class="check-drawer__fs-btn"
@@ -613,13 +642,23 @@ async function loadDetail(id: number) {
 
       <!-- 产品明细分隔线 + 统计 -->
       <div class="check-items-header">
-        <span class="check-items-title">{{ $t('page.product.inventory.check.drawer.detail') }}</span>
+        <span class="check-items-title">{{
+          $t('page.product.inventory.check.drawer.detail')
+        }}</span>
         <div v-if="tableItems.length > 0" class="check-items-stats">
           <Tag>共 {{ summary.total }}</Tag>
-          <Tag v-if="summary.surplus > 0" color="success">盘盈 {{ summary.surplus }}</Tag>
-          <Tag v-if="summary.shortage > 0" color="error">盘亏 {{ summary.shortage }}</Tag>
-          <Tag v-if="summary.match > 0" color="default">一致 {{ summary.match }}</Tag>
-          <Tag v-if="summary.pending > 0" color="warning">待盘 {{ summary.pending }}</Tag>
+          <Tag v-if="summary.surplus > 0" color="success">
+            盘盈 {{ summary.surplus }}
+          </Tag>
+          <Tag v-if="summary.shortage > 0" color="error">
+            盘亏 {{ summary.shortage }}
+          </Tag>
+          <Tag v-if="summary.match > 0" color="default">
+            一致 {{ summary.match }}
+          </Tag>
+          <Tag v-if="summary.pending > 0" color="warning">
+            待盘 {{ summary.pending }}
+          </Tag>
         </div>
       </div>
 
@@ -634,7 +673,9 @@ async function loadDetail(id: number) {
           @click="openBatchAssign"
         >
           批量分配盘点人
-          <span v-if="selectedRowKeys.length > 0">({{ selectedRowKeys.length }})</span>
+          <span v-if="selectedRowKeys.length > 0"
+            >({{ selectedRowKeys.length }})</span
+          >
         </Button>
         <Button
           size="small"
@@ -643,7 +684,9 @@ async function loadDetail(id: number) {
           @click="removeSelected"
         >
           {{ $t('page.product.inventory.check.drawer.removeSelected') }}
-          <span v-if="selectedRowKeys.length > 0">({{ selectedRowKeys.length }})</span>
+          <span v-if="selectedRowKeys.length > 0"
+            >({{ selectedRowKeys.length }})</span
+          >
         </Button>
       </div>
 
@@ -662,8 +705,10 @@ async function loadDetail(id: number) {
         <template #bodyCell="{ column, record, index }">
           <!-- 系统数量 -->
           <template v-if="column.dataIndex === 'systemQuantity'">
-            <span v-if="record.systemQuantity === null" class="text-gray-400">加载中</span>
-            <span v-else :class="{ 'font-medium': true }">{{ record.systemQuantity }}</span>
+            <span v-if="record.systemQuantity === null" class="text-gray-400"
+              >加载中</span
+            >
+            <span v-else class="font-medium">{{ record.systemQuantity }}</span>
           </template>
 
           <!-- 实盘数量：可编辑 -->
@@ -681,7 +726,9 @@ async function loadDetail(id: number) {
 
           <!-- 差异：自动计算 -->
           <template v-else-if="column.dataIndex === 'difference'">
-            <span v-if="computeDiff(record) === null" class="text-gray-400">-</span>
+            <span v-if="computeDiff(record) === null" class="text-gray-400"
+              >-</span
+            >
             <span
               v-else
               :class="{
@@ -729,7 +776,9 @@ async function loadDetail(id: number) {
               placeholder="选择"
               :options="diffReasonOptions"
               allow-clear
-              :disabled="computeDiff(record) === 0 || computeDiff(record) === null"
+              :disabled="
+                computeDiff(record) === 0 || computeDiff(record) === null
+              "
             />
           </template>
 
@@ -742,18 +791,15 @@ async function loadDetail(id: number) {
               placeholder="选择"
               :options="handlingOptions"
               allow-clear
-              :disabled="computeDiff(record) === 0 || computeDiff(record) === null"
+              :disabled="
+                computeDiff(record) === 0 || computeDiff(record) === null
+              "
             />
           </template>
 
           <!-- 操作：删除 -->
           <template v-else-if="column.dataIndex === 'action'">
-            <Button
-              type="link"
-              danger
-              size="small"
-              @click="removeItem(index)"
-            >
+            <Button type="link" danger size="small" @click="removeItem(index)">
               {{ $t('ui.button.delete') }}
             </Button>
           </template>
@@ -792,8 +838,9 @@ async function loadDetail(id: number) {
       width="420px"
       @ok="confirmBatchAssign"
     >
-      <p style="margin-bottom: 12px; color: #666; font-size: 13px">
-        将为选中的 <strong>{{ selectedRowKeys.length }}</strong> 个产品分配盘点人：
+      <p style="margin-bottom: 12px; font-size: 13px; color: #666">
+        将为选中的
+        <strong>{{ selectedRowKeys.length }}</strong> 个产品分配盘点人：
       </p>
       <Select
         v-model:value="batchAssigneeIds"
@@ -823,31 +870,31 @@ async function loadDetail(id: number) {
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .check-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .check-drawer__body {
+  height: calc(100vh - 150px);
   padding: 0 8px;
   overflow-y: auto;
-  height: calc(100vh - 150px);
 }
 
 .check-items-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 16px 0 8px;
   padding-top: 12px;
+  margin: 16px 0 8px;
   border-top: 1px solid #f0f0f0;
 }
 
@@ -864,8 +911,8 @@ async function loadDetail(id: number) {
 
 .check-items-toolbar {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 8px;
 }
 
@@ -875,8 +922,8 @@ async function loadDetail(id: number) {
 
 .check-items-empty {
   padding: 24px 0;
-  color: #999;
   font-size: 13px;
+  color: #999;
   text-align: center;
 }
 </style>

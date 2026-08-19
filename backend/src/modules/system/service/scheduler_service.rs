@@ -429,6 +429,13 @@ async fn execute_handler(
     params: &Option<sea_orm::prelude::Json>,
     db: &DatabaseConnection,
 ) -> Result<String, String> {
+    // V7-3: 优先从全局注册器查找处理器（与 scheduler.rs 的 execute_handler_by_code 一致，
+    // 使手动触发与定时触发共用同一套注册处理器，新增处理器无需改此 match）
+    if let Some(registry) = crate::core::kit::scheduler::SCHEDULER_REGISTRY.get() {
+        if let Some(h) = registry.get(handler).await {
+            return h(db.clone(), params.clone()).await;
+        }
+    }
     match handler {
         "salary_calculate" => {
             // V7-4: 解析 params 中的 year/month/department_id 可选字段

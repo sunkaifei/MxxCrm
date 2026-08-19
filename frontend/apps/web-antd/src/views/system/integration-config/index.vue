@@ -111,7 +111,7 @@ const route = useRoute();
 
 onMounted(() => {
   const c = (route.query?.category as string) || '';
-  if (c && categories.find((x) => x.key === c)) {
+  if (c && categories.some((x) => x.key === c)) {
     activeCategory.value = c;
   }
   loadList();
@@ -305,7 +305,7 @@ async function handleTestAll() {
   const items = activeCategory.value === 'ai' ? aiProviderList.value : currentList.value;
   for (const item of items) {
     if (item.isPlaceholder) continue;
-     
+
     await handleTest(item);
   }
 }
@@ -565,14 +565,15 @@ async function handleAddProviderSubmit() {
 }
 
 // ─── 通用渲染：单张配置卡片 ───
-function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable: false }) {
+function renderConfigCard(item: any, opts?: { deletable: boolean }) {
+  opts ??= { deletable: false };
   return (
     <Card class="mb-4" key={item.id || item.integrationCode} size="small">
       {{
         title: () => (
           <div class="flex items-center gap-2">
             {activeCategory.value === 'ai' && !isPromptItem(item) ? (
-              <LucideBot class="h-4 w-4 text-indigo-500" />
+              <LucideBot class="size-4 text-indigo-500" />
             ) : null}
             <span>{item.integrationName}</span>
             {item.isPlaceholder ? (
@@ -610,7 +611,7 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
                   loading={!!deleting[item.id]}
                   size="small"
                   type="text"
-                  v-slots={{ icon: () => <LucideTrash2 class="h-4 w-4" /> }}
+                  v-slots={{ icon: () => <LucideTrash2 class="size-4" /> }}
                 />
               </Popconfirm>
             ) : null}
@@ -630,15 +631,11 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
               {/* 配置表单 */}
               {fields.length > 0 ? (
                 <div class={`grid gap-x-6 gap-y-3 ${gridCols}`}>
-                  {fields.map((field) => (
-                    <div class="flex flex-col gap-1" key={field.key}>
-                      <label class="text-xs text-gray-500">
-                        {field.label}
-                        {field.required ? (
-                          <span class="text-red-500">*</span>
-                        ) : null}
-                      </label>
-                      {field.options && field.options.length > 0 ? (
+                  {fields.map((field) => {
+                    // 按字段类型选择对应的输入控件
+                    let fieldInput;
+                    if (field.options && field.options.length > 0) {
+                      fieldInput = (
                         <AutoComplete
                           class="w-full"
                           filter-option={(input: string, option: any) =>
@@ -650,40 +647,69 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
                           size="small"
                           value={formRef[field.key]}
                         />
-                      ) : field.type === 'number' ? (
-                        <InputNumber
-                          class="w-full"
-                          onUpdate:value={(v: any) => (formRef[field.key] = v)}
-                          placeholder={`请输入${field.label}…`}
-                          size="small"
-                          value={formRef[field.key]}
-                        />
-                      ) : field.type === 'password' ? (
-                        <InputPassword
-                          allow-clear
-                          onUpdate:value={(v: any) => (formRef[field.key] = v)}
-                          placeholder={`请输入${field.label}…`}
-                          size="small"
-                          value={formRef[field.key]}
-                        />
-                      ) : field.type === 'textarea' ? (
-                        <Input.TextArea
-                          auto-size={{ minRows: 6, maxRows: 16 }}
-                          onUpdate:value={(v: any) => (formRef[field.key] = v)}
-                          placeholder={`请输入${field.label}…`}
-                          value={formRef[field.key]}
-                        />
-                      ) : (
-                        <Input
-                          allow-clear
-                          onUpdate:value={(v: any) => (formRef[field.key] = v)}
-                          placeholder={`请输入${field.label}…`}
-                          size="small"
-                          value={formRef[field.key]}
-                        />
-                      )}
-                    </div>
-                  ))}
+                      );
+                    } else {
+                      switch (field.type) {
+                        case 'number': {
+                          fieldInput = (
+                            <InputNumber
+                              class="w-full"
+                              onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                              placeholder={`请输入${field.label}…`}
+                              size="small"
+                              value={formRef[field.key]}
+                            />
+                          );
+                          break;
+                        }
+                        case 'password': {
+                          fieldInput = (
+                            <InputPassword
+                              allow-clear
+                              onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                              placeholder={`请输入${field.label}…`}
+                              size="small"
+                              value={formRef[field.key]}
+                            />
+                          );
+                          break;
+                        }
+                        case 'textarea': {
+                          fieldInput = (
+                            <Input.TextArea
+                              auto-size={{ minRows: 6, maxRows: 16 }}
+                              onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                              placeholder={`请输入${field.label}…`}
+                              value={formRef[field.key]}
+                            />
+                          );
+                          break;
+                        }
+                        default: {
+                          fieldInput = (
+                            <Input
+                              allow-clear
+                              onUpdate:value={(v: any) => (formRef[field.key] = v)}
+                              placeholder={`请输入${field.label}…`}
+                              size="small"
+                              value={formRef[field.key]}
+                            />
+                          );
+                        }
+                      }
+                    }
+                    return (
+                      <div class="flex flex-col gap-1" key={field.key}>
+                        <label class="text-xs text-gray-500">
+                          {field.label}
+                          {field.required ? (
+                            <span class="text-red-500">*</span>
+                          ) : null}
+                        </label>
+                        {fieldInput}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
 
@@ -761,9 +787,7 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
           共 {{ currentList.length }} 个配置项，已启用
           {{ currentList.filter((i: any) => i.enabled === 1).length }} 个
         </span>
-        <Button type="primary" ghost @click="handleTestAll">
-          测试全部
-        </Button>
+        <Button type="primary" ghost @click="handleTestAll"> 测试全部 </Button>
       </div>
 
       <Spin :spinning="loading">
@@ -792,7 +816,9 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
           <!-- AI 分类：模型提供商 + 提示词 两个分区 -->
           <Tabs.TabPane key="ai" tab="AI 配置">
             <div
-              v-if="aiProviderList.length === 0 && effectivePromptList.length === 0"
+              v-if="
+                aiProviderList.length === 0 && effectivePromptList.length === 0
+              "
               class="py-20 text-center text-gray-300"
             >
               暂无 AI 配置数据
@@ -802,7 +828,9 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
               <div class="mb-6">
                 <div class="mb-3 flex items-center justify-between">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium text-gray-700">模型提供商</span>
+                    <span class="text-sm font-medium text-gray-700"
+                      >模型提供商</span
+                    >
                     <span class="text-xs text-gray-400">
                       （按「从上到下」的顺序自动调用第一个已启用的可用提供商）
                     </span>
@@ -838,7 +866,9 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
               <!-- 分区 2：提示词配置 -->
               <div>
                 <div class="mb-3 flex items-center gap-2">
-                  <span class="text-sm font-medium text-gray-700">提示词配置</span>
+                  <span class="text-sm font-medium text-gray-700"
+                    >提示词配置</span
+                  >
                   <span class="text-xs text-gray-400">
                     （定义不同业务场景下的 AI 指令，如客户背调、销售回复等）
                   </span>
@@ -906,7 +936,10 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
           name="integrationName"
           :rules="[{ required: true, message: '请输入显示名称' }]"
         >
-          <Input v-model:value="addForm.integrationName" placeholder="例如 DeepSeek" />
+          <Input
+            v-model:value="addForm.integrationName"
+            placeholder="例如 DeepSeek"
+          />
         </Form.Item>
         <Form.Item
           label="API 基础地址"
@@ -927,7 +960,8 @@ function renderConfigCard(item: any, opts: { deletable: boolean } = { deletable:
         </Form.Item>
         <Form.Item
           v-if="
-            PROVIDER_TEMPLATES.find((t) => t.id === addForm.templateId)?.needSecret
+            PROVIDER_TEMPLATES.find((t) => t.id === addForm.templateId)
+              ?.needSecret
           "
           label="Secret Key"
           name="secretKey"

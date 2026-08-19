@@ -1,11 +1,15 @@
 import { requestClient } from '#/api/request';
 
-export const getPurchaseReturnListApi = async (params?: Record<string, any>) => {
+export const getPurchaseReturnListApi = async (
+  params?: Record<string, any>,
+) => {
   return requestClient.get('/api/system/purchase/return/list', { params });
 };
 
 export const getPurchaseReturnInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/purchase/return/info', { params: { id } });
+  return requestClient.get('/api/system/purchase/return/info', {
+    params: { id },
+  });
 };
 
 export const createPurchaseReturnApi = async (param: any) => {

@@ -1,5 +1,11 @@
 <script lang="ts" setup>
+import type { SalesFlowMode } from '#/api';
+
 import { computed, reactive, ref, watch } from 'vue';
+
+import { LucidePhone, LucidePlus } from '@vben/icons';
+import { formatDateTime } from '@vben/utils';
+
 import {
   Avatar,
   Button,
@@ -15,10 +21,7 @@ import {
   Tag,
   Upload,
 } from 'ant-design-vue';
-import {
-  LucidePhone,
-  LucidePlus,
-} from '@vben/icons';
+
 import {
   convertOpportunityToOrderApi,
   convertOpportunityToQuotationApi,
@@ -31,14 +34,12 @@ import {
   getOpportunityInfoApi,
   getSalesFlowModeApi,
   updateOpportunityApi,
-  type SalesFlowMode,
 } from '#/api';
-import { formatDateTime } from '@vben/utils';
 
-const props = defineProps<{ 
-  id?: number | string;
+const props = defineProps<{
   customerId?: number | string;
   customerName?: string;
+  id?: number | string;
 }>();
 const emit = defineEmits<{
   (e: 'converted', quotationId: number | string): void;
@@ -76,21 +77,45 @@ loadFlowMode();
 const activeTab = ref<string>(isCreate.value ? '1' : '3');
 
 const currencyLabelMap: Record<number, string> = {
-  1: '¥', 2: '$', 3: '€', 4: '£', 5: '¥', 6: 'HK$', 7: 'A$',
+  1: '¥',
+  2: '$',
+  3: '€',
+  4: '£',
+  5: '¥',
+  6: 'HK$',
+  7: 'A$',
 };
 
 const sourceMap: Record<string, string> = {
-  1: '官网', 2: '展会', 3: '社交媒体', 4: '客户转介',
-  5: '陌生拜访', 6: '海关数据', 7: '邮件营销', 8: '阿里国际站',
-  9: 'Amazon', 10: 'TikTok', 11: '微信', 12: '其他',
+  1: '官网',
+  2: '展会',
+  3: '社交媒体',
+  4: '客户转介',
+  5: '陌生拜访',
+  6: '海关数据',
+  7: '邮件营销',
+  8: '阿里国际站',
+  9: 'Amazon',
+  10: 'TikTok',
+  11: '微信',
+  12: '其他',
 };
 
 const industryLabelMap: Record<number, string> = {
-  1: '零售', 2: '批发', 3: '制造', 4: '贸易代理',
-  5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
+  1: '零售',
+  2: '批发',
+  3: '制造',
+  4: '贸易代理',
+  5: '电商',
+  6: '微商',
+  7: '社交电商',
+  8: '其他',
 };
 
-const sourceOptions = Object.entries(sourceMap).map(([k, v]) => ({ label: v, value: Number(k) }));
+const sourceOptions = Object.entries(sourceMap).map(([k, v]) => ({
+  label: v,
+  value: Number(k),
+}));
 const currencyOptions = [
   { label: '人民币 (CNY)', value: 1 },
   { label: '美元 (USD)', value: 2 },
@@ -129,8 +154,12 @@ const demoTypeOptions = [
 ];
 
 const amountText = computed(() => {
-  if (opp.value.amount == null) return '¥280,000';
-  const num = Number(opp.value.amount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  if (opp.value.amount === null || opp.value.amount === undefined)
+    return '¥280,000';
+  const num = Number(opp.value.amount).toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
   const currencyLabel = currencyLabelMap[opp.value.currency] || '¥';
   return `${currencyLabel}${num}`;
 });
@@ -138,7 +167,7 @@ const amountText = computed(() => {
 const probabilityNum = computed(() => Number(opp.value.probability ?? 50));
 
 const sortedFollowUpRecords = computed(() => {
-  return [...followUpRecords.value].sort((a, b) => {
+  return followUpRecords.value.toSorted((a, b) => {
     return new Date(b.time).getTime() - new Date(a.time).getTime();
   });
 });
@@ -151,7 +180,8 @@ const followUpRecords = ref<any[]>([
     time: '2024-12-15 10:30',
     user: '张伟',
     color: '#52c41a',
-    content: '创建商机，完善基础信息：商机名称、所属客户、预算金额、预计成交日期、商机来源、赢单概率等。',
+    content:
+      '创建商机，完善基础信息：商机名称、所属客户、预算金额、预计成交日期、商机来源、赢单概率等。',
     tags: [{ text: '新建商机', color: 'green' }],
   },
   {
@@ -160,8 +190,12 @@ const followUpRecords = ref<any[]>([
     time: '2025-01-05 15:00',
     user: '张伟',
     color: '#7c3aed',
-    content: '向客户演示了标准版ERP升级方案的PPT，重点展示了数据迁移的方案和系统架构设计。客户对整体升级方案表示认可，但对报价存在一定疑虑。',
-    tags: [{ text: '演示', color: 'purple' }, { text: '方案v1', color: 'blue' }],
+    content:
+      '向客户演示了标准版ERP升级方案的PPT，重点展示了数据迁移的方案和系统架构设计。客户对整体升级方案表示认可，但对报价存在一定疑虑。',
+    tags: [
+      { text: '演示', color: 'purple' },
+      { text: '方案v1', color: 'blue' },
+    ],
   },
   {
     stage: 3,
@@ -169,7 +203,8 @@ const followUpRecords = ref<any[]>([
     time: '2024-12-28 11:00',
     user: '王芳',
     color: '#5b8ff9',
-    content: '发送了初步方案文档（V1.0），包含三个模块的详细功能规划和技术架构图，客户反馈将在元旦后安排内部评审。',
+    content:
+      '发送了初步方案文档（V1.0），包含三个模块的详细功能规划和技术架构图，客户反馈将在元旦后安排内部评审。',
     tags: [{ text: '附件', color: 'default' }],
   },
   {
@@ -178,7 +213,8 @@ const followUpRecords = ref<any[]>([
     time: '2024-12-25 16:30',
     user: '张伟',
     color: '#5b8ff9',
-    content: '与客户技术负责人线上进行了线上会议，确认了技术对接方案，客户现有数据库采用Oracle，需要考虑兼容性问题。',
+    content:
+      '与客户技术负责人线上进行了线上会议，确认了技术对接方案，客户现有数据库采用Oracle，需要考虑兼容性问题。',
     tags: [{ text: '线上版', color: 'green' }],
   },
   {
@@ -187,7 +223,8 @@ const followUpRecords = ref<any[]>([
     time: '2024-12-22 10:00',
     user: '张伟',
     color: '#5b8ff9',
-    content: '完成需求确认面谈后，开始整理方案框架，计划两周内完成初步方案文档。',
+    content:
+      '完成需求确认面谈后，开始整理方案框架，计划两周内完成初步方案文档。',
     tags: [{ text: '待跟进', color: 'orange' }],
   },
 ]);
@@ -257,7 +294,7 @@ function openContactPicker() {
     return;
   }
   selectedContactIds.value = [];
-  Object.keys(contactRoleMap).forEach(k => delete contactRoleMap[k]);
+  Object.keys(contactRoleMap).forEach((k) => delete contactRoleMap[k]);
   loadCustomerContacts();
   contactPickerVisible.value = true;
 }
@@ -289,17 +326,26 @@ async function loadCustomerContacts() {
 function toggleContactSelection(id: number | string) {
   const idStr = String(id);
   const idx = selectedContactIds.value.indexOf(idStr);
-  if (idx > -1) {
-    selectedContactIds.value.splice(idx, 1);
-  } else {
+  if (idx === -1) {
     selectedContactIds.value.push(idStr);
     if (!contactRoleMap[idStr]) {
       contactRoleMap[idStr] = 'tech';
     }
+  } else {
+    selectedContactIds.value.splice(idx, 1);
   }
 }
 
-const avatarColors = ['#5b8ff9', '#5ad8a6', '#f6bd16', '#ff9845', '#6ec8fc', '#7262fd', '#78d3f0', '#ff99c3'];
+const avatarColors = [
+  '#5b8ff9',
+  '#5ad8a6',
+  '#f6bd16',
+  '#ff9845',
+  '#6ec8fc',
+  '#7262fd',
+  '#78d3f0',
+  '#ff99c3',
+];
 
 function handleConfirmAddContacts() {
   if (selectedContactIds.value.length === 0) {
@@ -308,9 +354,11 @@ function handleConfirmAddContacts() {
   }
   const existingIds = new Set(contactList.value.map((c: any) => String(c.id)));
   let added = 0;
-  selectedContactIds.value.forEach(idStr => {
+  selectedContactIds.value.forEach((idStr) => {
     if (existingIds.has(idStr)) return;
-    const contact = customerContactOptions.value.find(c => String(c.id) === idStr);
+    const contact = customerContactOptions.value.find(
+      (c) => String(c.id) === idStr,
+    );
     if (!contact) return;
     const role = contactRoleMap[idStr] || 'other';
     const colorIdx = contactList.value.length % avatarColors.length;
@@ -320,7 +368,12 @@ function handleConfirmAddContacts() {
       title: contact.position || '-',
       mobile: contact.mobile,
       avatarColor: avatarColors[colorIdx],
-      tags: [{ text: contactRoleLabelMap[role] || '其他', color: contactRoleColorMap[role] || 'default' }],
+      tags: [
+        {
+          text: contactRoleLabelMap[role] || '其他',
+          color: contactRoleColorMap[role] || 'default',
+        },
+      ],
     });
     added++;
   });
@@ -336,7 +389,7 @@ function handleConfirmAddContacts() {
 const baseFormRef = ref();
 const baseForm = reactive({
   title: '',
-  customerId: undefined as number | undefined | string,
+  customerId: undefined as number | string | undefined,
   contactId: undefined as number | undefined,
   assignedTo: undefined as number | undefined,
   amount: undefined as number | undefined,
@@ -350,7 +403,7 @@ const baseForm = reactive({
 const reqForm = reactive({
   reqType: undefined as number | undefined,
   reqDesc: '',
-  priority: 'mid' as 'high' | 'mid' | 'low',
+  priority: 'mid' as 'high' | 'low' | 'mid',
   expectDate: undefined as string | undefined,
   budgetRange: undefined as number | undefined,
 });
@@ -364,43 +417,6 @@ const solForm = reactive({
   demoDate: undefined as string | undefined,
   demoType: undefined as number | undefined,
 });
-
-const customerOptions = ref<any[]>([]);
-const customerLoading = ref(false);
-
-async function loadCustomerOptions(keyword: string) {
-  customerLoading.value = true;
-  try {
-    const res: any = await getCustomerListApi({
-      page: 1,
-      pageSize: 20,
-      ...(keyword ? { companyName: keyword } : {}),
-    });
-    customerOptions.value = res?.items || [];
-  } catch {
-    customerOptions.value = [];
-  } finally {
-    customerLoading.value = false;
-  }
-}
-
-function handleCustomerSearch(value: string) {
-  loadCustomerOptions(value || '');
-}
-
-function _handleCustomerChange(value: any) {
-  baseForm.contactId = undefined;
-  selectedContactName.value = '';
-  contactOptions.value = [];
-  if (value) {
-    loadContacts(Number(value));
-    // 自动带出客户负责人作为商机负责人
-    const selectedCustomer = customerOptions.value.find((c: any) => c.id === value);
-    if (selectedCustomer?.assignedTo) {
-      baseForm.assignedTo = selectedCustomer.assignedTo;
-    }
-  }
-}
 
 const contactOptions = ref<{ label: string; value: number }[]>([]);
 
@@ -442,8 +458,12 @@ function openContactPickerBasic() {
         email: c.email || '',
       }));
     })
-    .catch(() => { contactPickerBasicOptions.value = []; })
-    .finally(() => { contactPickerBasicLoading.value = false; });
+    .catch(() => {
+      contactPickerBasicOptions.value = [];
+    })
+    .finally(() => {
+      contactPickerBasicLoading.value = false;
+    });
 }
 
 function selectContactFromPicker(contact: any) {
@@ -560,20 +580,38 @@ const loadData = async () => {
     opp.value = data;
 
     const stage = Number(data.stage);
-    if (stage >= 1 && stage <= 5) {
-      activeTab.value = String(stage > 3 ? 3 : stage);
-    } else {
-      activeTab.value = '3';
-    }
+    activeTab.value =
+      stage >= 1 && stage <= 5 ? String(Math.min(stage, 3)) : '3';
 
     baseForm.title = data.title || '';
-    baseForm.customerId = data.customerId != null ? Number(data.customerId) : undefined;
-    baseForm.contactId = data.contactId != null ? Number(data.contactId) : undefined;
-    baseForm.assignedTo = data.assignedTo != null ? Number(data.assignedTo) : undefined;
-    baseForm.amount = data.amount != null ? Number(data.amount) : undefined;
-    baseForm.currency = data.currency != null ? Number(data.currency) : 1;
-    baseForm.probability = data.probability != null ? Number(data.probability) : undefined;
-    baseForm.source = data.source != null ? Number(data.source) : undefined;
+    baseForm.customerId =
+      data.customerId === null || data.customerId === undefined
+        ? undefined
+        : Number(data.customerId);
+    baseForm.contactId =
+      data.contactId === null || data.contactId === undefined
+        ? undefined
+        : Number(data.contactId);
+    baseForm.assignedTo =
+      data.assignedTo === null || data.assignedTo === undefined
+        ? undefined
+        : Number(data.assignedTo);
+    baseForm.amount =
+      data.amount === null || data.amount === undefined
+        ? undefined
+        : Number(data.amount);
+    baseForm.currency =
+      data.currency === null || data.currency === undefined
+        ? 1
+        : Number(data.currency);
+    baseForm.probability =
+      data.probability === null || data.probability === undefined
+        ? undefined
+        : Number(data.probability);
+    baseForm.source =
+      data.source === null || data.source === undefined
+        ? undefined
+        : Number(data.source);
     baseForm.expectedCloseDate = data.expectedCloseDate || undefined;
     baseForm.description = data.description || '';
 
@@ -624,6 +662,25 @@ async function loadFollowupRecords() {
     if (list.length > 0) {
       followUpRecords.value = list.map((item: any) => {
         const actType = Number(item.activityType) || 7;
+        let actTagColor = 'default';
+        switch (actType) {
+          case 1: {
+            actTagColor = 'green';
+            break;
+          }
+          case 2: {
+            actTagColor = 'blue';
+            break;
+          }
+          case 3: {
+            actTagColor = 'purple';
+            break;
+          }
+          case 4: {
+            actTagColor = 'orange';
+            break;
+          }
+        }
         return {
           id: item.id,
           stage: 0,
@@ -632,7 +689,9 @@ async function loadFollowupRecords() {
           user: item.createdByName || '未知',
           color: activityColorMap[actType] || '#8c8c8c',
           content: item.content || '',
-          tags: [{ text: activityLabelMap[actType] || '其他', color: actType === 1 ? 'green' : actType === 2 ? 'blue' : actType === 3 ? 'purple' : actType === 4 ? 'orange' : 'default' }],
+          tags: [
+            { text: activityLabelMap[actType] || '其他', color: actTagColor },
+          ],
         };
       });
     }
@@ -675,20 +734,6 @@ const followupModalTitle = computed(() => {
   return `添加${stageLabelMap[followupForm.stage] || ''}跟进记录`;
 });
 
-function _openFollowupModal(stage: number) {
-  if (isCreate.value) {
-    message.warning('请先保存商机基础信息');
-    return;
-  }
-  followupForm.stage = stage;
-  followupForm.activityType = undefined;
-  followupForm.content = '';
-  followupForm.nextFollowDate = undefined;
-  followupForm.durationMinutes = undefined;
-  followupForm.result = '';
-  followupModalVisible.value = true;
-}
-
 const handleSaveFollowup = async () => {
   try {
     await followupFormRef.value?.validate();
@@ -727,7 +772,10 @@ const handleSaveBase = async () => {
   try {
     const payload = {
       title: baseForm.title,
-      customerId: baseForm.customerId != null ? Number(baseForm.customerId) : undefined,
+      customerId:
+        baseForm.customerId === null || baseForm.customerId === undefined
+          ? undefined
+          : Number(baseForm.customerId),
       contactId: baseForm.contactId,
       assignedTo: baseForm.assignedTo,
       amount: baseForm.amount,
@@ -743,7 +791,7 @@ const handleSaveBase = async () => {
       const res: any = await createOpportunityApi(payload);
       const newId = res?.data?.id || res?.id;
       message.success('商机创建成功');
-      if (newId != null) {
+      if (newId !== null && newId !== undefined) {
         emit('created', newId);
       }
     } else {
@@ -751,11 +799,16 @@ const handleSaveBase = async () => {
       try {
         await createFollowupApi({
           opportunityId: Number(props.id),
-          customerId: baseForm.customerId != null ? Number(baseForm.customerId) : undefined,
+          customerId:
+            baseForm.customerId === null || baseForm.customerId === undefined
+              ? undefined
+              : Number(baseForm.customerId),
           activityType: 7,
           content: `更新初步沟通信息：商机名称、客户、预算金额、预计成交日期等基础信息`,
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       message.success('保存成功');
       await loadData();
     }
@@ -781,7 +834,9 @@ const handleSaveReq = async () => {
         activityType: 7,
         content: `更新需求确认信息：${reqForm.reqDesc || '需求描述'}`,
       });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     message.success('保存成功');
     await loadData();
   } catch {
@@ -806,7 +861,9 @@ const handleSubmitSolution = async () => {
         activityType: 7,
         content: `提交方案沟通：${solForm.solutionOverview || '方案概述'}`,
       });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     message.success('方案已提交');
     await loadData();
   } catch {
@@ -829,10 +886,16 @@ const handleStep4ToQuotation = (): void => {
     onOk: async () => {
       converting.value = true;
       try {
-        const res: any = await convertOpportunityToQuotationApi(Number(props.id));
+        const res: any = await convertOpportunityToQuotationApi(
+          Number(props.id),
+        );
         message.success('已转为报价单');
-        const quotationId = res?.data?.id || res?.id || res?.data?.quotationId || res?.quotationId;
-        if (quotationId != null) {
+        const quotationId =
+          res?.data?.id ||
+          res?.id ||
+          res?.data?.quotationId ||
+          res?.quotationId;
+        if (quotationId !== null && quotationId !== undefined) {
           emit('converted', quotationId);
         }
         await loadData();
@@ -848,7 +911,8 @@ const handleStep4ToQuotation = (): void => {
 const handleStep4ToOrder = (): void => {
   Modal.confirm({
     title: '转订单',
-    content: '确定要将该商机直接转为订单吗？转换后将创建订单草稿，可在订单页面继续完善明细。',
+    content:
+      '确定要将该商机直接转为订单吗？转换后将创建订单草稿，可在订单页面继续完善明细。',
     okText: '确定',
     cancelText: '取消',
     onOk: async () => {
@@ -856,8 +920,9 @@ const handleStep4ToOrder = (): void => {
       try {
         const res: any = await convertOpportunityToOrderApi(Number(props.id));
         message.success('已转为订单');
-        const orderId = res?.data?.id || res?.id || res?.data?.orderId || res?.orderId;
-        if (orderId != null) {
+        const orderId =
+          res?.data?.id || res?.id || res?.data?.orderId || res?.orderId;
+        if (orderId !== null && orderId !== undefined) {
           emit('converted', orderId);
         }
         await loadData();
@@ -889,7 +954,13 @@ const isCustomerLocked = computed(() => {
 // 引用以避免 noUnusedLocals 警告
 void handleConvertToQuotation;
 
-watch(() => props.id, () => { loadData(); }, { immediate: true });
+watch(
+  () => props.id,
+  () => {
+    loadData();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -899,18 +970,20 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
       <div class="opp-info-main">
         <div class="opp-info-title-row">
           <span class="opp-company">{{ opp.customerName || 'XX科技' }}</span>
-          <span class="opp-project"> - {{ opp.title || 'ERP系统升级项目' }}</span>
+          <span class="opp-project">
+            - {{ opp.title || 'ERP系统升级项目' }}</span
+          >
           <Tag v-if="opp.opportunityNo" color="default" class="opp-no-tag">
             {{ opp.opportunityNo }}
           </Tag>
-          <Tag v-else color="default" class="opp-no-tag">
-            OPP-2024-0092
-          </Tag>
+          <Tag v-else color="default" class="opp-no-tag"> OPP-2024-0092 </Tag>
         </div>
         <div class="opp-info-desc-row">
           <span class="opp-info-desc-item">
             <span class="opp-info-label">客户</span>
-            <span class="opp-info-value">{{ opp.customerName || 'XX科技有限公司' }}</span>
+            <span class="opp-info-value">{{
+              opp.customerName || 'XX科技有限公司'
+            }}</span>
           </span>
           <span class="opp-info-desc-sep">|</span>
           <span class="opp-info-desc-item">
@@ -920,21 +993,29 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
           <span class="opp-info-desc-sep">|</span>
           <span class="opp-info-desc-item">
             <span class="opp-info-label">创建时间</span>
-            <span class="opp-info-value">{{ opp.createTime ? formatDateTime(opp.createTime) : '2024-12-15' }}</span>
+            <span class="opp-info-value">{{
+              opp.createTime ? formatDateTime(opp.createTime) : '2024-12-15'
+            }}</span>
           </span>
         </div>
         <div class="opp-info-detail-row">
           <div class="opp-info-detail-item">
             <div class="opp-info-detail-label">行业</div>
-            <div class="opp-info-detail-value">{{ industryLabelMap[Number(opp.customerIndustry)] || '制造业' }}</div>
+            <div class="opp-info-detail-value">
+              {{ industryLabelMap[Number(opp.customerIndustry)] || '制造业' }}
+            </div>
           </div>
           <div class="opp-info-detail-item">
             <div class="opp-info-detail-label">来源</div>
-            <div class="opp-info-detail-value">{{ sourceMap[opp.source] || '展会' }}</div>
+            <div class="opp-info-detail-value">
+              {{ sourceMap[opp.source] || '展会' }}
+            </div>
           </div>
           <div class="opp-info-detail-item">
             <div class="opp-info-detail-label">预计成交日期</div>
-            <div class="opp-info-detail-value">{{ opp.expectedCloseDate || '2025-03-31' }}</div>
+            <div class="opp-info-detail-value">
+              {{ opp.expectedCloseDate || '2025-03-31' }}
+            </div>
           </div>
           <div class="opp-info-detail-item">
             <div class="opp-info-detail-label">商机阶段</div>
@@ -975,7 +1056,14 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
       <div class="opp-step-line">
         <span class="opp-step-arrow">›</span>
       </div>
-      <div class="opp-step" :class="{ 'step-clickable': !isCreate && (canStep4ToQuotation || canStep4ToOrder) }" @click="handleStep4Click">
+      <div
+        class="opp-step"
+        :class="{
+          'step-clickable':
+            !isCreate && (canStep4ToQuotation || canStep4ToOrder),
+        }"
+        @click="handleStep4Click"
+      >
         <div class="opp-step-number">4</div>
         <div class="opp-step-label">{{ step4Label }}</div>
       </div>
@@ -991,7 +1079,9 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
     <!-- 新建模式下的标题 -->
     <div v-if="isCreate" class="opp-create-header">
       <span class="opp-create-title">新建商机</span>
-      <span class="opp-create-subtitle">填写商机基础信息，保存后可继续完善需求、方案等阶段内容</span>
+      <span class="opp-create-subtitle"
+        >填写商机基础信息，保存后可继续完善需求、方案等阶段内容</span
+      >
     </div>
 
     <!-- 阶段 Tab 切换 -->
@@ -1000,17 +1090,20 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         class="opp-nav-item"
         :class="{ active: activeTab === '1' }"
         @click="activeTab = '1'"
-      >初步沟通</span>
+        >初步沟通</span
+      >
       <span
         class="opp-nav-item"
         :class="{ active: activeTab === '2' }"
         @click="activeTab = '2'"
-      >需求确认</span>
+        >需求确认</span
+      >
       <span
         class="opp-nav-item nav-purple"
         :class="{ active: activeTab === '3' }"
         @click="activeTab = '3'"
-      >方案沟通</span>
+        >方案沟通</span
+      >
     </div>
 
     <!-- 主体：左右布局 -->
@@ -1022,39 +1115,95 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
           <div class="opp-form-header">
             <span class="opp-form-title">初步沟通记录</span>
           </div>
-          <Form ref="baseFormRef" :model="baseForm" layout="vertical" class="opp-form">
-            <Form.Item label="商机名称" name="title" :rules="[{ required: true, message: '请输入商机名称' }]">
-              <Input v-model:value="baseForm.title" placeholder="请输入商机名称" />
+          <Form
+            ref="baseFormRef"
+            :model="baseForm"
+            layout="vertical"
+            class="opp-form"
+          >
+            <Form.Item
+              label="商机名称"
+              name="title"
+              :rules="[{ required: true, message: '请输入商机名称' }]"
+            >
+              <Input
+                v-model:value="baseForm.title"
+                placeholder="请输入商机名称"
+              />
             </Form.Item>
             <div class="opp-form-row">
-              <Form.Item label="所属企业" name="customerId" class="opp-form-item" :rules="[{ required: true, message: '请选择所属企业' }]">
+              <Form.Item
+                label="所属企业"
+                name="customerId"
+                class="opp-form-item"
+                :rules="[{ required: true, message: '请选择所属企业' }]"
+              >
                 <div class="opp-customer-picker">
                   <Input
-                    :value="baseForm.customerId ? (opp.customerName || '') : ''"
-                    :placeholder="isCustomerLocked ? '已转下游单据，客户不可修改' : '点击右侧按钮选择客户'"
+                    :value="baseForm.customerId ? opp.customerName || '' : ''"
+                    :placeholder="
+                      isCustomerLocked
+                        ? '已转下游单据，客户不可修改'
+                        : '点击右侧按钮选择客户'
+                    "
                     readonly
                     class="opp-customer-picker-input"
                   />
-                  <Button type="primary" size="small" class="opp-customer-picker-btn" :disabled="isCustomerLocked" @click="openCustomerPicker">
+                  <Button
+                    type="primary"
+                    size="small"
+                    class="opp-customer-picker-btn"
+                    :disabled="isCustomerLocked"
+                    @click="openCustomerPicker"
+                  >
                     选择客户
                   </Button>
-                  <Button v-if="baseForm.customerId && !isCustomerLocked" type="link" size="small" danger class="opp-customer-picker-clear" @click="clearSelectedCustomer">
+                  <Button
+                    v-if="baseForm.customerId && !isCustomerLocked"
+                    type="link"
+                    size="small"
+                    danger
+                    class="opp-customer-picker-clear"
+                    @click="clearSelectedCustomer"
+                  >
                     清除
                   </Button>
                 </div>
               </Form.Item>
-              <Form.Item label="联系人" name="contactId" class="opp-form-item" :rules="[{ required: true, message: '请选择联系人' }]">
+              <Form.Item
+                label="联系人"
+                name="contactId"
+                class="opp-form-item"
+                :rules="[{ required: true, message: '请选择联系人' }]"
+              >
                 <div class="opp-customer-picker">
                   <Input
                     :value="baseForm.contactId ? selectedContactName : ''"
-                    :placeholder="baseForm.customerId ? '点击右侧按钮选择联系人' : '请先选择所属企业'"
+                    :placeholder="
+                      baseForm.customerId
+                        ? '点击右侧按钮选择联系人'
+                        : '请先选择所属企业'
+                    "
                     readonly
                     class="opp-customer-picker-input"
                   />
-                  <Button type="primary" size="small" class="opp-customer-picker-btn" :disabled="!baseForm.customerId" @click="openContactPickerBasic">
+                  <Button
+                    type="primary"
+                    size="small"
+                    class="opp-customer-picker-btn"
+                    :disabled="!baseForm.customerId"
+                    @click="openContactPickerBasic"
+                  >
                     选择联系人
                   </Button>
-                  <Button v-if="baseForm.contactId" type="link" size="small" danger class="opp-customer-picker-clear" @click="clearSelectedContact">
+                  <Button
+                    v-if="baseForm.contactId"
+                    type="link"
+                    size="small"
+                    danger
+                    class="opp-customer-picker-clear"
+                    @click="clearSelectedContact"
+                  >
                     清除
                   </Button>
                 </div>
@@ -1062,27 +1211,62 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
             </div>
             <div class="opp-form-row">
               <Form.Item label="商机金额" name="amount" class="opp-form-item">
-                <InputNumber v-model:value="baseForm.amount" :min="0" :precision="2" placeholder="请输入商机金额" style="width: 100%" />
+                <InputNumber
+                  v-model:value="baseForm.amount"
+                  :min="0"
+                  :precision="2"
+                  placeholder="请输入商机金额"
+                  style="width: 100%"
+                />
               </Form.Item>
               <Form.Item label="币种" name="currency" class="opp-form-item">
-                <Select v-model:value="baseForm.currency" :options="currencyOptions" />
+                <Select
+                  v-model:value="baseForm.currency"
+                  :options="currencyOptions"
+                />
               </Form.Item>
             </div>
             <div class="opp-form-row">
-              <Form.Item label="赢单概率" name="probability" class="opp-form-item">
-                <InputNumber v-model:value="baseForm.probability" :min="0" :max="100" placeholder="0-100" style="width: 100%">
+              <Form.Item
+                label="赢单概率"
+                name="probability"
+                class="opp-form-item"
+              >
+                <InputNumber
+                  v-model:value="baseForm.probability"
+                  :min="0"
+                  :max="100"
+                  placeholder="0-100"
+                  style="width: 100%"
+                >
                   <template #addonAfter>%</template>
                 </InputNumber>
               </Form.Item>
               <Form.Item label="商机来源" name="source" class="opp-form-item">
-                <Select v-model:value="baseForm.source" placeholder="请选择来源" allow-clear :options="sourceOptions" />
+                <Select
+                  v-model:value="baseForm.source"
+                  placeholder="请选择来源"
+                  allow-clear
+                  :options="sourceOptions"
+                />
               </Form.Item>
             </div>
             <Form.Item label="预计成交日期" name="expectedCloseDate">
-              <DatePicker v-model:value="baseForm.expectedCloseDate" placeholder="请选择预计成交日期" style="width: 100%" value-format="YYYY-MM-DD" />
+              <DatePicker
+                v-model:value="baseForm.expectedCloseDate"
+                placeholder="请选择预计成交日期"
+                style="width: 100%"
+                value-format="YYYY-MM-DD"
+              />
             </Form.Item>
             <Form.Item label="商机描述" name="description">
-              <Input.TextArea v-model:value="baseForm.description" placeholder="详细描述商机背景、客户需求、价值主张等" :rows="4" :maxlength="2000" show-count />
+              <Input.TextArea
+                v-model:value="baseForm.description"
+                placeholder="详细描述商机背景、客户需求、价值主张等"
+                :rows="4"
+                :maxlength="2000"
+                show-count
+              />
             </Form.Item>
           </Form>
           <div class="opp-form-footer">
@@ -1099,10 +1283,21 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
           </div>
           <Form :model="reqForm" layout="vertical" class="opp-form">
             <Form.Item label="需求类型" name="reqType">
-              <Select v-model:value="reqForm.reqType" placeholder="请选择需求类型" allow-clear :options="reqTypeOptions" />
+              <Select
+                v-model:value="reqForm.reqType"
+                placeholder="请选择需求类型"
+                allow-clear
+                :options="reqTypeOptions"
+              />
             </Form.Item>
             <Form.Item label="需求描述" name="reqDesc">
-              <Input.TextArea v-model:value="reqForm.reqDesc" placeholder="请输入需求描述..." :rows="8" :maxlength="2000" show-count />
+              <Input.TextArea
+                v-model:value="reqForm.reqDesc"
+                placeholder="请输入需求描述..."
+                :rows="8"
+                :maxlength="2000"
+                show-count
+              />
             </Form.Item>
             <Form.Item label="优先级" name="priority">
               <Radio.Group v-model:value="reqForm.priority">
@@ -1112,24 +1307,36 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
               </Radio.Group>
             </Form.Item>
             <Form.Item label="期望交付时间" name="expectDate">
-              <DatePicker v-model:value="reqForm.expectDate" placeholder="年 / 月 / 日" style="width: 100%" value-format="YYYY-MM-DD" />
+              <DatePicker
+                v-model:value="reqForm.expectDate"
+                placeholder="年 / 月 / 日"
+                style="width: 100%"
+                value-format="YYYY-MM-DD"
+              />
             </Form.Item>
             <Form.Item label="预算范围" name="budgetRange">
-              <Select v-model:value="reqForm.budgetRange" placeholder="请选择预算范围" allow-clear :options="budgetOptions" />
+              <Select
+                v-model:value="reqForm.budgetRange"
+                placeholder="请选择预算范围"
+                allow-clear
+                :options="budgetOptions"
+              />
             </Form.Item>
             <Form.Item label="需求文档">
               <Upload>
-                <Button>
-                  <LucidePlus /> 点击或拖拽文件上传
-                </Button>
+                <Button> <LucidePlus /> 点击或拖拽文件上传 </Button>
                 <template #tip>
-                  <div class="ant-upload-hint">支持 PDF、Word、Excel 等格式，单个文件不超过 10MB</div>
+                  <div class="ant-upload-hint">
+                    支持 PDF、Word、Excel 等格式，单个文件不超过 10MB
+                  </div>
                 </template>
               </Upload>
             </Form.Item>
           </Form>
           <div class="opp-form-footer">
-            <Button type="primary" :loading="saving" @click="handleSaveReq">保存</Button>
+            <Button type="primary" :loading="saving" @click="handleSaveReq">
+              保存
+            </Button>
           </div>
         </div>
 
@@ -1140,23 +1347,48 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
           </div>
           <Form :model="solForm" layout="vertical" class="opp-form">
             <Form.Item label="方案类型" name="solutionType">
-              <Select v-model:value="solForm.solutionType" placeholder="请选择方案类型" allow-clear :options="solutionTypeOptions" />
+              <Select
+                v-model:value="solForm.solutionType"
+                placeholder="请选择方案类型"
+                allow-clear
+                :options="solutionTypeOptions"
+              />
             </Form.Item>
             <Form.Item label="方案概述" name="solutionOverview">
-              <Input.TextArea v-model:value="solForm.solutionOverview" placeholder="请输入方案概述..." :rows="8" :maxlength="2000" show-count />
+              <Input.TextArea
+                v-model:value="solForm.solutionOverview"
+                placeholder="请输入方案概述..."
+                :rows="8"
+                :maxlength="2000"
+                show-count
+              />
             </Form.Item>
             <Form.Item label="方案亮点">
-              <Input v-model:value="solForm.solutionHighlights" placeholder="请输入方案亮点" />
+              <Input
+                v-model:value="solForm.solutionHighlights"
+                placeholder="请输入方案亮点"
+              />
               <div class="opp-highlight-tags">
                 <Tag color="green">已发送文件</Tag>
               </div>
             </Form.Item>
             <div class="opp-form-row">
               <Form.Item label="预计工期" class="opp-form-item">
-                <Input v-model:value="solForm.estimatedDuration" placeholder="请填写预计工期" prefix="约" suffix="周" />
+                <Input
+                  v-model:value="solForm.estimatedDuration"
+                  placeholder="请填写预计工期"
+                  prefix="约"
+                  suffix="周"
+                />
               </Form.Item>
               <Form.Item label="报价金额" class="opp-form-item">
-                <InputNumber v-model:value="solForm.quoteAmount" :min="0" :precision="2" placeholder="请输入报价金额" style="width: 100%">
+                <InputNumber
+                  v-model:value="solForm.quoteAmount"
+                  :min="0"
+                  :precision="2"
+                  placeholder="请输入报价金额"
+                  style="width: 100%"
+                >
                   <template #addonBefore>¥</template>
                 </InputNumber>
               </Form.Item>
@@ -1168,7 +1400,9 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
                     <LucidePlus :size="20" />
                   </div>
                   <div class="opp-upload-text">点击或拖拽文件上传</div>
-                  <div class="opp-upload-hint">支持 PDF、Word、Excel 等格式，单个文件不超过 10MB</div>
+                  <div class="opp-upload-hint">
+                    支持 PDF、Word、Excel 等格式，单个文件不超过 10MB
+                  </div>
                 </div>
               </Upload>
             </Form.Item>
@@ -1176,16 +1410,31 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
               <div class="opp-demo-title">演示安排</div>
               <div class="opp-form-row">
                 <Form.Item label="演示日期" class="opp-form-item">
-                  <DatePicker v-model:value="solForm.demoDate" placeholder="年 / 月 / 日" style="width: 100%" value-format="YYYY-MM-DD" />
+                  <DatePicker
+                    v-model:value="solForm.demoDate"
+                    placeholder="年 / 月 / 日"
+                    style="width: 100%"
+                    value-format="YYYY-MM-DD"
+                  />
                 </Form.Item>
                 <Form.Item label="演示方式" class="opp-form-item">
-                  <Select v-model:value="solForm.demoType" placeholder="请选择演示方式" allow-clear :options="demoTypeOptions" />
+                  <Select
+                    v-model:value="solForm.demoType"
+                    placeholder="请选择演示方式"
+                    allow-clear
+                    :options="demoTypeOptions"
+                  />
                 </Form.Item>
               </div>
             </div>
           </Form>
           <div class="opp-form-footer">
-            <Button type="primary" class="opp-submit-btn" :loading="saving" @click="handleSubmitSolution">
+            <Button
+              type="primary"
+              class="opp-submit-btn"
+              :loading="saving"
+              @click="handleSubmitSolution"
+            >
               提交方案
             </Button>
           </div>
@@ -1198,24 +1447,54 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div class="opp-right-section">
           <div class="opp-right-title">跟进记录</div>
           <div class="opp-timeline">
-            <div v-for="(record, idx) in sortedFollowUpRecords" :key="idx" class="opp-tl-item">
-              <div class="opp-tl-dot" :style="{ backgroundColor: record.color }"></div>
+            <div
+              v-for="(record, idx) in sortedFollowUpRecords"
+              :key="idx"
+              class="opp-tl-item"
+            >
+              <div
+                class="opp-tl-dot"
+                :style="{ backgroundColor: record.color }"
+              ></div>
               <div class="opp-tl-body">
                 <div class="opp-tl-time">
-                  <Tag v-if="record.stageLabel" size="small" :color="record.stage === 1 ? 'green' : record.stage === 2 ? 'blue' : 'purple'" class="opp-tl-stage-tag">
+                  <Tag
+                    v-if="record.stageLabel"
+                    size="small"
+                    :color="
+                      record.stage === 1
+                        ? 'green'
+                        : record.stage === 2
+                          ? 'blue'
+                          : 'purple'
+                    "
+                    class="opp-tl-stage-tag"
+                  >
                     {{ record.stageLabel }}
                   </Tag>
                   <span>{{ record.time }}</span>
                 </div>
                 <div class="opp-tl-user">
-                  <Avatar :size="20" :style="{ backgroundColor: record.color, color: '#fff' }">
+                  <Avatar
+                    :size="20"
+                    :style="{ backgroundColor: record.color, color: '#fff' }"
+                  >
                     {{ record.user.charAt(0) }}
                   </Avatar>
                   <span class="opp-tl-name">{{ record.user }}</span>
                 </div>
                 <div class="opp-tl-content">{{ record.content }}</div>
-                <div v-if="record.tags && record.tags.length" class="opp-tl-tags">
-                  <Tag v-for="t in record.tags" :key="t.text" :color="t.color" size="small" class="opp-tl-tag">
+                <div
+                  v-if="record.tags && record.tags.length > 0"
+                  class="opp-tl-tags"
+                >
+                  <Tag
+                    v-for="t in record.tags"
+                    :key="t.text"
+                    :color="t.color"
+                    size="small"
+                    class="opp-tl-tag"
+                  >
                     {{ t.text }}
                   </Tag>
                 </div>
@@ -1228,17 +1507,37 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
         <div class="opp-right-section">
           <div class="opp-right-title">
             <span>关键联系人</span>
-            <a v-if="!isCreate && opp.customerId" class="opp-add-contact" @click="openContactPicker">+ 添加</a>
+            <a
+              v-if="!isCreate && opp.customerId"
+              class="opp-add-contact"
+              @click="openContactPicker"
+              >+ 添加</a
+            >
           </div>
           <div>
-            <div v-for="(c, idx) in contactList" :key="idx" class="opp-contact-item">
-              <Avatar :size="36" :style="{ backgroundColor: c.avatarColor, color: '#fff' }">
+            <div
+              v-for="(c, idx) in contactList"
+              :key="idx"
+              class="opp-contact-item"
+            >
+              <Avatar
+                :size="36"
+                :style="{ backgroundColor: c.avatarColor, color: '#fff' }"
+              >
                 {{ c.name.charAt(0) }}
               </Avatar>
               <div class="opp-contact-info">
                 <div class="opp-contact-name">
                   {{ c.name }}
-                  <Tag v-for="t in c.tags" :key="t.text" :color="t.color" size="small" class="opp-tl-tag">{{ t.text }}</Tag>
+                  <Tag
+                    v-for="t in c.tags"
+                    :key="t.text"
+                    :color="t.color"
+                    size="small"
+                    class="opp-tl-tag"
+                  >
+                    {{ t.text }}
+                  </Tag>
                 </div>
                 <div class="opp-contact-title">{{ c.title }}</div>
               </div>
@@ -1264,7 +1563,11 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
       @ok="handleConfirmAddContacts"
     >
       <div class="opp-contact-picker">
-        <div class="opp-picker-tip">从「{{ opp.customerName || '该客户' }}」的联系人中选择要标记为关键联系人的人员：</div>
+        <div class="opp-picker-tip">
+          从「{{
+            opp.customerName || '该客户'
+          }}」的联系人中选择要标记为关键联系人的人员：
+        </div>
         <div class="opp-picker-list">
           <div
             v-for="item in customerContactOptions"
@@ -1274,14 +1577,22 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
             @click="toggleContactSelection(item.id)"
           >
             <div class="opp-picker-checkbox">
-              <div class="opp-picker-check-inner" v-if="selectedContactIds.includes(String(item.id))">✓</div>
+              <div
+                class="opp-picker-check-inner"
+                v-if="selectedContactIds.includes(String(item.id))"
+              >
+                ✓
+              </div>
             </div>
             <Avatar :size="32" class="opp-picker-avatar">
               {{ item.name?.charAt(0) || '?' }}
             </Avatar>
             <div class="opp-picker-info">
               <div class="opp-picker-name">{{ item.name }}</div>
-              <div class="opp-picker-meta">{{ item.position || item.title || '-' }} · {{ item.mobile || item.phone || '-' }}</div>
+              <div class="opp-picker-meta">
+                {{ item.position || item.title || '-' }} ·
+                {{ item.mobile || item.phone || '-' }}
+              </div>
             </div>
             <Select
               v-model:value="contactRoleMap[String(item.id)]"
@@ -1293,7 +1604,10 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
             />
           </div>
         </div>
-        <div v-if="customerContactOptions.length === 0 && !contactPickerLoading" class="opp-picker-empty">
+        <div
+          v-if="customerContactOptions.length === 0 && !contactPickerLoading"
+          class="opp-picker-empty"
+        >
           该客户下暂无联系人
         </div>
       </div>
@@ -1309,17 +1623,23 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
     >
       <Spin :spinning="contactPickerBasicLoading">
         <div class="opp-customer-picker-modal">
-          <div class="opp-picker-tip">从「{{ opp.customerName || '该企业' }}」中选择联系人：</div>
+          <div class="opp-picker-tip">
+            从「{{ opp.customerName || '该企业' }}」中选择联系人：
+          </div>
           <div class="opp-customer-picker-list">
             <div
               v-for="item in contactPickerBasicOptions"
               :key="item.id"
               class="opp-customer-picker-row"
-              :class="{ active: String(baseForm.contactId) === String(item.id) }"
+              :class="{
+                active: String(baseForm.contactId) === String(item.id),
+              }"
               @click="selectContactFromPicker(item)"
             >
               <div class="opp-customer-picker-info">
-                <div class="opp-customer-picker-name">{{ item.name || '未命名' }}</div>
+                <div class="opp-customer-picker-name">
+                  {{ item.name || '未命名' }}
+                </div>
                 <div class="opp-customer-picker-meta">
                   <span v-if="item.position">职位: {{ item.position }}</span>
                   <span v-if="item.mobile">手机: {{ item.mobile }}</span>
@@ -1327,9 +1647,21 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
                   <span v-if="item.email">邮箱: {{ item.email }}</span>
                 </div>
               </div>
-              <Tag v-if="String(baseForm.contactId) === String(item.id)" color="green" class="opp-customer-picker-checked">已选</Tag>
+              <Tag
+                v-if="String(baseForm.contactId) === String(item.id)"
+                color="green"
+                class="opp-customer-picker-checked"
+              >
+                已选
+              </Tag>
             </div>
-            <div v-if="contactPickerBasicOptions.length === 0 && !contactPickerBasicLoading" class="opp-customer-picker-empty">
+            <div
+              v-if="
+                contactPickerBasicOptions.length === 0 &&
+                !contactPickerBasicLoading
+              "
+              class="opp-customer-picker-empty"
+            >
               该企业下暂无联系人
             </div>
           </div>
@@ -1347,23 +1679,60 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
       cancel-text="取消"
       @ok="handleSaveFollowup"
     >
-      <Form ref="followupFormRef" :model="followupForm" layout="vertical" class="opp-followup-form">
-        <Form.Item label="跟进方式" name="activityType" :rules="[{ required: true, message: '请选择跟进方式' }]">
-          <Select v-model:value="followupForm.activityType" placeholder="请选择跟进方式" :options="activityTypeOptions" />
+      <Form
+        ref="followupFormRef"
+        :model="followupForm"
+        layout="vertical"
+        class="opp-followup-form"
+      >
+        <Form.Item
+          label="跟进方式"
+          name="activityType"
+          :rules="[{ required: true, message: '请选择跟进方式' }]"
+        >
+          <Select
+            v-model:value="followupForm.activityType"
+            placeholder="请选择跟进方式"
+            :options="activityTypeOptions"
+          />
         </Form.Item>
-        <Form.Item label="跟进内容" name="content" :rules="[{ required: true, message: '请输入跟进内容' }]">
-          <Input.TextArea v-model:value="followupForm.content" :rows="5" placeholder="请输入跟进内容详情" allow-clear />
+        <Form.Item
+          label="跟进内容"
+          name="content"
+          :rules="[{ required: true, message: '请输入跟进内容' }]"
+        >
+          <Input.TextArea
+            v-model:value="followupForm.content"
+            :rows="5"
+            placeholder="请输入跟进内容详情"
+            allow-clear
+          />
         </Form.Item>
         <div class="opp-form-row">
           <Form.Item label="下次跟进日期" class="opp-form-item">
-            <DatePicker v-model:value="followupForm.nextFollowDate" placeholder="选择日期" style="width: 100%" value-format="YYYY-MM-DD" />
+            <DatePicker
+              v-model:value="followupForm.nextFollowDate"
+              placeholder="选择日期"
+              style="width: 100%"
+              value-format="YYYY-MM-DD"
+            />
           </Form.Item>
           <Form.Item label="沟通时长（分钟）" class="opp-form-item">
-            <InputNumber v-model:value="followupForm.durationMinutes" :min="0" placeholder="分钟" style="width: 100%" />
+            <InputNumber
+              v-model:value="followupForm.durationMinutes"
+              :min="0"
+              placeholder="分钟"
+              style="width: 100%"
+            />
           </Form.Item>
         </div>
         <Form.Item label="沟通结果">
-          <Input.TextArea v-model:value="followupForm.result" :rows="3" placeholder="请输入沟通结果（选填）" allow-clear />
+          <Input.TextArea
+            v-model:value="followupForm.result"
+            :rows="3"
+            placeholder="请输入沟通结果（选填）"
+            allow-clear
+          />
         </Form.Item>
       </Form>
     </Modal>
@@ -1385,7 +1754,9 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
             class="opp-customer-picker-search-input"
             @press-enter="handleCustomerPickerSearch"
           />
-          <Button type="primary" @click="handleCustomerPickerSearch">搜索</Button>
+          <Button type="primary" @click="handleCustomerPickerSearch">
+            搜索
+          </Button>
         </div>
         <Spin :spinning="customerPickerLoading">
           <div class="opp-customer-picker-list">
@@ -1393,20 +1764,44 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
               v-for="item in customerPickerOptions"
               :key="item.id"
               class="opp-customer-picker-row"
-              :class="{ active: String(baseForm.customerId) === String(item.id) }"
+              :class="{
+                active: String(baseForm.customerId) === String(item.id),
+              }"
               @click="selectCustomerFromPicker(item)"
             >
               <div class="opp-customer-picker-info">
-                <div class="opp-customer-picker-name">{{ item.companyName || '未命名客户' }}</div>
+                <div class="opp-customer-picker-name">
+                  {{ item.companyName || '未命名客户' }}
+                </div>
                 <div class="opp-customer-picker-meta">
-                  <span v-if="item.contactName">联系人: {{ item.contactName }}</span>
+                  <span v-if="item.contactName"
+                    >联系人: {{ item.contactName }}</span
+                  >
                   <span v-if="item.mobile">手机: {{ item.mobile }}</span>
-                  <span v-if="item.industry">行业: {{ industryLabelMap[Number(item.industry)] || item.industry || '-' }}</span>
+                  <span v-if="item.industry"
+                    >行业:
+                    {{
+                      industryLabelMap[Number(item.industry)] ||
+                      item.industry ||
+                      '-'
+                    }}</span
+                  >
                 </div>
               </div>
-              <Tag v-if="String(baseForm.customerId) === String(item.id)" color="green" class="opp-customer-picker-checked">已选</Tag>
+              <Tag
+                v-if="String(baseForm.customerId) === String(item.id)"
+                color="green"
+                class="opp-customer-picker-checked"
+              >
+                已选
+              </Tag>
             </div>
-            <div v-if="customerPickerOptions.length === 0 && !customerPickerLoading" class="opp-customer-picker-empty">
+            <div
+              v-if="
+                customerPickerOptions.length === 0 && !customerPickerLoading
+              "
+              class="opp-customer-picker-empty"
+            >
               暂无客户数据
             </div>
           </div>
@@ -1419,114 +1814,132 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
 <style scoped>
 .opp-detail {
   min-height: 100%;
+  padding: 0 0 24px;
   background: hsl(var(--background));
-  padding: 0 0 24px 0;
 }
 
 /* 商机信息卡 */
 .opp-info-card {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin: 16px 24px 0;
-  padding: 20px 24px;
-  background: hsl(var(--muted) / 40%);
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  border: 1px solid hsl(var(--border));
   flex-wrap: wrap;
   gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 24px;
+  margin: 16px 24px 0;
+  background: hsl(var(--muted) / 40%);
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 3%);
 }
+
 .opp-info-main {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-  flex: 1;
 }
+
 .opp-info-title-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
+
 .opp-company {
   font-size: 16px;
   font-weight: 600;
   color: hsl(var(--card-foreground));
 }
+
 .opp-project {
   font-size: 16px;
-  color: hsl(var(--muted-foreground));
   font-weight: 500;
+  color: hsl(var(--muted-foreground));
 }
+
 .opp-no-tag {
   font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  border-color: hsl(var(--border));
+  border-radius: 4px;
   transform: scale(0.9);
   transform-origin: left center;
-  border-radius: 4px;
-  border-color: hsl(var(--border));
-  color: hsl(var(--muted-foreground));
 }
+
 .opp-info-desc-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
   font-size: 12px;
 }
+
 .opp-info-desc-item {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
 }
+
 .opp-info-desc-sep {
   color: hsl(var(--border));
 }
+
 .opp-info-label {
   color: hsl(var(--muted-foreground));
 }
+
 .opp-info-value {
-  color: hsl(var(--card-foreground) / 0.8);
+  color: hsl(var(--card-foreground) / 80%);
 }
+
 .opp-info-detail-row {
   display: flex;
-  align-items: center;
-  gap: 24px;
   flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
   margin-top: 2px;
 }
+
 .opp-info-detail-item {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   font-size: 12px;
 }
+
 .opp-info-detail-label {
   color: hsl(var(--muted-foreground));
 }
+
 .opp-info-detail-value {
-  color: hsl(var(--card-foreground) / 0.8);
+  color: hsl(var(--card-foreground) / 80%);
 }
+
 .opp-info-detail-value.prob {
-  color: #fa8c16;
   font-weight: 500;
+  color: #fa8c16;
 }
+
 .opp-info-extra {
   display: flex;
   flex-direction: column;
+  gap: 4px;
   align-items: flex-end;
   justify-content: center;
-  gap: 4px;
 }
+
 .opp-info-amount-label {
   font-size: 12px;
   color: hsl(var(--muted-foreground));
 }
+
 .opp-info-amount-value {
   font-size: 18px;
-  color: #fa8c16;
   font-weight: 600;
+  color: #fa8c16;
 }
 
 /* 5步进度条 */
@@ -1537,74 +1950,85 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   padding: 20px 40px 16px;
   margin: 12px 24px 0;
   background: hsl(var(--card));
-  border-radius: 8px;
   border: none;
+  border-radius: 8px;
 }
+
 .opp-step {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
   flex-shrink: 0;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
   min-width: 60px;
 }
+
 .opp-step.step-clickable {
   cursor: pointer;
 }
+
 .opp-step.step-clickable:hover .opp-step-number {
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
   transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   transition: all 0.2s;
 }
+
 .opp-step-number {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: hsl(var(--border));
-  color: hsl(var(--muted-foreground));
-  font-size: 12px;
-  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--border));
+  border-radius: 50%;
 }
+
 .opp-step-label {
   font-size: 12px;
   color: hsl(var(--muted-foreground));
   white-space: nowrap;
 }
+
 .opp-step.step-done .opp-step-number {
+  color: #fff;
   background: #52c41a;
-  color: #fff;
 }
+
 .opp-step.step-done .opp-step-label {
+  font-weight: 500;
   color: #52c41a;
-  font-weight: 500;
 }
+
 .opp-step.step-current-purple .opp-step-number {
-  background: #7c3aed;
   color: #fff;
+  background: #7c3aed;
 }
+
 .opp-step.step-current-purple .opp-step-label {
-  color: #7c3aed;
   font-weight: 500;
+  color: #7c3aed;
 }
+
 .opp-step-line {
-  flex: 1;
-  height: 2px;
-  background: hsl(var(--border));
-  margin-top: 12px;
-  max-width: 100px;
-  min-width: 40px;
   position: relative;
+  flex: 1;
+  min-width: 40px;
+  max-width: 100px;
+  height: 2px;
+  margin-top: 12px;
+  background: hsl(var(--border));
 }
+
 .opp-step-line::after {
-  content: '';
   position: absolute;
-  left: 0;
   top: 0;
+  left: 0;
   width: 100%;
   height: 2px;
+  content: '';
   background: repeating-linear-gradient(
     to right,
     hsl(var(--border)) 0 4px,
@@ -1612,28 +2036,33 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   );
   opacity: 0;
 }
+
 .opp-step-line:not(.line-done)::after {
   opacity: 1;
 }
+
 .opp-step-line:not(.line-done) {
   background: transparent;
 }
+
 .opp-step-line .opp-step-arrow {
   position: absolute;
-  left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 18px;
-  color: hsl(var(--border));
-  background: hsl(var(--card));
-  padding: 0 4px;
-  line-height: 1;
+  left: 50%;
   z-index: 1;
   display: none;
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: hsl(var(--border));
+  background: hsl(var(--card));
+  transform: translate(-50%, -50%);
 }
+
 .opp-step-line:not(.line-done) .opp-step-arrow {
   display: inline-block;
 }
+
 .opp-step-line.line-done {
   background: #52c41a;
 }
@@ -1641,32 +2070,36 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
 /* Tab 切换 */
 .opp-nav {
   display: flex;
-  align-items: center;
   gap: 24px;
+  align-items: center;
   padding: 0 24px;
   margin: 12px 24px 0;
+  font-size: 13px;
   background: hsl(var(--card));
-  border-radius: 0;
   border: none;
   border-bottom: 1px solid hsl(var(--border));
-  font-size: 13px;
+  border-radius: 0;
 }
+
 .opp-nav-item {
   padding: 10px 0;
+  margin-bottom: -1px;
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
   transition: all 0.2s;
 }
+
 .opp-nav-item:hover {
   color: hsl(var(--card-foreground));
 }
+
 .opp-nav-item.active {
+  font-weight: 500;
   color: #52c41a;
   border-bottom-color: #52c41a;
-  font-weight: 500;
 }
+
 .opp-nav-item.nav-purple.active {
   color: #7c3aed;
   border-bottom-color: #7c3aed;
@@ -1676,23 +2109,25 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
 .opp-body {
   display: flex;
   gap: 16px;
-  margin: 15px 24px 0;
   align-items: flex-start;
+  margin: 15px 24px 0;
 }
+
 .opp-side {
-  width: 360px;
-  flex-shrink: 0;
   display: flex;
+  flex-shrink: 0;
   flex-direction: column;
   gap: 12px;
+  width: 360px;
 }
+
 .opp-main {
   flex: 1;
   min-width: 0;
-  background: hsl(var(--muted) / 40%);
-  border-radius: 8px;
-  border: 1px solid hsl(var(--border));
   overflow: hidden;
+  background: hsl(var(--muted) / 40%);
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
 }
 
 .opp-tab-content {
@@ -1706,40 +2141,49 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   justify-content: space-between;
   margin-bottom: 8px;
 }
+
 .opp-form-title {
   font-size: 14px;
   font-weight: 600;
   color: hsl(var(--card-foreground));
 }
+
 .opp-add-btn {
   border-radius: 4px;
 }
+
 .opp-form-actions {
   display: flex;
   gap: 8px;
 }
+
 .opp-form {
   max-width: 100%;
 }
+
 .opp-form-row {
   display: flex;
   gap: 16px;
 }
+
 .opp-form-item {
   flex: 1;
 }
+
 .opp-form-footer {
   display: flex;
   justify-content: center;
   padding: 16px 0 20px;
-  border-top: 1px solid hsl(var(--border));
   margin-top: 8px;
+  border-top: 1px solid hsl(var(--border));
 }
+
 .opp-submit-btn {
+  min-width: 100px;
   background: #7c3aed;
   border-color: #7c3aed;
-  min-width: 100px;
 }
+
 .opp-submit-btn:hover,
 .opp-submit-btn:focus {
   background: #6d28d9;
@@ -1748,67 +2192,73 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
 
 /* 方案亮点标签 */
 .opp-highlight-tags {
-  margin-top: 6px;
   display: flex;
   gap: 6px;
+  margin-top: 6px;
 }
 
 /* 上传框 */
 .opp-upload-box {
-  border: 1px dashed hsl(var(--border));
-  border-radius: 6px;
   padding: 24px 16px;
   text-align: center;
-  background: hsl(var(--card) / 50%);
   cursor: pointer;
+  background: hsl(var(--card) / 50%);
+  border: 1px dashed hsl(var(--border));
+  border-radius: 6px;
   transition: all 0.2s;
 }
+
 .opp-upload-box:hover {
   border-color: #7c3aed;
 }
+
 .opp-upload-icon {
-  color: hsl(var(--muted-foreground));
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 8px;
+  color: hsl(var(--muted-foreground));
 }
+
 .opp-upload-text {
+  margin-bottom: 4px;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
-  margin-bottom: 4px;
 }
+
 .opp-upload-hint {
   font-size: 11px;
-  color: hsl(var(--muted-foreground) / 0.7);
+  color: hsl(var(--muted-foreground) / 70%);
 }
 
 /* 演示安排 */
 .opp-form-demo {
-  margin-top: 4px;
   padding-top: 8px;
+  margin-top: 4px;
   border-top: 1px dashed hsl(var(--border));
 }
+
 .opp-demo-title {
+  margin-bottom: 8px;
   font-size: 13px;
   font-weight: 500;
   color: hsl(var(--card-foreground));
-  margin-bottom: 8px;
 }
 
 /* 右栏 */
 .opp-right-section {
+  padding: 14px 16px;
   background: hsl(var(--muted) / 40%);
   border: 1px solid hsl(var(--border));
   border-radius: 6px;
-  padding: 14px 16px;
 }
+
 .opp-right-title {
+  padding-bottom: 8px;
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
   color: hsl(var(--card-foreground));
-  margin-bottom: 12px;
-  padding-bottom: 8px;
   border-bottom: 1px solid hsl(var(--border));
 }
 
@@ -1818,105 +2268,122 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   flex-direction: column;
   gap: 14px;
 }
+
 .opp-tl-item {
+  position: relative;
   display: flex;
   gap: 10px;
-  position: relative;
 }
+
 .opp-tl-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 5px;
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
 }
+
 .opp-tl-item::before {
-  content: '';
   position: absolute;
-  left: 3.5px;
   top: 13px;
-  width: 1px;
   bottom: -6px;
+  left: 3.5px;
+  width: 1px;
+  content: '';
   background: hsl(var(--border));
 }
+
 .opp-tl-item:last-child::before {
   display: none;
 }
+
 .opp-tl-body {
   flex: 1;
   min-width: 0;
 }
+
 .opp-tl-time {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
   font-size: 11px;
   color: hsl(var(--muted-foreground));
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
+
 .opp-tl-stage-tag {
   margin: 0;
   border-radius: 3px;
   transform: scale(0.9);
   transform-origin: left center;
 }
+
 .opp-tl-user {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   margin-bottom: 4px;
 }
+
 .opp-tl-name {
   font-size: 13px;
   font-weight: 500;
   color: hsl(var(--card-foreground));
 }
+
 .opp-tl-content {
   font-size: 12px;
-  color: hsl(var(--muted-foreground));
   line-height: 1.6;
+  color: hsl(var(--muted-foreground));
 }
+
 .opp-tl-tags {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 6px;
-  flex-wrap: wrap;
 }
+
 .opp-tl-tag {
-  border-radius: 3px;
   margin: 0;
+  border-radius: 3px;
 }
 
 /* 联系人 */
 .opp-contact-item {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   padding: 10px 0;
   border-bottom: 1px dashed hsl(var(--border));
 }
+
 .opp-contact-item:last-child {
   border-bottom: none;
 }
+
 .opp-contact-info {
   flex: 1;
   min-width: 0;
 }
+
 .opp-contact-name {
+  display: flex;
+  gap: 6px;
+  align-items: center;
   font-size: 13px;
   font-weight: 500;
   color: hsl(var(--card-foreground));
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
+
 .opp-contact-title {
+  margin-top: 2px;
   font-size: 11px;
   color: hsl(var(--muted-foreground));
-  margin-top: 2px;
 }
+
 .opp-contact-links {
   display: flex;
   flex-direction: column;
@@ -1925,20 +2392,23 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   color: hsl(var(--muted-foreground));
   text-align: right;
 }
+
 .opp-contact-link {
-  white-space: nowrap;
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
   justify-content: flex-end;
+  white-space: nowrap;
 }
+
 .opp-add-contact {
+  float: right;
   font-size: 12px;
+  font-weight: normal;
   color: #1890ff;
   cursor: pointer;
-  float: right;
-  font-weight: normal;
 }
+
 .opp-add-contact:hover {
   color: #40a9ff;
 }
@@ -1948,76 +2418,89 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   max-height: 500px;
   overflow-y: auto;
 }
+
 .opp-picker-tip {
+  margin-bottom: 12px;
   font-size: 13px;
   color: hsl(var(--muted-foreground));
-  margin-bottom: 12px;
 }
+
 .opp-picker-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .opp-picker-item {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   padding: 10px 12px;
+  cursor: pointer;
   border: 1px solid hsl(var(--border));
   border-radius: 6px;
-  cursor: pointer;
   transition: all 0.2s;
 }
+
 .opp-picker-item:hover {
+  background: hsl(var(--primary) / 4%);
   border-color: #1890ff;
-  background: hsl(var(--primary) / 0.04);
 }
+
 .opp-picker-item.active {
+  background: hsl(var(--primary) / 6%);
   border-color: #1890ff;
-  background: hsl(var(--primary) / 0.06);
 }
+
 .opp-picker-checkbox {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
   border: 1.5px solid hsl(var(--border));
   border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }
+
 .opp-picker-item.active .opp-picker-checkbox {
   background: #1890ff;
   border-color: #1890ff;
 }
+
 .opp-picker-check-inner {
-  color: #fff;
   font-size: 11px;
   font-weight: bold;
   line-height: 1;
+  color: #fff;
 }
+
 .opp-picker-avatar {
   flex-shrink: 0;
 }
+
 .opp-picker-info {
   flex: 1;
   min-width: 0;
 }
+
 .opp-picker-name {
   font-size: 13px;
   font-weight: 500;
   color: hsl(var(--card-foreground));
 }
+
 .opp-picker-meta {
+  margin-top: 2px;
   font-size: 11px;
   color: hsl(var(--muted-foreground));
-  margin-top: 2px;
 }
+
 .opp-picker-empty {
-  text-align: center;
   padding: 40px 0;
-  color: hsl(var(--muted-foreground));
   font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
 }
 
 /* 新建模式标题 */
@@ -2025,18 +2508,20 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 16px 24px 0;
   padding: 16px 20px;
+  margin: 16px 24px 0;
   background: hsl(var(--card));
-  border-radius: 8px;
   border: 1px solid hsl(var(--border));
   border-left: 3px solid #1890ff;
+  border-radius: 8px;
 }
+
 .opp-create-title {
   font-size: 16px;
   font-weight: 600;
   color: hsl(var(--card-foreground));
 }
+
 .opp-create-subtitle {
   font-size: 12px;
   color: hsl(var(--muted-foreground));
@@ -2045,21 +2530,25 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
 /* 所属企业选择器（表单内） */
 .opp-customer-picker {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   width: 100%;
 }
+
 .opp-customer-picker-input {
   flex: 1;
 }
+
 .opp-customer-picker-input :deep(.ant-input-affix-wrapper-disabled),
 .opp-customer-picker-input :deep(input[readonly]) {
-  background: hsl(var(--muted) / 40%);
   cursor: not-allowed;
+  background: hsl(var(--muted) / 40%);
 }
+
 .opp-customer-picker-btn {
   flex-shrink: 0;
 }
+
 .opp-customer-picker-clear {
   flex-shrink: 0;
   padding: 0 4px !important;
@@ -2071,64 +2560,75 @@ watch(() => props.id, () => { loadData(); }, { immediate: true });
   flex-direction: column;
   gap: 12px;
 }
+
 .opp-customer-picker-search {
   display: flex;
   gap: 8px;
 }
+
 .opp-customer-picker-search-input {
   flex: 1;
 }
+
 .opp-customer-picker-list {
-  max-height: 480px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 480px;
+  overflow-y: auto;
 }
+
 .opp-customer-picker-row {
   display: flex;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   padding: 12px 14px;
+  cursor: pointer;
   border: 1px solid hsl(var(--border));
   border-radius: 6px;
-  cursor: pointer;
   transition: all 0.2s;
 }
+
 .opp-customer-picker-row:hover {
+  background: hsl(var(--primary) / 4%);
   border-color: #1890ff;
-  background: hsl(var(--primary) / 0.04);
 }
+
 .opp-customer-picker-row.active {
+  background: hsl(122deg 80% 50% / 6%);
   border-color: #52c41a;
-  background: hsl(122 80% 50% / 0.06);
 }
+
 .opp-customer-picker-info {
   flex: 1;
   min-width: 0;
 }
+
 .opp-customer-picker-name {
+  margin-bottom: 4px;
   font-size: 13px;
   font-weight: 500;
   color: hsl(var(--card-foreground));
-  margin-bottom: 4px;
 }
+
 .opp-customer-picker-meta {
   display: flex;
-  gap: 16px;
   flex-wrap: wrap;
+  gap: 16px;
   font-size: 11px;
   color: hsl(var(--muted-foreground));
 }
+
 .opp-customer-picker-checked {
   flex-shrink: 0;
   margin: 0;
 }
+
 .opp-customer-picker-empty {
-  text-align: center;
   padding: 60px 0;
-  color: hsl(var(--muted-foreground));
   font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
 }
 </style>

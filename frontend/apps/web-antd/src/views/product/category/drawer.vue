@@ -2,19 +2,26 @@
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import { $t } from '#/locales';
-import { useVbenForm } from '#/adapter/form';
-import { Form, message, Upload } from 'ant-design-vue';
 import { LucideUpload, LucideX } from '@vben/icons';
-import { createCategoryApi, getCategoryListApi, updateCategoryApi, uploadCategoryImageApi } from '#/api';
+
+import { Form, message, Upload } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import {
+  createCategoryApi,
+  getCategoryListApi,
+  updateCategoryApi,
+  uploadCategoryImageApi,
+} from '#/api';
+import { $t } from '#/locales';
 
 const data = ref();
 const imageUrl = ref('');
 const uploading = ref(false);
-const parentOptions = ref<{ value: string; label: string }[]>([
+const parentOptions = ref<{ label: string; value: string }[]>([
   { value: '0', label: '根目录' },
 ]);
-const currentId = ref<string | null>(null);
+const currentId = ref<null | string>(null);
 
 const getTitle = computed(() =>
   data.value?.create
@@ -23,7 +30,7 @@ const getTitle = computed(() =>
 );
 
 /** 加载可选上级分类（排除自身和子级） */
-async function loadParentOptions(excludeId?: string | null) {
+async function loadParentOptions(excludeId?: null | string) {
   try {
     const resp = await getCategoryListApi({ page: 1, pageSize: 999 });
     const list = (resp as any)?.items || (resp as any)?.rows || [];
@@ -102,8 +109,8 @@ async function handleUpload(file: File) {
     } else {
       message.error('图片上传失败：返回地址为空');
     }
-  } catch (e: any) {
-    message.error(`图片上传失败: ${e?.message || '未知错误'}`);
+  } catch (error: any) {
+    message.error(`图片上传失败: ${error?.message || '未知错误'}`);
   } finally {
     uploading.value = false;
   }
@@ -127,9 +134,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const values = await baseFormApi.getValues();
 
     // parentId = "0" 视为 null（根目录），否则转为数字
-    const parentId = values.parentId && String(values.parentId) !== '0'
-      ? Number(values.parentId)
-      : null;
+    const parentId =
+      values.parentId && String(values.parentId) !== '0'
+        ? Number(values.parentId)
+        : null;
 
     const payload = {
       ...values,
@@ -149,8 +157,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       );
       drawerApi.setData({ needRefresh: true });
       drawerApi.close();
-    } catch (e: any) {
-      message.error(`操作失败: ${e?.message || ''}`);
+    } catch (error: any) {
+      message.error(`操作失败: ${error?.message || ''}`);
     } finally {
       setLoading(false);
     }
@@ -197,7 +205,11 @@ function setLoading(loading: boolean) {
             v-if="imageUrl"
             class="relative w-20 h-20 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0 group"
           >
-            <img :src="imageUrl" alt="分类图片" class="w-full h-full object-cover" />
+            <img
+              :src="imageUrl"
+              alt="分类图片"
+              class="w-full h-full object-cover"
+            />
             <div
               class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               @click="handleRemoveImage"
@@ -217,7 +229,9 @@ function setLoading(loading: boolean) {
               :class="{ 'opacity-50 cursor-not-allowed': uploading }"
             >
               <LucideUpload v-if="!uploading" class="w-4 h-4 text-gray-400" />
-              <span v-if="!uploading" class="text-xs text-gray-400 mt-0.5">上传图片</span>
+              <span v-if="!uploading" class="text-xs text-gray-400 mt-0.5"
+                >上传图片</span
+              >
               <span v-else class="text-xs text-gray-400">上传中...</span>
             </div>
           </Upload>

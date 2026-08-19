@@ -1,13 +1,31 @@
 <script lang="ts" setup>
+import type { VbenFormSchema } from '@vben/common-ui';
+
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormSchema } from '@vben/common-ui';
+
+import {
+  Alert,
+  Button,
+  Input,
+  InputNumber,
+  message,
+  Modal,
+  Table,
+  Textarea,
+  Tooltip,
+} from 'ant-design-vue';
+
 import { useVbenForm } from '#/adapter/form';
-import { $t } from '#/locales';
-import { createInboundApi, getInboundInfoApi, updateInboundApi } from '#/api/core/product/inbound';
+import {
+  createInboundApi,
+  getInboundInfoApi,
+  updateInboundApi,
+} from '#/api/core/product/inbound';
 import { getWarehouseListApi } from '#/api/core/product/warehouse';
-import { Alert, Button, Input, InputNumber, Modal, Table, Textarea, message, Tooltip } from 'ant-design-vue';
+import { $t } from '#/locales';
+
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 
@@ -51,12 +69,14 @@ async function loadWarehouseOptions() {
   try {
     const resp = await getWarehouseListApi({ page: 1, pageSize: 999 });
     const list = resp?.data ?? resp ?? [];
-    warehouseOptions.value = (Array.isArray(list) ? list : []).map((w: any) => ({
-      label: w.warehouseName ?? w.name ?? w.label,
-      value: Number(w.id ?? w.value),
-    }));
-  } catch (e) {
-    console.error('[入库] 加载仓库列表失败:', e);
+    warehouseOptions.value = (Array.isArray(list) ? list : []).map(
+      (w: any) => ({
+        label: w.warehouseName ?? w.name ?? w.label,
+        value: Number(w.id ?? w.value),
+      }),
+    );
+  } catch (error) {
+    console.error('[入库] 加载仓库列表失败:', error);
   }
 }
 
@@ -198,7 +218,9 @@ const formSchema: VbenFormSchema[] = [
     fieldName: '_div1',
     hideLabel: true,
     componentProps: { orientation: 'left', plain: true },
-    renderComponentContent: () => ({ default: () => $t('page.product.inbound.drawer.basicInfo') }),
+    renderComponentContent: () => ({
+      default: () => $t('page.product.inbound.drawer.basicInfo'),
+    }),
     formItemClass: 'col-span-2',
   },
   {
@@ -224,20 +246,29 @@ const formSchema: VbenFormSchema[] = [
       allowClear: true,
       style: { cursor: 'pointer' },
       onClick: () => openWarehouseSelect(),
-      onChange: (e: any) => { if (!e?.target?.value) clearWarehouse(); },
+      onChange: (e: any) => {
+        if (!e?.target?.value) clearWarehouse();
+      },
     },
   },
   {
     component: 'Input',
     fieldName: 'sourceOrderNo',
     label: $t('page.product.inbound.drawer.sourceOrderNo'),
-    componentProps: { placeholder: $t('page.product.inbound.drawer.sourceOrderNoPlaceholder'), allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.inbound.drawer.sourceOrderNoPlaceholder'),
+      allowClear: true,
+    },
   },
   {
     component: 'Textarea',
     fieldName: 'remark',
     label: $t('page.product.inbound.drawer.remark'),
-    componentProps: { placeholder: $t('page.product.inbound.drawer.remarkPlaceholder'), allowClear: true, rows: 2 },
+    componentProps: {
+      placeholder: $t('page.product.inbound.drawer.remarkPlaceholder'),
+      allowClear: true,
+      rows: 2,
+    },
     formItemClass: 'col-span-2',
   },
   {
@@ -245,7 +276,9 @@ const formSchema: VbenFormSchema[] = [
     fieldName: '_div2',
     hideLabel: true,
     componentProps: { orientation: 'left', plain: true },
-    renderComponentContent: () => ({ default: () => $t('page.product.inbound.drawer.detail') }),
+    renderComponentContent: () => ({
+      default: () => $t('page.product.inbound.drawer.detail'),
+    }),
     formItemClass: 'col-span-2',
   },
 ];
@@ -271,7 +304,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
         return;
       }
 
-      const hasInvalidQty = tableItems.value.some((item) => !item.quantity || Number(item.quantity) <= 0);
+      const hasInvalidQty = tableItems.value.some(
+        (item) => !item.quantity || Number(item.quantity) <= 0,
+      );
       if (hasInvalidQty) {
         message.warning('产品数量必须大于 0');
         return;
@@ -279,15 +314,20 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       const values = await mainFormApi.getValues();
 
-      const { _div1, _div2, warehouseName, ...rest } = values as any;
+      const { _div1, _div2, _warehouseName, ...rest } = values as any;
 
       const items = tableItems.value
-        .filter((item) => item.productId != null)
+        .filter(
+          (item) => item.productId !== null && item.productId !== undefined,
+        )
         .map((item) => ({
           productId: Number(item.productId),
           productSku: item.productSku || undefined,
           quantity: Number(item.quantity),
-          unitPrice: item.unitPrice !== undefined && item.unitPrice !== '' ? Number(item.unitPrice) : undefined,
+          unitPrice:
+            item.unitPrice !== undefined && item.unitPrice !== ''
+              ? Number(item.unitPrice)
+              : undefined,
           amount: Number(item.quantity) * Number(item.unitPrice || 0),
           batchNo: item.batchNo || undefined,
           remark: item.remark || undefined,
@@ -296,7 +336,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const data = {
         ...rest,
         warehouseId: selectedWarehouseId.value,
-        totalAmount: Number(items.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2)),
+        totalAmount: Number(
+          items.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2),
+        ),
         items,
       };
 
@@ -334,7 +376,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
       isFullscreen.value = false;
-      drawerData.value = drawerApi.getData<{ create: boolean; row?: any }>() || { create: true };
+      drawerData.value = drawerApi.getData<{
+        create: boolean;
+        row?: any;
+      }>() || { create: true };
       mainFormApi.resetForm();
       confirmLoading.value = false;
       tableItems.value = [];
@@ -352,7 +397,8 @@ async function loadDetail(id: number) {
     const resp = await getInboundInfoApi(id);
     const data = resp?.data ?? resp;
     if (!data) return;
-    const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+    const num = (v: any) =>
+      v === null || v === undefined ? undefined : Number(v);
     const main = data.main ?? data;
     const items = data.items ?? [];
 
@@ -363,7 +409,10 @@ async function loadDetail(id: number) {
       sourceOrderNo: main.sourceOrderNo,
       remark: main.remark,
     });
-    selectedWarehouseId.value = (main.warehouseId ?? main.warehouse_id) ? Number(main.warehouseId ?? main.warehouse_id) : undefined;
+    selectedWarehouseId.value =
+      (main.warehouseId ?? main.warehouse_id)
+        ? Number(main.warehouseId ?? main.warehouse_id)
+        : undefined;
     selectedWarehouseName.value = main.warehouseName ?? '';
 
     // 回填产品明细
@@ -380,8 +429,8 @@ async function loadDetail(id: number) {
       batchNo: item.batchNo ?? item.batch_no ?? '',
       remark: item.remark ?? '',
     }));
-  } catch (e) {
-    console.error('[入库] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[入库] 加载详情失败:', error);
   }
 }
 
@@ -405,8 +454,8 @@ async function submitChangeReason() {
     message.success($t('ui.notification.update_success'));
     drawerApi.setData({ needRefresh: true });
     drawerApi.close();
-  } catch (e) {
-    console.error('[入库] 修改已完成单据失败:', e);
+  } catch (error) {
+    console.error('[入库] 修改已完成单据失败:', error);
   } finally {
     confirmLoading.value = false;
     pendingSaveData.value = null;
@@ -417,19 +466,53 @@ async function submitChangeReason() {
 <template>
   <Drawer
     :class="drawerClass"
-    :title="drawerData.create ? $t('page.product.inbound.drawer.title.create') : $t('page.product.inbound.drawer.title.edit')"
+    :title="
+      drawerData.create
+        ? $t('page.product.inbound.drawer.title.create')
+        : $t('page.product.inbound.drawer.title.edit')
+    "
     :confirm-loading="confirmLoading"
   >
     <template #extra>
-      <Tooltip :title="isFullscreen ? $t('page.product.inbound.drawer.restore') : $t('page.product.inbound.drawer.fullscreen')">
-        <button type="button" class="inbound-drawer__fs-btn" @click="toggleFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <Tooltip
+        :title="
+          isFullscreen
+            ? $t('page.product.inbound.drawer.restore')
+            : $t('page.product.inbound.drawer.fullscreen')
+        "
+      >
+        <button
+          type="button"
+          class="inbound-drawer__fs-btn"
+          @click="toggleFullscreen"
+        >
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -447,7 +530,9 @@ async function submitChangeReason() {
         <Button type="primary" size="small" @click="openProductSelect">
           添加产品
         </Button>
-        <span v-if="tableItems.length > 0" class="inbound-items-count">共 {{ tableItems.length }} 项</span>
+        <span v-if="tableItems.length > 0" class="inbound-items-count"
+          >共 {{ tableItems.length }} 项</span
+        >
       </div>
 
       <!-- 产品明细表格 -->
@@ -489,7 +574,11 @@ async function submitChangeReason() {
 
           <!-- 金额：自动计算 -->
           <template v-else-if="column.dataIndex === 'amount'">
-            <span class="font-medium">{{ (Number(record.quantity || 0) * Number(record.unitPrice || 0)).toFixed(2) }}</span>
+            <span class="font-medium">{{
+              (
+                Number(record.quantity || 0) * Number(record.unitPrice || 0)
+              ).toFixed(2)
+            }}</span>
           </template>
 
           <!-- 批次号：可编辑 -->
@@ -512,12 +601,7 @@ async function submitChangeReason() {
 
           <!-- 操作：删除 -->
           <template v-else-if="column.dataIndex === 'action'">
-            <Button
-              type="link"
-              danger
-              size="small"
-              @click="removeItem(index)"
-            >
+            <Button type="link" danger size="small" @click="removeItem(index)">
               {{ $t('ui.button.delete') }}
             </Button>
           </template>
@@ -566,7 +650,9 @@ async function submitChangeReason() {
         show-icon
         class="mb-4"
       />
-      <div class="mb-2 font-medium">修改原因 <span class="text-red-500">*</span></div>
+      <div class="mb-2 font-medium">
+        修改原因 <span class="text-red-500">*</span>
+      </div>
       <Textarea
         v-model:value="changeReason"
         placeholder="请填写修改原因，例如：录入数量错误，实际入库50件"
@@ -595,23 +681,23 @@ async function submitChangeReason() {
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .inbound-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .inbound-drawer__body {
+  height: calc(100vh - 150px);
   padding: 0 8px;
   overflow-y: auto;
-  height: calc(100vh - 150px);
 }
 
 .inbound-drawer__body .ant-divider {
@@ -626,8 +712,8 @@ async function submitChangeReason() {
 
 .inbound-items-toolbar {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 8px;
 }
 
@@ -642,8 +728,8 @@ async function submitChangeReason() {
 
 .inbound-items-empty {
   padding: 24px 0;
-  color: #999;
   font-size: 13px;
+  color: #999;
   text-align: center;
 }
 </style>

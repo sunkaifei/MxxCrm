@@ -7,13 +7,19 @@ export const getCustomerTypeStatsApi = async (params?: StatsTimeParams) => {
 };
 
 export const getCustomerSourceStatsApi = async (params?: StatsTimeParams) => {
-  return requestClient.get('/api/system/statistics/customer/source', { params });
+  return requestClient.get('/api/system/statistics/customer/source', {
+    params,
+  });
 };
 
 export const getCustomerIndustryStatsApi = async (params?: StatsTimeParams) => {
-  return requestClient.get('/api/system/statistics/customer/industry', { params });
+  return requestClient.get('/api/system/statistics/customer/industry', {
+    params,
+  });
 };
 
 export const getCustomerFunnelApi = async (params?: StatsTimeParams) => {
-  return requestClient.get('/api/system/statistics/customer/funnel', { params });
+  return requestClient.get('/api/system/statistics/customer/funnel', {
+    params,
+  });
 };

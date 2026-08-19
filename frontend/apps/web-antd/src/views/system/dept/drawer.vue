@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { message } from 'ant-design-vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { $t } from '#/locales';
+
+import { message } from 'ant-design-vue';
+
 import { useVbenForm } from '#/adapter/form';
 import {
   createDeptApi,
@@ -10,6 +12,7 @@ import {
   getDeptTreeApi,
   updateDeptApi,
 } from '#/api';
+import { $t } from '#/locales';
 import { statusList } from '#/store';
 
 const data = ref();
@@ -44,9 +47,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
             nodes.map((node) => ({
               value: String(node.value),
               label: node.label,
-              children: node.children
-                ? convertTree(node.children)
-                : undefined,
+              children: node.children ? convertTree(node.children) : undefined,
             }));
           return [
             {
@@ -150,7 +151,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     const values = await baseFormApi.getValues();
 
-    if (values.parentId === null || values.parentId === undefined || values.parentId === '') {
+    if (
+      values.parentId === null ||
+      values.parentId === undefined ||
+      values.parentId === ''
+    ) {
       values.parentId = '0';
     }
 
@@ -186,11 +191,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
         });
       } else {
         const row = { ...data.value?.row };
-        if (row.parentId === 0 || row.parentId === '0' || !row.parentId) {
-          row.parentId = '0';
-        } else {
-          row.parentId = String(row.parentId);
-        }
+        row.parentId =
+          row.parentId === 0 || row.parentId === '0' || !row.parentId
+            ? '0'
+            : String(row.parentId);
         baseFormApi.setValues(row);
       }
 

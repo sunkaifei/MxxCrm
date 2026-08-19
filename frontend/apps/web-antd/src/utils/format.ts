@@ -14,7 +14,7 @@ export function formatPercentDisplay(val: any): string {
   if (Number.isNaN(num)) {
     // 兼容传进来是带%的字符串场景，先去%再解析
     if (typeof val === 'string') {
-      const cleaned = val.replace(/%/g, '').trim();
+      const cleaned = val.replaceAll('%', '').trim();
       num = Number(cleaned);
       if (Number.isNaN(num)) return '0.00%';
     } else {
@@ -33,7 +33,7 @@ export function formatPercentValue(val: any): number {
   const num = Number(val);
   if (Number.isNaN(num)) {
     if (typeof val === 'string') {
-      const cleaned = val.replace(/%/g, '').trim();
+      const cleaned = val.replaceAll('%', '').trim();
       const n = Number(cleaned);
       return Number.isNaN(n) ? 0 : Number(n.toFixed(2));
     }

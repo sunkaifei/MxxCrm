@@ -22,7 +22,11 @@ import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
-function createRequestClient(baseURL: string, options?: RequestClientOptions) {
+function createRequestClient(
+  baseURL: string,
+  options?: RequestClientOptions,
+  authenticate = true,
+) {
   const client = new RequestClient({
     ...options,
     baseURL,
@@ -48,13 +52,18 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   }
 
   /**
-   * 刷新token逻辑
+   * 刷新token逻辑（登录认证整改 v1.0）
+   * 携带 refreshToken 调用后端旋转刷新，成功后同步更新本地双凭据
    */
   async function doRefreshToken() {
     const accessStore = useAccessStore();
-    const resp = await refreshTokenApi();
-    const newToken = resp.data;
+    const resp = await refreshTokenApi(accessStore.refreshToken);
+    const newToken = resp.accessToken;
     accessStore.setAccessToken(newToken);
+    // 旋转替换：后端每次刷新签发新 refreshToken，旧的已作废，必须同步覆盖
+    if (resp.refreshToken) {
+      accessStore.setRefreshToken(resp.refreshToken);
+    }
     return newToken;
   }
 
@@ -209,16 +218,18 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     }),
   );
 
-  // token过期的处理
-  client.addResponseInterceptor(
-    authenticateResponseInterceptor({
-      client,
-      doReAuthenticate,
-      doRefreshToken,
-      enableRefreshToken: preferences.app.enableRefreshToken,
-      formatToken,
-    }),
-  );
+  // token过期的处理（baseRequestClient 不挂载：刷新/登录等公共请求自身 401 不递归刷新）
+  if (authenticate) {
+    client.addResponseInterceptor(
+      authenticateResponseInterceptor({
+        client,
+        doReAuthenticate,
+        doRefreshToken,
+        enableRefreshToken: preferences.app.enableRefreshToken,
+        formatToken,
+      }),
+    );
+  }
 
   // 通用的错误处理,如果没有进入上面的错误处理逻辑，就会进入这里
   client.addResponseInterceptor(
@@ -237,6 +248,11 @@ export const requestClient = createRequestClient(apiURL, {
   responseReturn: 'data',
 });
 
-export const baseRequestClient = createRequestClient(apiURL, {
-  responseReturn: 'data',
-});
+// 基础客户端：不做 401 静默刷新（用于登录/注册/刷新/登出等认证公共请求）
+export const baseRequestClient = createRequestClient(
+  apiURL,
+  {
+    responseReturn: 'data',
+  },
+  false,
+);

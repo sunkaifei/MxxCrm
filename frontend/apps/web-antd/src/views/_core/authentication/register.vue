@@ -42,10 +42,13 @@ const formSchema = computed((): VbenFormSchema[] => {
       },
       fieldName: 'username',
       label: $t('authentication.username'),
-      rules: z.string()
+      rules: z
+        .string()
         .min(3, { message: '用户名至少需要3个字符' })
         .max(20, { message: '用户名不能超过20个字符' })
-        .regex(/^[a-zA-Z0-9_]+$/, { message: '用户名只能包含字母、数字和下划线，不能包含空格' }),
+        .regex(/^[a-zA-Z0-9_]+$/, {
+          message: '用户名只能包含字母、数字和下划线，不能包含空格',
+        }),
     },
     {
       component: 'VbenInputPassword',
@@ -60,7 +63,8 @@ const formSchema = computed((): VbenFormSchema[] => {
           strengthText: () => $t('authentication.passwordStrength'),
         };
       },
-      rules: z.string()
+      rules: z
+        .string()
         .min(6, { message: '密码至少需要6个字符' })
         .max(32, { message: '密码不能超过32个字符' }),
     },
@@ -90,7 +94,10 @@ const formSchema = computed((): VbenFormSchema[] => {
       },
       fieldName: 'mobile',
       label: '手机号',
-      rules: z.string().min(1, { message: '手机号不能为空' }).regex(/^1[3-9]\d{9}$/, { message: '请输入正确的手机号' }),
+      rules: z
+        .string()
+        .min(1, { message: '手机号不能为空' })
+        .regex(/^1[3-9]\d{9}$/, { message: '请输入正确的手机号' }),
     },
     {
       component: 'VbenInput',
@@ -147,11 +154,11 @@ async function handleSubmit(value: Recordable<any>) {
   if (!value.agreePolicy) {
     return;
   }
-  
+
   if (value.password !== value.confirmPassword) {
     return;
   }
-  
+
   const username = value.username;
   if (username && username.length >= 3) {
     usernameChecking.value = true;
@@ -164,7 +171,7 @@ async function handleSubmit(value: Recordable<any>) {
       usernameChecking.value = false;
     }
   }
-  
+
   await registerApi(value);
 
   // 注册用户待审核（status=0），不自动登录，提示后跳转登录页

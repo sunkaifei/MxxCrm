@@ -16,7 +16,9 @@ export const createInboundApi = async (data: any) => {
 
 export const updateInboundApi = async (data: any) => {
   const { id, ...rest } = data;
-  return requestClient.put('/api/system/inbound/update', rest, { params: { id } });
+  return requestClient.put('/api/system/inbound/update', rest, {
+    params: { id },
+  });
 };
 
 export const deleteInboundApi = async (ids: number[]) => {
@@ -33,8 +35,15 @@ export const rejectInboundApi = async (id: number, comment?: string) => {
   return requestClient.post('/api/system/inbound/reject', { id, comment });
 };
 
-export const submitInboundApi = async (id: number, ccUserIds: number[] = [], ccReason?: string) => {
-  return requestClient.put(`/api/system/inbound/submit/${id}`, { ccUserIds, ccReason });
+export const submitInboundApi = async (
+  id: number,
+  ccUserIds: number[] = [],
+  ccReason?: string,
+) => {
+  return requestClient.put(`/api/system/inbound/submit/${id}`, {
+    ccUserIds,
+    ccReason,
+  });
 };
 
 export const withdrawInboundApi = async (id: number) => {

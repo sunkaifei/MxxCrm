@@ -1,25 +1,24 @@
 <script lang="ts" setup>
-import { h, ref, computed } from 'vue';
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { computed, h, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { useRoute } from 'vue-router';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Modal, Popconfirm, Tag, Tabs, message } from 'ant-design-vue';
+import { Button, message, Modal, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import {
-  deleteShipmentApi,
-  getShipmentListApi,
-  signShipmentApi,
-} from '#/api';
+import { deleteShipmentApi, getShipmentListApi, signShipmentApi } from '#/api';
 import { $t } from '#/locales';
-import ShipmentDrawer from './drawer.vue';
+
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
+import ShipmentDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -27,15 +26,21 @@ const route = useRoute();
 
 const canViewAll = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 1;
 });
 
 const canViewSubordinate = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 2 || dataScope === 3 || dataScope === 4;
 });
 
@@ -50,18 +55,21 @@ const tabList = computed(() => {
   if (canViewAll.value) keys.push('all');
   keys.push('my');
   if (canViewSubordinate.value) keys.push('subordinate');
-  return allTabList.filter(t => keys.includes(t.key));
+  return allTabList.filter((t) => keys.includes(t.key));
 });
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
 
+// 是否为下属视图（下属视图下只能查看，不能操作）
+const isSubordinateView = computed(() => activeTab.value === 'subordinate');
+
 // 发货状态映射
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   1: { label: '待发货', color: 'default' },
   2: { label: '已发货', color: 'processing' },
   3: { label: '已签收', color: 'green' },
@@ -69,7 +77,7 @@ const statusMap: Record<number, { label: string; color: string }> = {
 };
 
 // 配送方式映射
-const shippingMethodMap: Record<number, { label: string; color: string }> = {
+const shippingMethodMap: Record<number, { color: string; label: string }> = {
   1: { label: '快递', color: 'blue' },
   2: { label: '物流', color: 'cyan' },
   3: { label: '自提', color: 'orange' },
@@ -142,7 +150,9 @@ const gridOptions: VxeGridProps = {
           status: formValues.status,
           listType: activeTab.value,
           // 从合同“发货/查看发货”进入时，按合同过滤发货单
-          contractId: route.query.contractId ? Number(route.query.contractId) : undefined,
+          contractId: route.query.contractId
+            ? Number(route.query.contractId)
+            : undefined,
         };
         if (formValues.dateRange && formValues.dateRange.length === 2) {
           params.startDate = formValues.dateRange[0];
@@ -284,13 +294,24 @@ async function handleDelete(row: any) {
     <SalesProcessGuide current-step="shipment" />
     <Grid :table-title="$t('page.sale.shipment.title')">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
-          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
         </Tabs>
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:shipment:save')"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:shipment:save')
+          "
           type="primary"
           class="mr-2"
           @click="() => handleCreate()"
@@ -321,7 +342,10 @@ async function handleDelete(row: any) {
       </template>
 
       <template #status="{ row }">
-        <Tag v-if="row.status && statusMap[row.status]" :color="statusMap[row.status]?.color">
+        <Tag
+          v-if="row.status && statusMap[row.status]"
+          :color="statusMap[row.status]?.color"
+        >
           {{ statusMap[row.status]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
@@ -333,7 +357,11 @@ async function handleDelete(row: any) {
 
       <template #action="{ row }">
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:shipment:sign') && row.status === 2"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:shipment:sign') &&
+            row.status === 2
+          "
           type="link"
           size="small"
           @click="() => handleSign(row)"
@@ -341,7 +369,10 @@ async function handleDelete(row: any) {
           {{ $t('page.sale.shipment.button.sign') }}
         </Button>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('sale:shipment:update')"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('sale:shipment:update')
+          "
           type="link"
           size="small"
           :icon="h(LucideFilePenLine)"
@@ -358,7 +389,10 @@ async function handleDelete(row: any) {
           @confirm="() => handleDelete(row)"
         >
           <Button
-            v-if="!isSubordinateView && accessStore.hasAccessCode('sale:shipment:delete')"
+            v-if="
+              !isSubordinateView &&
+              accessStore.hasAccessCode('sale:shipment:delete')
+            "
             type="link"
             danger
             :icon="h(LucideTrash2)"
@@ -373,15 +407,15 @@ async function handleDelete(row: any) {
 <style scoped>
 .shipment-list__no-link {
   font-family: 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  font-weight: 600;
   font-size: 13px;
-  color: #0F2942;
+  font-weight: 600;
+  color: #0f2942;
   text-decoration: none;
   cursor: pointer;
   transition: color 0.2s;
 }
 
 .shipment-list__no-link:hover {
-  color: #F59E0B;
+  color: #f59e0b;
 }
 </style>

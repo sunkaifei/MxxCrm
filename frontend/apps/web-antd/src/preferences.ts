@@ -21,6 +21,10 @@ export const overridesPreferences = defineOverridesPreferences({
     accessMode: 'backend',
     layout: 'sidebar-mixed-nav',
     defaultHomePath: '/workspace',
+    // 登录认证整改 v1.0：开启 401 静默刷新（双 Token 无感续期）
+    enableRefreshToken: true,
+    // refreshToken 也失效时弹重新登录弹窗（替代整页跳转）
+    loginExpiredMode: 'modal',
   },
   theme: {
     mode: 'light',

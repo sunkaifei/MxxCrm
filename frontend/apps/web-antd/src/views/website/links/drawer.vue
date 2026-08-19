@@ -1,15 +1,21 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
-import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message, Upload } from 'ant-design-vue';
 import type { UploadFile } from 'ant-design-vue';
+
+import { computed, ref } from 'vue';
+
+import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message, Upload } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import { linksApi, siteApi } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
-const getTitle = computed(() => (isCreate.value ? '新增友情链接' : '修改友情链接'));
+const getTitle = computed(() =>
+  isCreate.value ? '新增友情链接' : '修改友情链接',
+);
 
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
@@ -154,18 +160,16 @@ function handleLogoRemove() {
 }
 
 function syncLogoFileList(url: string) {
-  if (url) {
-    logoFileList.value = [
-      {
-        uid: '-1',
-        name: 'logo',
-        status: 'done',
-        url: url,
-      },
-    ];
-  } else {
-    logoFileList.value = [];
-  }
+  logoFileList.value = url
+    ? [
+        {
+          uid: '-1',
+          name: 'logo',
+          status: 'done',
+          url,
+        },
+      ]
+    : [];
 }
 
 // function handleLogoPreview(file: UploadFile) {
@@ -181,12 +185,17 @@ function syncLogoFileList(url: string) {
       <div class="text-sm font-medium mb-2">Logo 图片</div>
       <Upload
         :file-list="logoFileList"
-        :before-upload="(file: File) => { handleLogoUpload(file); return false; }"
+        :before-upload="
+          (file: File) => {
+            handleLogoUpload(file);
+            return false;
+          }
+        "
         :remove="handleLogoRemove"
         list-type="picture-card"
         accept="image/*"
       >
-        <div v-if="logoFileList.length < 1">
+        <div v-if="logoFileList.length === 0">
           <div class="text-2xl leading-none mb-1">+</div>
           <div class="text-xs">上传Logo</div>
         </div>

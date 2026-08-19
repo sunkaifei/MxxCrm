@@ -9,15 +9,15 @@ import {
   Col,
   DatePicker,
   Empty,
+  message,
   Row,
   Select,
   Spin,
   Statistic,
   Table,
-  message,
 } from 'ant-design-vue';
-import { RefreshCw } from 'lucide-vue-next';
 import dayjs from 'dayjs';
+import { RefreshCw } from 'lucide-vue-next';
 
 import {
   generateDailyStatisticsApi,
@@ -37,8 +37,10 @@ async function loadSummary() {
   try {
     const res: any = await getFinanceStatisticsSummaryApi();
     summary.value = res?.data ?? res ?? {};
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.statistics.message.loadFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.statistics.message.loadFailed'),
+    );
   } finally {
     summaryLoading.value = false;
   }
@@ -71,8 +73,10 @@ async function loadList() {
     }
     const res: any = await getFinanceStatisticsListApi(params);
     listData.value = res?.data ?? res ?? [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.statistics.message.loadFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.statistics.message.loadFailed'),
+    );
   } finally {
     listLoading.value = false;
   }
@@ -86,8 +90,10 @@ async function handleGenerate() {
     await generateDailyStatisticsApi();
     message.success($t('page.finance.statistics.message.generateSuccess'));
     await Promise.all([loadSummary(), loadList()]);
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.statistics.message.generateFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.statistics.message.generateFailed'),
+    );
   } finally {
     generating.value = false;
   }
@@ -266,7 +272,11 @@ onMounted(() => {
               ]"
               @change="loadList"
             />
-            <Button :loading="generating" type="primary" @click="handleGenerate">
+            <Button
+              :loading="generating"
+              type="primary"
+              @click="handleGenerate"
+            >
               <template #icon>
                 <RefreshCw />
               </template>

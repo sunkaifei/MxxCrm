@@ -78,8 +78,18 @@ export type CustomParamsRenderType =
 export type FormSchemaRuleType =
   | 'required'
   | 'selectRequired'
+  | Array<
+      | ((...args: any[]) => any)
+      | {
+          [key: string]: any;
+          trigger?: string | string[];
+          validator?: (...args: any[]) => any;
+        }
+    >
   | null
   | (Record<never, never> & string)
+  // 数组形式的规则（如 Ant Design Vue 的 [{ validator, trigger }]），
+  // 运行时由 form-field.vue 适配为 vee-validate 兼容的函数
   | ZodTypeAny;
 
 type FormItemDependenciesCondition<T = boolean | PromiseLike<boolean>> = (
@@ -524,6 +534,11 @@ export interface VbenFormAdapterOptions<
     modelPropNameMap?: Partial<Record<T, string>>;
   };
   defineRules?: {
+    positiveInteger?: (
+      value: any,
+      params: any,
+      ctx: Record<string, any>,
+    ) => boolean | string;
     required?: (
       value: any,
       params: any,

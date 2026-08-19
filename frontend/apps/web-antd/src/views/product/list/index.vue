@@ -1,17 +1,19 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { computed, h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2, LucideImageOff } from '@vben/icons';
+import { LucideFilePenLine, LucideImageOff, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, message, Popconfirm, Spin, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
   deleteProductApi,
   getCategoryListApi,
@@ -20,9 +22,9 @@ import {
 } from '#/api';
 import { $t } from '#/locales';
 
-import ProductDrawer from './drawer.vue';
-import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 import BrandSelectModal from '../inventory-check/BrandSelectModal.vue';
+import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
+import ProductDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
 const router = useRouter();
@@ -49,10 +51,16 @@ function buildCategoryTree(items: any[]): any[] {
   // 第二遍：组装父子关系
   for (const item of items) {
     const id = Number(item.id);
-    const parentId = item.parentId ? Number(item.parentId) : (item.parent_id ? Number(item.parent_id) : 0);
-    const node = map.get(id)!;
+    let parentId = 0;
+    if (item.parentId) {
+      parentId = Number(item.parentId);
+    } else if (item.parent_id) {
+      parentId = Number(item.parent_id);
+    }
+    const node = map.get(id);
+    if (!node) continue;
     if (parentId && map.has(parentId)) {
-      map.get(parentId)!.children.push(node);
+      map.get(parentId)?.children.push(node);
     } else {
       roots.push(node);
     }
@@ -102,6 +110,9 @@ function clearBrand() {
 /** 当前选中的仓库，用于在表格标题中展示仓库名称 */
 const selectedWarehouseId = ref<number | undefined>();
 
+/** 当前选中的仓库名称，用于在表格标题中展示 */
+const selectedWarehouseName = ref('');
+
 /** 多规格产品的 SKU 数据缓存（按产品 ID 索引） */
 const skuMap = ref<Record<number, any[]>>({});
 
@@ -142,13 +153,7 @@ async function loadSkuData(productId: number) {
 }
 
 /** 行展开/收起事件：展开多规格产品时按需加载 SKU 数据 */
-function onToggleExpand({
-  expanded,
-  row,
-}: {
-  expanded: boolean;
-  row: any;
-}) {
+function onToggleExpand({ expanded, row }: { expanded: boolean; row: any }) {
   if (expanded && row?.specType === 'multiple') {
     loadSkuData(Number(row.id));
   }
@@ -161,10 +166,16 @@ function goToInventory(row: any) {
 
 // 商品类型映射
 const productTypeNames: Record<number, string> = {
-  1: '实物', 2: '虚拟', 3: '服务', 4: '订阅',
+  1: '实物',
+  2: '虚拟',
+  3: '服务',
+  4: '订阅',
 };
 const productTypeColors: Record<number, string> = {
-  1: 'blue', 2: 'purple', 3: 'orange', 4: 'green',
+  1: 'blue',
+  2: 'purple',
+  3: 'orange',
+  4: 'green',
 };
 
 const formOptions: VbenFormProps = {
@@ -411,8 +422,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
 const tableTitle = computed(() => {
   const base = $t('page.product.list.title');
   if (!selectedWarehouseId.value) return base;
-  const display = gridApi.formApi?.getValues?.()?.warehouseDisplay;
-  return display ? `${base} — ${display}` : base;
+  return selectedWarehouseName.value
+    ? `${base} — ${selectedWarehouseName.value}`
+    : base;
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
@@ -431,10 +443,6 @@ function openDrawer(create: boolean, row?: any) {
     row,
   });
   drawerApi.open();
-}
-
-function handleSkuManage(row: any) {
-  router.push(`/product/sku?productId=${row.id}`);
 }
 
 function handleEdit(row: any) {
@@ -476,10 +484,20 @@ onMounted(async () => {
       </template>
 
       <template #productImage="{ row }">
-        <div v-if="row.imageUrl || row.coverImage" class="w-10 h-10 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
-          <img :src="row.imageUrl || row.coverImage" alt="产品主图" class="w-full h-full object-cover" />
+        <div
+          v-if="row.imageUrl || row.coverImage"
+          class="w-10 h-10 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0"
+        >
+          <img
+            :src="row.imageUrl || row.coverImage"
+            alt="产品主图"
+            class="w-full h-full object-cover"
+          />
         </div>
-        <div v-else class="w-10 h-10 rounded-lg border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-50">
+        <div
+          v-else
+          class="w-10 h-10 rounded-lg border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-50"
+        >
           <LucideImageOff class="w-5 h-5 text-gray-400" />
         </div>
       </template>
@@ -489,7 +507,9 @@ onMounted(async () => {
       </template>
 
       <template #status="{ row }">
-        <Tag :color="row.isActive ? 'green' : 'red'">{{ row.isActive ? '启用' : '停用' }}</Tag>
+        <Tag :color="row.isActive ? 'green' : 'red'">
+          {{ row.isActive ? '启用' : '停用' }}
+        </Tag>
       </template>
 
       <template #productType="{ row }">
@@ -508,23 +528,48 @@ onMounted(async () => {
           <span
             class="cursor-pointer hover:text-blue-500"
             :class="{
-              'text-red-500 font-medium': row.totalStock === 0 || row.totalStock == null,
-              'text-orange-500': row.totalStock > 0 && row.safetyStock && row.totalStock <= row.safetyStock,
-              'text-green-600': row.totalStock > 0 && (!row.safetyStock || row.totalStock > row.safetyStock),
+              'text-red-500 font-medium':
+                row.totalStock === 0 || row.totalStock == null,
+              'text-orange-500':
+                row.totalStock > 0 &&
+                row.safetyStock &&
+                row.totalStock <= row.safetyStock,
+              'text-green-600':
+                row.totalStock > 0 &&
+                (!row.safetyStock || row.totalStock > row.safetyStock),
             }"
             @click="goToInventory(row)"
           >
             {{ row.totalStock ?? 0 }}
           </span>
-          <Tag v-if="row.totalStock === 0 || row.totalStock == null" color="red" :bordered="false" style="font-size: 10px">缺货</Tag>
-          <Tag v-else-if="row.safetyStock && row.totalStock <= row.safetyStock" color="orange" :bordered="false" style="font-size: 10px">不足</Tag>
-          <Tag v-else color="green" :bordered="false" style="font-size: 10px">正常</Tag>
+          <Tag
+            v-if="row.totalStock === 0 || row.totalStock == null"
+            color="red"
+            :bordered="false"
+            style="font-size: 10px"
+          >
+            缺货
+          </Tag>
+          <Tag
+            v-else-if="row.safetyStock && row.totalStock <= row.safetyStock"
+            color="orange"
+            :bordered="false"
+            style="font-size: 10px"
+          >
+            不足
+          </Tag>
+          <Tag v-else color="green" :bordered="false" style="font-size: 10px">
+            正常
+          </Tag>
         </div>
       </template>
 
       <template #expandContent="{ row }">
         <div v-if="row.specType === 'multiple'" class="bg-gray-50 p-3">
-          <table v-if="skuMap[row.id] && skuMap[row.id].length > 0" class="w-full text-sm">
+          <table
+            v-if="(skuMap[row.id]?.length ?? 0) > 0"
+            class="w-full text-sm"
+          >
             <thead>
               <tr class="text-gray-500 text-xs border-b">
                 <th class="text-left py-2 px-3">SKU编码</th>
@@ -541,7 +586,9 @@ onMounted(async () => {
                 class="border-b border-gray-100"
                 :class="{ 'opacity-50': !sku.isActive }"
               >
-                <td class="py-2 px-3 text-gray-600">{{ sku.skuCode || '-' }}</td>
+                <td class="py-2 px-3 text-gray-600">
+                  {{ sku.skuCode || '-' }}
+                </td>
                 <td class="py-2 px-3">
                   <span
                     v-for="(val, key) in parseSpecs(sku.specs)"
@@ -552,16 +599,28 @@ onMounted(async () => {
                   </span>
                 </td>
                 <td class="py-2 px-3 text-right">¥{{ sku.price ?? 0 }}</td>
-                <td class="py-2 px-3 text-right" :class="{ 'text-red-500': !sku.stock || sku.stock === 0 }">{{ sku.stock ?? 0 }}</td>
+                <td
+                  class="py-2 px-3 text-right"
+                  :class="{ 'text-red-500': !sku.stock || sku.stock === 0 }"
+                >
+                  {{ sku.stock ?? 0 }}
+                </td>
                 <td class="py-2 px-3 text-center">
-                  <Tag :color="sku.isActive ? 'green' : 'red'" :bordered="false" style="font-size: 11px">
+                  <Tag
+                    :color="sku.isActive ? 'green' : 'red'"
+                    :bordered="false"
+                    style="font-size: 11px"
+                  >
                     {{ sku.isActive ? '启用' : '停用' }}
                   </Tag>
                 </td>
               </tr>
             </tbody>
           </table>
-          <div v-else-if="skuMap[row.id] && skuMap[row.id].length === 0" class="text-center text-gray-400 py-4 text-sm">
+          <div
+            v-else-if="skuMap[row.id]?.length === 0"
+            class="text-center text-gray-400 py-4 text-sm"
+          >
             暂无规格数据
           </div>
           <div v-else class="flex justify-center py-4">

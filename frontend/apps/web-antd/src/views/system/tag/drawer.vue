@@ -1,11 +1,14 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { message } from 'ant-design-vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
-import { $t } from '#/locales';
+
+import { message } from 'ant-design-vue';
+
 import { useVbenForm } from '#/adapter/form';
 import { createTagApi, updateTagApi } from '#/api';
 import { getTagGroupListApi } from '#/api/core/system/tag_group';
+import { $t } from '#/locales';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -19,7 +22,7 @@ const groupOptions = ref<any[]>([]);
 
 async function loadGroups() {
   const res = await getTagGroupListApi();
-  const list = Array.isArray(res) ? res : (res?.data || []);
+  const list = Array.isArray(res) ? res : res?.data || [];
   groupOptions.value = list.map((item: any) => ({
     label: item.groupName,
     value: item.id,

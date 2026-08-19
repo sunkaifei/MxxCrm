@@ -257,6 +257,22 @@ pub struct UserLoginRequest {
     pub captcha_key: Option<String>,
 }
 
+/// 刷新 accessToken 请求（登录认证整改 v1.0）
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshTokenRequest {
+    /// refreshToken 明文（128 字符随机数）
+    pub refresh_token: Option<String>,
+}
+
+/// 登出请求（精确登出当前设备，整改 v1.0）
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogoutRequest {
+    /// refreshToken 明文（可选，优先按其精确定位当前会话）
+    pub refresh_token: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserRegisterRequest {
@@ -505,6 +521,22 @@ pub struct AdminListVO {
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，空=不打折）
     pub probation_ratio: Option<Decimal>,
+    /// 档案完善六项明细（true=已填写）：身份证/工资卡/邮箱/入职日期/简历/紧急联系人
+    #[serde(default)]
+    pub id_filled: bool,
+    #[serde(default)]
+    pub bank_filled: bool,
+    #[serde(default)]
+    pub email_filled: bool,
+    #[serde(default)]
+    pub hire_filled: bool,
+    #[serde(default)]
+    pub resume_filled: bool,
+    #[serde(default)]
+    pub contact_filled: bool,
+    /// 档案完整度 0-100（六项占比）
+    #[serde(default)]
+    pub completeness: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

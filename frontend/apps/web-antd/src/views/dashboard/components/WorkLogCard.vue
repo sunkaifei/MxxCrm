@@ -31,7 +31,10 @@ function getResultTag(result: any): { color: string; text: string } {
     text.includes('已处理') ||
     text.includes('已记录')
   ) {
-    return { color: 'success', text: result || $t('page.dashboard.successTag') };
+    return {
+      color: 'success',
+      text: result || $t('page.dashboard.successTag'),
+    };
   }
   if (
     text.includes('REJECT') ||

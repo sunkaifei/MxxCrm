@@ -35,7 +35,7 @@ const currencyMap: Record<number, { code: string; symbol: string }> = {
   6: { code: 'HKD', symbol: 'HK$' },
 };
 
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   1: { label: '草稿', color: 'default' },
   2: { label: '待审批', color: 'blue' },
   3: { label: '已审批', color: 'green' },
@@ -46,7 +46,7 @@ const statusMap: Record<number, { label: string; color: string }> = {
   8: { label: '已转订单', color: 'purple' },
 };
 
-const approvalStatusMap: Record<number, { label: string; color: string }> = {
+const approvalStatusMap: Record<number, { color: string; label: string }> = {
   1: { label: '未提交', color: 'default' },
   2: { label: '审批中', color: 'blue' },
   3: { label: '已通过', color: 'green' },
@@ -54,7 +54,7 @@ const approvalStatusMap: Record<number, { label: string; color: string }> = {
   5: { label: '需修改', color: 'orange' },
 };
 
-const approvalTypeMap: Record<number, { label: string; color: string }> = {
+const approvalTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: '提交审批', color: 'blue' },
   2: { label: '审批通过', color: 'green' },
   3: { label: '审批驳回', color: 'red' },
@@ -70,7 +70,8 @@ const currencyCode = computed(
 
 const summary = computed(() => {
   const total = items.value.reduce(
-    (sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0),
+    (sum, item) =>
+      sum + Number(item.quantity || 0) * Number(item.unitPrice || 0),
     0,
   );
   const itemDiscount = items.value.reduce(
@@ -82,8 +83,7 @@ const summary = computed(() => {
     0,
   );
   const totalWeight = items.value.reduce(
-    (sum, item) =>
-      sum + Number(item.weight || 0) * Number(item.quantity || 0),
+    (sum, item) => sum + Number(item.weight || 0) * Number(item.quantity || 0),
     0,
   );
   return { total, itemDiscount, tax, totalWeight };
@@ -112,7 +112,8 @@ const itemColumns: TableColumnsType = [
     dataIndex: 'unitPrice',
     width: 100,
     align: 'right',
-    customRender: ({ text }: any) => `${currencySymbol.value}${formatMoney(text)}`,
+    customRender: ({ text }: any) =>
+      `${currencySymbol.value}${formatMoney(text)}`,
   },
   {
     title: '数量',
@@ -128,7 +129,11 @@ const itemColumns: TableColumnsType = [
     align: 'right',
     customRender: ({ text }: any) =>
       Number(text || 0) > 0
-        ? h('span', { class: 'text-red-500' }, `-${currencySymbol.value}${formatMoney(text)}`)
+        ? h(
+            'span',
+            { class: 'text-red-500' },
+            `-${currencySymbol.value}${formatMoney(text)}`,
+          )
         : '-',
   },
   {
@@ -147,7 +152,11 @@ const itemColumns: TableColumnsType = [
     width: 110,
     align: 'right',
     customRender: ({ text }: any) =>
-      h('span', { class: 'font-medium text-blue-600' }, `${currencySymbol.value}${formatMoney(text)}`),
+      h(
+        'span',
+        { class: 'font-medium text-blue-600' },
+        `${currencySymbol.value}${formatMoney(text)}`,
+      ),
   },
 ];
 
@@ -181,7 +190,10 @@ onMounted(() => fetchDetail());
             <Tag v-if="detail.status" :color="statusMap[detail.status]?.color">
               {{ statusMap[detail.status]?.label || detail.status }}
             </Tag>
-            <Tag v-if="detail.approvalStatus" :color="approvalStatusMap[detail.approvalStatus]?.color">
+            <Tag
+              v-if="detail.approvalStatus"
+              :color="approvalStatusMap[detail.approvalStatus]?.color"
+            >
               {{ approvalStatusMap[detail.approvalStatus]?.label }}
             </Tag>
           </div>
@@ -214,7 +226,9 @@ onMounted(() => fetchDetail());
           {{ currencySymbol }}{{ formatMoney(detail.taxAmount) }}
         </div>
       </div>
-      <div class="quotation-detail__stat-item quotation-detail__stat-item--grand">
+      <div
+        class="quotation-detail__stat-item quotation-detail__stat-item--grand"
+      >
         <div class="text-xs text-gray-500">报价总计</div>
         <div class="mt-1 text-xl font-bold text-blue-600">
           {{ currencySymbol }}{{ formatMoney(detail.grandTotal) }}
@@ -240,7 +254,9 @@ onMounted(() => fetchDetail());
           <template v-if="column.key === 'product'">
             <div class="flex flex-col">
               <span class="font-medium">{{ record.productName || '-' }}</span>
-              <span v-if="record.productCode" class="text-xs text-gray-400">{{ record.productCode }}</span>
+              <span v-if="record.productCode" class="text-xs text-gray-400">{{
+                record.productCode
+              }}</span>
             </div>
           </template>
         </template>
@@ -255,15 +271,24 @@ onMounted(() => fetchDetail());
           </div>
           <div class="flex justify-between py-1 text-sm">
             <span class="text-gray-500">折扣合计</span>
-            <span class="text-red-500">-{{ currencySymbol }}{{ formatMoney(summary.itemDiscount) }}</span>
+            <span class="text-red-500"
+              >-{{ currencySymbol
+              }}{{ formatMoney(summary.itemDiscount) }}</span
+            >
           </div>
           <div class="flex justify-between py-1 text-sm">
             <span class="text-gray-500">税额合计</span>
-            <span class="text-orange-500">{{ currencySymbol }}{{ formatMoney(summary.tax) }}</span>
+            <span class="text-orange-500"
+              >{{ currencySymbol }}{{ formatMoney(summary.tax) }}</span
+            >
           </div>
-          <div class="mt-1 border-t border-gray-200 pt-2 flex justify-between items-baseline">
+          <div
+            class="mt-1 border-t border-gray-200 pt-2 flex justify-between items-baseline"
+          >
             <span class="font-medium">报价总计</span>
-            <span class="text-lg font-bold text-blue-600">{{ currencySymbol }}{{ formatMoney(detail.grandTotal) }}</span>
+            <span class="text-lg font-bold text-blue-600"
+              >{{ currencySymbol }}{{ formatMoney(detail.grandTotal) }}</span
+            >
           </div>
           <div class="flex justify-between py-1 text-xs text-gray-400">
             <span>总重量</span>
@@ -276,31 +301,57 @@ onMounted(() => fetchDetail());
     <!-- 基本信息 -->
     <Card size="small" title="基本信息" class="mb-3">
       <Descriptions :column="{ xs: 1, sm: 2 }" size="small" :colon="false">
-        <Descriptions.Item label="客户">{{ detail.customerName || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="联系人">{{ detail.contactName || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="商机">{{ detail.opportunityTitle || '-' }}</Descriptions.Item>
+        <Descriptions.Item label="客户">
+          {{ detail.customerName || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="联系人">
+          {{ detail.contactName || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="商机">
+          {{ detail.opportunityTitle || '-' }}
+        </Descriptions.Item>
         <Descriptions.Item label="币种">{{ currencyCode }}</Descriptions.Item>
-        <Descriptions.Item label="报价日期">{{ detail.quotationDate || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="有效期至">{{ detail.validUntil || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="负责人">{{ detail.ownerUserName || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="创建时间">{{ formatDateTime(detail.createTime) }}</Descriptions.Item>
+        <Descriptions.Item label="报价日期">
+          {{ detail.quotationDate || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="有效期至">
+          {{ detail.validUntil || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="负责人">
+          {{ detail.ownerUserName || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="创建时间">
+          {{ formatDateTime(detail.createTime) }}
+        </Descriptions.Item>
       </Descriptions>
     </Card>
 
     <!-- 交易条款 -->
     <Card size="small" title="交易条款" class="mb-3">
       <Descriptions :column="{ xs: 1, sm: 2 }" size="small" :colon="false">
-        <Descriptions.Item label="付款条件" :span="2">{{ detail.paymentTerms || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="交货条款">{{ detail.deliveryTerms || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="交货日期">{{ detail.deliveryDate || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="装运港">{{ detail.portOfLoading || '-' }}</Descriptions.Item>
-        <Descriptions.Item label="目的港">{{ detail.portOfDestination || '-' }}</Descriptions.Item>
+        <Descriptions.Item label="付款条件" :span="2">
+          {{ detail.paymentTerms || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="交货条款">
+          {{ detail.deliveryTerms || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="交货日期">
+          {{ detail.deliveryDate || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="装运港">
+          {{ detail.portOfLoading || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="目的港">
+          {{ detail.portOfDestination || '-' }}
+        </Descriptions.Item>
       </Descriptions>
     </Card>
 
     <!-- 银行信息 -->
     <Card v-if="detail.bankInfo" size="small" title="银行信息" class="mb-3">
-      <pre class="text-sm text-gray-600 whitespace-pre-wrap">{{ detail.bankInfo }}</pre>
+      <pre class="text-sm text-gray-600 whitespace-pre-wrap">{{
+        detail.bankInfo
+      }}</pre>
     </Card>
 
     <!-- 审批记录 -->
@@ -313,10 +364,14 @@ onMounted(() => fetchDetail());
           :color="approvalTypeMap[item.approvalType]?.color || 'gray'"
         >
           <div class="flex items-center gap-2">
-            <Tag :color="approvalTypeMap[item.approvalType]?.color || 'default'">
+            <Tag
+              :color="approvalTypeMap[item.approvalType]?.color || 'default'"
+            >
               {{ approvalTypeMap[item.approvalType]?.label || '未知' }}
             </Tag>
-            <span class="text-xs text-gray-400">{{ formatDateTime(item.createTime) }}</span>
+            <span class="text-xs text-gray-400">{{
+              formatDateTime(item.createTime)
+            }}</span>
           </div>
           <div class="mt-1 text-sm text-gray-600">
             审批人：{{ item.approverName || '-' }}
@@ -324,7 +379,8 @@ onMounted(() => fetchDetail());
           <div v-if="item.originalAmount" class="text-sm text-gray-600">
             原报价：{{ currencySymbol }}{{ formatMoney(item.originalAmount) }}
             <span v-if="item.adjustedAmount">
-              → 调整后：{{ currencySymbol }}{{ formatMoney(item.adjustedAmount) }}
+              → 调整后：{{ currencySymbol
+              }}{{ formatMoney(item.adjustedAmount) }}
             </span>
           </div>
           <div v-if="item.approvalRemark" class="mt-1 text-sm text-gray-700">
@@ -367,9 +423,9 @@ onMounted(() => fetchDetail());
 
 .quotation-detail__stat-item {
   padding: 12px;
+  text-align: center;
   background: #fafafa;
   border-radius: 8px;
-  text-align: center;
 }
 
 .quotation-detail__stat-item--grand {

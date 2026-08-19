@@ -8,13 +8,15 @@
  *   新建：    <CustomerDetailDrawer v-model:visible="visible" :customer-type="1" @created="onCreated" />
  */
 import { computed, ref, watch } from 'vue';
+
 import { Drawer } from 'ant-design-vue';
+
 import CustomerDetail from '../customer/detail.vue';
 
 const props = defineProps<{
-  visible: boolean;
-  id?: number | string;
   customerType?: number; // 新建模式：1=企业, 2=个人
+  id?: number | string;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -25,7 +27,12 @@ const emit = defineEmits<{
 const innerVisible = ref(false);
 
 // 是否新建模式（无 id 但传了 customerType）
-const isCreate = computed(() => !props.id && props.customerType != null);
+const isCreate = computed(
+  () =>
+    !props.id &&
+    props.customerType !== null &&
+    props.customerType !== undefined,
+);
 
 const drawerTitle = computed(() => {
   if (isCreate.value) {
@@ -34,9 +41,12 @@ const drawerTitle = computed(() => {
   return '客户详情';
 });
 
-watch(() => props.visible, (val) => {
-  innerVisible.value = val;
-});
+watch(
+  () => props.visible,
+  (val) => {
+    innerVisible.value = val;
+  },
+);
 
 watch(innerVisible, (val) => {
   emit('update:visible', val);
@@ -61,15 +71,15 @@ function handleCreated(id: number | string) {
     :mask-closable="true"
     :closable="true"
     :title="drawerTitle"
-    :body-style="{ padding: 0, maxHeight: 'calc(100vh - 110px)', overflow: 'auto' }"
+    :body-style="{
+      padding: 0,
+      maxHeight: 'calc(100vh - 110px)',
+      overflow: 'auto',
+    }"
     @close="handleClose"
   >
     <!-- 编辑模式：传 id -->
-    <CustomerDetail
-      v-if="!isCreate && id"
-      :id="id"
-      @created="handleCreated"
-    />
+    <CustomerDetail v-if="!isCreate && id" :id="id" @created="handleCreated" />
     <!-- 新建模式：传 customerType -->
     <CustomerDetail
       v-else-if="isCreate"

@@ -1,14 +1,20 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
-import { Button, Popconfirm, Tag, Tree, message } from 'ant-design-vue';
-import CategoryDrawer from './drawer.vue';
-import { categoryApi } from '#/api';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
 import type { CategoryVO } from '#/api/core/shop/category';
+
+import { h, ref } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
+import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+
+import { Button, message, Popconfirm, Tag, Tree } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { categoryApi } from '#/api';
+
+import CategoryDrawer from './drawer.vue';
 
 const categoryTree = ref<CategoryVO[]>([]);
 const selectedCategory = ref<CategoryVO | null>(null);
@@ -170,7 +176,7 @@ function renderTreeNodes(data: CategoryVO[]): any[] {
   });
 }
 
-function onTreeSelect(selectedKeys: (string | number)[]) {
+function onTreeSelect(selectedKeys: (number | string)[]) {
   if (selectedKeys.length > 0) {
     const key = String(selectedKeys[0]);
     const findNode = (
@@ -249,7 +255,13 @@ function onTreeSelect(selectedKeys: (string | number)[]) {
 
           <template #contentType="{ row }">
             <Tag :color="row.contentType === 1 ? 'green' : 'orange'">
-              {{ row.contentType === 1 ? '文章' : row.contentType === 3 ? '自定义链接' : '' }}
+              {{
+                row.contentType === 1
+                  ? '文章'
+                  : row.contentType === 3
+                    ? '自定义链接'
+                    : ''
+              }}
             </Tag>
           </template>
 

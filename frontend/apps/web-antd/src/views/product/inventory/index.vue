@@ -1,15 +1,17 @@
 <script lang="ts" setup>
-import { computed, h, ref } from 'vue';
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideChevronDown, LucideChevronUp, LucideList } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import { Button, Tag, Tooltip } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { getInventoryListApi } from '#/api';
 import { $t } from '#/locales';
 
@@ -47,8 +49,9 @@ function buildTreeData(flatList: any[]): any[] {
 
   for (const row of flatList) {
     const pid = Number(row.productId);
-    if (!productMap.has(pid)) {
-      productMap.set(pid, {
+    let product = productMap.get(pid);
+    if (!product) {
+      product = {
         _id: `product_${pid}`,
         productId: pid,
         productName: row.productName,
@@ -65,10 +68,9 @@ function buildTreeData(flatList: any[]): any[] {
         _specCount: 0,
         _warehouseCount: 0,
         children: [],
-      });
+      };
+      productMap.set(pid, product);
     }
-
-    const product = productMap.get(pid)!;
     product.quantity += Number(row.quantity ?? 0);
     product.reservedQuantity += Number(row.reservedQuantity ?? 0);
     product.availableQuantity += Number(row.availableQuantity ?? 0);
@@ -115,7 +117,7 @@ function buildTreeData(flatList: any[]): any[] {
     });
   }
 
-  return Array.from(productMap.values());
+  return [...productMap.values()];
 }
 
 // ============ 展开/折叠全部 ============
@@ -302,7 +304,7 @@ function handleViewLog(row: any) {
 
 // ============ 库存流水抽屉 ============
 const stockLogVisible = ref(false);
-const stockLogProductId = ref<number | null>(null);
+const stockLogProductId = ref<null | number>(null);
 const stockLogProductName = ref('');
 
 function formatNumber(val: any): string {
@@ -312,7 +314,10 @@ function formatNumber(val: any): string {
 
 function formatMoney(val: any): string {
   const n = Number(val ?? 0);
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 </script>
 
@@ -323,7 +328,9 @@ function formatMoney(val: any): string {
       <template #toolbar-tools>
         <Button class="mr-2" size="small" @click="toggleExpandAll">
           <template #icon>
-            <component :is="allExpanded ? h(LucideChevronUp) : h(LucideChevronDown)" />
+            <component
+              :is="allExpanded ? h(LucideChevronUp) : h(LucideChevronDown)"
+            />
           </template>
           {{ allExpanded ? '全部折叠' : '全部展开' }}
         </Button>
@@ -332,24 +339,53 @@ function formatMoney(val: any): string {
       <!-- 第一列：产品 / 规格 / 仓库 -->
       <template #productName="{ row }">
         <template v-if="row._isProduct">
-          <span class="font-semibold text-foreground">{{ row.productName }}</span>
-          <Tag class="ml-2" color="blue" :bordered="false">{{ row._specCount }}种规格</Tag>
-          <Tag color="geekblue" :bordered="false">{{ row._warehouseCount }}个仓库</Tag>
+          <span class="font-semibold text-foreground">{{
+            row.productName
+          }}</span>
+          <Tag class="ml-2" color="blue" :bordered="false">
+            {{ row._specCount }}种规格
+          </Tag>
+          <Tag color="geekblue" :bordered="false">
+            {{ row._warehouseCount }}个仓库
+          </Tag>
         </template>
         <template v-else-if="row._isSpec">
           <span class="pl-2 inline-flex items-center gap-1">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" class="text-muted-foreground">
-              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="text-muted-foreground"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
             </svg>
             <span class="text-foreground font-medium">{{ row.specText }}</span>
-            <span v-if="row.skuCode" class="text-xs text-muted-foreground font-mono">{{ row.skuCode }}</span>
+            <span
+              v-if="row.skuCode"
+              class="text-xs text-muted-foreground font-mono"
+              >{{ row.skuCode }}</span
+            >
           </span>
         </template>
         <template v-else>
           <span class="text-muted-foreground pl-4">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" class="inline-block -mt-0.5">
-              <path d="M3 21V8l9-5 9 5v13" /><path d="M3 21h18" />
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="inline-block -mt-0.5"
+            >
+              <path d="M3 21V8l9-5 9 5v13" />
+              <path d="M3 21h18" />
             </svg>
             {{ row.warehouseName }}
           </span>
@@ -358,17 +394,29 @@ function formatMoney(val: any): string {
 
       <!-- 产品编码列：仅产品行显示 -->
       <template #productCode="{ row }">
-        <span v-if="row._isProduct" class="font-mono text-xs text-muted-foreground">{{ row.productCode || '-' }}</span>
+        <span
+          v-if="row._isProduct"
+          class="font-mono text-xs text-muted-foreground"
+          >{{ row.productCode || '-' }}</span
+        >
         <span v-else class="text-muted-foreground">—</span>
       </template>
 
       <!-- 库存数量列 -->
       <template #quantity="{ row }">
         <template v-if="row._isProduct || row._isSpec">
-          <span class="font-semibold" :class="row._isProduct ? 'text-base' : ''">{{ formatNumber(row.quantity) }}</span>
+          <span
+            class="font-semibold"
+            :class="row._isProduct ? 'text-base' : ''"
+            >{{ formatNumber(row.quantity) }}</span
+          >
         </template>
         <template v-else>
-          <span :class="{ 'text-orange-500 font-medium': Number(row.quantity) <= 0 }">
+          <span
+            :class="{
+              'text-orange-500 font-medium': Number(row.quantity) <= 0,
+            }"
+          >
             {{ formatNumber(row.quantity) }}
           </span>
         </template>
@@ -376,7 +424,7 @@ function formatMoney(val: any): string {
 
       <!-- 可用数量列 -->
       <template #availableQuantity="{ row }">
-        <span :class="(row._isProduct || row._isSpec) ? 'font-semibold' : ''">
+        <span :class="row._isProduct || row._isSpec ? 'font-semibold' : ''">
           {{ formatNumber(row.availableQuantity) }}
         </span>
       </template>
@@ -391,34 +439,55 @@ function formatMoney(val: any): string {
 
       <!-- 冻结数量列 -->
       <template #frozenQuantity="{ row }">
-        <Tag v-if="row.frozenQuantity && Number(row.frozenQuantity) > 0" color="red" :bordered="false">
+        <Tag
+          v-if="row.frozenQuantity && Number(row.frozenQuantity) > 0"
+          color="red"
+          :bordered="false"
+        >
           {{ formatNumber(row.frozenQuantity) }}
         </Tag>
-        <span v-else-if="row._isWarehouse" class="text-muted-foreground">0</span>
+        <span v-else-if="row._isWarehouse" class="text-muted-foreground"
+          >0</span
+        >
         <span v-else class="text-muted-foreground">0</span>
       </template>
 
       <!-- 库存总成本列 -->
       <template #totalCost="{ row }">
-        <span :class="row._isProduct ? 'font-semibold text-primary' : (row._isSpec ? 'font-medium' : 'text-muted-foreground')">
+        <span
+          :class="
+            row._isProduct
+              ? 'font-semibold text-primary'
+              : row._isSpec
+                ? 'font-medium'
+                : 'text-muted-foreground'
+          "
+        >
           ¥{{ formatMoney(row.totalCost) }}
         </span>
       </template>
 
       <!-- 时间列：仅仓库行显示具体时间 -->
       <template #lastInboundTime="{ row }">
-        <span v-if="row._isWarehouse" class="text-xs text-muted-foreground">{{ row.lastInboundTime || '-' }}</span>
+        <span v-if="row._isWarehouse" class="text-xs text-muted-foreground">{{
+          row.lastInboundTime || '-'
+        }}</span>
         <span v-else class="text-muted-foreground">—</span>
       </template>
 
       <template #lastOutboundTime="{ row }">
-        <span v-if="row._isWarehouse" class="text-xs text-muted-foreground">{{ row.lastOutboundTime || '-' }}</span>
+        <span v-if="row._isWarehouse" class="text-xs text-muted-foreground">{{
+          row.lastOutboundTime || '-'
+        }}</span>
         <span v-else class="text-muted-foreground">—</span>
       </template>
 
       <!-- 操作列 -->
       <template #action="{ row }">
-        <Tooltip v-if="row._isProduct" :title="$t('page.inventory.tooltip.viewStockLog')">
+        <Tooltip
+          v-if="row._isProduct"
+          :title="$t('page.inventory.tooltip.viewStockLog')"
+        >
           <Button
             v-if="accessStore.hasAccessCode('product:inventory:view')"
             type="link"

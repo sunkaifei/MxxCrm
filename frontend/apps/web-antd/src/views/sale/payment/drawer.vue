@@ -1,29 +1,30 @@
 <script lang="ts" setup>
+import type { UploadFile } from 'ant-design-vue';
+
 import type { VbenFormSchema } from '@vben/common-ui';
 
 import { computed, ref, watch } from 'vue';
 
 import { useVbenForm } from '@vben/common-ui';
 
-import { Tabs, TabPane, Tooltip, message } from 'ant-design-vue';
-import type { UploadFile } from 'ant-design-vue';
+import { message, TabPane, Tabs, Tooltip } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
+import { uploadFileApi } from '#/api/core/attachment/file';
+import { getContractListApi } from '#/api/core/crm/contract';
+import { getCustomerListApi } from '#/api/core/crm/customer';
+import { getOrderListApi } from '#/api/core/sale/order';
 import {
   createPaymentApi,
   getPaymentInfoApi,
   updatePaymentApi,
 } from '#/api/core/sale/payment';
-import { getContractListApi } from '#/api/core/crm/contract';
-import { getCustomerListApi } from '#/api/core/crm/customer';
-import { getOrderListApi } from '#/api/core/sale/order';
 import { getUserListApi } from '#/api/core/system/user';
-import { uploadFileApi } from '#/api/core/attachment/file';
 
-const props = withDefaults(
-  defineProps<{ create?: boolean; row?: any }>(),
-  { create: true, row: () => ({}) },
-);
+const props = withDefaults(defineProps<{ create?: boolean; row?: any }>(), {
+  create: true,
+  row: () => ({}),
+});
 
 const isEdit = computed(() => !props.create);
 const activeTab = ref('basic');
@@ -82,8 +83,8 @@ async function loadContractOptions() {
       value: item.id,
       label: item.contractNo || item.title || `合同#${item.id}`,
     }));
-  } catch (e) {
-    console.error('加载合同选项失败:', e);
+  } catch (error) {
+    console.error('加载合同选项失败:', error);
   }
 }
 
@@ -95,8 +96,8 @@ async function loadOrderOptions() {
       value: item.id,
       label: item.orderNo || `订单#${item.id}`,
     }));
-  } catch (e) {
-    console.error('加载订单选项失败:', e);
+  } catch (error) {
+    console.error('加载订单选项失败:', error);
   }
 }
 
@@ -106,10 +107,11 @@ async function loadCustomerOptions() {
     const list = result?.data?.items || result?.items || result?.list || [];
     customerOptions.value = list.map((item: any) => ({
       value: item.id,
-      label: item.companyName || item.customerName || item.name || `客户#${item.id}`,
+      label:
+        item.companyName || item.customerName || item.name || `客户#${item.id}`,
     }));
-  } catch (e) {
-    console.error('加载客户选项失败:', e);
+  } catch (error) {
+    console.error('加载客户选项失败:', error);
   }
 }
 
@@ -121,8 +123,8 @@ async function loadUserOptions() {
       value: item.id,
       label: item.realName || item.userName || `用户#${item.id}`,
     }));
-  } catch (e) {
-    console.error('加载用户选项失败:', e);
+  } catch (error) {
+    console.error('加载用户选项失败:', error);
   }
 }
 
@@ -222,7 +224,9 @@ const basicFormSchema: VbenFormSchema[] = [
       precision: 2,
       min: 0,
       prefix: '¥',
-      onChange: (val: any) => { displayAmount.value = Number(val) || 0; },
+      onChange: (val: any) => {
+        displayAmount.value = Number(val) || 0;
+      },
     },
   },
   {
@@ -231,7 +235,10 @@ const basicFormSchema: VbenFormSchema[] = [
     label: '支付方式',
     defaultValue: 1,
     rules: 'required',
-    componentProps: { placeholder: '请选择支付方式', options: paymentMethodOptions },
+    componentProps: {
+      placeholder: '请选择支付方式',
+      options: paymentMethodOptions,
+    },
   },
   {
     component: 'Select',
@@ -306,7 +313,12 @@ const otherFormSchema: VbenFormSchema[] = [
     component: 'Textarea',
     fieldName: 'remark',
     label: '备注',
-    componentProps: { placeholder: '备注信息', rows: 4, showCount: true, maxlength: 500 },
+    componentProps: {
+      placeholder: '备注信息',
+      rows: 4,
+      showCount: true,
+      maxlength: 500,
+    },
     wrapperClass: 'col-span-2',
   },
 ];
@@ -365,7 +377,10 @@ watch(
         // 回显已有附件（仅展示 URL，不重建 UploadFile 列表以避免复杂度）
         attachmentFileList.value = [];
         otherFormApi.setValues({
-          ownerUserId: data.ownerUserId != null ? Number(data.ownerUserId) : undefined,
+          ownerUserId:
+            data.ownerUserId === null || data.ownerUserId === undefined
+              ? undefined
+              : Number(data.ownerUserId),
           deptId: data.deptId,
           remark: data.remark,
         });
@@ -394,10 +409,10 @@ async function uploadAttachment(): Promise<string> {
         }
         message.warning('附件上传成功但未返回 URL，附件字段将留空');
         return '';
-      } catch (e) {
-        console.error('附件上传失败:', e);
+      } catch (error) {
+        console.error('附件上传失败:', error);
         message.error('附件上传失败');
-        throw e;
+        throw error;
       }
     }
   }
@@ -430,9 +445,10 @@ async function handleSubmit() {
       attachment: attachmentUrl || undefined,
       ...otherValues,
       ownerUserId:
-        otherValues.ownerUserId != null
-          ? Number(otherValues.ownerUserId)
-          : undefined,
+        otherValues.ownerUserId === null ||
+        otherValues.ownerUserId === undefined
+          ? undefined
+          : Number(otherValues.ownerUserId),
     };
 
     if (isEdit.value) {
@@ -480,9 +496,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
         paymentFormApi.setValues(props.row);
         otherFormApi.setValues({
           ownerUserId:
-            props.row?.ownerUserId != null
-              ? Number(props.row.ownerUserId)
-              : undefined,
+            props.row?.ownerUserId === null ||
+            props.row?.ownerUserId === undefined
+              ? undefined
+              : Number(props.row.ownerUserId),
           deptId: props.row?.deptId,
           remark: props.row?.remark,
         });
@@ -555,7 +572,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       </Tooltip>
     </template>
 
-    <Tabs v-model:activeKey="activeTab">
+    <Tabs v-model:active-key="activeTab">
       <TabPane key="basic" tab="基本信息">
         <BasicForm />
       </TabPane>
@@ -566,7 +583,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
           class="mt-2 text-xs text-gray-500 break-all"
         >
           当前附件：
-          <a :href="originalAttachment" target="_blank" class="text-blue-500 hover:underline">
+          <a
+            :href="originalAttachment"
+            target="_blank"
+            class="text-blue-500 hover:underline"
+          >
             {{ originalAttachment }}
           </a>
         </div>
@@ -586,10 +607,17 @@ const [Drawer, drawerApi] = useVbenDrawer({
     </Tabs>
 
     <div class="mt-6 border-t pt-4">
-      <div class="flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3">
+      <div
+        class="flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3"
+      >
         <span class="text-sm text-gray-600">本次回款金额</span>
         <span class="text-xl font-bold text-blue-600">
-          ¥{{ displayAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+          ¥{{
+            displayAmount.toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          }}
         </span>
       </div>
     </div>
@@ -613,16 +641,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .sale-payment-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 </style>

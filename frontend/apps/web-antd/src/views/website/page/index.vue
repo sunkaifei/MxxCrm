@@ -1,13 +1,19 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucidePlus } from '@vben/icons';
-import { Button, Tag, Modal, message } from 'ant-design-vue';
-import PageDrawer from './drawer.vue';
+
+import { Button, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deletePageApi, getPageListApi } from '#/api';
+
+import PageDrawer from './drawer.vue';
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -151,11 +157,7 @@ async function handleDelete(row: any) {
   <Page auto-content-height>
     <Grid table-title="自定义页面管理">
       <template #toolbar-tools>
-        <Button
-          type="primary"
-          :icon="h(LucidePlus)"
-          @click="handleAdd"
-        >
+        <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
           新增页面
         </Button>
       </template>

@@ -28,14 +28,14 @@ export const getSettingConfigApi = async () => {
 
 /** 保存系统设置 */
 export const updateSettingConfigApi = async (data: {
-  multiDevice?: boolean;
-  sessionTimeout?: number;
-  maxDevices?: number;
-  registerEnabled?: boolean;
   inboundAuditEnabled?: boolean;
-  outboundAuditEnabled?: boolean;
   inboundAuditMode?: number;
+  maxDevices?: number;
+  multiDevice?: boolean;
+  outboundAuditEnabled?: boolean;
   outboundAuditMode?: number;
+  registerEnabled?: boolean;
+  sessionTimeout?: number;
 }) => {
   return requestClient.put('/api/system/setting/config', data);
 };

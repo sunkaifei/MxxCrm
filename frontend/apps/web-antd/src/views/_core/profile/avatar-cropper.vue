@@ -1,20 +1,16 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Cropper } from 'vue-advanced-cropper';
 import 'vue-advanced-cropper/dist/style.css';
 
-import {
-  Modal,
-  Button,
-  Slider,
-  message,
-} from 'ant-design-vue';
+import { Button, message, Modal, Slider } from 'ant-design-vue';
 
 import { uploadFileApi } from '#/api/core/attachment/file';
+import { $t } from '#/locales';
 
 const props = defineProps<{
-  visible: boolean;
   avatarUrl?: string;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -48,17 +44,17 @@ const handleChooseFile = (e: Event) => {
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
-    message.error('请选择图片文件');
+    message.error($t('page.system.profile.cropper.selectImageFile'));
     return;
   }
 
   const reader = new FileReader();
-  reader.onload = (event) => {
+  reader.addEventListener('load', (event) => {
     imageSrc.value = event.target?.result as string;
     previewUrl.value = '';
     zoom.value = 1;
     currentZoom.value = 1;
-  };
+  });
   reader.readAsDataURL(file);
   input.value = '';
 };
@@ -83,9 +79,11 @@ const handleReady = () => {
   }
 };
 
-const handleZoomChange = (val: number) => {
+const handleZoomChange = (val: [number, number] | number) => {
+  // Slider 的 change 事件值类型为 number | [number, number]，非区间模式取第一个值
+  const zoomVal = Array.isArray(val) ? (val[0] ?? 0) : val;
   if (cropperRef.value && currentZoom.value > 0) {
-    const ratio = val / currentZoom.value;
+    const ratio = zoomVal / currentZoom.value;
     cropperRef.value.zoom(ratio);
   }
 };
@@ -132,33 +130,37 @@ const handleConfirm = async () => {
   try {
     const result = cropperRef.value.getResult();
     if (!result?.canvas) {
-      message.error('裁剪失败');
+      message.error($t('page.system.profile.cropper.cropFailed'));
       uploading.value = false;
       return;
     }
 
-    result.canvas.toBlob(async (blob: Blob | null) => {
-      if (!blob) {
-        message.error('生成图片失败');
+    result.canvas.toBlob(
+      async (blob: Blob | null) => {
+        if (!blob) {
+          message.error($t('page.system.profile.cropper.generateFailed'));
+          uploading.value = false;
+          return;
+        }
+
+        const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+        const res: any = await uploadFileApi(file, 'avatar');
+
+        if (res?.url || res?.uploadUrl) {
+          const url = res.url || res.uploadUrl;
+          message.success($t('page.system.profile.cropper.uploadSuccess'));
+          emit('success', url);
+          handleClose();
+        } else {
+          message.error($t('page.system.profile.cropper.uploadFailed'));
+        }
         uploading.value = false;
-        return;
-      }
-
-      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
-      const res: any = await uploadFileApi(file, 'avatar');
-
-      if (res?.url || res?.uploadUrl) {
-        const url = res.url || res.uploadUrl;
-        message.success('头像上传成功');
-        emit('success', url);
-        handleClose();
-      } else {
-        message.error('上传失败');
-      }
-      uploading.value = false;
-    }, 'image/jpeg', 0.92);
-  } catch (e: any) {
-    message.error(e?.message || '上传失败');
+      },
+      'image/jpeg',
+      0.92,
+    );
+  } catch (error: any) {
+    message.error(error?.message || $t('page.system.profile.cropper.uploadFailed'));
     uploading.value = false;
   }
 };
@@ -167,13 +169,13 @@ const handleConfirm = async () => {
 <template>
   <Modal
     v-model:open="visible"
-    title="上传头像"
+    :title="$t('page.system.profile.cropper.title')"
     :width="680"
     :confirm-loading="uploading"
     @ok="handleConfirm"
     @cancel="handleClose"
-    ok-text="确认上传"
-    cancel-text="取消"
+    :ok-text="$t('page.system.profile.cropper.confirmUpload')"
+    :cancel-text="$t('page.system.profile.cropper.cancel')"
     :z-index="2000"
   >
     <div class="avatar-cropper">
@@ -181,15 +183,30 @@ const handleConfirm = async () => {
       <div class="cropper-wrapper">
         <div v-if="!imageSrc" class="upload-placeholder">
           <label class="upload-btn">
-            <input type="file" accept="image/*" @change="handleChooseFile" hidden />
+            <input
+              type="file"
+              accept="image/*"
+              @change="handleChooseFile"
+              hidden
+            />
             <div class="upload-placeholder-content">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              <span>点击选择图片</span>
-              <span class="upload-hint">支持 JPG、PNG、GIF 格式</span>
+              <span>{{ $t('page.system.profile.cropper.clickSelect') }}</span>
+              <span class="upload-hint">{{ $t('page.system.profile.cropper.formatHint') }}</span>
             </div>
           </label>
         </div>
@@ -214,17 +231,17 @@ const handleConfirm = async () => {
       <div v-if="imageSrc" class="control-panel">
         <!-- 预览 -->
         <div class="preview-section">
-          <div class="preview-label">预览效果</div>
+          <div class="preview-label">{{ $t('page.system.profile.cropper.preview') }}</div>
           <div class="preview-circle">
             <img v-if="previewUrl" :src="previewUrl" class="preview-img" />
           </div>
-          <span class="preview-tip">正方形裁剪区域<br />显示为圆形头像</span>
+          <span class="preview-tip">{{ $t('page.system.profile.cropper.previewTipLine1') }}<br />{{ $t('page.system.profile.cropper.previewTipLine2') }}</span>
         </div>
 
         <!-- 控制按钮 -->
         <div class="control-section">
           <div class="control-row">
-            <span class="control-label">缩放</span>
+            <span class="control-label">{{ $t('page.system.profile.cropper.zoom') }}</span>
             <Slider
               v-model:value="zoom"
               :min="0.1"
@@ -235,26 +252,31 @@ const handleConfirm = async () => {
             />
           </div>
           <div class="control-row">
-            <span class="control-label">旋转</span>
+            <span class="control-label">{{ $t('page.system.profile.cropper.rotate') }}</span>
             <div class="btn-group">
               <Button size="small" @click="handleRotate(-90)">-90°</Button>
               <Button size="small" @click="handleRotate(90)">+90°</Button>
             </div>
           </div>
           <div class="control-row">
-            <span class="control-label">翻转</span>
+            <span class="control-label">{{ $t('page.system.profile.cropper.flip') }}</span>
             <div class="btn-group">
-              <Button size="small" @click="handleFlipH">水平</Button>
-              <Button size="small" @click="handleFlipV">垂直</Button>
+              <Button size="small" @click="handleFlipH">{{ $t('page.system.profile.cropper.flipH') }}</Button>
+              <Button size="small" @click="handleFlipV">{{ $t('page.system.profile.cropper.flipV') }}</Button>
             </div>
           </div>
           <div class="control-row">
             <span class="control-label"></span>
             <div class="btn-group">
-              <Button size="small" @click="handleReset">重置</Button>
+              <Button size="small" @click="handleReset">{{ $t('page.system.profile.cropper.reset') }}</Button>
               <label class="reselect-btn">
-                <input type="file" accept="image/*" @change="handleChooseFile" hidden />
-                <Button size="small" type="primary">重新选择</Button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  @change="handleChooseFile"
+                  hidden
+                />
+                <Button size="small" type="primary">{{ $t('page.system.profile.cropper.reselect') }}</Button>
               </label>
             </div>
           </div>
@@ -271,13 +293,13 @@ const handleConfirm = async () => {
 }
 
 .avatar-cropper .cropper-wrapper {
-  width: 380px;
-  height: 380px;
-  background: #2a2a2a;
-  border-radius: 8px;
-  overflow: hidden;
   position: relative;
   flex-shrink: 0;
+  width: 380px;
+  height: 380px;
+  overflow: hidden;
+  background: #2a2a2a;
+  border-radius: 8px;
 }
 
 .avatar-cropper .cropper {
@@ -292,21 +314,21 @@ const handleConfirm = async () => {
 }
 
 .avatar-cropper .upload-placeholder {
-  width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
   cursor: pointer;
+  background: #2a2a2a;
   border: 2px dashed #4a4a4a;
   border-radius: 8px;
   transition: all 0.3s;
-  background: #2a2a2a;
 }
 
 .avatar-cropper .upload-placeholder:hover {
-  border-color: #1890ff;
   background: #1f2d3d;
+  border-color: #1890ff;
 }
 
 .avatar-cropper .upload-btn {
@@ -316,8 +338,8 @@ const handleConfirm = async () => {
 .avatar-cropper .upload-placeholder-content {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   color: #999;
 }
 
@@ -327,8 +349,8 @@ const handleConfirm = async () => {
 }
 
 .avatar-cropper .control-panel {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 24px;
   min-width: 0;
@@ -337,23 +359,23 @@ const handleConfirm = async () => {
 .avatar-cropper .preview-section {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .avatar-cropper .preview-label {
   font-size: 14px;
-  color: #595959;
   font-weight: 500;
+  color: #595959;
 }
 
 .avatar-cropper .preview-circle {
   width: 120px;
   height: 120px;
-  border-radius: 50%;
   overflow: hidden;
-  border: 2px solid #e8e8e8;
   background: #f5f5f5;
+  border: 2px solid #e8e8e8;
+  border-radius: 50%;
 }
 
 .avatar-cropper .preview-img {
@@ -364,9 +386,9 @@ const handleConfirm = async () => {
 
 .avatar-cropper .preview-tip {
   font-size: 12px;
+  line-height: 1.5;
   color: #999;
   text-align: center;
-  line-height: 1.5;
 }
 
 .avatar-cropper .control-section {
@@ -377,21 +399,21 @@ const handleConfirm = async () => {
 
 .avatar-cropper .control-row {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .avatar-cropper .control-label {
+  flex-shrink: 0;
   width: 56px;
   font-size: 13px;
   color: #595959;
-  flex-shrink: 0;
 }
 
 .avatar-cropper .btn-group {
   display: flex;
-  gap: 6px;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
 .avatar-cropper .reselect-btn {

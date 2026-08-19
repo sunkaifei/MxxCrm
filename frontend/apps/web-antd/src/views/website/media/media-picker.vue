@@ -1,22 +1,17 @@
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue';
+
 import { useVbenModal } from '@vben/common-ui';
 import {
-  LucideImage,
+  LucideCheck,
+  LucideFile,
   LucideFileText,
   LucideFilm,
-  LucideFile,
+  LucideImage,
   LucideSearch,
-  LucideCheck,
 } from '@vben/icons';
 
-import {
-  Button,
-  Empty,
-  Input,
-  Pagination,
-  message,
-} from 'ant-design-vue';
+import { Button, Empty, Input, message, Pagination } from 'ant-design-vue';
 
 import { getMediaListApi } from '#/api';
 
@@ -33,17 +28,17 @@ interface MediaItem {
   thumbLarge?: string;
 }
 
+const props = withDefaults(
+  defineProps<{
+    fileType?: number;
+    multiple?: boolean;
+  }>(),
+  { fileType: undefined, multiple: false },
+);
+
 const emit = defineEmits<{
   select: [items: MediaItem[]];
 }>();
-
-const props = withDefaults(
-  defineProps<{
-    multiple?: boolean;
-    fileType?: number;
-  }>(),
-  { multiple: false },
-);
 
 // --- 状态 ---
 const searchKeyword = ref('');
@@ -53,12 +48,21 @@ const pagination = ref({ current: 1, pageSize: 24, total: 0 });
 const selectedIds = ref<Set<number>>(new Set());
 const selectedItems = ref<MediaItem[]>([]);
 
-const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'];
+const imageExtensions = new Set([
+  'bmp',
+  'gif',
+  'ico',
+  'jpeg',
+  'jpg',
+  'png',
+  'svg',
+  'webp',
+]);
 
 const isImage = (item: MediaItem) => {
   if (item.fileType === 1) return true;
   const ext = item.fileExt?.toLowerCase() ?? '';
-  return imageExtensions.includes(ext);
+  return imageExtensions.has(ext);
 };
 
 const getThumbUrl = (item: MediaItem) => {
@@ -123,7 +127,7 @@ const toggleSelect = (item: MediaItem) => {
     if (next.has(id)) {
       next.delete(id);
       const idx = nextItems.findIndex((i) => i.id === id);
-      if (idx >= 0) nextItems.splice(idx, 1);
+      if (idx !== -1) nextItems.splice(idx, 1);
     } else {
       next.add(id);
       nextItems.push(item);
@@ -186,7 +190,10 @@ onMounted(() => {
           @press-enter="handleSearch"
         >
           <template #prefix>
-            <component :is="LucideSearch" style="color: #bfbfbf; font-size: 14px" />
+            <component
+              :is="LucideSearch"
+              style="font-size: 14px; color: #bfbfbf"
+            />
           </template>
         </Input>
         <Button type="primary" size="small" @click="handleSearch">搜索</Button>
@@ -216,7 +223,10 @@ onMounted(() => {
                 loading="lazy"
               />
               <div v-else class="gc-placeholder">
-                <component :is="getFileIcon(item)" class="gc-placeholder-icon" />
+                <component
+                  :is="getFileIcon(item)"
+                  class="gc-placeholder-icon"
+                />
               </div>
               <!-- 选中标记 -->
               <div v-if="isSelected(item.id)" class="gc-selected-badge">
@@ -260,10 +270,10 @@ onMounted(() => {
 
 <style scoped>
 .media-picker {
-  min-height: 400px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 400px;
 }
 
 .picker-search {
@@ -272,9 +282,9 @@ onMounted(() => {
 }
 
 .picker-loading {
-  text-align: center;
   padding: 60px 0;
   color: #8c8c8c;
+  text-align: center;
 }
 
 .picker-empty {
@@ -288,28 +298,31 @@ onMounted(() => {
 }
 
 .grid-card {
+  overflow: hidden;
+  cursor: pointer;
   background: #fff;
   border: 1px solid #f0f0f0;
   border-radius: 8px;
-  cursor: pointer;
-  overflow: hidden;
   transition: all 0.2s;
 }
+
 .grid-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
 }
+
 .grid-card.is-selected {
   border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.15);
+  box-shadow: 0 0 0 2px rgb(22 119 255 / 15%);
 }
 
 .gc-thumb {
   position: relative;
   width: 100%;
   padding-top: 75%;
-  background: #fafafa;
   overflow: hidden;
+  background: #fafafa;
 }
+
 .gc-img {
   position: absolute;
   inset: 0;
@@ -317,6 +330,7 @@ onMounted(() => {
   height: 100%;
   object-fit: cover;
 }
+
 .gc-placeholder {
   position: absolute;
   inset: 0;
@@ -325,56 +339,62 @@ onMounted(() => {
   justify-content: center;
   background: #fafafa;
 }
+
 .gc-placeholder-icon {
   font-size: 32px;
   color: #bfbfbf;
 }
+
 .gc-selected-badge {
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 22px;
-  height: 22px;
-  background: #1677ff;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  width: 22px;
+  height: 22px;
   font-size: 14px;
+  color: #fff;
+  background: #1677ff;
+  border-radius: 50%;
 }
 
 .gc-body {
   padding: 8px 10px;
 }
+
 .gc-name {
-  font-size: 12px;
-  color: #262626;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
+  color: #262626;
   white-space: nowrap;
 }
+
 .gc-meta {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   margin-top: 4px;
   font-size: 11px;
   color: #8c8c8c;
 }
+
 .gc-ext {
-  background: #f5f5f5;
   padding: 0 5px;
+  background: #f5f5f5;
   border-radius: 3px;
 }
 
 .picker-pagination {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding-top: 8px;
   border-top: 1px solid #f0f0f0;
 }
+
 .page-total {
   font-size: 12px;
   color: #8c8c8c;

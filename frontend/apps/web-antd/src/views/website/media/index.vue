@@ -1,23 +1,27 @@
 <script lang="ts" setup>
+import type { TreeProps } from 'ant-design-vue';
+
 import { computed, h, onMounted, ref } from 'vue';
+
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import {
-  LucideUpload,
-  LucidePlus,
-  LucideTrash2,
   LucideEye,
-  LucideImage,
+  LucideFile,
+  LucideFilePenLine,
   LucideFileText,
   LucideFilm,
-  LucideFile,
+  LucideImage,
+  LucidePlus,
   LucideSearch,
-  LucideFilePenLine,
+  LucideTrash2,
+  LucideUpload,
 } from '@vben/icons';
 
 import {
   Button,
   Empty,
   Input,
+  message,
   Modal,
   Pagination,
   Popconfirm,
@@ -25,27 +29,26 @@ import {
   Tag,
   Tree,
   Upload,
-  message,
 } from 'ant-design-vue';
-import type { TreeProps } from 'ant-design-vue';
 
 import {
   addMediaApi,
   deleteMediaApi,
+  deleteMediaCategoryApi,
   getMediaCategoryAllApi,
   getMediaListApi,
-  deleteMediaCategoryApi,
 } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
-import MediaDrawer from './drawer.vue';
+
 import MediaCategoryDrawer from './category-drawer.vue';
+import MediaDrawer from './drawer.vue';
 
 const SelectOption = Select.Option;
 
 // --- 状态 ---
 const searchKeyword = ref('');
 const selectedFileType = ref<number | undefined>(undefined);
-const selectedCategoryId = ref<number | null>(null);
+const selectedCategoryId = ref<null | number>(null);
 const selectedIds = ref<Set<number>>(new Set());
 const treeData = ref<any[]>([]);
 const mediaList = ref<any[]>([]);
@@ -66,7 +69,7 @@ const fileTypeOptions = [
   { value: 5, label: '其他' },
 ];
 
-const fileTypeMap: Record<number, { label: string; color: string }> = {
+const fileTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: '图片', color: 'blue' },
   2: { label: '视频', color: 'purple' },
   3: { label: '文档', color: 'green' },
@@ -74,13 +77,22 @@ const fileTypeMap: Record<number, { label: string; color: string }> = {
   5: { label: '其他', color: 'default' },
 };
 
-const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'];
+const imageExtensions = new Set([
+  'bmp',
+  'gif',
+  'ico',
+  'jpeg',
+  'jpg',
+  'png',
+  'svg',
+  'webp',
+]);
 
 // --- 计算属性 ---
 const isImage = (item: any) => {
   if (item.fileType === 1) return true;
   const ext = item.fileExt?.toLowerCase();
-  return imageExtensions.includes(ext);
+  return imageExtensions.has(ext);
 };
 
 const getFileIcon = (item: any) => {
@@ -120,8 +132,8 @@ const loadCategoryTree = async () => {
     const result: any = await getMediaCategoryAllApi();
     const list = Array.isArray(result) ? result : result?.data || [];
     treeData.value = buildTreeData(list);
-  } catch (e) {
-    console.error('加载分类树失败', e);
+  } catch (error) {
+    console.error('加载分类树失败', error);
     treeData.value = [];
   }
 };
@@ -140,8 +152,8 @@ const loadMediaList = async () => {
     const list = result?.items || result?.list || result?.rows || [];
     mediaList.value = list;
     pagination.value.total = result?.total || result?.count || 0;
-  } catch (e) {
-    console.error('加载媒体列表失败', e);
+  } catch (error) {
+    console.error('加载媒体列表失败', error);
     mediaList.value = [];
   } finally {
     loading.value = false;
@@ -193,12 +205,12 @@ const toggleSelect = (id: number) => {
 const handleBatchDelete = async () => {
   if (selectedIds.value.size === 0) return;
   try {
-    await deleteMediaApi(Array.from(selectedIds.value));
+    await deleteMediaApi([...selectedIds.value]);
     message.success('删除成功');
     selectedIds.value = new Set();
     loadMediaList();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 };
 
@@ -207,8 +219,8 @@ async function handleDelete(item: any) {
     await deleteMediaApi([item.id]);
     message.success('删除成功');
     loadMediaList();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 }
 
@@ -241,8 +253,8 @@ async function handleDeleteCategory(item: any) {
         await deleteMediaCategoryApi(item.key);
         message.success('分类删除成功');
         loadCategoryTree();
-      } catch (e: any) {
-        message.error(e?.message || '删除失败');
+      } catch (error: any) {
+        message.error(error?.message || '删除失败');
       }
     },
   });
@@ -265,15 +277,16 @@ async function uploadFile(options: any) {
       const fileName = file.name || '';
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
       // 从URL中提取存储文件名（UUID文件名，位于最后一段路径）
-      const storageName = url.substring(url.lastIndexOf('/') + 1) || fileName;
+      const storageName =
+        url.slice(Math.max(0, url.lastIndexOf('/') + 1)) || fileName;
       await addMediaApi({
         originalName: fileName,
-        storageName: storageName,
+        storageName,
         fileUrl: url,
         filePath: url,
         fileExt: ext,
         fileSize: file.size,
-        fileType: imageExtensions.includes(ext) ? 1 : 5,
+        fileType: imageExtensions.has(ext) ? 1 : 5,
         mimeType: file.type,
         categoryId: selectedCategoryId.value || undefined,
         attachmentId,
@@ -281,9 +294,9 @@ async function uploadFile(options: any) {
     }
     message.success('上传成功');
     loadMediaList();
-  } catch (e: any) {
-    onError?.(e);
-    message.error(e?.message || '上传失败');
+  } catch (error: any) {
+    onError?.(error);
+    message.error(error?.message || '上传失败');
   }
 }
 
@@ -430,7 +443,7 @@ onMounted(() => {
               <template #prefix>
                 <component
                   :is="LucideSearch"
-                  style="color: #bfbfbf; font-size: 14px"
+                  style="font-size: 14px; color: #bfbfbf"
                 />
               </template>
             </Input>
@@ -460,8 +473,14 @@ onMounted(() => {
 
         <!-- 内容区 -->
         <div class="content-area">
-          <div class="content-card" :class="{ 'is-empty': mediaList.length === 0 }">
-            <div v-if="!loading && mediaList.length === 0" class="empty-wrapper">
+          <div
+            class="content-card"
+            :class="{ 'is-empty': mediaList.length === 0 }"
+          >
+            <div
+              v-if="!loading && mediaList.length === 0"
+              class="empty-wrapper"
+            >
               <Empty description="暂无媒体文件" />
             </div>
 
@@ -489,7 +508,11 @@ onMounted(() => {
                     />
                   </div>
                   <div v-if="isImage(item)" class="gc-hover-mask">
-                    <Button size="small" ghost @click.stop="handlePreview(item)">
+                    <Button
+                      size="small"
+                      ghost
+                      @click.stop="handlePreview(item)"
+                    >
                       <template #icon>
                         <component :is="LucideEye" />
                       </template>
@@ -528,7 +551,11 @@ onMounted(() => {
                       >
                         {{ fileTypeMap[item.fileType]?.label || '未知' }}
                       </Tag>
-                      <span v-if="item.uploadedName" class="gc-uploader" :title="item.uploadedName">
+                      <span
+                        v-if="item.uploadedName"
+                        class="gc-uploader"
+                        :title="item.uploadedName"
+                      >
                         {{ item.uploadedName }}
                       </span>
                     </div>
@@ -540,7 +567,10 @@ onMounted(() => {
                         @click.stop="handleEdit(item)"
                       >
                         <template #icon>
-                          <component :is="LucideFilePenLine" style="font-size: 14px" />
+                          <component
+                            :is="LucideFilePenLine"
+                            style="font-size: 14px"
+                          />
                         </template>
                       </Button>
                       <Popconfirm
@@ -570,9 +600,7 @@ onMounted(() => {
 
             <!-- 分页 -->
             <div v-if="mediaList.length > 0" class="pagination-bar">
-              <span class="page-total">
-                共 {{ pagination.total }} 项
-              </span>
+              <span class="page-total"> 共 {{ pagination.total }} 项 </span>
               <Pagination
                 :current="pagination.current"
                 :page-size="pagination.pageSize"
@@ -621,21 +649,22 @@ onMounted(() => {
 
 /* ---- 侧栏 ---- */
 .aside-bar {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
   width: 220px;
   background: #fff;
   border-right: 1px solid #e8e8e8;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
 }
 
 .aside-header {
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid #f0f0f0;
 }
+
 .aside-title {
   margin: 0;
   font-size: 14px;
@@ -649,39 +678,41 @@ onMounted(() => {
   justify-content: space-between;
   width: 100%;
 }
+
 .category-node-actions {
   display: none;
   gap: 2px;
 }
+
 .category-node:hover .category-node-actions {
   display: inline-flex;
 }
 
 .aside-tree {
   flex: 1;
-  overflow-y: auto;
   padding: 8px 12px;
+  overflow-y: auto;
 }
 
 .aside-empty {
-  text-align: center;
   padding: 40px 0;
   color: #bfbfbf;
+  text-align: center;
 }
 
 /* ---- 主区域 ---- */
 .main-area {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   background: #f5f5f5;
 }
 
 /* ---- 工具栏 ---- */
 .toolbar {
+  flex-shrink: 0;
   background: #fff;
   border-bottom: 1px solid #f0f0f0;
-  flex-shrink: 0;
 }
 
 .toolbar-top {
@@ -697,27 +728,29 @@ onMounted(() => {
   font-size: 13px;
   color: #595959;
 }
+
 .info-text strong {
-  color: #1677ff;
   margin: 0 2px;
+  color: #1677ff;
 }
 
 .toolbar-actions {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
 }
 
 .toolbar-bottom {
-  padding: 0 20px 14px;
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
+  padding: 0 20px 14px;
 }
 
 .filter-search {
   width: 320px;
 }
+
 .filter-select {
   width: 140px;
 }
@@ -728,13 +761,14 @@ onMounted(() => {
 }
 
 .content-card {
-  padding: 15px;
-  border: 1px solid #f0f0f0;
+  box-sizing: border-box;
   width: 100%;
   min-height: 100%;
-  box-sizing: border-box;
+  padding: 15px;
   overflow: visible;
+  border: 1px solid #f0f0f0;
 }
+
 .content-card.is-empty {
   display: flex;
   align-items: center;
@@ -756,29 +790,32 @@ onMounted(() => {
 
 .grid-card {
   position: relative;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
   cursor: pointer;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
   transition: all 0.2s;
 }
+
 .grid-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   border-color: #d9d9d9;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
 }
+
 .grid-card.is-selected {
   border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.15);
+  box-shadow: 0 0 0 2px rgb(22 119 255 / 15%);
 }
 
 .gc-thumb {
   position: relative;
   width: 100%;
   padding-top: 75%;
-  background: #fafafa;
   overflow: hidden;
+  background: #fafafa;
   border-radius: 8px 8px 0 0;
 }
+
 .gc-img {
   position: absolute;
   inset: 0;
@@ -786,6 +823,7 @@ onMounted(() => {
   height: 100%;
   object-fit: cover;
 }
+
 .gc-placeholder {
   position: absolute;
   inset: 0;
@@ -794,100 +832,112 @@ onMounted(() => {
   justify-content: center;
   background: #fafafa;
 }
+
 .gc-placeholder-icon {
   font-size: 40px;
   color: #bfbfbf;
 }
+
 .gc-hover-mask {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgb(0 0 0 / 35%);
   opacity: 0;
   transition: opacity 0.2s;
 }
+
 .grid-card:hover .gc-hover-mask {
   opacity: 1;
 }
+
 .gc-check {
   position: absolute;
   top: 8px;
   left: 8px;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 4px;
   padding: 2px 4px;
   line-height: 0;
+  background: rgb(255 255 255 / 85%);
+  border-radius: 4px;
 }
+
 .gc-checkbox {
-  cursor: pointer;
   width: 14px;
   height: 14px;
+  cursor: pointer;
 }
 
 .gc-body {
   padding: 10px 12px;
 }
+
 .gc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 13px;
   font-weight: 500;
   color: #262626;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
 }
+
 .gc-name:hover {
   color: #1677ff;
 }
+
 .gc-meta {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-top: 4px;
   font-size: 12px;
   color: #8c8c8c;
 }
+
 .gc-ext {
-  background: #f5f5f5;
   padding: 0 6px;
-  border-radius: 3px;
   font-size: 11px;
   color: #595959;
+  background: #f5f5f5;
+  border-radius: 3px;
 }
+
 .gc-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
   padding-top: 8px;
+  margin-top: 8px;
   border-top: 1px solid #f5f5f5;
 }
 
 .gc-footer-left {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
   flex: 1;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
   overflow: hidden;
 }
 
 .gc-uploader {
-  font-size: 11px;
-  color: #8c8c8c;
+  max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 80px;
-}
-.gc-tag {
   font-size: 11px;
-  line-height: 18px;
+  color: #8c8c8c;
+  white-space: nowrap;
+}
+
+.gc-tag {
   padding: 0 6px;
   margin: 0;
+  font-size: 11px;
+  line-height: 18px;
 }
+
 .gc-actions {
   display: flex;
   gap: 2px;
@@ -896,22 +946,23 @@ onMounted(() => {
 /* ---- 分页 ---- */
 .pagination-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-top: 16px;
+  justify-content: space-between;
   padding: 12px 4px 4px;
-  border-top: 1px solid #f0f0f0;
+  margin-top: 16px;
   background: #fafafa;
+  border-top: 1px solid #f0f0f0;
   border-radius: 0 0 6px 6px;
 }
+
 .page-total {
-  font-size: 13px;
-  color: #595959;
   padding: 4px 10px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #595959;
   background: #fff;
   border: 1px solid #f0f0f0;
   border-radius: 4px;
-  line-height: 20px;
 }
 
 /* ---- 预览弹窗 ---- */
@@ -919,10 +970,11 @@ onMounted(() => {
   padding: 0;
   line-height: 0;
 }
+
 .preview-img {
+  display: block;
   max-width: 90vw;
   max-height: 85vh;
-  display: block;
 }
 
 .ml-3 {

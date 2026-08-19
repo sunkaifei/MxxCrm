@@ -8,31 +8,35 @@ import { useVbenForm } from '@vben/common-ui';
 import {
   Button,
   InputNumber,
+  message,
   Table,
-  Tabs,
   TabPane,
+  Tabs,
   Timeline,
   TimelineItem,
   Tooltip,
-  message,
 } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
 import {
   createQuotationApi,
-  getQuotationInfoApi,
-  updateQuotationApi,
-  getOpportunityInfoApi,
-  getWarehouseListApi,
-} from '#/api';
-import {
-  getCustomerListApi,
   getContactListApi,
+  getCustomerListApi,
+  getOpportunityInfoApi,
+  getQuotationInfoApi,
+  getWarehouseListApi,
+  updateQuotationApi,
 } from '#/api';
-import ProductSelectModal from '../components/ProductSelectModal.vue';
-import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
 
-const drawerData = ref<{ create?: boolean; row?: any; needRefresh?: boolean; fromOpportunity?: any }>({ create: true });
+import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
+import ProductSelectModal from '../components/ProductSelectModal.vue';
+
+const drawerData = ref<{
+  create?: boolean;
+  fromOpportunity?: any;
+  needRefresh?: boolean;
+  row?: any;
+}>({ create: true });
 const isEdit = computed(() => !drawerData.value.create);
 const isReadOnly = ref(false);
 const activeTab = ref('basic');
@@ -56,12 +60,18 @@ const contactLoading = ref(false);
 async function searchCustomers(keyword: string) {
   customerLoading.value = true;
   try {
-    const res = await getCustomerListApi({ page: 1, pageSize: 50, keywords: keyword });
-    customerOptions.value = (res?.list || res?.items || res || []).map((c: any) => ({
-      label: c.customerName || c.name || c.companyName,
-      value: c.id,
-      raw: c,
-    }));
+    const res = await getCustomerListApi({
+      page: 1,
+      pageSize: 50,
+      keywords: keyword,
+    });
+    customerOptions.value = (res?.list || res?.items || res || []).map(
+      (c: any) => ({
+        label: c.customerName || c.name || c.companyName,
+        value: c.id,
+        raw: c,
+      }),
+    );
   } finally {
     customerLoading.value = false;
   }
@@ -79,11 +89,13 @@ async function searchContacts(keyword: string) {
     const params: any = { page: 1, pageSize: 50, customerId: custId };
     if (keyword) params.keywords = keyword;
     const res = await getContactListApi(params);
-    contactOptions.value = (res?.list || res?.items || res || []).map((c: any) => ({
-      label: c.contactName || c.name,
-      value: c.id,
-      raw: c,
-    }));
+    contactOptions.value = (res?.list || res?.items || res || []).map(
+      (c: any) => ({
+        label: c.contactName || c.name,
+        value: c.id,
+        raw: c,
+      }),
+    );
   } finally {
     contactLoading.value = false;
   }
@@ -109,11 +121,13 @@ async function loadContactsByCustomer(customerId: number | undefined) {
   contactLoading.value = true;
   try {
     const res = await getContactListApi({ page: 1, pageSize: 50, customerId });
-    contactOptions.value = (res?.list || res?.items || res || []).map((c: any) => ({
-      label: c.contactName || c.name,
-      value: c.id,
-      raw: c,
-    }));
+    contactOptions.value = (res?.list || res?.items || res || []).map(
+      (c: any) => ({
+        label: c.contactName || c.name,
+        value: c.id,
+        raw: c,
+      }),
+    );
   } finally {
     contactLoading.value = false;
   }
@@ -133,8 +147,8 @@ async function loadWarehouseList() {
       label: w.warehouseName || w.name,
       value: w.id,
     }));
-  } catch (e) {
-    console.error('[报价单] 加载仓库列表失败:', e);
+  } catch (error) {
+    console.error('[报价单] 加载仓库列表失败:', error);
     warehouseOptions.value = [];
   }
 }
@@ -164,13 +178,15 @@ async function handleSelectOpportunity(row: any) {
   basicFormApi.setValues({ opportunityTitle: oppTitle });
 
   // 复用 onOpportunityChange 逻辑：通过详情接口获取客户和联系人
-  await onOpportunityChange(oppId, { raw: row });
+  await onOpportunityChange(oppId);
 }
 
 async function openProductModal() {
   // 选品前读取当前选中的发货仓库（可能为空），用于弹窗内展示参考库存
   const values = await basicFormApi.getValues();
-  currentWarehouseId.value = values.warehouseId ? Number(values.warehouseId) : undefined;
+  currentWarehouseId.value = values.warehouseId
+    ? Number(values.warehouseId)
+    : undefined;
   productModalVisible.value = true;
 }
 
@@ -220,7 +236,7 @@ function onContactChange(_val: any, option: any) {
 // 当前绑定客户ID（用于锁定客户字段和加载联系人）
 const boundCustomerId = ref<number | undefined>(undefined);
 
-async function onOpportunityChange(val: any, option: any) {
+async function onOpportunityChange(val: any) {
   if (!val) {
     // 清空商机时清空继承字段
     boundCustomerId.value = undefined;
@@ -260,7 +276,10 @@ async function onOpportunityChange(val: any, option: any) {
     if (contId) {
       const exists = contactOptions.value.some((o) => o.value === contId);
       if (!exists && contName) {
-        contactOptions.value = [{ label: contName, value: contId }, ...contactOptions.value];
+        contactOptions.value = [
+          { label: contName, value: contId },
+          ...contactOptions.value,
+        ];
       }
     }
 
@@ -272,8 +291,8 @@ async function onOpportunityChange(val: any, option: any) {
       contactName: contName,
       ownerUserId: ownerId,
     });
-  } catch (e) {
-    console.error('[报价单] 加载商机详情失败:', e);
+  } catch (error) {
+    console.error('[报价单] 加载商机详情失败:', error);
   }
 }
 
@@ -308,9 +327,9 @@ function recalculateItem(index: number) {
   const item = quotationItems.value[index];
   if (!item) return;
   const gross = item.quantity * item.unitPrice;
-  item.discountAmount = Number((gross * item.discountRate / 100).toFixed(2));
+  item.discountAmount = Number(((gross * item.discountRate) / 100).toFixed(2));
   const afterDiscount = gross - item.discountAmount;
-  item.taxAmount = Number((afterDiscount * item.taxRate / 100).toFixed(2));
+  item.taxAmount = Number(((afterDiscount * item.taxRate) / 100).toFixed(2));
   item.subtotal = Number((afterDiscount + item.taxAmount).toFixed(2));
 }
 
@@ -322,35 +341,90 @@ function recalculateAll() {
 const overallDiscountRate = ref(100);
 
 const summary = computed(() => {
-  const total = quotationItems.value.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const itemDiscount = quotationItems.value.reduce((sum, item) => sum + item.discountAmount, 0);
+  const total = quotationItems.value.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0,
+  );
+  const itemDiscount = quotationItems.value.reduce(
+    (sum, item) => sum + item.discountAmount,
+    0,
+  );
   const afterItemDiscount = total - itemDiscount;
-  const overallDiscount = Number((afterItemDiscount * (1 - overallDiscountRate.value / 100)).toFixed(2));
+  const overallDiscount = Number(
+    (afterItemDiscount * (1 - overallDiscountRate.value / 100)).toFixed(2),
+  );
   const afterDiscount = afterItemDiscount - overallDiscount;
-  const tax = quotationItems.value.reduce((sum, item) => sum + item.taxAmount, 0);
+  const tax = quotationItems.value.reduce(
+    (sum, item) => sum + item.taxAmount,
+    0,
+  );
   const grand = afterDiscount + tax;
-  const totalWeight = quotationItems.value.reduce((sum, item) => sum + item.weight * item.quantity, 0);
+  const totalWeight = quotationItems.value.reduce(
+    (sum, item) => sum + item.weight * item.quantity,
+    0,
+  );
   return { total, itemDiscount, overallDiscount, tax, grand, totalWeight };
 });
 
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
+  {
+    title: '#',
+    width: 45,
+    key: 'seq',
+    customRender: ({ index }: any) => index + 1,
+    align: 'center' as const,
+  },
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 240 },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' as const },
-  { title: '单价(只读)', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' as const },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 55,
+    align: 'center' as const,
+  },
+  {
+    title: '单价(只读)',
+    dataIndex: 'unitPrice',
+    key: 'unitPrice',
+    width: 95,
+    align: 'right' as const,
+  },
   { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
-  { title: '单重(kg)', dataIndex: 'weight', key: 'weight', width: 80, align: 'right' as const },
-  { title: '折扣(%)', dataIndex: 'discountRate', key: 'discountRate', width: 75 },
-  { title: '折扣额', dataIndex: 'discountAmount', key: 'discountAmount', width: 85, align: 'right' as const },
-  { title: '小计', dataIndex: 'subtotal', key: 'subtotal', width: 105, align: 'right' as const },
+  {
+    title: '单重(kg)',
+    dataIndex: 'weight',
+    key: 'weight',
+    width: 80,
+    align: 'right' as const,
+  },
+  {
+    title: '折扣(%)',
+    dataIndex: 'discountRate',
+    key: 'discountRate',
+    width: 75,
+  },
+  {
+    title: '折扣额',
+    dataIndex: 'discountAmount',
+    key: 'discountAmount',
+    width: 85,
+    align: 'right' as const,
+  },
+  {
+    title: '小计',
+    dataIndex: 'subtotal',
+    key: 'subtotal',
+    width: 105,
+    align: 'right' as const,
+  },
   { title: '操作', key: 'action', width: 55, align: 'center' as const },
 ];
 
 // ============ 审批记录 ============
 const approvalList = ref<any[]>([]);
 
-const approvalTypeMap: Record<number, { label: string; color: string }> = {
+const approvalTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: '提交审批', color: 'blue' },
   2: { label: '审批通过', color: 'green' },
   3: { label: '审批驳回', color: 'red' },
@@ -502,7 +576,10 @@ const tradeFormSchema: VbenFormSchema[] = [
     component: 'Textarea',
     fieldName: 'bankInfo',
     label: '银行信息',
-    componentProps: { placeholder: 'Beneficiary / Account No / SWIFT / Bank', rows: 3 },
+    componentProps: {
+      placeholder: 'Beneficiary / Account No / SWIFT / Bank',
+      rows: 3,
+    },
     wrapperClass: 'col-span-2',
   },
 ];
@@ -555,8 +632,8 @@ async function initFromOpportunity(opp: any) {
       if (!contId && detail?.contactId) contId = Number(detail.contactId);
       if (!contName) contName = detail?.contactName || '';
       if (!ownerId && detail?.assignedTo) ownerId = Number(detail.assignedTo);
-    } catch (e) {
-      console.error('[报价单] 加载商机详情失败:', e);
+    } catch (error) {
+      console.error('[报价单] 加载商机详情失败:', error);
     }
   }
 
@@ -572,7 +649,10 @@ async function initFromOpportunity(opp: any) {
   if (contId && contName) {
     const exists = contactOptions.value.some((o: any) => o.value === contId);
     if (!exists) {
-      contactOptions.value = [{ label: contName, value: contId }, ...contactOptions.value];
+      contactOptions.value = [
+        { label: contName, value: contId },
+        ...contactOptions.value,
+      ];
     }
   }
 
@@ -593,8 +673,12 @@ async function loadDetail(id: number) {
     const data = info?.data ?? info;
     // 审批中(approvalStatus=2)时表单只读
     isReadOnly.value = Number(data.approvalStatus) === 2;
-    basicFormApi.setState({ commonConfig: { componentProps: { disabled: isReadOnly.value } } });
-    tradeFormApi.setState({ commonConfig: { componentProps: { disabled: isReadOnly.value } } });
+    basicFormApi.setState({
+      commonConfig: { componentProps: { disabled: isReadOnly.value } },
+    });
+    tradeFormApi.setState({
+      commonConfig: { componentProps: { disabled: isReadOnly.value } },
+    });
     const custId = data.customerId ? Number(data.customerId) : undefined;
     const contId = data.contactId ? Number(data.contactId) : undefined;
     const oppId = data.opportunityId ? Number(data.opportunityId) : undefined;
@@ -614,7 +698,10 @@ async function loadDetail(id: number) {
     if (contId && data.contactName) {
       const exists = contactOptions.value.some((o: any) => o.value === contId);
       if (!exists) {
-        contactOptions.value = [{ label: data.contactName, value: contId }, ...contactOptions.value];
+        contactOptions.value = [
+          { label: data.contactName, value: contId },
+          ...contactOptions.value,
+        ];
       }
     }
     // 等待下拉选项渲染完成后再设置表单值，确保Select能匹配到label
@@ -632,7 +719,10 @@ async function loadDetail(id: number) {
       validUntil: data.validUntil,
       warehouseId: data.warehouseId ? Number(data.warehouseId) : undefined,
       remark: data.remark,
-      ownerUserId: data.ownerUserId != null ? Number(data.ownerUserId) : undefined,
+      ownerUserId:
+        data.ownerUserId === null || data.ownerUserId === undefined
+          ? undefined
+          : Number(data.ownerUserId),
     });
     tradeFormApi.setValues({
       paymentTerms: data.paymentTerms,
@@ -666,32 +756,31 @@ async function loadDetail(id: number) {
     if (data.approvals && Array.isArray(data.approvals)) {
       approvalList.value = data.approvals;
     }
-  } catch (e) {
-    console.error('[报价单] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[报价单] 加载详情失败:', error);
   }
 }
 
 // ============ 提交 ============
 async function handleSubmit() {
-  console.log('[报价单提交] ========== 开始提交流程 ==========');
-  console.log('[报价单提交] 1. 开始验证基本表单...');
   let validResult;
   try {
     validResult = await basicFormApi.validate();
-    console.log('[报价单提交] 2. 基本表单验证结果:', validResult);
-  } catch (e) {
-    console.error('[报价单提交] 2. 基本表单验证异常:', e);
+  } catch (error) {
+    console.error('[报价单提交] 2. 基本表单验证异常:', error);
     activeTab.value = 'basic';
     message.warning('请完善基本信息');
     return false;
   }
   if (!validResult?.valid) {
-    console.warn('[报价单提交] 2.1 基本表单验证失败，valid:', validResult?.valid);
+    console.warn(
+      '[报价单提交] 2.1 基本表单验证失败，valid:',
+      validResult?.valid,
+    );
     activeTab.value = 'basic';
     message.warning('请完善必填项');
     return false;
   }
-  console.log('[报价单提交] 3. 检查商品明细数量:', quotationItems.value.length);
   if (quotationItems.value.length === 0) {
     console.warn('[报价单提交] 3.1 商品明细为空');
     activeTab.value = 'items';
@@ -699,19 +788,21 @@ async function handleSubmit() {
     return false;
   }
   // 校验每行必须选择产品（productId 不能为空）
-  const emptyProductIndex = quotationItems.value.findIndex((it: any) => !it.productId);
-  if (emptyProductIndex >= 0) {
+  const emptyProductIndex = quotationItems.value.findIndex(
+    (it: any) => !it.productId,
+  );
+  if (emptyProductIndex !== -1) {
     activeTab.value = 'items';
-    message.warning(`第 ${emptyProductIndex + 1} 行未选择产品，请选择产品或删除该行`);
+    message.warning(
+      `第 ${emptyProductIndex + 1} 行未选择产品，请选择产品或删除该行`,
+    );
     return false;
   }
-  console.log('[报价单提交] 4. 获取表单值...');
-  let values, tradeValues;
+  let tradeValues, values;
   try {
     values = await basicFormApi.getValues();
-    console.log('[报价单提交] 4.1 基本表单值:', values);
-  } catch (e) {
-    console.error('[报价单提交] 4.1 获取基本表单值失败:', e);
+  } catch (error) {
+    console.error('[报价单提交] 4.1 获取基本表单值失败:', error);
     message.error('获取表单数据失败');
     return false;
   }
@@ -720,14 +811,16 @@ async function handleSubmit() {
       tradeFormApi.getValues(),
       new Promise((resolve) => setTimeout(() => resolve({}), 300)),
     ]);
-    console.log('[报价单提交] 4.2 交易条款值:', tradeValues);
-  } catch (e) {
-    console.warn('[报价单提交] 4.2 获取交易条款值失败（可能未切换到交易条款Tab）:', e);
+  } catch (error) {
+    console.warn(
+      '[报价单提交] 4.2 获取交易条款值失败（可能未切换到交易条款Tab）:',
+      error,
+    );
     tradeValues = {};
   }
-  console.log('[报价单提交] 4.3 商品明细:', quotationItems.value);
-  
-  const toNumber = (v: any) => (v === null || v === undefined || v === '') ? undefined : Number(v);
+
+  const toNumber = (v: any) =>
+    v === null || v === undefined || v === '' ? undefined : Number(v);
 
   const findOptionLabel = (opts: any[], val: any) => {
     const found = opts.find((o: any) => String(o.value) === String(val));
@@ -776,50 +869,50 @@ async function handleSubmit() {
         remark: item.remark,
       })),
       totalAmount: Number(summary.value.total || 0),
-      discountAmount: Number(summary.value.itemDiscount + summary.value.overallDiscount || 0),
+      discountAmount: Number(
+        summary.value.itemDiscount + summary.value.overallDiscount || 0,
+      ),
       taxAmount: Number(summary.value.tax || 0),
       grandTotal: Number(summary.value.grand || 0),
     };
-    console.log('[报价单提交] 5. 构造提交数据:', JSON.stringify(data));
-  } catch (e) {
-    console.error('[报价单提交] 5. 构造提交数据失败:', e);
+  } catch (error) {
+    console.error('[报价单提交] 5. 构造提交数据失败:', error);
     message.error('构造提交数据失败');
     return false;
   }
 
-  console.log('[报价单提交] 6. 调用API，isEdit:', isEdit.value);
-  
   drawerApi.setState({ confirmLoading: true });
   try {
     if (isEdit.value) {
-      console.log('[报价单提交] 6.1 调用更新API...');
       await updateQuotationApi({ ...data, id: drawerData.value.row.id });
-      console.log('[报价单提交] 6.2 更新API调用成功');
       message.success('更新成功');
     } else {
-      console.log('[报价单提交] 6.1 调用创建API...');
       await createQuotationApi(data);
-      console.log('[报价单提交] 6.2 创建API调用成功');
       message.success('创建成功');
     }
-    console.log('[报价单提交] 7. 提交成功！');
     drawerApi.setData({ needRefresh: true });
     drawerApi.close();
-  } catch (e) {
-    console.error('[报价单提交] 7. 提交失败:', e);
-    console.error('[报价单提交] 7.1 错误详情:', (e as any)?.response?.data || (e as any)?.message || e);
+  } catch (error) {
+    console.error('[报价单提交] 7. 提交失败:', error);
+    console.error(
+      '[报价单提交] 7.1 错误详情:',
+      (error as any)?.response?.data || (error as any)?.message || error,
+    );
     message.error('操作失败');
   } finally {
     drawerApi.setState({ confirmLoading: false });
   }
-  console.log('[报价单提交] ========== 提交流程结束 ==========');
   return false;
 }
 
 const [Drawer, drawerApi] = useVbenDrawer({
   async onOpenChange(isOpen) {
     if (!isOpen) return;
-    drawerData.value = drawerApi.getData<{ create?: boolean; row?: any; fromOpportunity?: any }>() || { create: true };
+    drawerData.value = drawerApi.getData<{
+      create?: boolean;
+      fromOpportunity?: any;
+      row?: any;
+    }>() || { create: true };
     isFullscreen.value = false;
     isReadOnly.value = false;
     boundCustomerId.value = undefined;
@@ -903,7 +996,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       </Tooltip>
     </template>
 
-    <Tabs v-model:activeKey="activeTab">
+    <Tabs v-model:active-key="activeTab">
       <TabPane key="basic" tab="基本信息">
         <BasicForm />
       </TabPane>
@@ -912,14 +1005,25 @@ const [Drawer, drawerApi] = useVbenDrawer({
         <!-- 空状态 -->
         <div v-if="quotationItems.length === 0" class="py-12 text-center">
           <div class="mb-4 q-text-hint">暂无商品，请添加产品到报价单</div>
-          <Button v-if="!isReadOnly" type="primary" @click="openProductModal">添加产品</Button>
+          <Button v-if="!isReadOnly" type="primary" @click="openProductModal">
+            添加产品
+          </Button>
         </div>
 
         <!-- 商品列表（阿里巴巴采购单样式） -->
         <template v-else>
           <div class="mb-3 flex justify-between items-center">
-            <span class="text-sm q-text-secondary">共 {{ quotationItems.length }} 项</span>
-            <Button v-if="!isReadOnly" type="primary" size="small" @click="openProductModal">继续添加</Button>
+            <span class="text-sm q-text-secondary"
+              >共 {{ quotationItems.length }} 项</span
+            >
+            <Button
+              v-if="!isReadOnly"
+              type="primary"
+              size="small"
+              @click="openProductModal"
+            >
+              继续添加
+            </Button>
           </div>
           <Table
             :columns="itemColumns"
@@ -933,8 +1037,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'product'">
                 <div class="flex flex-col">
-                  <span class="font-medium">{{ record.productName || '-' }}</span>
-                  <span class="text-xs q-text-hint">{{ record.productCode || '' }}</span>
+                  <span class="font-medium">{{
+                    record.productName || '-'
+                  }}</span>
+                  <span class="text-xs q-text-hint">{{
+                    record.productCode || ''
+                  }}</span>
                 </div>
               </template>
               <template v-else-if="column.key === 'spec'">
@@ -944,10 +1052,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 <span class="text-center">{{ record.unit || '-' }}</span>
               </template>
               <template v-else-if="column.key === 'unitPrice'">
-                <span class="text-right q-text-secondary">¥{{ Number(record.unitPrice || 0).toFixed(2) }}</span>
+                <span class="text-right q-text-secondary"
+                  >¥{{ Number(record.unitPrice || 0).toFixed(2) }}</span
+                >
               </template>
               <template v-else-if="column.key === 'weight'">
-                <span class="text-right q-text-hint">{{ record.weight != null ? Number(record.weight).toFixed(3) : '-' }}</span>
+                <span class="text-right q-text-hint">{{
+                  record.weight != null ? Number(record.weight).toFixed(3) : '-'
+                }}</span>
               </template>
               <template v-else-if="column.key === 'quantity'">
                 <InputNumber
@@ -972,16 +1084,30 @@ const [Drawer, drawerApi] = useVbenDrawer({
                   size="small"
                   @change="() => recalculateItem(index)"
                 />
-                <span v-else class="text-right">{{ record.discountRate }}%</span>
+                <span v-else class="text-right"
+                  >{{ record.discountRate }}%</span
+                >
               </template>
               <template v-else-if="column.key === 'discountAmount'">
-                <span class="text-right q-text-danger">{{ Number(record.discountAmount || 0).toFixed(2) }}</span>
+                <span class="text-right q-text-danger">{{
+                  Number(record.discountAmount || 0).toFixed(2)
+                }}</span>
               </template>
               <template v-else-if="column.key === 'subtotal'">
-                <span class="text-right font-medium q-text-primary">{{ Number(record.subtotal || 0).toFixed(2) }}</span>
+                <span class="text-right font-medium q-text-primary">{{
+                  Number(record.subtotal || 0).toFixed(2)
+                }}</span>
               </template>
               <template v-else-if="column.key === 'action'">
-                <Button v-if="!isReadOnly" type="link" danger size="small" @click="removeItem(index)">删除</Button>
+                <Button
+                  v-if="!isReadOnly"
+                  type="link"
+                  danger
+                  size="small"
+                  @click="removeItem(index)"
+                >
+                  删除
+                </Button>
                 <span v-else class="text-gray-300">-</span>
               </template>
             </template>
@@ -992,9 +1118,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
             <div class="quotation-summary__card w-80 rounded-lg p-4">
               <div class="quotation-summary__row">
                 <span class="quotation-summary__label">商品总额</span>
-                <span class="quotation-summary__value">¥ {{ summary.total.toFixed(2) }}</span>
+                <span class="quotation-summary__value"
+                  >¥ {{ summary.total.toFixed(2) }}</span
+                >
               </div>
-              <div class="quotation-summary__row quotation-summary__row--center">
+              <div
+                class="quotation-summary__row quotation-summary__row--center"
+              >
                 <span class="quotation-summary__label">整体折扣</span>
                 <div class="flex items-center gap-2">
                   <InputNumber
@@ -1008,21 +1138,33 @@ const [Drawer, drawerApi] = useVbenDrawer({
                   />
                   <span v-else class="text-sm">{{ overallDiscountRate }}%</span>
                   <span class="quotation-summary__hint">%</span>
-                  <span class="quotation-summary__value quotation-summary__value--danger w-20 text-right">- ¥ {{ summary.overallDiscount.toFixed(2) }}</span>
+                  <span
+                    class="quotation-summary__value quotation-summary__value--danger w-20 text-right"
+                    >- ¥ {{ summary.overallDiscount.toFixed(2) }}</span
+                  >
                 </div>
               </div>
               <div class="quotation-summary__row">
                 <span class="quotation-summary__label">税额合计</span>
-                <span class="quotation-summary__value quotation-summary__value--warning">+ ¥ {{ summary.tax.toFixed(2) }}</span>
+                <span
+                  class="quotation-summary__value quotation-summary__value--warning"
+                  >+ ¥ {{ summary.tax.toFixed(2) }}</span
+                >
               </div>
               <div class="quotation-summary__divider"></div>
               <div class="quotation-summary__row quotation-summary__row--grand">
                 <span class="quotation-summary__grand-label">报价总计</span>
-                <span class="quotation-summary__grand-value">¥ {{ summary.grand.toFixed(2) }}</span>
+                <span class="quotation-summary__grand-value"
+                  >¥ {{ summary.grand.toFixed(2) }}</span
+                >
               </div>
-              <div class="quotation-summary__row quotation-summary__row--weight">
+              <div
+                class="quotation-summary__row quotation-summary__row--weight"
+              >
                 <span class="quotation-summary__label">总重量</span>
-                <span class="quotation-summary__value font-medium">{{ summary.totalWeight.toFixed(3) }} kg</span>
+                <span class="quotation-summary__value font-medium"
+                  >{{ summary.totalWeight.toFixed(3) }} kg</span
+                >
               </div>
             </div>
           </div>
@@ -1037,7 +1179,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       </TabPane>
 
       <TabPane key="approval" tab="审批记录">
-        <div v-if="approvalList.length === 0" class="py-8 text-center q-text-hint">
+        <div
+          v-if="approvalList.length === 0"
+          class="py-8 text-center q-text-hint"
+        >
           暂无审批记录
         </div>
         <Timeline v-else>
@@ -1100,11 +1245,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
   height: 28px;
   padding: 0;
   margin-right: 8px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
   color: hsl(var(--muted-foreground));
   cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
@@ -1114,12 +1259,29 @@ const [Drawer, drawerApi] = useVbenDrawer({
 }
 
 /* 语义化文本色 —— 自动跟随明/暗主题 */
-.q-text-primary   { color: hsl(var(--primary)); }
-.q-text-danger    { color: hsl(var(--destructive)); }
-.q-text-warning   { color: hsl(var(--warning)); }
-.q-text-success   { color: hsl(var(--success)); }
-.q-text-secondary { color: hsl(var(--muted-foreground)); }
-.q-text-hint      { color: hsl(var(--muted-foreground) / 70%); }
+.q-text-primary {
+  color: hsl(var(--primary));
+}
+
+.q-text-danger {
+  color: hsl(var(--destructive));
+}
+
+.q-text-warning {
+  color: hsl(var(--warning));
+}
+
+.q-text-success {
+  color: hsl(var(--success));
+}
+
+.q-text-secondary {
+  color: hsl(var(--muted-foreground));
+}
+
+.q-text-hint {
+  color: hsl(var(--muted-foreground) / 70%);
+}
 
 /* ========== 金额汇总卡片 ========== */
 .quotation-summary__card {
@@ -1130,8 +1292,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 .quotation-summary__row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   font-size: 13px;
   line-height: 28px;
 }
@@ -1145,13 +1307,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
 }
 
 .quotation-summary__hint {
-  color: hsl(var(--muted-foreground) / 60%);
   font-size: 12px;
+  color: hsl(var(--muted-foreground) / 60%);
 }
 
 .quotation-summary__value {
-  color: hsl(var(--foreground));
   font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
 }
 
 .quotation-summary__value--danger {
@@ -1169,8 +1331,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
 }
 
 .quotation-summary__row--grand {
-  padding: 6px 0 2px;
   align-items: baseline;
+  padding: 6px 0 2px;
 }
 
 .quotation-summary__grand-label {
@@ -1182,14 +1344,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
 .quotation-summary__grand-value {
   font-size: 22px;
   font-weight: 700;
-  color: hsl(var(--primary));
   font-variant-numeric: tabular-nums;
+  color: hsl(var(--primary));
   letter-spacing: -0.5px;
 }
 
 .quotation-summary__row--weight {
-  margin-top: 2px;
   padding-top: 4px;
+  margin-top: 2px;
   border-top: 1px dashed hsl(var(--border));
 }
 </style>

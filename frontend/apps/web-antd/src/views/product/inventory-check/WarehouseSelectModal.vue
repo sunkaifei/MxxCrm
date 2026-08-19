@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
-import { Modal, Input, Table, Tag, Button } from 'ant-design-vue';
+
+import { Button, Input, Modal, Table, Tag } from 'ant-design-vue';
+
 import { getWarehouseListApi } from '#/api/core/product/warehouse';
 
 interface WarehouseItem {
@@ -12,7 +14,7 @@ interface WarehouseItem {
   status?: number;
 }
 
-const props = defineProps<{ visible: boolean; excludeId?: number }>();
+const props = defineProps<{ excludeId?: number; visible: boolean }>();
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void;
   (e: 'select', warehouse: WarehouseItem): void;
@@ -75,11 +77,11 @@ async function loadData() {
       list.value = list.value.filter(
         (w) =>
           w.warehouseName.toLowerCase().includes(kw) ||
-          w.code.toLowerCase().includes(kw),
+          w.code?.toLowerCase().includes(kw),
       );
     }
-  } catch (e) {
-    console.error('[仓库选择] 加载失败:', e);
+  } catch (error) {
+    console.error('[仓库选择] 加载失败:', error);
   } finally {
     loading.value = false;
   }
@@ -90,9 +92,16 @@ function onSearch() {
 }
 
 // 点击"选择"按钮直接选中并关闭
-function onSelectClick(record: WarehouseItem) {
+function onSelectClick(record: Record<string, any>) {
   closeModal();
-  emit('select', record);
+  emit('select', {
+    id: Number(record.id),
+    warehouseName: String(record.warehouseName ?? ''),
+    code: record.code,
+    address: record.address,
+    managerName: record.managerName,
+    status: record.status,
+  });
 }
 </script>
 
@@ -113,7 +122,9 @@ function onSelectClick(record: WarehouseItem) {
         @press-enter="onSearch"
       >
         <template #suffix>
-          <span style="cursor: pointer; color: #999" @click="onSearch">搜索</span>
+          <span style="color: #999; cursor: pointer" @click="onSearch"
+            >搜索</span
+          >
         </template>
       </Input>
     </div>
@@ -130,16 +141,15 @@ function onSelectClick(record: WarehouseItem) {
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.dataIndex === 'status'">
-          <Tag :color="record.status === 1 ? 'success' : 'default'" :bordered="false">
+          <Tag
+            :color="record.status === 1 ? 'success' : 'default'"
+            :bordered="false"
+          >
             {{ record.status === 1 ? '启用' : '停用' }}
           </Tag>
         </template>
         <template v-else-if="column.dataIndex === 'action'">
-          <Button
-            type="link"
-            size="small"
-            @click="onSelectClick(record)"
-          >
+          <Button type="link" size="small" @click="onSelectClick(record)">
             选择
           </Button>
         </template>

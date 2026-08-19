@@ -102,6 +102,8 @@ export const deleteSkuTemplateApi = async (id: number) => {
 };
 
 /** 保存模板规格 */
-export const saveTemplateSpecsApi = async (param: TemplateSpecBatchSaveRequest) => {
+export const saveTemplateSpecsApi = async (
+  param: TemplateSpecBatchSaveRequest,
+) => {
   return requestClient.post('/api/system/sku/template/spec/save', param);
 };

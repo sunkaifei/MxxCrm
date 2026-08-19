@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { computed, h, onMounted, reactive, ref } from 'vue';
 import type { Key } from 'ant-design-vue/es/table/interface';
+
+import { computed, h, onMounted, reactive, ref } from 'vue';
 
 import { useAccess } from '@vben/access';
 import { Page } from '@vben/common-ui';
@@ -18,11 +19,10 @@ import {
   Row,
   Select,
   Table,
-  Tabs,
   TabPane,
+  Tabs,
   Tag,
 } from 'ant-design-vue';
-import { UserPickerModal } from '#/components/UserPickerModal';
 
 import {
   deleteTaxRateApi,
@@ -31,16 +31,15 @@ import {
   upsertEmployeeTaxConfigApi,
   upsertTaxRateApi,
 } from '#/api/core/finance';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { UserPickerModal } from '#/components/UserPickerModal';
+import { $t } from '#/locales';
 
 const guideStepCount = 5;
 
 // ===== 权限 =====
 const { hasAccessByRoles } = useAccess();
-const canManage = computed(() =>
-  hasAccessByRoles(['super_admin', 'finance']),
-);
+const canManage = computed(() => hasAccessByRoles(['super_admin', 'finance']));
 
 // ===== 通用工具 =====
 function formatMoney(val: any) {
@@ -48,7 +47,7 @@ function formatMoney(val: any) {
   return `¥${Number(val).toLocaleString()}`;
 }
 
-const taxTypeMap: Record<number, { label: string; color: string }> = {
+const taxTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: $t('page.finance.tax.taxType.cumulative'), color: 'blue' },
   2: { label: $t('page.finance.tax.taxType.annualBonus'), color: 'purple' },
 };
@@ -119,8 +118,8 @@ async function loadRateList() {
     });
     const data = res?.data || res;
     rateList.value = Array.isArray(data) ? data : data?.items || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.tax.message.loadFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.tax.message.loadFailed'));
     rateList.value = [];
   } finally {
     rateLoading.value = false;
@@ -187,8 +186,8 @@ async function submitRateForm() {
     message.success($t('page.finance.tax.message.saveSuccess'));
     rateFormVisible.value = false;
     await loadRateList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.saveFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.saveFailed'));
   } finally {
     rateFormSubmitting.value = false;
   }
@@ -199,8 +198,8 @@ async function handleDeleteRate(id: number) {
     await deleteTaxRateApi(id);
     message.success($t('page.finance.tax.message.deleteSuccess'));
     await loadRateList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   }
 }
 
@@ -211,24 +210,45 @@ const empConfigFilterYear = ref<number | undefined>(undefined);
 
 // 7项专项附加扣除
 const specialDeductionFields = [
-  { field: 'childrenEducation', label: $t('page.finance.tax.column.childrenEducation') },
-  { field: 'continuingEducation', label: $t('page.finance.tax.column.continuingEducation') },
-  { field: 'seriousIllness', label: $t('page.finance.tax.column.seriousIllness') },
+  {
+    field: 'childrenEducation',
+    label: $t('page.finance.tax.column.childrenEducation'),
+  },
+  {
+    field: 'continuingEducation',
+    label: $t('page.finance.tax.column.continuingEducation'),
+  },
+  {
+    field: 'seriousIllness',
+    label: $t('page.finance.tax.column.seriousIllness'),
+  },
   { field: 'housingLoan', label: $t('page.finance.tax.column.housingLoan') },
   { field: 'housingRent', label: $t('page.finance.tax.column.housingRent') },
-  { field: 'supportingElderly', label: $t('page.finance.tax.column.supportingElderly') },
+  {
+    field: 'supportingElderly',
+    label: $t('page.finance.tax.column.supportingElderly'),
+  },
   { field: 'infantCare', label: $t('page.finance.tax.column.infantCare') },
 ];
 
 const empConfigColumns = computed(() => {
   const cols: any[] = [
-    { title: $t('page.finance.common.employeeId'), dataIndex: 'employeeId', width: 90 },
-    { title: $t('page.finance.common.employeeName'), dataIndex: 'employeeName', width: 120 },
+    {
+      title: $t('page.finance.common.employeeId'),
+      dataIndex: 'employeeId',
+      width: 90,
+    },
+    {
+      title: $t('page.finance.common.employeeName'),
+      dataIndex: 'employeeName',
+      width: 120,
+    },
     {
       title: $t('page.finance.tax.column.year'),
       dataIndex: 'year',
       width: 80,
-      customRender: ({ text }: any) => `${text}${$t('page.finance.common.year')}`,
+      customRender: ({ text }: any) =>
+        `${text}${$t('page.finance.common.year')}`,
     },
     {
       title: $t('page.finance.tax.column.taxThreshold'),
@@ -263,8 +283,8 @@ async function loadEmpConfigList() {
     });
     const data = res?.data || res;
     empConfigList.value = Array.isArray(data) ? data : data?.items || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.tax.message.loadFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.tax.message.loadFailed'));
     empConfigList.value = [];
   } finally {
     empConfigLoading.value = false;
@@ -322,8 +342,8 @@ async function submitEmpConfigForm() {
     message.success($t('page.finance.tax.message.saveSuccess'));
     empConfigFormVisible.value = false;
     await loadEmpConfigList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.saveFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.saveFailed'));
   } finally {
     empConfigFormSubmitting.value = false;
   }
@@ -376,13 +396,11 @@ onMounted(() => {
                 style="width: 200px"
                 @change="loadRateList"
               />
-              <Button @click="loadRateList">{{ $t('page.finance.common.refresh') }}</Button>
+              <Button @click="loadRateList">
+                {{ $t('page.finance.common.refresh') }}
+              </Button>
             </div>
-            <Button
-              v-if="canManage"
-              type="primary"
-              @click="openRateForm()"
-            >
+            <Button v-if="canManage" type="primary" @click="openRateForm()">
               {{ $t('page.finance.tax.button.create') }}
             </Button>
           </div>
@@ -410,7 +428,9 @@ onMounted(() => {
                   :title="$t('page.finance.tax.message.deleteConfirm')"
                   @confirm="handleDeleteRate(record.id)"
                 >
-                  <Button type="link" size="small" danger>{{ $t('page.finance.common.delete') }}</Button>
+                  <Button type="link" size="small" danger>
+                    {{ $t('page.finance.common.delete') }}
+                  </Button>
                 </Popconfirm>
               </template>
             </template>
@@ -428,7 +448,9 @@ onMounted(() => {
                 style="width: 140px"
                 :placeholder="$t('page.finance.tax.drawer.yearPlaceholder')"
               />
-              <Button @click="loadEmpConfigList">{{ $t('page.finance.common.refresh') }}</Button>
+              <Button @click="loadEmpConfigList">
+                {{ $t('page.finance.common.refresh') }}
+              </Button>
             </div>
           </div>
           <Table
@@ -460,7 +482,11 @@ onMounted(() => {
     <!-- 税率表编辑弹窗 -->
     <Modal
       v-model:open="rateFormVisible"
-      :title="rateForm.id ? $t('page.finance.tax.drawer.titleRateEdit') : $t('page.finance.tax.drawer.titleRateCreate')"
+      :title="
+        rateForm.id
+          ? $t('page.finance.tax.drawer.titleRateEdit')
+          : $t('page.finance.tax.drawer.titleRateCreate')
+      "
       :confirm-loading="rateFormSubmitting"
       width="560px"
       @ok="submitRateForm"
@@ -507,7 +533,9 @@ onMounted(() => {
                 :precision="2"
                 style="width: 100%"
                 prefix="¥"
-                :placeholder="$t('page.finance.tax.drawer.maxAmountPlaceholder')"
+                :placeholder="
+                  $t('page.finance.tax.drawer.maxAmountPlaceholder')
+                "
               />
             </FormItem>
           </Col>
@@ -543,7 +571,11 @@ onMounted(() => {
     <!-- 员工个税配置编辑弹窗 -->
     <Modal
       v-model:open="empConfigFormVisible"
-      :title="empConfigForm.id ? $t('page.finance.tax.drawer.titleEmpConfigEdit') : $t('page.finance.tax.drawer.titleEmpConfigCreate')"
+      :title="
+        empConfigForm.id
+          ? $t('page.finance.tax.drawer.titleEmpConfigEdit')
+          : $t('page.finance.tax.drawer.titleEmpConfigCreate')
+      "
       :confirm-loading="empConfigFormSubmitting"
       width="640px"
       @ok="submitEmpConfigForm"
@@ -552,7 +584,10 @@ onMounted(() => {
         <Row :gutter="16">
           <Col :span="12">
             <FormItem :label="$t('page.finance.common.employeeId')" required>
-              <UserPickerModal v-model:value="empConfigForm.employeeId" :disabled="!!empConfigForm.id" />
+              <UserPickerModal
+                v-model:value="empConfigForm.employeeId"
+                :disabled="!!empConfigForm.id"
+              />
             </FormItem>
           </Col>
           <Col :span="12">
@@ -566,7 +601,10 @@ onMounted(() => {
             </FormItem>
           </Col>
         </Row>
-        <FormItem :label="$t('page.finance.tax.drawer.taxThresholdUnitLabel')" required>
+        <FormItem
+          :label="$t('page.finance.tax.drawer.taxThresholdUnitLabel')"
+          required
+        >
           <InputNumber
             v-model:value="empConfigForm.taxThreshold"
             :min="0"
@@ -575,9 +613,15 @@ onMounted(() => {
             prefix="¥"
           />
         </FormItem>
-        <div class="mb-2 font-semibold">{{ $t('page.finance.tax.drawer.specialDeductionUnitLabel') }}</div>
+        <div class="mb-2 font-semibold">
+          {{ $t('page.finance.tax.drawer.specialDeductionUnitLabel') }}
+        </div>
         <Row :gutter="16">
-          <Col v-for="item in specialDeductionFields" :key="item.field" :span="12">
+          <Col
+            v-for="item in specialDeductionFields"
+            :key="item.field"
+            :span="12"
+          >
             <FormItem :label="item.label">
               <InputNumber
                 v-model:value="(empConfigForm as any)[item.field]"

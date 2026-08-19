@@ -1,0 +1,21 @@
+
+  × SyntaxError: Unexpected closing tag "body". It may happen when the tag has already been closed by another tag. For more info see https://www.w3.org/TR/html5/syntax.html#closing-elements-that-have-implied-end-tags (384:5)
+  │ [apps\web-antd\src\views\product\outbound\index.vue]
+  │   382 |       </div>
+  │   383 |       <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }</script>
+  │ > 384 |     </body></html>`;
+  │       |     ^^^^^^^
+  │   385 |
+  │   386 |     const win = window.open('', '_blank');
+  │   387 |     if (!win) {
+
+  × SyntaxError: Unexpected closing tag "body". It may happen when the tag has already been closed by another tag. For more info see https://www.w3.org/TR/html5/syntax.html#closing-elements-that-have-implied-end-tags (310:5)
+  │ [apps\web-antd\src\views\product\inbound\index.vue]
+  │   308 |       </div>
+  │   309 |       <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }</script>
+  │ > 310 |     </body></html>`;
+  │       |     ^^^^^^^
+  │   311 |
+  │   312 |     const win = window.open('', '_blank');
+  │   313 |     if (!win) {
+Error occurred when checking code style in the above files.

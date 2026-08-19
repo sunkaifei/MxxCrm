@@ -9,17 +9,12 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import {
-  Button,
-  Card,
-  Image as AImage,
-  Statistic,
-  Tabs,
-} from 'ant-design-vue';
+import { Image as AImage, Button, Card, Statistic, Tabs } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getVisitListApi, getVisitStatisticsApi } from '#/api';
 import { $t } from '#/locales';
+
 import VisitDetailDrawer from './detail-drawer.vue';
 
 const userStore = useUserStore();
@@ -63,7 +58,7 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = String(key);
   gridApi.query();
 }
@@ -125,7 +120,7 @@ function formatDuration(row: any): string {
   if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs)
     return '-';
   const diffMs = endMs - startMs;
-  const minutes = Math.floor(diffMs / 60000);
+  const minutes = Math.floor(diffMs / 60_000);
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   if (hours > 0) return `${hours}小时${mins}分钟`;
@@ -135,7 +130,8 @@ function formatDuration(row: any): string {
 // 距客户距离格式化（米 / 千米）
 function formatDistance(row: any): string {
   const dist = row.visitDistance ?? row.visit_distance;
-  if (dist == null || Number.isNaN(Number(dist))) return '-';
+  if (dist === null || dist === undefined || Number.isNaN(Number(dist)))
+    return '-';
   const d = Number(dist);
   if (d < 0) return '-';
   if (d < 1000) return `${d.toFixed(0)}米`;
@@ -191,7 +187,8 @@ const gridOptions: VxeGridProps = {
           pageSize: page.pageSize,
           listType: activeTab.value,
         };
-        if (formValues.customerName) params.customerName = formValues.customerName;
+        if (formValues.customerName)
+          params.customerName = formValues.customerName;
         if (formValues.ownerName) params.ownerName = formValues.ownerName;
         if (
           formValues.checkInDateRange &&
@@ -213,7 +210,12 @@ const gridOptions: VxeGridProps = {
   },
   columns: [
     { type: 'checkbox', width: 50 },
-    { title: $t('ui.table.seq'), type: 'seq', width: 60, headerAlign: 'center' },
+    {
+      title: $t('ui.table.seq'),
+      type: 'seq',
+      width: 60,
+      headerAlign: 'center',
+    },
     {
       title: '客户名称',
       field: 'customerName',
@@ -310,23 +312,43 @@ onMounted(() => {
           <Statistic title="总拜访次数" :value="statistics.totalVisits" />
         </div>
         <div class="visit-stat-item">
-          <Statistic title="今日拜访" :value="statistics.todayVisits" :value-style="{ color: '#1677ff' }" />
+          <Statistic
+            title="今日拜访"
+            :value="statistics.todayVisits"
+            :value-style="{ color: '#1677ff' }"
+          />
         </div>
         <div class="visit-stat-item">
-          <Statistic title="本周拜访" :value="statistics.weekVisits" :value-style="{ color: '#52c41a' }" />
+          <Statistic
+            title="本周拜访"
+            :value="statistics.weekVisits"
+            :value-style="{ color: '#52c41a' }"
+          />
         </div>
         <div class="visit-stat-item">
-          <Statistic title="本月拜访" :value="statistics.monthVisits" :value-style="{ color: '#faad14' }" />
+          <Statistic
+            title="本月拜访"
+            :value="statistics.monthVisits"
+            :value-style="{ color: '#faad14' }"
+          />
         </div>
         <div class="visit-stat-item">
-          <Statistic title="拜访客户数" :value="statistics.uniqueCustomers" :value-style="{ color: '#722ed1' }" />
+          <Statistic
+            title="拜访客户数"
+            :value="statistics.uniqueCustomers"
+            :value-style="{ color: '#722ed1' }"
+          />
         </div>
       </div>
     </Card>
 
     <Grid table-title="外勤拜访记录">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
           <Tabs.TabPane
             v-for="tab in tabList"
             :key="tab.key"
@@ -344,7 +366,7 @@ onMounted(() => {
           class="text-blue-600 cursor-pointer hover:text-blue-800"
           @click="() => handleView(row)"
         >
-          {{ row.customerName || (row.leadName || '-') }}
+          {{ row.customerName || row.leadName || '-' }}
         </a>
       </template>
 
@@ -383,10 +405,9 @@ onMounted(() => {
               :src="url"
               class="visit-photo-hidden"
             />
-            <span
-              v-if="parsePhotos(row).length > 1"
-              class="visit-photo-count"
-            >+{{ parsePhotos(row).length - 1 }}</span>
+            <span v-if="parsePhotos(row).length > 1" class="visit-photo-count"
+              >+{{ parsePhotos(row).length - 1 }}</span
+            >
           </div>
         </AImage.PreviewGroup>
         <span v-else class="text-gray-400">-</span>
@@ -397,7 +418,8 @@ onMounted(() => {
           v-if="accessStore.hasAccessCode('crm:visit:list')"
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleView(row)"
-        >查看详情</a>
+          >查看详情</a
+        >
       </template>
     </Grid>
 
@@ -411,34 +433,41 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 16px 24px;
 }
+
 .visit-stat-item {
   flex: 1 1 160px;
   min-width: 160px;
 }
+
 .visit-address-text {
+  line-height: 1.5;
   word-break: break-all;
   white-space: normal;
-  line-height: 1.5;
 }
+
 .visit-duration {
   font-weight: 500;
   color: #1677ff;
 }
+
 .visit-photo-cell {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
+
 .visit-photo-thumb {
-  border-radius: 4px;
-  border: 1px solid #e8e8e8;
   object-fit: cover;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
 }
+
 .visit-photo-count {
   margin-left: 4px;
   font-size: 12px;
   color: #666;
 }
+
 .visit-photo-hidden {
   display: none;
 }

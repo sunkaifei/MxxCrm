@@ -1,13 +1,12 @@
 <script lang="ts" setup>
-import { onMounted, ref, watch } from 'vue';
-
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
+import { onMounted, ref, watch } from 'vue';
+
 import { IconifyIcon } from '@vben/icons';
+import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { Card, Empty, Spin, Table } from 'ant-design-vue';
-
-import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { getProductBreakdownApi } from '#/api';
 
@@ -32,7 +31,12 @@ const productColumns = [
     dataIndex: 'productName',
     ellipsis: true,
   },
-  { title: '销售金额', dataIndex: 'amount', align: 'right' as const, width: 120 },
+  {
+    title: '销售金额',
+    dataIndex: 'amount',
+    align: 'right' as const,
+    width: 120,
+  },
   { title: '销售数量', dataIndex: 'count', align: 'right' as const, width: 90 },
   {
     title: '占比',
@@ -44,7 +48,7 @@ const productColumns = [
 
 function formatCurrency(val?: number) {
   if (!val) return '¥0';
-  if (val >= 10000) return `¥${(val / 10000).toFixed(1)}万`;
+  if (val >= 10_000) return `¥${(val / 10_000).toFixed(1)}万`;
   return `¥${val.toLocaleString()}`;
 }
 
@@ -67,9 +71,9 @@ async function loadData() {
 
 function renderCharts() {
   // 用产品列表做饼图：取销售额 Top 5，其余合并为"其他"
-  const products: any[] = (data.value?.products || [])
-    .slice()
-    .sort((a: any, b: any) => Number(b.amount || 0) - Number(a.amount || 0));
+  const products: any[] = [...(data.value?.products || [])].toSorted(
+    (a: any, b: any) => Number(b.amount || 0) - Number(a.amount || 0),
+  );
   const top = products.slice(0, 5).map((p: any) => ({
     name: p.productName || p.product_name || '未知产品',
     value: Number(p.amount || 0),
@@ -96,14 +100,7 @@ function renderCharts() {
         itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
       },
     ],
-    color: [
-      '#1890ff',
-      '#52c41a',
-      '#faad14',
-      '#722ed1',
-      '#eb2f96',
-      '#bfbfbf',
-    ],
+    color: ['#1890ff', '#52c41a', '#faad14', '#722ed1', '#eb2f96', '#bfbfbf'],
   });
 }
 
@@ -131,7 +128,9 @@ onMounted(() => loadData());
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <!-- 品类占比（占 2/5） -->
         <div class="lg:col-span-2">
-          <div class="text-sm font-medium mb-2 text-gray-700">产品 Top5 占比</div>
+          <div class="text-sm font-medium mb-2 text-gray-700">
+            产品 Top5 占比
+          </div>
           <EchartsUI ref="categoryChartRef" height="200px" />
         </div>
         <!-- 产品排行（占 3/5） -->

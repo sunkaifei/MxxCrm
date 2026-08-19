@@ -1,16 +1,32 @@
 <script lang="ts" setup>
 import { h, ref } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { useAccessStore } from '@vben/stores';
 import {
   LucideFilePenLine,
-  LucideTrash2,
   LucidePlus,
   LucideSearch,
+  LucideTrash2,
 } from '@vben/icons';
-import { Button, message, Modal, Popconfirm, Tag, Empty, Skeleton, Space, Input, Select, Pagination } from 'ant-design-vue';
-import { getTemplateDataListApi, deleteTemplateDataApi } from '#/api';
+import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
+
+import {
+  Button,
+  Empty,
+  Input,
+  message,
+  Modal,
+  Pagination,
+  Popconfirm,
+  Select,
+  Skeleton,
+  Space,
+  Tag,
+} from 'ant-design-vue';
+
+import { deleteTemplateDataApi, getTemplateDataListApi } from '#/api';
+
 import PageEditor from './page-editor.vue';
 
 const accessStore = useAccessStore();
@@ -27,10 +43,10 @@ const [PageEditorInstance, pageEditorApi] = useVbenDrawer({
 
 // 从父组件接收的数据
 const drawerData = ref<{
+  onEditPage?: (data: { row?: any; templateId: number }) => void;
+  onRefreshTemplates?: () => void;
   templateId: number;
   templateName: string;
-  onEditPage?: (data: { templateId: number; row?: any }) => void;
-  onRefreshTemplates?: () => void;
 }>({ templateId: 0, templateName: '' });
 
 // 页面列表数据
@@ -62,10 +78,10 @@ async function loadPages() {
     const data = res?.data || res;
     pages.value = data?.items || data?.rows || data?.list || [];
     total.value = data?.total || data?.count || 0;
-  } catch (err: any) {
+  } catch (error: any) {
     pages.value = [];
     total.value = 0;
-    message.error(err?.message || '加载页面列表失败');
+    message.error(error?.message || '加载页面列表失败');
   } finally {
     loading.value = false;
   }
@@ -110,7 +126,12 @@ const typeOptions = [
 ];
 
 function getTypeInfo(typeId: number) {
-  return typeOptions.find((o) => o.value === typeId) || { label: '未知', color: 'default' };
+  return (
+    typeOptions.find((o) => o.value === typeId) || {
+      label: '未知',
+      color: 'default',
+    }
+  );
 }
 
 function getTypeLabel(typeId: number): string {
@@ -159,7 +180,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
   onOpenChange(isOpen) {
     if (isOpen) {
-      drawerData.value = drawerApi.getData<any>() || { templateId: 0, templateName: '' };
+      drawerData.value = drawerApi.getData<any>() || {
+        templateId: 0,
+        templateName: '',
+      };
       page.value = 1;
       keywords.value = '';
       typeId.value = undefined;
@@ -185,14 +209,18 @@ const [Drawer, drawerApi] = useVbenDrawer({
           style="width: 200px"
           @press-enter="handleSearch"
         >
-          <template #prefix><component :is="LucideSearch" style="font-size: 14px" /></template>
+          <template #prefix>
+            <component :is="LucideSearch" style="font-size: 14px" />
+          </template>
         </Input>
         <Select
           v-model:value="typeId"
           placeholder="页面类型"
           allow-clear
           style="width: 140px"
-          :options="typeOptions.map(o => ({ value: o.value, label: o.label }))"
+          :options="
+            typeOptions.map((o) => ({ value: o.value, label: o.label }))
+          "
           @change="handleSearch"
         />
         <Select
@@ -206,7 +234,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
           ]"
           @change="handleSearch"
         />
-        <Button size="small" type="primary" :icon="h(LucideSearch)" @click="handleSearch">搜索</Button>
+        <Button
+          size="small"
+          type="primary"
+          :icon="h(LucideSearch)"
+          @click="handleSearch"
+        >
+          搜索
+        </Button>
         <Button size="small" @click="handleReset">重置</Button>
       </div>
 
@@ -255,19 +290,28 @@ const [Drawer, drawerApi] = useVbenDrawer({
         <div v-for="item in pages" :key="item.id" class="page-card">
           <div class="page-card-left">
             <div class="page-card-name">
-              <span class="page-name-text" :title="item.name">{{ item.name }}</span>
-              <Tag :color="getTypeColor(item.typeId)" size="small">{{ getTypeLabel(item.typeId) }}</Tag>
+              <span class="page-name-text" :title="item.name">{{
+                item.name
+              }}</span>
+              <Tag :color="getTypeColor(item.typeId)" size="small">
+                {{ getTypeLabel(item.typeId) }}
+              </Tag>
             </div>
             <div class="page-card-meta">
               <span class="meta-item">排序: {{ item.sort ?? 0 }}</span>
               <span class="meta-divider">|</span>
               <span class="meta-item">
-                <Tag :color="item.status === 1 ? 'success' : 'default'" size="small">
+                <Tag
+                  :color="item.status === 1 ? 'success' : 'default'"
+                  size="small"
+                >
                   {{ item.status === 1 ? '启用' : '禁用' }}
                 </Tag>
               </span>
               <span class="meta-divider">|</span>
-              <span class="meta-item">创建: {{ formatDateTime(item.createTime) }}</span>
+              <span class="meta-item"
+                >创建: {{ formatDateTime(item.createTime) }}</span
+              >
             </div>
           </div>
           <div class="page-card-right">
@@ -327,30 +371,30 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 .pages-search-bar {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
   flex-shrink: 0;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
 .pages-toolbar {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
-  flex-shrink: 0;
 }
 
 .pages-toolbar-info {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .pages-count {
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgb(0 0 0 / 45%);
 }
 
 .pages-loading {
@@ -361,7 +405,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 .page-skeleton-row {
   padding: 12px;
-  background: rgba(0, 0, 0, 0.02);
+  background: rgb(0 0 0 / 2%);
   border-radius: 8px;
 }
 
@@ -374,10 +418,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
 .pages-list {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 8px;
   overflow-y: auto;
-  flex: 1;
 }
 
 .page-card {
@@ -385,81 +429,83 @@ const [Drawer, drawerApi] = useVbenDrawer({
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
+  cursor: default;
   background: var(--card-background, #fff);
   border: 1px solid var(--border-color, #f0f0f0);
   border-radius: 8px;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-  cursor: default;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .page-card:hover {
   border-color: var(--primary-color, #1677ff);
-  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.08);
+  box-shadow: 0 2px 8px rgb(22 119 255 / 8%);
 }
 
 .page-card-left {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .page-card-name {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .page-name-text {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary, rgba(0, 0, 0, 0.88));
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, rgb(0 0 0 / 88%));
+  white-space: nowrap;
 }
 
 .page-card-meta {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgb(0 0 0 / 45%);
 }
 
 .meta-divider {
-  color: rgba(0, 0, 0, 0.15);
+  color: rgb(0 0 0 / 15%);
 }
 
 .page-card-right {
   display: flex;
-  align-items: center;
-  gap: 4px;
   flex-shrink: 0;
+  gap: 4px;
+  align-items: center;
   margin-left: 12px;
 }
 
 .pages-pagination {
   display: flex;
+  flex-shrink: 0;
   justify-content: flex-end;
   padding-top: 16px;
-  flex-shrink: 0;
 }
 
 /* 暗黑模式适配 */
 :root.dark .page-card {
   --card-background: #1f1f1f;
   --border-color: #333;
-  --text-primary: rgba(255, 255, 255, 0.88);
+  --text-primary: rgb(255 255 255 / 88%);
 }
 
 :root.dark .pages-count {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgb(255 255 255 / 45%);
 }
 
 :root.dark .page-skeleton-row {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgb(255 255 255 / 4%);
 }
 
 /* 响应式：小屏幕全宽 */

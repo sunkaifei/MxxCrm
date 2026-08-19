@@ -1,14 +1,14 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
-import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message } from 'ant-design-vue';
-import {
-  addArticleFieldApi,
-  categoryApi,
-  updateArticleFieldApi,
-} from '#/api';
 import type { ArticleFieldSaveDTO } from '#/api/core/website/article-field';
+
+import { computed, onMounted, ref } from 'vue';
+
+import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import { addArticleFieldApi, categoryApi, updateArticleFieldApi } from '#/api';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -91,8 +91,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: 'fieldOptions',
       label: '选项配置',
       componentProps: {
-        placeholder:
-          'JSON 数组格式，如 [{"label":"选项A","value":"a"}]',
+        placeholder: 'JSON 数组格式，如 [{"label":"选项A","value":"a"}]',
         allowClear: true,
         rows: 4,
       },

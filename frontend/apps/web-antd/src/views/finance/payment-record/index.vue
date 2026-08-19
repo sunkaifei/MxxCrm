@@ -20,8 +20,6 @@ import {
   Tag,
 } from 'ant-design-vue';
 import { Plus } from 'lucide-vue-next';
-import { UserPickerModal } from '#/components/UserPickerModal';
-import { PageUsageGuide } from '#/components/PageUsageGuide';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -30,6 +28,8 @@ import {
   getPaymentRecordListApi,
   updatePaymentRecordApi,
 } from '#/api';
+import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { UserPickerModal } from '#/components/UserPickerModal';
 import { $t } from '#/locales';
 
 // 付款记录使用说明步骤数（与 i18n 中 page.finance.paymentRecord.guide.steps 数组对齐）
@@ -43,7 +43,9 @@ const formOptions: VbenFormProps = {
       component: 'InputNumber',
       fieldName: 'userId',
       label: $t('page.finance.paymentRecord.column.userId'),
-      componentProps: { placeholder: $t('page.finance.paymentRecord.placeholder.userId') },
+      componentProps: {
+        placeholder: $t('page.finance.paymentRecord.placeholder.userId'),
+      },
     },
     {
       component: 'Select',
@@ -53,10 +55,22 @@ const formOptions: VbenFormProps = {
         placeholder: $t('page.finance.common.all'),
         allowClear: true,
         options: [
-          { value: 1, label: $t('page.finance.paymentRecord.paymentType.member') },
-          { value: 2, label: $t('page.finance.paymentRecord.paymentType.product') },
-          { value: 3, label: $t('page.finance.paymentRecord.paymentType.recharge') },
-          { value: 4, label: $t('page.finance.paymentRecord.paymentType.other') },
+          {
+            value: 1,
+            label: $t('page.finance.paymentRecord.paymentType.member'),
+          },
+          {
+            value: 2,
+            label: $t('page.finance.paymentRecord.paymentType.product'),
+          },
+          {
+            value: 3,
+            label: $t('page.finance.paymentRecord.paymentType.recharge'),
+          },
+          {
+            value: 4,
+            label: $t('page.finance.paymentRecord.paymentType.other'),
+          },
         ],
       },
     },
@@ -106,8 +120,16 @@ const gridOptions: VxeGridProps = {
   columns: [
     { type: 'seq', width: 60, title: $t('page.finance.common.seq') },
     { field: 'id', title: 'ID', width: 80 },
-    { field: 'userId', title: $t('page.finance.paymentRecord.column.userId'), width: 100 },
-    { field: 'orderId', title: $t('page.finance.paymentRecord.column.orderId'), width: 160 },
+    {
+      field: 'userId',
+      title: $t('page.finance.paymentRecord.column.userId'),
+      width: 100,
+    },
+    {
+      field: 'orderId',
+      title: $t('page.finance.paymentRecord.column.orderId'),
+      width: 160,
+    },
     {
       field: 'paymentType',
       title: $t('page.finance.paymentRecord.column.paymentType'),
@@ -133,10 +155,26 @@ const gridOptions: VxeGridProps = {
       width: 100,
       slots: { default: 'status' },
     },
-    { field: 'transactionId', title: $t('page.finance.paymentRecord.column.transactionId'), width: 160 },
-    { field: 'payTime', title: $t('page.finance.paymentRecord.column.payTime'), width: 160 },
-    { field: 'remark', title: $t('page.finance.paymentRecord.column.remark'), minWidth: 120 },
-    { field: 'createTime', title: $t('page.finance.paymentRecord.column.createTime'), width: 160 },
+    {
+      field: 'transactionId',
+      title: $t('page.finance.paymentRecord.column.transactionId'),
+      width: 160,
+    },
+    {
+      field: 'payTime',
+      title: $t('page.finance.paymentRecord.column.payTime'),
+      width: 160,
+    },
+    {
+      field: 'remark',
+      title: $t('page.finance.paymentRecord.column.remark'),
+      minWidth: 120,
+    },
+    {
+      field: 'createTime',
+      title: $t('page.finance.paymentRecord.column.createTime'),
+      width: 160,
+    },
     {
       field: 'action',
       title: $t('page.finance.common.action'),
@@ -240,8 +278,10 @@ async function handleSubmit() {
     }
     drawerVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.paymentRecord.message.saveFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.paymentRecord.message.saveFailed'),
+    );
   } finally {
     drawerLoading.value = false;
   }
@@ -252,19 +292,36 @@ async function handleDelete(row: any) {
     await deletePaymentRecordApi(row.id);
     message.success($t('page.finance.paymentRecord.message.deleteSuccess'));
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.paymentRecord.message.deleteFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.paymentRecord.message.deleteFailed'),
+    );
   }
 }
 
 const paymentTypeMap: Record<number, { color: string; text: string }> = {
-  1: { color: 'blue', text: $t('page.finance.paymentRecord.paymentType.member') },
-  2: { color: 'cyan', text: $t('page.finance.paymentRecord.paymentType.product') },
-  3: { color: 'purple', text: $t('page.finance.paymentRecord.paymentType.recharge') },
-  4: { color: 'default', text: $t('page.finance.paymentRecord.paymentType.other') },
+  1: {
+    color: 'blue',
+    text: $t('page.finance.paymentRecord.paymentType.member'),
+  },
+  2: {
+    color: 'cyan',
+    text: $t('page.finance.paymentRecord.paymentType.product'),
+  },
+  3: {
+    color: 'purple',
+    text: $t('page.finance.paymentRecord.paymentType.recharge'),
+  },
+  4: {
+    color: 'default',
+    text: $t('page.finance.paymentRecord.paymentType.other'),
+  },
 };
 const payMethodMap: Record<number, { color: string; text: string }> = {
-  1: { color: 'green', text: $t('page.finance.paymentRecord.payMethod.wechat') },
+  1: {
+    color: 'green',
+    text: $t('page.finance.paymentRecord.payMethod.wechat'),
+  },
   2: { color: 'blue', text: $t('page.finance.paymentRecord.payMethod.alipay') },
   3: { color: 'orange', text: $t('page.finance.paymentRecord.payMethod.bank') },
 };
@@ -272,7 +329,10 @@ const statusMap: Record<number, { color: string; text: string }> = {
   0: { color: 'orange', text: $t('page.finance.paymentRecord.status.pending') },
   1: { color: 'green', text: $t('page.finance.paymentRecord.status.success') },
   2: { color: 'red', text: $t('page.finance.paymentRecord.status.failed') },
-  3: { color: 'default', text: $t('page.finance.paymentRecord.status.refunded') },
+  3: {
+    color: 'default',
+    text: $t('page.finance.paymentRecord.status.refunded'),
+  },
 };
 </script>
 
@@ -284,11 +344,7 @@ const statusMap: Record<number, { color: string; text: string }> = {
       :expand-text="$t('page.finance.paymentRecord.guide.expand')"
       :collapse-text="$t('page.finance.paymentRecord.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -339,40 +395,76 @@ const statusMap: Record<number, { color: string; text: string }> = {
 
     <Drawer
       v-model:open="drawerVisible"
-      :title="drawerMode === 'create'
-        ? $t('page.finance.paymentRecord.drawer.titleCreate')
-        : $t('page.finance.paymentRecord.drawer.titleEdit')"
+      :title="
+        drawerMode === 'create'
+          ? $t('page.finance.paymentRecord.drawer.titleCreate')
+          : $t('page.finance.paymentRecord.drawer.titleEdit')
+      "
       width="480"
       :confirm-loading="drawerLoading"
       @ok="handleSubmit"
     >
       <Form ref="formRef" layout="vertical" class="pt-4">
-        <FormItem :label="$t('page.finance.paymentRecord.column.userId')" name="userId" required>
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.userId')"
+          name="userId"
+          required
+        >
           <UserPickerModal v-model:value="formData.userId" />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.memberProductId')" name="memberProductId">
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.memberProductId')"
+          name="memberProductId"
+        >
           <InputNumber
             v-model:value="formData.memberProductId"
             :min="1"
-            :placeholder="$t('page.finance.paymentRecord.placeholder.memberProductId')"
+            :placeholder="
+              $t('page.finance.paymentRecord.placeholder.memberProductId')
+            "
             style="width: 100%"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.orderId')" name="orderId">
-          <Input v-model:value="formData.orderId" :placeholder="$t('page.finance.paymentRecord.placeholder.orderId')" />
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.orderId')"
+          name="orderId"
+        >
+          <Input
+            v-model:value="formData.orderId"
+            :placeholder="$t('page.finance.paymentRecord.placeholder.orderId')"
+          />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.paymentType')" name="paymentType">
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.paymentType')"
+          name="paymentType"
+        >
           <Select
             v-model:value="formData.paymentType"
             :options="[
-              { value: 1, label: $t('page.finance.paymentRecord.paymentType.member') },
-              { value: 2, label: $t('page.finance.paymentRecord.paymentType.product') },
-              { value: 3, label: $t('page.finance.paymentRecord.paymentType.recharge') },
-              { value: 4, label: $t('page.finance.paymentRecord.paymentType.other') },
+              {
+                value: 1,
+                label: $t('page.finance.paymentRecord.paymentType.member'),
+              },
+              {
+                value: 2,
+                label: $t('page.finance.paymentRecord.paymentType.product'),
+              },
+              {
+                value: 3,
+                label: $t('page.finance.paymentRecord.paymentType.recharge'),
+              },
+              {
+                value: 4,
+                label: $t('page.finance.paymentRecord.paymentType.other'),
+              },
             ]"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.amount')" name="amount" required>
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.amount')"
+          name="amount"
+          required
+        >
           <InputNumber
             v-model:value="formData.amount"
             :min="0"
@@ -381,35 +473,83 @@ const statusMap: Record<number, { color: string; text: string }> = {
             style="width: 100%"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.payMethod')" name="payMethod">
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.payMethod')"
+          name="payMethod"
+        >
           <Select
             v-model:value="formData.payMethod"
             :options="[
-              { value: 1, label: $t('page.finance.paymentRecord.payMethod.wechat') },
-              { value: 2, label: $t('page.finance.paymentRecord.payMethod.alipay') },
-              { value: 3, label: $t('page.finance.paymentRecord.payMethod.bank') },
+              {
+                value: 1,
+                label: $t('page.finance.paymentRecord.payMethod.wechat'),
+              },
+              {
+                value: 2,
+                label: $t('page.finance.paymentRecord.payMethod.alipay'),
+              },
+              {
+                value: 3,
+                label: $t('page.finance.paymentRecord.payMethod.bank'),
+              },
             ]"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.status')" name="status">
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.status')"
+          name="status"
+        >
           <Select
             v-model:value="formData.status"
             :options="[
-              { value: 0, label: $t('page.finance.paymentRecord.status.pending') },
-              { value: 1, label: $t('page.finance.paymentRecord.status.success') },
-              { value: 2, label: $t('page.finance.paymentRecord.status.failed') },
-              { value: 3, label: $t('page.finance.paymentRecord.status.refunded') },
+              {
+                value: 0,
+                label: $t('page.finance.paymentRecord.status.pending'),
+              },
+              {
+                value: 1,
+                label: $t('page.finance.paymentRecord.status.success'),
+              },
+              {
+                value: 2,
+                label: $t('page.finance.paymentRecord.status.failed'),
+              },
+              {
+                value: 3,
+                label: $t('page.finance.paymentRecord.status.refunded'),
+              },
             ]"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.transactionId')" name="transactionId">
-          <Input v-model:value="formData.transactionId" :placeholder="$t('page.finance.paymentRecord.placeholder.transactionId')" />
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.transactionId')"
+          name="transactionId"
+        >
+          <Input
+            v-model:value="formData.transactionId"
+            :placeholder="
+              $t('page.finance.paymentRecord.placeholder.transactionId')
+            "
+          />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.payTime')" name="payTime">
-          <Input v-model:value="formData.payTime" :placeholder="$t('page.finance.paymentRecord.placeholder.payTime')" />
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.payTime')"
+          name="payTime"
+        >
+          <Input
+            v-model:value="formData.payTime"
+            :placeholder="$t('page.finance.paymentRecord.placeholder.payTime')"
+          />
         </FormItem>
-        <FormItem :label="$t('page.finance.paymentRecord.column.remark')" name="remark">
-          <Input.TextArea v-model:value="formData.remark" :rows="2" :placeholder="$t('page.finance.paymentRecord.placeholder.remark')" />
+        <FormItem
+          :label="$t('page.finance.paymentRecord.column.remark')"
+          name="remark"
+        >
+          <Input.TextArea
+            v-model:value="formData.remark"
+            :rows="2"
+            :placeholder="$t('page.finance.paymentRecord.placeholder.remark')"
+          />
         </FormItem>
       </Form>
     </Drawer>

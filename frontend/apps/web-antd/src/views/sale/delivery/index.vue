@@ -1,15 +1,17 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { formatDateTime } from '@vben/utils';
 import { useAccessStore } from '@vben/stores';
+import { formatDateTime } from '@vben/utils';
 
-import { Button, Modal, Tag, message } from 'ant-design-vue';
+import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import type { VbenFormProps } from '@vben/common-ui';
 import {
   deleteDeliveryApi,
   getDeliveryInfoApi,
@@ -22,7 +24,7 @@ import { $t } from '#/locales';
 const accessStore = useAccessStore();
 
 // 交付状态映射：1=待发送、2=已发送、3=已签收、4=已撤销、5=已失效
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   1: { label: '待发送', color: 'default' },
   2: { label: '已发送', color: 'processing' },
   3: { label: '已签收', color: 'green' },
@@ -31,7 +33,7 @@ const statusMap: Record<number, { label: string; color: string }> = {
 };
 
 // 交付方式映射：1=卡密、2=下载链接、3=账号密码、4=激活码、5=服务开通
-const deliveryMethodMap: Record<number, { label: string; color: string }> = {
+const deliveryMethodMap: Record<number, { color: string; label: string }> = {
   1: { label: '卡密', color: 'blue' },
   2: { label: '下载链接', color: 'cyan' },
   3: { label: '账号密码', color: 'orange' },
@@ -40,7 +42,7 @@ const deliveryMethodMap: Record<number, { label: string; color: string }> = {
 };
 
 // 交付类型：1=自动 2=手动
-const deliverTypeMap: Record<number, { label: string; color: string }> = {
+const deliverTypeMap: Record<number, { color: string; label: string }> = {
   1: { label: '自动', color: 'blue' },
   2: { label: '手动', color: 'gold' },
 };
@@ -291,7 +293,10 @@ async function handleDelete(row: any) {
           v-if="row.deliveryMethod && deliveryMethodMap[row.deliveryMethod]"
           :color="deliveryMethodMap[row.deliveryMethod]?.color"
         >
-          {{ row.deliveryMethodName || deliveryMethodMap[row.deliveryMethod]?.label }}
+          {{
+            row.deliveryMethodName ||
+            deliveryMethodMap[row.deliveryMethod]?.label
+          }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
       </template>
@@ -303,14 +308,20 @@ async function handleDelete(row: any) {
       </template>
 
       <template #status="{ row }">
-        <Tag v-if="row.status && statusMap[row.status]" :color="statusMap[row.status]?.color">
+        <Tag
+          v-if="row.status && statusMap[row.status]"
+          :color="statusMap[row.status]?.color"
+        >
           {{ row.statusName || statusMap[row.status]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
       </template>
 
       <template #deliverType="{ row }">
-        <Tag v-if="row.deliverType && deliverTypeMap[row.deliverType]" :color="deliverTypeMap[row.deliverType]?.color">
+        <Tag
+          v-if="row.deliverType && deliverTypeMap[row.deliverType]"
+          :color="deliverTypeMap[row.deliverType]?.color"
+        >
           {{ deliverTypeMap[row.deliverType]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>
@@ -363,16 +374,33 @@ async function handleDelete(row: any) {
       :footer="null"
       width="640px"
     >
-      <a-descriptions :column="1" bordered size="small" :loading="detailLoading">
-        <a-descriptions-item label="交付单号">{{ detailData.deliveryNo }}</a-descriptions-item>
-        <a-descriptions-item label="订单ID">{{ detailData.orderId }}</a-descriptions-item>
-        <a-descriptions-item label="商品名">{{ detailData.productName }}</a-descriptions-item>
-        <a-descriptions-item label="交付方式">{{ detailData.deliveryMethodName }}</a-descriptions-item>
+      <a-descriptions
+        :column="1"
+        bordered
+        size="small"
+        :loading="detailLoading"
+      >
+        <a-descriptions-item label="交付单号">
+          {{ detailData.deliveryNo }}
+        </a-descriptions-item>
+        <a-descriptions-item label="订单ID">
+          {{ detailData.orderId }}
+        </a-descriptions-item>
+        <a-descriptions-item label="商品名">
+          {{ detailData.productName }}
+        </a-descriptions-item>
+        <a-descriptions-item label="交付方式">
+          {{ detailData.deliveryMethodName }}
+        </a-descriptions-item>
         <a-descriptions-item label="卡密(脱敏)">
           <span class="font-mono">{{ detailData.cardKeyMasked }}</span>
         </a-descriptions-item>
-        <a-descriptions-item label="状态">{{ detailData.statusName }}</a-descriptions-item>
-        <a-descriptions-item label="发送时间">{{ formatDateTime(detailData.sentTime) }}</a-descriptions-item>
+        <a-descriptions-item label="状态">
+          {{ detailData.statusName }}
+        </a-descriptions-item>
+        <a-descriptions-item label="发送时间">
+          {{ formatDateTime(detailData.sentTime) }}
+        </a-descriptions-item>
       </a-descriptions>
     </Modal>
 
@@ -392,8 +420,8 @@ async function handleDelete(row: any) {
 <style scoped>
 .delivery-list__no-link {
   font-family: 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  font-weight: 600;
   font-size: 13px;
+  font-weight: 600;
   color: #0f2942;
   text-decoration: none;
   cursor: pointer;
@@ -406,14 +434,14 @@ async function handleDelete(row: any) {
 
 .delivery-list__full-content {
   max-height: 400px;
-  overflow: auto;
-  margin: 0;
   padding: 12px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
+  margin: 0;
+  overflow: auto;
   font-family: 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   font-size: 13px;
-  white-space: pre-wrap;
   word-break: break-all;
+  white-space: pre-wrap;
+  background-color: #f5f5f5;
+  border-radius: 4px;
 }
 </style>

@@ -1,23 +1,24 @@
 <script lang="ts" setup>
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 /**
  * 库存流水抽屉
  *
  * 用法：
  * <StockLogDrawer v-model:visible="visible" :product-id="productId" :product-name="productName" />
  */
-import { ref, watch } from 'vue';
+import { watch } from 'vue';
 
-import { Drawer, Tag, Empty } from 'ant-design-vue';
+import { Drawer, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { getStockLogListApi } from '#/api/core/product/stock-log';
 import { $t } from '#/locales';
 
 const props = defineProps<{
-  visible: boolean;
-  productId?: number | null;
+  productId?: null | number;
   productName?: string;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -25,11 +26,17 @@ const emit = defineEmits<{
 }>();
 
 // 变动类型标签映射
-const changeTypeMap: Record<string, { label: string; color: string }> = {
+const changeTypeMap: Record<string, { color: string; label: string }> = {
   inbound: { label: $t('page.inventory.inbound.title'), color: 'green' },
   outbound: { label: $t('page.inventory.outbound.title'), color: 'red' },
-  transfer_in: { label: $t('page.inventory.changeType.transferIn'), color: 'blue' },
-  transfer_out: { label: $t('page.inventory.changeType.transferOut'), color: 'orange' },
+  transfer_in: {
+    label: $t('page.inventory.changeType.transferIn'),
+    color: 'blue',
+  },
+  transfer_out: {
+    label: $t('page.inventory.changeType.transferOut'),
+    color: 'orange',
+  },
   check: { label: $t('page.inventory.changeType.check'), color: 'purple' },
   freeze: { label: $t('page.inventory.changeType.freeze'), color: 'geekblue' },
   unfreeze: { label: $t('page.inventory.changeType.unfreeze'), color: 'cyan' },
@@ -73,9 +80,15 @@ const gridOptions: VxeGridProps = {
     },
     { title: '仓库', field: 'warehouseName', width: 100 },
     { title: '变动前', field: 'quantityBefore', width: 80, align: 'right' },
-    { title: '变动量', field: 'changeQuantity', width: 80, align: 'right', slots: { default: 'changeQuantity' } },
+    {
+      title: '变动量',
+      field: 'changeQuantity',
+      width: 80,
+      align: 'right',
+      slots: { default: 'changeQuantity' },
+    },
     { title: '变动后', field: 'quantityAfter', width: 80, align: 'right' },
-    { title: '业务单号', field: 'bizNo', minWidth: 140, ellipsis: true },
+    { title: '业务单号', field: 'bizNo', minWidth: 140, showOverflow: true },
     { title: '时间', field: 'createTime', width: 150 },
   ],
 };
@@ -108,8 +121,15 @@ watch(
       </template>
 
       <template #changeQuantity="{ row }">
-        <span :class="Number(row.changeQuantity) > 0 ? 'text-green-600 font-medium' : 'text-red-500 font-medium'">
-          {{ Number(row.changeQuantity) > 0 ? '+' : '' }}{{ row.changeQuantity }}
+        <span
+          :class="
+            Number(row.changeQuantity) > 0
+              ? 'text-green-600 font-medium'
+              : 'text-red-500 font-medium'
+          "
+        >
+          {{ Number(row.changeQuantity) > 0 ? '+' : ''
+          }}{{ row.changeQuantity }}
         </span>
       </template>
     </Grid>

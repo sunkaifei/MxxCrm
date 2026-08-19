@@ -24,7 +24,7 @@ use crate::core::web::base_controller::get_user;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserRegisterRequest, CheckUsernameResult, UserLoginVO, AdminModel};
+use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserRegisterRequest, CheckUsernameResult, UserLoginVO, AdminModel, RefreshTokenRequest, LogoutRequest};
 use crate::modules::system::model::admin::{ListQuery, TokenVO};
 use crate::modules::system::service::menu_service::find_user_role_keys;
 use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service, permission_cache_service, session_service};
@@ -38,8 +38,10 @@ pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveReq
     if admin_service::find_by_name_unique(&db, &item.user_name, &None).await.unwrap_or_default(){
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
     }
-    if admin_service::find_by_mobile_unique(&db, &item.mobile, &None).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
+    // 手机号统一校验（必填 + 格式 + 唯一性）；错误文案直接来自 service 的聚合校验
+    if let Err(msg) = admin_service::validate_mobile(&db, item.mobile.as_ref(), None).await {
+        let msg_str = msg.to_string();
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg_str, "local")));
     }
     if item.email.is_some() {
         if admin_service::find_by_email_unique(&db, &item.email, &None).await.unwrap_or_default(){
@@ -146,14 +148,16 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
         log::warn!("[登录] 权限缓存写入失败 user_id={}, err={}", user_info.id, e);
     }
 
-    // 原来的token
-    let old_token = CONTEXT.cache_service.get_string(&format!("user_{}", user_info.id.to_string().as_str())).await?;
+    // v1.0(整改): accessToken 短期（DB 配置 access_token_expire，默认 2h）；
+    // refreshToken（会话）走 session_timeout 滑动续期（默认 8h，后台可调）
+    let access_expire_secs = permission_cache_service::get_access_token_expire_secs().await;
+    let session_expire_secs = permission_cache_service::get_session_timeout_secs().await;
 
-    // v1.1: 会话超时优先从安全设置（缓存/配置表）动态读取，回退配置文件默认值
-    let expire_secs = permission_cache_service::get_session_timeout_secs().await;
-    let expire = Duration::from_secs(expire_secs);
+    // v1.0(整改): 签发独立 refreshToken（64 字节随机数 hex，128 字符），落库仅存 SHA-256 哈希
+    let refresh_token_plain = session_service::generate_refresh_token();
+    let refresh_token_hash = session_service::sha256_hex(&refresh_token_plain);
 
-    match JWTToken::new_with_expire(Some(user_info.id), user_info.user_name.clone(), user_role_keys.clone(), None, expire_secs).create_token(&config::section::<String>("server", "jwt_secret_admin", "".to_string())) {
+    match JWTToken::new_with_expire(Some(user_info.id), user_info.user_name.clone(), None, access_expire_secs).create_token(&config::section::<String>("server", "jwt_secret_admin", "".to_string())) {
         Ok(token) => {
             let multi = permission_cache_service::is_multi_device_mode().await;
 
@@ -187,7 +191,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
                 }
             }
             if let Err(e) = session_service::get_session_store()
-                .create_session(&db, user_info.id, &token, &oper_ip.clone().unwrap_or_default(), expire_secs as i64)
+                .create_session(&db, user_info.id, &token, &refresh_token_hash, &oper_ip.clone().unwrap_or_default(), session_expire_secs as i64)
                 .await
             {
                 log::warn!("[登录] 写入 DB session 失败 user_id={}: {}", user_info.id, e);
@@ -197,7 +201,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
             // json_result 字段名与 TokenVO 实际响应字段保持一致，敏感字段已脱敏
             let json_result = format!(
                 "{{\"accessToken\":\"***\",\"tokenType\":\"Bearer\",\"refreshToken\":\"***\",\"expiresIn\":{},\"roleCount\":{}}}",
-                expire.as_secs(),
+                access_expire_secs,
                 user_role_keys.len()
             );
             let ctx = system_log_service::SaveLogContext {
@@ -230,8 +234,9 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
             let user_token = TokenVO {
                 access_token: Option::from(token.clone()),
                 token_type: Option::from("Bearer".to_string()),
-                refresh_token: Option::from(old_token),
-                expires_in: Option::from(expire.as_secs() as i64),
+                // v1.0(整改): 返回本次新签发的 refreshToken 明文（前端持久化，用于无感续期）
+                refresh_token: Option::from(refresh_token_plain.clone()),
+                expires_in: Option::from(access_expire_secs as i64),
                 role: user_role_keys,
             };
             Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_token, "local")))
@@ -335,13 +340,22 @@ pub async fn user_register(state: web::Data<AppState>, item: web::Json<UserRegis
     if admin_service::find_by_name_unique(&db, &Some(username.clone()), &None).await.unwrap_or_default() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
     }
-    
+
+    // 注册时手机号可以为空（管理员审核后再分配），但一旦填写就必须格式合法 + 不重复
     if item.mobile.is_some() {
-        if admin_service::find_by_mobile_unique(&db, &item.mobile, &None).await.unwrap_or_default() {
+        // 格式验证（和前端正则对齐），含空时返回"手机号不能为空"
+        use crate::utils::string_utils::normalize_and_validate_cn_mobile;
+        let normalized = match normalize_and_validate_cn_mobile(item.mobile.as_ref()) {
+            Ok(v) => Some(v),
+            Err(msg) => {
+                return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")));
+            }
+        };
+        if admin_service::find_by_mobile_unique(&db, &normalized, &None).await.unwrap_or_default() {
             return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
         }
     }
-    
+
     if item.email.is_some() {
         if admin_service::find_by_email_unique(&db, &item.email, &None).await.unwrap_or_default() {
             return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "邮箱已存在", "local")));
@@ -420,8 +434,12 @@ pub async fn admin_update(state: web::Data<AppState>, item: web::Json<AdminUpdat
     if admin_service::find_by_name_unique(&db, &item.user_name, &item.id).await.unwrap_or_default(){
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户名已存在", "local")));
     }
-    if admin_service::find_by_mobile_unique(&db, &item.mobile, &item.id).await.unwrap_or_default(){
-        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "手机号已存在", "local")));
+    // 手机号：显式传入时做统一校验（必填/格式/唯一），错误文案来自 service 的聚合校验
+    if item.mobile.is_some() {
+        if let Err(msg) = admin_service::validate_mobile(&db, item.mobile.as_ref(), item.id).await {
+            let msg_str = msg.to_string();
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg_str, "local")));
+        }
     }
     if item.email.is_some() {
         if admin_service::find_by_email_unique(&db, &item.email, &item.id).await.unwrap_or_default(){
@@ -788,9 +806,163 @@ pub async fn get_auth_codes(state: web::Data<AppState>, req: HttpRequest) -> Res
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_role_keys, "local")))
 }
 
-// 退出登录
-pub async fn logout() -> HttpResponse {
-    HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success(String::new(), "local"))
+// 退出登录（整改 v1.0：精确登出当前会话，不影响同账号其他设备）
+//
+// 定位优先级：Body.refreshToken > Authorization accessToken
+// 管理员踢人下线仍走 kick-offline（全端下线），两者语义区分
+pub async fn logout(state: web::Data<AppState>, request: HttpRequest, item: Option<web::Json<LogoutRequest>>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let store = session_service::get_session_store();
+
+    // 定位待删除的会话：(user_id, access_token)
+    let mut target: Option<(i64, String)> = None;
+
+    // 1) 优先按 refreshToken 精确定位
+    let refresh_plain = item
+        .as_ref()
+        .and_then(|b| b.refresh_token.clone())
+        .unwrap_or_default();
+    if !refresh_plain.is_empty() && refresh_plain.len() == 128 {
+        let refresh_hash = session_service::sha256_hex(&refresh_plain);
+        match store.find_valid_by_refresh(db, &refresh_hash).await {
+            Ok(Some(info)) => {
+                let removed = store.remove_by_refresh(db, &refresh_hash).await.unwrap_or(0);
+                if removed > 0 {
+                    target = Some((info.user_id, info.old_token));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // 2) 兜底：按 Authorization accessToken 定位
+    if target.is_none() {
+        if let Some(auth) = request.headers().get("Authorization").and_then(|v| v.to_str().ok()) {
+            let token = auth.trim_start_matches("Bearer ").to_string();
+            if !token.is_empty() {
+                if let Ok(jwt) = JWTToken::verify(&config::section::<String>("server", "jwt_secret_admin", "".to_string()), &token) {
+                    if let Some(user_id) = jwt.id {
+                        let removed = store.remove_by_token(db, user_id, &token).await.unwrap_or(0);
+                        if removed > 0 {
+                            target = Some((user_id, token));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3) 同步清理缓存（单设备删 user_{uid}；多设备从集合移除该 token）
+    if let Some((user_id, token)) = target {
+        let multi = permission_cache_service::is_multi_device_mode().await;
+        if multi {
+            let key = format!("user_tokens_{}", user_id);
+            let mut tokens: Vec<String> = CONTEXT.cache_service.get_json(&key).await.unwrap_or_default();
+            let before = tokens.len();
+            tokens.retain(|t| t != &token);
+            if tokens.len() != before {
+                let _ = CONTEXT.cache_service.set_json(&key, &tokens).await;
+            }
+        } else {
+            let _ = CONTEXT.cache_service.del(&format!("user_{}", user_id)).await;
+        }
+    }
+
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success(String::new(), "local")))
+}
+
+/// 刷新 accessToken（登录认证整改 v1.0 核心：双 Token 无感续期）
+///
+/// 流程：refreshToken 哈希定位会话 → 校验用户状态 → 旋转签发
+/// （新 accessToken + 新 refreshToken，旧的立即作废）→ 同步缓存 → 滑动续期
+pub async fn post_refresh(state: web::Data<AppState>, item: web::Json<RefreshTokenRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let refresh_plain = item.refresh_token.clone().unwrap_or_default();
+
+    // 参数校验：128 字符（64 字节 hex）
+    if refresh_plain.is_empty() || refresh_plain.len() != 128 {
+        return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "刷新凭据无效，请重新登录", "local")));
+    }
+
+    let refresh_hash = session_service::sha256_hex(&refresh_plain);
+    let store = session_service::get_session_store();
+
+    // 1) 定位有效会话（哈希不存在 / refreshToken 过期 → 401）
+    let info = match store.find_valid_by_refresh(db, &refresh_hash).await {
+        Ok(Some(info)) => info,
+        _ => {
+            return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "登录已过期，请重新登录", "local")));
+        }
+    };
+
+    // 2) 用户状态校验（禁用即时生效）
+    let admin = match admin_service::get_by_detail(db, &Some(info.user_id)).await {
+        Ok(a) => a,
+        _ => {
+            let _ = store.remove_by_refresh(db, &refresh_hash).await;
+            return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "账号不存在或已删除", "local")));
+        }
+    };
+    if admin.status != Some(1) {
+        let _ = store.remove_by_refresh(db, &refresh_hash).await;
+        return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "账号已被禁用", "local")));
+    }
+    if let Ok(flag) = CONTEXT.cache_service.get_string(&format!("user_disabled:{}", info.user_id)).await {
+        if !flag.is_empty() {
+            return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "账号已被禁用", "local")));
+        }
+    }
+
+    // 3) 读取过期配置（access 短期 / session 滑动续期）
+    let access_expire_secs = permission_cache_service::get_access_token_expire_secs().await;
+    let session_expire_secs = permission_cache_service::get_session_timeout_secs().await;
+
+    // 4) 旋转签发双凭据
+    let new_refresh_plain = session_service::generate_refresh_token();
+    let new_refresh_hash = session_service::sha256_hex(&new_refresh_plain);
+    let new_access = match JWTToken::new_with_expire(Some(info.user_id), admin.user_name.clone(), None, access_expire_secs)
+        .create_token(&config::section::<String>("server", "jwt_secret_admin", "".to_string()))
+    {
+        Ok(t) => t,
+        Err(e) => {
+            log::error!("[刷新] 签发accessToken失败 user_id={}: {}", info.user_id, e);
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(500, "签发令牌失败", "local")));
+        }
+    };
+
+    // 5) 旋转会话（旧 refreshToken 立即作废）
+    if let Err(e) = store
+        .rotate_session(db, &info, &refresh_hash, &new_access, &new_refresh_hash, session_expire_secs as i64)
+        .await
+    {
+        log::error!("[刷新] 旋转会话失败 user_id={}: {}", info.user_id, e);
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(500, "刷新会话失败，请重新登录", "local")));
+    }
+
+    // 6) 同步缓存（单设备覆盖；多设备集合内替换）
+    let multi = permission_cache_service::is_multi_device_mode().await;
+    if multi {
+        let key = format!("user_tokens_{}", info.user_id);
+        let mut tokens: Vec<String> = CONTEXT.cache_service.get_json(&key).await.unwrap_or_default();
+        tokens.retain(|t| t != &info.old_token);
+        tokens.push(new_access.clone());
+        CONTEXT.cache_service.set_json(&key, &tokens).await?;
+    } else {
+        CONTEXT.cache_service.set_string(&format!("user_{}", info.user_id), &new_access).await?;
+    }
+
+    // 7) 返回新凭据（role 供前端刷新权限码缓存）
+    let is_admin = admin.user_type == Some(1);
+    let role_keys = find_user_role_keys(db, &is_admin, &Some(info.user_id)).await.unwrap_or_default();
+
+    let user_token = TokenVO {
+        access_token: Some(new_access),
+        token_type: Some("Bearer".to_string()),
+        refresh_token: Some(new_refresh_plain),
+        expires_in: Some(access_expire_secs as i64),
+        role: role_keys,
+    };
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_token, "local")))
 }
 
 // ==================== 路由注册（方案 C：单点维护）====================
@@ -800,6 +972,37 @@ pub async fn logout() -> HttpResponse {
 /// 本函数集中管理本模块所有路由的路径、HTTP 方法、权限码。
 /// 调用方在 `admin_routes.rs` 中通过 `cfg.configure(system_admin_controller::register)` 注册。
 ///
+/// 获取员工列表列显示配置
+pub async fn get_columns_config(state: web::Data<AppState>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let value = match admin_service::get_columns_config(db).await {
+        Ok(v) => v,
+        Err(e) => {
+            return Ok(HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::<String>::fail(400, &e.to_string(), "local")));
+        }
+    };
+    let parsed: serde_json::Value = value
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    Ok(HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::<serde_json::Value>::success(parsed, "local")))
+}
+
+/// 保存员工列表列显示配置
+pub async fn save_columns_config(
+    state: web::Data<AppState>,
+    item: web::Json<serde_json::Value>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let result = admin_service::save_columns_config(db, &item.0.to_string()).await;
+    Ok(HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::<i64>::handle_result(result)))
+}
+
 /// ## 路由分组
 /// - `/admin/*` — 后台用户管理（增删改查、改密码、改头像、改状态、改角色）
 /// - `/auth/*`  — 认证相关（登录、注册、检查用户名、获取权限码）
@@ -861,6 +1064,20 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::put()
                     .to(audit_user)
                     .wrap(require_permission("system:admin:audit")),
+            )
+            // GET /admin/columns_config - 获取列显示配置（带权限校验）
+            .route(
+                "/columns_config",
+                web::get()
+                    .to(get_columns_config)
+                    .wrap(require_permission("system:admin:columns")),
+            )
+            // PUT /admin/columns_config - 保存列显示配置（带权限校验）
+            .route(
+                "/columns_config",
+                web::put()
+                    .to(save_columns_config)
+                    .wrap(require_permission("system:admin:columns")),
             ),
     );
 
@@ -869,6 +1086,9 @@ pub fn register(cfg: &mut web::ServiceConfig) {
         web::scope("/auth")
             // POST /auth/login - 后台用户登录
             .route("/login", web::post().to(post_login))
+            // POST /auth/refresh - 刷新 accessToken（整改 v1.0：双 Token 无感续期，
+            // 需加入 permission_exclude_urls 白名单，凭 refreshToken 本身作为认证凭据）
+            .route("/refresh", web::post().to(post_refresh))
             // POST /auth/register - 用户注册
             .route("/register", web::post().to(user_register))
             // GET /auth/register-status - 查询注册开关（免鉴权，供登录页判断是否显示注册入口）

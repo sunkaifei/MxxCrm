@@ -15,11 +15,7 @@ import {
   Tag,
 } from 'ant-design-vue';
 
-import {
-  createFollowupApi,
-  createPaymentApi,
-  processApprovalApi,
-} from '#/api';
+import { createFollowupApi, createPaymentApi, processApprovalApi } from '#/api';
 import { $t } from '#/locales';
 
 defineOptions({
@@ -27,20 +23,23 @@ defineOptions({
 });
 
 const props = defineProps<{
-  visible: boolean;
   /** 当前点击的待办项 */
   todoItem?: any;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void;
   (e: 'processed'): void;
   /** 查看审批流完整详情：在工作台内嵌打开审批抽屉 */
-  (e: 'viewApproval', payload: {
-    businessType: string;
-    businessId: number;
-    instanceId: number;
-  }): void;
+  (
+    e: 'viewApproval',
+    payload: {
+      businessId: number;
+      businessType: string;
+      instanceId: number;
+    },
+  ): void;
 }>();
 
 const router = useRouter();
@@ -93,17 +92,17 @@ const modalTitle = computed(() => {
     case 'approval': {
       return $t('page.dashboard.quickProcessApproval');
     }
-    case 'followUp': {
-      return $t('page.dashboard.quickProcessFollowUp');
-    }
-    case 'payment': {
-      return $t('page.dashboard.quickProcessPayment');
-    }
     case 'contract': {
       return $t('page.dashboard.quickProcessContract');
     }
+    case 'followUp': {
+      return $t('page.dashboard.quickProcessFollowUp');
+    }
     case 'opportunity': {
       return $t('page.dashboard.quickProcessOpportunity');
+    }
+    case 'payment': {
+      return $t('page.dashboard.quickProcessPayment');
     }
     default: {
       return $t('page.dashboard.quickProcess');
@@ -231,22 +230,22 @@ function goDetail() {
     emit('viewApproval', { businessType, businessId, instanceId });
     return;
   }
-  let path = '';
+  let path: string;
   switch (todoType.value) {
-    case 'followUp': {
-      path = item.itemType === 'lead' ? '/crm/lead' : '/crm/customer';
-      break;
-    }
-    case 'payment': {
-      path = '/sale/payment';
-      break;
-    }
     case 'contract': {
       path = '/sale/contract';
       break;
     }
+    case 'followUp': {
+      path = item.itemType === 'lead' ? '/crm/lead' : '/crm/customer';
+      break;
+    }
     case 'opportunity': {
       path = '/sale/opportunity';
+      break;
+    }
+    case 'payment': {
+      path = '/sale/payment';
       break;
     }
     default: {
@@ -460,10 +459,11 @@ function goDetail() {
     </div>
 
     <!-- 底部固定链接 -->
-    <div
-      class="mt-4 border-t border-dashed border-gray-200 pt-3 text-center"
-    >
-      <a class="cursor-pointer text-sm text-blue-500 hover:underline" @click="goDetail">
+    <div class="mt-4 border-t border-dashed border-gray-200 pt-3 text-center">
+      <a
+        class="cursor-pointer text-sm text-blue-500 hover:underline"
+        @click="goDetail"
+      >
         {{ $t('page.dashboard.viewDetail') }} →
       </a>
     </div>

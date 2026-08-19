@@ -1,24 +1,33 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
-import { LucideCheck, LucideFilePenLine, LucideSend, LucideTrash2, LucideUndo2, LucideX } from '@vben/icons';
+import {
+  LucideCheck,
+  LucideFilePenLine,
+  LucideSend,
+  LucideTrash2,
+  LucideUndo2,
+  LucideX,
+} from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Modal, Popconfirm, Select, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
+  approveRequisitionApi,
   convertToPoApi,
   deleteRequisitionApi,
   getRequisitionListApi,
   getSupplierListApi,
   rejectRequisitionApi,
   submitRequisitionApi,
-  approveRequisitionApi,
   withdrawRequisitionApi,
 } from '#/api';
 import { $t } from '#/locales';
@@ -142,15 +151,41 @@ const gridOptions: VxeGridProps = {
     { type: 'seq', title: $t('ui.table.seq'), width: 60 },
     { title: '申请单号', field: 'requisitionNo', width: 140 },
     { title: '标题', field: 'title', width: 180 },
-    { title: '申请类型', field: 'type', width: 100, slots: { default: 'type' } },
+    {
+      title: '申请类型',
+      field: 'type',
+      width: 100,
+      slots: { default: 'type' },
+    },
     { title: '申请人', field: 'applicantName', width: 100 },
     { title: '部门', field: 'department', width: 100 },
     { title: '期望到货日', field: 'expectedDate', width: 110 },
-    { title: '紧急程度', field: 'urgency', width: 90, slots: { default: 'urgency' } },
+    {
+      title: '紧急程度',
+      field: 'urgency',
+      width: 90,
+      slots: { default: 'urgency' },
+    },
     { title: '预估总金额', field: 'estimatedAmount', width: 110 },
-    { title: $t('ui.table.status'), field: 'status', width: 110, slots: { default: 'status' } },
-    { title: $t('ui.table.createTime'), field: 'createTime', width: 160, slots: { default: 'createTime' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 280 },
+    {
+      title: $t('ui.table.status'),
+      field: 'status',
+      width: 110,
+      slots: { default: 'status' },
+    },
+    {
+      title: $t('ui.table.createTime'),
+      field: 'createTime',
+      width: 160,
+      slots: { default: 'createTime' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 280,
+    },
   ],
 };
 
@@ -169,8 +204,12 @@ function openDrawer(create: boolean, row?: any) {
   drawerApi.open();
 }
 
-function handleCreate() { openDrawer(true); }
-function handleEdit(row: any) { openDrawer(false, row); }
+function handleCreate() {
+  openDrawer(true);
+}
+function handleEdit(row: any) {
+  openDrawer(false, row);
+}
 
 async function handleDelete(row: any) {
   row.pending = true;
@@ -232,7 +271,7 @@ const convertVisible = ref(false);
 const convertLoading = ref(false);
 const convertPrIds = ref<number[]>([]);
 const convertSupplierId = ref<number | undefined>(undefined);
-const supplierOptions = ref<Array<{ value: number; label: string }>>([]);
+const supplierOptions = ref<Array<{ label: string; value: number }>>([]);
 
 async function loadSupplierOptions() {
   try {
@@ -252,7 +291,7 @@ function openConvertModal(row?: any) {
     convertPrIds.value = [Number(row.id)];
   } else {
     const records = gridApi.grid?.getCheckboxRecords() ?? [];
-    if (!records.length) {
+    if (records.length === 0) {
       window.$message.warning('请先选择要转换的采购申请');
       return;
     }
@@ -279,7 +318,9 @@ async function handleConvertToPo() {
       prIds: convertPrIds.value,
       supplierId: convertSupplierId.value,
     });
-    window.$message.success(`已转换 ${convertPrIds.value.length} 条采购申请为采购订单`);
+    window.$message.success(
+      `已转换 ${convertPrIds.value.length} 条采购申请为采购订单`,
+    );
     convertVisible.value = false;
     gridApi.query();
   } finally {
@@ -423,14 +464,18 @@ async function handleConvertToPo() {
     >
       <div class="py-2">
         <p class="mb-3 text-gray-600">
-          将 {{ convertPrIds.length }} 条采购申请合并转换为采购订单，请选择供应商：
+          将
+          {{ convertPrIds.length }} 条采购申请合并转换为采购订单，请选择供应商：
         </p>
         <Select
           v-model:value="convertSupplierId"
           placeholder="请选择供应商"
           :options="supplierOptions"
           show-search
-          :filter-option="(input: string, option: any) => option.label?.toLowerCase().includes(input.toLowerCase())"
+          :filter-option="
+            (input: string, option: any) =>
+              option.label?.toLowerCase().includes(input.toLowerCase())
+          "
           style="width: 100%"
         />
       </div>

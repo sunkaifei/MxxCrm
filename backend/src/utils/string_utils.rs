@@ -322,6 +322,25 @@ pub fn is_valid_string(s: &str) -> bool {
     re.is_match(s)
 }
 
+/// 中国大陆手机号统一校验与标准化：
+/// - 去除前后空格
+/// - 空/None -> Err("手机号不能为空")
+/// - 格式不符合 ^1[3-9]\d{9}$ -> Err("手机号格式不正确，请输入 11 位中国大陆手机号")
+/// - 通过 -> Ok(标准化后的字符串)
+///
+/// 与前端 drawer.vue mobile 字段规则 /^1[3-9]\d{9}$/ 保持完全一致。
+pub fn normalize_and_validate_cn_mobile(mobile: Option<&String>) -> Result<String, String> {
+    let trimmed = mobile.map(|s| s.trim()).unwrap_or("").to_string();
+    if trimmed.is_empty() {
+        return Err("手机号不能为空".to_string());
+    }
+    let re = Regex::new(r"^1[3-9]\d{9}$").unwrap();
+    if !re.is_match(&trimmed) {
+        return Err("手机号格式不正确，请输入 11 位中国大陆手机号".to_string());
+    }
+    Ok(trimmed)
+}
+
 ///数字的五行分类
 ///按照数理进行五行分类：尾数为1，2五行为木；尾数为3，4五行为火；尾数为5，6五行为土；尾数为7，8五行为金；尾数为9，0五行为水；
 pub fn wuxing_classification(num: i32) -> &'static str {

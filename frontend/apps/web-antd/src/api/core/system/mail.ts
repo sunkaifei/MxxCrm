@@ -15,7 +15,9 @@ export const createMailTemplateApi = async (data: any) =>
 export const updateMailTemplateApi = async (data: any) =>
   requestClient.put('/api/system/mail/template/update', data);
 export const deleteMailTemplateApi = async (ids: number[]) =>
-  requestClient.delete('/api/system/mail/template/bath_delete', { data: { ids } });
+  requestClient.delete('/api/system/mail/template/bath_delete', {
+    data: { ids },
+  });
 
 // 发送邮件
 export const sendMailApi = async (data: any) =>
@@ -25,4 +27,6 @@ export const sendMailApi = async (data: any) =>
 export const getMailLogListApi = async (params?: any) =>
   requestClient.get('/api/system/mail/log/list', { params });
 export const getCustomerMailLogApi = async (customerId: number) =>
-  requestClient.get('/api/system/mail/log/by_customer', { params: { customerId } });
+  requestClient.get('/api/system/mail/log/by_customer', {
+    params: { customerId },
+  });

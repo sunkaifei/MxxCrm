@@ -9,20 +9,21 @@
 //!
 
 use bcrypt::{hash, DEFAULT_COST};
-use sea_orm::{ColumnTrait, ConnectionTrait, DbConn, EntityTrait, QueryFilter};
-use sea_orm::TransactionTrait;
+use chrono::Local;
+use sea_orm::{ActiveModelTrait, ColumnTrait, ConnectionTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, Set, Statement, TransactionTrait};
 use std::collections::{HashMap, HashSet};
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::app::is_demo_mode;
 use crate::core::web::response::ResultPage;
 use crate::modules::system::entity::admin;
+use crate::modules::system::entity::config::{ActiveModel as ConfigActiveModel, Column as ConfigColumn, Entity as ConfigEntity};
 use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminModel, AdminOptionVO, AdminSaveDTO, AdminSaveRequest, AdminUpdateRequest, DeptNameDTO, ListQuery, PageWhere, PostNameDTO, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
 use crate::modules::system::model::admin_dept_merge::{AdminDeptMergeModel, AdminDeptMergeSaveDTO};
 use crate::modules::system::model::admin_post_merge::{AdminPostMergeModel, AdminPostMergeSaveDTO};
 use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, AdminRolesMergeSaveDTO};
 use crate::modules::system::model::role::RoleModel;
 use crate::modules::system::service::{config_service, dept_service, post_service, role_service};
-use crate::utils::string_utils::{convert_vec_option_string_to_vec_u64};
+use crate::utils::string_utils::{convert_vec_option_string_to_vec_u64, normalize_and_validate_cn_mobile};
 
 /// 批量查询 admin 用户名映射：admin_id -> 显示名（nick_name 优先，回退 user_name）
 ///
@@ -60,11 +61,27 @@ pub async fn build_admin_name_map<C: ConnectionTrait>(
         .collect()
 }
 
+/// 统一校验手机号：必填 + 格式 + 唯一性
+/// - id=None：用于新增，全表唯一性
+/// - id=Some(x)：用于更新，排除自身记录
+///
+/// 返回成功时返回 trim + 正则校验后的标准 11 位手机号字符串；失败返回业务 Error。
+pub async fn validate_mobile(db: &DbConn, mobile: Option<&String>, id: Option<i64>) -> Result<String> {
+    let normalized = normalize_and_validate_cn_mobile(mobile)
+        .map_err(Error::from)?;
+    if find_by_mobile_unique(db, &Some(normalized.clone()), &id).await.unwrap_or_default() {
+        return Err(Error::from("手机号已存在，请更换其他手机号"));
+    }
+    Ok(normalized)
+}
+
 /// 新增管理员
 pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
     if is_demo_mode() {
         return Err(Error::from("演示站模式下禁止新增用户"));
     }
+    // 手机号统一校验（必填 + 格式 + 唯一），并回写 trim 后的标准值
+    let mobile_norm = validate_mobile(db, form_data.mobile.as_ref(), None).await?;
     // 部门必选校验：所有用户必须归属至少一个部门（用于审批流向上查找领导和数据权限隔离）
     if form_data.dept_ids.as_ref().map_or(true, |ids| ids.is_empty()) {
         return Err(Error::from("部门为必选项，请至少选择一个部门"));
@@ -97,6 +114,8 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
         }
     }
     let mut dto_data = AdminSaveDTO::from(form_data.clone());
+    // 使用通过校验并标准化后的手机号（覆盖原始可能含空格/非法字符的值）
+    dto_data.mobile = Some(mobile_norm);
 
     if let Some(password) = &form_data.password {
         if !password.is_empty() {
@@ -317,7 +336,17 @@ pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result
             return Err(Error::from("试用期工资比例必须在 0~1 范围内（如 0.6 表示 60%）"));
         }
     }
-    let dto_data = AdminSaveDTO::from(form_data.clone());
+    // 手机号：如果前端显式传入（含空字符串），则统一校验（必填 + 格式 + 唯一）
+    // 并把 trim/标准化后的结果写回 dto_data
+    let mobile_norm = if form_data.mobile.is_some() {
+        Some(validate_mobile(db, form_data.mobile.as_ref(), Some(admin_id)).await?)
+    } else {
+        None
+    };
+    let mut dto_data = AdminSaveDTO::from(form_data.clone());
+    if let Some(m) = mobile_norm {
+        dto_data.mobile = Some(m);
+    }
     
     let result = (*db).transaction::<_, _, Error>(|tx| {
         let dept_ids = form_data.dept_ids.clone();
@@ -535,6 +564,37 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
     let result_role = role_service::select_by_ids(db, id_list.clone()).await;
     let result_dept = dept_service::select_by_ids(db, id_list.clone()).await;
     let result_post = post_service::select_by_ids(db, id_list.clone()).await;
+
+    // 档案完善度：简历/紧急联系人批量计数（原生 SQL GROUP BY，避免 N+1）
+    let mut resume_counts: HashMap<i64, i64> = HashMap::new();
+    let mut contact_counts: HashMap<i64, i64> = HashMap::new();
+    if !id_list.is_empty() {
+        let placeholders = (1..=id_list.len()).map(|i| format!("${i}")).collect::<Vec<_>>().join(",");
+        let values = id_list.iter().map(|i| sea_orm::Value::from(*i)).collect::<Vec<_>>();
+        let resume_sql = format!(
+            r#"SELECT admin_id AS id, COUNT(*)::int8 AS cnt FROM mxx_hr_resume WHERE deleted = 0 AND admin_id IN ({placeholders}) GROUP BY admin_id"#
+        );
+        let rows = db.query_all_raw(Statement::from_sql_and_values(
+            db.get_database_backend(), resume_sql, values.clone(),
+        )).await?;
+        for row in rows {
+            let id: i64 = row.try_get("", "id")?;
+            let cnt: i64 = row.try_get("", "cnt")?;
+            resume_counts.insert(id, cnt);
+        }
+        let contact_sql = format!(
+            r#"SELECT admin_id AS id, COUNT(*)::int8 AS cnt FROM mxx_hr_emergency_contact WHERE deleted = 0 AND admin_id IN ({placeholders}) GROUP BY admin_id"#
+        );
+        let rows = db.query_all_raw(Statement::from_sql_and_values(
+            db.get_database_backend(), contact_sql, values,
+        )).await?;
+        for row in rows {
+            let id: i64 = row.try_get("", "id")?;
+            let cnt: i64 = row.try_get("", "cnt")?;
+            contact_counts.insert(id, cnt);
+        }
+    }
+
     let mut list_data: Vec<AdminListVO> = Vec::new();
     for data in list.clone() {
         let mut role_data: Vec<RoleNameDTO> = Vec::new();
@@ -600,6 +660,16 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
                 .join(", "))
         };
 
+        // 档案六项完善度
+        let id_filled = data.id_card_no.as_deref().map_or(false, |s| !s.is_empty());
+        let bank_filled = data.bank_card_no.as_deref().map_or(false, |s| !s.is_empty());
+        let email_filled = data.email.as_deref().map_or(false, |s| !s.is_empty());
+        let hire_filled = data.hire_date.is_some();
+        let resume_filled = resume_counts.get(&data.id).copied().unwrap_or(0) > 0;
+        let contact_filled = contact_counts.get(&data.id).copied().unwrap_or(0) > 0;
+        let filled_score = u32::from(id_filled) + u32::from(bank_filled) + u32::from(email_filled)
+            + u32::from(hire_filled) + u32::from(resume_filled) + u32::from(contact_filled);
+
         list_data.push(AdminListVO {
             id: data.id,
             user_name: data.user_name,
@@ -627,6 +697,13 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             salary_enabled: data.salary_enabled.unwrap_or(1),
             probation_months: data.probation_months,
             probation_ratio: data.probation_ratio,
+            id_filled,
+            bank_filled,
+            email_filled,
+            hire_filled,
+            resume_filled,
+            contact_filled,
+            completeness: (filled_score * 100 / 6) as i32,
         });
 
     }
@@ -679,4 +756,61 @@ pub async fn get_admin_options(db: &DbConn) -> Result<Vec<AdminOptionVO>> {
         });
     }
     Ok(list_data)
+}
+
+/// 员工列表列显示配置键
+pub const COLUMNS_CONFIG_KEY: &str = "system:admin:list:columns";
+
+/// 获取员工列表列显示配置（无配置返回 None）
+pub async fn get_columns_config(db: &DbConn) -> Result<Option<String>> {
+    let config = ConfigEntity::find()
+        .filter(ConfigColumn::ConfigKey.eq(COLUMNS_CONFIG_KEY))
+        .one(db)
+        .await?;
+    Ok(config.and_then(|c| c.config_value))
+}
+
+/// 保存员工列表列显示配置（upsert：存在则更新，不存在则插入，用事务）
+pub async fn save_columns_config(db: &DbConn, value: &str) -> Result<i64> {
+    let now = Local::now().naive_local();
+    let existing = ConfigEntity::find()
+        .filter(ConfigColumn::ConfigKey.eq(COLUMNS_CONFIG_KEY))
+        .one(db)
+        .await?;
+
+    let value_owned = value.to_string();
+
+    let result_id = db
+        .transaction::<_, i64, sea_orm::DbErr>(|txn| {
+            Box::pin(async move {
+                let id = if let Some(m) = existing {
+                    let mut active: ConfigActiveModel = m.into();
+                    active.config_value = Set(Some(value_owned.clone()));
+                    active.update_time = Set(Some(now));
+                    let updated = active.update(txn).await?;
+                    updated.id
+                } else {
+                    let active = ConfigActiveModel {
+                        config_name: Set(Some("员工列表列显示配置".to_string())),
+                        config_key: Set(Some(COLUMNS_CONFIG_KEY.to_string())),
+                        config_value: Set(Some(value_owned.clone())),
+                        config_type: Set(Some("N".to_string())),
+                        remark: Set(Some("员工列表各角色可见列配置".to_string())),
+                        sort: Set(Some(1)),
+                        create_time: Set(Some(now)),
+                        update_time: Set(Some(now)),
+                        ..Default::default()
+                    };
+                    let inserted = ConfigEntity::insert(active).exec(txn).await?;
+                    inserted.last_insert_id
+                };
+                Ok(id)
+            })
+        })
+        .await
+        .map_err(|e| match e {
+            sea_orm::TransactionError::Connection(err) => err,
+            sea_orm::TransactionError::Transaction(err) => err,
+        })?;
+    Ok(result_id)
 }

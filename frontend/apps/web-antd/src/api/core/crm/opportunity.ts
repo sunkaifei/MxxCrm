@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getOpportunityListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/opportunity/list', { params });
 };
@@ -19,7 +21,9 @@ export const deleteOpportunityApi = async (ids: number[]) => {
 };
 
 export const convertOpportunityToQuotationApi = async (id: number) => {
-  return requestClient.post('/api/system/opportunity/convert_to_quotation', { id });
+  return requestClient.post('/api/system/opportunity/convert_to_quotation', {
+    id,
+  });
 };
 
 export const convertOpportunityToOrderApi = async (id: number) => {

@@ -26,7 +26,7 @@
     "#/*": "./src/*"
   },
   "dependencies": {
-    "@msgpack/msgpack": "^3.1.3",
+    "@msgpack/msgpack": "catalog:",
     "@vben/access": "workspace:*",
     "@vben/common-ui": "workspace:*",
     "@vben/constants": "workspace:*",
@@ -41,15 +41,15 @@
     "@vben/styles": "workspace:*",
     "@vben/types": "workspace:*",
     "@vben/utils": "workspace:*",
-    "@vue-flow/core": "^1.48.2",
+    "@vue-flow/core": "catalog:",
     "@vueuse/core": "catalog:",
     "ant-design-vue": "catalog:",
     "dayjs": "catalog:",
     "lucide-vue-next": "catalog:",
-    "monaco-editor": "^0.56.0",
+    "monaco-editor": "catalog:",
     "pinia": "catalog:",
     "vue": "catalog:",
-    "vue-advanced-cropper": "^2.8.9",
+    "vue-advanced-cropper": "catalog:",
     "vue-router": "catalog:"
   },
   "devDependencies": {

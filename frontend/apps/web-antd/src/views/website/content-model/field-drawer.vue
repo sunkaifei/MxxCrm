@@ -1,13 +1,14 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
-import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message } from 'ant-design-vue';
-import {
-  addContentModelFieldApi,
-  updateContentModelFieldApi,
-} from '#/api';
 import type { ContentModelFieldSaveDTO } from '#/api/core/website/content-model';
+
+import { computed, ref } from 'vue';
+
+import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import { addContentModelFieldApi, updateContentModelFieldApi } from '#/api';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -80,8 +81,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: 'fieldOptions',
       label: '字段选项',
       componentProps: {
-        placeholder:
-          'JSON 格式，如 [{"label":"选项A","value":"a"}]',
+        placeholder: 'JSON 格式，如 [{"label":"选项A","value":"a"}]',
         allowClear: true,
         rows: 4,
       },

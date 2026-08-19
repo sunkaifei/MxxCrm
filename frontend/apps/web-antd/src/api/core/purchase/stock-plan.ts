@@ -1,16 +1,23 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getStockPlanListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/purchase/stock_plan/list', { params });
 };
 export const getStockPlanInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/purchase/stock_plan/info', { params: { id } });
+  return requestClient.get('/api/system/purchase/stock_plan/info', {
+    params: { id },
+  });
 };
 export const createStockPlanApi = async (param: any) => {
   return requestClient.post('/api/system/purchase/stock_plan/save', param);
 };
 export const updateStockPlanApi = async (param: any) => {
-  return requestClient.put(`/api/system/purchase/stock_plan/update/${param.id}`, param);
+  return requestClient.put(
+    `/api/system/purchase/stock_plan/update/${param.id}`,
+    param,
+  );
 };
 export const deleteStockPlanApi = async (ids: number[]) => {
   return requestClient.delete('/api/system/purchase/stock_plan/bath_delete', {
@@ -30,5 +37,7 @@ export const recalculateApi = async (id: number) => {
 // ========== 预警 ==========
 
 export const getWarningListApi = async (params?: PageParams) => {
-  return requestClient.get('/api/system/purchase/stock_plan/warning_list', { params });
+  return requestClient.get('/api/system/purchase/stock_plan/warning_list', {
+    params,
+  });
 };

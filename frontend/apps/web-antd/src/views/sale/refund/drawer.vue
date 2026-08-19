@@ -1,38 +1,42 @@
 <script lang="ts" setup>
+import type { Key } from 'ant-design-vue/es/table/interface';
+
 import type { VbenFormSchema } from '@vben/common-ui';
 
 import { computed, ref } from 'vue';
-import type { Key } from 'ant-design-vue/es/table/interface';
 
 import { useVbenForm } from '@vben/common-ui';
 
 import {
+  Select as ASelect,
   Button,
   Input,
   InputNumber,
+  message,
   Modal,
   Radio,
   RadioGroup,
-  Select as ASelect,
   Table,
-  Tabs,
   TabPane,
+  Tabs,
   Tooltip,
-  message,
 } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
 import {
   createRefundApi,
   getOrderInfoApi,
-  getRefundInfoApi,
   getOrderListApi,
+  getRefundInfoApi,
   getWarehouseListApi,
   updateRefundApi,
 } from '#/api';
 
 // drawerData 在 onOpenChange 中手动赋值，避免引用尚未定义的 drawerApi
-const drawerData = ref<{ create: boolean; row: any }>({ create: true, row: {} });
+const drawerData = ref<{ create: boolean; row: any }>({
+  create: true,
+  row: {},
+});
 const isEdit = computed(() => !drawerData.value.create);
 
 const activeTab = ref('basic');
@@ -47,11 +51,11 @@ const orderKeyword = ref('');
 const orderSelectedKeys = ref<Key[]>([]);
 const orderSelectedRow = ref<any | null>(null);
 const orderInfo = ref<{
+  customerId?: number;
+  customerName?: string;
   id?: number;
   orderNo?: string;
   title?: string;
-  customerId?: number;
-  customerName?: string;
 }>({});
 
 // ===== 退货明细 =====
@@ -93,14 +97,15 @@ async function loadWarehouseList() {
     const rawList = data.list || data.items || data.rows || [];
     // 仅显示退货仓（warehouse_type=4），若无类型字段则全部展示
     warehouseList.value = rawList.filter(
-      (w: any) => !w.warehouseType || w.warehouseType === 4 || w.warehouse_type === 4,
+      (w: any) =>
+        !w.warehouseType || w.warehouseType === 4 || w.warehouse_type === 4,
     );
     // 默认选择第一个
     if (warehouseList.value.length > 0 && !warehouseId.value) {
       warehouseId.value = warehouseList.value[0].id;
     }
-  } catch (e) {
-    console.error('[退货单] 加载仓库列表失败:', e);
+  } catch (error) {
+    console.error('[退货单] 加载仓库列表失败:', error);
     warehouseList.value = [];
   }
 }
@@ -164,7 +169,9 @@ async function loadOrderDetail(orderId: number) {
     const orderItems = data.items || [];
     // 初始化退货明细：默认勾选全部，退货数量=可退数量
     items.value = orderItems.map((it: any) => {
-      const delivered = Number(it.deliveredQuantity ?? it.delivered_quantity ?? it.quantity ?? 0);
+      const delivered = Number(
+        it.deliveredQuantity ?? it.delivered_quantity ?? it.quantity ?? 0,
+      );
       const unitPrice = Number(it.unitPrice ?? it.unit_price ?? 0);
       return {
         orderItemId: it.id,
@@ -179,8 +186,8 @@ async function loadOrderDetail(orderId: number) {
         selected: refundType.value === 1,
       };
     });
-  } catch (e) {
-    console.error('[退货单] 加载订单明细失败:', e);
+  } catch (error) {
+    console.error('[退货单] 加载订单明细失败:', error);
     items.value = [];
   }
 }
@@ -193,23 +200,21 @@ function clearOrder() {
 // 切换退货类型
 function handleRefundTypeChange(e: any) {
   refundType.value = e?.target?.value ?? e;
-  // 整单退货：全部勾选，退货数量=已发货数量
-  if (refundType.value === 1) {
-    items.value = items.value.map((it) => ({
-      ...it,
-      selected: true,
-      refundQty: it.deliveredQty,
-      refundAmount: it.deliveredQty * it.unitPrice,
-    }));
-  } else {
-    // 部分退货：取消勾选，退货数量清零
-    items.value = items.value.map((it) => ({
-      ...it,
-      selected: false,
-      refundQty: 0,
-      refundAmount: 0,
-    }));
-  }
+  // 整单退货：全部勾选，退货数量=已发货数量；部分退货：取消勾选，退货数量清零
+  items.value =
+    refundType.value === 1
+      ? items.value.map((it) => ({
+          ...it,
+          selected: true,
+          refundQty: it.deliveredQty,
+          refundAmount: it.deliveredQty * it.unitPrice,
+        }))
+      : items.value.map((it) => ({
+          ...it,
+          selected: false,
+          refundQty: 0,
+          refundAmount: 0,
+        }));
 }
 
 function updateItemAmount(index: number) {
@@ -219,13 +224,13 @@ function updateItemAmount(index: number) {
 
 function toggleItemSelection(index: number, checked: boolean) {
   items.value[index].selected = checked;
-  if (!checked) {
-    items.value[index].refundQty = 0;
-    items.value[index].refundAmount = 0;
-  } else {
+  if (checked) {
     // 默认填入1
     items.value[index].refundQty = items.value[index].refundQty || 1;
     updateItemAmount(index);
+  } else {
+    items.value[index].refundQty = 0;
+    items.value[index].refundAmount = 0;
   }
 }
 
@@ -282,8 +287,8 @@ async function loadRefundDetail(refundId: number) {
         return { ...it, refundQty: 0, refundAmount: 0, selected: false };
       });
     }
-  } catch (e) {
-    console.error('[退货单] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[退货单] 加载详情失败:', error);
   }
 }
 
@@ -314,14 +319,44 @@ const [BasicForm, basicFormApi] = useVbenForm({
 });
 
 const itemColumns = [
-  { title: '#', width: 45, key: 'seq', customRender: ({ index }: any) => index + 1, align: 'center' as const },
+  {
+    title: '#',
+    width: 45,
+    key: 'seq',
+    customRender: ({ index }: any) => index + 1,
+    align: 'center' as const,
+  },
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 220 },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 55, align: 'center' as const },
-  { title: '已发货', dataIndex: 'deliveredQty', key: 'deliveredQty', width: 80, align: 'right' as const },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 55,
+    align: 'center' as const,
+  },
+  {
+    title: '已发货',
+    dataIndex: 'deliveredQty',
+    key: 'deliveredQty',
+    width: 80,
+    align: 'right' as const,
+  },
   { title: '退货数量', key: 'refundQty', width: 100, align: 'center' as const },
-  { title: '单价', dataIndex: 'unitPrice', key: 'unitPrice', width: 95, align: 'right' as const },
-  { title: '退货金额', dataIndex: 'refundAmount', key: 'refundAmount', width: 105, align: 'right' as const },
+  {
+    title: '单价',
+    dataIndex: 'unitPrice',
+    key: 'unitPrice',
+    width: 95,
+    align: 'right' as const,
+  },
+  {
+    title: '退货金额',
+    dataIndex: 'refundAmount',
+    key: 'refundAmount',
+    width: 105,
+    align: 'right' as const,
+  },
 ];
 
 // 订单选择表格列定义
@@ -357,8 +392,8 @@ async function handleSubmit() {
     let validResult;
     try {
       validResult = await basicFormApi.validate();
-    } catch (e) {
-      console.error('[退货单提交] 表单验证异常:', e);
+    } catch (error) {
+      console.error('[退货单提交] 表单验证异常:', error);
       activeTab.value = 'basic';
       message.warning('请完善基本信息');
       return;
@@ -377,7 +412,9 @@ async function handleSubmit() {
     }
 
     // 3. 校验退货明细
-    const selectedItems = items.value.filter((it) => it.selected && Number(it.refundQty || 0) > 0);
+    const selectedItems = items.value.filter(
+      (it) => it.selected && Number(it.refundQty || 0) > 0,
+    );
     if (selectedItems.length === 0) {
       message.error('请至少添加一条退货明细');
       activeTab.value = 'items';
@@ -387,7 +424,9 @@ async function handleSubmit() {
     // 4. 校验退货数量不超过已发货数量
     for (const it of selectedItems) {
       if (Number(it.refundQty) > Number(it.deliveredQty)) {
-        message.error(`产品 [${it.productName}] 退货数量 ${it.refundQty} 超过已发货数量 ${it.deliveredQty}`);
+        message.error(
+          `产品 [${it.productName}] 退货数量 ${it.refundQty} 超过已发货数量 ${it.deliveredQty}`,
+        );
         activeTab.value = 'items';
         return;
       }
@@ -435,8 +474,8 @@ async function handleSubmit() {
       message.success('创建成功');
     }
     closeDrawer();
-  } catch (e) {
-    console.error('[退货单提交] 提交失败:', e);
+  } catch (error) {
+    console.error('[退货单提交] 提交失败:', error);
     message.error('操作失败');
   } finally {
     submitting.value = false;
@@ -488,14 +527,38 @@ const [Drawer, drawerApi] = useVbenDrawer({
   >
     <template #extra>
       <Tooltip :title="isFullscreen ? '退出全屏' : '全屏'">
-        <button type="button" class="sale-refund-drawer__fs-btn" @click="toggleFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          type="button"
+          class="sale-refund-drawer__fs-btn"
+          @click="toggleFullscreen"
+        >
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M8 3H5a2 2 0 0 0-2 2v3" />
             <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
             <path d="M3 16v3a2 2 0 0 0 2 2h3" />
             <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M8 3v3a2 2 0 0 1-2 2H3" />
             <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
             <path d="M3 16h3a2 2 0 0 1 2 2v3" />
@@ -504,12 +567,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
         </button>
       </Tooltip>
     </template>
-    <Tabs v-model:activeKey="activeTab">
+    <Tabs v-model:active-key="activeTab">
       <TabPane key="basic" tab="基本信息">
         <BasicForm />
         <!-- 关联订单 -->
         <div class="flex items-center gap-2 mt-2 px-1">
-          <span class="text-sm text-gray-500 shrink-0" style="width: 82px">关联订单：</span>
+          <span class="text-sm text-gray-500 shrink-0" style="width: 82px"
+            >关联订单：</span
+          >
           <div class="flex-1">
             <a
               v-if="orderInfo.id"
@@ -529,33 +594,49 @@ const [Drawer, drawerApi] = useVbenDrawer({
               选择销售订单
             </a>
           </div>
-          <Button v-if="orderInfo.id" type="link" size="small" danger @click="clearOrder">清除</Button>
+          <Button
+            v-if="orderInfo.id"
+            type="link"
+            size="small"
+            danger
+            @click="clearOrder"
+          >
+            清除
+          </Button>
         </div>
         <!-- 退货类型 -->
         <div class="flex items-center gap-2 mt-3 px-1">
-          <span class="text-sm text-gray-500 shrink-0" style="width: 82px">退货类型：</span>
-          <RadioGroup
-            :value="refundType"
-            @change="handleRefundTypeChange"
+          <span class="text-sm text-gray-500 shrink-0" style="width: 82px"
+            >退货类型：</span
           >
+          <RadioGroup :value="refundType" @change="handleRefundTypeChange">
             <Radio :value="1">整单退货</Radio>
             <Radio :value="2">部分退货</Radio>
           </RadioGroup>
         </div>
         <!-- 入库仓库 -->
         <div class="flex items-center gap-2 mt-3 px-1">
-          <span class="text-sm text-gray-500 shrink-0" style="width: 82px">入库仓库：</span>
+          <span class="text-sm text-gray-500 shrink-0" style="width: 82px"
+            >入库仓库：</span
+          >
           <ASelect
             v-model:value="warehouseId"
             placeholder="请选择退货仓"
-            style="width: 100%; flex: 1"
+            style="flex: 1; width: 100%"
             allow-clear
-            :options="warehouseList.map((w) => ({ label: w.warehouseName || w.name, value: w.id }))"
+            :options="
+              warehouseList.map((w) => ({
+                label: w.warehouseName || w.name,
+                value: w.id,
+              }))
+            "
           />
         </div>
         <!-- 收货信息 -->
         <div class="mt-4 p-3 bg-gray-50 rounded">
-          <div class="text-sm font-medium mb-2">收货信息（仓库接收退货的地址）</div>
+          <div class="text-sm font-medium mb-2">
+            收货信息（仓库接收退货的地址）
+          </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-xs text-gray-500">收货人</label>
@@ -574,7 +655,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
         <!-- 备注 -->
         <div class="mt-3 px-1">
           <label class="text-sm text-gray-500">备注：</label>
-          <Input.TextArea v-model:value="remark" placeholder="备注信息" :rows="2" />
+          <Input.TextArea
+            v-model:value="remark"
+            placeholder="备注信息"
+            :rows="2"
+          />
         </div>
       </TabPane>
       <TabPane key="items" tab="退货明细">
@@ -588,10 +673,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
             <span class="text-sm text-gray-500">
               共 {{ items.length }} 项，
               <template v-if="refundType === 1">
-                <span class="text-orange-500">整单退货：全部明细按已发货数量退货</span>
+                <span class="text-orange-500"
+                  >整单退货：全部明细按已发货数量退货</span
+                >
               </template>
               <template v-else>
-                <span class="text-blue-500">部分退货：勾选要退货的明细，并填写退货数量</span>
+                <span class="text-blue-500"
+                  >部分退货：勾选要退货的明细，并填写退货数量</span
+                >
               </template>
             </span>
           </div>
@@ -607,8 +696,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'product'">
                 <div class="flex flex-col">
-                  <span class="font-medium">{{ record.productName || '-' }}</span>
-                  <span v-if="record.productId" class="text-xs text-gray-400">ID: {{ record.productId }}</span>
+                  <span class="font-medium">{{
+                    record.productName || '-'
+                  }}</span>
+                  <span v-if="record.productId" class="text-xs text-gray-400"
+                    >ID: {{ record.productId }}</span
+                  >
                 </div>
               </template>
               <template v-else-if="column.key === 'deliveredQty'">
@@ -621,7 +714,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
                     type="checkbox"
                     :checked="record.selected"
                     class="cursor-pointer"
-                    @change="(e) => toggleItemSelection(index, (e.target as HTMLInputElement).checked)"
+                    @change="
+                      (e) =>
+                        toggleItemSelection(
+                          index,
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
                   />
                   <InputNumber
                     v-model:value="record.refundQty"
@@ -649,7 +748,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
           <div class="mt-4 flex flex-col items-end gap-2 pr-4">
             <div class="flex items-center gap-2">
               <span class="w-32 text-right text-gray-500">退货总金额：</span>
-              <span class="w-32 text-right font-medium">{{ totalAmount.toFixed(2) }}</span>
+              <span class="w-32 text-right font-medium">{{
+                totalAmount.toFixed(2)
+              }}</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="w-24 text-right text-gray-500">折让金额：</span>
@@ -711,10 +812,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
             orderSelectedRow = rows[0] || null;
           },
         }"
-        :custom-row="(record: any) => ({
-          onClick: () => handleOrderSelect(record),
-          style: { cursor: 'pointer' },
-        })"
+        :custom-row="
+          (record: any) => ({
+            onClick: () => handleOrderSelect(record),
+            style: { cursor: 'pointer' },
+          })
+        "
         size="small"
         :scroll="{ y: 400 }"
       />
@@ -739,16 +842,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .sale-refund-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 </style>

@@ -17,6 +17,7 @@
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::config;
 use crate::core::web::response::ResultPage;
+use crate::modules::sale::entity::{invoice, invoice::Entity as InvoiceEntity};
 use crate::modules::system::model::admin::AdminModel;
 use crate::modules::system::service::config_service;
 use crate::modules::upload::model::attachment::{
@@ -30,7 +31,10 @@ use crate::utils::time_utils::current_date;
 use crate::SNOWFLAKE;
 use actix_multipart::form::text::Text;
 use chrono::Local;
-use sea_orm::DbConn;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DbConn, EntityTrait, QueryFilter, Set,
+    TransactionTrait,
+};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
@@ -150,7 +154,21 @@ pub async fn upload_file(
         deleted: Some(0),
     };
 
-    let rows = AttachmentModel::insert(db, &save_dto).await?;
+    let rows = if entity_type == "invoice" {
+        // 发票附件：附件插入与发票状态回写必须同事务原子执行（参考规则第4节 / 验收D4）
+        let txn = db.begin().await?;
+        let affected = AttachmentModel::insert(&txn, &save_dto).await?;
+        if affected == 0 {
+            return Err(Error::from("上传文件保存失败"));
+        }
+        if let Some(invoice_id) = entity_id {
+            sync_invoice_status_after_upload(&txn, invoice_id).await?;
+        }
+        txn.commit().await?;
+        affected
+    } else {
+        AttachmentModel::insert(db, &save_dto).await?
+    };
     if rows == 0 {
         return Err(Error::from("上传文件保存失败"));
     }
@@ -353,6 +371,7 @@ fn save_file_to_local(file_data: &[u8], full_path: &str) -> Result<()> {
 /// 删除规则：
 /// - count_quote > 0 拒绝删除
 /// - 软删除（deleted=1）+ 删除物理文件
+/// - 若删除的是发票附件且发票已无有效附件，同事务内回写发票状态（已开票→待开票）
 ///
 /// * `db` 数据库连接
 /// * `ids` 附件ID集合
@@ -361,13 +380,13 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids: Vec<i64>) -> Result<i64> {
         return Err(Error::from("未获得id，删除失败"));
     }
 
-    let mut rows = 0;
+    // 1. 预检：全部存在且可删除，收集被删附件与涉及的发票id
+    let mut to_delete: Vec<crate::modules::upload::entity::attachment::Model> = Vec::new();
     for id in ids {
         let Some(attachment) = AttachmentModel::find_active_by_id(db, id).await? else {
             // 不存在或已软删除，跳过
             continue;
         };
-
         // count_quote > 0 拒绝删除
         if attachment.count_quote.unwrap_or(0) > 0 {
             return Err(Error::from(format!(
@@ -375,9 +394,22 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids: Vec<i64>) -> Result<i64> {
                 id
             )));
         }
+        to_delete.push(attachment);
+    }
+    if to_delete.is_empty() {
+        return Ok(0);
+    }
+    let invoice_ids: HashSet<i64> = to_delete
+        .iter()
+        .filter(|a| a.entity_type.as_deref() == Some("invoice"))
+        .filter_map(|a| a.entity_id)
+        .collect();
 
-        // 软删除数据库记录
-        AttachmentModel::soft_delete_by_id(db, id).await?;
+    // 2. 事务内：软删除 + 发票状态回退，保持原子性
+    let txn = db.begin().await?;
+    let mut rows = 0;
+    for attachment in &to_delete {
+        AttachmentModel::soft_delete_by_id(&txn, attachment.id).await?;
 
         // 删除物理文件
         let path = attachment.path.clone().unwrap_or_default();
@@ -388,7 +420,76 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids: Vec<i64>) -> Result<i64> {
         }
         rows += 1;
     }
+    for invoice_id in invoice_ids {
+        sync_invoice_status_after_delete(&txn, invoice_id).await?;
+    }
+    txn.commit().await?;
+
     Ok(rows)
+}
+
+/// 发票上传附件后回写状态：`approval_status=3 && status=2` → `status=3`（已开票）。
+/// 必须在事务内调用（与附件插入同事务），失败即回滚，保证无半完成状态。
+async fn sync_invoice_status_after_upload(
+    db: &impl ConnectionTrait,
+    invoice_id: i64,
+) -> Result<()> {
+    let inv = InvoiceEntity::find_by_id(invoice_id)
+        .filter(invoice::Column::Deleted.eq(0))
+        .one(db)
+        .await
+        .map_err(|e| Error::from(format!("查询发票失败: {}", e)))?;
+    let Some(inv) = inv else {
+        return Ok(());
+    };
+    if inv.approval_status == Some(3) && inv.status == Some(2) {
+        InvoiceEntity::update_many()
+            .set(invoice::ActiveModel {
+                status: Set(Some(3)),
+                update_time: Set(Some(chrono::Local::now().naive_local().to_owned())),
+                ..Default::default()
+            })
+            .filter(invoice::Column::Id.eq(invoice_id))
+            .exec(db)
+            .await
+            .map_err(|e| Error::from(format!("回写发票状态失败: {}", e)))?;
+    }
+    Ok(())
+}
+
+/// 发票附件删除后回写状态：发票下已无有效附件且 `status=3` → `status=2`（回退待开票）。
+/// 必须在事务内调用（与附件软删除同事务）。
+async fn sync_invoice_status_after_delete(
+    db: &impl ConnectionTrait,
+    invoice_id: i64,
+) -> Result<()> {
+    // 发票下是否仍有有效附件
+    let remains = AttachmentModel::find_by_entity(db, "invoice", invoice_id)
+        .await
+        .map_err(|e| Error::from(format!("查询发票附件失败: {}", e)))?;
+    if !remains.is_empty() {
+        return Ok(());
+    }
+    let inv = InvoiceEntity::find_by_id(invoice_id)
+        .filter(invoice::Column::Deleted.eq(0))
+        .one(db)
+        .await
+        .map_err(|e| Error::from(format!("查询发票失败: {}", e)))?;
+    if let Some(inv) = inv {
+        if inv.status == Some(3) {
+            InvoiceEntity::update_many()
+                .set(invoice::ActiveModel {
+                    status: Set(Some(2)),
+                    update_time: Set(Some(chrono::Local::now().naive_local().to_owned())),
+                    ..Default::default()
+                })
+                .filter(invoice::Column::Id.eq(invoice_id))
+                .exec(db)
+                .await
+                .map_err(|e| Error::from(format!("回写发票状态失败: {}", e)))?;
+        }
+    }
+    Ok(())
 }
 
 /// # 修改附件信息

@@ -32,8 +32,7 @@ export const messageApi = {
   list: (params: MessageListParams) =>
     requestClient.get('/api/system/message/list', { params }),
 
-  detail: (id: number) =>
-    requestClient.get(`/api/system/message/detail/${id}`),
+  detail: (id: number) => requestClient.get(`/api/system/message/detail/${id}`),
 
   convertLead: (id: number, data: ConvertLeadParams) =>
     requestClient.post(`/api/system/message/convert_lead/${id}`, data),

@@ -9,17 +9,167 @@
 //!
 
 use crate::core::errors::error::{Error, Result};
-use crate::modules::system::entity::dept::Model;
+use crate::modules::system::entity::dept::{Column as DeptColumn, Entity as DeptEntity, Model};
 use crate::modules::system::model::admin_dept_merge::{AdminDeptMergeModel, AdminDeptMergeSaveDTO};
 use crate::modules::system::model::dept::{DeptAdminByName, DeptDetailVO, DeptModel, DeptOptionVO, DeptOptionsTreeVO, DeptSaveDTO, DeptTreeListVO, ListQuery, PageWhere};
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
-use sea_orm::{DbConn, DbErr, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DbConn, DbErr, EntityTrait, QueryFilter, Set, TransactionTrait};
 use std::collections::{HashMap, HashSet};
 
 
+/// ==================== 唯一性/合法性校验 ====================
+
+/// 同一父级下部门名称唯一（exclude_id：更新时排除自身）
+async fn check_name_unique(db: &DbConn, parent_id: i64, dept_name: &str, exclude_id: Option<i64>) -> Result<()> {
+    let mut qr = DeptEntity::find()
+        .filter(DeptColumn::Deleted.eq(0))
+        .filter(DeptColumn::ParentId.eq(parent_id))
+        .filter(DeptColumn::DeptName.eq(dept_name.trim()));
+    if let Some(id) = exclude_id {
+        qr = qr.filter(DeptColumn::Id.ne(id));
+    }
+    if qr.one(db).await?.is_some() {
+        return Err(Error::from(format!("同级下已存在同名部门【{}】", dept_name.trim())));
+    }
+    Ok(())
+}
+
+/// 部门编码全局唯一（非空时校验；exclude_id：更新时排除自身）
+async fn check_code_unique(db: &DbConn, code: &Option<String>, exclude_id: Option<i64>) -> Result<()> {
+    let code = match code {
+        Some(c) if !c.trim().is_empty() => c.trim().to_string(),
+        _ => return Ok(()),
+    };
+    let mut qr = DeptEntity::find()
+        .filter(DeptColumn::Deleted.eq(0))
+        .filter(DeptColumn::Code.eq(code.clone()));
+    if let Some(id) = exclude_id {
+        qr = qr.filter(DeptColumn::Id.ne(id));
+    }
+    if qr.one(db).await?.is_some() {
+        return Err(Error::from(format!("部门编码【{}】已被使用", code)));
+    }
+    Ok(())
+}
+
+/// 顶级部门唯一（审批流以唯一根节点规划，顶级只允许存在一个）
+async fn check_top_level_unique(db: &DbConn, exclude_id: Option<i64>) -> Result<()> {
+    let mut qr = DeptEntity::find()
+        .filter(DeptColumn::Deleted.eq(0))
+        .filter(DeptColumn::ParentId.eq(0));
+    if let Some(id) = exclude_id {
+        qr = qr.filter(DeptColumn::Id.ne(id));
+    }
+    if qr.one(db).await?.is_some() {
+        return Err(Error::from("顶级部门已存在，组织架构只允许一个顶级（根）部门，其余部门请挂在顶级部门之下"));
+    }
+    Ok(())
+}
+
+/// 校验目标父级不能是自身或自身的子孙（防环）
+async fn check_not_descendant(db: &DbConn, self_id: i64, new_parent_id: i64) -> Result<()> {
+    if new_parent_id == 0 {
+        return Ok(());
+    }
+    // 沿目标父级向上找，若遇到自己则构成环
+    let mut cursor = new_parent_id;
+    for _ in 0..50 {
+        if cursor == self_id {
+            return Err(Error::from("上级部门不能选择自己或自己的下级部门"));
+        }
+        let parent = DeptEntity::find_by_id(cursor)
+            .filter(DeptColumn::Deleted.eq(0))
+            .one(db)
+            .await?;
+        match parent {
+            Some(p) => {
+                cursor = p.parent_id.unwrap_or(0);
+                if cursor == 0 {
+                    break;
+                }
+            }
+            None => return Err(Error::from("所选上级部门不存在")),
+        }
+    }
+    Ok(())
+}
+
+/// 计算部门的祖先链（0,100,101 形式，顶级为 "0"）
+async fn build_ancestors(db: &DbConn, parent_id: i64) -> Result<String> {
+    if parent_id == 0 {
+        return Ok("0".to_string());
+    }
+    let mut chain: Vec<String> = Vec::new();
+    let mut cursor = parent_id;
+    for _ in 0..50 {
+        let p = DeptEntity::find_by_id(cursor)
+            .filter(DeptColumn::Deleted.eq(0))
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::from("所选上级部门不存在"))?;
+        chain.insert(0, cursor.to_string());
+        cursor = p.parent_id.unwrap_or(0);
+        if cursor == 0 {
+            break;
+        }
+    }
+    Ok(format!("0,{}", chain.join(",")))
+}
+
+/// 变更上级后，级联重算自身及所有子孙的 ancestors（保持审批链路正确）
+async fn cascade_update_ancestors(db: &DbConn, self_id: i64, new_ancestors: &str) -> Result<()> {
+    // 收集所有子孙（按 parent_id 递归）
+    let mut all = DeptEntity::find()
+        .filter(DeptColumn::Deleted.eq(0))
+        .all(db)
+        .await?;
+    let mut children_map: HashMap<i64, Vec<Model>> = HashMap::new();
+    for m in all.drain(..) {
+        children_map.entry(m.parent_id.unwrap_or(0)).or_default().push(m);
+    }
+    let mut stack = vec![self_id];
+    while let Some(pid) = stack.pop() {
+        if let Some(children) = children_map.get(&pid) {
+            for c in children {
+                let child_anc = format!("{},{}", new_ancestors, c.id);
+                let mut am: dept::ActiveModel = c.clone().into();
+                am.ancestors = Set(Some(child_anc.clone()));
+                am.update(db).await?;
+                stack.push(c.id);
+            }
+        }
+    }
+    Ok(())
+}
+
+use crate::modules::system::entity::dept;
+
 /// 新增部门
 pub async fn insert(db: &DbConn, form_data: &DeptSaveDTO) -> Result<i64> {
-    let result = DeptModel::insert(&db, form_data).await?;
+    let parent_id = form_data.parent_id.unwrap_or(0);
+    let dept_name = form_data.dept_name.clone()
+        .ok_or_else(|| Error::from("部门名称不能为空"))?;
+
+    // 唯一性校验：同级重名 / 编码全局唯一 / 顶级唯一
+    check_name_unique(db, parent_id, &dept_name, None).await?;
+    check_code_unique(db, &form_data.code, None).await?;
+    if parent_id == 0 {
+        check_top_level_unique(db, None).await?;
+    }
+    // 上级必须存在（非顶级时）
+    if parent_id != 0 {
+        let parent = DeptEntity::find_by_id(parent_id)
+            .filter(DeptColumn::Deleted.eq(0))
+            .one(db)
+            .await?;
+        if parent.is_none() {
+            return Err(Error::from("所选上级部门不存在"));
+        }
+    }
+
+    let mut form_data = form_data.clone();
+    form_data.ancestors = Some(build_ancestors(db, parent_id).await?);
+    let result = DeptModel::insert(&db, &form_data).await?;
     Ok(result)
 }
 
@@ -51,7 +201,36 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<Option<String>>) -> 
 
 /// 更新部门
 pub async fn update_by_id(db: &DbConn, form_data: &DeptSaveDTO) -> Result<i64> {
-    let result = DeptModel::update_by_id(&db, form_data.id.unwrap(), form_data).await?;
+    let self_id = form_data.id.unwrap();
+    let old = DeptEntity::find_by_id(self_id)
+        .filter(DeptColumn::Deleted.eq(0))
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::from("部门不存在"))?;
+
+    let new_parent_id = form_data.parent_id.unwrap_or(0);
+    let dept_name = form_data.dept_name.clone()
+        .ok_or_else(|| Error::from("部门名称不能为空"))?;
+
+    // 唯一性校验（排除自身）：同级重名 / 编码全局唯一 / 顶级唯一
+    check_name_unique(db, new_parent_id, &dept_name, Some(self_id)).await?;
+    check_code_unique(db, &form_data.code, Some(self_id)).await?;
+    if new_parent_id == 0 {
+        check_top_level_unique(db, Some(self_id)).await?;
+    }
+    // 防环：上级不能是自己或自己的子孙
+    check_not_descendant(db, self_id, new_parent_id).await?;
+
+    // 上级发生变更：重算自身及子孙的 ancestors
+    let parent_changed = old.parent_id.unwrap_or(0) != new_parent_id;
+    let new_ancestors = build_ancestors(db, new_parent_id).await?;
+    let mut form_data = form_data.clone();
+    form_data.ancestors = Some(new_ancestors.clone());
+
+    let result = DeptModel::update_by_id(&db, self_id, &form_data).await?;
+    if parent_changed {
+        cascade_update_ancestors(db, self_id, &new_ancestors).await?;
+    }
     Ok(result)
 }
 

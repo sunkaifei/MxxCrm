@@ -1,8 +1,11 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -10,7 +13,6 @@ import { formatDateTime } from '@vben/utils';
 import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteSupplierApi, getSupplierListApi } from '#/api';
 import { $t } from '#/locales';
 
@@ -48,13 +50,20 @@ const formOptions: VbenFormProps = {
       component: 'Input',
       fieldName: 'keywords',
       label: '供应商名称/联系人',
-      componentProps: { placeholder: '请输入供应商名称或联系人', allowClear: true },
+      componentProps: {
+        placeholder: '请输入供应商名称或联系人',
+        allowClear: true,
+      },
     },
     {
       component: 'Select',
       fieldName: 'status',
       label: '状态',
-      componentProps: { placeholder: '全部', allowClear: true, options: statusOptions },
+      componentProps: {
+        placeholder: '全部',
+        allowClear: true,
+        options: statusOptions,
+      },
     },
   ],
 };
@@ -90,8 +99,19 @@ const gridOptions: VxeGridProps = {
     { title: '国家/地区', field: 'country', width: 100 },
     { title: '等级', field: 'level', width: 120, slots: { default: 'level' } },
     { title: '状态', field: 'status', width: 90, slots: { default: 'status' } },
-    { title: '创建时间', field: 'createTime', width: 160, slots: { default: 'createTime' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 120 },
+    {
+      title: '创建时间',
+      field: 'createTime',
+      width: 160,
+      slots: { default: 'createTime' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 120,
+    },
   ],
 };
 
@@ -110,8 +130,12 @@ function openDrawer(create: boolean, row?: any) {
   drawerApi.open();
 }
 
-function handleCreate() { openDrawer(true); }
-function handleEdit(row: any) { openDrawer(false, row); }
+function handleCreate() {
+  openDrawer(true);
+}
+function handleEdit(row: any) {
+  openDrawer(false, row);
+}
 
 async function handleDelete(row: any) {
   row.pending = true;

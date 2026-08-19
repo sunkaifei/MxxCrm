@@ -39,7 +39,7 @@ async function initSetupVbenForm() {
         return true;
       },
       // 正整数校验
-      positiveInteger: (value, _params, ctx) => {
+      positiveInteger: (value: any, _params: any, ctx: Record<string, any>) => {
         if (value === undefined || value === null || value === '') {
           return true;
         }

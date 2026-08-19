@@ -47,18 +47,18 @@ export const rejectRefundApi = async (refundId: number, reason?: string) => {
 
 // 仓库收货
 export const receiveRefundApi = async (param: {
-  refundId: number;
-  logisticsNo?: string;
   logisticsCompany?: string;
+  logisticsNo?: string;
+  refundId: number;
 }) => {
   return requestClient.post('/api/system/sale/refund/receive', param);
 };
 
 // 质检完成
 export const qualityCheckRefundApi = async (param: {
-  refundId: number;
-  qualityCheckResult: number;
   qualityCheckRemark?: string;
+  qualityCheckResult: number;
+  refundId: number;
 }) => {
   return requestClient.post('/api/system/sale/refund/quality-check', param);
 };
@@ -70,12 +70,12 @@ export const cancelRefundApi = async (refundId: number) => {
 
 // 发起退款
 export const createRefundPaymentApi = async (param: {
-  refundId: number;
-  paymentMethod?: number;
-  paymentAmount?: number;
   paymentAccount?: string;
-  transactionNo?: string;
+  paymentAmount?: number;
+  paymentMethod?: number;
+  refundId: number;
   remark?: string;
+  transactionNo?: string;
 }) => {
   return requestClient.post('/api/system/sale/refund/payment', param);
 };

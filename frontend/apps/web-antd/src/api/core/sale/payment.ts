@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getPaymentListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/sale/payment/list', { params });
 };
@@ -28,13 +30,10 @@ export const rejectPaymentApi = async (id: number) => {
 
 // 核销：一笔回款核销多个计划
 export const applyPaymentApi = async (data: {
+  applications: Array<{ applyAmount: number; planId: null | number }>;
   paymentId: number;
-  applications: Array<{ planId: number | null; applyAmount: number }>;
 }) => {
-  return requestClient.post(
-    '/api/system/sale/payment/application/apply',
-    data,
-  );
+  return requestClient.post('/api/system/sale/payment/application/apply', data);
 };
 
 // 取消核销

@@ -31,7 +31,9 @@ export interface LeadTransferResult {
 }
 
 /** 预览线索转移影响范围 */
-export const previewLeadTransferApi = async (data: LeadTransferPreviewRequest) => {
+export const previewLeadTransferApi = async (
+  data: LeadTransferPreviewRequest,
+) => {
   return requestClient.post<LeadTransferPreviewVO>(
     '/api/system/lead/transfer/preview',
     data,

@@ -1,12 +1,35 @@
 <script lang="ts" setup>
 import type { TableColumnsType } from 'ant-design-vue';
 
-import { computed, defineComponent, h, markRaw, onMounted, reactive, ref, watch } from 'vue';
+import {
+  computed,
+  defineComponent,
+  h,
+  markRaw,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Handle, Position, useVueFlow, VueFlow } from '@vue-flow/core';
-import { Button, Input, message, Modal, Select, Switch, Table, Tag } from 'ant-design-vue';
-import { ArrowLeft, Search as LucideSearch, Save, UserPlus } from 'lucide-vue-next';
+import {
+  Button,
+  Input,
+  message,
+  Modal,
+  Select,
+  Switch,
+  Table,
+  Tag,
+} from 'ant-design-vue';
+import {
+  ArrowLeft,
+  Search as LucideSearch,
+  Save,
+  UserPlus,
+} from 'lucide-vue-next';
 
 import { getApprovalFlowDetailApi, saveApprovalFlowApi } from '#/api';
 import { getPostOptionsApi } from '#/api/core/system/post';
@@ -22,12 +45,19 @@ const router = useRouter();
 // ============ Node type config ============
 const nodeStyleConfig: Record<
   number,
-  { bg: string; defaultLabel: string; shape: string; }
+  { bg: string; defaultLabel: string; shape: string }
 > = {
   1: { bg: '#52c41a', shape: 'circle', defaultLabel: '开始' },
   2: { bg: '#1890ff', shape: 'rect', defaultLabel: '审批' },
   3: { bg: '#fa8c16', shape: 'diamond', defaultLabel: '条件' },
   4: { bg: '#8c8c8c', shape: 'circle', defaultLabel: '结束' },
+};
+
+// 默认节点样式兜底（索引访问类型收窄用）
+const DEFAULT_NODE_CFG = {
+  bg: '#1890ff',
+  shape: 'rect',
+  defaultLabel: '审批',
 };
 
 const nodePalette = [
@@ -92,7 +122,10 @@ async function loadOptions() {
       return (Array.isArray(list) ? list : [])
         .map((r: any) => ({
           label: r.label ?? '',
-          value: r.value != null && r.value !== '' ? Number(r.value) : Number.NaN,
+          value:
+            r.value !== null && r.value !== undefined && r.value !== ''
+              ? Number(r.value)
+              : Number.NaN,
         }))
         .filter((o: any) => o.label && !Number.isNaN(o.value));
     };
@@ -169,8 +202,10 @@ const ccUserTableColumns: TableColumnsType = [
     key: 'status',
     width: 80,
     customRender: ({ record }: any) =>
-      h(Tag, { color: record.status === 1 ? 'green' : 'default', size: 'small' }, () =>
-        record.status === 1 ? '启用' : '禁用',
+      h(
+        Tag,
+        { color: record.status === 1 ? 'green' : 'default', size: 'small' },
+        () => (record.status === 1 ? '启用' : '禁用'),
       ),
   },
 ];
@@ -192,7 +227,10 @@ async function loadCcUserTable() {
       pageSize: ccUserPagination.pageSize,
       nickName: ccUserSearchKeyword.value || undefined,
     });
-    ccUserTableData.value = (res?.items || []).map((u: any) => ({ ...u, id: Number(u.id) }));
+    ccUserTableData.value = (res?.items || []).map((u: any) => ({
+      ...u,
+      id: Number(u.id),
+    }));
     ccUserPagination.total = res?.total || 0;
   } catch {
     ccUserTableData.value = [];
@@ -257,7 +295,8 @@ const selectedCcUserList = computed<{ id: number; name: string }[]>(() => {
   return ids.map((id) => {
     const matched = adminOptions.value.find((o) => o.value === id);
     const picked = ccUserSelectedMap.value.get(id);
-    const name = matched?.label || (picked ? getCcUserName(picked) : `用户${id}`);
+    const name =
+      matched?.label || (picked ? getCcUserName(picked) : `用户${id}`);
     return { id, name };
   });
 });
@@ -286,7 +325,7 @@ const FlowNode = defineComponent({
   setup(props) {
     return () => {
       const nodeType = props.data?.nodeType ?? 2;
-      const cfg = nodeStyleConfig[nodeType] ?? nodeStyleConfig[2]!;
+      const cfg = nodeStyleConfig[nodeType] ?? DEFAULT_NODE_CFG;
       const label = props.data?.nodeName || cfg.defaultLabel;
       const classes = [
         'flow-node',
@@ -393,7 +432,7 @@ function onDrop(event: DragEvent) {
     x: event.clientX,
     y: event.clientY,
   });
-  const cfg = nodeStyleConfig[nodeType] ?? nodeStyleConfig[2]!;
+  const cfg = nodeStyleConfig[nodeType] ?? DEFAULT_NODE_CFG;
   const nid = genNodeId();
   const node = {
     id: nid,
@@ -483,7 +522,7 @@ function miniNodeStyle(n: any) {
   const w = Math.max(1, maxX - minX);
   const h = Math.max(1, maxY - minY);
   const scale = Math.min(MINI_W / w, MINI_H / h);
-  const cfg = nodeStyleConfig[n.data?.nodeType ?? 2] ?? nodeStyleConfig[2]!;
+  const cfg = nodeStyleConfig[n.data?.nodeType ?? 2] ?? DEFAULT_NODE_CFG;
   return {
     left: `${(n.position.x - minX) * scale}px`,
     top: `${(n.position.y - minY) * scale}px`,
@@ -506,11 +545,22 @@ async function loadFlow(id: number) {
     const rawNodes = flow.nodes ?? [];
     const rawEdges = flow.edges ?? [];
     nodes.value = rawNodes.map((n: any) => {
-      const pos =
-        n.position ?? {
-          x: n.positionX ?? n.position_x ?? 0,
-          y: n.positionY ?? n.position_y ?? 0,
-        };
+      const pos = n.position ?? {
+        x: n.positionX ?? n.position_x ?? 0,
+        y: n.positionY ?? n.position_y ?? 0,
+      };
+      let approverId: null | number = null;
+      if (n.approverId !== null && n.approverId !== undefined) {
+        approverId = Number(n.approverId);
+      } else if (n.approver_id !== null && n.approver_id !== undefined) {
+        approverId = Number(n.approver_id);
+      }
+      let ccSource: any[] = [];
+      if (Array.isArray(n.ccUserIds)) {
+        ccSource = n.ccUserIds;
+      } else if (Array.isArray(n.cc_user_ids)) {
+        ccSource = n.cc_user_ids;
+      }
       return {
         id: n.nodeKey || n.node_key || String(n.id ?? genNodeId()),
         type: 'custom',
@@ -520,15 +570,10 @@ async function loadFlow(id: number) {
           nodeType: n.nodeType ?? n.node_type ?? 2,
           nodeName: n.nodeName ?? n.node_name ?? '',
           approverType: n.approverType ?? n.approver_type ?? null,
-          approverId: n.approverId == null ? (n.approver_id == null ? null : Number(n.approver_id)) : Number(n.approverId),
+          approverId,
           approveMode: n.approveMode ?? n.approve_mode ?? 1,
           isFinal: !!(n.isFinal ?? n.is_final ?? false),
-          ccUserIds: (Array.isArray(n.ccUserIds)
-            ? n.ccUserIds
-            : (Array.isArray(n.cc_user_ids)
-              ? n.cc_user_ids
-              : [])
-          )
+          ccUserIds: ccSource
             .map(Number)
             .filter((id: number) => !Number.isNaN(id)),
         },
@@ -574,7 +619,10 @@ async function handleSave() {
         nodeName: n.data?.nodeName ?? '',
         nodeOrder: idx + 1,
         approverType: n.data?.approverType ?? null,
-        approverId: n.data?.approverId == null ? null : Number(n.data.approverId),
+        approverId:
+          n.data?.approverId === null || n.data?.approverId === undefined
+            ? null
+            : Number(n.data.approverId),
         approveMode: n.data?.approveMode ?? 1,
         isFinal: n.data?.isFinal ? 1 : 0,
         ccUserIds: Array.isArray(n.data?.ccUserIds)
@@ -671,7 +719,12 @@ onMounted(() => {
         />
       </div>
       <div class="topbar-right">
-        <Button type="primary" :loading="saving" :icon="h(Save)" @click="handleSave">
+        <Button
+          type="primary"
+          :loading="saving"
+          :icon="h(Save)"
+          @click="handleSave"
+        >
           保存
         </Button>
       </div>
@@ -752,14 +805,20 @@ onMounted(() => {
                   v-model:value="selectedNode.data.approverType"
                   :options="approverTypeOptions"
                   placeholder="选择类型"
-                  @change="(val: any) => {
-                    if (!selectedNode?.data) return;
-                    // type=6/7 上级链类型：默认层级为 1；其他类型清空 approverId
-                    selectedNode.data.approverId = val === 6 || val === 7 ? 1 : null;
-                  }"
+                  @change="
+                    (val: any) => {
+                      if (!selectedNode?.data) return;
+                      // type=6/7 上级链类型：默认层级为 1；其他类型清空 approverId
+                      selectedNode.data.approverId =
+                        val === 6 || val === 7 ? 1 : null;
+                    }
+                  "
                 />
               </div>
-              <div v-if="selectedNode.data.approverType === 1" class="props-field">
+              <div
+                v-if="selectedNode.data.approverType === 1"
+                class="props-field"
+              >
                 <label>选择审批人</label>
                 <Select
                   v-model:value="selectedNode.data.approverId"
@@ -779,7 +838,10 @@ onMounted(() => {
                   </Select.Option>
                 </Select>
               </div>
-              <div v-else-if="selectedNode.data.approverType === 2" class="props-field">
+              <div
+                v-else-if="selectedNode.data.approverType === 2"
+                class="props-field"
+              >
                 <label>选择角色</label>
                 <Select
                   v-model:value="selectedNode.data.approverId"
@@ -799,7 +861,10 @@ onMounted(() => {
                   </Select.Option>
                 </Select>
               </div>
-              <div v-else-if="selectedNode.data.approverType === 5" class="props-field">
+              <div
+                v-else-if="selectedNode.data.approverType === 5"
+                class="props-field"
+              >
                 <label>选择岗位(职位)</label>
                 <Select
                   v-model:value="selectedNode.data.approverId"
@@ -819,33 +884,52 @@ onMounted(() => {
                   </Select.Option>
                 </Select>
               </div>
-              <div v-else-if="selectedNode.data.approverType === 3" class="props-field hint">
+              <div
+                v-else-if="selectedNode.data.approverType === 3"
+                class="props-field hint"
+              >
                 <label>说明</label>
                 <span class="field-hint">将由提交人的直属部门主管审批</span>
               </div>
-              <div v-else-if="selectedNode.data.approverType === 4" class="props-field hint">
+              <div
+                v-else-if="selectedNode.data.approverType === 4"
+                class="props-field hint"
+              >
                 <label>说明</label>
                 <span class="field-hint">由发起人自己确认（自动通过）</span>
               </div>
-              <div v-else-if="selectedNode.data.approverType === 6" class="props-field">
+              <div
+                v-else-if="selectedNode.data.approverType === 6"
+                class="props-field"
+              >
                 <label>上级层级</label>
                 <Select
                   v-model:value="selectedNode.data.approverId"
                   :options="directManagerLevelOptions"
                   placeholder="选择上级层级"
                 />
-                <span class="field-hint">沿用户直属上级链向上查找；到达组织顶层时系统自动通过（自审回避）</span>
+                <span class="field-hint"
+                  >沿用户直属上级链向上查找；到达组织顶层时系统自动通过（自审回避）</span
+                >
               </div>
-              <div v-else-if="selectedNode.data.approverType === 7" class="props-field">
+              <div
+                v-else-if="selectedNode.data.approverType === 7"
+                class="props-field"
+              >
                 <label>上级层级</label>
                 <Select
                   v-model:value="selectedNode.data.approverId"
                   :options="directManagerLevelOptions"
                   placeholder="选择上级层级"
                 />
-                <span class="field-hint">沿部门树向上查找部门负责人，人员调部门后审批链自动更新（自审回避）</span>
+                <span class="field-hint"
+                  >沿部门树向上查找部门负责人，人员调部门后审批链自动更新（自审回避）</span
+                >
               </div>
-              <div v-else-if="selectedNode.data.approverType === 8" class="props-field hint">
+              <div
+                v-else-if="selectedNode.data.approverType === 8"
+                class="props-field hint"
+              >
                 <label>说明</label>
                 <span class="field-hint">提交审批时由发起人自行选择审批人</span>
               </div>
@@ -873,7 +957,10 @@ onMounted(() => {
                   >
                     选择抄送人员（可多选）
                   </Button>
-                  <div v-if="selectedCcUserList.length > 0" class="cc-selected-wrap">
+                  <div
+                    v-if="selectedCcUserList.length > 0"
+                    class="cc-selected-wrap"
+                  >
                     <Tag
                       v-for="u in selectedCcUserList"
                       :key="u.id"
@@ -969,7 +1056,11 @@ onMounted(() => {
         </Input>
       </div>
       <div class="mb-2 text-xs text-gray-500">
-        已选择 <span class="text-blue-600 font-medium">{{ ccUserSelectedMap.size }}</span> 人
+        已选择
+        <span class="text-blue-600 font-medium">{{
+          ccUserSelectedMap.size
+        }}</span>
+        人
         <span v-if="ccUserSelectedMap.size > 0">
           （
           <a class="text-xs" @click="ccUserSelectedMap = new Map()">清空选择</a>
@@ -999,26 +1090,26 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: hsl(var(--background-deep, var(--muted) / 0.4));
   color: hsl(var(--foreground));
+  background: hsl(var(--background-deep, var(--muted) / 0.4));
 }
 
 .flow-topbar {
   display: flex;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   padding: 10px 16px;
+  color: hsl(var(--card-foreground));
   background: hsl(var(--card));
   border-bottom: 1px solid hsl(var(--border));
-  color: hsl(var(--card-foreground));
 }
 
 .topbar-left,
 .topbar-center {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
 }
 
 .topbar-title {
@@ -1036,50 +1127,50 @@ onMounted(() => {
 .flow-palette {
   width: 180px;
   padding: 12px;
+  overflow-y: auto;
   background: hsl(var(--card));
   border-right: 1px solid hsl(var(--border));
-  overflow-y: auto;
 }
 
 .palette-title {
   margin-bottom: 12px;
-  color: hsl(var(--foreground));
   font-weight: 600;
+  color: hsl(var(--foreground));
 }
 
 .palette-item {
   display: flex;
-  align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  align-items: center;
   padding: 10px 12px;
+  margin-bottom: 8px;
   font-size: 13px;
   color: hsl(var(--foreground));
-  background: hsl(var(--muted) / 0.4);
-  border: 1px dashed hsl(var(--border));
-  border-radius: 6px;
   cursor: grab;
   user-select: none;
+  background: hsl(var(--muted) / 40%);
+  border: 1px dashed hsl(var(--border));
+  border-radius: 6px;
   transition: all 0.15s;
 }
 
 .palette-item:hover {
+  color: hsl(var(--accent-foreground));
   background: hsl(var(--accent));
   border-color: hsl(var(--primary));
-  color: hsl(var(--accent-foreground));
 }
 
 .palette-dot {
+  display: inline-block;
   flex-shrink: 0;
   width: 14px;
   height: 14px;
-  display: inline-block;
 }
 
 .palette-hint {
   margin-top: 8px;
-  color: hsl(var(--muted-foreground));
   font-size: 12px;
+  color: hsl(var(--muted-foreground));
 }
 
 .flow-canvas {
@@ -1109,14 +1200,14 @@ onMounted(() => {
 
 .flow-controls :deep(.ant-btn) {
   width: 36px;
+  color: hsl(var(--foreground));
   background: hsl(var(--card));
   border-color: hsl(var(--border));
-  color: hsl(var(--foreground));
 }
 
 .flow-controls :deep(.ant-btn:hover) {
-  background: hsl(var(--accent));
   color: hsl(var(--accent-foreground));
+  background: hsl(var(--accent));
   border-color: hsl(var(--primary));
 }
 
@@ -1135,8 +1226,8 @@ onMounted(() => {
 
 .minimap-title {
   margin-bottom: 6px;
-  color: hsl(var(--muted-foreground));
   font-size: 12px;
+  color: hsl(var(--muted-foreground));
 }
 
 .minimap-canvas {
@@ -1144,7 +1235,7 @@ onMounted(() => {
   width: 140px;
   height: 90px;
   overflow: hidden;
-  background: hsl(var(--muted) / 0.4);
+  background: hsl(var(--muted) / 40%);
   border-radius: 4px;
 }
 
@@ -1157,9 +1248,9 @@ onMounted(() => {
   width: 340px;
   padding: 12px;
   overflow-y: auto;
+  color: hsl(var(--card-foreground));
   background: hsl(var(--card));
   border-left: 1px solid hsl(var(--border));
-  color: hsl(var(--card-foreground));
 }
 
 .flow-props :deep(.ant-select) {
@@ -1168,14 +1259,14 @@ onMounted(() => {
 
 .props-title {
   margin-bottom: 12px;
-  color: hsl(var(--foreground));
   font-weight: 600;
+  color: hsl(var(--foreground));
 }
 
 .props-section {
-  margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid hsl(var(--border) / 0.6);
+  margin-bottom: 16px;
+  border-bottom: 1px solid hsl(var(--border) / 60%);
 }
 
 .props-section:last-child {
@@ -1202,8 +1293,8 @@ onMounted(() => {
 .props-field label {
   display: block;
   margin-bottom: 4px;
-  color: hsl(var(--muted-foreground));
   font-size: 12px;
+  color: hsl(var(--muted-foreground));
 }
 
 .props-field.inline label {
@@ -1213,8 +1304,8 @@ onMounted(() => {
 .props-field.hint .field-hint {
   display: inline-block;
   padding: 4px 8px;
-  color: hsl(var(--muted-foreground));
   font-size: 12px;
+  color: hsl(var(--muted-foreground));
   background: hsl(var(--muted));
   border-radius: 4px;
 }
@@ -1226,24 +1317,24 @@ onMounted(() => {
 .props-empty,
 .props-empty-hint {
   padding: 40px 0;
-  color: hsl(var(--muted-foreground));
   font-size: 13px;
+  color: hsl(var(--muted-foreground));
   text-align: center;
 }
 
 .edge-cond {
-  margin-bottom: 10px;
   padding: 8px;
-  background: hsl(var(--muted) / 0.4);
+  margin-bottom: 10px;
+  background: hsl(var(--muted) / 40%);
+  border: 1px solid hsl(var(--border) / 50%);
   border-radius: 4px;
-  border: 1px solid hsl(var(--border) / 0.5);
 }
 
 .edge-cond-head {
   margin-bottom: 6px;
-  color: hsl(var(--foreground));
   font-size: 12px;
   font-weight: 500;
+  color: hsl(var(--foreground));
 }
 
 .edge-cond :deep(.ant-input) {
@@ -1257,10 +1348,10 @@ onMounted(() => {
 }
 
 .cc-selected-wrap {
-  margin-top: 8px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-top: 8px;
 }
 
 .cc-user-tag {
@@ -1268,12 +1359,12 @@ onMounted(() => {
 }
 
 .cc-empty-hint {
+  padding: 6px;
   margin-top: 6px;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
   text-align: center;
-  padding: 6px;
-  background: hsl(var(--muted) / 0.3);
+  background: hsl(var(--muted) / 30%);
   border-radius: 4px;
 }
 </style>
@@ -1281,13 +1372,13 @@ onMounted(() => {
 <style>
 /* ===== Flow nodes (global because they render via VueFlow renderer) ===== */
 .flow-node {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
   font-size: 12px;
   font-weight: 500;
-  position: relative;
+  color: #fff;
   border: 2px solid transparent;
   transition:
     box-shadow 0.15s,
@@ -1318,8 +1409,8 @@ onMounted(() => {
   left: 50%;
   width: 64px;
   height: 64px;
-  transform: translate(-50%, -50%) rotate(45deg);
   border-radius: 4px;
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .flow-node-label {
@@ -1359,7 +1450,7 @@ onMounted(() => {
 }
 
 .dark .vue-flow__edge-path {
-  stroke: hsl(var(--muted-foreground) / 0.6);
+  stroke: hsl(var(--muted-foreground) / 60%);
 }
 
 .dark .vue-flow__edge.selected .vue-flow__edge-path,
@@ -1397,13 +1488,13 @@ onMounted(() => {
 }
 
 .dark .vue-flow__selection {
-  background: hsl(var(--primary) / 0.1);
+  background: hsl(var(--primary) / 10%);
   border: 1px dotted hsl(var(--primary));
 }
 
 .dark .vue-flow__attribution {
-  background: hsl(var(--card));
   color: hsl(var(--muted-foreground));
+  background: hsl(var(--card));
 }
 
 .dark .vue-flow__attribution a {

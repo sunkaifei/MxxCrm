@@ -1,13 +1,19 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucidePlus } from '@vben/icons';
-import { Button, Popconfirm, Tag, message } from 'ant-design-vue';
-import CategoryDrawer from './drawer.vue';
+
+import { Button, message, Popconfirm, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { categoryApi } from '#/api';
+
+import CategoryDrawer from './drawer.vue';
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -185,16 +191,28 @@ function collapseAll() {
 
       <template #contentType="{ row }">
         <Tag :color="row.contentType === 1 ? 'green' : 'orange'">
-          {{ row.contentType === 1 ? '文章' : row.contentType === 3 ? '自定义链接' : '' }}
+          {{
+            row.contentType === 1
+              ? '文章'
+              : row.contentType === 3
+                ? '自定义链接'
+                : ''
+          }}
         </Tag>
       </template>
 
       <template #action="{ row }">
         <div class="flex items-center justify-center" style="gap: 12px">
-          <a class="text-blue-600 cursor-pointer" @click="() => handleCreateChild(row)">
+          <a
+            class="text-blue-600 cursor-pointer"
+            @click="() => handleCreateChild(row)"
+          >
             新增子项
           </a>
-          <a class="text-blue-600 cursor-pointer" @click="() => handleEdit(row)">
+          <a
+            class="text-blue-600 cursor-pointer"
+            @click="() => handleEdit(row)"
+          >
             编辑
           </a>
           <Popconfirm

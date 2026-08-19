@@ -66,3 +66,17 @@ export const kickOfflineApi = async (id: number) => {
 export const auditUserApi = async (id: number, auditStatus: number) => {
   return requestClient.put(`/api/system/admin/audit/${id}`, { auditStatus });
 };
+
+/**
+ * 获取员工列表列显示配置
+ */
+export const getColumnsConfigApi = async () => {
+  return requestClient.get('/api/system/admin/columns_config');
+};
+
+/**
+ * 保存员工列表列显示配置
+ */
+export const saveColumnsConfigApi = async (config: Record<string, string[]>) => {
+  return requestClient.put('/api/system/admin/columns_config', config);
+};

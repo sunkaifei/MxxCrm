@@ -8,9 +8,9 @@ import {
   FormItem,
   Input,
   InputNumber,
+  message,
   Select,
   Textarea,
-  message,
 } from 'ant-design-vue';
 
 import { applyFinancePaymentApi } from '#/api/core/finance';
@@ -79,8 +79,10 @@ async function handleSubmit() {
     await applyFinancePaymentApi(formData);
     message.success($t('page.finance.payment.drawer.applySuccess'));
     emit('close', true);
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.payment.drawer.applyFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.payment.drawer.applyFailed'),
+    );
   } finally {
     loading.value = false;
   }
@@ -109,11 +111,18 @@ function handleClose() {
       <FormItem
         name="poNo"
         :label="$t('page.finance.payment.drawer.purchaseOrderNo')"
-        :rules="[{ required: true, message: $t('page.finance.payment.drawer.purchaseOrderRequired') }]"
+        :rules="[
+          {
+            required: true,
+            message: $t('page.finance.payment.drawer.purchaseOrderRequired'),
+          },
+        ]"
       >
         <Input
           v-model:value="formData.poNo"
-          :placeholder="$t('page.finance.payment.drawer.purchaseOrderPlaceholder')"
+          :placeholder="
+            $t('page.finance.payment.drawer.purchaseOrderPlaceholder')
+          "
           allow-clear
         />
       </FormItem>
@@ -121,45 +130,71 @@ function handleClose() {
       <FormItem
         name="paymentType"
         :label="$t('page.finance.payment.drawer.paymentType')"
-        :rules="[{ required: true, message: $t('page.finance.payment.drawer.paymentTypeRequired') }]"
+        :rules="[
+          {
+            required: true,
+            message: $t('page.finance.payment.drawer.paymentTypeRequired'),
+          },
+        ]"
       >
         <Select
           v-model:value="formData.paymentType"
           :options="paymentTypeOptions"
-          :placeholder="$t('page.finance.payment.drawer.paymentTypePlaceholder')"
+          :placeholder="
+            $t('page.finance.payment.drawer.paymentTypePlaceholder')
+          "
         />
       </FormItem>
 
       <FormItem
         name="amount"
         :label="$t('page.finance.payment.drawer.paymentAmount')"
-        :rules="[{ required: true, message: $t('page.finance.payment.drawer.paymentAmountRequired') }]"
+        :rules="[
+          {
+            required: true,
+            message: $t('page.finance.payment.drawer.paymentAmountRequired'),
+          },
+        ]"
       >
         <InputNumber
           v-model:value="formData.amount"
           :min="0"
           :precision="2"
           style="width: 100%"
-          :placeholder="$t('page.finance.payment.drawer.paymentAmountPlaceholder')"
+          :placeholder="
+            $t('page.finance.payment.drawer.paymentAmountPlaceholder')
+          "
         />
       </FormItem>
 
       <FormItem
         name="paymentMethod"
         :label="$t('page.finance.payment.drawer.paymentMethod')"
-        :rules="[{ required: true, message: $t('page.finance.payment.drawer.paymentMethodRequired') }]"
+        :rules="[
+          {
+            required: true,
+            message: $t('page.finance.payment.drawer.paymentMethodRequired'),
+          },
+        ]"
       >
         <Select
           v-model:value="formData.paymentMethod"
           :options="paymentMethodOptions"
-          :placeholder="$t('page.finance.payment.drawer.paymentMethodPlaceholder')"
+          :placeholder="
+            $t('page.finance.payment.drawer.paymentMethodPlaceholder')
+          "
         />
       </FormItem>
 
-      <FormItem name="paymentAccount" :label="$t('page.finance.payment.drawer.bankAccount')">
+      <FormItem
+        name="paymentAccount"
+        :label="$t('page.finance.payment.drawer.bankAccount')"
+      >
         <Input
           v-model:value="formData.paymentAccount"
-          :placeholder="$t('page.finance.payment.drawer.bankAccountPlaceholder')"
+          :placeholder="
+            $t('page.finance.payment.drawer.bankAccountPlaceholder')
+          "
           allow-clear
         />
       </FormItem>
@@ -176,7 +211,9 @@ function handleClose() {
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <Button @click="handleClose">{{ $t('page.finance.common.cancel') }}</Button>
+        <Button @click="handleClose">
+          {{ $t('page.finance.common.cancel') }}
+        </Button>
         <Button type="primary" :loading="loading" @click="handleSubmit">
           {{ $t('page.finance.common.submit') }}
         </Button>

@@ -1,31 +1,44 @@
 <script lang="ts" setup>
+import type { SegmentConfig } from '#/api';
+
 import { computed, h, onMounted, ref, watch } from 'vue';
-import { message, Popconfirm, Select, Tag } from 'ant-design-vue';
+
+import { useVbenDrawer } from '@vben/common-ui';
 import {
-  Button,
+  LucideChevronDown,
+  LucideChevronUp,
+  LucideEye,
+  LucideTrash2,
+} from '@vben/icons';
+
+import {
+  DatePicker as ADatePicker,
   Input as AInput,
   InputNumber as AInputNumber,
   Select as ASelect,
   Table as ATable,
-  DatePicker as ADatePicker,
+  Button,
+  message,
+  Popconfirm,
+  Select,
+  Tag,
 } from 'ant-design-vue';
-import { useVbenDrawer } from '@vben/common-ui';
-import { LucideChevronDown, LucideChevronUp, LucideEye, LucidePlus, LucideTrash2 } from '@vben/icons';
-import { $t } from '#/locales';
+
 import {
   createCodeRuleApi,
   getCodeRuleInfoApi,
   previewCodeApi,
   updateCodeRuleApi,
-  type SegmentConfig,
 } from '#/api';
+import { $t } from '#/locales';
+
 import {
   createDefaultSegment,
   dateFormatOptions,
   segmentTypeLabelMap,
   segmentTypeOptions,
-  seqLengthOptions,
   separatorOptions,
+  seqLengthOptions,
   yearFormatOptions,
   yearSourceOptions,
 } from './data';
@@ -84,17 +97,21 @@ function removeSegment(index: number) {
 
 function moveUp(index: number) {
   if (index === 0) return;
-  const tmp = segments.value[index - 1];
-  segments.value[index - 1] = segments.value[index];
-  segments.value[index] = tmp;
+  const current = segments.value[index];
+  const upper = segments.value[index - 1];
+  if (!current || !upper) return;
+  segments.value[index - 1] = current;
+  segments.value[index] = upper;
   reassignSort();
 }
 
 function moveDown(index: number) {
   if (index === segments.value.length - 1) return;
-  const tmp = segments.value[index + 1];
-  segments.value[index + 1] = segments.value[index];
-  segments.value[index] = tmp;
+  const current = segments.value[index];
+  const lower = segments.value[index + 1];
+  if (!current || !lower) return;
+  segments.value[index] = lower;
+  segments.value[index + 1] = current;
   reassignSort();
 }
 
@@ -130,7 +147,14 @@ watch(
   { deep: true },
 );
 watch(
-  () => [formData.value.bizTypeCode, formData.value.separator, formData.value.seqLength, formData.value.deptCode, formData.value.companyAbbr, previewBusinessDate.value],
+  () => [
+    formData.value.bizTypeCode,
+    formData.value.separator,
+    formData.value.seqLength,
+    formData.value.deptCode,
+    formData.value.companyAbbr,
+    previewBusinessDate.value,
+  ],
   () => refreshPreview(),
 );
 
@@ -259,7 +283,9 @@ onMounted(() => {
     <div class="code-rule-drawer space-y-4">
       <!-- 基本信息表单 -->
       <div class="rounded border p-4">
-        <div class="mb-3 font-semibold">{{ $t('page.company.codeRule.basicInfo') }}</div>
+        <div class="mb-3 font-semibold">
+          {{ $t('page.company.codeRule.basicInfo') }}
+        </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
             <div class="mb-1 text-sm">模块编码 *</div>
@@ -271,11 +297,17 @@ onMounted(() => {
           </div>
           <div>
             <div class="mb-1 text-sm">模块名称 *</div>
-            <AInput v-model:value="formData.moduleName" placeholder="如 客户管理" />
+            <AInput
+              v-model:value="formData.moduleName"
+              placeholder="如 客户管理"
+            />
           </div>
           <div>
             <div class="mb-1 text-sm">规则名称</div>
-            <AInput v-model:value="formData.ruleName" placeholder="如 客户编号规则" />
+            <AInput
+              v-model:value="formData.ruleName"
+              placeholder="如 客户编号规则"
+            />
           </div>
           <div>
             <div class="mb-1 text-sm">企业简称</div>
@@ -287,15 +319,24 @@ onMounted(() => {
           </div>
           <div>
             <div class="mb-1 text-sm">业务类型编码</div>
-            <AInput v-model:value="formData.bizTypeCode" placeholder="如 KH / HT / JS" />
+            <AInput
+              v-model:value="formData.bizTypeCode"
+              placeholder="如 KH / HT / JS"
+            />
           </div>
           <div>
             <div class="mb-1 text-sm">分隔符</div>
-            <ASelect v-model:value="formData.separator" :options="separatorOptions" />
+            <ASelect
+              v-model:value="formData.separator"
+              :options="separatorOptions"
+            />
           </div>
           <div>
             <div class="mb-1 text-sm">流水号位数</div>
-            <ASelect v-model:value="formData.seqLength" :options="seqLengthOptions" />
+            <ASelect
+              v-model:value="formData.seqLength"
+              :options="seqLengthOptions"
+            />
           </div>
           <div>
             <div class="mb-1 text-sm">状态</div>
@@ -317,12 +358,25 @@ onMounted(() => {
       <!-- 段位配置 -->
       <div class="rounded border p-4">
         <div class="mb-3 flex items-center justify-between">
-          <span class="font-semibold">{{ $t('page.company.codeRule.segmentsTitle') }}</span>
+          <span class="font-semibold">{{
+            $t('page.company.codeRule.segmentsTitle')
+          }}</span>
           <Select
             placeholder="添加段位"
             style="width: 160px"
-            :options="segmentTypeOptions.map((o) => ({ label: o.label, value: o.value }))"
-            @change="(val: string) => { if (val) { addSegment(val); } }"
+            :options="
+              segmentTypeOptions.map((o) => ({
+                label: o.label,
+                value: o.value,
+              }))
+            "
+            @change="
+              (val) => {
+                if (val) {
+                  addSegment(String(val));
+                }
+              }
+            "
             :value="undefined"
             allow-clear
           />
@@ -337,11 +391,15 @@ onMounted(() => {
         >
           <template #bodyCell="{ column, index, record }">
             <template v-if="column.key === 'type'">
-              <Tag color="blue">{{ segmentTypeLabelMap[record.type] || record.type }}</Tag>
+              <Tag color="blue">
+                {{ segmentTypeLabelMap[record.type] || record.type }}
+              </Tag>
             </template>
             <template v-else-if="column.key === 'config'">
               <div class="flex flex-wrap items-center gap-2">
-                <template v-if="record.type === 'fixed' || record.type === 'biz_type'">
+                <template
+                  v-if="record.type === 'fixed' || record.type === 'biz_type'"
+                >
                   <span class="text-xs text-gray-500">值:</span>
                   <AInput
                     v-model:value="record.value"
@@ -397,10 +455,30 @@ onMounted(() => {
               </div>
             </template>
             <template v-else-if="column.key === 'action'">
-              <Button type="link" size="small" :icon="h(LucideChevronUp)" :disabled="index === 0" @click="moveUp(index)" />
-              <Button type="link" size="small" :icon="h(LucideChevronDown)" :disabled="index === segments.length - 1" @click="moveDown(index)" />
-              <Popconfirm title="确定删除此段位？" @confirm="removeSegment(index)">
-                <Button type="link" size="small" danger :icon="h(LucideTrash2)" />
+              <Button
+                type="link"
+                size="small"
+                :icon="h(LucideChevronUp)"
+                :disabled="index === 0"
+                @click="moveUp(index)"
+              />
+              <Button
+                type="link"
+                size="small"
+                :icon="h(LucideChevronDown)"
+                :disabled="index === segments.length - 1"
+                @click="moveDown(index)"
+              />
+              <Popconfirm
+                title="确定删除此段位？"
+                @confirm="removeSegment(index)"
+              >
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  :icon="h(LucideTrash2)"
+                />
               </Popconfirm>
             </template>
           </template>
@@ -427,7 +505,9 @@ onMounted(() => {
         </div>
         <div class="rounded bg-gray-50 p-3">
           <span class="text-xs text-gray-500">预览编号:</span>
-          <span class="ml-2 font-mono text-lg font-bold text-blue-600">{{ previewCode || '—' }}</span>
+          <span class="ml-2 font-mono text-lg font-bold text-blue-600">{{
+            previewCode || '—'
+          }}</span>
         </div>
       </div>
     </div>

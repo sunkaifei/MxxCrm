@@ -32,7 +32,9 @@ export interface TemplateDataSaveDTO {
   status?: number;
 }
 
-export const getTemplateDataListApi = async (params?: TemplateDataListQuery) => {
+export const getTemplateDataListApi = async (
+  params?: TemplateDataListQuery,
+) => {
   return requestClient.get('/api/system/template/data/list', { params });
 };
 
@@ -44,7 +46,10 @@ export const addTemplateDataApi = async (data: TemplateDataSaveDTO) => {
   return requestClient.post('/api/system/template/data/add', data);
 };
 
-export const updateTemplateDataApi = async (id: number, data: TemplateDataSaveDTO) => {
+export const updateTemplateDataApi = async (
+  id: number,
+  data: TemplateDataSaveDTO,
+) => {
   return requestClient.put(`/api/system/template/data/update/${id}`, data);
 };
 
@@ -91,4 +96,3 @@ export interface TemplateTagVO {
 export const getTemplateTagsApi = async (): Promise<TemplateTagVO[]> => {
   return requestClient.get('/api/system/template/tags');
 };
-

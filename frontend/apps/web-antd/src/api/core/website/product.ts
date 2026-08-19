@@ -62,5 +62,7 @@ export const productApi = {
     requestClient.put(`/api/system/website/product/update/${id}`, data),
 
   batchDelete: (ids: number[]) =>
-    requestClient.delete('/api/system/website/product/batch_delete', { data: { ids } }),
+    requestClient.delete('/api/system/website/product/batch_delete', {
+      data: { ids },
+    }),
 };

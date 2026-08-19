@@ -1,13 +1,19 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucidePlus } from '@vben/icons';
-import { Button, Tag, Modal, message } from 'ant-design-vue';
-import NavigationDrawer from './drawer.vue';
+
+import { Button, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { navigationApi } from '#/api';
+
+import NavigationDrawer from './drawer.vue';
 
 defineOptions({ name: 'WebsiteNavigation' });
 
@@ -142,11 +148,7 @@ async function handleDelete(row: any) {
   <Page auto-content-height>
     <Grid table-title="导航管理">
       <template #toolbar-tools>
-        <Button
-          type="primary"
-          :icon="h(LucidePlus)"
-          @click="handleAdd"
-        >
+        <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
           新增导航
         </Button>
       </template>
@@ -159,8 +161,12 @@ async function handleDelete(row: any) {
 
       <template #dataType="{ row }">
         <Tag v-if="row.dataType === 'custom'" color="default">自定义</Tag>
-        <Tag v-else-if="row.dataType === 'article_class'" color="cyan">文章分类</Tag>
-        <Tag v-else-if="row.dataType === 'customview'" color="purple">自定义页面</Tag>
+        <Tag v-else-if="row.dataType === 'article_class'" color="cyan">
+          文章分类
+        </Tag>
+        <Tag v-else-if="row.dataType === 'customview'" color="purple">
+          自定义页面
+        </Tag>
         <Tag v-else color="default">{{ row.dataType || '—' }}</Tag>
       </template>
 

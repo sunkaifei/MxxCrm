@@ -4,10 +4,10 @@ import { computed, ref } from 'vue';
 import { formatDateTime } from '@vben/utils';
 
 import {
+  Image as AImage,
   Descriptions,
   DescriptionsItem,
   Empty,
-  Image as AImage,
   Spin,
   Tag,
 } from 'ant-design-vue';
@@ -44,7 +44,7 @@ const duration = computed(() => {
   if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs)
     return '-';
   const diffMs = endMs - startMs;
-  const minutes = Math.floor(diffMs / 60000);
+  const minutes = Math.floor(diffMs / 60_000);
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   if (hours > 0) return `${hours}小时${mins}分钟`;
@@ -53,9 +53,9 @@ const duration = computed(() => {
 
 // 距客户距离格式化
 const distance = computed(() => {
-  const dist =
-    detail.value?.visitDistance ?? detail.value?.visit_distance;
-  if (dist == null || Number.isNaN(Number(dist))) return '-';
+  const dist = detail.value?.visitDistance ?? detail.value?.visit_distance;
+  if (dist === null || dist === undefined || Number.isNaN(Number(dist)))
+    return '-';
   const d = Number(dist);
   if (d < 0) return '-';
   if (d < 1000) return `${d.toFixed(0)}米`;
@@ -92,7 +92,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     title="拜访详情"
     :destroy-on-close="true"
     :footer="false"
-    :width="'min(720px, 92vw)'"
+    width="min(720px, 92vw)"
   >
     <Spin :spinning="loading">
       <Empty v-if="!detail && !loading" description="暂无数据" />
@@ -134,7 +134,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
             {{ detail.visitAddress || '-' }}
           </DescriptionsItem>
           <DescriptionsItem label="经纬度">
-            {{ detail.visitLongitude ?? '-' }}, {{ detail.visitLatitude ?? '-' }}
+            {{ detail.visitLongitude ?? '-' }},
+            {{ detail.visitLatitude ?? '-' }}
           </DescriptionsItem>
           <DescriptionsItem label="定位精度">
             {{
@@ -161,7 +162,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
               class="visit-photo-item"
             />
           </div>
-          <Empty v-else description="无签到照片" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
+          <Empty
+            v-else
+            description="无签到照片"
+            :image="Empty.PRESENTED_IMAGE_SIMPLE"
+          />
         </div>
 
         <!-- 拜访内容 -->
@@ -215,40 +220,48 @@ const [Drawer, drawerApi] = useVbenDrawer({
 .visit-detail-wrap {
   padding: 4px 0 16px;
 }
+
 .visit-desc {
   margin-bottom: 20px;
 }
+
 .visit-desc :deep(.ant-descriptions-title) {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
   color: hsl(var(--foreground));
 }
+
 .visit-section {
   margin-bottom: 20px;
 }
+
 .visit-section-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
   color: hsl(var(--foreground));
 }
+
 .visit-photo-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
+
 .visit-photo-item {
-  border-radius: 6px;
-  border: 1px solid hsl(var(--border));
   object-fit: cover;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
 }
+
 .visit-content-text {
-  white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.6;
   min-height: 40px;
+  line-height: 1.6;
+  word-break: break-all;
+  white-space: pre-wrap;
 }
+
 .visit-duration {
   font-weight: 600;
   color: #1677ff;

@@ -2,22 +2,25 @@
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
+import { useUserStore } from '@vben/stores';
+
 import {
   Button,
   InputNumber,
-  Select,
-  Tag,
-  Progress,
-  Table,
   message,
   Modal,
+  Progress,
+  Select,
+  Table,
+  Tag,
   Tooltip,
 } from 'ant-design-vue';
+
 import { getCheckItemsApi, inputCheckApi } from '#/api/core/product/check';
 import { getProductSpecsApi } from '#/api/core/product/spec';
 import { getAdminOptionsApi } from '#/api/core/system/user';
-import { useUserStore } from '@vben/stores';
 import { $t } from '#/locales';
+
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 
 const userStore = useUserStore();
@@ -27,7 +30,7 @@ const drawerData = ref<{ row?: any }>({});
 const items = ref<any[]>([]);
 const productSelectVisible = ref(false);
 const selectedRowKeys = ref<number[]>([]);
-const activeTab = ref<'all' | 'mine' | 'uninputted' | 'inputted'>('all');
+const activeTab = ref<'all' | 'inputted' | 'mine' | 'uninputted'>('all');
 
 // 已添加产品的排除列表（computed 确保响应式）
 // 单规格产品（无 productCode）：整体排除 productId
@@ -83,13 +86,13 @@ async function loadAssignees() {
   try {
     const resp: any = await getAdminOptionsApi();
     const data = resp?.data ?? resp;
-    const list = Array.isArray(data) ? data : data?.list ?? [];
+    const list = Array.isArray(data) ? data : (data?.list ?? []);
     assigneeOptions.value = list.map((u: any) => ({
       label: u.nickName ?? u.nickname ?? u.name ?? u.label,
       value: Number(u.id ?? u.value),
     }));
-  } catch (e) {
-    console.error('[盘点] 加载盘点人失败:', e);
+  } catch (error) {
+    console.error('[盘点] 加载盘点人失败:', error);
   }
 }
 
@@ -109,7 +112,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
     // 检查有差异但未复盘的产品（建议但不强制）
     const diffUnrechecked = items.value.filter((item) => {
       const diff = computeDiff(item);
-      return diff !== null && diff !== 0 && (item.recheckQuantity === null || item.recheckQuantity === undefined);
+      return (
+        diff !== null &&
+        diff !== 0 &&
+        (item.recheckQuantity === null || item.recheckQuantity === undefined)
+      );
     });
     if (diffUnrechecked.length > 0) {
       // 弹窗确认是否跳过复盘
@@ -163,28 +170,48 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
-
 async function loadItems(stocktakeId: number) {
   try {
     const resp = await getCheckItemsApi(stocktakeId);
     const data = resp?.data ?? resp;
-    const list = Array.isArray(data) ? data : data?.items ?? data?.list ?? [];
+    const list = Array.isArray(data) ? data : (data?.items ?? data?.list ?? []);
 
     items.value = list.map((item: any) => {
-      const skuVal = item.product_sku ?? item.productSku ?? '';
-      const actual =
-        item.actual_quantity !== null && item.actual_quantity !== undefined
-          ? Number(item.actual_quantity)
-          : item.actualQuantity !== null && item.actualQuantity !== undefined
-            ? Number(item.actualQuantity)
-            : null;
+      let actual: null | number = null;
+      if (item.actual_quantity !== null && item.actual_quantity !== undefined) {
+        actual = Number(item.actual_quantity);
+      } else if (
+        item.actualQuantity !== null &&
+        item.actualQuantity !== undefined
+      ) {
+        actual = Number(item.actualQuantity);
+      }
+      let assigneeIds: any[] = item.assigneeIds ?? [];
+      if (item.assignee_ids) {
+        assigneeIds =
+          typeof item.assignee_ids === 'string'
+            ? JSON.parse(item.assignee_ids)
+            : item.assignee_ids;
+      }
+      let recheckAssigneeIds: any[] = [];
+      if (item.recheck_assignee_ids) {
+        recheckAssigneeIds =
+          typeof item.recheck_assignee_ids === 'string'
+            ? JSON.parse(item.recheck_assignee_ids)
+            : item.recheck_assignee_ids;
+      }
 
       return {
         id: item.id,
         productId: Number(item.product_id ?? item.productId ?? 0),
         skuId: Number(item.sku_id ?? item.skuId ?? 0),
         productName: item.product_name ?? item.productName ?? '',
-        productCode: item.product_sku ?? item.productSku ?? item.product_code ?? item.productCode ?? '',
+        productCode:
+          item.product_sku ??
+          item.productSku ??
+          item.product_code ??
+          item.productCode ??
+          '',
         productSku: '',
         specInfo: '',
         specInfoList: [] as { label: string; value: string }[],
@@ -192,23 +219,16 @@ async function loadItems(stocktakeId: number) {
           item.system_quantity ?? item.systemQuantity ?? 0,
         ),
         actualQuantity: actual,
-        difference: actual !== null ? actual - Number(item.system_quantity ?? 0) : null,
+        difference:
+          actual === null ? null : actual - Number(item.system_quantity ?? 0),
         diffReason: item.diff_reason ?? item.diffReason ?? '',
         handling: item.handling ?? '',
         remark: item.remark ?? '',
-        assigneeIds: item.assignee_ids
-          ? (typeof item.assignee_ids === 'string'
-              ? JSON.parse(item.assignee_ids)
-              : item.assignee_ids)
-          : item.assigneeIds ?? [],
+        assigneeIds,
         recheckQuantity: item.recheck_quantity
           ? Number(item.recheck_quantity)
           : null,
-        recheckAssigneeIds: item.recheck_assignee_ids
-          ? (typeof item.recheck_assignee_ids === 'string'
-              ? JSON.parse(item.recheck_assignee_ids)
-              : item.recheck_assignee_ids)
-          : [],
+        recheckAssigneeIds,
         _isNew: false,
         _checked: actual !== null,
       };
@@ -216,8 +236,8 @@ async function loadItems(stocktakeId: number) {
 
     // 为多规格产品加载规格信息
     await loadSpecInfoForItems();
-  } catch (e) {
-    console.error('[盘点录入] 加载明细失败:', e);
+  } catch (error) {
+    console.error('[盘点录入] 加载明细失败:', error);
   }
 }
 
@@ -238,7 +258,11 @@ async function loadSpecInfoForItems() {
       if (skus.length === 1) {
         // 单规格：直接显示该 SKU 的规格值
         const skuSpecs = skus[0]?.specs;
-        if (skuSpecs && typeof skuSpecs === 'object' && Object.keys(skuSpecs).length > 0) {
+        if (
+          skuSpecs &&
+          typeof skuSpecs === 'object' &&
+          Object.keys(skuSpecs).length > 0
+        ) {
           specList = Object.entries(skuSpecs).map(([k, v]) => ({
             label: k,
             value: String(v),
@@ -254,7 +278,7 @@ async function loadSpecInfoForItems() {
           if (skuSpecs && typeof skuSpecs === 'object') {
             for (const [key, val] of Object.entries(skuSpecs)) {
               if (!specMap.has(key)) specMap.set(key, new Set());
-              specMap.get(key)!.add(String(val));
+              specMap.get(key)?.add(String(val));
             }
           }
         }
@@ -282,7 +306,7 @@ async function loadSpecInfoForItems() {
 }
 
 // ============ 计算函数 ============
-function computeDiff(item: any): number | null {
+function computeDiff(item: any): null | number {
   if (
     item.actualQuantity === null ||
     item.actualQuantity === undefined ||
@@ -293,7 +317,7 @@ function computeDiff(item: any): number | null {
   return Number(item.actualQuantity) - Number(item.systemQuantity ?? 0);
 }
 
-function getDiffTag(diff: number | null) {
+function getDiffTag(diff: null | number) {
   if (diff === null) return { label: '-', color: 'default' };
   if (diff > 0) return { label: '盘盈', color: 'success' };
   if (diff < 0) return { label: '盘亏', color: 'error' };
@@ -306,7 +330,9 @@ function openProductSelect() {
 }
 
 function onProductSelected(selectedItems: any[]) {
-  const existingKeys = new Set(items.value.map((i) => `${i.productId}-${i.skuId || 0}`));
+  const existingKeys = new Set(
+    items.value.map((i) => `${i.productId}-${i.skuId || 0}`),
+  );
   let added = 0;
   for (const item of selectedItems) {
     const key = `${item.productId}-${item.skuId || 0}`;
@@ -375,8 +401,8 @@ async function markAsChecked(record: any) {
     await inputCheckApi(drawerData.value.row.id, payload);
     record._checked = true;
     message.success('已保存并标记为已盘');
-  } catch (e) {
-    console.error('[盘点录入] 保存失败:', e);
+  } catch (error) {
+    console.error('[盘点录入] 保存失败:', error);
     message.error('保存失败，请重试');
   } finally {
     savingIds.value.delete(record.id);
@@ -477,9 +503,20 @@ const summary = computed(() => {
   // 有差异但未复盘的数量
   const diffUnrechecked = items.value.filter((item) => {
     const diff = computeDiff(item);
-    return diff !== null && diff !== 0 && (item.recheckQuantity === null || item.recheckQuantity === undefined);
+    return (
+      diff !== null &&
+      diff !== 0 &&
+      (item.recheckQuantity === null || item.recheckQuantity === undefined)
+    );
   }).length;
-  return { surplus, shortage, match, pending, diffUnrechecked, total: items.value.length };
+  return {
+    surplus,
+    shortage,
+    match,
+    pending,
+    diffUnrechecked,
+    total: items.value.length,
+  };
 });
 
 const inputtedCount = computed(
@@ -601,9 +638,14 @@ function toggleFullscreen() {
         >
           <svg
             v-if="!isFullscreen"
-            viewBox="0 0 24 24" width="16" height="16"
-            fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
@@ -612,9 +654,14 @@ function toggleFullscreen() {
           </svg>
           <svg
             v-else
-            viewBox="0 0 24 24" width="16" height="16"
-            fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
@@ -627,13 +674,21 @@ function toggleFullscreen() {
     <!-- 顶部信息 -->
     <div class="drawer-topbar">
       <div class="topbar-info">
-        <span class="topbar-no">{{ drawerData.row?.stocktakeNo ?? drawerData.row?.checkNo ?? '' }}</span>
+        <span class="topbar-no">{{
+          drawerData.row?.stocktakeNo ?? drawerData.row?.checkNo ?? ''
+        }}</span>
         <Tag color="blue">{{ drawerData.row?.warehouseName ?? '' }}</Tag>
         <Tag color="orange">盘点中</Tag>
       </div>
       <div class="topbar-progress">
-        <span class="progress-text">{{ inputtedCount }} / {{ items.length }} 项</span>
-        <Progress :percent="progressPercent" size="small" style="width: 160px" />
+        <span class="progress-text"
+          >{{ inputtedCount }} / {{ items.length }} 项</span
+        >
+        <Progress
+          :percent="progressPercent"
+          size="small"
+          style="width: 160px"
+        />
       </div>
     </div>
 
@@ -642,44 +697,77 @@ function toggleFullscreen() {
       <Button type="primary" size="small" @click="openProductSelect">
         {{ $t('page.product.inventory.check.drawer.addItem') }}
       </Button>
-      <Button size="small" @click="openBatchAssign" :disabled="selectedRowKeys.length === 0">
+      <Button
+        size="small"
+        @click="openBatchAssign"
+        :disabled="selectedRowKeys.length === 0"
+      >
         批量分配盘点人
-        <span v-if="selectedRowKeys.length > 0">({{ selectedRowKeys.length }})</span>
+        <span v-if="selectedRowKeys.length > 0"
+          >({{ selectedRowKeys.length }})</span
+        >
       </Button>
-      <Button size="small" @click="batchFillZero">{{ $t('page.product.inventory.check.drawer.batchFillZero') }}</Button>
-      <Button size="small" danger :disabled="selectedRowKeys.length === 0" @click="removeSelected">
+      <Button size="small" @click="batchFillZero">
+        {{ $t('page.product.inventory.check.drawer.batchFillZero') }}
+      </Button>
+      <Button
+        size="small"
+        danger
+        :disabled="selectedRowKeys.length === 0"
+        @click="removeSelected"
+      >
         {{ $t('page.product.inventory.check.drawer.removeSelected') }}
       </Button>
 
       <!-- Tab 筛选 -->
       <div class="toolbar-tabs">
         <button
-          :class="['tab-btn', { active: activeTab === 'all' }]"
+          class="tab-btn"
+          :class="[{ active: activeTab === 'all' }]"
           @click="activeTab = 'all'"
-        >全部</button>
+        >
+          全部
+        </button>
         <button
-          :class="['tab-btn', { active: activeTab === 'mine' }]"
+          class="tab-btn"
+          :class="[{ active: activeTab === 'mine' }]"
           @click="activeTab = 'mine'"
-        >我的</button>
+        >
+          我的
+        </button>
         <button
-          :class="['tab-btn', { active: activeTab === 'uninputted' }]"
+          class="tab-btn"
+          :class="[{ active: activeTab === 'uninputted' }]"
           @click="activeTab = 'uninputted'"
-        >未盘点</button>
+        >
+          未盘点
+        </button>
         <button
-          :class="['tab-btn', { active: activeTab === 'inputted' }]"
+          class="tab-btn"
+          :class="[{ active: activeTab === 'inputted' }]"
           @click="activeTab = 'inputted'"
-        >已盘点</button>
+        >
+          已盘点
+        </button>
       </div>
     </div>
 
     <!-- 统计标签 -->
     <div class="drawer-stats">
       <Tag>共 {{ summary.total }}</Tag>
-      <Tag v-if="summary.surplus > 0" color="success">盘盈 {{ summary.surplus }}</Tag>
-      <Tag v-if="summary.shortage > 0" color="error">盘亏 {{ summary.shortage }}</Tag>
+      <Tag v-if="summary.surplus > 0" color="success">
+        盘盈 {{ summary.surplus }}
+      </Tag>
+      <Tag v-if="summary.shortage > 0" color="error">
+        盘亏 {{ summary.shortage }}
+      </Tag>
       <Tag v-if="summary.match > 0">一致 {{ summary.match }}</Tag>
-      <Tag v-if="summary.pending > 0" color="warning">待盘 {{ summary.pending }}</Tag>
-      <Tag v-if="summary.diffUnrechecked > 0" color="orange">待复盘 {{ summary.diffUnrechecked }}</Tag>
+      <Tag v-if="summary.pending > 0" color="warning">
+        待盘 {{ summary.pending }}
+      </Tag>
+      <Tag v-if="summary.diffUnrechecked > 0" color="orange">
+        待复盘 {{ summary.diffUnrechecked }}
+      </Tag>
     </div>
 
     <!-- 表格 -->
@@ -711,7 +799,11 @@ function toggleFullscreen() {
         <!-- 规格信息 -->
         <template v-else-if="column.dataIndex === 'specInfo'">
           <div v-if="record.specInfo" class="spec-info-cell">
-            <span v-for="(spec, idx) in record.specInfoList" :key="idx" class="spec-item">
+            <span
+              v-for="(spec, idx) in record.specInfoList"
+              :key="idx"
+              class="spec-item"
+            >
               <span class="spec-label">{{ spec.label }}:</span>
               <span class="spec-value">{{ spec.value }}</span>
             </span>
@@ -738,7 +830,9 @@ function toggleFullscreen() {
 
         <!-- 差异 -->
         <template v-else-if="column.dataIndex === 'difference'">
-          <span v-if="computeDiff(record) === null" class="text-gray-400">-</span>
+          <span v-if="computeDiff(record) === null" class="text-gray-400"
+            >-</span
+          >
           <span
             v-else
             :class="{
@@ -817,7 +911,9 @@ function toggleFullscreen() {
             placeholder="选择"
             :options="diffReasonOptions"
             allow-clear
-            :disabled="computeDiff(record) === 0 || computeDiff(record) === null"
+            :disabled="
+              computeDiff(record) === 0 || computeDiff(record) === null
+            "
           />
         </template>
 
@@ -830,7 +926,9 @@ function toggleFullscreen() {
             placeholder="选择"
             :options="handlingOptions"
             allow-clear
-            :disabled="computeDiff(record) === 0 || computeDiff(record) === null"
+            :disabled="
+              computeDiff(record) === 0 || computeDiff(record) === null
+            "
           />
         </template>
 
@@ -856,7 +954,13 @@ function toggleFullscreen() {
             >
               撤销
             </Button>
-            <Button type="link" danger size="small" style="padding: 0 4px" @click="removeItem(index)">
+            <Button
+              type="link"
+              danger
+              size="small"
+              style="padding: 0 4px"
+              @click="removeItem(index)"
+            >
               删除
             </Button>
           </div>
@@ -882,8 +986,9 @@ function toggleFullscreen() {
       width="420px"
       @ok="confirmBatchAssign"
     >
-      <p style="margin-bottom: 12px; color: #666; font-size: 13px">
-        将为选中的 <strong>{{ selectedRowKeys.length }}</strong> 个产品分配盘点人：
+      <p style="margin-bottom: 12px; font-size: 13px; color: #666">
+        将为选中的
+        <strong>{{ selectedRowKeys.length }}</strong> 个产品分配盘点人：
       </p>
       <Select
         v-model:value="batchAssigneeIds"
@@ -913,17 +1018,17 @@ function toggleFullscreen() {
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .input-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .product-info-cell {
@@ -934,15 +1039,15 @@ function toggleFullscreen() {
 
 .product-info-cell .product-code {
   font-size: 11px;
-  color: #86909c;
   line-height: 1.3;
+  color: #86909c;
 }
 
 .product-info-cell .product-name {
   font-size: 13px;
-  color: #1f2329;
   font-weight: 500;
   line-height: 1.3;
+  color: #1f2329;
 }
 
 .spec-info-cell {
@@ -953,12 +1058,12 @@ function toggleFullscreen() {
 
 .spec-info-cell .spec-item {
   display: inline-flex;
-  align-items: center;
   gap: 2px;
+  align-items: center;
   padding: 1px 6px;
+  font-size: 11px;
   background: #f2f3f5;
   border-radius: 4px;
-  font-size: 11px;
 }
 
 .spec-info-cell .spec-label {
@@ -966,14 +1071,14 @@ function toggleFullscreen() {
 }
 
 .spec-info-cell .spec-value {
-  color: #1f2329;
   font-weight: 500;
+  color: #1f2329;
 }
 
 .action-cell {
   display: flex;
-  align-items: center;
   gap: 0;
+  align-items: center;
   white-space: nowrap;
 }
 
@@ -986,15 +1091,15 @@ function toggleFullscreen() {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
+  margin-bottom: 12px;
   background: linear-gradient(135deg, #f0f5ff 0%, #e6f7ff 100%);
   border-radius: 8px;
-  margin-bottom: 12px;
 }
 
 .topbar-info {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .topbar-no {
@@ -1005,22 +1110,22 @@ function toggleFullscreen() {
 
 .topbar-progress {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .topbar-progress .progress-text {
   font-size: 12px;
-  white-space: nowrap;
   color: #666;
+  white-space: nowrap;
 }
 
 .drawer-toolbar {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .toolbar-tabs {
@@ -1031,24 +1136,24 @@ function toggleFullscreen() {
 
 .tab-btn {
   padding: 2px 12px;
+  font-size: 12px;
+  color: #86909c;
+  cursor: pointer;
+  background: #fff;
   border: 1px solid #e5e6eb;
   border-radius: 6px;
-  background: #fff;
-  color: #86909c;
-  font-size: 12px;
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .tab-btn:hover {
-  border-color: #3370ff;
   color: #3370ff;
+  border-color: #3370ff;
 }
 
 .tab-btn.active {
+  color: white;
   background: #3370ff;
   border-color: #3370ff;
-  color: white;
 }
 
 .drawer-stats {

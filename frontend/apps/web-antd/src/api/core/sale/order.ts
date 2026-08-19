@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getOrderListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/sale/order/list', { params });
 };
@@ -15,7 +17,12 @@ export const updateOrderApi = async (param: any) => {
 export const deleteOrderApi = async (ids: number[]) => {
   return requestClient.post('/api/system/sale/order/batch-delete', { ids });
 };
-export const updateOrderStatusApi = async (param: { id: number | string; orderStatus: number; trackingNo?: string; remark?: string }) => {
+export const updateOrderStatusApi = async (param: {
+  id: number | string;
+  orderStatus: number;
+  remark?: string;
+  trackingNo?: string;
+}) => {
   return requestClient.put('/api/system/sale/order/updateStatus', param);
 };
 
@@ -26,11 +33,17 @@ export const submitOrderApi = async (orderId: number) => {
 };
 
 export const approveOrderApi = async (orderId: number, reason?: string) => {
-  return requestClient.post('/api/system/sale/order/approve', { orderId, reason });
+  return requestClient.post('/api/system/sale/order/approve', {
+    orderId,
+    reason,
+  });
 };
 
 export const rejectOrderApi = async (orderId: number, reason?: string) => {
-  return requestClient.post('/api/system/sale/order/reject', { orderId, reason });
+  return requestClient.post('/api/system/sale/order/reject', {
+    orderId,
+    reason,
+  });
 };
 
 export const getOrderApprovalDetailApi = async (orderId: number) => {
@@ -38,5 +51,7 @@ export const getOrderApprovalDetailApi = async (orderId: number) => {
 };
 
 export const createContractFromOrderApi = async (orderId: number) => {
-  return requestClient.post('/api/system/sale/order/create-contract', { id: orderId });
+  return requestClient.post('/api/system/sale/order/create-contract', {
+    id: orderId,
+  });
 };

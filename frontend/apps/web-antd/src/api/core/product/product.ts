@@ -1,9 +1,11 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export interface ProductSkuRequest {
   id?: number | string;
   specs?: string;
-  imageUrl?: string | null;
+  imageUrl?: null | string;
   price?: number;
   costPrice?: number;
   originalPrice?: number;
@@ -33,10 +35,10 @@ export interface ProductSaveRequest {
   description?: string;
   detail?: string;
   currency?: string;
-  imageUrl?: string | null;
+  imageUrl?: null | string;
   brandId?: number;
   carouselImages?: string[];
-  specType?: 'single' | 'multiple';
+  specType?: 'multiple' | 'single';
   templateId?: number;
   skus?: ProductSkuRequest[];
   /** 商品类型：1=实物，2=虚拟，3=服务，4=订阅 */
@@ -53,7 +55,9 @@ export const getProductListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/product/product/list', { params });
 };
 export const getProductInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/product/product/info', { params: { id } });
+  return requestClient.get('/api/system/product/product/info', {
+    params: { id },
+  });
 };
 export const createProductApi = async (param: ProductSaveRequest) => {
   return requestClient.post('/api/system/product/product/save', param);

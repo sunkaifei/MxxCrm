@@ -85,7 +85,8 @@ export async function vue(): Promise<Linter.Config[]> {
         'vue/dot-location': ['error', 'property'],
         'vue/dot-notation': ['error', { allowKeywords: true }],
         'vue/eqeqeq': ['error', 'smart'],
-        'vue/html-closing-bracket-newline': 'error',
+        // 闭合括号换行交给 oxfmt 统一管理（oxfmt 对超长行采用悬挂括号风格，与本规则冲突）
+        'vue/html-closing-bracket-newline': 'off',
         'vue/html-indent': 'off',
         // 'vue/html-indent': ['error', 2],
         'vue/html-quotes': ['error', 'double'],

@@ -24,11 +24,6 @@
     "operationSuccess": "Operation succeeded",
     "operationFailed": "Operation failed"
   },
-  "placeholder": {
-    "input": "Please enter",
-    "select": "Please select",
-    "upload": "Click to upload"
-  },
   "captcha": {
     "title": "Please complete the security verification",
     "sliderSuccessText": "Passed",

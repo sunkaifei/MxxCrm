@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { computed, h, onMounted, reactive, ref } from 'vue';
 import type { Key } from 'ant-design-vue/es/table/interface';
+
+import { computed, h, onMounted, reactive, ref } from 'vue';
 
 import { useAccess } from '@vben/access';
 import { Page } from '@vben/common-ui';
@@ -19,11 +20,10 @@ import {
   Row,
   Select,
   Table,
-  Tabs,
   TabPane,
+  Tabs,
   Tag,
 } from 'ant-design-vue';
-import { UserPickerModal } from '#/components/UserPickerModal';
 
 import {
   deleteInsurancePolicyApi,
@@ -32,16 +32,15 @@ import {
   upsertEmployeeInsuranceConfigApi,
   upsertInsurancePolicyApi,
 } from '#/api/core/finance';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { UserPickerModal } from '#/components/UserPickerModal';
+import { $t } from '#/locales';
 
 const guideStepCount = 5;
 
 // ===== 权限 =====
 const { hasAccessByRoles } = useAccess();
-const canManage = computed(() =>
-  hasAccessByRoles(['super_admin', 'finance']),
-);
+const canManage = computed(() => hasAccessByRoles(['super_admin', 'finance']));
 
 // ===== 通用工具 =====
 function formatMoney(val: any) {
@@ -61,8 +60,16 @@ const policyList = ref<any[]>([]);
 const policyFilterYear = ref<number | undefined>(undefined);
 
 const policyColumns = computed(() => [
-  { title: $t('page.finance.insurance.column.cityCode'), dataIndex: 'cityCode', width: 100 },
-  { title: $t('page.finance.insurance.column.cityName'), dataIndex: 'cityName', width: 120 },
+  {
+    title: $t('page.finance.insurance.column.cityCode'),
+    dataIndex: 'cityCode',
+    width: 100,
+  },
+  {
+    title: $t('page.finance.insurance.column.cityName'),
+    dataIndex: 'cityName',
+    width: 120,
+  },
   {
     title: $t('page.finance.insurance.column.year'),
     dataIndex: 'year',
@@ -151,7 +158,12 @@ const policyColumns = computed(() => [
     align: 'right' as const,
     customRender: ({ text }: any) => formatRate(text),
   },
-  { title: $t('page.finance.common.action'), key: 'action', width: 140, fixed: 'right' as const },
+  {
+    title: $t('page.finance.common.action'),
+    key: 'action',
+    width: 140,
+    fixed: 'right' as const,
+  },
 ]);
 
 async function loadPolicyList() {
@@ -162,8 +174,10 @@ async function loadPolicyList() {
     });
     const data = res?.data || res;
     policyList.value = Array.isArray(data) ? data : data?.items || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.insurance.message.loadPolicyFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.insurance.message.loadPolicyFailed'),
+    );
     policyList.value = [];
   } finally {
     policyLoading.value = false;
@@ -207,17 +221,13 @@ function openPolicyForm(record?: any) {
     policyForm.unemploymentEnterprise = Number(
       record.unemploymentEnterprise || 0,
     );
-    policyForm.unemploymentPersonal = Number(
-      record.unemploymentPersonal || 0,
-    );
+    policyForm.unemploymentPersonal = Number(record.unemploymentPersonal || 0);
     policyForm.injuryEnterprise = Number(record.injuryEnterprise || 0);
     policyForm.maternityEnterprise = Number(record.maternityEnterprise || 0);
     policyForm.housingFundEnterprise = Number(
       record.housingFundEnterprise || 0,
     );
-    policyForm.housingFundPersonal = Number(
-      record.housingFundPersonal || 0,
-    );
+    policyForm.housingFundPersonal = Number(record.housingFundPersonal || 0);
   } else {
     policyForm.id = undefined;
     policyForm.cityCode = '';
@@ -254,8 +264,8 @@ async function submitPolicyForm() {
     message.success($t('page.finance.common.saveSuccess'));
     policyFormVisible.value = false;
     await loadPolicyList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.saveFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.saveFailed'));
   } finally {
     policyFormSubmitting.value = false;
   }
@@ -266,8 +276,10 @@ async function handleDeletePolicy(id: number) {
     await deleteInsurancePolicyApi(id);
     message.success($t('page.finance.common.deleteSuccess'));
     await loadPolicyList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.insurance.message.deleteFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.insurance.message.deleteFailed'),
+    );
   }
 }
 
@@ -275,16 +287,38 @@ async function handleDeletePolicy(id: number) {
 const empInsLoading = ref(false);
 const empInsList = ref<any[]>([]);
 
-const participateMap: Record<number, { label: string; color: string }> = {
-  0: { label: $t('page.finance.insurance.status.notParticipated'), color: 'default' },
-  1: { label: $t('page.finance.insurance.status.participated'), color: 'green' },
+const participateMap: Record<number, { color: string; label: string }> = {
+  0: {
+    label: $t('page.finance.insurance.status.notParticipated'),
+    color: 'default',
+  },
+  1: {
+    label: $t('page.finance.insurance.status.participated'),
+    color: 'green',
+  },
 };
 
 const empInsColumns = computed(() => [
-  { title: $t('page.finance.common.employeeId'), dataIndex: 'employeeId', width: 90 },
-  { title: $t('page.finance.common.employeeName'), dataIndex: 'employeeName', width: 120 },
-  { title: $t('page.finance.insurance.column.cityCode'), dataIndex: 'cityCode', width: 100 },
-  { title: $t('page.finance.insurance.column.cityName'), dataIndex: 'cityName', width: 120 },
+  {
+    title: $t('page.finance.common.employeeId'),
+    dataIndex: 'employeeId',
+    width: 90,
+  },
+  {
+    title: $t('page.finance.common.employeeName'),
+    dataIndex: 'employeeName',
+    width: 120,
+  },
+  {
+    title: $t('page.finance.insurance.column.cityCode'),
+    dataIndex: 'cityCode',
+    width: 100,
+  },
+  {
+    title: $t('page.finance.insurance.column.cityName'),
+    dataIndex: 'cityName',
+    width: 120,
+  },
   {
     title: $t('page.finance.insurance.column.baseAmount'),
     dataIndex: 'baseAmount',
@@ -345,7 +379,12 @@ const empInsColumns = computed(() => [
       return m ? h(Tag, { color: m.color }, () => m.label) : text;
     },
   },
-  { title: $t('page.finance.common.action'), key: 'action', width: 100, fixed: 'right' as const },
+  {
+    title: $t('page.finance.common.action'),
+    key: 'action',
+    width: 100,
+    fixed: 'right' as const,
+  },
 ]);
 
 async function loadEmpInsList() {
@@ -354,8 +393,11 @@ async function loadEmpInsList() {
     const res: any = await getEmployeeInsuranceConfigListApi();
     const data = res?.data || res;
     empInsList.value = Array.isArray(data) ? data : data?.items || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.insurance.message.loadEmpConfigFailed'));
+  } catch (error: any) {
+    message.error(
+      error?.message ||
+        $t('page.finance.insurance.message.loadEmpConfigFailed'),
+    );
     empInsList.value = [];
   } finally {
     empInsLoading.value = false;
@@ -429,8 +471,8 @@ async function submitEmpInsForm() {
     message.success($t('page.finance.common.saveSuccess'));
     empInsFormVisible.value = false;
     await loadEmpInsList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.saveFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.saveFailed'));
   } finally {
     empInsFormSubmitting.value = false;
   }
@@ -482,13 +524,11 @@ onMounted(() => {
                 style="width: 140px"
                 :placeholder="$t('page.finance.insurance.placeholder.allYears')"
               />
-              <Button @click="loadPolicyList">{{ $t('page.finance.common.refresh') }}</Button>
+              <Button @click="loadPolicyList">
+                {{ $t('page.finance.common.refresh') }}
+              </Button>
             </div>
-            <Button
-              v-if="canManage"
-              type="primary"
-              @click="openPolicyForm()"
-            >
+            <Button v-if="canManage" type="primary" @click="openPolicyForm()">
               {{ $t('page.finance.insurance.button.createPolicyShort') }}
             </Button>
           </div>
@@ -513,10 +553,14 @@ onMounted(() => {
                 </Button>
                 <Popconfirm
                   v-if="canManage"
-                  :title="$t('page.finance.insurance.message.deletePolicyConfirm')"
+                  :title="
+                    $t('page.finance.insurance.message.deletePolicyConfirm')
+                  "
                   @confirm="handleDeletePolicy(record.id)"
                 >
-                  <Button type="link" size="small" danger>{{ $t('page.finance.common.delete') }}</Button>
+                  <Button type="link" size="small" danger>
+                    {{ $t('page.finance.common.delete') }}
+                  </Button>
                 </Popconfirm>
               </template>
             </template>
@@ -525,7 +569,9 @@ onMounted(() => {
 
         <TabPane key="empIns" :tab="$t('page.finance.insurance.tab.empConfig')">
           <div class="mb-4 flex items-center justify-between">
-            <Button @click="loadEmpInsList">{{ $t('page.finance.common.refresh') }}</Button>
+            <Button @click="loadEmpInsList">
+              {{ $t('page.finance.common.refresh') }}
+            </Button>
           </div>
           <Table
             :columns="empInsColumns"
@@ -556,7 +602,11 @@ onMounted(() => {
     <!-- 城市政策编辑弹窗 -->
     <Modal
       v-model:open="policyFormVisible"
-      :title="policyForm.id ? $t('page.finance.insurance.drawer.titlePolicyEdit') : $t('page.finance.insurance.drawer.titlePolicyCreate')"
+      :title="
+        policyForm.id
+          ? $t('page.finance.insurance.drawer.titlePolicyEdit')
+          : $t('page.finance.insurance.drawer.titlePolicyCreate')
+      "
       :confirm-loading="policyFormSubmitting"
       width="760px"
       @ok="submitPolicyForm"
@@ -564,21 +614,37 @@ onMounted(() => {
       <Form layout="vertical" class="py-4" autocomplete="off">
         <Row :gutter="16">
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.cityCode')" required>
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.cityCode')"
+              required
+            >
               <Input
                 v-model:value="policyForm.cityCode"
-                :placeholder="$t('page.finance.insurance.drawer.cityCodePlaceholder')"
+                :placeholder="
+                  $t('page.finance.insurance.drawer.cityCodePlaceholder')
+                "
                 :disabled="!!policyForm.id"
               />
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.cityName')" required>
-              <Input v-model:value="policyForm.cityName" :placeholder="$t('page.finance.insurance.drawer.cityNamePlaceholder')" />
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.cityName')"
+              required
+            >
+              <Input
+                v-model:value="policyForm.cityName"
+                :placeholder="
+                  $t('page.finance.insurance.drawer.cityNamePlaceholder')
+                "
+              />
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.year')" required>
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.year')"
+              required
+            >
               <InputNumber
                 v-model:value="policyForm.year"
                 :min="2020"
@@ -590,7 +656,10 @@ onMounted(() => {
         </Row>
         <Row :gutter="16">
           <Col :span="12">
-            <FormItem :label="$t('page.finance.insurance.drawer.baseLower')" required>
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.baseLower')"
+              required
+            >
               <InputNumber
                 v-model:value="policyForm.baseLower"
                 :min="0"
@@ -601,7 +670,10 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="12">
-            <FormItem :label="$t('page.finance.insurance.drawer.baseUpper')" required>
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.baseUpper')"
+              required
+            >
               <InputNumber
                 v-model:value="policyForm.baseUpper"
                 :min="0"
@@ -612,10 +684,14 @@ onMounted(() => {
             </FormItem>
           </Col>
         </Row>
-        <div class="mb-2 font-semibold">{{ $t('page.finance.insurance.drawer.rateTip') }}</div>
+        <div class="mb-2 font-semibold">
+          {{ $t('page.finance.insurance.drawer.rateTip') }}
+        </div>
         <Row :gutter="16">
           <Col :span="6">
-            <FormItem :label="$t('page.finance.insurance.column.pensionCompany')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.pensionCompany')"
+            >
               <InputNumber
                 v-model:value="policyForm.pensionEnterprise"
                 :min="0"
@@ -627,7 +703,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.insurance.column.pensionPersonal')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.pensionPersonal')"
+            >
               <InputNumber
                 v-model:value="policyForm.pensionPersonal"
                 :min="0"
@@ -639,7 +717,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.insurance.column.medicalCompany')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.medicalCompany')"
+            >
               <InputNumber
                 v-model:value="policyForm.medicalEnterprise"
                 :min="0"
@@ -651,7 +731,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.insurance.column.medicalPersonal')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.medicalPersonal')"
+            >
               <InputNumber
                 v-model:value="policyForm.medicalPersonal"
                 :min="0"
@@ -665,7 +747,9 @@ onMounted(() => {
         </Row>
         <Row :gutter="16">
           <Col :span="6">
-            <FormItem :label="$t('page.finance.insurance.column.unemploymentCompany')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.unemploymentCompany')"
+            >
               <InputNumber
                 v-model:value="policyForm.unemploymentEnterprise"
                 :min="0"
@@ -677,7 +761,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.insurance.column.unemploymentPersonal')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.unemploymentPersonal')"
+            >
               <InputNumber
                 v-model:value="policyForm.unemploymentPersonal"
                 :min="0"
@@ -689,7 +775,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.insurance.column.workinjuryCompany')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.workinjuryCompany')"
+            >
               <InputNumber
                 v-model:value="policyForm.injuryEnterprise"
                 :min="0"
@@ -701,7 +789,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="6">
-            <FormItem :label="$t('page.finance.insurance.column.maternityCompany')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.maternityCompany')"
+            >
               <InputNumber
                 v-model:value="policyForm.maternityEnterprise"
                 :min="0"
@@ -715,7 +805,9 @@ onMounted(() => {
         </Row>
         <Row :gutter="16">
           <Col :span="12">
-            <FormItem :label="$t('page.finance.insurance.column.housingFundCompany')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.housingFundCompany')"
+            >
               <InputNumber
                 v-model:value="policyForm.housingFundEnterprise"
                 :min="0"
@@ -727,7 +819,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="12">
-            <FormItem :label="$t('page.finance.insurance.column.housingFundPersonal')">
+            <FormItem
+              :label="$t('page.finance.insurance.column.housingFundPersonal')"
+            >
               <InputNumber
                 v-model:value="policyForm.housingFundPersonal"
                 :min="0"
@@ -745,7 +839,11 @@ onMounted(() => {
     <!-- 员工社保配置编辑弹窗 -->
     <Modal
       v-model:open="empInsFormVisible"
-      :title="empInsForm.id ? $t('page.finance.insurance.drawer.titleEmpConfigEdit') : $t('page.finance.insurance.drawer.titleEmpConfigCreate')"
+      :title="
+        empInsForm.id
+          ? $t('page.finance.insurance.drawer.titleEmpConfigEdit')
+          : $t('page.finance.insurance.drawer.titleEmpConfigCreate')
+      "
       :confirm-loading="empInsFormSubmitting"
       width="640px"
       @ok="submitEmpInsForm"
@@ -754,19 +852,30 @@ onMounted(() => {
         <Row :gutter="16">
           <Col :span="12">
             <FormItem :label="$t('page.finance.common.employeeId')" required>
-              <UserPickerModal v-model:value="empInsForm.employeeId" :disabled="!!empInsForm.id" />
+              <UserPickerModal
+                v-model:value="empInsForm.employeeId"
+                :disabled="!!empInsForm.id"
+              />
             </FormItem>
           </Col>
           <Col :span="12">
-            <FormItem :label="$t('page.finance.insurance.drawer.cityCode')" required>
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.cityCode')"
+              required
+            >
               <Input
                 v-model:value="empInsForm.cityCode"
-                :placeholder="$t('page.finance.insurance.drawer.cityCodePlaceholder')"
+                :placeholder="
+                  $t('page.finance.insurance.drawer.cityCodePlaceholder')
+                "
               />
             </FormItem>
           </Col>
         </Row>
-        <FormItem :label="$t('page.finance.insurance.drawer.baseAmount')" required>
+        <FormItem
+          :label="$t('page.finance.insurance.drawer.baseAmount')"
+          required
+        >
           <InputNumber
             v-model:value="empInsForm.baseAmount"
             :min="0"
@@ -775,10 +884,14 @@ onMounted(() => {
             prefix="¥"
           />
         </FormItem>
-        <div class="mb-2 font-semibold">{{ $t('page.finance.insurance.drawer.participateTitle') }}</div>
+        <div class="mb-2 font-semibold">
+          {{ $t('page.finance.insurance.drawer.participateTitle') }}
+        </div>
         <Row :gutter="16">
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.pensionInsurance')">
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.pensionInsurance')"
+            >
               <Select
                 v-model:value="empInsForm.pensionParticipate"
                 :options="participateOptions"
@@ -787,7 +900,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.medicalInsurance')">
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.medicalInsurance')"
+            >
               <Select
                 v-model:value="empInsForm.medicalParticipate"
                 :options="participateOptions"
@@ -796,7 +911,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.unemploymentInsurance')">
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.unemploymentInsurance')"
+            >
               <Select
                 v-model:value="empInsForm.unemploymentParticipate"
                 :options="participateOptions"
@@ -807,7 +924,9 @@ onMounted(() => {
         </Row>
         <Row :gutter="16">
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.workinjuryInsurance')">
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.workinjuryInsurance')"
+            >
               <Select
                 v-model:value="empInsForm.injuryParticipate"
                 :options="participateOptions"
@@ -816,7 +935,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.maternityInsurance')">
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.maternityInsurance')"
+            >
               <Select
                 v-model:value="empInsForm.maternityParticipate"
                 :options="participateOptions"
@@ -825,7 +946,9 @@ onMounted(() => {
             </FormItem>
           </Col>
           <Col :span="8">
-            <FormItem :label="$t('page.finance.insurance.drawer.housingFundLabel')">
+            <FormItem
+              :label="$t('page.finance.insurance.drawer.housingFundLabel')"
+            >
               <Select
                 v-model:value="empInsForm.housingFundParticipate"
                 :options="participateOptions"

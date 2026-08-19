@@ -5,16 +5,16 @@ import { computed, ref, watch } from 'vue';
 
 import { useVbenForm } from '@vben/common-ui';
 
-import { Tooltip, message } from 'ant-design-vue';
+import { message, Tooltip } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
 import { createInvoiceApi, getInvoiceInfoApi, updateInvoiceApi } from '#/api';
 import { getUserListApi } from '#/api/core/system/user';
 
-const props = withDefaults(
-  defineProps<{ create?: boolean; row?: any }>(),
-  { create: true, row: () => ({}) },
-);
+const props = withDefaults(defineProps<{ create?: boolean; row?: any }>(), {
+  create: true,
+  row: () => ({}),
+});
 
 const isEdit = computed(() => !props.create);
 const isFullscreen = ref(false);
@@ -55,8 +55,8 @@ async function loadUserOptions() {
         label: item.realName || item.userName,
       }));
     }
-  } catch (e) {
-    console.error('Failed to load user options:', e);
+  } catch (error) {
+    console.error('Failed to load user options:', error);
   }
 }
 
@@ -81,26 +81,42 @@ const formSchema: VbenFormSchema[] = [
     fieldName: 'invoiceDate',
     label: '开票日期',
     rules: 'required',
-    componentProps: { placeholder: '请选择', style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+    componentProps: {
+      placeholder: '请选择',
+      style: 'width:100%',
+      valueFormat: 'YYYY-MM-DD',
+    },
   },
   {
     component: 'InputNumber',
     fieldName: 'contractId',
     label: '合同ID',
-    componentProps: { placeholder: '请输入合同ID', style: 'width:100%', min: 1 },
+    componentProps: {
+      placeholder: '请输入合同ID',
+      style: 'width:100%',
+      min: 1,
+    },
   },
   {
     component: 'InputNumber',
     fieldName: 'orderId',
     label: '订单ID',
-    componentProps: { placeholder: '请输入订单ID', style: 'width:100%', min: 1 },
+    componentProps: {
+      placeholder: '请输入订单ID',
+      style: 'width:100%',
+      min: 1,
+    },
   },
   {
     component: 'InputNumber',
     fieldName: 'customerId',
     label: '客户ID',
     rules: 'required',
-    componentProps: { placeholder: '请输入客户ID', style: 'width:100%', min: 1 },
+    componentProps: {
+      placeholder: '请输入客户ID',
+      style: 'width:100%',
+      min: 1,
+    },
   },
   {
     component: 'Input',
@@ -125,14 +141,23 @@ const formSchema: VbenFormSchema[] = [
     component: 'DatePicker',
     fieldName: 'dueDate',
     label: '到期日',
-    componentProps: { placeholder: '请选择', style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+    componentProps: {
+      placeholder: '请选择',
+      style: 'width:100%',
+      valueFormat: 'YYYY-MM-DD',
+    },
   },
   {
     component: 'InputNumber',
     fieldName: 'amount',
     label: '金额',
     rules: 'required',
-    componentProps: { placeholder: '请输入金额', style: 'width:100%', precision: 2, min: 0 },
+    componentProps: {
+      placeholder: '请输入金额',
+      style: 'width:100%',
+      precision: 2,
+      min: 0,
+    },
   },
   {
     component: 'InputNumber',
@@ -200,7 +225,12 @@ const formSchema: VbenFormSchema[] = [
     component: 'Textarea',
     fieldName: 'remark',
     label: '备注',
-    componentProps: { placeholder: '备注信息', rows: 3, showCount: true, maxlength: 500 },
+    componentProps: {
+      placeholder: '备注信息',
+      rows: 3,
+      showCount: true,
+      maxlength: 500,
+    },
     wrapperClass: 'col-span-2',
   },
 ];
@@ -228,7 +258,10 @@ watch(
           orderId: data.orderId,
           customerId: data.customerId,
           customerName: data.customerName,
-          ownerUserId: data.ownerUserId != null ? Number(data.ownerUserId) : undefined,
+          ownerUserId:
+            data.ownerUserId === null || data.ownerUserId === undefined
+              ? undefined
+              : Number(data.ownerUserId),
           dueDate: data.dueDate,
           amount: data.amount ?? 0,
           taxRate: data.taxRate ?? 0,
@@ -255,7 +288,10 @@ async function handleSubmit() {
   try {
     const data = {
       ...values,
-      ownerUserId: values.ownerUserId != null ? Number(values.ownerUserId) : undefined,
+      ownerUserId:
+        values.ownerUserId === null || values.ownerUserId === undefined
+          ? undefined
+          : Number(values.ownerUserId),
     };
     if (isEdit.value) {
       await updateInvoiceApi({ ...data, id: props.row.id });
@@ -371,16 +407,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .sale-invoice-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 </style>

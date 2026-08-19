@@ -1,8 +1,11 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { computed, h, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer, z } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -11,17 +14,17 @@ import { Button, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenForm } from '#/adapter/form';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
   addTemplateDataApi,
   deleteTemplateDataApi,
   getTemplateDataListApi,
-  updateTemplateDataApi,
-  templateApi,
   previewTemplateDataApi,
+  templateApi,
+  updateTemplateDataApi,
 } from '#/api';
 import { $t } from '#/locales';
 import { statusList } from '#/store';
+
 import RevisionModal from './revision-modal.vue';
 
 const accessStore = useAccessStore();
@@ -48,7 +51,11 @@ const templateOptions = ref<{ label: string; value: number }[]>([]);
 
 async function loadTemplateOptions() {
   try {
-    const res: any = await templateApi.list({ page: 1, pageSize: 999, status: 1 });
+    const res: any = await templateApi.list({
+      page: 1,
+      pageSize: 999,
+      status: 1,
+    });
     const list = res?.items || [];
     templateOptions.value = list.map((t: any) => ({
       label: t.name,
@@ -195,7 +202,7 @@ const drawerTitle = computed(() =>
 
 // --- 版本历史 ---
 const revisionVisible = ref(false);
-const revisionTemplateDataId = ref<number | null>(null);
+const revisionTemplateDataId = ref<null | number>(null);
 
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
@@ -288,11 +295,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const values = await baseFormApi.getValues();
 
     try {
-      if (drawerData.value.create) {
-        await addTemplateDataApi(values);
-      } else {
-        await updateTemplateDataApi(drawerData.value.row.id, values);
-      }
+      await (drawerData.value.create
+        ? addTemplateDataApi(values)
+        : updateTemplateDataApi(drawerData.value.row.id, values));
 
       message.success(
         drawerData.value.create
@@ -473,7 +478,9 @@ async function handlePreview() {
           </Button>
           <div>
             <Button @click="drawerApi.close()">取消</Button>
-            <Button type="primary" @click="drawerApi.onConfirm?.()">保存</Button>
+            <Button type="primary" @click="drawerApi.onConfirm?.()">
+              保存
+            </Button>
           </div>
         </div>
       </template>
@@ -497,7 +504,7 @@ async function handlePreview() {
         :srcdoc="previewHtml"
         class="preview-iframe"
         title="template-preview"
-      />
+      ></iframe>
     </Modal>
   </Page>
 </template>

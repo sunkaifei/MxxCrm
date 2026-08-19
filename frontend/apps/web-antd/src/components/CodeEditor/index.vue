@@ -3,27 +3,11 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import * as monaco from 'monaco-editor';
 // worker 路径通过 vite.config.ts 的 alias 绕过 monaco-editor@0.56 exports 限制
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-
-// 配置 Monaco Web Worker（必须在创建编辑器实例之前设置）
-if (!self.MonacoEnvironment) {
-  self.MonacoEnvironment = {
-    getWorker(_workerId: string, label: string) {
-      if (label === 'json') return new jsonWorker();
-      if (label === 'css' || label === 'scss' || label === 'less')
-        return new cssWorker();
-      if (label === 'html' || label === 'handlebars' || label === 'razor')
-        return new htmlWorker();
-      if (label === 'typescript' || label === 'javascript')
-        return new tsWorker();
-      return new editorWorker();
-    },
-  };
-}
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
+import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
+import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
+import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 
 const props = withDefaults(
   defineProps<{
@@ -47,6 +31,25 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
+
+// 配置 Monaco Web Worker（必须在创建编辑器实例之前设置）
+const monacoGlobal = globalThis as typeof globalThis & {
+  MonacoEnvironment?: monaco.Environment;
+};
+if (!monacoGlobal.MonacoEnvironment) {
+  monacoGlobal.MonacoEnvironment = {
+    getWorker(_workerId: string, label: string) {
+      if (label === 'json') return new JsonWorker();
+      if (label === 'css' || label === 'scss' || label === 'less')
+        return new CssWorker();
+      if (label === 'html' || label === 'handlebars' || label === 'razor')
+        return new HtmlWorker();
+      if (label === 'typescript' || label === 'javascript')
+        return new TsWorker();
+      return new EditorWorker();
+    },
+  };
+}
 
 const editorRef = ref<HTMLElement>();
 let editor: monaco.editor.IStandaloneCodeEditor | null = null;
@@ -142,14 +145,14 @@ defineExpose({ insertText });
 </script>
 
 <template>
-  <div ref="editorRef" class="code-editor" :style="{ height }" />
+  <div ref="editorRef" class="code-editor" :style="{ height }"></div>
 </template>
 
 <style scoped>
 .code-editor {
   width: 100%;
+  overflow: hidden;
   border: 1px solid #d9d9d9;
   border-radius: 6px;
-  overflow: hidden;
 }
 </style>

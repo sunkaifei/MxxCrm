@@ -20,7 +20,10 @@ export const createAttachmentCategoryApi = async (data: any) => {
 };
 
 export const updateAttachmentCategoryApi = async (id: number, data: any) => {
-  return requestClient.put(`/api/system/attachment/category/update/${id}`, data);
+  return requestClient.put(
+    `/api/system/attachment/category/update/${id}`,
+    data,
+  );
 };
 
 export const deleteAttachmentCategoryApi = async (ids: number[]) => {

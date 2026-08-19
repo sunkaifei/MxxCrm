@@ -8,7 +8,7 @@ import { computed, h, onMounted, ref } from 'vue';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 
-import { Button, Modal, Popconfirm, Tag, Tabs } from 'ant-design-vue';
+import { Button, Modal, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -20,9 +20,10 @@ import {
   rejectExpenseApi,
   submitExpenseApi,
 } from '#/api';
-import { $t } from '#/locales';
-import ExpenseDrawer from './drawer.vue';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { $t } from '#/locales';
+
+import ExpenseDrawer from './drawer.vue';
 
 const guideStepCount = 5;
 const accessStore = useAccessStore();
@@ -71,7 +72,7 @@ const tabList = computed(() => {
 
 const activeTab = ref('my');
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
@@ -105,14 +106,6 @@ const expenseStatusLabelMap: Record<number, string> = {
 };
 
 // 审批状态映射：0=草稿,1=待审批,2=审批中,3=已通过,4=已驳回
-const _approvalStatusOptions = [
-  { label: $t('page.finance.expense.status.draft'), value: 0 },
-  { label: $t('page.finance.expense.status.pending'), value: 1 },
-  { label: $t('page.finance.expense.status.approving'), value: 2 },
-  { label: $t('page.finance.expense.status.approved'), value: 3 },
-  { label: $t('page.finance.expense.status.rejected'), value: 4 },
-];
-
 const approvalStatusColorMap: Record<number, string> = {
   0: 'default',
   1: 'processing',
@@ -131,7 +124,7 @@ const approvalStatusLabelMap: Record<number, string> = {
 
 // 费用类型选项（从 API 加载）
 const expenseTypeOptions = ref<{ label: string; value: number }[]>([]);
-const expenseTypeMap = ref<Record<number, { name: string; color: string }>>({});
+const expenseTypeMap = ref<Record<number, { color: string; name: string }>>({});
 
 async function loadExpenseTypes() {
   try {
@@ -147,7 +140,7 @@ async function loadExpenseTypes() {
       label: t.typeName || t.name || '',
       value: t.id,
     }));
-    const map: Record<number, { name: string; color: string }> = {};
+    const map: Record<number, { color: string; name: string }> = {};
     arr.forEach((t: any) => {
       map[t.id] = {
         name: t.typeName || t.name || '',
@@ -155,8 +148,8 @@ async function loadExpenseTypes() {
       };
     });
     expenseTypeMap.value = map;
-  } catch (e) {
-    console.error('[expense] load expense types failed:', e);
+  } catch (error) {
+    console.error('[expense] load expense types failed:', error);
     expenseTypeOptions.value = [];
   }
 }
@@ -252,7 +245,12 @@ const gridOptions: VxeGridProps = {
   },
   columns: [
     { type: 'checkbox', width: 50 },
-    { title: $t('ui.table.seq'), type: 'seq', width: 60, headerAlign: 'center' },
+    {
+      title: $t('ui.table.seq'),
+      type: 'seq',
+      width: 60,
+      headerAlign: 'center',
+    },
     {
       title: $t('page.finance.expense.column.expenseNo'),
       field: 'expenseNo',
@@ -414,21 +412,17 @@ async function handleReject(row: any) {
   Modal.confirm({
     title: $t('page.finance.expense.modal.rejectTitle'),
     content: () =>
-      h(
-        'div',
-        { style: 'display:flex;flex-direction:column;gap:8px;' },
-        [
-          h('span', $t('page.finance.expense.modal.rejectContent')),
-          h('textarea', {
-            placeholder: $t('page.finance.expense.modal.rejectReasonPlaceholder'),
-            style:
-              'min-height:80px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
-            onInput: (e: any) => {
-              reason = e.target.value;
-            },
-          }),
-        ],
-      ),
+      h('div', { style: 'display:flex;flex-direction:column;gap:8px;' }, [
+        h('span', $t('page.finance.expense.modal.rejectContent')),
+        h('textarea', {
+          placeholder: $t('page.finance.expense.modal.rejectReasonPlaceholder'),
+          style:
+            'min-height:80px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
+          onInput: (e: any) => {
+            reason = e.target.value;
+          },
+        }),
+      ]),
     okText: $t('page.finance.expense.modal.confirmReject'),
     cancelText: $t('page.finance.common.cancel'),
     onOk: async () => {
@@ -453,65 +447,81 @@ async function handlePayment(row: any) {
   Modal.confirm({
     title: $t('page.finance.expense.modal.paymentTitle'),
     content: () =>
-      h(
-        'div',
-        { style: 'display:flex;flex-direction:column;gap:8px;' },
-        [
-          h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-            h('span', { style: 'width:90px;text-align:right;' }, $t('page.finance.expense.modal.paymentAmount')),
-            h('input', {
-              type: 'number',
-              value: paymentAmount,
-              style:
-                'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
-              onInput: (e: any) => {
-                paymentAmount = Number(e.target.value);
-              },
-            }),
-          ]),
-          h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-            h('span', { style: 'width:90px;text-align:right;' }, $t('page.finance.expense.modal.paymentDate')),
-            h('input', {
-              type: 'date',
-              style:
-                'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
-              onInput: (e: any) => {
-                paymentDate = e.target.value;
-              },
-            }),
-          ]),
-          h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-            h('span', { style: 'width:90px;text-align:right;' }, $t('page.finance.expense.modal.paymentAccount')),
-            h('input', {
-              placeholder: $t('page.finance.expense.modal.paymentAccountPlaceholder'),
-              style:
-                'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
-              onInput: (e: any) => {
-                paymentAccount = e.target.value;
-              },
-            }),
-          ]),
-          h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-            h('span', { style: 'width:90px;text-align:right;' }, $t('page.finance.expense.modal.transactionNo')),
-            h('input', {
-              placeholder: $t('page.finance.expense.modal.transactionNoPlaceholder'),
-              style:
-                'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
-              onInput: (e: any) => {
-                transactionNo = e.target.value;
-              },
-            }),
-          ]),
-          h('textarea', {
-            placeholder: $t('page.finance.expense.modal.remarkPlaceholder'),
+      h('div', { style: 'display:flex;flex-direction:column;gap:8px;' }, [
+        h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
+          h(
+            'span',
+            { style: 'width:90px;text-align:right;' },
+            $t('page.finance.expense.modal.paymentAmount'),
+          ),
+          h('input', {
+            type: 'number',
+            value: paymentAmount,
             style:
-              'min-height:60px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
+              'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
             onInput: (e: any) => {
-              remark = e.target.value;
+              paymentAmount = Number(e.target.value);
             },
           }),
-        ],
-      ),
+        ]),
+        h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
+          h(
+            'span',
+            { style: 'width:90px;text-align:right;' },
+            $t('page.finance.expense.modal.paymentDate'),
+          ),
+          h('input', {
+            type: 'date',
+            style:
+              'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
+            onInput: (e: any) => {
+              paymentDate = e.target.value;
+            },
+          }),
+        ]),
+        h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
+          h(
+            'span',
+            { style: 'width:90px;text-align:right;' },
+            $t('page.finance.expense.modal.paymentAccount'),
+          ),
+          h('input', {
+            placeholder: $t(
+              'page.finance.expense.modal.paymentAccountPlaceholder',
+            ),
+            style:
+              'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
+            onInput: (e: any) => {
+              paymentAccount = e.target.value;
+            },
+          }),
+        ]),
+        h('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
+          h(
+            'span',
+            { style: 'width:90px;text-align:right;' },
+            $t('page.finance.expense.modal.transactionNo'),
+          ),
+          h('input', {
+            placeholder: $t(
+              'page.finance.expense.modal.transactionNoPlaceholder',
+            ),
+            style:
+              'flex:1;padding:6px 8px;border:1px solid #d9d9d9;border-radius:4px;',
+            onInput: (e: any) => {
+              transactionNo = e.target.value;
+            },
+          }),
+        ]),
+        h('textarea', {
+          placeholder: $t('page.finance.expense.modal.remarkPlaceholder'),
+          style:
+            'min-height:60px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;',
+          onInput: (e: any) => {
+            remark = e.target.value;
+          },
+        }),
+      ]),
     okText: $t('page.finance.expense.modal.confirmPayment'),
     cancelText: $t('page.finance.common.cancel'),
     onOk: async () => {
@@ -554,15 +564,26 @@ async function handlePayment(row: any) {
         </div>
       </div>
     </PageUsageGuide>
-    <Grid :table-title="''">
+    <Grid table-title="">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
-          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
         </Tabs>
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('finance:expense:save')"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('finance:expense:save')
+          "
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -570,7 +591,10 @@ async function handlePayment(row: any) {
           {{ $t('page.finance.expense.button.create') }}
         </Button>
         <Button
-          v-if="!isSubordinateView && accessStore.hasAccessCode('finance:expense:delete')"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('finance:expense:delete')
+          "
           class="mr-2"
           @click="handleBatchDelete"
         >
@@ -591,7 +615,9 @@ async function handlePayment(row: any) {
 
       <template #expenseType="{ row }">
         <Tag :color="expenseTypeMap[row.expenseType]?.color || 'blue'">
-          {{ expenseTypeMap[row.expenseType]?.name || row.expenseTypeName || '-' }}
+          {{
+            expenseTypeMap[row.expenseType]?.name || row.expenseTypeName || '-'
+          }}
         </Tag>
       </template>
 
@@ -609,7 +635,10 @@ async function handlePayment(row: any) {
 
       <template #approvalStatus="{ row }">
         <Tag :color="approvalStatusColorMap[row.approvalStatus] ?? 'default'">
-          {{ approvalStatusLabelMap[row.approvalStatus] ?? $t('page.finance.expense.message.unknown') }}
+          {{
+            approvalStatusLabelMap[row.approvalStatus] ??
+            $t('page.finance.expense.message.unknown')
+          }}
         </Tag>
       </template>
 
@@ -619,7 +648,8 @@ async function handlePayment(row: any) {
           v-if="accessStore.hasAccessCode('finance:expense:list')"
           class="text-blue-600 cursor-pointer mx-1"
           @click="handleView(row)"
-        >{{ $t('page.finance.common.view') }}</a>
+          >{{ $t('page.finance.common.view') }}</a
+        >
         <!-- 编辑：草稿(1)或已驳回(5) -->
         <a
           v-if="
@@ -629,7 +659,8 @@ async function handlePayment(row: any) {
           "
           class="text-blue-600 cursor-pointer mx-1"
           @click="handleEdit(row)"
-        >{{ $t('page.finance.common.edit') }}</a>
+          >{{ $t('page.finance.common.edit') }}</a
+        >
         <!-- 提交审批：草稿(1)或已驳回(5) -->
         <a
           v-if="
@@ -639,7 +670,8 @@ async function handlePayment(row: any) {
           "
           class="text-blue-600 cursor-pointer mx-1"
           @click="handleSubmitApproval(row)"
-        >{{ $t('page.finance.expense.button.submit') }}</a>
+          >{{ $t('page.finance.expense.button.submit') }}</a
+        >
         <!-- 审批通过：待审批(2)/审批中(3) -->
         <a
           v-if="
@@ -649,7 +681,8 @@ async function handlePayment(row: any) {
           "
           class="text-green-600 cursor-pointer mx-1"
           @click="handleApprove(row)"
-        >{{ $t('page.finance.expense.button.approve') }}</a>
+          >{{ $t('page.finance.expense.button.approve') }}</a
+        >
         <!-- 审批驳回：待审批(2)/审批中(3) -->
         <a
           v-if="
@@ -659,7 +692,8 @@ async function handlePayment(row: any) {
           "
           class="text-orange-600 cursor-pointer mx-1"
           @click="handleReject(row)"
-        >{{ $t('page.finance.expense.button.reject') }}</a>
+          >{{ $t('page.finance.expense.button.reject') }}</a
+        >
         <!-- 打款：已通过(4) -->
         <a
           v-if="
@@ -669,7 +703,8 @@ async function handlePayment(row: any) {
           "
           class="text-green-600 cursor-pointer mx-1"
           @click="handlePayment(row)"
-        >{{ $t('page.finance.expense.button.payment') }}</a>
+          >{{ $t('page.finance.expense.button.payment') }}</a
+        >
         <!-- 删除：仅草稿(1)/已驳回(5) -->
         <Popconfirm
           v-if="
@@ -677,12 +712,18 @@ async function handlePayment(row: any) {
             accessStore.hasAccessCode('finance:expense:delete') &&
             (row.status === 1 || row.status === 5)
           "
-          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.finance.expense.title') })"
+          :title="
+            $t('ui.text.do_you_want_delete', {
+              moduleName: $t('page.finance.expense.title'),
+            })
+          "
           :ok-text="$t('ui.button.ok')"
           :cancel-text="$t('ui.button.cancel')"
           @confirm="handleDelete(row)"
         >
-          <a class="text-red-500 cursor-pointer mx-1">{{ $t('page.finance.common.delete') }}</a>
+          <a class="text-red-500 cursor-pointer mx-1">{{
+            $t('page.finance.common.delete')
+          }}</a>
         </Popconfirm>
       </template>
     </Grid>

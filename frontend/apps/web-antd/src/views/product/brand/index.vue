@@ -1,16 +1,25 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Descriptions, DescriptionsItem, Drawer, Popconfirm, Tag } from 'ant-design-vue';
+import {
+  Button,
+  Descriptions,
+  DescriptionsItem,
+  Drawer,
+  Popconfirm,
+  Tag,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import { deleteBrandApi, getBrandInfoApi, getBrandListApi } from '#/api';
 import { $t } from '#/locales';
 
@@ -73,14 +82,52 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { type: 'seq', title: $t('ui.table.seq'), width: 60 },
-    { title: $t('page.product.brand.field.name'), field: 'name', minWidth: 120, slots: { default: 'name' } },
-    { title: $t('page.product.brand.field.nameEn'), field: 'nameEn', minWidth: 120 },
-    { title: $t('page.product.brand.field.logo'), field: 'logo', width: 90, slots: { default: 'logo' } },
-    { title: $t('page.product.brand.field.country'), field: 'country', minWidth: 100 },
-    { title: $t('ui.table.status'), field: 'status', width: 80, slots: { default: 'status' } },
-    { title: $t('page.product.brand.field.sort'), field: 'sortOrder', width: 70 },
-    { title: $t('ui.table.createTime'), field: 'createTime', minWidth: 150, slots: { default: 'createTime' } },
-    { title: $t('ui.table.action'), field: 'action', fixed: 'right', slots: { default: 'action' }, width: 120 },
+    {
+      title: $t('page.product.brand.field.name'),
+      field: 'name',
+      minWidth: 120,
+      slots: { default: 'name' },
+    },
+    {
+      title: $t('page.product.brand.field.nameEn'),
+      field: 'nameEn',
+      minWidth: 120,
+    },
+    {
+      title: $t('page.product.brand.field.logo'),
+      field: 'logo',
+      width: 90,
+      slots: { default: 'logo' },
+    },
+    {
+      title: $t('page.product.brand.field.country'),
+      field: 'country',
+      minWidth: 100,
+    },
+    {
+      title: $t('ui.table.status'),
+      field: 'status',
+      width: 80,
+      slots: { default: 'status' },
+    },
+    {
+      title: $t('page.product.brand.field.sort'),
+      field: 'sortOrder',
+      width: 70,
+    },
+    {
+      title: $t('ui.table.createTime'),
+      field: 'createTime',
+      minWidth: 150,
+      slots: { default: 'createTime' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 120,
+    },
   ],
 };
 
@@ -99,8 +146,12 @@ function openDrawer(create: boolean, row?: any) {
   drawerApi.open();
 }
 
-function handleCreate() { openDrawer(true); }
-function handleEdit(row: any) { openDrawer(false, row); }
+function handleCreate() {
+  openDrawer(true);
+}
+function handleEdit(row: any) {
+  openDrawer(false, row);
+}
 
 async function handleDelete(row: any) {
   row.pending = true;
@@ -201,11 +252,13 @@ async function openDetail(row: any) {
     <Drawer
       :open="detailVisible"
       :width="520"
-      :title="$t('page.product.brand.detail') + ' - ' + (detailData.name || '')"
+      :title="`${$t('page.product.brand.detail')} - ${detailData.name || ''}`"
       @close="detailVisible = false"
     >
       <div v-if="detailLoading" class="flex justify-center py-16">
-        <span class="text-gray-400">{{ $t('page.product.brand.loading') }}</span>
+        <span class="text-gray-400">{{
+          $t('page.product.brand.loading')
+        }}</span>
       </div>
       <Descriptions v-else :column="1" bordered size="small">
         <DescriptionsItem :label="$t('page.product.brand.field.name')">

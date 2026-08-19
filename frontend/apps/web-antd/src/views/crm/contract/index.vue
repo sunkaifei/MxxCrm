@@ -1,16 +1,29 @@
 <script lang="ts" setup>
+import type { UploadFile } from 'ant-design-vue';
+
 import type { VbenFormProps } from '@vben/common-ui';
+
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Alert, Button, Dropdown, Menu, Modal, Tabs, Tag, Tooltip, Upload, message } from 'ant-design-vue';
-import type { UploadFile } from 'ant-design-vue';
-import { useRoute, useRouter } from 'vue-router';
+import {
+  Alert,
+  Button,
+  Dropdown,
+  Menu,
+  message,
+  Modal,
+  Tabs,
+  Tag,
+  Tooltip,
+  Upload,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -22,12 +35,13 @@ import {
   submitContractApi,
   uploadFileApi,
 } from '#/api';
-import { $t } from '#/locales';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
-import ContractDrawer from './drawer.vue';
-import ApprovalDrawer from './approval-drawer.vue';
+import { $t } from '#/locales';
+
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
+import ApprovalDrawer from './approval-drawer.vue';
+import ContractDrawer from './drawer.vue';
 
 // 合同管理使用说明步骤数（与 i18n 中 page.crm.contract.guide.steps 数组对齐）
 const guideStepCount = 5;
@@ -40,16 +54,22 @@ const route = useRoute();
 // 全部合同 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
 const canViewAll = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 1;
 });
 
 // 下属合同 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
 const canViewSubordinate = computed(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  const dataScope = (userStore.userInfo as any)?.dataScope ?? (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return true;
+  const dataScope =
+    (userStore.userInfo as any)?.dataScope ??
+    (userStore.userInfo as any)?.data_scope;
+  if (roles.includes('super_admin') || roles.includes('system_admin'))
+    return true;
   return dataScope === 2 || dataScope === 3 || dataScope === 4;
 });
 
@@ -72,7 +92,7 @@ const tabList = computed(() => {
   if (canViewAll.value) keys.push('all');
   keys.push('my');
   if (canViewSubordinate.value) keys.push('subordinate');
-  return allTabList.filter(t => keys.includes(t.key));
+  return allTabList.filter((t) => keys.includes(t.key));
 });
 
 const activeTab = ref('my');
@@ -80,7 +100,7 @@ const activeTab = ref('my');
 // 是否为下属视图（下属视图下只能查看，不能操作）
 const isSubordinateView = computed(() => activeTab.value === 'subordinate');
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   gridApi.query();
 }
@@ -109,24 +129,41 @@ const currentUserId = computed(() => {
 
 // 审批弹窗状态
 const approvalVisible = ref(false);
-const approvalContractId = ref<number | null>(null);
+const approvalContractId = ref<null | number>(null);
 
 // ========== 合同状态映射（系统自动驱动）==========
 // approvalStatus: 0=草稿 1=待审批 2=审批中 3=已通过(执行中) 4=已驳回 5=已撤回 6=待修改
-const contractStatusMap: Record<number, { label: string; color: string; description: string }> = {
+const contractStatusMap: Record<
+  number,
+  { color: string; description: string; label: string }
+> = {
   0: { label: '草稿', color: 'default', description: '已创建，待提交审批' },
-  1: { label: '待审批', color: 'processing', description: '已提交，等待审批人处理' },
+  1: {
+    label: '待审批',
+    color: 'processing',
+    description: '已提交，等待审批人处理',
+  },
   2: { label: '审批中', color: 'warning', description: '正在多级审批流转中' },
-  3: { label: '执行中', color: 'success', description: '审批通过，合同生效执行' },
-  4: { label: '已驳回', color: 'error', description: '审批被驳回，可修改后重新提交' },
-  5: { label: '已撤回', color: 'warning', description: '审批已撤回，可修改后重新提交' },
-  6: { label: '待修改', color: 'processing', description: '审批被退回，待修改后重新提交' },
-};
-
-const actionText: Record<number, string> = {
-  1: '提交',
-  2: '审批通过',
-  3: '驳回',
+  3: {
+    label: '执行中',
+    color: 'success',
+    description: '审批通过，合同生效执行',
+  },
+  4: {
+    label: '已驳回',
+    color: 'error',
+    description: '审批被驳回，可修改后重新提交',
+  },
+  5: {
+    label: '已撤回',
+    color: 'warning',
+    description: '审批已撤回，可修改后重新提交',
+  },
+  6: {
+    label: '待修改',
+    color: 'processing',
+    description: '审批被退回，待修改后重新提交',
+  },
 };
 
 // 合同状态枚举字符串 → 数字映射（后端 ContractStatus 可能以字符串形式返回）
@@ -148,7 +185,8 @@ function getContractPhase(row: any): string {
   const status =
     typeof rawStatus === 'number'
       ? rawStatus
-      : contractStatusNumMap[String(rawStatus).toLowerCase()] ?? Number(rawStatus) ?? 0;
+      : (contractStatusNumMap[String(rawStatus).toLowerCase()] ??
+        Number(rawStatus));
 
   if (approvalStatus === 0) return 'draft'; // 草稿
   if ([1, 2].includes(approvalStatus)) return 'reviewing'; // 审批中
@@ -203,7 +241,8 @@ function hasMoreActions(row: any): boolean {
     canDelete(row) ||
     canDownload(row) ||
     getContractPhase(row) === 'pendingSign' ||
-    (['signed', 'executing', 'completed'].includes(getContractPhase(row)) && row.contractFile) ||
+    (['completed', 'executing', 'signed'].includes(getContractPhase(row)) &&
+      row.contractFile) ||
     getContractPhase(row) === 'executing'
   );
 }
@@ -367,7 +406,8 @@ function handleCreate() {
   if (isSuperAdmin.value) {
     Modal.warning({
       title: '超级管理员不参与业务操作',
-      content: '超级管理员仅负责系统管理，请使用业务账号（如销售总监、销售经理、业务员）创建和管理合同。',
+      content:
+        '超级管理员仅负责系统管理，请使用业务账号（如销售总监、销售经理、业务员）创建和管理合同。',
       okText: '我知道了',
     });
     return;
@@ -385,7 +425,9 @@ function handleEdit(row: any) {
 /** 从审批详情跳转到编辑合同 */
 function handleEditFromApproval(contractId: number) {
   // 从列表数据中找到对应行
-  const row = gridApi.grid?.getTableData().fullData?.find((r: any) => r.id === contractId);
+  const row = gridApi.grid
+    ?.getTableData()
+    .fullData?.find((r: any) => r.id === contractId);
   if (row) {
     handleEdit(row);
   } else {
@@ -414,7 +456,9 @@ async function handleDelete(row: any) {
 async function handleSubmit(row: any) {
   // 检查合同负责人是否是超管
   if (row.assignedTo && isSuperAdmin.value) {
-    message.warning('当前合同负责人是超级管理员，请先将合同分配给业务人员再提交审批');
+    message.warning(
+      '当前合同负责人是超级管理员，请先将合同分配给业务人员再提交审批',
+    );
     return;
   }
   try {
@@ -423,13 +467,15 @@ async function handleSubmit(row: any) {
     // 刷新列表获取最新数据（含 instanceId）
     await gridApi.query();
     // 打开审批抽屉，让用户可以配置抄送/转办等
-    const updatedRow = gridApi.grid?.getTableData().fullData?.find((r: any) => r.id === row.id);
+    const updatedRow = gridApi.grid
+      ?.getTableData()
+      .fullData?.find((r: any) => r.id === row.id);
     if (updatedRow?.instanceId) {
       approvalContractId.value = row.id;
       approvalVisible.value = true;
     }
-  } catch (e: any) {
-    message.error(e?.message || '提交失败');
+  } catch (error: any) {
+    message.error(error?.message || '提交失败');
   }
 }
 
@@ -466,8 +512,8 @@ function handleExecute(row: any) {
         await executeContractApi(row.id);
         message.success('合同已进入执行状态');
         gridApi.query();
-      } catch (e: any) {
-        message.error(e?.message || '操作失败');
+      } catch (error: any) {
+        message.error(error?.message || '操作失败');
       }
     },
   });
@@ -499,7 +545,7 @@ function handleDeleteConfirm(row: any) {
 
 // ========== 上传签署件弹窗 ==========
 const signModalVisible = ref(false);
-const signContractRowId = ref<number | null>(null);
+const signContractRowId = ref<null | number>(null);
 const signFileList = ref<UploadFile[]>([]);
 const signImageList = ref<UploadFile[]>([]);
 const signSubmitting = ref(false);
@@ -514,20 +560,28 @@ function handleSign(row: any) {
 async function signCustomRequest(options: any) {
   const { file, onSuccess, onError } = options;
   try {
-    const result: any = await uploadFileApi(file, 'contract', signContractRowId.value ?? undefined);
+    const result: any = await uploadFileApi(
+      file,
+      'contract',
+      signContractRowId.value ?? undefined,
+    );
     onSuccess?.(result, file);
-  } catch (e: any) {
-    console.error('上传失败:', e);
-    onError?.(e);
-    message.error(e?.message || '上传失败');
+  } catch (error: any) {
+    console.error('上传失败:', error);
+    onError?.(error);
+    message.error(error?.message || '上传失败');
   }
 }
 
 async function handleSignSubmit() {
+  const contractId = signContractRowId.value;
+  if (!contractId) {
+    return;
+  }
   const fileUrl = signFileList.value
     .filter((f) => f.status === 'done')
     .map((f) => (f.response as any)?.url)
-    .filter(Boolean)[0];
+    .find(Boolean);
   const imageUrls = signImageList.value
     .filter((f) => f.status === 'done')
     .map((f) => (f.response as any)?.url)
@@ -539,15 +593,15 @@ async function handleSignSubmit() {
   }
   signSubmitting.value = true;
   try {
-    await signContractApi(signContractRowId.value!, {
+    await signContractApi(contractId, {
       contractFile: fileUrl || undefined,
       contractImages: imageUrls.join(',') || undefined,
     });
     message.success('签署件上传成功');
     signModalVisible.value = false;
     gridApi.query();
-  } catch (e: any) {
-    message.error(e?.message || '上传失败');
+  } catch (error: any) {
+    message.error(error?.message || '上传失败');
   } finally {
     signSubmitting.value = false;
   }
@@ -579,11 +633,7 @@ onMounted(async () => {
       :expand-text="$t('page.crm.contract.guide.expand')"
       :collapse-text="$t('page.crm.contract.guide.collapse')"
     >
-      <div
-        v-for="i in guideStepCount"
-        :key="i"
-        class="page-guide-step-item"
-      >
+      <div v-for="i in guideStepCount" :key="i" class="page-guide-step-item">
         <div class="page-guide-step-index">{{ i }}</div>
         <div class="page-guide-step-content">
           <div class="page-guide-step-title">
@@ -601,17 +651,29 @@ onMounted(async () => {
       type="info"
       show-icon
       message="您当前是超级管理员，仅可查看数据。创建合同、提交审批等业务操作请使用业务账号登录。"
-      style="margin-bottom: 12px;"
+      style="margin-bottom: 12px"
     />
     <Grid :table-title="$t('page.crm.contract.title')">
       <template #form-header>
-        <Tabs v-model:activeKey="activeTab" class="mb-3" @change="handleTabChange">
-          <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
         </Tabs>
       </template>
       <template #toolbar-tools>
         <Button
-          v-if="!isSubordinateView && !isSuperAdmin && accessStore.hasAccessCode('crm:contract:save')"
+          v-if="
+            !isSubordinateView &&
+            !isSuperAdmin &&
+            accessStore.hasAccessCode('crm:contract:save')
+          "
           type="primary"
           class="mr-2"
           @click="handleCreate"
@@ -642,14 +704,24 @@ onMounted(async () => {
 
       <!-- 客户名称：点击打开客户详情 -->
       <template #customerName="{ row }">
-        <a v-if="row.customerId" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="() => openCustomerDetail(row)">{{ row.customerName || '-' }}</a>
+        <a
+          v-if="row.customerId"
+          class="text-blue-600 cursor-pointer hover:text-blue-800"
+          @click="() => openCustomerDetail(row)"
+          >{{ row.customerName || '-' }}</a
+        >
         <span v-else>{{ row.customerName || '-' }}</span>
       </template>
 
       <!-- 金额格式化 -->
       <template #amountSlot="{ row }">
         <span class="font-medium">
-          ¥{{ Number(row.totalAmount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+          ¥{{
+            Number(row.totalAmount || 0).toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          }}
         </span>
       </template>
 
@@ -660,7 +732,13 @@ onMounted(async () => {
 
       <!-- 审批状态标签 -->
       <template #approvalStatus="{ row }">
-        <Tooltip v-if="row.approvalStatus === 4 || row.approvalStatus === 5 || row.approvalStatus === 6">
+        <Tooltip
+          v-if="
+            row.approvalStatus === 4 ||
+            row.approvalStatus === 5 ||
+            row.approvalStatus === 6
+          "
+        >
           <Tag
             :color="contractStatusMap[row.approvalStatus]?.color || 'default'"
             :class="canViewApproval(row) ? 'cursor-pointer' : ''"
@@ -670,7 +748,7 @@ onMounted(async () => {
           </Tag>
           <template #title>
             <div>{{ contractStatusMap[row.approvalStatus]?.description }}</div>
-            <div v-if="canEdit(row)" style="margin-top: 4px; color: #d4b106;">
+            <div v-if="canEdit(row)" style="margin-top: 4px; color: #d4b106">
               点击「编辑」修改后，再「提交审批」重新审核
             </div>
           </template>
@@ -690,7 +768,12 @@ onMounted(async () => {
         <div class="flex items-center flex-nowrap gap-1">
           <!-- 主按钮（按生命周期优先级展示一个） -->
           <Button
-            v-if="!isSubordinateView && !isSuperAdmin && accessStore.hasAccessCode('crm:contract:submit') && canSubmit(row)"
+            v-if="
+              !isSubordinateView &&
+              !isSuperAdmin &&
+              accessStore.hasAccessCode('crm:contract:submit') &&
+              canSubmit(row)
+            "
             type="link"
             size="small"
             @click="() => handleSubmit(row)"
@@ -698,7 +781,11 @@ onMounted(async () => {
             提交审批
           </Button>
           <Button
-            v-else-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:sign') && getContractPhase(row) === 'pendingSign'"
+            v-else-if="
+              !isSubordinateView &&
+              accessStore.hasAccessCode('crm:contract:sign') &&
+              getContractPhase(row) === 'pendingSign'
+            "
             type="primary"
             size="small"
             @click="() => handleSign(row)"
@@ -706,7 +793,11 @@ onMounted(async () => {
             上传签署件
           </Button>
           <Button
-            v-else-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:execute') && getContractPhase(row) === 'signed'"
+            v-else-if="
+              !isSubordinateView &&
+              accessStore.hasAccessCode('crm:contract:execute') &&
+              getContractPhase(row) === 'signed'
+            "
             type="primary"
             size="small"
             @click="() => handleExecute(row)"
@@ -724,54 +815,77 @@ onMounted(async () => {
 
           <!-- 更多下拉菜单 -->
           <Dropdown v-if="hasMoreActions(row)" :trigger="['click']">
-            <Button type="link" size="small" @click.prevent>
-              更多 ▾
-            </Button>
+            <Button type="link" size="small" @click.prevent> 更多 ▾ </Button>
             <template #overlay>
               <Menu>
                 <!-- 编辑（草稿/驳回/撤回/退回） -->
                 <Menu.Item
-                  v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:update') && canEdit(row)"
+                  v-if="
+                    !isSubordinateView &&
+                    accessStore.hasAccessCode('crm:contract:update') &&
+                    canEdit(row)
+                  "
                   @click="() => handleEdit(row)"
                 >
                   {{ row.approvalStatus === 6 ? '修改' : '编辑' }}
                 </Menu.Item>
                 <!-- 删除（草稿/驳回/撤回/退回） -->
                 <Menu.Item
-                  v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:delete') && canDelete(row)"
+                  v-if="
+                    !isSubordinateView &&
+                    accessStore.hasAccessCode('crm:contract:delete') &&
+                    canDelete(row)
+                  "
                   danger
                   @click="() => handleDeleteConfirm(row)"
                 >
                   删除
                 </Menu.Item>
                 <!-- 下载合同（审批通过后均可） -->
-                <Menu.Item v-if="canDownload(row)" @click="() => handleDownload(row)">
+                <Menu.Item
+                  v-if="canDownload(row)"
+                  @click="() => handleDownload(row)"
+                >
                   下载合同
                 </Menu.Item>
                 <!-- 上传签署件（待签署） -->
                 <Menu.Item
-                  v-if="!isSubordinateView && accessStore.hasAccessCode('crm:contract:sign') && getContractPhase(row) === 'pendingSign'"
+                  v-if="
+                    !isSubordinateView &&
+                    accessStore.hasAccessCode('crm:contract:sign') &&
+                    getContractPhase(row) === 'pendingSign'
+                  "
                   @click="() => handleSign(row)"
                 >
                   上传签署件
                 </Menu.Item>
                 <!-- 查看签署件（已签署及以后） -->
                 <Menu.Item
-                  v-if="['signed', 'executing', 'completed'].includes(getContractPhase(row)) && row.contractFile"
+                  v-if="
+                    ['signed', 'executing', 'completed'].includes(
+                      getContractPhase(row),
+                    ) && row.contractFile
+                  "
                   @click="() => handleViewSignedFile(row)"
                 >
                   查看签署件
                 </Menu.Item>
                 <!-- 发货（执行中） -->
                 <Menu.Item
-                  v-if="!isSubordinateView && getContractPhase(row) === 'executing' && !hasShipment(row)"
+                  v-if="
+                    !isSubordinateView &&
+                    getContractPhase(row) === 'executing' &&
+                    !hasShipment(row)
+                  "
                   @click="() => handleShip(row)"
                 >
                   发货
                 </Menu.Item>
                 <!-- 查看发货（执行中已发货） -->
                 <Menu.Item
-                  v-if="getContractPhase(row) === 'executing' && hasShipment(row)"
+                  v-if="
+                    getContractPhase(row) === 'executing' && hasShipment(row)
+                  "
                   @click="() => handleViewShipment(row)"
                 >
                   查看发货
@@ -796,7 +910,10 @@ onMounted(async () => {
     />
 
     <!-- 客户详情抽屉 -->
-    <CustomerDetailDrawer v-model:visible="customerDetailVisible" :id="customerDetailId" />
+    <CustomerDetailDrawer
+      v-model:visible="customerDetailVisible"
+      :id="customerDetailId"
+    />
 
     <!-- 上传签署件弹窗 -->
     <Modal
@@ -840,6 +957,4 @@ onMounted(async () => {
     </Modal>
   </Page>
 </template>
-<style scoped>
-
-</style>
+<style scoped></style>

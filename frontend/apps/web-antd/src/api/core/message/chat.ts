@@ -43,12 +43,12 @@ export interface PageResult<T> {
 }
 
 export const sendMessageApi = async (data: {
-  sessionId?: string;
-  receiverId?: string;
   content: string;
   contentType?: number;
-  fileUrl?: string;
   fileName?: string;
+  fileUrl?: string;
+  receiverId?: string;
+  sessionId?: string;
 }) => {
   return requestClient.post('/api/system/chat/send', data);
 };
@@ -57,15 +57,21 @@ export const getSessionListApi = async (params: {
   page: number;
   pageSize: number;
 }) => {
-  return requestClient.get<PageResult<ChatSessionDTO>>('/api/system/chat/sessions', { params });
+  return requestClient.get<PageResult<ChatSessionDTO>>(
+    '/api/system/chat/sessions',
+    { params },
+  );
 };
 
 export const getMessageListApi = async (params: {
-  sessionId: string;
   page: number;
   pageSize: number;
+  sessionId: string;
 }) => {
-  return requestClient.get<PageResult<ChatMessageDTO>>('/api/system/chat/messages', { params });
+  return requestClient.get<PageResult<ChatMessageDTO>>(
+    '/api/system/chat/messages',
+    { params },
+  );
 };
 
 export const markReadApi = async (data: { sessionId: string }) => {
@@ -94,7 +100,10 @@ export const getUnreadCountApi = async (): Promise<number> => {
 };
 
 export const startSessionApi = async (data: { receiverId: string }) => {
-  return requestClient.post<ChatSessionDTO>('/api/system/chat/start-session', data);
+  return requestClient.post<ChatSessionDTO>(
+    '/api/system/chat/start-session',
+    data,
+  );
 };
 
 export const recallMessageApi = async (data: { messageId: string }) => {
@@ -102,15 +111,15 @@ export const recallMessageApi = async (data: { messageId: string }) => {
 };
 
 export const pinSessionApi = async (data: {
-  sessionId: string;
   isPinned: boolean;
+  sessionId: string;
 }) => {
   return requestClient.post('/api/system/chat/pin', data);
 };
 
 export const muteSessionApi = async (data: {
-  sessionId: string;
   isMuted: boolean;
+  sessionId: string;
 }) => {
   return requestClient.post('/api/system/chat/mute', data);
 };
@@ -128,5 +137,7 @@ export const getColleagueListApi = async (params: {
   page?: number;
   pageSize?: number;
 }) => {
-  return requestClient.get<ColleagueVO[]>('/api/system/chat/colleague-list', { params });
+  return requestClient.get<ColleagueVO[]>('/api/system/chat/colleague-list', {
+    params,
+  });
 };

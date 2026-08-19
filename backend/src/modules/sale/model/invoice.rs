@@ -104,6 +104,18 @@ pub struct InvoiceApprovalReq {
     pub reason: Option<String>,
 }
 
+/// 作废/红冲请求（业务动作，非审批动作）
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InvoiceVoidRequest {
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    pub id: Option<i64>,
+    /// 1=作废(status=4) 2=红冲(status=5)
+    pub action: Option<i32>,
+    /// 作废/红冲理由（必填）
+    pub reason: Option<String>,
+}
+
 // ==================== 内部 DTO ====================
 
 #[derive(Debug, Clone)]
@@ -213,6 +225,33 @@ pub struct InvoiceApprovalDetailVO {
     pub amount: Option<Decimal>,
     pub approval_status: Option<i32>,
     pub instance: Option<ApprovalInstanceVO>,
+}
+
+/// 发票审批历史聚合 VO（"流转记录"按发票维度展示：全部审批实例 + 修改留痕）
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct InvoiceHistoryVO {
+    pub invoice_id: i64,
+    /// 全部审批实例（按提交时间正序，含已驳回/已撤回的旧实例）
+    pub instances: Vec<ApprovalInstanceVO>,
+    /// 修改留痕（按编辑时间正序，含字段级 diff 与关联实例）
+    pub edit_logs: Vec<crate::modules::sale::model::invoice_edit_log::InvoiceEditLogVO>,
+}
+
+/// 发票审批流预览节点VO（提交审核页展示用）
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct InvoiceApprovalPreviewNodeVO {
+    pub node_key: Option<String>,
+    pub node_name: Option<String>,
+    /// 审批人类型（1指定用户/2指定角色/3部门主管/6直属上级/7部门主管及上级链）
+    pub approver_type: Option<i32>,
+    /// 指定角色节点时的角色名（如"财务"）
+    pub approver_role_name: Option<String>,
+    /// 审批模式（1或签/2会签/3依次审批）
+    pub approve_mode: Option<i32>,
+    /// 审批人类型描述
+    pub approver_desc: String,
 }
 
 // ==================== From 转换 ====================
@@ -461,7 +500,7 @@ impl InvoiceModel {
         let result = SaleInvoice::find()
             .filter(invoice::Column::InvoiceNo.like(&pattern))
             .select_only()
-            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(invoice_no, 11) AS INTEGER))")), "max_seq")
+            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(invoice_no, 11) AS BIGINT))")), "max_seq")
             .into_tuple::<Option<i64>>()
             .one(db)
             .await?;

@@ -1,11 +1,16 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideEye, LucideCheck, LucideX } from '@vben/icons';
-import { Button, Tag, Modal, Image, message } from 'ant-design-vue';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
+import { LucideCheck, LucideEye, LucideX } from '@vben/icons';
+
+import { Button, Image, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { goodsAuditApi } from '#/api';
 
 const auditModalVisible = ref(false);
@@ -156,8 +161,8 @@ async function handleAudit(status: number) {
     message.success(status === 1 ? '审核通过，商品已上架' : '审核驳回');
     auditModalVisible.value = false;
     gridApi.query();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 }
 

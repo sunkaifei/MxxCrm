@@ -8,14 +8,31 @@ export interface StatsTimeParams {
   month?: number;
 }
 
-export const getContractRankingApi = async (params?: StatsTimeParams & { order_by?: string; order_type?: string; limit?: number }) => {
-  return requestClient.get('/api/system/statistics/contract/ranking', { params });
+export const getContractRankingApi = async (
+  params?: StatsTimeParams & {
+    limit?: number;
+    order_by?: string;
+    order_type?: string;
+  },
+) => {
+  return requestClient.get('/api/system/statistics/contract/ranking', {
+    params,
+  });
 };
 
-export const getContractTypeDistributionApi = async (params?: StatsTimeParams) => {
-  return requestClient.get('/api/system/statistics/contract/type-distribution', { params });
+export const getContractTypeDistributionApi = async (
+  params?: StatsTimeParams,
+) => {
+  return requestClient.get(
+    '/api/system/statistics/contract/type-distribution',
+    { params },
+  );
 };
 
-export const getContractStatusAnalysisApi = async (params?: StatsTimeParams) => {
-  return requestClient.get('/api/system/statistics/contract/status-analysis', { params });
+export const getContractStatusAnalysisApi = async (
+  params?: StatsTimeParams,
+) => {
+  return requestClient.get('/api/system/statistics/contract/status-analysis', {
+    params,
+  });
 };

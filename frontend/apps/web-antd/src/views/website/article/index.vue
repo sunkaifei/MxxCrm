@@ -1,14 +1,19 @@
 <script lang="ts" setup>
-import { h, ref, onMounted } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, onMounted, ref } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideEye, LucideFilePenLine, LucidePlus } from '@vben/icons';
-import { Button, Tag, Image, Modal, message } from 'ant-design-vue';
+
+import { Button, Image, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { articleApi, categoryApi } from '#/api';
+
 import ArticleDrawer from './drawer.vue';
-import { articleApi } from '#/api';
-import { categoryApi } from '#/api';
 
 const categoryTree = ref<any[]>([]);
 const detailModalVisible = ref(false);
@@ -205,11 +210,7 @@ onMounted(() => {
   <Page auto-content-height>
     <Grid table-title="文章管理">
       <template #toolbar-tools>
-        <Button
-          type="primary"
-          :icon="h(LucidePlus)"
-          @click="handleAdd"
-        >
+        <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
           新增文章
         </Button>
       </template>
@@ -225,11 +226,7 @@ onMounted(() => {
           "
         >
           {{
-            row.status === 0
-              ? '待审核'
-              : row.status === 1
-                ? '已通过'
-                : '已驳回'
+            row.status === 0 ? '待审核' : row.status === 1 ? '已通过' : '已驳回'
           }}
         </Tag>
       </template>
@@ -284,16 +281,33 @@ onMounted(() => {
             <div class="flex gap-4 text-sm text-gray-600">
               <span>短链接：{{ detailData.shortUrl || '-' }}</span>
               <span v-if="detailData.originalLink">
-                原文链接：<a :href="detailData.originalLink" target="_blank" class="text-blue-500">{{ detailData.originalLink }}</a>
+                原文链接：<a
+                  :href="detailData.originalLink"
+                  target="_blank"
+                  class="text-blue-500"
+                  >{{ detailData.originalLink }}</a
+                >
               </span>
             </div>
             <div class="flex gap-4 text-sm text-gray-600">
               <span>
                 状态：
                 <Tag
-                  :color="detailData.status === 0 ? 'warning' : detailData.status === 1 ? 'success' : 'error'"
+                  :color="
+                    detailData.status === 0
+                      ? 'warning'
+                      : detailData.status === 1
+                        ? 'success'
+                        : 'error'
+                  "
                 >
-                  {{ detailData.status === 0 ? '待审核' : detailData.status === 1 ? '已通过' : '已驳回' }}
+                  {{
+                    detailData.status === 0
+                      ? '待审核'
+                      : detailData.status === 1
+                        ? '已通过'
+                        : '已驳回'
+                  }}
                 </Tag>
               </span>
               <span>
@@ -318,7 +332,8 @@ onMounted(() => {
         </div>
         <div v-if="detailData.content" class="border-t pt-4">
           <h4 class="font-semibold mb-2">内容</h4>
-          <div class="bg-gray-50 p-4 rounded" v-html="detailData.content" />
+          <!-- eslint-disable-next-line vue/no-v-html -- 文章富文本内容，可信来源 -->
+          <div class="bg-gray-50 p-4 rounded" v-html="detailData.content"></div>
         </div>
       </div>
     </Modal>

@@ -1,17 +1,23 @@
 <script lang="ts" setup>
-import { h, onMounted, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, onMounted, ref } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucidePlus } from '@vben/icons';
-import { Button, Modal, Tag, message } from 'ant-design-vue';
-import ArticleFieldDrawer from './drawer.vue';
+
+import { Button, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   categoryApi,
   deleteArticleFieldApi,
   getArticleFieldListApi,
 } from '#/api';
+
+import ArticleFieldDrawer from './drawer.vue';
 
 const categoryTree = ref<any[]>([]);
 
@@ -222,11 +228,7 @@ onMounted(() => {
   <Page auto-content-height>
     <Grid table-title="文章自定义字段管理">
       <template #toolbar-tools>
-        <Button
-          type="primary"
-          :icon="h(LucidePlus)"
-          @click="handleAdd"
-        >
+        <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
           新增字段
         </Button>
       </template>

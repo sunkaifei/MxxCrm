@@ -1,10 +1,14 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getProductionOrderListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/production/order/list', { params });
 };
 export const getProductionOrderInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/production/order/info', { params: { id } });
+  return requestClient.get('/api/system/production/order/info', {
+    params: { id },
+  });
 };
 export const createProductionOrderApi = async (param: any) => {
   return requestClient.post('/api/system/production/order/save', param);

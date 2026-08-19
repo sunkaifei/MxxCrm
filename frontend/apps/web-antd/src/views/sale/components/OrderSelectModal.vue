@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { h, onMounted, ref, watch } from 'vue';
 import type { Key } from 'ant-design-vue/es/table/interface';
+
+import { h, onMounted, ref, watch } from 'vue';
 
 import { Button, Input, Modal, Table, Tag } from 'ant-design-vue';
 
@@ -29,7 +30,7 @@ const emit = defineEmits<{
 const keyword = ref('');
 const loading = ref(false);
 const list = ref<OrderOption[]>([]);
-const selectedRow = ref<OrderOption | null>(null);
+const selectedRow = ref<null | OrderOption>(null);
 const selectedKeys = ref<Key[]>([]);
 const pagination = ref({ current: 1, pageSize: 10, total: 0 });
 
@@ -213,10 +214,12 @@ const rowSelection = {
       }"
       :row-key="(record: any) => record.id"
       :row-selection="rowSelection"
-      :custom-row="(record: any) => ({
-        onClick: () => handleRowClick(record),
-        style: { cursor: 'pointer' },
-      })"
+      :custom-row="
+        (record: any) => ({
+          onClick: () => handleRowClick(record),
+          style: { cursor: 'pointer' },
+        })
+      "
       size="small"
       :scroll="{ y: 400 }"
       @change="handleTableChange"

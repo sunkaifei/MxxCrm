@@ -1,12 +1,13 @@
-import { $t } from '@vben/locales';
 import { computed } from 'vue';
 
+import { $t } from '@vben/locales';
+
 export enum UserAuthority {
-  SYS_ADMIN = 'SYS_ADMIN',
-  SYS_MANAGER = 'SYS_MANAGER',
   CUSTOMER_USER = 'CUSTOMER_USER',
   GUEST_USER = 'GUEST_USER',
   REFRESH_TOKEN = 'REFRESH_TOKEN',
+  SYS_ADMIN = 'SYS_ADMIN',
+  SYS_MANAGER = 'SYS_MANAGER',
 }
 
 export const authorityList = computed(() => [

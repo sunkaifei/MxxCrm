@@ -48,7 +48,7 @@ const columns = [
 
 function formatCurrency(val?: number) {
   if (!val) return '¥0';
-  if (val >= 10000) return `¥${(val / 10000).toFixed(1)}万`;
+  if (val >= 10_000) return `¥${(val / 10_000).toFixed(1)}万`;
   return `¥${val.toLocaleString()}`;
 }
 
@@ -132,7 +132,7 @@ onMounted(() => loadData());
                   width: heatWidth(record.amount),
                   background: heatColor(record.amount),
                 }"
-              />
+              ></div>
             </div>
           </template>
         </template>
@@ -145,9 +145,9 @@ onMounted(() => loadData());
 .heat-bar-track {
   width: 100%;
   height: 8px;
+  overflow: hidden;
   background: #f0f0f0;
   border-radius: 4px;
-  overflow: hidden;
 }
 
 .heat-bar-fill {

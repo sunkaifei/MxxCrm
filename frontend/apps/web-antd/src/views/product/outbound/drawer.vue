@@ -1,28 +1,32 @@
 <script lang="ts" setup>
+import type { VbenFormSchema } from '@vben/common-ui';
+
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormSchema } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { $t } from '#/locales';
-import {
-  getOutboundInfoApi,
-  createOutboundApi,
-  updateOutboundApi,
-} from '#/api/core/product/outbound';
-import { getWarehouseListApi } from '#/api/core/product/warehouse';
-import { getInventoryListApi } from '#/api/core/product/inventory';
+
 import {
   Alert,
   Button,
   Input,
   InputNumber,
+  message,
   Modal,
   Table,
   Textarea,
   Tooltip,
-  message,
 } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import { getInventoryListApi } from '#/api/core/product/inventory';
+import {
+  createOutboundApi,
+  getOutboundInfoApi,
+  updateOutboundApi,
+} from '#/api/core/product/outbound';
+import { getWarehouseListApi } from '#/api/core/product/warehouse';
+import { $t } from '#/locales';
+
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 
@@ -61,12 +65,14 @@ async function loadWarehouseOptions() {
   try {
     const resp = await getWarehouseListApi({ page: 1, pageSize: 999 });
     const list = resp?.data ?? resp ?? [];
-    warehouseOptions.value = (Array.isArray(list) ? list : []).map((w: any) => ({
-      label: w.warehouseName ?? w.name ?? w.label,
-      value: Number(w.id ?? w.value),
-    }));
-  } catch (e) {
-    console.error('[出库] 加载仓库选项失败:', e);
+    warehouseOptions.value = (Array.isArray(list) ? list : []).map(
+      (w: any) => ({
+        label: w.warehouseName ?? w.name ?? w.label,
+        value: Number(w.id ?? w.value),
+      }),
+    );
+  } catch (error) {
+    console.error('[出库] 加载仓库选项失败:', error);
   }
 }
 
@@ -131,8 +137,7 @@ async function fetchStock() {
       warehouseId: wid,
     });
     const raw = resp?.data ?? resp;
-    const list =
-      raw?.items ?? raw?.list ?? (Array.isArray(raw) ? raw : []);
+    const list = raw?.items ?? raw?.list ?? (Array.isArray(raw) ? raw : []);
     const stockMap = new Map<number, number>();
     for (const it of list) {
       const pid = Number(it.productId ?? it.product_id);
@@ -140,10 +145,10 @@ async function fetchStock() {
     }
     tableItems.value.forEach((item) => {
       const s = stockMap.get(item.productId);
-      item.stock = s !== undefined ? s : 0;
+      item.stock = s === undefined ? 0 : s;
     });
-  } catch (e) {
-    console.error('[出库] 获取库存失败:', e);
+  } catch (error) {
+    console.error('[出库] 获取库存失败:', error);
   }
 }
 
@@ -247,21 +252,15 @@ function removeItem(index: number) {
   tableItems.value.splice(index, 1);
 }
 
-// 仓库变更时同步仓库ID并刷新已有明细的库存
-function onWarehouseChange(val: any) {
-  selectedWarehouseId.value = val ? Number(val) : undefined;
-  if (tableItems.value.length > 0) {
-    fetchStock();
-  }
-}
-
 const formSchema: VbenFormSchema[] = [
   {
     component: 'Divider',
     fieldName: '_div1',
     hideLabel: true,
     componentProps: { orientation: 'left', plain: true },
-    renderComponentContent: () => ({ default: () => $t('page.product.outbound.drawer.basicInfo') }),
+    renderComponentContent: () => ({
+      default: () => $t('page.product.outbound.drawer.basicInfo'),
+    }),
     formItemClass: 'col-span-2',
   },
   {
@@ -287,20 +286,29 @@ const formSchema: VbenFormSchema[] = [
       allowClear: true,
       style: { cursor: 'pointer' },
       onClick: () => openWarehouseSelect(),
-      onChange: (e: any) => { if (!e?.target?.value) clearWarehouse(); },
+      onChange: (e: any) => {
+        if (!e?.target?.value) clearWarehouse();
+      },
     },
   },
   {
     component: 'Input',
     fieldName: 'sourceOrderNo',
     label: $t('page.product.outbound.drawer.sourceOrderNo'),
-    componentProps: { placeholder: $t('page.product.outbound.drawer.sourceOrderNoPlaceholder'), allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.outbound.drawer.sourceOrderNoPlaceholder'),
+      allowClear: true,
+    },
   },
   {
     component: 'Textarea',
     fieldName: 'remark',
     label: $t('page.product.outbound.drawer.remark'),
-    componentProps: { placeholder: $t('page.product.outbound.drawer.remarkPlaceholder'), allowClear: true, rows: 2 },
+    componentProps: {
+      placeholder: $t('page.product.outbound.drawer.remarkPlaceholder'),
+      allowClear: true,
+      rows: 2,
+    },
     formItemClass: 'col-span-2',
   },
 ];
@@ -341,7 +349,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
 
       const values = await mainFormApi.getValues();
-      const { _div1, warehouseName, ...rest } = values as any;
+      const { _div1, _warehouseName, ...rest } = values as any;
 
       const data = {
         ...rest,
@@ -389,10 +397,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
       isFullscreen.value = false;
-      drawerData.value =
-        drawerApi.getData<{ create: boolean; row?: any }>() || {
-          create: true,
-        };
+      drawerData.value = drawerApi.getData<{
+        create: boolean;
+        row?: any;
+      }>() || {
+        create: true,
+      };
       mainFormApi.resetForm();
       confirmLoading.value = false;
       tableItems.value = [];
@@ -415,7 +425,10 @@ async function loadDetail(id: number) {
     const num = (v: any) =>
       v === null || v === undefined ? undefined : Number(v);
 
-    const wid = (main.warehouseId ?? main.warehouse_id) ? num(main.warehouseId ?? main.warehouse_id) : undefined;
+    const wid =
+      (main.warehouseId ?? main.warehouse_id)
+        ? num(main.warehouseId ?? main.warehouse_id)
+        : undefined;
     mainFormApi.setValues({
       outboundType: main.outboundType ?? main.outbound_type ?? 'sale',
       warehouseId: wid,
@@ -446,8 +459,8 @@ async function loadDetail(id: number) {
     if (wid) {
       fetchStock();
     }
-  } catch (e) {
-    console.error('[出库] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[出库] 加载详情失败:', error);
   }
 }
 
@@ -471,8 +484,8 @@ async function submitChangeReason() {
     message.success($t('ui.notification.update_success'));
     drawerApi.setData({ needRefresh: true });
     drawerApi.close();
-  } catch (e) {
-    console.error('[出库] 修改已完成单据失败:', e);
+  } catch (error) {
+    console.error('[出库] 修改已完成单据失败:', error);
   } finally {
     confirmLoading.value = false;
     pendingSaveData.value = null;
@@ -483,11 +496,21 @@ async function submitChangeReason() {
 <template>
   <Drawer
     :class="drawerClass"
-    :title="drawerData.create ? $t('page.product.outbound.drawer.title.create') : $t('page.product.outbound.drawer.title.edit')"
+    :title="
+      drawerData.create
+        ? $t('page.product.outbound.drawer.title.create')
+        : $t('page.product.outbound.drawer.title.edit')
+    "
     :confirm-loading="confirmLoading"
   >
     <template #extra>
-      <Tooltip :title="isFullscreen ? $t('page.product.outbound.drawer.restore') : $t('page.product.outbound.drawer.fullscreen')">
+      <Tooltip
+        :title="
+          isFullscreen
+            ? $t('page.product.outbound.drawer.restore')
+            : $t('page.product.outbound.drawer.fullscreen')
+        "
+      >
         <button
           type="button"
           class="outbound-drawer__fs-btn"
@@ -534,7 +557,9 @@ async function submitChangeReason() {
 
       <!-- 产品明细标题 + 工具栏 -->
       <div class="outbound-items-header">
-        <span class="outbound-items-title">{{ $t('page.product.outbound.drawer.detail') }}</span>
+        <span class="outbound-items-title">{{
+          $t('page.product.outbound.drawer.detail')
+        }}</span>
         <Button type="primary" size="small" @click="openProductSelect">
           {{ $t('page.product.outbound.drawer.addItem') }}
         </Button>
@@ -544,7 +569,9 @@ async function submitChangeReason() {
       <Table
         :columns="itemColumns"
         :data-source="tableItems"
-        :row-key="(record: any) => `${record.productId}-${record.productSku || ''}`"
+        :row-key="
+          (record: any) => `${record.productId}-${record.productSku || ''}`
+        "
         :row-class-name="rowClassName"
         :pagination="false"
         size="small"
@@ -600,12 +627,7 @@ async function submitChangeReason() {
 
           <!-- 操作：删除 -->
           <template v-else-if="column.dataIndex === 'action'">
-            <Button
-              type="link"
-              danger
-              size="small"
-              @click="removeItem(index)"
-            >
+            <Button type="link" danger size="small" @click="removeItem(index)">
               {{ $t('ui.button.delete') }}
             </Button>
           </template>
@@ -653,7 +675,9 @@ async function submitChangeReason() {
         show-icon
         class="mb-4"
       />
-      <div class="mb-2 font-medium">修改原因 <span class="text-red-500">*</span></div>
+      <div class="mb-2 font-medium">
+        修改原因 <span class="text-red-500">*</span>
+      </div>
       <Textarea
         v-model:value="changeReason"
         placeholder="请填写修改原因，例如：出库数量录错，实际出库20件"
@@ -682,23 +706,23 @@ async function submitChangeReason() {
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .outbound-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .outbound-drawer__body {
+  height: calc(100vh - 150px);
   padding: 0 8px;
   overflow-y: auto;
-  height: calc(100vh - 150px);
 }
 
 .outbound-drawer__body .ant-divider {
@@ -715,8 +739,8 @@ async function submitChangeReason() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 16px 0 8px;
   padding-top: 12px;
+  margin: 16px 0 8px;
   border-top: 1px solid #f0f0f0;
 }
 
@@ -732,8 +756,8 @@ async function submitChangeReason() {
 
 .outbound-items-empty {
   padding: 24px 0;
-  color: #999;
   font-size: 13px;
+  color: #999;
   text-align: center;
 }
 
@@ -744,8 +768,8 @@ async function submitChangeReason() {
 
 /* 可用库存数值标红 */
 .outbound-stock-warn {
-  color: #ff4d4f;
   font-weight: 600;
+  color: #ff4d4f;
 }
 
 .outbound-qty-cell {
@@ -755,7 +779,7 @@ async function submitChangeReason() {
 .outbound-qty-warn {
   margin-top: 2px;
   font-size: 11px;
-  color: #ff4d4f;
   line-height: 1.2;
+  color: #ff4d4f;
 }
 </style>

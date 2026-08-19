@@ -1,9 +1,13 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
-import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message, Upload } from 'ant-design-vue';
 import type { UploadFile } from 'ant-design-vue';
+
+import { computed, ref } from 'vue';
+
+import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message, Upload } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import { templateApi } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
 
@@ -132,8 +136,8 @@ async function handleUpload(file: File) {
       message.error('上传返回异常：未获取到图片地址');
     }
     return false;
-  } catch (err: any) {
-    message.error(err?.message || '上传失败，请检查网络或服务器配置');
+  } catch (error: any) {
+    message.error(error?.message || '上传失败，请检查网络或服务器配置');
     return false;
   } finally {
     uploading.value = false;
@@ -146,11 +150,9 @@ function handleRemove() {
 }
 
 function syncFileList(url: string) {
-  if (url) {
-    fileList.value = [{ uid: '-1', name: 'preview', status: 'done', url }];
-  } else {
-    fileList.value = [];
-  }
+  fileList.value = url
+    ? [{ uid: '-1', name: 'preview', status: 'done', url }]
+    : [];
 }
 </script>
 
@@ -162,23 +164,32 @@ function syncFileList(url: string) {
     <div class="upload-section">
       <div class="upload-section-header">
         <span class="upload-section-label">预览图</span>
-        <span class="upload-section-tip">建议尺寸 600x400，支持 JPG/PNG/WebP</span>
+        <span class="upload-section-tip"
+          >建议尺寸 600x400，支持 JPG/PNG/WebP</span
+        >
       </div>
       <div class="upload-section-body">
         <Upload
           :file-list="fileList"
-          :before-upload="(file: File) => { handleUpload(file); return false; }"
+          :before-upload="
+            (file: File) => {
+              handleUpload(file);
+              return false;
+            }
+          "
           :remove="handleRemove"
           list-type="picture-card"
           accept="image/*"
           :disabled="uploading"
         >
-          <div v-if="fileList.length < 1" class="upload-placeholder">
-            <div :class="['upload-icon', uploading ? 'uploading' : '']">
+          <div v-if="fileList.length === 0" class="upload-placeholder">
+            <div class="upload-icon" :class="[uploading ? 'uploading' : '']">
               <template v-if="uploading">...</template>
               <template v-else>+</template>
             </div>
-            <div class="upload-text">{{ uploading ? '上传中…' : '上传预览图' }}</div>
+            <div class="upload-text">
+              {{ uploading ? '上传中…' : '上传预览图' }}
+            </div>
           </div>
         </Upload>
         <div v-if="previewPicUrl" class="upload-preview-url">
@@ -191,8 +202,8 @@ function syncFileList(url: string) {
 
 <style scoped>
 .upload-section {
-  margin: 16px 16px 0;
   padding: 16px;
+  margin: 16px 16px 0;
   background: var(--card-background, #fafafa);
   border: 1px solid var(--border-color, #f0f0f0);
   border-radius: 8px;
@@ -200,20 +211,20 @@ function syncFileList(url: string) {
 
 .upload-section-header {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 12px;
 }
 
 .upload-section-label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary, rgba(0, 0, 0, 0.88));
+  color: var(--text-primary, rgb(0 0 0 / 88%));
 }
 
 .upload-section-tip {
   font-size: 12px;
-  color: var(--text-secondary, rgba(0, 0, 0, 0.45));
+  color: var(--text-secondary, rgb(0 0 0 / 45%));
 }
 
 .upload-section-body {
@@ -231,10 +242,10 @@ function syncFileList(url: string) {
 }
 
 .upload-icon {
+  margin-bottom: 4px;
   font-size: 24px;
   line-height: 1;
-  margin-bottom: 4px;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgb(0 0 0 / 45%);
 }
 
 .upload-icon.uploading {
@@ -242,33 +253,39 @@ function syncFileList(url: string) {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .upload-text {
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgb(0 0 0 / 45%);
 }
 
 .upload-preview-url {
   font-size: 12px;
-  color: var(--text-secondary, rgba(0, 0, 0, 0.45));
-  word-break: break-all;
   line-height: 1.5;
+  color: var(--text-secondary, rgb(0 0 0 / 45%));
+  word-break: break-all;
 }
 
 .url-text {
-  color: var(--primary-color, #1677ff);
   font-family: monospace;
+  color: var(--primary-color, #1677ff);
 }
 
 /* 暗黑模式适配 */
 :root.dark .upload-section {
   --card-background: #1f1f1f;
   --border-color: #333;
-  --text-primary: rgba(255, 255, 255, 0.88);
-  --text-secondary: rgba(255, 255, 255, 0.45);
+  --text-primary: rgb(255 255 255 / 88%);
+  --text-secondary: rgb(255 255 255 / 45%);
 }
 
 @media (max-width: 767px) {

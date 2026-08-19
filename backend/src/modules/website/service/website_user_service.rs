@@ -126,7 +126,7 @@ pub async fn login(db: &DbConn, req: WebsiteUserLoginRequest, login_ip: Option<S
     let _ = WebsiteUserModel::update_login_info(db, user_id, login_ip).await;
 
     // 生成 Token
-    let jwt = JWTToken::new(Some(user_id), Some(user.username.clone()), vec![], Some(USER_TOKEN_ISSUER));
+    let jwt = JWTToken::new(Some(user_id), Some(user.username.clone()), Some(USER_TOKEN_ISSUER));
     let jwt_secret = config::section::<String>("server", "jwt_secret_user", "mxx_secret_key".to_string());
     let token = jwt.create_token(&jwt_secret)?;
 

@@ -8,7 +8,7 @@ import { $t } from '#/locales';
  * 目录级 key（如 page.statistics.employee）在 locale 中是
  * { title, button } 对象，直接 $t 不命中；这里兜底 `${key}.title`。
  */
-function translateMenuName(key?: string | null): string {
+function translateMenuName(key?: null | string): string {
   if (!key) return '';
   const direct = $t(key);
   if (direct !== key && !direct.startsWith('[object ')) return direct;
@@ -132,7 +132,7 @@ export const getMenuOptionsApi = async () => {
   // 将 MenuOptionsVO 映射为 MenuForm 结构，保持与原 treeData 用法兼容
   const mapNode = (node: any): any => {
     const children = node.children?.length
-      ? node.children.map(mapNode)
+      ? node.children.map((child: any) => mapNode(child))
       : undefined;
     return {
       id: node.value,
@@ -141,7 +141,7 @@ export const getMenuOptionsApi = async () => {
       children,
     };
   };
-  return Array.isArray(list) ? list.map(mapNode) : [];
+  return Array.isArray(list) ? list.map((node: any) => mapNode(node)) : [];
 };
 
 /**
@@ -183,7 +183,8 @@ export function buildMenuTree(menus: MenuApi.MenuForm[]): MenuApi.MenuForm[] {
     const parentId = String(menu.parentId);
     if (parentId !== '0' && menu.parentId !== undefined) continue;
     if (menu?.name) menu.name = translateMenuName(menu?.name ?? '');
-    if (menu?.meta?.name) menu.meta.name = translateMenuName(menu?.meta?.name ?? '');
+    if (menu?.meta?.name)
+      menu.meta.name = translateMenuName(menu?.meta?.name ?? '');
     tree.push(menu);
   }
 
@@ -194,7 +195,8 @@ export function buildMenuTree(menus: MenuApi.MenuForm[]): MenuApi.MenuForm[] {
     if (parentId === '0' || menu.parentId === undefined) continue;
     if (travelMenuChild(tree, menu)) continue;
     if (menu?.name) menu.name = translateMenuName(menu?.name ?? '');
-    if (menu?.meta?.name) menu.meta.name = translateMenuName(menu?.meta?.name ?? '');
+    if (menu?.meta?.name)
+      menu.meta.name = translateMenuName(menu?.meta?.name ?? '');
     tree.push(menu);
   }
 
@@ -210,7 +212,8 @@ function travelMenuChild(
   const parentId = String(parent.parentId);
   if (parentId === '0' || parent.parentId === undefined) {
     if (parent?.name) parent.name = translateMenuName(parent?.name ?? '');
-    if (parent?.meta?.name) parent.meta.name = translateMenuName(parent?.meta?.name ?? '');
+    if (parent?.meta?.name)
+      parent.meta.name = translateMenuName(parent?.meta?.name ?? '');
     nodes.push(parent);
     return true;
   }
@@ -218,7 +221,8 @@ function travelMenuChild(
   for (const node of nodes) {
     if (String(node.id) === String(parent.parentId)) {
       if (parent?.name) parent.name = translateMenuName(parent?.name ?? '');
-      if (parent?.meta?.name) parent.meta.name = translateMenuName(parent?.meta?.name ?? '');
+      if (parent?.meta?.name)
+        parent.meta.name = translateMenuName(parent?.meta?.name ?? '');
       node.children = node.children || [];
       node.children.push(parent);
       return true;

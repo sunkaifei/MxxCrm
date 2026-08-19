@@ -55,5 +55,7 @@ export const memberApi = {
     requestClient.put(`/api/system/website_user/update/${id}`, data),
 
   batchDelete: (ids: number[]) =>
-    requestClient.delete('/api/system/website_user/batch_delete', { data: { ids } }),
+    requestClient.delete('/api/system/website_user/batch_delete', {
+      data: { ids },
+    }),
 };

@@ -22,7 +22,9 @@ export const saveCompanyAccountApi = async (data: any) => {
 
 // 删除银行账户
 export const deleteCompanyAccountApi = async (ids: number[]) => {
-  return requestClient.delete('/api/system/company/account/delete', { data: { ids: ids.map(String) } });
+  return requestClient.delete('/api/system/company/account/delete', {
+    data: { ids: ids.map(String) },
+  });
 };
 
 // ============ 销售流程模式 ============
@@ -35,5 +37,7 @@ export const getSalesFlowModeApi = async (): Promise<SalesFlowMode> => {
 
 // 设置销售流程模式
 export const setSalesFlowModeApi = async (mode: SalesFlowMode) => {
-  return await requestClient.put('/api/system/company/sales-flow/mode', { mode });
+  return await requestClient.put('/api/system/company/sales-flow/mode', {
+    mode,
+  });
 };

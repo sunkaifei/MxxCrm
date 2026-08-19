@@ -1,13 +1,19 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucidePlus } from '@vben/icons';
-import { Button, Tag, Image, Modal, message } from 'ant-design-vue';
-import BannerDrawer from './drawer.vue';
+
+import { Button, Image, message, Modal, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteBannerApi, getBannerListApi } from '#/api';
+
+import BannerDrawer from './drawer.vue';
 
 const positionOptions = [
   { label: '首页顶部', value: 'home_top' },
@@ -187,11 +193,7 @@ async function handleDelete(row: any) {
   <Page auto-content-height>
     <Grid table-title="Banner管理">
       <template #toolbar-tools>
-        <Button
-          type="primary"
-          :icon="h(LucidePlus)"
-          @click="handleAdd"
-        >
+        <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
           新增Banner
         </Button>
       </template>
@@ -209,7 +211,9 @@ async function handleDelete(row: any) {
       </template>
 
       <template #position="{ row }">
-        <Tag color="blue">{{ positionMap[row.position] || row.position || '-' }}</Tag>
+        <Tag color="blue">
+          {{ positionMap[row.position] || row.position || '-' }}
+        </Tag>
       </template>
 
       <template #timeRange="{ row }">

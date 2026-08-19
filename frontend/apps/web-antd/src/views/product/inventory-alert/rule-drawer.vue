@@ -1,13 +1,27 @@
 <script lang="ts" setup>
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { computed, h, nextTick, onMounted, ref, watch } from 'vue';
 
 import { LucideFilePenLine, LucidePlus, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
-import { Button, Drawer, Form, Input, InputNumber, Popconfirm, Select, Switch, Tag, Tooltip, message } from 'ant-design-vue';
+import {
+  Button,
+  Drawer,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Popconfirm,
+  Select,
+  Switch,
+  Tag,
+  Tooltip,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
+import { getProductListApi } from '#/api';
 import {
   createAlertRuleApi,
   deleteAlertRuleApi,
@@ -15,7 +29,6 @@ import {
   getAlertRuleListApi,
   updateAlertRuleApi,
 } from '#/api/core/product/alert';
-import { getProductListApi } from '#/api';
 import { $t } from '#/locales';
 
 import UserSelectModal from '../../crm/components/UserSelectModal.vue';
@@ -87,7 +100,8 @@ function openWarehouseSelect() {
 
 function onWarehouseSelected(warehouse: any) {
   editForm.value.warehouseId = Number(warehouse.id);
-  editForm.value.warehouseName = warehouse.warehouseName ?? warehouse.name ?? '';
+  editForm.value.warehouseName =
+    warehouse.warehouseName ?? warehouse.name ?? '';
 }
 
 function clearWarehouse() {
@@ -119,15 +133,56 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    { title: $t('page.product.inventory.alert.field.productName'), field: 'productName', minWidth: 140 },
-    { title: $t('page.product.inventory.alert.field.warehouseName'), field: 'warehouseName', width: 120 },
-    { title: $t('page.product.inventory.alert.field.minQuantity'), field: 'minQuantity', width: 120 },
-    { title: $t('page.product.inventory.alert.field.maxQuantity'), field: 'maxQuantity', width: 120 },
-    { title: $t('page.product.inventory.alert.field.staleDays'), field: 'staleDays', width: 100 },
-    { title: $t('page.product.inventory.alert.field.enableLowAlert'), field: 'enableLowAlert', width: 100, slots: { default: 'enableLowAlert' } },
-    { title: $t('page.product.inventory.alert.field.enableHighAlert'), field: 'enableHighAlert', width: 100, slots: { default: 'enableHighAlert' } },
-    { title: $t('page.product.inventory.alert.field.enableStaleAlert'), field: 'enableStaleAlert', width: 100, slots: { default: 'enableStaleAlert' } },
-    { title: $t('ui.table.action'), field: 'action', width: 140, fixed: 'right' as const, slots: { default: 'action' } },
+    {
+      title: $t('page.product.inventory.alert.field.productName'),
+      field: 'productName',
+      minWidth: 140,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.warehouseName'),
+      field: 'warehouseName',
+      width: 120,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.minQuantity'),
+      field: 'minQuantity',
+      width: 120,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.maxQuantity'),
+      field: 'maxQuantity',
+      width: 120,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.staleDays'),
+      field: 'staleDays',
+      width: 100,
+    },
+    {
+      title: $t('page.product.inventory.alert.field.enableLowAlert'),
+      field: 'enableLowAlert',
+      width: 100,
+      slots: { default: 'enableLowAlert' },
+    },
+    {
+      title: $t('page.product.inventory.alert.field.enableHighAlert'),
+      field: 'enableHighAlert',
+      width: 100,
+      slots: { default: 'enableHighAlert' },
+    },
+    {
+      title: $t('page.product.inventory.alert.field.enableStaleAlert'),
+      field: 'enableStaleAlert',
+      width: 100,
+      slots: { default: 'enableStaleAlert' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      width: 140,
+      fixed: 'right' as const,
+      slots: { default: 'action' },
+    },
   ],
 };
 
@@ -156,9 +211,16 @@ function handleCreate() {
   isEdit.value = false;
   editDrawerTitle.value = $t('page.product.inventory.alert.action.create');
   editForm.value = {
-    id: undefined, productId: undefined, warehouseId: undefined, warehouseName: '',
-    minQuantity: 0, maxQuantity: 0, staleDays: 90,
-    enableLowAlert: true, enableHighAlert: false, enableStaleAlert: false,
+    id: undefined,
+    productId: undefined,
+    warehouseId: undefined,
+    warehouseName: '',
+    minQuantity: 0,
+    maxQuantity: 0,
+    staleDays: 90,
+    enableLowAlert: true,
+    enableHighAlert: false,
+    enableStaleAlert: false,
   };
   notifyUsers.value = [];
   editDrawerVisible.value = true;
@@ -185,7 +247,10 @@ async function handleEdit(row: any) {
     // 解析通知人
     notifyUsers.value = [];
     if (data.notifyUsers) {
-      const ids = data.notifyUsers.split(',').map((s: string) => Number(s.trim())).filter((n: number) => n > 0);
+      const ids = data.notifyUsers
+        .split(',')
+        .map((s: string) => Number(s.trim()))
+        .filter((n: number) => n > 0);
       // 尝试加载用户名（简化处理：先显示ID，后续可以加载名称）
       for (const id of ids) {
         notifyUsers.value.push({ id, name: `用户${id}` });
@@ -198,15 +263,25 @@ async function handleEdit(row: any) {
 }
 
 async function handleSubmit() {
-  if (!editForm.value.enableLowAlert && !editForm.value.enableHighAlert && !editForm.value.enableStaleAlert) {
+  if (
+    !editForm.value.enableLowAlert &&
+    !editForm.value.enableHighAlert &&
+    !editForm.value.enableStaleAlert
+  ) {
     message.warning('请至少启用一种预警类型');
     return;
   }
-  if (editForm.value.enableLowAlert && (!editForm.value.minQuantity || editForm.value.minQuantity <= 0)) {
+  if (
+    editForm.value.enableLowAlert &&
+    (!editForm.value.minQuantity || editForm.value.minQuantity <= 0)
+  ) {
     message.warning('启用低库存预警时需设置最低数量');
     return;
   }
-  if (editForm.value.enableHighAlert && (!editForm.value.maxQuantity || editForm.value.maxQuantity <= 0)) {
+  if (
+    editForm.value.enableHighAlert &&
+    (!editForm.value.maxQuantity || editForm.value.maxQuantity <= 0)
+  ) {
     message.warning('启用高库存预警时需设置最高数量');
     return;
   }
@@ -280,13 +355,33 @@ onMounted(() => {
     <template #extra>
       <Tooltip :title="isFullscreen ? '还原' : '最大化'">
         <Button type="text" size="small" @click="isFullscreen = !isFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -366,7 +461,10 @@ onMounted(() => {
           allow-clear
           show-search
           :options="productOptions"
-          :filter-option="(input: string, option: any) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())"
+          :filter-option="
+            (input: string, option: any) =>
+              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+          "
           style="width: 100%"
         />
       </Form.Item>
@@ -378,31 +476,67 @@ onMounted(() => {
           allow-clear
           style="cursor: pointer"
           @click="openWarehouseSelect"
-          @change="(e: any) => { if (!e?.target?.value) clearWarehouse(); }"
+          @change="
+            (e: any) => {
+              if (!e?.target?.value) clearWarehouse();
+            }
+          "
         />
       </Form.Item>
       <Form.Item :label="$t('page.product.inventory.alert.field.minQuantity')">
-        <InputNumber v-model:value="editForm.minQuantity" style="width: 100%" :min="0" placeholder="最低库存阈值" />
+        <InputNumber
+          v-model:value="editForm.minQuantity"
+          style="width: 100%"
+          :min="0"
+          placeholder="最低库存阈值"
+        />
       </Form.Item>
       <Form.Item :label="$t('page.product.inventory.alert.field.maxQuantity')">
-        <InputNumber v-model:value="editForm.maxQuantity" style="width: 100%" :min="0" placeholder="最高库存阈值" />
+        <InputNumber
+          v-model:value="editForm.maxQuantity"
+          style="width: 100%"
+          :min="0"
+          placeholder="最高库存阈值"
+        />
       </Form.Item>
       <Form.Item :label="$t('page.product.inventory.alert.field.staleDays')">
-        <InputNumber v-model:value="editForm.staleDays" style="width: 100%" :min="0" placeholder="呆滞天数（默认90）" />
+        <InputNumber
+          v-model:value="editForm.staleDays"
+          style="width: 100%"
+          :min="0"
+          placeholder="呆滞天数（默认90）"
+        />
       </Form.Item>
-      <Form.Item :label="$t('page.product.inventory.alert.field.enableLowAlert')">
+      <Form.Item
+        :label="$t('page.product.inventory.alert.field.enableLowAlert')"
+      >
         <Switch v-model:checked="editForm.enableLowAlert" />
       </Form.Item>
-      <Form.Item :label="$t('page.product.inventory.alert.field.enableHighAlert')">
+      <Form.Item
+        :label="$t('page.product.inventory.alert.field.enableHighAlert')"
+      >
         <Switch v-model:checked="editForm.enableHighAlert" />
       </Form.Item>
-      <Form.Item :label="$t('page.product.inventory.alert.field.enableStaleAlert')">
+      <Form.Item
+        :label="$t('page.product.inventory.alert.field.enableStaleAlert')"
+      >
         <Switch v-model:checked="editForm.enableStaleAlert" />
       </Form.Item>
 
       <!-- 指定通知人 -->
       <Form.Item label="指定通知人">
-        <div style="display: flex; flex-wrap: wrap; gap: 4px; min-height: 32px; padding: 4px 8px; border: 1px solid #d9d9d9; border-radius: 6px; align-items: center;">
+        <div
+          style="
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+            min-height: 32px;
+            padding: 4px 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+          "
+        >
           <Tag
             v-for="user in notifyUsers"
             :key="user.id"
@@ -412,8 +546,18 @@ onMounted(() => {
           >
             {{ user.name }}
           </Tag>
-          <span v-if="notifyUsers.length === 0" style="color: #bfbfbf; font-size: 13px">暂无通知人</span>
-          <Button type="link" size="small" :icon="h(LucidePlus)" @click="openUserSelect" style="margin-left: auto">
+          <span
+            v-if="notifyUsers.length === 0"
+            style="font-size: 13px; color: #bfbfbf"
+            >暂无通知人</span
+          >
+          <Button
+            type="link"
+            size="small"
+            :icon="h(LucidePlus)"
+            @click="openUserSelect"
+            style="margin-left: auto"
+          >
             添加
           </Button>
         </div>
@@ -421,8 +565,12 @@ onMounted(() => {
     </Form>
     <template #footer>
       <div style="text-align: right">
-        <Button class="mr-2" @click="editDrawerVisible = false">{{ $t('ui.button.cancel') }}</Button>
-        <Button type="primary" :loading="submitLoading" @click="handleSubmit">{{ $t('ui.button.ok') }}</Button>
+        <Button class="mr-2" @click="editDrawerVisible = false">
+          {{ $t('ui.button.cancel') }}
+        </Button>
+        <Button type="primary" :loading="submitLoading" @click="handleSubmit">
+          {{ $t('ui.button.ok') }}
+        </Button>
       </div>
     </template>
   </Drawer>

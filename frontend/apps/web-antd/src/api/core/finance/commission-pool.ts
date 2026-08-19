@@ -21,12 +21,11 @@ export const deleteCommissionPoolApi = async (id: number) =>
 
 // 支出登记
 export const expenseCommissionPoolApi = async (data: {
-  poolId: number;
   amount: number;
+  poolId: number;
   usageDate?: string;
   usageDescription?: string;
-}) =>
-  requestClient.post('/api/system/finance/commission-pool/expense', data);
+}) => requestClient.post('/api/system/finance/commission-pool/expense', data);
 
 // 流水明细
 export const getCommissionPoolLogApi = async (id: number, params?: any) =>

@@ -52,9 +52,9 @@ export const revokeNoticeApi = async (id: number) => {
 
 // 我的公告列表（当前用户收到的已发布公告，含已读/未读状态）
 export const getMyNoticeListApi = async (params: {
+  isRead?: number;
   page: number;
   pageSize: number;
-  isRead?: number;
 }) => {
   return requestClient.get('/api/system/notice/my-page', { params });
 };

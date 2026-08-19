@@ -1,6 +1,28 @@
 <script lang="ts" setup>
+import type { UploadFile } from 'ant-design-vue';
+
+import type {
+  NotificationConfigSaveDTO,
+  NotificationConfigVO,
+} from '#/api/core/website/notification';
+import type { SiteVO } from '#/api/core/website/site';
+
 import { computed, h, onMounted, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
+import {
+  LucideFilePenLine,
+  LucideFileText,
+  LucideGlobe,
+  LucideLayoutDashboard,
+  LucideLink,
+  LucideMegaphone,
+  LucideMoreHorizontal,
+  LucideSearch,
+  LucideSettings,
+  LucideUpload,
+} from '@vben/icons';
+
 import {
   Button,
   Card,
@@ -19,30 +41,13 @@ import {
   Tag,
   Upload,
 } from 'ant-design-vue';
-import type { UploadFile } from 'ant-design-vue';
-import {
-  LucideFilePenLine,
-  LucideFileText,
-  LucideGlobe,
-  LucideLayoutDashboard,
-  LucideLink,
-  LucideMegaphone,
-  LucideMoreHorizontal,
-  LucideSearch,
-  LucideSettings,
-  LucideUpload,
-} from '@vben/icons';
+
 import {
   getTemplateDataListByTemplateApi,
   notificationApi,
   siteApi,
   templateApi,
 } from '#/api';
-import type {
-  NotificationConfigSaveDTO,
-  NotificationConfigVO,
-} from '#/api/core/website/notification';
-import type { SiteVO } from '#/api/core/website/site';
 import { uploadFileApi } from '#/api/core/attachment/file';
 import CodeEditor from '#/components/CodeEditor/index.vue';
 
@@ -240,9 +245,7 @@ async function loadHomeTemplateOptions(templateId?: any) {
   }
   homeTemplateLoading.value = true;
   try {
-    const res: any = await getTemplateDataListByTemplateApi(
-      Number(templateId),
-    );
+    const res: any = await getTemplateDataListByTemplateApi(Number(templateId));
     const list: any[] = Array.isArray(res)
       ? res
       : res?.items || res?.data || [];
@@ -258,6 +261,10 @@ async function loadHomeTemplateOptions(templateId?: any) {
     homeTemplateLoading.value = false;
   }
 }
+
+// 自定义规则模式的占位符提示文案
+const urlRulePatternPlaceholder =
+  '仅在"自定义"模式下生效。可用占位符：{module} {id} {page} {category}，如 /{category}/{id}.html';
 
 // ============ 主表单数据（直接响应式对象，DEDECMS 风格自定义布局）============
 const formData = ref<Record<string, any>>({
@@ -348,7 +355,10 @@ async function loadNotifications(websiteId?: number) {
     });
     // 追加数据库中存在但不在预置列表的场景
     list.forEach((item) => {
-      if (item.sceneCode && !presetScenes.some((s) => s.sceneCode === item.sceneCode)) {
+      if (
+        item.sceneCode &&
+        !presetScenes.some((s) => s.sceneCode === item.sceneCode)
+      ) {
         merged.push({
           id: item.id,
           websiteId: item.websiteId,
@@ -389,7 +399,7 @@ async function loadSite() {
   try {
     const data: SiteVO = await siteApi.getCurrent();
     siteData.value = data || {};
-    formData.value = { ...formData.value, ...(data || {}) };
+    formData.value = { ...formData.value, ...data };
     // 图片预览
     logoUrl.value = data?.logo || '';
     logoList.value = data?.logo
@@ -441,11 +451,13 @@ async function handleSave() {
   }
   saving.value = true;
   try {
-    const values: Record<string, any> = { ...formData.value };
+    const values: Record<string, any> = {
+      ...formData.value,
+      logo: logoUrl.value,
+      watermarkImage: watermarkImageUrl.value,
+      shareImage: shareImageUrl.value,
+    };
     // 合并图片URL
-    values.logo = logoUrl.value;
-    values.watermarkImage = watermarkImageUrl.value;
-    values.shareImage = shareImageUrl.value;
     // 时间转字符串
     if (values.workTimeStart && typeof values.workTimeStart !== 'string') {
       values.workTimeStart = values.workTimeStart?.format('HH:mm');
@@ -539,108 +551,142 @@ const statusTagText = computed(() =>
 
           <Tabs
             v-else
-            v-model:activeKey="activeKey"
+            v-model:active-key="activeKey"
             class="site-tabs"
             size="large"
-            :tabBarStyle="{ paddingLeft: '8px', paddingRight: '8px' }"
+            :tab-bar-style="{ paddingLeft: '8px', paddingRight: '8px' }"
           >
             <!-- 基本设置 -->
             <Tabs.TabPane key="basic">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.basic" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.basic"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[0]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card title="基础信息" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  网站的基础信息，包括名称、类型、域名和 Logo 等。
-                </p>
-                <div class="form-grid-2">
-                  <div class="form-item">
-                    <label class="form-label">
-                      网站名称 <span class="req">*</span>
-                    </label>
-                    <Input v-model:value="formData.siteName" name="siteName" autocomplete="off" placeholder="输入网站名称…" allow-clear />
-                  </div>
-                  <div class="form-item">
-                    <label class="form-label">
-                      站点模式 <span class="req">*</span>
-                      <span class="form-label-tip">决定前台按钮渲染逻辑</span>
-                    </label>
-                    <RadioGroup v-model:value="formData.siteMode">
-                      <Radio :value="1">展示型</Radio>
-                      <Radio :value="2">交易型</Radio>
-                    </RadioGroup>
-                    <div class="form-extra">
-                      展示型渲染"立即咨询"，交易型渲染"加入购物车/立即购买"
+                <Card title="基础信息" :bordered="false" class="cfg-card">
+                  <p class="section-desc">
+                    网站的基础信息，包括名称、类型、域名和 Logo 等。
+                  </p>
+                  <div class="form-grid-2">
+                    <div class="form-item">
+                      <label class="form-label">
+                        网站名称 <span class="req">*</span>
+                      </label>
+                      <Input
+                        v-model:value="formData.siteName"
+                        name="siteName"
+                        autocomplete="off"
+                        placeholder="输入网站名称…"
+                        allow-clear
+                      />
+                    </div>
+                    <div class="form-item">
+                      <label class="form-label">
+                        站点模式 <span class="req">*</span>
+                        <span class="form-label-tip">决定前台按钮渲染逻辑</span>
+                      </label>
+                      <RadioGroup v-model:value="formData.siteMode">
+                        <Radio :value="1">展示型</Radio>
+                        <Radio :value="2">交易型</Radio>
+                      </RadioGroup>
+                      <div class="form-extra">
+                        展示型渲染"立即咨询"，交易型渲染"加入购物车/立即购买"
+                      </div>
+                    </div>
+                    <div class="form-item">
+                      <label class="form-label">客户端</label>
+                      <RadioGroup v-model:value="formData.client">
+                        <Radio :value="1">PC</Radio>
+                        <Radio :value="2">WAP</Radio>
+                        <Radio :value="3">CMS</Radio>
+                      </RadioGroup>
+                    </div>
+                    <div class="form-item">
+                      <label class="form-label">二级域名</label>
+                      <Input
+                        v-model:value="formData.domain"
+                        name="domain"
+                        autocomplete="off"
+                        placeholder="如：demo"
+                        allow-clear
+                      />
+                      <p class="field-tip">前台访问地址的子域名前缀</p>
+                    </div>
+                    <div class="form-item">
+                      <label class="form-label">绑定域名</label>
+                      <Input
+                        v-model:value="formData.bindDomain"
+                        name="bindDomain"
+                        autocomplete="off"
+                        placeholder="如：www.example.com"
+                        allow-clear
+                      />
+                      <p class="field-tip">自定义域名，需要先做 DNS 解析</p>
                     </div>
                   </div>
-                  <div class="form-item">
-                    <label class="form-label">客户端</label>
-                    <RadioGroup v-model:value="formData.client">
-                      <Radio :value="1">PC</Radio>
-                      <Radio :value="2">WAP</Radio>
-                      <Radio :value="3">CMS</Radio>
-                    </RadioGroup>
-                  </div>
-                  <div class="form-item">
-                    <label class="form-label">二级域名</label>
-                    <Input v-model:value="formData.domain" name="domain" autocomplete="off" placeholder="如：demo" allow-clear />
-                    <p class="field-tip">前台访问地址的子域名前缀</p>
-                  </div>
-                  <div class="form-item">
-                    <label class="form-label">绑定域名</label>
-                    <Input v-model:value="formData.bindDomain" name="bindDomain" autocomplete="off" placeholder="如：www.example.com" allow-clear />
-                    <p class="field-tip">自定义域名，需要先做 DNS 解析</p>
-                  </div>
-                </div>
-              </Card>
+                </Card>
 
-              <Card title="网站Logo" :bordered="false" class="cfg-card">
-                <Upload
-                  :file-list="logoList"
-                  :before-upload="
-                    (file: File) => {
-                      handleLogoUpload(file);
-                      return false;
-                    }
-                  "
-                  :remove="handleLogoRemove"
-                  list-type="picture-card"
-                  accept="image/*"
-                >
-                  <div v-if="logoList.length < 1" class="upload-plus">
-                    <div class="upload-icon">+</div>
-                    <div class="upload-text">上传Logo</div>
-                  </div>
-                </Upload>
-                <p class="upload-tip">建议尺寸 200×60，支持 JPG/PNG/GIF</p>
-              </Card>
+                <Card title="网站Logo" :bordered="false" class="cfg-card">
+                  <Upload
+                    :file-list="logoList"
+                    :before-upload="
+                      (file: File) => {
+                        handleLogoUpload(file);
+                        return false;
+                      }
+                    "
+                    :remove="handleLogoRemove"
+                    list-type="picture-card"
+                    accept="image/*"
+                  >
+                    <div v-if="logoList.length === 0" class="upload-plus">
+                      <div class="upload-icon">+</div>
+                      <div class="upload-text">上传Logo</div>
+                    </div>
+                  </Upload>
+                  <p class="upload-tip">建议尺寸 200×60，支持 JPG/PNG/GIF</p>
+                </Card>
 
-              <Card title="状态设置" :bordered="false" class="cfg-card">
-                <div class="status-inline-grid">
-                  <div class="status-inline-item">
-                    <label class="form-label">网站状态</label>
-                    <RadioGroup v-model:value="formData.status">
-                      <Radio :value="1">正常</Radio>
-                      <Radio :value="0">关闭</Radio>
-                    </RadioGroup>
+                <Card title="状态设置" :bordered="false" class="cfg-card">
+                  <div class="status-inline-grid">
+                    <div class="status-inline-item">
+                      <label class="form-label">网站状态</label>
+                      <RadioGroup v-model:value="formData.status">
+                        <Radio :value="1">正常</Radio>
+                        <Radio :value="0">关闭</Radio>
+                      </RadioGroup>
+                    </div>
+                    <div class="status-inline-item">
+                      <label class="form-label">
+                        首页Banner
+                        <span class="form-label-tip"
+                          >开启后首页顶部显示轮播图</span
+                        >
+                      </label>
+                      <Switch v-model:checked="formData.showBanner" />
+                    </div>
                   </div>
-                  <div class="status-inline-item">
-                    <label class="form-label">
-                      首页Banner
-                      <span class="form-label-tip">开启后首页顶部显示轮播图</span>
-                    </label>
-                    <Switch v-model:checked="formData.showBanner" />
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 14px"
+                  >
+                    <label class="form-label">关闭原因</label>
+                    <Input.TextArea
+                      v-model:value="formData.closeReason"
+                      name="closeReason"
+                      autocomplete="off"
+                      :rows="2"
+                      placeholder="网站关闭时向前台显示的提示信息…"
+                      allow-clear
+                    />
                   </div>
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 14px">
-                  <label class="form-label">关闭原因</label>
-                  <Input.TextArea v-model:value="formData.closeReason" name="closeReason" autocomplete="off" :rows="2" placeholder="网站关闭时向前台显示的提示信息…" allow-clear />
-                </div>
-              </Card>
+                </Card>
               </div>
             </Tabs.TabPane>
 
@@ -648,30 +694,50 @@ const statusTagText = computed(() =>
             <Tabs.TabPane key="seo">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.seo" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.seo"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[1]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card title="SEO 优化" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  设置关键词和描述有助于搜索引擎收录和排名。
-                </p>
-                <div class="form-item form-item-full">
-                  <label class="form-label">SEO关键词</label>
-                  <Input v-model:value="formData.keywords" name="keywords" autocomplete="off" placeholder="多个关键词用逗号分隔…" allow-clear />
-                  <p class="field-tip">
-                    多个关键词之间用英文逗号分隔，建议 5-10 个
+                <Card title="SEO 优化" :bordered="false" class="cfg-card">
+                  <p class="section-desc">
+                    设置关键词和描述有助于搜索引擎收录和排名。
                   </p>
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 12px">
-                  <label class="form-label">SEO描述</label>
-                  <Input.TextArea v-model:value="formData.description" name="description" autocomplete="off" :rows="3" placeholder="网站描述，用于搜索引擎收录…" allow-clear />
-                  <p class="field-tip">
-                    网站简短描述，建议 50-200 字，将显示在搜索结果中
-                  </p>
-                </div>
-              </Card>
+                  <div class="form-item form-item-full">
+                    <label class="form-label">SEO关键词</label>
+                    <Input
+                      v-model:value="formData.keywords"
+                      name="keywords"
+                      autocomplete="off"
+                      placeholder="多个关键词用逗号分隔…"
+                      allow-clear
+                    />
+                    <p class="field-tip">
+                      多个关键词之间用英文逗号分隔，建议 5-10 个
+                    </p>
+                  </div>
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 12px"
+                  >
+                    <label class="form-label">SEO描述</label>
+                    <Input.TextArea
+                      v-model:value="formData.description"
+                      name="description"
+                      autocomplete="off"
+                      :rows="3"
+                      placeholder="网站描述，用于搜索引擎收录…"
+                      allow-clear
+                    />
+                    <p class="field-tip">
+                      网站简短描述，建议 50-200 字，将显示在搜索结果中
+                    </p>
+                  </div>
+                </Card>
               </div>
             </Tabs.TabPane>
 
@@ -679,49 +745,63 @@ const statusTagText = computed(() =>
             <Tabs.TabPane key="url">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.url" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.url"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[2]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card title="URL 伪静态规则" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  控制前台页面的 URL 形态，影响 SEO 与可读性。
-                </p>
-                <div class="form-item form-item-full">
-                  <label class="form-label">URL规则模式</label>
-                  <RadioGroup v-model:value="formData.urlRule">
-                    <Radio :value="0">动态URL（默认）</Radio>
-                    <Radio :value="1">短URL</Radio>
-                    <Radio :value="2">目录模式</Radio>
-                    <Radio :value="3">自定义</Radio>
-                  </RadioGroup>
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 12px">
-                  <label class="form-label">自定义规则模板</label>
-                  <Input.TextArea v-model:value="formData.urlRulePattern" name="urlRulePattern" autocomplete="off" :rows="3" placeholder="仅在&quot;自定义&quot;模式下生效。可用占位符：{module} {id} {page} {category}，如 /{category}/{id}.html" allow-clear />
-                  <p class="field-tip">
-                    仅在"自定义"模式下生效。可用占位符：
-                    <code>{module}</code> <code>{id}</code> <code>{page}</code>
-                    <code>{category}</code>，如
-                    <code>/{category}/{id}.html</code>
+                <Card title="URL 伪静态规则" :bordered="false" class="cfg-card">
+                  <p class="section-desc">
+                    控制前台页面的 URL 形态，影响 SEO 与可读性。
                   </p>
-                </div>
-                <div class="url-rule-tips">
-                  <div class="tip-row">
-                    <strong>动态URL：</strong>
-                    <span>/article/detail?id=123</span>
+                  <div class="form-item form-item-full">
+                    <label class="form-label">URL规则模式</label>
+                    <RadioGroup v-model:value="formData.urlRule">
+                      <Radio :value="0">动态URL（默认）</Radio>
+                      <Radio :value="1">短URL</Radio>
+                      <Radio :value="2">目录模式</Radio>
+                      <Radio :value="3">自定义</Radio>
+                    </RadioGroup>
                   </div>
-                  <div class="tip-row">
-                    <strong>短URL：</strong>
-                    <span>/a/123</span>
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 12px"
+                  >
+                    <label class="form-label">自定义规则模板</label>
+                    <Input.TextArea
+                      v-model:value="formData.urlRulePattern"
+                      name="urlRulePattern"
+                      autocomplete="off"
+                      :rows="3"
+                      :placeholder="urlRulePatternPlaceholder"
+                      allow-clear
+                    />
+                    <p class="field-tip">
+                      仅在"自定义"模式下生效。可用占位符：
+                      <code>{module}</code> <code>{id}</code>
+                      <code>{page}</code> <code>{category}</code>，如
+                      <code>/{category}/{id}.html</code>
+                    </p>
                   </div>
-                  <div class="tip-row">
-                    <strong>目录模式：</strong>
-                    <span>/article/123/</span>
+                  <div class="url-rule-tips">
+                    <div class="tip-row">
+                      <strong>动态URL：</strong>
+                      <span>/article/detail?id=123</span>
+                    </div>
+                    <div class="tip-row">
+                      <strong>短URL：</strong>
+                      <span>/a/123</span>
+                    </div>
+                    <div class="tip-row">
+                      <strong>目录模式：</strong>
+                      <span>/article/123/</span>
+                    </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
               </div>
             </Tabs.TabPane>
 
@@ -729,90 +809,97 @@ const statusTagText = computed(() =>
             <Tabs.TabPane key="template">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.template" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.template"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[3]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card title="当前模板" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  当前网站正在使用的模板，点击可更换。
-                </p>
-                <div class="current-template-card">
-                  <div class="tpl-preview">
-                    <img
-                      v-if="currentTemplateDetail?.previewPic"
-                      :src="currentTemplateDetail.previewPic"
-                      :alt="selectedTemplateName + ' 模板预览图'"
-                    />
-                    <div v-else class="tpl-preview-placeholder">
-                      <span>暂无预览图</span>
-                    </div>
-                  </div>
-                  <div class="tpl-info">
-                    <h4 class="tpl-name">
-                      {{ selectedTemplateName || '尚未选择模板' }}
-                    </h4>
-                    <div v-if="currentTemplateDetail" class="tpl-meta">
-                      <div class="meta-row">
-                        <span class="meta-label">模板文件夹：</span>
-                        <span class="meta-value">{{
-                          currentTemplateDetail.templateFolder || '—'
-                        }}</span>
+                <Card title="当前模板" :bordered="false" class="cfg-card">
+                  <p class="section-desc">
+                    当前网站正在使用的模板，点击可更换。
+                  </p>
+                  <div class="current-template-card">
+                    <div class="tpl-preview">
+                      <img
+                        v-if="currentTemplateDetail?.previewPic"
+                        :src="currentTemplateDetail.previewPic"
+                        :alt="`${selectedTemplateName} 模板预览图`"
+                      />
+                      <div v-else class="tpl-preview-placeholder">
+                        <span>暂无预览图</span>
                       </div>
-                      <div class="meta-row">
-                        <span class="meta-label">支持终端：</span>
-                        <div class="meta-tags">
-                          <Tag v-if="currentTemplateDetail.terminalPc === 1" color="blue">
-                            PC端
-                          </Tag>
-                          <Tag
-                            v-if="currentTemplateDetail.terminalMobile === 1"
-                            color="green"
-                          >
-                            手机端
-                          </Tag>
-                          <Tag
-                            v-if="currentTemplateDetail.terminalIpad === 1"
-                            color="orange"
-                          >
-                            平板
-                          </Tag>
+                    </div>
+                    <div class="tpl-info">
+                      <h4 class="tpl-name">
+                        {{ selectedTemplateName || '尚未选择模板' }}
+                      </h4>
+                      <div v-if="currentTemplateDetail" class="tpl-meta">
+                        <div class="meta-row">
+                          <span class="meta-label">模板文件夹：</span>
+                          <span class="meta-value">{{
+                            currentTemplateDetail.templateFolder || '—'
+                          }}</span>
+                        </div>
+                        <div class="meta-row">
+                          <span class="meta-label">支持终端：</span>
+                          <div class="meta-tags">
+                            <Tag
+                              v-if="currentTemplateDetail.terminalPc === 1"
+                              color="blue"
+                            >
+                              PC端
+                            </Tag>
+                            <Tag
+                              v-if="currentTemplateDetail.terminalMobile === 1"
+                              color="green"
+                            >
+                              手机端
+                            </Tag>
+                            <Tag
+                              v-if="currentTemplateDetail.terminalIpad === 1"
+                              color="orange"
+                            >
+                              平板
+                            </Tag>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div class="tpl-actions">
-                      <Button type="primary" @click="openTemplateModal">
-                        更换模板
-                      </Button>
-                      <Button
-                        v-if="currentTemplateDetail?.previewUrl"
-                        @click="previewCurrentTemplate"
-                      >
-                        预览演示
-                      </Button>
+                      <div class="tpl-actions">
+                        <Button type="primary" @click="openTemplateModal">
+                          更换模板
+                        </Button>
+                        <Button
+                          v-if="currentTemplateDetail?.previewUrl"
+                          @click="previewCurrentTemplate"
+                        >
+                          预览演示
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
 
-              <Card title="首页模板" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  选择当前模板下用于渲染网站首页的模板数据。选择"默认"时，系统将回退到模板自带的首页。
-                </p>
-                <div class="form-item form-item-full">
-                  <label class="form-label">首页模板数据</label>
-                  <Select
-                    v-model:value="formData.homeTemplateDataId"
-                    :options="homeTemplateOptionsWithDefault"
-                    :loading="homeTemplateLoading"
-                    placeholder="请选择首页模板"
-                  />
-                  <p class="field-tip">
-                    仅展示当前模板下类型为"首页"的模板数据。更换模板后列表将自动刷新。
+                <Card title="首页模板" :bordered="false" class="cfg-card">
+                  <p class="section-desc">
+                    选择当前模板下用于渲染网站首页的模板数据。选择"默认"时，系统将回退到模板自带的首页。
                   </p>
-                </div>
-              </Card>
+                  <div class="form-item form-item-full">
+                    <label class="form-label">首页模板数据</label>
+                    <Select
+                      v-model:value="formData.homeTemplateDataId"
+                      :options="homeTemplateOptionsWithDefault"
+                      :loading="homeTemplateLoading"
+                      placeholder="请选择首页模板"
+                    />
+                    <p class="field-tip">
+                      仅展示当前模板下类型为"首页"的模板数据。更换模板后列表将自动刷新。
+                    </p>
+                  </div>
+                </Card>
               </div>
             </Tabs.TabPane>
 
@@ -820,92 +907,136 @@ const statusTagText = computed(() =>
             <Tabs.TabPane key="upload">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.upload" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.upload"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[4]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card title="上传设置" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  控制图片水印和文件上传的限制参数。水印将在上传图片时自动添加。
-                </p>
-                <h4 class="section-subtitle">图片水印</h4>
-                <div class="form-grid-2">
-                  <div class="form-item">
-                    <label class="form-label">开启水印</label>
-                    <Switch v-model:checked="formData.watermarkEnable" />
-                    <p class="field-tip">开启后上传的图片将自动打上水印</p>
-                  </div>
-                  <div class="form-item">
-                    <label class="form-label">水印类型</label>
-                    <RadioGroup v-model:value="formData.watermarkType">
-                      <Radio :value="1">文字水印</Radio>
-                      <Radio :value="2">图片水印</Radio>
-                    </RadioGroup>
-                  </div>
-                  <div class="form-item">
-                    <label class="form-label">水印位置</label>
-                    <Select v-model:value="formData.watermarkPosition" :options="[
-                      { label: '左上', value: 1 },
-                      { label: '上中', value: 2 },
-                      { label: '右上', value: 3 },
-                      { label: '左中', value: 4 },
-                      { label: '居中', value: 5 },
-                      { label: '右中', value: 6 },
-                      { label: '左下', value: 7 },
-                      { label: '下中', value: 8 },
-                      { label: '右下', value: 9 },
-                    ]" />
-                  </div>
-                  <div class="form-item">
-                    <label class="form-label">透明度(%)</label>
-                    <InputNumber v-model:value="formData.watermarkOpacity" :min="0" :max="100" style="width: 100%" />
-                  </div>
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 12px">
-                  <label class="form-label">水印文字</label>
-                  <Input v-model:value="formData.watermarkText" name="watermarkText" autocomplete="off" placeholder="输入水印文字内容…" allow-clear />
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 12px">
-                  <label class="form-label">水印图片</label>
-                  <Upload
-                    :file-list="watermarkImageList"
-                    :before-upload="
-                      (file: File) => {
-                        handleWatermarkImageUpload(file);
-                        return false;
-                      }
-                    "
-                    :remove="handleWatermarkImageRemove"
-                    list-type="picture-card"
-                    accept="image/png"
-                  >
-                    <div v-if="watermarkImageList.length < 1" class="upload-plus">
-                      <div class="upload-icon">+</div>
-                      <div class="upload-text">上传水印</div>
-                    </div>
-                  </Upload>
-                  <p class="upload-tip">图片水印时使用，建议使用透明 PNG 格式</p>
-                </div>
-
-                <div class="section-divider"></div>
-
-                <h4 class="section-subtitle">上传限制</h4>
-                <div class="form-grid-2">
-                  <div class="form-item">
-                    <label class="form-label">单文件最大(MB)</label>
-                    <InputNumber v-model:value="formData.uploadMaxSize" name="uploadMaxSize" :min="1" :max="500" style="width: 100%" />
-                    <p class="field-tip">超过此大小的文件将被拒绝上传</p>
-                  </div>
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 12px">
-                  <label class="form-label">允许上传文件类型</label>
-                  <Input v-model:value="formData.uploadAllowedTypes" name="uploadAllowedTypes" autocomplete="off" placeholder="jpg,png,gif,pdf,doc 等，逗号分隔" allow-clear />
-                  <p class="field-tip">
-                    多个扩展名用英文逗号分隔，如：jpg,png,gif,pdf,doc,xls,zip。留空则不限制
+                <Card title="上传设置" :bordered="false" class="cfg-card">
+                  <p class="section-desc">
+                    控制图片水印和文件上传的限制参数。水印将在上传图片时自动添加。
                   </p>
-                </div>
-              </Card>
+                  <h4 class="section-subtitle">图片水印</h4>
+                  <div class="form-grid-2">
+                    <div class="form-item">
+                      <label class="form-label">开启水印</label>
+                      <Switch v-model:checked="formData.watermarkEnable" />
+                      <p class="field-tip">开启后上传的图片将自动打上水印</p>
+                    </div>
+                    <div class="form-item">
+                      <label class="form-label">水印类型</label>
+                      <RadioGroup v-model:value="formData.watermarkType">
+                        <Radio :value="1">文字水印</Radio>
+                        <Radio :value="2">图片水印</Radio>
+                      </RadioGroup>
+                    </div>
+                    <div class="form-item">
+                      <label class="form-label">水印位置</label>
+                      <Select
+                        v-model:value="formData.watermarkPosition"
+                        :options="[
+                          { label: '左上', value: 1 },
+                          { label: '上中', value: 2 },
+                          { label: '右上', value: 3 },
+                          { label: '左中', value: 4 },
+                          { label: '居中', value: 5 },
+                          { label: '右中', value: 6 },
+                          { label: '左下', value: 7 },
+                          { label: '下中', value: 8 },
+                          { label: '右下', value: 9 },
+                        ]"
+                      />
+                    </div>
+                    <div class="form-item">
+                      <label class="form-label">透明度(%)</label>
+                      <InputNumber
+                        v-model:value="formData.watermarkOpacity"
+                        :min="0"
+                        :max="100"
+                        style="width: 100%"
+                      />
+                    </div>
+                  </div>
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 12px"
+                  >
+                    <label class="form-label">水印文字</label>
+                    <Input
+                      v-model:value="formData.watermarkText"
+                      name="watermarkText"
+                      autocomplete="off"
+                      placeholder="输入水印文字内容…"
+                      allow-clear
+                    />
+                  </div>
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 12px"
+                  >
+                    <label class="form-label">水印图片</label>
+                    <Upload
+                      :file-list="watermarkImageList"
+                      :before-upload="
+                        (file: File) => {
+                          handleWatermarkImageUpload(file);
+                          return false;
+                        }
+                      "
+                      :remove="handleWatermarkImageRemove"
+                      list-type="picture-card"
+                      accept="image/png"
+                    >
+                      <div
+                        v-if="watermarkImageList.length === 0"
+                        class="upload-plus"
+                      >
+                        <div class="upload-icon">+</div>
+                        <div class="upload-text">上传水印</div>
+                      </div>
+                    </Upload>
+                    <p class="upload-tip">
+                      图片水印时使用，建议使用透明 PNG 格式
+                    </p>
+                  </div>
+
+                  <div class="section-divider"></div>
+
+                  <h4 class="section-subtitle">上传限制</h4>
+                  <div class="form-grid-2">
+                    <div class="form-item">
+                      <label class="form-label">单文件最大(MB)</label>
+                      <InputNumber
+                        v-model:value="formData.uploadMaxSize"
+                        name="uploadMaxSize"
+                        :min="1"
+                        :max="500"
+                        style="width: 100%"
+                      />
+                      <p class="field-tip">超过此大小的文件将被拒绝上传</p>
+                    </div>
+                  </div>
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 12px"
+                  >
+                    <label class="form-label">允许上传文件类型</label>
+                    <Input
+                      v-model:value="formData.uploadAllowedTypes"
+                      name="uploadAllowedTypes"
+                      autocomplete="off"
+                      placeholder="jpg,png,gif,pdf,doc 等，逗号分隔"
+                      allow-clear
+                    />
+                    <p class="field-tip">
+                      多个扩展名用英文逗号分隔，如：jpg,png,gif,pdf,doc,xls,zip。留空则不限制
+                    </p>
+                  </div>
+                </Card>
               </div>
             </Tabs.TabPane>
 
@@ -913,45 +1044,71 @@ const statusTagText = computed(() =>
             <Tabs.TabPane key="share">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.share" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.share"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[5]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card title="微信分享设置" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  设置网站分享到微信/朋友圈时显示的标题、描述和缩略图。
-                </p>
-                <div class="form-item form-item-full">
-                  <label class="form-label">分享标题</label>
-                  <Input v-model:value="formData.shareTitle" name="shareTitle" autocomplete="off" placeholder="分享到微信时的标题…" allow-clear />
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 12px">
-                  <label class="form-label">分享描述</label>
-                  <Input.TextArea v-model:value="formData.shareDesc" name="shareDesc" autocomplete="off" :rows="2" placeholder="分享到微信时的描述文字…" allow-clear />
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 12px">
-                  <label class="form-label">分享图片</label>
-                  <Upload
-                    :file-list="shareImageList"
-                    :before-upload="
-                      (file: File) => {
-                        handleShareImageUpload(file);
-                        return false;
-                      }
-                    "
-                    :remove="handleShareImageRemove"
-                    list-type="picture-card"
-                    accept="image/*"
+                <Card title="微信分享设置" :bordered="false" class="cfg-card">
+                  <p class="section-desc">
+                    设置网站分享到微信/朋友圈时显示的标题、描述和缩略图。
+                  </p>
+                  <div class="form-item form-item-full">
+                    <label class="form-label">分享标题</label>
+                    <Input
+                      v-model:value="formData.shareTitle"
+                      name="shareTitle"
+                      autocomplete="off"
+                      placeholder="分享到微信时的标题…"
+                      allow-clear
+                    />
+                  </div>
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 12px"
                   >
-                    <div v-if="shareImageList.length < 1" class="upload-plus">
-                      <div class="upload-icon">+</div>
-                      <div class="upload-text">上传图片</div>
-                    </div>
-                  </Upload>
-                  <p class="upload-tip">建议尺寸 500x400，支持 JPG/PNG</p>
-                </div>
-              </Card>
+                    <label class="form-label">分享描述</label>
+                    <Input.TextArea
+                      v-model:value="formData.shareDesc"
+                      name="shareDesc"
+                      autocomplete="off"
+                      :rows="2"
+                      placeholder="分享到微信时的描述文字…"
+                      allow-clear
+                    />
+                  </div>
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 12px"
+                  >
+                    <label class="form-label">分享图片</label>
+                    <Upload
+                      :file-list="shareImageList"
+                      :before-upload="
+                        (file: File) => {
+                          handleShareImageUpload(file);
+                          return false;
+                        }
+                      "
+                      :remove="handleShareImageRemove"
+                      list-type="picture-card"
+                      accept="image/*"
+                    >
+                      <div
+                        v-if="shareImageList.length === 0"
+                        class="upload-plus"
+                      >
+                        <div class="upload-icon">+</div>
+                        <div class="upload-text">上传图片</div>
+                      </div>
+                    </Upload>
+                    <p class="upload-tip">建议尺寸 500x400，支持 JPG/PNG</p>
+                  </div>
+                </Card>
               </div>
             </Tabs.TabPane>
 
@@ -959,104 +1116,114 @@ const statusTagText = computed(() =>
             <Tabs.TabPane key="notification">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.notification" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.notification"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[6]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card :bordered="false" class="cfg-card">
-                <template #title>
-                  <div class="card-title-row">
-                    <span>通知配置</span>
-                    <span class="card-title-tip">
-                      单站模式下批量保存，按场景编码自动新增/更新
-                    </span>
-                  </div>
-                </template>
-                <p class="section-desc">
-                  管理各类业务事件触发的邮件通知，开关关闭则该场景不发邮件。
-                </p>
-                <Skeleton
-                  v-if="notificationLoading"
-                  active
-                  :paragraph="{ rows: 6 }"
-                />
-                <Empty
-                  v-else-if="notificationList.length === 0"
-                  description="暂无通知配置"
-                />
-                <div v-else class="notification-list">
-                  <div
-                    v-for="(item, idx) in notificationList"
-                    :key="item.sceneCode"
-                    class="notification-item"
-                  >
-                    <div class="notif-header">
-                      <div class="notif-title">
-                        <span class="notif-name">
-                          {{ item.sceneName || item.sceneCode }}
-                        </span>
-                        <Tag color="blue">{{ item.sceneCode }}</Tag>
-                      </div>
-                      <div class="notif-switch">
-                        <label class="form-label">启用</label>
-                        <Switch
-                          :checked="item.enabled === 1"
-                          @change="
-                            (v: any) =>
-                              (notificationList[idx]!.enabled = v ? 1 : 0)
-                          "
-                        />
-                      </div>
+                <Card :bordered="false" class="cfg-card">
+                  <template #title>
+                    <div class="card-title-row">
+                      <span>通知配置</span>
+                      <span class="card-title-tip">
+                        单站模式下批量保存，按场景编码自动新增/更新
+                      </span>
                     </div>
-                    <div class="notif-body">
-                      <div class="form-grid-2">
-                        <div class="form-item">
-                          <label class="form-label">收件人邮箱</label>
-                          <Input
-                            v-model:value="item.recipientEmails"
-                            name="recipientEmails"
-                            autocomplete="off"
-                            placeholder="多个邮箱用英文逗号分隔…"
-                            allow-clear
-                          />
+                  </template>
+                  <p class="section-desc">
+                    管理各类业务事件触发的邮件通知，开关关闭则该场景不发邮件。
+                  </p>
+                  <Skeleton
+                    v-if="notificationLoading"
+                    active
+                    :paragraph="{ rows: 6 }"
+                  />
+                  <Empty
+                    v-else-if="notificationList.length === 0"
+                    description="暂无通知配置"
+                  />
+                  <div v-else class="notification-list">
+                    <div
+                      v-for="(item, idx) in notificationList"
+                      :key="item.sceneCode"
+                      class="notification-item"
+                    >
+                      <div class="notif-header">
+                        <div class="notif-title">
+                          <span class="notif-name">
+                            {{ item.sceneName || item.sceneCode }}
+                          </span>
+                          <Tag color="blue">{{ item.sceneCode }}</Tag>
                         </div>
-                        <div class="form-item">
-                          <label class="form-label">通知渠道</label>
-                          <Input
-                            v-model:value="item.channels"
-                            name="channels"
-                            autocomplete="off"
-                            placeholder="如：email"
-                            allow-clear
+                        <div class="notif-switch">
+                          <label class="form-label">启用</label>
+                          <Switch
+                            :checked="item.enabled === 1"
+                            @change="
+                              (v: any) =>
+                                (notificationList[idx]!.enabled = v ? 1 : 0)
+                            "
                           />
                         </div>
                       </div>
-                      <div class="form-item form-item-full" style="margin-top: 8px">
-                        <label class="form-label">邮件主题</label>
-                        <Input
-                          v-model:value="item.emailSubject"
-                          name="emailSubject"
-                          autocomplete="off"
-                          placeholder="邮件主题模板…"
-                          allow-clear
-                        />
-                      </div>
-                      <div class="form-item form-item-full" style="margin-top: 8px">
-                        <label class="form-label">邮件正文</label>
-                        <Input.TextArea
-                          v-model:value="item.emailBody"
-                          name="emailBody"
-                          autocomplete="off"
-                          :rows="3"
-                          placeholder="邮件正文模板…"
-                          allow-clear
-                        />
+                      <div class="notif-body">
+                        <div class="form-grid-2">
+                          <div class="form-item">
+                            <label class="form-label">收件人邮箱</label>
+                            <Input
+                              v-model:value="item.recipientEmails"
+                              name="recipientEmails"
+                              autocomplete="off"
+                              placeholder="多个邮箱用英文逗号分隔…"
+                              allow-clear
+                            />
+                          </div>
+                          <div class="form-item">
+                            <label class="form-label">通知渠道</label>
+                            <Input
+                              v-model:value="item.channels"
+                              name="channels"
+                              autocomplete="off"
+                              placeholder="如：email"
+                              allow-clear
+                            />
+                          </div>
+                        </div>
+                        <div
+                          class="form-item form-item-full"
+                          style="margin-top: 8px"
+                        >
+                          <label class="form-label">邮件主题</label>
+                          <Input
+                            v-model:value="item.emailSubject"
+                            name="emailSubject"
+                            autocomplete="off"
+                            placeholder="邮件主题模板…"
+                            allow-clear
+                          />
+                        </div>
+                        <div
+                          class="form-item form-item-full"
+                          style="margin-top: 8px"
+                        >
+                          <label class="form-label">邮件正文</label>
+                          <Input.TextArea
+                            v-model:value="item.emailBody"
+                            name="emailBody"
+                            autocomplete="off"
+                            :rows="3"
+                            placeholder="邮件正文模板…"
+                            allow-clear
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
               </div>
             </Tabs.TabPane>
 
@@ -1064,48 +1231,59 @@ const statusTagText = computed(() =>
             <Tabs.TabPane key="code">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.code" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.code"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[7]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card title="代码设置" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  添加统计代码和自定义 CSS/JS 来扩展网站功能。统计代码将插入到 &lt;/body&gt; 标签之前。
-                </p>
-                <h4 class="section-subtitle">统计代码</h4>
-                <div class="form-item form-item-full">
-                  <CodeEditor
-                    v-model="formData.statisticsCode"
-                    language="html"
-                    height="180px"
-                  />
-                  <p class="field-tip">将被插入到网站 &lt;/body&gt; 之前，如百度统计、Google Analytics 等</p>
-                </div>
+                <Card title="代码设置" :bordered="false" class="cfg-card">
+                  <p class="section-desc">
+                    添加统计代码和自定义 CSS/JS 来扩展网站功能。统计代码将插入到
+                    &lt;/body&gt; 标签之前。
+                  </p>
+                  <h4 class="section-subtitle">统计代码</h4>
+                  <div class="form-item form-item-full">
+                    <CodeEditor
+                      v-model="formData.statisticsCode"
+                      language="html"
+                      height="180px"
+                    />
+                    <p class="field-tip">
+                      将被插入到网站 &lt;/body&gt; 之前，如百度统计、Google
+                      Analytics 等
+                    </p>
+                  </div>
 
-                <div class="section-divider"></div>
+                  <div class="section-divider"></div>
 
-                <h4 class="section-subtitle">自定义 CSS/JS</h4>
-                <p class="section-desc" style="margin-bottom: 12px">
-                  高级用户可添加自定义样式和脚本，修改网站外观或行为。
-                </p>
-                <div class="form-item form-item-full">
-                  <label class="form-label">自定义CSS</label>
-                  <CodeEditor
-                    v-model="formData.customCss"
-                    language="css"
-                    height="180px"
-                  />
-                </div>
-                <div class="form-item form-item-full" style="margin-top: 12px">
-                  <label class="form-label">自定义JS</label>
-                  <CodeEditor
-                    v-model="formData.customJs"
-                    language="javascript"
-                    height="180px"
-                  />
-                </div>
-              </Card>
+                  <h4 class="section-subtitle">自定义 CSS/JS</h4>
+                  <p class="section-desc" style="margin-bottom: 12px">
+                    高级用户可添加自定义样式和脚本，修改网站外观或行为。
+                  </p>
+                  <div class="form-item form-item-full">
+                    <label class="form-label">自定义CSS</label>
+                    <CodeEditor
+                      v-model="formData.customCss"
+                      language="css"
+                      height="180px"
+                    />
+                  </div>
+                  <div
+                    class="form-item form-item-full"
+                    style="margin-top: 12px"
+                  >
+                    <label class="form-label">自定义JS</label>
+                    <CodeEditor
+                      v-model="formData.customJs"
+                      language="javascript"
+                      height="180px"
+                    />
+                  </div>
+                </Card>
               </div>
             </Tabs.TabPane>
 
@@ -1113,39 +1291,51 @@ const statusTagText = computed(() =>
             <Tabs.TabPane key="misc">
               <template #tab>
                 <span class="tab-label">
-                  <component :is="menuIcons.misc" class="tab-icon" aria-hidden="true" />
+                  <component
+                    :is="menuIcons.misc"
+                    class="tab-icon"
+                    aria-hidden="true"
+                  />
                   <span>{{ menuGroups[8]?.label }}</span>
                 </span>
               </template>
               <div class="panel">
-              <Card title="其他设置" :bordered="false" class="cfg-card">
-                <p class="section-desc">
-                  内部备注和搜索引擎爬虫控制规则。
-                </p>
-                <h4 class="section-subtitle">内部备注</h4>
-                <div class="form-item form-item-full">
-                  <label class="form-label">备注内容</label>
-                  <Input.TextArea v-model:value="formData.remark" name="remark" autocomplete="off" :rows="2" placeholder="输入内部备注信息…" allow-clear />
-                  <p class="field-tip">仅内部可见，不对外展示</p>
-                </div>
+                <Card title="其他设置" :bordered="false" class="cfg-card">
+                  <p class="section-desc">内部备注和搜索引擎爬虫控制规则。</p>
+                  <h4 class="section-subtitle">内部备注</h4>
+                  <div class="form-item form-item-full">
+                    <label class="form-label">备注内容</label>
+                    <Input.TextArea
+                      v-model:value="formData.remark"
+                      name="remark"
+                      autocomplete="off"
+                      :rows="2"
+                      placeholder="输入内部备注信息…"
+                      allow-clear
+                    />
+                    <p class="field-tip">仅内部可见，不对外展示</p>
+                  </div>
 
-                <div class="section-divider"></div>
+                  <div class="section-divider"></div>
 
-                <h4 class="section-subtitle">robots.txt 设置</h4>
-                <p class="section-desc" style="margin-bottom: 12px">
-                  自定义 robots.txt 内容，控制搜索引擎爬虫的访问权限。留空则使用默认规则。可用占位符 <code>{domain}</code> 表示站点域名。
-                </p>
-                <div class="form-item form-item-full">
-                  <CodeEditor
-                    v-model="formData.robotsContent"
-                    language="plaintext"
-                    height="240px"
-                  />
-                  <p class="field-tip">
-                    留空使用默认规则。可用占位符 <code>{domain}</code> 自动替换为站点域名。
+                  <h4 class="section-subtitle">robots.txt 设置</h4>
+                  <p class="section-desc" style="margin-bottom: 12px">
+                    自定义 robots.txt
+                    内容，控制搜索引擎爬虫的访问权限。留空则使用默认规则。可用占位符
+                    <code>{domain}</code> 表示站点域名。
                   </p>
-                </div>
-              </Card>
+                  <div class="form-item form-item-full">
+                    <CodeEditor
+                      v-model="formData.robotsContent"
+                      language="plaintext"
+                      height="240px"
+                    />
+                    <p class="field-tip">
+                      留空使用默认规则。可用占位符
+                      <code>{domain}</code> 自动替换为站点域名。
+                    </p>
+                  </div>
+                </Card>
               </div>
             </Tabs.TabPane>
           </Tabs>
@@ -1160,11 +1350,7 @@ const statusTagText = computed(() =>
         </div>
         <div class="footer-actions">
           <Button :disabled="saving" @click="handleReset">重置</Button>
-          <Button
-            type="primary"
-            :loading="saving"
-            @click="handleSave"
-          >
+          <Button type="primary" :loading="saving" @click="handleSave">
             保存设置
           </Button>
         </div>
@@ -1184,7 +1370,7 @@ const statusTagText = computed(() =>
             :src="previewUrl"
             class="preview-iframe"
             frameborder="0"
-          />
+          ></iframe>
         </div>
       </Modal>
 
@@ -1215,20 +1401,16 @@ const statusTagText = computed(() =>
               :key="tpl.id"
               class="tpl-card"
               :class="{
-                active:
-                  String(siteData.templateId) === String(tpl.id),
+                active: String(siteData.templateId) === String(tpl.id),
               }"
               @click="selectTemplate(tpl)"
             >
               <div class="tpl-card-img">
-                <img :src="tpl.previewPic" :alt="tpl.name + ' 模板预览'" />
+                <img :src="tpl.previewPic" :alt="`${tpl.name} 模板预览`" />
               </div>
               <div class="tpl-card-name">{{ tpl.name }}</div>
             </div>
-            <div
-              v-if="templateList.length === 0"
-              class="template-grid-empty"
-            >
+            <div v-if="templateList.length === 0" class="template-grid-empty">
               <Empty description="暂无可用模板" />
             </div>
           </template>
@@ -1251,92 +1433,104 @@ const statusTagText = computed(() =>
 
 /* ========== 顶部状态条 ========== */
 .site-status-bar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
+  margin-bottom: 14px;
+  overflow: hidden;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-left: 4px solid hsl(var(--primary));
   border-radius: 10px;
-  margin-bottom: 14px;
-  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.04);
-  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-  position: relative;
-  overflow: hidden;
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 4%);
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
+
 /* 状态条顶部装饰光晕 */
 .site-status-bar::before {
-  content: '';
   position: absolute;
   top: 0;
-  left: 0;
   right: 0;
+  left: 0;
   height: 1px;
+  content: '';
   background: linear-gradient(
     90deg,
     transparent,
-    hsl(var(--primary) / 0.3),
+    hsl(var(--primary) / 30%),
     transparent
   );
   opacity: 0.6;
 }
+
 .status-left {
   display: flex;
-  align-items: center;
   gap: 14px;
+  align-items: center;
 }
+
 .status-logo {
-  border-radius: 8px;
-  background: hsl(var(--muted));
   padding: 3px;
   object-fit: contain;
-  box-shadow: 0 1px 4px hsl(var(--foreground) / 0.06);
+  background: hsl(var(--muted));
+  border-radius: 8px;
+  box-shadow: 0 1px 4px hsl(var(--foreground) / 6%);
 }
+
 .status-logo-placeholder {
-  width: 40px;
-  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(
-    135deg,
-    hsl(var(--primary) / 0.15),
-    hsl(var(--primary) / 0.08)
-  );
-  color: hsl(var(--primary));
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
   font-size: 16px;
   font-weight: 700;
+  color: hsl(var(--primary));
   letter-spacing: 1px;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 15%),
+    hsl(var(--primary) / 8%)
+  );
+  border-radius: 8px;
 }
+
 .status-title {
   margin: 0 0 3px;
   font-size: 18px;
   font-weight: 600;
-  color: hsl(var(--foreground));
   line-height: 1.3;
+  color: hsl(var(--foreground));
 }
+
 .status-meta {
   display: flex;
-  align-items: center;
   gap: 14px;
+  align-items: center;
   font-size: 13px;
   color: hsl(var(--muted-foreground));
 }
+
 .meta-item {
   position: relative;
 }
+
 .meta-item + .meta-item::before {
-  content: '';
   display: inline-block;
   width: 3px;
   height: 3px;
-  border-radius: 50%;
-  background: hsl(var(--muted-foreground) / 0.4);
   margin-right: 14px;
   vertical-align: middle;
+  content: '';
+  background: hsl(var(--muted-foreground) / 40%);
+  border-radius: 50%;
 }
+
 .status-right {
   display: flex;
   gap: 8px;
@@ -1344,8 +1538,8 @@ const statusTagText = computed(() =>
 
 /* ========== 主体布局（Tab 模式） ========== */
 .site-settings-body {
-  flex: 1;
   display: flex;
+  flex: 1;
   min-height: 0;
   padding-bottom: 100px;
 }
@@ -1353,54 +1547,65 @@ const statusTagText = computed(() =>
 /* Tab 容器 */
 .site-tabs {
   width: 100%;
+  padding: 4px 4px 20px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 10px;
-  padding: 4px 4px 20px;
-  transition: background 0.3s ease, border-color 0.3s ease;
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease;
 }
+
 .site-tabs :deep(.ant-tabs-nav) {
-  margin: 0 0 12px;
   padding: 0 12px;
+  margin: 0 0 12px;
   border-bottom: 1px solid hsl(var(--border));
 }
+
 .site-tabs :deep(.ant-tabs-nav-list) {
   gap: 4px;
 }
+
 .site-tabs :deep(.ant-tabs-tab) {
   padding: 12px 18px;
   margin: 0;
-  border-radius: 8px 8px 0 0;
-  color: hsl(var(--foreground) / 0.7);
   font-size: 14px;
   font-weight: 500;
+  color: hsl(var(--foreground) / 70%);
+  border-radius: 8px 8px 0 0;
   transition: all 0.2s ease;
 }
+
 .site-tabs :deep(.ant-tabs-tab:hover) {
   color: hsl(var(--foreground));
   background: hsl(var(--accent));
 }
+
 .site-tabs :deep(.ant-tabs-tab.ant-tabs-tab-active) {
   color: hsl(var(--primary));
-  background: hsl(var(--primary) / 0.06);
+  background: hsl(var(--primary) / 6%);
 }
+
 .site-tabs :deep(.ant-tabs-ink-bar) {
-  background: hsl(var(--primary));
   height: 3px;
+  background: hsl(var(--primary));
   border-radius: 3px 3px 0 0;
 }
+
 .site-tabs :deep(.ant-tabs-tab-btn) {
   outline: none;
 }
+
 .tab-label {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
 }
+
 .tab-icon {
+  flex-shrink: 0;
   width: 15px;
   height: 15px;
-  flex-shrink: 0;
   opacity: 0.85;
 }
 
@@ -1409,35 +1614,45 @@ const statusTagText = computed(() =>
   flex: 1;
   min-width: 0;
 }
+
 .panel {
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 0 16px;
 }
+
 .cfg-card {
   border-radius: 10px;
-  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
+
 .cfg-card :deep(.ant-card) {
-  border-radius: 10px;
   overflow: hidden;
+  border-radius: 10px;
 }
+
 .cfg-card :deep(.ant-card-head) {
-  border-bottom-color: hsl(var(--border));
-  padding: 0 20px;
   min-height: 48px;
+  padding: 0 20px;
+  border-bottom-color: hsl(var(--border));
 }
+
 .cfg-card :deep(.ant-card-head-title) {
+  padding: 12px 0;
   font-size: 15px;
   font-weight: 600;
-  padding: 12px 0;
   color: hsl(var(--foreground));
 }
+
 .cfg-card :deep(.ant-card-body) {
   padding: 20px;
   color: hsl(var(--foreground));
 }
+
 .section-desc {
   margin: 0 0 14px;
   font-size: 13px;
@@ -1447,17 +1662,18 @@ const statusTagText = computed(() =>
 
 /* 卡片内子标题与分割线 */
 .section-subtitle {
+  padding-bottom: 6px;
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 600;
-  color: hsl(var(--foreground) / 0.85);
-  padding-bottom: 6px;
-  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  color: hsl(var(--foreground) / 85%);
+  border-bottom: 1px solid hsl(var(--border) / 50%);
 }
+
 .section-divider {
   height: 1px;
-  background: hsl(var(--border) / 0.4);
   margin: 18px 0;
+  background: hsl(var(--border) / 40%);
 }
 
 /* ========== 表单 ========== */
@@ -1473,88 +1689,101 @@ const statusTagText = computed(() =>
   flex-wrap: wrap;
   gap: 20px 40px;
 }
+
 .status-inline-item {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
+
 .status-inline-item .form-label {
-  white-space: nowrap;
   flex-shrink: 0;
+  white-space: nowrap;
 }
+
 .form-item-full {
   width: 100%;
 }
+
 .form-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .form-label {
   font-size: 14px;
   font-weight: 500;
-  color: hsl(var(--foreground) / 0.88);
+  color: hsl(var(--foreground) / 88%);
   transition: color 0.3s ease;
 }
+
 .form-label .req {
-  color: hsl(var(--destructive));
   margin-left: 2px;
+  color: hsl(var(--destructive));
 }
+
 .form-label-tip {
   margin-left: 6px;
   font-size: 12px;
   font-weight: 400;
   color: hsl(var(--muted-foreground));
 }
+
 .form-extra {
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.6;
   color: hsl(var(--muted-foreground));
 }
+
 .field-tip {
   margin: 4px 0 0;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
 }
+
 .field-tip code {
-  background: hsl(var(--muted));
   padding: 1px 6px;
-  border-radius: 4px;
+  margin: 0 2px;
+  font-family: Consolas, Monaco, 'SF Mono', monospace;
   font-size: 12px;
   color: hsl(var(--primary));
-  margin: 0 2px;
-  font-family: 'Consolas', 'Monaco', 'SF Mono', monospace;
+  background: hsl(var(--muted));
+  border-radius: 4px;
 }
 
 /* URL 规则提示 */
 .url-rule-tips {
-  margin-top: 16px;
   padding: 14px 18px;
+  margin-top: 16px;
+  font-size: 13px;
   background: hsl(var(--muted));
   border-radius: 8px;
-  font-size: 13px;
   transition: background 0.3s ease;
 }
+
 .tip-row {
   display: flex;
   gap: 8px;
   padding: 4px 0;
 }
+
 .tip-row strong {
-  color: hsl(var(--foreground) / 0.75);
   flex-shrink: 0;
   width: 90px;
+  color: hsl(var(--foreground) / 75%);
 }
+
 .tip-row span {
-  color: hsl(var(--muted-foreground));
-  font-family: 'Consolas', 'Monaco', 'SF Mono', monospace;
+  font-family: Consolas, Monaco, 'SF Mono', monospace;
   font-size: 12px;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 代码编辑 */
 .code-editor :deep(.ant-input) {
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
 }
@@ -1569,17 +1798,21 @@ const statusTagText = computed(() =>
   color: hsl(var(--muted-foreground));
   transition: color 0.2s ease;
 }
+
 .upload-plus:hover {
   color: hsl(var(--primary));
 }
+
 .upload-icon {
+  margin-bottom: 2px;
   font-size: 22px;
   line-height: 1;
-  margin-bottom: 2px;
 }
+
 .upload-text {
   font-size: 12px;
 }
+
 .upload-tip {
   margin: 6px 0 0;
   font-size: 12px;
@@ -1594,73 +1827,87 @@ const statusTagText = computed(() =>
   background: hsl(var(--accent));
   border: 1px solid hsl(var(--border));
   border-radius: 10px;
-  transition: background 0.3s ease, border-color 0.3s ease;
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease;
 }
+
 .tpl-preview {
-  width: 240px;
   flex-shrink: 0;
+  width: 240px;
   aspect-ratio: 4 / 3;
-  border-radius: 8px;
   overflow: hidden;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  box-shadow: 0 1px 4px hsl(var(--foreground) / 0.06);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px hsl(var(--foreground) / 6%);
 }
+
 .tpl-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
 }
+
 .tpl-preview:hover img {
   transform: scale(1.03);
 }
+
 .tpl-preview-placeholder {
-  width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: hsl(var(--muted-foreground));
+  width: 100%;
+  height: 100%;
   font-size: 14px;
+  color: hsl(var(--muted-foreground));
 }
+
 .tpl-info {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
 }
+
 .tpl-name {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
   color: hsl(var(--foreground));
 }
+
 .tpl-meta {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+
 .meta-row {
   display: flex;
-  align-items: flex-start;
   gap: 8px;
+  align-items: flex-start;
   font-size: 13px;
 }
+
 .meta-label {
-  color: hsl(var(--muted-foreground));
   flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
 }
+
 .meta-value {
-  color: hsl(var(--foreground) / 0.75);
+  color: hsl(var(--foreground) / 75%);
   word-break: break-all;
 }
+
 .meta-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
 .tpl-actions {
   display: flex;
   gap: 10px;
@@ -1670,54 +1917,66 @@ const statusTagText = computed(() =>
 /* ========== 通知配置 ========== */
 .card-title-row {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
+
 .card-title-tip {
   font-size: 12px;
   font-weight: 400;
   color: hsl(var(--muted-foreground));
 }
+
 .notification-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
+
 .notification-item {
-  border: 1px solid hsl(var(--border));
-  border-radius: 10px;
+  position: relative;
   padding: 18px;
   background: hsl(var(--card));
-  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-  position: relative;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
+
 .notification-item:hover {
   border-color: hsl(var(--border));
-  box-shadow: 0 2px 8px hsl(var(--foreground) / 0.05);
+  box-shadow: 0 2px 8px hsl(var(--foreground) / 5%);
 }
+
 .notif-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
   padding-bottom: 10px;
+  margin-bottom: 14px;
   border-bottom: 1px dashed hsl(var(--border));
 }
+
 .notif-title {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
+
 .notif-name {
   font-size: 14px;
   font-weight: 500;
-  color: hsl(var(--foreground) / 0.88);
+  color: hsl(var(--foreground) / 88%);
 }
+
 .notif-switch {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
+
 .notif-body {
   display: flex;
   flex-direction: column;
@@ -1726,25 +1985,28 @@ const statusTagText = computed(() =>
 /* ========== 底部固定条 ========== */
 .site-footer-bar {
   position: fixed;
+  right: 0;
   bottom: 0;
   left: 0;
-  right: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
   background: hsl(var(--card));
   border-top: 1px solid hsl(var(--border));
-  box-shadow: 0 -2px 12px hsl(var(--foreground) / 0.06);
-  z-index: 100;
-  transition: background 0.3s ease, border-color 0.3s ease;
+  box-shadow: 0 -2px 12px hsl(var(--foreground) / 6%);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease;
 }
+
 .footer-tip {
   font-size: 13px;
   color: hsl(var(--muted-foreground));
 }
+
 .footer-actions {
   display: flex;
   gap: 8px;
@@ -1754,77 +2016,87 @@ const statusTagText = computed(() =>
 .preview-iframe-wrap {
   min-height: 600px;
 }
+
 .preview-iframe {
   width: 100%;
   height: 75vh;
-  border: none;
   background: hsl(var(--background));
+  border: none;
   border-radius: 6px;
 }
 
 /* 模板弹窗 */
 .template-modal-search {
-  margin-bottom: 16px;
   display: flex;
   justify-content: flex-end;
+  margin-bottom: 16px;
 }
+
 .template-modal-grid {
-  min-height: 300px;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  min-height: 300px;
 }
+
 .tpl-card {
   display: flex;
   flex-direction: column;
   width: calc(25% - 9px);
-  border: 2px solid transparent;
-  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.25s ease;
   background: hsl(var(--card));
+  border: 2px solid transparent;
+  border-radius: 10px;
+  transition: all 0.25s ease;
 }
+
 .tpl-card:hover {
-  border-color: hsl(var(--primary) / 0.35);
-  box-shadow: 0 6px 20px hsl(var(--foreground) / 0.08);
+  border-color: hsl(var(--primary) / 35%);
+  box-shadow: 0 6px 20px hsl(var(--foreground) / 8%);
   transform: translateY(-2px);
 }
+
 .tpl-card.active {
   border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 15%);
 }
+
 .tpl-card-img {
   aspect-ratio: 4 / 3;
   overflow: hidden;
   background: hsl(var(--muted));
 }
+
 .tpl-card-img img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
 }
+
 .tpl-card:hover .tpl-card-img img {
   transform: scale(1.05);
 }
+
 .tpl-card-name {
   padding: 10px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  text-align: center;
-  color: hsl(var(--foreground));
-  border-top: 1px solid hsl(var(--border));
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  text-align: center;
+  white-space: nowrap;
+  border-top: 1px solid hsl(var(--border));
 }
+
 .template-grid-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
   width: 100%;
+  min-height: 200px;
 }
 
 /* ========== 响应式 ========== */
@@ -1832,46 +2104,56 @@ const statusTagText = computed(() =>
   .form-grid-2 {
     grid-template-columns: 1fr;
   }
+
   .tpl-card {
     width: calc(33.333% - 8px);
   }
 }
+
 @media (max-width: 768px) {
   .site-status-bar {
     flex-direction: column;
-    align-items: flex-start;
     gap: 12px;
+    align-items: flex-start;
   }
+
   .status-right {
-    width: 100%;
     justify-content: flex-end;
+    width: 100%;
   }
+
   .site-tabs :deep(.ant-tabs-nav) {
-    overflow-x: auto;
-    overflow-y: hidden;
     padding: 0 8px;
+    overflow: auto hidden;
   }
+
   .site-tabs :deep(.ant-tabs-nav-list) {
     flex-wrap: nowrap;
   }
+
   .site-tabs :deep(.ant-tabs-tab) {
+    flex-shrink: 0;
     padding: 10px 14px;
     font-size: 13px;
     white-space: nowrap;
-    flex-shrink: 0;
   }
+
   .tab-icon {
     display: none;
   }
+
   .panel {
     padding: 0 8px;
   }
+
   .tpl-card {
     width: calc(50% - 6px);
   }
+
   .current-template-card {
     flex-direction: column;
   }
+
   .tpl-preview {
     width: 100%;
   }

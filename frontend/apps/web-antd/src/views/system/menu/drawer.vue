@@ -1,27 +1,17 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { $t } from '#/locales';
-import { useVbenForm } from '#/adapter/form';
+
 import { message } from 'ant-design-vue';
-import {
-  createMenuApi,
-  updateMenuApi,
-  getMenuTreeApi,
-} from '#/api';
+
+import { useVbenForm } from '#/adapter/form';
+import { createMenuApi, getMenuTreeApi, updateMenuApi } from '#/api';
+import { $t } from '#/locales';
 import { MenuType, statusList } from '#/store';
 
 const isMenu = (type: string) => type === MenuType.MENU;
 const isButton = (type: string) => type === MenuType.BUTTON;
-
-// 菜单名翻译（目录级对象兜底到 .title）
-function translateMenuName(key?: string | null): string {
-  if (!key) return '';
-  const direct = $t(key);
-  if (direct !== key && !direct.startsWith('[object ')) return direct;
-  const withTitle = $t(`${key}.title`);
-  return withTitle !== `${key}.title` ? withTitle : key;
-}
 
 const menuTypeList = computed(() => [
   { value: MenuType.FOLDER, label: $t('enum.menuType.folder') },
@@ -98,13 +88,17 @@ const [BaseForm, baseFormApi] = useVbenForm({
               .map((n) => ({
                 ...n,
                 name: n.meta?.name ? $t(n.meta.name) : n.name,
-                children: n.children ? translateAndFilter(n.children) : n.children,
+                children: n.children
+                  ? translateAndFilter(n.children)
+                  : n.children,
               }));
           const rootNode = {
             id: 0,
             name: $t('page.system.menu.mainDirectory') || '主目录',
             parentId: -1,
-            children: translateAndFilter(Array.isArray(fetchData) ? fetchData : []),
+            children: translateAndFilter(
+              Array.isArray(fetchData) ? fetchData : [],
+            ),
           };
           return [rootNode];
         },

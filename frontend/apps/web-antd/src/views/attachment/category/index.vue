@@ -1,33 +1,31 @@
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import type { TreeProps } from 'ant-design-vue';
+
+import { onMounted, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
-import {
-  LucidePlus,
-  LucideEdit,
-  LucideTrash2,
-} from '@vben/icons';
+import { LucideEdit, LucidePlus, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import {
   Button,
-  Modal,
   Form,
   Input,
-  Tree,
   message,
+  Modal,
   Popconfirm,
+  Tree,
 } from 'ant-design-vue';
-import type { TreeProps } from 'ant-design-vue';
-
-const FormItem = Form.Item;
 
 import {
-  getAttachmentCategoryTreeApi,
   createAttachmentCategoryApi,
-  updateAttachmentCategoryApi,
   deleteAttachmentCategoryApi,
+  getAttachmentCategoryTreeApi,
+  updateAttachmentCategoryApi,
 } from '#/api';
 import { $t } from '#/locales';
+
+const FormItem = Form.Item;
 
 const accessStore = useAccessStore();
 
@@ -36,7 +34,7 @@ const loading = ref(false);
 
 const modalVisible = ref(false);
 const isEdit = ref(false);
-const editId = ref<number | null>(null);
+const editId = ref<null | number>(null);
 const formRef = ref();
 
 const formData = ref({
@@ -54,10 +52,12 @@ const loadCategoryTree = async () => {
       title: item.label,
       key: item.value,
       name: item.label,
-      children: item.children?.length ? buildTreeData(item.children) : undefined,
+      children: item.children?.length
+        ? buildTreeData(item.children)
+        : undefined,
     }));
-  } catch (e) {
-    console.error('加载分类树失败', e);
+  } catch (error) {
+    console.error('加载分类树失败', error);
     message.error($t('page.attachment.category.message.loadFail'));
   } finally {
     loading.value = false;
@@ -104,8 +104,8 @@ const handleDelete = async (item: any) => {
     await deleteAttachmentCategoryApi([item.key]);
     message.success($t('ui.notification.delete_success'));
     loadCategoryTree();
-  } catch (e) {
-    console.error('删除失败', e);
+  } catch (error) {
+    console.error('删除失败', error);
     message.error($t('page.attachment.category.message.deleteFail'));
   }
 };
@@ -128,8 +128,8 @@ const handleSubmit = () => {
       }
       modalVisible.value = false;
       loadCategoryTree();
-    } catch (e) {
-      console.error('提交失败', e);
+    } catch (error) {
+      console.error('提交失败', error);
       message.error($t('page.attachment.category.message.submitFail'));
     }
   });
@@ -156,10 +156,16 @@ onMounted(() => {
     <div class="category-header">
       <div class="header-title">
         <h2>{{ $t('page.attachment.category.title') }}</h2>
-        <p class="title-desc">{{ $t('page.attachment.category.description') }}</p>
+        <p class="title-desc">
+          {{ $t('page.attachment.category.description') }}
+        </p>
       </div>
       <div class="header-actions">
-        <Button type="primary" @click="handleAdd" :disabled="!accessStore.hasAccessCode('attachment:category:add')">
+        <Button
+          type="primary"
+          @click="handleAdd"
+          :disabled="!accessStore.hasAccessCode('attachment:category:add')"
+        >
           <template #icon>
             <component :is="LucidePlus" />
           </template>
@@ -180,11 +186,39 @@ onMounted(() => {
         >
           <template #title="{ dataRef }">
             <div class="tree-node-content">
-              <svg v-if="dataRef.children?.length" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="node-icon">
-                <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9Z"/>
+              <svg
+                v-if="dataRef.children?.length"
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="node-icon"
+              >
+                <path
+                  d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9Z"
+                />
               </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="node-icon">
-                <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="node-icon"
+              >
+                <path
+                  d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
+                />
               </svg>
               <span class="node-name">{{ dataRef.title }}</span>
               <div class="node-actions">
@@ -206,7 +240,9 @@ onMounted(() => {
                     type="text"
                     size="small"
                     danger
-                    v-if="accessStore.hasAccessCode('attachment:category:delete')"
+                    v-if="
+                      accessStore.hasAccessCode('attachment:category:delete')
+                    "
                   >
                     <template #icon>
                       <component :is="LucideTrash2" />
@@ -219,8 +255,21 @@ onMounted(() => {
         </Tree>
 
         <div v-if="!loading && treeData.length === 0" class="empty-tree">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
-            <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9Z"/>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="empty-icon"
+          >
+            <path
+              d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9Z"
+            />
           </svg>
           <p>{{ $t('page.attachment.category.message.empty') }}</p>
           <Button type="primary" @click="handleAdd">
@@ -232,7 +281,11 @@ onMounted(() => {
 
     <Modal
       v-model:open="modalVisible"
-      :title="isEdit ? $t('page.attachment.category.modal.edit') : $t('page.attachment.category.modal.add')"
+      :title="
+        isEdit
+          ? $t('page.attachment.category.modal.edit')
+          : $t('page.attachment.category.modal.add')
+      "
       :footer="null"
       width="480px"
       :centered="true"
@@ -243,9 +296,17 @@ onMounted(() => {
         <FormItem
           :label="$t('page.attachment.category.form.name')"
           name="name"
-          :rules="[{ required: true, message: $t('page.attachment.category.form.nameRequired') }]"
+          :rules="[
+            {
+              required: true,
+              message: $t('page.attachment.category.form.nameRequired'),
+            },
+          ]"
         >
-          <Input v-model:value="formData.name" :placeholder="$t('page.attachment.category.form.namePlaceholder')" />
+          <Input
+            v-model:value="formData.name"
+            :placeholder="$t('page.attachment.category.form.namePlaceholder')"
+          />
         </FormItem>
         <div class="modal-footer">
           <Button @click="handleModalClose">
@@ -267,8 +328,8 @@ onMounted(() => {
 
 .category-header {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 20px;
 }
 
@@ -292,8 +353,8 @@ onMounted(() => {
 
 .category-tree-wrapper {
   background: #fff;
-  border-radius: 8px;
   border: 1px solid #f0f0f0;
+  border-radius: 8px;
 }
 
 .tree-container {
@@ -302,8 +363,8 @@ onMounted(() => {
 
 .tree-node-content {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   width: 100%;
 }
 
@@ -336,21 +397,21 @@ onMounted(() => {
 }
 
 .empty-icon {
+  margin-bottom: 16px;
   font-size: 48px;
   color: #d9d9d9;
-  margin-bottom: 16px;
 }
 
 .empty-tree p {
+  margin: 0 0 16px;
   font-size: 14px;
   color: #8c8c8c;
-  margin: 0 0 16px;
 }
 
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
   gap: 8px;
+  justify-content: flex-end;
   margin-top: 20px;
 }
 </style>

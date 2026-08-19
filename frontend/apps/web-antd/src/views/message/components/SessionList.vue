@@ -4,29 +4,21 @@ import type { ChatSessionDTO } from '#/api/core/message/chat';
 import { computed, h, ref } from 'vue';
 
 import {
-  LucideSearch,
-  LucidePlus,
   LucideFileText,
   LucideMoreHorizontal,
+  LucidePlus,
+  LucideSearch,
 } from '@vben/icons';
 
-import {
-  Badge,
-  Button,
-  Dropdown,
-  Input,
-  Tabs,
-} from 'ant-design-vue';
+import { Badge, Button, Dropdown, Input, Tabs } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
-const { TabPane } = Tabs;
-
 const props = defineProps<{
-  sessions: ChatSessionDTO[];
-  activeSessionId: string | null;
+  activeSessionId: null | string;
   activeTab: string;
-  notificationUnread: number;
   loading?: boolean;
+  notificationUnread: number;
+  sessions: ChatSessionDTO[];
 }>();
 
 const emit = defineEmits<{
@@ -39,6 +31,8 @@ const emit = defineEmits<{
   (e: 'mute', session: ChatSessionDTO, isMuted: boolean): void;
   (e: 'delete', session: ChatSessionDTO): void;
 }>();
+
+const { TabPane } = Tabs;
 
 const searchKeyword = ref('');
 
@@ -63,11 +57,14 @@ const filteredSessions = computed(() => {
         s.lastMessageContent.toLowerCase().includes(kw),
     );
   }
-  return list.sort((a, b) => {
+  return list.toSorted((a, b) => {
     const pinA = a.isPinned ? 1 : 0;
     const pinB = b.isPinned ? 1 : 0;
     if (pinA !== pinB) return pinB - pinA;
-    return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+    return (
+      new Date(b.lastMessageTime).getTime() -
+      new Date(a.lastMessageTime).getTime()
+    );
   });
 });
 
@@ -98,19 +95,22 @@ function handleSelect(session: ChatSessionDTO) {
 
 function handleMenuClick(session: ChatSessionDTO, action: string) {
   switch (action) {
-    case 'pin':
-      emit('pin', session, !session.isPinned);
-      break;
-    case 'mute':
-      emit('mute', session, !session.isMuted);
-      break;
-    case 'delete':
+    case 'delete': {
       emit('delete', session);
       break;
+    }
+    case 'mute': {
+      emit('mute', session, !session.isMuted);
+      break;
+    }
+    case 'pin': {
+      emit('pin', session, !session.isPinned);
+      break;
+    }
   }
 }
 
-function handleTabChange(key: string | number) {
+function handleTabChange(key: number | string) {
   emit('update:activeTab', String(key));
 }
 </script>
@@ -140,11 +140,7 @@ function handleTabChange(key: string | number) {
           新建
         </Button>
       </div>
-      <Tabs
-        :active-key="activeTab"
-        size="small"
-        @change="handleTabChange"
-      >
+      <Tabs :active-key="activeTab" size="small" @change="handleTabChange">
         <TabPane v-for="tab in tabs" :key="tab.key" :tab="tab.label" />
       </Tabs>
     </div>
@@ -153,11 +149,15 @@ function handleTabChange(key: string | number) {
       <div
         v-if="activeTab !== 'chat' && getNotificationSession"
         class="flex items-center p-3 cursor-pointer hover:bg-gray-100 transition-colors border-b border-gray-100"
-        :class="{ 'bg-blue-50': activeSessionId === getNotificationSession.sessionId }"
+        :class="{
+          'bg-blue-50': activeSessionId === getNotificationSession.sessionId,
+        }"
         @click="handleSelect(getNotificationSession)"
       >
         <div class="relative">
-          <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+          <div
+            class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center"
+          >
             <LucideFileText class="w-5 h-5 text-[#1677ff]" />
           </div>
           <Badge
@@ -183,7 +183,7 @@ function handleTabChange(key: string | number) {
       </div>
 
       <div
-        v-for="session in filteredSessions.filter(s => s.sessionType === 1)"
+        v-for="session in filteredSessions.filter((s) => s.sessionType === 1)"
         :key="session.sessionId"
         class="flex items-center p-3 cursor-pointer hover:bg-gray-100 transition-colors relative group"
         :class="{ 'bg-blue-50': activeSessionId === session.sessionId }"
@@ -192,10 +192,13 @@ function handleTabChange(key: string | number) {
         <div
           v-if="session.isPinned"
           class="absolute left-0 top-0 bottom-0 w-0.5 bg-[#1677ff]"
-        />
+        ></div>
         <div class="relative flex-shrink-0">
           <img
-            :src="session.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + session.sessionId"
+            :src="
+              session.avatarUrl ||
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.sessionId}`
+            "
             class="w-10 h-10 rounded-full"
             :alt="session.sessionName"
           />
@@ -221,10 +224,7 @@ function handleTabChange(key: string | number) {
             {{ session.lastMessageContent }}
           </p>
         </div>
-        <Dropdown
-          :trigger="['click']"
-          @click.stop
-        >
+        <Dropdown :trigger="['click']" @click.stop>
           <template #overlay>
             <div class="py-1">
               <div
@@ -260,7 +260,11 @@ function handleTabChange(key: string | number) {
       </div>
 
       <div
-        v-if="filteredSessions.filter(s => activeTab === 'chat' ? s.sessionType === 1 : true).length === 0"
+        v-if="
+          filteredSessions.filter((s) =>
+            activeTab === 'chat' ? s.sessionType === 1 : true,
+          ).length === 0
+        "
         class="flex flex-col items-center justify-center py-16 text-gray-400"
       >
         <LucidePlus class="w-12 h-12 mb-2 opacity-50" />

@@ -1,21 +1,27 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page, useVbenDrawer } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, ref } from 'vue';
+
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideEye, LucideFilePenLine } from '@vben/icons';
+
 import {
   Button,
-  Tag,
+  Descriptions,
   Image,
+  message,
   Modal,
   Switch,
-  message,
-  Descriptions,
+  Tag,
 } from 'ant-design-vue';
-import ShopDrawer from './drawer.vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { shopApi } from '#/api';
+
+import ShopDrawer from './drawer.vue';
 
 const detailModalVisible = ref(false);
 const detailData = ref<any>(null);
@@ -162,7 +168,7 @@ function handleEdit(row: any) {
 
 async function handleStatusChanged(
   row: any,
-  checked: boolean | string | number,
+  checked: boolean | number | string,
 ) {
   row.pending = true;
   try {
@@ -262,18 +268,18 @@ async function viewDetail(row: any) {
         </div>
       </div>
       <Descriptions :column="2" bordered>
-        <Descriptions.Item label="联系人">{{
-          detailData?.contactName || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="联系电话">{{
-          detailData?.contactPhone || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="佣金比例"
-          >{{ detailData?.commissionRate || 0 }}%</Descriptions.Item
-        >
-        <Descriptions.Item label="结算周期">{{
-          detailData?.settlementCycle === 1 ? '月结' : '其他'
-        }}</Descriptions.Item>
+        <Descriptions.Item label="联系人">
+          {{ detailData?.contactName || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="联系电话">
+          {{ detailData?.contactPhone || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="佣金比例">
+          {{ detailData?.commissionRate || 0 }}%
+        </Descriptions.Item>
+        <Descriptions.Item label="结算周期">
+          {{ detailData?.settlementCycle === 1 ? '月结' : '其他' }}
+        </Descriptions.Item>
         <Descriptions.Item label="可结算余额" :span="2">
           <span class="text-red-500 font-bold"
             >¥{{ ((detailData?.balance || 0) / 100).toFixed(2) }}</span

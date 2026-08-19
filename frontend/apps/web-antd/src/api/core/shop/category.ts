@@ -8,20 +8,20 @@ export interface CategoryListParams {
 export interface CategorySaveDTO {
   id?: number;
   parentId?: number;
-  name?: string;           // maps to category_name
+  name?: string; // maps to category_name
   shortUrl?: string;
-  sortOrder?: number;      // maps to sort
-  isShow?: number;         // maps to is_show
+  sortOrder?: number; // maps to sort
+  isShow?: number; // maps to is_show
   status?: number;
   // New unified fields
-  pageType?: number;       // 1=封面模式, 2=列表模式
+  pageType?: number; // 1=封面模式, 2=列表模式
   pageTemplateDataId?: number;
-  listTemplateDataId?: number;   // 列表页模板ID (typeId=2)
+  listTemplateDataId?: number; // 列表页模板ID (typeId=2)
   detailTemplateDataId?: number; // 内容页模板ID (typeId=3)
   bannerImage?: string;
   description?: string;
-  contentType?: number;    // 1=文章, 2=产品, 3=自定义链接
-  linkUrl?: string;        // content_type=3时使用
+  contentType?: number; // 1=文章, 2=产品, 3=自定义链接
+  linkUrl?: string; // content_type=3时使用
   // SEO fields
   seoTitle?: string;
   seoKeywords?: string;

@@ -15,18 +15,18 @@ import {
   Switch,
 } from 'ant-design-vue';
 
-import CodeEditor from '#/components/CodeEditor/index.vue';
 import {
   getPdfTemplateInfoApi,
   savePdfTemplateApi,
   updatePdfTemplateApi,
 } from '#/api/core/system/pdf-template';
+import CodeEditor from '#/components/CodeEditor/index.vue';
 import { $t } from '#/locales';
 
 const props = defineProps<{
-  visible: boolean;
   data?: any;
   defaultDocType?: string;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -37,8 +37,12 @@ const emit = defineEmits<{
 const isEdit = computed(() => !!props.data?.id);
 const title = computed(() =>
   isEdit.value
-    ? $t('ui.modal.update', { moduleName: $t('page.system.pdfTemplate.module') })
-    : $t('ui.modal.create', { moduleName: $t('page.system.pdfTemplate.module') }),
+    ? $t('ui.modal.update', {
+        moduleName: $t('page.system.pdfTemplate.module'),
+      })
+    : $t('ui.modal.create', {
+        moduleName: $t('page.system.pdfTemplate.module'),
+      }),
 );
 
 const saving = ref(false);
@@ -336,9 +340,8 @@ async function handleSubmit() {
       </Row>
 
       <FormItem :label="$t('ui.table.remark')">
-        <Input
+        <Textarea
           v-model:value="form.remark"
-          type="textarea"
           :rows="2"
           :placeholder="$t('ui.placeholder.input')"
           allow-clear
@@ -346,9 +349,8 @@ async function handleSubmit() {
       </FormItem>
 
       <FormItem :label="$t('page.system.pdfTemplate.header')">
-        <Input
+        <Textarea
           v-model:value="form.header"
-          type="textarea"
           :rows="3"
           :placeholder="$t('ui.placeholder.input')"
           allow-clear
@@ -356,9 +358,8 @@ async function handleSubmit() {
       </FormItem>
 
       <FormItem :label="$t('page.system.pdfTemplate.footer')">
-        <Input
+        <Textarea
           v-model:value="form.footer"
-          type="textarea"
           :rows="3"
           :placeholder="$t('ui.placeholder.input')"
           allow-clear
@@ -379,11 +380,7 @@ async function handleSubmit() {
         <Button @click="handleClose">
           {{ $t('ui.button.cancel') }}
         </Button>
-        <Button
-          type="primary"
-          :loading="saving"
-          @click="handleSubmit"
-        >
+        <Button type="primary" :loading="saving" @click="handleSubmit">
           {{ $t('ui.button.ok') }}
         </Button>
       </div>

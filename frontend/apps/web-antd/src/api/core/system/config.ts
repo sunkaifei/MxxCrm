@@ -1,5 +1,7 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getConfigListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/config/list', { params });
 };

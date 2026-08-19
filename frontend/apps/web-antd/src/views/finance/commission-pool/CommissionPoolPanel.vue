@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { ColumnsType } from 'ant-design-vue/es/table';
+
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import {
@@ -18,7 +20,6 @@ import {
   Table,
   Tag,
 } from 'ant-design-vue';
-import type { ColumnsType } from 'ant-design-vue/es/table';
 
 import {
   expenseCommissionPoolApi,
@@ -29,7 +30,7 @@ import {
 } from '#/api/core/finance';
 import { $t } from '#/locales';
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     // 是否在 Tab 内嵌使用时隐藏外层 Card 标题（由父组件提供标题）
     embedded?: boolean;
@@ -53,8 +54,8 @@ async function loadList() {
     tableData.value = Array.isArray(list)
       ? list
       : list?.items || list?.list || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.loadFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.loadFailed'));
     tableData.value = [];
   } finally {
     loading.value = false;
@@ -74,7 +75,7 @@ const totalUsed = computed(() =>
 );
 
 // ===== 状态映射：1=活跃 2=冻结 3=已关闭 =====
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   1: { label: $t('page.finance.pool.statusActive'), color: 'green' },
   2: { label: $t('page.finance.pool.statusFrozen'), color: 'orange' },
   3: { label: $t('page.finance.pool.statusClosed'), color: 'default' },
@@ -211,8 +212,8 @@ async function handleSave() {
     message.success($t('page.finance.pool.saveSuccess'));
     editVisible.value = false;
     loadList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.saveFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.saveFailed'));
   } finally {
     editLoading.value = false;
   }
@@ -279,8 +280,8 @@ async function handleExpense() {
     message.success($t('page.finance.pool.expenseSuccess'));
     expenseVisible.value = false;
     loadList();
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   } finally {
     expenseLoading.value = false;
   }
@@ -303,8 +304,8 @@ async function openLog(row: any) {
     logData.value = Array.isArray(list)
       ? list
       : list?.items || list?.list || [];
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.loadFailed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.loadFailed'));
     logData.value = [];
   } finally {
     logLoading.value = false;
@@ -404,7 +405,10 @@ defineExpose({ loadList });
     </Row>
 
     <!-- 资金池列表 -->
-    <Card :bordered="false" :title="embedded ? undefined : $t('page.finance.pool.title')">
+    <Card
+      :bordered="false"
+      :title="embedded ? undefined : $t('page.finance.pool.title')"
+    >
       <template v-if="!embedded" #extra>
         <Button type="primary" @click="openCreate">
           {{ $t('page.finance.pool.create') }}
@@ -527,7 +531,9 @@ defineExpose({ loadList });
         </span>
         <span>
           {{ $t('page.finance.pool.balance') }}：
-          <strong class="text-blue-500">¥{{ formatMoney(expenseForm.balance) }}</strong>
+          <strong class="text-blue-500"
+            >¥{{ formatMoney(expenseForm.balance) }}</strong
+          >
         </span>
       </div>
       <Form
@@ -570,8 +576,7 @@ defineExpose({ loadList });
     <Modal
       v-model:open="logVisible"
       :title="
-        $t('page.finance.pool.log') +
-        (logPoolName ? ' - ' + logPoolName : '')
+        $t('page.finance.pool.log') + (logPoolName ? ` - ${logPoolName}` : '')
       "
       width="760"
       :footer="null"

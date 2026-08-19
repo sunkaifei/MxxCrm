@@ -11,7 +11,7 @@ use crate::modules::articles::controller::admin::{article_admin_controller, arti
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller, audit_admin_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller, audit_admin_controller, backup_controller, profile_controller, hr_archive_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller};
@@ -83,10 +83,9 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
                     let set: HashSet<String> = permissions.into_iter().collect();
                     Ok(set)
                 } else {
-                    // 无法获取DB连接，降级为从JWT读取（兼容旧逻辑）
-                    log::warn!("[extract] 无法获取AppState, 降级使用JWT内权限, user_id={}", user_id);
-                    let set: HashSet<String> = jwt_data.permissions.into_iter().collect();
-                    Ok(set)
+                    // 整改 v1.0：JWT 已瘦身不含权限，无法获取DB连接时返回空集合（拒绝而非放行）
+                    log::warn!("[extract] 无法获取AppState, 返回空权限集, user_id={}", user_id);
+                    Ok(HashSet::new())
                 }
             } else {
                 Err(error::ErrorUnauthorized("无效的用户身份"))
@@ -212,6 +211,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(salary_controller::register)
             // Scheduler Job Management (定时任务管理)
             .configure(scheduler_controller::register)
+            // Data Backup & Restore (数据备份与恢复)
+            .configure(backup_controller::register)
             // Payment Management
             .configure(finance_payment_controller::register)
             // Finance Expense Management（费用申请）
@@ -387,6 +388,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(admin_preference_controller::register)
             // PDF Template & Generator Management (PDF模板管理/生成/下载)
             .configure(pdf_controller::register)
+            // Employee Profile Center (个人中心档案/名片/简历/紧急联系人)
+            .configure(profile_controller::register)
+            // HR Employee Archive Management (员工档案管理)
+            .configure(hr_archive_controller::register)
     );
 
     // logout 路由独立注册（不在 /api/system scope 下，避免前缀冲突）

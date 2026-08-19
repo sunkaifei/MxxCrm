@@ -54,8 +54,7 @@ export interface ArticleVO {
 export const articleApi = {
   list: (params: ArticleListParams) =>
     requestClient.get('/api/system/article/list', { params }),
-  detail: (id: number) =>
-    requestClient.get(`/api/system/article/detail/${id}`),
+  detail: (id: number) => requestClient.get(`/api/system/article/detail/${id}`),
   save: (data: ArticleSaveDTO) =>
     requestClient.post('/api/system/article/save', data),
   update: (id: number, data: ArticleSaveDTO) =>

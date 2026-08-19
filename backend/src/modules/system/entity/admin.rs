@@ -72,6 +72,17 @@ pub struct Model {
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，NULL=不打折）
     pub probation_ratio: Option<Decimal>,
+    ///身份证号（输出层统一脱敏）
+    pub id_card_no: Option<String>,
+    ///身份证锁定：0未锁 1已锁（员工首填后置1，仅HR可解锁）
+    pub id_locked: Option<i32>,
+    ///工资卡锁定：0未锁 1已锁
+    pub bank_locked: Option<i32>,
+    ///同事名片公开开关（JSONB：showMobile/showWechat/showSkills/showBirthday）
+    #[sea_orm(column_type = "JsonBinary", nullable)]
+    pub public_profile_config: Option<serde_json::Value>,
+    ///离职日期（P3预留）
+    pub leave_date: Option<NaiveDate>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

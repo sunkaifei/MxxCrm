@@ -85,7 +85,9 @@ export interface ContentModelFieldSaveDTO {
 }
 
 // Content Model APIs
-export const getContentModelListApi = async (params?: ContentModelListQuery) => {
+export const getContentModelListApi = async (
+  params?: ContentModelListQuery,
+) => {
   return requestClient.get('/api/system/content/model/list', { params });
 };
 
@@ -119,7 +121,9 @@ export const getContentModelFieldListApi = async (params?: {
   return requestClient.get('/api/system/content/model/field/list', { params });
 };
 
-export const addContentModelFieldApi = async (data: ContentModelFieldSaveDTO) => {
+export const addContentModelFieldApi = async (
+  data: ContentModelFieldSaveDTO,
+) => {
   return requestClient.post('/api/system/content/model/field/add', data);
 };
 
@@ -127,7 +131,10 @@ export const updateContentModelFieldApi = async (
   id: number,
   data: ContentModelFieldSaveDTO,
 ) => {
-  return requestClient.put(`/api/system/content/model/field/update/${id}`, data);
+  return requestClient.put(
+    `/api/system/content/model/field/update/${id}`,
+    data,
+  );
 };
 
 export const deleteContentModelFieldApi = async (ids: number[]) => {

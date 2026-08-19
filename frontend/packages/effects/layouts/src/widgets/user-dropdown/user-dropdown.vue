@@ -149,7 +149,7 @@ async function handleSubmitLock(lockScreenPassword: string) {
       'SHA-256',
       new TextEncoder().encode(lockScreenPassword),
     );
-    const hash = Array.from(new Uint8Array(buf))
+    const hash = [...new Uint8Array(buf)]
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
     // 锁屏（传入已计算好的 hash，路由守卫同步跳 /lock）

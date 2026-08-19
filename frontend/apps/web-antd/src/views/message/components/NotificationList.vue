@@ -4,21 +4,15 @@ import type { NotificationDTO } from '#/api/core/message/notification';
 import { h, onMounted, ref, watch } from 'vue';
 
 import {
-  LucideFileText,
+  LucideCheck,
   LucideCheckCircle,
-  LucideXCircle,
+  LucideFileText,
   LucideList,
   LucideTrash2,
-  LucideCheck,
+  LucideXCircle,
 } from '@vben/icons';
 
-import {
-  Button,
-  Empty,
-  List,
-  Tabs,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Empty, List, Tabs, Tag } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import {
@@ -28,11 +22,11 @@ import {
   readNotificationApi,
 } from '#/api/core/message/notification';
 
-const { TabPane } = Tabs;
-
 const emit = defineEmits<{
   (e: 'unreadChange', count: number): void;
 }>();
+
+const { TabPane } = Tabs;
 
 const activeType = ref<string>('all');
 const notifications = ref<NotificationDTO[]>([]);
@@ -41,7 +35,7 @@ const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 
-const typeMap: Record<number, { label: string; icon: any; color: string }> = {
+const typeMap: Record<number, { color: string; icon: any; label: string }> = {
   1: { label: '公告', icon: LucideFileText, color: 'blue' },
   2: { label: '审批', icon: LucideCheckCircle, color: 'green' },
   3: { label: '业务提醒', icon: LucideXCircle, color: 'orange' },
@@ -56,7 +50,7 @@ async function loadNotifications() {
       pageSize: pageSize.value,
     };
     if (activeType.value !== 'all') {
-      params.type = parseInt(activeType.value);
+      params.type = Number.parseInt(activeType.value);
     }
     const res = await getNotificationListApi(params);
     notifications.value = res.list || [];
@@ -72,8 +66,8 @@ async function handleRead(item: NotificationDTO) {
     await readNotificationApi({ id: item.id });
     item.isRead = true;
     emit('unreadChange', -1);
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 }
 
@@ -84,8 +78,8 @@ async function handleReadAll() {
     notifications.value.forEach((n) => (n.isRead = true));
     emit('unreadChange', -unreadCount);
     window.$message?.success('已全部标记为已读');
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 }
 
@@ -97,15 +91,18 @@ async function handleDelete(item: NotificationDTO) {
       emit('unreadChange', -1);
     }
     window.$message?.success('删除成功');
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
   }
 }
 
 function handleClick(item: NotificationDTO) {
   handleRead(item);
   if (item.linkUrl) {
-    if (item.linkUrl.startsWith('http://') || item.linkUrl.startsWith('https://')) {
+    if (
+      item.linkUrl.startsWith('http://') ||
+      item.linkUrl.startsWith('https://')
+    ) {
       window.open(item.linkUrl, '_blank');
     } else {
       window.location.href = item.linkUrl;
@@ -140,7 +137,9 @@ defineExpose({ loadNotifications });
 
 <template>
   <div class="flex flex-col h-full bg-white">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+    <div
+      class="flex items-center justify-between px-4 py-3 border-b border-gray-200"
+    >
       <div class="font-medium text-gray-800 text-lg flex items-center gap-2">
         <LucideFileText class="w-5 h-5 text-[#1677ff]" />
         系统通知
@@ -156,10 +155,7 @@ defineExpose({ loadNotifications });
     </div>
 
     <div class="px-4 pt-2">
-      <Tabs
-        v-model:active-key="activeType"
-        size="small"
-      >
+      <Tabs v-model:active-key="activeType" size="small">
         <TabPane tab="全部" key="all" />
         <TabPane tab="公告" key="1" />
         <TabPane tab="审批" key="2" />
@@ -194,12 +190,23 @@ defineExpose({ loadNotifications });
               <template #title>
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
-                    <span class="font-medium" :class="item.isRead ? 'text-gray-600' : 'text-gray-900'">
+                    <span
+                      class="font-medium"
+                      :class="item.isRead ? 'text-gray-600' : 'text-gray-900'"
+                    >
                       {{ item.title }}
                     </span>
-                    <Tag v-if="!item.isRead" color="red" style="margin-left: 8px;">新</Tag>
+                    <Tag
+                      v-if="!item.isRead"
+                      color="red"
+                      style="margin-left: 8px"
+                    >
+                      新
+                    </Tag>
                   </div>
-                  <span class="text-xs text-gray-400">{{ formatTime(item.createTime) }}</span>
+                  <span class="text-xs text-gray-400">{{
+                    formatTime(item.createTime)
+                  }}</span>
                 </div>
               </template>
               <template #description>

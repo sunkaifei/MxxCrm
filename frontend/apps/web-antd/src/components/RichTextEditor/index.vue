@@ -1,9 +1,18 @@
 <script lang="ts">
-import { defineComponent, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
+import {
+  defineComponent,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 
 // 从 CDN 加载 wangeditor（绕过 Vite optimizer 的兼容性问题）
-const WANG_EDITOR_CDN = 'https://unpkg.com/@wangeditor/editor@5.1.23/dist/index.js';
-const WANG_EDITOR_CSS_CDN = 'https://unpkg.com/@wangeditor/editor@5.1.23/dist/css/style.css';
+const WANG_EDITOR_CDN =
+  'https://unpkg.com/@wangeditor/editor@5.1.23/dist/index.js';
+const WANG_EDITOR_CSS_CDN =
+  'https://unpkg.com/@wangeditor/editor@5.1.23/dist/css/style.css';
 
 let wangEditorModule: any = null;
 
@@ -15,8 +24,8 @@ async function loadWangEditor(): Promise<any> {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = WANG_EDITOR_CSS_CDN;
-    link.setAttribute('data-wangeditor-css', '');
-    document.head.appendChild(link);
+    link.dataset.wangeditorCss = '';
+    document.head.append(link);
   }
 
   // 加载 JS
@@ -27,9 +36,11 @@ async function loadWangEditor(): Promise<any> {
     }
     const script = document.createElement('script');
     script.src = WANG_EDITOR_CDN;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load wangEditor from CDN'));
-    document.head.appendChild(script);
+    script.addEventListener('load', () => resolve());
+    script.addEventListener('error', () =>
+      reject(new Error('Failed to load wangEditor from CDN')),
+    );
+    document.head.append(script);
   });
 
   wangEditorModule = (window as any).wangEditor;
@@ -82,16 +93,21 @@ export default defineComponent({
       });
     }
 
-    watch(() => props.modelValue, (val) => {
-      if (editorRef.value) {
-        const current = editorRef.value.getHtml();
-        if (val !== current) {
-          editorRef.value.setHtml(val || '<p></p>');
+    watch(
+      () => props.modelValue,
+      (val) => {
+        if (editorRef.value) {
+          const current = editorRef.value.getHtml();
+          if (val !== current) {
+            editorRef.value.setHtml(val || '<p></p>');
+          }
         }
-      }
-    });
+      },
+    );
 
-    onMounted(() => { initEditor(); });
+    onMounted(() => {
+      initEditor();
+    });
 
     onBeforeUnmount(() => {
       if (editorRef.value) {
@@ -106,8 +122,11 @@ export default defineComponent({
 </script>
 
 <template>
-  <div class="rich-editor-container border border-gray-200 rounded-lg overflow-hidden" style="z-index: 10">
+  <div
+    class="rich-editor-container border border-gray-200 rounded-lg overflow-hidden"
+    style="z-index: 10"
+  >
     <div ref="toolbarContainerRef" class="border-b border-gray-200"></div>
-    <div ref="editorContainerRef" :style="{ height: height + 'px' }"></div>
+    <div ref="editorContainerRef" :style="{ height: `${height}px` }"></div>
   </div>
 </template>

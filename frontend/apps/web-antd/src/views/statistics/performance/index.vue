@@ -12,6 +12,7 @@ import {
   Card,
   Col,
   Empty,
+  message,
   Progress,
   Row,
   Segmented,
@@ -21,7 +22,6 @@ import {
   Tabs,
   Tag,
   Tooltip,
-  message,
 } from 'ant-design-vue';
 
 import {
@@ -40,14 +40,14 @@ import BehaviorMetrics from './components/BehaviorMetrics.vue';
 import CustomerBreakdown from './components/CustomerBreakdown.vue';
 import ForecastCard from './components/ForecastCard.vue';
 import MilestoneCard from './components/MilestoneCard.vue';
+import PendingApprovalList from './components/PendingApprovalList.vue';
 import PersonalGrowth from './components/PersonalGrowth.vue';
+import PlanProgressCard from './components/PlanProgressCard.vue';
 import ProductBreakdown from './components/ProductBreakdown.vue';
 import ProgressAlert from './components/ProgressAlert.vue';
 import RegionBreakdown from './components/RegionBreakdown.vue';
 import SalesFunnel from './components/SalesFunnel.vue';
-import PlanProgressCard from './components/PlanProgressCard.vue';
 import PlanSettingDrawer from './PlanSettingDrawer.vue';
-import PendingApprovalList from './components/PendingApprovalList.vue';
 
 defineOptions({ name: 'PerformanceOverview' });
 
@@ -68,7 +68,7 @@ const hasPlanApprovePermission = computed(() =>
 );
 
 // ===== 时间维度 =====
-type TimeDimension = 'year' | 'month' | 'day';
+type TimeDimension = 'day' | 'month' | 'year';
 const timeDimension = ref<TimeDimension>('year');
 const selectedYear = ref(new Date().getFullYear());
 const selectedMonth = ref(new Date().getMonth() + 1);
@@ -97,14 +97,14 @@ const dimensionOptions = [
 const userRole = computed(() => {
   const scope = userStore.userInfo?.dataScope;
   const roles = userStore.userInfo?.roles || [];
-  const roleCodes = roles
-    .map((r: any) => r.code || r.roleCode || '')
-    .filter(Boolean);
+  const roleCodes = new Set(
+    roles.map((r: any) => r.code || r.roleCode || '').filter(Boolean),
+  );
   const isBoss =
-    roleCodes.includes('super_admin') ||
-    roleCodes.includes('system_admin') ||
-    roleCodes.includes('boss') ||
-    roleCodes.includes('gm');
+    roleCodes.has('super_admin') ||
+    roleCodes.has('system_admin') ||
+    roleCodes.has('boss') ||
+    roleCodes.has('gm');
   if (isBoss || scope === 1) return 'company';
   if (scope === 3 || scope === 4) return 'dept';
   return 'personal';
@@ -125,7 +125,7 @@ const forecastData = ref<any>({});
 
 const queryParams = computed(() => ({
   year: selectedYear.value,
-  month: timeDimension.value !== 'year' ? selectedMonth.value : undefined,
+  month: timeDimension.value === 'year' ? undefined : selectedMonth.value,
   time_dimension: timeDimension.value,
 }));
 
@@ -145,7 +145,9 @@ async function loadData() {
       ]);
 
     monthlyData.value = monthlyRes?.data?.months || monthlyRes?.months || [];
-    const rankingList = Array.isArray(rankingRes) ? rankingRes : (rankingRes?.data ?? []);
+    const rankingList = Array.isArray(rankingRes)
+      ? rankingRes
+      : (rankingRes?.data ?? []);
     rankingData.value =
       rankingList.map((item: any) => ({
         rank: item.rank,
@@ -170,8 +172,8 @@ async function loadData() {
           (r: any) => r.employeeId === userStore.userInfo?.userId,
         ) || {};
     }
-  } catch (e) {
-    console.error('加载业绩数据失败', e);
+  } catch (error) {
+    console.error('加载业绩数据失败', error);
     monthlyData.value = [];
     rankingData.value = [];
   } finally {
@@ -234,8 +236,8 @@ function formatPercent(val: any) {
 function formatCurrency(val: any) {
   const num = Number(val);
   if (!num || Number.isNaN(num)) return '¥0';
-  if (num >= 100000000) return `¥${(num / 100000000).toFixed(2)}亿`;
-  if (num >= 10000) return `¥${(num / 10000).toFixed(1)}万`;
+  if (num >= 100_000_000) return `¥${(num / 100_000_000).toFixed(2)}亿`;
+  if (num >= 10_000) return `¥${(num / 10_000).toFixed(1)}万`;
   return `¥${num.toLocaleString()}`;
 }
 
@@ -292,7 +294,7 @@ const deptRanking = computed(() => {
     d.paymentAmount += item.paymentAmount || 0;
     d.paymentTarget += item.paymentTarget || 0;
   });
-  const arr = Array.from(deptMap.values());
+  const arr = [...deptMap.values()];
   arr.forEach((d, i) => {
     d.rank = i + 1;
     d.completionRate = getRate(d.contractTarget, d.contractAmount);
@@ -344,19 +346,79 @@ const employeeComparisonData = ref<any[]>([]);
 const employeeComparisonLoaded = ref(false);
 
 const employeeComparisonColumns = [
-  { title: '员工', dataIndex: 'employeeName', width: 100, fixed: 'left' as const },
+  {
+    title: '员工',
+    dataIndex: 'employeeName',
+    width: 100,
+    fixed: 'left' as const,
+  },
   { title: '部门', dataIndex: 'departmentName', width: 100 },
-  { title: '客户总数', dataIndex: 'totalCustomers', align: 'right' as const, width: 90 },
-  { title: '合同客户', dataIndex: 'contractCustomers', align: 'right' as const, width: 90 },
-  { title: '转化率', dataIndex: 'customerConversionRate', align: 'right' as const, width: 90 },
-  { title: '跟进次数', dataIndex: 'totalFollowUp', align: 'right' as const, width: 90 },
-  { title: '商机跟进', dataIndex: 'opportunityFollowUp', align: 'right' as const, width: 90 },
-  { title: '商机数', dataIndex: 'totalOpportunities', align: 'right' as const, width: 80 },
-  { title: '成交商机', dataIndex: 'wonOpportunities', align: 'right' as const, width: 90 },
-  { title: '胜率', dataIndex: 'opportunityWinRate', align: 'right' as const, width: 80 },
-  { title: '合同数', dataIndex: 'totalContracts', align: 'right' as const, width: 80 },
-  { title: '合同金额', dataIndex: 'contractAmount', align: 'right' as const, width: 120 },
-  { title: '客单价', dataIndex: 'avgContractAmount', align: 'right' as const, width: 110 },
+  {
+    title: '客户总数',
+    dataIndex: 'totalCustomers',
+    align: 'right' as const,
+    width: 90,
+  },
+  {
+    title: '合同客户',
+    dataIndex: 'contractCustomers',
+    align: 'right' as const,
+    width: 90,
+  },
+  {
+    title: '转化率',
+    dataIndex: 'customerConversionRate',
+    align: 'right' as const,
+    width: 90,
+  },
+  {
+    title: '跟进次数',
+    dataIndex: 'totalFollowUp',
+    align: 'right' as const,
+    width: 90,
+  },
+  {
+    title: '商机跟进',
+    dataIndex: 'opportunityFollowUp',
+    align: 'right' as const,
+    width: 90,
+  },
+  {
+    title: '商机数',
+    dataIndex: 'totalOpportunities',
+    align: 'right' as const,
+    width: 80,
+  },
+  {
+    title: '成交商机',
+    dataIndex: 'wonOpportunities',
+    align: 'right' as const,
+    width: 90,
+  },
+  {
+    title: '胜率',
+    dataIndex: 'opportunityWinRate',
+    align: 'right' as const,
+    width: 80,
+  },
+  {
+    title: '合同数',
+    dataIndex: 'totalContracts',
+    align: 'right' as const,
+    width: 80,
+  },
+  {
+    title: '合同金额',
+    dataIndex: 'contractAmount',
+    align: 'right' as const,
+    width: 120,
+  },
+  {
+    title: '客单价',
+    dataIndex: 'avgContractAmount',
+    align: 'right' as const,
+    width: 110,
+  },
 ];
 
 async function loadEmployeeComparison() {
@@ -365,7 +427,7 @@ async function loadEmployeeComparison() {
   try {
     const params = {
       year: selectedYear.value,
-      month: timeDimension.value !== 'year' ? selectedMonth.value : undefined,
+      month: timeDimension.value === 'year' ? undefined : selectedMonth.value,
     };
     const [customerRes, followUpRes, conversionRes] = await Promise.all([
       getEmployeeCustomerCountApi(),
@@ -386,7 +448,9 @@ async function loadEmployeeComparison() {
       mergeMap.set(key, {
         employeeName: item.employeeName ?? item.employee_name ?? '-',
         departmentName: item.departmentName ?? item.department_name ?? '-',
-        totalCustomers: Number(item.totalCustomers ?? item.total_customers ?? 0),
+        totalCustomers: Number(
+          item.totalCustomers ?? item.total_customers ?? 0,
+        ),
         contractCustomers: Number(
           item.contractCustomers ?? item.contract_customers ?? 0,
         ),
@@ -405,7 +469,9 @@ async function loadEmployeeComparison() {
           departmentName: item.departmentName ?? item.department_name ?? '-',
         }),
         mergeMap.get(key));
-      row.totalFollowUp = Number(item.totalFollowUp ?? item.total_follow_up ?? 0);
+      row.totalFollowUp = Number(
+        item.totalFollowUp ?? item.total_follow_up ?? 0,
+      );
       row.opportunityFollowUp = Number(
         item.opportunityFollowUp ?? item.opportunity_follow_up ?? 0,
       );
@@ -429,19 +495,23 @@ async function loadEmployeeComparison() {
       row.opportunityWinRate = Number(
         item.opportunityWinRate ?? item.opportunity_win_rate ?? 0,
       );
-      row.totalContracts = Number(item.totalContracts ?? item.total_contracts ?? 0);
-      row.contractAmount = Number(item.contractAmount ?? item.contract_amount ?? 0);
+      row.totalContracts = Number(
+        item.totalContracts ?? item.total_contracts ?? 0,
+      );
+      row.contractAmount = Number(
+        item.contractAmount ?? item.contract_amount ?? 0,
+      );
       row.avgContractAmount = Number(
         item.avgContractAmount ?? item.avg_contract_amount ?? 0,
       );
     });
 
-    employeeComparisonData.value = Array.from(mergeMap.values()).sort(
+    employeeComparisonData.value = [...mergeMap.values()].toSorted(
       (a, b) => (b.contractAmount || 0) - (a.contractAmount || 0),
     );
     employeeComparisonLoaded.value = true;
-  } catch (e) {
-    console.error('加载员工对比数据失败', e);
+  } catch (error) {
+    console.error('加载员工对比数据失败', error);
     employeeComparisonData.value = [];
   } finally {
     employeeComparisonLoading.value = false;
@@ -464,7 +534,7 @@ watch(
 
 // ===== 个人销售计划抽屉 =====
 const planDrawerVisible = ref(false);
-const planStatus = ref<'none' | 'draft' | 'pending' | 'approved' | 'rejected'>(
+const planStatus = ref<'approved' | 'draft' | 'none' | 'pending' | 'rejected'>(
   'none',
 );
 
@@ -480,16 +550,20 @@ async function checkPlanStatus() {
   }
   try {
     const employeeId = userStore.userInfo?.userId || userStore.userInfo?.id;
-    const res: any = await getPlanListApi({ year: selectedYear.value, employeeId });
+    const res: any = await getPlanListApi({
+      year: selectedYear.value,
+      employeeId,
+    });
     // requestClient 已配置 responseReturn: 'data'，res 本身就是 plans 数组
-    const plans = Array.isArray(res) ? res : (res?.data || []);
+    const plans = Array.isArray(res) ? res : res?.data || [];
     if (plans.length === 0) {
       planStatus.value = 'none';
     } else {
       const statusNum = Number(plans[0].status);
       planStatus.value =
-        (['none', 'draft', 'pending', 'approved', 'rejected'] as const)[statusNum] ||
-        'none';
+        (['none', 'draft', 'pending', 'approved', 'rejected'] as const)[
+          statusNum
+        ] || 'none';
     }
     // 同时加载待审批数量
     if (hasPlanApprovePermission.value) {
@@ -507,7 +581,7 @@ async function loadPendingCount() {
       year: selectedYear.value,
       pendingMyApproval: true,
     });
-    const plans = Array.isArray(res) ? res : (res?.data || []);
+    const plans = Array.isArray(res) ? res : res?.data || [];
     pendingApprovalCount.value = plans.length;
   } catch {
     pendingApprovalCount.value = 0;
@@ -528,25 +602,61 @@ function openPlanDrawer() {
 
 const planButtonConfig = computed(() => {
   switch (planStatus.value) {
-    case 'none':
-      return { text: '设置销售计划', color: '#ff4d4f', icon: 'lucide:alert-circle', show: true };
-    case 'draft':
-      return { text: '编辑计划（草稿）', color: '#faad14', icon: 'lucide:edit', show: true };
-    case 'pending':
-      return { text: '查看计划（审批中）', color: '#1890ff', icon: 'lucide:clock', show: true };
-    case 'approved':
+    case 'approved': {
       // 审批通过后隐藏入口（用户选择"隐藏入口仅留查看"）
-      return { text: '查看计划', color: '#52c41a', icon: 'lucide:eye', show: true };
-    case 'rejected':
-      return { text: '重新提交计划', color: '#ff4d4f', icon: 'lucide:rotate-ccw', show: true };
-    default:
-      return { text: '设置销售计划', color: '#1890ff', icon: 'lucide:target', show: true };
+      return {
+        text: '查看计划',
+        color: '#52c41a',
+        icon: 'lucide:eye',
+        show: true,
+      };
+    }
+    case 'draft': {
+      return {
+        text: '编辑计划（草稿）',
+        color: '#faad14',
+        icon: 'lucide:edit',
+        show: true,
+      };
+    }
+    case 'none': {
+      return {
+        text: '设置销售计划',
+        color: '#ff4d4f',
+        icon: 'lucide:alert-circle',
+        show: true,
+      };
+    }
+    case 'pending': {
+      return {
+        text: '查看计划（审批中）',
+        color: '#1890ff',
+        icon: 'lucide:clock',
+        show: true,
+      };
+    }
+    case 'rejected': {
+      return {
+        text: '重新提交计划',
+        color: '#ff4d4f',
+        icon: 'lucide:rotate-ccw',
+        show: true,
+      };
+    }
+    default: {
+      return {
+        text: '设置销售计划',
+        color: '#1890ff',
+        icon: 'lucide:target',
+        show: true,
+      };
+    }
   }
 });
 
 // 审批通过后顶部按钮隐藏（仅保留在计划进度卡片中显示状态）
-const showPlanButton = computed(() =>
-  planButtonConfig.value.show && planStatus.value !== 'approved',
+const showPlanButton = computed(
+  () => planButtonConfig.value.show && planStatus.value !== 'approved',
 );
 
 // 处理待审批抽屉刷新
@@ -559,8 +669,18 @@ function handlePendingRefresh() {
 function trendArrow(yoy?: number, mom?: number) {
   if (yoy === undefined && mom === undefined) return null;
   const value = yoy ?? mom ?? 0;
-  if (value > 0) return { color: '#52c41a', icon: 'lucide:trending-up', text: `↑${formatPercent(value)}%` };
-  if (value < 0) return { color: '#ff4d4f', icon: 'lucide:trending-down', text: `↓${formatPercent(Math.abs(value))}%` };
+  if (value > 0)
+    return {
+      color: '#52c41a',
+      icon: 'lucide:trending-up',
+      text: `↑${formatPercent(value)}%`,
+    };
+  if (value < 0)
+    return {
+      color: '#ff4d4f',
+      icon: 'lucide:trending-down',
+      text: `↓${formatPercent(Math.abs(value))}%`,
+    };
   return { color: '#8c8c8c', icon: 'lucide:minus', text: '0%' };
 }
 
@@ -580,7 +700,9 @@ const kpiCards = computed(() => {
       title: '合同实际',
       value: formatCurrency(totalContractActual.value),
       sub: `完成 ${getRate(totalContractTarget.value, totalContractActual.value)}%`,
-      progress: Number(getRate(totalContractTarget.value, totalContractActual.value)),
+      progress: Number(
+        getRate(totalContractTarget.value, totalContractActual.value),
+      ),
       icon: 'lucide:file-check',
       color: '#52c41a',
       bg: '#f6ffed',
@@ -598,7 +720,9 @@ const kpiCards = computed(() => {
       title: '回款实际',
       value: formatCurrency(totalPaymentActual.value),
       sub: `完成 ${getRate(totalPaymentTarget.value, totalPaymentActual.value)}%`,
-      progress: Number(getRate(totalPaymentTarget.value, totalPaymentActual.value)),
+      progress: Number(
+        getRate(totalPaymentTarget.value, totalPaymentActual.value),
+      ),
       icon: 'lucide:dollar-sign',
       color: '#fa8c16',
       bg: '#fff7e6',
@@ -709,8 +833,8 @@ async function handleExport(format: 'excel' | 'pdf') {
     link.click();
     window.URL.revokeObjectURL(url);
     message.success('导出成功');
-  } catch (e: any) {
-    message.error(e?.message || '导出失败');
+  } catch (error: any) {
+    message.error(error?.message || '导出失败');
   } finally {
     exporting.value = false;
   }
@@ -724,7 +848,10 @@ async function handleExport(format: 'excel' | 'pdf') {
       <Card class="mb-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-2">
-            <IconifyIcon icon="lucide:bar-chart-3" class="text-xl text-primary" />
+            <IconifyIcon
+              icon="lucide:bar-chart-3"
+              class="text-xl text-primary"
+            />
             <span class="text-lg font-semibold">
               {{
                 isCompanyView
@@ -763,13 +890,21 @@ async function handleExport(format: 'excel' | 'pdf') {
               </template>
               刷新
             </Button>
-            <Button size="small" :loading="exporting" @click="handleExport('excel')">
+            <Button
+              size="small"
+              :loading="exporting"
+              @click="handleExport('excel')"
+            >
               <template #icon>
                 <IconifyIcon icon="lucide:file-spreadsheet" />
               </template>
               导出 Excel
             </Button>
-            <Button size="small" :loading="exporting" @click="handleExport('pdf')">
+            <Button
+              size="small"
+              :loading="exporting"
+              @click="handleExport('pdf')"
+            >
               <template #icon>
                 <IconifyIcon icon="lucide:file-text" />
               </template>
@@ -797,7 +932,9 @@ async function handleExport(format: 'excel' | 'pdf') {
             <!-- 个人计划设置/查看按钮（审批通过后隐藏入口） -->
             <Button
               v-if="hasPlanManagePermission && showPlanButton"
-              :type="planStatus === 'none' && isPersonalView ? 'primary' : 'default'"
+              :type="
+                planStatus === 'none' && isPersonalView ? 'primary' : 'default'
+              "
               :danger="planStatus === 'none' && isPersonalView"
               size="small"
               @click="openPlanDrawer"
@@ -839,7 +976,11 @@ async function handleExport(format: 'excel' | 'pdf') {
                   {{ card.sub }}
                 </div>
                 <!-- 同比环比箭头 -->
-                <div v-if="card.trend" class="text-xs mt-1" :style="{ color: card.trend.color }">
+                <div
+                  v-if="card.trend"
+                  class="text-xs mt-1"
+                  :style="{ color: card.trend.color }"
+                >
                   <IconifyIcon :icon="card.trend.icon" class="mr-1" />
                   同比 {{ card.trend.text }}
                 </div>
@@ -883,42 +1024,64 @@ async function handleExport(format: 'excel' | 'pdf') {
             <div v-if="monthlyData.length === 0" class="py-8">
               <Empty description="暂无数据" />
             </div>
-            <div v-else class="flex items-end justify-around gap-2" style="height: 240px">
+            <div
+              v-else
+              class="flex items-end justify-around gap-2"
+              style="height: 240px"
+            >
               <div
                 v-for="m in monthlyData"
                 :key="m.month"
                 class="flex flex-col items-center gap-1"
                 style="flex: 1"
               >
-                <Tooltip :title="`实际: ${formatCurrency(m.contractActual || m.contract_actual || 0)}`">
+                <Tooltip
+                  :title="`实际: ${formatCurrency(m.contractActual || m.contract_actual || 0)}`"
+                >
                   <div
                     class="rounded-t transition-all duration-500 hover:opacity-80"
                     :style="{
                       width: '18px',
-                      height: barHeight(m.contractActual || m.contract_actual || 0),
-                      background: 'linear-gradient(180deg, #52c41a 0%, #95de64 100%)',
+                      height: barHeight(
+                        m.contractActual || m.contract_actual || 0,
+                      ),
+                      background:
+                        'linear-gradient(180deg, #52c41a 0%, #95de64 100%)',
                     }"
-                  />
+                  ></div>
                 </Tooltip>
-                <Tooltip :title="`目标: ${formatCurrency(m.contractTarget || m.contract_target || 0)}`">
+                <Tooltip
+                  :title="`目标: ${formatCurrency(m.contractTarget || m.contract_target || 0)}`"
+                >
                   <div
                     class="rounded-t transition-all duration-500 hover:opacity-80"
                     :style="{
                       width: '18px',
-                      height: barHeight(m.contractTarget || m.contract_target || 0),
-                      background: 'linear-gradient(180deg, #1890ff 0%, #69c0ff 100%)',
+                      height: barHeight(
+                        m.contractTarget || m.contract_target || 0,
+                      ),
+                      background:
+                        'linear-gradient(180deg, #1890ff 0%, #69c0ff 100%)',
                     }"
-                  />
+                  ></div>
                 </Tooltip>
                 <div class="text-xs text-gray-500 mt-1">{{ m.month }}月</div>
               </div>
             </div>
             <div class="flex justify-center gap-4 mt-3">
               <span class="flex items-center gap-1">
-                <span class="w-3 h-3 rounded" style="background: #1890ff" /> 合同目标
+                <span
+                  class="w-3 h-3 rounded"
+                  style="background: #1890ff"
+                ></span>
+                合同目标
               </span>
               <span class="flex items-center gap-1">
-                <span class="w-3 h-3 rounded" style="background: #52c41a" /> 合同实际
+                <span
+                  class="w-3 h-3 rounded"
+                  style="background: #52c41a"
+                ></span>
+                合同实际
               </span>
             </div>
           </Card>
@@ -928,26 +1091,34 @@ async function handleExport(format: 'excel' | 'pdf') {
             <div class="flex flex-col items-center gap-4 py-4">
               <Progress
                 type="circle"
-                :percent="Number(getRate(totalContractTarget, totalContractActual))"
-                :stroke-color="'#52c41a'"
+                :percent="
+                  Number(getRate(totalContractTarget, totalContractActual))
+                "
+                stroke-color="#52c41a"
                 :width="120"
               >
                 <template #format="{ percent }">
                   <div>
-                    <div class="text-xl font-bold text-green-600">{{ formatPercent(percent) }}%</div>
+                    <div class="text-xl font-bold text-green-600">
+                      {{ formatPercent(percent) }}%
+                    </div>
                     <div class="text-xs text-gray-400">合同完成率</div>
                   </div>
                 </template>
               </Progress>
               <Progress
                 type="circle"
-                :percent="Number(getRate(totalPaymentTarget, totalPaymentActual))"
-                :stroke-color="'#fa8c16'"
+                :percent="
+                  Number(getRate(totalPaymentTarget, totalPaymentActual))
+                "
+                stroke-color="#fa8c16"
                 :width="120"
               >
                 <template #format="{ percent }">
                   <div>
-                    <div class="text-xl font-bold text-orange-500">{{ formatPercent(percent) }}%</div>
+                    <div class="text-xl font-bold text-orange-500">
+                      {{ formatPercent(percent) }}%
+                    </div>
                     <div class="text-xs text-gray-400">回款完成率</div>
                   </div>
                 </template>
@@ -1005,7 +1176,9 @@ async function handleExport(format: 'excel' | 'pdf') {
               {{ formatCurrency(record.contractAmount) }}
             </template>
             <template v-else-if="column.dataIndex === 'contractTarget'">
-              <span class="text-gray-500">{{ formatCurrency(record.contractTarget) }}</span>
+              <span class="text-gray-500">{{
+                formatCurrency(record.contractTarget)
+              }}</span>
             </template>
             <template v-else-if="column.dataIndex === 'completionRate'">
               <Progress
@@ -1054,7 +1227,9 @@ async function handleExport(format: 'excel' | 'pdf') {
               {{ formatCurrency(record.contractAmount) }}
             </template>
             <template v-else-if="column.dataIndex === 'contractTarget'">
-              <span class="text-gray-500">{{ formatCurrency(record.contractTarget) }}</span>
+              <span class="text-gray-500">{{
+                formatCurrency(record.contractTarget)
+              }}</span>
             </template>
             <template v-else-if="column.dataIndex === 'completionRate'">
               <Progress
@@ -1100,7 +1275,10 @@ async function handleExport(format: 'excel' | 'pdf') {
         />
 
         <!-- 员工对比 -->
-        <Spin v-else-if="breakdownTab === 'employee-comparison'" :spinning="employeeComparisonLoading">
+        <Spin
+          v-else-if="breakdownTab === 'employee-comparison'"
+          :spinning="employeeComparisonLoading"
+        >
           <Table
             :columns="employeeComparisonColumns"
             :data-source="employeeComparisonData"
@@ -1147,7 +1325,10 @@ async function handleExport(format: 'excel' | 'pdf') {
                 :style="{ color: card.color }"
               />
               <div class="text-gray-500 text-sm">{{ card.title }}</div>
-              <div class="text-xl font-bold mt-1" :style="{ color: card.color }">
+              <div
+                class="text-xl font-bold mt-1"
+                :style="{ color: card.color }"
+              >
                 {{ card.value }}
               </div>
               <div v-if="card.sub" class="text-xs text-gray-400 mt-1">
@@ -1194,7 +1375,7 @@ async function handleExport(format: 'excel' | 'pdf') {
 }
 
 .kpi-card:hover {
-  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  transform: translateY(-2px);
 }
 </style>

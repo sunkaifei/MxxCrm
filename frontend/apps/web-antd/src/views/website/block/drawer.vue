@@ -1,9 +1,13 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
-import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message, Upload } from 'ant-design-vue';
 import type { UploadFile } from 'ant-design-vue';
+
+import { computed, ref, watch } from 'vue';
+
+import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message, Upload } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import { addBlockApi, updateBlockApi } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
 
@@ -22,16 +26,30 @@ const blockTypeOptions = [
 const currentBlockType = ref<number>(1);
 
 function applyContentSchema(type: number) {
+  let componentProps: {
+    allowClear: boolean;
+    placeholder: string;
+    rows?: number;
+  };
+  if (type === 2) {
+    componentProps = {
+      placeholder: '请输入HTML内容',
+      allowClear: true,
+      rows: 6,
+    };
+  } else if (type === 4) {
+    componentProps = {
+      placeholder: '请输入链接URL（含http://）',
+      allowClear: true,
+    };
+  } else {
+    componentProps = { placeholder: '请输入文本内容', allowClear: true };
+  }
   baseFormApi.updateSchema([
     {
       fieldName: 'content',
       component: type === 2 ? 'Textarea' : 'Input',
-      componentProps:
-        type === 2
-          ? { placeholder: '请输入HTML内容', allowClear: true, rows: 6 }
-          : type === 4
-            ? { placeholder: '请输入链接URL（含http://）', allowClear: true }
-            : { placeholder: '请输入文本内容', allowClear: true },
+      componentProps,
     },
   ]);
 }
@@ -162,13 +180,9 @@ function handleImageRemove() {
 }
 
 function syncImageFileList(url: string) {
-  if (url) {
-    imageFileList.value = [
-      { uid: '-1', name: 'block', status: 'done' as const, url },
-    ];
-  } else {
-    imageFileList.value = [];
-  }
+  imageFileList.value = url
+    ? [{ uid: '-1', name: 'block', status: 'done' as const, url }]
+    : [];
 }
 
 const [Drawer, drawerApi] = useVbenDrawer({
@@ -237,12 +251,17 @@ function setLoading(loading: boolean) {
       <div class="text-sm font-medium mb-2">区块图片</div>
       <Upload
         :file-list="imageFileList"
-        :before-upload="(file: File) => { handleImageUpload(file); return false; }"
+        :before-upload="
+          (file: File) => {
+            handleImageUpload(file);
+            return false;
+          }
+        "
         :remove="handleImageRemove"
         list-type="picture-card"
         accept="image/*"
       >
-        <div v-if="imageFileList.length < 1">
+        <div v-if="imageFileList.length === 0">
           <div class="text-2xl leading-none mb-1">+</div>
           <div class="text-xs">上传图片</div>
         </div>

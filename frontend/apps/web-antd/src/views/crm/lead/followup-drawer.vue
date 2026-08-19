@@ -1,13 +1,28 @@
 <script lang="ts" setup>
-import { ref, watch, computed } from 'vue';
-import { useVbenDrawer } from '@vben/common-ui';
+import { computed, ref, watch } from 'vue';
+
 import {
-  Button, Card, Descriptions, message, Tag, DatePicker,
-  Select, Textarea, Timeline, Empty,
-} from 'ant-design-vue';
-import { LucideChevronDown, LucideChevronUp, LucidePhone, LucideMail, LucideUser } from '@vben/icons';
+  LucideChevronDown,
+  LucideChevronUp,
+  LucideMail,
+  LucidePhone,
+  LucideUser,
+} from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
+
+import {
+  Button,
+  Card,
+  DatePicker,
+  Empty,
+  message,
+  Select,
+  Tag,
+  Textarea,
+  Timeline,
+} from 'ant-design-vue';
 import dayjs from 'dayjs';
+
 import { getLeadInfoApi, saveFollowupApi } from '#/api';
 
 const props = defineProps<{ id: number }>();
@@ -27,18 +42,37 @@ const followupForm = ref({
 const followupRecords = ref<any[]>([]);
 
 const sourceLabelMap: Record<string, string> = {
-  website: '官网', exhibition: '展会', social: '社交媒体', referral: '客户转介',
-  cold_call: '陌生拜访', customs: '海关数据', email: '邮件营销', alibaba: '阿里国际站',
-  amazon: 'Amazon', tiktok: 'TikTok', wechat: '微信', other: '其他',
+  website: '官网',
+  exhibition: '展会',
+  social: '社交媒体',
+  referral: '客户转介',
+  cold_call: '陌生拜访',
+  customs: '海关数据',
+  email: '邮件营销',
+  alibaba: '阿里国际站',
+  amazon: 'Amazon',
+  tiktok: 'TikTok',
+  wechat: '微信',
+  other: '其他',
 };
 
 const industryLabelMap: Record<number, string> = {
-  1: '零售', 2: '批发', 3: '制造', 4: '贸易代理',
-  5: '电商', 6: '微商', 7: '社交电商', 8: '其他',
+  1: '零售',
+  2: '批发',
+  3: '制造',
+  4: '贸易代理',
+  5: '电商',
+  6: '微商',
+  7: '社交电商',
+  8: '其他',
 };
 
 const levelLabelMap: Record<string, string> = {
-  1: '无级别', 2: '重点客户', 3: '优质客户', 4: '普通客户', 5: '其他',
+  1: '无级别',
+  2: '重点客户',
+  3: '优质客户',
+  4: '普通客户',
+  5: '其他',
 };
 
 const followStatusOptions = [
@@ -63,14 +97,15 @@ const followMethodOptions = [
 ];
 
 function getMethodOption(value: any) {
-  return followMethodOptions.find(o => o.value === value);
+  return followMethodOptions.find((o) => o.value === value);
 }
 
 // 跟进记录倒序（最新在前）
 const reversedFollowupRecords = computed(() =>
-  [...followupRecords.value].sort((a, b) =>
-    new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
-  )
+  followupRecords.value.toSorted(
+    (a, b) =>
+      new Date(b.createTime).getTime() - new Date(a.createTime).getTime(),
+  ),
 );
 
 async function fetchDetail() {
@@ -107,7 +142,12 @@ async function handleSaveFollowup() {
     });
     message.success('跟进记录已保存');
     await fetchDetail();
-    followupForm.value = { content: '', nextFollowAt: null, status: 2, method: 1 };
+    followupForm.value = {
+      content: '',
+      nextFollowAt: null,
+      status: 2,
+      method: 1,
+    };
   } catch {
     // 错误提示由全局拦截器统一处理，这里不需要重复提示
   } finally {
@@ -130,11 +170,18 @@ watch(() => props.id, fetchDetail, { immediate: true });
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <span class="font-bold text-lg">{{ lead?.companyName || '-' }}</span>
-                <Tag v-if="lead?.level" color="blue">{{ levelLabelMap[lead.level] || lead.level }}</Tag>
+                <span class="font-bold text-lg">{{
+                  lead?.companyName || '-'
+                }}</span>
+                <Tag v-if="lead?.level" color="blue">
+                  {{ levelLabelMap[lead.level] || lead.level }}
+                </Tag>
               </div>
               <Button type="link" @click="toggleMoreInfo" class="text-blue-600">
-                <LucideChevronDown v-if="!showMoreInfo" class="inline w-4 h-4 mr-1" />
+                <LucideChevronDown
+                  v-if="!showMoreInfo"
+                  class="inline w-4 h-4 mr-1"
+                />
                 <LucideChevronUp v-else class="inline w-4 h-4 mr-1" />
                 {{ showMoreInfo ? '隐藏信息' : '显示更多' }}
               </Button>
@@ -144,7 +191,9 @@ watch(() => props.id, fetchDetail, { immediate: true });
               <div class="flex items-center gap-2 text-sm">
                 <LucideUser class="w-4 h-4 text-gray-400" />
                 <span>{{ lead?.contactName || '-' }}</span>
-                <span v-if="lead?.title" class="text-gray-400">({{ lead.title }})</span>
+                <span v-if="lead?.title" class="text-gray-400"
+                  >({{ lead.title }})</span
+                >
               </div>
               <div class="flex items-center gap-2 text-sm">
                 <LucidePhone class="w-4 h-4 text-gray-400" />
@@ -156,7 +205,9 @@ watch(() => props.id, fetchDetail, { immediate: true });
               </div>
               <div class="text-sm">
                 <span class="text-gray-400">来源：</span>
-                <span>{{ sourceLabelMap[lead?.source] || lead?.source || '-' }}</span>
+                <span>{{
+                  sourceLabelMap[lead?.source] || lead?.source || '-'
+                }}</span>
               </div>
             </div>
 
@@ -164,11 +215,15 @@ watch(() => props.id, fetchDetail, { immediate: true });
               <div class="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span class="text-gray-400">行业：</span>
-                  <span>{{ industryLabelMap[lead?.industry] || lead?.industry || '-' }}</span>
+                  <span>{{
+                    industryLabelMap[lead?.industry] || lead?.industry || '-'
+                  }}</span>
                 </div>
                 <div>
                   <span class="text-gray-400">级别：</span>
-                  <span>{{ levelLabelMap[lead?.level] || lead?.level || '-' }}</span>
+                  <span>{{
+                    levelLabelMap[lead?.level] || lead?.level || '-'
+                  }}</span>
                 </div>
                 <div>
                   <span class="text-gray-400">国家：</span>
@@ -188,14 +243,21 @@ watch(() => props.id, fetchDetail, { immediate: true });
                 </div>
                 <div>
                   <span class="text-gray-400">网站：</span>
-                  <a v-if="lead?.website" :href="lead.website" target="_blank" class="text-blue-600 hover:underline">
+                  <a
+                    v-if="lead?.website"
+                    :href="lead.website"
+                    target="_blank"
+                    class="text-blue-600 hover:underline"
+                  >
                     {{ lead.website }}
                   </a>
                   <span v-else>-</span>
                 </div>
                 <div>
                   <span class="text-gray-400">预算：</span>
-                  <span>{{ lead?.currency || '' }} {{ lead?.budget || '-' }}</span>
+                  <span
+                    >{{ lead?.currency || '' }} {{ lead?.budget || '-' }}</span
+                  >
                 </div>
               </div>
             </div>
@@ -204,7 +266,10 @@ watch(() => props.id, fetchDetail, { immediate: true });
 
         <div class="flex-1 overflow-auto">
           <Card size="small" title="跟进记录">
-            <Empty v-if="!reversedFollowupRecords.length" description="暂无跟进记录" />
+            <Empty
+              v-if="reversedFollowupRecords.length === 0"
+              description="暂无跟进记录"
+            />
             <Timeline v-else>
               <Timeline.Item
                 v-for="(record, index) in reversedFollowupRecords"
@@ -212,16 +277,32 @@ watch(() => props.id, fetchDetail, { immediate: true });
                 :color="getMethodOption(record.activityType)?.color || 'gray'"
               >
                 <div class="flex flex-wrap items-center gap-2 mb-1">
-                  <Tag :color="getMethodOption(record.activityType)?.color || 'default'">
+                  <Tag
+                    :color="
+                      getMethodOption(record.activityType)?.color || 'default'
+                    "
+                  >
                     {{ getMethodOption(record.activityType)?.label || '未知' }}
                   </Tag>
-                  <span class="text-xs text-gray-400">{{ formatDateTime(record.createTime) }}</span>
-                  <span v-if="record.createdByName" class="text-xs text-gray-400">
+                  <span class="text-xs text-gray-400">{{
+                    formatDateTime(record.createTime)
+                  }}</span>
+                  <span
+                    v-if="record.createdByName"
+                    class="text-xs text-gray-400"
+                  >
                     · {{ record.createdByName }}
                   </span>
                 </div>
-                <div class="text-sm text-gray-800 whitespace-pre-wrap break-all">{{ record.content }}</div>
-                <div v-if="record.nextFollowDate" class="mt-1 text-xs text-orange-500">
+                <div
+                  class="text-sm text-gray-800 whitespace-pre-wrap break-all"
+                >
+                  {{ record.content }}
+                </div>
+                <div
+                  v-if="record.nextFollowDate"
+                  class="mt-1 text-xs text-orange-500"
+                >
                   下次联系：{{ record.nextFollowDate }}
                 </div>
               </Timeline.Item>
@@ -246,7 +327,9 @@ watch(() => props.id, fetchDetail, { immediate: true });
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">下次联系时间</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >下次联系时间</label
+              >
               <DatePicker
                 v-model:value="followupForm.nextFollowAt as any"
                 class="w-full"
@@ -255,7 +338,9 @@ watch(() => props.id, fetchDetail, { immediate: true });
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">跟进状态</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >跟进状态</label
+              >
               <Select
                 v-model:value="followupForm.status"
                 class="w-full"
@@ -265,7 +350,9 @@ watch(() => props.id, fetchDetail, { immediate: true });
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">跟进方式</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >跟进方式</label
+              >
               <Select
                 v-model:value="followupForm.method"
                 class="w-full"

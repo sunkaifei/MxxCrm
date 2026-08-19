@@ -19,7 +19,7 @@ const props = defineProps<{
 const DEMO_TEAM_PAYMENT = 1_000_000; // 团队回款 100万
 const DEMO_PERSONAL_PAYMENT = 100_000; // 个人回款 10万
 const DEMO_COST = 60_000; // 成本 6万
-const DEMO_POOL_BALANCE = 5_000; // 资金池余额
+const DEMO_POOL_BALANCE = 5000; // 资金池余额
 
 // 取第一档阶梯比例作为演示比例
 const demoRate = computed(() => {
@@ -37,7 +37,7 @@ const beneficiaryRole = computed(() =>
 
 // 模式标题与说明
 const modeInfo = computed(() => {
-  const map: Record<number, { title: string; desc: string }> = {
+  const map: Record<number, { desc: string; title: string }> = {
     1: {
       title: $t('page.finance.commissionRule.category.personal'),
       desc: $t('page.finance.commissionRule.preview.personalDesc'),
@@ -63,7 +63,7 @@ const modeInfo = computed(() => {
       desc: $t('page.finance.commissionRule.preview.profitDesc'),
     },
   };
-  return map[category.value] || map[1]!;
+  return map[category.value] || map[1] || { desc: '', title: '' };
 });
 
 // 受益岗位名称
@@ -75,7 +75,7 @@ function roleName(role: number): string {
     4: $t('page.finance.commissionRule.beneficiary.director'),
     5: $t('page.finance.commissionRule.beneficiary.gm'),
   };
-  return map[role] || map[1]!;
+  return map[role] || map[1] || '';
 }
 
 // 层级系数（模式 B）
@@ -99,9 +99,7 @@ function rateText(val: number): string {
 // ===== 各模式预览计算 =====
 
 // 模式 A: 个人提成
-const personalAmount = computed(
-  () => DEMO_PERSONAL_PAYMENT * demoRate.value,
-);
+const personalAmount = computed(() => DEMO_PERSONAL_PAYMENT * demoRate.value);
 
 // 模式 B: 多级管理分润
 const managementLevels = computed(() => {
@@ -112,7 +110,7 @@ const managementLevels = computed(() => {
   if (role === 3) levels = 2; // 主管+经理
   if (role === 5) levels = 3; // 总经理（取最顶级）
 
-  const result: { name: string; rate: number; amount: number }[] = [];
+  const result: { amount: number; name: string; rate: number }[] = [];
   const names = [
     $t('page.finance.commissionRule.beneficiary.director'),
     $t('page.finance.commissionRule.beneficiary.manager'),
@@ -122,7 +120,7 @@ const managementLevels = computed(() => {
     const lvl = levels - i; // 从高到低
     const r = levelRate(lvl);
     result.push({
-      name: names[3 - lvl] || names[2]!,
+      name: names[3 - lvl] || names[2] || '',
       rate: r,
       amount: DEMO_TEAM_PAYMENT * r,
     });
@@ -137,22 +135,20 @@ const teamBonusReached = computed(() => {
 });
 const teamBonusAmount = computed(() => {
   if (!teamBonusReached.value) return 0;
-  return Number(props.form?.bonusFixedAmount ?? 2_000);
+  return Number(props.form?.bonusFixedAmount ?? 2000);
 });
 
 // 模式 D: 团建资金池
 const poolDeposit = computed(() => DEMO_TEAM_PAYMENT * demoRate.value);
 
 // 模式 E: 总提成再分配
-const reallocationTotal = computed(
-  () => DEMO_TEAM_PAYMENT * demoRate.value,
-);
+const reallocationTotal = computed(() => DEMO_TEAM_PAYMENT * demoRate.value);
 const reallocationMembers = computed(() => {
   // 模拟 3 个成员按业绩比例分配
   const payments = [200_000, 150_000, 150_000];
   const total = payments.reduce((a, b) => a + b, 0);
   return payments.map((p, i) => ({
-    name: `${$t('page.finance.commissionRule.preview.member')} ${String.fromCharCode(65 + i)}`,
+    name: `${$t('page.finance.commissionRule.preview.member')} ${String.fromCodePoint(65 + i)}`,
     payment: p,
     amount: reallocationTotal.value * (p / total),
   }));
@@ -168,7 +164,9 @@ const profitAmount = computed(() => {
 <template>
   <div class="commission-scheme-preview">
     <div class="preview-header">
-      <span class="preview-badge">{{ $t('page.finance.commissionRule.preview.title') }}</span>
+      <span class="preview-badge">{{
+        $t('page.finance.commissionRule.preview.title')
+      }}</span>
       <span class="preview-mode-tag">{{ modeInfo.title }}</span>
     </div>
 
@@ -181,19 +179,27 @@ const profitAmount = computed(() => {
           <div class="node-title">{{ roleName(1) }}</div>
           <div class="node-body">
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.payment') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.payment')
+              }}</span>
               <span class="value">{{ money(DEMO_PERSONAL_PAYMENT) }}</span>
             </div>
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.rate') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.rate')
+              }}</span>
               <span class="value accent">{{ rateText(demoRate) }}</span>
             </div>
             <div class="node-line highlight">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.commission') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.commission')
+              }}</span>
               <span class="value strong">{{ money(personalAmount) }}</span>
             </div>
           </div>
-          <div class="node-tag tag-green">{{ $t('page.finance.commissionRule.preview.toSalary') }}</div>
+          <div class="node-tag tag-green">
+            {{ $t('page.finance.commissionRule.preview.toSalary') }}
+          </div>
         </div>
       </div>
 
@@ -209,31 +215,51 @@ const profitAmount = computed(() => {
             <div class="node-title">{{ lvl.name }}</div>
             <div class="node-body">
               <div class="node-line">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.teamPayment') }}</span>
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.teamPayment')
+                }}</span>
                 <span class="value">{{ money(DEMO_TEAM_PAYMENT) }}</span>
               </div>
               <div class="node-line">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.rate') }}</span>
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.rate')
+                }}</span>
                 <span class="value accent">{{ rateText(lvl.rate) }}</span>
               </div>
               <div class="node-line highlight">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.share') }}</span>
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.share')
+                }}</span>
                 <span class="value strong">{{ money(lvl.amount) }}</span>
               </div>
             </div>
-            <div class="node-tag tag-blue">{{ $t('page.finance.commissionRule.preview.toSalary') }}</div>
+            <div class="node-tag tag-blue">
+              {{ $t('page.finance.commissionRule.preview.toSalary') }}
+            </div>
           </div>
         </div>
         <!-- 底层销售员 -->
         <div class="tree-level leaf-level">
           <div class="leaf-row">
             <div class="tree-node node-sales small">
-              <div class="node-title">{{ $t('page.finance.commissionRule.preview.sales') }}</div>
-              <div class="node-tag tag-green">{{ $t('page.finance.commissionRule.preview.personalCommission') }}</div>
+              <div class="node-title">
+                {{ $t('page.finance.commissionRule.preview.sales') }}
+              </div>
+              <div class="node-tag tag-green">
+                {{
+                  $t('page.finance.commissionRule.preview.personalCommission')
+                }}
+              </div>
             </div>
             <div class="tree-node node-sales small">
-              <div class="node-title">{{ $t('page.finance.commissionRule.preview.sales') }}</div>
-              <div class="node-tag tag-green">{{ $t('page.finance.commissionRule.preview.personalCommission') }}</div>
+              <div class="node-title">
+                {{ $t('page.finance.commissionRule.preview.sales') }}
+              </div>
+              <div class="node-tag tag-green">
+                {{
+                  $t('page.finance.commissionRule.preview.personalCommission')
+                }}
+              </div>
             </div>
           </div>
         </div>
@@ -246,32 +272,57 @@ const profitAmount = computed(() => {
             <div class="node-title">{{ roleName(beneficiaryRole) }}</div>
             <div class="node-body">
               <div class="node-line">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.teamPayment') }}</span>
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.teamPayment')
+                }}</span>
                 <span class="value">{{ money(DEMO_TEAM_PAYMENT) }}</span>
               </div>
               <div class="node-line">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.target') }}</span>
-                <span class="value">{{ money(Number(form?.bonusTarget ?? 500000)) }}</span>
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.target')
+                }}</span>
+                <span class="value">{{
+                  money(Number(form?.bonusTarget ?? 500000))
+                }}</span>
               </div>
-              <div class="node-line highlight" :class="{ 'not-reached': !teamBonusReached }">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.bonus') }}</span>
+              <div
+                class="node-line highlight"
+                :class="{ 'not-reached': !teamBonusReached }"
+              >
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.bonus')
+                }}</span>
                 <span class="value strong">
-                  {{ teamBonusReached ? money(teamBonusAmount) : $t('page.finance.commissionRule.preview.notReached') }}
+                  {{
+                    teamBonusReached
+                      ? money(teamBonusAmount)
+                      : $t('page.finance.commissionRule.preview.notReached')
+                  }}
                 </span>
               </div>
             </div>
-            <div class="node-tag tag-blue">{{ $t('page.finance.commissionRule.preview.toSalary') }}</div>
+            <div class="node-tag tag-blue">
+              {{ $t('page.finance.commissionRule.preview.toSalary') }}
+            </div>
           </div>
         </div>
         <div class="tree-level leaf-level">
           <div class="leaf-row">
             <div class="tree-node node-sales small">
-              <div class="node-title">{{ $t('page.finance.commissionRule.preview.member') }}</div>
-              <div class="node-tag tag-green">{{ $t('page.finance.commissionRule.preview.notAffected') }}</div>
+              <div class="node-title">
+                {{ $t('page.finance.commissionRule.preview.member') }}
+              </div>
+              <div class="node-tag tag-green">
+                {{ $t('page.finance.commissionRule.preview.notAffected') }}
+              </div>
             </div>
             <div class="tree-node node-sales small">
-              <div class="node-title">{{ $t('page.finance.commissionRule.preview.member') }}</div>
-              <div class="node-tag tag-green">{{ $t('page.finance.commissionRule.preview.notAffected') }}</div>
+              <div class="node-title">
+                {{ $t('page.finance.commissionRule.preview.member') }}
+              </div>
+              <div class="node-tag tag-green">
+                {{ $t('page.finance.commissionRule.preview.notAffected') }}
+              </div>
             </div>
           </div>
         </div>
@@ -280,13 +331,17 @@ const profitAmount = computed(() => {
       <!-- 模式 D: 团建资金池 -->
       <div v-else-if="category === 4" class="scheme-tree tree-horizontal">
         <div class="tree-node node-payment">
-          <div class="node-title">{{ $t('page.finance.commissionRule.preview.teamPayment') }}</div>
+          <div class="node-title">
+            {{ $t('page.finance.commissionRule.preview.teamPayment') }}
+          </div>
           <div class="node-body">
             <div class="node-line">
               <span class="value">{{ money(DEMO_TEAM_PAYMENT) }}</span>
             </div>
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.rate') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.rate')
+              }}</span>
               <span class="value accent">{{ rateText(demoRate) }}</span>
             </div>
           </div>
@@ -295,25 +350,41 @@ const profitAmount = computed(() => {
           <span class="flow-amount">{{ money(poolDeposit) }}</span>
         </div>
         <div class="tree-node node-pool">
-          <div class="node-title">{{ $t('page.finance.commissionRule.preview.pool') }}</div>
+          <div class="node-title">
+            {{ $t('page.finance.commissionRule.preview.pool') }}
+          </div>
           <div class="node-body">
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.deposit') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.deposit')
+              }}</span>
               <span class="value accent">+{{ money(poolDeposit) }}</span>
             </div>
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.poolBalance') }}</span>
-              <span class="value strong">{{ money(DEMO_POOL_BALANCE + poolDeposit) }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.poolBalance')
+              }}</span>
+              <span class="value strong">{{
+                money(DEMO_POOL_BALANCE + poolDeposit)
+              }}</span>
             </div>
           </div>
-          <div class="node-tag tag-orange">{{ $t('page.finance.commissionRule.preview.notToSalary') }}</div>
+          <div class="node-tag tag-orange">
+            {{ $t('page.finance.commissionRule.preview.notToSalary') }}
+          </div>
         </div>
         <div class="flow-arrow down">
-          <span class="flow-amount">{{ $t('page.finance.commissionRule.preview.expense') }}</span>
+          <span class="flow-amount">{{
+            $t('page.finance.commissionRule.preview.expense')
+          }}</span>
         </div>
         <div class="tree-node node-expense">
-          <div class="node-title">{{ $t('page.finance.commissionRule.preview.teamBuilding') }}</div>
-          <div class="node-tag tag-orange">{{ $t('page.finance.commissionRule.preview.dinnerActivity') }}</div>
+          <div class="node-title">
+            {{ $t('page.finance.commissionRule.preview.teamBuilding') }}
+          </div>
+          <div class="node-tag tag-orange">
+            {{ $t('page.finance.commissionRule.preview.dinnerActivity') }}
+          </div>
         </div>
       </div>
 
@@ -324,19 +395,27 @@ const profitAmount = computed(() => {
             <div class="node-title">{{ roleName(beneficiaryRole) }}</div>
             <div class="node-body">
               <div class="node-line">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.teamPayment') }}</span>
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.teamPayment')
+                }}</span>
                 <span class="value">{{ money(DEMO_TEAM_PAYMENT) }}</span>
               </div>
               <div class="node-line">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.rate') }}</span>
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.rate')
+                }}</span>
                 <span class="value accent">{{ rateText(demoRate) }}</span>
               </div>
               <div class="node-line highlight">
-                <span class="label">{{ $t('page.finance.commissionRule.preview.totalCollected') }}</span>
+                <span class="label">{{
+                  $t('page.finance.commissionRule.preview.totalCollected')
+                }}</span>
                 <span class="value strong">{{ money(reallocationTotal) }}</span>
               </div>
             </div>
-            <div class="node-tag tag-purple">{{ $t('page.finance.commissionRule.preview.pending') }}</div>
+            <div class="node-tag tag-purple">
+              {{ $t('page.finance.commissionRule.preview.pending') }}
+            </div>
           </div>
         </div>
         <div class="tree-level leaf-level">
@@ -352,7 +431,9 @@ const profitAmount = computed(() => {
                   <span class="value strong">{{ money(m.amount) }}</span>
                 </div>
               </div>
-              <div class="node-tag tag-green">{{ $t('page.finance.commissionRule.preview.byPerformance') }}</div>
+              <div class="node-tag tag-green">
+                {{ $t('page.finance.commissionRule.preview.byPerformance') }}
+              </div>
             </div>
           </div>
         </div>
@@ -364,27 +445,41 @@ const profitAmount = computed(() => {
           <div class="node-title">{{ roleName(1) }}</div>
           <div class="node-body">
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.payment') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.payment')
+              }}</span>
               <span class="value">{{ money(DEMO_PERSONAL_PAYMENT) }}</span>
             </div>
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.cost') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.cost')
+              }}</span>
               <span class="value">-{{ money(DEMO_COST) }}</span>
             </div>
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.profit') }}</span>
-              <span class="value accent">{{ money(DEMO_PERSONAL_PAYMENT - DEMO_COST) }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.profit')
+              }}</span>
+              <span class="value accent">{{
+                money(DEMO_PERSONAL_PAYMENT - DEMO_COST)
+              }}</span>
             </div>
             <div class="node-line">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.rate') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.rate')
+              }}</span>
               <span class="value accent">{{ rateText(demoRate) }}</span>
             </div>
             <div class="node-line highlight">
-              <span class="label">{{ $t('page.finance.commissionRule.preview.commission') }}</span>
+              <span class="label">{{
+                $t('page.finance.commissionRule.preview.commission')
+              }}</span>
               <span class="value strong">{{ money(profitAmount) }}</span>
             </div>
           </div>
-          <div class="node-tag tag-green">{{ $t('page.finance.commissionRule.preview.toSalary') }}</div>
+          <div class="node-tag tag-green">
+            {{ $t('page.finance.commissionRule.preview.toSalary') }}
+          </div>
         </div>
       </div>
     </div>
@@ -393,16 +488,16 @@ const profitAmount = computed(() => {
 
 <style scoped>
 .commission-scheme-preview {
+  padding: 16px;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 16px;
 }
 
 .preview-header {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 8px;
 }
 
@@ -415,24 +510,24 @@ const profitAmount = computed(() => {
 .preview-mode-tag {
   display: inline-block;
   padding: 2px 10px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-radius: 10px;
 }
 
 .preview-desc {
-  font-size: 12px;
-  color: #64748b;
   margin-bottom: 16px;
+  font-size: 12px;
   line-height: 1.5;
+  color: #64748b;
 }
 
 .preview-canvas {
   display: flex;
-  justify-content: center;
   align-items: flex-start;
+  justify-content: center;
   min-height: 200px;
   padding: 12px 0;
 }
@@ -457,132 +552,125 @@ const profitAmount = computed(() => {
 }
 
 .tree-level.has-children::after {
-  content: '';
   position: absolute;
   bottom: 0;
   left: 50%;
   width: 2px;
   height: 20px;
+  content: '';
   background: #cbd5e1;
   transform: translateX(-50%);
 }
 
 .leaf-level {
-  padding-top: 28px;
   position: relative;
+  padding-top: 28px;
 }
 
 .leaf-level::before {
-  content: '';
   position: absolute;
   top: 0;
   left: 50%;
   width: 2px;
   height: 20px;
+  content: '';
   background: #cbd5e1;
   transform: translateX(-50%);
 }
 
 .leaf-row {
+  position: relative;
   display: flex;
   gap: 24px;
   justify-content: center;
-  position: relative;
 }
 
 .leaf-row::before {
-  content: '';
   position: absolute;
   top: -20px;
-  left: 20%;
   right: 20%;
+  left: 20%;
   height: 2px;
+  content: '';
   background: #cbd5e1;
 }
 
 /* 水平流向（模式 D） */
 .tree-horizontal {
-  flex-direction: row;
-  align-items: center;
+  flex-flow: row wrap;
   gap: 0;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
 }
 
 .flow-arrow {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 80px;
   height: 40px;
-  position: relative;
   color: #64748b;
 }
 
 .flow-arrow::before {
-  content: '';
   position: absolute;
-  left: 0;
-  right: 12px;
   top: 50%;
+  right: 12px;
+  left: 0;
   height: 2px;
+  content: '';
   background: #cbd5e1;
 }
 
 .flow-arrow::after {
-  content: '';
   position: absolute;
-  right: 0;
   top: 50%;
-  transform: translateY(-50%);
+  right: 0;
+  content: '';
   border: 6px solid transparent;
   border-left-color: #cbd5e1;
+  transform: translateY(-50%);
 }
 
 .flow-arrow.down {
+  flex-direction: column;
   width: 40px;
   height: 60px;
-  flex-direction: column;
 }
 
 .flow-arrow.down::before {
-  left: 50%;
-  right: auto;
-  top: 0;
-  bottom: 12px;
+  inset: 0 auto 12px 50%;
   width: 2px;
   height: auto;
   transform: translateX(-50%);
 }
 
 .flow-arrow.down::after {
-  top: auto;
-  bottom: 0;
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
+  inset: auto auto 0 50%;
   border: 6px solid transparent;
   border-top-color: #cbd5e1;
   border-left-color: transparent;
+  transform: translateX(-50%);
 }
 
 .flow-amount {
+  z-index: 1;
+  padding: 2px 6px;
   font-size: 12px;
   font-weight: 600;
   color: #1d4ed8;
   background: #fff;
-  padding: 2px 6px;
   border-radius: 4px;
-  z-index: 1;
 }
 
 /* ===== 节点卡片 ===== */
 .tree-node {
+  min-width: 180px;
+  padding: 12px 16px;
   background: #fff;
   border: 2px solid #e2e8f0;
   border-radius: 8px;
-  padding: 12px 16px;
-  min-width: 180px;
   box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
   transition: all 0.2s;
 }
@@ -601,10 +689,10 @@ const profitAmount = computed(() => {
 }
 
 .node-title {
+  margin-bottom: 8px;
   font-size: 14px;
   font-weight: 600;
   color: #1e293b;
-  margin-bottom: 8px;
   text-align: center;
 }
 
@@ -616,10 +704,10 @@ const profitAmount = computed(() => {
 
 .node-line {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
   gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
 }
 
 .node-line .label {
@@ -627,8 +715,8 @@ const profitAmount = computed(() => {
 }
 
 .node-line .value {
-  color: #334155;
   font-weight: 500;
+  color: #334155;
 }
 
 .node-line .value.accent {
@@ -636,16 +724,16 @@ const profitAmount = computed(() => {
 }
 
 .node-line .value.strong {
-  color: #dc2626;
-  font-weight: 700;
   font-size: 13px;
+  font-weight: 700;
+  color: #dc2626;
 }
 
 .node-line.highlight {
-  background: #fef3c7;
   padding: 4px 8px;
-  border-radius: 4px;
   margin-top: 4px;
+  background: #fef3c7;
+  border-radius: 4px;
 }
 
 .node-line.highlight .value.strong {
@@ -658,33 +746,33 @@ const profitAmount = computed(() => {
 
 .node-tag {
   display: inline-block;
-  margin-top: 8px;
+  width: 100%;
   padding: 2px 8px;
-  border-radius: 4px;
+  margin-top: 8px;
   font-size: 11px;
   font-weight: 600;
-  width: 100%;
   text-align: center;
+  border-radius: 4px;
 }
 
 .tag-green {
-  background: #dcfce7;
   color: #166534;
+  background: #dcfce7;
 }
 
 .tag-blue {
-  background: #dbeafe;
   color: #1e40af;
+  background: #dbeafe;
 }
 
 .tag-orange {
-  background: #fed7aa;
   color: #9a3412;
+  background: #fed7aa;
 }
 
 .tag-purple {
-  background: #f3e8ff;
   color: #6b21a8;
+  background: #f3e8ff;
 }
 
 /* 节点颜色变体 */

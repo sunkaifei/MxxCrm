@@ -11,21 +11,21 @@ import {
   FormItem,
   Input,
   InputNumber,
+  message,
   Select,
   Switch,
   Table,
   TreeSelect,
-  message,
 } from 'ant-design-vue';
 
-import { CommissionSchemePreview } from '#/components/CommissionSchemePreview';
 import { saveCommissionRuleApi } from '#/api/core/finance';
 import { getDeptTreeApi } from '#/api/core/system/dept';
+import { CommissionSchemePreview } from '#/components/CommissionSchemePreview';
 import { $t } from '#/locales';
 
 const props = defineProps<{
-  visible: boolean;
   data?: any;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -104,67 +104,158 @@ const showBonusConfig = computed(() => formData.commissionCategory === 3);
 const showPoolConfig = computed(() => formData.commissionCategory === 4);
 
 // 是否显示再分配说明
-const showReallocationHint = computed(
-  () => formData.commissionCategory === 5,
-);
+const showReallocationHint = computed(() => formData.commissionCategory === 5);
 
 // 提成基数字段选项
 const calcBaseFieldOptions = [
-  { value: 'payment_amount', label: $t('page.finance.commissionRule.calcBaseField.paymentAmount') },
-  { value: 'contract_amount', label: $t('page.finance.commissionRule.calcBaseField.contractAmount') },
-  { value: 'profit', label: $t('page.finance.commissionRule.calcBaseField.profit') },
-  { value: 'net_profit', label: $t('page.finance.commissionRule.calcBaseField.netProfit') },
+  {
+    value: 'payment_amount',
+    label: $t('page.finance.commissionRule.calcBaseField.paymentAmount'),
+  },
+  {
+    value: 'contract_amount',
+    label: $t('page.finance.commissionRule.calcBaseField.contractAmount'),
+  },
+  {
+    value: 'profit',
+    label: $t('page.finance.commissionRule.calcBaseField.profit'),
+  },
+  {
+    value: 'net_profit',
+    label: $t('page.finance.commissionRule.calcBaseField.netProfit'),
+  },
 ];
 
 // 客户分类选项
 const customerCategoryOptions = [
-  { value: '', label: $t('page.finance.commissionRule.field.customerCategoryAll') },
-  { value: 'new', label: $t('page.finance.commissionRule.field.customerCategoryNew') },
-  { value: 'old', label: $t('page.finance.commissionRule.field.customerCategoryOld') },
+  {
+    value: '',
+    label: $t('page.finance.commissionRule.field.customerCategoryAll'),
+  },
+  {
+    value: 'new',
+    label: $t('page.finance.commissionRule.field.customerCategoryNew'),
+  },
+  {
+    value: 'old',
+    label: $t('page.finance.commissionRule.field.customerCategoryOld'),
+  },
 ];
 
 const applyScopeOptions = [
-  { value: 1, label: $t('page.finance.commissionRule.applyScope.designatedDept') },
+  {
+    value: 1,
+    label: $t('page.finance.commissionRule.applyScope.designatedDept'),
+  },
   { value: 2, label: $t('page.finance.commissionRule.applyScope.company') },
-  { value: 3, label: $t('page.finance.commissionRule.applyScope.designatedPost') },
-  { value: 4, label: $t('page.finance.commissionRule.applyScope.designatedMember') },
+  {
+    value: 3,
+    label: $t('page.finance.commissionRule.applyScope.designatedPost'),
+  },
+  {
+    value: 4,
+    label: $t('page.finance.commissionRule.applyScope.designatedMember'),
+  },
 ];
 
 const triggerTypeOptions = [
-  { value: 1, label: $t('page.finance.commissionRule.triggerCondition.contractSign') },
-  { value: 2, label: $t('page.finance.commissionRule.triggerCondition.paymentReceived') },
-  { value: 3, label: $t('page.finance.commissionRule.triggerCondition.orderComplete') },
-  { value: 4, label: $t('page.finance.commissionRule.triggerCondition.invoiceIssued') },
+  {
+    value: 1,
+    label: $t('page.finance.commissionRule.triggerCondition.contractSign'),
+  },
+  {
+    value: 2,
+    label: $t('page.finance.commissionRule.triggerCondition.paymentReceived'),
+  },
+  {
+    value: 3,
+    label: $t('page.finance.commissionRule.triggerCondition.orderComplete'),
+  },
+  {
+    value: 4,
+    label: $t('page.finance.commissionRule.triggerCondition.invoiceIssued'),
+  },
 ];
 
 const calcBaseTypeOptions = [
-  { value: 1, label: $t('page.finance.commissionRule.calcBaseType.personalMonthly') },
-  { value: 2, label: $t('page.finance.commissionRule.calcBaseType.teamMonthly') },
-  { value: 3, label: $t('page.finance.commissionRule.calcBaseType.singleContract') },
-  { value: 4, label: $t('page.finance.commissionRule.calcBaseType.singlePayment') },
+  {
+    value: 1,
+    label: $t('page.finance.commissionRule.calcBaseType.personalMonthly'),
+  },
+  {
+    value: 2,
+    label: $t('page.finance.commissionRule.calcBaseType.teamMonthly'),
+  },
+  {
+    value: 3,
+    label: $t('page.finance.commissionRule.calcBaseType.singleContract'),
+  },
+  {
+    value: 4,
+    label: $t('page.finance.commissionRule.calcBaseType.singlePayment'),
+  },
 ];
 
 // 产品线/区域/客户类型 维度选项
 const productLineOptions = [
-  { value: 'standard', label: $t('page.finance.commissionRule.dimension.productLine.standard') },
-  { value: 'premium', label: $t('page.finance.commissionRule.dimension.productLine.premium') },
-  { value: 'enterprise', label: $t('page.finance.commissionRule.dimension.productLine.enterprise') },
-  { value: 'custom', label: $t('page.finance.commissionRule.dimension.productLine.custom') },
+  {
+    value: 'standard',
+    label: $t('page.finance.commissionRule.dimension.productLine.standard'),
+  },
+  {
+    value: 'premium',
+    label: $t('page.finance.commissionRule.dimension.productLine.premium'),
+  },
+  {
+    value: 'enterprise',
+    label: $t('page.finance.commissionRule.dimension.productLine.enterprise'),
+  },
+  {
+    value: 'custom',
+    label: $t('page.finance.commissionRule.dimension.productLine.custom'),
+  },
 ];
 
 const regionCodeOptions = [
-  { value: 'north', label: $t('page.finance.commissionRule.dimension.region.north') },
-  { value: 'east', label: $t('page.finance.commissionRule.dimension.region.east') },
-  { value: 'south', label: $t('page.finance.commissionRule.dimension.region.south') },
-  { value: 'west', label: $t('page.finance.commissionRule.dimension.region.west') },
-  { value: 'central', label: $t('page.finance.commissionRule.dimension.region.central') },
+  {
+    value: 'north',
+    label: $t('page.finance.commissionRule.dimension.region.north'),
+  },
+  {
+    value: 'east',
+    label: $t('page.finance.commissionRule.dimension.region.east'),
+  },
+  {
+    value: 'south',
+    label: $t('page.finance.commissionRule.dimension.region.south'),
+  },
+  {
+    value: 'west',
+    label: $t('page.finance.commissionRule.dimension.region.west'),
+  },
+  {
+    value: 'central',
+    label: $t('page.finance.commissionRule.dimension.region.central'),
+  },
 ];
 
 const customerTypeOptions = [
-  { value: 'vip', label: $t('page.finance.commissionRule.dimension.customerType.vip') },
-  { value: 'strategy', label: $t('page.finance.commissionRule.dimension.customerType.strategy') },
-  { value: 'normal', label: $t('page.finance.commissionRule.dimension.customerType.normal') },
-  { value: 'new', label: $t('page.finance.commissionRule.dimension.customerType.new') },
+  {
+    value: 'vip',
+    label: $t('page.finance.commissionRule.dimension.customerType.vip'),
+  },
+  {
+    value: 'strategy',
+    label: $t('page.finance.commissionRule.dimension.customerType.strategy'),
+  },
+  {
+    value: 'normal',
+    label: $t('page.finance.commissionRule.dimension.customerType.normal'),
+  },
+  {
+    value: 'new',
+    label: $t('page.finance.commissionRule.dimension.customerType.new'),
+  },
 ];
 
 // ===== 表单数据 =====
@@ -229,8 +320,8 @@ async function loadDeptTree() {
     const res = await getDeptTreeApi();
     const data = res?.data || [];
     deptTreeData.value = _convertDeptTreeValues(data);
-  } catch (e) {
-    console.error('Failed to load dept tree:', e);
+  } catch (error) {
+    console.error('Failed to load dept tree:', error);
   }
 }
 
@@ -381,34 +472,103 @@ watch(
 );
 
 const tierColumns = computed(() => [
-  { title: $t('page.finance.commissionRule.drawer.tierMinAmount'), dataIndex: 'minAmount', width: 140, key: 'minAmount' },
-  { title: $t('page.finance.commissionRule.drawer.tierMaxAmount'), dataIndex: 'maxAmount', width: 140, key: 'maxAmount' },
-  { title: $t('page.finance.commissionRule.drawer.tierRate'), dataIndex: 'commissionRate', width: 140, key: 'commissionRate' },
-  { title: $t('page.finance.commissionRule.drawer.tierSort'), dataIndex: 'sort', width: 100, key: 'sort' },
+  {
+    title: $t('page.finance.commissionRule.drawer.tierMinAmount'),
+    dataIndex: 'minAmount',
+    width: 140,
+    key: 'minAmount',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.tierMaxAmount'),
+    dataIndex: 'maxAmount',
+    width: 140,
+    key: 'maxAmount',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.tierRate'),
+    dataIndex: 'commissionRate',
+    width: 140,
+    key: 'commissionRate',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.tierSort'),
+    dataIndex: 'sort',
+    width: 100,
+    key: 'sort',
+  },
   { title: $t('page.finance.common.action'), key: 'action', width: 80 },
 ]);
 
 const memberColumns = computed(() => [
-  { title: $t('page.finance.commissionRule.drawer.memberType'), dataIndex: 'memberType', width: 110, key: 'memberType' },
-  { title: $t('page.finance.commissionRule.drawer.memberName'), dataIndex: 'memberName', width: 120, key: 'memberName' },
-  { title: $t('page.finance.commissionRule.drawer.distributionType'), dataIndex: 'distributionType', width: 100, key: 'distributionType' },
-  { title: $t('page.finance.commissionRule.drawer.fixedRate'), dataIndex: 'fixedRate', width: 100, key: 'fixedRate' },
-  { title: $t('page.finance.commissionRule.drawer.roleName'), dataIndex: 'roleName', width: 120, key: 'roleName' },
-  { title: $t('page.finance.commissionRule.drawer.defaultRatio'), dataIndex: 'defaultRatio', width: 100, key: 'defaultRatio' },
-  { title: $t('page.finance.commissionRule.drawer.required'), dataIndex: 'required', width: 70, key: 'required' },
-  { title: $t('page.finance.commissionRule.drawer.tierSort'), dataIndex: 'sort', width: 70, key: 'sort' },
+  {
+    title: $t('page.finance.commissionRule.drawer.memberType'),
+    dataIndex: 'memberType',
+    width: 110,
+    key: 'memberType',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.memberName'),
+    dataIndex: 'memberName',
+    width: 120,
+    key: 'memberName',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.distributionType'),
+    dataIndex: 'distributionType',
+    width: 100,
+    key: 'distributionType',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.fixedRate'),
+    dataIndex: 'fixedRate',
+    width: 100,
+    key: 'fixedRate',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.roleName'),
+    dataIndex: 'roleName',
+    width: 120,
+    key: 'roleName',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.defaultRatio'),
+    dataIndex: 'defaultRatio',
+    width: 100,
+    key: 'defaultRatio',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.required'),
+    dataIndex: 'required',
+    width: 70,
+    key: 'required',
+  },
+  {
+    title: $t('page.finance.commissionRule.drawer.tierSort'),
+    dataIndex: 'sort',
+    width: 70,
+    key: 'sort',
+  },
   { title: $t('page.finance.common.action'), key: 'action', width: 70 },
 ]);
 
 const memberTypeOptions = [
   { value: 1, label: $t('page.finance.commissionRule.memberType.salesman') },
-  { value: 2, label: $t('page.finance.commissionRule.memberType.directManager') },
-  { value: 3, label: $t('page.finance.commissionRule.memberType.deptDirector') },
+  {
+    value: 2,
+    label: $t('page.finance.commissionRule.memberType.directManager'),
+  },
+  {
+    value: 3,
+    label: $t('page.finance.commissionRule.memberType.deptDirector'),
+  },
   { value: 4, label: $t('page.finance.commissionRule.memberType.other') },
 ];
 
 const distributionTypeOptions = [
-  { value: 1, label: $t('page.finance.commissionRule.distributionType.fixedRate') },
+  {
+    value: 1,
+    label: $t('page.finance.commissionRule.distributionType.fixedRate'),
+  },
 ];
 
 // 折叠面板默认不展开
@@ -443,10 +603,14 @@ async function handleSubmit() {
       ...(props.data?.id ? { id: props.data.id } : {}),
     };
     await saveCommissionRuleApi(payload);
-    message.success(isEdit.value ? $t('page.finance.commissionRule.drawer.updateSuccess') : $t('page.finance.commissionRule.drawer.createSuccess'));
+    message.success(
+      isEdit.value
+        ? $t('page.finance.commissionRule.drawer.updateSuccess')
+        : $t('page.finance.commissionRule.drawer.createSuccess'),
+    );
     emit('close', true);
-  } catch (e: any) {
-    message.error(e?.message || $t('page.finance.common.failed'));
+  } catch (error: any) {
+    message.error(error?.message || $t('page.finance.common.failed'));
   } finally {
     loading.value = false;
   }
@@ -460,7 +624,11 @@ function handleClose() {
 <template>
   <Drawer
     :open="visible"
-    :title="isEdit ? $t('page.finance.commissionRule.drawer.titleEdit') : $t('page.finance.commissionRule.drawer.titleCreate')"
+    :title="
+      isEdit
+        ? $t('page.finance.commissionRule.drawer.titleEdit')
+        : $t('page.finance.commissionRule.drawer.titleCreate')
+    "
     :width="960"
     :mask-closable="false"
     :destroy-on-close="true"
@@ -473,16 +641,25 @@ function handleClose() {
       :wrapper-col="{ span: 18 }"
     >
       <!-- ===== 第一组：基本信息 ===== -->
-      <div class="section-title">{{ $t('page.finance.commissionRule.drawer.baseInfo') }}</div>
+      <div class="section-title">
+        {{ $t('page.finance.commissionRule.drawer.baseInfo') }}
+      </div>
 
       <FormItem
         name="ruleName"
         :label="$t('page.finance.commissionRule.drawer.ruleName')"
-        :rules="[{ required: true, message: $t('page.finance.commissionRule.drawer.ruleNameRequired') }]"
+        :rules="[
+          {
+            required: true,
+            message: $t('page.finance.commissionRule.drawer.ruleNameRequired'),
+          },
+        ]"
       >
         <Input
           v-model:value="formData.ruleName"
-          :placeholder="$t('page.finance.commissionRule.drawer.ruleNamePlaceholder')"
+          :placeholder="
+            $t('page.finance.commissionRule.drawer.ruleNamePlaceholder')
+          "
           allow-clear
         />
       </FormItem>
@@ -518,14 +695,21 @@ function handleClose() {
         />
       </FormItem>
 
-      <FormItem name="applyScope" :label="$t('page.finance.commissionRule.drawer.applyScope')">
+      <FormItem
+        name="applyScope"
+        :label="$t('page.finance.commissionRule.drawer.applyScope')"
+      >
         <Select
           v-model:value="formData.applyScope"
           :options="applyScopeOptions"
         />
       </FormItem>
 
-      <FormItem v-if="formData.applyScope === 1" name="departmentId" :label="$t('page.finance.commissionRule.drawer.department')">
+      <FormItem
+        v-if="formData.applyScope === 1"
+        name="departmentId"
+        :label="$t('page.finance.commissionRule.drawer.department')"
+      >
         <TreeSelect
           v-model:value="formData.departmentId"
           :tree-data="deptTreeData"
@@ -537,7 +721,11 @@ function handleClose() {
         />
       </FormItem>
 
-      <FormItem v-if="formData.applyScope === 3" name="postId" :label="$t('page.finance.commissionRule.drawer.post')">
+      <FormItem
+        v-if="formData.applyScope === 3"
+        name="postId"
+        :label="$t('page.finance.commissionRule.drawer.post')"
+      >
         <InputNumber
           v-model:value="formData.postId"
           style="width: 100%"
@@ -547,7 +735,9 @@ function handleClose() {
 
       <!-- ===== 第二组：计算方式（动态显示）===== -->
       <template v-if="showBonusConfig">
-        <div class="section-title">{{ $t('page.finance.commissionRule.category.teamBonus') }}</div>
+        <div class="section-title">
+          {{ $t('page.finance.commissionRule.category.teamBonus') }}
+        </div>
         <FormItem :label="$t('page.finance.commissionRule.field.bonusTarget')">
           <InputNumber
             v-model:value="formData.bonusTarget"
@@ -557,19 +747,25 @@ function handleClose() {
             :placeholder="$t('page.finance.commissionRule.field.bonusTarget')"
           />
         </FormItem>
-        <FormItem :label="$t('page.finance.commissionRule.field.bonusFixedAmount')">
+        <FormItem
+          :label="$t('page.finance.commissionRule.field.bonusFixedAmount')"
+        >
           <InputNumber
             v-model:value="formData.bonusFixedAmount"
             :min="0"
             :precision="2"
             style="width: 100%"
-            :placeholder="$t('page.finance.commissionRule.field.bonusFixedAmount')"
+            :placeholder="
+              $t('page.finance.commissionRule.field.bonusFixedAmount')
+            "
           />
         </FormItem>
       </template>
 
       <template v-if="showPoolConfig">
-        <div class="section-title">{{ $t('page.finance.commissionRule.category.poolFund') }}</div>
+        <div class="section-title">
+          {{ $t('page.finance.commissionRule.category.poolFund') }}
+        </div>
         <FormItem :label="$t('page.finance.commissionRule.field.pool')">
           <Select
             v-model:value="formData.poolId"
@@ -581,7 +777,9 @@ function handleClose() {
       </template>
 
       <template v-if="showReallocationHint">
-        <div class="section-title">{{ $t('page.finance.commissionRule.category.reallocation') }}</div>
+        <div class="section-title">
+          {{ $t('page.finance.commissionRule.category.reallocation') }}
+        </div>
         <FormItem :wrapper-col="{ span: 24 }">
           <div class="reallocation-hint">
             {{ $t('page.finance.commissionRule.preview.reallocationDesc') }}
@@ -590,42 +788,62 @@ function handleClose() {
       </template>
 
       <!-- ===== 第三组：方案预览 ===== -->
-      <div class="section-title">{{ $t('page.finance.commissionRule.preview.title') }}</div>
+      <div class="section-title">
+        {{ $t('page.finance.commissionRule.preview.title') }}
+      </div>
       <FormItem :wrapper-col="{ span: 24 }">
         <CommissionSchemePreview :form="formData" :tiers="tiers" />
       </FormItem>
 
       <!-- ===== 第四组：筛选条件（折叠）===== -->
       <Collapse v-model:active-key="activeCollapse" :bordered="false" ghost>
-        <CollapsePanel key="filter" :header="$t('page.finance.commissionRule.drawer.filterConditions')">
-          <FormItem name="calcBaseField" :label="$t('page.finance.commissionRule.field.calcBaseField')">
+        <CollapsePanel
+          key="filter"
+          :header="$t('page.finance.commissionRule.drawer.filterConditions')"
+        >
+          <FormItem
+            name="calcBaseField"
+            :label="$t('page.finance.commissionRule.field.calcBaseField')"
+          >
             <Select
               v-model:value="formData.calcBaseField"
               :options="calcBaseFieldOptions"
             />
           </FormItem>
-          <FormItem name="productLine" :label="$t('page.finance.commissionRule.drawer.productLine')">
+          <FormItem
+            name="productLine"
+            :label="$t('page.finance.commissionRule.drawer.productLine')"
+          >
             <Select
               v-model:value="formData.productLine"
               :options="productLineOptions"
               allow-clear
             />
           </FormItem>
-          <FormItem name="regionCode" :label="$t('page.finance.commissionRule.drawer.region')">
+          <FormItem
+            name="regionCode"
+            :label="$t('page.finance.commissionRule.drawer.region')"
+          >
             <Select
               v-model:value="formData.regionCode"
               :options="regionCodeOptions"
               allow-clear
             />
           </FormItem>
-          <FormItem name="customerType" :label="$t('page.finance.commissionRule.drawer.customerType')">
+          <FormItem
+            name="customerType"
+            :label="$t('page.finance.commissionRule.drawer.customerType')"
+          >
             <Select
               v-model:value="formData.customerType"
               :options="customerTypeOptions"
               allow-clear
             />
           </FormItem>
-          <FormItem name="customerCategory" :label="$t('page.finance.commissionRule.field.customerCategory')">
+          <FormItem
+            name="customerCategory"
+            :label="$t('page.finance.commissionRule.field.customerCategory')"
+          >
             <Select
               v-model:value="formData.customerCategory"
               :options="customerCategoryOptions"
@@ -634,44 +852,68 @@ function handleClose() {
         </CollapsePanel>
 
         <!-- ===== 第五组：限制规则（折叠）===== -->
-        <CollapsePanel key="limit" :header="$t('page.finance.commissionRule.limit.title')">
-          <FormItem :label="$t('page.finance.commissionRule.field.commissionCap')">
+        <CollapsePanel
+          key="limit"
+          :header="$t('page.finance.commissionRule.limit.title')"
+        >
+          <FormItem
+            :label="$t('page.finance.commissionRule.field.commissionCap')"
+          >
             <InputNumber
               v-model:value="formData.commissionCap"
               :min="0"
               :precision="2"
               style="width: 100%"
-              :placeholder="$t('page.finance.commissionRule.limit.capPlaceholder')"
+              :placeholder="
+                $t('page.finance.commissionRule.limit.capPlaceholder')
+              "
             />
           </FormItem>
-          <FormItem :label="$t('page.finance.commissionRule.field.commissionFloor')">
+          <FormItem
+            :label="$t('page.finance.commissionRule.field.commissionFloor')"
+          >
             <InputNumber
               v-model:value="formData.commissionFloor"
               :min="0"
               :precision="2"
               style="width: 100%"
-              :placeholder="$t('page.finance.commissionRule.limit.floorPlaceholder')"
+              :placeholder="
+                $t('page.finance.commissionRule.limit.floorPlaceholder')
+              "
             />
           </FormItem>
-          <FormItem :label="$t('page.finance.commissionRule.field.deferMonths')">
+          <FormItem
+            :label="$t('page.finance.commissionRule.field.deferMonths')"
+          >
             <InputNumber
               v-model:value="formData.deferMonths"
               :min="0"
               :max="36"
               style="width: 100%"
-              :placeholder="$t('page.finance.commissionRule.limit.deferPlaceholder')"
+              :placeholder="
+                $t('page.finance.commissionRule.limit.deferPlaceholder')
+              "
             />
           </FormItem>
         </CollapsePanel>
       </Collapse>
 
       <!-- ===== 第六组：生效设置 ===== -->
-      <div class="section-title">{{ $t('page.finance.commissionRule.drawer.effectiveSettings') }}</div>
+      <div class="section-title">
+        {{ $t('page.finance.commissionRule.drawer.effectiveSettings') }}
+      </div>
 
       <FormItem
         name="calcBaseType"
         :label="$t('page.finance.commissionRule.drawer.calcBaseType')"
-        :rules="[{ required: true, message: $t('page.finance.commissionRule.drawer.calcBaseTypeRequired') }]"
+        :rules="[
+          {
+            required: true,
+            message: $t(
+              'page.finance.commissionRule.drawer.calcBaseTypeRequired',
+            ),
+          },
+        ]"
       >
         <Select
           v-model:value="formData.calcBaseType"
@@ -682,7 +924,14 @@ function handleClose() {
       <FormItem
         name="triggerCondition"
         :label="$t('page.finance.commissionRule.drawer.triggerCondition')"
-        :rules="[{ required: true, message: $t('page.finance.commissionRule.drawer.triggerConditionRequired') }]"
+        :rules="[
+          {
+            required: true,
+            message: $t(
+              'page.finance.commissionRule.drawer.triggerConditionRequired',
+            ),
+          },
+        ]"
       >
         <Select
           v-model:value="formData.triggerCondition"
@@ -691,7 +940,10 @@ function handleClose() {
         />
       </FormItem>
 
-      <FormItem name="priority" :label="$t('page.finance.commissionRule.drawer.priority')">
+      <FormItem
+        name="priority"
+        :label="$t('page.finance.commissionRule.drawer.priority')"
+      >
         <InputNumber
           v-model:value="formData.priority"
           :min="0"
@@ -699,7 +951,10 @@ function handleClose() {
         />
       </FormItem>
 
-      <FormItem name="effectiveDate" :label="$t('page.finance.commissionRule.drawer.effectiveDate')">
+      <FormItem
+        name="effectiveDate"
+        :label="$t('page.finance.commissionRule.drawer.effectiveDate')"
+      >
         <DatePicker
           v-model:value="formData.effectiveDate"
           value-format="YYYY-MM-DD"
@@ -707,7 +962,10 @@ function handleClose() {
         />
       </FormItem>
 
-      <FormItem name="expiryDate" :label="$t('page.finance.commissionRule.drawer.expiryDate')">
+      <FormItem
+        name="expiryDate"
+        :label="$t('page.finance.commissionRule.drawer.expiryDate')"
+      >
         <DatePicker
           v-model:value="formData.expiryDate"
           value-format="YYYY-MM-DD"
@@ -715,15 +973,25 @@ function handleClose() {
         />
       </FormItem>
 
-      <FormItem name="isDefault" :label="$t('page.finance.commissionRule.drawer.isDefault')">
+      <FormItem
+        name="isDefault"
+        :label="$t('page.finance.commissionRule.drawer.isDefault')"
+      >
         <Switch v-model:checked="formData.isDefault" />
       </FormItem>
 
       <FormItem name="enabled" :label="$t('page.finance.common.status')">
-        <Switch v-model:checked="formData.enabled" :checked-children="$t('page.finance.common.enabled')" :un-checked-children="$t('page.finance.common.disabled')" />
+        <Switch
+          v-model:checked="formData.enabled"
+          :checked-children="$t('page.finance.common.enabled')"
+          :un-checked-children="$t('page.finance.common.disabled')"
+        />
       </FormItem>
 
-      <FormItem name="description" :label="$t('page.finance.commissionRule.drawer.description')">
+      <FormItem
+        name="description"
+        :label="$t('page.finance.commissionRule.drawer.description')"
+      >
         <Input.TextArea
           v-model:value="formData.description"
           :rows="3"
@@ -733,7 +1001,9 @@ function handleClose() {
 
       <!-- ===== 阶梯配置（仅 category=1,6）===== -->
       <template v-if="showTierConfig">
-        <div class="section-title">{{ $t('page.finance.commissionRule.drawer.tierConfig') }}</div>
+        <div class="section-title">
+          {{ $t('page.finance.commissionRule.drawer.tierConfig') }}
+        </div>
         <FormItem :wrapper-col="{ span: 24 }">
           <div class="mb-2">
             <Button type="dashed" size="small" @click="addTier">
@@ -750,19 +1020,45 @@ function handleClose() {
           >
             <template #bodyCell="{ column, index }">
               <template v-if="column.key === 'minAmount'">
-                <InputNumber v-model:value="tiers[index].minAmount" :min="0" :precision="2" style="width: 100%" />
+                <InputNumber
+                  v-model:value="tiers[index].minAmount"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'maxAmount'">
-                <InputNumber v-model:value="tiers[index].maxAmount" :min="0" :precision="2" style="width: 100%" />
+                <InputNumber
+                  v-model:value="tiers[index].maxAmount"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'commissionRate'">
-                <InputNumber v-model:value="tiers[index].commissionRate" :min="0" :max="1" :step="0.0001" :precision="4" style="width: 100%" />
+                <InputNumber
+                  v-model:value="tiers[index].commissionRate"
+                  :min="0"
+                  :max="1"
+                  :step="0.0001"
+                  :precision="4"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'sort'">
-                <InputNumber v-model:value="tiers[index].sort" :min="0" style="width: 100%" />
+                <InputNumber
+                  v-model:value="tiers[index].sort"
+                  :min="0"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'action'">
-                <Button type="link" danger size="small" @click="removeTier(index)">
+                <Button
+                  type="link"
+                  danger
+                  size="small"
+                  @click="removeTier(index)"
+                >
                   {{ $t('page.finance.common.delete') }}
                 </Button>
               </template>
@@ -773,7 +1069,9 @@ function handleClose() {
 
       <!-- ===== 成员配置（保留，仅 ruleType=2）===== -->
       <template v-if="formData.ruleType === 2">
-        <div class="section-title">{{ $t('page.finance.commissionRule.drawer.memberConfig') }}</div>
+        <div class="section-title">
+          {{ $t('page.finance.commissionRule.drawer.memberConfig') }}
+        </div>
         <FormItem :wrapper-col="{ span: 24 }">
           <div class="mb-2">
             <Button type="dashed" size="small" @click="addMember">
@@ -790,31 +1088,75 @@ function handleClose() {
           >
             <template #bodyCell="{ column, index }">
               <template v-if="column.key === 'memberType'">
-                <Select v-model:value="members[index].memberType" :options="memberTypeOptions" style="width: 100%" />
+                <Select
+                  v-model:value="members[index].memberType"
+                  :options="memberTypeOptions"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'memberName'">
-                <Input v-model:value="members[index].memberName" style="width: 100%" />
+                <Input
+                  v-model:value="members[index].memberName"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'distributionType'">
-                <Select v-model:value="members[index].distributionType" :options="distributionTypeOptions" style="width: 100%" />
+                <Select
+                  v-model:value="members[index].distributionType"
+                  :options="distributionTypeOptions"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'fixedRate'">
-                <InputNumber v-model:value="members[index].fixedRate" :min="0" :max="1" :step="0.0001" :precision="4" style="width: 100%" />
+                <InputNumber
+                  v-model:value="members[index].fixedRate"
+                  :min="0"
+                  :max="1"
+                  :step="0.0001"
+                  :precision="4"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'roleName'">
-                <Input v-model:value="members[index].roleName" style="width: 100%" />
+                <Input
+                  v-model:value="members[index].roleName"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'defaultRatio'">
-                <InputNumber v-model:value="members[index].defaultRatio" :min="0" :max="1" :step="0.0001" :precision="4" style="width: 100%" />
+                <InputNumber
+                  v-model:value="members[index].defaultRatio"
+                  :min="0"
+                  :max="1"
+                  :step="0.0001"
+                  :precision="4"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'required'">
-                <Select v-model:value="members[index].required" :options="[{ value: 0, label: $t('page.finance.common.no') }, { value: 1, label: $t('page.finance.common.yes') }]" style="width: 100%" />
+                <Select
+                  v-model:value="members[index].required"
+                  :options="[
+                    { value: 0, label: $t('page.finance.common.no') },
+                    { value: 1, label: $t('page.finance.common.yes') },
+                  ]"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'sort'">
-                <InputNumber v-model:value="members[index].sort" :min="0" style="width: 100%" />
+                <InputNumber
+                  v-model:value="members[index].sort"
+                  :min="0"
+                  style="width: 100%"
+                />
               </template>
               <template v-else-if="column.key === 'action'">
-                <Button type="link" danger size="small" @click="removeMember(index)">
+                <Button
+                  type="link"
+                  danger
+                  size="small"
+                  @click="removeMember(index)"
+                >
                   {{ $t('page.finance.common.delete') }}
                 </Button>
               </template>
@@ -826,7 +1168,9 @@ function handleClose() {
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <Button @click="handleClose">{{ $t('page.finance.common.cancel') }}</Button>
+        <Button @click="handleClose">
+          {{ $t('page.finance.common.cancel') }}
+        </Button>
         <Button type="primary" :loading="loading" @click="handleSubmit">
           {{ $t('page.finance.common.save') }}
         </Button>
@@ -837,21 +1181,21 @@ function handleClose() {
 
 <style scoped>
 .section-title {
+  padding-left: 8px;
+  margin: 16px 0 12px;
   font-size: 14px;
   font-weight: 600;
   color: #1e293b;
-  margin: 16px 0 12px;
-  padding-left: 8px;
   border-left: 3px solid #1677ff;
 }
 
 .reallocation-hint {
   padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #6b21a8;
   background: #f3e8ff;
   border: 1px solid #d8b4fe;
   border-radius: 6px;
-  color: #6b21a8;
-  font-size: 13px;
-  line-height: 1.6;
 }
 </style>

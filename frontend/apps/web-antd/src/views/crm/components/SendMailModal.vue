@@ -3,7 +3,15 @@ import type { SelectProps } from 'ant-design-vue';
 
 import { computed, defineAsyncComponent, ref, watch } from 'vue';
 
-import { message, Modal, Select, Input, Form, FormItem, Tag } from 'ant-design-vue';
+import {
+  Form,
+  FormItem,
+  Input,
+  message,
+  Modal,
+  Select,
+  Tag,
+} from 'ant-design-vue';
 
 import {
   getCustomerContactsApi,
@@ -13,21 +21,21 @@ import {
   sendMailApi,
 } from '#/api';
 
-// 异步加载富文本编辑器
-const RichTextEditor = defineAsyncComponent(
-  () => import('#/components/RichTextEditor/index.vue'),
-);
-
 const props = defineProps<{
-  visible: boolean;
   customerId?: number;
   customerName?: string;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:visible', v: boolean): void;
   (e: 'success', id: number): void;
 }>();
+
+// 异步加载富文本编辑器
+const RichTextEditor = defineAsyncComponent(
+  () => import('#/components/RichTextEditor/index.vue'),
+);
 
 const loading = ref(false);
 const sending = ref(false);
@@ -88,19 +96,27 @@ async function loadEmailOptions() {
     if (Array.isArray(contactsRes)) {
       contacts = contactsRes;
     } else if (contactsRes && (contactsRes.current || contactsRes.history)) {
-      const current = Array.isArray(contactsRes.current) ? contactsRes.current : [];
-      const history = Array.isArray(contactsRes.history) ? contactsRes.history : [];
+      const current = Array.isArray(contactsRes.current)
+        ? contactsRes.current
+        : [];
+      const history = Array.isArray(contactsRes.history)
+        ? contactsRes.history
+        : [];
       const seenIds = new Set<unknown>();
       for (const c of current) {
         const key = c?.id;
-        if (key != null && seenIds.has(key)) continue;
-        if (key != null) seenIds.add(key);
+        if (key !== null && key !== undefined) {
+          if (seenIds.has(key)) continue;
+          seenIds.add(key);
+        }
         contacts.push(c);
       }
       for (const c of history) {
         const key = c?.id;
-        if (key != null && seenIds.has(key)) continue;
-        if (key != null) seenIds.add(key);
+        if (key !== null && key !== undefined) {
+          if (seenIds.has(key)) continue;
+          seenIds.add(key);
+        }
         contacts.push(c);
       }
     } else if (contactsRes && Array.isArray((contactsRes as any).items)) {
@@ -133,7 +149,7 @@ async function loadTemplateOptions() {
   templateLoading.value = true;
   try {
     const res: any = await getMailTemplateOptionsApi();
-    const list = Array.isArray(res) ? res : (res?.items || []);
+    const list = Array.isArray(res) ? res : res?.items || [];
     templateOptions.value = list.map((t: any) => ({
       label: t.name,
       value: t.id,
@@ -213,7 +229,7 @@ async function handleSend() {
     message.warning('请输入邮件主题');
     return;
   }
-  const bodyText = body.value?.replace(/<[^>]+>/g, '').trim() || '';
+  const bodyText = body.value?.replaceAll(/<[^>]+>/g, '').trim() || '';
   if (!bodyText) {
     message.warning('请输入邮件正文');
     return;
@@ -279,8 +295,9 @@ const selectProps: SelectProps = {
           :options="emailOptions"
           :loading="loading"
           placeholder="请选择收件人邮箱"
-          :filter-option="(input: string, option: any) =>
-            option.label.toLowerCase().includes(input.toLowerCase())
+          :filter-option="
+            (input: string, option: any) =>
+              option.label.toLowerCase().includes(input.toLowerCase())
           "
           :max-tag-count="10"
           style="width: 100%"
@@ -303,8 +320,9 @@ const selectProps: SelectProps = {
           placeholder="选择模板后自动填充主题和正文"
           allow-clear
           show-search
-          :filter-option="(input: string, option: any) =>
-            option.label.toLowerCase().includes(input.toLowerCase())
+          :filter-option="
+            (input: string, option: any) =>
+              option.label.toLowerCase().includes(input.toLowerCase())
           "
           style="width: 100%"
           @change="handleTemplateChange"

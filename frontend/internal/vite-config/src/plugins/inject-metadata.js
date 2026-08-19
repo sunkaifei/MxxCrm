@@ -4,6 +4,7 @@ import {
   getPackages,
   readPackageJSON,
 } from '@vben/node-utils';
+
 import { readWorkspaceManifest } from '@pnpm/workspace.read-manifest';
 function resolvePackageVersion(pkgsMeta, name, value, catalog) {
   if (value.includes('catalog:')) {

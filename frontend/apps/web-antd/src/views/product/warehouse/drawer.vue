@@ -1,12 +1,20 @@
 <script lang="ts" setup>
+import type { VbenFormSchema } from '@vben/common-ui';
+
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import type { VbenFormSchema } from '@vben/common-ui';
-import { $t } from '#/locales';
-import { createWarehouseApi, getWarehouseInfoApi, updateWarehouseApi, getAdminOptionsApi } from '#/api';
+
 import { message, Tooltip } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import {
+  createWarehouseApi,
+  getAdminOptionsApi,
+  getWarehouseInfoApi,
+  updateWarehouseApi,
+} from '#/api';
+import { $t } from '#/locales';
 
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
@@ -53,8 +61,8 @@ async function loadUserOptions() {
       label: u.label,
       value: Number(u.value),
     }));
-  } catch (e) {
-    console.error('[仓库] 加载用户列表失败:', e);
+  } catch (error) {
+    console.error('[仓库] 加载用户列表失败:', error);
   }
 }
 
@@ -86,7 +94,11 @@ const formSchema: VbenFormSchema[] = [
     fieldName: 'warehouseType',
     label: '仓库类型',
     defaultValue: 1,
-    componentProps: { placeholder: '请选择仓库类型', options: warehouseTypeOptions, allowClear: true },
+    componentProps: {
+      placeholder: '请选择仓库类型',
+      options: warehouseTypeOptions,
+      allowClear: true,
+    },
   },
   {
     component: 'Input',
@@ -98,7 +110,12 @@ const formSchema: VbenFormSchema[] = [
     component: 'InputNumber',
     fieldName: 'areaSqm',
     label: '仓库面积(㎡)',
-    componentProps: { placeholder: '0', min: 0, precision: 2, style: { width: '100%' } },
+    componentProps: {
+      placeholder: '0',
+      min: 0,
+      precision: 2,
+      style: { width: '100%' },
+    },
   },
   {
     component: 'Divider',
@@ -117,7 +134,8 @@ const formSchema: VbenFormSchema[] = [
       options: userOptions,
       allowClear: true,
       showSearch: true,
-      filterOption: (input: string, option: any) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+      filterOption: (input: string, option: any) =>
+        (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
     },
   },
   {
@@ -147,7 +165,11 @@ const formSchema: VbenFormSchema[] = [
     component: 'Textarea',
     fieldName: 'address',
     label: '仓库地址',
-    componentProps: { placeholder: '请输入详细地址', allowClear: true, rows: 2 },
+    componentProps: {
+      placeholder: '请输入详细地址',
+      allowClear: true,
+      rows: 2,
+    },
     formItemClass: 'col-span-2',
   },
   {
@@ -191,7 +213,11 @@ const formSchema: VbenFormSchema[] = [
     component: 'Textarea',
     fieldName: 'remark',
     label: '备注',
-    componentProps: { placeholder: '请输入备注信息', allowClear: true, rows: 2 },
+    componentProps: {
+      placeholder: '请输入备注信息',
+      allowClear: true,
+      rows: 2,
+    },
     formItemClass: 'col-span-2',
   },
 ];
@@ -245,7 +271,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
       isFullscreen.value = false;
-      drawerData.value = drawerApi.getData<{ create: boolean; row?: any }>() || { create: true };
+      drawerData.value = drawerApi.getData<{
+        create: boolean;
+        row?: any;
+      }>() || { create: true };
       mainFormApi.resetForm();
       confirmLoading.value = false;
       loadUserOptions();
@@ -261,7 +290,8 @@ async function loadDetail(id: number) {
     const resp = await getWarehouseInfoApi(id);
     const data = resp?.data ?? resp;
     if (!data) return;
-    const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+    const num = (v: any) =>
+      v === null || v === undefined ? undefined : Number(v);
 
     let logisticsArr: string[] | undefined;
     if (data.logisticsTypes) {
@@ -282,8 +312,8 @@ async function loadDetail(id: number) {
       isActive: data.isActive !== false,
       remark: data.remark,
     });
-  } catch (e) {
-    console.error('[仓库] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[仓库] 加载详情失败:', error);
   }
 }
 </script>
@@ -296,14 +326,38 @@ async function loadDetail(id: number) {
   >
     <template #extra>
       <Tooltip :title="isFullscreen ? '还原' : '最大化'">
-        <button type="button" class="warehouse-drawer__fs-btn" @click="toggleFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          type="button"
+          class="warehouse-drawer__fs-btn"
+          @click="toggleFullscreen"
+        >
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -336,23 +390,23 @@ async function loadDetail(id: number) {
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .warehouse-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .warehouse-drawer__body {
+  height: calc(100vh - 150px);
   padding: 0 8px;
   overflow-y: auto;
-  height: calc(100vh - 150px);
 }
 
 .warehouse-drawer__body .ant-divider {

@@ -1,28 +1,37 @@
 <script lang="ts" setup>
-import { h, ref, reactive } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
-import { LucideEye, LucidePlus, LucideEdit, LucideTrash2 } from '@vben/icons';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, reactive, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
+import { LucideEdit, LucideEye, LucidePlus, LucideTrash2 } from '@vben/icons';
+
 import {
   Button,
-  Tag,
-  Modal,
-  message,
+  DatePicker,
+  Descriptions,
   Form,
   Input,
+  message,
+  Modal,
   Select,
-  DatePicker,
   Space,
-  Descriptions,
+  Tag,
 } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { promotionApi } from '#/api';
 
 const modalVisible = ref(false);
 const detailModalVisible = ref(false);
 const detailData = ref<any>(null);
 const isEdit = ref(false);
+
+// 活动规则输入提示示例
+const rulesPlaceholder =
+  '例如: {"steps":[{"full":200,"minus":20},{"full":500,"minus":60}]}';
 
 const formData = reactive({
   id: undefined,
@@ -223,8 +232,8 @@ async function handleSave() {
     }
     modalVisible.value = false;
     gridApi.query();
-  } catch (e) {
-    console.error('Save promotion error:', e);
+  } catch (error) {
+    console.error('Save promotion error:', error);
   }
 }
 
@@ -237,8 +246,8 @@ async function handleDelete(row: any) {
         await promotionApi.delete({ id: row.id });
         message.success('删除成功');
         gridApi.query();
-      } catch (e) {
-        console.error('Delete promotion error:', e);
+      } catch (error) {
+        console.error('Delete promotion error:', error);
       }
     },
   });
@@ -348,7 +357,7 @@ async function viewDetail(row: any) {
           <Input.TextArea
             v-model="formData.rules"
             :rows="4"
-            placeholder='例如: {"steps":[{"full":200,"minus":20},{"full":500,"minus":60}]}'
+            :placeholder="rulesPlaceholder"
           />
         </Form.Item>
       </Form>
@@ -356,26 +365,26 @@ async function viewDetail(row: any) {
 
     <Modal v-model:open="detailModalVisible" title="活动详情" width="700">
       <Descriptions :column="2" bordered>
-        <Descriptions.Item label="活动标题">{{
-          detailData?.title || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="状态">
-          <Tag :color="getStatusColor(detailData?.status)">{{
-            getStatusText(detailData?.status)
-          }}</Tag>
+        <Descriptions.Item label="活动标题">
+          {{ detailData?.title || '-' }}
         </Descriptions.Item>
-        <Descriptions.Item label="活动类型">{{
-          getTypeText(detailData?.type)
-        }}</Descriptions.Item>
-        <Descriptions.Item label="所属店铺">{{
-          detailData?.shopName || '平台活动'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="开始时间">{{
-          detailData?.startTime || '-'
-        }}</Descriptions.Item>
-        <Descriptions.Item label="结束时间">{{
-          detailData?.endTime || '-'
-        }}</Descriptions.Item>
+        <Descriptions.Item label="状态">
+          <Tag :color="getStatusColor(detailData?.status)">
+            {{ getStatusText(detailData?.status) }}
+          </Tag>
+        </Descriptions.Item>
+        <Descriptions.Item label="活动类型">
+          {{ getTypeText(detailData?.type) }}
+        </Descriptions.Item>
+        <Descriptions.Item label="所属店铺">
+          {{ detailData?.shopName || '平台活动' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="开始时间">
+          {{ detailData?.startTime || '-' }}
+        </Descriptions.Item>
+        <Descriptions.Item label="结束时间">
+          {{ detailData?.endTime || '-' }}
+        </Descriptions.Item>
         <Descriptions.Item label="活动规则" :span="2">
           <pre class="bg-gray-50 p-4 rounded text-gray-700 text-sm">{{
             JSON.stringify(detailData?.rules, null, 2)

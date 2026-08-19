@@ -4,7 +4,6 @@ import type { EchartsUIType } from '@vben/plugins/echarts';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
-
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import {
@@ -14,12 +13,12 @@ import {
   Empty,
   Input,
   InputNumber,
+  message,
   Row,
   Select,
   Spin,
   Statistic,
   Table,
-  message,
 } from 'ant-design-vue';
 import { RefreshCw } from 'lucide-vue-next';
 
@@ -62,9 +61,9 @@ async function loadSummary() {
       departmentName: queryParams.departmentName,
       employeeName: queryParams.employeeName,
     });
-  } catch (e: any) {
+  } catch (error: any) {
     message.error(
-      e?.message || $t('page.finance.salaryAnalysis.message.loadFailed'),
+      error?.message || $t('page.finance.salaryAnalysis.message.loadFailed'),
     );
   } finally {
     summaryLoading.value = false;
@@ -134,8 +133,9 @@ const metricLabelMap = computed<Record<string, string>>(() => ({
   totalBase: $t('page.finance.salaryAnalysis.metric.totalBase'),
   totalCommission: $t('page.finance.salaryAnalysis.metric.totalCommission'),
   totalPerformance: $t('page.finance.salaryAnalysis.metric.totalPerformance'),
-  totalTeamCommission:
-    $t('page.finance.salaryAnalysis.metric.totalTeamCommission'),
+  totalTeamCommission: $t(
+    'page.finance.salaryAnalysis.metric.totalTeamCommission',
+  ),
   totalTax: $t('page.finance.salaryAnalysis.metric.totalTax'),
   avgNet: $t('page.finance.salaryAnalysis.metric.avgNet'),
 }));
@@ -152,9 +152,9 @@ async function loadMonthlyChart() {
       departmentName: queryParams.departmentName,
       employeeName: queryParams.employeeName,
     });
-  } catch (e: any) {
+  } catch (error: any) {
     message.error(
-      e?.message || $t('page.finance.salaryAnalysis.message.loadFailed'),
+      error?.message || $t('page.finance.salaryAnalysis.message.loadFailed'),
     );
     monthlyLoading.value = false;
     return;
@@ -221,9 +221,9 @@ async function loadDeptChart() {
       departmentName: queryParams.departmentName,
       employeeName: queryParams.employeeName,
     });
-  } catch (e: any) {
+  } catch (error: any) {
     message.error(
-      e?.message || $t('page.finance.salaryAnalysis.message.loadFailed'),
+      error?.message || $t('page.finance.salaryAnalysis.message.loadFailed'),
     );
     deptLoading.value = false;
     return;
@@ -290,7 +290,7 @@ const empTopN = ref(10);
 
 async function loadEmpChart() {
   empLoading.value = true;
-  let list: any[] = [];
+  let list: any[];
   try {
     list = await getSalaryTrendEmployeeApi({
       yearStart: queryParams.yearStart,
@@ -301,9 +301,9 @@ async function loadEmpChart() {
       employeeName: queryParams.employeeName,
       limit: empTopN.value,
     });
-  } catch (e: any) {
+  } catch (error: any) {
     message.error(
-      e?.message || $t('page.finance.salaryAnalysis.message.loadFailed'),
+      error?.message || $t('page.finance.salaryAnalysis.message.loadFailed'),
     );
     empLoading.value = false;
     return;
@@ -312,7 +312,7 @@ async function loadEmpChart() {
   }
 
   // 横向柱状图（倒序排列让最大的在最上方）
-  const reversed = [...list].reverse();
+  const reversed = list.toReversed();
   const yData = reversed.map((d: any) => d.employeeName);
   renderEmpChart({
     grid: {
@@ -571,7 +571,9 @@ onMounted(() => {
           <Select
             v-model:value="queryParams.monthStart"
             :options="monthOptions"
-            :placeholder="$t('page.finance.salaryAnalysis.filter.monthPlaceholder')"
+            :placeholder="
+              $t('page.finance.salaryAnalysis.filter.monthPlaceholder')
+            "
             allow-clear
             style="width: 110px"
           />
@@ -583,7 +585,9 @@ onMounted(() => {
           <Select
             v-model:value="queryParams.monthEnd"
             :options="monthOptions"
-            :placeholder="$t('page.finance.salaryAnalysis.filter.monthPlaceholder')"
+            :placeholder="
+              $t('page.finance.salaryAnalysis.filter.monthPlaceholder')
+            "
             allow-clear
             style="width: 110px"
           />
@@ -594,7 +598,9 @@ onMounted(() => {
           }}</span>
           <Input
             v-model:value="queryParams.departmentName"
-            :placeholder="$t('page.finance.salaryAnalysis.filter.departmentPlaceholder')"
+            :placeholder="
+              $t('page.finance.salaryAnalysis.filter.departmentPlaceholder')
+            "
             allow-clear
             style="width: 160px"
           />
@@ -605,16 +611,14 @@ onMounted(() => {
           }}</span>
           <Input
             v-model:value="queryParams.employeeName"
-            :placeholder="$t('page.finance.salaryAnalysis.filter.employeePlaceholder')"
+            :placeholder="
+              $t('page.finance.salaryAnalysis.filter.employeePlaceholder')
+            "
             allow-clear
             style="width: 160px"
           />
         </div>
-        <Button
-          type="primary"
-          :loading="allLoading"
-          @click="handleRefresh"
-        >
+        <Button type="primary" :loading="allLoading" @click="handleRefresh">
           <template #icon>
             <RefreshCw class="size-4" />
           </template>
@@ -703,12 +707,14 @@ onMounted(() => {
           :options="metricOptions"
           :max-tag-count="3"
           style="min-width: 240px"
-          :placeholder="$t('page.finance.salaryAnalysis.chart.metricPlaceholder')"
+          :placeholder="
+            $t('page.finance.salaryAnalysis.chart.metricPlaceholder')
+          "
         />
       </template>
       <Spin :spinning="monthlyLoading">
         <Empty
-          v-if="!monthlyLoading && !selectedMetrics.length"
+          v-if="!monthlyLoading && selectedMetrics.length === 0"
           :description="$t('page.finance.salaryAnalysis.chart.empty')"
         />
         <EchartsUI ref="monthlyChartRef" style="height: 360px" />

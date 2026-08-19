@@ -1,179 +1,182 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { $t } from '#/locales';
+
+import { h, ref } from 'vue';
+
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
-import { Button, Popconfirm, Tag, Select, Switch } from 'ant-design-vue';
-import TagDrawer from './drawer.vue';
-import { deleteTagApi, getTagListApi, batchDeleteTagApi } from '#/api';
+import { formatDateTime } from '@vben/utils';
+
+import { Button, Popconfirm, Select, Switch, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { batchDeleteTagApi, deleteTagApi, getTagListApi } from '#/api';
 import { updateTagStatusApi } from '#/api/core/system/tag';
 import { getTagGroupListApi } from '#/api/core/system/tag_group';
-import { formatDateTime } from '@vben/utils';
+import { $t } from '#/locales';
+
+import TagDrawer from './drawer.vue';
 const groupOptions = ref<any[]>([{ label: $t('ui.all'), value: '' }]);
 const selectedGroupId = ref('');
 async function loadGroups() {
- const res = await getTagGroupListApi();
- const list = Array.isArray(res) ? res : (res?.data || []);
- groupOptions.value = [
- { label: $t('ui.all'), value: '' },
- ...list.map((item: any) => ({
- label: item.groupName,
- value: item.id,
- })),
- ];
+  const res = await getTagGroupListApi();
+  const list = Array.isArray(res) ? res : res?.data || [];
+  groupOptions.value = [
+    { label: $t('ui.all'), value: '' },
+    ...list.map((item: any) => ({
+      label: item.groupName,
+      value: item.id,
+    })),
+  ];
 }
 loadGroups();
 const formOptions = {
- collapsed: false,
- showCollapseButton: false,
- submitOnEnter: true,
- schema: [
- {
- component: 'Input',
- fieldName: 'tagName',
- label: $t('page.system.tag.name'),
- componentProps: {
- placeholder: $t('ui.placeholder.input'),
- allowClear: true,
- },
- },
- ],
+  collapsed: false,
+  showCollapseButton: false,
+  submitOnEnter: true,
+  schema: [
+    {
+      component: 'Input',
+      fieldName: 'tagName',
+      label: $t('page.system.tag.name'),
+      componentProps: {
+        placeholder: $t('ui.placeholder.input'),
+        allowClear: true,
+      },
+    },
+  ],
 };
 const gridOptions: VxeGridProps = {
- toolbarConfig: {
- custom: true,
- refresh: true,
- zoom: true,
- },
- height: 'auto',
- pagerConfig: {},
- cellConfig: {},
- stripe: true,
- proxyConfig: {
- autoLoad: true,
- ajax: {
- query: async ({ page }, formValues) => {
- return await getTagListApi({
- page: page.currentPage,
- pageSize: page.pageSize,
- tagName: formValues.tagName,
- groupId: selectedGroupId.value || undefined,
- });
- },
- },
- },
- columns: [
- {
- title: $t('ui.table.seq'),
- type: 'seq',
- width: 70,
- },
- {
- title: $t('page.system.tag.group'),
- field: 'groupName',
- width: 120,
- slots: { default: 'groupName' },
- },
- {
- title: $t('page.system.tag.name'),
-  field: 'tagName',
-  width: 100,
-  slots: { default: 'tagName' },
- },
- {
- title: $t('page.system.tag.color'),
- field: 'tagColor',
- width: 100,
- slots: { default: 'tagColor' },
- },
- {
- title: $t('ui.form.description'),
- field: 'description',
- minWidth: 150,
- },
- {
- title: $t('page.system.tag.global'),
- field: 'isGlobal',
- width: 100,
- slots: { default: 'isGlobal' },
- },
- {
- title: $t('page.system.tag.status'),
- field: 'status',
- width: 100,
- slots: { default: 'status' },
- },
- {
- title: $t('page.system.tag.owner'),
- field: 'createdByName',
- width: 120,
- slots: { default: 'owner' },
- },
- {
- title: $t('ui.table.createTime'),
- field: 'createTime',
- width: 180,
- slots: { default: 'createdAt' },
- },
- {
- title: $t('ui.table.action'),
- field: 'action',
- fixed: 'right',
- slots: { default: 'action' },
- width: 120,
- },
- ],
+  toolbarConfig: {
+    custom: true,
+    refresh: true,
+    zoom: true,
+  },
+  height: 'auto',
+  pagerConfig: {},
+  cellConfig: {},
+  stripe: true,
+  proxyConfig: {
+    autoLoad: true,
+    ajax: {
+      query: async ({ page }, formValues) => {
+        return await getTagListApi({
+          page: page.currentPage,
+          pageSize: page.pageSize,
+          tagName: formValues.tagName,
+          groupId: selectedGroupId.value || undefined,
+        });
+      },
+    },
+  },
+  columns: [
+    {
+      title: $t('ui.table.seq'),
+      type: 'seq',
+      width: 70,
+    },
+    {
+      title: $t('page.system.tag.group'),
+      field: 'groupName',
+      width: 120,
+      slots: { default: 'groupName' },
+    },
+    {
+      title: $t('page.system.tag.name'),
+      field: 'tagName',
+      width: 100,
+      slots: { default: 'tagName' },
+    },
+    {
+      title: $t('page.system.tag.color'),
+      field: 'tagColor',
+      width: 100,
+      slots: { default: 'tagColor' },
+    },
+    {
+      title: $t('ui.form.description'),
+      field: 'description',
+      minWidth: 150,
+    },
+    {
+      title: $t('page.system.tag.global'),
+      field: 'isGlobal',
+      width: 100,
+      slots: { default: 'isGlobal' },
+    },
+    {
+      title: $t('page.system.tag.status'),
+      field: 'status',
+      width: 100,
+      slots: { default: 'status' },
+    },
+    {
+      title: $t('page.system.tag.owner'),
+      field: 'createdByName',
+      width: 120,
+      slots: { default: 'owner' },
+    },
+    {
+      title: $t('ui.table.createTime'),
+      field: 'createTime',
+      width: 180,
+      slots: { default: 'createdAt' },
+    },
+    {
+      title: $t('ui.table.action'),
+      field: 'action',
+      fixed: 'right',
+      slots: { default: 'action' },
+      width: 120,
+    },
+  ],
 };
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 const [Drawer, drawerApi] = useVbenDrawer({
- connectedComponent: TagDrawer,
- onClosed() {
- const data = drawerApi.getData();
- if (data && data.needRefresh) {
- gridApi.query();
- }
- },
+  connectedComponent: TagDrawer,
+  onClosed() {
+    const data = drawerApi.getData();
+    if (data && data.needRefresh) {
+      gridApi.query();
+    }
+  },
 });
 function openDrawer(create: boolean, row?: any) {
- drawerApi.setData({
- create,
- row,
- });
- drawerApi.open();
+  drawerApi.setData({
+    create,
+    row,
+  });
+  drawerApi.open();
 }
 function handleCreate() {
- openDrawer(true);
+  openDrawer(true);
 }
 function handleEdit(row: any) {
- openDrawer(false, row);
+  openDrawer(false, row);
 }
 async function handleDelete(row: any) {
- row.pending = true;
- try {
- await deleteTagApi(row.id);
- window.$message.success($t('ui.notification.delete_success'));
- }
- finally {
- row.pending = false;
- gridApi.query();
- }
+  row.pending = true;
+  try {
+    await deleteTagApi(row.id);
+    window.$message.success($t('ui.notification.delete_success'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
 }
 async function handleBatchDelete() {
- const selectedRows = gridApi.grid?.getCheckboxRecords();
- if (!selectedRows || selectedRows.length === 0) {
- window.$message.warning($t('ui.notification.select_row'));
- return;
- }
- const ids = selectedRows.map((row: any) => row.id);
- try {
- await batchDeleteTagApi({ ids });
- window.$message.success($t('ui.notification.delete_success'));
- }
- finally {
- gridApi.query();
- }
+  const selectedRows = gridApi.grid?.getCheckboxRecords();
+  if (!selectedRows || selectedRows.length === 0) {
+    window.$message.warning($t('ui.notification.select_row'));
+    return;
+  }
+  const ids = selectedRows.map((row: any) => row.id);
+  try {
+    await batchDeleteTagApi({ ids });
+    window.$message.success($t('ui.notification.delete_success'));
+  } finally {
+    gridApi.query();
+  }
 }
 function handleGroupChange(value: any) {
   selectedGroupId.value = value;
@@ -185,8 +188,7 @@ async function handleStatusChange(row: any, checked: boolean) {
     await updateTagStatusApi({ id: Number(row.id), status: newStatus });
     row.status = newStatus;
   } catch {
-    // 失败时恢复原状态
-    row.status = row.status;
+    // 失败时刷新表格恢复原状态
     gridApi.query();
   }
 }
@@ -212,7 +214,11 @@ async function handleStatusChange(row: any, checked: boolean) {
           {{ $t('page.system.tag.button.create') }}
         </Button>
         <Popconfirm
-          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.system.tag.module') })"
+          :title="
+            $t('ui.text.do_you_want_delete', {
+              moduleName: $t('page.system.tag.module'),
+            })
+          "
           :ok-text="$t('ui.button.ok')"
           :cancel-text="$t('ui.button.cancel')"
           @confirm="handleBatchDelete"
@@ -244,7 +250,7 @@ async function handleStatusChange(row: any, checked: boolean) {
           <div
             class="w-6 h-6 rounded-full mr-2"
             :style="{ backgroundColor: row.tagColor || '#1890ff' }"
-          />
+          ></div>
           <span class="text-sm">{{ row.tagColor }}</span>
         </div>
       </template>
@@ -266,7 +272,9 @@ async function handleStatusChange(row: any, checked: boolean) {
 
       <template #owner="{ row }">
         <span v-if="row.isGlobal">{{ $t('page.system.tag.systemTag') }}</span>
-        <span v-else>{{ row.createdByName || $t('page.system.tag.unknown') }}</span>
+        <span v-else>{{
+          row.createdByName || $t('page.system.tag.unknown')
+        }}</span>
       </template>
 
       <template #createdAt="{ row }">
@@ -283,7 +291,11 @@ async function handleStatusChange(row: any, checked: boolean) {
         />
 
         <Popconfirm
-          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.system.tag.module') })"
+          :title="
+            $t('ui.text.do_you_want_delete', {
+              moduleName: $t('page.system.tag.module'),
+            })
+          "
           :ok-text="$t('ui.button.ok')"
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"

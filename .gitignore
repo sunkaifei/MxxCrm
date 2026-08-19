@@ -21,3 +21,6 @@
 /token.txt
 /mxx-crm-deploy/
 /pdf-template/
+/mxx-ecommerce-landing/
+*.log
+*.ps1

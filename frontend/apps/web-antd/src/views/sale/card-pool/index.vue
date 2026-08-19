@@ -1,20 +1,22 @@
 <script lang="ts" setup>
-import { Page } from '@vben/common-ui';
-import { formatDateTime } from '@vben/utils';
-import { useAccessStore } from '@vben/stores';
+import type { VbenFormProps } from '@vben/common-ui';
 
-import { Button, Popconfirm, Tag, message } from 'ant-design-vue';
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { Page } from '@vben/common-ui';
+import { useAccessStore } from '@vben/stores';
+import { formatDateTime } from '@vben/utils';
+
+import { Button, message, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import type { VbenFormProps } from '@vben/common-ui';
 import { deleteCardPoolApi, getCardPoolListApi } from '#/api';
 import { $t } from '#/locales';
 
 const accessStore = useAccessStore();
 
 // 卡密状态映射：1=未售 2=已锁定 3=已售 4=已作废
-const statusMap: Record<number, { label: string; color: string }> = {
+const statusMap: Record<number, { color: string; label: string }> = {
   1: { label: '未售', color: 'default' },
   2: { label: '已锁定', color: 'orange' },
   3: { label: '已售', color: 'green' },
@@ -179,7 +181,10 @@ async function handleDelete(row: any) {
       </template>
 
       <template #status="{ row }">
-        <Tag v-if="row.status && statusMap[row.status]" :color="statusMap[row.status]?.color">
+        <Tag
+          v-if="row.status && statusMap[row.status]"
+          :color="statusMap[row.status]?.color"
+        >
           {{ row.statusName || statusMap[row.status]?.label }}
         </Tag>
         <span v-else class="text-gray-300">-</span>

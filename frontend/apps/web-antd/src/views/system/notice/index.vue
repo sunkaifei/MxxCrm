@@ -1,24 +1,31 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import type { VbenFormProps } from '@vben/common-ui';
-import { LucideFilePenLine, LucideSend, LucideTrash2, LucideUndo2 } from '@vben/icons';
+import {
+  LucideFilePenLine,
+  LucideSend,
+  LucideTrash2,
+  LucideUndo2,
+} from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 import {
   deleteNoticeApi,
   getNoticeListApi,
-  publishNoticeApi,
-  revokeNoticeApi,
   NOTICE_PUBLISH_STATUS,
   NOTICE_PUBLISH_STATUS_OPTIONS,
   NOTICE_TYPE_OPTIONS,
+  publishNoticeApi,
+  revokeNoticeApi,
 } from '#/api';
 import { $t } from '#/locales';
 
@@ -27,18 +34,18 @@ import NoticeDrawer from './drawer.vue';
 const accessStore = useAccessStore();
 
 // 类型/目标类型/状态 → 标签 + 颜色 的映射
-const TYPE_MAP: Record<number, { label: string; color: string }> = {
+const TYPE_MAP: Record<number, { color: string; label: string }> = {
   1: { label: '通知', color: 'blue' },
   2: { label: '公告', color: 'purple' },
   3: { label: '系统消息', color: 'cyan' },
 };
 
-const TARGET_TYPE_MAP: Record<number, { label: string; color: string }> = {
+const TARGET_TYPE_MAP: Record<number, { color: string; label: string }> = {
   1: { label: '全体', color: 'green' },
   2: { label: '指定', color: 'orange' },
 };
 
-const STATUS_MAP: Record<number, { label: string; color: string }> = {
+const STATUS_MAP: Record<number, { color: string; label: string }> = {
   [NOTICE_PUBLISH_STATUS.UNPUBLISHED]: { label: '未发布', color: 'default' },
   [NOTICE_PUBLISH_STATUS.PUBLISHED]: { label: '已发布', color: 'success' },
   [NOTICE_PUBLISH_STATUS.REVOKED]: { label: '已撤回', color: 'warning' },
@@ -269,7 +276,10 @@ async function handleRevoke(row: any) {
       </template>
 
       <template #publishStatus="{ row }">
-        <span class="status-badge" :class="`status-badge--${STATUS_MAP[row.publishStatus]?.color || 'default'}`">
+        <span
+          class="status-badge"
+          :class="`status-badge--${STATUS_MAP[row.publishStatus]?.color || 'default'}`"
+        >
           <span class="status-badge__dot"></span>
           {{ STATUS_MAP[row.publishStatus]?.label || '未知' }}
         </span>
@@ -350,49 +360,52 @@ async function handleRevoke(row: any) {
 /* 发布状态徽标 */
 .status-badge {
   display: inline-flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   padding: 2px 10px;
   font-size: 12px;
-  border-radius: 10px;
   font-weight: 500;
   line-height: 1.5;
+  border-radius: 10px;
 }
 
 .status-badge__dot {
+  display: inline-block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  display: inline-block;
 }
 
 /* 已发布 - 绿色 */
 .status-badge--success {
-  background: #f6ffed;
   color: #389e0d;
+  background: #f6ffed;
   border: 1px solid #b7eb8f;
 }
+
 .status-badge--success .status-badge__dot {
   background: #52c41a;
-  box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.2);
+  box-shadow: 0 0 0 2px rgb(82 196 26 / 20%);
 }
 
 /* 已撤回 - 橙色 */
 .status-badge--warning {
-  background: #fff7e6;
   color: #d46b08;
+  background: #fff7e6;
   border: 1px solid #ffd591;
 }
+
 .status-badge--warning .status-badge__dot {
   background: #faad14;
 }
 
 /* 未发布 - 灰色 */
 .status-badge--default {
-  background: #fafafa;
   color: #8c8c8c;
+  background: #fafafa;
   border: 1px solid #d9d9d9;
 }
+
 .status-badge--default .status-badge__dot {
   background: #bfbfbf;
 }

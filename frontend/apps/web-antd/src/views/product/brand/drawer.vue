@@ -1,12 +1,15 @@
 <script lang="ts" setup>
+import type { VbenFormSchema } from '@vben/common-ui';
+
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import type { VbenFormSchema } from '@vben/common-ui';
-import { $t } from '#/locales';
-import { createBrandApi, getBrandInfoApi, updateBrandApi } from '#/api';
+
 import { message, Tooltip } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import { createBrandApi, getBrandInfoApi, updateBrandApi } from '#/api';
+import { $t } from '#/locales';
 
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
@@ -32,58 +35,89 @@ const formSchema: VbenFormSchema[] = [
     fieldName: 'name',
     label: $t('page.product.brand.field.name'),
     rules: 'required',
-    componentProps: { placeholder: $t('page.product.brand.placeholder.name'), allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.name'),
+      allowClear: true,
+    },
   },
   {
     component: 'Input',
     fieldName: 'nameEn',
     label: $t('page.product.brand.field.nameEn'),
-    componentProps: { placeholder: $t('page.product.brand.placeholder.nameEn'), allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.nameEn'),
+      allowClear: true,
+    },
   },
   {
     component: 'Input',
     fieldName: 'logo',
     label: $t('page.product.brand.field.logo'),
-    componentProps: { placeholder: $t('page.product.brand.placeholder.logo'), allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.logo'),
+      allowClear: true,
+    },
   },
   {
     component: 'Textarea',
     fieldName: 'description',
     label: $t('page.product.brand.field.description'),
-    componentProps: { placeholder: $t('page.product.brand.placeholder.description'), rows: 3, allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.description'),
+      rows: 3,
+      allowClear: true,
+    },
     formItemClass: 'col-span-2',
   },
   {
     component: 'Input',
     fieldName: 'country',
     label: $t('page.product.brand.field.country'),
-    componentProps: { placeholder: $t('page.product.brand.placeholder.country'), allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.country'),
+      allowClear: true,
+    },
   },
   {
     component: 'Input',
     fieldName: 'website',
     label: $t('page.product.brand.field.website'),
-    componentProps: { placeholder: $t('page.product.brand.placeholder.website'), allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.website'),
+      allowClear: true,
+    },
   },
   {
     component: 'Select',
     fieldName: 'status',
     label: $t('page.product.brand.field.status'),
     defaultValue: 0,
-    componentProps: { placeholder: $t('page.product.brand.placeholder.status'), options: statusOptions },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.status'),
+      options: statusOptions,
+    },
   },
   {
     component: 'InputNumber',
     fieldName: 'sortOrder',
     label: $t('page.product.brand.field.sort'),
     defaultValue: 0,
-    componentProps: { placeholder: $t('page.product.brand.placeholder.sortOrder'), min: 0, precision: 0, style: { width: '100%' } },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.sortOrder'),
+      min: 0,
+      precision: 0,
+      style: { width: '100%' },
+    },
   },
   {
     component: 'Textarea',
     fieldName: 'remark',
     label: $t('page.product.brand.field.remark'),
-    componentProps: { placeholder: $t('page.product.brand.placeholder.remark'), rows: 2, allowClear: true },
+    componentProps: {
+      placeholder: $t('page.product.brand.placeholder.remark'),
+      rows: 2,
+      allowClear: true,
+    },
     formItemClass: 'col-span-2',
   },
 ];
@@ -126,7 +160,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
       isFullscreen.value = false;
-      drawerData.value = drawerApi.getData<{ create: boolean; row?: any }>() || { create: true };
+      drawerData.value = drawerApi.getData<{
+        create: boolean;
+        row?: any;
+      }>() || { create: true };
       mainFormApi.resetForm();
       confirmLoading.value = false;
       if (!drawerData.value.create && drawerData.value.row?.id) {
@@ -141,7 +178,8 @@ async function loadDetail(id: number) {
     const resp = await getBrandInfoApi(id);
     const data = resp?.data ?? resp;
     if (!data) return;
-    const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+    const num = (v: any) =>
+      v === null || v === undefined ? undefined : Number(v);
 
     mainFormApi.setValues({
       name: data.name,
@@ -154,8 +192,8 @@ async function loadDetail(id: number) {
       sortOrder: num(data.sortOrder) ?? 0,
       remark: data.remark,
     });
-  } catch (e) {
-    console.error('[品牌] 加载详情失败:', e);
+  } catch (error) {
+    console.error('[品牌] 加载详情失败:', error);
   }
 }
 </script>
@@ -163,19 +201,53 @@ async function loadDetail(id: number) {
 <template>
   <Drawer
     :class="drawerClass"
-    :title="drawerData.create ? $t('page.product.brand.button.createNew') : $t('page.product.brand.button.edit')"
+    :title="
+      drawerData.create
+        ? $t('page.product.brand.button.createNew')
+        : $t('page.product.brand.button.edit')
+    "
     :confirm-loading="confirmLoading"
   >
     <template #extra>
-      <Tooltip :title="isFullscreen ? $t('page.product.brand.action.restore') : $t('page.product.brand.action.maximize')">
-        <button type="button" class="brand-drawer__fs-btn" @click="toggleFullscreen">
-          <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <Tooltip
+        :title="
+          isFullscreen
+            ? $t('page.product.brand.action.restore')
+            : $t('page.product.brand.action.maximize')
+        "
+      >
+        <button
+          type="button"
+          class="brand-drawer__fs-btn"
+          @click="toggleFullscreen"
+        >
+          <svg
+            v-if="!isFullscreen"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="4 14 10 14 10 20" />
             <polyline points="20 10 14 10 14 4" />
             <line x1="14" y1="10" x2="21" y2="3" />
@@ -208,22 +280,22 @@ async function loadDetail(id: number) {
   height: 28px;
   padding: 0;
   margin-right: 8px;
+  color: rgb(0 0 0 / 45%);
+  cursor: pointer;
+  background: transparent;
   border: none;
   border-radius: 4px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .brand-drawer__fs-btn:hover {
   color: #1890ff;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .brand-drawer__body {
+  height: calc(100vh - 150px);
   padding: 0 8px;
   overflow-y: auto;
-  height: calc(100vh - 150px);
 }
 </style>

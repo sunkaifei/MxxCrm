@@ -1,10 +1,14 @@
 import { requestClient } from '#/api/request';
 
+type PageParams = Record<string, any>;
+
 export const getSupplierListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/purchase/supplier/list', { params });
 };
 export const getSupplierInfoApi = async (id: number) => {
-  return requestClient.get('/api/system/purchase/supplier/info', { params: { id } });
+  return requestClient.get('/api/system/purchase/supplier/info', {
+    params: { id },
+  });
 };
 export const createSupplierApi = async (param: any) => {
   return requestClient.post('/api/system/purchase/supplier/save', param);

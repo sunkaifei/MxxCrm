@@ -1,15 +1,20 @@
 <script lang="ts" setup>
-import { h } from 'vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeGridProps } from '#/adapter/vxe-table';
-import { $t } from '#/locales';
-import { Page } from '@vben/common-ui';
 import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h } from 'vue';
+
+import { Page } from '@vben/common-ui';
 import { LucideTrash2 } from '@vben/icons';
-import { Button, Popconfirm } from 'ant-design-vue';
-import { deleteRecordApi, getRecordListApi } from '#/api';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
+
+import { Button, Popconfirm } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { deleteRecordApi, getRecordListApi } from '#/api';
+import { $t } from '#/locales';
 
 const accessStore = useAccessStore();
 

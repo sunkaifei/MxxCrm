@@ -1,10 +1,13 @@
 <script lang="ts" setup>
-import { computed, ref, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+
 import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message } from 'ant-design-vue';
+
 import { useVbenForm } from '#/adapter/form';
 import { articleApi, categoryApi } from '#/api';
 import { articleTagApi } from '#/api/core/website/article-tag';
-import { message } from 'ant-design-vue';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -205,7 +208,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     // 将 labelIds 转为数字数组
     if (values.labelIds) {
-      values.labelIds = values.labelIds.map((id: any) => Number(id));
+      values.labelIds = values.labelIds.map(Number);
     }
 
     try {
@@ -232,12 +235,15 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       // 编辑模式：加载已有标签ID
       if (!isCreate.value && row?.id) {
-        articleApi.getLabels(row.id).then((res: any) => {
-          const ids = Array.isArray(res) ? res : [];
-          baseFormApi.setValues({ labelIds: ids });
-        }).catch(() => {
-          // 静默处理
-        });
+        articleApi
+          .getLabels(row.id)
+          .then((res: any) => {
+            const ids = Array.isArray(res) ? res : [];
+            baseFormApi.setValues({ labelIds: ids });
+          })
+          .catch(() => {
+            // 静默处理
+          });
       }
     }
   },
@@ -262,10 +268,12 @@ async function loadCategoryTree() {
 async function loadTags() {
   try {
     const result: any = await articleTagApi.all();
-    tagOptions.value = (Array.isArray(result) ? result : []).map((tag: any) => ({
-      label: tag.name,
-      value: tag.id,
-    }));
+    tagOptions.value = (Array.isArray(result) ? result : []).map(
+      (tag: any) => ({
+        label: tag.name,
+        value: tag.id,
+      }),
+    );
   } catch {
     tagOptions.value = [];
   }

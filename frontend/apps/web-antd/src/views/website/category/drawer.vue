@@ -1,14 +1,14 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
-import { useVbenDrawer, z } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import {
-  categoryApi,
-  getTemplateDataListByTemplateApi,
-  siteApi,
-} from '#/api';
-import { message } from 'ant-design-vue';
 import type { CategorySaveDTO } from '#/api/core/shop/category';
+
+import { computed, ref } from 'vue';
+
+import { useVbenDrawer, z } from '@vben/common-ui';
+
+import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import { categoryApi, getTemplateDataListByTemplateApi, siteApi } from '#/api';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -38,8 +38,8 @@ async function loadTemplateOptions() {
     detailTemplateOptions.value = items
       .filter((item: any) => item.typeId === 3)
       .map((item: any) => ({ label: item.name, value: item.id }));
-  } catch (e) {
-    console.error('[分类] 加载模板选项失败:', e);
+  } catch (error) {
+    console.error('[分类] 加载模板选项失败:', error);
     listTemplateOptions.value = [];
     detailTemplateOptions.value = [];
   }
@@ -135,7 +135,8 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
       dependencies: {
         triggerFields: ['pageType', 'contentType'],
-        if: (values: Record<string, any>) => values.pageType === 2 && values.contentType === 3,
+        if: (values: Record<string, any>) =>
+          values.pageType === 2 && values.contentType === 3,
       },
     },
     {
@@ -232,14 +233,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
     values.parentId = parentId;
 
     try {
-      if (data.value?.create) {
-        await categoryApi.save(values as CategorySaveDTO);
-      } else {
-        await categoryApi.update({
-          ...values,
-          id: data.value.row.id,
-        } as CategorySaveDTO);
-      }
+      await (data.value?.create
+        ? categoryApi.save(values as CategorySaveDTO)
+        : categoryApi.update({
+            ...values,
+            id: data.value.row.id,
+          } as CategorySaveDTO));
 
       message.success(data.value?.create ? '新增成功' : '更新成功');
       drawerApi.setData({ needRefresh: true });

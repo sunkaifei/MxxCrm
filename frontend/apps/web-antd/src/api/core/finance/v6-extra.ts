@@ -4,38 +4,36 @@ import { requestClient } from '#/api/request';
 export const getPayslipListApi = async (params?: any) =>
   requestClient.get('/api/system/finance/payslip/list', { params });
 export const generatePayslipsApi = async (data: {
-  year: number;
   month: number;
-}) =>
-  requestClient.post('/api/system/finance/payslip/generate', data);
+  year: number;
+}) => requestClient.post('/api/system/finance/payslip/generate', data);
 export const sendPayslipApi = async (data: {
-  id: number;
   channels: string[];
+  id: number;
 }) => requestClient.post('/api/system/finance/payslip/send', data);
 export const batchSendPayslipsApi = async (data: {
-  ids: number[];
   channels: string[];
+  ids: number[];
 }) => requestClient.post('/api/system/finance/payslip/batch-send', data);
 export const markPayslipReadApi = async (id: number) =>
   requestClient.post('/api/system/finance/payslip/mark-read', { id });
 export const getPayslipStatisticsApi = async (params: {
-  year: number;
   month: number;
-}) =>
-  requestClient.get('/api/system/finance/payslip/statistics', { params });
+  year: number;
+}) => requestClient.get('/api/system/finance/payslip/statistics', { params });
 
 // V8-4: 工资条密码与撤回
 export const setPayslipPasswordApi = async (data: {
-  payslipId: number;
   password: string;
+  payslipId: number;
 }) => requestClient.post('/api/system/finance/payslip/set-password', data);
 
 export const clearPayslipPasswordApi = async (id: number) =>
   requestClient.post('/api/system/finance/payslip/clear-password', { id });
 
 export const verifyPayslipPasswordApi = async (data: {
-  payslipId: number;
   password: string;
+  payslipId: number;
 }) => requestClient.post('/api/system/finance/payslip/verify-password', data);
 
 export const withdrawPayslipApi = async (data: {
@@ -55,18 +53,18 @@ export const confirmPayslipApi = async (id: number) =>
 export const getBankExportListApi = async (params?: any) =>
   requestClient.get('/api/system/finance/bank-export/list', { params });
 export const generateBankFileApi = async (data: {
-  year: number;
-  month: number;
   bankType: string;
+  month: number;
+  year: number;
 }) => requestClient.post('/api/system/finance/bank-export/generate', data);
 export const downloadBankFileApi = (id: number) =>
   `/api/system/finance/bank-export/download?id=${id}`;
 
 // V9: 生成 Excel 格式代发文件（xlsx，含合计行）
 export const generateBankExcelFileApi = async (data: {
-  year: number;
-  month: number;
   bankType: string;
+  month: number;
+  year: number;
 }) =>
   requestClient.post('/api/system/finance/bank-export/generate-excel', data, {
     responseType: 'blob',
@@ -86,20 +84,18 @@ export const getSalaryItemValuesApi = async (salaryRecordId: number) =>
 export const saveSalaryItemValuesApi = async (data: {
   salaryRecordId: number;
   values: any[];
-}) =>
-  requestClient.post('/api/system/finance/salary-item/values/save', data);
+}) => requestClient.post('/api/system/finance/salary-item/values/save', data);
 
 // ===== 团队提成 =====
 export const getTeamCommissionListApi = async (params?: any) =>
   requestClient.get('/api/system/finance/team-commission/list', { params });
 export const calculateTeamCommissionApi = async (data: {
-  year: number;
   month: number;
-}) =>
-  requestClient.post('/api/system/finance/team-commission/calculate', data);
+  year: number;
+}) => requestClient.post('/api/system/finance/team-commission/calculate', data);
 export const getTeamCommissionSummaryApi = async (params: {
-  year: number;
   month: number;
+  year: number;
 }) =>
   requestClient.get('/api/system/finance/team-commission/summary', { params });
 
@@ -110,17 +106,16 @@ export const getPendingCommissionApi = async (params?: any) =>
 
 // 提交分配
 export const allocateCommissionApi = async (data: {
-  commissionResultId: number;
   allocateMethod: number;
+  commissionResultId: number;
   members: Array<{
+    amount?: number;
     employeeId: number;
     employeeName?: string;
-    amount?: number;
     employeePayment?: number;
   }>;
   remark?: string;
-}) =>
-  requestClient.post('/api/system/finance/team-commission/allocate', data);
+}) => requestClient.post('/api/system/finance/team-commission/allocate', data);
 
 // 分配记录
 export const getAllocationLogApi = async (params?: any) =>

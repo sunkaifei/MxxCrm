@@ -4,17 +4,17 @@ import { requestClient } from '#/api/request';
 
 export interface SegmentConfig {
   type:
-    | 'company'
     | 'biz_type'
-    | 'year'
+    | 'company'
+    | 'date'
     | 'dept'
+    | 'fixed'
     | 'seq'
     | 'version'
-    | 'fixed'
-    | 'date';
+    | 'year';
   value?: string;
   format?: string; // type=year: yyyy/yy; type=date: yyyyMM/yyyydd
-  source?: 'current' | 'business_date' | 'create_time'; // type=year 时使用
+  source?: 'business_date' | 'create_time' | 'current'; // type=year 时使用
   length?: number; // type=seq 时使用
   sort: number;
 }
@@ -75,7 +75,7 @@ export interface BatchRegenerateProgressVO {
   total: number;
   done: number;
   currentModule?: string;
-  status: 'running' | 'success' | 'failed' | '';
+  status: '' | 'failed' | 'running' | 'success';
   message?: string;
 }
 
@@ -107,14 +107,8 @@ export const deleteCodeRuleApi = async (id: number) => {
 };
 
 // 启用/停用
-export const toggleCodeRuleEnabledApi = async (
-  id: number,
-  enabled: number,
-) => {
-  return requestClient.put(
-    `/api/system/code-rule/toggle/${id}/${enabled}`,
-    {},
-  );
+export const toggleCodeRuleEnabledApi = async (id: number, enabled: number) => {
+  return requestClient.put(`/api/system/code-rule/toggle/${id}/${enabled}`, {});
 };
 
 // 预览编号

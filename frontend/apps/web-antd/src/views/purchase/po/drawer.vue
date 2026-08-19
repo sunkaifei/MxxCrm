@@ -1,104 +1,116 @@
-<script lang="ts" setup>import { computed, ref } from 'vue';
+<script lang="ts" setup>
+import { computed, ref } from 'vue';
+
 import { useVbenDrawer } from '@vben/common-ui';
-import { $t } from '#/locales';
-import { useVbenForm } from '#/adapter/form';
+
 import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
 import { createPurchaseOrderApi, updatePurchaseOrderApi } from '#/api';
+import { $t } from '#/locales';
 import { statusList } from '#/store';
+
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
 const data = ref();
 const items = ref<any[]>([]);
 const productSelectVisible = ref(false);
-const getTitle = computed(() => data.value?.create
- ? $t('ui.modal.create', { moduleName: $t('page.purchase.po.title') })
- : $t('ui.modal.update', { moduleName: $t('page.purchase.po.title') }));
+const getTitle = computed(() =>
+  data.value?.create
+    ? $t('ui.modal.create', { moduleName: $t('page.purchase.po.title') })
+    : $t('ui.modal.update', { moduleName: $t('page.purchase.po.title') }),
+);
 const [BaseForm, baseFormApi] = useVbenForm({
- showDefaultActions: false,
- commonConfig: {
- componentProps: {
- class: 'w-full',
- },
- },
- schema: [
- {
- component: 'Input',
- fieldName: 'purchaseNo',
- label: $t('page.purchase.po.form.purchaseNo'),
- rules: 'required',
- componentProps: {
- placeholder: $t('ui.placeholder.input'),
- allowClear: true,
- },
- },
- {
- component: 'Input',
- fieldName: 'supplierId',
- label: $t('page.purchase.po.form.supplierId'),
- componentProps: {
- placeholder: $t('ui.placeholder.input'),
- allowClear: true,
- },
- },
- {
- component: 'Input',
- fieldName: 'amount',
- label: $t('page.purchase.po.form.amount'),
- componentProps: {
- placeholder: $t('ui.placeholder.input'),
- allowClear: true,
- },
- },
- {
- component: 'RadioGroup',
- fieldName: 'status',
- defaultValue: 'draft',
- label: $t('ui.table.status'),
- rules: 'selectRequired',
- componentProps: {
- optionType: 'button',
- class: 'flex flex-wrap',
- options: statusList,
- },
- },
- ],
+  showDefaultActions: false,
+  commonConfig: {
+    componentProps: {
+      class: 'w-full',
+    },
+  },
+  schema: [
+    {
+      component: 'Input',
+      fieldName: 'purchaseNo',
+      label: $t('page.purchase.po.form.purchaseNo'),
+      rules: 'required',
+      componentProps: {
+        placeholder: $t('ui.placeholder.input'),
+        allowClear: true,
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'supplierId',
+      label: $t('page.purchase.po.form.supplierId'),
+      componentProps: {
+        placeholder: $t('ui.placeholder.input'),
+        allowClear: true,
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'amount',
+      label: $t('page.purchase.po.form.amount'),
+      componentProps: {
+        placeholder: $t('ui.placeholder.input'),
+        allowClear: true,
+      },
+    },
+    {
+      component: 'RadioGroup',
+      fieldName: 'status',
+      defaultValue: 'draft',
+      label: $t('ui.table.status'),
+      rules: 'selectRequired',
+      componentProps: {
+        optionType: 'button',
+        class: 'flex flex-wrap',
+        options: statusList,
+      },
+    },
+  ],
 });
 const [Drawer, drawerApi] = useVbenDrawer({
- onCancel() {
- drawerApi.close();
- },
- async onConfirm() {
- const validate = await baseFormApi.validate();
- if (!validate.valid) {
- return;
- }
- setLoading(true);
- const values = await baseFormApi.getValues();
- try {
- await (data.value?.create
- ? createPurchaseOrderApi({ ...values, items: items.value })
- : updatePurchaseOrderApi({ ...values, id: data.value.row.id, items: items.value }));
- message.success(data.value?.create
- ? $t('ui.notification.create_success')
- : $t('ui.notification.update_success'));
- drawerApi.setData({ needRefresh: true });
- }
- finally {
- drawerApi.close();
- setLoading(false);
- }
- },
- onOpenChange(isOpen) {
- if (isOpen) {
- data.value = drawerApi.getData<Record<string, any>>();
- const row = data.value?.row ? { ...data.value.row } : {};
- baseFormApi.setValues(row);
- items.value = data.value?.row?.items || [];
- setLoading(false);
- }
- },
+  onCancel() {
+    drawerApi.close();
+  },
+  async onConfirm() {
+    const validate = await baseFormApi.validate();
+    if (!validate.valid) {
+      return;
+    }
+    setLoading(true);
+    const values = await baseFormApi.getValues();
+    try {
+      await (data.value?.create
+        ? createPurchaseOrderApi({ ...values, items: items.value })
+        : updatePurchaseOrderApi({
+            ...values,
+            id: data.value.row.id,
+            items: items.value,
+          }));
+      message.success(
+        data.value?.create
+          ? $t('ui.notification.create_success')
+          : $t('ui.notification.update_success'),
+      );
+      drawerApi.setData({ needRefresh: true });
+    } finally {
+      drawerApi.close();
+      setLoading(false);
+    }
+  },
+  onOpenChange(isOpen) {
+    if (isOpen) {
+      data.value = drawerApi.getData<Record<string, any>>();
+      const row = data.value?.row ? { ...data.value.row } : {};
+      baseFormApi.setValues(row);
+      items.value = data.value?.row?.items || [];
+      setLoading(false);
+    }
+  },
 });
 function setLoading(loading: boolean) {
- drawerApi.setState({ loading });
+  drawerApi.setState({ loading });
 }
 // 已添加产品的排除列表（computed 确保响应式）
 const excludeProductIds = computed(() =>
@@ -144,16 +156,16 @@ function onProductSelected(selectedItems: any[]) {
   productSelectVisible.value = false;
 }
 function removeItem(index: number) {
- items.value.splice(index, 1);
+  items.value.splice(index, 1);
 }
 function updateSubtotal(item: any) {
- const quantity = parseFloat(item.quantity) || 0;
- const unitPrice = parseFloat(item.unitPrice) || 0;
- const discount = parseFloat(item.discount) || 0;
- const taxRate = parseFloat(item.taxRate) || 0;
- const subtotal = quantity * unitPrice * (1 - discount / 100);
- const taxAmount = subtotal * (taxRate / 100);
- item.totalAmount = (subtotal + taxAmount).toFixed(2);
+  const quantity = Number.parseFloat(item.quantity) || 0;
+  const unitPrice = Number.parseFloat(item.unitPrice) || 0;
+  const discount = Number.parseFloat(item.discount) || 0;
+  const taxRate = Number.parseFloat(item.taxRate) || 0;
+  const subtotal = quantity * unitPrice * (1 - discount / 100);
+  const taxAmount = subtotal * (taxRate / 100);
+  item.totalAmount = (subtotal + taxAmount).toFixed(2);
 }
 </script>
 
@@ -162,7 +174,9 @@ function updateSubtotal(item: any) {
     <BaseForm />
     <div class="mt-4">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="text-lg font-semibold">{{ $t('page.purchase.po.item.title') }}</h3>
+        <h3 class="text-lg font-semibold">
+          {{ $t('page.purchase.po.item.title') }}
+        </h3>
         <button class="btn btn-primary" @click="addItem">
           {{ $t('page.purchase.po.item.addItem') }}
         </button>
@@ -170,14 +184,30 @@ function updateSubtotal(item: any) {
       <table class="w-full border-collapse">
         <thead>
           <tr>
-            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.productName') }}</th>
-            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.sku') }}</th>
-            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.quantity') }}</th>
-            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.unitPrice') }}</th>
-            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.discount') }}</th>
-            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.taxRate') }}</th>
-            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.subtotal') }}</th>
-            <th class="border px-4 py-2">{{ $t('page.purchase.po.item.column.action') }}</th>
+            <th class="border px-4 py-2">
+              {{ $t('page.purchase.po.item.column.productName') }}
+            </th>
+            <th class="border px-4 py-2">
+              {{ $t('page.purchase.po.item.column.sku') }}
+            </th>
+            <th class="border px-4 py-2">
+              {{ $t('page.purchase.po.item.column.quantity') }}
+            </th>
+            <th class="border px-4 py-2">
+              {{ $t('page.purchase.po.item.column.unitPrice') }}
+            </th>
+            <th class="border px-4 py-2">
+              {{ $t('page.purchase.po.item.column.discount') }}
+            </th>
+            <th class="border px-4 py-2">
+              {{ $t('page.purchase.po.item.column.taxRate') }}
+            </th>
+            <th class="border px-4 py-2">
+              {{ $t('page.purchase.po.item.column.subtotal') }}
+            </th>
+            <th class="border px-4 py-2">
+              {{ $t('page.purchase.po.item.column.action') }}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -185,13 +215,19 @@ function updateSubtotal(item: any) {
             <td class="border px-4 py-2">
               <div class="flex flex-col">
                 <span class="font-medium">{{ item.productName || '-' }}</span>
-                <span class="text-xs text-gray-400">{{ item.productCode || '' }}</span>
+                <span class="text-xs text-gray-400">{{
+                  item.productCode || ''
+                }}</span>
               </div>
             </td>
             <td class="border px-4 py-2">
               <div class="flex flex-col">
                 <span>{{ item.productSku || item.spec || '-' }}</span>
-                <span v-if="item.spec && item.productSku" class="text-xs text-gray-400">{{ item.spec }}</span>
+                <span
+                  v-if="item.spec && item.productSku"
+                  class="text-xs text-gray-400"
+                  >{{ item.spec }}</span
+                >
               </div>
             </td>
             <td class="border px-4 py-2">
@@ -233,7 +269,9 @@ function updateSubtotal(item: any) {
             </td>
             <td class="border px-4 py-2">{{ item.totalAmount }}</td>
             <td class="border px-4 py-2">
-              <button class="text-red-500" @click="removeItem(index)">{{ $t('page.purchase.po.item.delete') }}</button>
+              <button class="text-red-500" @click="removeItem(index)">
+                {{ $t('page.purchase.po.item.delete') }}
+              </button>
             </td>
           </tr>
           <tr v-if="items.length === 0">
