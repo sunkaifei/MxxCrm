@@ -13,6 +13,7 @@
 use sea_orm::*;
 use sea_orm::prelude::{DateTime, Decimal};
 use crate::core::kit::global::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::modules::finance::entity::{
     expense, expense::Entity as FinanceExpense,
     expense_item, expense_item::Entity as FinanceExpenseItem,
@@ -40,7 +41,8 @@ pub struct ExpenseSaveRequest {
     pub opportunity_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub order_id: Option<i64>,
-    pub currency: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_currency_from_i32")]
+    pub currency: Option<CurrencyCode>,
     /// 申请日期（YYYY-MM-DD）
     pub apply_date: Option<String>,
     pub remark: Option<String>,
@@ -120,13 +122,13 @@ pub struct ExpenseSaveDTO {
     pub opportunity_id: Option<i64>,
     pub order_id: Option<i64>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub apply_date: Option<chrono::NaiveDate>,
     pub status: Option<i32>,
     pub approval_status: Option<i32>,
     pub remark: Option<String>,
     pub attachment: Option<serde_json::Value>,
-    pub create_by: Option<i64>,
+    pub create_by: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -166,7 +168,7 @@ pub struct ExpenseListVO {
     pub order_id: Option<i64>,
     pub order_no: Option<String>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub apply_date: Option<chrono::NaiveDate>,
     pub status: Option<i32>,
     pub approval_status: Option<i32>,
@@ -197,15 +199,14 @@ pub struct ExpenseDetailVO {
     pub order_id: Option<i64>,
     pub order_no: Option<String>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub apply_date: Option<chrono::NaiveDate>,
     pub status: Option<i32>,
     pub approval_status: Option<i32>,
     pub instance_id: Option<i64>,
     pub remark: Option<String>,
     pub attachment: Option<serde_json::Value>,
-    #[serde(serialize_with = "serialize_option_u64_to_string")]
-    pub create_by: Option<i64>,
+    pub create_by: Option<String>,
     pub create_time: Option<DateTime>,
     pub update_time: Option<DateTime>,
     pub items: Vec<ExpenseItemVO>,
@@ -323,6 +324,21 @@ where
     }
 }
 
+/// 从 i32 反序列化 CurrencyCode（前端传数字）
+fn deserialize_currency_from_i32<'de, D>(deserializer: D) -> Result<Option<CurrencyCode>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Error;
+    let value: Option<i32> = Option::deserialize(deserializer)?;
+    match value {
+        Some(n) => CurrencyCode::from_i32(n)
+            .map(Some)
+            .ok_or_else(|| D::Error::custom(format!("无效的币种代码: {}", n))),
+        None => Ok(None),
+    }
+}
+
 pub struct ExpenseModel;
 
 impl ExpenseModel {
@@ -338,14 +354,14 @@ impl ExpenseModel {
             opportunity_id: Set(req.opportunity_id),
             order_id: Set(req.order_id),
             amount: Set(req.amount.or(Some(Decimal::from(0)))),
-            currency: Set(req.currency.clone().or(Some("CNY".to_string()))),
+            currency: Set(req.currency.or(Some(CurrencyCode::CNY))),
             apply_date: Set(req.apply_date),
             status: Set(req.status.or(Some(1))),
             approval_status: Set(req.approval_status.or(Some(0))),
             instance_id: Set(None),
             remark: Set(req.remark.clone()),
             attachment: Set(req.attachment.clone()),
-            create_by: Set(req.create_by),
+            create_by: Set(req.create_by.clone()),
             create_time: Set(Some(now)),
             update_time: Set(Some(now)),
             deleted: Set(Some(0)),
@@ -446,7 +462,7 @@ impl ExpenseModel {
         let result = FinanceExpense::find()
             .filter(expense::Column::ExpenseNo.like(&pattern))
             .select_only()
-            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(expense_no, 12) AS INTEGER))")), "max_seq")
+            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(expense_no, 12) AS BIGINT))")), "max_seq")
             .into_tuple::<Option<i64>>()
             .one(db)
             .await?;

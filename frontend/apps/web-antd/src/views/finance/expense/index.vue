@@ -6,7 +6,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { computed, h, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { useAccessStore, useUserStore } from '@vben/stores';
+import { useAccessStore } from '@vben/stores';
 
 import { Button, Modal, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
@@ -21,35 +21,16 @@ import {
   submitExpenseApi,
 } from '#/api';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import ExpenseDrawer from './drawer.vue';
 
 const guideStepCount = 5;
 const accessStore = useAccessStore();
-const userStore = useUserStore();
 
-// 全部费用申请 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
-const canViewAll = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 1;
-});
-
-// 下属费用申请 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
-const canViewSubordinate = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 2 || dataScope === 3 || dataScope === 4;
-});
+// 全部/下属 Tab 显示条件：超管（user_type=1）或系统管理员（data_scope=1）→ 全部；部门级（2/3/4）→ 含下属
+const { canViewAll, canViewSubordinate } = useDataScopeTabs();
 
 // 是否为下属视图（下属视图下只能查看，不能操作）
 const isSubordinateView = computed(() => activeTab.value === 'subordinate');

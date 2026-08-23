@@ -7,7 +7,7 @@ import { computed, h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
-import { useAccessStore, useUserStore } from '@vben/stores';
+import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, message, Modal, Popconfirm, Tabs, Tag } from 'ant-design-vue';
@@ -19,6 +19,7 @@ import {
   getPaymentListApi,
   rejectPaymentApi,
 } from '#/api/core/sale/payment';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import CustomerDetailDrawer from '../../crm/components/CustomerDetailDrawer.vue';
@@ -27,27 +28,8 @@ import ApplicationDrawer from './application-drawer.vue';
 import PaymentDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
-const userStore = useUserStore();
 
-const canViewAll = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 1;
-});
-
-const canViewSubordinate = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 2 || dataScope === 3 || dataScope === 4;
-});
+const { canViewAll, canViewSubordinate } = useDataScopeTabs();
 
 const allTabList = [
   { key: 'all', label: '全部回款' },
@@ -168,6 +150,7 @@ const gridOptions: VxeGridProps = {
     refresh: true,
     zoom: true,
   },
+  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
@@ -187,11 +170,10 @@ const gridOptions: VxeGridProps = {
           status: formValues.status,
           paymentMethod: formValues.paymentMethod,
         });
-        // 无数据 280px，有数据按内容自适应
-        const items = (result as any)?.items ?? [];
+        // 表格高度控制：默认 200px 最小高度，有数据超过 200px 时自动撑开
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '280px' : '';
+          gridEl.style.setProperty('min-height', '600px', 'important');
         }
         // 等DOM渲染完成后同步固定列行高并居中内容
         const syncFixedColumn = (retry = 0) => {

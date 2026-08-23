@@ -13,6 +13,7 @@
 use sea_orm::entity::prelude::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use crate::core::r#enum::currency_code_enum::CurrencyCode;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "mxx_finance_expense")]
@@ -31,7 +32,7 @@ pub struct Model {
     pub opportunity_id: Option<i64>,
     pub order_id: Option<i64>,
     pub amount: Option<Decimal>,
-    pub currency: Option<String>,
+    pub currency: Option<CurrencyCode>,
     pub apply_date: Option<chrono::NaiveDate>,
     /// 状态：1=草稿,2=待审批,3=审批中,4=已通过,5=已驳回,6=已打款
     pub status: Option<i32>,
@@ -42,7 +43,7 @@ pub struct Model {
     /// 附件列表（JSONB 数组，存储附件 URL）
     #[sea_orm(column_type = "JsonBinary", nullable)]
     pub attachment: Option<serde_json::Value>,
-    pub create_by: Option<i64>,
+    pub create_by: Option<String>,
     pub create_time: Option<DateTime>,
     pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,

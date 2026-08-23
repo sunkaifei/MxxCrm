@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
+import { useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Popconfirm, Select, Switch, Tag } from 'ant-design-vue';
@@ -16,6 +17,22 @@ import { getTagGroupListApi } from '#/api/core/system/tag_group';
 import { $t } from '#/locales';
 
 import TagDrawer from './drawer.vue';
+
+const userStore = useUserStore();
+const userInfo: any = userStore.userInfo || {};
+// 超管判定（与 use-super-admin-guard 一致：data_scope=1 或 user_type=1）
+const isSuperAdmin = computed(() => {
+  const dataScope = userInfo?.dataScope ?? userInfo?.data_scope;
+  const userType = userInfo?.userType ?? userInfo?.user_type;
+  return dataScope === 1 || userType === 1;
+});
+const currentUserId = Number(userInfo?.userId ?? userInfo?.id ?? 0);
+// 是否可管理该标签：超管全部，普通用户仅自己的私有标签
+function canManage(row: any) {
+  if (isSuperAdmin.value) return true;
+  return !row.isGlobal && Number(row.createdBy) === currentUserId;
+}
+
 const groupOptions = ref<any[]>([{ label: $t('ui.all'), value: '' }]);
 const selectedGroupId = ref('');
 async function loadGroups() {
@@ -214,6 +231,7 @@ async function handleStatusChange(row: any, checked: boolean) {
           {{ $t('page.system.tag.button.create') }}
         </Button>
         <Popconfirm
+          v-if="isSuperAdmin"
           :title="
             $t('ui.text.do_you_want_delete', {
               moduleName: $t('page.system.tag.module'),
@@ -264,6 +282,7 @@ async function handleStatusChange(row: any, checked: boolean) {
       <template #status="{ row }">
         <Switch
           :checked="row.status === 1"
+          :disabled="!canManage(row)"
           :checked-children="$t('ui.switch.active')"
           :un-checked-children="$t('ui.switch.inactive')"
           @change="(checked: any) => handleStatusChange(row, checked)"
@@ -286,6 +305,7 @@ async function handleStatusChange(row: any, checked: boolean) {
           type="primary"
           link
           v-access:code="['system:tag:update']"
+          :disabled="!canManage(row)"
           :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
         />
@@ -303,6 +323,7 @@ async function handleStatusChange(row: any, checked: boolean) {
           <Button
             danger
             v-access:code="['system:tag:delete']"
+            :disabled="!canManage(row)"
             link
             :icon="h(LucideTrash2)"
           />

@@ -233,12 +233,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .wrap(require_permission("system:mail:template")),
             )
             // ---- 发送邮件 ----
-            .route(
-                "/send",
-                web::post()
-                    .to(send_mail)
-                    .wrap(require_permission("crm:mail:send")),
-            )
+            // 内部员工均可发送邮件（站内办公能力），仅需登录，不做权限码限制
+            .route("/send", web::post().to(send_mail))
             // ---- 邮件日志 ----
             .route(
                 "/log/list",

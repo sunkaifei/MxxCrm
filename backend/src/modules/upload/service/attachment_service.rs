@@ -706,8 +706,8 @@ pub async fn upload_storage_url(db: &DbConn, storage_type: &Option<i32>) -> Resu
     // 先尝试从数据库获取配置
     if let Ok(config) = config_service::select_by_key(db, &storage_key).await {
         if let Some(value) = config.config_value {
-            if !value.is_empty() {
-                return Ok(value);
+            if !value.trim().is_empty() {
+                return Ok(value.trim().to_string());
             }
         }
     }
@@ -719,10 +719,15 @@ pub async fn upload_storage_url(db: &DbConn, storage_type: &Option<i32>) -> Resu
             let static_url = config::section::<String>(
                 "attach",
                 "static_url",
-                "http://localhost:8080".to_string(),
+                String::new(),
             );
             let upload_url =
                 config::section::<String>("attach", "upload_url", "/upload/".to_string());
+            // static_url 未配置时返回空串：最终 URL 退化为相对路径（如 /upload/avatar/xx.jpg），
+            // 生产环境前后端同源直接可访问，开发环境由前端代理转发，避免端口/域名变化导致图片 404
+            if static_url.trim().is_empty() {
+                return Ok(String::new());
+            }
             Ok(format!("{}{}", static_url.trim_end_matches('/'), upload_url))
         }
         _ => Err(Error::from(format!("未配置 {} 存储地址", storage_key))),

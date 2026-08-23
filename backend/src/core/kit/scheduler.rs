@@ -214,6 +214,21 @@ async fn init_registry(registry: &SchedulerRegistry) {
             }),
         )
         .await;
+
+    // B10: 注册离职/审批超时提醒处理器（每日提醒超时未处理的审批待办与离职交接项确认人）
+    registry
+        .register(
+            "resign_timeout_remind",
+            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
+                Box::pin(async move {
+                    let count = crate::modules::system::service::resign_service::remind_timeout_tasks(&db)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    Ok(format!("超时提醒完成：本次提醒 {} 人次", count))
+                })
+            }),
+        )
+        .await;
 }
 
 /// V7-4: 从 handler_params 解析 year/month，缺失时回退为"上月"
@@ -655,7 +670,7 @@ async fn scan_and_recover(db: &DatabaseConnection, check_missed: bool) {
 fn is_auto_rerun_safe(job_code: &str) -> bool {
     matches!(
         job_code,
-        "article_publish" | "static_generate" | "content_collect" | "stock_snapshot_generate" | "low_stock_suggestion" | "db_backup"
+        "article_publish" | "static_generate" | "content_collect" | "stock_snapshot_generate" | "low_stock_suggestion" | "db_backup" | "resign_timeout_remind"
     )
 }
 

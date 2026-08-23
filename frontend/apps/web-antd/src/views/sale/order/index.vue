@@ -7,7 +7,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { useAccessStore, useUserStore } from '@vben/stores';
+import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -28,43 +28,22 @@ import {
   getOrderListApi,
   getShipmentListApi,
   signShipmentApi,
-  submitOrderApi,
   updateOrderStatusApi,
 } from '#/api';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import CustomerDetail from '../../crm/customer/detail.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 import ShipmentDrawer from '../shipment/drawer.vue';
-import OrderApprovalDrawer from './approval-drawer.vue';
 import OrderDrawer from './drawer.vue';
 import OrderViewDrawer from './view-drawer.vue';
 
 const accessStore = useAccessStore();
-const userStore = useUserStore();
 const router = useRouter();
 
-// 全部订单 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
-const canViewAll = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 1;
-});
-
-// 下属订单 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
-const canViewSubordinate = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 2 || dataScope === 3 || dataScope === 4;
-});
+// 全部/下属订单 Tab 显示条件
+const { canViewAll, canViewSubordinate, isSuperAdmin } = useDataScopeTabs();
 
 const allTabList = [
   { key: 'all', label: '全部订单' },
@@ -84,12 +63,6 @@ const activeTab = ref('my');
 
 // 是否为下属视图（下属视图下只能查看，不能操作）
 const isSubordinateView = computed(() => activeTab.value === 'subordinate');
-
-// 是否超级管理员/系统管理员
-const isSuperAdmin = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  return roles.includes('super_admin') || roles.includes('system_admin');
-});
 
 function handleTabChange(key: number | string) {
   activeTab.value = key as string;
@@ -239,6 +212,7 @@ const formOptions: VbenFormProps = {
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
+  minHeight: 600,
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
@@ -263,12 +237,6 @@ const gridOptions: VxeGridProps = {
           params.endDate = formValues.dateRange[1];
         }
         const result = await getOrderListApi(params);
-        // 无数据 280px，有数据按内容自适应
-        const items = (result as any)?.items ?? [];
-        const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
-        if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '280px' : '';
-        }
         // 等DOM渲染完成后同步固定列行高并居中内容
         const syncFixedColumn = (retry = 0) => {
           const $el = gridApi.grid?.$el as HTMLElement | undefined;
@@ -454,15 +422,6 @@ function handleViewDrawerAction(type: string, row: any) {
       handleCreateContract(row);
       break;
     }
-    case 'submitApproval': {
-      handleSubmitApproval(row);
-      break;
-    }
-    case 'viewApproval': {
-      approvalOrderId.value = row.id;
-      approvalDrawerVisible.value = true;
-      break;
-    }
     case 'viewContract': {
       handleViewContract(row);
       break;
@@ -639,44 +598,21 @@ function handleVoidOrder(row: any) {
   });
 }
 
-// ========== 审批流 ==========
-
-const approvalDrawerVisible = ref(false);
-const approvalOrderId = ref<null | number>(null);
-const currentUserId = ref<number | undefined>(undefined);
-
 // ========== 详情抽屉 ==========
 
 const viewDrawerVisible = ref(false);
 const viewDrawerOrderId = ref<null | number>(null);
 
-// 从 accessStore 中获取当前用户ID
-const userInfo = (window as any).$userInfo || {};
-currentUserId.value = userInfo.id || undefined;
-
-// 提交审批
-async function handleSubmitApproval(row: any) {
-  Modal.confirm({
-    title: '提交审批',
-    content: '确定要提交该订单进入审批流程吗？',
-    okText: '确认',
-    cancelText: '取消',
-    onOk: async () => {
-      try {
-        await submitOrderApi(row.id);
-        window.$message.success('已提交审批');
-        gridApi.query();
-      } catch {
-        window.$message.error('提交审批失败');
-      }
-    },
-  });
+// 提交审批：打开订单详情页，在详情页中查看订单与审批流程后确认提交
+function handleSubmitApproval(row: any) {
+  viewDrawerOrderId.value = row.id;
+  viewDrawerVisible.value = true;
 }
 
-// 查看审批详情
+// 查看审批：打开订单详情页查看审批流程与审批进度
 function handleViewApproval(row: any) {
-  approvalOrderId.value = row.id;
-  approvalDrawerVisible.value = true;
+  viewDrawerOrderId.value = row.id;
+  viewDrawerVisible.value = true;
 }
 
 // 查看合同（跳转到合同管理页面）
@@ -1000,11 +936,6 @@ function closeCustomerDetail() {
       :order-id="viewDrawerOrderId"
       @refresh="gridApi.query()"
       @action="handleViewDrawerAction"
-    />
-    <OrderApprovalDrawer
-      v-model:visible="approvalDrawerVisible"
-      :order-id="approvalOrderId"
-      @success="gridApi.query()"
     />
     <Drawer
       v-model:open="customerDetailVisible"

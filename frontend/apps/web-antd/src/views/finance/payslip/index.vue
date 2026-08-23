@@ -38,6 +38,7 @@ import {
   getPayslipStatisticsApi,
   sendPayslipApi,
 } from '#/api/core/finance';
+import { getVisibleDashboardCardsApi } from '#/api/core/system/dashboard-card';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { $t } from '#/locales';
 
@@ -121,8 +122,26 @@ async function loadList() {
 // ===== 统计数据 =====
 const statistics = ref<any>({});
 const statisticsLoading = ref(false);
+// 统计卡片是否对当前用户可见（由"工作台卡片配置"按角色控制）
+const showStatsCard = ref(false);
+
+async function loadVisibleCards() {
+  try {
+    const res: any = await getVisibleDashboardCardsApi();
+    const list = Array.isArray(res) ? res : res?.data || res?.list || [];
+    showStatsCard.value = list.some(
+      (card: any) => card.cardCode === 'payslip_stat',
+    );
+  } catch {
+    showStatsCard.value = false;
+  }
+}
 
 async function loadStatistics() {
+  if (!showStatsCard.value) {
+    statistics.value = {};
+    return;
+  }
   statisticsLoading.value = true;
   try {
     const res: any = await getPayslipStatisticsApi({
@@ -486,7 +505,9 @@ function onTabChange(key: string) {
   loadList();
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 先确认统计卡片可见性，再加载列表（列表加载完成后会拉取统计数据）
+  await loadVisibleCards();
   loadList();
 });
 </script>
@@ -512,8 +533,12 @@ onMounted(() => {
       </div>
     </PageUsageGuide>
 
-    <!-- 统计卡片 -->
-    <Card class="mb-4" style="margin-bottom: 16px">
+    <!-- 统计卡片（按"工作台卡片配置"角色可见性动态渲染） -->
+    <Card
+      v-if="showStatsCard"
+      class="mb-4"
+      style="margin-bottom: 16px"
+    >
       <Spin :spinning="statisticsLoading">
         <Row :gutter="16">
           <Col :span="6">

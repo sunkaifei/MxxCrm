@@ -67,6 +67,7 @@ export * from './system/notice';
 export * from './system/pdf';
 export * from './system/pdf-template';
 export * from './system/profile';
+export * from './system/resign';
 export * from './system/post';
 export * from './system/preference';
 export * from './system/record';

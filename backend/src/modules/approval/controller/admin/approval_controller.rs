@@ -18,7 +18,8 @@ use crate::modules::approval::model::approval::{
     ApprovalDelegateRequest, ApprovalAddSignRequest, ApprovalCcRequest,
 };
 use crate::modules::approval::service::approval_service::ApprovalService;
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
+use actix_web_grants::authorities::AuthDetails;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -94,6 +95,25 @@ pub async fn flow_list(
                 .content_type(MPACK)
                 .body(MetaResp::success_with_page(data, "local", page, total)))
         }
+        Err(e) => Ok(HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
+    }
+}
+
+/// 按流程编码预览流程（B2：提交审核抽屉 / 个人中心提交前展示，仅登录鉴权，无 system:approval:list 要求）
+pub async fn flow_preview(
+    state: web::Data<AppState>,
+    code: web::Path<String>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    match ApprovalService::find_flow_vo_by_code(db, &code.into_inner()).await {
+        Ok(Some(data)) => Ok(HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success(data, "local"))),
+        Ok(None) => Ok(HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(404, "审批流程不存在或未启用", "local"))),
         Err(e) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
@@ -184,13 +204,33 @@ pub async fn process_approval(
 
 pub async fn approval_detail(
     state: web::Data<AppState>,
+    req: HttpRequest,
     id: web::Path<i64>,
 ) -> Result<HttpResponse> {
     let db = &state.db;
-    match ApprovalService::find_instance_by_id(db, id.into_inner()).await {
-        Ok(data) => Ok(HttpResponse::Ok()
+    let instance_id = id.into_inner();
+    match ApprovalService::find_instance_by_id(db, instance_id).await {
+        Ok(Some(data)) => {
+            let current_user_id = get_current_user_id(&req);
+            // 放行条件（B3）：发起人本人，或持有 system:approval:todo（审批人/管理员入口）
+            let is_submitter = data.submitter_id == current_user_id;
+            let has_todo = req
+                .extensions()
+                .get::<AuthDetails<String>>()
+                .map(|d| d.authorities.contains("system:approval:todo"))
+                .unwrap_or(false);
+            if !is_submitter && !has_todo {
+                return Ok(HttpResponse::Ok()
+                    .content_type(MPACK)
+                    .body(MetaResp::<String>::fail(403, "无权查看该审批实例", "local")));
+            }
+            Ok(HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::success(data, "local")))
+        }
+        Ok(None) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
-            .body(MetaResp::success(data, "local"))),
+            .body(MetaResp::<String>::fail(404, "审批实例不存在", "local"))),
         Err(e) => Ok(HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
@@ -427,6 +467,11 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/flow/list",
                 web::get().to(flow_list).wrap(require_permission("system:approval:list")),
             )
+            // GET /approval/flow/preview/{code} - 流程预览（B2：提交审核抽屉/个人中心，仅登录鉴权，无 system:approval:list 要求）
+            .route(
+                "/flow/preview/{code}",
+                web::get().to(flow_preview),
+            )
             // POST /approval/flow/toggle/{id} - 启用/停用审批流（需要 system:approval:toggle）
             .route(
                 "/flow/toggle/{id}",
@@ -447,10 +492,10 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/process",
                 web::post().to(process_approval),
             )
-            // GET /approval/detail/{id} - 审批实例详情（需要 system:approval:todo）
+            // GET /approval/detail/{id} - 审批实例详情（B3：发起人本人放行；审批人/管理员需 system:approval:todo）
             .route(
                 "/detail/{id}",
-                web::get().to(approval_detail).wrap(require_permission("system:approval:todo")),
+                web::get().to(approval_detail),
             )
             // GET /approval/list - 审批实例列表（需要 system:approval:todo）
             .route(

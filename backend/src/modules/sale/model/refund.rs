@@ -646,7 +646,7 @@ impl RefundModel {
         let result = SaleRefund::find()
             .filter(refund::Column::RefundNo.like(&pattern))
             .select_only()
-            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(refund_no, 11) AS INTEGER))")), "max_seq")
+            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(refund_no, 11) AS BIGINT))")), "max_seq")
             .into_tuple::<Option<i64>>()
             .one(db)
             .await?;
@@ -872,7 +872,7 @@ impl RefundPaymentModel {
         let result = SaleRefundPayment::find()
             .filter(refund_payment::Column::PaymentNo.like(&pattern))
             .select_only()
-            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(payment_no, 11) AS INTEGER))")), "max_seq")
+            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(payment_no, 11) AS BIGINT))")), "max_seq")
             .into_tuple::<Option<i64>>()
             .one(db)
             .await?;

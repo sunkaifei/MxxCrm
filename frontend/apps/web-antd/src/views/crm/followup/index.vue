@@ -7,13 +7,14 @@ import { computed, h, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucideEye } from '@vben/icons';
-import { useAccessStore, useUserStore } from '@vben/stores';
+import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Drawer, message, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteFollowupApi, getFollowupListApi } from '#/api';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import CustomerDetail from '../customer/detail.vue';
@@ -44,21 +45,14 @@ const sourceTypeColorMap: Record<number, string> = {
   3: 'orange',
 };
 
-const userStore = useUserStore();
 const accessStore = useAccessStore();
 
 // data_scope 决定可见的 Tab
 // 1=全部数据 → 全部Tab  2=自定义 → my+subordinate+todayFollow
 // 3=本部门 → my+todayFollow  4=本部门及以下 → all+my+subordinate+todayFollow
 // 5=仅本人 → my+todayFollow
-const dataScope = computed(() => {
-  const scope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  const roles = userStore.userInfo?.roles ?? [];
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
-  return typeof scope === 'number' ? scope : 5;
-});
+// 超管（user_type=1）/系统管理员（data_scope=1）统一按 dataScope=1 处理，与后端一致
+const { dataScope } = useDataScopeTabs();
 
 const activeTab = ref('my');
 

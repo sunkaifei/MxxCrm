@@ -8,41 +8,23 @@ import { useRoute } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
-import { useAccessStore, useUserStore } from '@vben/stores';
+import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, message, Modal, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteShipmentApi, getShipmentListApi, signShipmentApi } from '#/api';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 import ShipmentDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
-const userStore = useUserStore();
 const route = useRoute();
 
-const canViewAll = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 1;
-});
-
-const canViewSubordinate = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 2 || dataScope === 3 || dataScope === 4;
-});
+const { canViewAll, canViewSubordinate } = useDataScopeTabs();
 
 const allTabList = [
   { key: 'all', label: '全部发货' },

@@ -127,7 +127,8 @@ pub async fn update_role_menus(
             Box::pin(async move {
                 RoleMenuMergeModel::delete_by_role_id(txn, &role_id).await?;
                 if sys_role_menu_list.is_empty() {
-                    return Ok(0);
+                    // 清空角色权限（menu_ids 为空数组）属合法操作：旧关联已删除，返回成功
+                    return Ok(1);
                 }
                 RoleMenuMergeModel::insert_batch(txn, &sys_role_menu_list).await
             })
@@ -277,7 +278,8 @@ pub async fn update_role_depts(
             Box::pin(async move {
                 RoleDeptMergeModel::delete_by_role_id(txn, &role_id).await?;
                 if sys_role_dept_list.is_empty() {
-                    return Ok(0);
+                    // 清空角色自定义数据权限（dept_ids 为空数组）属合法操作：旧关联已删除，返回成功
+                    return Ok(1);
                 }
                 RoleDeptMergeModel::insert_batch(txn, &sys_role_dept_list).await
             })

@@ -160,10 +160,36 @@ pub struct StatisticsQuery {
 
 pub async fn statistics(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<StatisticsQuery>,
 ) -> HttpResponse {
     let db = &state.db;
     let q = query.0;
+
+    // 接口数据兜底：统计卡片未对当前用户角色开放时，返回空统计
+    // 与"工作台卡片配置"（mxx_system_dashboard_card）联动，卡片不可见则数据不返回
+    let user_id = get_current_user_id(&req);
+    match crate::modules::system::service::dashboard_card_service::get_visible_cards(db, user_id).await {
+        Ok(cards) if !cards.iter().any(|c| c.card_code.as_deref() == Some("payslip_stat")) => {
+            return HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(
+                payslip_service::ReadStatistics {
+                    sent_count: 0,
+                    read_count: 0,
+                    unread_count: 0,
+                    total_count: 0,
+                },
+                "local",
+            ));
+        }
+        Ok(_) => {}
+        Err(_) => {
+            return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(
+                400,
+                "统计权限校验失败",
+                "local",
+            ));
+        }
+    }
 
     match payslip_service::get_read_statistics(db, q.year, q.month).await {
         Ok(data) => HttpResponse::Ok().content_type(MPACK)

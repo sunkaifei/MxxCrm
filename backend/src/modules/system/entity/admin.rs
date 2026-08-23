@@ -68,6 +68,8 @@ pub struct Model {
     pub hire_date: Option<NaiveDate>,
     ///是否参与工资核算：0不参与 1参与（默认参与）
     pub salary_enabled: Option<i32>,
+    ///是否参与业务：0不参与 1参与（默认参与；超级管理员一律视为不参与）
+    pub biz_enabled: Option<i32>,
     ///试用期月数（0或NULL=无试用期）
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，NULL=不打折）
@@ -165,3 +167,15 @@ impl Related<super::notice::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl Model {
+    /// 是否参与业务（统一判定事实来源）
+    /// - 超级管理员（user_type=1）一律不参与业务：平台治理角色，不进入业务分配/审批链/业绩归属
+    /// - 普通用户按 biz_enabled 开关（默认参与），职能账号可显式关闭
+    pub fn is_biz_participant(&self) -> bool {
+        if self.user_type == Some(1) {
+            return false;
+        }
+        self.biz_enabled.unwrap_or(1) == 1
+    }
+}

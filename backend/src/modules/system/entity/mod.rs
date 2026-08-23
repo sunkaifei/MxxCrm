@@ -48,4 +48,9 @@ pub mod system_session;
 pub mod hr_resume;
 pub mod hr_emergency_contact;
 pub mod hr_profile_log;
+pub mod hr_resign_record;
+pub mod hr_resign_transfer_item;
+pub mod hr_resign_item_template;
+pub mod dashboard_card;
+pub mod dashboard_card_role_merge;
 

@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 
+use bcrypt::verify;
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DbConn, DbErr, EntityTrait,
@@ -15,15 +16,19 @@ use sea_orm::{
 };
 
 use crate::core::errors::error::{Error, Result};
+use crate::core::kit::json_util;
 use crate::modules::system::entity::{
     admin, admin_dept_merge, admin_post_merge, hr_emergency_contact, hr_resume,
     hr_profile_log,
 };
+use crate::modules::system::model::admin::AdminModel;
 use crate::modules::system::model::profile::{
-    BankRequest, BasicUpdateRequest, CardVO, EmergencyContactItem, IdCardBlock,
-    IdCardRequest, MyProfileVO, ResumeItem, VisibilityConfig, BasicBlock, BankBlock,
-    EmployBlock,
+    BankRequest, BasicUpdateRequest, CardVO, EmailUpdateRequest, EmergencyContactItem,
+    IdCardBlock, IdCardRequest, MobileUpdateRequest, MyProfileVO, ResumeItem,
+    VisibilityConfig, BasicBlock, BankBlock, EmployBlock,
 };
+use crate::modules::system::service::{integration_config_service, otp_service};
+use crate::utils::string_utils;
 
 /// 手机号脱敏：139****1234
 pub fn mask_mobile(m: &str) -> String {
@@ -183,7 +188,7 @@ async fn post_names_of<C: ConnectionTrait>(db: &C, admin_id: i64) -> Vec<String>
     names
 }
 
-/// 本人基本信息更新（白名单：昵称/性别/邮箱/简介/公开配置；雇佣事实字段一律忽略）
+/// 本人基本信息更新（白名单：昵称/性别/简介/公开配置；邮箱/手机号请走独立的安全接口，防止被恶意修改）
 pub async fn update_basic(
     db: &DbConn,
     admin_id: i64,
@@ -203,10 +208,6 @@ pub async fn update_basic(
     }
     if req.gender.is_some() {
         am.gender = Set(req.gender);
-        changed = true;
-    }
-    if req.email.is_some() {
-        am.email = Set(req.email.clone());
         changed = true;
     }
     if req.intro.is_some() {
@@ -250,6 +251,141 @@ pub async fn update_basic(
         am.update_time = Set(Some(Utc::now().naive_utc()));
         am.update(db).await.map_err(|e| Error::from(e.to_string()))?;
     }
+    Ok(())
+}
+
+/// SMTP 是否已配置且启用（决定邮箱修改是否需要验证码）
+async fn smtp_available(db: &DbConn) -> bool {
+    let cfg = match integration_config_service::get_by_code(db, "smtp_email").await {
+        Ok(Some(c)) => c,
+        _ => return false,
+    };
+    if cfg.enabled != Some(1) {
+        return false;
+    }
+    let Some(json) = cfg.config_json.as_ref() else {
+        return false;
+    };
+    let host = json_util::get_str(json, "host").unwrap_or_default();
+    let username = json_util::get_str(json, "username").unwrap_or_default();
+    let password = json_util::get_str(json, "password").unwrap_or_default();
+    !host.is_empty() && !username.is_empty() && !password.is_empty()
+}
+
+/// 修改本人邮箱（安全接口：登录密码 + 按需邮箱验证码）
+///
+/// 验证规则（避免首次使用 / SMTP 未配置时卡死）：
+/// 1. 始终校验当前登录密码
+/// 2. SMTP 已配置且启用时：
+///    - 已绑定旧邮箱 → 需旧邮箱验证码（email_old，发到旧邮箱）
+///    - 始终需新邮箱验证码（email_new，发到新邮箱）
+/// 3. SMTP 未配置/未启用 → 仅登录密码即可修改（降级，保证首次使用可用）
+pub async fn update_email(
+    db: &DbConn,
+    admin_id: i64,
+    req: EmailUpdateRequest,
+) -> Result<()> {
+    let a = admin::Entity::find_by_id(admin_id)
+        .filter(admin::Column::Deleted.eq(0))
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::from("员工信息不存在"))?;
+
+    // 1. 登录密码校验
+    let stored = a.password.clone().unwrap_or_default();
+    if stored.is_empty() || !verify(&req.password, &stored).unwrap_or(false) {
+        return Err(Error::from("当前登录密码不正确"));
+    }
+
+    // 2. 新邮箱格式 + 唯一性
+    let new_email = req.new_email.trim().to_lowercase();
+    if new_email.is_empty()
+        || !new_email.contains('@')
+        || new_email.contains(char::is_whitespace)
+        || new_email.len() > 100
+    {
+        return Err(Error::from("新邮箱格式不正确"));
+    }
+    let dup = AdminModel::find_by_email_unique(db, &Some(new_email.clone()), Some(admin_id))
+        .await
+        .map_err(|e| Error::from(format!("查询邮箱唯一性失败: {}", e)))?;
+    if dup > 0 {
+        return Err(Error::from("该邮箱已被其他账号使用"));
+    }
+
+    // 3. 按 SMTP 可用性决定验证码校验
+    let old_email = a.email.clone().unwrap_or_default().trim().to_string();
+    if smtp_available(db).await {
+        let new_otp = req
+            .new_otp
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .ok_or_else(|| Error::from("请先获取新邮箱验证码"))?;
+        otp_service::verify(admin_id, "email_new", new_otp)
+            .map_err(|e| Error::from(e))?;
+        if !old_email.is_empty() {
+            let old_otp = req
+                .old_otp
+                .as_deref()
+                .filter(|s| !s.trim().is_empty())
+                .ok_or_else(|| Error::from("请先获取旧邮箱验证码"))?;
+            otp_service::verify(admin_id, "email_old", old_otp)
+                .map_err(|e| Error::from(e))?;
+        }
+    }
+
+    // 4. 更新邮箱
+    let mut am: admin::ActiveModel = a.clone().into();
+    am.email = Set(Some(new_email.clone()));
+    am.update_time = Set(Some(Utc::now().naive_utc()));
+    am.update(db).await.map_err(|e| Error::from(e.to_string()))?;
+
+    // 5. 写变更日志
+    let old_log = if old_email.is_empty() { None } else { Some(old_email) };
+    write_log(db, admin_id, "email", old_log, Some(new_email), 2, admin_id, None).await?;
+    Ok(())
+}
+
+/// 修改本人手机号（安全接口：登录密码验证）
+///
+/// 当前系统未接入短信通道，采用「登录密码」作为动态验证，
+/// 手机号由服务端统一规范校验（11 位中国大陆手机号）。
+pub async fn update_mobile(
+    db: &DbConn,
+    admin_id: i64,
+    req: MobileUpdateRequest,
+) -> Result<()> {
+    let a = admin::Entity::find_by_id(admin_id)
+        .filter(admin::Column::Deleted.eq(0))
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::from("员工信息不存在"))?;
+
+    // 1. 登录密码校验
+    let stored = a.password.clone().unwrap_or_default();
+    if stored.is_empty() || !verify(&req.password, &stored).unwrap_or(false) {
+        return Err(Error::from("当前登录密码不正确"));
+    }
+
+    // 2. 手机号规范化 + 唯一性
+    let mobile = string_utils::normalize_and_validate_cn_mobile(Some(&req.mobile))
+        .map_err(|e| Error::from(e))?;
+    let dup = AdminModel::find_by_mobile_unique(db, &Some(mobile.clone()), Some(admin_id))
+        .await
+        .map_err(|e| Error::from(format!("查询手机号唯一性失败: {}", e)))?;
+    if dup > 0 {
+        return Err(Error::from("该手机号已被其他账号绑定"));
+    }
+
+    // 3. 更新手机号
+    let mut am: admin::ActiveModel = a.clone().into();
+    am.mobile = Set(Some(mobile.clone()));
+    am.update_time = Set(Some(Utc::now().naive_utc()));
+    am.update(db).await.map_err(|e| Error::from(e.to_string()))?;
+
+    // 4. 写变更日志
+    let old = a.mobile.clone().filter(|m| !m.trim().is_empty());
+    write_log(db, admin_id, "mobile", old, Some(mobile), 2, admin_id, None).await?;
     Ok(())
 }
 
@@ -445,6 +581,54 @@ pub async fn contact_list(db: &DbConn, admin_id: i64) -> Result<Vec<EmergencyCon
 }
 
 const MAX_CONTACTS: i64 = 3;
+
+/// 档案完善度检查：返回未完善项名称列表（空 = 已完善）
+/// 入职审批（user 审核）提交前的强校验：
+/// 个人信息（昵称）、个人简历（至少一条）、财务信息（身份证+工资卡）、紧急联系人（至少一条）
+pub async fn profile_completeness(db: &DbConn, admin_id: i64) -> Result<Vec<String>> {
+    let a = admin::Entity::find_by_id(admin_id)
+        .filter(admin::Column::Deleted.eq(0))
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::from("员工信息不存在"))?;
+
+    let mut missing: Vec<String> = Vec::new();
+
+    // 个人信息：昵称必填
+    let nick = a.nick_name.as_deref().unwrap_or("").trim();
+    if nick.is_empty() {
+        missing.push("个人信息".to_string());
+    }
+
+    // 财务信息：身份证号 + 工资卡号
+    let id_no = a.id_card_no.as_deref().unwrap_or("").trim();
+    let bank_no = a.bank_card_no.as_deref().unwrap_or("").trim();
+    if id_no.is_empty() || bank_no.is_empty() {
+        missing.push("财务信息".to_string());
+    }
+
+    // 个人简历：至少一条记录
+    let resume_cnt = hr_resume::Entity::find()
+        .filter(hr_resume::Column::AdminId.eq(admin_id))
+        .filter(hr_resume::Column::Deleted.eq(0))
+        .count(db)
+        .await?;
+    if resume_cnt == 0 {
+        missing.push("个人简历".to_string());
+    }
+
+    // 紧急联系人：至少一条
+    let contact_cnt = hr_emergency_contact::Entity::find()
+        .filter(hr_emergency_contact::Column::AdminId.eq(admin_id))
+        .filter(hr_emergency_contact::Column::Deleted.eq(0))
+        .count(db)
+        .await?;
+    if contact_cnt == 0 {
+        missing.push("紧急联系人".to_string());
+    }
+
+    Ok(missing)
+}
 
 /// 紧急联系人新增（上限3条，事务）
 pub async fn contact_save(

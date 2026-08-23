@@ -7,11 +7,13 @@ use crate::modules::approval::model::approval::*;
 use crate::modules::crm::entity::contract;
 use crate::modules::crm::model::work_log::WorkLogCreateDTO;
 use crate::modules::crm::service::work_log_service;
+use crate::modules::message::service::notification_service::NotificationService;
 use crate::modules::sale::entity::invoice;
 use crate::modules::sale::entity::order;
 use crate::modules::system::entity::admin::{Entity as AdminEntity};
 use crate::modules::system::entity::admin_role_merge::{Column as RoleMergeColumn, Entity as RoleMergeEntity};
 use crate::modules::system::entity::role::{Column as RoleColumn, Entity as RoleEntity};
+use crate::modules::system::service::profile_service;
 
 use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, TransactionTrait};
 
@@ -27,6 +29,14 @@ impl ApprovalService {
     /// 查询审批流详情
     pub async fn find_flow_by_id(db: &DatabaseConnection, id: i64) -> Result<Option<FlowDetailVO>> {
         ApprovalModel::find_flow_by_id(db, id).await
+    }
+
+    /// 按流程编码查询启用的审批流详情（供业务模块提交审批前预览流程，无需 system:approval:list 权限）
+    pub async fn find_flow_vo_by_code(
+        db: &DatabaseConnection,
+        code: &str,
+    ) -> Result<Option<FlowDetailVO>> {
+        ApprovalModel::find_flow_vo_by_code(db, code).await
     }
 
     /// 审批流模板列表
@@ -51,6 +61,14 @@ impl ApprovalService {
         if req.business_type == "user" {
             if let Some(extra) = Self::build_user_audit_extra(db, &req).await? {
                 req.extra_data = Some(extra);
+            }
+            // 档案完善度前置校验：员工须先完善 个人信息/个人简历/财务信息/紧急联系人 才能提交入职审批
+            let missing = profile_service::profile_completeness(db, req.business_id).await?;
+            if !missing.is_empty() {
+                return Err(Error::from(format!(
+                    "档案信息不完整，请先在个人中心完善：{}",
+                    missing.join("、")
+                )));
             }
         }
         let flow_data = ApprovalModel::find_flow_by_code(db, &req.flow_code).await?;
@@ -125,6 +143,8 @@ impl ApprovalService {
                         .await
                         .map_err(|e| Error::from(e.to_string()))?;
                         let _ = flow;
+                        // B10：提交后站内通知（best-effort，失败不影响主流程）
+                        Self::notify_after_submit(db, instance_id).await;
                         return Ok(instance_id);
                     }
                     _ => {
@@ -160,6 +180,15 @@ impl ApprovalService {
         // 直属上级节点且候选为空（已到组织架构顶层）：自动通过当前节点并流转到下一节点
         if candidates.is_empty() {
             if ApprovalModel::is_direct_manager_node(first_node_approver_type) {
+                // 入职/离职审核（user/resign）：部门负责人链（type=7）解析为空时不允许自动通过，
+                // 明确报错（审批必须有人审，部门负责人节点不可静默跳过）
+                if (req.business_type == "user" || req.business_type == "resign")
+                    && first_node_approver_type == Some(7)
+                {
+                    return Err(Error::from(
+                        "该员工部门未配置负责人或负责人不可用，请联系管理员完善部门负责人设置后再提交",
+                    ));
+                }
                 // 创建实例（占位，current_approver_id=0 表示系统自动通过），随后立即自动流转
                 let ed = req.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
                 let sid = req.submitter_id;
@@ -184,6 +213,8 @@ impl ApprovalService {
                 let _ = flow;
                 // 用户审核：直属上级自动通过完成时启用用户
                 Self::finish_user_audit_if_approved(db, instance_id).await;
+                // B10：提交后站内通知（best-effort，失败不影响主流程）
+                Self::notify_after_submit(db, instance_id).await;
                 return Ok(instance_id);
             } else if !raw_candidates.is_empty() {
                 // 自审回避后候选为空但原候选非空（如指定角色下仅有提交人自己）：
@@ -217,6 +248,8 @@ impl ApprovalService {
         .map_err(|e| Error::from(e.to_string()))?;
 
         let _ = flow; // flow 已使用
+        // B10：提交后站内通知首节点审批人（best-effort，失败不影响主流程）
+        Self::notify_after_submit(db, instance_id).await;
         Ok(instance_id)
     }
 
@@ -362,6 +395,17 @@ impl ApprovalService {
                     }
                     _ => return Err(Error::from("无效的操作类型")),
                 }
+
+                // B5：离职审批流转完成（实例 status=3）后，事务内创建交接单；失败随事务整体回滚
+                if let Some(inst_now) = ApprovalModel::find_instance_by_id_raw(txn, req.instance_id).await? {
+                    if inst_now.status == Some(3) && inst_now.business_type.as_deref() == Some("resign") {
+                        crate::modules::system::service::resign_service::create_handover_after_approval(
+                            txn,
+                            req.instance_id,
+                        )
+                        .await?;
+                    }
+                }
                 Ok(())
             })
         })
@@ -370,6 +414,10 @@ impl ApprovalService {
 
         // 用户审核：审批通过（实例完成）后自动启用用户
         Self::finish_user_audit_if_approved(db, wl_instance_id).await;
+
+        // B10：审批结果站内通知（best-effort，失败不影响主流程）
+        // 通知发起人审批结果 + 当前节点审批人新待办 + 离职审批通过时通知交接确认人
+        Self::notify_after_process(db, wl_instance_id).await;
 
         // 工作日志埋点（审批通过/驳回），不影响主业务
         let action_name = if wl_action == 1 { "审批通过" } else { "驳回审批" };
@@ -494,6 +542,150 @@ impl ApprovalService {
                     1,
                 )
                 .await;
+            }
+        }
+    }
+
+    /// B10：站内通知配置（仅人事相关流程 user/resign 发通知，其他业务类型保持原行为不打扰）
+    /// 返回 (通知类型, 落地页链接)；返回 None 表示不发通知
+    fn notify_config(business_type: &str) -> Option<(i32, &'static str)> {
+        match business_type {
+            "user" | "resign" => Some((9, "/system/user")),
+            _ => None,
+        }
+    }
+
+    /// 当前节点应被通知的审批人ID：
+    /// 依次审批(approve_mode=3)=仅当前审批人；或签/会签(1/2)=全部候选审批人
+    fn notify_approver_ids(inst: &ApprovalInstanceVO) -> Vec<i64> {
+        if inst.approve_mode == 3 {
+            inst.current_approver_id
+                .filter(|&id| id > 0)
+                .into_iter()
+                .collect()
+        } else {
+            inst.candidate_approvers
+                .iter()
+                .copied()
+                .filter(|&id| id > 0)
+                .collect()
+        }
+    }
+
+    /// B10：提交审批后站内通知（best-effort，失败不影响主流程）
+    /// - 实例待审（1/2）→ 通知当前节点候选审批人"有新的待办"
+    /// - 实例自动完成（3）→ 通知发起人"已通过"
+    async fn notify_after_submit(db: &DatabaseConnection, instance_id: i64) {
+        let Ok(Some(inst)) = ApprovalModel::find_instance_by_id(db, instance_id).await else {
+            return;
+        };
+        let Some((ntype, link)) = Self::notify_config(&inst.business_type) else {
+            return;
+        };
+        let biz_title = inst.business_title.clone().unwrap_or_else(|| "审批申请".to_string());
+        if inst.status == 1 || inst.status == 2 {
+            let approvers: Vec<i64> = Self::notify_approver_ids(&inst)
+                .into_iter()
+                .filter(|&id| id != inst.submitter_id)
+                .collect();
+            if approvers.is_empty() {
+                return;
+            }
+            let content = format!(
+                "{} 提交了审批申请，请您及时处理。",
+                inst.submitter_name.clone().unwrap_or_else(|| "申请人".to_string())
+            );
+            for aid in approvers {
+                let _ = NotificationService::send_system_notification(
+                    db,
+                    aid,
+                    format!("【待审批】{}", biz_title),
+                    content.clone(),
+                    ntype,
+                    Some(link.to_string()),
+                )
+                .await;
+            }
+        } else if inst.status == 3 {
+            let _ = NotificationService::send_system_notification(
+                db,
+                inst.submitter_id,
+                format!("【审批通过】{}", biz_title),
+                "您的审批申请已通过（系统自动通过）。".to_string(),
+                ntype,
+                Some(link.to_string()),
+            )
+            .await;
+        }
+    }
+
+    /// B10：审批结果站内通知（best-effort，失败不影响主流程）
+    /// - 终态 3/4 → 通知发起人审批结果
+    /// - 流转中（1/2）→ 通知当前节点审批人"有新待办"
+    /// - 离职审批通过（resign + status=3）→ 通知交接确认人
+    async fn notify_after_process(db: &DatabaseConnection, instance_id: i64) {
+        let Ok(Some(inst)) = ApprovalModel::find_instance_by_id(db, instance_id).await else {
+            return;
+        };
+        let Some((ntype, link)) = Self::notify_config(&inst.business_type) else {
+            return;
+        };
+        let biz_title = inst.business_title.clone().unwrap_or_else(|| "审批申请".to_string());
+        match inst.status {
+            3 => {
+                let _ = NotificationService::send_system_notification(
+                    db,
+                    inst.submitter_id,
+                    format!("【审批通过】{}", biz_title),
+                    "您的审批申请已通过。".to_string(),
+                    ntype,
+                    Some(link.to_string()),
+                )
+                .await;
+                // 离职审批通过：通知交接确认人
+                if inst.business_type == "resign" {
+                    let _ =
+                        crate::modules::system::service::resign_service::notify_handover_assignees(
+                            db,
+                            inst.business_id,
+                        )
+                        .await;
+                }
+            }
+            4 => {
+                let _ = NotificationService::send_system_notification(
+                    db,
+                    inst.submitter_id,
+                    format!("【审批驳回】{}", biz_title),
+                    "您的审批申请已被驳回，请查看驳回理由。".to_string(),
+                    ntype,
+                    Some(link.to_string()),
+                )
+                .await;
+            }
+            _ => {
+                let approvers: Vec<i64> = Self::notify_approver_ids(&inst)
+                    .into_iter()
+                    .filter(|&id| id != inst.submitter_id)
+                    .collect();
+                if approvers.is_empty() {
+                    return;
+                }
+                let content = format!(
+                    "{} 的审批流转到您，请及时处理。",
+                    inst.submitter_name.clone().unwrap_or_else(|| "申请人".to_string())
+                );
+                for aid in approvers {
+                    let _ = NotificationService::send_system_notification(
+                        db,
+                        aid,
+                        format!("【待审批】{}", biz_title),
+                        content.clone(),
+                        ntype,
+                        Some(link.to_string()),
+                    )
+                    .await;
+                }
             }
         }
     }
@@ -731,6 +923,23 @@ impl ApprovalService {
         let end_count = req.nodes.iter().filter(|n| n.node_type == 4).count();
         if end_count == 0 {
             return Err(Error::from("必须至少有一个结束节点"));
+        }
+        // 校验连线端点必须存在于节点列表中，防止保存引用丢失节点的脏数据
+        let node_keys: std::collections::HashSet<&str> =
+            req.nodes.iter().map(|n| n.node_key.as_str()).collect();
+        for edge in &req.edges {
+            if !node_keys.contains(edge.source.as_str()) {
+                return Err(Error::from(format!(
+                    "连线起点节点[{}]不存在于节点列表中",
+                    edge.source
+                )));
+            }
+            if !node_keys.contains(edge.target.as_str()) {
+                return Err(Error::from(format!(
+                    "连线终点节点[{}]不存在于节点列表中",
+                    edge.target
+                )));
+            }
         }
         for node in &req.nodes {
             if node.node_type == 3 {

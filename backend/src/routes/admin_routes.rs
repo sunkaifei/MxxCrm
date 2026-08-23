@@ -11,7 +11,7 @@ use crate::modules::articles::controller::admin::{article_admin_controller, arti
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller, audit_admin_controller, backup_controller, profile_controller, hr_archive_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller, audit_admin_controller, backup_controller, profile_controller, hr_archive_controller, resign_controller, dashboard_card_admin_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller};
@@ -392,6 +392,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(profile_controller::register)
             // HR Employee Archive Management (员工档案管理)
             .configure(hr_archive_controller::register)
+            // Resign Handover Management (离职交接单：列表/详情/确认/结算/中止/转派)
+            .configure(resign_controller::register)
+            // Dashboard Card Management (工作台卡片配置中心：集中控制各页面卡片可见角色)
+            .configure(dashboard_card_admin_controller::register)
     );
 
     // logout 路由独立注册（不在 /api/system scope 下，避免前缀冲突）

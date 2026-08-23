@@ -17,8 +17,10 @@ impl TagService {
         tag_name: Option<String>,
         group_id: Option<i64>,
         is_global: Option<bool>,
+        user_id: Option<i64>,
+        is_admin: bool,
     ) -> Result<ResultPage<Vec<TagListVO>>> {
-        let (tags, total) = TagModel::select_in_page(db, page, per_page, tag_name, group_id, is_global).await.map_err(|e| Error::Database(e.to_string()))?;
+        let (tags, total) = TagModel::select_in_page(db, page, per_page, tag_name, group_id, is_global, user_id, is_admin).await.map_err(|e| Error::Database(e.to_string()))?;
         let groups = TagGroupModel::find_all(db).await.map_err(|e| Error::Database(e.to_string()))?;
         let group_map: std::collections::HashMap<i64, (String, String)> = groups.into_iter()
             .filter(|g| g.group_name.is_some())
@@ -143,8 +145,8 @@ impl TagService {
         TagModel::update_status(db, id, status).await.map_err(|e| Error::Database(e.to_string()))
     }
 
-    pub async fn suggest(db: &DbConn, keyword: &str) -> Result<Vec<TagSuggestVO>> {
-        let tags = TagModel::suggest(db, keyword).await.map_err(|e| Error::Database(e.to_string()))?;
+    pub async fn suggest(db: &DbConn, keyword: &str, user_id: Option<i64>, is_admin: bool) -> Result<Vec<TagSuggestVO>> {
+        let tags = TagModel::suggest(db, keyword, user_id, is_admin).await.map_err(|e| Error::Database(e.to_string()))?;
         let groups = TagGroupModel::find_all(db).await.map_err(|e| Error::Database(e.to_string()))?;
         let group_map: std::collections::HashMap<i64, (String, String)> = groups.into_iter()
             .filter(|g| g.group_name.is_some())
@@ -180,8 +182,58 @@ impl TagService {
         Ok(vo_list)
     }
 
-    pub async fn get_tags_by_group(db: &DbConn, group_id: i64) -> Result<Vec<TagListVO>> {
-        let tags = TagModel::find_by_group(db, group_id).await.map_err(|e| Error::Database(e.to_string()))?;
+    /// 校验标签对当前用户可见（标注操作）：系统标签 ∪ 自己创建的标签，超管全部放行
+    pub async fn validate_tags_visible(
+        db: &DbConn,
+        tag_ids: &Vec<i64>,
+        user_id: i64,
+        is_admin: bool,
+    ) -> Result<()> {
+        if is_admin || tag_ids.is_empty() {
+            return Ok(());
+        }
+        let tags = TagModel::find_by_ids(db, tag_ids).await.map_err(|e| Error::Database(e.to_string()))?;
+        for t in tags {
+            if t.is_global != Some(true) && t.created_by != Some(user_id) {
+                return Err(Error::BadRequest(format!(
+                    "无权操作标签【{}】，仅可操作系统标签或自己创建的标签",
+                    t.tag_name.unwrap_or_default()
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// 校验标签对当前用户可管理（增删改）：系统标签仅超管，个人标签仅 owner
+    pub async fn validate_tags_manageable(
+        db: &DbConn,
+        tag_ids: &Vec<i64>,
+        user_id: i64,
+        is_admin: bool,
+    ) -> Result<()> {
+        if is_admin || tag_ids.is_empty() {
+            return Ok(());
+        }
+        let tags = TagModel::find_by_ids(db, tag_ids).await.map_err(|e| Error::Database(e.to_string()))?;
+        for t in tags {
+            if t.is_global == Some(true) {
+                return Err(Error::BadRequest(format!(
+                    "系统标签【{}】仅管理员可管理",
+                    t.tag_name.unwrap_or_default()
+                )));
+            }
+            if t.created_by != Some(user_id) {
+                return Err(Error::BadRequest(format!(
+                    "只能管理自己创建的标签【{}】",
+                    t.tag_name.unwrap_or_default()
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn get_tags_by_group(db: &DbConn, group_id: i64, user_id: Option<i64>, is_admin: bool) -> Result<Vec<TagListVO>> {
+        let tags = TagModel::find_by_group(db, group_id, user_id, is_admin).await.map_err(|e| Error::Database(e.to_string()))?;
         let group = TagGroupModel::find_by_id(db, group_id).await.map_err(|e| Error::Database(e.to_string()))?;
         let (group_name, group_color) = group
             .map(|g| (g.group_name.unwrap_or_default(), g.group_color.unwrap_or("#1890ff".to_string())))
@@ -210,8 +262,8 @@ impl TagService {
         Ok(vo_list)
     }
 
-    pub async fn get_all_tags(db: &DbConn) -> Result<Vec<TagListVO>> {
-        let tags = TagModel::find_all(db).await.map_err(|e| Error::Database(e.to_string()))?;
+    pub async fn get_all_tags(db: &DbConn, user_id: Option<i64>, is_admin: bool) -> Result<Vec<TagListVO>> {
+        let tags = TagModel::find_all(db, user_id, is_admin).await.map_err(|e| Error::Database(e.to_string()))?;
         let groups = TagGroupModel::find_all(db).await.map_err(|e| Error::Database(e.to_string()))?;
         let group_map: std::collections::HashMap<i64, (String, String)> = groups.into_iter()
             .filter(|g| g.group_name.is_some())

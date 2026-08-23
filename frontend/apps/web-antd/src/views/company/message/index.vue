@@ -111,6 +111,7 @@ const NOTIFICATION_TYPES = [
   { type: 6, name: '发货通知', icon: 'ship', color: '#13c2c2' },
   { type: 7, name: '回款提醒', icon: 'money', color: '#fa8c16' },
   { type: 8, name: '财务信息', icon: 'finance', color: '#f5222d' },
+  { type: 9, name: '人事审批', icon: 'hr', color: '#2f54eb' },
 ];
 
 // 通知类型名称 -> 数字 type 反向映射（用于路由参数解析，必须在 NOTIFICATION_TYPES 之后）
@@ -215,9 +216,8 @@ function getWsUrl(): string {
   const accessStore = useAccessStore();
   const token = accessStore.accessToken || '';
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  // 开发环境连后端 8080，生产环境同源
-  const host = import.meta.env.DEV ? '192.168.1.3:8080' : window.location.host;
-  return `${protocol}://${host}/ws/message?token=${encodeURIComponent(token)}`;
+  // 与 HTTP API 同源：开发环境经 vite proxy 转发 /ws 到后端（端口见 backend/config/config.ini），生产环境同源
+  return `${protocol}://${window.location.host}/ws/message?token=${encodeURIComponent(token)}`;
 }
 
 // WebSocket 关闭处理（命名以便 disconnectWebSocket 成对注销）

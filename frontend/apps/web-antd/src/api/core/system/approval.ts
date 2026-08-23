@@ -8,6 +8,10 @@ export const getApprovalFlowListApi = async (params?: any) =>
 export const getApprovalFlowDetailApi = async (id: number) =>
   requestClient.get(`/api/system/approval/flow/detail/${id}`);
 
+/** 按流程编码预览流程（B2：提交审核前展示流程图，仅登录鉴权） */
+export const getApprovalFlowPreviewApi = async (code: string) =>
+  requestClient.get(`/api/system/approval/flow/preview/${code}`);
+
 export const saveApprovalFlowApi = async (data: any) =>
   requestClient.post('/api/system/approval/flow/save', data);
 

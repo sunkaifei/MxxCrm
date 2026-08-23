@@ -194,6 +194,8 @@ pub async fn get_list(
 }
 
 /// 删除备份：物理删除文件 + 删除记录（恢复类记录仅删记录）
+///
+/// 安全约束：禁止删除最后一个"成功备份"，防止备份被一键删光后无法回滚
 pub async fn delete_backup(db: &DatabaseConnection, id: i64) -> Result<String, String> {
     use sea_orm::*;
     let rec = backup_log::Entity::find_by_id(id)
@@ -201,6 +203,19 @@ pub async fn delete_backup(db: &DatabaseConnection, id: i64) -> Result<String, S
         .await
         .map_err(|e| e.to_string())?
         .ok_or("备份记录不存在")?;
+    // 禁删最后一个成功备份
+    let is_success = rec.operate_type.unwrap_or(0) == 0 && rec.status.unwrap_or(0) == 1;
+    if is_success {
+        let success_count = backup_log::Entity::find()
+            .filter(backup_log::Column::OperateType.eq(0))
+            .filter(backup_log::Column::Status.eq(1))
+            .count(db)
+            .await
+            .map_err(|e| e.to_string())?;
+        if success_count <= 1 {
+            return Err("系统至少保留 1 份成功备份，禁止删除最后一个成功备份".to_string());
+        }
+    }
     let removed_file = rec
         .file_path
         .as_deref()
@@ -236,23 +251,26 @@ pub async fn download_backup(db: &DatabaseConnection, id: i64) -> Result<(Vec<u8
 /// 数据恢复：将指定备份 pg_restore 回当前库（危险操作）
 ///
 /// 安全约束：
-/// 1. 确认码必须为 RESTORE（前端弹窗强制输入）
-/// 2. 仅"成功备份"(operate_type=0, status=1) 可恢复，文件必须在备份目录内（防路径穿越）
-/// 3. 恢复前检查 pg_stat_activity，存在其他活跃连接则拒绝（避免恢复期间业务写入造成数据错乱）
-/// 4. 恢复使用 --clean --if-exists --no-owner --no-privileges（先 DROP 后重建，不依赖原角色）
-/// 5. 恢复后必须重启后端服务（连接池缓存的 prepared statement 失效），结果消息中明确提示
+/// 1. 调用方（controller）须已完成三重身份验证：仅超管 + 登录密码 + 邮箱验证码（动态一次性确认码）
+/// 2. 还原前强制自动备份当前数据（恢复点），备份失败则中止，防止误还原/恶意还原后无法找回
+/// 3. 仅"成功备份"(operate_type=0, status=1) 可恢复，文件必须在备份目录内（防路径穿越）
+/// 4. 恢复前检查 pg_stat_activity，存在其他活跃连接则拒绝（避免恢复期间业务写入造成数据错乱）
+/// 5. 恢复使用 --clean --if-exists --no-owner --no-privileges（先 DROP 后重建，不依赖原角色）
+/// 6. 恢复后必须重启后端服务（连接池缓存的 prepared statement 失效），结果消息中明确提示
 pub async fn restore_backup(
     db: &DatabaseConnection,
     id: i64,
-    confirm: &str,
 ) -> Result<String, String> {
     use sea_orm::*;
     let start = Instant::now();
 
-    if confirm.trim() != "RESTORE" {
-        return Err("确认码不正确，请输入 RESTORE 以确认执行恢复".to_string());
-    }
     ensure_backup_log_table(db).await.map_err(|e| e.to_string())?;
+
+    // 0) 还原前强制自动备份当前数据（恢复点），备份失败则中止还原
+    //    防止误还原/恶意还原（如用 15 号数据还原 20 号）后无法找回还原前状态
+    let pre_backup_msg = run_backup(db)
+        .await
+        .map_err(|e| format!("还原前自动备份当前数据失败，已中止还原: {}", e))?;
 
     // 1) 记录与文件校验
     let rec = backup_log::Entity::find_by_id(id)
@@ -335,8 +353,8 @@ pub async fn restore_backup(
     log::warn!("[数据库恢复] 已从 {} 恢复数据库，耗时 {} ms", file_name, cost_ms);
 
     Ok(format!(
-        "恢复完成：{}，耗时 {} ms。请立即重启后端服务以刷新数据库连接缓存！",
-        file_name, cost_ms
+        "恢复完成：{}，耗时 {} ms。还原前数据已自动备份（{}）。请立即重启后端服务以刷新数据库连接缓存！",
+        file_name, cost_ms, pre_backup_msg
     ))
 }
 

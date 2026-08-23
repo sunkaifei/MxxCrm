@@ -6,7 +6,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { computed, createVNode, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { useAccessStore, useUserStore } from '@vben/stores';
+import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -28,6 +28,7 @@ import {
   getInvoiceListApi,
   voidInvoiceApi,
 } from '#/api';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
@@ -37,27 +38,8 @@ import InvoiceDrawer from './drawer.vue';
 import InvoiceSubmitDrawer from './submit-drawer.vue';
 
 const accessStore = useAccessStore();
-const userStore = useUserStore();
 
-const canViewAll = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 1;
-});
-
-const canViewSubordinate = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 2 || dataScope === 3 || dataScope === 4;
-});
+const { canViewAll, canViewSubordinate } = useDataScopeTabs();
 
 const allTabList = [
   { key: 'all', label: '全部发票' },

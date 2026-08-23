@@ -36,6 +36,7 @@ import {
   uploadFileApi,
 } from '#/api';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
@@ -51,27 +52,8 @@ const userStore = useUserStore();
 const router = useRouter();
 const route = useRoute();
 
-// 全部合同 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
-const canViewAll = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 1;
-});
-
-// 下属合同 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
-const canViewSubordinate = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 2 || dataScope === 3 || dataScope === 4;
-});
+// 全部/下属合同 Tab 显示条件
+const { canViewAll, canViewSubordinate } = useDataScopeTabs();
 
 // 是否是超级管理员（data_scope=1 表示全部数据权限，即超管；user_type=1 表示超管用户类型）
 const isSuperAdmin = computed(() => {

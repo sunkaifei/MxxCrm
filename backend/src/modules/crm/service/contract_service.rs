@@ -13,7 +13,7 @@ use crate::core::r#enum::contract_status_enum::ContractStatus;
 use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
 use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalLogVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractModel, ContractSaveDTO};
-use crate::modules::crm::entity::{contract, contract_approval_log, contract::Entity as Contract, contract_approval_log::Entity as ContractApprovalLog, customer::{Entity as Customer, Column as CustomerColumn}};
+use crate::modules::crm::entity::{contract, contract_approval_log, contract_payment_plan, contract::Entity as Contract, contract_approval_log::Entity as ContractApprovalLog, customer::{Entity as Customer, Column as CustomerColumn}};
 use crate::modules::system::entity::admin::{Entity as AdminEntity, Column as AdminColumn};
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
@@ -329,13 +329,13 @@ pub async fn submit_contract(db: &DbConn, contract_id: i64, operator_id: i64, op
         _ => return Err(Error::from("合同未指定负责人，无法提交审批。请先分配负责人".to_string())),
     };
 
-    // 校验：负责人不能是超级管理员（user_type=1），超管不参与业务审批链
+    // 校验：负责人必须是业务参与人（超管/关闭参与业务的账号不参与业务审批链）
     let owner = Admin::find_by_id(contract_owner_id)
         .one(db)
         .await?
         .ok_or_else(|| Error::from("合同负责人不存在".to_string()))?;
-    if owner.user_type == Some(1) {
-        return Err(Error::from("合同负责人是超级管理员，不参与业务审批。请将合同分配给业务人员".to_string()));
+    if !owner.is_biz_participant() {
+        return Err(Error::from("合同负责人不参与业务，无法提交审批。请将合同分配给业务人员".to_string()));
     }
 
     let total_amount = contract.total_amount.unwrap_or(Decimal::from(0));
@@ -670,5 +670,50 @@ pub async fn execute_contract(db: &DbConn, contract_id: i64, _operator_id: i64) 
     active.status = Set(Some(ContractStatus::Executing));
     active.update_time = Set(Some(chrono::Local::now().naive_local()));
     active.update(db).await?;
+    Ok(())
+}
+
+/// 合同下所有回款计划均收讫时，自动将合同置为已完成（ContractStatus::Completed）
+///
+/// 用于回款核销 / 登记回款 / 保存计划之后联动合同状态。
+pub async fn complete_if_all_paid(db: &DbConn, contract_id: i64) -> Result<()> {
+    if contract_id <= 0 {
+        return Ok(());
+    }
+    let Some(contract) = Contract::find_by_id(contract_id)
+        .filter(contract::Column::Deleted.eq(0))
+        .one(db).await?
+    else {
+        return Ok(());
+    };
+
+    // 已完成/已终止的合同不再重复处理
+    if let Some(status) = contract.status {
+        if status == ContractStatus::Completed || status == ContractStatus::Terminated {
+            return Ok(());
+        }
+    }
+
+    // 合同下没有任何回款计划时不做完成判断
+    let plans = contract_payment_plan::Entity::find()
+        .filter(contract_payment_plan::Column::ContractId.eq(contract_id))
+        .filter(contract_payment_plan::Column::Deleted.eq(0))
+        .all(db).await?;
+    if plans.is_empty() {
+        return Ok(());
+    }
+
+    // 全部计划应收金额均已收满（金额为 0 的计划视为已收讫）
+    let all_paid = plans.iter().all(|p| {
+        let amount = p.plan_amount.unwrap_or_default();
+        let received = p.received_amount.unwrap_or_default();
+        amount.is_zero() || received >= amount
+    });
+    if all_paid {
+        let mut active: contract::ActiveModel = contract.into_active_model();
+        active.status = Set(Some(ContractStatus::Completed));
+        active.update_time = Set(Some(chrono::Local::now().naive_local()));
+        active.update(db).await?;
+    }
     Ok(())
 }

@@ -34,3 +34,5 @@ pub mod exchange_rate_controller;
 pub mod integration_config_controller;
 pub mod profile_controller;
 pub mod hr_archive_controller;
+pub mod resign_controller;
+pub mod dashboard_card_admin_controller;

@@ -42,11 +42,18 @@ pub async fn save(db: &DbConn, req: &PaymentPlanSaveRequest) -> Result<i64> {
     let contract_id = req.contract_id;
     let plans = req.plans.clone();
 
+    // 归属人 = 合同负责人（assigned_to），保证"我的回款计划"按人过滤可见
+    let owner_user_id = Contract::find_by_id(contract_id)
+        .one(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?
+        .and_then(|c| c.assigned_to);
+
     // 先删后插必须事务化，避免中途失败导致数据丢失
     let result = db
         .transaction::<_, i64, DbErr>(|txn| {
             Box::pin(async move {
-                let inserted = PaymentPlanModel::save_batch(txn, contract_id, plans).await?;
+                let inserted = PaymentPlanModel::save_batch(txn, contract_id, owner_user_id, plans).await?;
                 Ok(inserted)
             })
         })
@@ -73,6 +80,9 @@ pub async fn save(db: &DbConn, req: &PaymentPlanSaveRequest) -> Result<i64> {
             }
         }
     }
+
+    // 保存后联动：合同下所有计划收讫则合同自动置为已完成
+    let _ = crate::modules::crm::service::contract_service::complete_if_all_paid(db, contract_id).await;
 
     Ok(result)
 }

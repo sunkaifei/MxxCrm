@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer, z } from '@vben/common-ui';
+import { useUserStore } from '@vben/stores';
 
 import { message } from 'ant-design-vue';
 
@@ -9,6 +10,15 @@ import { useVbenForm } from '#/adapter/form';
 import { createTagApi, updateTagApi } from '#/api';
 import { getTagGroupListApi } from '#/api/core/system/tag_group';
 import { $t } from '#/locales';
+
+const userStore = useUserStore();
+const userInfo: any = userStore.userInfo || {};
+// 超管判定（与 use-super-admin-guard 一致：data_scope=1 或 user_type=1）
+const isSuperAdmin = computed(() => {
+  const dataScope = userInfo?.dataScope ?? userInfo?.data_scope;
+  const userType = userInfo?.userType ?? userInfo?.user_type;
+  return dataScope === 1 || userType === 1;
+});
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -31,14 +41,9 @@ async function loadGroups() {
 
 loadGroups();
 
-const [BaseForm, baseFormApi] = useVbenForm({
-  showDefaultActions: false,
-  commonConfig: {
-    componentProps: {
-      class: 'w-full',
-    },
-  },
-  schema: [
+// 系统标签仅超管可创建/修改，普通用户只创建个人标签
+const formSchema = computed(() => {
+  const schema: any[] = [
     {
       component: 'Select',
       fieldName: 'groupId',
@@ -79,11 +84,36 @@ const [BaseForm, baseFormApi] = useVbenForm({
     },
     {
       component: 'Switch',
+      fieldName: 'status',
+      label: $t('page.system.tag.status'),
+      defaultValue: 1,
+      componentProps: {
+        checkedValue: 1,
+        unCheckedValue: 0,
+        checkedChildren: $t('ui.switch.active'),
+        unCheckedChildren: $t('ui.switch.inactive'),
+      },
+    },
+  ];
+  if (isSuperAdmin.value) {
+    schema.push({
+      component: 'Switch',
       fieldName: 'isGlobal',
       label: $t('page.system.tag.global'),
       defaultValue: true,
+    });
+  }
+  return schema;
+});
+
+const [BaseForm, baseFormApi] = useVbenForm({
+  showDefaultActions: false,
+  commonConfig: {
+    componentProps: {
+      class: 'w-full',
     },
-  ],
+  },
+  schema: formSchema.value,
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({

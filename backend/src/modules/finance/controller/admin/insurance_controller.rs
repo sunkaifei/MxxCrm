@@ -43,7 +43,6 @@ pub async fn policy_list(
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
 }
-
 pub async fn policy_upsert(
     state: web::Data<AppState>,
     form_data: web::Json<insurance_service::InsurancePolicyDTO>,
@@ -121,6 +120,24 @@ pub async fn employee_config_upsert(
     }
 }
 
+// ==================== 实时预览计算 ====================
+
+pub async fn preview_calc(
+    state: web::Data<AppState>,
+    form_data: web::Json<insurance_service::PreviewCalcDTO>,
+) -> HttpResponse {
+    let db = &state.db;
+    let dto = form_data.0;
+    match insurance_service::preview_calculation(db, dto).await {
+        Ok(r) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success(r, "local")),
+        Err(e) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
 // ==================== 路由注册 ====================
 
 pub fn register(cfg: &mut web::ServiceConfig) {
@@ -155,6 +172,12 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::post()
                     .to(employee_config_upsert)
                     .wrap(require_permission("finance:insurance:manage")),
+            )
+            .route(
+                "/preview-calc",
+                web::post()
+                    .to(preview_calc)
+                    .wrap(require_permission("finance:insurance:list")),
             ),
     );
 }

@@ -14,7 +14,7 @@ use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::sale::model::order::{OrderApprovalDetailVO, OrderApprovalReq, OrderListQuery, OrderSaveRequest, OrderStatusUpdateRequest, OrderUpdateRequest};
+use crate::modules::sale::model::order::{OrderApprovalDetailVO, OrderApprovalReq, OrderListQuery, OrderSaveRequest, OrderStatusUpdateRequest, OrderSubmitRequest, OrderUpdateRequest};
 use crate::modules::sale::service::order_service;
 use crate::modules::system::service::edit_log_service;
 use crate::modules::system::entity::admin::Entity as Admin;
@@ -196,15 +196,25 @@ pub async fn order_list(state: web::Data<AppState>, req: HttpRequest, query: web
 // ========== 订单审批 ==========
 
 /// 提交审批
-pub async fn order_submit(state: web::Data<AppState>, req: HttpRequest, item: web::Json<InfoId>) -> Result<HttpResponse> {
+pub async fn order_submit(state: web::Data<AppState>, req: HttpRequest, item: web::Json<OrderSubmitRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let item = item.0;
     if item.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "订单ID不能为空", "local")));
     }
     let (operator_id, operator_name) = get_current_user(&req);
-    match order_service::submit_order(db, item.id.unwrap(), operator_id, &operator_name).await {
+    match order_service::submit_order(db, item.id.unwrap(), operator_id, &operator_name, item.cc_user_ids, item.cc_reason).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 查询订单审批流（提交审批前预览流程，仅需订单查看权限）
+pub async fn order_approval_flow(state: web::Data<AppState>) -> Result<HttpResponse> {
+    let db = &state.db;
+    match crate::modules::approval::service::approval_service::ApprovalService::find_flow_vo_by_code(db, "order_approval").await {
+        Ok(Some(flow)) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(flow, "local"))),
+        Ok(None) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未找到启用的订单审批流程，请联系管理员配置", "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
@@ -326,6 +336,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::post()
                     .to(order_reject)
                     .wrap(require_permission("sale:order:update")),
+            )
+            // GET /sale/order/approval-flow - 订单审批流预览（提交审批前查看，仅需订单查看权限）
+            .route(
+                "/approval-flow",
+                web::get()
+                    .to(order_approval_flow)
+                    .wrap(require_permission("sale:order:list")),
             )
             // GET /sale/order/approval-detail/{order_id} - 审批详情
             .route(

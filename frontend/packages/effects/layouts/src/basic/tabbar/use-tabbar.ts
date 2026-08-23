@@ -51,6 +51,8 @@ export function useTabbar() {
    */
   function translateTabTitle(key?: null | string): string {
     if (!key) return '';
+    // 已是翻译后的中文（如“概览”）直接返回，避免对非 i18n key 二次翻译触发 intlify 警告
+    if (!/^[a-zA-Z][\w-]*(\.[a-zA-Z][\w-]*)+$/.test(key)) return key;
     const direct = $t(key);
     if (direct !== key && !direct.startsWith('[object ')) return direct;
     const withTitle = $t(`${key}.title`);

@@ -46,6 +46,8 @@ export const upsertEmployeeInsuranceConfigApi = async (data: any) =>
     '/api/system/finance/insurance/employee-config/upsert',
     data,
   );
+export const previewInsuranceCalcApi = async (data: any) =>
+  requestClient.post('/api/system/finance/insurance/preview-calc', data);
 
 // ===== 考勤扣款 =====
 export const getAttendanceListApi = async (params?: any) =>

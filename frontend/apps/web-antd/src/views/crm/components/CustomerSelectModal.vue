@@ -15,13 +15,13 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { computed, h, ref, watch } from 'vue';
 
 import { LucideSearch } from '@vben/icons';
-import { useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Input, Modal, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getCustomerListApi } from '#/api/core/crm/customer';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 
 const props = withDefaults(
   defineProps<{
@@ -43,19 +43,11 @@ const emit = defineEmits<{
   (e: 'select', row: any): void;
 }>();
 
-const userStore = useUserStore();
-
 // data_scope 决定可见的 Tab（与 customer/index.vue 保持一致）
-// 1=全部数据 → my+subordinate  2=自定义 → my+subordinate
+// 1=全部数据 → all+my+subordinate  2=自定义 → my+subordinate
 // 3=本部门 → my  4=本部门及以下 → my+subordinate  5=仅本人 → my
-const dataScope = computed(() => {
-  const scope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  const roles = userStore.userInfo?.roles ?? [];
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
-  return typeof scope === 'number' ? scope : 5;
-});
+// 超管（user_type=1）/系统管理员（data_scope=1）统一按 dataScope=1 处理，与后端一致
+const { dataScope } = useDataScopeTabs();
 
 // 内部可见状态
 const innerVisible = computed({
@@ -65,16 +57,20 @@ const innerVisible = computed({
 
 // Tab 列表 - 根据权限动态显示
 const allTabList = [
+  { key: 'all', label: '全部客户' },
   { key: 'my', label: '我的客户' },
   { key: 'subordinate', label: '下属客户' },
 ];
 const tabList = computed(() => {
   const scope = dataScope.value;
-  // 业务员(5/3)只有"我的客户"，管理人员有"我的客户"+"下属客户"
-  if (scope === 3 || scope === 5) {
-    return allTabList.filter((t) => t.key === 'my');
+  // 1/2/4 管理人员有全部（scope=1）或 我的+下属（2/4）；3/5 业务员只有"我的客户"
+  if (scope === 1) {
+    return allTabList;
   }
-  return allTabList; // 1/2/4 显示全部Tab
+  if (scope === 2 || scope === 4) {
+    return allTabList.filter((t) => t.key !== 'all');
+  }
+  return allTabList.filter((t) => t.key === 'my');
 });
 
 // 当前激活的 Tab

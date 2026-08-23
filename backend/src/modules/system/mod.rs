@@ -10,6 +10,7 @@
 
 pub mod controller;
 pub mod entity;
+pub mod migration;
 pub mod model;
 pub mod service;
 

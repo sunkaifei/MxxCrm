@@ -24,23 +24,48 @@ export const triggerBackupApi = async () => {
   });
 };
 
-// 删除备份（文件+记录）
-export const deleteBackupApi = async (id: number) => {
-  return requestClient.delete('/api/system/backup/delete', {
-    params: { id },
-  });
+// 发送邮箱安全验证码（仅超管；action: delete/restore/download），返回脱敏邮箱
+export const sendBackupOtpApi = async (action: string) => {
+  return requestClient.post('/api/system/backup/otp/send', { action });
 };
 
-// 数据恢复（危险操作，confirm 必须为 RESTORE）
-export const restoreBackupApi = async (id: number, confirm: string) => {
-  return requestClient.post('/api/system/backup/restore', { id, confirm });
+// 删除备份（危险操作：仅超管 + 登录密码 + 邮箱验证码；禁删最后一个成功备份）
+export const deleteBackupApi = async (id: number, password: string, otp: string) => {
+  return requestClient.post('/api/system/backup/delete', { id, password, otp });
 };
 
-// 下载备份文件（返回 blob，大文件下载放宽超时）
-export const downloadBackupApi = (id: number) => {
-  return requestClient.get(`/api/system/backup/download/${id}`, {
+// 数据恢复（危险操作：仅超管 + 登录密码 + 邮箱验证码；还原前自动备份当前数据）
+export const restoreBackupApi = async (id: number, password: string, otp: string) => {
+  return requestClient.post('/api/system/backup/restore', { id, password, otp }, {
     timeout: 600_000,
-    responseType: 'blob',
-    responseReturn: 'body',
   });
+};
+
+// 下载备份文件（危险操作：仅超管 + 登录密码 + 邮箱验证码，返回 blob）
+export const downloadBackupApi = (id: number, password: string, otp: string) => {
+  return requestClient.post(
+    '/api/system/backup/download',
+    { id, password, otp },
+    {
+      timeout: 600_000,
+      responseType: 'blob',
+      responseReturn: 'body',
+    },
+  );
+};
+
+// 数据初始化预览（超管）：返回待清业务表清单 + 行数 + 一次性确认码（5 分钟有效）
+export const cleanPreviewApi = async () => {
+  return requestClient.get('/api/system/backup/clean/preview', {
+    timeout: 120_000,
+  });
+};
+
+// 数据初始化执行（超管 + 登录密码 + 确认码三重验证，执行前强制自动备份）
+export const cleanExecuteApi = async (password: string, confirmCode: string) => {
+  return requestClient.post(
+    '/api/system/backup/clean/execute',
+    { password, confirmCode },
+    { timeout: 600_000 },
+  );
 };

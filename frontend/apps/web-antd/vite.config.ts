@@ -7,7 +7,7 @@ function getBackendPort(): number {
   try {
     const configPath = resolve(
       import.meta.dirname,
-      '../../../../backend/config/config.ini',
+      '../../../backend/config/config.ini',
     );
     const content = readFileSync(configPath, 'utf8');
     const match = content.match(/^server_port\s*=\s*(\d+)/m);
@@ -82,6 +82,17 @@ export default defineConfig(async () => {
             changeOrigin: true,
             target: `http://127.0.0.1:${backendPort}`,
             ws: true,
+          },
+          // WebSocket 与 HTTP API 同源转发：端口统一由 backend/config/config.ini 的 server_port 控制
+          '/ws': {
+            changeOrigin: true,
+            target: `http://127.0.0.1:${backendPort}`,
+            ws: true,
+          },
+          // 上传文件（头像/产品图等）相对路径转发：后端静态服务 /upload/，未配置 CDN 时统一走后端
+          '/upload': {
+            changeOrigin: true,
+            target: `http://127.0.0.1:${backendPort}`,
           },
         },
       },

@@ -172,6 +172,26 @@ where
     }
 }
 
+/// 字符串/数字转为 i64（必填字段，兼容前端 "6" 与 6 两种格式）
+pub fn deserialize_string_or_number_to_i64<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+    use serde_json::Value;
+
+    match Option::<Value>::deserialize(deserializer)? {
+        Some(Value::String(s)) => s
+            .parse::<i64>()
+            .map_err(|_| D::Error::custom(format!("字符串 {:?} 无法解析为 i64", s))),
+        Some(Value::Number(n)) => n
+            .as_i64()
+            .ok_or_else(|| D::Error::custom("数字超出 i64 范围")),
+        Some(_) => Err(D::Error::custom("expected string or number")),
+        None => Err(D::Error::custom("expected non-empty string or number")),
+    }
+}
+
 pub fn serialize_option_u64_to_string<S>(
     value: &Option<i64>,
     serializer: S,

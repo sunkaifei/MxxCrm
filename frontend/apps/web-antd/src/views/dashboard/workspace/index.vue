@@ -41,7 +41,7 @@ const router = useRouter();
 const userStore = useUserStore();
 
 // ===== 工作台模块权限控制 =====
-const { canShow, filterOverviewTabs } = useDashboardPermission();
+const { canShow, filterOverviewTabs, isBizUser } = useDashboardPermission();
 // 待办概览卡可见 tab（按权限过滤）
 const visibleOverviewTabs = computed(() =>
   filterOverviewTabs([
@@ -402,7 +402,7 @@ async function loadSmartTodos() {
     const [approvalResp, followUpResp, paymentResp, planResp]: any[] =
       await Promise.all([
         canShow('approval')
-          ? getTodoApprovalListApi({ pageNum: 1, pageSize: 2 }).catch(() => ({
+          ? getTodoApprovalListApi({ pageNum: 1, pageSize: 5 }).catch(() => ({
               items: [],
               total: 0,
             }))
@@ -410,12 +410,12 @@ async function loadSmartTodos() {
         canShow('followUp')
           ? getTodoFollowUpListApi({
               pageNum: 1,
-              pageSize: 2,
+              pageSize: 5,
               rangeType: 'overdue',
             }).catch(() => ({ items: [], total: 0 }))
           : Promise.resolve({ items: [], total: 0 }),
         canShow('payment')
-          ? getTodoPaymentListApi({ pageNum: 1, pageSize: 2, days: 7 }).catch(
+          ? getTodoPaymentListApi({ pageNum: 1, pageSize: 5, days: 7 }).catch(
               () => ({ items: [], total: 0 }),
             )
           : Promise.resolve({ items: [], total: 0 }),
@@ -563,7 +563,8 @@ function handleProcessed() {
 const overviewRouteMap: Record<string, string> = {
   approval: '/system/approval/todo',
   followUp: '/crm/customer',
-  payment: '/sale/payment',
+  // 待办回款与回款计划同源(contract_payment_plan)，跳回款计划列表而非回款登记列表
+  payment: '/sale/payment-plan',
   contract: '/sale/contract',
   opportunity: '/sale/opportunity',
   planApproval: '/dashboard/performance',
@@ -651,7 +652,13 @@ async function loadOpportunityCount() {
 
 // 加载今日待办汇总（已处理数 + 总数 + 完成率，来自后端聚合接口）
 // 已处理数来自 mxx_work_log 持久化，剩余数实时查询，总数 = 已处理 + 剩余
+// 不参与业务的账号（含超管）：无业务待办，汇总直接置 0，避免请求
 async function loadTodaySummary() {
+  if (!isBizUser.value) {
+    todoProcessed.value = 0;
+    todoTotal.value = 0;
+    return;
+  }
   try {
     const res: any = await getTodaySummaryApi();
     todoProcessed.value = res?.todoProcessed || 0;

@@ -15,6 +15,7 @@ import {
 } from 'ant-design-vue';
 
 import { getUserDetailApi } from '#/api';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 
 const props = withDefaults(
   defineProps<{
@@ -57,10 +58,13 @@ const userTypeMap: Record<number, { color: string; label: string }> = {
   3: { label: '普通员工', color: 'blue' },
 };
 
+const { isSuperAdmin } = useSuperAdminGuard();
+
 const isHrOrAdmin = computed(() => {
   const roles = userStore.userInfo?.roles || [];
   const permissions = accessStore.accessCodes || [];
   return (
+    isSuperAdmin.value ||
     roles.includes('super_admin') ||
     roles.includes('system_admin') ||
     roles.includes('hr') ||
@@ -89,8 +93,15 @@ const filteredPostNames = computed(() => {
 });
 
 const userInitial = computed(() => {
-  const name = userData.value?.nickName || userData.value?.userName || 'U';
+  const name = displayName.value;
   return name.charAt(0).toUpperCase();
+});
+
+/** 展示名：普通用户仅显示姓名；HR/管理员在无姓名时可回退到账号 */
+const displayName = computed(() => {
+  const nick = userData.value?.nickName;
+  if (nick) return nick;
+  return isHrOrAdmin.value ? userData.value?.userName || '未知' : '未知';
 });
 
 const workExperiences = computed(() => {
@@ -211,11 +222,7 @@ watch(
     :destroy-on-close="true"
     :mask-closable="true"
     :closable="true"
-    :title="
-      userData
-        ? `${userData.nickName || userData.userName} - 员工简历`
-        : '员工简历'
-    "
+    :title="userData ? `${displayName} - 员工简历` : '员工简历'"
     :body-style="{
       padding: '0',
       maxHeight: 'calc(100vh - 55px)',
@@ -253,7 +260,7 @@ watch(
             </Tag>
           </div>
           <div class="user-drawer__meta">
-            <span>用户名：{{ userData.userName || '—' }}</span>
+            <span v-if="isHrOrAdmin">用户名：{{ userData.userName || '—' }}</span>
             <span v-if="filteredDeptNames.length > 0"
               >部门：{{ filteredDeptNames.join('、') }}</span
             >
@@ -275,13 +282,13 @@ watch(
         <TabPane key="summary" tab="概览">
           <div class="user-drawer__pane">
             <Descriptions title="账号信息" :column="2" bordered size="small">
-              <Descriptions.Item label="用户ID">
+              <Descriptions.Item v-if="isHrOrAdmin" label="用户ID">
                 {{ userData.id }}
               </Descriptions.Item>
-              <Descriptions.Item label="登录账号">
+              <Descriptions.Item v-if="isHrOrAdmin" label="登录账号">
                 {{ userData.userName || '—' }}
               </Descriptions.Item>
-              <Descriptions.Item label="昵称">
+              <Descriptions.Item label="姓名">
                 {{ userData.nickName || '—' }}
               </Descriptions.Item>
               <Descriptions.Item label="账号状态">
@@ -332,7 +339,7 @@ watch(
                 </template>
                 <span v-else class="user-drawer__muted">—</span>
               </Descriptions.Item>
-              <Descriptions.Item label="角色权限">
+              <Descriptions.Item v-if="isHrOrAdmin" label="角色权限">
                 <template v-if="filteredRoleNames.length > 0">
                   <Tag
                     v-for="(r, i) in filteredRoleNames"
@@ -348,6 +355,7 @@ watch(
             </Descriptions>
 
             <Descriptions
+              v-if="isHrOrAdmin"
               title="登录信息"
               :column="2"
               bordered

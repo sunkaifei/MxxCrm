@@ -245,7 +245,11 @@ function goDetail() {
       break;
     }
     case 'payment': {
-      path = '/sale/payment';
+      // 待办回款来自「回款计划」(contract_payment_plan)，应跳到回款计划列表并按合同过滤定位
+      const contractId = Number(item.contractId);
+      path = contractId
+        ? `/sale/payment-plan?contractId=${contractId}&tab=all`
+        : '/sale/payment-plan';
       break;
     }
     default: {

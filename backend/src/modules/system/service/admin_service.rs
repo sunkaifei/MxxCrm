@@ -10,7 +10,7 @@
 
 use bcrypt::{hash, DEFAULT_COST};
 use chrono::Local;
-use sea_orm::{ActiveModelTrait, ColumnTrait, ConnectionTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, Set, Statement, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, ConnectionTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, Set, Statement, TransactionTrait};
 use std::collections::{HashMap, HashSet};
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::app::is_demo_mode;
@@ -336,6 +336,20 @@ pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result
             return Err(Error::from("试用期工资比例必须在 0~1 范围内（如 0.6 表示 60%）"));
         }
     }
+    // 审核进行中锁定档案编辑（方案 3.1）：存在 user 类型待审/审批中实例（status∈{1,2}）时禁止编辑；
+    // 已驳回(4)/已撤回(5)/待修改(6)不锁定，允许修改档案后重新提交
+    let ongoing = crate::modules::approval::entity::approval_instance::Entity::find()
+        .filter(crate::modules::approval::entity::approval_instance::Column::BusinessType.eq("user"))
+        .filter(crate::modules::approval::entity::approval_instance::Column::BusinessId.eq(admin_id))
+        .filter(crate::modules::approval::entity::approval_instance::Column::Status.is_in([1, 2]))
+        .count(db)
+        .await
+        .map_err(|e| Error::from(format!("查询审核状态失败: {}", e)))?;
+    if ongoing > 0 {
+        return Err(Error::from(
+            "该员工审核进行中，档案已锁定，请待审核完成（或驳回/撤回）后再编辑",
+        ));
+    }
     // 手机号：如果前端显式传入（含空字符串），则统一校验（必填 + 格式 + 唯一）
     // 并把 trim/标准化后的结果写回 dto_data
     let mobile_norm = if form_data.mobile.is_some() {
@@ -540,7 +554,7 @@ pub async fn get_by_detail(db: &DbConn, id: &Option<i64>) -> Result<AdminDetailV
 
 
 /// 查询管理员列表
-pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Vec<AdminListVO>>> {
+pub async fn get_by_page(db: &DbConn, query: ListQuery, current_user_id: i64) -> Result<ResultPage<Vec<AdminListVO>>> {
 
     let select_where = PageWhere {
         user_name: query.user_name.clone(),
@@ -550,6 +564,7 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
         user_type: query.user_type.clone(),
         status: query.status.clone(),
         dept_id: query.dept_id.clone(),
+        biz_enabled: query.biz_enabled.clone(),
     };
     let search_where = select_where.format();
     
@@ -592,6 +607,44 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             let id: i64 = row.try_get("", "id")?;
             let cnt: i64 = row.try_get("", "cnt")?;
             contact_counts.insert(id, cnt);
+        }
+    }
+
+    // 批量查询用户入职审批（business_type='user'）最新实例，防 N+1（方案 B1）
+    // approval_instance_id：最新实例ID；approval_status：最新实例状态；
+    // need_audit：status=2 且当前登录人在当前节点候选审批人池中
+    let mut approval_instance_id_map: HashMap<i64, i64> = HashMap::new();
+    let mut approval_status_map: HashMap<i64, i32> = HashMap::new();
+    let mut need_audit_map: HashMap<i64, bool> = HashMap::new();
+    if !id_list.is_empty() {
+        let placeholders = (1..=id_list.len()).map(|i| format!("${i}")).collect::<Vec<_>>().join(",");
+        let values = id_list.iter().map(|i| sea_orm::Value::from(*i)).collect::<Vec<_>>();
+        let inst_sql = format!(
+            r#"SELECT DISTINCT ON (business_id) id, business_id, status, candidate_approvers
+               FROM mxx_system_approval_instance
+               WHERE business_type = 'user' AND business_id IN ({placeholders})
+               ORDER BY business_id, id DESC"#
+        );
+        if let Ok(rows) = db.query_all_raw(Statement::from_sql_and_values(
+            db.get_database_backend(), inst_sql, values,
+        )).await {
+            for row in rows {
+                let inst_id: i64 = match row.try_get("", "id") { Ok(v) => v, Err(_) => continue };
+                let biz_id: i64 = match row.try_get("", "business_id") { Ok(v) => v, Err(_) => continue };
+                let status: i32 = match row.try_get("", "status") { Ok(v) => v, Err(_) => continue };
+                approval_instance_id_map.insert(biz_id, inst_id);
+                approval_status_map.insert(biz_id, status);
+                if status == 2 {
+                    if let Ok(candidates) = row.try_get::<serde_json::Value>("", "candidate_approvers") {
+                        let hit = candidates.as_array().map(|arr| {
+                            arr.iter().any(|x| x.as_i64() == Some(current_user_id))
+                        }).unwrap_or(false);
+                        if hit {
+                            need_audit_map.insert(biz_id, true);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -693,8 +746,12 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
             direct_manager_name: None,
             online: false,
             audit_status: data.audit_status.unwrap_or(0),
+            approval_instance_id: approval_instance_id_map.get(&data.id).copied(),
+            approval_status: approval_status_map.get(&data.id).copied(),
+            need_audit: need_audit_map.get(&data.id).copied().unwrap_or(false),
             hire_date: data.hire_date,
             salary_enabled: data.salary_enabled.unwrap_or(1),
+            biz_enabled: data.biz_enabled.unwrap_or(1),
             probation_months: data.probation_months,
             probation_ratio: data.probation_ratio,
             id_filled,
@@ -742,8 +799,12 @@ pub async fn get_by_page(db: &DbConn, query : ListQuery) -> Result<ResultPage<Ve
     Ok(page_data)
 }
 
-pub async fn get_admin_options(db: &DbConn) -> Result<Vec<AdminOptionVO>> {
-    let result = AdminModel::find_all_options(db).await?;
+pub async fn get_admin_options(db: &DbConn, biz_only: bool) -> Result<Vec<AdminOptionVO>> {
+    let result = if biz_only {
+        AdminModel::find_biz_options(db).await?
+    } else {
+        AdminModel::find_all_options(db).await?
+    };
     let mut list_data: Vec<AdminOptionVO> = Vec::new();
     for data in result {
         let label = data.nick_name

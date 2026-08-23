@@ -3,10 +3,8 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h } from 'vue';
-
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideFilePenLine, LucidePencil, LucideTrash2 } from '@vben/icons';
+
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
@@ -56,7 +54,7 @@ const gridOptions: VxeGridProps = {
     refresh: true,
     zoom: true,
   },
-  height: 'auto',
+  minHeight: 600,
   exportConfig: {},
   pagerConfig: {},
   cellConfig: {},
@@ -114,7 +112,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 120,
+      width: 180,
     },
   ],
 };
@@ -187,7 +185,7 @@ function handleSetAuth(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <Grid :table-title="$t('page.system.role.title')">
       <template #toolbar-tools>
         <Button
@@ -211,42 +209,24 @@ function handleSetAuth(row: any) {
         />
       </template>
 
-      <template #createdAt="{ row }">
+      <template #createTime="{ row }">
         {{ formatDateTime(row.createTime) }}
       </template>
 
       <template #action="{ row }">
-        <Button
-          type="primary"
-          link
-          :icon="h(LucidePencil)"
-          @click="() => handleSetAuth(row)"
-        />
-
-        <Button
-          type="primary"
-          link
+        <span class="action-link" @click="() => handleSetAuth(row)">{{ $t('page.system.user.authority') }}</span>
+        <span
+          class="action-link"
           v-access:code="['system:role:update']"
-          :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
-        />
-
+        >{{ $t('page.system.common.button.edit') }}</span>
         <Popconfirm
-          :title="
-            $t('ui.text.do_you_want_delete', {
-              moduleName: $t('page.system.role.module'),
-            })
-          "
+          :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.system.role.module') })"
           :ok-text="$t('ui.button.ok')"
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"
         >
-          <Button
-            danger
-            v-access:code="['system:role:delete']"
-            link
-            :icon="h(LucideTrash2)"
-          />
+          <span class="action-link action-link-danger" v-access:code="['system:role:delete']">{{ $t('page.system.common.button.delete') }}</span>
         </Popconfirm>
       </template>
     </Grid>
@@ -254,3 +234,17 @@ function handleSetAuth(row: any) {
     <AuthDrawer />
   </Page>
 </template>
+
+<style scoped>
+.action-link {
+  color: #1677ff;
+  cursor: pointer;
+  margin-right: 12px;
+}
+.action-link:hover {
+  text-decoration: underline;
+}
+.action-link-danger {
+  color: #ff4d4f;
+}
+</style>

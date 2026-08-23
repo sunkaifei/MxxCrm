@@ -73,7 +73,7 @@ pub struct VisibilityConfig {
     pub show_birthday: bool,
 }
 
-/// 本人基本信息更新（白名单外字段一律忽略）
+/// 本人基本信息更新（白名单外字段一律忽略；邮箱/手机号请走独立的安全接口）
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BasicUpdateRequest {
@@ -84,6 +84,40 @@ pub struct BasicUpdateRequest {
     pub visibility: Option<VisibilityConfig>,
     pub wechat: Option<String>,
     pub birthday: Option<NaiveDate>,
+}
+
+/// 修改本人邮箱（安全接口：登录密码 + 按需邮箱验证码）
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailUpdateRequest {
+    /// 当前登录密码（始终必填）
+    pub password: String,
+    /// 新邮箱
+    pub new_email: String,
+    /// 旧邮箱验证码（已绑定邮箱且 SMTP 可用时必填）
+    pub old_otp: Option<String>,
+    /// 新邮箱验证码（SMTP 可用时必填）
+    pub new_otp: Option<String>,
+}
+
+/// 修改本人手机号（安全接口：登录密码验证；当前无短信通道，不依赖验证码）
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MobileUpdateRequest {
+    /// 当前登录密码（始终必填）
+    pub password: String,
+    /// 新手机号（11 位中国大陆手机号）
+    pub mobile: String,
+}
+
+/// 发送邮箱修改验证码请求
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailOtpSendRequest {
+    /// email_old 验证旧邮箱（发到当前绑定邮箱）/ email_new 验证新邮箱（发到 email 字段）
+    pub action: String,
+    /// 新邮箱（action=email_new 时必填；email_old 时忽略）
+    pub email: Option<String>,
 }
 
 /// 身份证首填

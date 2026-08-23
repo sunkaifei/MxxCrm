@@ -23,6 +23,7 @@ use crate::core::errors::error::{Error, Result};
 use crate::modules::crm::entity::{
     followup, lead, lead::Entity as Lead, opportunity,
 };
+use crate::modules::crm::service::customer_transfer_service::handle_transfer_tags;
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::utils::string_utils::{
     deserialize_string_or_num_vec_to_i64_vec, deserialize_string_to_u64,
@@ -207,6 +208,18 @@ pub async fn transfer_lead(
     let opportunity_count = opportunity_res.rows_affected as i64;
 
     let affected_total = followup_count + opportunity_count;
+
+    // 2.4 处理原负责人的私有标签交接（离职场景）
+    // - 标签标注的客户/线索负责人全部为交接人 → 标签转移给交接人
+    // - 交叉/部分交接 → 转为公共标签由管理员接管
+    let from_uids: Vec<i64> = leads
+        .iter()
+        .filter_map(|l| l.assigned_to)
+        .filter(|&uid| uid != to_user_id)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    handle_transfer_tags(&txn, &from_uids, to_user_id).await?;
 
     // 3. 提交事务
     txn.commit().await?;

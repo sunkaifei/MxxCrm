@@ -23,15 +23,32 @@ export const DASHBOARD_MODULE_PERMS: Record<string, string[]> = {
   cc: ['system:approval:cc:list'],
 };
 
+/** 业务待办类模块：仅"参与业务"的用户可见（超管一律不参与业务） */
+const BUSINESS_TODO_MODULES = new Set([
+  'followUp',
+  'approval',
+  'payment',
+  'contract',
+  'opportunity',
+  'planApproval',
+]);
+
 export function useDashboardPermission() {
   const accessStore = useAccessStore();
-  const { isSuperAdmin } = useSuperAdminGuard();
+  const { isSuperAdmin, isBizUser } = useSuperAdminGuard();
 
   /**
    * 判断当前用户是否有权查看某工作台模块
-   * 超管始终可见；普通用户任一权限码命中即可见
+   * 业务待办模块：非业务参与人一律隐藏（管理员不参与业务，不显示业务待办）
+   * 其余模块：超管始终可见；普通用户任一权限码命中即可见
    */
   function canShow(moduleId: string): boolean {
+    if (BUSINESS_TODO_MODULES.has(moduleId)) {
+      if (!isBizUser.value) return false;
+      const perms = DASHBOARD_MODULE_PERMS[moduleId];
+      if (!perms || perms.length === 0) return true;
+      return perms.some((perm) => accessStore.hasAccessCode(perm));
+    }
     if (isSuperAdmin.value) return true;
     const perms = DASHBOARD_MODULE_PERMS[moduleId];
     if (!perms || perms.length === 0) return true;
@@ -43,5 +60,5 @@ export function useDashboardPermission() {
     return tabKeys.filter((key) => canShow(key));
   }
 
-  return { canShow, filterOverviewTabs };
+  return { canShow, filterOverviewTabs, isBizUser };
 }

@@ -25,6 +25,7 @@ import {
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteContactApi, getContactListApi } from '#/api';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
@@ -91,14 +92,8 @@ function handleViewCustomer(customerId: number) {
   customerDetailVisible.value = true;
 }
 
-const dataScope = computed(() => {
-  const scope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  const roles = userStore.userInfo?.roles ?? [];
-  if (roles.includes('super_admin') || roles.includes('system_admin')) return 1;
-  return typeof scope === 'number' ? scope : 5;
-});
+// data_scope 决定可见的 Tab（超管/系统管理员按 dataScope=1 处理，与后端一致）
+const { dataScope } = useDataScopeTabs();
 
 const activeTab = ref('my');
 const allTabList = [

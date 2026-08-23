@@ -2,6 +2,7 @@
 import { computed, h, ref, watch } from 'vue';
 
 import { LucidePlus } from '@vben/icons';
+import { useUserStore } from '@vben/stores';
 
 import {
   Button,
@@ -28,6 +29,8 @@ interface TagVO {
   groupName: string;
   groupColor: string;
   groupId: number;
+  isGlobal?: boolean;
+  createdBy?: number;
 }
 
 interface TagGroupVO {
@@ -49,6 +52,21 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'tagsChanged', tags: TagVO[]): void;
 }>();
+
+const userStore = useUserStore();
+const userInfo: any = userStore.userInfo || {};
+// 超管判定（与 use-super-admin-guard 一致：data_scope=1 或 user_type=1）
+const isSuperAdmin = computed(() => {
+  const dataScope = userInfo?.dataScope ?? userInfo?.data_scope;
+  const userType = userInfo?.userType ?? userInfo?.user_type;
+  return dataScope === 1 || userType === 1;
+});
+const currentUserId = Number(userInfo?.userId ?? userInfo?.id ?? 0);
+// 标注全可见可读；增删改仅限系统标签或自己创建的标签（超管全部）
+function canManageTag(tag: TagVO) {
+  if (isSuperAdmin.value) return true;
+  return tag.isGlobal === true || Number(tag.createdBy) === currentUserId;
+}
 
 // Current selected tags
 const selectedTags = ref<TagVO[]>([]);
@@ -108,6 +126,8 @@ async function loadEntityTags() {
       groupName: t.groupName || '未分组',
       groupColor: t.groupColor || '#d9d9d9',
       groupId: t.groupId,
+      isGlobal: t.isGlobal,
+      createdBy: t.createdBy,
     }));
     selectedTags.value = tags;
     emit('tagsChanged', tags);
@@ -269,7 +289,7 @@ defineExpose({ saveToEntity, loadEntityTags, selectedTags });
         v-for="tag in selectedTags"
         :key="tag.id"
         :color="tag.tagColor"
-        closable
+        :closable="canManageTag(tag)"
         @close="removeTag(tag)"
       >
         {{ tag.tagName }}

@@ -520,6 +520,11 @@ a:hover { color: var(--primary-hover); }
     </div>
     <div class="step-item" data-step="4">
       <div class="step-circle">5</div>
+      <div class="step-connector"></div>
+      <div class="step-label">管理员账号</div>
+    </div>
+    <div class="step-item" data-step="5">
+      <div class="step-circle">6</div>
       <div class="step-label">完成</div>
     </div>
   </div>
@@ -674,8 +679,44 @@ a:hover { color: var(--primary-hover); }
       </div>
     </div>
 
-    <!-- Step 4: Complete -->
+    <!-- Step 4: Super Admin Account -->
     <div class="step-content" data-step="4">
+      <div class="step-title">管理员账号</div>
+      <div class="step-desc">设置超级管理员登录信息，首次部署可直接设置，无需邮箱验证码</div>
+      <div class="alert alert-error" id="adminAlert"></div>
+      <div class="form-group">
+        <label>登录账号 <span style="color:var(--error)">*</span></label>
+        <input class="form-control" type="text" id="adminUserName" placeholder="登录账号（安装后锁定，不可修改）">
+      </div>
+      <div class="form-group">
+        <label>姓名 / 昵称</label>
+        <input class="form-control" type="text" id="adminNickName" placeholder="管理员姓名或昵称（选填）">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>邮箱</label>
+          <input class="form-control" type="email" id="adminEmail" placeholder="用于验证码验证与通知（选填）">
+        </div>
+        <div class="form-group">
+          <label>手机号</label>
+          <input class="form-control" type="text" id="adminMobile" placeholder="11 位大陆手机号（选填）">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>初始密码 <span style="color:var(--error)">*</span></label>
+          <input class="form-control" type="password" id="adminPassword" placeholder="至少 6 位">
+        </div>
+        <div class="form-group">
+          <label>确认密码 <span style="color:var(--error)">*</span></label>
+          <input class="form-control" type="password" id="adminPasswordConfirm" placeholder="再次输入密码">
+        </div>
+      </div>
+      <div class="form-hint">安装完成后将更新原 admin 超级管理员账号（ID 与角色关联保持不变）；若跳过设置，将保留默认 admin 账号信息</div>
+    </div>
+
+    <!-- Step 5: Complete -->
+    <div class="step-content" data-step="5">
       <div class="complete-screen">
         <div class="complete-icon">✓</div>
         <h2>安装完成</h2>
@@ -885,7 +926,7 @@ function updateProgress() {
   });
   $('btnBack').style.display = currentStep > 0 ? 'inline-flex' : 'none';
   const nextBtn = $('btnNext');
-  if (currentStep === 4) {
+  if (currentStep === 5) {
     nextBtn.textContent = '完成';
     nextBtn.className = 'btn btn-success';
   } else {
@@ -900,7 +941,8 @@ function nextStep() {
     case 1: return onEnvNext();
     case 2: return onDbNext();
     case 3: return onImportNext();
-    case 4: return onComplete();
+    case 4: return onAdminNext();
+    case 5: return onComplete();
   }
 }
 
@@ -1219,7 +1261,27 @@ function onImportNext() {
   }
 }
 
-// ===== Step 4: Complete =====
+// ===== Step 4: Super Admin Account =====
+function onAdminNext() {
+  const userName = $('adminUserName').value.trim();
+  const password = $('adminPassword').value;
+  const confirm = $('adminPasswordConfirm').value;
+  const email = $('adminEmail').value.trim();
+  const mobile = $('adminMobile').value.trim();
+
+  if (!userName) { showAlert('adminAlert', '请填写管理员登录账号'); return; }
+  if (userName.length > 38) { showAlert('adminAlert', '登录账号过长（最多 38 个字符）'); return; }
+  if (!password || password.length < 6) { showAlert('adminAlert', '初始密码至少 6 位'); return; }
+  if (password !== confirm) { showAlert('adminAlert', '两次输入的密码不一致'); return; }
+  if (email && (!email.includes('@') || /\s/.test(email))) { showAlert('adminAlert', '邮箱格式不正确'); return; }
+  if (mobile && !/^1[3-9]\d{9}$/.test(mobile)) { showAlert('adminAlert', '手机号格式不正确（需为 11 位大陆手机号）'); return; }
+
+  hideAlert('adminAlert');
+  currentStep = 5;
+  updateProgress();
+}
+
+// ===== Step 5: Complete =====
 async function onComplete() {
   $('btnNext').disabled = true;
   $('btnNext').innerHTML = '<span class="loading-spinner"></span> 完成中...';
@@ -1228,6 +1290,11 @@ async function onComplete() {
     const resp = await apiPost('/api/install/complete', {
       mode: cfg.mode, host: cfg.host, port: cfg.port,
       username: cfg.username, password: cfg.password, database: cfg.database,
+      admin_user_name: $('adminUserName').value.trim() || undefined,
+      admin_nick_name: $('adminNickName').value.trim() || undefined,
+      admin_email: $('adminEmail').value.trim() || undefined,
+      admin_mobile: $('adminMobile').value.trim() || undefined,
+      admin_password: $('adminPassword').value || undefined,
     });
     if (resp.code === 200) {
       $('btnNext').disabled = true;

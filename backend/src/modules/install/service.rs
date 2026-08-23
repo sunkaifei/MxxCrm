@@ -70,6 +70,16 @@ pub struct CompleteRequest {
     pub username: String,
     pub password: String,
     pub database: String,
+    /// 超级管理员登录账号（仅安装时设置，之后系统内锁定不可改）
+    pub admin_user_name: Option<String>,
+    /// 超级管理员姓名
+    pub admin_nick_name: Option<String>,
+    /// 超级管理员邮箱
+    pub admin_email: Option<String>,
+    /// 超级管理员手机号
+    pub admin_mobile: Option<String>,
+    /// 超级管理员初始密码
+    pub admin_password: Option<String>,
 }
 
 /// 许可协议接受请求
@@ -423,6 +433,9 @@ pub async fn complete_install(req: &CompleteRequest) -> Result<String> {
 
     install::log_install("配置文件已更新");
 
+    // 初始超级管理员账号设置（可选）：UPDATE 现有超管记录，id 与关联关系不变
+    setup_super_admin(req).await?;
+
     // 创建锁文件
     install::create_lock_file()
         .map_err(|e| Error::E(format!("创建锁文件失败: {}", e)))?;
@@ -430,4 +443,121 @@ pub async fn complete_install(req: &CompleteRequest) -> Result<String> {
     install::log_install("安装完成，即将自动重启...");
 
     Ok("安装完成，程序即将自动重启".to_string())
+}
+
+/// 更新超级管理员账号信息（安装完成时的初始设置）
+///
+/// 数据导入后 admin 表中已有默认超级管理员（user_type=1），此处仅 UPDATE
+/// user_name/nick_name/email/mobile/password 字段，id 与角色/部门/关联关系全部保持不变。
+/// 以 admin_user_name 是否为作为是否执行的开关：未填写则跳过，不阻塞安装。
+async fn setup_super_admin(req: &CompleteRequest) -> Result<String> {
+    let Some(admin_user_name) = req
+        .admin_user_name
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    else {
+        return Ok("未提供管理员账号信息，跳过".to_string());
+    };
+
+    let db_url = build_db_url(&req.host, req.port, &req.username, &req.password, &req.database);
+    let conn = sea_orm::Database::connect(&db_url)
+        .await
+        .map_err(|e| Error::E(format!("无法连接数据库更新管理员: {}", e)))?;
+
+    use sea_orm::{
+        ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set,
+    };
+    use crate::modules::system::entity::admin;
+
+    // 定位超管（user_type=1 且未删除）
+    let super_admin = admin::Entity::find()
+        .filter(admin::Column::UserType.eq(1))
+        .filter(admin::Column::Deleted.eq(0))
+        .one(&conn)
+        .await
+        .map_err(|e| Error::E(format!("查询超级管理员失败: {}", e)))?
+        .ok_or_else(|| Error::E("数据库中未找到超级管理员账号，请先完成数据导入".to_string()))?;
+
+    let mut am: admin::ActiveModel = super_admin.clone().into();
+
+    // 登录账号：统一小写去空格 + 唯一性校验
+    let normalized_name = admin_user_name.replace(' ', "").to_lowercase();
+    if normalized_name.is_empty() {
+        return Err(Error::E("管理员登录账号不能为空".to_string()));
+    }
+    if normalized_name.len() > 38 {
+        return Err(Error::E("管理员登录账号过长（最多 38 个字符）".to_string()));
+    }
+    let name_dup = admin::Entity::find()
+        .filter(admin::Column::UserName.eq(&normalized_name))
+        .filter(admin::Column::Id.ne(super_admin.id))
+        .count(&conn)
+        .await
+        .map_err(|e| Error::E(e.to_string()))?;
+    if name_dup > 0 {
+        return Err(Error::E(format!(
+            "登录账号 {} 已被其他用户使用",
+            normalized_name
+        )));
+    }
+    am.user_name = Set(Some(normalized_name));
+
+    if let Some(nick) = req.admin_nick_name.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        am.nick_name = Set(Some(nick.to_string()));
+    }
+
+    if let Some(email) = req.admin_email.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        let email = email.to_lowercase();
+        if !email.contains('@') || email.contains(char::is_whitespace) {
+            return Err(Error::E("管理员邮箱格式不正确".to_string()));
+        }
+        let email_dup = admin::Entity::find()
+            .filter(admin::Column::Email.eq(&email))
+            .filter(admin::Column::Id.ne(super_admin.id))
+            .count(&conn)
+            .await
+            .map_err(|e| Error::E(e.to_string()))?;
+        if email_dup > 0 {
+            return Err(Error::E(format!("邮箱 {} 已被其他账号使用", email)));
+        }
+        am.email = Set(Some(email));
+    }
+
+    if let Some(mobile) = req.admin_mobile.as_deref().filter(|s| !s.trim().is_empty()) {
+        let mobile =
+            crate::utils::string_utils::normalize_and_validate_cn_mobile(Some(&mobile.to_string()))
+                .map_err(Error::E)?;
+        let mobile_dup = admin::Entity::find()
+            .filter(admin::Column::Mobile.eq(&mobile))
+            .filter(admin::Column::Id.ne(super_admin.id))
+            .count(&conn)
+            .await
+            .map_err(|e| Error::E(e.to_string()))?;
+        if mobile_dup > 0 {
+            return Err(Error::E(format!("手机号 {} 已被其他账号绑定", mobile)));
+        }
+        am.mobile = Set(Some(mobile));
+    }
+
+    if let Some(pwd) = req.admin_password.as_deref() {
+        let pwd = pwd.trim();
+        if pwd.is_empty() {
+            return Err(Error::E("管理员密码不能为空".to_string()));
+        }
+        if pwd.len() < 6 {
+            return Err(Error::E("管理员密码长度不能少于 6 位".to_string()));
+        }
+        let hashed = bcrypt::hash(pwd, bcrypt::DEFAULT_COST)
+            .map_err(|e| Error::E(format!("密码加密失败: {}", e)))?;
+        am.password = Set(Some(hashed));
+    }
+
+    am.update_time = Set(Some(chrono::Local::now().naive_local()));
+    am.update(&conn)
+        .await
+        .map_err(|e| Error::E(format!("更新超级管理员失败: {}", e)))?;
+
+    install::log_install("超级管理员账号信息已更新");
+    Ok("超级管理员账号信息已更新".to_string())
 }

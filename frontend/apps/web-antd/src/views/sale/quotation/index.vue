@@ -33,6 +33,7 @@ import {
   getQuotationListApi,
   submitQuotationApprovalApi,
 } from '#/api';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
@@ -52,27 +53,8 @@ const currentUserId = computed(
   () => (userStore.userInfo as any)?.userId ?? (userStore.userInfo as any)?.id,
 );
 
-// 全部报价单 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
-const canViewAll = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 1;
-});
-
-// 下属报价单 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
-const canViewSubordinate = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 2 || dataScope === 3 || dataScope === 4;
-});
+// 全部/下属报价单 Tab 显示条件
+const { canViewAll, canViewSubordinate } = useDataScopeTabs();
 
 // 是否为下属视图（下属视图下只能查看和下载，不能操作）
 const isSubordinateView = computed(() => activeTab.value === 'subordinate');

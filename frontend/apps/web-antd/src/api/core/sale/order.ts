@@ -28,8 +28,12 @@ export const updateOrderStatusApi = async (param: {
 
 // ========== 订单审批 ==========
 
-export const submitOrderApi = async (orderId: number) => {
-  return requestClient.post('/api/system/sale/order/submit', { id: orderId });
+export const submitOrderApi = async (data: {
+  id: number;
+  ccUserIds?: number[];
+  ccReason?: string;
+}) => {
+  return requestClient.post('/api/system/sale/order/submit', data);
 };
 
 export const approveOrderApi = async (orderId: number, reason?: string) => {
@@ -48,6 +52,11 @@ export const rejectOrderApi = async (orderId: number, reason?: string) => {
 
 export const getOrderApprovalDetailApi = async (orderId: number) => {
   return requestClient.get(`/api/system/sale/order/approval-detail/${orderId}`);
+};
+
+/** 订单审批流预览（提交审批前查看流程） */
+export const getOrderApprovalFlowApi = async () => {
+  return requestClient.get('/api/system/sale/order/approval-flow');
 };
 
 export const createContractFromOrderApi = async (orderId: number) => {

@@ -203,6 +203,16 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
+    // 初始化 HR 离职交接相关表（交接单三表 + 交接项模板预置 + resign_approval 流程模板）
+    match crate::modules::system::migration::init_hr_resign_tables(&conn).await {
+        Ok(_) => {
+            log::info!("[HR离职交接] 数据库表初始化完成");
+        }
+        Err(e) => {
+            log::error!("[HR离职交接] 数据库表初始化失败: {:?}", e);
+        }
+    }
+
     // 初始化 DB session 表（mem 缓存模式重启后降级验证用，防止重启丢登录态）
     crate::modules::system::service::session_service::ensure_session_table(&conn).await;
 
@@ -253,6 +263,7 @@ async fn main() -> std::io::Result<()> {
             .configure(user_routes::configure_routes)
             .default_service(web::get().to(serve_frontend))
     })
+        .keep_alive(actix_http::KeepAlive::Timeout(std::time::Duration::from_secs(30)))
         .bind(format!("{}:{}", 
             config::section::<String>("server", "server_host", "127.0.0.1".to_string()),
             config::section::<u16>("server", "server_port", 8088)))?

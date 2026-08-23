@@ -32,7 +32,7 @@ impl From<TagGroupSaveRequest> for TagGroupSaveDTO {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TagGroupUpdateRequest {
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
     pub group_name: Option<String>,
     pub group_color: Option<String>,

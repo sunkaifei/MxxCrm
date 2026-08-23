@@ -8,7 +8,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucideChevronDown } from '@vben/icons';
-import { useAccessStore, useUserStore } from '@vben/stores';
+import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -31,6 +31,7 @@ import {
   getSalesFlowModeApi,
 } from '#/api';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
@@ -43,7 +44,6 @@ import OpportunityDetail from './detail.vue';
 const guideStepCount = 5;
 
 const accessStore = useAccessStore();
-const userStore = useUserStore();
 const { isSuperAdmin, guardBusiness } = useSuperAdminGuard();
 
 // 销售流程模式：A=仅标准(转报价单) B=仅简易(转订单) both=两种都允许
@@ -62,10 +62,6 @@ const canConvertToQuotation = computed(
 // 是否显示"转订单"入口
 const canConvertToOrder = computed(
   () => flowMode.value === 'B' || flowMode.value === 'both',
-);
-// 是否显示"更多"下拉（仅当至少有一个转换入口可用时）
-const showMoreActions = computed(
-  () => canConvertToQuotation.value || canConvertToOrder.value,
 );
 
 // 转报价单：打开报价单新建页，自动带入商机信息（商机、客户、联系人）
@@ -95,27 +91,8 @@ async function handleConvertToOrder(row: any) {
   });
 }
 
-// 全部商机 Tab 显示条件：超级管理员 / 系统管理员 / data_scope=全部数据
-const canViewAll = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 1;
-});
-
-// 下属商机 Tab 显示条件：超级管理员 / 系统管理员 / 数据权限含部门（2/3/4）
-const canViewSubordinate = computed(() => {
-  const roles = userStore.userInfo?.roles ?? [];
-  const dataScope =
-    (userStore.userInfo as any)?.dataScope ??
-    (userStore.userInfo as any)?.data_scope;
-  if (roles.includes('super_admin') || roles.includes('system_admin'))
-    return true;
-  return dataScope === 2 || dataScope === 3 || dataScope === 4;
-});
+// 全部/下属商机 Tab 显示条件
+const { canViewAll, canViewSubordinate } = useDataScopeTabs();
 
 const activeTab = ref('my');
 // 是否为下属视图（下属视图下只能查看，不能操作）
@@ -424,11 +401,6 @@ function handleCreated(id: number | string) {
   gridApi.query();
 }
 
-// 编辑改为打开详情页（详情页内已有内联编辑表单）
-function handleEdit(row: any) {
-  openDetail(row);
-}
-
 async function handleDelete(row: any) {
   row.pending = true;
   try {
@@ -561,33 +533,16 @@ loadFlowMode();
         </template>
         <template v-else>
           <a
-            v-if="accessStore.hasAccessCode('crm:opportunity:update')"
+            v-if="accessStore.hasAccessCode('crm:opportunity:view')"
             class="text-blue-600 cursor-pointer mr-3"
-            @click="() => handleEdit(row)"
+            @click="() => openDetail(row)"
           >
-            修改
+            详情
           </a>
-          <Popconfirm
-            :title="
-              $t('ui.text.do_you_want_delete', {
-                moduleName: $t('page.crm.opportunity.title'),
-              })
-            "
-            :ok-text="$t('ui.button.ok')"
-            :cancel-text="$t('ui.button.cancel')"
-            @confirm="handleDelete(row)"
-          >
-            <a
-              v-if="accessStore.hasAccessCode('crm:opportunity:delete')"
-              class="text-red-500 cursor-pointer mr-3"
-            >
-              删除
-            </a>
-          </Popconfirm>
           <Dropdown
             v-if="
-              showMoreActions &&
-              accessStore.hasAccessCode('crm:opportunity:update')
+              accessStore.hasAccessCode('crm:opportunity:update') ||
+              accessStore.hasAccessCode('crm:opportunity:delete')
             "
             :trigger="['click']"
           >
@@ -596,6 +551,13 @@ loadFlowMode();
             </a>
             <template #overlay>
               <Menu>
+                <Menu.Item
+                  v-if="accessStore.hasAccessCode('crm:opportunity:update')"
+                  key="edit"
+                  @click="() => openDetail(row)"
+                >
+                  编辑
+                </Menu.Item>
                 <Menu.Item
                   v-if="canConvertToQuotation"
                   key="toQuotation"
@@ -609,6 +571,23 @@ loadFlowMode();
                   @click="handleConvertToOrder(row)"
                 >
                   一键转订单
+                </Menu.Item>
+                <Menu.Item
+                  v-if="accessStore.hasAccessCode('crm:opportunity:delete')"
+                  key="delete"
+                >
+                  <Popconfirm
+                    :title="
+                      $t('ui.text.do_you_want_delete', {
+                        moduleName: $t('page.crm.opportunity.title'),
+                      })
+                    "
+                    :ok-text="$t('ui.button.ok')"
+                    :cancel-text="$t('ui.button.cancel')"
+                    @confirm="handleDelete(row)"
+                  >
+                    <a class="text-red-500">删除</a>
+                  </Popconfirm>
                 </Menu.Item>
               </Menu>
             </template>

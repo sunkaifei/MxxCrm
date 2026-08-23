@@ -415,12 +415,12 @@ impl ShipmentModel {
         let result = SaleShipment::find()
             .filter(shipment::Column::ShipmentNo.like(&pattern))
             .select_only()
-            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(shipment_no, 11) AS INTEGER))")), "max_seq")
-            .into_tuple::<Option<i32>>()
+            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(shipment_no, 11) AS BIGINT))")), "max_seq")
+            .into_tuple::<Option<i64>>()
             .one(db)
             .await?;
 
-        Ok(result.flatten().map(|v| v as i64))
+        Ok(result.flatten())
     }
 
     pub async fn select_in_page<C: ConnectionTrait>(

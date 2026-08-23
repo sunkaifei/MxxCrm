@@ -19,20 +19,22 @@
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::global::Deserialize;
 use crate::modules::crm::entity::{
-    contract, contract_payment_plan, customer, customer::Entity as Customer, opportunity,
+    contract, contract_payment_plan, customer, customer::Entity as Customer, lead,
+    lead::Entity as Lead, opportunity,
 };
 use crate::modules::crm::service::{
     assign_history_service, customer_edit_log_service,
     customer_edit_log_service::TransferAffected,
 };
 use crate::modules::sale::entity::{invoice, order, payment, quotation};
-use crate::modules::system::entity::admin::Entity as Admin;
+use crate::modules::system::entity::{admin::Entity as Admin, tag, tag_merge};
+use crate::modules::system::entity::tag_merge::Entity as TagMerge;
 use crate::utils::string_utils::{
     deserialize_string_or_num_vec_to_i64_vec, deserialize_string_to_u64,
 };
 use sea_orm::{
     ColumnTrait, ConnectionTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter,
-    TransactionTrait, sea_query::Expr,
+    TransactionTrait, sea_query::Expr, Set,
 };
 use serde::Serialize;
 
@@ -369,6 +371,12 @@ pub async fn transfer_customer(
             .map_err(|e| Error::from(format!("统计发票失败: {}", e)))? as i64,
     };
 
+    // 2.10 处理原负责人的私有标签交接（离职场景）
+    // - 标签标注的客户/线索负责人全部为交接人 → 标签转移给交接人
+    // - 交叉/部分交接 → 转为公共标签由管理员接管
+    let from_uids: Vec<i64> = from_user_map.values().copied().collect();
+    handle_transfer_tags(&txn, &from_uids, to_user_id).await?;
+
     // 3. 关闭原负责人历史记录 + 新增转移历史记录
     for (customer_id, from_uid) in &from_user_map {
         assign_history_service::record_transfer(
@@ -533,4 +541,109 @@ async fn count_payment_plan_by_customers(
         .map_err(|e| Error::from(format!("统计回款计划失败: {}", e)))? as i64;
 
     Ok(count)
+}
+
+/// 处理原负责人的私有标签交接（供客户转移/线索转移调用）
+///
+/// 规则（离职交接：单交接人转移 + 交叉转公共）：
+/// - 标签标注的客户/线索当前负责人**全部**为交接人 → 标签所有权转移给交接人
+/// - 标签无任何标注 → 直接转移给交接人（无交叉风险）
+/// - 负责人集合包含多个不同负责人（交叉交接）或含无主记录 → 转为公共标签（is_global=1）由管理员接管
+/// - 系统标签（is_global=1）不处理
+pub async fn handle_transfer_tags(
+    db: &impl ConnectionTrait,
+    from_user_ids: &[i64],
+    to_user_id: i64,
+) -> Result<()> {
+    if from_user_ids.is_empty() {
+        return Ok(());
+    }
+    let tags = tag::Entity::find()
+        .filter(tag::Column::Deleted.eq(0))
+        .filter(tag::Column::CreatedBy.is_in(from_user_ids.to_vec()))
+        .all(db)
+        .await
+        .map_err(|e| Error::from(format!("查询离职人员私有标签失败: {}", e)))?;
+    if tags.is_empty() {
+        return Ok(());
+    }
+
+    for t in tags {
+        if t.is_global == Some(true) {
+            continue; // 系统标签不参与交接
+        }
+        let tag_id = t.id;
+        // 查询该标签标注的客户/线索
+        let merges = TagMerge::find()
+            .filter(tag_merge::Column::TagId.eq(tag_id))
+            .filter(
+                tag_merge::Column::EntityType.is_in(vec!["customer".to_string(), "lead".to_string()]),
+            )
+            .all(db)
+            .await
+            .map_err(|e| Error::from(format!("查询标签标注失败: {}", e)))?;
+
+        // 收集当前负责人集合
+        let mut owner_set: std::collections::HashSet<Option<i64>> = std::collections::HashSet::new();
+        let customer_ids: Vec<i64> = merges
+            .iter()
+            .filter(|m| m.entity_type.as_deref() == Some("customer"))
+            .filter_map(|m| m.entity_id)
+            .collect();
+        let lead_ids: Vec<i64> = merges
+            .iter()
+            .filter(|m| m.entity_type.as_deref() == Some("lead"))
+            .filter_map(|m| m.entity_id)
+            .collect();
+        if !customer_ids.is_empty() {
+            let owners = Customer::find()
+                .filter(customer::Column::Id.is_in(customer_ids))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(format!("查询客户负责人失败: {}", e)))?;
+            for c in owners {
+                owner_set.insert(c.assigned_to);
+            }
+        }
+        if !lead_ids.is_empty() {
+            let owners = Lead::find()
+                .filter(lead::Column::Id.is_in(lead_ids))
+                .all(db)
+                .await
+                .map_err(|e| Error::from(format!("查询线索负责人失败: {}", e)))?;
+            for l in owners {
+                owner_set.insert(l.assigned_to);
+            }
+        }
+
+        // 无标注 或 负责人全部为交接人 → 转移；否则（交叉/无主）→ 转公共
+        let all_transferred = owner_set.is_empty()
+            || (owner_set.len() == 1 && owner_set.contains(&Some(to_user_id)));
+        let payload = if all_transferred {
+            tag::ActiveModel {
+                created_by: Set(Some(to_user_id)),
+                update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
+                ..Default::default()
+            }
+        } else {
+            tag::ActiveModel {
+                is_global: Set(Some(true)),
+                update_time: Set(Option::from(chrono::Utc::now().naive_utc())),
+                ..Default::default()
+            }
+        };
+        tag::Entity::update_many()
+            .set(payload)
+            .filter(tag::Column::Id.eq(tag_id))
+            .exec(db)
+            .await
+            .map_err(|e| {
+                Error::from(format!(
+                    "处理标签【{}】交接失败: {}",
+                    t.tag_name.unwrap_or_default(),
+                    e
+                ))
+            })?;
+    }
+    Ok(())
 }

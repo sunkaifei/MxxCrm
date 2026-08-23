@@ -13,11 +13,14 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::response::{MetaResp, MPACK};
+use crate::modules::approval::service::approval_service::ApprovalService;
+use crate::modules::system::model::admin::AdminModel;
 use crate::modules::system::model::profile::{
-    BankRequest, BasicUpdateRequest, EmergencyContactItem, IdCardRequest, ProfileLogQuery,
-    ResumeItem,
+    BankRequest, BasicUpdateRequest, EmailOtpSendRequest, EmailUpdateRequest,
+    EmergencyContactItem, IdCardRequest, MobileUpdateRequest, ProfileLogQuery, ResumeItem,
 };
-use crate::modules::system::service::{hr_archive_service, profile_service};
+use crate::modules::system::model::resign::ResignApplyRequest;
+use crate::modules::system::service::{hr_archive_service, otp_service, profile_service, resign_service};
 
 fn unauthorized() -> HttpResponse {
     HttpResponse::Ok()
@@ -41,6 +44,122 @@ pub async fn get_my(state: web::Data<AppState>, req: HttpRequest) -> HttpRespons
     }
 }
 
+/// POST /profile/resign/apply - 个人中心离职申请（本人发起）
+/// 被离职员工强制取 JWT 本人，忽略 body.admin_id（防越权）
+pub async fn my_resign_apply(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    item: web::Json<ResignApplyRequest>,
+) -> HttpResponse {
+    let db = &state.db;
+    let (operator_id, operator_name) = get_current_user(&req);
+    if operator_id <= 0 {
+        return unauthorized();
+    }
+    match resign_service::submit_resign(
+        db,
+        operator_id,
+        operator_id,
+        &operator_name,
+        item.resign_type,
+        item.resign_date.clone(),
+        item.reason.clone(),
+        item.transfer_to_admin_id,
+    )
+    .await
+    {
+        Ok(id) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success(id, "local")),
+        Err(e) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// GET /profile/audit/my - 我的入职审核（B9：查询本人审核状态与历次审批实例，身份只信 JWT）
+pub async fn my_audit(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
+    let admin_id = get_current_user_id(&req);
+    if admin_id <= 0 {
+        return unauthorized();
+    }
+    let db = &state.db;
+    let admin = match AdminModel::find_by_id(db, &Some(admin_id)).await {
+        Ok(Some(a)) => a,
+        _ => {
+            return HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::<String>::fail(400, "查询账号信息失败", "local"))
+        }
+    };
+    let instances = match ApprovalService::find_instance_history(db, "user", admin_id).await {
+        Ok(v) => v,
+        Err(e) => {
+            return HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))
+        }
+    };
+    let latest = instances.last();
+    let data = serde_json::json!({
+        "auditStatus": admin.audit_status.unwrap_or(0),
+        "latestInstanceId": latest.map(|i| i.id),
+        "approvalStatus": latest.map(|i| i.status),
+        "instances": instances,
+    });
+    HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::success(data, "local"))
+}
+
+/// GET /profile/resign/my - 我的离职申请（B9：本人交接单列表 + 历次离职审批实例，身份只信 JWT）
+pub async fn my_resign(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
+    let admin_id = get_current_user_id(&req);
+    if admin_id <= 0 {
+        return unauthorized();
+    }
+    let db = &state.db;
+    let records = match resign_service::get_my_list(db, admin_id).await {
+        Ok(v) => v,
+        Err(e) => {
+            return HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))
+        }
+    };
+    let instances = match ApprovalService::find_instance_history(db, "resign", admin_id).await {
+        Ok(v) => v,
+        Err(e) => {
+            return HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))
+        }
+    };
+    let data = serde_json::json!({
+        "records": records,
+        "instances": instances,
+    });
+    HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::success(data, "local"))
+}
+
+/// GET /profile/resign/transfer/my - 我的交接任务（assignee 视角，身份只信 JWT，无需权限码）
+pub async fn my_transfer(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
+    let admin_id = get_current_user_id(&req);
+    if admin_id <= 0 {
+        return unauthorized();
+    }
+    match resign_service::get_my_transfer_items(&state.db, admin_id).await {
+        Ok(data) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
 /// PUT /profile/basic - 白名单字段更新
 pub async fn update_basic(
     state: web::Data<AppState>,
@@ -52,6 +171,84 @@ pub async fn update_basic(
         return unauthorized();
     }
     match profile_service::update_basic(&state.db, admin_id, payload.0).await {
+        Ok(_) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<i32>::success(1, "local")),
+        Err(e) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// POST /profile/otp/send - 发送邮箱修改验证码
+/// action=email_old 发到当前绑定邮箱；action=email_new 发到请求中的新邮箱
+pub async fn otp_send(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    payload: web::Json<EmailOtpSendRequest>,
+) -> HttpResponse {
+    let admin_id = get_current_user_id(&req);
+    if admin_id <= 0 {
+        return unauthorized();
+    }
+    let action = payload.0.action.trim().to_string();
+    let target = match action.as_str() {
+        "email_old" => match AdminModel::find_by_id(&state.db, &Some(admin_id)).await {
+            Ok(Some(a)) => a.email.unwrap_or_default(),
+            _ => {
+                return HttpResponse::Ok()
+                    .content_type(MPACK)
+                    .body(MetaResp::<String>::fail(400, "查询当前账号邮箱失败", "local"))
+            }
+        },
+        "email_new" => payload.0.email.unwrap_or_default(),
+        _ => {
+            return HttpResponse::Ok()
+                .content_type(MPACK)
+                .body(MetaResp::<String>::fail(400, "不支持的验证码用途", "local"))
+        }
+    };
+    match otp_service::send_to_email(&state.db, admin_id, &action, &target).await {
+        Ok(masked) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success(masked, "local")),
+        Err(e) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
+/// PUT /profile/email - 修改本人邮箱（登录密码 + 按需验证码）
+pub async fn update_email(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    payload: web::Json<EmailUpdateRequest>,
+) -> HttpResponse {
+    let admin_id = get_current_user_id(&req);
+    if admin_id <= 0 {
+        return unauthorized();
+    }
+    match profile_service::update_email(&state.db, admin_id, payload.0).await {
+        Ok(_) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<i32>::success(1, "local")),
+        Err(e) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// PUT /profile/mobile - 修改本人手机号（登录密码验证）
+pub async fn update_mobile(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    payload: web::Json<MobileUpdateRequest>,
+) -> HttpResponse {
+    let admin_id = get_current_user_id(&req);
+    if admin_id <= 0 {
+        return unauthorized();
+    }
+    match profile_service::update_mobile(&state.db, admin_id, payload.0).await {
         Ok(_) => HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<i32>::success(1, "local")),
@@ -303,6 +500,16 @@ pub fn register(cfg: &mut web::ServiceConfig) {
         web::scope("/profile")
             .route("/my", web::get().to(get_my))
             .route("/basic", web::put().to(update_basic))
+            // 个人中心离职申请（本人发起，身份只信 JWT）
+            .route("/resign/apply", web::post().to(my_resign_apply))
+            // B9：我的入职审核 / 我的离职申请（身份只信 JWT）
+            .route("/audit/my", web::get().to(my_audit))
+            .route("/resign/my", web::get().to(my_resign))
+            // 我的交接任务（assignee 视角，身份只信 JWT，无需权限码）
+            .route("/resign/transfer/my", web::get().to(my_transfer))
+            .route("/otp/send", web::post().to(otp_send))
+            .route("/email", web::put().to(update_email))
+            .route("/mobile", web::put().to(update_mobile))
             .route("/id-card", web::post().to(submit_id_card))
             .route("/bank", web::post().to(submit_bank))
             .route("/resume", web::get().to(resume_list))

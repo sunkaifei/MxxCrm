@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
-import { useVbenDrawer, z } from '@vben/common-ui';
+import { z } from '@vben/common-ui';
 
-import { message } from 'ant-design-vue';
+import { Button, Drawer, message } from 'ant-design-vue';
 
 import { useVbenForm } from '#/adapter/form';
 import {
@@ -18,13 +18,41 @@ import {
 import { $t } from '#/locales';
 import { statusList } from '#/store';
 
-const data = ref();
-const isCreate = computed(() => data.value?.create);
+const props = defineProps<{
+  open: boolean;
+  create: boolean;
+  row?: any;
+}>();
+
+const emit = defineEmits<{
+  (e: 'update:open', open: boolean): void;
+  (e: 'saved'): void;
+}>();
+
+const innerOpen = ref(false);
+const loading = ref(false);
+
+watch(
+  () => props.open,
+  (val) => {
+    if (innerOpen.value === val) return;
+    innerOpen.value = val;
+    if (val) handleOpen();
+  },
+);
+watch(innerOpen, (val) => {
+  if (val !== props.open) emit('update:open', val);
+});
+
+const isCreate = computed(() => props.create);
 const getTitle = computed(() =>
   isCreate.value
     ? $t('ui.modal.create', { moduleName: $t('page.system.user.module') })
     : $t('ui.modal.update', { moduleName: $t('page.system.user.module') }),
 );
+
+// 借鉴 UserDetailDrawer（点击姓名打开）：antd Drawer 用 :width 原生 prop 控制宽度，取窗口 75%，上限 1200px
+const fullWidth = computed(() => `${Math.min(window.innerWidth * 0.75, 1200)}px`);
 
 const genderOptions = computed(() => [
   { label: $t('page.system.user.genderMale'), value: 0 },
@@ -116,7 +144,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
         maxlength: 11,
+        // 手机号仅创建时可录入，编辑时锁定，由用户登录后到用户中心自行修改
+        disabled: computed(() => !isCreate.value),
       },
+      help: () =>
+        isCreate.value ? '' : $t('page.system.user.mobileEditLocked'),
       rules: z
         .string()
         .min(1, { message: $t('ui.formRules.required') })
@@ -131,7 +163,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
+        // 邮箱仅创建时可录入，编辑时锁定，由用户登录后到用户中心自行修改
+        disabled: computed(() => !isCreate.value),
       },
+      help: () =>
+        isCreate.value ? '' : $t('page.system.user.emailEditLocked'),
     },
     {
       component: 'DatePicker',
@@ -180,8 +216,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         checkedValue: 1,
         unCheckedValue: 0,
-        checkedChildren: $t('page.system.user.salaryYes'),
-        unCheckedChildren: $t('page.system.user.salaryNo'),
+        class: 'w-[60px]',
       },
       rules: 'selectRequired',
     },
@@ -297,7 +332,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
         optionType: 'button',
         class: 'flex flex-wrap',
         options: statusList,
-        disabled: computed(() => data.value?.row?.userType === 1),
+        disabled: computed(() => props.row?.userType === 1),
       },
     },
     {
@@ -327,110 +362,115 @@ const [BaseForm, baseFormApi] = useVbenForm({
   ],
 });
 
-const [Drawer, drawerApi] = useVbenDrawer({
-  onCancel() {
-    drawerApi.close();
-  },
+async function handleOpen() {
+  if (isCreate.value) {
+    baseFormApi.resetForm();
+    baseFormApi.setValues({
+      create: true,
+      status: 1,
+      sort: 0,
+      gender: 2,
+      salaryEnabled: 1,
+      bizEnabled: 1,
+    });
+    return;
+  }
 
-  async onConfirm() {
-    const validate = await baseFormApi.validate();
-    if (!validate.valid) {
-      return;
+  loading.value = true;
+  const rowId = props.row?.id;
+  try {
+    const detail: any = await getUserDetailApi(rowId);
+    const row = { ...detail, create: false };
+    if (Array.isArray(row.roleIds)) {
+      row.roleIds = row.roleIds
+        .filter((v: any) => v !== null && v !== undefined)
+        .map(String);
     }
-
-    setLoading(true);
-
-    const values = await baseFormApi.getValues();
-
-    // 直属上级：清空时显式传 0，后端据此清除 direct_manager_id
-    // 否则 undefined 会被 JSON 序列化时丢弃，导致后端无法区分"不更新"和"清空"
-    if (
-      values.directManagerId === null ||
-      values.directManagerId === undefined ||
-      values.directManagerId === ''
-    ) {
-      values.directManagerId = 0;
+    if (Array.isArray(row.deptIds)) {
+      row.deptIds = row.deptIds
+        .filter((v: any) => v !== null && v !== undefined)
+        .map(String);
     }
+    if (Array.isArray(row.postIds)) {
+      row.postIds = row.postIds
+        .filter((v: any) => v !== null && v !== undefined)
+        .map(String);
+    }
+    baseFormApi.setValues(row);
+  } finally {
+    loading.value = false;
+  }
+}
 
-    try {
-      if (isCreate.value) {
-        values.create = undefined;
-        if (!values.password) {
-          values.password = '123456';
-        }
-        await createUserApi(values);
-      } else {
-        values.id = data.value.row.id;
-        values.create = undefined;
-        values.password = undefined;
-        await updateUserApi(values);
+async function handleSave() {
+  const validate = await baseFormApi.validate();
+  if (!validate.valid) {
+    return;
+  }
+
+  loading.value = true;
+
+  const values = await baseFormApi.getValues();
+
+  // 直属上级：清空时显式传 0，后端据此清除 direct_manager_id
+  // 否则 undefined 会被 JSON 序列化时丢弃，导致后端无法区分"不更新"和"清空"
+  if (
+    values.directManagerId === null ||
+    values.directManagerId === undefined ||
+    values.directManagerId === ''
+  ) {
+    values.directManagerId = 0;
+  }
+
+  try {
+    if (isCreate.value) {
+      values.create = undefined;
+      if (!values.password) {
+        values.password = '123456';
       }
-
-      message.success(
-        isCreate.value
-          ? $t('ui.notification.create_success')
-          : $t('ui.notification.update_success'),
-      );
-      drawerApi.setData({ needRefresh: true });
-      drawerApi.close();
-    } catch {
-      // 错误由全局拦截器处理，保留抽屉打开以便用户修改后重试
-    } finally {
-      setLoading(false);
+      await createUserApi(values);
+    } else {
+      values.id = props.row.id;
+      values.create = undefined;
+      values.password = undefined;
+      await updateUserApi(values);
     }
-  },
 
-  onOpenChange(isOpen) {
-    if (isOpen) {
-      data.value = drawerApi.getData<Record<string, any>>();
-
-      if (data.value?.create) {
-        baseFormApi.resetForm();
-        baseFormApi.setValues({
-          create: true,
-          status: 1,
-          sort: 0,
-          gender: 2,
-        });
-        setLoading(false);
-      } else {
-        setLoading(true);
-        const rowId = data.value?.row?.id;
-        getUserDetailApi(rowId)
-          .then((detail: any) => {
-            const row = { ...detail, create: false };
-            if (Array.isArray(row.roleIds)) {
-              row.roleIds = row.roleIds
-                .filter((v: any) => v !== null && v !== undefined)
-                .map(String);
-            }
-            if (Array.isArray(row.deptIds)) {
-              row.deptIds = row.deptIds
-                .filter((v: any) => v !== null && v !== undefined)
-                .map(String);
-            }
-            if (Array.isArray(row.postIds)) {
-              row.postIds = row.postIds
-                .filter((v: any) => v !== null && v !== undefined)
-                .map(String);
-            }
-            baseFormApi.setValues(row);
-          })
-          .finally(() => {
-            setLoading(false);
-          });
-      }
-    }
-  },
-});
-
-function setLoading(loading: boolean) {
-  drawerApi.setState({ loading });
+    message.success(
+      isCreate.value
+        ? $t('ui.notification.create_success')
+        : $t('ui.notification.update_success'),
+    );
+    innerOpen.value = false;
+    emit('saved');
+  } catch {
+    // 错误由全局拦截器处理，保留抽屉打开以便用户修改后重试
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 
 <template>
-  <Drawer :title="getTitle">
+  <Drawer
+    :open="innerOpen"
+    :width="fullWidth"
+    placement="right"
+    :mask-closable="true"
+    :closable="true"
+    :title="getTitle"
+    @close="innerOpen = false"
+  >
     <BaseForm />
+    <template #footer>
+      <div class="flex items-center justify-end gap-2">
+        <Button @click="innerOpen = false">
+          {{ $t('ui.button.cancel') }}
+        </Button>
+        <Button type="primary" :loading="loading" @click="handleSave">
+          {{ $t('ui.button.ok') }}
+        </Button>
+      </div>
+    </template>
   </Drawer>
 </template>

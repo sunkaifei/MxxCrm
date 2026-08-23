@@ -18,7 +18,7 @@ use crate::core::kit::global::{Deserialize, Serialize};
 use crate::modules::approval::model::approval::ApprovalInstanceVO;
 use crate::modules::sale::entity::{order, order::Entity as SaleOrder, order_item, order_item::Entity as SaleOrderItem, shipment};
 use crate::modules::sale::model::shipment::ShipmentListVO;
-use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
+use crate::utils::string_utils::{deserialize_string_to_u64, deserialize_string_vec_to_u64_vec, serialize_option_u64_to_string};
 
 // ==================== 商品类型常量 ====================
 pub const PRODUCT_TYPE_PHYSICAL: i32 = 1;     // 实物商品
@@ -219,6 +219,18 @@ pub struct OrderListQuery {
 pub struct OrderApprovalReq {
     pub order_id: i64,
     pub reason: Option<String>,
+}
+
+/// 订单提交审批请求
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderSubmitRequest {
+    pub id: Option<i64>,
+    /// 提交时抄送人ID列表（可选）
+    #[serde(deserialize_with = "deserialize_string_vec_to_u64_vec", default)]
+    pub cc_user_ids: Option<Vec<i64>>,
+    /// 抄送说明（可选）
+    pub cc_reason: Option<String>,
 }
 
 // ==================== 内部 DTO ====================
@@ -964,7 +976,7 @@ impl OrderModel {
         let result = SaleOrder::find()
             .filter(order::Column::OrderNo.like(&pattern))
             .select_only()
-            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(order_no, 11) AS INTEGER))")), "max_seq")
+            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(order_no, 11) AS BIGINT))")), "max_seq")
             .into_tuple::<Option<i64>>()
             .one(db)
             .await?;

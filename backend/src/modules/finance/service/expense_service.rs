@@ -68,7 +68,7 @@ pub async fn insert(db: &DbConn, form_data: &ExpenseSaveRequest, created_by: i64
     dto.apply_date = apply_date;
     dto.status = Some(1); // 草稿
     dto.approval_status = Some(0);
-    dto.create_by = Some(created_by);
+    dto.create_by = Some(created_by.to_string());
     // 申请人默认为创建者
     if dto.applicant_id.is_none() {
         dto.applicant_id = Some(created_by);

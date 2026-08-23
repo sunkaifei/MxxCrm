@@ -20,6 +20,7 @@ use crate::modules::message::entity::chat_message;
 use crate::modules::message::entity::chat_message::Entity as ChatMessageEntity;
 use crate::modules::system::entity::admin::Entity as UserEntity;
 use crate::modules::system::entity::admin;
+use crate::utils::string_utils::deserialize_string_to_i64;
 
 fn deserialize_string_or_u64<'de, D>(deserializer: D) -> Result<i64, D::Error>
 where
@@ -93,7 +94,9 @@ pub struct StartSessionRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SendChatMessageRequest {
+    #[serde(deserialize_with = "deserialize_string_to_i64", default)]
     pub session_id: Option<i64>,
+    #[serde(deserialize_with = "deserialize_string_to_i64", default)]
     pub receiver_id: Option<i64>,
     pub content: String,
     pub content_type: Option<i32>,

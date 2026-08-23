@@ -22,27 +22,37 @@ import {
   saveColumnsConfigApi,
   updateUserApi,
 } from '#/api';
-import { submitApprovalApi } from '#/api/core/system/approval';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 import { statusList } from '#/store';
 
 import UserDetailDrawer from '../../crm/components/UserDetailDrawer.vue';
 import ArchiveDrawer from './archive-drawer.vue';
+import AuditDrawer from './audit-drawer.vue';
 import ColumnsConfigDrawer from './columns-config-drawer.vue';
+import SubmitAuditDrawer from './submit-audit-drawer.vue';
 import UserDrawer from './drawer.vue';
+import SendMailModal from './send-mail.vue';
+import SendMessageModal from './send-message.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
 
+const { isSuperAdmin } = useSuperAdminGuard();
+
 // ---- 列显示权限级别 ----
 // 判定顺序：admin > hr > manager > employee
-// admin:   超管/系统管理员（super_admin / system_admin），全列
+// admin:   超管/系统管理员（super_admin / system_admin / user_type=1 / data_scope=1），全列
 // hr:      有人事档案权限（system:hr-archive:view），全列
 // manager: data_scope<=4（全部/自定义/本部门/本部门及以下），12列
 // employee: data_scope=5（仅本人），8列
 const viewerLevel = computed<'admin' | 'hr' | 'manager' | 'employee'>(() => {
   const roles = userStore.userInfo?.roles ?? [];
-  if (roles.includes('super_admin') || roles.includes('system_admin')) {
+  if (
+    isSuperAdmin.value ||
+    roles.includes('super_admin') ||
+    roles.includes('system_admin')
+  ) {
     return 'admin';
   }
   if (accessStore.hasAccessCode('system:hr-archive:view')) {
@@ -406,49 +416,89 @@ async function handleStatusChanged(row: any, checked: boolean) {
   }
 }
 
-// 提交审核：走系统审批流引擎（business_type=user），审批通过后自动启用用户
-async function handleSubmitAudit(row: any) {
-  row.pending = true;
-  try {
-    await submitApprovalApi({
-      flowCode: 'user_approval',
-      businessType: 'user',
-      businessId: row.id,
-      businessTitle: row.nickName || row.userName || `用户#${row.id}`,
-    });
-    window.$message.success('已提交审核，等待审批人处理');
-    gridApi.query();
-  } finally {
-    row.pending = false;
-  }
+// 提交审核：打开「提交审核确认抽屉」（F2），流程预览 + 确认后提交
+// 走系统审批流引擎（business_type=user），审批通过后自动启用用户
+const submitDrawerVisible = ref(false);
+const submitRow = ref<any>(undefined);
+
+function handleSubmitAudit(row: any) {
+  submitRow.value = row;
+  submitDrawerVisible.value = true;
 }
 
-const [Drawer, drawerApi] = useVbenDrawer({
-  connectedComponent: UserDrawer,
-  onClosed() {
-    const data = drawerApi.getData();
-    if (data && data.needRefresh) {
-      gridApi.query();
-    }
-  },
-});
+// 审核按钮：needAudit 由后端计算（当前登录人为当前节点审批人），点击打开审核抽屉（F3）
+const auditDrawerVisible = ref(false);
+const auditRow = ref<any>(undefined);
+const auditInstanceId = ref<number | null>(null);
 
-function openDrawer(create: boolean, row?: any) {
-  // 新建账号抽屉占 75% 宽，编辑沿用默认宽度
-  drawerApi.setState({ width: create ? '75%' : undefined });
-  drawerApi.setData({
-    create,
-    row,
-  });
-  drawerApi.open();
+function handleAudit(row: any) {
+  auditRow.value = row;
+  auditInstanceId.value = row.approvalInstanceId ?? null;
+  auditDrawerVisible.value = true;
 }
+
+// 重新提交：与首次提交共用提交抽屉（展示上次驳回/撤回/退回意见）
+function handleResubmit(row: any) {
+  submitRow.value = row;
+  submitDrawerVisible.value = true;
+}
+
+// 离职申请（F4）：HR/管理员代发起离职审批（system:resign:save）
+const resignApplyVisible = ref(false);
+const resignApplyRow = ref<any>(undefined);
+
+function handleResignApply(row: any) {
+  resignApplyRow.value = row;
+  resignApplyVisible.value = true;
+}
+
+// 交接单详情（F5）：按员工查看交接单（system:resign:view）
+const resignDetailVisible = ref(false);
+const resignDetailAdminId = ref<number | undefined>(undefined);
+
+function handleResignDetail(row: any) {
+  resignDetailAdminId.value = row.id;
+  resignDetailVisible.value = true;
+}
+
+function handleResignChanged() {
+  gridApi.query();
+}
+
+// 编辑/新建抽屉：与点击姓名打开的 UserDetailDrawer 一致，用 antd Drawer + v-model 控制（宽度 75% 由 drawer.vue 内 :width 控制）
+const editVisible = ref(false);
+const editCreate = ref(false);
+const editRow = ref<any>(undefined);
 
 function handleCreate() {
-  openDrawer(true);
+  editCreate.value = true;
+  editRow.value = undefined;
+  editVisible.value = true;
 }
 
 function handleEdit(row: any) {
-  openDrawer(false, row);
+  editCreate.value = false;
+  editRow.value = row;
+  editVisible.value = true;
+}
+
+function handleEdited() {
+  gridApi.query();
+}
+
+// 发送邮件 / 站内消息：所有登录用户可用（不校验权限码）
+const sendMailVisible = ref(false);
+const sendMessageVisible = ref(false);
+const sendTargetRow = ref<any>(undefined);
+
+function handleSendMail(row: any) {
+  sendTargetRow.value = row;
+  sendMailVisible.value = true;
+}
+
+function handleSendMessage(row: any) {
+  sendTargetRow.value = row;
+  sendMessageVisible.value = true;
 }
 
 async function handleDelete(row: any) {
@@ -532,7 +582,7 @@ async function handleKickOffline(row: any) {
           {{
             row.online
               ? $t('page.system.setting.online')
-              : $t('ui.switch.inactive')
+              : $t('page.system.setting.offline')
           }}
         </Tag>
       </template>
@@ -543,6 +593,16 @@ async function handleKickOffline(row: any) {
             row.salaryEnabled === 1
               ? $t('page.system.user.salaryYes')
               : $t('page.system.user.salaryNo')
+          }}
+        </Tag>
+      </template>
+
+      <template #bizEnabled="{ row }">
+        <Tag :color="row.bizEnabled === 1 ? 'success' : 'default'">
+          {{
+            row.bizEnabled === 1
+              ? $t('page.system.user.bizYes')
+              : $t('page.system.user.bizNo')
           }}
         </Tag>
       </template>
@@ -583,11 +643,22 @@ async function handleKickOffline(row: any) {
       </template>
 
       <template #action="{ row }">
-        <!-- 待审核用户：提交审核走系统审批流引擎 -->
+        <!-- 审核中且当前登录人为当前节点审批人：审核按钮（needAudit 由后端计算，数据驱动，不依赖 system:admin:audit） -->
         <Button
-          v-if="
+          v-if="row.needAudit"
+          type="link"
+          class="!px-0 mr-2.5"
+          :loading="row.pending"
+          @click="() => handleAudit(row)"
+        >
+          {{ $t('page.system.user.button.audit') }}
+        </Button>
+        <!-- 未提交（auditStatus=0 且无任何审批实例）：提交审核 -->
+        <Button
+          v-else-if="
             row.auditStatus === 0 &&
             row.userType !== 1 &&
+            row.approvalStatus == null &&
             accessStore.hasAccessCode('system:admin:audit')
           "
           type="link"
@@ -596,6 +667,21 @@ async function handleKickOffline(row: any) {
           @click="() => handleSubmitAudit(row)"
         >
           {{ $t('page.system.user.button.submitAudit') }}
+        </Button>
+        <!-- 已驳回/已撤回/待修改（auditStatus=0 且最近实例∈{4,5,6}）：重新提交 -->
+        <Button
+          v-else-if="
+            row.auditStatus === 0 &&
+            row.userType !== 1 &&
+            [4, 5, 6].includes(row.approvalStatus) &&
+            accessStore.hasAccessCode('system:admin:audit')
+          "
+          type="link"
+          class="!px-0 mr-2.5"
+          :loading="row.pending"
+          @click="() => handleResubmit(row)"
+        >
+          {{ $t('page.system.user.button.resubmitAudit') }}
         </Button>
         <!-- 档案（HR 视角：完善度/解锁/代改留痕） -->
         <Button
@@ -643,9 +729,40 @@ async function handleKickOffline(row: any) {
               <Menu.Item
                 v-if="accessStore.hasAccessCode('system:admin:update')"
                 key="edit"
+                :disabled="[1, 2].includes(row.approvalStatus)"
+                :title="
+                  [1, 2].includes(row.approvalStatus)
+                    ? '审核进行中，档案已锁定'
+                    : undefined
+                "
                 @click="() => handleEdit(row)"
               >
                 {{ $t('page.system.user.button.editAction') }}
+              </Menu.Item>
+              <!-- 离职流程：申请发起（system:resign:save）/ 交接单查看（system:resign:view） -->
+              <Menu.Item
+                v-if="accessStore.hasAccessCode('system:resign:save')"
+                key="resignApply"
+                @click="() => handleResignApply(row)"
+              >
+                离职申请
+              </Menu.Item>
+              <Menu.Item
+                v-if="accessStore.hasAccessCode('system:resign:view')"
+                key="resignDetail"
+                @click="() => handleResignDetail(row)"
+              >
+                交接单
+              </Menu.Item>
+              <!-- 发送邮件 / 站内消息：所有登录用户可用 -->
+              <Menu.Item key="sendMail" @click="() => handleSendMail(row)">
+                {{ $t('page.system.user.button.sendMail') }}
+              </Menu.Item>
+              <Menu.Item
+                key="sendMessage"
+                @click="() => handleSendMessage(row)"
+              >
+                {{ $t('page.system.user.button.sendMessage') }}
               </Menu.Item>
               <Popconfirm
                 :title="
@@ -658,7 +775,10 @@ async function handleKickOffline(row: any) {
                 @confirm="() => handleDelete(row)"
               >
                 <Menu.Item
-                  v-if="accessStore.hasAccessCode('system:admin:delete')"
+                  v-if="
+                    row.userType !== 1 &&
+                    accessStore.hasAccessCode('system:admin:delete')
+                  "
                   key="delete"
                   danger
                 >
@@ -670,13 +790,44 @@ async function handleKickOffline(row: any) {
         </Dropdown>
       </template>
     </Grid>
-    <Drawer />
+    <UserDrawer
+      v-model:open="editVisible"
+      :create="editCreate"
+      :row="editRow"
+      @saved="handleEdited"
+    />
+    <SendMailModal v-model:open="sendMailVisible" :row="sendTargetRow" />
+    <SendMessageModal
+      v-model:open="sendMessageVisible"
+      :row="sendTargetRow"
+    />
     <ColumnsConfigDrawerRef />
     <UserDetailDrawer
       v-model:visible="detailVisible"
       :id="detailUserId ?? undefined"
     />
     <ArchiveDrawer v-model:open="archiveVisible" :admin-id="archiveAdminId" />
+    <SubmitAuditDrawer
+      v-model:visible="submitDrawerVisible"
+      :row="submitRow"
+      @success="handleEdited"
+    />
+    <AuditDrawer
+      v-model:visible="auditDrawerVisible"
+      :row="auditRow"
+      :instance-id="auditInstanceId"
+      @success="handleEdited"
+    />
+    <ResignDrawer
+      v-model:visible="resignApplyVisible"
+      :row="resignApplyRow"
+      @success="handleResignChanged"
+    />
+    <ResignDetailDrawer
+      v-model:visible="resignDetailVisible"
+      :admin-id="resignDetailAdminId"
+      @success="handleResignChanged"
+    />
   </Page>
 </template>
 

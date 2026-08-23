@@ -19,6 +19,12 @@ pub struct Model {
     pub id: i64,
     pub employee_id: i64,
     pub city_code: String,
+    /// 关联政策表头 ID
+    pub policy_id: Option<i64>,
+    /// 关联政策档次 ID
+    pub policy_level_id: Option<i64>,
+    /// 是否使用政策档次的缴费基数（true=用档次基数；false=使用自定义 base_amount）
+    pub use_policy_base: Option<bool>,
     /// 社保缴费基数
     pub base_amount: Decimal,
     /// 住房公积金基数
@@ -39,6 +45,12 @@ pub struct Model {
     pub participate_maternity: Option<i32>,
     /// 参加住房公积金
     pub participate_housing_fund: Option<i32>,
+    /// 参加重大疾病保险（固定金额，如每人每月 3 元）
+    pub participate_critical_illness: Option<i16>,
+    /// 工伤保险单位比例（员工级覆盖，如行业浮动比例）
+    pub workinjury_company_rate: Option<Decimal>,
+    /// 工伤保险个人比例（员工级覆盖，通常为 0）
+    pub workinjury_personal_rate: Option<Decimal>,
     pub effective_date: Option<chrono::NaiveDate>,
     pub expiry_date: Option<chrono::NaiveDate>,
     pub enabled: Option<i32>,

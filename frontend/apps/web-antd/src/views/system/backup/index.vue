@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
@@ -13,7 +13,6 @@ import {
   InputNumber,
   message,
   Modal,
-  Popconfirm,
   Switch,
   Table,
   Tag,
@@ -23,11 +22,14 @@ import {
 import { useAccessStore } from '@vben/stores';
 
 import {
+  cleanExecuteApi,
+  cleanPreviewApi,
   deleteBackupApi,
   downloadBackupApi,
   getBackupConfigApi,
   getBackupListApi,
   restoreBackupApi,
+  sendBackupOtpApi,
   triggerBackupApi,
   updateBackupConfigApi,
 } from '#/api/core/system/backup';
@@ -84,6 +86,23 @@ async function handleSaveConfig() {
     loadConfig();
   } catch (error: any) {
     message.error(error?.message || $t('page.system.backup.message.saveFailed'));
+  } finally {
+    configSaving.value = false;
+  }
+}
+
+// 启用/停用定时备份：点击开关立即保存并动态重载调度任务（只提交 enabled，不影响正在编辑的 cron/keepDays）
+async function handleToggleEnabled(val: any) {
+  config.enabled = val ? 1 : 0;
+  configSaving.value = true;
+  try {
+    await updateBackupConfigApi({ enabled: config.enabled });
+    message.success($t('page.system.backup.message.saveSuccess'));
+    loadConfig();
+  } catch (error: any) {
+    message.error(error?.message || $t('page.system.backup.message.saveFailed'));
+    // 保存失败回滚开关状态
+    loadConfig();
   } finally {
     configSaving.value = false;
   }
@@ -151,72 +170,221 @@ function formatSize(size: any) {
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
-// ===== 下载 =====
-async function handleDownload(record: any) {
-  try {
-    const res: any = await downloadBackupApi(record.id);
-    const blob = res instanceof Blob ? res : new Blob([res]);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = record.fileName || `backup_${record.id}.dump`;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch {
-    message.error($t('page.system.backup.message.downloadFailed'));
+// ===== 高危操作（下载/删除/还原）：仅超管 + 登录密码 + 邮箱验证码三重验证 =====
+const otpVisible = ref(false);
+const otpLoading = ref(false);
+const otpSending = ref(false);
+const otpPassword = ref('');
+const otpCode = ref('');
+const otpAction = ref(''); // download / delete / restore
+const otpTarget = ref<any>(null);
+const otpMaskedEmail = ref('');
+const otpCountdown = ref(0);
+let otpTimer: ReturnType<typeof setInterval> | null = null;
+
+function clearOtpTimer() {
+  if (otpTimer) {
+    clearInterval(otpTimer);
+    otpTimer = null;
   }
+  otpCountdown.value = 0;
 }
 
-// ===== 删除 =====
-async function handleDelete(record: any) {
-  try {
-    const res: any = await deleteBackupApi(record.id);
-    message.success(res?.data || res || $t('page.system.backup.message.deleteDone'));
-    loadList();
-  } catch (error: any) {
-    message.error(error?.message || $t('page.system.backup.message.deleteFailed'));
+function openOtp(action: 'download' | 'delete' | 'restore', record: any) {
+  otpAction.value = action;
+  otpTarget.value = record;
+  otpPassword.value = '';
+  otpCode.value = '';
+  otpMaskedEmail.value = '';
+  clearOtpTimer();
+  otpVisible.value = true;
+}
+
+const otpTitle = computed(() => {
+  if (otpAction.value === 'delete') {
+    return $t('page.system.backup.deleteTitle');
   }
-}
+  if (otpAction.value === 'download') {
+    return $t('page.system.backup.downloadTitle');
+  }
+  return $t('page.system.backup.restoreTitle');
+});
 
-// ===== 数据恢复（危险操作：输入 RESTORE 确认） =====
-const restoreVisible = ref(false);
-const restoreLoading = ref(false);
-const restoreConfirmText = ref('');
-const restoreTarget = ref<any>(null);
+const otpWarning = computed(() => {
+  if (otpAction.value === 'delete') {
+    return $t('page.system.backup.deleteModalWarning');
+  }
+  if (otpAction.value === 'download') {
+    return $t('page.system.backup.downloadModalWarning');
+  }
+  return $t('page.system.backup.restoreModalWarning');
+});
 
-function openRestore(record: any) {
-  restoreTarget.value = record;
-  restoreConfirmText.value = '';
-  restoreVisible.value = true;
-}
-
-async function handleRestore() {
-  if (!restoreTarget.value) return;
-  restoreLoading.value = true;
+async function handleSendOtp() {
+  if (otpCountdown.value > 0) return;
+  otpSending.value = true;
   try {
-    const res: any = await restoreBackupApi(
-      restoreTarget.value.id,
-      restoreConfirmText.value,
-    );
-    restoreVisible.value = false;
-    Modal.success({
-      title: $t('page.system.backup.message.restoreDone'),
-      content: res?.data || res || '',
-    });
-    loadList();
+    const res: any = await sendBackupOtpApi(otpAction.value);
+    const d = res?.data ?? res;
+    otpMaskedEmail.value = typeof d === 'string' ? d : (d?.email ?? '');
+    message.success($t('page.system.backup.otpSentTo', { email: otpMaskedEmail.value }));
+    otpCountdown.value = 60;
+    otpTimer = setInterval(() => {
+      otpCountdown.value -= 1;
+      if (otpCountdown.value <= 0) {
+        clearOtpTimer();
+      }
+    }, 1000);
   } catch (error: any) {
-    message.error(error?.message || $t('page.system.backup.message.restoreFailed'));
+    message.error(error?.message || $t('page.system.backup.otpSendFailed'));
   } finally {
-    restoreLoading.value = false;
+    otpSending.value = false;
   }
 }
+
+async function handleOtpConfirm() {
+  if (!otpTarget.value) return;
+  if (!otpPassword.value.trim()) {
+    message.error($t('page.system.backup.otpPasswordPlaceholder'));
+    return;
+  }
+  if (!otpCode.value.trim()) {
+    message.error($t('page.system.backup.otpCodePlaceholder'));
+    return;
+  }
+  otpLoading.value = true;
+  const action = otpAction.value;
+  const target = otpTarget.value;
+  try {
+    if (action === 'delete') {
+      const res: any = await deleteBackupApi(
+        target.id,
+        otpPassword.value,
+        otpCode.value,
+      );
+      message.success(res?.data || res || $t('page.system.backup.message.deleteDone'));
+      otpVisible.value = false;
+      loadList();
+    } else if (action === 'restore') {
+      const res: any = await restoreBackupApi(
+        target.id,
+        otpPassword.value,
+        otpCode.value,
+      );
+      otpVisible.value = false;
+      Modal.success({
+        title: $t('page.system.backup.message.restoreDone'),
+        content: res?.data || res || '',
+      });
+      loadList();
+    } else if (action === 'download') {
+      const res: any = await downloadBackupApi(
+        target.id,
+        otpPassword.value,
+        otpCode.value,
+      );
+      const blob = res instanceof Blob ? res : new Blob([res]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = target.fileName || `backup_${target.id}.dump`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      otpVisible.value = false;
+    }
+  } catch (error: any) {
+    const msg =
+      error?.message ||
+      (action === 'delete'
+        ? $t('page.system.backup.message.deleteFailed')
+        : action === 'download'
+          ? $t('page.system.backup.message.downloadFailed')
+          : $t('page.system.backup.message.restoreFailed'));
+    message.error(msg);
+  } finally {
+    otpLoading.value = false;
+  }
+}
+
+function handleOtpCancel() {
+  clearOtpTimer();
+  otpVisible.value = false;
+}
+
+onUnmounted(() => {
+  clearOtpTimer();
+});
 
 onMounted(() => {
   loadConfig();
   loadList();
 });
+
+// ===== 数据初始化（超管 + 登录密码 + 一次性确认码双重验证） =====
+const cleanVisible = ref(false);
+const cleanLoading = ref(false);
+const cleanExecuting = ref(false);
+const cleanPassword = ref('');
+const cleanConfirmCode = ref('');
+const cleanPreviewData = ref<any>(null);
+
+async function handleCleanPreview() {
+  cleanLoading.value = true;
+  try {
+    const res: any = await cleanPreviewApi();
+    cleanPreviewData.value = res?.data || res;
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.system.backup.cleanPreviewFailed'),
+    );
+  } finally {
+    cleanLoading.value = false;
+  }
+}
+
+function openCleanExecute() {
+  cleanPassword.value = '';
+  cleanConfirmCode.value = '';
+  cleanVisible.value = true;
+}
+
+async function handleCleanExecute() {
+  if (!cleanPassword.value.trim()) {
+    message.error($t('page.system.backup.cleanPasswordPlaceholder'));
+    return;
+  }
+  if (!cleanConfirmCode.value.trim()) {
+    message.error($t('page.system.backup.cleanCodePlaceholder'));
+    return;
+  }
+  cleanExecuting.value = true;
+  try {
+    const res: any = await cleanExecuteApi(
+      cleanPassword.value,
+      cleanConfirmCode.value,
+    );
+    cleanVisible.value = false;
+    cleanPreviewData.value = null;
+    cleanPassword.value = '';
+    cleanConfirmCode.value = '';
+    Modal.success({
+      title: $t('page.system.backup.cleanDone'),
+      content:
+        res?.data?.backupMessage ||
+        res?.data ||
+        res ||
+        '',
+    });
+    loadList();
+    loadConfig();
+  } catch (error: any) {
+    message.error(error?.message || $t('page.system.backup.cleanFailed'));
+  } finally {
+    cleanExecuting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -255,8 +423,8 @@ onMounted(() => {
               :checked="config.enabled === 1"
               :checked-children="$t('page.system.common.enabled')"
               :un-checked-children="$t('page.system.common.disabled')"
-              :disabled="!hasAccess('system:backup:update')"
-              @change="(val: any) => (config.enabled = val ? 1 : 0)"
+              :disabled="!hasAccess('system:backup:update') || configSaving"
+              @change="handleToggleEnabled"
             />
           </div>
           <div class="flex gap-2">
@@ -318,6 +486,75 @@ onMounted(() => {
         show-icon
         :message="$t('page.system.backup.restoreWarning')"
       />
+
+      <!-- 数据初始化（仅超管可执行，需登录密码 + 一次性确认码验证） -->
+      <Card v-if="hasAccess('system:backup:clean')" :bordered="false">
+        <template #title>
+          <span class="text-red-600">{{ $t('page.system.backup.cleanTitle') }}</span>
+        </template>
+        <p class="mb-3 text-sm text-gray-500">
+          {{ $t('page.system.backup.cleanDesc') }}
+        </p>
+        <Alert
+          type="error"
+          show-icon
+          class="mb-4"
+          :message="$t('page.system.backup.cleanWarning')"
+        />
+        <div class="flex items-center gap-3">
+          <Button danger :loading="cleanLoading" @click="handleCleanPreview">
+            {{ $t('page.system.backup.button.cleanPreview') }}
+          </Button>
+          <Button
+            v-if="cleanPreviewData"
+            danger
+            type="primary"
+            @click="openCleanExecute"
+          >
+            {{ $t('page.system.backup.button.cleanExecute') }}
+          </Button>
+        </div>
+
+        <!-- 预览结果 -->
+        <template v-if="cleanPreviewData">
+          <div class="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+            <span>
+              {{ $t('page.system.backup.cleanTotalTables') }}:
+              <b>{{ cleanPreviewData.totalTables }}</b>
+            </span>
+            <span>
+              {{ $t('page.system.backup.cleanTotalRows') }}:
+              <b>{{ cleanPreviewData.totalRows }}</b>
+            </span>
+            <span v-if="cleanPreviewData.confirmCode" class="text-red-600">
+              {{ $t('page.system.backup.cleanCodeLabel') }}:
+              <b class="text-base tracking-widest">{{ cleanPreviewData.confirmCode }}</b>
+            </span>
+          </div>
+          <p v-if="cleanPreviewData.confirmCode" class="mt-1 text-xs text-gray-400">
+            {{ $t('page.system.backup.cleanCodeTip') }}
+          </p>
+          <div class="mt-3">
+            <div class="mb-2 text-sm font-medium">
+              {{ $t('page.system.backup.cleanGroupsTitle') }}
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <div
+                v-for="g in cleanPreviewData.groups || []"
+                :key="g.name"
+                class="rounded border border-gray-200 px-3 py-2 text-sm"
+              >
+                <div class="font-medium">{{ g.name }}</div>
+                <div class="text-gray-500">
+                  {{ g.tables?.length || 0 }}
+                  {{ $t('page.system.backup.cleanTotalTables') }} /
+                  {{ g.rows }} {{ $t('page.system.backup.cleanRowsUnit') }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </Card>
 
       <!-- 备份记录 -->
       <Card :bordered="false">
@@ -396,7 +633,7 @@ onMounted(() => {
                 "
                 type="link"
                 size="small"
-                @click="handleDownload(record)"
+                @click="openOtp('download', record)"
               >
                 {{ $t('page.system.backup.button.download') }}
               </Button>
@@ -409,52 +646,122 @@ onMounted(() => {
                 type="link"
                 size="small"
                 danger
-                @click="openRestore(record)"
+                @click="openOtp('restore', record)"
               >
                 {{ $t('page.system.backup.button.restore') }}
               </Button>
-              <Popconfirm
+              <Button
                 v-if="hasAccess('system:backup:delete')"
-                :title="$t('page.system.backup.message.deleteConfirm')"
-                @confirm="handleDelete(record)"
+                type="link"
+                size="small"
+                danger
+                @click="openOtp('delete', record)"
               >
-                <Button type="link" size="small" danger>
-                  {{ $t('page.system.backup.button.delete') }}
-                </Button>
-              </Popconfirm>
+                {{ $t('page.system.backup.button.delete') }}
+              </Button>
             </template>
           </template>
         </Table>
       </Card>
 
-      <!-- 恢复确认弹窗 -->
+      <!-- 高危操作验证弹窗（下载/删除/还原共用：仅超管 + 登录密码 + 邮箱验证码三重验证） -->
       <Modal
-        v-model:open="restoreVisible"
-        :title="$t('page.system.backup.restoreTitle')"
-        :confirm-loading="restoreLoading"
+        v-model:open="otpVisible"
+        :title="otpTitle"
+        :confirm-loading="otpLoading"
         :ok-button-props="{ danger: true }"
-        :ok-text="$t('page.system.backup.button.restoreConfirm')"
+        :ok-text="$t('page.system.backup.button.confirm')"
         :cancel-text="$t('page.system.common.cancel')"
-        @ok="handleRestore"
+        @ok="handleOtpConfirm"
+        @cancel="handleOtpCancel"
+      >
+        <Alert type="error" show-icon class="mb-4" :message="otpWarning" />
+        <p class="mb-3">
+          {{ $t('page.system.backup.restoreTarget') }}:
+          {{ otpTarget?.fileName }}
+        </p>
+        <p v-if="otpAction === 'restore'" class="mb-3 text-sm text-gray-500">
+          {{ $t('page.system.backup.restoreTip') }}
+        </p>
+        <div class="mb-3">
+          <div class="mb-1 text-sm font-medium">
+            {{ $t('page.system.backup.otpPasswordLabel') }}
+          </div>
+          <Input.Password
+            v-model:value="otpPassword"
+            :placeholder="$t('page.system.backup.otpPasswordPlaceholder')"
+            @press-enter="handleOtpConfirm"
+          />
+        </div>
+        <div>
+          <div class="mb-1 text-sm font-medium">
+            {{ $t('page.system.backup.otpCodeLabel') }}
+          </div>
+          <div class="flex gap-2">
+            <Input
+              v-model:value="otpCode"
+              :placeholder="$t('page.system.backup.otpCodePlaceholder')"
+              @press-enter="handleOtpConfirm"
+            />
+            <Button
+              :loading="otpSending"
+              :disabled="otpCountdown > 0"
+              style="white-space: nowrap"
+              @click="handleSendOtp"
+            >
+              {{
+                otpCountdown > 0
+                  ? $t('page.system.backup.otpResendCountdown', {
+                      s: otpCountdown,
+                    })
+                  : otpMaskedEmail
+                    ? $t('page.system.backup.otpSendAgain')
+                    : $t('page.system.backup.otpSend')
+              }}
+            </Button>
+          </div>
+          <p v-if="otpMaskedEmail" class="mt-1 text-xs text-gray-400">
+            {{ $t('page.system.backup.otpSentTo', { email: otpMaskedEmail }) }}
+          </p>
+        </div>
+      </Modal>
+
+      <!-- 数据初始化确认弹窗（超管 + 登录密码 + 一次性确认码） -->
+      <Modal
+        v-model:open="cleanVisible"
+        :title="$t('page.system.backup.cleanTitle')"
+        :confirm-loading="cleanExecuting"
+        :ok-button-props="{ danger: true }"
+        :ok-text="$t('page.system.backup.button.cleanExecute')"
+        :cancel-text="$t('page.system.common.cancel')"
+        @ok="handleCleanExecute"
       >
         <Alert
           type="error"
           show-icon
           class="mb-4"
-          :message="$t('page.system.backup.restoreModalWarning')"
+          :message="$t('page.system.backup.cleanModalWarning')"
         />
-        <p class="mb-2">
-          {{ $t('page.system.backup.restoreTarget') }}:
-          {{ restoreTarget?.fileName }}
-        </p>
-        <p class="mb-2 text-sm text-gray-500">
-          {{ $t('page.system.backup.restoreTip') }}
-        </p>
-        <Input
-          v-model:value="restoreConfirmText"
-          placeholder="RESTORE"
-          @press-enter="handleRestore"
-        />
+        <div class="mb-3">
+          <div class="mb-1 text-sm font-medium">
+            {{ $t('page.system.backup.cleanPasswordLabel') }}
+          </div>
+          <Input.Password
+            v-model:value="cleanPassword"
+            :placeholder="$t('page.system.backup.cleanPasswordPlaceholder')"
+            @press-enter="handleCleanExecute"
+          />
+        </div>
+        <div>
+          <div class="mb-1 text-sm font-medium">
+            {{ $t('page.system.backup.cleanCodeLabel') }}
+          </div>
+          <Input
+            v-model:value="cleanConfirmCode"
+            :placeholder="$t('page.system.backup.cleanCodePlaceholder')"
+            @press-enter="handleCleanExecute"
+          />
+        </div>
       </Modal>
     </div>
   </Page>

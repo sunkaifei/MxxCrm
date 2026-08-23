@@ -11,12 +11,13 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
+use crate::modules::crm::entity::contract as contract_entity;
 use crate::modules::crm::entity::contract_payment_plan;
 use crate::modules::crm::entity::customer::{Entity as Customer, Column as CustomerColumn};
 use crate::modules::sale::entity::payment as payment_entity;
 use crate::modules::sale::model::payment::{
-    PaymentApplyRequest, PaymentApprovalDetailVO, PaymentDetailVO, PaymentListQuery, PaymentListVO,
-    PaymentModel, PaymentPlanForApplyVO, PaymentSaveDTO, PaymentSaveRequest,
+    PaymentApplyItem, PaymentApplyRequest, PaymentApprovalDetailVO, PaymentDetailVO, PaymentListQuery, PaymentListVO,
+    PaymentModel, PaymentPlanForApplyVO, PaymentRegisterRequest, PaymentSaveDTO, PaymentSaveRequest,
     PaymentUnappliedVO, PaymentUpdateRequest,
 };
 use crate::modules::sale::model::payment_application::{
@@ -348,6 +349,131 @@ pub async fn apply(db: &DbConn, req: &PaymentApplyRequest, user_id: i64) -> Resu
     }
 
     txn.commit().await?;
+
+    // 核销后联动：合同下所有计划收讫则合同自动置为已完成
+    if let Some(cid) = payment.contract_id {
+        let _ = crate::modules::crm::service::contract_service::complete_if_all_paid(db, cid).await;
+    }
+
+    Ok(payment_id)
+}
+
+/// 按回款计划登记回款：业务人员在回款计划上直接登记回款并核销（事务）
+///
+/// 在一个事务内完成：创建已确认回款单(status=2) → 写入核销记录 → 更新计划已收金额与状态。
+pub async fn register_by_plan(db: &DbConn, req: &PaymentRegisterRequest, user_id: i64) -> Result<i64> {
+    let amount = req.amount;
+    let plan_id = req.plan_id.ok_or_else(|| Error::from("回款计划不能为空"))?;
+    if amount <= Decimal::ZERO {
+        return Err(Error::from("回款金额必须大于0"));
+    }
+
+    // 1. 校验回款计划（未完成且未收金额充足）
+    let plan = contract_payment_plan::Entity::find_by_id(plan_id)
+        .filter(contract_payment_plan::Column::Deleted.eq(0))
+        .one(db).await?
+        .ok_or_else(|| Error::from("回款计划不存在"))?;
+
+    let plan_amount = plan.plan_amount.unwrap_or(Decimal::from(0));
+    let received = plan.received_amount.unwrap_or(Decimal::from(0));
+    let remaining = plan_amount - received;
+    if amount > remaining {
+        return Err(Error::from(format!("回款金额({})超过计划未收金额({})", amount, remaining)));
+    }
+
+    // 2. 查询合同与客户信息（用于回款单）
+    let contract = match plan.contract_id {
+        Some(cid) => contract_entity::Entity::find_by_id(cid).one(db).await?,
+        None => None,
+    };
+    let customer_name = match contract.as_ref().and_then(|c| c.customer_id) {
+        Some(cid) => Customer::find_by_id(cid)
+            .one(db).await?
+            .and_then(|c| c.company_name),
+        None => None,
+    };
+
+    let txn = db.begin().await?;
+
+    // 3. 生成回款单号
+    let date_prefix = format!("HK{}", chrono::Local::now().format("%Y%m%d"));
+    let max_seq = PaymentModel::get_max_payment_no_today(&txn, &date_prefix).await?;
+    let seq = max_seq.unwrap_or(0) + 1;
+    let payment_no = format!("{}{:04}", date_prefix, seq);
+
+    // 4. 创建回款单：直接置为已确认(status=2)，并全额核销到该计划
+    let now = chrono::Local::now().naive_local().to_owned();
+    let today = chrono::Local::now().date_naive();
+    let payload = payment_entity::ActiveModel {
+        payment_no: Set(Some(payment_no)),
+        contract_id: Set(plan.contract_id),
+        order_id: Set(None),
+        customer_id: Set(contract.as_ref().and_then(|c| c.customer_id)),
+        customer_name: Set(customer_name),
+        amount: Set(Some(amount)),
+        applied_amount: Set(Some(amount)),
+        unapplied_amount: Set(Some(Decimal::from(0))),
+        currency: Set(Some(1)),
+        payment_method: Set(req.payment_method.or(Some(1))),
+        payment_date: Set(req.payment_date),
+        payer: Set(req.payer.clone()),
+        payer_account: Set(req.payer_account.clone()),
+        bank_flow_no: Set(req.bank_flow_no.clone()),
+        status: Set(Some(2)),
+        approval_status: Set(Some(0)),
+        remark: Set(req.remark.clone()),
+        owner_user_id: Set(Some(user_id)),
+        dept_id: Set(None),
+        create_by: Set(Some(user_id.to_string())),
+        create_time: Set(Some(now)),
+        confirm_time: Set(Some(now)),
+        confirm_by: Set(Some(user_id)),
+        update_time: Set(Some(now)),
+        deleted: Set(Some(0)),
+        ..Default::default()
+    };
+    let payment_id = payment_entity::Entity::insert(payload).exec(&txn).await?.last_insert_id;
+
+    // 5. 写入核销记录
+    let items = [PaymentApplyItem {
+        plan_id: Some(plan_id),
+        apply_amount: amount,
+    }];
+    PaymentApplicationModel::insert_batch(&txn, payment_id, plan.contract_id, &items, user_id).await?;
+
+    // 6. 更新计划已收金额与状态（与 apply 保持一致：收满置 4）
+    let new_received = received + amount;
+    let new_status = if new_received >= plan_amount { 4 } else { 1 };
+    let mut am = contract_payment_plan::ActiveModel {
+        received_amount: Set(Some(new_received)),
+        status: Set(Some(new_status)),
+        update_time: Set(Some(now)),
+        ..Default::default()
+    };
+    if new_received >= plan_amount {
+        am.actual_date = Set(Some(today));
+    }
+    contract_payment_plan::Entity::update_many()
+        .set(am)
+        .filter(contract_payment_plan::Column::Id.eq(plan_id))
+        .filter(contract_payment_plan::Column::Deleted.eq(0))
+        .exec(&txn).await?;
+
+    txn.commit().await?;
+
+    // 计划收满时触发提成计算（与回款管理核销链路一致）
+    if new_received >= plan_amount && !plan_amount.is_zero() {
+        if let Err(e) = crate::modules::finance::service::commission_calc_service::calc_on_payment(
+            db,
+            plan_id,
+            new_received,
+        ).await {
+            log::warn!("[register_by_plan] 合同{}回款计划{}提成计算失败：{}", plan.contract_id.unwrap_or_default(), plan_id, e);
+        }
+    }
+    // 合同下所有计划收讫则合同自动置为已完成
+    let _ = crate::modules::crm::service::contract_service::complete_if_all_paid(db, plan.contract_id.unwrap_or_default()).await;
+
     Ok(payment_id)
 }
 

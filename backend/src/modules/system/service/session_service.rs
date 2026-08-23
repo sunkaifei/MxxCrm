@@ -536,8 +536,19 @@ pub fn get_session_store() -> SessionStoreType {
     }
 }
 
-/// 确保 mxx_system_session 表存在（启动时调用）
+/// 确保 mxx_system_session 表存在（启动时调用，版本化迁移，幂等）
 pub async fn ensure_session_table(db: &DbConn) {
+    const MIGRATION: &str = "session_table_v1";
+    // 批次已应用则跳过
+    if let Ok(true) = crate::core::db_migration::migration_applied(db, MIGRATION).await {
+        return;
+    }
+    // 老库兼容：表已存在则直接标记已迁移
+    if let Ok(true) = crate::core::db_migration::table_exists(db, "mxx_system_session").await {
+        let _ = crate::core::db_migration::mark_migration_applied(db, MIGRATION).await;
+        return;
+    }
+
     let create_table_sql = "CREATE TABLE IF NOT EXISTS mxx_system_session (
         id BIGSERIAL PRIMARY KEY,
         user_id BIGINT NOT NULL,
@@ -568,4 +579,7 @@ pub async fn ensure_session_table(db: &DbConn) {
     let _ = db.execute_unprepared(create_idx1).await;
     let _ = db.execute_unprepared(create_idx2).await;
     let _ = db.execute_unprepared(create_idx3).await;
+
+    // 记录批次已应用
+    let _ = crate::core::db_migration::mark_migration_applied(db, MIGRATION).await;
 }

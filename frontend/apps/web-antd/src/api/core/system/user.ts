@@ -2,9 +2,10 @@ import { requestClient } from '#/api/request';
 
 /**
  * 获取用户下拉选项列表
+ * @param bizOnly 仅返回参与业务的人员（排除超管与关闭"参与业务"的账号）
  */
-export const getAdminOptionsApi = async () => {
-  return requestClient.get('/api/system/admin/options');
+export const getAdminOptionsApi = async (params?: { bizOnly?: boolean }) => {
+  return requestClient.get('/api/system/admin/options', { params });
 };
 
 /**

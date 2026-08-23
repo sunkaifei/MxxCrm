@@ -16,3 +16,4 @@ pub mod r#enum;
 pub mod constant;
 pub mod middleware;
 pub mod template;
+pub mod db_migration;

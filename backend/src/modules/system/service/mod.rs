@@ -48,3 +48,7 @@ pub mod exchange_rate_service;
 pub mod integration_config_service;
 pub mod profile_service;
 pub mod hr_archive_service;
+pub mod resign_service;
+pub mod dashboard_card_service;
+pub mod data_clean_service;
+pub mod otp_service;

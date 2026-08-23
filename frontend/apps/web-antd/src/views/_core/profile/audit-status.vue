@@ -1,0 +1,1129 @@
+<script lang="ts" setup>
+// 个人中心「入职审批」（F7）：员工本人查看审批状态/进度、完善档案后提交/重新提交入职审批
+// 身份一律取自 JWT（后端 /profile/audit/my + /profile/my），员工无需权限码
+//
+// 设计方向「入职旅程 · 精确叙事」：
+// - 状态 Hero：蓝图点阵底纹 + 状态色渐变，一眼看清当前所处阶段
+// - 提交前准备：四要素清单（个人信息/简历/财务/紧急联系人），等宽序号 + 进度条，缺一不可
+// - 审批进度：垂直流水线，等宽序号节点 + 状态色连线，当前节点脉冲高亮
+// - 审批记录：操作时间线，意见气泡；多次提交可用「第 N 次」芯片切换查看
+import { computed, onMounted, ref } from 'vue';
+
+import {
+  Button,
+  Empty,
+  message,
+  Spin,
+  Tag,
+  Timeline,
+  TimelineItem,
+  Tooltip,
+} from 'ant-design-vue';
+
+import { useUserStore } from '@vben/stores';
+
+import { getMyAuditApi, getMyProfileApi } from '#/api';
+
+import SubmitAuditDrawer from '../../system/user/submit-audit-drawer.vue';
+
+const emit = defineEmits<{
+  'switch-tab': [tab: string];
+  'audit-change': [];
+}>();
+
+const userStore = useUserStore();
+
+const loading = ref(false);
+const data = ref<any>(null);
+const profile = ref<any>(null);
+const submitVisible = ref(false);
+
+// 实例状态映射（与审批引擎一致）
+const statusMap: Record<number, { color: string; label: string }> = {
+  1: { label: '待审批', color: 'processing' },
+  2: { label: '审批中', color: 'warning' },
+  3: { label: '已通过', color: 'success' },
+  4: { label: '已驳回', color: 'error' },
+  5: { label: '已撤回', color: 'default' },
+  6: { label: '待修改', color: 'orange' },
+};
+
+// 日志动作
+const logActionText: Record<number, string> = {
+  1: '通过',
+  2: '驳回',
+  3: '转办',
+  4: '委派',
+  5: '加签',
+  6: '退回',
+  7: '撤回',
+  8: '抄送',
+};
+
+const logActionColor: Record<number, string> = {
+  1: 'green',
+  2: 'red',
+  3: 'blue',
+  4: 'blue',
+  5: 'orange',
+  6: 'orange',
+  7: 'gray',
+  8: 'cyan',
+};
+
+// 审批模式映射
+const approveModeMap: Record<number, string> = {
+  1: '或签',
+  2: '会签',
+  3: '依次审批',
+};
+
+// AntD Tag 色名 → 色值（实例芯片状态点）
+const STATUS_HEX: Record<string, string> = {
+  processing: '#1677ff',
+  warning: '#faad14',
+  success: '#52c41a',
+  error: '#ff4d4f',
+  orange: '#fa8c16',
+  default: '#8c8c8c',
+};
+
+// 线性图标 path 数据（lucide 风格描边）
+const ICON_PATHS: Record<string, string> = {
+  check: 'M20 6L9 17l-5-5',
+  x: 'M18 6L6 18M6 6l12 12',
+  clock: 'M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  send: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
+  rollback: 'M3 9h12a6 6 0 010 12h-3M3 9l4-4M3 9l4 4',
+  edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z',
+  user: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z',
+  refresh: 'M1 4v6h6M23 20v-6h-6M20.5 9A9 9 0 005.6 5.6L1 10M3.5 15a9 9 0 0014.9 3.4L23 14',
+};
+
+const currentUserId = computed(() =>
+  Number(userStore.userInfo?.userId ?? userStore.userInfo?.id ?? 0),
+);
+
+// 已通过（auditStatus=1）：父级个人中心已隐藏该 Tab，此处兜底展示
+const approved = computed(() => data.value?.auditStatus === 1);
+
+const instances = computed<any[]>(() => data.value?.instances || []);
+const latest = computed<any>(() => instances.value.at(-1) || null);
+
+// 审核状态结论（方案 3.2 个人中心）
+const auditState = computed(() => {
+  if (!data.value) return { type: 'loading', label: '加载中', color: 'default' };
+  if (approved.value) return { type: 'approved', label: '已通过', color: 'success' };
+  const st = latest.value?.status;
+  if (st === 1 || st === 2) return { type: 'pending', label: '审批中', color: 'processing' };
+  if (st === 4) return { type: 'rejected', label: '已驳回', color: 'error' };
+  if (st === 5) return { type: 'withdrawn', label: '已撤回', color: 'default' };
+  if (st === 6) return { type: 'modify', label: '待修改', color: 'warning' };
+  return { type: 'none', label: '未提交', color: 'default' };
+});
+
+const canSubmit = computed(() =>
+  ['none', 'rejected', 'withdrawn', 'modify'].includes(auditState.value.type),
+);
+
+// ===== 提交前准备：四要素档案清单（全部完善后才可提交） =====
+const checklist = computed(() => {
+  const p = profile.value || {};
+  const basicDone = !!(p?.basic?.nickName && String(p.basic.nickName).trim());
+  const resumeDone = (p?.resume?.length ?? 0) > 0;
+  const financeDone = !!(p?.idCard?.masked && p?.bank?.maskedCardNo);
+  const contactDone = (p?.emergencyContacts?.length ?? 0) > 0;
+  return [
+    {
+      key: 'basic',
+      label: '个人信息',
+      desc: '昵称 / 姓名等基础信息',
+      tab: 'basic',
+      done: basicDone,
+    },
+    {
+      key: 'resume',
+      label: '个人简历',
+      desc: '教育 / 工作经历至少一条',
+      tab: 'resume',
+      done: resumeDone,
+    },
+    {
+      key: 'finance',
+      label: '财务信息',
+      desc: '身份证与工资卡',
+      tab: 'idfinance',
+      done: financeDone,
+    },
+    {
+      key: 'contact',
+      label: '紧急联系人',
+      desc: '至少一位紧急联系人',
+      tab: 'emergency',
+      done: contactDone,
+    },
+  ];
+});
+const doneCount = computed(() => checklist.value.filter((i) => i.done).length);
+const allDone = computed(() => doneCount.value === checklist.value.length);
+
+// ===== 审批实例查看（多次提交用芯片切换，默认最新） =====
+const viewingIdx = ref(-1); // -1 = 最新实例
+const viewing = computed<any>(() => {
+  const arr = instances.value;
+  if (!arr.length) return null;
+  const idx = viewingIdx.value === -1 ? arr.length - 1 : viewingIdx.value;
+  return arr[idx] || null;
+});
+
+function switchInstance(i: number) {
+  viewingIdx.value = i;
+}
+
+function dotHex(status: number) {
+  return STATUS_HEX[statusMap[status]?.color ?? 'default'] || '#8c8c8c';
+}
+
+// 节点状态：0未到达 1审批中 2已通过 3已驳回 4已完成
+function nodeStatusLabel(st: number) {
+  if (st === 1) return '审批中';
+  if (st === 2 || st === 4) return '已通过';
+  if (st === 3) return '已驳回';
+  return '未到达';
+}
+function dotClassOf(st: number) {
+  if (st === 1) return 'p-dot-active';
+  if (st === 2 || st === 4) return 'p-dot-done';
+  if (st === 3) return 'p-dot-err';
+  return 'p-dot-muted';
+}
+function lineClassOf(st: number) {
+  if (st === 2 || st === 4) return 'p-line-done';
+  if (st === 1) return 'p-line-active';
+  return 'p-line-muted';
+}
+
+// 垂直流水线：发起人 → 审批节点 → 结束
+const flowSteps = computed(() => {
+  const inst = viewing.value;
+  if (!inst) return [];
+  const steps: any[] = [];
+  steps.push({
+    kind: 'user',
+    title: '发起人',
+    sub: inst.submitterName || '-',
+    dotClass: 'p-dot-done',
+    lineClass: 'p-line-done',
+  });
+  const nodes: any[] = (inst.flowNodes || [])
+    .filter((n: any) => n.nodeType === 2)
+    .toSorted((a: any, b: any) => a.nodeOrder - b.nodeOrder);
+  nodes.forEach((n: any, i: number) => {
+    const st = n.nodeStatus ?? 0;
+    steps.push({
+      kind: 'num',
+      text: String(i + 1),
+      title: n.nodeName || `审批节点 ${i + 1}`,
+      mode: n.approveMode ? approveModeMap[n.approveMode] : '',
+      sub: [n.approverName || '审批人待定', nodeStatusLabel(st)].filter(Boolean).join(' · '),
+      dotClass: dotClassOf(st),
+      lineClass: lineClassOf(st),
+    });
+  });
+  if (nodes.length > 0) {
+    const done = inst.status === 3;
+    const rejected = inst.status === 4;
+    steps.push({
+      kind: 'check',
+      title: done ? '审批通过' : rejected ? '已驳回' : '流程结束',
+      sub: done
+        ? '入职审批已全部通过，账号正式启用'
+        : rejected
+          ? '审批被驳回，请根据意见完善后重新提交'
+          : '审批流程已结束',
+      dotClass: done ? 'p-dot-done' : rejected ? 'p-dot-err' : 'p-dot-muted',
+      lineClass: '',
+    });
+  }
+  return steps;
+});
+
+const viewLogs = computed<any[]>(() => viewing.value?.logs || []);
+
+// ===== 状态 Hero 配置 =====
+const hero = computed(() => {
+  const t = auditState.value.type;
+  if (t === 'approved')
+    return {
+      icon: 'check',
+      tone: 'success',
+      title: '入职审批已通过',
+      desc: '您的入职审批已全部通过，账号已正常启用。',
+      canAction: false,
+    };
+  if (t === 'pending')
+    return {
+      icon: 'clock',
+      tone: 'primary',
+      title: '审批进行中',
+      desc: '您的入职审批正在流转中，请耐心等待审批人处理；下方可随时查看审批进度与记录。',
+      canAction: false,
+    };
+  if (t === 'rejected')
+    return {
+      icon: 'x',
+      tone: 'danger',
+      title: '审批未通过',
+      desc: '本次入职审批被驳回，请根据审批意见完善档案后重新提交。',
+      canAction: true,
+    };
+  if (t === 'withdrawn')
+    return {
+      icon: 'rollback',
+      tone: 'default',
+      title: '已撤回',
+      desc: '该次入职审批已撤回，可重新提交发起入职审批。',
+      canAction: true,
+    };
+  if (t === 'modify')
+    return {
+      icon: 'edit',
+      tone: 'primary',
+      title: '待修改',
+      desc: '审批人要求修改档案后重新提交，请完善后再次发起。',
+      canAction: true,
+    };
+  return {
+    icon: 'send',
+    tone: 'default',
+    title: '尚未提交入职审批',
+    desc: '完善下方档案清单后即可发起入职审批；审批全部通过后账号正式启用。',
+    canAction: true,
+  };
+});
+
+const btnLabel = computed(() => {
+  const t = auditState.value.type;
+  if (t === 'modify') return '修改后重新提交';
+  if (t === 'none') return '提交入职审批';
+  return '重新提交';
+});
+
+// 提交抽屉所需的本人 row（复用 SubmitAuditDrawer）
+const selfRow = computed(() => {
+  const u: any = userStore.userInfo || {};
+  return {
+    id: currentUserId.value,
+    nickName: u.nickName || u.realName || '',
+    userName: u.username || '',
+    auditStatus: data.value?.auditStatus ?? 0,
+    approvalStatus: latest.value?.status ?? undefined,
+    approvalInstanceId: data.value?.latestInstanceId ?? undefined,
+    deptName: u.deptName || '',
+    postName: u.postName || '',
+    roleName: u.roleName || '',
+    mobile: u.mobile || '',
+    email: u.email || '',
+    hireDate: u.hireDate || '',
+  };
+});
+
+// 提交按钮：未完善时禁用并引导跳转到第一项缺失档案
+function handleSubmitClick() {
+  if (!allDone.value) {
+    message.warning('请先完善全部档案信息后再提交入职审批');
+    const first = checklist.value.find((i) => !i.done);
+    if (first) emit('switch-tab', first.tab);
+    return;
+  }
+  submitVisible.value = true;
+}
+
+function handleSubmitted() {
+  submitVisible.value = false;
+  loadData();
+  emit('audit-change');
+}
+
+async function loadData() {
+  loading.value = true;
+  try {
+    const [auditRes, profileRes] = await Promise.all([
+      getMyAuditApi(),
+      getMyProfileApi().catch(() => null),
+    ]);
+    data.value = auditRes?.data?.data ?? auditRes?.data ?? auditRes ?? null;
+    profile.value = profileRes ?? null;
+    viewingIdx.value = -1;
+  } catch {
+    data.value = null;
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadData);
+
+defineExpose({ reload: loadData });
+</script>
+
+<template>
+  <div class="onboard-space">
+    <!-- 已通过兜底：父级正常会隐藏 Tab，此分支仅在状态刷新前短暂出现 -->
+    <section v-if="approved" class="hero hero-success">
+      <div class="hero-grid"></div>
+      <div class="hero-icon tone-success">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path :d="ICON_PATHS.check" />
+        </svg>
+      </div>
+      <div class="hero-main">
+        <h2 class="hero-title">入职审批已通过</h2>
+        <p class="hero-desc">您的入职审批已全部通过，账号已正常启用，该栏目无需再展示。</p>
+      </div>
+    </section>
+
+    <Spin :spinning="loading" v-else>
+      <div v-if="data" class="space-y-4">
+        <!-- ===== 状态 Hero ===== -->
+        <section class="hero" :class="`hero-${hero.tone}`">
+          <div class="hero-grid"></div>
+          <div class="hero-icon" :class="`tone-${hero.tone}`">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path :d="ICON_PATHS[hero.icon]" />
+            </svg>
+          </div>
+          <div class="hero-main">
+            <div class="hero-title-row">
+              <h2 class="hero-title">{{ hero.title }}</h2>
+              <Tag v-if="latest?.status" :color="statusMap[latest.status]?.color || 'default'">
+                {{ statusMap[latest.status]?.label || latest.statusName }}
+              </Tag>
+            </div>
+            <p class="hero-desc">{{ hero.desc }}</p>
+            <div v-if="latest" class="hero-meta">
+              提交人 {{ latest.submitterName || '-' }} · {{ latest.submittedAt || '-' }} 提交 ·
+              共 {{ instances.length }} 次提交
+            </div>
+          </div>
+          <div class="hero-action">
+            <template v-if="hero.canAction">
+              <Tooltip v-if="!allDone" title="请先完善全部档案信息">
+                <span class="inline-block">
+                  <Button type="primary" size="large" :disabled="!allDone" @click="handleSubmitClick">
+                    {{ btnLabel }}
+                  </Button>
+                </span>
+              </Tooltip>
+              <Button v-else type="primary" size="large" @click="handleSubmitClick">
+                {{ btnLabel }}
+              </Button>
+            </template>
+            <Button v-else type="text" @click="loadData">
+              <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path :d="ICON_PATHS.refresh" />
+              </svg>
+              刷新进度
+            </Button>
+          </div>
+        </section>
+
+        <!-- ===== 提交前准备：四要素档案清单 ===== -->
+        <section v-if="canSubmit" class="panel prep-panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">提交前准备</div>
+              <div class="panel-sub">以下档案信息完善后才能提交入职审批，点击条目可直接跳转填写</div>
+            </div>
+            <div class="prep-progress">
+              <div class="prep-progress-text">
+                {{ doneCount }} / {{ checklist.length }}
+                <span v-if="allDone" class="prep-ready">已就绪</span>
+              </div>
+              <div class="prep-bar">
+                <div
+                  class="prep-bar-fill"
+                  :class="{ full: allDone }"
+                  :style="{ width: `${(doneCount / checklist.length) * 100}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
+          <div class="prep-grid">
+            <div
+              v-for="(item, i) in checklist"
+              :key="item.key"
+              class="prep-item"
+              :class="{ done: item.done }"
+              @click="emit('switch-tab', item.tab)"
+            >
+              <div class="prep-num" :class="{ done: item.done }">
+                <svg v-if="item.done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path :d="ICON_PATHS.check" />
+                </svg>
+                <span v-else class="prep-num-text">{{ String(i + 1).padStart(2, '0') }}</span>
+              </div>
+              <div class="prep-info">
+                <div class="prep-name">{{ item.label }}</div>
+                <div class="prep-desc">{{ item.desc }}</div>
+              </div>
+              <Tag :color="item.done ? 'success' : 'warning'" class="prep-tag">
+                {{ item.done ? '已完善' : '待完善' }}
+              </Tag>
+              <span class="prep-arrow">→</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== 审批进度（流水线） ===== -->
+        <template v-if="viewing">
+          <section class="panel pipeline-panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">审批进度</div>
+                <div class="panel-sub">
+                  {{
+                    viewing.businessTitle
+                      ? `${viewing.businessTitle} · 第 ${instances.indexOf(viewing) + 1} 次提交`
+                      : `第 ${instances.indexOf(viewing) + 1} 次提交`
+                  }}
+                </div>
+              </div>
+              <div v-if="instances.length > 1" class="chip-group">
+                <button
+                  v-for="(inst, i) in instances"
+                  :key="inst.id"
+                  class="chip"
+                  :class="{ active: (viewingIdx === -1 ? instances.length - 1 : viewingIdx) === i }"
+                  @click="switchInstance(i)"
+                >
+                  <span class="chip-dot" :style="{ background: dotHex(inst.status) }"></span>
+                  第{{ i + 1 }}次
+                </button>
+              </div>
+            </div>
+
+            <div class="pipeline">
+              <div v-for="(step, idx) in flowSteps" :key="idx" class="p-step">
+                <div class="p-rail">
+                  <div class="p-dot" :class="step.dotClass">
+                    <svg v-if="step.kind === 'user'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path :d="ICON_PATHS.user" />
+                    </svg>
+                    <svg v-else-if="step.kind === 'check'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path :d="ICON_PATHS.check" />
+                    </svg>
+                    <span v-else class="p-dot-num">{{ step.text }}</span>
+                  </div>
+                  <div v-if="idx < flowSteps.length - 1" class="p-line" :class="step.lineClass"></div>
+                </div>
+                <div class="p-body">
+                  <div class="p-title">
+                    {{ step.title }}
+                    <Tag v-if="step.mode" :color="step.mode === '会签' ? 'purple' : step.mode === '依次审批' ? 'orange' : 'blue'">
+                      {{ step.mode }}
+                    </Tag>
+                  </div>
+                  <div class="p-sub">{{ step.sub }}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== 审批记录（时间线） ===== -->
+          <section class="panel record-panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">审批记录</div>
+                <div class="panel-sub">本次提交的审批操作时间线（{{ viewLogs.length }} 条）</div>
+              </div>
+            </div>
+            <div v-if="viewLogs.length" class="log-timeline">
+              <Timeline>
+                <TimelineItem
+                  v-for="log in viewLogs"
+                  :key="log.id"
+                  :color="logActionColor[log.action] || 'blue'"
+                >
+                  <div class="log-title">{{ log.nodeName || logActionText[log.action] || '审批' }}</div>
+                  <div class="log-sub">
+                    {{ log.approverName || log.operatorName || '-' }} ·
+                    {{ logActionText[log.action] || '--' }} · {{ log.createTime || log.create_at || '-' }}
+                  </div>
+                  <div v-if="log.comment || log.reason" class="log-comment">
+                    {{ log.comment || log.reason }}
+                  </div>
+                </TimelineItem>
+              </Timeline>
+            </div>
+            <div v-else class="log-empty">暂无审批记录</div>
+          </section>
+        </template>
+
+        <!-- ===== 无实例（未提交过） ===== -->
+        <section v-else class="panel empty-panel">
+          <Empty description="尚无审批实例，完善档案后点击「提交入职审批」发起审批" />
+        </section>
+      </div>
+    </Spin>
+
+    <SubmitAuditDrawer
+      v-model:visible="submitVisible"
+      :row="selfRow"
+      @success="handleSubmitted"
+    />
+  </div>
+</template>
+
+<style scoped>
+.onboard-space {
+  animation: rise-in 0.5s ease-out both;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 35%);
+  }
+  70% {
+    box-shadow: 0 0 0 9px hsl(var(--primary) / 0%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0%);
+  }
+}
+
+/* ===== 面板通用 ===== */
+.panel {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  padding: 18px 22px;
+  background: hsl(var(--card));
+  animation: rise-in 0.5s ease-out both;
+}
+
+.prep-panel {
+  animation-delay: 0.06s;
+}
+.pipeline-panel {
+  animation-delay: 0.12s;
+}
+.record-panel {
+  animation-delay: 0.18s;
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.panel-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ===== 状态 Hero ===== */
+.hero {
+  position: relative;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  overflow: hidden;
+  padding: 26px 28px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+  background: hsl(var(--card));
+  animation: rise-in 0.5s ease-out both;
+}
+
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  background-image: radial-gradient(hsl(var(--primary) / 16%) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(90deg, transparent, #000 28%, #000 72%, transparent);
+  pointer-events: none;
+}
+
+.hero-primary {
+  border-color: hsl(var(--primary) / 30%);
+  background: linear-gradient(120deg, hsl(var(--card)), hsl(var(--primary) / 8%));
+}
+.hero-success {
+  border-color: hsl(var(--success) / 30%);
+  background: linear-gradient(120deg, hsl(var(--card)), hsl(var(--success) / 9%));
+}
+.hero-danger {
+  border-color: hsl(var(--destructive) / 30%);
+  background: linear-gradient(120deg, hsl(var(--card)), hsl(var(--destructive) / 8%));
+}
+.hero-default {
+  background: linear-gradient(120deg, hsl(var(--card)), hsl(var(--muted) / 40%));
+}
+
+.hero-icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+}
+
+.hero-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.tone-primary {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 10%);
+  border-color: hsl(var(--primary) / 30%);
+}
+.tone-success {
+  color: hsl(var(--success));
+  background: hsl(var(--success) / 12%);
+  border-color: hsl(var(--success) / 35%);
+}
+.tone-danger {
+  color: hsl(var(--destructive));
+  background: hsl(var(--destructive) / 10%);
+  border-color: hsl(var(--destructive) / 35%);
+}
+.tone-default {
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 55%);
+}
+
+.hero-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.hero-title-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.hero-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.hero-desc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
+}
+
+.hero-meta {
+  margin-top: 8px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground) / 85%);
+}
+
+.hero-action {
+  position: relative;
+  flex: none;
+}
+
+.refresh-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+/* ===== 提交前准备清单 ===== */
+.prep-progress {
+  flex: none;
+  width: 180px;
+  text-align: right;
+}
+
+.prep-progress-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+.prep-ready {
+  margin-left: 6px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: hsl(var(--success));
+  background: hsl(var(--success) / 12%);
+  border-radius: 999px;
+}
+
+.prep-bar {
+  height: 5px;
+  margin-top: 7px;
+  overflow: hidden;
+  background: hsl(var(--muted) / 70%);
+  border-radius: 999px;
+}
+
+.prep-bar-fill {
+  height: 100%;
+  background: hsl(var(--primary));
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.prep-bar-fill.full {
+  background: hsl(var(--success));
+}
+
+.prep-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.prep-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--card));
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.prep-item:hover {
+  border-color: hsl(var(--primary) / 45%);
+  background: hsl(var(--primary) / 4%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px hsl(var(--primary) / 8%);
+}
+
+.prep-item.done:hover {
+  border-color: hsl(var(--success) / 45%);
+  background: hsl(var(--success) / 4%);
+}
+
+.prep-num {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 40%);
+  transition: all 0.25s ease;
+}
+
+.prep-num.done {
+  color: hsl(var(--success));
+  border-color: hsl(var(--success) / 40%);
+  background: hsl(var(--success) / 12%);
+}
+
+.prep-num svg {
+  width: 16px;
+  height: 16px;
+}
+
+.prep-num-text {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.prep-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.prep-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.prep-desc {
+  margin-top: 2px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prep-tag {
+  flex: none;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.prep-arrow {
+  flex: none;
+  font-size: 14px;
+  color: hsl(var(--muted-foreground) / 60%);
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.prep-item:hover .prep-arrow {
+  transform: translateX(3px);
+  color: hsl(var(--primary));
+}
+
+/* ===== 实例芯片切换 ===== */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background: hsl(var(--card));
+  transition: all 0.25s ease;
+}
+
+.chip:hover {
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--primary) / 40%);
+}
+
+.chip.active {
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary) / 50%);
+  background: hsl(var(--primary) / 8%);
+  font-weight: 600;
+}
+
+.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* ===== 审批流水线 ===== */
+.pipeline {
+  padding: 6px 2px 2px;
+}
+
+.p-step {
+  display: flex;
+  gap: 14px;
+}
+
+.p-rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  width: 34px;
+}
+
+.p-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid hsl(var(--border));
+  border-radius: 50%;
+  background: hsl(var(--card));
+  transition: all 0.3s ease;
+}
+
+.p-dot svg {
+  width: 15px;
+  height: 15px;
+}
+
+.p-dot-num {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.p-dot-done {
+  color: hsl(var(--success));
+  border-color: hsl(var(--success) / 55%);
+  background: hsl(var(--success) / 12%);
+}
+
+.p-dot-active {
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 10%);
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+.p-dot-err {
+  color: hsl(var(--destructive));
+  border-color: hsl(var(--destructive) / 55%);
+  background: hsl(var(--destructive) / 10%);
+}
+
+.p-dot-muted {
+  color: hsl(var(--muted-foreground));
+  border-color: hsl(var(--border));
+  background: hsl(var(--muted) / 40%);
+}
+
+.p-line {
+  width: 2px;
+  min-height: 26px;
+  flex: 1;
+  margin: 3px 0;
+  border-radius: 2px;
+  background: hsl(var(--border));
+  transition: background 0.4s ease;
+}
+
+.p-line-done {
+  background: hsl(var(--success) / 55%);
+}
+
+.p-line-active {
+  background: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--primary) / 30%));
+}
+
+.p-body {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 26px;
+}
+
+.p-title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.p-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ===== 审批记录时间线 ===== */
+.log-timeline {
+  padding: 4px 6px 0 2px;
+}
+
+.log-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.log-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.log-comment {
+  margin-top: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: hsl(var(--foreground) / 85%);
+  background: hsl(var(--muted) / 50%);
+  border-left: 3px solid hsl(var(--primary) / 40%);
+  border-radius: 6px;
+}
+
+.log-empty {
+  padding: 26px 0;
+  font-size: 13px;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+.empty-panel :deep(.ant-empty-description) {
+  font-size: 12px;
+}
+
+/* ===== 响应式：窄屏时清单降为 2 列、Hero 纵向堆叠 ===== */
+@media (max-width: 1280px) {
+  .prep-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px;
+  }
+
+  .hero-action {
+    width: 100%;
+  }
+
+  .hero-action .ant-btn {
+    width: 100%;
+  }
+
+  .prep-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-head {
+    flex-direction: column;
+  }
+
+  .prep-progress {
+    width: 100%;
+    text-align: left;
+  }
+}
+</style>

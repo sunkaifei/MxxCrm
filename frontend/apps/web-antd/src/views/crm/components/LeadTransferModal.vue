@@ -31,6 +31,7 @@ import {
 } from '@vben/icons';
 
 import {
+  Alert,
   Button,
   Empty,
   message,
@@ -369,6 +370,15 @@ watch(
       </div>
     </div>
 
+    <!-- 标签交接说明 -->
+    <Alert
+      class="mb-4"
+      type="info"
+      show-icon
+      message="个人标签自动交接"
+      description="原负责人创建的个人标签将随本次转移一并处理：若该标签标注的客户/线索已全部交接给新负责人，则标签一并转移；若存在部分交接或数据交叉，则转为公共标签由管理员接管。系统标签不受影响。"
+    />
+
     <!-- 交接原因 + 备注 -->
     <div class="reason-section">
       <div class="section-title">
@@ -422,10 +432,10 @@ watch(
       </Button>
     </div>
 
-    <!-- 用户选择器弹窗 -->
+    <!-- 用户选择器弹窗：仅可选参与业务的人员（排除超管与关闭"参与业务"的账号） -->
     <UserSelectModal
       v-model:visible="userSelectVisible"
-      :extra-params="{ status: 1 }"
+      :extra-params="{ status: 1, bizEnabled: 1 }"
       @select="onUserSelect"
     />
   </Modal>

@@ -726,7 +726,7 @@ impl QuotationModel {
         let result = Quotation::find()
             .filter(quotation::Column::QuotationNo.like(&pattern))
             .select_only()
-            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(quotation_no, 11) AS INTEGER))")), "max_seq")
+            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(quotation_no, 11) AS BIGINT))")), "max_seq")
             .into_tuple::<Option<i64>>()
             .one(db)
             .await?;

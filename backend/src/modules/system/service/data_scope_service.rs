@@ -23,6 +23,7 @@
 
 use crate::core::errors::error::{Error, Result};
 use crate::modules::system::entity::dept;
+use crate::modules::system::model::admin::AdminModel;
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::model::role_dept_merge::RoleDeptMergeModel;
@@ -59,7 +60,16 @@ pub async fn get_accessible_user_ids(
     current_user_id: i64,
 ) -> Result<Option<Vec<i64>>> {
     // 超级管理员（user_type=1）直接返回 None（全部数据）
-    // 注意：此处不依赖 role_id=1 的硬编码判定，由调用方在传入前自行处理超管场景
+    // 注意：超管角色的 data_scope 可能配置为 5（仅本人），若按角色判定，
+    // 超管的"全部"列表会被过滤为空，故必须以 user_type 优先短路，不依赖角色配置
+    let admin_user = AdminModel::find_by_id(db, &Some(current_user_id)).await
+        .map_err(|e| Error::from(format!("查询用户信息失败: {}", e)))?;
+    if let Some(user) = admin_user {
+        if user.user_type == Some(1) {
+            return Ok(None);
+        }
+    }
+
     let roles = role_service::select_by_admin_id(db, &Some(current_user_id)).await?;
 
     // 无任何角色：默认仅本人（保守策略）

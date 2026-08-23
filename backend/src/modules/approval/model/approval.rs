@@ -36,6 +36,9 @@ use crate::modules::approval::entity::approval_log::{
 use crate::modules::approval::entity::approval_cc::{
     ActiveModel as CcActiveModel, Column as CcColumn, Entity as CcEntity,
 };
+use crate::utils::string_utils::{
+    deserialize_string_or_number_to_i64, deserialize_string_vec_to_u64_vec,
+};
 
 // ============ Flow Request/Response ============
 
@@ -149,12 +152,17 @@ pub struct FlowListQuery {
 pub struct ApprovalSubmitRequest {
     pub flow_code: String,
     pub business_type: String,
+    /// 业务ID：兼容前端字符串 "6" 与数字 6 两种格式（如员工列表 row.id 为字符串）
+    #[serde(deserialize_with = "deserialize_string_or_number_to_i64")]
     pub business_id: i64,
     pub business_title: Option<String>,
+    /// 提交人ID：前端无需传，controller 从 JWT 提取覆盖（防伪造发起人）
+    #[serde(default)]
     pub submitter_id: i64,
     pub submitter_name: Option<String>,
     pub extra_data: Option<serde_json::Value>,
     /// 提交时指定抄送人（可选，为空则不抄送）
+    #[serde(deserialize_with = "deserialize_string_vec_to_u64_vec", default)]
     pub cc_user_ids: Option<Vec<i64>>,
     /// 抄送说明（可选）
     pub cc_reason: Option<String>,
@@ -490,7 +498,49 @@ impl ApprovalModel {
             .await
             .map_err(|e| Error::from(e.to_string()))?;
 
-        Ok(Some(FlowDetailVO {
+        Ok(Some(Self::build_flow_detail_vo(flow, nodes, edges)))
+    }
+
+    /// 按流程编码查询启用的审批流详情（供业务模块提交审批前预览流程，无需 system:approval:list 权限）
+    pub async fn find_flow_vo_by_code(
+        db: &impl ConnectionTrait,
+        code: &str,
+    ) -> Result<Option<FlowDetailVO>> {
+        let flow = FlowEntity::find()
+            .filter(FlowColumn::FlowCode.eq(code))
+            .filter(FlowColumn::Enabled.eq(1))
+            .one(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        let flow = match flow {
+            Some(f) => f,
+            None => return Ok(None),
+        };
+        let flow_id = flow.id;
+
+        let nodes = NodeEntity::find()
+            .filter(NodeColumn::FlowId.eq(flow_id))
+            .order_by_asc(NodeColumn::NodeOrder)
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        let edges = EdgeEntity::find()
+            .filter(EdgeColumn::FlowId.eq(flow_id))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        Ok(Some(Self::build_flow_detail_vo(flow, nodes, edges)))
+    }
+
+    fn build_flow_detail_vo(
+        flow: FlowModel,
+        nodes: Vec<NodeModel>,
+        edges: Vec<EdgeModel>,
+    ) -> FlowDetailVO {
+        FlowDetailVO {
             id: flow.id,
             flow_code: flow.flow_code.unwrap_or_default(),
             flow_name: flow.flow_name.unwrap_or_default(),
@@ -523,7 +573,7 @@ impl ApprovalModel {
                     label: e.label,
                 })
                 .collect(),
-        }))
+        }
     }
 
     pub async fn find_flow_list(db: &DatabaseConnection, query: &FlowListQuery) -> Result<ResultPage<Vec<FlowListVO>>> {
@@ -1754,7 +1804,7 @@ impl ApprovalModel {
                 }
 
                 // Step 2: 从目标层级开始，向上查找首个有效审批人
-                // 超管/停用/是发起人自己 → 向上跳一级继续查找
+                // 不参与业务（超管/显式关闭）/停用/是发起人自己 → 向上跳一级继续查找
                 let safety_max = 40usize;
                 for _ in 0..safety_max {
                     let cur = match current_id {
@@ -1770,11 +1820,11 @@ impl ApprovalModel {
                         .await
                         .map_err(|e| Error::from(e.to_string()))?;
                     match manager {
-                        Some(m) if m.status.unwrap_or(0) == 1 && m.user_type.unwrap_or(0) != 1 => {
+                        Some(m) if m.status.unwrap_or(0) == 1 && m.is_biz_participant() => {
                             return Ok(vec![cur]);
                         }
-                        Some(m) if m.user_type == Some(1) => {
-                            log::info!("直属上级(id={})是超管，自动跳过继续向上", cur);
+                        Some(m) if !m.is_biz_participant() => {
+                            log::info!("直属上级(id={})不参与业务，自动跳过继续向上", cur);
                         }
                         Some(_) => {
                             log::info!("直属上级(id={})已停用，自动跳过继续向上", cur);
@@ -1830,7 +1880,7 @@ impl ApprovalModel {
                 }
 
                 // Step 2: 从目标部门开始，向上查找首个有效负责人
-                // 处理空缺容错：未配置/超管/停用/是发起人自己 → 向上跳一级
+                // 处理空缺容错：未配置/不参与业务（超管/显式关闭）/停用/是发起人自己 → 向上跳一级
                 let mut search_dept_id = current_dept_id;
                 let mut search_visited = std::collections::HashSet::new();
                 search_visited.insert(current_dept_id);
@@ -1858,12 +1908,12 @@ impl ApprovalModel {
                                 .await
                                 .map_err(|e| Error::from(e.to_string()))?;
                             match leader {
-                                Some(a) if a.status.unwrap_or(0) == 1 && a.user_type.unwrap_or(0) != 1 => {
+                                Some(a) if a.status.unwrap_or(0) == 1 && a.is_biz_participant() => {
                                     found_valid = true;
                                     result_id = Some(lid);
                                 }
-                                Some(_) if leader.as_ref().map(|a| a.user_type == Some(1)).unwrap_or(false) => {
-                                    log::info!("部门[{}]负责人是超管，自动跳过继续向上", dept_name);
+                                Some(a) if !a.is_biz_participant() => {
+                                    log::info!("部门[{}]负责人不参与业务，自动跳过继续向上", dept_name);
                                 }
                                 _ => {
                                     log::warn!("部门[{}]负责人不可用，向上跳一级", dept_name);

@@ -20,14 +20,15 @@ use crate::core::kit::config;
 use crate::core::kit::global::AppState;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::kit::CONTEXT;
-use crate::core::web::base_controller::get_user;
+use crate::core::web::base_controller::{get_current_user, get_current_user_id, get_user};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest, UpdateAdminPasswordRequest, UpdateAdminRoleRequest, UpdateAdminStatusRequest, UpdateLoginRequest, UpdateResetPasswordRequest, UserLoginRequest, UserRegisterRequest, CheckUsernameResult, UserLoginVO, AdminModel, RefreshTokenRequest, LogoutRequest};
 use crate::modules::system::model::admin::{ListQuery, TokenVO};
+use crate::modules::system::model::resign::ResignApplyRequest;
 use crate::modules::system::service::menu_service::find_user_role_keys;
-use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service, permission_cache_service, session_service};
+use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service, permission_cache_service, session_service, resign_service};
 
 // 添加用户信息
 pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveRequest>) -> Result<HttpResponse> {
@@ -615,6 +616,47 @@ pub async fn audit_user(state: web::Data<AppState>, path: web::Path<i64>, item: 
     }
 }
 
+/// POST /admin/resign/apply - 离职申请（HR/管理员代发起）
+/// 提交人从 JWT 取，防止伪造；被离职员工为 body.admin_id
+pub async fn admin_resign_apply(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    item: web::Json<ResignApplyRequest>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let (operator_id, operator_name) = get_current_user(&req);
+    if operator_id == 0 {
+        return Ok(HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(401, "未获取到登录用户信息", "local")));
+    }
+    let admin_id = item.admin_id.unwrap_or(0);
+    if admin_id <= 0 {
+        return Ok(HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, "请指定离职员工", "local")));
+    }
+    match resign_service::submit_resign(
+        db,
+        admin_id,
+        operator_id,
+        &operator_name,
+        item.resign_type,
+        item.resign_date.clone(),
+        item.reason.clone(),
+        item.transfer_to_admin_id,
+    )
+    .await
+    {
+        Ok(id) => Ok(HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success(id, "local"))),
+        Err(e) => Ok(HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(500, &e.to_string(), "local"))),
+    }
+}
+
 pub async fn update_admin_status(state: web::Data<AppState>, item: web::Json<UpdateAdminStatusRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let admin_status = item.0;
@@ -697,6 +739,8 @@ pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Res
     let user_info = admin_service::find_by_id(&db,&admin_token.id).await?.ok_or_else(|| { Error::from(format!("msg={},code={}", "未获取到用户信息".to_string(), 404))})?;
     //判断是否是管理员
     let is_admin = user_info.user_type == Option::from(1);
+    //是否参与业务：超管一律视为不参与（与后端 is_biz_participant 判定一致）
+    let biz_enabled = if is_admin { 0 } else { user_info.biz_enabled.unwrap_or(1) };
     //查询用户所在权限字符符串
     let permissions: Vec<String> = find_user_role_keys(&db, &is_admin, &Some(user_info.id)).await?;
     //查询用户所在权限组
@@ -716,6 +760,8 @@ pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Res
         roles,
         permissions,
         data_scope,
+        user_type: user_info.user_type,
+        biz_enabled,
         post_names: post_service::select_by_admin_id(&db, &Some(user_info.id))
             .await
             .unwrap_or_default()
@@ -770,16 +816,30 @@ pub async fn update_avatar(state: web::Data<AppState>, req: HttpRequest, item: w
 }
 
 // 查询用户列表
-pub async fn admin_list(state: web::Data<AppState>, query: web::Query<ListQuery>,) -> Result<HttpResponse> {
+pub async fn admin_list(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
-    admin_service::get_by_page(db, query.into_inner()).await.map(|page_data| {
+    let current_user_id = get_current_user_id(&req);
+    admin_service::get_by_page(db, query.into_inner(), current_user_id).await.map(|page_data| {
         HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(page_data, "local"))
     })
 }
 
-pub async fn admin_options(state: web::Data<AppState>) -> Result<HttpResponse> {
+/// 用户选项查询参数
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminOptionsQuery {
+    /// 仅返回业务参与人（排除超管与关闭参与业务的账号）
+    #[serde(default)]
+    pub biz_only: Option<bool>,
+}
+
+pub async fn admin_options(
+    state: web::Data<AppState>,
+    query: web::Query<AdminOptionsQuery>,
+) -> Result<HttpResponse> {
     let db = &state.db;
-    admin_service::get_admin_options(db).await.map(|list_data| {
+    let biz_only = query.biz_only.unwrap_or(false);
+    admin_service::get_admin_options(db, biz_only).await.map(|list_data| {
         HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list_data, "local"))
     })
 }
@@ -1065,14 +1125,18 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .to(audit_user)
                     .wrap(require_permission("system:admin:audit")),
             )
-            // GET /admin/columns_config - 获取列显示配置（带权限校验）
+            // POST /admin/resign/apply - 离职申请（HR/管理员代发起）
             .route(
-                "/columns_config",
-                web::get()
-                    .to(get_columns_config)
-                    .wrap(require_permission("system:admin:columns")),
+                "/resign/apply",
+                web::post()
+                    .to(admin_resign_apply)
+                    .wrap(require_permission("system:resign:save")),
             )
-            // PUT /admin/columns_config - 保存列显示配置（带权限校验）
+            // GET /admin/columns_config - 获取列显示配置
+            // 说明：任何登录用户打开员工列表都需要读取该配置以决定显示哪些列，
+            // 属展示设置而非敏感数据，故仅校验登录态，不挂权限码。
+            .route("/columns_config", web::get().to(get_columns_config))
+            // PUT /admin/columns_config - 保存列显示配置（仅管理员可保存）
             .route(
                 "/columns_config",
                 web::put()

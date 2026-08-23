@@ -72,33 +72,36 @@ impl TodoService {
         // 待我审批
         let pending_approval = Self::count_pending_approval(db, user_id).await?;
 
-        // 待回款提醒（7天内到期且未完成）
+        // 待回款提醒（7天内到期且未完成，仅我名下客户的回款计划）
         let payment_deadline = today + chrono::Duration::days(7);
         let pending_payment = PlanEntity::find()
             .filter(PlanColumn::PlanDate.is_not_null())
             .filter(PlanColumn::PlanDate.lte(payment_deadline))
             .filter(PlanColumn::Status.is_in(vec![0, 1]))
+            .filter(PlanColumn::OwnerUserId.eq(user_id))
             .count(db)
             .await
             .map_err(|e| Error::from(e.to_string()))?;
 
-        // 即将到期合同（30天内）
+        // 即将到期合同（30天内，仅我负责的）
         let contract_deadline = today + chrono::Duration::days(30);
         let expiring_contract = ContractEntity::find()
             .filter(ContractColumn::EndDate.is_not_null())
             .filter(ContractColumn::EndDate.between(today, contract_deadline))
             .filter(ContractColumn::Status.is_in(vec![2, 3]))
             .filter(ContractColumn::Deleted.eq(0))
+            .filter(ContractColumn::AssignedTo.eq(user_id))
             .count(db)
             .await
             .map_err(|e| Error::from(e.to_string()))?;
 
-        // 停滞商机（超过30天未更新且未成交）
+        // 停滞商机（超过30天未更新且未成交，仅我负责的）
         let stagnant_threshold = now - chrono::Duration::days(30);
         let stagnant_opportunity = OppEntity::find()
             .filter(OppColumn::UpdateTime.lt(stagnant_threshold))
             .filter(OppColumn::Stage.ne(5))
             .filter(OppColumn::Deleted.eq(0))
+            .filter(OppColumn::AssignedTo.eq(user_id))
             .count(db)
             .await
             .map_err(|e| Error::from(e.to_string()))?;
@@ -256,19 +259,22 @@ impl TodoService {
     /// 待回款提醒
     pub async fn payment_list(
         db: &DatabaseConnection,
-        _user_id: i64,
+        user_id: i64,
         query: &PaymentTodoQuery,
     ) -> Result<ResultPage<Vec<PaymentTodoVO>>> {
         let today = Local::now().naive_local().date();
         let days = query.days.unwrap_or(7);
         let deadline = today + chrono::Duration::days(days as i64);
 
-        let paginator = PlanEntity::find()
+        // 仅我名下客户的回款计划（待办=我需要处理的事，管理视角看全量走列表页）
+        let mut finder = PlanEntity::find()
             .filter(PlanColumn::PlanDate.is_not_null())
             .filter(PlanColumn::PlanDate.lte(deadline))
             .filter(PlanColumn::Status.is_in(vec![0, 1]))
-            .order_by_asc(PlanColumn::PlanDate)
-            .paginate(db, query.page_size);
+            .filter(PlanColumn::OwnerUserId.eq(user_id))
+            .order_by_asc(PlanColumn::PlanDate);
+
+        let paginator = finder.paginate(db, query.page_size);
 
         let total = paginator
             .num_items()
@@ -309,10 +315,10 @@ impl TodoService {
         })
     }
 
-    /// 合同到期提醒
+    /// 合同到期提醒（仅我负责的合同）
     pub async fn contract_list(
         db: &DatabaseConnection,
-        _user_id: i64,
+        user_id: i64,
         query: &ContractTodoQuery,
     ) -> Result<ResultPage<Vec<ContractTodoVO>>> {
         let today = Local::now().naive_local().date();
@@ -324,6 +330,7 @@ impl TodoService {
             .filter(ContractColumn::EndDate.between(today, deadline))
             .filter(ContractColumn::Status.is_in(vec![2, 3]))
             .filter(ContractColumn::Deleted.eq(0))
+            .filter(ContractColumn::AssignedTo.eq(user_id))
             .order_by_asc(ContractColumn::EndDate)
             .paginate(db, query.page_size);
 
@@ -366,10 +373,10 @@ impl TodoService {
         })
     }
 
-    /// 停滞商机
+    /// 停滞商机（仅我负责的商机）
     pub async fn opportunity_list(
         db: &DatabaseConnection,
-        _user_id: i64,
+        user_id: i64,
         query: &OpportunityTodoQuery,
     ) -> Result<ResultPage<Vec<OpportunityTodoVO>>> {
         let now = Local::now().naive_local();
@@ -380,6 +387,7 @@ impl TodoService {
             .filter(OppColumn::UpdateTime.lt(threshold))
             .filter(OppColumn::Stage.ne(5))
             .filter(OppColumn::Deleted.eq(0))
+            .filter(OppColumn::AssignedTo.eq(user_id))
             .order_by_asc(OppColumn::UpdateTime)
             .paginate(db, query.page_size);
 

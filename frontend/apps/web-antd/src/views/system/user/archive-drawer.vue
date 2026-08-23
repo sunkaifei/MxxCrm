@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 // 员工档案抽屉：4-tab（信息/简历/紧急联系人/变更日志），由员工列表行内"档案"按钮打开
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { LucideLock } from '@vben/icons';
 
@@ -33,6 +33,24 @@ import { $t } from '#/locales';
 const props = defineProps<{ adminId: number | null }>();
 
 const visible = defineModel<boolean>('open', { default: false });
+
+// 最大化状态：默认 75% 宽度，最大化到 100%
+const isMaximized = ref(false);
+const drawerWidth = computed(() => (isMaximized.value ? '100%' : '75%'));
+
+function toggleMaximize() {
+  isMaximized.value = !isMaximized.value;
+}
+function handleClose() {
+  visible.value = false;
+}
+
+// 关闭时重置最大化状态，保证下次打开为 75%
+watch(visible, (val) => {
+  if (!val) {
+    isMaximized.value = false;
+  }
+});
 
 const detailLoading = ref(false);
 const detail = ref<HrArchiveDetailVO | null>(null);
@@ -145,9 +163,33 @@ watch(
   <Drawer
     v-model:open="visible"
     :title="$t('page.system.hrArchive.detailTitle')"
-    :width="640"
+    :width="drawerWidth"
+    :closable="false"
+    :header-style="{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px' }"
     placement="right"
   >
+    <template #extra>
+      <div class="flex items-center gap-1">
+        <Button type="text" size="small" @click="toggleMaximize">
+          {{ isMaximized ? '⤓ 还原' : '⤢' }}
+        </Button>
+        <Button type="text" size="small" @click="handleClose">
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </Button>
+      </div>
+    </template>
     <Spin :spinning="detailLoading">
       <Tabs default-active-key="info" @change="handleTabChange">
         <TabPane key="info" :tab="$t('page.system.hrArchive.tabInfo')">

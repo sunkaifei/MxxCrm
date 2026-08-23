@@ -23,6 +23,19 @@ export const confirmPaymentApi = async (id: number) => {
   return requestClient.post('/api/system/sale/payment/confirm', { id });
 };
 
+// 按回款计划登记回款并核销（业务人员在回款计划上直接操作）
+export const registerPaymentByPlanApi = async (data: {
+  amount: number;
+  paymentDate?: string;
+  paymentMethod?: number;
+  payer?: string;
+  payerAccount?: string;
+  planId: number;
+  remark?: string;
+}) => {
+  return requestClient.post('/api/system/sale/payment/register', data);
+};
+
 // 驳回回款：status→3
 export const rejectPaymentApi = async (id: number) => {
   return requestClient.post('/api/system/sale/payment/reject', { id });

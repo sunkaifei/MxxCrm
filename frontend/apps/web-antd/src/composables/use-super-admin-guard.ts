@@ -45,6 +45,17 @@ export function useSuperAdminGuard() {
   });
 
   /**
+   * 是否参与业务（与后端 is_biz_participant 判定一致）
+   * 超级管理员一律不参与；普通用户按"参与业务"开关（bizEnabled，默认参与）
+   */
+  const isBizUser = computed(() => {
+    if (isSuperAdmin.value) return false;
+    const bizEnabled =
+      userInfo?.bizEnabled ?? userInfo?.biz_enabled;
+    return (bizEnabled === undefined || bizEnabled === null) || bizEnabled === 1;
+  });
+
+  /**
    * 拦截纯业务操作（商机、合同、订单、报价单、发货单等）
    * 超管完全不能创建，弹出 Modal 提示
    *
@@ -95,6 +106,7 @@ export function useSuperAdminGuard() {
 
   return {
     isSuperAdmin,
+    isBizUser,
     guardBusiness,
     guardAssignTo,
   };

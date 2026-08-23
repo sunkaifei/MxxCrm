@@ -48,6 +48,14 @@ pub struct Model {
     pub effective_month: Option<i32>,
     /// 是否启用
     pub enabled: Option<i32>,
+    /// 政策生效日期
+    pub effective_date: Option<chrono::NaiveDate>,
+    /// 政策失效日期
+    pub expiry_date: Option<chrono::NaiveDate>,
+    /// 政策状态：1=生效 0=停用
+    pub status: Option<i16>,
+    /// 政策备注
+    pub remark: Option<String>,
     pub create_time: Option<DateTime>,
 }
 

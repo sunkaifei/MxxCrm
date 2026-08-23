@@ -35,9 +35,9 @@ impl From<TagSaveRequest> for TagSaveDTO {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TagUpdateRequest {
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub group_id: Option<i64>,
     pub tag_name: Option<String>,
     pub tag_color: Option<String>,
@@ -155,7 +155,7 @@ pub struct TagListQuery {
     pub page_num: Option<i64>,
     pub page_size: Option<i64>,
     pub tag_name: Option<String>,
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub group_id: Option<i64>,
     pub is_global: Option<bool>,
 }
@@ -282,6 +282,8 @@ impl TagModel {
         tag_name: Option<String>,
         group_id: Option<i64>,
         is_global: Option<bool>,
+        user_id: Option<i64>,
+        is_admin: bool,
     ) -> Result<(Vec<tag::Model>, i64), DbErr> {
         let mut query = Tag::find().filter(tag::Column::Deleted.eq(0));
         if let Some(n) = tag_name {
@@ -292,6 +294,14 @@ impl TagModel {
         }
         if let Some(global) = is_global {
             query = query.filter(tag::Column::IsGlobal.eq(global));
+        }
+        // 非超管仅可见：系统标签 ∪ 自己创建的标签
+        if !is_admin {
+            query = query.filter(
+                Condition::any()
+                    .add(tag::Column::IsGlobal.eq(true))
+                    .add(tag::Column::CreatedBy.eq(user_id)),
+            );
         }
         let paginator = query.order_by_desc(tag::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
@@ -308,22 +318,38 @@ impl TagModel {
         Ok(count > 0)
     }
 
-    pub async fn find_by_group(db: &DbConn, group_id: i64) -> Result<Vec<tag::Model>, DbErr> {
-        Tag::find()
+    pub async fn find_by_group(
+        db: &DbConn,
+        group_id: i64,
+        user_id: Option<i64>,
+        is_admin: bool,
+    ) -> Result<Vec<tag::Model>, DbErr> {
+        let mut query = Tag::find()
             .filter(tag::Column::GroupId.eq(group_id))
-            .filter(tag::Column::Deleted.eq(0))
-            .order_by_desc(tag::Column::CreateTime)
-            .all(db)
-            .await
+            .filter(tag::Column::Deleted.eq(0));
+        if !is_admin {
+            query = query.filter(
+                Condition::any()
+                    .add(tag::Column::IsGlobal.eq(true))
+                    .add(tag::Column::CreatedBy.eq(user_id)),
+            );
+        }
+        query.order_by_desc(tag::Column::CreateTime).all(db).await
     }
 
-    pub async fn suggest(db: &DbConn, keyword: &str) -> Result<Vec<tag::Model>, DbErr> {
-        Tag::find()
+    pub async fn suggest(db: &DbConn, keyword: &str, user_id: Option<i64>, is_admin: bool) -> Result<Vec<tag::Model>, DbErr> {
+        let mut query = Tag::find()
             .filter(tag::Column::TagName.contains(keyword))
             .filter(tag::Column::Deleted.eq(0))
-            .limit(20)
-            .all(db)
-            .await
+            .limit(20);
+        if !is_admin {
+            query = query.filter(
+                Condition::any()
+                    .add(tag::Column::IsGlobal.eq(true))
+                    .add(tag::Column::CreatedBy.eq(user_id)),
+            );
+        }
+        query.all(db).await
     }
 
     pub async fn get_statistics(db: &DbConn) -> Result<Vec<(i64, String, i64)>, DbErr> {
@@ -331,10 +357,31 @@ impl TagModel {
         Ok(Vec::new())
     }
 
-    pub async fn find_all(db: &DbConn) -> Result<Vec<tag::Model>, DbErr> {
+    pub async fn find_all(
+        db: &DbConn,
+        user_id: Option<i64>,
+        is_admin: bool,
+    ) -> Result<Vec<tag::Model>, DbErr> {
+        let mut query = Tag::find().filter(tag::Column::Deleted.eq(0));
+        // 非超管仅可见：系统标签 ∪ 自己创建的标签
+        if !is_admin {
+            query = query.filter(
+                Condition::any()
+                    .add(tag::Column::IsGlobal.eq(true))
+                    .add(tag::Column::CreatedBy.eq(user_id)),
+            );
+        }
+        query.order_by_desc(tag::Column::CreateTime).all(db).await
+    }
+
+    /// 按 ID 批量查询标签（用于权限校验）
+    pub async fn find_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<Vec<tag::Model>, DbErr> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
         Tag::find()
+            .filter(tag::Column::Id.is_in(ids.clone()))
             .filter(tag::Column::Deleted.eq(0))
-            .order_by_desc(tag::Column::CreateTime)
             .all(db)
             .await
     }

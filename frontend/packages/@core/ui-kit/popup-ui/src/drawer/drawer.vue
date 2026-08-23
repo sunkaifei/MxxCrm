@@ -36,7 +36,7 @@ import { ELEMENT_ID_MAIN_CONTENT } from '@vben-core/shared/constants';
 import { globalShareState } from '@vben-core/shared/global-state';
 import { cn } from '@vben-core/shared/utils';
 
-interface Props extends /* @vue-ignore */ DrawerProps {
+interface Props extends DrawerProps {
   drawerApi?: ExtendedDrawerApi;
 }
 
@@ -116,6 +116,7 @@ onDeactivated(() => {
 function interactOutside(e: Event) {
   if (!closeOnClickModal.value || submitting.value) {
     e.preventDefault();
+    return;
   }
 }
 function escapeKeyDown(e: KeyboardEvent) {
@@ -133,6 +134,7 @@ function pointerDownOutside(e: Event) {
     dismissableDrawer !== id
   ) {
     e.preventDefault();
+    return;
   }
 }
 

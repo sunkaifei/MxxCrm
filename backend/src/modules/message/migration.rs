@@ -8,9 +8,23 @@
 //! 版权所有，侵权必究！
 //!
 
+use crate::core::db_migration;
 use sea_orm::*;
 
+/// 消息系统建表迁移批次名（后续调整消息表结构时递增，如 message_tables_v2）
+const MIGRATION_MESSAGE_TABLES: &str = "message_tables_v1";
+
 pub async fn init_message_tables(db: &DbConn) -> Result<(), DbErr> {
+    // 版本化迁移：批次已应用则跳过（避免每次启动重复建表/索引并刷 NOTICE 日志）
+    if db_migration::migration_applied(db, MIGRATION_MESSAGE_TABLES).await? {
+        return Ok(());
+    }
+    // 老库兼容：消息表已存在（旧版本已建过表），直接标记已迁移，跳过重复执行
+    if db_migration::table_exists(db, "mxx_user_online").await? {
+        db_migration::mark_migration_applied(db, MIGRATION_MESSAGE_TABLES).await?;
+        return Ok(());
+    }
+
     let sql = r#"
         CREATE TABLE IF NOT EXISTS mxx_user_online (
             id BIGSERIAL PRIMARY KEY,
@@ -132,6 +146,9 @@ pub async fn init_message_tables(db: &DbConn) -> Result<(), DbErr> {
 
     // 插入菜单数据
     init_menu_data(db).await?;
+
+    // 记录批次已应用
+    db_migration::mark_migration_applied(db, MIGRATION_MESSAGE_TABLES).await?;
 
     Ok(())
 }

@@ -67,6 +67,9 @@ pub struct AdminSaveRequest {
     ///是否参与工资核算：0不参与 1参与（默认参与）
     #[serde(default)]
     pub salary_enabled: Option<i32>,
+    ///是否参与业务：0不参与 1参与（默认参与）
+    #[serde(default)]
+    pub biz_enabled: Option<i32>,
     ///试用期月数（0或空=无试用期）
     #[serde(default)]
     pub probation_months: Option<i32>,
@@ -74,7 +77,6 @@ pub struct AdminSaveRequest {
     #[serde(default)]
     pub probation_ratio: Option<Decimal>,
 }
-
 
 impl From<AdminSaveRequest> for AdminSaveDTO {
     fn from(req: AdminSaveRequest) -> Self {
@@ -103,6 +105,7 @@ impl From<AdminSaveRequest> for AdminSaveDTO {
             direct_manager_id: req.direct_manager_id,
             hire_date: req.hire_date,
             salary_enabled: req.salary_enabled,
+            biz_enabled: req.biz_enabled,
             probation_months: req.probation_months,
             probation_ratio: req.probation_ratio,
         }
@@ -153,6 +156,9 @@ pub struct AdminUpdateRequest {
     ///是否参与工资核算：0不参与 1参与（默认参与）
     #[serde(default)]
     pub salary_enabled: Option<i32>,
+    ///是否参与业务：0不参与 1参与（默认参与）
+    #[serde(default)]
+    pub biz_enabled: Option<i32>,
     ///试用期月数（0或空=无试用期）
     #[serde(default)]
     pub probation_months: Option<i32>,
@@ -188,6 +194,7 @@ impl From<AdminUpdateRequest> for AdminSaveDTO {
             direct_manager_id: req.direct_manager_id,
             hire_date: req.hire_date,
             salary_enabled: req.salary_enabled,
+            biz_enabled: req.biz_enabled,
             probation_months: req.probation_months,
             probation_ratio: req.probation_ratio,
         }
@@ -240,6 +247,8 @@ pub struct AdminSaveDTO {
     pub hire_date: Option<NaiveDate>,
     ///是否参与工资核算：0不参与 1参与
     pub salary_enabled: Option<i32>,
+    ///是否参与业务：0不参与 1参与
+    pub biz_enabled: Option<i32>,
     ///试用期月数（0或空=无试用期）
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，空=不打折）
@@ -320,6 +329,7 @@ impl From<UserRegisterRequest> for AdminSaveRequest {
             direct_manager_id: None,
             hire_date: None,
             salary_enabled: Some(1),
+            biz_enabled: Some(1),
             probation_months: None,
             probation_ratio: None,
         }
@@ -384,6 +394,7 @@ impl From<UpdateLoginRequest> for AdminSaveDTO {
             direct_manager_id: None,
             hire_date: None,
             salary_enabled: None,
+            biz_enabled: None,
             probation_months: None,
             probation_ratio: None,
         }
@@ -462,6 +473,11 @@ pub struct UserLoginVO {
     pub permissions: Vec<String>,
     /// 数据权限范围（1全部 2自定义 3本部门 4本部门及以下 5仅本人）
     pub data_scope: Option<i32>,
+    /// 用户类型：0普通用户，1超级管理员
+    pub user_type: Option<i32>,
+    /// 是否参与业务：0不参与 1参与
+    #[serde(default)]
+    pub biz_enabled: i32,
     /// 用户岗位名称列表（用于工作台等按职能个性化）
     pub post_names: Vec<String>,
     /// 用户部门名称列表
@@ -512,11 +528,23 @@ pub struct AdminListVO {
     ///审核状态：0待审核 1已通过
     #[serde(default)]
     pub audit_status: i32,
+    ///最新入职审批实例ID（供审核抽屉拉取详情；无实例为 null）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_instance_id: Option<i64>,
+    ///最新入职审批实例状态：1待审批/2审批中/3已通过/4已驳回/5已撤回/6已退回；无实例为 null
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_status: Option<i32>,
+    ///当前登录人是否为该用户最新审批实例的当前节点审批人（仅后端计算，前端不做本地推断）
+    #[serde(default)]
+    pub need_audit: bool,
     ///入职时间
     pub hire_date: Option<NaiveDate>,
     ///是否参与工资核算：0不参与 1参与
     #[serde(default)]
     pub salary_enabled: i32,
+    ///是否参与业务：0不参与 1参与
+    #[serde(default)]
+    pub biz_enabled: i32,
     ///试用期月数（0或空=无试用期）
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，空=不打折）
@@ -600,6 +628,8 @@ pub struct AdminDetailVO {
     pub hire_date: Option<NaiveDate>,
     ///是否参与工资核算：0不参与 1参与
     pub salary_enabled: Option<i32>,
+    ///是否参与业务：0不参与 1参与
+    pub biz_enabled: Option<i32>,
     ///试用期月数（0或空=无试用期）
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，空=不打折）
@@ -637,6 +667,7 @@ impl From<admin::Model> for AdminDetailVO {
             direct_manager_name: None,
             hire_date: model.hire_date,
             salary_enabled: model.salary_enabled,
+            biz_enabled: model.biz_enabled,
             probation_months: model.probation_months,
             probation_ratio: model.probation_ratio,
         }
@@ -656,6 +687,7 @@ pub struct ListQuery {
     pub user_type: Option<i32>,
     pub status: Option<i32>,
     pub dept_id: Option<i64>,
+    pub biz_enabled: Option<i32>,
 }
 
 /// 条件
@@ -668,6 +700,7 @@ pub struct PageWhere {
     pub user_type: Option<i32>,
     pub status: Option<i32>,
     pub dept_id: Option<i64>,
+    pub biz_enabled: Option<i32>,
 }
 
 impl PageWhere {
@@ -708,6 +741,11 @@ impl PageWhere {
             dept_id = self.dept_id;
         }
 
+        let mut biz_enabled = None;
+        if self.biz_enabled == Some(1) || self.biz_enabled == Some(0) {
+            biz_enabled = self.biz_enabled;
+        }
+
         Self {
             user_name,
             nick_name,
@@ -716,6 +754,7 @@ impl PageWhere {
             user_type,
             status,
             dept_id,
+            biz_enabled,
         }
     }
 }
@@ -737,6 +776,7 @@ impl AdminModel {
             direct_manager_id: Set(form_data.direct_manager_id.to_owned()),
             hire_date:       Set(form_data.hire_date.to_owned()),
             salary_enabled:  Set(form_data.salary_enabled.to_owned()),
+            biz_enabled:     Set(form_data.biz_enabled.to_owned()),
             probation_months: Set(form_data.probation_months.to_owned()),
             probation_ratio: Set(form_data.probation_ratio.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
@@ -802,6 +842,7 @@ impl AdminModel {
         if let Some(v) = form_data.deleted { payload.deleted = Set(Some(v)); }
         if let Some(v) = form_data.hire_date { payload.hire_date = Set(Some(v)); }
         if let Some(v) = form_data.salary_enabled { payload.salary_enabled = Set(Some(v)); }
+        if let Some(v) = form_data.biz_enabled { payload.biz_enabled = Set(Some(v)); }
         if let Some(v) = form_data.probation_months { payload.probation_months = Set(Some(v)); }
         if let Some(v) = form_data.probation_ratio { payload.probation_ratio = Set(Some(v)); }
         // 直属上级：前端传正数表示设置上级，传 0/null 表示清除上级，字段缺失表示不更新
@@ -1027,6 +1068,19 @@ impl AdminModel {
             .await
     }
 
+    /// 查询业务参与人选项（用于业务分配/指定审批人下拉）：
+    /// 排除超级管理员与显式关闭"参与业务"的账号（与 is_biz_participant 判定一致）
+    pub async fn find_biz_options<C: ConnectionTrait>(db: &C) -> Result<Vec<admin::Model>, DbErr> {
+        Admin::find()
+            .filter(admin::Column::Deleted.eq(0))
+            .filter(admin::Column::Status.eq(1))
+            .filter(admin::Column::UserType.ne(1))
+            .filter(admin::Column::BizEnabled.eq(1))
+            .order_by_asc(admin::Column::Sort)
+            .all(db)
+            .await
+    }
+
     pub async fn select_count(
         db: &DbConn,
         wheres: PageWhere,
@@ -1054,6 +1108,9 @@ impl AdminModel {
             })
             .apply_if(wheres.dept_id, |query, v| {
                 query.filter(dept::Column::Id.eq(v))
+            })
+            .apply_if(wheres.biz_enabled, |query, v| {
+                query.filter(admin::Column::BizEnabled.eq(v))
             })
             .count(db)
             .await
@@ -1092,6 +1149,7 @@ impl AdminModel {
             .column(admin::Column::DirectManagerId)
             .column(admin::Column::HireDate)
             .column(admin::Column::SalaryEnabled)
+            .column(admin::Column::BizEnabled)
             .column(admin::Column::ProbationMonths)
             .column(admin::Column::ProbationRatio)
             .join_rev(
@@ -1124,6 +1182,9 @@ impl AdminModel {
             })
             .apply_if(wheres.dept_id, |query, v| {
                 query.filter(dept::Column::Id.eq(v))
+            })
+            .apply_if(wheres.biz_enabled, |query, v| {
+                query.filter(admin::Column::BizEnabled.eq(v))
             })
             .filter(admin::Column::Deleted.is_null().or(admin::Column::Deleted.ne(Some(1))))
             .order_by_asc(admin::Column::Id);

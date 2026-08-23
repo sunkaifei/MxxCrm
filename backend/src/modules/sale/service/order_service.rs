@@ -553,7 +553,14 @@ pub async fn get_list(db: &DbConn, query: &OrderListQuery, current_user_id: i64)
 }
 
 /// 提交订单审批
-pub async fn submit_order(db: &DbConn, order_id: i64, operator_id: i64, operator_name: &str) -> Result<OrderDetailVO> {
+pub async fn submit_order(
+    db: &DbConn,
+    order_id: i64,
+    operator_id: i64,
+    operator_name: &str,
+    cc_user_ids: Option<Vec<i64>>,
+    cc_reason: Option<String>,
+) -> Result<OrderDetailVO> {
     let order = OrderModel::find_by_id(db, order_id).await?
         .ok_or_else(|| Error::from("订单不存在"))?;
 
@@ -574,8 +581,8 @@ pub async fn submit_order(db: &DbConn, order_id: i64, operator_id: i64, operator
         submitter_id: operator_id,
         submitter_name: Some(operator_name.to_string()),
         extra_data: Some(serde_json::json!({ "amount": total_amount })),
-        cc_user_ids: None,
-        cc_reason: None,
+        cc_user_ids,
+        cc_reason,
     };
     let instance_id = ApprovalService::submit(db, &submit_req).await?;
 

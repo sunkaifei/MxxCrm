@@ -199,6 +199,7 @@ impl PaymentPlanModel {
     pub async fn save_batch<C: ConnectionTrait>(
         db: &C,
         contract_id: i64,
+        owner_user_id: Option<i64>,
         plans: Vec<PaymentPlanItem>,
     ) -> Result<i64, DbErr> {
         // 1. 软删除该合同下所有已存在的回款计划
@@ -224,6 +225,8 @@ impl PaymentPlanModel {
         for item in plans {
             let am = contract_payment_plan::ActiveModel {
                 contract_id: Set(Some(contract_id)),
+                // 归属人 = 合同负责人（assigned_to），保证"我的回款计划"按人过滤可见
+                owner_user_id: Set(owner_user_id),
                 stage_name: Set(item.stage_name),
                 payment_type: Set(item.payment_type),
                 plan_amount: Set(item.plan_amount),

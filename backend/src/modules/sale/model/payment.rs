@@ -94,6 +94,21 @@ pub struct PaymentApplyRequest {
     pub applications: Vec<PaymentApplyItem>,
 }
 
+/// 按回款计划登记回款请求（业务人员在回款计划上直接登记并核销）
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentRegisterRequest {
+    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    pub plan_id: Option<i64>,
+    pub amount: Decimal,
+    pub payment_date: Option<NaiveDate>,
+    pub payment_method: Option<i32>,
+    pub payer: Option<String>,
+    pub payer_account: Option<String>,
+    pub bank_flow_no: Option<String>,
+    pub remark: Option<String>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaymentListQuery {
@@ -495,7 +510,7 @@ impl PaymentModel {
         let result = SalePayment::find()
             .filter(payment::Column::PaymentNo.like(&pattern))
             .select_only()
-            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(payment_no, 11) AS INTEGER))")), "max_seq")
+            .column_as(Expr::expr(Expr::cust("MAX(CAST(SUBSTRING(payment_no, 11) AS BIGINT))")), "max_seq")
             .into_tuple::<Option<i64>>()
             .one(db)
             .await?;

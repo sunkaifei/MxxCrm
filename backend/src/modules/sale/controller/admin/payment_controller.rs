@@ -16,7 +16,8 @@ use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::sale::model::payment::{
-    PaymentApplyRequest, PaymentApprovalReq, PaymentListQuery, PaymentSaveRequest, PaymentUpdateRequest,
+    PaymentApplyRequest, PaymentApprovalReq, PaymentListQuery, PaymentRegisterRequest, PaymentSaveRequest,
+    PaymentUpdateRequest,
 };
 use crate::modules::sale::service::payment_service;
 
@@ -184,6 +185,23 @@ pub async fn payment_apply(
     let user_id = get_current_user_id(&req);
 
     match payment_service::apply(db, &dto, user_id).await {
+        Ok(id) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::success(id, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 按回款计划登记回款：业务人员在回款计划上直接登记回款并核销
+pub async fn payment_register(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    form_data: web::Json<PaymentRegisterRequest>,
+) -> HttpResponse {
+    let db = &state.db;
+    let user_id = get_current_user_id(&req);
+
+    match payment_service::register_by_plan(db, &form_data.0, user_id).await {
         Ok(id) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(id, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)
@@ -379,6 +397,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::post()
                     .to(payment_reject)
                     .wrap(require_permission("sale:payment:confirm")),
+            )
+            // POST /sale/payment/register - 按回款计划登记回款并核销
+            .route(
+                "/register",
+                web::post()
+                    .to(payment_register)
+                    .wrap(require_permission("sale:payment:save")),
             )
             // POST /sale/payment/application/apply - 核销
             .route(

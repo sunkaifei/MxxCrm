@@ -43,4 +43,6 @@ pub mod mail;
 pub mod pdf;
 pub mod integration_config;
 pub mod profile;
+pub mod dashboard_card;
+pub mod resign;
 

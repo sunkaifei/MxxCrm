@@ -31,8 +31,10 @@ pub async fn connect() -> Result<DatabaseConnection, DbErr> {
 
     let connect_timeout = config::section::<i64>("db", "connect_timeout", 20);
     let acquire_timeout = config::section::<i64>("db", "acquire_timeout", 20);
-    let idle_timeout = config::section::<i64>("db", "idle_timeout", 20);
-    let max_lifetime = config::section::<i64>("db", "max_lifetime", 20);
+    let idle_timeout = config::section::<i64>("db", "idle_timeout", 1800);
+    let max_lifetime = config::section::<i64>("db", "max_lifetime", 3600);
+    // 连接获取耗时超过该阈值（秒）时记录 WARN 告警，用于发现连接池饥饿；生产环境可适当调大避免误报
+    let acquire_slow_threshold = config::section::<i64>("db", "acquire_slow_threshold", 5);
 
     let logging = config::section::<bool>("db", "logging", false);
 
@@ -47,7 +49,11 @@ pub async fn connect() -> Result<DatabaseConnection, DbErr> {
         .idle_timeout(Duration::from_secs(idle_timeout as u64))
         .max_lifetime(Duration::from_secs(max_lifetime as u64))
         .sqlx_logging(logging)
-        .sqlx_logging_level(logging_level);
+        .sqlx_logging_level(logging_level)
+        // 连接获取耗时超过该阈值（秒）时记录 WARN 告警，用于发现连接池饥饿；生产环境可适当调大避免误报
+        .map_sqlx_postgres_pool_opts(move |pool_opts| {
+            pool_opts.acquire_slow_threshold(Duration::from_secs(acquire_slow_threshold as u64))
+        });
     
     let db = Database::connect(opt);
 

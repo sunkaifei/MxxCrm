@@ -44,6 +44,7 @@ const NOTIF_TYPE_NAMES: Record<number, string> = {
   6: '发货通知',
   7: '回款提醒',
   8: '财务信息',
+  9: '人事审批',
 };
 
 function getNotifTypeName(type: any): string {
@@ -155,9 +156,8 @@ const mergedNotifications = computed<NotificationItem[]>(() => {
 function getChatWsUrl(): string {
   const token = accessStore.accessToken || '';
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  // 开发环境连后端 8080，生产环境同源
-  const host = import.meta.env.DEV ? '192.168.1.3:8080' : window.location.host;
-  return `${protocol}://${host}/ws/message?token=${encodeURIComponent(token)}`;
+  // 与 HTTP API 同源：开发环境经 vite proxy 转发 /ws 到后端（端口见 backend/config/config.ini），生产环境同源
+  return `${protocol}://${window.location.host}/ws/message?token=${encodeURIComponent(token)}`;
 }
 
 async function refreshChatUnreadCount() {
