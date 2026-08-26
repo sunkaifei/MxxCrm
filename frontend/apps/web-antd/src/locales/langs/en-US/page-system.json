@@ -102,6 +102,9 @@
       "probationMonthsTip": "0 means no probation; regularization date = hire date + probation months (pro-rated by day)",
       "probationRatio": "Probation Salary Ratio",
       "probationRatioTip": "e.g. 0.6 means 60% of regular salary during probation, applied to base salary only",
+      "contractType": "Contract Type",
+      "contractMonths": "Contract Term",
+      "probationLegalTip": "Per Article 19 of the Labor Contract Law, probation must not exceed the statutory cap for the contract term",
       "salaryEnabled": "Payroll Enabled",
       "salaryEnabledTip": "Turn off to exclude this employee from monthly payroll",
       "salaryYes": "Yes",
@@ -126,7 +129,13 @@
         "disable": "Disable",
         "edit": "Edit User",
         "sendMail": "Send Email",
-        "sendMessage": "Send Message"
+        "sendMessage": "Send Message",
+        "hrArchiveView": "View Archive",
+        "hrArchiveEdit": "Edit Archive",
+        "resignApply": "Resignation Request",
+        "resignView": "View Handover",
+        "resignConfirm": "Confirm on Behalf",
+        "resignSettle": "Financial Settlement"
       },
       "auditStatus": {
         "pending": "Pending",
@@ -360,6 +369,7 @@
       "assignTip": "Checked roles will see this card; unchecked roles will have the card fully hidden.",
       "button": {
         "create": "Add Card",
+        "delete": "Delete Card",
         "assignRoles": "Assign Roles"
       }
     },

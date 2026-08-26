@@ -71,6 +71,18 @@ impl ApprovalService {
                 )));
             }
         }
+        // 幂等防护：同一业务单据同时只允许一个进行中的审批实例（对齐主流 OA 单据在途唯一规则），
+        // 防止双击/网络重试/多入口重复发起导致审批人多条待办；
+        // 已终结实例(3通过/4驳回/5撤回/6待修改)不受影响，重新发起新实例属合法流程
+        let active = InstanceEntity::find()
+            .filter(InstanceColumn::BusinessType.eq(req.business_type.clone()))
+            .filter(InstanceColumn::BusinessId.eq(req.business_id))
+            .filter(InstanceColumn::Status.is_in(vec![1, 2]))
+            .one(db)
+            .await?;
+        if active.is_some() {
+            return Err(Error::from("该记录已有进行中的审批流程，请勿重复提交"));
+        }
         let flow_data = ApprovalModel::find_flow_by_code(db, &req.flow_code).await?;
         let (flow, nodes, edges) = flow_data.ok_or_else(|| Error::from("审批流模板不存在或未启用"))?;
 
@@ -348,6 +360,7 @@ impl ApprovalService {
         let wl_comment = req.comment.clone();
         let wl_instance_id = req.instance_id;
         let req = (*req).clone();
+        let flow_code = flow_data.flow_code.clone().unwrap_or_default();
 
         // 审批日志写入 + 实例状态变更：事务包裹，保证原子性
         db.transaction::<_, (), Error>(|txn| {
@@ -356,6 +369,15 @@ impl ApprovalService {
 
                 match req.action {
                     1 => {
+                        // 入职定薪：当前节点通过时保存该环节填写的定薪数据（幂等覆盖，仅 hire_approval 生效）
+                        Self::save_hire_salary_stage_if_needed(
+                            txn,
+                            req.instance_id,
+                            &current_node_key,
+                            &flow_code,
+                            &req,
+                        )
+                        .await?;
                         // 通过
                         match approve_mode {
                             1 => {
@@ -405,6 +427,14 @@ impl ApprovalService {
                         )
                         .await?;
                     }
+                    // 入职定薪：流程完成（status=3）后，事务内按财务环节数据生成员工薪资档案
+                    if inst_now.status == Some(3) && inst_now.flow_code.as_deref() == Some("hire_approval") {
+                        crate::modules::system::service::hire_salary_service::create_employee_salary_from_approval(
+                            txn,
+                            req.instance_id,
+                        )
+                        .await?;
+                    }
                 }
                 Ok(())
             })
@@ -442,6 +472,50 @@ impl ApprovalService {
     /// 审批待办列表
     pub async fn find_instance_list(db: &DatabaseConnection, approver_id: i64, page_num: u64, page_size: u64) -> Result<ResultPage<Vec<ApprovalInstanceVO>>> {
         ApprovalModel::find_instance_list(db, approver_id, page_num, page_size).await
+    }
+
+    /// 待办列表（支持 business_type/status/business_title 筛选）
+    pub async fn find_instance_list_filtered(
+        db: &DatabaseConnection,
+        approver_id: i64,
+        business_type: Option<&str>,
+        status: Option<i32>,
+        business_title: Option<&str>,
+        page_num: u64,
+        page_size: u64,
+    ) -> Result<ResultPage<Vec<ApprovalInstanceVO>>> {
+        ApprovalModel::find_instance_list_filtered(
+            db,
+            approver_id,
+            business_type,
+            status,
+            business_title,
+            page_num,
+            page_size,
+        )
+        .await
+    }
+
+    /// 已办列表：我处理过的全部实例（含已结束），支持 business_type/status/business_title 筛选
+    pub async fn find_done_instance_list(
+        db: &DatabaseConnection,
+        approver_id: i64,
+        business_type: Option<&str>,
+        status: Option<i32>,
+        business_title: Option<&str>,
+        page_num: u64,
+        page_size: u64,
+    ) -> Result<ResultPage<Vec<ApprovalInstanceVO>>> {
+        ApprovalModel::find_done_instance_list(
+            db,
+            approver_id,
+            business_type,
+            status,
+            business_title,
+            page_num,
+            page_size,
+        )
+        .await
     }
 
     /// 审批实例详情
@@ -897,6 +971,36 @@ impl ApprovalService {
         Ok(())
     }
 
+    /// 入职定薪：按当前节点保存该环节填写的定薪数据（仅 hire_approval 流程生效，幂等覆盖）
+    /// 节点 key → 环节：部门经理审批(n_1787687341591_1)=1、人事经理审批(hr_manager)=2、
+    /// CEO终审(ceo_approval)=3、财务定薪录入(finance_manager)=4
+    async fn save_hire_salary_stage_if_needed(
+        txn: &sea_orm::DatabaseTransaction,
+        instance_id: i64,
+        node_key: &str,
+        flow_code: &str,
+        req: &ApprovalProcessRequest,
+    ) -> Result<()> {
+        if flow_code != "hire_approval" {
+            return Ok(());
+        }
+        let stage = match node_key {
+            "n_1787687341591_1" => crate::modules::system::service::hire_salary_service::STAGE_DEPT_MANAGER,
+            "hr_manager" => crate::modules::system::service::hire_salary_service::STAGE_HR,
+            "ceo_approval" => crate::modules::system::service::hire_salary_service::STAGE_CEO,
+            "finance_manager" => crate::modules::system::service::hire_salary_service::STAGE_FINANCE,
+            _ => return Ok(()),
+        };
+        crate::modules::system::service::hire_salary_service::save_stage(
+            txn,
+            instance_id,
+            node_key,
+            stage,
+            req,
+        )
+        .await
+    }
+
     /// 写入"系统自动通过"审批日志（用于直属上级节点候选为空时自动流转）
     /// approver_id=0 表示系统，action=1 表示通过
     async fn insert_auto_pass_log(
@@ -911,6 +1015,7 @@ impl ApprovalService {
             approver_id: 0,
             approver_name: Some("系统自动通过".to_string()),
             comment: Some("直属上级节点已到组织架构顶层，系统自动通过".to_string()),
+            ..Default::default()
         };
         ApprovalModel::insert_log(db, instance_id, node_key, node_name, &auto_req).await
     }

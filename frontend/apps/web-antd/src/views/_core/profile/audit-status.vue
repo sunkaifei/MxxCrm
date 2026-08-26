@@ -12,7 +12,9 @@ import { computed, onMounted, ref } from 'vue';
 import {
   Button,
   Empty,
+  Input,
   message,
+  Modal,
   Spin,
   Tag,
   Timeline,
@@ -20,9 +22,11 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
+import { formatDateTime } from '@vben/utils';
 import { useUserStore } from '@vben/stores';
 
-import { getMyAuditApi, getMyProfileApi } from '#/api';
+import { cancelApprovalApi, getMyAuditApi, getMyProfileApi } from '#/api';
+import { sortApprovalNodes } from '#/api/core/system/approval';
 
 import SubmitAuditDrawer from '../../system/user/submit-audit-drawer.vue';
 
@@ -50,6 +54,7 @@ const statusMap: Record<number, { color: string; label: string }> = {
 
 // 日志动作
 const logActionText: Record<number, string> = {
+  0: '提交',
   1: '通过',
   2: '驳回',
   3: '转办',
@@ -61,6 +66,7 @@ const logActionText: Record<number, string> = {
 };
 
 const logActionColor: Record<number, string> = {
+  0: 'blue',
   1: 'green',
   2: 'red',
   3: 'blue',
@@ -215,9 +221,9 @@ const flowSteps = computed(() => {
     dotClass: 'p-dot-done',
     lineClass: 'p-line-done',
   });
-  const nodes: any[] = (inst.flowNodes || [])
-    .filter((n: any) => n.nodeType === 2)
-    .toSorted((a: any, b: any) => a.nodeOrder - b.nodeOrder);
+  const nodes: any[] = sortApprovalNodes(inst.flowNodes, inst.flowEdges).filter(
+    (n: any) => n.nodeType === 2,
+  );
   nodes.forEach((n: any, i: number) => {
     const st = n.nodeStatus ?? 0;
     steps.push({
@@ -248,7 +254,61 @@ const flowSteps = computed(() => {
   return steps;
 });
 
-const viewLogs = computed<any[]>(() => viewing.value?.logs || []);
+// 提交节点：日志表无「提交」动作，由实例 submittedAt 组合为首条发起记录
+const submitViewLogs = computed<any[]>(() => {
+  const inst = viewing.value;
+  const arr = inst?.logs || [];
+  if (!inst?.submittedAt) return arr;
+  return [
+    {
+      id: `submit-${inst.id}`,
+      action: 0, // 提交
+      nodeName: '提交审批',
+      approverName: inst.submitterName || '',
+      createTime: inst.submittedAt,
+    },
+    ...arr,
+  ];
+});
+const restViewLogs = computed<any[]>(() => {
+  const arr = submitViewLogs.value;
+  return arr[0]?.action === 0 ? arr.slice(1) : arr;
+});
+
+// ===== 撤销审批（审批进行中，发起人本人撤回） =====
+const cancelVisible = ref(false);
+const cancelReason = ref('');
+const canceling = ref(false);
+const canCancel = computed(() => auditState.value.type === 'pending');
+
+function openCancel() {
+  cancelReason.value = '';
+  cancelVisible.value = true;
+}
+
+async function handleCancel() {
+  const reason = cancelReason.value.trim();
+  if (!reason) {
+    message.warning('请填写撤回理由');
+    return;
+  }
+  if (!latest.value?.id) return;
+  canceling.value = true;
+  try {
+    await cancelApprovalApi({
+      instanceId: latest.value.id,
+      cancelReason: reason,
+    });
+    message.success('已撤回，可修改档案后重新提交');
+    cancelVisible.value = false;
+    await loadData();
+    emit('audit-change');
+  } catch (error: any) {
+    message.error(error?.message || '撤回失败');
+  } finally {
+    canceling.value = false;
+  }
+}
 
 // ===== 状态 Hero 配置 =====
 const hero = computed(() => {
@@ -310,21 +370,28 @@ const btnLabel = computed(() => {
 });
 
 // 提交抽屉所需的本人 row（复用 SubmitAuditDrawer）
+// 完整信息从 /profile/my 的 MyProfileVO 取（部门/岗位/手机号/邮箱/入职时间等），
+// userStore.userInfo 仅含登录基础信息，无法提供这些字段
 const selfRow = computed(() => {
   const u: any = userStore.userInfo || {};
+  const p: any = profile.value || {};
+  const basic = p?.basic || {};
+  const employ = p?.employ || {};
   return {
     id: currentUserId.value,
-    nickName: u.nickName || u.realName || '',
-    userName: u.username || '',
+    nickName: basic.nickName || u.nickName || u.realName || '',
+    userName: employ.userName || u.username || '',
     auditStatus: data.value?.auditStatus ?? 0,
     approvalStatus: latest.value?.status ?? undefined,
     approvalInstanceId: data.value?.latestInstanceId ?? undefined,
-    deptName: u.deptName || '',
-    postName: u.postName || '',
+    flowCode: latest.value?.flowCode || 'hire_approval',
+    deptName: (employ.deptNames || []).join('、'),
+    postName: (employ.postNames || []).join('、'),
     roleName: u.roleName || '',
-    mobile: u.mobile || '',
-    email: u.email || '',
-    hireDate: u.hireDate || '',
+    mobile: basic.mobileMasked || '',
+    email: basic.email || '',
+    hireDate: employ.hireDate || '',
+    directManagerName: employ.directManagerName || '',
   };
 });
 
@@ -402,7 +469,7 @@ defineExpose({ reload: loadData });
             </div>
             <p class="hero-desc">{{ hero.desc }}</p>
             <div v-if="latest" class="hero-meta">
-              提交人 {{ latest.submitterName || '-' }} · {{ latest.submittedAt || '-' }} 提交 ·
+              提交人 {{ latest.submitterName || '-' }} · {{ formatDateTime(latest.submittedAt) || '-' }} 提交 ·
               共 {{ instances.length }} 次提交
             </div>
           </div>
@@ -419,12 +486,15 @@ defineExpose({ reload: loadData });
                 {{ btnLabel }}
               </Button>
             </template>
-            <Button v-else type="text" @click="loadData">
-              <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path :d="ICON_PATHS.refresh" />
-              </svg>
-              刷新进度
-            </Button>
+            <div v-else class="hero-actions">
+              <Button class="hero-refresh" @click="loadData">
+                <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path :d="ICON_PATHS.refresh" />
+                </svg>
+                刷新进度
+              </Button>
+              <Button v-if="canCancel" danger @click="openCancel">撤销审批</Button>
+            </div>
           </div>
         </section>
 
@@ -535,20 +605,29 @@ defineExpose({ reload: loadData });
             <div class="panel-head">
               <div>
                 <div class="panel-title">审批记录</div>
-                <div class="panel-sub">本次提交的审批操作时间线（{{ viewLogs.length }} 条）</div>
+                <div class="panel-sub">本次提交的审批操作时间线（{{ submitViewLogs.length }} 条）</div>
               </div>
             </div>
-            <div v-if="viewLogs.length" class="log-timeline">
+            <div v-if="submitViewLogs.length" class="log-timeline">
               <Timeline>
+                <TimelineItem v-if="submitViewLogs[0]?.action === 0" key="submit-entry" color="blue">
+                  <div class="log-title">
+                    {{ submitViewLogs[0].nodeName }}
+                    <Tag color="geekblue" size="small" class="log-tag">发起</Tag>
+                  </div>
+                  <div class="log-sub">
+                    {{ submitViewLogs[0].approverName }} · 提交 · {{ formatDateTime(submitViewLogs[0].createTime) || '-' }}
+                  </div>
+                </TimelineItem>
                 <TimelineItem
-                  v-for="log in viewLogs"
+                  v-for="log in restViewLogs"
                   :key="log.id"
                   :color="logActionColor[log.action] || 'blue'"
                 >
                   <div class="log-title">{{ log.nodeName || logActionText[log.action] || '审批' }}</div>
                   <div class="log-sub">
                     {{ log.approverName || log.operatorName || '-' }} ·
-                    {{ logActionText[log.action] || '--' }} · {{ log.createTime || log.create_at || '-' }}
+                    {{ logActionText[log.action] || '--' }} · {{ formatDateTime(log.createTime || log.create_at) || '-' }}
                   </div>
                   <div v-if="log.comment || log.reason" class="log-comment">
                     {{ log.comment || log.reason }}
@@ -570,8 +649,30 @@ defineExpose({ reload: loadData });
     <SubmitAuditDrawer
       v-model:visible="submitVisible"
       :row="selfRow"
+      :completeness="checklist"
       @success="handleSubmitted"
     />
+
+    <!-- ===== 撤销审批弹窗（审批进行中，发起人本人撤回，理由必填） ===== -->
+    <Modal
+      v-model:open="cancelVisible"
+      title="撤销审批"
+      ok-text="确认撤回"
+      cancel-text="暂不"
+      :confirm-loading="canceling"
+      @ok="handleCancel"
+    >
+      <p class="cancel-tip">
+        撤回后本次审批将立即终止，您可修改档案信息后重新提交。撤回理由会记录在审批日志中，供后续追溯。
+      </p>
+      <Input.TextArea
+        v-model:value="cancelReason"
+        :rows="3"
+        :maxlength="200"
+        show-count
+        placeholder="请填写撤回理由（必填）"
+      />
+    </Modal>
   </div>
 </template>
 
@@ -755,6 +856,39 @@ defineExpose({ reload: loadData });
   flex: none;
 }
 
+.hero-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* 刷新进度：线框 + 浅色背景，hover 图标旋转 */
+.hero-actions .ant-btn {
+  border-radius: 8px;
+}
+
+.hero-refresh {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 6%);
+  transition: all 0.25s ease;
+}
+
+.hero-refresh:hover {
+  border-color: hsl(var(--primary) / 45%);
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 5%);
+}
+
+.hero-refresh .refresh-icon {
+  transition: transform 0.6s ease;
+}
+
+.hero-refresh:hover .refresh-icon {
+  transform: rotate(180deg);
+}
+
 .refresh-icon {
   width: 14px;
   height: 14px;
@@ -807,12 +941,17 @@ defineExpose({ reload: loadData });
 
 .prep-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* minmax(0,1fr)：轨道可收缩到内容最小宽度以下，防止 4 张卡片合计撑破面板 */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
 }
 
 .prep-item {
   display: flex;
+  min-width: 0;
+  /* 硬裁切兜底：内部任何内容都不允许画出卡片圆角边界 */
+  overflow: hidden;
   gap: 10px;
   align-items: center;
   padding: 12px 14px;
@@ -879,6 +1018,9 @@ defineExpose({ reload: loadData });
   font-size: 13px;
   font-weight: 600;
   color: hsl(var(--foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .prep-desc {
@@ -891,13 +1033,22 @@ defineExpose({ reload: loadData });
 }
 
 .prep-tag {
-  flex: none;
+  /* 允许在极窄容器下适度收缩，避免与 prep-arrow 共同撑破卡片 */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 35%;
   font-size: 11px;
   line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .prep-arrow {
-  flex: none;
+  /* flex-shrink:2：空间不足时箭头先于 Tag 被"挤没"，保证状态标签尽量可见 */
+  flex: 0 2 auto;
+  min-width: 0;
+  overflow: hidden;
   font-size: 14px;
   color: hsl(var(--muted-foreground) / 60%);
   transition: transform 0.25s ease, color 0.25s ease;
@@ -1063,6 +1214,11 @@ defineExpose({ reload: loadData });
   color: hsl(var(--foreground));
 }
 
+.log-tag {
+  margin-left: 4px;
+  margin-inline-end: 0;
+}
+
 .log-sub {
   margin-top: 2px;
   font-size: 12px;
@@ -1087,6 +1243,14 @@ defineExpose({ reload: loadData });
   color: hsl(var(--muted-foreground));
 }
 
+/* ===== 撤销审批弹窗 ===== */
+.cancel-tip {
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: hsl(var(--muted-foreground));
+}
+
 .empty-panel :deep(.ant-empty-description) {
   font-size: 12px;
 }
@@ -1094,7 +1258,7 @@ defineExpose({ reload: loadData });
 /* ===== 响应式：窄屏时清单降为 2 列、Hero 纵向堆叠 ===== */
 @media (max-width: 1280px) {
   .prep-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1111,6 +1275,12 @@ defineExpose({ reload: loadData });
 
   .hero-action .ant-btn {
     width: 100%;
+  }
+
+  .hero-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .prep-grid {

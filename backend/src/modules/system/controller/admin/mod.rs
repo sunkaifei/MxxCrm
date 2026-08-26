@@ -18,6 +18,7 @@ pub mod system_dict_controller;
 pub mod config_admin_controller;
 pub mod ip_admin_controller;
 pub mod post_admin_controller;
+pub mod salary_band_admin_controller;
 pub mod region_admin_controller;
 pub mod system_log_admin_controller;
 pub mod notice_admin_controller;

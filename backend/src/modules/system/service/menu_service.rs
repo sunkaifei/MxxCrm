@@ -125,32 +125,6 @@ pub async fn get_user_router_tree(db: &DbConn, is_admin: &bool, user_id: &Option
             }
         }
 
-        let mut parent_ids: Vec<i64> = Vec::new();
-        for m in &list {
-            if m.parent_id != 0 {
-                parent_ids.push(m.parent_id);
-            }
-        }
-
-        let mut processed = 0;
-        while !parent_ids.is_empty() && processed < 20 {
-            processed += 1;
-            let current_ids: Vec<i64> = parent_ids.drain(..).collect();
-            for pid in current_ids {
-                if seen_ids.contains(&pid) { continue; }
-                if let Some(parent_menu) = MenuModel::find_by_id(db, &Some(pid)).await? {
-                    if parent_menu.deleted.unwrap_or(0) == 0 && parent_menu.status == 1 {
-                        if seen_ids.insert(parent_menu.id) {
-                            if parent_menu.parent_id != 0 {
-                                parent_ids.push(parent_menu.parent_id);
-                            }
-                            list.push(parent_menu);
-                        }
-                    }
-                }
-            }
-        }
-
         log::info!("[菜单] 非管理员菜单收集完成，总数: {}", list.len());
 
         // 添加全员可见的公共菜单（消息中心）
@@ -202,31 +176,22 @@ pub async fn get_user_router_tree(db: &DbConn, is_admin: &bool, user_id: &Option
     list.retain(|m| is_menu_visible(m));
     log::info!("[菜单] 企业类型过滤: 过滤前={}, 过滤后={}", before, list.len());
 
-    // 非管理员需补充过滤后缺失的父菜单，确保树形结构完整（管理员已有全部菜单）
+    // 非管理员执行链路完整性过滤：父级未授权的菜单不可见
+    // 场景：角色勾选了3级菜单但未勾选2级父菜单时，该3级菜单及其子级均不显示；
+    // 迭代剔除以处理多层断裂（如1级2级均未勾选，仅勾选了3级）
     if !is_admin.clone() {
-        let mut parent_ids: Vec<i64> = Vec::new();
-        for m in &list {
-            if m.parent_id != 0 {
-                parent_ids.push(m.parent_id);
+        let mut removed = 0;
+        loop {
+            let alive: HashSet<i64> = list.iter().map(|m| m.id).collect();
+            let before = list.len();
+            list.retain(|m| m.parent_id == 0 || alive.contains(&m.parent_id));
+            if list.len() == before {
+                break;
             }
+            removed += before - list.len();
         }
-        let mut processed = 0;
-        while !parent_ids.is_empty() && processed < 20 {
-            processed += 1;
-            let current_ids: Vec<i64> = parent_ids.drain(..).collect();
-            for pid in current_ids {
-                if seen_ids.contains(&pid) { continue; }
-                if let Some(parent_menu) = MenuModel::find_by_id(db, &Some(pid)).await? {
-                    if parent_menu.deleted.unwrap_or(0) == 0 && parent_menu.status == 1 && is_menu_visible(&parent_menu) {
-                        if seen_ids.insert(parent_menu.id) {
-                            if parent_menu.parent_id != 0 {
-                                parent_ids.push(parent_menu.parent_id);
-                            }
-                            list.push(parent_menu);
-                        }
-                    }
-                }
-            }
+        if removed > 0 {
+            log::info!("[菜单] 链路完整性过滤：剔除 {} 个父级未授权的菜单", removed);
         }
     }
 
@@ -285,6 +250,8 @@ pub async fn find_user_role_keys(db: &DbConn, is_admin: &bool, id: &Option<i64>)
             }
         }
     } else {
+        // 收集用户所有角色授权的菜单 id（去重）
+        let mut authorized_ids: HashSet<i64> = HashSet::new();
         let result_merge = AdminRoleMergeModel::find_by_admin_id(db, &id.clone()).await?;
         for merge in result_merge {
             let role_id = merge.role_id.unwrap_or_default();
@@ -294,14 +261,25 @@ pub async fn find_user_role_keys(db: &DbConn, is_admin: &bool, id: &Option<i64>)
             let role_menu_merge = RoleMenuMergeModel::find_by_role_id(db, &Some(role_id)).await?;
             for role_menu in role_menu_merge {
                 let menu_id = role_menu.menu_id.unwrap_or_default();
-                if menu_id == 0 { continue; }
-                if let Some(menu) = MenuModel::find_by_id(db, &Some(menu_id)).await? {
-                    if menu.deleted.unwrap_or(0) == 0 && menu.status == 1 {
-                        let perm = menu.perm.unwrap_or_default();
-                        if !perm.is_empty() && unique_set.insert(perm.clone()) {
-                            btn_menu.push(perm);
-                        }
-                    }
+                if menu_id != 0 {
+                    authorized_ids.insert(menu_id);
+                }
+            }
+        }
+
+        // 一次全表查询构建父子映射（替代原逐条 find_by_id 的 N+1 查询），
+        // 并执行链路完整性校验：父级未授权的菜单，其按钮权限同样不生效，
+        // 与 get_user_router_tree 的菜单可见性规则保持一致
+        if !authorized_ids.is_empty() {
+            let all_menus = MenuModel::find_all(db).await?;
+            let parent_map: HashMap<i64, i64> = all_menus.iter().map(|m| (m.id, m.parent_id)).collect();
+            for menu in all_menus {
+                if !authorized_ids.contains(&menu.id) { continue; }
+                if menu.deleted.unwrap_or(0) != 0 || menu.status != 1 { continue; }
+                if !is_menu_chain_complete(menu.id, &parent_map, &authorized_ids) { continue; }
+                let perm = menu.perm.unwrap_or_default();
+                if !perm.is_empty() && unique_set.insert(perm.clone()) {
+                    btn_menu.push(perm);
                 }
             }
         }
@@ -319,6 +297,24 @@ pub async fn find_user_role_keys(db: &DbConn, is_admin: &bool, id: &Option<i64>)
         }
     }
     Ok(btn_menu)
+}
+
+/// 校验菜单祖先链路完整性：从该菜单向上遍历到根，所有祖先均须在授权集合中
+/// 用于过滤"勾选了子级但父级未勾选"的断链授权（如勾选3级页面但未勾选2级菜单）
+pub fn is_menu_chain_complete(menu_id: i64, parent_map: &HashMap<i64, i64>, authorized: &HashSet<i64>) -> bool {
+    let mut cur = menu_id;
+    for _ in 0..20 {
+        match parent_map.get(&cur) {
+            Some(&parent) if parent != 0 => {
+                if !authorized.contains(&parent) {
+                    return false;
+                }
+                cur = parent;
+            }
+            _ => return true,
+        }
+    }
+    false // 环路保护
 }
 
 pub async fn all_menu_list(db: &DbConn, query : ListQuery) -> Result<Vec<MenuAdminVO>> {
@@ -451,9 +447,10 @@ pub async fn get_menu_options(db: &DbConn, admin_id: &Option<i64>) -> Result<Vec
     let list = if is_admin {
         MenuModel::find_all(db).await?
     } else {
-        MenuModel::select_list_by_admin_id(db, admin_id).await?
+        // 链路完整性过滤：父级未授权的菜单不作为可授权项展示
+        filter_admin_grantable_menus(db, admin_id).await?
     };
-    
+
     let mut router_list = Vec::<MenuOptionsVO>::new();
     menu_all_tree(&mut router_list, &list);
     Ok(router_list)
@@ -467,11 +464,21 @@ pub async fn get_menu_vec_ids(db: &DbConn, admin_id: &Option<i64>) -> Result<Vec
     let list = if is_admin {
         MenuModel::find_all(db).await?
     } else {
-        MenuModel::select_list_by_admin_id(db, admin_id).await?
+        // 链路完整性过滤：用户可授权范围仅含自身链路完整的菜单（与菜单可见性规则一致）
+        filter_admin_grantable_menus(db, admin_id).await?
     };
 
     let ids: Vec<i64> = list.into_iter().map(|model| model.id).collect();
     Ok(ids)
+}
+
+/// 查询非管理员可授权的菜单列表，并过滤掉祖先链路不完整的断链菜单
+/// （历史脏数据：勾选了子级但父级未授权，此类菜单不应被再次转授权）
+async fn filter_admin_grantable_menus(db: &DbConn, admin_id: &Option<i64>) -> Result<Vec<Model>> {
+    let list = MenuModel::select_list_by_admin_id(db, admin_id).await?;
+    let authorized: HashSet<i64> = list.iter().map(|m| m.id).collect();
+    let parent_map: HashMap<i64, i64> = list.iter().map(|m| (m.id, m.parent_id)).collect();
+    Ok(list.into_iter().filter(|m| is_menu_chain_complete(m.id, &parent_map, &authorized)).collect())
 }
 
 /// 判断主向量是否包含子向量

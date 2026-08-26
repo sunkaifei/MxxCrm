@@ -76,6 +76,9 @@
       "probationMonthsTip": "0 表示无试用期，转正日为入职日 + 试用期月数（不满月按天折算）",
       "probationRatio": "试用期工资比例",
       "probationRatioTip": "如 0.6 表示试用期工资为正式工资的 60%，仅作用于底薪",
+      "contractType": "劳动合同类型",
+      "contractMonths": "合同期限",
+      "probationLegalTip": "依据《劳动合同法》第十九条，试用期不得超过合同期限对应的法定上限",
       "salaryEnabled": "参与工资核算",
       "salaryEnabledTip": "关闭后该员工不参与月度工资核算",
       "salaryYes": "参与",
@@ -103,7 +106,13 @@
         "enable": "启用",
         "disable": "停用",
         "sendMail": "发送邮件",
-        "sendMessage": "发送消息"
+        "sendMessage": "发送消息",
+        "hrArchiveView": "档案查看",
+        "hrArchiveEdit": "档案编辑",
+        "resignApply": "离职申请",
+        "resignView": "交接单查看",
+        "resignConfirm": "交接代确认",
+        "resignSettle": "财务结算"
       },
       "auditStatus": {
         "pending": "待审核",
@@ -335,6 +344,7 @@
       "assignTip": "勾选的角色将看到此卡片；未勾选的角色前端完全隐藏该卡片。",
       "button": {
         "create": "新增卡片",
+        "delete": "删除卡片",
         "assignRoles": "分配角色"
       }
     },

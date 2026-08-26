@@ -22,6 +22,7 @@ import {
 } from 'ant-design-vue';
 
 import { getApprovalDetailApi, processApprovalApi } from '#/api';
+import { sortApprovalNodes } from '#/api/core/system/approval';
 
 const props = defineProps<{
   row: any;
@@ -139,12 +140,12 @@ const isSubmitter = computed(() => {
   return Number(instance.value.submitterId) === Number(currentUserId.value);
 });
 
-// 流程预览节点（审批类型节点，按 nodeOrder 排序）
+// 流程预览节点（按连线拓扑排序，与设计器画布/引擎执行顺序一致）
 const flowNodes = computed(() => {
-  const nodes: any[] = instance.value?.flowNodes || [];
-  return nodes
-    .filter((n: any) => n.nodeType === 2)
-    .toSorted((a: any, b: any) => a.nodeOrder - b.nodeOrder);
+  const inst = instance.value || {};
+  return sortApprovalNodes(inst.flowNodes, inst.flowEdges).filter(
+    (n: any) => n.nodeType === 2,
+  );
 });
 
 // 发起人节点（首节点自动通过）

@@ -269,6 +269,7 @@ pub async fn approve_invoice(db: &DbConn, invoice_id: i64, operator_id: i64, ope
         approver_id: operator_id,
         approver_name: Some(operator_name.to_string()),
         comment: reason,
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 
@@ -311,6 +312,7 @@ pub async fn reject_invoice(db: &DbConn, invoice_id: i64, operator_id: i64, oper
         approver_id: operator_id,
         approver_name: Some(operator_name.to_string()),
         comment: reason,
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 

@@ -228,6 +228,7 @@ pub async fn audit(
         approver_id: audit_by,
         approver_name: Some(audit_name.to_string()),
         comment,
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 
@@ -389,6 +390,7 @@ pub async fn reject(
         approver_id: audit_by,
         approver_name: Some(audit_name.to_string()),
         comment,
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 

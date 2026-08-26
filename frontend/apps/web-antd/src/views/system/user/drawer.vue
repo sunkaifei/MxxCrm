@@ -17,6 +17,7 @@ import {
 } from '#/api';
 import { $t } from '#/locales';
 import { statusList } from '#/store';
+import { calcMaxProbation } from '#/utils/probation';
 
 const props = defineProps<{
   open: boolean;
@@ -180,17 +181,64 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
     },
     {
+      component: 'Select',
+      fieldName: 'contractType',
+      label: $t('page.system.user.contractType'),
+      defaultValue: 1,
+      componentProps: {
+        placeholder: $t('ui.placeholder.select'),
+        options: [
+          { label: '固定期限', value: 1 },
+          { label: '无固定期限', value: 2 },
+        ],
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'contractMonths',
+      label: $t('page.system.user.contractMonths'),
+      defaultValue: 36,
+      dependencies: {
+        triggerFields: ['contractType'],
+        if: (values: any) => values?.contractType !== 2,
+      },
+      componentProps: {
+        placeholder: $t('ui.placeholder.select'),
+        options: [
+          { label: '6 个月（试用期上限 1 月）', value: 6 },
+          { label: '1 年（试用期上限 2 月）', value: 12 },
+          { label: '2 年（试用期上限 2 月）', value: 24 },
+          { label: '3 年（试用期上限 6 月）', value: 36 },
+          { label: '5 年（试用期上限 6 月）', value: 60 },
+        ],
+      },
+    },
+    {
       component: 'InputNumber',
       fieldName: 'probationMonths',
       label: $t('page.system.user.probationMonths'),
-      help: $t('page.system.user.probationMonthsTip'),
-      defaultValue: 0,
-      componentProps: {
-        placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-        min: 0,
-        max: 24,
-        precision: 0,
+      help: $t('page.system.user.probationLegalTip'),
+      defaultValue: 2,
+      dependencies: {
+        triggerFields: ['contractType', 'contractMonths'],
+        componentProps: (values: any, { formApi }: any) => {
+          const max = calcMaxProbation(values?.contractType, values?.contractMonths);
+          return {
+            placeholder: max === 0 ? '该合同期限依法不得约定试用期' : $t('ui.placeholder.input'),
+            allowClear: true,
+            min: 0,
+            max,
+            precision: 0,
+            disabled: max === 0,
+            onChange: (v: number | null) => {
+              const val = Number(v ?? 0);
+              if (val > max) {
+                message.warning(`按合同期限，试用期最高 ${max} 个月`);
+                formApi.setFieldValue('probationMonths', max);
+              }
+            },
+          };
+        },
       },
     },
     {

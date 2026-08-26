@@ -28,6 +28,7 @@ pub mod dept;
 pub mod dept_menu_merge;
 
 pub mod post;
+pub mod salary_band;
 pub mod system_log;
 pub mod ip_address;
 pub mod dict;

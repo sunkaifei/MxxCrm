@@ -15,6 +15,8 @@ pub mod role_service;
 pub mod dept_service;
 pub mod config_service;
 pub mod post_service;
+pub mod salary_band_service;
+pub mod hire_salary_service;
 pub mod region_service;
 pub mod system_log_service;
 pub mod cache_service;

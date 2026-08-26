@@ -88,3 +88,49 @@ export const getCcListApi = async (params?: any) =>
 /** 标记抄送已读 */
 export const markCcReadApi = async (id: number) =>
   requestClient.post(`/api/system/approval/cc/read/${id}`);
+
+/**
+ * 按「连线拓扑」排序流程节点（从开始节点沿边遍历），
+ * 与审批引擎实际执行顺序 / 设计器画布连线保持一致。
+ *
+ * 背景：设计器插入新节点后 node_order 不会重排，导致按 nodeOrder 排序
+ * 的展示与真实流程错位（如「部门经理审批」被排到最后）。
+ *
+ * 兼容两种数据结构：
+ * - 流程预览接口（FlowDetailVO，camelCase：nodeKey/nodeType + edges.source/target）
+ * - 审批实例快照（snake_case：node_key/node_type + edges.source_node_key/target_node_key）
+ */
+export function sortApprovalNodes(nodes: any[] = [], edges: any[] = []): any[] {
+  if (!nodes.length) return [];
+  const pick = (obj: any, camel: string, snake: string) =>
+    obj?.[camel] ?? obj?.[snake];
+  const nodeKey = (n: any) => pick(n, 'nodeKey', 'node_key');
+  const nodeType = (n: any) => pick(n, 'nodeType', 'node_type');
+  const sourceOf = (e: any) => pick(e, 'source', 'source_node_key');
+  const targetOf = (e: any) => pick(e, 'target', 'target_node_key');
+
+  const start = nodes.find((n) => nodeType(n) === 1);
+  const sorted: any[] = [];
+  const visited = new Set<string>();
+
+  const walk = (n: any) => {
+    const key = nodeKey(n);
+    if (key === undefined || visited.has(key)) return;
+    visited.add(key);
+    sorted.push(n);
+    for (const e of edges) {
+      if (sourceOf(e) === key) {
+        const next = nodes.find((nn) => nodeKey(nn) === targetOf(e));
+        if (next) walk(next);
+      }
+    }
+  };
+
+  if (start) walk(start);
+  // 兜底：游离/未连通节点按原顺序追加，避免丢失
+  for (const n of nodes) {
+    const key = nodeKey(n);
+    if (key !== undefined && !visited.has(key)) walk(n);
+  }
+  return sorted;
+}

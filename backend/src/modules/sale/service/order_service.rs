@@ -618,6 +618,7 @@ pub async fn approve_order(db: &DbConn, order_id: i64, operator_id: i64, operato
         approver_id: operator_id,
         approver_name: Some(operator_name.to_string()),
         comment: reason,
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 
@@ -671,6 +672,7 @@ pub async fn reject_order(db: &DbConn, order_id: i64, operator_id: i64, operator
         approver_id: operator_id,
         approver_name: Some(operator_name.to_string()),
         comment: reason,
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 

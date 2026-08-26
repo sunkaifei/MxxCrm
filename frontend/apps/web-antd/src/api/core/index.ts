@@ -69,6 +69,7 @@ export * from './system/pdf-template';
 export * from './system/profile';
 export * from './system/resign';
 export * from './system/post';
+export * from './system/salary-band';
 export * from './system/preference';
 export * from './system/record';
 export * from './system/role';

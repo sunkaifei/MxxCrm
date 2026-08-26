@@ -16,6 +16,7 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::kit::app::is_demo_mode;
 use crate::core::web::response::ResultPage;
 use crate::modules::system::entity::admin;
+use crate::modules::system::entity::{admin_dept_merge, admin_post_merge, dept, post};
 use crate::modules::system::entity::config::{ActiveModel as ConfigActiveModel, Column as ConfigColumn, Entity as ConfigEntity};
 use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminModel, AdminOptionVO, AdminSaveDTO, AdminSaveRequest, AdminUpdateRequest, DeptNameDTO, ListQuery, PageWhere, PostNameDTO, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
 use crate::modules::system::model::admin_dept_merge::{AdminDeptMergeModel, AdminDeptMergeSaveDTO};
@@ -549,6 +550,38 @@ pub async fn get_by_detail(db: &DbConn, id: &Option<i64>) -> Result<AdminDetailV
             }
         }
     }
+    // 补充部门名称
+    let mut dept_names: Vec<Option<String>> = Vec::new();
+    if let Some(uid) = id {
+        let dept_merges = admin_dept_merge::Entity::find()
+            .filter(admin_dept_merge::Column::AdminId.eq(*uid))
+            .all(db).await?;
+        for m in dept_merges {
+            let did = m.dept_id.unwrap_or_default();
+            if did > 0 {
+                if let Some(d) = dept::Entity::find_by_id(did).one(db).await? {
+                    dept_names.push(d.dept_name);
+                }
+            }
+        }
+    }
+    result.dept_names = Some(dept_names);
+    // 补充岗位名称
+    let mut post_names: Vec<Option<String>> = Vec::new();
+    if let Some(uid) = id {
+        let post_merges = admin_post_merge::Entity::find()
+            .filter(admin_post_merge::Column::AdminId.eq(*uid))
+            .all(db).await?;
+        for m in post_merges {
+            let pid = m.post_id.unwrap_or_default();
+            if pid > 0 {
+                if let Some(p) = post::Entity::find_by_id(pid).one(db).await? {
+                    post_names.push(p.post_name);
+                }
+            }
+        }
+    }
+    result.post_names = Some(post_names);
     Ok(result)
 }
 

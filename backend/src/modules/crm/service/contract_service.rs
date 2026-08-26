@@ -413,6 +413,7 @@ pub async fn approve_contract(db: &DbConn, req: &ContractApprovalRequest, operat
         approver_id: operator_id,
         approver_name: Some(operator_name.to_string()),
         comment: req.reason.clone(),
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 
@@ -562,6 +563,7 @@ pub async fn reject_contract(db: &DbConn, req: &ContractApprovalRequest, operato
         approver_id: operator_id,
         approver_name: Some(operator_name.to_string()),
         comment: req.reason.clone(),
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 

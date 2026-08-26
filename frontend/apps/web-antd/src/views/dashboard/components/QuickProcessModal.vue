@@ -148,9 +148,9 @@ async function handleApproval(action: 1 | 2) {
   try {
     const userInfo: any = userStore.userInfo;
     await processApprovalApi({
-      instanceId: props.todoItem.id,
+      instanceId: Number(props.todoItem.id),
       action,
-      approverId: userInfo?.userId,
+      approverId: Number(userInfo?.userId ?? 0),
       approverName: userInfo?.realName || userInfo?.username,
       comment: comment.value,
     });

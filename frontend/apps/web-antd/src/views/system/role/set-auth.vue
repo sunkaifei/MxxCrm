@@ -8,6 +8,7 @@ import {
   Divider,
   Empty,
   message,
+  Modal,
   Radio,
   Space,
   Tree,
@@ -30,7 +31,6 @@ const activeSection = ref<'dataScope' | 'menu'>('menu');
 
 // ---------- 菜单权限 ----------
 const treeData = ref<any[]>([]);
-const treeRef = ref<any>();
 const expandedKeys = ref<string[]>([]);
 const checkedKeys = ref<string[]>([]);
 
@@ -70,6 +70,70 @@ const checkAll = () => {
 
 const uncheckAll = () => {
   checkedKeys.value = [];
+};
+
+// ---------- 断链勾选检测 ----------
+// 菜单权限需保持从根到叶的完整链路：勾选了子级但祖先未勾选时，子级保存后不生效
+const brokenVisible = ref(false);
+const brokenItems = ref<Array<{ name: string; missingParents: string[] }>>([]);
+const brokenMissingIds = ref<string[]>([]);
+
+const currentCheckedIds = (): string[] => {
+  const checked = checkedKeys.value;
+  if (Array.isArray(checked)) {
+    return checked;
+  }
+  if (checked && typeof checked === 'object' && 'checked' in checked) {
+    return (checked as { checked?: string[] }).checked ?? [];
+  }
+  return [];
+};
+
+// 检测勾选节点中祖先链路不完整的项
+// 返回：断链节点明细（含缺失的父级名称，按树层级从外到内排序）+ 需补勾的父级 ID 集合
+const detectBrokenChecks = (): {
+  missingIds: Set<string>;
+  brokenItems: Array<{ name: string; missingParents: string[] }>;
+} => {
+  const checkedSet = new Set(currentCheckedIds());
+  // 节点 id -> 名称映射，用于把缺失父级 id 转成可读名称
+  const nameMap = new Map<string, string>();
+  const collectNames = (nodes: any[]) => {
+    nodes.forEach((node: any) => {
+      nameMap.set(String(node.id), node.name || String(node.id));
+      if (node.children?.length) {
+        collectNames(node.children);
+      }
+    });
+  };
+  collectNames(treeData.value);
+
+  const brokenItems: Array<{ name: string; missingParents: string[] }> = [];
+  const missingIds = new Set<string>();
+  const traverse = (nodes: any[], uncheckedAncestors: string[]) => {
+    nodes.forEach((node: any) => {
+      const key = String(node.id);
+      const isChecked = checkedSet.has(key);
+      if (isChecked && uncheckedAncestors.length > 0) {
+        brokenItems.push({
+          name: node.name || key,
+          missingParents: uncheckedAncestors.map(
+            (id) => nameMap.get(id) || id,
+          ),
+        });
+        uncheckedAncestors.forEach((id) => missingIds.add(id));
+      }
+      if (node.children?.length) {
+        // 当前节点未勾选时，将其加入未勾选祖先集合向下传递
+        const next = isChecked
+          ? uncheckedAncestors
+          : [...uncheckedAncestors, key];
+        traverse(node.children, next);
+      }
+    });
+  };
+  traverse(treeData.value, []);
+  return { missingIds, brokenItems };
 };
 
 // ---------- 数据权限 ----------
@@ -131,16 +195,26 @@ const buildDeptTreeData = (nodes: any[]): any[] => {
 };
 
 // ---------- Drawer 生命周期 ----------
+// 加载序号：快速切换角色时，上一次打开遗留的异步回调不得覆盖新角色的数据（竞态防护）
+let loadSeq = 0;
+
 const [Drawer, drawerApi] = useVbenDrawer({
   async onOpened() {
+    const seq = ++loadSeq;
     data.value = drawerApi.getData<Record<string, any>>();
     activeSection.value = 'menu';
+    // 每次打开都重置展示状态，避免残留上一个角色的数据
     checkedKeys.value = [];
+    expandedKeys.value = [];
+    brokenVisible.value = false;
     deptCheckedKeys.value = [];
     dataScopeValue.value = 5;
+    treeData.value = [];
+    deptTreeData.value = [];
 
     // 加载当前用户可授权的菜单树（后端 /menu/options 已按用户权限过滤）
     const menuList = await getMenuOptionsApi();
+    if (seq !== loadSeq) return;
     // 菜单名 i18n（目录级 key 带 .title fallback）
     const translateName = (key?: null | string): string => {
       if (!key) return '';
@@ -166,6 +240,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     // 加载部门树
     const deptResult = await getDeptTreeApi();
+    if (seq !== loadSeq) return;
     const deptList = Array.isArray(deptResult)
       ? deptResult
       : deptResult?.data || [];
@@ -182,6 +257,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       // 从API加载角色详情获取最新的dataScope
       try {
         const roleDetail = await getRoleInfoApi(roleId);
+        if (seq !== loadSeq) return;
         if (roleDetail) {
           dataScopeValue.value = roleDetail.dataScope ?? (isSuperAdmin ? 1 : 5);
           if (roleDetail.deptIds && roleDetail.deptIds.length > 0) {
@@ -189,6 +265,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
           }
         }
       } catch {
+        if (seq !== loadSeq) return;
         dataScopeValue.value = isSuperAdmin
           ? 1
           : (data.value.row.dataScope ?? 5);
@@ -203,13 +280,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (dataScopeValue.value === 2 && !isSuperAdmin) {
         try {
           const roleDeptIds = await getRoleDeptIdsApi(roleId);
+          if (seq !== loadSeq) return;
           if (roleDeptIds) {
-            const deptKeys = (
+            deptCheckedKeys.value = (
               Array.isArray(roleDeptIds) ? roleDeptIds : []
             ).map(String);
-            setTimeout(() => {
-              deptCheckedKeys.value = deptKeys;
-            }, 100);
           }
         } catch {
           // ignore
@@ -219,6 +294,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       try {
         // 加载已有的菜单权限
         const roleMenuIds = await getRoleMenuIdsApi(roleId);
+        if (seq !== loadSeq) return;
         await nextTick();
 
         if (roleMenuIds) {
@@ -227,27 +303,21 @@ const [Drawer, drawerApi] = useVbenDrawer({
             .map(String)
             .filter((id: string) => treeIds.includes(id));
 
-          checkedKeys.value = [];
+          checkedKeys.value = validMenuIds;
           expandedKeys.value = treeIds;
-          setTimeout(() => {
-            checkedKeys.value = validMenuIds;
-          }, 100);
         }
 
         // 超级管理员：默认全选所有菜单
         if (isSuperAdmin) {
           expandedKeys.value = getAllKeys(treeData.value);
-          setTimeout(() => {
-            checkedKeys.value = getAllKeys(treeData.value);
-          }, 100);
+          checkedKeys.value = getAllKeys(treeData.value);
         }
       } catch {
         // 角色无权限配置或超级管理员
+        if (seq !== loadSeq) return;
         if (isSuperAdmin) {
           expandedKeys.value = getAllKeys(treeData.value);
-          setTimeout(() => {
-            checkedKeys.value = getAllKeys(treeData.value);
-          }, 100);
+          checkedKeys.value = getAllKeys(treeData.value);
         }
       }
     }
@@ -258,51 +328,56 @@ const [Drawer, drawerApi] = useVbenDrawer({
       message.error('角色信息不存在');
       return;
     }
-    const roleId = Number(data.value.row.id);
-    const isSuperAdmin =
-      roleId === 1 ||
-      data.value.row.roleKey === 'super_admin' ||
-      data.value.row.roleKey === 'admin';
-    setLoading(true);
-    try {
-      // 保存菜单权限（超级管理员后端会直接返回成功，不做实际修改）
-      const checked = checkedKeys.value ?? [];
-      let checkedIds: string[] = [];
-      if (Array.isArray(checked)) {
-        checkedIds = checked;
-      } else if (
-        checked &&
-        typeof checked === 'object' &&
-        'checked' in checked
-      ) {
-        checkedIds = (checked as { checked: string[] }).checked || [];
-      }
-      let authId: string[] = [...checkedIds];
-      const halfChecked = treeRef.value?.getHalfCheckedKeys?.();
-      if (halfChecked?.length) {
-        authId = [...authId, ...halfChecked];
-      }
-      await updateRoleAuthApi(roleId, { authId });
-
-      // 保存数据权限（通过角色更新接口）
-      await updateRoleApi(roleId, {
-        dataScope: dataScopeValue.value,
-      });
-
-      // 保存自定义数据权限的部门关联
-      if (dataScopeValue.value === 2 && !isSuperAdmin) {
-        await updateRoleDeptApi(roleId, deptCheckedKeys.value);
-      }
-
-      message.success($t('ui.notification.update_success'));
-      drawerApi.close();
-    } catch {
-      // 错误提示由 request.ts 拦截器统一处理，此处不再重复弹出
-    } finally {
-      setLoading(false);
+    // 断链检测：勾选了子级但父级未勾选时，弹窗由用户选择处理方式，不直接保存
+    const { missingIds, brokenItems: items } = detectBrokenChecks();
+    if (items.length > 0) {
+      brokenItems.value = items;
+      brokenMissingIds.value = [...missingIds];
+      brokenVisible.value = true;
+      return;
     }
+    await doSaveAuth();
   },
 });
+
+// 执行权限保存
+// * extraIds 需额外补充勾选的父级菜单 ID（"自动勾选父级"场景）
+async function doSaveAuth(extraIds: string[] = []) {
+  if (!data.value?.row?.id) {
+    message.error('角色信息不存在');
+    return;
+  }
+  const roleId = Number(data.value.row.id);
+  const isSuperAdmin =
+    roleId === 1 ||
+    data.value.row.roleKey === 'super_admin' ||
+    data.value.row.roleKey === 'admin';
+  setLoading(true);
+  try {
+    // 保存菜单权限（超级管理员后端会直接返回成功，不做实际修改）
+    // 后端会再次校验链路完整性：父级未勾选的菜单不保存
+    const authId = [...new Set([...currentCheckedIds(), ...extraIds])];
+    await updateRoleAuthApi(roleId, { authId });
+
+    // 保存数据权限（通过角色更新接口）
+    await updateRoleApi(roleId, {
+      dataScope: dataScopeValue.value,
+    });
+
+    // 保存自定义数据权限的部门关联
+    if (dataScopeValue.value === 2 && !isSuperAdmin) {
+      await updateRoleDeptApi(roleId, deptCheckedKeys.value);
+    }
+
+    brokenVisible.value = false;
+    message.success($t('ui.notification.update_success'));
+    drawerApi.close();
+  } catch {
+    // 错误提示由 request.ts 拦截器统一处理，此处不再重复弹出
+  } finally {
+    setLoading(false);
+  }
+}
 
 function setLoading(loading: boolean) {
   drawerApi.setState({ loading });
@@ -361,7 +436,6 @@ function setLoading(loading: boolean) {
           class="max-h-[420px] overflow-y-auto border border-gray-100 rounded-lg p-3"
         >
           <Tree
-            ref="treeRef"
             v-model:expanded-keys="expandedKeys"
             v-model:checked-keys="checkedKeys"
             :tree-data="treeData"
@@ -384,6 +458,39 @@ function setLoading(loading: boolean) {
           </div>
         </div>
       </div>
+
+      <!-- 断链勾选确认弹窗 -->
+      <Modal
+        v-model:open="brokenVisible"
+        title="存在父级未勾选的菜单"
+        :footer="null"
+        width="520px"
+      >
+        <div class="text-sm">
+          检测到以下 {{ brokenItems.length }} 个菜单的父级未勾选，菜单权限需保持从根到叶的完整链路，直接保存后这些菜单将不可见：
+        </div>
+        <ul
+          class="mt-2 max-h-[220px] overflow-y-auto rounded-lg border border-gray-100 p-3 text-xs text-gray-500"
+        >
+          <li
+            v-for="(item, index) in brokenItems"
+            :key="index"
+            class="py-1"
+          >
+            <span class="text-gray-800">{{ item.name }}</span>
+            <span v-if="item.missingParents.length" class="text-red-500">
+              （父级未勾选：{{ item.missingParents.join('、') }}）
+            </span>
+          </li>
+        </ul>
+        <div class="mt-4 flex justify-end gap-2">
+          <Button @click="brokenVisible = false">返回修改</Button>
+          <Button @click="doSaveAuth()">仍按当前勾选保存</Button>
+          <Button type="primary" @click="doSaveAuth(brokenMissingIds)">
+            自动勾选父级并保存
+          </Button>
+        </div>
+      </Modal>
 
       <!-- 数据权限区域 -->
       <div v-show="activeSection === 'dataScope'">

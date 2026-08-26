@@ -51,6 +51,9 @@ pub mod hr_profile_log;
 pub mod hr_resign_record;
 pub mod hr_resign_transfer_item;
 pub mod hr_resign_item_template;
+pub mod salary_band;
+pub mod employee_salary;
+pub mod hire_salary_data;
 pub mod dashboard_card;
 pub mod dashboard_card_role_merge;
 

@@ -32,6 +32,15 @@ pub struct PageQuery {
     pub flow_name: Option<String>,
     #[serde(rename = "businessType")]
     pub business_type: Option<String>,
+    /// 实例状态过滤（不传时：todo 视角默认查待审批/审批中）
+    #[serde(rename = "status")]
+    pub status: Option<i32>,
+    /// 业务标题模糊搜索
+    #[serde(rename = "businessTitle")]
+    pub business_title: Option<String>,
+    /// 查询视角：todo=待我审批（默认），done=我处理过的全部实例
+    #[serde(rename = "scope")]
+    pub scope: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -210,7 +219,7 @@ pub async fn approval_detail(
     let db = &state.db;
     let instance_id = id.into_inner();
     match ApprovalService::find_instance_by_id(db, instance_id).await {
-        Ok(Some(data)) => {
+        Ok(Some(mut data)) => {
             let current_user_id = get_current_user_id(&req);
             // 放行条件（B3）：发起人本人，或持有 system:approval:todo（审批人/管理员入口）
             let is_submitter = data.submitter_id == current_user_id;
@@ -223,6 +232,11 @@ pub async fn approval_detail(
                 return Ok(HttpResponse::Ok()
                     .content_type(MPACK)
                     .body(MetaResp::<String>::fail(403, "无权查看该审批实例", "local")));
+            }
+            // 隐私保护：发起人（提交审批的人）不可见各审批环节填写的定薪/评估信息
+            // （工作能力评估、薪资建议、试用期建议等），仅审批人可见
+            if is_submitter && !has_todo {
+                data.hire_salary_stages = vec![];
             }
             Ok(HttpResponse::Ok()
                 .content_type(MPACK)
@@ -244,7 +258,32 @@ pub async fn approval_list(
 ) -> Result<HttpResponse> {
     let db = &state.db;
     let approver_id = get_current_user_id(&req);
-    match ApprovalService::find_instance_list(db, approver_id, query.page_num, query.page_size).await {
+    let scope = query.scope.clone().unwrap_or_else(|| "todo".to_string());
+    // done=我已办（我处理过的实例，任意状态）；其余=待我审批（默认 status 1/2）
+    let result = if scope == "done" {
+        ApprovalService::find_done_instance_list(
+            db,
+            approver_id,
+            query.business_type.as_deref(),
+            query.status,
+            query.business_title.as_deref(),
+            query.page_num,
+            query.page_size,
+        )
+        .await
+    } else {
+        ApprovalService::find_instance_list_filtered(
+            db,
+            approver_id,
+            query.business_type.as_deref(),
+            query.status,
+            query.business_title.as_deref(),
+            query.page_num,
+            query.page_size,
+        )
+        .await
+    };
+    match result {
         Ok(data) => {
             let page = data.current_page as u32;
             let total = data.total as u32;

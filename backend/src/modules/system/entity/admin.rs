@@ -74,6 +74,10 @@ pub struct Model {
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，NULL=不打折）
     pub probation_ratio: Option<Decimal>,
+    ///劳动合同类型：1固定期限 2无固定期限
+    pub contract_type: Option<i16>,
+    ///劳动合同期限（月）；无固定期限为空
+    pub contract_months: Option<i32>,
     ///身份证号（输出层统一脱敏）
     pub id_card_no: Option<String>,
     ///身份证锁定：0未锁 1已锁（员工首填后置1，仅HR可解锁）

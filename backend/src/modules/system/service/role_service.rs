@@ -16,6 +16,7 @@ use crate::modules::system::model::role_menu_merge::{RoleMenuMergeModel, RoleMen
 use crate::modules::system::model::role_dept_merge::{RoleDeptMergeModel, RoleDeptMergeSaveDTO};
 use sea_orm::{DbConn, DbErr, TransactionTrait};
 use crate::modules::system::model::menu::MenuModel;
+use crate::modules::system::service::menu_service;
 
 pub async fn insert(db: &DbConn, form_data: &RoleSaveDTO) -> Result<i64> {
     let result = RoleModel::insert(&db, form_data).await?;
@@ -108,8 +109,23 @@ pub async fn update_role_menus(
     db: &DbConn,
     form_data: &UpdateRoleMenuRequest,
 ) -> Result<i64> {
+    // 链路完整性过滤：父级未勾选的菜单不保存（如勾选了子级页面但未勾选父级菜单），
+    // 与读端 get_user_router_tree 的菜单可见性规则保持一致，避免产生"有子无父"的脏权限数据
+    // 注意：权限范围校验（授权人是否有权授予这些菜单）由 controller 层在调用前完成
+    let requested_ids = form_data.menu_ids.clone().unwrap_or_default();
+    let valid_ids: Vec<i64> = if requested_ids.is_empty() {
+        requested_ids
+    } else {
+        let all_menus = MenuModel::find_all(db).await?;
+        let parent_map: std::collections::HashMap<i64, i64> = all_menus.iter().map(|m| (m.id, m.parent_id)).collect();
+        let authorized: std::collections::HashSet<i64> = requested_ids.iter().cloned().collect();
+        requested_ids.into_iter()
+            .filter(|&mid| menu_service::is_menu_chain_complete(mid, &parent_map, &authorized))
+            .collect()
+    };
+
     // 构建新的关联列表
-    let sys_role_menu_list: Vec<RoleMenuMergeSaveDTO> = form_data.menu_ids.clone().unwrap_or_default()
+    let sys_role_menu_list: Vec<RoleMenuMergeSaveDTO> = valid_ids
         .into_iter()
         .map(|menu_id| RoleMenuMergeSaveDTO {
             id: None,

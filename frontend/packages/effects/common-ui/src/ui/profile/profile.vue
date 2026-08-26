@@ -56,7 +56,8 @@ const tabsValue = defineModel<string>('modelValue');
           </TabsList>
         </Tabs>
       </Card>
-      <Card class="ml-4 w-5/6 flex-auto overflow-y-auto p-8">
+      <!-- min-w-0 + flex-1（basis:0）：宽度=剩余空间且可收缩到内容以下，防止被内部宽内容撑破容器（w-5/6 的固定比例基准在有侧栏时必然溢出） -->
+      <Card class="ml-4 min-w-0 flex-1 overflow-y-auto p-8">
         <slot name="content"></slot>
       </Card>
     </div>

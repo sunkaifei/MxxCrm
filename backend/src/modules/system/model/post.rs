@@ -51,7 +51,7 @@ impl From<PostSaveRequest> for PostSaveDTO {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PostUpdateRequest {
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
     /// 岗位编码，权限控制的时候使用
     pub post_code: Option<String>,

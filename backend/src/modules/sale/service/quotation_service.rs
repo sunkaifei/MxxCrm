@@ -355,6 +355,7 @@ pub async fn approve(
         approver_id: operator_id,
         approver_name: Some(operator_name.to_string()),
         comment: remark.clone(),
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 
@@ -403,6 +404,7 @@ pub async fn reject(
         approver_id: operator_id,
         approver_name: Some(operator_name.to_string()),
         comment: remark.clone(),
+        ..Default::default()
     };
     ApprovalService::process(db, &process_req).await?;
 

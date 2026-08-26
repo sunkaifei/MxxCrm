@@ -1,4 +1,7 @@
-use chrono::Utc;
+use std::collections::HashMap;
+
+use chrono::{NaiveDate, Utc};
+use rust_decimal::Decimal;
 use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
@@ -36,8 +39,12 @@ use crate::modules::approval::entity::approval_log::{
 use crate::modules::approval::entity::approval_cc::{
     ActiveModel as CcActiveModel, Column as CcColumn, Entity as CcEntity,
 };
+use crate::modules::system::entity::post::{Column as PostColumn, Entity as PostEntity};
+use crate::modules::system::entity::salary_band::{Column as BandColumn, Entity as BandEntity};
+use crate::modules::system::entity::hire_salary_data::{Column as HsdColumn, Entity as HsdEntity};
 use crate::utils::string_utils::{
-    deserialize_string_or_number_to_i64, deserialize_string_vec_to_u64_vec,
+    deserialize_string_or_number_to_i64, deserialize_string_to_i32,
+    deserialize_string_vec_to_u64_vec,
 };
 
 // ============ Flow Request/Response ============
@@ -168,7 +175,7 @@ pub struct ApprovalSubmitRequest {
     pub cc_reason: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct ApprovalProcessRequest {
     pub instance_id: i64,
@@ -176,6 +183,30 @@ pub struct ApprovalProcessRequest {
     pub approver_id: i64,
     pub approver_name: Option<String>,
     pub comment: Option<String>,
+
+    // ===== 入职定薪专用（hire_approval 各环节通过时按节点填写，其他流程忽略）=====
+    /// 建议工资（部门经理填）
+    pub suggested_salary: Option<Decimal>,
+    /// 试用期月数（部门经理填）
+    #[serde(default, deserialize_with = "deserialize_string_to_i32")]
+    pub probation_months: Option<i32>,
+    /// 工作能力评估（部门经理填，仅审批人可见）
+    pub ability_assessment: Option<String>,
+    /// 带宽评估：1带宽内 2超带宽（人事填）
+    #[serde(default, deserialize_with = "deserialize_string_to_i32")]
+    pub band_status: Option<i32>,
+    /// 超带宽原因（人事填）
+    pub band_reason: Option<String>,
+    /// 谈定工资（人事填，与候选人协商确定的月工资金额）
+    pub negotiated_salary: Option<Decimal>,
+    /// 试用期工资比例（人事填）
+    pub probation_ratio: Option<Decimal>,
+    /// CEO终审意见/特批说明（CEO填）
+    pub ceo_opinion: Option<String>,
+    /// 最终定薪（财务填）
+    pub final_salary: Option<Decimal>,
+    /// 生效日期（财务填）
+    pub effective_date: Option<NaiveDate>,
 }
 
 // ============ 审批增强：取消/退回/转办/委派/加签/抄送 ============
@@ -305,6 +336,59 @@ pub struct ApprovalInstanceVO {
     pub needs_resubmit: Option<i32>,
     /// 抄送人列表
     pub cc_users: Vec<ApprovalCcVO>,
+    /// 岗位薪资带宽参照（入职定薪专用）
+    pub salary_band: Option<SalaryBandInfoVO>,
+    /// 各环节定薪填写数据（入职定薪专用，按环节正序）
+    pub hire_salary_stages: Vec<HireSalaryStageVO>,
+    /// 已办视角：当前查询人在这张单上的最新处理动作（1通过/2驳回/3转办/4委派/5加签/6退回/7撤回；其余视角为空）
+    pub my_action: Option<i32>,
+}
+
+/// 岗位薪资带宽参照（入职定薪详情展示：岗位带宽区间）
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct SalaryBandInfoVO {
+    pub post_id: Option<i64>,
+    pub post_name: Option<String>,
+    pub min_salary: Option<Decimal>,
+    pub max_salary: Option<Decimal>,
+}
+
+/// 入职定薪环节数据（按 instance_id + 节点记录各环节填写的结构化字段）
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct HireSalaryStageVO {
+    pub node_key: Option<String>,
+    /// 1部门经理 2人事 3CEO 4财务
+    pub stage: i32,
+    /// 建议工资（部门经理）
+    pub suggested_salary: Option<Decimal>,
+    /// 试用期月数（部门经理）
+    pub probation_months: Option<i32>,
+    /// 工作能力评估（部门经理，仅审批人可见）
+    pub ability_assessment: Option<String>,
+    /// 带宽评估：1带宽内 2超带宽（人事）
+    pub band_status: Option<i32>,
+    /// 超带宽原因（人事）
+    pub band_reason: Option<String>,
+    /// 谈定工资（人事）
+    pub negotiated_salary: Option<Decimal>,
+    /// 试用期工资比例（人事）
+    pub probation_ratio: Option<Decimal>,
+    /// CEO终审意见/特批说明（CEO）
+    pub ceo_opinion: Option<String>,
+    /// 最终定薪（财务）
+    pub final_salary: Option<Decimal>,
+    /// 生效日期（财务）
+    pub effective_date: Option<String>,
+    /// 填写人ID
+    pub approver_id: Option<i64>,
+    /// 填写人姓名
+    pub approver_name: Option<String>,
+    /// 审批意见
+    pub comment: Option<String>,
+    /// 填写时间
+    pub create_time: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1083,6 +1167,10 @@ impl ApprovalModel {
             instance_status: None,
         }).collect();
 
+        // 入职定薪：带宽参照 + 各环节定薪数据（仅 hire_approval）
+        let (salary_band, hire_salary_stages) =
+            Self::load_hire_salary_context(db, &inst).await.unwrap_or((None, vec![]));
+
         Ok(Some(ApprovalInstanceVO {
             id: inst.id,
             flow_code: inst.flow_code.unwrap_or_default(),
@@ -1111,7 +1199,119 @@ impl ApprovalModel {
             add_sign_type: inst.add_sign_type,
             needs_resubmit: inst.needs_resubmit,
             cc_users,
+            salary_band,
+            hire_salary_stages,
+            my_action: None,
         }))
+    }
+
+    /// 加载入职定薪上下文：岗位薪资带宽参照 + 各环节定薪数据（仅 hire_approval 流程）
+    async fn load_hire_salary_context(
+        db: &impl ConnectionTrait,
+        inst: &InstanceModel,
+    ) -> Result<(Option<SalaryBandInfoVO>, Vec<HireSalaryStageVO>)> {
+        if inst.flow_code.as_deref() != Some("hire_approval") {
+            return Ok((None, vec![]));
+        }
+
+        // 1. 带宽参照：员工岗位 -> 启用的薪资带宽
+        let employee_id = inst.business_id.unwrap_or_default();
+        let salary_band = if employee_id > 0 {
+            let post_id = PostMergeEntity::find()
+                .filter(PostMergeColumn::AdminId.eq(employee_id))
+                .one(db)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|m| m.post_id);
+            if let Some(pid) = post_id {
+                let band = BandEntity::find()
+                    .filter(BandColumn::PostId.eq(pid))
+                    .filter(BandColumn::Status.eq(1))
+                    .filter(BandColumn::Deleted.eq(0))
+                    .one(db)
+                    .await
+                    .ok()
+                    .flatten();
+                if let Some(b) = band {
+                    let post_name = PostEntity::find()
+                        .filter(PostColumn::Id.eq(pid))
+                        .one(db)
+                        .await
+                        .ok()
+                        .flatten()
+                        .and_then(|p| p.post_name);
+                    Some(SalaryBandInfoVO {
+                        post_id: Some(pid),
+                        post_name,
+                        min_salary: Some(b.min_salary),
+                        max_salary: Some(b.max_salary),
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // 2. 各环节定薪数据（按环节正序）
+        let stages = HsdEntity::find()
+            .filter(HsdColumn::InstanceId.eq(inst.id))
+            .order_by_asc(HsdColumn::Stage)
+            .all(db)
+            .await
+            .map_err(|e| Error::from(format!("查询定薪环节数据失败: {}", e)))?;
+
+        // 批量查询填写人姓名
+        let approver_ids: Vec<i64> = stages
+            .iter()
+            .filter_map(|s| s.approver_id)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        let approver_name_map: std::collections::HashMap<i64, String> = if approver_ids.is_empty() {
+            std::collections::HashMap::new()
+        } else {
+            AdminEntity::find()
+                .filter(AdminColumn::Id.is_in(approver_ids))
+                .all(db)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| (a.id, a.nick_name.or(a.user_name).unwrap_or_default()))
+                .collect()
+        };
+
+        let stage_vos: Vec<HireSalaryStageVO> = stages
+            .into_iter()
+            .map(|s| HireSalaryStageVO {
+                node_key: s.node_key,
+                stage: s.stage,
+                suggested_salary: s.suggested_salary,
+                probation_months: s.probation_months,
+                ability_assessment: s.ability_assessment,
+                band_status: s.band_status,
+                band_reason: s.band_reason,
+                negotiated_salary: s.negotiated_salary,
+                probation_ratio: s.probation_ratio,
+                ceo_opinion: s.ceo_opinion,
+                final_salary: s.final_salary,
+                effective_date: s.effective_date.map(|d| d.format("%Y-%m-%d").to_string()),
+                approver_id: s.approver_id,
+                approver_name: s
+                    .approver_id
+                    .and_then(|aid| approver_name_map.get(&aid).cloned()),
+                comment: s.comment,
+                create_time: s
+                    .create_time
+                    .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+            })
+            .collect();
+
+        Ok((salary_band, stage_vos))
     }
 
     pub async fn find_instance_list(
@@ -1251,10 +1451,94 @@ impl ApprovalModel {
                     add_sign_type: inst.add_sign_type,
                     needs_resubmit: inst.needs_resubmit,
                     cc_users: vec![],
+                    salary_band: None,
+                    hire_salary_stages: vec![],
+                    my_action: None,
                 }
             })
             .collect();
 
+        Ok(ResultPage {
+            items: list,
+            total: total as i64,
+            current_page: page_num as i64,
+            page_size: page_size as i64,
+            total_pages: ((total as f64) / (page_size as f64)).ceil() as i64,
+        })
+    }
+
+    /// 已办列表：我处理过的全部实例（审批日志中存在我的操作记录），任意状态
+    /// 支持 business_type/status/business_title 筛选，VO 用 find_instance_by_id 补全详情所需字段
+    pub async fn find_done_instance_list(
+        db: &DatabaseConnection,
+        approver_id: i64,
+        business_type: Option<&str>,
+        status: Option<i32>,
+        business_title: Option<&str>,
+        page_num: u64,
+        page_size: u64,
+    ) -> Result<ResultPage<Vec<ApprovalInstanceVO>>> {
+        // 我处理过的实例ID集合（去重），并记录我在每张单上的最新动作（日志按主键递增，后写覆盖）
+        let mut handled_ids: Vec<i64> = vec![];
+        let mut my_actions: HashMap<i64, i32> = HashMap::new();
+        let my_logs = LogEntity::find()
+            .filter(LogColumn::ApproverId.eq(approver_id))
+            .order_by_asc(LogColumn::Id)
+            .all(db)
+            .await
+            .map_err(|e| Error::from(format!("查询已办审批实例失败: {}", e)))?;
+        for l in my_logs {
+            if let Some(iid) = l.instance_id {
+                if !handled_ids.contains(&iid) {
+                    handled_ids.push(iid);
+                }
+                if let Some(act) = l.action {
+                    my_actions.insert(iid, act);
+                }
+            }
+        }
+
+        if handled_ids.is_empty() {
+            return Ok(ResultPage {
+                items: vec![],
+                total: 0,
+                current_page: page_num as i64,
+                page_size: page_size as i64,
+                total_pages: 0,
+            });
+        }
+
+        let mut query = InstanceEntity::find().filter(InstanceColumn::Id.is_in(handled_ids));
+        if let Some(s) = status {
+            query = query.filter(InstanceColumn::Status.eq(s));
+        }
+        if let Some(bt) = business_type {
+            query = query.filter(InstanceColumn::BusinessType.eq(bt));
+        }
+        if let Some(title) = business_title {
+            query = query.filter(InstanceColumn::BusinessTitle.like(format!("%{}%", title)));
+        }
+
+        let paginator = query
+            .order_by_desc(InstanceColumn::SubmittedAt)
+            .paginate(db, page_size);
+        let total = paginator
+            .num_items()
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        let items = paginator
+            .fetch_page(page_num - 1)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+
+        let mut list = Vec::with_capacity(items.len());
+        for inst in items {
+            if let Some(mut vo) = Self::find_instance_by_id(db, inst.id).await? {
+                // 已办视角附加：当前查询人在这张单上的最新处理动作
+                vo.my_action = my_actions.get(&inst.id).copied();
+                list.push(vo);
+            }
+        }
         Ok(ResultPage {
             items: list,
             total: total as i64,

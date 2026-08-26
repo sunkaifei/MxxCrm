@@ -76,6 +76,12 @@ pub struct AdminSaveRequest {
     ///试用期工资比例（如0.60=60%，空=不打折）
     #[serde(default)]
     pub probation_ratio: Option<Decimal>,
+    ///劳动合同类型：1固定期限 2无固定期限
+    #[serde(default)]
+    pub contract_type: Option<i16>,
+    ///劳动合同期限（月）；无固定期限为空
+    #[serde(default)]
+    pub contract_months: Option<i32>,
 }
 
 impl From<AdminSaveRequest> for AdminSaveDTO {
@@ -108,6 +114,8 @@ impl From<AdminSaveRequest> for AdminSaveDTO {
             biz_enabled: req.biz_enabled,
             probation_months: req.probation_months,
             probation_ratio: req.probation_ratio,
+            contract_type: req.contract_type,
+            contract_months: req.contract_months,
         }
     }
 }
@@ -165,6 +173,12 @@ pub struct AdminUpdateRequest {
     ///试用期工资比例（如0.60=60%，空=不打折）
     #[serde(default)]
     pub probation_ratio: Option<Decimal>,
+    ///劳动合同类型：1固定期限 2无固定期限
+    #[serde(default)]
+    pub contract_type: Option<i16>,
+    ///劳动合同期限（月）；无固定期限为空
+    #[serde(default)]
+    pub contract_months: Option<i32>,
 }
 
 impl From<AdminUpdateRequest> for AdminSaveDTO {
@@ -197,6 +211,8 @@ impl From<AdminUpdateRequest> for AdminSaveDTO {
             biz_enabled: req.biz_enabled,
             probation_months: req.probation_months,
             probation_ratio: req.probation_ratio,
+            contract_type: req.contract_type,
+            contract_months: req.contract_months,
         }
     }
 }
@@ -253,6 +269,10 @@ pub struct AdminSaveDTO {
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，空=不打折）
     pub probation_ratio: Option<Decimal>,
+    ///劳动合同类型：1固定期限 2无固定期限
+    pub contract_type: Option<i16>,
+    ///劳动合同期限（月）；无固定期限为空
+    pub contract_months: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -332,6 +352,9 @@ impl From<UserRegisterRequest> for AdminSaveRequest {
             biz_enabled: Some(1),
             probation_months: None,
             probation_ratio: None,
+            // 劳动合同信息由管理端创建账号（AdminSaveRequest 直传）时录入，自助注册暂无
+            contract_type: None,
+            contract_months: None,
         }
     }
 }
@@ -397,6 +420,8 @@ impl From<UpdateLoginRequest> for AdminSaveDTO {
             biz_enabled: None,
             probation_months: None,
             probation_ratio: None,
+            contract_type: None,
+            contract_months: None,
         }
     }
 }
@@ -634,6 +659,10 @@ pub struct AdminDetailVO {
     pub probation_months: Option<i32>,
     ///试用期工资比例（如0.60=60%，空=不打折）
     pub probation_ratio: Option<Decimal>,
+    ///劳动合同类型：1固定期限 2无固定期限
+    pub contract_type: Option<i16>,
+    ///劳动合同期限（月）；无固定期限为空
+    pub contract_months: Option<i32>,
 }
 
 impl From<admin::Model> for AdminDetailVO {
@@ -670,6 +699,8 @@ impl From<admin::Model> for AdminDetailVO {
             biz_enabled: model.biz_enabled,
             probation_months: model.probation_months,
             probation_ratio: model.probation_ratio,
+            contract_type: model.contract_type,
+            contract_months: model.contract_months,
         }
     }
 }
@@ -779,6 +810,8 @@ impl AdminModel {
             biz_enabled:     Set(form_data.biz_enabled.to_owned()),
             probation_months: Set(form_data.probation_months.to_owned()),
             probation_ratio: Set(form_data.probation_ratio.to_owned()),
+            contract_type: Set(form_data.contract_type.to_owned()),
+            contract_months: Set(form_data.contract_months.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -845,6 +878,14 @@ impl AdminModel {
         if let Some(v) = form_data.biz_enabled { payload.biz_enabled = Set(Some(v)); }
         if let Some(v) = form_data.probation_months { payload.probation_months = Set(Some(v)); }
         if let Some(v) = form_data.probation_ratio { payload.probation_ratio = Set(Some(v)); }
+        if let Some(v) = form_data.contract_months { payload.contract_months = Set(Some(v)); }
+        // 合同类型与期限联动：切换为无固定期限时强制清空合同期限
+        if let Some(v) = form_data.contract_type {
+            payload.contract_type = Set(Some(v));
+            if v == 2 {
+                payload.contract_months = Set(None);
+            }
+        }
         // 直属上级：前端传正数表示设置上级，传 0/null 表示清除上级，字段缺失表示不更新
         if let Some(v) = form_data.direct_manager_id {
             if v > 0 {

@@ -3,14 +3,14 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h } from 'vue';
+import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, message, Popconfirm, Switch } from 'ant-design-vue';
+import { Button, message, Popconfirm, Switch, Tabs } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deletePostApi, getPostListApi, updatePostApi } from '#/api';
@@ -18,8 +18,12 @@ import { $t } from '#/locales';
 import { statusList } from '#/store';
 
 import PostDrawer from './drawer.vue';
+import SalaryBand from './salary-band.vue';
 
 const accessStore = useAccessStore();
+
+// 页面 Tab：岗位管理 / 薪资带宽（带宽入口内嵌岗位管理页）
+const activeTab = ref('post');
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -168,59 +172,81 @@ async function handleDelete(row: any) {
 
 <template>
   <Page auto-content-height>
-    <Grid>
-      <template #toolbar-tools>
-        <Button
-          v-if="accessStore.hasAccessCode('system:post:save')"
-          type="primary"
-          class="mr-2"
-          @click="handleCreate"
-        >
-          {{ $t('page.system.post.button.create') }}
-        </Button>
-      </template>
+    <Tabs
+      v-model:active-key="activeTab"
+      class="post-tabs"
+      :destroy-inactive-tab-pane="false"
+    >
+      <Tabs.TabPane key="post" tab="岗位管理">
+        <Grid>
+          <template #toolbar-tools>
+            <Button
+              v-if="accessStore.hasAccessCode('system:post:save')"
+              type="primary"
+              class="mr-2"
+              @click="handleCreate"
+            >
+              {{ $t('page.system.post.button.create') }}
+            </Button>
+          </template>
 
-      <template #createdAt="{ row }">
-        {{ formatDateTime(row.createTime) }}
-      </template>
+          <template #createdAt="{ row }">
+            {{ formatDateTime(row.createTime) }}
+          </template>
 
-      <template #status="{ row }">
-        <Switch
-          v-model:checked="row.status"
-          :checked-value="1"
-          :disabled="!accessStore.hasAccessCode('system:post:update')"
-          :loading="row.pending"
-          :un-checked-value="2"
-          @change="(checked: any) => handleStatusChanged(row, checked)"
-        />
-      </template>
+          <template #status="{ row }">
+            <Switch
+              v-model:checked="row.status"
+              :checked-value="1"
+              :disabled="!accessStore.hasAccessCode('system:post:update')"
+              :loading="row.pending"
+              :un-checked-value="2"
+              @change="(checked: any) => handleStatusChanged(row, checked)"
+            />
+          </template>
 
-      <template #action="{ row }">
-        <Button
-          v-if="accessStore.hasAccessCode('system:post:update')"
-          type="link"
-          :icon="h(LucideFilePenLine)"
-          @click="handleEdit(row)"
-        />
-        <Popconfirm
-          :title="
-            $t('ui.text.do_you_want_delete', {
-              moduleName: $t('page.system.post.module'),
-            })
-          "
-          :ok-text="$t('ui.button.ok')"
-          :cancel-text="$t('ui.button.cancel')"
-          @confirm="handleDelete(row)"
-        >
-          <Button
-            v-if="accessStore.hasAccessCode('system:post:delete')"
-            type="link"
-            danger
-            :icon="h(LucideTrash2)"
-          />
-        </Popconfirm>
-      </template>
-    </Grid>
-    <Drawer />
+          <template #action="{ row }">
+            <Button
+              v-if="accessStore.hasAccessCode('system:post:update')"
+              type="link"
+              :icon="h(LucideFilePenLine)"
+              @click="handleEdit(row)"
+            />
+            <Popconfirm
+              :title="
+                $t('ui.text.do_you_want_delete', {
+                  moduleName: $t('page.system.post.module'),
+                })
+              "
+              :ok-text="$t('ui.button.ok')"
+              :cancel-text="$t('ui.button.cancel')"
+              @confirm="handleDelete(row)"
+            >
+              <Button
+                v-if="accessStore.hasAccessCode('system:post:delete')"
+                type="link"
+                danger
+                :icon="h(LucideTrash2)"
+              />
+            </Popconfirm>
+          </template>
+        </Grid>
+        <Drawer />
+      </Tabs.TabPane>
+
+      <Tabs.TabPane key="salaryBand" tab="薪资带宽">
+        <SalaryBand />
+      </Tabs.TabPane>
+    </Tabs>
   </Page>
 </template>
+
+<style scoped>
+/* 让 Tabs 内容区撑满 Page 高度，保证内嵌 Grid 自适应滚动 */
+.post-tabs,
+.post-tabs :deep(.ant-tabs-content-holder),
+.post-tabs :deep(.ant-tabs-content),
+.post-tabs :deep(.ant-tabs-tabpane-active) {
+  height: 100%;
+}
+</style>
