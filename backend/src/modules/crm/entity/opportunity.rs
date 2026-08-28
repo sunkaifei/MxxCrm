@@ -75,6 +75,12 @@ pub struct Model {
     /// 丢单原因
     pub loss_reason: Option<String>,
 
+    /// 作废原因（作废必填，stage=6 时展示）
+    pub void_reason: Option<String>,
+
+    /// 作废前阶段（恢复时回滚到该阶段）
+    pub prev_stage: Option<i32>,
+
     /// 需求确认内容（阶段2）
     pub requirement_summary: Option<String>,
 
@@ -115,6 +121,10 @@ pub struct Model {
     /// 更新时间
     pub update_time: Option<DateTime>,
 
+    /// 删除人ID（回收站）
+    pub delete_by: Option<i64>,
+    /// 删除时间（回收站保留期计算）
+    pub delete_time: Option<DateTime>,
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
 }

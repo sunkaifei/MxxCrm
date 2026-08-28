@@ -124,7 +124,11 @@ const gridOptions: VxeGridProps = {
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '280px' : '';
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '280px', 'important');
+          } else {
+            gridEl.style.removeProperty('height');
+          }
         }
         // 等DOM渲染完成后同步固定列行高并居中内容
         const syncFixedColumn = (retry = 0) => {

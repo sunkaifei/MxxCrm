@@ -262,6 +262,7 @@ pub async fn get_customer_funnel(
                 DbBackend::Postgres,
                 r#"SELECT COUNT(*)::int8 AS cnt, COALESCE(SUM(amount), 0) AS total FROM mxx_crm_opportunity
                    WHERE deleted = 0
+                     AND stage <> 6
                      AND ($1::date IS NULL OR create_time >= $1::timestamp)
                      AND ($2::date IS NULL OR create_time < ($2::date + INTERVAL '1 day'))
                      AND ($3::int8[] IS NULL OR assigned_to = ANY($3::int8[]))"#,

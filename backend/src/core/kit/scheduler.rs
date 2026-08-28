@@ -187,6 +187,21 @@ async fn init_registry(registry: &SchedulerRegistry) {
         )
         .await;
 
+    // CRM 回收站超期数据清理（每日 03:30，保留期 30 天，见规划方案 6.5）
+    registry
+        .register(
+            "recycle_purge",
+            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
+                Box::pin(async move {
+                    let n = crate::modules::crm::service::recycle_service::purge_expired(&db)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    Ok(format!("回收站清理完成：本次物理删除 {} 条超期数据", n))
+                })
+            }),
+        )
+        .await;
+
     // 注册低库存采购建议扫描处理器
     registry
         .register(

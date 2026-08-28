@@ -15,7 +15,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadSaveRequest, LeadStatusUpdateQuery, LeadUpdateRequest};
+use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadPoolReleaseRequest, LeadSaveRequest, LeadStatusUpdateQuery, LeadUpdateRequest};
 use crate::modules::crm::service::lead_service;
 use crate::modules::crm::service::lead_transfer_service;
 
@@ -47,9 +47,10 @@ pub async fn lead_update(state: web::Data<AppState>, req: HttpRequest, form_data
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
-pub async fn bath_delete_lead(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
+pub async fn bath_delete_lead(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
+    let user_id = get_current_user_id(&req);
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的线索ID", "local"));
@@ -60,7 +61,31 @@ pub async fn bath_delete_lead(state: web::Data<AppState>, item: web::Json<BathDe
         .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
 
-    let result = lead_service::batch_delete_by_ids(&db, &filtered_ids).await;
+    // 删除前快照（审计 before）
+    let mut before: Vec<(i64, Option<String>)> = Vec::new();
+    for id in &filtered_ids {
+        if let Ok(c) = lead_service::find_by_id(&db, *id).await {
+            before.push((*id, c.company_name.or(c.contact_name)));
+        }
+    }
+
+    let result = lead_service::batch_delete_by_ids(&db, &filtered_ids, user_id).await;
+    if result.is_ok() {
+        // 审计埋点：删除线索（D01-5）
+        for (id, name) in &before {
+            crate::modules::system::service::audit_service::record(
+                db,
+                &req,
+                "lead",
+                "delete",
+                "lead",
+                *id,
+                format!("删除线索 {}", name.clone().unwrap_or_default()),
+                None,
+                None,
+            ).await;
+        }
+    }
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -124,9 +149,10 @@ pub async fn lead_pool_info(state: web::Data<AppState>, item: web::Query<InfoId>
     }
 }
 
-pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
+pub async fn bath_delete_lead_pool(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
+    let user_id = get_current_user_id(&req);
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的线索ID", "local"));
@@ -134,10 +160,34 @@ pub async fn bath_delete_lead_pool(state: web::Data<AppState>, item: web::Json<B
 
     let filtered_ids: Vec<i64> = delete_item.ids.unwrap_or_default()
         .iter()
-        .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))   
+        .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
 
-    let result = lead_service::batch_delete_by_ids(&db, &filtered_ids).await;   
+    // 删除前快照（审计 before）
+    let mut before: Vec<(i64, Option<String>)> = Vec::new();
+    for id in &filtered_ids {
+        if let Ok(c) = lead_service::find_by_id(&db, *id).await {
+            before.push((*id, c.company_name.or(c.contact_name)));
+        }
+    }
+
+    let result = lead_service::batch_delete_by_ids(&db, &filtered_ids, user_id).await;
+    if result.is_ok() {
+        // 审计埋点：删除公海线索（D01-5）
+        for (id, name) in &before {
+            crate::modules::system::service::audit_service::record(
+                db,
+                &req,
+                "lead-pool",
+                "delete",
+                "lead",
+                *id,
+                format!("删除公海线索 {}", name.clone().unwrap_or_default()),
+                None,
+                None,
+            ).await;
+        }
+    }
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -157,7 +207,7 @@ pub async fn lead_update_status(state: web::Data<AppState>, req: HttpRequest, fo
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
-pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<InfoId>) -> HttpResponse {
+pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<LeadPoolReleaseRequest>) -> HttpResponse {
     let db = &state.db;
     let query = form_data.0;
 
@@ -165,7 +215,33 @@ pub async fn lead_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "线索ID不能为空", "local"));
     }
 
-    let result = lead_service::add_to_pool(&db, query.id.unwrap(), Some(get_current_user_id(&req))).await;
+    let user_id = get_current_user_id(&req);
+    let lead_id = query.id.unwrap();
+
+    let result = lead_service::add_to_pool(
+        &db,
+        lead_id,
+        Some(user_id),
+        query.reason_type,
+        query.reason.clone(),
+    ).await;
+    if result.is_ok() {
+        // 审计埋点：退回线索池（记录退回原因，G6）
+        crate::modules::system::service::audit_service::record(
+            db,
+            &req,
+            "lead",
+            "release",
+            "lead",
+            lead_id,
+            format!("退回线索池，原因类型：{:?}", query.reason_type),
+            crate::modules::system::service::audit_service::snap(vec![
+                ("reason_type", serde_json::json!(query.reason_type)),
+                ("reason", serde_json::json!(query.reason)),
+            ]),
+            None,
+        ).await;
+    }
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -298,7 +374,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/add-to-pool",
                 web::put()
                     .to(lead_add_to_pool)
-                    .wrap(require_permission("crm:lead:update")),
+                    .wrap(require_permission("crm:lead:pool")),
             )
             // PUT /lead/claim - 领取线索
             .route(

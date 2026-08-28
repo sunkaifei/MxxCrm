@@ -185,7 +185,7 @@ async fn refresh_topic_in_txn<C: ConnectionTrait>(
                    SELECT create_time::date, COALESCE(assigned_to, created_by, 0),
                           0, 0, 0, 0, 0, 1, CASE WHEN stage = 4 THEN 1 ELSE 0 END, CASE WHEN stage = 5 THEN 1 ELSE 0 END, 0, 0
                    FROM mxx_crm_opportunity
-                   WHERE deleted = 0 AND create_time IS NOT NULL AND COALESCE(assigned_to, created_by, 0) > 0
+                   WHERE deleted = 0 AND stage <> 6 AND create_time IS NOT NULL AND COALESCE(assigned_to, created_by, 0) > 0
                      AND create_time::date BETWEEN $1::date AND $2::date
                ) src
                GROUP BY 1, 2"#,

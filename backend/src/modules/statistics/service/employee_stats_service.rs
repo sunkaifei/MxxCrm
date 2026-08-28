@@ -361,6 +361,7 @@ pub async fn get_employee_conversion_realtime(
                           (DATE '1970-01-01' + AVG(CASE WHEN stage = 4 AND actual_close_date IS NOT NULL THEN actual_close_date - DATE '1970-01-01' END)::int4)::date AS won_avg_date
                    FROM mxx_crm_opportunity
                    WHERE deleted = 0 AND COALESCE(assigned_to, created_by) > 0
+                     AND stage <> 6
                      AND ($1::date IS NULL OR create_time >= $1::timestamp)
                      AND ($2::date IS NULL OR create_time < ($2::date + INTERVAL '1 day'))
                      AND ($3::int8[] IS NULL OR COALESCE(assigned_to, created_by) = ANY($3::int8[]))

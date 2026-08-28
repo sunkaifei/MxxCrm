@@ -179,11 +179,15 @@ const gridOptions: VxeGridProps = {
           params.checkInEnd = formValues.checkInDateRange[1];
         }
         const result = await getVisitListApi(params);
-        // 无数据 280px，有数据按内容自适应
+        // 无数据 600px，有数据按内容自适应
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '280px' : '';
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '600px', 'important');
+          } else {
+            gridEl.style.removeProperty('height');
+          }
         }
         return result;
       },
@@ -287,7 +291,7 @@ onMounted(() => {
 <template>
   <Page>
     <!-- 顶部统计卡片 -->
-    <Card :bordered="false" class="mb-4" :loading="statisticsLoading">
+    <Card :bordered="false" class="visit-filter-card mb-4" :loading="statisticsLoading">
       <div class="visit-stat-row">
         <div class="visit-stat-item">
           <Statistic title="总拜访次数" :value="statistics.totalVisits" />
@@ -323,7 +327,7 @@ onMounted(() => {
       </div>
     </Card>
 
-    <Grid table-title="外勤拜访记录">
+    <Grid table-title="外勤拜访记录" class="visit-grid-card">
       <template #form-header>
         <Tabs
           v-model:active-key="activeTab"
@@ -409,6 +413,15 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* 筛选卡片与表格卡片间距（scoped 固化，不依赖 Tailwind 工具类） */
+.visit-filter-card {
+  margin-bottom: 16px;
+}
+
+.visit-grid-card {
+  margin-top: 16px;
+}
+
 .visit-stat-row {
   display: flex;
   flex-wrap: wrap;

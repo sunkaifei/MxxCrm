@@ -16,6 +16,7 @@ pub mod customer_edit_log_controller;
 pub mod followup_controller;
 pub mod lead_controller;
 pub mod opportunity_controller;
+pub mod recycle_controller;
 pub mod todo_controller;
 pub mod visit_controller;
 pub mod work_log_controller;

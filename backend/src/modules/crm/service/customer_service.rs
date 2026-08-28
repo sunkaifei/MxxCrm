@@ -14,6 +14,7 @@ use crate::modules::crm::model::customer::{CustomerDetailVO, CustomerListQuery, 
 use crate::modules::crm::entity::customer;
 use crate::modules::crm::entity::{opportunity, opportunity::Entity as Opportunity, contact, contact::Entity as Contact};
 use crate::modules::crm::service::assign_history_service;
+use crate::modules::crm::service::delete_guard_service;
 use crate::modules::crm::service::customer_edit_log_service;
 use crate::modules::company::service::code_rule_service;
 use crate::modules::system::entity::{admin::Entity as Admin, tag, tag_merge};
@@ -215,7 +216,7 @@ async fn cascade_update_related_assignees(
     customer_id: i64,
     new_user_id: i64,
 ) -> Result<()> {
-    use crate::modules::crm::entity::{opportunity, contract};
+    use crate::modules::crm::entity::{opportunity, contract, followup};
     use crate::modules::sale::entity::{quotation, order, invoice, payment};
     use crate::modules::crm::entity::contract_payment_plan;
     use sea_orm::sea_query::Expr;
@@ -225,6 +226,13 @@ async fn cascade_update_related_assignees(
         .col_expr(opportunity::Column::AssignedTo, Expr::value(Some(new_user_id)))
         .filter(opportunity::Column::CustomerId.eq(customer_id))
         .filter(opportunity::Column::Deleted.eq(0))
+        .exec(txn).await;
+
+    // 1.1 跟进 assigned_to（领取级联接管，D9：新负责人可看到客户下的跟进）
+    let _ = followup::Entity::update_many()
+        .col_expr(followup::Column::AssignedTo, Expr::value(Some(new_user_id)))
+        .filter(followup::Column::CustomerId.eq(customer_id))
+        .filter(followup::Column::Deleted.eq(0))
         .exec(txn).await;
 
     // 2. 合同 assigned_to
@@ -287,12 +295,31 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>, deleted_by: i6
     }
     let txn = db.begin().await?;
 
-    // 查询待删除的旧数据（用于日志）
+    // 查询待删除的旧数据（用于校验与日志）
     let old_models = customer::Entity::find()
         .filter(customer::Column::Id.is_in(ids_vec.clone()))
         .filter(customer::Column::Deleted.eq(0))
         .all(&txn)
         .await?;
+    if old_models.len() != ids_vec.len() {
+        txn.rollback().await?;
+        return Err(Error::from("部分客户不存在或已删除，请刷新后重试"));
+    }
+
+    // 事务内逐条前置校验（delete_guard 四条件），任一失败整体回滚并返回失败明细
+    let mut failures: Vec<String> = Vec::new();
+    for m in &old_models {
+        if let Err(e) = delete_guard_service::check_customer_deletable(&txn, m, deleted_by).await {
+            let name = m.company_name.clone().or(m.person_name.clone()).or(m.nickname.clone())
+                .unwrap_or_else(|| format!("#{}", m.id));
+            failures.push(format!("【{}】{}", name, e));
+        }
+    }
+    if !failures.is_empty() {
+        txn.rollback().await?;
+        return Err(Error::from(format!("删除失败：{}", failures.join("；"))));
+    }
+
     let editor_name = Admin::find_by_id(deleted_by)
         .one(&txn)
         .await
@@ -306,7 +333,7 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>, deleted_by: i6
             &txn, m.id, deleted_by, editor_name.clone(), &old_json,
         ).await;
     }
-    let result = CustomerModel::batch_delete_by_ids(&txn, &ids_vec).await?;
+    let result = CustomerModel::batch_delete_by_ids(&txn, &ids_vec, deleted_by).await?;
 
     txn.commit().await?;
     Ok(result)
@@ -617,25 +644,45 @@ pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64> {
     }
     // 记录分配历史
     assign_history_service::record_claim(&txn, id, user_id).await?;
+    // 领取级联接管（D9）：其下商机/跟进等关联数据负责人同步变更为领取人
+    cascade_update_related_assignees(&txn, id, user_id).await?;
 
     txn.commit().await?;
     Ok(result)
 }
 
-/// 退回公海
-pub async fn add_to_pool(db: &DbConn, id: i64, user_id: i64) -> Result<i64> {
+/// 退回公海（清除负责人；退回原因必填并写入分配历史，可操作人：当前负责人 + 管理员）
+pub async fn add_to_pool(
+    db: &DbConn,
+    id: i64,
+    user_id: i64,
+    reason_type: Option<i16>,
+    reason: Option<String>,
+) -> Result<i64> {
+    // 退回原因后端兜底校验（两级结构，选【其他】时补充说明必填）
+    delete_guard_service::validate_release_reason(reason_type, &reason)?;
+
     let txn = db.begin().await?;
 
-    let customer = CustomerModel::find_by_id(&txn, id).await?;
-    if customer.is_none() {
+    let model = CustomerModel::find_by_id(&txn, id).await?;
+    if model.is_none() {
         txn.rollback().await?;
         return Err(Error::from("客户不存在"));
     }
-    let assigned_to = customer.unwrap().assigned_to;
+    let model = model.unwrap();
+    let assigned_to = model.assigned_to;
+    // 可操作人：当前负责人 + 管理员（规划方案 5.1 退回规则1）
+    if assigned_to != Some(user_id) {
+        let manager = delete_guard_service::is_manager(db, user_id, "crm:customer:return-pool").await?;
+        if !manager {
+            txn.rollback().await?;
+            return Err(Error::from("仅客户负责人可退回公海"));
+        }
+    }
     let result = CustomerModel::add_to_pool(&txn, id, user_id).await?;
-    // 记录退回历史
+    // 记录退回历史（写入退回原因类型与补充说明）
     if let Some(aid) = assigned_to {
-        let _ = assign_history_service::record_release(&txn, id, aid).await;
+        let _ = assign_history_service::record_release(&txn, id, aid, reason_type, &reason).await;
     }
 
     txn.commit().await?;

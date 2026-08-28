@@ -12,8 +12,11 @@ export const claimCustomerApi = async (id: number) => {
   });
 };
 
-export const addCustomerToPoolApi = async (id: number) => {
-  return requestClient.put('/api/system/customer/add-to-pool', null, {
-    params: { id },
-  });
+// 退回公海（原因类型必选；类型为"其他"时需补充说明，后端校验）
+export const addCustomerToPoolApi = async (param: {
+  id: number;
+  reason?: string;
+  reasonType: number;
+}) => {
+  return requestClient.put('/api/system/customer/add-to-pool', param);
 };

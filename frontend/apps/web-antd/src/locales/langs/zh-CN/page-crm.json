@@ -139,7 +139,8 @@
         "create": "新增商机",
         "edit": "编辑商机",
         "delete": "删除商机",
-        "view": "查看商机"
+        "view": "查看商机",
+        "void": "作废商机"
       },
       "guide": {
         "title": "商机管理说明",
@@ -320,6 +321,13 @@
       "button": {
         "add": "新增拜访",
         "export": "导出"
+      }
+    },
+    "recycle": {
+      "title": "回收站",
+      "button": {
+        "restore": "还原",
+        "purge": "彻底删除"
       }
     }
   }

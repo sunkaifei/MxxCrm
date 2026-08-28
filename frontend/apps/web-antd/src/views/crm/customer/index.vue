@@ -13,7 +13,7 @@ import {
   LucideUpload,
   LucideUsers,
 } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -37,16 +37,20 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteCustomerApi, getCustomerListApi } from '#/api';
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
+import ReasonFormModal from '../components/ReasonFormModal.vue';
 import SendMailModal from '../components/SendMailModal.vue';
 import TransferModal from '../components/TransferModal.vue';
 import ContactDrawer from '../contact/drawer.vue';
 import OpportunityDetail from '../opportunity/detail.vue';
+import RecycleBin from '../components/RecycleBin.vue';
 import CustomerFollowupDrawer from './followup-drawer.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
 
 // data_scope 决定可见的 Tab
 // 1=全部数据 → 全部Tab  2=自定义 → my+subordinate+todayFollow
@@ -186,8 +190,11 @@ const searchForm = ref({
   qq: '',
 });
 
+const { isSuperAdmin } = useSuperAdminGuard();
+
 function handleTabChange(key: number | string) {
   activeTab.value = key as string;
+  if (key === 'recycle') return;
   gridApi.query();
 }
 
@@ -258,7 +265,11 @@ const gridOptions: VxeGridProps = {
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '150px' : '';
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '150px', 'important');
+          } else {
+            gridEl.style.removeProperty('height');
+          }
         }
         // 等DOM渲染完成后同步固定列行高并居中内容
         const syncFixedColumn = (retry = 0) => {
@@ -450,17 +461,51 @@ async function handleDelete(row: any) {
   }
 }
 
-async function handlePool(row: any) {
-  row.pending = true;
+// ===== 退回公海（原因类型必选，选"其他"需补充说明）=====
+const poolReasonVisible = ref(false);
+const poolReasonSubmitting = ref(false);
+const poolReasonRow = ref<null | { id: number | string }>(null);
+
+function openPoolReason(row: any) {
+  poolReasonRow.value = row;
+  poolReasonVisible.value = true;
+}
+
+async function onPoolReasonConfirm({
+  reason,
+  reasonType,
+}: {
+  reason: string;
+  reasonType?: number;
+}) {
+  const row = poolReasonRow.value;
+  if (!row) return;
+  if (reasonType === undefined) return;
+  poolReasonSubmitting.value = true;
   try {
-    await addCustomerToPoolApi(Number(row.id));
+    await addCustomerToPoolApi({ id: Number(row.id), reason, reasonType });
     message.success('已退回公海');
+    poolReasonVisible.value = false;
     gridApi.query();
   } catch {
     message.error('退回公海失败');
   } finally {
-    row.pending = false;
+    poolReasonSubmitting.value = false;
   }
+}
+
+// 删除按钮显隐（自建 + 本人 + 未超删除窗口；后端删除校验为准）
+// 客户删除窗口 1 小时，与后端 delete_guard_service 常量对齐
+const CUSTOMER_DELETE_WINDOW_MS = 60 * 60 * 1000;
+
+function canDeleteCustomer(row: any): boolean {
+  if (row.fromPool !== 0) return false;
+  if (row.createdBy !== userStore.userInfo?.userId) return false;
+  if (!row.createTime) return false;
+  return (
+    Date.now() - new Date(row.createTime).getTime() <=
+    CUSTOMER_DELETE_WINDOW_MS
+  );
 }
 
 async function handleBatchDelete() {
@@ -474,7 +519,8 @@ async function handleBatchDelete() {
     content: `确定批量删除 ${records.length} 个客户？`,
     onOk: async () => {
       try {
-        await Promise.all(records.map((r: any) => deleteCustomerApi(r.id)));
+        const ids = records.map((r: any) => r.id);
+        await deleteCustomerApi(ids);
         message.success(`已删除 ${records.length} 个客户`);
         gridApi.query();
       } catch {
@@ -559,16 +605,20 @@ function handleAddContact(row: any) {
 
 <template>
   <Page>
-    <Card :bordered="false" class="mb-4">
+    <Card :bordered="false" class="customer-filter-card mb-4">
       <Tabs
         v-model:active-key="activeTab"
         @change="handleTabChange"
         class="mb-4"
       >
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
       </Tabs>
 
+      <RecycleBin v-show="activeTab === 'recycle'" :module="'customer'" />
+
       <Form
+        v-show="activeTab !== 'recycle'"
         :model="searchForm"
         layout="inline"
         :label-col="{ style: { width: '90px' } }"
@@ -747,7 +797,11 @@ function handleAddContact(row: any) {
       </Form>
     </Card>
 
-    <Grid :table-title="$t('page.crm.customer.title')">
+    <Grid
+      v-show="activeTab !== 'recycle'"
+      :table-title="$t('page.crm.customer.title')"
+      class="customer-grid-card"
+    >
       <template #toolbar-tools>
         <Dropdown
           v-if="
@@ -839,13 +893,15 @@ function handleAddContact(row: any) {
             @click="() => handleFollowup(row)"
             >跟进</a
           >
-          <Popconfirm
-            v-if="!isSubordinateView"
-            title="确定将该客户退回公海？"
-            @confirm="handlePool(row)"
+          <a
+            v-if="
+              !isSubordinateView &&
+              accessStore.hasAccessCode('crm:customer:return-pool')
+            "
+            class="action-btn"
+            @click="() => openPoolReason(row)"
+            >公海</a
           >
-            <a class="action-btn">公海</a>
-          </Popconfirm>
           <Dropdown :trigger="['click']">
             <a class="action-btn more-btn">更多 ▾</a>
             <template #overlay>
@@ -887,7 +943,8 @@ function handleAddContact(row: any) {
                 <Popconfirm
                   v-if="
                     !isSubordinateView &&
-                    accessStore.hasAccessCode('crm:customer:delete')
+                    accessStore.hasAccessCode('crm:customer:delete') &&
+                    canDeleteCustomer(row)
                   "
                   :title="
                     $t('ui.text.do_you_want_delete', {
@@ -975,10 +1032,28 @@ function handleAddContact(row: any) {
       :customer-id="sendMailCustomer?.id"
       :customer-name="sendMailCustomer?.companyName"
     />
+
+    <ReasonFormModal
+      v-model:visible="poolReasonVisible"
+      title="退回公海"
+      mode="pool"
+      ok-text="确认退回"
+      :submitting="poolReasonSubmitting"
+      @confirm="onPoolReasonConfirm"
+    />
   </Page>
 </template>
 
 <style scoped>
+/* 筛选卡片与表格卡片间距（scoped 固化，不依赖 Tailwind 工具类） */
+.customer-filter-card {
+  margin-bottom: 16px;
+}
+
+.customer-grid-card {
+  margin-top: 16px;
+}
+
 .customer-search-form :deep(.ant-form-item) {
   margin-bottom: 0;
 }

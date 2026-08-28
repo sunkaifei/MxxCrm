@@ -9,7 +9,7 @@
 //!
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
-use crate::modules::crm::entity::customer;
+use crate::modules::crm::entity::{customer, lead};
 use crate::modules::crm::model::customer::{CustomerModel, CustomerSaveDTO};
 use crate::modules::crm::model::followup::FollowupModel;
 use crate::modules::crm::model::lead::{LeadDetailVO, LeadListQuery, LeadListVO, LeadModel, LeadSaveDTO, LeadSaveRequest, LeadTagVO, LeadUpdateRequest};
@@ -17,6 +17,7 @@ use crate::modules::system::entity::{tag, tag_merge};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::data_scope_service;
+use crate::modules::crm::service::delete_guard_service;
 use sea_orm::{DbConn, DbErr, TransactionTrait, ColumnTrait, EntityTrait, QueryFilter};
 use std::collections::{HashMap, HashSet};
 
@@ -34,12 +35,63 @@ pub async fn update(db: &DbConn, form_data: &LeadUpdateRequest, updated_by: i64)
     Ok(result)
 }
 
-pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64> {
+pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>, deleted_by: i64) -> Result<i64> {
     if ids_vec.is_empty() {
         return Ok(0);
     }
-    let result = LeadModel::batch_delete_by_ids(&db, &ids_vec).await?;
+    // 查询待删除的旧数据（用于校验）
+    let old_models = lead::Entity::find()
+        .filter(lead::Column::Id.is_in(ids_vec.clone()))
+        .filter(lead::Column::Deleted.eq(0))
+        .all(db)
+        .await?;
+    if old_models.len() != ids_vec.len() {
+        return Err(Error::from("部分线索不存在或已删除，请刷新后重试"));
+    }
+
+    // 逐条前置校验，任一失败整体拒绝并返回失败明细（全有全无语义）
+    let mut failures: Vec<String> = Vec::new();
+    for m in &old_models {
+        if let Err(e) = check_lead_deletable(db, m, deleted_by).await {
+            let name = m.company_name.clone().or_else(|| m.contact_name.clone())
+                .unwrap_or_else(|| format!("#{}", m.id));
+            failures.push(format!("【{}】{}", name, e));
+        }
+    }
+    if !failures.is_empty() {
+        return Err(Error::from(format!("删除失败：{}", failures.join("；"))));
+    }
+
+    let result = LeadModel::batch_delete_by_ids(db, &ids_vec, deleted_by).await?;
     Ok(result)
+}
+
+/// 线索删除前置校验（规划方案 5.5）：
+/// 已转换线索硬禁删（已变成客户资产，管理员不豁免）；非创建人须管理员；
+/// 创建人 24 小时内可删，超窗仅管理员（口径见 4.1 #6）。
+async fn check_lead_deletable(db: &DbConn, m: &lead::Model, current_user_id: i64) -> Result<()> {
+    if m.converted_to_customer_id.is_some() {
+        return Err(Error::from("该线索已转为客户，无法删除，请通过客户模块管理"));
+    }
+    if m.created_by != Some(current_user_id) {
+        let ok = delete_guard_service::is_manager(db, current_user_id, "crm:lead:delete").await?;
+        if !ok {
+            return Err(Error::from("仅线索创建人可删除该线索"));
+        }
+        return Ok(());
+    }
+    if let Err(e) = delete_guard_service::check_delete_window(
+        m.create_time,
+        delete_guard_service::DEFAULT_DELETE_WINDOW_HOURS,
+        "线索",
+        "",
+    ) {
+        let ok = delete_guard_service::is_manager(db, current_user_id, "crm:lead:delete").await?;
+        if !ok {
+            return Err(e);
+        }
+    }
+    Ok(())
 }
 
 pub async fn find_by_id(db: &DbConn, id: i64) -> Result<LeadDetailVO> {
@@ -255,7 +307,15 @@ pub async fn update_status(db: &DbConn, id: i64, status: i32, updated_by: Option
     Ok(result)
 }
 
-pub async fn add_to_pool(db: &DbConn, id: i64, updated_by: Option<i64>) -> Result<i64> {
+pub async fn add_to_pool(
+    db: &DbConn,
+    id: i64,
+    updated_by: Option<i64>,
+    reason_type: Option<i16>,
+    reason: Option<String>,
+) -> Result<i64> {
+    // 退回原因校验（后端兜底：类型必填且合法，选"其他"时补充说明必填）
+    delete_guard_service::validate_release_reason(reason_type, &reason)?;
     // 已转客户的线索不允许加入线索池
     let lead = LeadModel::find_by_id(db, id)
         .await?
@@ -263,7 +323,7 @@ pub async fn add_to_pool(db: &DbConn, id: i64, updated_by: Option<i64>) -> Resul
     if lead.converted_to_customer_id.is_some() {
         return Err(Error::from("该线索已转为客户，不能加入线索池".to_string()));
     }
-    let result = LeadModel::add_to_pool(db, id, updated_by).await?;
+    let result = LeadModel::add_to_pool(db, id, updated_by, reason_type, reason).await?;
     Ok(result)
 }
 
@@ -312,6 +372,7 @@ pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64> {
         create_time: None,
         updated_by: None,
         update_time: None,
+        from_pool: Some(1),
     };
 
     // 使用事务确保创建客户和更新线索原子执行
@@ -440,6 +501,7 @@ pub async fn convert_to_customer(db: &DbConn, id: i64, user_id: i64) -> Result<i
         create_time: None,
         updated_by: None,
         update_time: None,
+        from_pool: Some(1),
     };
 
     // 生成客户编号

@@ -16,6 +16,7 @@ use crate::modules::system::service::data_scope_service;
 use crate::modules::crm::service::work_log_service;
 use crate::modules::system::service::admin_service::build_admin_name_map;
 use crate::modules::system::service::role_service;
+use crate::modules::crm::service::delete_guard_service;
 use chrono::Datelike;
 use rust_decimal::prelude::FromPrimitive;
 use sea_orm::DbConn;
@@ -74,12 +75,59 @@ pub async fn update(db: &DbConn, form_data: &FollowupUpdateRequest, _updated_by:
     Ok(result)
 }
 
-pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64> {
+pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>, deleted_by: i64) -> Result<i64> {
     if ids_vec.is_empty() {
         return Ok(0);
     }
-    let result = FollowupModel::batch_delete_by_ids(&db, &ids_vec).await?;
+    // 查询待删除的旧数据（用于校验）
+    let old_models = followup::Entity::find()
+        .filter(followup::Column::Id.is_in(ids_vec.clone()))
+        .filter(followup::Column::Deleted.eq(0))
+        .all(db)
+        .await?;
+    if old_models.len() != ids_vec.len() {
+        return Err(Error::from("部分跟进记录不存在或已删除，请刷新后重试"));
+    }
+
+    // 逐条前置校验，任一失败整体拒绝并返回失败明细（全有全无语义）
+    let mut failures: Vec<String> = Vec::new();
+    for m in &old_models {
+        if let Err(e) = check_followup_deletable(db, m, deleted_by).await {
+            let name = m.content.as_deref().map(|c| c.chars().take(20).collect::<String>())
+                .unwrap_or_else(|| format!("#{}", m.id));
+            failures.push(format!("【{}】{}", name, e));
+        }
+    }
+    if !failures.is_empty() {
+        return Err(Error::from(format!("删除失败：{}", failures.join("；"))));
+    }
+
+    let result = FollowupModel::batch_delete_by_ids(db, &ids_vec, deleted_by).await?;
     Ok(result)
+}
+
+/// 跟进记录删除前置校验（规划方案 5.3）：
+/// 创建人 24 小时内可删自己的记录，超窗仅管理员；非创建人须管理员（口径见 4.1 #6）。
+async fn check_followup_deletable(db: &DbConn, m: &followup::Model, current_user_id: i64) -> Result<()> {
+    if m.created_by != Some(current_user_id) {
+        let ok = delete_guard_service::is_manager(db, current_user_id, "crm:followup:delete").await?;
+        if !ok {
+            return Err(Error::from("仅跟进记录创建人可删除"));
+        }
+        return Ok(());
+    }
+    if let Err(e) = delete_guard_service::check_delete_window(
+        m.create_time,
+        delete_guard_service::DEFAULT_DELETE_WINDOW_HOURS,
+        "跟进记录",
+        "",
+    ) {
+        let ok = delete_guard_service::is_manager(db, current_user_id, "crm:followup:delete").await?;
+        if !ok {
+            return Err(e);
+        }
+    }
+    Ok(())
 }
 
 pub async fn find_by_id(db: &DbConn, id: i64) -> Result<FollowupDetailVO> {

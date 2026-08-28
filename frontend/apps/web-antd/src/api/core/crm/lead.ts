@@ -25,8 +25,13 @@ export const updateLeadStatusApi = async (
 ) => {
   return requestClient.put('/api/system/lead/update-status', { id, status });
 };
-export const addLeadToPoolApi = async (id: number) => {
-  return requestClient.put('/api/system/lead/add-to-pool', { id });
+// 退回线索池（原因类型必选；类型为"其他"时需补充说明，后端校验）
+export const addLeadToPoolApi = async (param: {
+  id: number;
+  reason?: string;
+  reasonType: number;
+}) => {
+  return requestClient.put('/api/system/lead/add-to-pool', param);
 };
 export const claimLeadApi = async (id: number) => {
   return requestClient.put('/api/system/lead/claim', { id });

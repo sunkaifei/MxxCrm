@@ -1108,7 +1108,7 @@ onMounted(() => {
       </div>
     </PageUsageGuide>
     <!-- 月度汇总卡片 -->
-    <Card class="mb-4" :bordered="false">
+    <Card class="salary-filter-card mb-4" :bordered="false">
       <Spin :spinning="summaryLoading">
         <div class="mb-3 flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -1212,7 +1212,10 @@ onMounted(() => {
       </Spin>
     </Card>
 
-    <Grid :table-title="$t('page.finance.salary.title')">
+    <Grid
+      :table-title="$t('page.finance.salary.title')"
+      class="salary-grid-card"
+    >
       <template #toolbar-tools>
         <Tooltip
           v-if="showFinanceButtons"
@@ -1900,3 +1903,14 @@ onMounted(() => {
     </Drawer>
   </Page>
 </template>
+
+<style scoped>
+/* 筛选卡片与表格卡片间距（scoped 固化，不依赖 Tailwind 工具类） */
+.salary-filter-card {
+  margin-bottom: 16px;
+}
+
+.salary-grid-card {
+  margin-top: 16px;
+}
+</style>

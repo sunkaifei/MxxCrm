@@ -12,7 +12,9 @@ use crate::core::web::response::ResultPage;
 use crate::modules::crm::entity::customer_contact_merge;
 use crate::modules::crm::entity::customer;
 use crate::modules::crm::entity::contact;
+use crate::modules::crm::entity::opportunity;
 use crate::modules::crm::service::contact_edit_log_service;
+use crate::modules::crm::service::delete_guard_service;
 use crate::modules::crm::model::contact::{
     CareerHistoryItem, ContactBindRequest, ContactCheckRequest, ContactCheckResult, ContactCompanyInfo, ContactDetailVO, ContactListQuery,
     ContactListVO, ContactModel, ContactSaveDTO, ContactSaveRequest, ContactSetRoleRequest,
@@ -28,6 +30,7 @@ use sea_orm::QueryFilter;
 use sea_orm::Condition;
 use sea_orm::Set;
 use sea_orm::ActiveModelTrait;
+use sea_orm::PaginatorTrait;
 
 pub async fn insert(db: &DbConn, form_data: &ContactSaveRequest, created_by: i64) -> Result<i64> {
     let mut dto: ContactSaveDTO = form_data.clone().into();
@@ -158,20 +161,42 @@ pub async fn update(db: &DbConn, form_data: &ContactUpdateRequest, updated_by: i
     Ok(result)
 }
 
-pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64> {
+pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>, deleted_by: i64) -> Result<i64> {
     if ids_vec.is_empty() {
         return Ok(0);
     }
+    // 查询待删除的旧数据（用于校验）
+    let old_models = contact::Entity::find()
+        .filter(contact::Column::Id.is_in(ids_vec.clone()))
+        .filter(contact::Column::Deleted.eq(0))
+        .all(db)
+        .await?;
+    if old_models.len() != ids_vec.len() {
+        return Err(Error::from("部分联系人不存在或已删除，请刷新后重试"));
+    }
+
+    // 逐条前置校验，任一失败整体拒绝并返回失败明细（全有全无语义）
+    let mut failures: Vec<String> = Vec::new();
+    for m in &old_models {
+        if let Err(e) = check_contact_deletable(db, m, deleted_by).await {
+            let name = m.name.clone().unwrap_or_else(|| format!("#{}", m.id));
+            failures.push(format!("【{}】{}", name, e));
+        }
+    }
+    if !failures.is_empty() {
+        return Err(Error::from(format!("删除失败：{}", failures.join("；"))));
+    }
+
     let ids_clone = ids_vec.clone();
     let result = db.transaction::<_, i64, DbErr>(|txn| {
         Box::pin(async move {
-            customer_contact_merge::Entity::delete_many()
-                .filter(customer_contact_merge::Column::ContactId.is_in(ids_clone.clone()))
-                .exec(txn)
-                .await?;
+            // 注意：不清理 customer_contact_merge，保留任职关系（当前+历史）：
+            // 联系人仅软删进回收站，还原后任职关系应完整恢复；彻底删除（回收站 purge）时再级联清理。
             contact::Entity::update_many()
                 .set(contact::ActiveModel {
                     deleted: Set(Some(1)),
+                    delete_by: Set(Some(deleted_by)),
+                    delete_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                     ..Default::default()
                 })
                 .filter(contact::Column::Id.is_in(ids_clone))
@@ -184,6 +209,40 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64>
     .map_err(|e| Error::from(e.to_string()))?;
 
     Ok(result)
+}
+
+/// 联系人删除前置校验（规划方案 5.4）：
+/// 商机直接挂接的联系人硬禁删（opportunity.contact_id）；非创建人须管理员；
+/// 创建人 24 小时内可删，超窗仅管理员（口径见 4.1 #6）。
+async fn check_contact_deletable(db: &DbConn, m: &contact::Model, current_user_id: i64) -> Result<()> {
+    let count = opportunity::Entity::find()
+        .filter(opportunity::Column::ContactId.eq(m.id))
+        .filter(opportunity::Column::Deleted.eq(0))
+        .count(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    if count > 0 {
+        return Err(Error::from("该联系人已被商机挂接，无法删除，请先处理相关商机"));
+    }
+    if m.created_by != Some(current_user_id) {
+        let ok = delete_guard_service::is_manager(db, current_user_id, "crm:contact:delete").await?;
+        if !ok {
+            return Err(Error::from("仅联系人创建人可删除"));
+        }
+        return Ok(());
+    }
+    if let Err(e) = delete_guard_service::check_delete_window(
+        m.create_time,
+        delete_guard_service::DEFAULT_DELETE_WINDOW_HOURS,
+        "联系人",
+        "",
+    ) {
+        let ok = delete_guard_service::is_manager(db, current_user_id, "crm:contact:delete").await?;
+        if !ok {
+            return Err(e);
+        }
+    }
+    Ok(())
 }
 
 /// 当前用户可见的联系人 ID 集合（按数据权限）
@@ -276,13 +335,13 @@ pub async fn batch_delete_by_ids_checked(db: &DbConn, ids_vec: &Vec<i64>, user_i
         return Ok(0);
     }
     match visible_contact_ids(db, user_id).await? {
-        None => batch_delete_by_ids(db, ids_vec).await,
+        None => batch_delete_by_ids(db, ids_vec, user_id).await,
         Some(visible) => {
             let filtered: Vec<i64> = ids_vec.iter().filter(|id| visible.contains(id)).copied().collect();
             if filtered.is_empty() {
                 return Err(Error::from("无权删除该联系人"));
             }
-            batch_delete_by_ids(db, &filtered).await
+            batch_delete_by_ids(db, &filtered, user_id).await
         }
     }
 }

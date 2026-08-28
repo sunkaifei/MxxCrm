@@ -15,8 +15,10 @@ use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::crm::model::opportunity::{OpportunityDetailVO, OpportunityListQuery, OpportunityListVO, OpportunitySaveRequest, OpportunityUpdateRequest};
+use crate::modules::crm::model::opportunity::{OpportunityDetailVO, OpportunityListQuery, OpportunityListVO, OpportunitySaveRequest, OpportunityUpdateRequest, OpportunityVoidRequest};
 use crate::modules::crm::service::opportunity_service;
+
+use crate::modules::system::service::audit_service;
 
 pub async fn opportunity_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OpportunitySaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -38,7 +40,7 @@ pub async fn opportunity_update(state: web::Data<AppState>, req: HttpRequest, fo
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
-pub async fn bath_delete_opportunity(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
+pub async fn bath_delete_opportunity(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
 
@@ -50,8 +52,21 @@ pub async fn bath_delete_opportunity(state: web::Data<AppState>, item: web::Json
         .iter()
         .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
+    if filtered_ids.is_empty() {
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的商机ID", "local"));
+    }
 
-    let result = opportunity_service::batch_delete_by_ids(&db, &filtered_ids).await;
+    let deleted_by = get_current_user_id(&req);
+    let target_ids = filtered_ids.clone();
+    let result = opportunity_service::batch_delete_by_ids(&db, &filtered_ids, deleted_by).await;
+    if result.is_ok() {
+        audit_service::record(
+            db, &req, "opportunity", "delete", "opportunity", 0,
+            format!("批量删除商机 {} 个，ID：{}", target_ids.len(), target_ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")),
+            audit_service::snap(vec![("ids", serde_json::json!(target_ids))]),
+            None,
+        ).await;
+    }
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
@@ -120,6 +135,66 @@ pub async fn opportunity_convert_to_order(state: web::Data<AppState>, req: HttpR
     }
 }
 
+/// POST /opportunity/void - 作废商机（原因必填，负责人/管理员可操作）
+pub async fn opportunity_void(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<OpportunityVoidRequest>) -> HttpResponse {
+    let db = &state.db;
+    let form_data = form_data.0;
+
+    if form_data.id.is_none() {
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
+    }
+    let reason = form_data.reason.clone().unwrap_or_default();
+    if reason.trim().is_empty() {
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "作废原因不能为空", "local"));
+    }
+
+    let user_id = get_current_user_id(&req);
+    let opp_id = form_data.id.unwrap();
+
+    let result = opportunity_service::void_opportunity(&db, opp_id, &reason, user_id).await;
+    if result.is_ok() {
+        audit_service::record(
+            db, &req, "opportunity", "void", "opportunity", opp_id,
+            format!("作废商机，原因：{}", reason.trim()),
+            audit_service::snap(vec![
+                ("void_reason", serde_json::json!(reason.trim())),
+            ]),
+            None,
+        ).await;
+    }
+    match result {
+        Ok(_) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(true, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// POST /opportunity/recover - 恢复已作废商机（仅管理员，回到作废前阶段）
+pub async fn opportunity_recover(state: web::Data<AppState>, req: HttpRequest, item: web::Json<InfoId>) -> HttpResponse {
+    let db = &state.db;
+    let item = item.0;
+
+    if item.id.is_none() {
+        return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "商机ID不能为空", "local"));
+    }
+
+    let user_id = get_current_user_id(&req);
+    let opp_id = item.id.unwrap();
+
+    let result = opportunity_service::recover_opportunity(&db, opp_id, user_id).await;
+    if result.is_ok() {
+        audit_service::record(
+            db, &req, "opportunity", "recover", "opportunity", opp_id,
+            "恢复已作废商机".to_string(),
+            None,
+            None,
+        ).await;
+    }
+    match result {
+        Ok(_) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(true, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
 // ==================== 路由注册（单点维护）====================
 
 /// 注册商机模块所有路由
@@ -177,6 +252,20 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::post()
                     .to(opportunity_convert_to_order)
                     .wrap(require_permission("crm:opportunity:update")),
+            )
+            // POST /opportunity/void - 作废商机（原因必填）
+            .route(
+                "/void",
+                web::post()
+                    .to(opportunity_void)
+                    .wrap(require_permission("crm:opportunity:void")),
+            )
+            // POST /opportunity/recover - 恢复已作废商机（仅管理员）
+            .route(
+                "/recover",
+                web::post()
+                    .to(opportunity_recover)
+                    .wrap(require_permission("crm:opportunity:void")),
             ),
     );
 }

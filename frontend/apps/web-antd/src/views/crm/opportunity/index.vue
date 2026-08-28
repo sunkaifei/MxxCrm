@@ -8,7 +8,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucideChevronDown } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -29,21 +29,25 @@ import {
   deleteOpportunityApi,
   getOpportunityListApi,
   getSalesFlowModeApi,
+  voidOpportunityApi,
 } from '#/api';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
+import ReasonFormModal from '../components/ReasonFormModal.vue';
 import SalesProcessGuide from '../../sale/components/SalesProcessGuide.vue';
 import QuotationDrawer from '../../sale/quotation/drawer.vue';
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import OpportunityDetail from './detail.vue';
+import RecycleBin from '../components/RecycleBin.vue';
 
 // 商机管理使用说明步骤数（与 i18n 中 page.crm.opportunity.guide.steps 数组对齐）
 const guideStepCount = 5;
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
 const { isSuperAdmin, guardBusiness } = useSuperAdminGuard();
 
 // 销售流程模式：A=仅标准(转报价单) B=仅简易(转订单) both=两种都允许
@@ -132,6 +136,7 @@ watch(
 
 function handleTabChange(key: number | string) {
   activeTab.value = key as string;
+  if (key === 'recycle') return;
   // "我的商机"tab下隐藏"负责人"列（只看自己的，无需显示）；其他tab显示
   if (key === 'my') {
     gridApi.grid?.hideColumn('assigneeName');
@@ -236,6 +241,7 @@ const formOptions: VbenFormProps = {
           { label: '方案沟通', value: 3 },
           { label: '已报价', value: 4 },
           { label: '成交/丢单', value: 5 },
+          { label: '已作废', value: 6 },
         ],
       },
     },
@@ -325,6 +331,7 @@ const gridOptions: VxeGridProps = {
           3: '方案沟通',
           4: '已报价',
           5: '成交/丢单',
+          6: '已作废',
         };
         return stageMap[cellValue] ?? '-';
       },
@@ -412,6 +419,43 @@ async function handleDelete(row: any) {
   }
 }
 
+// 删除按钮显隐（本人 + 未超 24h 删除窗口；后端删除校验为准）
+const CRM_DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function canDeleteOpportunity(row: any): boolean {
+  if (row.createdBy !== userStore.userInfo?.userId) return false;
+  if (!row.createTime) return false;
+  return (
+    Date.now() - new Date(row.createTime).getTime() <= CRM_DELETE_WINDOW_MS
+  );
+}
+
+// ===== 作废商机（原因必填；已作废/终态不允许，后端校验为准）=====
+const voidReasonVisible = ref(false);
+const voidReasonSubmitting = ref(false);
+const voidReasonRow = ref<null | { id: number | string }>(null);
+
+function openVoidReason(row: any) {
+  voidReasonRow.value = row;
+  voidReasonVisible.value = true;
+}
+
+async function onVoidReasonConfirm({ reason }: { reason: string }) {
+  const row = voidReasonRow.value;
+  if (!row) return;
+  voidReasonSubmitting.value = true;
+  try {
+    await voidOpportunityApi(Number(row.id), reason);
+    message.success('商机已作废');
+    voidReasonVisible.value = false;
+    gridApi.query();
+  } catch {
+    // 全局拦截处理
+  } finally {
+    voidReasonSubmitting.value = false;
+  }
+}
+
 async function handleBatchDelete() {
   const records = gridApi.grid?.getCheckboxRecords();
   if (!records?.length) {
@@ -466,20 +510,23 @@ loadFlowMode();
       message="您当前是超级管理员，仅可查看数据。创建商机等业务操作请使用业务账号登录。"
       style="margin-bottom: 12px"
     />
-    <Grid :table-title="$t('page.crm.opportunity.title')">
-      <template #form-header>
-        <Tabs
-          v-model:active-key="activeTab"
-          class="mb-3"
-          @change="handleTabChange"
-        >
-          <Tabs.TabPane
-            v-for="tab in tabList"
-            :key="tab.key"
-            :tab="tab.label"
-          />
-        </Tabs>
-      </template>
+    <Tabs
+      v-model:active-key="activeTab"
+      class="mb-3"
+      @change="handleTabChange"
+    >
+      <Tabs.TabPane
+        v-for="tab in tabList"
+        :key="tab.key"
+        :tab="tab.label"
+      />
+      <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
+    </Tabs>
+
+    <Grid
+      v-show="activeTab !== 'recycle'"
+      :table-title="$t('page.crm.opportunity.title')"
+    >
       <template #toolbar-tools>
         <Button
           v-if="
@@ -511,6 +558,7 @@ loadFlowMode();
       <template #title="{ row }">
         <a
           class="cursor-pointer text-blue-600 hover:text-blue-800"
+          :class="{ 'opp-voided-title': row.stage === 6 }"
           @click="() => openDetail(row)"
           >{{ row.title }}</a
         >
@@ -573,7 +621,20 @@ loadFlowMode();
                   一键转订单
                 </Menu.Item>
                 <Menu.Item
-                  v-if="accessStore.hasAccessCode('crm:opportunity:delete')"
+                  v-if="
+                    row.stage !== 6 &&
+                    accessStore.hasAccessCode('crm:opportunity:void')
+                  "
+                  key="void"
+                  @click="openVoidReason(row)"
+                >
+                  作废
+                </Menu.Item>
+                <Menu.Item
+                  v-if="
+                    accessStore.hasAccessCode('crm:opportunity:delete') &&
+                    canDeleteOpportunity(row)
+                  "
                   key="delete"
                 >
                   <Popconfirm
@@ -595,6 +656,8 @@ loadFlowMode();
         </template>
       </template>
     </Grid>
+
+    <RecycleBin v-show="activeTab === 'recycle'" :module="'opportunity'" />
 
     <Drawer
       v-model:open="detailVisible"
@@ -624,5 +687,22 @@ loadFlowMode();
       :id="customerDetailId"
     />
     <QuotationFormDrawer />
+
+    <ReasonFormModal
+      v-model:visible="voidReasonVisible"
+      title="作废商机"
+      mode="void"
+      ok-text="确认作废"
+      :submitting="voidReasonSubmitting"
+      @confirm="onVoidReasonConfirm"
+    />
   </Page>
 </template>
+
+<style scoped>
+/* 已作废商机置灰展示 */
+.opp-voided-title {
+  color: #999 !important;
+  text-decoration: line-through;
+}
+</style>

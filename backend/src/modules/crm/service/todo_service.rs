@@ -1,6 +1,6 @@
 use chrono::{Local, NaiveDate};
 use rust_decimal::Decimal;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
+use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
@@ -203,12 +203,17 @@ impl TodoService {
             }
         }
 
-        // 查询线索
+        // 查询线索（排除已转化/无效线索：转化或判定无效后不应残留跟进待办；无状态的线索保留）
         if item_type == "all" || item_type == "lead" {
             let mut q = LeadEntity::find()
                 .filter(LeadColumn::NextFollowAt.is_not_null())
                 .filter(LeadColumn::AssignedTo.eq(user_id))
-                .filter(LeadColumn::Deleted.eq(0));
+                .filter(LeadColumn::Deleted.eq(0))
+                .filter(
+                    Condition::any()
+                        .add(LeadColumn::Status.is_null())
+                        .add(LeadColumn::Status.is_not_in(vec![3, 4])),
+                );
 
             q = Self::apply_follow_up_range_lead(q, range_type, now, today);
 

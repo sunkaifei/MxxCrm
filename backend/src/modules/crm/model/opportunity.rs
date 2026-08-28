@@ -13,6 +13,7 @@ use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use crate::core::r#enum::lead_source_enum::LeadSource;
 use crate::modules::crm::entity::{opportunity, opportunity::Entity as Opportunity};
+use crate::modules::crm::service::delete_guard_service::OPPORTUNITY_STAGE_VOIDED;
 use crate::utils::string_utils::{deserialize_string_to_u64, serialize_option_u64_to_string};
 
 /// 商机新增请求DTO
@@ -349,6 +350,10 @@ pub struct OpportunityDetailVO {
     pub payment_status: Option<i32>,
     /// 发票状态
     pub invoice_status: Option<i32>,
+    /// 作废原因（stage=6 作废时必填）
+    pub void_reason: Option<String>,
+    /// 作废前阶段（恢复时回滚到该阶段）
+    pub prev_stage: Option<i32>,
     /// 客户名称
     pub customer_name: Option<String>,
     /// 客户行业
@@ -414,6 +419,8 @@ impl From<opportunity::Model> for OpportunityDetailVO {
             shipment_status: item.shipment_status,
             payment_status: item.payment_status,
             invoice_status: item.invoice_status,
+            void_reason: item.void_reason,
+            prev_stage: item.prev_stage,
             customer_name: None,
             customer_industry: None,
             customer_level: None,
@@ -528,6 +535,14 @@ pub struct OpportunityListQuery {
     pub list_type: Option<String>,
 }
 
+/// 作废商机请求（作废原因必填，后端兜底校验）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OpportunityVoidRequest {
+    pub id: Option<i64>,
+    pub reason: Option<String>,
+}
+
 /// 商机数据模型操作类
 pub struct OpportunityModel;
 
@@ -584,10 +599,12 @@ impl OpportunityModel {
     ///
     /// # 返回
     /// * `Result<i64, DbErr>` - 删除的记录数
-    pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    pub async fn batch_delete_by_ids(db: &impl ConnectionTrait, ids: &Vec<i64>, deleted_by: i64) -> Result<i64, DbErr> {
         Opportunity::update_many()
             .set(opportunity::ActiveModel {
                 deleted: Set(Some(1)),
+                delete_by: Set(Some(deleted_by)),
+                delete_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             })
             .filter(opportunity::Column::Id.is_in(ids.clone()))
@@ -713,7 +730,11 @@ impl OpportunityModel {
             query = query.filter(opportunity::Column::Title.contains(k));
         }
         if let Some(s) = stage {
+            // 指定 stage 时正常筛选（含 stage=6 已作废，支持筛选查看）
             query = query.filter(opportunity::Column::Stage.eq(s));
+        } else {
+            // 默认排除已作废商机（规划方案 5.2 规则6：列表默认过滤，支持筛选查看）
+            query = query.filter(opportunity::Column::Stage.ne(OPPORTUNITY_STAGE_VOIDED));
         }
         if let Some(a) = assigned_to {
             query = query.filter(opportunity::Column::AssignedTo.eq(a));
@@ -745,7 +766,11 @@ impl OpportunityModel {
             query = query.filter(opportunity::Column::Title.contains(k));
         }
         if let Some(s) = stage {
+            // 指定 stage 时正常筛选（含 stage=6 已作废，支持筛选查看）
             query = query.filter(opportunity::Column::Stage.eq(s));
+        } else {
+            // 默认排除已作废商机（规划方案 5.2 规则6）
+            query = query.filter(opportunity::Column::Stage.ne(OPPORTUNITY_STAGE_VOIDED));
         }
         if let Some(ids) = assigned_ids {
             if ids.is_empty() {

@@ -5,7 +5,7 @@ import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucidePlus, LucideSearch, LucideUsers } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import {
@@ -34,15 +34,19 @@ import {
 } from '#/api';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
 import LeadTransferModal from '../components/LeadTransferModal.vue';
+import ReasonFormModal from '../components/ReasonFormModal.vue';
 import LeadDetail from './detail.vue';
+import RecycleBin from '../components/RecycleBin.vue';
 
 // 线索管理使用说明步骤数（与 i18n 中 page.crm.lead.guide.steps 数组对齐）
 const guideStepCount = 5;
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
 
 // data_scope 决定可见的 Tab
 // 1=全部数据 → 全部Tab  2=自定义 → my+subordinate+todayFollow
@@ -97,8 +101,11 @@ watch(
   { immediate: true },
 );
 
+const { isSuperAdmin } = useSuperAdminGuard();
+
 function handleTabChange(key: number | string) {
   activeTab.value = key as string;
+  if (key === 'recycle') return;
   gridApi.query();
 }
 
@@ -162,7 +169,7 @@ const statusLabelMap: Record<number, string> = {
   5: '已回收',
   6: '未核查',
   7: '核查中',
-  8: '有效线索',
+  8: '线索池',
 };
 
 // ============ 统一详情抽屉 ============
@@ -227,7 +234,6 @@ function handleDetailSaved(newId?: number) {
 // ============ 表格 ============
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
@@ -417,20 +423,48 @@ function onTransferSuccess({
   gridApi.query();
 }
 
-async function handleAddToPool(row: any) {
-  Modal.confirm({
-    title: '退回公海线索',
-    content: `确定将线索"${row.companyName}"退回公海线索吗？`,
-    onOk: async () => {
-      try {
-        await addLeadToPoolApi(row.id);
-        message.success('已退回公海线索');
-        gridApi.query();
-      } catch {
-        message.error('操作失败');
-      }
-    },
-  });
+// ===== 退回线索池（原因类型必选，选"其他"需补充说明）=====
+const poolReasonVisible = ref(false);
+const poolReasonSubmitting = ref(false);
+const poolReasonRow = ref<null | { id: number | string }>(null);
+
+function openPoolReason(row: any) {
+  poolReasonRow.value = row;
+  poolReasonVisible.value = true;
+}
+
+async function onPoolReasonConfirm({
+  reason,
+  reasonType,
+}: {
+  reason: string;
+  reasonType?: number;
+}) {
+  const row = poolReasonRow.value;
+  if (!row) return;
+  if (reasonType === undefined) return;
+  poolReasonSubmitting.value = true;
+  try {
+    await addLeadToPoolApi({ id: Number(row.id), reason, reasonType });
+    message.success('已退回线索池');
+    poolReasonVisible.value = false;
+    gridApi.query();
+  } catch {
+    message.error('操作失败');
+  } finally {
+    poolReasonSubmitting.value = false;
+  }
+}
+
+// 删除按钮显隐（本人 + 未超 24h 删除窗口；后端删除校验为准）
+const CRM_DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function canDeleteLead(row: any): boolean {
+  if (row.createdBy !== userStore.userInfo?.userId) return false;
+  if (!row.createTime) return false;
+  return (
+    Date.now() - new Date(row.createTime).getTime() <= CRM_DELETE_WINDOW_MS
+  );
 }
 
 // 验证手机号格式
@@ -521,7 +555,7 @@ function handleDeleteConfirm(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page>
     <PageUsageGuide
       :title="$t('page.crm.lead.guide.title')"
       :brief="$t('page.crm.lead.guide.brief')"
@@ -540,16 +574,20 @@ function handleDeleteConfirm(row: any) {
         </div>
       </div>
     </PageUsageGuide>
-    <Card :bordered="false" class="lead-filter-card mb-[15px]">
+    <Card :bordered="false" class="lead-filter-card mb-4">
       <Tabs
         v-model:active-key="activeTab"
         @change="handleTabChange"
         class="lead-tabs"
       >
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
       </Tabs>
 
+      <RecycleBin v-show="activeTab === 'recycle'" :module="'lead'" />
+
       <Form
+        v-show="activeTab !== 'recycle'"
         :model="searchForm"
         layout="inline"
         :label-col="{ style: { width: '80px' } }"
@@ -665,7 +703,11 @@ function handleDeleteConfirm(row: any) {
       </Form>
     </Card>
 
-    <Grid :table-title="$t('page.crm.lead.title')">
+    <Grid
+      v-show="activeTab !== 'recycle'"
+      :table-title="$t('page.crm.lead.title')"
+      class="lead-grid-card"
+    >
       <template #toolbar-tools>
         <Button
           v-if="
@@ -745,12 +787,15 @@ function handleDeleteConfirm(row: any) {
                   <span>一键转客户</span>
                 </div>
                 <div
-                  v-if="!isSubordinateView"
+                  v-if="
+                    !isSubordinateView &&
+                    accessStore.hasAccessCode('crm:lead:pool')
+                  "
                   class="more-menu-item"
                   :class="{ disabled: row.status === 4 }"
-                  @click="() => row.status !== 4 && handleAddToPool(row)"
+                  @click="() => row.status !== 4 && openPoolReason(row)"
                 >
-                  <span>退回到公海</span>
+                  <span>退回线索池</span>
                 </div>
                 <div
                   v-if="
@@ -772,7 +817,8 @@ function handleDeleteConfirm(row: any) {
                 <div
                   v-if="
                     !isSubordinateView &&
-                    accessStore.hasAccessCode('crm:lead:delete')
+                    accessStore.hasAccessCode('crm:lead:delete') &&
+                    canDeleteLead(row)
                   "
                   class="more-menu-item danger"
                   @click="() => handleDeleteConfirm(row)"
@@ -813,18 +859,33 @@ function handleDeleteConfirm(row: any) {
       :lead-ids="transferLeadIds"
       @success="onTransferSuccess"
     />
+
+    <!-- 退回线索池原因弹窗 -->
+    <ReasonFormModal
+      v-model:visible="poolReasonVisible"
+      title="退回线索池"
+      mode="pool"
+      ok-text="确认退回"
+      :submitting="poolReasonSubmitting"
+      @confirm="onPoolReasonConfirm"
+    />
   </Page>
 </template>
 
 <style scoped>
 /* ============ 筛选卡片：精致 CRM 风格 ============ */
 .lead-filter-card {
+  margin-bottom: 16px;
   background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
   border-radius: 10px;
   box-shadow:
     0 1px 3px rgb(22 119 255 / 4%),
     0 4px 12px rgb(0 21 71 / 4%);
   transition: box-shadow 0.3s ease;
+}
+
+.lead-grid-card {
+  margin-top: 16px;
 }
 
 .lead-filter-card:hover {

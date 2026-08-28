@@ -83,7 +83,7 @@ const followStatusOptions = [
   { label: '已回收', value: 5 },
   { label: '未核查', value: 6 },
   { label: '核查中', value: 7 },
-  { label: '有效线索', value: 8 },
+  { label: '线索池', value: 8 },
 ];
 
 const followMethodOptions = [

@@ -7,7 +7,7 @@ import { computed, h, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucideEye } from '@vben/icons';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Drawer, message, Popconfirm, Tabs, Tag } from 'ant-design-vue';
@@ -15,12 +15,14 @@ import { Button, Drawer, message, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteFollowupApi, getFollowupListApi } from '#/api';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
 import CustomerDetail from '../customer/detail.vue';
 import LeadDetail from '../lead/detail.vue';
 import OpportunityDetail from '../opportunity/detail.vue';
 import FollowupDetail from './detail.vue';
+import RecycleBin from '../components/RecycleBin.vue';
 
 // 跟进方式映射
 const activityLabelMap: Record<number, string> = {
@@ -46,6 +48,17 @@ const sourceTypeColorMap: Record<number, string> = {
 };
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
+
+// 删除显隐：本人创建 + 24h 内（后端删除守卫为准，前端仅预判）
+const CRM_DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
+function canDeleteFollowup(row: any): boolean {
+  if (row.createdBy !== userStore.userInfo?.userId) return false;
+  if (!row.createTime) return false;
+  return (
+    Date.now() - new Date(row.createTime).getTime() <= CRM_DELETE_WINDOW_MS
+  );
+}
 
 // data_scope 决定可见的 Tab
 // 1=全部数据 → 全部Tab  2=自定义 → my+subordinate+todayFollow
@@ -99,8 +112,11 @@ watch(
   { immediate: true },
 );
 
+const { isSuperAdmin } = useSuperAdminGuard();
+
 function handleTabChange(key: number | string) {
   activeTab.value = String(key);
+  if (key === 'recycle') return;
   gridApi.query();
 }
 
@@ -278,10 +294,16 @@ const gridOptions: VxeGridProps = {
 
         const items = (result as any)?.items ?? [];
 
-        // 无数据 150px，有数据按内容自适应（避免内部滚动条）
+        // 无数据 600px，有数据最小 600px（数据超过 600px 自适应撑高）
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '150px' : '';
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '600px', 'important');
+            gridEl.style.removeProperty('min-height');
+          } else {
+            gridEl.style.removeProperty('height');
+            gridEl.style.setProperty('min-height', '600px', 'important');
+          }
         }
 
         return { ...result, items };
@@ -369,20 +391,23 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 <template>
   <Page>
-    <Grid :table-title="$t('page.crm.followup.title')">
-      <template #form-header>
-        <Tabs
-          v-model:active-key="activeTab"
-          @change="handleTabChange"
-          class="mb-4"
-        >
-          <Tabs.TabPane
-            v-for="tab in tabList"
-            :key="tab.key"
-            :tab="tab.label"
-          />
-        </Tabs>
-      </template>
+    <Tabs
+      v-model:active-key="activeTab"
+      @change="handleTabChange"
+      class="mb-4"
+    >
+      <Tabs.TabPane
+        v-for="tab in tabList"
+        :key="tab.key"
+        :tab="tab.label"
+      />
+      <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
+    </Tabs>
+
+    <Grid
+      v-show="activeTab !== 'recycle'"
+      :table-title="$t('page.crm.followup.title')"
+    >
 
       <template #followTimeSlot="{ row }">
         {{ formatDateTime(row.followTime) }}
@@ -431,7 +456,8 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
         <Popconfirm
           v-if="
             !isSubordinateView &&
-            accessStore.hasAccessCode('crm:followup:delete')
+            accessStore.hasAccessCode('crm:followup:delete') &&
+            canDeleteFollowup(row)
           "
           title="确定删除该跟进记录？"
           ok-text="确认"
@@ -458,6 +484,8 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
         </Popconfirm>
       </template>
     </Grid>
+
+    <RecycleBin v-show="activeTab === 'recycle'" :module="'followup'" />
 
     <Drawer
       v-model:open="detailVisible"

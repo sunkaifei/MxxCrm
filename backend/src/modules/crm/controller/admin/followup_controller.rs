@@ -38,9 +38,10 @@ pub async fn followup_update(state: web::Data<AppState>, req: HttpRequest, form_
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
-pub async fn bath_delete_followup(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
+pub async fn bath_delete_followup(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
+    let user_id = get_current_user_id(&req);
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的跟进记录ID", "local"));
@@ -51,7 +52,34 @@ pub async fn bath_delete_followup(state: web::Data<AppState>, item: web::Json<Ba
         .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
 
-    let result = followup_service::batch_delete_by_ids(&db, &filtered_ids).await;
+    // 删除前快照（审计 before）
+    let mut before: Vec<(i64, String)> = Vec::new();
+    for id in &filtered_ids {
+        if let Ok(c) = followup_service::find_by_id(&db, *id).await {
+            let label = c.content.as_deref()
+                .map(|s| s.chars().take(20).collect::<String>())
+                .unwrap_or_else(|| format!("#{}", id));
+            before.push((*id, label));
+        }
+    }
+
+    let result = followup_service::batch_delete_by_ids(&db, &filtered_ids, user_id).await;
+    if result.is_ok() {
+        // 审计埋点：删除跟进记录（D01-5）
+        for (id, label) in &before {
+            crate::modules::system::service::audit_service::record(
+                db,
+                &req,
+                "followup",
+                "delete",
+                "followup",
+                *id,
+                format!("删除跟进记录 {}", label),
+                None,
+                None,
+            ).await;
+        }
+    }
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 

@@ -43,6 +43,7 @@ pub async fn contact_update(state: web::Data<AppState>, req: HttpRequest, form_d
 pub async fn bath_delete_contact(state: web::Data<AppState>, req: HttpRequest, item: web::Json<BathDeleteIdRequest>) -> HttpResponse {
     let db = &state.db;
     let delete_item = item.0;
+    let user_id = get_current_user_id(&req);
 
     if delete_item.ids.is_none() || delete_item.ids.as_ref().unwrap().is_empty() {
         return HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "未获取到删除的联系人ID", "local"));
@@ -53,7 +54,31 @@ pub async fn bath_delete_contact(state: web::Data<AppState>, req: HttpRequest, i
         .filter_map(|item| item.as_ref().and_then(|s| s.trim().parse().ok()))
         .collect();
 
-    let result = contact_service::batch_delete_by_ids_checked(&db, &filtered_ids, get_current_user_id(&req)).await;
+    // 删除前快照（审计 before）
+    let mut before: Vec<(i64, Option<String>)> = Vec::new();
+    for id in &filtered_ids {
+        if let Ok(c) = contact_service::find_by_id(&db, *id).await {
+            before.push((*id, c.name.clone()));
+        }
+    }
+
+    let result = contact_service::batch_delete_by_ids_checked(&db, &filtered_ids, user_id).await;
+    if result.is_ok() {
+        // 审计埋点：删除联系人（D01-5）
+        for (id, name) in &before {
+            crate::modules::system::service::audit_service::record(
+                db,
+                &req,
+                "contact",
+                "delete",
+                "contact",
+                *id,
+                format!("删除联系人 {}", name.clone().unwrap_or_default()),
+                None,
+                None,
+            ).await;
+        }
+    }
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 

@@ -99,7 +99,7 @@ const statusLabelMap: Record<string, string> = {
   6: '未核查',
   7: '核查中',
   4: '无效线索',
-  8: '有效线索',
+  8: '线索池',
   1: '新线索',
   2: '跟进中',
   3: '已转化',
@@ -172,7 +172,7 @@ const followStatusOptions = [
   { label: '已回收', value: 5 },
   { label: '未核查', value: 6 },
   { label: '核查中', value: 7 },
-  { label: '有效线索', value: 8 },
+  { label: '线索池', value: 8 },
 ];
 
 const industryOptions = [

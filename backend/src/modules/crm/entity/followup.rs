@@ -32,6 +32,10 @@ pub struct Model {
     pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
     pub update_time: Option<DateTime>,
+    /// 删除人ID（回收站）
+    pub delete_by: Option<i64>,
+    /// 删除时间（回收站保留期计算）
+    pub delete_time: Option<DateTime>,
     pub deleted: Option<i32>,
     /// 签到地址
     pub visit_address: Option<String>,

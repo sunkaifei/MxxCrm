@@ -19,6 +19,7 @@ use crate::modules::crm::entity::customer::{self, Entity as Customer};
 use crate::modules::crm::entity::followup::{self, Entity as Followup};
 use crate::modules::crm::entity::lead::{self, Entity as Lead};
 use crate::modules::crm::entity::opportunity::{self, Entity as Opportunity};
+use crate::modules::crm::service::delete_guard_service::OPPORTUNITY_STAGE_VOIDED;
 use crate::modules::sale::entity::order::{self, Entity as Order};
 use crate::modules::sale::entity::order_item::{self, Entity as OrderItem};
 use crate::modules::sale::entity::payment::{self, Entity as Payment};
@@ -298,9 +299,10 @@ pub async fn get_forecast(
         .map(|o| o.amount.unwrap_or(Decimal::from(0)))
         .sum();
 
-    // 历史成交率 = 历史成交商机数 / 历史总商机数
+    // 历史成交率 = 历史成交商机数 / 历史总商机数（已作废商机不参与统计，规划方案 5.2 规则8）
     let mut all_opps_query = Opportunity::find()
-        .filter(opportunity::Column::Deleted.eq(0));
+        .filter(opportunity::Column::Deleted.eq(0))
+        .filter(opportunity::Column::Stage.ne(OPPORTUNITY_STAGE_VOIDED));
     if let Some(ref ids) = accessible_user_ids {
         all_opps_query = all_opps_query.filter(opportunity::Column::AssignedTo.is_in(ids.clone()));
     }
@@ -432,9 +434,10 @@ pub async fn get_funnel(
         .map(|c| c.total_deal_amount.unwrap_or(Decimal::from(0)))
         .sum();
 
-    // 阶段 3: 商机（Opportunity）
+    // 阶段 3: 商机（Opportunity；已作废商机不参与漏斗统计，规划方案 5.2 规则8）
     let mut opp_query = Opportunity::find()
         .filter(opportunity::Column::Deleted.eq(0))
+        .filter(opportunity::Column::Stage.ne(OPPORTUNITY_STAGE_VOIDED))
         .filter(opportunity::Column::CreateTime.between(start_dt, end_dt));
     if let Some(ref ids) = accessible_user_ids {
         opp_query = opp_query.filter(opportunity::Column::AssignedTo.is_in(ids.clone()));

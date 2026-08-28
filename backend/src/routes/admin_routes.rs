@@ -20,7 +20,7 @@ use crate::modules::shop::controller::admin::category_controller;
 use crate::modules::shop::controller::admin::audit_controller;
 use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller, expense_controller as finance_expense_controller, tax_controller, insurance_controller, bank_export_controller, payslip_controller, team_commission_controller, attendance_controller, salary_item_controller, salary_adjustment_controller, commission_pool_controller};
 use crate::modules::ai::controller::admin::{ai_config_controller, background_check_controller};
-use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, visit_controller, work_log_controller};
+use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, visit_controller, work_log_controller, recycle_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller, brand_controller, unit_conversion_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller, purchase_requisition_controller, purchase_receipt_controller, purchase_return_controller, purchase_stock_plan_controller, purchase_report_controller, supplier_brand_controller, supplier_product_controller};
 use crate::modules::production::controller::admin::{production_plan_controller, production_order_controller};
@@ -255,6 +255,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(todo_controller::register)
             // CRM Work Log
             .configure(work_log_controller::register)
+            // CRM Recycle Bin（回收站：还原 / 彻底删除，定时清理走 scheduler）
+            .configure(recycle_controller::register)
             // AI Config Management —— 已废弃，AI 配置统一到「第三方接口配置」integration_config (category=ai)
             // .configure(ai_config_controller::register)
             // Background Check Management

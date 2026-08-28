@@ -102,6 +102,14 @@ pub struct Model {
     /// 更新时间
     pub update_time: Option<DateTime>,
 
+    /// 退回线索池原因类型（与客户退回公海同枚举集）
+    pub release_reason_type: Option<i16>,
+    /// 退回线索池补充说明（"其他"时必填）
+    pub release_reason: Option<String>,
+    /// 删除人ID（回收站）
+    pub delete_by: Option<i64>,
+    /// 删除时间（回收站保留期计算）
+    pub delete_time: Option<DateTime>,
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
 }

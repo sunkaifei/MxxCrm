@@ -82,6 +82,10 @@ pub struct Model {
     /// 更新时间
     pub update_time: Option<DateTime>,
 
+    /// 删除人ID（回收站）
+    pub delete_by: Option<i64>,
+    /// 删除时间（回收站保留期计算）
+    pub delete_time: Option<DateTime>,
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
 }

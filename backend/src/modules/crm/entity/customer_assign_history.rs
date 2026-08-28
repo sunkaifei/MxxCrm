@@ -1,4 +1,4 @@
-﻿//!
+//!
 //! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
 //!
 //! https://www.mxxshop.com
@@ -28,6 +28,10 @@ pub struct Model {
     pub end_time: Option<DateTime>,
     /// 备注
     pub remark: Option<String>,
+    /// 退回原因类型：1=跟进无回应 2=客户无意向 3=客户信息无效 4=换业务方向 9=其他
+    pub reason_type: Option<i16>,
+    /// 退回补充说明（原因类型为"其他"时必填）
+    pub reason: Option<String>,
     /// 操作人ID
     pub operated_by: Option<i64>,
     /// 创建时间

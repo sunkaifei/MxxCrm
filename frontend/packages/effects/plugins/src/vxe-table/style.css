@@ -117,3 +117,40 @@
 .vxe-grid--layout-body-content-wrapper {
   overflow: hidden;
 }
+
+.vxe-grid .vxe-table--render-default {
+  height: 100%;
+  min-height: 0;
+}
+
+.vxe-grid .vxe-table--render-default > .vxe-table--render-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.vxe-grid .vxe-table--render-wrapper > .vxe-table--layout-wrapper {
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.vxe-grid .vxe-table--viewport-wrapper > .vxe-table--main-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.vxe-grid .vxe-table--main-wrapper > .vxe-table--body-wrapper {
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.vxe-grid .vxe-table--empty-place-wrapper {
+  bottom: 0;
+}
+
+.vxe-grid .vxe-table--empty-placeholder {
+  height: 100%;
+}

@@ -478,10 +478,12 @@ impl FollowupModel {
             .map(|r| r.last_insert_id)
     }
 
-    pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    pub async fn batch_delete_by_ids(db: &impl ConnectionTrait, ids: &Vec<i64>, deleted_by: i64) -> Result<i64, DbErr> {
         Followup::update_many()
             .set(followup::ActiveModel {
                 deleted: Set(Some(1)),
+                delete_by: Set(Some(deleted_by)),
+                delete_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             })
             .filter(followup::Column::Id.is_in(ids.clone()))

@@ -97,7 +97,11 @@ const gridOptions: VxeGridProps = {
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '280px' : '';
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '280px', 'important');
+          } else {
+            gridEl.style.removeProperty('height');
+          }
         }
         return result;
       },

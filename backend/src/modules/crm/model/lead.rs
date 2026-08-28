@@ -475,6 +475,15 @@ pub struct LeadStatusUpdateQuery {
     pub status: Option<i32>,
 }
 
+/// 退回线索池请求（退回原因两级结构：原因类型必选，选"其他"时补充说明必填）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LeadPoolReleaseRequest {
+    pub id: Option<i64>,
+    pub reason_type: Option<i16>,
+    pub reason: Option<String>,
+}
+
 /// 线索数据模型操作类
 pub struct LeadModel;
 
@@ -532,10 +541,12 @@ impl LeadModel {
     ///
     /// # 返回
     /// * `Result<i64, DbErr>` - 删除的记录数
-    pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    pub async fn batch_delete_by_ids(db: &impl ConnectionTrait, ids: &Vec<i64>, deleted_by: i64) -> Result<i64, DbErr> {
         Lead::update_many()
             .set(lead::ActiveModel {
                 deleted: Set(Some(1)),
+                delete_by: Set(Some(deleted_by)),
+                delete_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             })
             .filter(lead::Column::Id.is_in(ids.clone()))
@@ -867,8 +878,31 @@ impl LeadModel {
         Ok(update_result.rows_affected as i64)
     }
 
-    pub async fn add_to_pool(db: &DbConn, id: i64, updated_by: Option<i64>) -> Result<i64, DbErr> {
-        Self::update_status(db, id, 8, updated_by).await
+    /// 退回线索池（status=8），并落退回原因（与客户退回公海同结构留痕）
+    pub async fn add_to_pool(
+        db: &impl ConnectionTrait,
+        id: i64,
+        updated_by: Option<i64>,
+        reason_type: Option<i16>,
+        reason: Option<String>,
+    ) -> Result<i64, DbErr> {
+        let payload = lead::ActiveModel {
+            status: Set(Some(8)),
+            release_reason_type: Set(reason_type),
+            release_reason: Set(reason),
+            updated_by: Set(updated_by),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            ..Default::default()
+        };
+
+        let update_result: UpdateResult = Lead::update_many()
+            .set(payload)
+            .filter(lead::Column::Id.eq(id))
+            .filter(lead::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+
+        Ok(update_result.rows_affected as i64)
     }
 
     /// 领取线索：分配负责人、转客户

@@ -81,6 +81,7 @@ impl From<CustomerSaveRequest> for CustomerSaveDTO {
     fn from(item: CustomerSaveRequest) -> Self {
         CustomerSaveDTO {
             id: None,
+            from_pool: None,
             customer_no: item.customer_no,
             customer_type: item.customer_type,
             company_name: item.company_name,
@@ -187,6 +188,7 @@ impl From<CustomerUpdateRequest> for CustomerSaveDTO {
     fn from(item: CustomerUpdateRequest) -> Self {
         CustomerSaveDTO {
             id: item.id,
+            from_pool: None,
             customer_no: item.customer_no,
             customer_type: item.customer_type,
             company_name: item.company_name,
@@ -230,6 +232,8 @@ impl From<CustomerUpdateRequest> for CustomerSaveDTO {
 pub struct CustomerSaveDTO {
     /// 客户ID
     pub id: Option<i64>,
+    /// 客户来源：0=自建，1=公海/线索来源（线索转客户置1，删除按钮显隐依赖）
+    pub from_pool: Option<i16>,
     /// 客户编号
     pub customer_no: Option<String>,
     /// 客户类型: 1=企业, 2=个人
@@ -355,6 +359,8 @@ pub struct CustomerDetailVO {
     pub assigned_to: Option<i64>,
     /// 负责人名称
     pub assigned_to_name: Option<String>,
+    /// 客户来源：0=自建，1=公海来源（删除按钮显隐依赖）
+    pub from_pool: Option<i16>,
     /// 创建人ID
     pub created_by: Option<i64>,
     /// 创建人名称
@@ -410,6 +416,7 @@ impl From<customer::Model> for CustomerDetailVO {
             credit_days: item.credit_days,
             assigned_to: item.assigned_to,
             assigned_to_name: None,
+            from_pool: item.from_pool,
             created_by: item.created_by,
             created_by_name: None,
             create_time: item.create_time,
@@ -461,6 +468,8 @@ pub struct CustomerListVO {
     pub assigned_to: Option<i64>,
     /// 负责人名称
     pub assignee_name: Option<String>,
+    /// 客户来源：0=自建，1=公海来源（列表按钮显隐依赖）
+    pub from_pool: Option<i16>,
     /// 累计成交金额
     pub total_deal_amount: Option<Decimal>,
     /// 最后成交时间
@@ -506,6 +515,7 @@ impl From<customer::Model> for CustomerListVO {
             source: item.source,
             assigned_to: item.assigned_to,
             assignee_name: None,
+            from_pool: item.from_pool,
             total_deal_amount: item.total_deal_amount,
             last_deal_at: item.last_deal_at,
             created_by: item.created_by,
@@ -544,6 +554,18 @@ pub struct CustomerListQuery {
     pub assigned_to: Option<i64>,
     /// 列表类型：all=全部客户, my=我的客户, subordinate=下属客户, todayFollow=今日跟进客户
     pub list_type: Option<String>,
+}
+
+/// 退回公海请求（退回原因两级结构：原因类型必选，选"其他"时补充说明必填）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerPoolReleaseRequest {
+    /// 客户ID
+    pub id: Option<i64>,
+    /// 退回原因类型：1=跟进无回应 2=客户无意向 3=客户信息无效 4=换业务方向 9=其他
+    pub reason_type: Option<i16>,
+    /// 退回补充说明（原因类型为"其他"时必填）
+    pub reason: Option<String>,
 }
 
 /// 客户数据模型操作类
@@ -586,6 +608,7 @@ impl CustomerModel {
             create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(now)),
+            from_pool: Set(req.from_pool.or(Some(0))),
             ..Default::default()
         };
 
@@ -595,11 +618,13 @@ impl CustomerModel {
             .map(|r| r.last_insert_id)
     }
 
-    /// 批量删除客户(软删除)
-    pub async fn batch_delete_by_ids(db: &impl ConnectionTrait, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    /// 批量删除客户(软删除，写入删除人/删除时间供回收站使用)
+    pub async fn batch_delete_by_ids(db: &impl ConnectionTrait, ids: &Vec<i64>, deleted_by: i64) -> Result<i64, DbErr> {
         Customer::update_many()
             .set(customer::ActiveModel {
                 deleted: Set(Some(1)),
+                delete_by: Set(Some(deleted_by)),
+                delete_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             })
             .filter(customer::Column::Id.is_in(ids.clone()))
@@ -927,10 +952,11 @@ impl CustomerModel {
         Ok((rows, total))
     }
 
-    /// 领取公海客户（设置负责人）
+    /// 领取公海客户（设置负责人，并标记为公海来源）
     pub async fn claim(db: &impl ConnectionTrait, id: i64, user_id: i64) -> Result<i64, DbErr> {
         let payload = customer::ActiveModel {
             assigned_to: Set(Some(user_id)),
+            from_pool: Set(Some(1)),
             updated_by: Set(Some(user_id)),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()

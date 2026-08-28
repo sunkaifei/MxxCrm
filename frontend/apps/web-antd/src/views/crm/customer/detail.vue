@@ -12,6 +12,7 @@ import {
   LucideBuilding2,
   LucideChevronDown,
   LucideChevronUp,
+  LucideCircleOff,
   LucideFilePenLine,
   LucideGlobe,
   LucideMail,
@@ -21,6 +22,7 @@ import {
   LucidePlus,
   LucideUserPlus,
 } from '@vben/icons';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
 import { useDebounceFn } from '@vueuse/core';
@@ -42,7 +44,6 @@ import {
   Menu,
   MenuItem,
   message,
-  Modal,
   Pagination,
   Popconfirm,
   Row,
@@ -74,6 +75,7 @@ import {
   getPaymentListApi,
   getRefundListApi,
   updateCustomerApi,
+  voidOpportunityApi,
 } from '#/api';
 import {
   getBackgroundCheckDetailApi,
@@ -91,6 +93,7 @@ import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { createFollowupApi } from '#/api/core/crm/followup';
 import { requestClient } from '#/api/request';
 
+import ReasonFormModal from '../components/ReasonFormModal.vue';
 import SendMailModal from '../components/SendMailModal.vue';
 import TagSelector from '../components/TagSelector.vue';
 import ContactDrawer from '../contact/drawer.vue';
@@ -104,6 +107,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'created', id: number | string): void;
 }>();
+
+const accessStore = useAccessStore();
+const userStore = useUserStore();
 
 function toCamelCase(obj: any): any {
   if (obj === null || obj === undefined) return obj;
@@ -1266,21 +1272,63 @@ async function loadMailLogs() {
   }
 }
 
+// ===== 通用原因弹窗（退回公海 pool / 商机作废 void 共用一个实例）=====
+const reasonModal = reactive({
+  visible: false,
+  mode: 'pool' as 'pool' | 'void',
+  title: '',
+  okText: '确定',
+  submitting: false,
+});
+const reasonTarget = ref<null | { id: number | string }>(null);
+
 const handleReturnToPool = () => {
-  Modal.confirm({
+  if (!props.id) return;
+  reasonTarget.value = { id: props.id };
+  Object.assign(reasonModal, {
+    visible: true,
+    mode: 'pool',
     title: '退回公海',
-    content: `确定将客户"${customer.value.companyName}"退回公海吗？`,
-    onOk: async () => {
-      try {
-        await addCustomerToPoolApi(Number(props.id));
-        message.success('已退回公海');
-        loadData();
-      } catch {
-        message.error('退回公海失败');
-      }
-    },
+    okText: '确认退回',
   });
 };
+
+async function onReasonConfirm({
+  reason,
+  reasonType,
+}: {
+  reason: string;
+  reasonType?: number;
+}) {
+  const target = reasonTarget.value;
+  if (!target) return;
+  if (reasonModal.mode === 'void') {
+    reasonModal.submitting = true;
+    try {
+      await voidOpportunityApi(Number(target.id), reason);
+      message.success('商机已作废');
+      reasonModal.visible = false;
+      loadOpportunities();
+    } catch {
+      // 全局拦截处理
+    } finally {
+      reasonModal.submitting = false;
+    }
+    return;
+  }
+  if (reasonType === undefined) return;
+  reasonModal.submitting = true;
+  try {
+    await addCustomerToPoolApi({ id: Number(target.id), reason, reasonType });
+    message.success('已退回公海');
+    reasonModal.visible = false;
+    loadData();
+  } catch {
+    message.error('退回公海失败');
+  } finally {
+    reasonModal.submitting = false;
+  }
+}
 
 const followups = computed(() => customer.value?.followups || []);
 
@@ -1646,6 +1694,7 @@ const stageLabelMap: Record<number, string> = {
   3: '方案沟通',
   4: '已报价',
   5: '成交/丢单',
+  6: '已作废',
 };
 const stageColorMap: Record<number, string> = {
   1: 'blue',
@@ -1653,7 +1702,30 @@ const stageColorMap: Record<number, string> = {
   3: 'gold',
   4: 'orange',
   5: 'green',
+  6: 'default',
 };
+
+// 商机删除按钮显隐（本人 + 未超 24h 删除窗口；后端删除校验为准）
+const CRM_DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function canDeleteOpportunity(row: any): boolean {
+  if (row.createdBy !== userStore.userInfo?.userId) return false;
+  if (!row.createTime) return false;
+  return (
+    Date.now() - new Date(row.createTime).getTime() <= CRM_DELETE_WINDOW_MS
+  );
+}
+
+// 作废商机（原因必填；仅负责人/管理员，权限码 crm:opportunity:void）
+function openVoidReason(row: any) {
+  reasonTarget.value = row;
+  Object.assign(reasonModal, {
+    visible: true,
+    mode: 'void',
+    title: '作废商机',
+    okText: '确认作废',
+  });
+}
 
 async function loadOpportunities() {
   if (!props.id) return;
@@ -1895,7 +1967,11 @@ watch(
                 <Menu>
                   <MenuItem key="transfer">转移负责人</MenuItem>
                   <MenuItem key="merge">合并客户</MenuItem>
-                  <MenuItem key="returnToPool" @click="handleReturnToPool">
+                  <MenuItem
+                    key="returnToPool"
+                    v-if="accessStore.hasAccessCode('crm:customer:return-pool')"
+                    @click="handleReturnToPool"
+                  >
                     退回公海
                   </MenuItem>
                 </Menu>
@@ -2993,6 +3069,7 @@ watch(
                     v-for="opp in opportunities"
                     :key="opp.id"
                     class="opp-card"
+                    :class="{ 'opp-voided': opp.stage === 6 }"
                   >
                     <div class="opp-card-main">
                       <div class="opp-card-top">
@@ -3017,7 +3094,23 @@ watch(
                               <LucideFilePenLine :size="14" />
                             </Button>
                           </Tooltip>
+                          <Tooltip
+                            v-if="
+                              opp.stage !== 6 &&
+                              accessStore.hasAccessCode('crm:opportunity:void')
+                            "
+                            title="作废"
+                          >
+                            <Button
+                              type="link"
+                              size="small"
+                              @click.stop="openVoidReason(opp)"
+                            >
+                              <LucideCircleOff :size="14" />
+                            </Button>
+                          </Tooltip>
                           <Popconfirm
+                            v-if="canDeleteOpportunity(opp)"
                             title="确定删除该商机？"
                             @confirm="handleDeleteOpportunity(opp)"
                             ok-text="确认"
@@ -3821,6 +3914,15 @@ watch(
           }
         "
       />
+
+      <ReasonFormModal
+        v-model:visible="reasonModal.visible"
+        :title="reasonModal.title"
+        :mode="reasonModal.mode"
+        :ok-text="reasonModal.okText"
+        :submitting="reasonModal.submitting"
+        @confirm="onReasonConfirm"
+      />
     </Skeleton>
   </div>
 </template>
@@ -4350,6 +4452,15 @@ watch(
 
 .opp-card:hover {
   background: var(--background-color-light, #fafafa);
+}
+
+/* 已作废商机置灰展示 */
+.opp-card.opp-voided {
+  opacity: 0.55;
+}
+
+.opp-card.opp-voided .opp-card-title {
+  text-decoration: line-through;
 }
 
 .opp-card-main {

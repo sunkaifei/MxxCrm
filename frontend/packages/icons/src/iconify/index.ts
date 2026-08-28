@@ -140,3 +140,6 @@ export const LucideUserCheck = createIconifyIcon('lucide:user-check');
 // 盘点操作图标
 export const LucidePlay = createIconifyIcon('lucide:play');
 export const LucideSquare = createIconifyIcon('lucide:square');
+
+// CRM 删除与作废图标
+export const LucideCircleOff = createIconifyIcon('lucide:circle-off');

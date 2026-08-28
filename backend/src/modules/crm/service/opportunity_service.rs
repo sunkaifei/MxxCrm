@@ -9,7 +9,8 @@
 //!
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
-use crate::modules::crm::entity::{contact, customer};
+use crate::modules::crm::entity::{contact, customer, opportunity, opportunity::Entity as Opportunity};
+use crate::modules::crm::service::delete_guard_service;
 use crate::modules::crm::model::opportunity::{OpportunityDetailVO, OpportunityListQuery, OpportunityListVO, OpportunityModel, OpportunitySaveDTO, OpportunitySaveRequest, OpportunityUpdateRequest};
 use crate::modules::system::entity::dept as dept_entity;
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
@@ -19,7 +20,7 @@ use crate::modules::system::service::role_service;
 use crate::modules::system::service::sales_flow_config_service;
 use crate::modules::sale::entity::{quotation, quotation::Entity as Quotation};
 use crate::modules::sale::model::order::{OrderModel, OrderSaveDTO};
-use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, sea_query::Expr, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, Set, TransactionTrait};
 use std::collections::HashMap;
 
 pub async fn insert(db: &DbConn, form_data: &OpportunitySaveRequest, created_by: i64) -> Result<i64> {
@@ -76,12 +77,103 @@ pub async fn update(db: &DbConn, form_data: &OpportunityUpdateRequest, updated_b
     Ok(result)
 }
 
-pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>) -> Result<i64> {
+pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<i64>, deleted_by: i64) -> Result<i64> {
     if ids_vec.is_empty() {
         return Ok(0);
     }
-    let result = OpportunityModel::batch_delete_by_ids(&db, &ids_vec).await?;
+    let txn = db.begin().await?;
+
+    // 查询待删除的旧数据（用于校验）
+    let old_models = Opportunity::find()
+        .filter(opportunity::Column::Id.is_in(ids_vec.clone()))
+        .filter(opportunity::Column::Deleted.eq(0))
+        .all(&txn)
+        .await?;
+    if old_models.len() != ids_vec.len() {
+        txn.rollback().await?;
+        return Err(Error::from("部分商机不存在或已删除，请刷新后重试"));
+    }
+
+    // 事务内逐条前置校验（delete_guard 四条件），任一失败整体回滚并返回失败明细
+    let mut failures: Vec<String> = Vec::new();
+    for m in &old_models {
+        if let Err(e) = delete_guard_service::check_opportunity_deletable(&txn, m, deleted_by).await {
+            let title = m.title.clone().unwrap_or_else(|| format!("#{}", m.id));
+            failures.push(format!("【{}】{}", title, e));
+        }
+    }
+    if !failures.is_empty() {
+        txn.rollback().await?;
+        return Err(Error::from(format!("删除失败：{}", failures.join("；"))));
+    }
+
+    let result = OpportunityModel::batch_delete_by_ids(&txn, &ids_vec, deleted_by).await?;
+
+    txn.commit().await?;
     Ok(result)
+}
+
+/// 作废商机（规划方案 5.2 作废规则：原因必填 + 状态机检查 + 关联下游拦截；
+/// 可操作人：商机负责人 + 管理员；stage=6，记录 prev_stage 供恢复）
+pub async fn void_opportunity(db: &DbConn, id: i64, reason: &str, operator_id: i64) -> Result<()> {
+    // 作废原因后端兜底必填（参照 void_invoice 的理由必填口径）
+    if reason.trim().is_empty() {
+        return Err(Error::from("作废原因不能为空"));
+    }
+    let txn = db.begin().await?;
+
+    let opp = Opportunity::find_by_id(id).one(&txn).await?
+        .ok_or_else(|| Error::from("商机不存在"))?;
+    // 可操作人：商机负责人 + 管理员（规划方案 5.2 作废规则5）
+    if opp.assigned_to != Some(operator_id) {
+        let manager = delete_guard_service::is_manager(db, operator_id, "crm:opportunity:void").await?;
+        if !manager {
+            txn.rollback().await?;
+            return Err(Error::from("仅商机负责人可作废该商机"));
+        }
+    }
+    // 状态机 + 关联合同/订单检查（终态禁作废；报价单不拦，随审计留痕——quotation 无失效状态枚举）
+    delete_guard_service::check_opportunity_voidable(&txn, &opp).await?;
+
+    let prev_stage = opp.stage;
+    let mut active: opportunity::ActiveModel = opp.into();
+    active.stage = Set(Some(delete_guard_service::OPPORTUNITY_STAGE_VOIDED));
+    active.void_reason = Set(Some(reason.trim().to_string()));
+    active.prev_stage = Set(prev_stage);
+    active.updated_by = Set(Some(operator_id));
+    active.update_time = Set(Some(chrono::Local::now().naive_local()));
+    active.update(&txn).await.map_err(|e| Error::from(e.to_string()))?;
+
+    txn.commit().await?;
+    Ok(())
+}
+
+/// 恢复已作废商机（规划方案 5.2 规则7：仅管理员，回到作废前阶段并清空 void_reason/prev_stage，作废历史靠审计留痕）
+pub async fn recover_opportunity(db: &DbConn, id: i64, operator_id: i64) -> Result<()> {
+    let manager = delete_guard_service::is_manager(db, operator_id, "crm:opportunity:void").await?;
+    if !manager {
+        return Err(Error::from("仅管理员可恢复已作废商机"));
+    }
+    let txn = db.begin().await?;
+
+    let opp = Opportunity::find_by_id(id).one(&txn).await?
+        .ok_or_else(|| Error::from("商机不存在"))?;
+    if opp.stage != Some(delete_guard_service::OPPORTUNITY_STAGE_VOIDED) {
+        txn.rollback().await?;
+        return Err(Error::from("该商机不是已作废状态，无需恢复"));
+    }
+    let target_stage = opp.prev_stage.unwrap_or(1);
+
+    let mut active: opportunity::ActiveModel = opp.into();
+    active.stage = Set(Some(target_stage));
+    active.void_reason = Set(None);
+    active.prev_stage = Set(None);
+    active.updated_by = Set(Some(operator_id));
+    active.update_time = Set(Some(chrono::Local::now().naive_local()));
+    active.update(&txn).await.map_err(|e| Error::from(e.to_string()))?;
+
+    txn.commit().await?;
+    Ok(())
 }
 
 pub async fn find_by_id(db: &DbConn, id: i64) -> Result<OpportunityDetailVO> {

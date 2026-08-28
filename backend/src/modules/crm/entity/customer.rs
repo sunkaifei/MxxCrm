@@ -66,10 +66,16 @@ pub struct Model {
     pub longitude: Option<Decimal>,
     /// 详细地址
     pub address_detail: Option<String>,
+    /// 客户来源：0=自建，1=公海来源（创建写0，领取写1）
+    pub from_pool: Option<i16>,
     pub created_by: Option<i64>,
     pub create_time: Option<DateTime>,
     pub updated_by: Option<i64>,
     pub update_time: Option<DateTime>,
+    /// 删除人ID（回收站）
+    pub delete_by: Option<i64>,
+    /// 删除时间（回收站保留期计算）
+    pub delete_time: Option<DateTime>,
     pub deleted: Option<i32>,
 }
 

@@ -139,7 +139,8 @@
         "create": "Add Opportunity",
         "edit": "Edit Opportunity",
         "delete": "Delete Opportunity",
-        "view": "View Opportunity"
+        "view": "View Opportunity",
+        "void": "Void Opportunity"
       },
       "guide": {
         "title": "Opportunity Management Guide",
@@ -320,6 +321,13 @@
       "button": {
         "add": "Add Visit",
         "export": "Export"
+      }
+    },
+    "recycle": {
+      "title": "Recycle Bin",
+      "button": {
+        "restore": "Restore",
+        "purge": "Delete Permanently"
       }
     }
   }

@@ -31,8 +31,14 @@ pub async fn record_claim(db: &impl ConnectionTrait, customer_id: i64, admin_id:
     Ok(())
 }
 
-/// 记录退回公海历史（关闭当前正在负责的记录）
-pub async fn record_release(db: &impl ConnectionTrait, customer_id: i64, admin_id: i64) -> Result<()> {
+/// 记录退回公海历史（关闭当前正在负责的记录，写入退回原因类型与补充说明）
+pub async fn record_release(
+    db: &impl ConnectionTrait,
+    customer_id: i64,
+    admin_id: i64,
+    reason_type: Option<i16>,
+    reason: &Option<String>,
+) -> Result<()> {
     let now = chrono::Local::now().naive_local();
     // 找到当前正在负责的记录（end_time IS NULL）
     let current = AssignHistory::find()
@@ -46,6 +52,8 @@ pub async fn record_release(db: &impl ConnectionTrait, customer_id: i64, admin_i
         let mut active: customer_assign_history::ActiveModel = record.into();
         active.end_time = Set(Some(now));
         active.remark = Set(Some("退回公海".to_string()));
+        active.reason_type = Set(reason_type);
+        active.reason = Set(reason.clone());
         AssignHistory::update(active).exec(db).await
             .map_err(|e| Error::from(format!("更新退回历史失败: {}", e)))?;
     }

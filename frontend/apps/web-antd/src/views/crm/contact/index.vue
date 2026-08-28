@@ -26,11 +26,13 @@ import {
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteContactApi, getContactListApi } from '#/api';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
 import CustomerDetailDrawer from '../components/CustomerDetailDrawer.vue';
 import ContactDetail from './detail.vue';
 import ContactDrawer from './drawer.vue';
+import RecycleBin from '../components/RecycleBin.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
@@ -162,8 +164,11 @@ function handleReset() {
   gridApi.query();
 }
 
+const { isSuperAdmin } = useSuperAdminGuard();
+
 function handleTabChange(key: number | string) {
   activeTab.value = String(key);
+  if (key === 'recycle') return;
   gridApi.query();
 }
 
@@ -190,7 +195,11 @@ const gridOptions: VxeGridProps = {
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
-          gridEl.style.height = items.length === 0 ? '150px' : '';
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '150px', 'important');
+          } else {
+            gridEl.style.removeProperty('height');
+          }
         }
         // 等DOM渲染完成后同步固定列行高并居中内容
         const syncFixedColumn = (retry = 0) => {
@@ -306,6 +315,14 @@ function handleEdit(row: any) {
   openDrawer(false, row);
 }
 
+// 删除显隐：本人创建 + 24h 内（后端删除守卫为准，前端仅预判）
+const CRM_DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
+function canDeleteContact(row: any): boolean {
+  if (row.createdBy !== userStore.userInfo?.userId) return false;
+  if (!row.createTime) return false;
+  return Date.now() - new Date(row.createTime).getTime() <= CRM_DELETE_WINDOW_MS;
+}
+
 async function handleDelete(row: any) {
   row.pending = true;
   try {
@@ -328,7 +345,8 @@ async function handleBatchDelete() {
     content: `确定批量删除 ${records.length} 个联系人？`,
     onOk: async () => {
       try {
-        await Promise.all(records.map((r: any) => deleteContactApi(r.id)));
+        const ids = records.map((r: any) => r.id);
+        await deleteContactApi(ids);
         message.success(`已删除 ${records.length} 个联系人`);
         gridApi.query();
       } catch {
@@ -341,16 +359,20 @@ async function handleBatchDelete() {
 
 <template>
   <Page>
-    <Card :bordered="false" class="mb-4">
+    <Card :bordered="false" class="contact-filter-card mb-4">
       <Tabs
         v-model:active-key="activeTab"
         @change="handleTabChange"
         class="mb-4"
       >
         <Tabs.TabPane v-for="tab in tabList" :key="tab.key" :tab="tab.label" />
+        <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
       </Tabs>
 
+      <RecycleBin v-show="activeTab === 'recycle'" :module="'contact'" />
+
       <Form
+        v-show="activeTab !== 'recycle'"
         :model="searchForm"
         layout="inline"
         :label-col="{ style: { width: '80px' } }"
@@ -446,7 +468,11 @@ async function handleBatchDelete() {
       </Form>
     </Card>
 
-    <Grid :table-title="$t('page.crm.contact.title')">
+    <Grid
+      v-show="activeTab !== 'recycle'"
+      :table-title="$t('page.crm.contact.title')"
+      class="contact-grid-card"
+    >
       <template #createdAt="{ row }">
         {{ formatDateTime(row.createTime) }}
       </template>
@@ -498,7 +524,8 @@ async function handleBatchDelete() {
           <Button
             v-if="
               !isSubordinateView &&
-              accessStore.hasAccessCode('crm:contact:delete')
+              accessStore.hasAccessCode('crm:contact:delete') &&
+              canDeleteContact(row)
             "
             type="link"
             danger
@@ -541,6 +568,15 @@ async function handleBatchDelete() {
 </template>
 
 <style scoped>
+/* 筛选卡片与表格卡片间距（scoped 固化，不依赖 Tailwind 工具类） */
+.contact-filter-card {
+  margin-bottom: 16px;
+}
+
+.contact-grid-card {
+  margin-top: 16px;
+}
+
 .contact-search-form :deep(.ant-form-item) {
   width: 100%;
   margin-bottom: 0;

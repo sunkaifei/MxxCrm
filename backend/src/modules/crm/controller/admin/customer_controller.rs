@@ -17,7 +17,7 @@ use sea_orm::EntityTrait;
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::crm::model::customer::{CustomerListQuery, CustomerSaveRequest, CustomerUpdateRequest};
+use crate::modules::crm::model::customer::{CustomerListQuery, CustomerPoolReleaseRequest, CustomerSaveRequest, CustomerUpdateRequest};
 use crate::modules::crm::model::customer_financial::{CustomerFinancialSaveDTO, CustomerFinancialModel};
 use crate::modules::crm::service::customer_service;
 use crate::modules::crm::service::contact_service;
@@ -178,20 +178,42 @@ pub async fn customer_claim(state: web::Data<AppState>, req: HttpRequest, item: 
 }
 
 /// 退回公海
-pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> Result<HttpResponse> {
+pub async fn customer_add_to_pool(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CustomerPoolReleaseRequest>) -> Result<HttpResponse> {
     let db = &state.db;
-    let item = item.0;
+    let form_data = form_data.0;
 
-    if item.id.is_none() {
+    if form_data.id.is_none() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "客户ID不能为空", "local")));
     }
 
     let user_id = get_current_user_id(&req);
+    let customer_id = form_data.id.unwrap();
 
-    match customer_service::add_to_pool(&db, item.id.unwrap(), user_id).await {
-        Ok(v) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    let result = customer_service::add_to_pool(
+        db,
+        customer_id,
+        user_id,
+        form_data.reason_type,
+        form_data.reason.clone(),
+    ).await;
+    if result.is_ok() {
+        // 审计埋点：退回公海（记录退回原因，G6）
+        crate::modules::system::service::audit_service::record(
+            db,
+            &req,
+            "customer",
+            "release",
+            "customer",
+            customer_id,
+            format!("退回公海，原因类型：{:?}", form_data.reason_type),
+            crate::modules::system::service::audit_service::snap(vec![
+                ("reason_type", serde_json::json!(form_data.reason_type)),
+                ("reason", serde_json::json!(form_data.reason)),
+            ]),
+            None,
+        ).await;
     }
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
 /// 获取客户分配历史（负责人时间轴）

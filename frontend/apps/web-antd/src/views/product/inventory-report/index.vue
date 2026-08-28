@@ -79,7 +79,11 @@ function handleReset() {
 function handleGridHeight(api: any, data: any[]) {
   const gridEl = api.grid?.$el as HTMLElement | undefined;
   if (gridEl) {
-    gridEl.style.height = data.length === 0 ? '200px' : '';
+    if (data.length === 0) {
+      gridEl.style.setProperty('height', '200px', 'important');
+    } else {
+      gridEl.style.removeProperty('height');
+    }
   }
 }
 

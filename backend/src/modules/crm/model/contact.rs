@@ -539,10 +539,12 @@ impl ContactModel {
     }
 
     /// 批量删除联系人（软删除）
-    pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64, DbErr> {
+    pub async fn batch_delete_by_ids(db: &impl ConnectionTrait, ids: &Vec<i64>, deleted_by: i64) -> Result<i64, DbErr> {
         Contact::update_many()
             .set(contact::ActiveModel {
                 deleted: Set(Some(1)),
+                delete_by: Set(Some(deleted_by)),
+                delete_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
                 ..Default::default()
             })
             .filter(contact::Column::Id.is_in(ids.clone()))
