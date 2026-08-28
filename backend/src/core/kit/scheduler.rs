@@ -376,6 +376,18 @@ async fn add_job_to_scheduler(
                 }
             };
 
+            // D-4: 两阶段日志——进入闭包先记录"运行中"(status=2)
+            // 任务执行中进程退出/调度器重载时该记录保持 status=2，
+            // 由下次启动时的 mark_interrupted_runs 标记为中断(status=3)
+            let log_id = match scheduler_service::start_run_log(&db, job_id, &job_code, 0, 0, "系统定时任务").await
+            {
+                Ok(id) => Some(id),
+                Err(e) => {
+                    log::warn!("[定时任务] {} 记录运行日志失败: {}", job_code, e);
+                    None
+                }
+            };
+
             // P2-6: 带指数退避重试的执行
             // 策略：首次失败后按 base * 2^attempt 秒间隔重试，最多 max_retries 次
             // 全部失败后记录最终错误并发送告警
