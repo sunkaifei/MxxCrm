@@ -843,11 +843,28 @@ impl ApprovalModel {
             flow_version: Set(Some(1)),
             ..Default::default()
         };
+        // 数据库层幂等兜底：并发双击/重试窗口内命中部分唯一索引 uq_approval_instance_active_business（见 sql/d14），
+        // 统一在此转译为业务友好提示，覆盖 submit() 全部三个创建实例出口及未来新增调用方
         let result = InstanceEntity::insert(active)
             .exec(db)
             .await
-            .map_err(|e| Error::from(e.to_string()))?;
+            .map_err(|e| {
+                let msg = e.to_string();
+                if msg.contains("duplicate key value violates unique constraint")
+                    && msg.contains("uq_approval_instance_active_business")
+                {
+                    Error::from(ApprovalModel::active_dup_hint())
+                } else {
+                    Error::from(msg)
+                }
+            })?;
         Ok(result.last_insert_id)
+    }
+
+    /// 在途实例唯一冲突的兜底文案（数据库部分唯一索引触发时的通用提示）
+    pub fn active_dup_hint() -> String {
+        "该记录已存在进行中的审批流程，请勿重复提交；如需重新发起，请先撤回当前流程后再提交"
+            .to_string()
     }
 
     /// 从快照 JSON 中解析出 flow nodes 和 edges

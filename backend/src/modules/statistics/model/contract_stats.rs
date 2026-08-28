@@ -2,7 +2,6 @@ use sea_orm::prelude::Decimal;
 use crate::core::kit::global::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct ContractRankingVO {
     pub rank: Option<i32>,
     pub target_type: Option<String>,
@@ -15,7 +14,6 @@ pub struct ContractRankingVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct ContractTypeDistributionVO {
     pub contract_type: Option<String>,
     pub contract_count: Option<i64>,
@@ -24,7 +22,6 @@ pub struct ContractTypeDistributionVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct ContractStatusAnalysisVO {
     pub status: Option<String>,
     pub status_name: Option<String>,
@@ -34,7 +31,6 @@ pub struct ContractStatusAnalysisVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct ContractStatsQuery {
     pub year: Option<i32>,
     pub month: Option<i32>,

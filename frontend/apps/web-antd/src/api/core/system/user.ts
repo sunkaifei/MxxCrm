@@ -81,3 +81,10 @@ export const getColumnsConfigApi = async () => {
 export const saveColumnsConfigApi = async (config: Record<string, string[]>) => {
   return requestClient.put('/api/system/admin/columns_config', config);
 };
+
+/**
+ * 一键分配员工编号：为所有未分配编号的员工按编号规则生成编号（如 X001），已有编号的自动跳过
+ */
+export const assignEmployeeNosApi = async () => {
+  return requestClient.post('/api/system/admin/assign_employee_nos');
+};

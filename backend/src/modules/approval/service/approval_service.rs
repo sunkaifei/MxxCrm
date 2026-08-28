@@ -2,7 +2,7 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::approval::entity::approval_flow_edge;
 use crate::modules::approval::entity::approval_flow_node;
-use crate::modules::approval::entity::approval_instance::{Column as InstanceColumn, Entity as InstanceEntity};
+use crate::modules::approval::entity::approval_instance::{Column as InstanceColumn, Entity as InstanceEntity, Model as InstanceModel};
 use crate::modules::approval::model::approval::*;
 use crate::modules::crm::entity::contract;
 use crate::modules::crm::model::work_log::WorkLogCreateDTO;
@@ -10,12 +10,12 @@ use crate::modules::crm::service::work_log_service;
 use crate::modules::message::service::notification_service::NotificationService;
 use crate::modules::sale::entity::invoice;
 use crate::modules::sale::entity::order;
-use crate::modules::system::entity::admin::{Entity as AdminEntity};
+use crate::modules::system::entity::admin::{Column as AdminColumn, Entity as AdminEntity};
 use crate::modules::system::entity::admin_role_merge::{Column as RoleMergeColumn, Entity as RoleMergeEntity};
 use crate::modules::system::entity::role::{Column as RoleColumn, Entity as RoleEntity};
 use crate::modules::system::service::profile_service;
 
-use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, TransactionTrait};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, TransactionTrait};
 
 pub struct ApprovalService;
 
@@ -70,18 +70,37 @@ impl ApprovalService {
                     missing.join("、")
                 )));
             }
+            // 合同信息随提交写入员工档案（前端在 extra_data 中携带 contractType/contractMonths，
+            // 同时自动随审批实例留痕供审批历史追溯；contract_type=2 无固定期限时清空合同期限），
+            // 写入失败视为提交失败，保证档案与审批内容一致；未携带合同信息的提交入口不触发写入
+            if let Some(extra) = req.extra_data.as_ref() {
+                if let Some(ct) = extra.get("contractType").and_then(|v| v.as_i64()).map(|v| v as i16) {
+                    let cm: Option<i32> = extra.get("contractMonths").and_then(|v| v.as_i64()).map(|v| v as i32);
+                    // 无固定期限合同依法不约定期限，清空
+                    let (ct_val, cm_val): (Option<i16>, Option<i32>) = if ct == 2 { (Some(2), None) } else { (Some(ct), cm) };
+                    AdminEntity::update_many()
+                        .col_expr(AdminColumn::ContractType, sea_orm::sea_query::Expr::value(ct_val))
+                        .col_expr(AdminColumn::ContractMonths, sea_orm::sea_query::Expr::value(cm_val))
+                        .filter(AdminColumn::Id.eq(req.business_id))
+                        .exec(db)
+                        .await?;
+                }
+            }
         }
-        // 幂等防护：同一业务单据同时只允许一个进行中的审批实例（对齐主流 OA 单据在途唯一规则），
+        // 幂等防护（应用层快速失败）：同一业务单据同时只允许一个进行中的审批实例，
         // 防止双击/网络重试/多入口重复发起导致审批人多条待办；
+        // 数据库层兜底由部分唯一索引 uq_approval_instance_active_business 承担（见 sql/d14），
+        // 在 ApprovalModel::create_instance 中统一转译冲突错误，覆盖并发竞态窗口；
         // 已终结实例(3通过/4驳回/5撤回/6待修改)不受影响，重新发起新实例属合法流程
         let active = InstanceEntity::find()
             .filter(InstanceColumn::BusinessType.eq(req.business_type.clone()))
             .filter(InstanceColumn::BusinessId.eq(req.business_id))
             .filter(InstanceColumn::Status.is_in(vec![1, 2]))
+            .order_by_desc(InstanceColumn::SubmittedAt)
             .one(db)
             .await?;
-        if active.is_some() {
-            return Err(Error::from("该记录已有进行中的审批流程，请勿重复提交"));
+        if let Some(instance) = active {
+            return Err(Self::dup_active_error(&instance));
         }
         let flow_data = ApprovalModel::find_flow_by_code(db, &req.flow_code).await?;
         let (flow, nodes, edges) = flow_data.ok_or_else(|| Error::from("审批流模板不存在或未启用"))?;
@@ -263,6 +282,18 @@ impl ApprovalService {
         // B10：提交后站内通知首节点审批人（best-effort，失败不影响主流程）
         Self::notify_after_submit(db, instance_id).await;
         Ok(instance_id)
+    }
+
+    /// 在途重复拦截的统一文案：携带流程编号与最近发起时间上下文（编号可直接对照数据库核查），
+    /// 并引导先撤回当前流程再重新提交
+    fn dup_active_error(instance: &InstanceModel) -> Error {
+        let time = instance.submitted_at.as_ref()
+            .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+            .unwrap_or_else(|| "时间未知".to_string());
+        Error::from(format!(
+            "该记录已存在进行中的审批流程（流程编号 #{}，最近发起时间：{}），请勿重复提交；如需重新发起，请先撤回当前流程后再提交",
+            instance.id, time
+        ))
     }
 
     /// 提交审批时插入抄送记录 + 抄送日志（在实例创建的事务内调用，保证原子性）

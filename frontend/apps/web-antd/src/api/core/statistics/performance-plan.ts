@@ -1,7 +1,8 @@
 import { requestClient } from '#/api/request';
 
-/** 创建草稿计划 */
+/** 创建草稿计划（employeeId 为代建目标员工：集中管理入口，缺省=为自己申报） */
 export const createPlanApi = async (params: {
+  employeeId?: number;
   monthlyTargets: Array<{
     contractTargetAmount?: number;
     contractTargetCount?: number;
@@ -104,6 +105,14 @@ export const getPlanModifyDetailApi = async (planId: number) => {
 export const getPlanProgressSummaryApi = async (params: { year?: number }) => {
   return requestClient.get(
     '/api/system/statistics/performance/plan/progress-summary',
+    { params },
+  );
+};
+
+/** 年度计划覆盖度（集中管理视角：哪些员工还缺当年销售计划） */
+export const getPlanCoverageApi = async (params: { year?: number }) => {
+  return requestClient.get(
+    '/api/system/statistics/performance/plan/coverage',
     { params },
   );
 };

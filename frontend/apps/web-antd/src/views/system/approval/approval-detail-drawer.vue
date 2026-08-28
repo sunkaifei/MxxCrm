@@ -108,6 +108,7 @@ const nodeStatusMap: Record<number, { label: string; color: string }> = {
   1: { label: '审批中', color: 'processing' },
   2: { label: '已通过', color: 'success' },
   3: { label: '已驳回', color: 'error' },
+  4: { label: '已结束', color: 'success' },
 };
 
 const visible = defineModel<boolean>('open', { default: false });
@@ -663,9 +664,10 @@ async function handleSubmit() {
 }
 
 // 流程节点（非 hire 类型展示）：按节点顺序展示实例快照
+// 保留审批节点(2)与结束节点(4)：结束节点用于在流程图尾部展示「已结束」状态
 const flowNodes = computed<any[]>(() => {
   const nodes: any[] = detailData.value?.flowNodes || [];
-  return nodes.filter((n) => n.nodeType === 2);
+  return nodes.filter((n) => n.nodeType === 2 || n.nodeType === 4);
 });
 </script>
 
@@ -710,7 +712,7 @@ const flowNodes = computed<any[]>(() => {
                   'border-primary bg-primary/10':
                     node.nodeStatus === 1,
                   'border-green-400/50 bg-green-50':
-                    node.nodeStatus === 2,
+                    node.nodeStatus === 2 || node.nodeStatus === 4,
                   'border-red-400/60 bg-red-50':
                     node.nodeStatus === 3,
                 }"

@@ -14,7 +14,7 @@ import { Page } from '@vben/common-ui';
 import { LucideEye } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Tag } from 'ant-design-vue';
+import { Button, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getApprovalListApi } from '#/api';
@@ -57,8 +57,14 @@ const businessTypeOptions = Object.entries(businessTypeMap).map(
   ([value, { label }]) => ({ label, value }),
 );
 
-// 当前 Tab：todo=待审批，done=已审批
+// 当前范围：todo=待审批，done=已审批
 const activeTab = ref<'todo' | 'done'>('todo');
+
+// 范围选项卡数据源（与客户列表「我的客户/全部客户」同款 Tabs 结构）
+const scopeTabs = [
+  { key: 'todo', label: '待审批' },
+  { key: 'done', label: '已审批' },
+];
 
 // 已办视角：我在每张单上的最新处理动作文案（action 枚举与审批日志一致）
 const myActionText: Record<number, string> = {
@@ -126,6 +132,11 @@ const gridOptions: VxeGridProps = {
   cellConfig: {},
   columns: [
     {
+      title: $t('ui.table.seq'),
+      type: 'seq',
+      width: 70,
+    },
+    {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
@@ -160,11 +171,6 @@ const gridOptions: VxeGridProps = {
       title: '状态',
       width: 110,
     },
-    {
-      title: $t('ui.table.seq'),
-      type: 'seq',
-      width: 70,
-    },
   ],
   height: 'auto',
   pagerConfig: {},
@@ -191,9 +197,9 @@ const gridOptions: VxeGridProps = {
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
-// Tab 切换：重新加载列表
-function handleTabChange(tab: 'todo' | 'done') {
-  activeTab.value = tab;
+// 选项卡切换（antd Tabs change 回调）：重新加载列表
+function handleTabChange(key: number | string) {
+  activeTab.value = key as 'todo' | 'done';
   gridApi.query();
 }
 
@@ -231,33 +237,22 @@ const tabTitle = computed(() =>
 
 <template>
   <Page auto-content-height>
-    <!-- 双 Tab 切换 -->
-    <div class="mb-3 flex gap-1 rounded-lg bg-gray-50 p-1">
-      <button
-        class="flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors"
-        :class="
-          activeTab === 'todo'
-            ? 'bg-white text-primary shadow-sm'
-            : 'text-gray-500 hover:text-gray-700'
-        "
-        @click="handleTabChange('todo')"
-      >
-        待审批
-      </button>
-      <button
-        class="flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors"
-        :class="
-          activeTab === 'done'
-            ? 'bg-white text-primary shadow-sm'
-            : 'text-gray-500 hover:text-gray-700'
-        "
-        @click="handleTabChange('done')"
-      >
-        已审批
-      </button>
-    </div>
-
     <Grid :table-title="tabTitle">
+      <!-- 范围选项卡注入 Grid 的 form-header 插槽，与筛选表单合并为同一张卡片 -->
+      <template #form-header>
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-2"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in scopeTabs"
+            :key="tab.key"
+            :tab="tab.label"
+          />
+        </Tabs>
+      </template>
+
       <template #businessType="{ row }">
         <Tag :color="businessTypeMap[row.businessType]?.color || 'default'">
           {{ businessTypeMap[row.businessType]?.label || row.businessType }}

@@ -15,63 +15,71 @@ use crate::core::kit::global::{Deserialize, Serialize};
 
 /// 创建计划请求
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CreatePlanRequest {
     pub year: i32,
+    /// 月度目标（alias 兼容前端 camelCase 传参）
+    #[serde(alias = "monthlyTargets")]
     pub monthly_targets: Vec<MonthlyTargetInput>,
+    /// 代建目标员工（集中管理入口）：缺省/0=当前登录人；指定他人需在数据权限范围内
+    #[serde(default, alias = "employeeId")]
+    pub employee_id: Option<i64>,
 }
 
-/// 月度目标输入
+/// 月度目标输入（alias 兼容前端 camelCase 传参）
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct MonthlyTargetInput {
     pub month: i32,
+    #[serde(default, alias = "contractTargetAmount")]
     pub contract_target_amount: Option<Decimal>,
+    #[serde(default, alias = "paymentTargetAmount")]
     pub payment_target_amount: Option<Decimal>,
+    #[serde(default, alias = "contractTargetCount")]
     pub contract_target_count: Option<i32>,
 }
 
 /// 提交计划请求
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct SubmitPlanRequest {
+    #[serde(alias = "planId")]
     pub plan_id: i64,
 }
 
 /// 审批请求
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct ReviewPlanRequest {
+    #[serde(alias = "planId")]
     pub plan_id: i64,
     pub reason: Option<String>,
 }
 
 /// 修改申请请求
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct ModifyPlanRequest {
+    #[serde(alias = "planId")]
     pub plan_id: i64,
     pub reason: String,
+    #[serde(alias = "monthlyTargets")]
     pub monthly_targets: Vec<MonthlyTargetInput>,
 }
 
 /// 更新月度目标请求（草稿/驳回状态直接更新，不走审批流）
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct UpdatePlanTargetsRequest {
+    #[serde(alias = "planId")]
     pub plan_id: i64,
+    #[serde(alias = "monthlyTargets")]
     pub monthly_targets: Vec<MonthlyTargetInput>,
 }
 
 /// 查询参数
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PlanQuery {
+    #[serde(default, alias = "employeeId")]
     pub employee_id: Option<i64>,
     pub year: Option<i32>,
     pub status: Option<i32>,
     /// 待我审批模式：true=查询当前登录用户作为 current_approver_id 的待审计划
-    #[serde(default)]
+    #[serde(default, alias = "pendingMyApproval")]
     pub pending_my_approval: Option<bool>,
 }
 
@@ -203,4 +211,45 @@ pub struct PlanProgressSummaryVO {
     pub personal: ProgressItemVO,
     /// 团队汇总（无下属时各字段为 0）
     pub team: ProgressItemVO,
+}
+
+// ---- 计划覆盖度（集中管理视角：谁还没建年度销售计划）----
+
+/// 计划覆盖度查询参数
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PlanCoverageQuery {
+    /// 计划年度，缺省当前自然年
+    #[serde(default)]
+    pub year: Option<i32>,
+}
+
+/// 单员工覆盖行
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanCoverageVO {
+    pub employee_id: i64,
+    pub name: Option<String>,
+    pub dept_name: Option<String>,
+    /// 当年已有任意计划（含草稿/待审/驳回）
+    pub has_plan: bool,
+    /// 当年已有已通过计划（= 员工全景榜的销售口径命中项）
+    pub approved: bool,
+    /// 最新一条计划状态（0草稿 1待审批 2已通过 3已驳回）
+    pub plan_status: Option<i32>,
+    pub total_contract_target: Option<Decimal>,
+    pub total_payment_target: Option<Decimal>,
+}
+
+/// 覆盖度汇总
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanCoverageSummaryVO {
+    pub year: i32,
+    pub total_employees: i64,
+    pub with_plan_count: i64,
+    pub approved_count: i64,
+    /// 已通过人数 / 总人数（百分比保留2位）
+    pub coverage_rate: Option<Decimal>,
+    /// 未覆盖者排在最前（管理动作优先补缺）
+    pub items: Vec<PlanCoverageVO>,
 }

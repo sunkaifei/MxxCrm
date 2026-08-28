@@ -288,6 +288,9 @@ watch(
               <Descriptions.Item v-if="isHrOrAdmin" label="登录账号">
                 {{ userData.userName || '—' }}
               </Descriptions.Item>
+              <Descriptions.Item v-if="isHrOrAdmin" label="员工编号">
+                {{ userData.employeeNo || '—' }}
+              </Descriptions.Item>
               <Descriptions.Item label="姓名">
                 {{ userData.nickName || '—' }}
               </Descriptions.Item>

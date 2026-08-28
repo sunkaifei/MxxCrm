@@ -15,9 +15,10 @@ use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::statistics::model::performance_plan::{
     CreatePlanRequest, SubmitPlanRequest, ReviewPlanRequest, ModifyPlanRequest, PlanQuery,
-    UpdatePlanTargetsRequest,
+    UpdatePlanTargetsRequest, PlanCoverageQuery,
 };
 use crate::modules::statistics::service::performance_plan_service;
+use crate::modules::system::service::data_scope_service;
 use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Datelike;
 
@@ -42,12 +43,28 @@ fn get_admin_info(req: &HttpRequest) -> (i64, String) {
 }
 
 /// 创建草稿计划
+/// 支持「代建」：请求指定 employeeId 时为目标员工创建（管理员集中管理入口），
+/// 目标必须是本人或数据权限范围内的下属；缺省仍是本人自助创建。
 pub async fn create_plan(state: web::Data<AppState>, req: web::Json<CreatePlanRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
     let req = req.into_inner();
-    let (employee_id, _) = get_admin_info(&http_req);
+    let (current_user_id, _) = get_admin_info(&http_req);
 
-    match performance_plan_service::create_plan(db, employee_id, &req).await {
+    // 目标解析：0/缺省 = 本人
+    let target_id = req.employee_id.filter(|id| *id > 0).unwrap_or(current_user_id);
+    let allowed = target_id == current_user_id || match data_scope_service::get_accessible_user_ids(db, current_user_id).await {
+        Ok(None) => true,
+        Ok(Some(ids)) => ids.contains(&target_id),
+        Err(_) => false,
+    };
+
+    let result = if allowed {
+        performance_plan_service::create_plan(db, target_id, &req).await
+    } else {
+        Err(crate::core::errors::error::Error::BadRequest("目标员工不在您的数据权限范围内，无法代建年度计划".to_string()))
+    };
+
+    match result {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -123,6 +140,22 @@ pub async fn get_plan_detail(state: web::Data<AppState>, query: web::Query<Submi
     match performance_plan_service::get_plan_detail(db, plan_id).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 年度计划覆盖度（集中管理视角：数据权限范围内谁还缺当年销售计划）
+pub async fn get_plan_coverage(state: web::Data<AppState>, http_req: HttpRequest, query: web::Query<PlanCoverageQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+    let (current_user_id, _) = get_admin_info(&http_req);
+    let year = q.year.unwrap_or_else(|| chrono::Local::now().year());
+
+    match data_scope_service::get_accessible_user_ids(db, current_user_id).await {
+        Ok(scope) => match performance_plan_service::get_plan_coverage(db, &scope, year).await {
+            Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+            Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        },
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("数据权限解析失败: {}", e), "local"))),
     }
 }
 
@@ -238,6 +271,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/progress-summary",
                 web::get()
                     .to(get_plan_progress_summary)
+                    .wrap(require_permission("statistics:performance-plan:view")),
+            )
+            // GET /statistics/performance/plan/coverage - 年度计划覆盖度（集中管理视角）
+            .route(
+                "/coverage",
+                web::get()
+                    .to(get_plan_coverage)
                     .wrap(require_permission("statistics:performance-plan:view")),
             ),
     );

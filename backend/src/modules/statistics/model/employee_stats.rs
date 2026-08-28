@@ -44,10 +44,12 @@ pub struct EmployeeConversionVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct EmployeeStatsQuery {
     #[serde(default, deserialize_with = "deserialize_string_to_i64")]
     pub department_id: Option<i64>,
+    /// 口径开关：true=仅统计当年有已通过年度销售计划的员工（销售身份派生口径），缺省 true
+    #[serde(default)]
+    pub only_sales: Option<bool>,
     #[serde(default)]
     pub year: Option<i32>,
     #[serde(default)]

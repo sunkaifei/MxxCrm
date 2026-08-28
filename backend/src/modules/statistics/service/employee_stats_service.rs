@@ -74,6 +74,23 @@ pub async fn load_admins(
         .collect())
 }
 
+/// 当年已通过年度销售计划的员工 ID 集合（销售身份的唯一事实源）
+/// status=2 已通过；冻结/多级审批不影响该口径
+pub async fn load_planned_sales_ids(db: &DbConn, year: i32) -> Result<Vec<i64>> {
+    let rows = db
+        .query_all_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            r#"SELECT DISTINCT employee_id FROM mxx_statistics_performance_plan
+               WHERE deleted = 0 AND year = $1 AND status = 2 AND employee_id IS NOT NULL"#,
+            [year.into()],
+        ))
+        .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|r| r.try_get::<i64>("", "employee_id").ok())
+        .collect())
+}
+
 /// 员工总客户数（存量指标，公共输入）
 pub async fn load_total_customer_map(
     db: &DbConn,

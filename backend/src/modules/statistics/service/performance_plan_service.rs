@@ -18,14 +18,113 @@ use crate::modules::statistics::model::performance_plan::{
     PlanDetailVO, PlanListVO, MonthlyTargetVO, ApprovalLogVO, ApprovalNodeVO,
     CreatePlanRequest, MonthlyTargetInput, ReviewPlanRequest, ModifyPlanRequest,
     UpdatePlanTargetsRequest, PlanProgressSummaryVO, ProgressItemVO,
+    PlanCoverageVO, PlanCoverageSummaryVO,
 };
+use crate::modules::statistics::service::employee_stats_service;
+use crate::modules::statistics::service::stats_range::StatsScope;
 use crate::modules::system::entity::admin::Entity as Admin;
 use crate::modules::crm::entity::contract::{self, Entity as Contract};
 use sea_orm::{
-    DbConn, TransactionTrait,
+    ConnectionTrait, DbConn, Statement, TransactionTrait,
     EntityTrait, ColumnTrait, QueryFilter, QueryOrder, ActiveModelTrait, Set, IntoActiveModel,
 };
 use sea_orm::prelude::Decimal;
+
+/// 年度计划覆盖度：数据权限范围内全员 × 当年计划状态（集中管理视角）
+/// 口径与员工全景榜一致：approved = 当年存在已通过(status=2)计划 ⇒ 销售身份
+pub async fn get_plan_coverage(
+    db: &DbConn,
+    scope: &StatsScope,
+    year: i32,
+) -> Result<PlanCoverageSummaryVO> {
+    // 员工名单（含数据权限收缩与部门名映射，复用员工统计加载器）
+    let admins = employee_stats_service::load_admins(db, scope).await?;
+
+    // 该年度全部计划的月度目标汇总（单条 SQL，避免逐计划 N+1）
+    let rows = db
+        .query_all_raw(Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            r#"SELECT p.id AS plan_id, p.employee_id AS employee_id, p.status AS status,
+                      COALESCE(SUM(t.contract_target_amount), 0) AS total_contract_target,
+                      COALESCE(SUM(t.payment_target_amount), 0) AS total_payment_target
+               FROM mxx_statistics_performance_plan p
+               LEFT JOIN mxx_statistics_plan_monthly_target t ON t.plan_id = p.id AND t.deleted = 0
+               WHERE p.deleted = 0 AND p.year = $1 AND p.employee_id IS NOT NULL
+               GROUP BY p.id, p.employee_id, p.status
+               ORDER BY p.id DESC"#,
+            [year.into()],
+        ))
+        .await?;
+
+    // 归并到人：ORDER BY id DESC 保证首见即最新一条计划的状态；
+    // approved 口径与员工全景榜对齐：当年任意一条 status=2 即视为已通过销售
+    let mut latest_status: std::collections::HashMap<i64, i32> = std::collections::HashMap::new();
+    let mut approved_set: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    let mut contract_sum: std::collections::HashMap<i64, Decimal> = std::collections::HashMap::new();
+    let mut payment_sum: std::collections::HashMap<i64, Decimal> = std::collections::HashMap::new();
+    for r in rows {
+        let emp = r.try_get::<i64>("", "employee_id").unwrap_or(0);
+        if emp <= 0 {
+            continue;
+        }
+        if let Ok(Some(s)) = r.try_get::<Option<i32>>("", "status") {
+            latest_status.entry(emp).or_insert(s);
+            if s == 2 {
+                approved_set.insert(emp);
+            }
+        }
+        let add = |map: &mut std::collections::HashMap<i64, Decimal>, col: &str| -> () {
+            if let Ok(v) = r.try_get::<Decimal>("", col) {
+                map.entry(emp).and_modify(|x| *x += v).or_insert(v);
+            }
+        };
+        add(&mut contract_sum, "total_contract_target");
+        add(&mut payment_sum, "total_payment_target");
+    }
+
+    let mut items: Vec<PlanCoverageVO> = Vec::with_capacity(admins.len());
+    let mut with_plan_count = 0_i64;
+    for (id, name, dept_name) in admins {
+        let has_plan = latest_status.contains_key(&id);
+        if has_plan {
+            with_plan_count += 1;
+        }
+        let approved = approved_set.contains(&id);
+        let trim = |m: &std::collections::HashMap<i64, Decimal>| m.get(&id).copied().filter(|d| !d.is_zero());
+        items.push(PlanCoverageVO {
+            employee_id: id,
+            name,
+            dept_name,
+            has_plan,
+            approved,
+            plan_status: latest_status.get(&id).copied(),
+            total_contract_target: trim(&contract_sum),
+            total_payment_target: trim(&payment_sum),
+        });
+    }
+    // 未建计划者排最前（管理动作优先补缺），其次待通过，最后已通过
+    items.sort_by(|a, b| {
+        let rank = |v: &PlanCoverageVO| if !v.has_plan { 0 } else if !v.approved { 1 } else { 2 };
+        rank(a).cmp(&rank(b)).then_with(|| a.name.cmp(&b.name))
+    });
+
+    let total_employees = items.len() as i64;
+    let approved_count = items.iter().filter(|v| v.approved).count() as i64;
+    let coverage_rate = if total_employees > 0 {
+        Some((Decimal::from(approved_count) * Decimal::from(100) / Decimal::from(total_employees)).round_dp(2))
+    } else {
+        None
+    };
+
+    Ok(PlanCoverageSummaryVO {
+        year,
+        total_employees,
+        with_plan_count,
+        approved_count,
+        coverage_rate,
+        items,
+    })
+}
 
 /// 创建草稿计划
 pub async fn create_plan(db: &DbConn, employee_id: i64, req: &CreatePlanRequest) -> Result<PlanDetailVO> {

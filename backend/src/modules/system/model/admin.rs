@@ -116,6 +116,7 @@ impl From<AdminSaveRequest> for AdminSaveDTO {
             probation_ratio: req.probation_ratio,
             contract_type: req.contract_type,
             contract_months: req.contract_months,
+            employee_no: None,
         }
     }
 }
@@ -213,6 +214,7 @@ impl From<AdminUpdateRequest> for AdminSaveDTO {
             probation_ratio: req.probation_ratio,
             contract_type: req.contract_type,
             contract_months: req.contract_months,
+            employee_no: None,
         }
     }
 }
@@ -273,6 +275,8 @@ pub struct AdminSaveDTO {
     pub contract_type: Option<i16>,
     ///劳动合同期限（月）；无固定期限为空
     pub contract_months: Option<i32>,
+    ///员工编号（如 X001，由编号规则模块自动分配，全局唯一且终身不变）
+    pub employee_no: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -422,6 +426,7 @@ impl From<UpdateLoginRequest> for AdminSaveDTO {
             probation_ratio: None,
             contract_type: None,
             contract_months: None,
+            employee_no: None,
         }
     }
 }
@@ -590,6 +595,15 @@ pub struct AdminListVO {
     /// 档案完整度 0-100（六项占比）
     #[serde(default)]
     pub completeness: i32,
+    ///员工编号（如 X001，由编号规则模块自动分配，全局唯一且终身不变）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub employee_no: Option<String>,
+    ///合同类型（1固定期限 2无固定期限）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contract_type: Option<i16>,
+    ///合同期限（月）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contract_months: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -663,6 +677,8 @@ pub struct AdminDetailVO {
     pub contract_type: Option<i16>,
     ///劳动合同期限（月）；无固定期限为空
     pub contract_months: Option<i32>,
+    ///员工编号（如 X001，由编号规则模块自动分配，全局唯一且终身不变）
+    pub employee_no: Option<String>,
 }
 
 impl From<admin::Model> for AdminDetailVO {
@@ -701,6 +717,7 @@ impl From<admin::Model> for AdminDetailVO {
             probation_ratio: model.probation_ratio,
             contract_type: model.contract_type,
             contract_months: model.contract_months,
+            employee_no: model.employee_no,
         }
     }
 }
@@ -812,6 +829,7 @@ impl AdminModel {
             probation_ratio: Set(form_data.probation_ratio.to_owned()),
             contract_type: Set(form_data.contract_type.to_owned()),
             contract_months: Set(form_data.contract_months.to_owned()),
+            employee_no: Set(form_data.employee_no.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -821,6 +839,30 @@ impl AdminModel {
             .exec(db)
             .await
             .map(|r| r.last_insert_id)
+    }
+
+    /// ### 查询所有未分配员工编号且未删除的员工（按 id 升序，用于一键分配）
+    pub async fn select_without_employee_no<C: ConnectionTrait>(db: &C) -> Result<Vec<admin::Model>, DbErr> {
+        Admin::find()
+            .filter(admin::Column::EmployeeNo.is_null())
+            .filter(admin::Column::Deleted.is_null().or(admin::Column::Deleted.ne(Some(1))))
+            .order_by_asc(admin::Column::Id)
+            .all(db)
+            .await
+    }
+
+    /// ### 更新员工编号（一键分配专用，生成后写回）
+    pub async fn update_employee_no<C: ConnectionTrait>(db: &C, id: i64, employee_no: &str) -> Result<i64, DbErr> {
+        let payload = admin::ActiveModel {
+            employee_no: Set(Some(employee_no.to_string())),
+            update_time: Set(Option::from(chrono::Local::now().naive_local())),
+            ..Default::default()
+        };
+        let update_result = Admin::update_many()
+            .set(payload)
+            .filter(admin::Column::Id.eq(id))
+            .exec(db).await?;
+        Ok(update_result.rows_affected as i64)
     }
 
     /// ### 批量删除（硬删除）
@@ -1193,6 +1235,9 @@ impl AdminModel {
             .column(admin::Column::BizEnabled)
             .column(admin::Column::ProbationMonths)
             .column(admin::Column::ProbationRatio)
+            .column(admin::Column::ContractType)
+            .column(admin::Column::ContractMonths)
+            .column(admin::Column::EmployeeNo)
             .join_rev(
                 JoinType::LeftJoin,
                 admin_dept_merge::Relation::Admin.def(),

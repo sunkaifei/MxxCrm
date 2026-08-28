@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 
 import {
+  Alert,
   Button,
   Descriptions,
   Form,
@@ -19,6 +20,7 @@ import {
 import {
   approvePlanApi,
   createPlanApi,
+  getPlanCoverageApi,
   getPlanDetailApi,
   getPlanListApi,
   getPlanModifyDetailApi,
@@ -27,6 +29,7 @@ import {
   submitPlanApi,
 } from '#/api/core/statistics';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
+import { getAdminOptionsApi } from '#/api/core/system/user';
 import { $t } from '#/locales';
 
 // 业绩计划使用说明步骤数（与 i18n 中 page.statistics.performancePlan.guide.steps 数组对齐）
@@ -50,10 +53,46 @@ const filters = reactive({
   status: undefined as number | undefined,
 });
 
+// ---- 计划覆盖度（集中管理视角：谁还没建当年销售计划）----
+const coverage = ref<any>(null);
+
+async function loadCoverage() {
+  try {
+    const res = await getPlanCoverageApi({ year: filters.year });
+    coverage.value = res?.data ?? res ?? null;
+  } catch (error: any) {
+    console.error('加载计划覆盖度失败', error);
+    coverage.value = null;
+  }
+}
+
+/** 未建当年计划的员工（排序置顶返回，管理动作优先补缺） */
+const missingEmployees = computed(
+  () => (coverage.value?.items || []).filter((item: any) => !item.has_plan) as any[],
+);
+
+// ---- 员工下拉（代建用：仅参与业务人员）----
+const userOptions = ref<{ label: string; value: number }[]>([]);
+
+async function loadUserOptions() {
+  try {
+    const resp = await getAdminOptionsApi({ bizOnly: true });
+    const list = Array.isArray(resp) ? resp : (resp?.data ?? []);
+    userOptions.value = list.map((u: any) => ({
+      label: u.label,
+      value: Number(u.value),
+    }));
+  } catch (error) {
+    console.error('加载员工选项失败', error);
+  }
+}
+
 // Create Modal
 const createVisible = ref(false);
 const createLoading = ref(false);
 const createForm = reactive({
+  // 代建目标员工：undefined=本人申报；由覆盖度 Alert 点击或手动下拉指定
+  employeeId: undefined as number | undefined,
   year: currentYear + 1,
   monthlyTargets: Array.from({ length: 12 }, (_, i) => ({
     month: i + 1,
@@ -103,7 +142,9 @@ const loadData = async () => {
   }
 };
 
-const openCreateModal = () => {
+const openCreateModal = (employeeId?: number) => {
+  // 代建入口：从覆盖度提示条点击员工 Tag 进入时自动填入目标员工
+  createForm.employeeId = employeeId;
   createForm.year = currentYear + 1;
   createForm.monthlyTargets = Array.from({ length: 12 }, (_, i) => ({
     month: i + 1,
@@ -118,12 +159,13 @@ const handleCreate = async () => {
   createLoading.value = true;
   try {
     await createPlanApi({
+      employeeId: createForm.employeeId || undefined,
       year: createForm.year,
       monthlyTargets: createForm.monthlyTargets,
     });
     message.success('创建成功');
     createVisible.value = false;
-    loadData();
+    refreshAll();
   } catch (error: any) {
     message.error(error?.message || '创建失败');
   } finally {
@@ -323,8 +365,14 @@ const columns: any = [
 ];
 
 // ---- Init ----
-onMounted(() => {
+function refreshAll() {
   loadData();
+  loadCoverage();
+}
+
+onMounted(() => {
+  refreshAll();
+  loadUserOptions();
 });
 </script>
 
@@ -352,6 +400,35 @@ onMounted(() => {
         </div>
       </div>
     </PageUsageGuide>
+
+    <!-- 年度计划覆盖度（集中管理视角：口径与员工全景榜一致；点击未覆盖员工直接代建） -->
+    <Alert v-if="coverage" type="info" show-icon class="mb-4">
+      <template #message>
+        {{ coverage.year }} 年度销售计划覆盖度：<strong>{{
+          coverage.approvedCount
+        }}</strong
+        >/{{ coverage.totalEmployees }} 人已通过审批（覆盖率
+        {{ coverage.coverageRate ?? 0 }}%）
+      </template>
+      <template v-if="missingEmployees.length" #description>
+        <div class="flex flex-wrap items-center gap-1">
+          <span>未建计划：</span>
+          <Tag
+            v-for="emp in missingEmployees.slice(0, 8)"
+            :key="emp.employeeId"
+            color="orange"
+            class="cursor-pointer"
+            @click="openCreateModal(emp.employeeId)"
+          >
+            {{ emp.name || emp.employeeId }}
+          </Tag>
+          <span v-if="missingEmployees.length > 8">
+            等共 {{ missingEmployees.length }} 人
+          </span>
+        </div>
+      </template>
+    </Alert>
+
     <!-- Filter Bar -->
     <div class="mb-4 flex items-center justify-between">
       <Space>
@@ -359,7 +436,7 @@ onMounted(() => {
         <Select
           v-model:value="filters.year"
           style="width: 100px"
-          @change="loadData"
+          @change="refreshAll"
         >
           <SelectOption
             v-for="y in [currentYear - 1, currentYear, currentYear + 1]"
@@ -382,7 +459,7 @@ onMounted(() => {
           <SelectOption :value="3">已驳回</SelectOption>
         </Select>
       </Space>
-      <Button type="primary" @click="openCreateModal">+ 新申报</Button>
+      <Button type="primary" @click="openCreateModal()">+ 新申报</Button>
     </div>
 
     <!-- Table -->
@@ -405,6 +482,17 @@ onMounted(() => {
       destroy-on-close
     >
       <Form layout="vertical">
+        <Form.Item label="目标员工（可代下属申报）">
+          <Select
+            v-model:value="createForm.employeeId"
+            :options="userOptions"
+            allow-clear
+            option-filter-prop="label"
+            placeholder="缺省为自己申报；选择员工即为 TA 代建"
+            show-search
+            style="width: 360px"
+          />
+        </Form.Item>
         <Form.Item label="目标年份" required>
           <Select v-model:value="createForm.year" style="width: 120px">
             <SelectOption

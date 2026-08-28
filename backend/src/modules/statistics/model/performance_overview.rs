@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 
 /// 业绩概览通用查询参数（同比环比/预测/漏斗/拆解/行为等共用）
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PerformanceOverviewQuery {
     #[serde(default)]
     pub year: Option<i32>,

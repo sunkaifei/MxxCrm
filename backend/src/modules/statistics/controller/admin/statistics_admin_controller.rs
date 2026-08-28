@@ -317,15 +317,25 @@ pub async fn get_employee_customer_count(state: web::Data<AppState>, req: HttpRe
     let q = query.into_inner();
     let range = resolve_range(q.start_date, q.end_date, q.year, q.month);
     let scope = resolve_scope(db, &req).await?;
-    let key = stats_cache::stats_cache_key("employee-customer-count", &scope, &range, "");
+    // 口径开关：缺省 true=仅排行「当年有已通过年度销售计划」的销售（有计划 ⇒ 销售身份）
+    let only_sales = q.only_sales.unwrap_or(true);
+    let extra = if only_sales { "os1" } else { "os0" };
+    let key = stats_cache::stats_cache_key("employee-customer-count", &scope, &range, extra);
+    // 计划口径年份：显式 year 优先，否则当前自然年
+    let plan_year = q.year.unwrap_or_else(|| chrono::Local::now().format("%Y").to_string().parse::<i32>().unwrap_or(2026));
+    let department_id = q.department_id;
     match stats_cache::get_or_set(&key, stats_cache::stats_ttl(&range), || async {
-        // 公共输入（双路径共用：员工列表 / 总客户存量 / 未跟进客户）
-        let admins = employee_stats_service::load_admins(db, &scope).await?;
+        // 公共输入（双路径共用：员工列表 / 总客户存量 / 未跟进客户）；load_admins 后立即收缩为销售口径，实时/聚合双路径同时生效
+        let mut admins = employee_stats_service::load_admins(db, &scope).await?;
+        if only_sales {
+            let planned = employee_stats_service::load_planned_sales_ids(db, plan_year).await?;
+            admins.retain(|(id, _, _)| planned.contains(id));
+        }
         let total_map = employee_stats_service::load_total_customer_map(db, &scope).await?;
         if can_use_agg(&range) && stats_agg_service::agg_fresh(db, stats_agg_service::TOPIC_EMPLOYEE).await {
             stats_agg_query::employee_customer_count(db, &range, &scope, admins, &total_map).await
         } else {
-            employee_stats_service::get_employee_customer_count_realtime(db, &range, &scope, q.department_id, admins, total_map).await
+            employee_stats_service::get_employee_customer_count_realtime(db, &range, &scope, department_id, admins, total_map).await
         }
     }).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
@@ -338,14 +348,25 @@ pub async fn get_employee_follow_up(state: web::Data<AppState>, req: HttpRequest
     let q = query.into_inner();
     let range = resolve_range(q.start_date, q.end_date, q.year, q.month);
     let scope = resolve_scope(db, &req).await?;
-    let key = stats_cache::stats_cache_key("employee-follow-up", &scope, &range, "");
+    // 口径开关：缺省 true=仅排行「当年有已通过年度销售计划」的销售（缓存 key 必须携带口径位，防止误命中）
+    let only_sales = q.only_sales.unwrap_or(true);
+    let extra = if only_sales { "os1" } else { "os0" };
+    let key = stats_cache::stats_cache_key("employee-follow-up", &scope, &range, extra);
+    // 计划口径年份：显式 year 优先，否则当前自然年
+    let plan_year = q.year.unwrap_or_else(|| chrono::Local::now().format("%Y").to_string().parse::<i32>().unwrap_or(2026));
+    let department_id = q.department_id;
     match stats_cache::get_or_set(&key, stats_cache::stats_ttl(&range), || async {
-        let admins = employee_stats_service::load_admins(db, &scope).await?;
+        // load_admins 后立即收缩为销售口径，实时/聚合双路径同时生效
+        let mut admins = employee_stats_service::load_admins(db, &scope).await?;
+        if only_sales {
+            let planned = employee_stats_service::load_planned_sales_ids(db, plan_year).await?;
+            admins.retain(|(id, _, _)| planned.contains(id));
+        }
         let no_follow_map = employee_stats_service::load_no_follow_map(db, &scope).await?;
         if can_use_agg(&range) && stats_agg_service::agg_fresh(db, stats_agg_service::TOPIC_EMPLOYEE).await {
             stats_agg_query::employee_follow_up(db, &range, &scope, admins, &no_follow_map).await
         } else {
-            employee_stats_service::get_employee_follow_up_realtime(db, &range, &scope, q.department_id, admins, no_follow_map).await
+            employee_stats_service::get_employee_follow_up_realtime(db, &range, &scope, department_id, admins, no_follow_map).await
         }
     }).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
@@ -358,13 +379,22 @@ pub async fn get_employee_conversion(state: web::Data<AppState>, req: HttpReques
     let q = query.into_inner();
     let range = resolve_range(q.start_date, q.end_date, q.year, q.month);
     let scope = resolve_scope(db, &req).await?;
-    let key = stats_cache::stats_cache_key("employee-conversion", &scope, &range, "");
+    // 口径开关：缺省 true=仅排行「当年有已通过年度销售计划」的销售
+    let only_sales = q.only_sales.unwrap_or(true);
+    let extra = if only_sales { "os1" } else { "os0" };
+    let key = stats_cache::stats_cache_key("employee-conversion", &scope, &range, extra);
+    let plan_year = q.year.unwrap_or_else(|| chrono::Local::now().format("%Y").to_string().parse::<i32>().unwrap_or(2026));
+    let department_id = q.department_id;
     match stats_cache::get_or_set(&key, stats_cache::stats_ttl(&range), || async {
-        let admins = employee_stats_service::load_admins(db, &scope).await?;
+        let mut admins = employee_stats_service::load_admins(db, &scope).await?;
+        if only_sales {
+            let planned = employee_stats_service::load_planned_sales_ids(db, plan_year).await?;
+            admins.retain(|(id, _, _)| planned.contains(id));
+        }
         if can_use_agg(&range) && stats_agg_service::agg_fresh(db, stats_agg_service::TOPIC_EMPLOYEE).await {
             stats_agg_query::employee_conversion(db, &range, &scope, admins).await
         } else {
-            employee_stats_service::get_employee_conversion_realtime(db, &range, &scope, q.department_id, admins).await
+            employee_stats_service::get_employee_conversion_realtime(db, &range, &scope, department_id, admins).await
         }
     }).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),

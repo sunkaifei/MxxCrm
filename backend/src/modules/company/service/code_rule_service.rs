@@ -375,8 +375,8 @@ pub async fn generate_code<C: ConnectionTrait>(
         1
     };
 
-    // 5. 拼接段位
-    Ok(merge_segments(
+    // 5. 拼接段位（应用规则配置的分隔符，未配置时默认 "-"）
+    let merged = merge_segments(
         &segments,
         &rule.company_abbr.unwrap_or_default(),
         &rule.biz_type_code.unwrap_or_default(),
@@ -387,7 +387,9 @@ pub async fn generate_code<C: ConnectionTrait>(
         business_date,
         None,
         version_num,
-    ))
+    );
+    let separator = rule.separator.unwrap_or_else(|| "-".to_string());
+    Ok(merged.replace('-', &separator))
 }
 
 /// 拼接段位生成最终编号

@@ -62,18 +62,16 @@ const flowCode = computed(
 );
 
 // 流程节点：实例快照优先（含节点状态），无实例时回退到当前生效流程模板
+// 保留审批节点(2)与结束节点(4)：结束节点用于在流程图尾部展示「已结束」状态
 const flowNodes = computed(() => {
   const snapshot = instanceDetail.value?.flowNodes;
   const edges = instanceDetail.value?.flowEdges;
+  const keep = (n: any) => n.nodeType === 2 || n.nodeType === 4;
   if (snapshot?.length) {
-    return sortApprovalNodes(snapshot, edges).filter(
-      (n: any) => n.nodeType === 2,
-    );
+    return sortApprovalNodes(snapshot, edges).filter(keep);
   }
   const preview = flowPreview.value || {};
-  return sortApprovalNodes(preview.nodes, preview.edges).filter(
-    (n: any) => n.nodeType === 2,
-  );
+  return sortApprovalNodes(preview.nodes, preview.edges).filter(keep);
 });
 
 // 是否为重新提交（最近实例 ∈ {4 驳回,5 撤回,6 退回修改}）
@@ -312,26 +310,14 @@ const logActionColor: Record<number, string> = {
   8: 'cyan',
 };
 
-// 节点状态标注（实例快照：0=未开始,1=审批中,2=已通过,3=已驳回）
+// 节点状态标注（实例快照：0=未开始,1=审批中,2=已通过,3=已驳回,4=已结束[结束节点]）
 const nodeStatusMap: Record<number, { label: string; color: string }> = {
   0: { label: '未开始', color: 'default' },
   1: { label: '审批中', color: 'processing' },
   2: { label: '已通过', color: 'success' },
   3: { label: '已驳回', color: 'error' },
+  4: { label: '已结束', color: 'success' },
 };
-
-// 我在某节点的处理结果（从日志反查，用于「每级审批都能看到自己处理的结果」）
-function myActionOnNode(nodeKey?: string): string {
-  if (!nodeKey) return '';
-  const mine = [...logs.value]
-    .reverse()
-    .find(
-      (log: any) =>
-        log.nodeKey === nodeKey &&
-        Number(log.approverId) === currentUserId.value,
-    );
-  return mine ? logActionText[mine.action] || '' : '';
-}
 
 // approverType 展示文本（与审批引擎 approver_type 定义一致）
 function approverTypeText(node: any) {
@@ -942,13 +928,19 @@ const headSub = computed(() => {
               class="su-flow-node"
               :class="[
                 node.nodeStatus === 1 ? 'su-flow-active' : '',
-                node.nodeStatus === 2 ? 'su-flow-done' : '',
+                node.nodeStatus === 2 || node.nodeStatus === 4
+                  ? 'su-flow-done'
+                  : '',
                 node.nodeStatus === 3 ? 'su-flow-rejected' : '',
               ]"
             >
               <div class="su-flow-node-title">{{ node.nodeName }}</div>
               <div class="su-flow-node-sub">
-                {{ node.approverTypeDesc || approverTypeText(node) }}
+                {{
+                  node.nodeType === 4
+                    ? '流程完成'
+                    : node.approverTypeDesc || approverTypeText(node)
+                }}
               </div>
               <div class="su-flow-node-tags">
                 <Tag
@@ -961,12 +953,6 @@ const headSub = computed(() => {
                 >
                   {{ (nodeStatusMap[node.nodeStatus] || {}).label || '未开始' }}
                 </Tag>
-                <span
-                  v-if="myActionOnNode(node.nodeKey)"
-                  class="su-flow-mine"
-                >
-                  我：{{ myActionOnNode(node.nodeKey) }}
-                </span>
                 <Tag
                   v-if="
                     node.nodeStatus === undefined &&
@@ -994,8 +980,10 @@ const headSub = computed(() => {
             >
           </template>
 
-          <!-- 结束节点 -->
-          <template v-if="flowNodes.length">
+          <!-- 结束节点：数据里已含结束节点(nodeType=4)时不重复渲染，仅兜底无结束节点的流程模板 -->
+          <template
+            v-if="flowNodes.length && !flowNodes.some((n) => n.nodeType === 4)"
+          >
             <span class="su-flow-link">→</span>
             <div class="su-flow-node su-flow-end">
               <div class="su-flow-node-title">结束</div>
@@ -1433,13 +1421,6 @@ const headSub = computed(() => {
 
 .su-flow-node-tag {
   margin-inline-end: 0;
-}
-
-.su-flow-mine {
-  font-size: 11px;
-  font-weight: 600;
-  color: hsl(var(--primary));
-  white-space: nowrap;
 }
 
 .su-flow-link {

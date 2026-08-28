@@ -2,7 +2,6 @@ use sea_orm::prelude::Decimal;
 use crate::core::kit::global::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PaymentCompletionVO {
     pub year: Option<i32>,
     pub total_contract_amount: Option<Decimal>,
@@ -15,7 +14,6 @@ pub struct PaymentCompletionVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PaymentMonthlyTrendVO {
     pub month: Option<i32>,
     pub contract_amount: Option<Decimal>,
@@ -25,14 +23,12 @@ pub struct PaymentMonthlyTrendVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PaymentMonthlyTrendStatsVO {
     pub year: Option<i32>,
     pub months: Option<Vec<PaymentMonthlyTrendVO>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PaymentStatusAnalysisVO {
     pub status: Option<String>,
     pub status_name: Option<String>,
@@ -43,7 +39,6 @@ pub struct PaymentStatusAnalysisVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PaymentRankingVO {
     pub rank: Option<i32>,
     pub target_type: Option<String>,
@@ -56,7 +51,6 @@ pub struct PaymentRankingVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PaymentStatsQuery {
     pub year: Option<i32>,
     pub month: Option<i32>,

@@ -2,7 +2,6 @@ use sea_orm::prelude::Decimal;
 use crate::core::kit::global::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CustomerTypeStatsVO {
     pub customer_type: Option<String>,
     pub total_count: Option<i64>,
@@ -11,7 +10,6 @@ pub struct CustomerTypeStatsVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CustomerSourceStatsVO {
     pub source: Option<String>,
     pub total_count: Option<i64>,
@@ -20,7 +18,6 @@ pub struct CustomerSourceStatsVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CustomerIndustryStatsVO {
     pub industry: Option<String>,
     pub total_count: Option<i64>,
@@ -30,7 +27,6 @@ pub struct CustomerIndustryStatsVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CustomerFunnelVO {
     pub stage: Option<String>,
     pub count: Option<i64>,
@@ -39,7 +35,6 @@ pub struct CustomerFunnelVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CustomerFunnelStatsVO {
     pub total_leads: Option<i64>,
     pub total_customers: Option<i64>,
@@ -53,7 +48,6 @@ pub struct CustomerFunnelStatsVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CustomerStatsQuery {
     pub year: Option<i32>,
     pub month: Option<i32>,

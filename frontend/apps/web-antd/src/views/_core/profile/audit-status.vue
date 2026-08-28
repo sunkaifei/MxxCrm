@@ -5,8 +5,8 @@
 // 设计方向「入职旅程 · 精确叙事」：
 // - 状态 Hero：蓝图点阵底纹 + 状态色渐变，一眼看清当前所处阶段
 // - 提交前准备：四要素清单（个人信息/简历/财务/紧急联系人），等宽序号 + 进度条，缺一不可
-// - 审批进度：垂直流水线，等宽序号节点 + 状态色连线，当前节点脉冲高亮
-// - 审批记录：操作时间线，意见气泡；多次提交可用「第 N 次」芯片切换查看
+// - 审批进度：垂直流水线只呈现当前（最新）流程，等宽序号节点 + 状态色连线，当前节点脉冲高亮
+// - 审批记录：跨实例聚合时间轴，每轮提交为一组可折叠分段（新→旧，默认展开最新一轮）
 import { computed, onMounted, ref } from 'vue';
 
 import {
@@ -38,6 +38,7 @@ const emit = defineEmits<{
 const userStore = useUserStore();
 
 const loading = ref(false);
+const loadError = ref(false);
 const data = ref<any>(null);
 const profile = ref<any>(null);
 const submitVisible = ref(false);
@@ -173,17 +174,40 @@ const checklist = computed(() => {
 const doneCount = computed(() => checklist.value.filter((i) => i.done).length);
 const allDone = computed(() => doneCount.value === checklist.value.length);
 
-// ===== 审批实例查看（多次提交用芯片切换，默认最新） =====
-const viewingIdx = ref(-1); // -1 = 最新实例
-const viewing = computed<any>(() => {
-  const arr = instances.value;
-  if (!arr.length) return null;
-  const idx = viewingIdx.value === -1 ? arr.length - 1 : viewingIdx.value;
-  return arr[idx] || null;
-});
+// ===== 审批记录聚合：每轮提交为一组分段（新→旧），默认展开最新一轮；进度流水线始终只看最新流程 =====
+const rounds = computed<any[]>(() =>
+  (instances.value as any[])
+    .map((inst: any, idx: number) => {
+      const base = inst?.logs || [];
+      // 提交节点：日志表无「提交」动作，由实例 submittedAt 组合为首条发起记录
+      const logs = inst?.submittedAt
+        ? [
+            {
+              id: `submit-${inst.id}`,
+              action: 0,
+              nodeName: '提交审批',
+              approverName: inst.submitterName || '',
+              createTime: inst.submittedAt,
+            },
+            ...base,
+          ]
+        : base;
+      return { roundNo: idx + 1, key: `round-${idx}`, inst, logs };
+    })
+    .reverse(),
+);
 
-function switchInstance(i: number) {
-  viewingIdx.value = i;
+// 折叠展开状态：undefined 时回落到默认规则（仅最新一轮展开）
+const openRounds = ref<Record<string, boolean>>({});
+const newestRoundKey = computed(() => rounds.value[0]?.key ?? '');
+
+function toggleRound(key: string) {
+  openRounds.value[key] = !isOpenKey(key);
+}
+
+function isOpenKey(key: string) {
+  const v = openRounds.value[key];
+  return v === undefined ? key === newestRoundKey.value : v;
 }
 
 function dotHex(status: number) {
@@ -209,9 +233,9 @@ function lineClassOf(st: number) {
   return 'p-line-muted';
 }
 
-// 垂直流水线：发起人 → 审批节点 → 结束
+// 垂直流水线：发起人 → 审批节点 → 结束（始终展示最新一轮流程）
 const flowSteps = computed(() => {
-  const inst = viewing.value;
+  const inst = latest.value;
   if (!inst) return [];
   const steps: any[] = [];
   steps.push({
@@ -252,27 +276,6 @@ const flowSteps = computed(() => {
     });
   }
   return steps;
-});
-
-// 提交节点：日志表无「提交」动作，由实例 submittedAt 组合为首条发起记录
-const submitViewLogs = computed<any[]>(() => {
-  const inst = viewing.value;
-  const arr = inst?.logs || [];
-  if (!inst?.submittedAt) return arr;
-  return [
-    {
-      id: `submit-${inst.id}`,
-      action: 0, // 提交
-      nodeName: '提交审批',
-      approverName: inst.submitterName || '',
-      createTime: inst.submittedAt,
-    },
-    ...arr,
-  ];
-});
-const restViewLogs = computed<any[]>(() => {
-  const arr = submitViewLogs.value;
-  return arr[0]?.action === 0 ? arr.slice(1) : arr;
 });
 
 // ===== 撤销审批（审批进行中，发起人本人撤回） =====
@@ -414,6 +417,7 @@ function handleSubmitted() {
 
 async function loadData() {
   loading.value = true;
+  loadError.value = false;
   try {
     const [auditRes, profileRes] = await Promise.all([
       getMyAuditApi(),
@@ -421,9 +425,14 @@ async function loadData() {
     ]);
     data.value = auditRes?.data?.data ?? auditRes?.data ?? auditRes ?? null;
     profile.value = profileRes ?? null;
-    viewingIdx.value = -1;
-  } catch {
+    openRounds.value = {};
+  } catch (error) {
+    // 加载失败必须可见化：失败时若静默置空，页面会渲染成「尚无审批实例」假象，
+    // 与提交侧的在途拦截提示自相矛盾，用户无法分辨「没提交过」和「加载失败」
+    console.error('[audit-status] 审核状态加载失败', error);
+    loadError.value = true;
     data.value = null;
+    message.error('审核状态加载失败，请重新加载');
   } finally {
     loading.value = false;
   }
@@ -472,6 +481,9 @@ defineExpose({ reload: loadData });
               提交人 {{ latest.submitterName || '-' }} · {{ formatDateTime(latest.submittedAt) || '-' }} 提交 ·
               共 {{ instances.length }} 次提交
             </div>
+            <p v-if="auditState.type === 'pending' && latest?.submittedAt" class="hero-warn">
+              当前流程于 {{ formatDateTime(latest.submittedAt) }} 发起；如需修改档案并重新发起，请先点击「撤销审批」。
+            </p>
           </div>
           <div class="hero-action">
             <template v-if="hero.canAction">
@@ -545,32 +557,23 @@ defineExpose({ reload: loadData });
           </div>
         </section>
 
-        <!-- ===== 审批进度（流水线） ===== -->
-        <template v-if="viewing">
+        <!-- ===== 审批进度（流水线，始终呈现最新一轮流程） ===== -->
+        <template v-if="latest">
           <section class="panel pipeline-panel">
             <div class="panel-head">
               <div>
                 <div class="panel-title">审批进度</div>
                 <div class="panel-sub">
                   {{
-                    viewing.businessTitle
-                      ? `${viewing.businessTitle} · 第 ${instances.indexOf(viewing) + 1} 次提交`
-                      : `第 ${instances.indexOf(viewing) + 1} 次提交`
+                    latest.businessTitle
+                      ? `${latest.businessTitle} · 当前流程的节点流转`
+                      : '当前流程的节点流转'
                   }}
                 </div>
               </div>
-              <div v-if="instances.length > 1" class="chip-group">
-                <button
-                  v-for="(inst, i) in instances"
-                  :key="inst.id"
-                  class="chip"
-                  :class="{ active: (viewingIdx === -1 ? instances.length - 1 : viewingIdx) === i }"
-                  @click="switchInstance(i)"
-                >
-                  <span class="chip-dot" :style="{ background: dotHex(inst.status) }"></span>
-                  第{{ i + 1 }}次
-                </button>
-              </div>
+              <Tag :color="statusMap[latest.status]?.color || 'default'">
+                {{ statusMap[latest.status]?.label || latest.statusName || '-' }}
+              </Tag>
             </div>
 
             <div class="pipeline">
@@ -600,40 +603,61 @@ defineExpose({ reload: loadData });
             </div>
           </section>
 
-          <!-- ===== 审批记录（时间线） ===== -->
+          <!-- ===== 审批记录（跨实例聚合时间轴：每轮提交一分组，按发起时间倒序，默认展开最新一轮） ===== -->
           <section class="panel record-panel">
             <div class="panel-head">
               <div>
                 <div class="panel-title">审批记录</div>
-                <div class="panel-sub">本次提交的审批操作时间线（{{ submitViewLogs.length }} 条）</div>
+                <div class="panel-sub">共 {{ instances.length }} 次提交，按发起时间倒序展示各轮每一步处理明细</div>
               </div>
             </div>
-            <div v-if="submitViewLogs.length" class="log-timeline">
-              <Timeline>
-                <TimelineItem v-if="submitViewLogs[0]?.action === 0" key="submit-entry" color="blue">
-                  <div class="log-title">
-                    {{ submitViewLogs[0].nodeName }}
-                    <Tag color="geekblue" size="small" class="log-tag">发起</Tag>
+            <div v-if="rounds.length" class="round-list">
+              <div v-for="r in rounds" :key="r.key" class="round-group">
+                <button type="button" class="round-head" @click="toggleRound(r.key)">
+                  <span class="chip-dot" :style="{ background: dotHex(r.inst.status) }"></span>
+                  <span class="round-name">第 {{ r.roundNo }} 次提交</span>
+                  <Tag size="small" :color="statusMap[r.inst.status]?.color || 'default'">
+                    {{ statusMap[r.inst.status]?.label || r.inst.statusName || '-' }}
+                  </Tag>
+                  <span class="round-time">{{ formatDateTime(r.inst.submittedAt) || '-' }}</span>
+                  <svg
+                    class="round-caret"
+                    :class="{ open: isOpenKey(r.key) }"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                <div v-show="isOpenKey(r.key)" class="round-body">
+                  <div v-if="r.logs.length" class="log-timeline">
+                    <Timeline>
+                      <TimelineItem
+                        v-for="(log, li) in r.logs"
+                        :key="log.id ?? `${r.key}-${li}`"
+                        :color="logActionColor[log.action] || 'blue'"
+                      >
+                        <div class="log-title">
+                          {{ log.nodeName || logActionText[log.action] || '审批' }}
+                          <Tag v-if="log.action === 0" color="geekblue" size="small" class="log-tag">发起</Tag>
+                        </div>
+                        <div class="log-sub">
+                          {{ log.approverName || log.operatorName || '-' }} ·
+                          {{ logActionText[log.action] || '--' }} · {{ formatDateTime(log.createTime || log.create_at) || '-' }}
+                        </div>
+                        <div v-if="log.comment || log.reason" class="log-comment">
+                          {{ log.comment || log.reason }}
+                        </div>
+                      </TimelineItem>
+                    </Timeline>
                   </div>
-                  <div class="log-sub">
-                    {{ submitViewLogs[0].approverName }} · 提交 · {{ formatDateTime(submitViewLogs[0].createTime) || '-' }}
-                  </div>
-                </TimelineItem>
-                <TimelineItem
-                  v-for="log in restViewLogs"
-                  :key="log.id"
-                  :color="logActionColor[log.action] || 'blue'"
-                >
-                  <div class="log-title">{{ log.nodeName || logActionText[log.action] || '审批' }}</div>
-                  <div class="log-sub">
-                    {{ log.approverName || log.operatorName || '-' }} ·
-                    {{ logActionText[log.action] || '--' }} · {{ formatDateTime(log.createTime || log.create_at) || '-' }}
-                  </div>
-                  <div v-if="log.comment || log.reason" class="log-comment">
-                    {{ log.comment || log.reason }}
-                  </div>
-                </TimelineItem>
-              </Timeline>
+                  <div v-else class="log-empty">该轮暂无审批操作记录</div>
+                </div>
+              </div>
             </div>
             <div v-else class="log-empty">暂无审批记录</div>
           </section>
@@ -851,6 +875,13 @@ defineExpose({ reload: loadData });
   color: hsl(var(--muted-foreground) / 85%);
 }
 
+/* 在途流程引导：明确「先撤回再重新发起」的路径 */
+.hero-warn {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: hsl(var(--primary));
+}
+
 .hero-action {
   position: relative;
   flex: none;
@@ -1059,43 +1090,81 @@ defineExpose({ reload: loadData });
   color: hsl(var(--primary));
 }
 
-/* ===== 实例芯片切换 ===== */
-.chip-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.chip {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  padding: 4px 12px;
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-  cursor: pointer;
-  border: 1px solid hsl(var(--border));
-  border-radius: 999px;
-  background: hsl(var(--card));
-  transition: all 0.25s ease;
-}
-
-.chip:hover {
-  color: hsl(var(--foreground));
-  border-color: hsl(var(--primary) / 40%);
-}
-
-.chip.active {
-  color: hsl(var(--primary));
-  border-color: hsl(var(--primary) / 50%);
-  background: hsl(var(--primary) / 8%);
-  font-weight: 600;
-}
-
+/* 状态点（沿用实例状态色，用于记录分组头） */
 .chip-dot {
+  flex: none;
   width: 7px;
   height: 7px;
   border-radius: 50%;
+}
+
+/* ===== 审批记录：跨实例聚合折叠分段（新→旧） ===== */
+.round-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.round-group {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--card));
+  transition: border-color 0.25s ease;
+}
+
+.round-group:hover {
+  border-color: hsl(var(--primary) / 30%);
+}
+
+.round-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-align: left;
+  border: none;
+  background: transparent;
+  transition: background 0.25s ease;
+}
+
+.round-head:hover {
+  background: hsl(var(--muted) / 45%);
+}
+
+.round-name {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  white-space: nowrap;
+}
+
+.round-time {
+  margin-left: auto;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.round-caret {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: hsl(var(--muted-foreground));
+  transition: transform 0.25s ease;
+}
+
+.round-caret.open {
+  transform: rotate(180deg);
+}
+
+.round-body {
+  padding: 2px 14px 12px;
+  border-top: 1px dashed hsl(var(--border));
 }
 
 /* ===== 审批流水线 ===== */
@@ -1255,6 +1324,38 @@ defineExpose({ reload: loadData });
   font-size: 12px;
 }
 
+/* ===== 加载失败态：与「未提交」严格区分，避免误导用户重复排查 ===== */
+.error-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 24px;
+  text-align: center;
+}
+
+.error-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+.error-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.error-text {
+  max-width: 420px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: hsl(var(--muted-foreground));
+}
+
 /* ===== 响应式：窄屏时清单降为 2 列、Hero 纵向堆叠 ===== */
 @media (max-width: 1280px) {
   .prep-grid {
@@ -1289,6 +1390,10 @@ defineExpose({ reload: loadData });
 
   .panel-head {
     flex-direction: column;
+  }
+
+  .round-time {
+    display: none;
   }
 
   .prep-progress {

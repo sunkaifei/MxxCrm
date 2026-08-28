@@ -147,6 +147,13 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
     let form_data_clone = form_data.clone();
     let result = (*db).transaction::<_, _, Error>(|tx| {
         Box::pin(async move {
+            // 自动生成员工编号（如 X001）：规则未配置时留空并告警，可由"一键分配"补齐
+            match crate::modules::company::service::code_rule_service::generate_code(
+                tx, "employee", None, None, None,
+            ).await {
+                Ok(no) => { dto_data.employee_no = Some(no); }
+                Err(e) => { log::warn!("生成员工编号失败（员工仍将创建，可稍后一键分配）: {}", e); }
+            }
             let admin_id = AdminModel::insert(tx, &dto_data).await
                 .map_err(|e| Error::from(format!("插入管理员失败: {}", e)))?;
             if admin_id > 0 {
@@ -196,6 +203,26 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
     }).await.map_err(|e| Error::from(format!("事务执行失败: {}", e)))?;
 
     Ok(result)
+}
+
+/// 一键分配员工编号：为所有未分配编号的在职员工按 id 升序生成编号（如 X001/X002...）
+/// 编号规则取自企业菜单-编号规则配置（module_code=employee）；已分配的员工自动跳过
+pub async fn assign_employee_nos(db: &DbConn) -> Result<i64> {
+    let admins = AdminModel::select_without_employee_no(db).await
+        .map_err(|e| Error::from(format!("查询未分配编号员工失败: {}", e)))?;
+    if admins.is_empty() {
+        return Ok(0);
+    }
+    let mut assigned = 0i64;
+    for a in &admins {
+        let no = crate::modules::company::service::code_rule_service::generate_code(
+            db, "employee", None, None, None,
+        ).await.map_err(|e| Error::from(format!("生成员工编号失败（已分配 {} 人，修正规则后可重试）: {}", assigned, e)))?;
+        AdminModel::update_employee_no(db, a.id, &no).await
+            .map_err(|e| Error::from(format!("写入员工 [{}] 编号失败: {}", a.id, e)))?;
+        assigned += 1;
+    }
+    Ok(assigned)
 }
 
 /// 用户注册（自动分配默认角色）
@@ -794,6 +821,9 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery, current_user_id: i64) ->
             resume_filled,
             contact_filled,
             completeness: (filled_score * 100 / 6) as i32,
+            employee_no: data.employee_no,
+            contract_type: data.contract_type,
+            contract_months: data.contract_months,
         });
 
     }

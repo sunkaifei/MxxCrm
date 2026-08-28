@@ -616,6 +616,23 @@ pub async fn audit_user(state: web::Data<AppState>, path: web::Path<i64>, item: 
     }
 }
 
+/// POST /admin/assign_employee_nos - 一键分配员工编号
+/// 为所有未分配编号的在职员工按编号规则（module_code=employee，如 X001）生成编号，已有编号的自动跳过
+pub async fn assign_employee_nos(state: web::Data<AppState>) -> Result<HttpResponse> {
+    let db = &state.db;
+    match admin_service::assign_employee_nos(db).await {
+        Ok(count) => {
+            let msg = if count > 0 {
+                format!("已为 {} 名员工分配编号", count)
+            } else {
+                "所有员工均已分配编号".to_string()
+            };
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success(msg, "local")))
+        }
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("分配员工编号失败: {}", e), "local"))),
+    }
+}
+
 /// POST /admin/resign/apply - 离职申请（HR/管理员代发起）
 /// 提交人从 JWT 取，防止伪造；被离职员工为 body.admin_id
 pub async fn admin_resign_apply(
@@ -1124,6 +1141,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::put()
                     .to(audit_user)
                     .wrap(require_permission("system:admin:audit")),
+            )
+            // POST /admin/assign_employee_nos - 一键分配员工编号（为无编号员工生成编号）
+            .route(
+                "/assign_employee_nos",
+                web::post()
+                    .to(assign_employee_nos)
+                    .wrap(require_permission("system:admin:assign_no")),
             )
             // POST /admin/resign/apply - 离职申请（HR/管理员代发起）
             .route(

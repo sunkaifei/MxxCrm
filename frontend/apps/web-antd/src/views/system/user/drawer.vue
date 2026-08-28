@@ -107,6 +107,21 @@ const [BaseForm, baseFormApi] = useVbenForm({
       rules: z.string().min(1, { message: $t('ui.formRules.required') }),
     },
     {
+      // 员工编号只读展示：创建后由编号规则自动生成（如 X001），仅编辑时可查看
+      component: 'Input',
+      fieldName: 'employeeNo',
+      label: $t('page.system.user.employeeNo'),
+      componentProps: {
+        disabled: true,
+        placeholder: $t('page.system.user.employeeNoPlaceholder'),
+      },
+      help: $t('page.system.user.employeeNoTip'),
+      dependencies: {
+        triggerFields: ['_div1'],
+        if: (_values, { formApi }: any) => !formApi.getValues()?.create,
+      },
+    },
+    {
       component: 'VbenInputPassword',
       fieldName: 'password',
       label: $t('ui.table.password'),

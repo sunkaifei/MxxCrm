@@ -12,6 +12,7 @@ import {
   Progress,
   Row,
   Spin,
+  Switch,
   Table,
   Tag,
   TreeSelect,
@@ -44,6 +45,8 @@ const timeParams = ref<{
   year?: number;
 }>({});
 const departmentId = ref<number>();
+// 口径开关：true=仅排行「当年已通过年度销售计划」的销售（有计划 ⇒ 销售身份，与业绩计划中心同源）
+const onlySales = ref(true);
 
 function extractList(res: any): any[] {
   return Array.isArray(res) ? res : (res?.data ?? []);
@@ -52,7 +55,11 @@ function extractList(res: any): any[] {
 async function loadData() {
   loading.value = true;
   try {
-    const params = { ...timeParams.value, department_id: departmentId.value };
+    const params = {
+      ...timeParams.value,
+      department_id: departmentId.value,
+      only_sales: onlySales.value,
+    };
     const [customerRes, followRes, conversionRes] = await Promise.all([
       getEmployeeCustomerCountApi(params),
       getEmployeeFollowUpApi(params),
@@ -79,6 +86,11 @@ function handleTimeChange(params: {
 
 function handleDeptSelect(value: any) {
   departmentId.value = value ? Number(value) : undefined;
+  loadData();
+}
+
+function handleOnlySalesChange(checked: boolean | string | number) {
+  onlySales.value = Boolean(checked);
   loadData();
 }
 
@@ -633,6 +645,20 @@ function rankBadge(rank: number) {
             }}</span>
             <TimeFilter @change="handleTimeChange" />
           </div>
+          <div class="filter-divider hidden lg:block"></div>
+          <!-- 口径切换：仅销售 = 当年已通过年度销售计划的员工（与业绩计划中心同一事实源） -->
+          <div class="flex items-center gap-2">
+            <span class="filter-label">统计口径</span>
+            <Switch
+              :checked="onlySales"
+              checked-children="仅销售"
+              un-checked-children="全员"
+              @change="handleOnlySalesChange"
+            />
+            <span class="hidden text-xs text-gray-400 xl:inline">
+              仅统计当年已通过年度销售计划的销售
+            </span>
+          </div>
         </div>
       </Card>
 
@@ -758,8 +784,9 @@ function rankBadge(rank: number) {
         </Row>
 
         <!-- 员工全景榜 -->
+        <!-- mt-6：上方图表行带垂直 gutter，antd 会写入行内 margin-bottom:-8px 抵消一半上边距 -->
         <Card
-          class="mt-4 board-card fade-up"
+          class="mt-6 board-card fade-up"
           :style="{ animationDelay: '360ms' }"
         >
           <template #title>

@@ -11,10 +11,11 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Dropdown, Menu, Popconfirm, Progress, Tag, Tooltip } from 'ant-design-vue';
+import { Button, Dropdown, Menu, Modal, Popconfirm, Progress, Tag, Tooltip } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
+  assignEmployeeNosApi,
   deleteUserApi,
   getColumnsConfigApi,
   getUserListApi,
@@ -76,6 +77,7 @@ const allColumns: Array<{
   { key: 'seq', column: { type: 'seq', width: 70 } },
   { key: 'userName', column: { field: 'userName', width: 140, slots: { default: 'userName' } } },
   { key: 'nickName', column: { field: 'nickName', width: 140, slots: { default: 'nickName' } } },
+  { key: 'employeeNo', column: { field: 'employeeNo', width: 100 } },
   { key: 'deptName', column: { field: 'deptName', width: 140 } },
   { key: 'postName', column: { field: 'postName', width: 140 } },
   { key: 'mobile', column: { field: 'mobile', width: 120 } },
@@ -99,7 +101,7 @@ const allColumns: Array<{
 const defaultVisibleColumns: Record<string, string[]> = {
   admin: allColumns.map((c) => c.key),
   hr: allColumns.map((c) => c.key),
-  manager: ['seq', 'userName', 'nickName', 'deptName', 'postName', 'mobile', 'email', 'roleName', 'directManagerName', 'status', 'online', 'auditStatus', 'action'],
+  manager: ['seq', 'userName', 'nickName', 'employeeNo', 'deptName', 'postName', 'mobile', 'email', 'roleName', 'directManagerName', 'status', 'online', 'auditStatus', 'action'],
   employee: ['seq', 'userName', 'nickName', 'deptName', 'postName', 'status', 'online', 'action'],
 };
 
@@ -108,6 +110,7 @@ const columnTitleMap: Record<string, string> = {
   seq: 'ui.table.seq',
   userName: 'page.system.user.username',
   nickName: 'page.system.user.nickName',
+  employeeNo: 'page.system.user.employeeNo',
   deptName: 'page.system.user.dept',
   postName: 'page.system.user.post',
   mobile: 'page.system.user.mobile',
@@ -486,6 +489,21 @@ function handleEdited() {
   gridApi.query();
 }
 
+// 一键分配员工编号（如 X001）：为所有未分配编号的员工按编号规则生成，已有编号的自动跳过
+function handleAssignNos() {
+  Modal.confirm({
+    title: $t('page.system.user.assignNoConfirmTitle'),
+    content: $t('page.system.user.assignNoConfirmContent'),
+    okText: $t('ui.button.ok'),
+    cancelText: $t('ui.button.cancel'),
+    onOk: async () => {
+      const msg = await assignEmployeeNosApi();
+      window.$message.success(String(msg || $t('page.system.user.assignNoSuccess')));
+      gridApi.query();
+    },
+  });
+}
+
 // 发送邮件 / 站内消息：所有登录用户可用（不校验权限码）
 const sendMailVisible = ref(false);
 const sendMessageVisible = ref(false);
@@ -542,6 +560,13 @@ async function handleKickOffline(row: any) {
           @click="openColumnsConfig"
         >
           {{ $t('page.system.user.button.columnsConfig') }}
+        </Button>
+        <Button
+          class="mr-2"
+          v-access:code="['system:admin:assign_no']"
+          @click="handleAssignNos"
+        >
+          {{ $t('page.system.user.button.assignNo') }}
         </Button>
       </template>
 

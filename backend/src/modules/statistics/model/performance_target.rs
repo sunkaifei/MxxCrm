@@ -4,7 +4,6 @@ use crate::modules::statistics::entity::performance_target::{self, Entity as Per
 use crate::utils::string_utils::{deserialize_string_to_u64, deserialize_string_to_i64};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PerformanceTargetSaveRequest {
     pub employee_id: Option<i64>,
     pub year: Option<i32>,
@@ -15,13 +14,11 @@ pub struct PerformanceTargetSaveRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PerformanceTargetBatchSaveRequest {
     pub targets: Option<Vec<PerformanceTargetSaveRequest>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PerformanceTargetQuery {
     #[serde(default, deserialize_with = "deserialize_string_to_i64")]
     pub employee_id: Option<i64>,
@@ -32,7 +29,6 @@ pub struct PerformanceTargetQuery {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PerformanceTargetVO {
     pub id: Option<i64>,
     pub employee_id: Option<i64>,
@@ -64,7 +60,6 @@ impl From<performance_target::Model> for PerformanceTargetVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct MonthlyPerformanceVO {
     pub month: Option<i32>,
     pub contract_target: Option<Decimal>,
@@ -78,7 +73,6 @@ pub struct MonthlyPerformanceVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct MonthlyPerformanceStatsVO {
     pub year: Option<i32>,
     pub total_contract_target: Option<Decimal>,
@@ -91,7 +85,6 @@ pub struct MonthlyPerformanceStatsVO {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PerformanceRankingQuery {
     #[serde(default)]
     pub year: Option<i32>,
@@ -104,7 +97,6 @@ pub struct PerformanceRankingQuery {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PerformanceRankingVO {
     pub rank: Option<i32>,
     pub employee_id: Option<i64>,

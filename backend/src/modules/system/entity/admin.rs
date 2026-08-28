@@ -89,6 +89,8 @@ pub struct Model {
     pub public_profile_config: Option<serde_json::Value>,
     ///离职日期（P3预留）
     pub leave_date: Option<NaiveDate>,
+    ///员工编号（如 X001，由编号规则模块自动分配，全局唯一且终身不变）
+    pub employee_no: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
