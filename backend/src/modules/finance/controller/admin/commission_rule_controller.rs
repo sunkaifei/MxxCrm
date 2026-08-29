@@ -225,7 +225,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/toggle", web::post().to(toggle).wrap(require_permission("finance:commission:manage")))
             .route("/set-default", web::post().to(set_default).wrap(require_permission("finance:commission:manage")))
             .route("/default", web::get().to(get_default).wrap(require_permission("finance:commission:list")))
-            .route("/options", web::get().to(options).wrap(require_permission("finance:commission:list")))
+            // options 为业务表单基础下拉（合同/报价选择提成规则），销售签合同必须可用，仅登录校验即可
+            .route("/options", web::get().to(options))
     );
     // 提成预览和月度结算单独注册
     cfg.service(

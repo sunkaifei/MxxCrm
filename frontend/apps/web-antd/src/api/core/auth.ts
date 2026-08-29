@@ -28,6 +28,9 @@ export namespace AuthApi {
     email?: string;
     mobile?: string;
     agreePolicy?: boolean;
+    deptName?: string;
+    postName?: string;
+    expectedSalary?: string;
   }
 
   /** 用户名检查返回值 */

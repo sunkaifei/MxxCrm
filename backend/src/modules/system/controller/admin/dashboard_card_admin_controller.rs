@@ -17,8 +17,10 @@ use crate::core::web::entity::common::BathDeleteIdRequest;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::system::model::dashboard_card::{
-    DashboardCardAssignRolesRequest, DashboardCardListQuery, DashboardCardSaveRequest,
+    CardLayoutSaveRequest, CardRolePreviewQuery, DashboardCardAssignRolesRequest,
+    DashboardCardListQuery, DashboardCardSaveRequest,
 };
+use crate::modules::system::model::dashboard_user_layout::UserLayoutSaveRequest;
 use crate::modules::system::service::{admin_service, dashboard_card_service};
 
 /// 卡片管理列表（含角色分配信息）
@@ -74,6 +76,61 @@ pub async fn visible(state: web::Data<AppState>, req: HttpRequest) -> Result<Htt
     })
 }
 
+/// 角色视角预览（管理页增强，方案 6-#9：选角色查看其可见卡片组合）
+pub async fn visible_preview(
+    state: web::Data<AppState>,
+    query: web::Query<CardRolePreviewQuery>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let role_id = query.role_id.unwrap_or_default();
+    dashboard_card_service::get_role_visible_cards(db, role_id).await.map(|list| {
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list, "local"))
+    })
+}
+
+/// 工作台卡片化总开关状态（方案 4.5-2：前端据此走注册卡渲染或旧渲染，仅需登录）
+pub async fn card_status(state: web::Data<AppState>) -> HttpResponse {
+    let enabled = dashboard_card_service::is_card_mode_enabled(&state.db).await;
+    HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(
+        serde_json::json!({ "workspaceCardEnabled": enabled }),
+        "local",
+    ))
+}
+
+/// 设计器模板布局（方案 5.2：GET /dashboard/card/layout?page_key=，仅需登录；含停用卡片）
+pub async fn card_layout(state: web::Data<AppState>, query: web::Query<DashboardCardListQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let page_key = query.page_key.clone().unwrap_or_else(|| "default".to_string());
+    dashboard_card_service::get_card_layout(db, &page_key).await.map(|list| {
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list, "local"))
+    })
+}
+
+/// 设计器保存模板布局（方案 5.2：POST /dashboard/card/layout/save，权限 system:dashboard:design）
+pub async fn card_layout_save(state: web::Data<AppState>, form_data: web::Json<CardLayoutSaveRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let result = dashboard_card_service::save_card_layout(db, &form_data.0).await;
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
+}
+
+/// 个人布局（方案 5.2：GET /dashboard/user/layout?page_key=，模板 + 个人覆盖合并，仅需登录）
+pub async fn user_layout(state: web::Data<AppState>, req: HttpRequest, query: web::Query<DashboardCardListQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let user_id = get_current_user_id(&req);
+    let page_key = query.page_key.clone().unwrap_or_else(|| "default".to_string());
+    dashboard_card_service::get_user_layout(db, user_id, &page_key).await.map(|list| {
+        HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(list, "local"))
+    })
+}
+
+/// 保存个人布局（方案 5.2：POST /dashboard/user/layout/save，reset=true 回模板，仅需登录）
+pub async fn user_layout_save(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<UserLayoutSaveRequest>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let user_id = get_current_user_id(&req);
+    let result = dashboard_card_service::save_user_layout(db, user_id, &form_data.0).await;
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
+}
+
 /// 注册工作台卡片管理路由
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -114,6 +171,32 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .wrap(require_permission("system:dashboard:update")),
             )
             // GET /dashboard/card/visible - 当前用户可见卡片（仅需登录）
-            .route("/visible", web::get().to(visible)),
+            .route("/visible", web::get().to(visible))
+            // GET /dashboard/card/visible_preview - 角色视角预览（管理页增强）
+            .route(
+                "/visible_preview",
+                web::get()
+                    .to(visible_preview)
+                    .wrap(require_permission("system:dashboard:list")),
+            )
+            // GET /dashboard/card/status - 卡片化总开关状态（仅需登录）
+            .route("/status", web::get().to(card_status))
+            // GET /dashboard/card/layout - 设计器模板布局（仅需登录）
+            .route("/layout", web::get().to(card_layout))
+            // POST /dashboard/card/layout/save - 设计器保存模板布局
+            .route(
+                "/layout/save",
+                web::post()
+                    .to(card_layout_save)
+                    .wrap(require_permission("system:dashboard:design")),
+            ),
+    );
+
+    cfg.service(
+        web::scope("/dashboard/user")
+            // GET /dashboard/user/layout - 个人布局（模板 + 覆盖合并，仅需登录）
+            .route("/layout", web::get().to(user_layout))
+            // POST /dashboard/user/layout/save - 保存个人布局（reset=true 回模板，仅需登录）
+            .route("/layout/save", web::post().to(user_layout_save)),
     );
 }

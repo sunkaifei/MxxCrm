@@ -26,6 +26,14 @@ pub struct Model {
     pub page_key: Option<String>,
     /// 显示顺序
     pub sort_order: Option<i32>,
+    /// 模板布局：栅格列偏移（方案 5.1 变更 1，管理员设计器维护）
+    pub default_x: Option<i32>,
+    /// 模板布局：栅格行偏移
+    pub default_y: Option<i32>,
+    /// 模板布局：宽（列数 1-12）
+    pub default_w: Option<i32>,
+    /// 模板布局：高（行数）
+    pub default_h: Option<i32>,
     /// 状态（1启用 0停用）
     pub status: Option<i32>,
     /// 备注

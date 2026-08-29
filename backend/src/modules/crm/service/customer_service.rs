@@ -683,6 +683,9 @@ pub async fn add_to_pool(
     // 记录退回历史（写入退回原因类型与补充说明）
     if let Some(aid) = assigned_to {
         let _ = assign_history_service::record_release(&txn, id, aid, reason_type, &reason).await;
+    } else {
+        // 无负责人（公海池中客户）由管理员退回：插入一条退回公海记录，确保退回原因留痕（规划方案 5.1 退回规则2）
+        let _ = assign_history_service::record_pool_release(&txn, id, user_id, reason_type, &reason).await;
     }
 
     txn.commit().await?;

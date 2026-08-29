@@ -60,6 +60,35 @@ pub async fn record_release(
     Ok(())
 }
 
+/// 记录公海池中客户（无负责人）由管理员退回公海的历史。
+/// 无当前负责记录可关闭，故直接插入一条 action_type=2 记录，start/end 均为当前时间
+/// （不构成实际负责区间），退回原因类型与补充说明落库留痕（规划方案 5.1 退回规则2）。
+pub async fn record_pool_release(
+    db: &impl ConnectionTrait,
+    customer_id: i64,
+    operator_id: i64,
+    reason_type: Option<i16>,
+    reason: &Option<String>,
+) -> Result<()> {
+    let now = chrono::Local::now().naive_local();
+    let payload = customer_assign_history::ActiveModel {
+        customer_id: Set(Some(customer_id)),
+        admin_id: Set(Some(operator_id)),
+        action_type: Set(Some(2)), // 2=退回公海
+        start_time: Set(Some(now)),
+        end_time: Set(Some(now)), // 无负责人场景：不构成实际负责区间
+        remark: Set(Some("退回公海（原无负责人）".to_string())),
+        reason_type: Set(reason_type),
+        reason: Set(reason.clone()),
+        operated_by: Set(Some(operator_id)),
+        create_time: Set(Some(now)),
+        ..Default::default()
+    };
+    AssignHistory::insert(payload).exec(db).await
+        .map_err(|e| Error::from(format!("记录退回公海历史失败: {}", e)))?;
+    Ok(())
+}
+
 /// 记录客户转移历史
 /// 1. 关闭原负责人的当前负责记录（end_time = now, remark = "转移给 {to_user_name}"）
 /// 2. 新增新负责人的负责记录（action_type=4, start_time = now, end_time = NULL）

@@ -11,6 +11,7 @@
 /backend/scripts/
 /backend/sql/
 /backend/logs/
+/backend/storage/backup/
 /scripts/
 /**/*.py
 /**/*.sql

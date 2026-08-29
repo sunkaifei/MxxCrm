@@ -29,6 +29,7 @@ import {
   deleteOpportunityApi,
   getOpportunityListApi,
   getSalesFlowModeApi,
+  recoverOpportunityApi,
   voidOpportunityApi,
 } from '#/api';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
@@ -456,6 +457,25 @@ async function onVoidReasonConfirm({ reason }: { reason: string }) {
   }
 }
 
+// 恢复已作废商机（仅管理员，回到作废前阶段；后端校验为准）
+async function handleRecover(row: any) {
+  Modal.confirm({
+    title: '恢复商机',
+    content: `确定要恢复已作废商机「${row.title || ''}」吗？恢复后回到作废前阶段。`,
+    okText: '确定恢复',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await recoverOpportunityApi(Number(row.id));
+        message.success('商机已恢复');
+        gridApi.query();
+      } catch {
+        /* ignore */
+      }
+    },
+  });
+}
+
 async function handleBatchDelete() {
   const records = gridApi.grid?.getCheckboxRecords();
   if (!records?.length) {
@@ -541,7 +561,10 @@ loadFlowMode();
           {{ $t('page.crm.opportunity.button.create') }}
         </Button>
         <Button
-          v-if="!isSubordinateView"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('crm:opportunity:delete')
+          "
           @click="handleBatchDelete"
           class="mr-2"
           danger
@@ -629,6 +652,16 @@ loadFlowMode();
                   @click="openVoidReason(row)"
                 >
                   作废
+                </Menu.Item>
+                <Menu.Item
+                  v-if="
+                    row.stage === 6 &&
+                    accessStore.hasAccessCode('crm:opportunity:void')
+                  "
+                  key="recover"
+                  @click="handleRecover(row)"
+                >
+                  恢复
                 </Menu.Item>
                 <Menu.Item
                   v-if="

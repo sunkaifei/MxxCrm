@@ -115,6 +115,7 @@ pub async fn update_role(state: web::Data<AppState>, req: HttpRequest, id: web::
             sort: form_data.sort,
             status: form_data.status,
             remark: form_data.remark,
+            home_path: None,
             deleted: None,
             create_by: None,
             create_time: None,

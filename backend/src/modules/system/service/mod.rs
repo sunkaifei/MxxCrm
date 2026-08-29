@@ -52,5 +52,8 @@ pub mod profile_service;
 pub mod hr_archive_service;
 pub mod resign_service;
 pub mod dashboard_card_service;
+pub mod workspace_service;
+pub mod onboarding_service;
 pub mod data_clean_service;
 pub mod otp_service;
+pub mod dashboard_workspace_service;

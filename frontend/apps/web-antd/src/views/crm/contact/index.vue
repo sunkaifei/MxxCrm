@@ -457,7 +457,10 @@ async function handleBatchDelete() {
             {{ $t('page.crm.contact.button.create') }}
           </Button>
           <Button
-            v-if="!isSubordinateView"
+            v-if="
+              !isSubordinateView &&
+              accessStore.hasAccessCode('crm:contact:delete')
+            "
             @click="handleBatchDelete"
             danger
             ghost

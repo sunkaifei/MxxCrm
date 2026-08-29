@@ -320,7 +320,8 @@
       "title": "Field Visit",
       "button": {
         "add": "Add Visit",
-        "export": "Export"
+        "export": "Export",
+        "info": "View"
       }
     },
     "recycle": {

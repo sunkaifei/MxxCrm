@@ -26,6 +26,8 @@ pub struct Model {
     pub sort: Option<i32>,
     /// 数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限 5：仅本人数据权限）
     pub data_scope: Option<i32>,
+    /// 角色默认首页（方案 5.1 变更 2，M4；登录后按 sort 最小角色取值，空则前端回退 /workspace）
+    pub home_path: Option<String>,
     /// 角色状态（0停用 1正常）
     pub status: Option<i32>,
     /// 删除标志（0代表存在 2代表删除）

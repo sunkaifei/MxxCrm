@@ -8,15 +8,20 @@
 //! 版权所有，侵权必究！
 //!
 
+use std::time::Instant;
+
 use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
+use crate::modules::system::entity::role::Entity as RoleEntity;
 use crate::modules::system::model::dept::{DeptDetailVO, DeptModel, DeptSaveDTO, DeptSaveRequest, DeptUpdateRequest, ListQuery};
-use crate::modules::system::service::{admin_service, dept_service};
+use crate::modules::system::model::dept_default_role::DeptDefaultRoleModel;
+use crate::modules::system::service::{admin_service, dept_service, system_log_service};
 use actix_web::{web, HttpRequest, HttpResponse};
+use sea_orm::{DbConn, EntityTrait};
 
 pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::Json<DeptSaveRequest>) -> Result<HttpResponse> {
     //log::info!("dept_save params: {:?}", &item);
@@ -35,6 +40,7 @@ pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::
     
     //获取用户信息
     let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
+    let operator = admin.user_name.clone().unwrap_or_else(|| "unknown".to_string());
     let mut form_data = DeptSaveDTO::from(sys_dept.clone());
 
     if let Some(leader_id) = form_data.leader_id {
@@ -49,9 +55,30 @@ pub async fn save_dept(state: web::Data<AppState>, req: HttpRequest, item: web::
 
     form_data.create_by = admin.user_name.clone();
     form_data.update_by = admin.user_name;
+
+    // 入职默认角色校验（13.3-5）：仅允许启用且未删除的角色
+    if let Some(role_id) = sys_dept.default_role_id {
+        if role_id > 0 {
+            if let Err(msg) = validate_default_role(&db, role_id).await {
+                return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")));
+            }
+        }
+    }
+
+    let started = Instant::now();
     match dept_service::insert(&db, &form_data).await {
-        Ok(user_op) => {
-            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_op, "local")))
+        Ok(dept_id) => {
+            // 入职默认角色映射（13.3-5）：失败不阻塞部门创建
+            match apply_default_role_mapping(&db, dept_id, sys_dept.default_role_id, &operator).await {
+                Ok(Some(action)) => {
+                    log_default_role_change(&db, &req, started, action, dept_id, sys_dept.default_role_id, &operator, "dept_admin_controller::save_dept", "POST").await;
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    log::warn!("保存部门默认角色映射失败: {}", e);
+                }
+            }
+            Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(dept_id, "local")))
         }
         Err(err) => {
             Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &err.to_string(), "local")))
@@ -100,6 +127,16 @@ pub async fn dept_update(state: web::Data<AppState>, req: HttpRequest, id: web::
     
     //获取用户信息
     let admin = admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await?;
+    let operator = admin.user_name.clone().unwrap_or_else(|| "unknown".to_string());
+
+    // 入职默认角色校验（13.3-5）：仅允许启用且未删除的角色，校验失败则部门不更新
+    if let Some(role_id) = sys_dept.default_role_id {
+        if role_id > 0 {
+            if let Err(msg) = validate_default_role(&db, role_id).await {
+                return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &msg, "local")));
+            }
+        }
+    }
 
     let mut form_data = DeptSaveDTO::from(sys_dept.clone());
     form_data.id = Some(dept_id);
@@ -124,6 +161,17 @@ pub async fn dept_update(state: web::Data<AppState>, req: HttpRequest, id: web::
         Ok(v) => {
             if v == 0 {
                 return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "更新部门信息异常", "local")));
+            }
+            // 入职默认角色映射（13.3-5）：Some(>0)=设置 Some(0)=清除 None=不处理
+            let started = Instant::now();
+            match apply_default_role_mapping(&db, dept_id, sys_dept.default_role_id, &operator).await {
+                Ok(Some(action)) => {
+                    log_default_role_change(&db, &req, started, action, dept_id, sys_dept.default_role_id, &operator, "dept_admin_controller::dept_update", "PUT").await;
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &("保存入职默认角色失败,".to_string() + &e.to_string()), "local")));
+                }
             }
             Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(v, "local")))
         }
@@ -170,7 +218,11 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
                 HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "部门信息不存在", "local"))
             }
             Some(dept_entity) => {
-                let dept_vo = DeptDetailVO::from(dept_entity);
+                let mut dept_vo = DeptDetailVO::from(dept_entity);
+                // 入职默认角色回显（13.3-5 编辑抽屉）
+                if let Ok(Some(mapping)) = DeptDefaultRoleModel::find_by_dept(&db, item.id.unwrap_or_default()).await {
+                    dept_vo.default_role_id = Some(mapping.role_id);
+                }
                 HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(dept_vo, "local"))
             }
         }
@@ -191,6 +243,77 @@ pub async fn dept_list(state: web::Data<AppState>, query: web::Query<ListQuery>)
         Err(err) => {
             Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &("查询部门列表树异常,".to_string() + &err.to_string()), "local")))
         }
+    }
+}
+
+/// 入职默认角色校验（13.3-5）：仅允许 status=1 且未删除的角色
+async fn validate_default_role(db: &DbConn, role_id: i64) -> std::result::Result<(), String> {
+    match RoleEntity::find_by_id(role_id).one(db).await {
+        Ok(Some(role)) => {
+            if role.deleted == Some(2) {
+                Err("所选角色已删除，请重新选择".to_string())
+            } else if role.status != Some(1) {
+                Err("仅可选择启用状态的角色作为入职默认角色".to_string())
+            } else {
+                Ok(())
+            }
+        }
+        Ok(None) => Err("所选角色不存在，请重新选择".to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// 入职默认角色映射处理（13.3-5）：Some(>0)=设置 Some(0)=清除 None=不处理；返回变更动作供审计
+async fn apply_default_role_mapping(
+    db: &DbConn,
+    dept_id: i64,
+    default_role_id: Option<i64>,
+    operator: &str,
+) -> std::result::Result<Option<&'static str>, sea_orm::DbErr> {
+    match default_role_id {
+        Some(role_id) if role_id > 0 => {
+            DeptDefaultRoleModel::upsert(db, dept_id, role_id, operator).await?;
+            Ok(Some("set"))
+        }
+        Some(_) => {
+            DeptDefaultRoleModel::delete_by_dept(db, dept_id).await?;
+            Ok(Some("clear"))
+        }
+        None => Ok(None),
+    }
+}
+
+/// 部门默认角色映射变更审计（方案 10.6-4）：失败仅告警，不影响主流程
+#[allow(clippy::too_many_arguments)]
+async fn log_default_role_change(
+    db: &DbConn,
+    req: &HttpRequest,
+    started: Instant,
+    action: &str,
+    dept_id: i64,
+    role_id: Option<i64>,
+    operator: &str,
+    method: &str,
+    request_method: &str,
+) {
+    let ctx = system_log_service::SaveLogContext {
+        request: req,
+        title: Some("部门默认角色配置".to_string()),
+        business_type: Some(2),
+        method: Some(method.to_string()),
+        request_method: Some(request_method.to_string()),
+        operator_type: Some(1),
+        oper_name: Some(operator.to_string()),
+        dept_name: None,
+        oper_param: Some(serde_json::json!({"deptId": dept_id, "defaultRoleId": role_id}).to_string()),
+        json_result: Some(format!("{{\"action\":\"{}\"}}", action)),
+        status: Some(0),
+        error_msg: None,
+        status_code: Some(200),
+        elapsed: Some(started.elapsed().as_millis() as i64),
+    };
+    if let Err(e) = system_log_service::save_log(db, ctx).await {
+        log::warn!("记录部门默认角色审计日志失败: {}", e);
     }
 }
 

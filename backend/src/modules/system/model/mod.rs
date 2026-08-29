@@ -25,6 +25,7 @@ pub mod role_menu_merge;
 pub mod role_dept_merge;
 
 pub mod dept;
+pub mod dept_default_role;
 pub mod dept_menu_merge;
 
 pub mod post;
@@ -45,5 +46,9 @@ pub mod pdf;
 pub mod integration_config;
 pub mod profile;
 pub mod dashboard_card;
+pub mod dashboard_user_layout;
+pub mod workspace;
+pub mod onboarding;
 pub mod resign;
+pub mod dashboard_workspace;
 

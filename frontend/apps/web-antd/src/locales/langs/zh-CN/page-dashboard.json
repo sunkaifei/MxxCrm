@@ -29,6 +29,8 @@
     },
     "analytics": "分析页",
     "workspace": "工作台",
+    "emptyCardsTip": "当前工作台暂未配置可见卡片，请联系管理员或前往工作台设计器配置",
+    "goConfigure": "去配置",
     "dataCenter": "数据中心",
     "todo": "待办中心",
     "todoOverview": "今日待办概览",
@@ -64,7 +66,125 @@
     "quickProcessPayment": "回款登记",
     "quickProcessContract": "合同详情",
     "quickProcessOpportunity": "商机详情",
+    "quickCreateCustomer": "新建客户",
+    "quickCreateFollowUp": "写跟进",
+    "quickCreateOpportunity": "新建商机",
     "successTag": "已处理",
-    "rejectTag": "已驳回"
+    "rejectTag": "已驳回",
+    "canvas": {
+      "hiddenTip": "{n} 张卡片已隐藏",
+      "hide": "隐藏卡片",
+      "reset": "复位布局",
+      "resetDone": "已恢复默认布局",
+      "restore": "恢复显示",
+      "saveFailed": "布局保存失败",
+      "tip": "拖拽移动卡片，拖动右下角调整大小"
+    },
+    "workspace": {
+      "switch": "工作台",
+      "cards": {
+        "more": "更多",
+        "announcement": {
+          "title": "公司公告",
+          "unread": "未读",
+          "empty": "暂无公告"
+        },
+        "hrTodo": {
+          "title": "人事待办",
+          "onboarding": "入职",
+          "resign": "离职",
+          "empty": "暂无人事待办"
+        },
+        "paymentReminder": {
+          "title": "待收款提醒",
+          "statusNotStarted": "未开始",
+          "statusPartial": "部分回款",
+          "planAmount": "计划",
+          "receivedAmount": "已收",
+          "empty": "暂无待收款计划"
+        },
+        "payslipStat": {
+          "title": "工资条概况",
+          "monthTotal": "当月工资条",
+          "sent": "已发送",
+          "read": "已读",
+          "unread": "未读",
+          "empty": "当月暂无工资条"
+        },
+        "purchaseApproval": {
+          "title": "采购审批",
+          "urgencyNormal": "普通",
+          "urgencyHigh": "紧急",
+          "urgencyCritical": "非常紧急",
+          "empty": "暂无待办采购单"
+        },
+        "salesPerformance": {
+          "title": "本月销售业绩",
+          "newCustomers": "新增客户",
+          "followUps": "跟进次数",
+          "newOpportunities": "新增商机",
+          "dealAmount": "成交金额",
+          "empty": "本月暂无业绩数据"
+        },
+        "stockAlert": {
+          "title": "库存预警",
+          "quantity": "库存",
+          "lowStock": "低于下限",
+          "highStock": "高于上限",
+          "stale": "呆滞库存",
+          "empty": "暂无库存预警"
+        },
+        "stockDocTodo": {
+          "title": "出入库待办",
+          "inbound": "入库",
+          "outbound": "出库",
+          "draft": "草稿",
+          "auditing": "审核中",
+          "qty": "数量",
+          "empty": "暂无待处理出入库单"
+        }
+      }
+    },
+    "onboarding": {
+      "cardTitle": "入职引导",
+      "welcome": "欢迎加入！完成以下步骤开启你的工作之旅",
+      "progressLabel": "入职进度",
+      "stateNone": "未提交",
+      "statePending": "审批中",
+      "stateRejected": "已驳回",
+      "statePassed": "已通过",
+      "goComplete": "去完善",
+      "submitAudit": "提交入职审批",
+      "resubmit": "修改后重新提交",
+      "inApprovalText": "审核中",
+      "passedText": "已通过，开始工作吧",
+      "approvalSummary": "审批进度",
+      "currentNode": "当前节点",
+      "submittedAt": "提交时间",
+      "rejectReason": "驳回理由",
+      "approvalWaitingTip": "档案已完善，等待提交入职审批",
+      "announcements": "最新公告",
+      "noAnnouncement": "暂无公告",
+      "todoSummary": "今日待办",
+      "todoTotalUnit": "项待办",
+      "todoProcessedUnit": "项已处理",
+      "viewTodos": "查看待办总览",
+      "quickEntries": "快捷工作入口",
+      "entryAttendance": "考勤打卡",
+      "entryPayslip": "我的工资条",
+      "entryProfile": "个人中心",
+      "entrySecurity": "安全设置",
+      "stepCustom": "自定义",
+      "customStepsTip": "自定义步骤不计入完成度",
+      "previewStepBase": "完善基本信息",
+      "previewStepResume": "上传简历",
+      "previewStepIdfinance": "身份与财务信息",
+      "previewStepBank": "绑定银行卡",
+      "previewNodeName": "人事审核",
+      "previewRejectReason": "身份证照片不清晰，请重新上传",
+      "previewNoticeTitle": "【示例】欢迎加入公司，请及时完善入职信息"
+    },
+    "workspaceEmptyCards": "当前角色未配置工作台卡片，请联系管理员",
+    "workspaceGoConfig": "去配置"
   }
 }

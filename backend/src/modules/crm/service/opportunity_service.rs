@@ -132,7 +132,7 @@ pub async fn void_opportunity(db: &DbConn, id: i64, reason: &str, operator_id: i
             return Err(Error::from("仅商机负责人可作废该商机"));
         }
     }
-    // 状态机 + 关联合同/订单检查（终态禁作废；报价单不拦，随审计留痕——quotation 无失效状态枚举）
+    // 状态机 + 关联合同/订单检查（终态禁作废；报价单仅拦审批中的，作废时同步置为已失效，见下方）
     delete_guard_service::check_opportunity_voidable(&txn, &opp).await?;
 
     let prev_stage = opp.stage;
@@ -143,6 +143,19 @@ pub async fn void_opportunity(db: &DbConn, id: i64, reason: &str, operator_id: i
     active.updated_by = Set(Some(operator_id));
     active.update_time = Set(Some(chrono::Local::now().naive_local()));
     active.update(&txn).await.map_err(|e| Error::from(e.to_string()))?;
+
+    // 关联报价单同步置为已失效（status=9，复用"报价单转订单"批量失效先例；规划方案 5.2 作废规则4）
+    // 仅处理未转订单(status≠8)、未失效(status≠9)的未删除报价单；审批中的报价单已被上方校验拦截
+    use sea_orm::sea_query::Expr;
+    Quotation::update_many()
+        .col_expr(quotation::Column::Status, Expr::value(9))
+        .filter(quotation::Column::OpportunityId.eq(id))
+        .filter(quotation::Column::Status.ne(8))
+        .filter(quotation::Column::Status.ne(9))
+        .filter(quotation::Column::Deleted.eq(0))
+        .exec(&txn)
+        .await
+        .map_err(|e| Error::from(format!("同步失效关联报价单失败: {}", e)))?;
 
     txn.commit().await?;
     Ok(())

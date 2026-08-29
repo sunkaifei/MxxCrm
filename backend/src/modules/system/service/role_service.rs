@@ -14,11 +14,53 @@ use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, Admin
 use crate::modules::system::model::role::{AdminRoleByName, ListQuery, PageWhere, RoleDetailVO, RoleListVO, RoleModel, RoleOptionVO, RoleSaveDTO, UpdateRoleDeptRequest, UpdateRoleMenuRequest};
 use crate::modules::system::model::role_menu_merge::{RoleMenuMergeModel, RoleMenuMergeSaveDTO};
 use crate::modules::system::model::role_dept_merge::{RoleDeptMergeModel, RoleDeptMergeSaveDTO};
-use sea_orm::{DbConn, DbErr, TransactionTrait};
+use sea_orm::{ColumnTrait, DbConn, DbErr, EntityTrait, JoinType, PaginatorTrait, QueryFilter, QuerySelect, RelationTrait, TransactionTrait};
+use crate::modules::system::entity::{menu, role_menu_merge};
 use crate::modules::system::model::menu::MenuModel;
 use crate::modules::system::service::menu_service;
 
+/// 校验角色默认首页（方案 5.3 M4）：
+/// - 空值合法（表示未配置，登录回退 /workspace）
+/// - 格式须为以 / 开头、长度 ≤ 128 的路由路径
+/// - 更新时（role_id 已知）须命中该角色已分配菜单中的页面路由；超级管理员角色拥有全部菜单免校验
+/// - 新增时菜单在保存后单独分配，此处仅做格式校验
+pub async fn validate_home_path(
+    db: &DbConn,
+    role_id: Option<i64>,
+    home_path: &Option<String>,
+) -> Result<()> {
+    let Some(path) = home_path.as_ref().map(|s| s.trim().to_string()) else {
+        return Ok(());
+    };
+    if path.is_empty() {
+        return Ok(());
+    }
+    if path.len() > 128 || !path.starts_with('/') {
+        return Err(Error::from("默认首页须为以 / 开头且不超过 128 字符的路由路径"));
+    }
+    let Some(rid) = role_id else {
+        return Ok(());
+    };
+    if rid == 1 {
+        return Ok(());
+    }
+    let hit = menu::Entity::find()
+        .join(JoinType::InnerJoin, menu::Relation::RoleMenuMerge.def())
+        .filter(menu::Column::Path.eq(path))
+        .filter(menu::Column::Deleted.eq(0))
+        .filter(menu::Column::Status.eq(1))
+        .filter(role_menu_merge::Column::RoleId.eq(rid))
+        .count(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    if hit == 0 {
+        return Err(Error::from("默认首页必须在该角色已分配的菜单路由内"));
+    }
+    Ok(())
+}
+
 pub async fn insert(db: &DbConn, form_data: &RoleSaveDTO) -> Result<i64> {
+    validate_home_path(db, None, &form_data.home_path).await?;
     let result = RoleModel::insert(&db, form_data).await?;
     Ok(result)
 }
@@ -159,6 +201,7 @@ pub async fn update_role_menus(
 
 ///更新角色信息
 pub async fn update_by_id(db: &DbConn, role_data: &RoleSaveDTO) -> Result<i64> {
+    validate_home_path(db, role_data.id, &role_data.home_path).await?;
     let result = RoleModel::update_by_id(&db, &role_data.id, &role_data).await?;
     Ok(result)
 }
@@ -192,6 +235,7 @@ pub async fn select_by_admin_id(db: &DbConn, admin_id: &Option<i64>) -> Result<V
                 remark: data.remark,
                 sort: data.sort,
                 data_scope: data.data_scope,
+                home_path: data.home_path,
                 dept_ids: None,
             })
         }
@@ -199,6 +243,26 @@ pub async fn select_by_admin_id(db: &DbConn, admin_id: &Option<i64>) -> Result<V
     }else{
         Ok(vec![])
     }
+}
+
+/// 查询用户角色默认首页（方案 5.3 M4：多角色取 sort 最小者的 home_path，无则 None 由前端回退 /workspace）
+pub async fn find_user_home_path(db: &DbConn, admin_id: &Option<i64>) -> Result<Option<String>> {
+    let result_merge = AdminRoleMergeModel::find_by_admin_id(db, admin_id).await?;
+    let role_ids: Vec<i64> = result_merge.iter().filter_map(|m| m.role_id).collect();
+    if role_ids.is_empty() {
+        return Ok(None);
+    }
+    let roles = RoleModel::find_by_ids(db, role_ids).await?;
+    let mut enabled: Vec<_> = roles.into_iter().filter(|r| r.status == Some(1)).collect();
+    enabled.sort_by_key(|r| (r.sort.unwrap_or(i32::MAX), r.id));
+    for role in enabled {
+        if let Some(path) = role.home_path {
+            if !path.is_empty() {
+                return Ok(Some(path));
+            }
+        }
+    }
+    Ok(None)
 }
 
 pub async fn select_by_ids(db: &DbConn, admin_ids: Vec<i64>) -> Result<Vec<AdminRoleByName>> {

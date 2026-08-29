@@ -10,6 +10,7 @@ import { $t } from '@vben/locales';
 
 import { getRegisterStatusApi } from '#/api';
 import { checkUsernameApi, registerApi } from '#/api/core/auth';
+import { getPublicDeptTreeApi } from '#/api/core/system/dept';
 import { useAuthStore } from '#/store';
 
 defineOptions({ name: 'Register' });
@@ -20,8 +21,29 @@ const router = useRouter();
 const usernameChecking = ref(false);
 const agreePolicy = ref(true);
 
-// 注册开关：关闭时重定向回登录页
+// 部门树（免鉴权接口）：注册时选择申请部门，审批通过后据此分配
+const deptTree = ref<any[]>([]);
+
+function findDeptLabel(list: any[], id: string): string | undefined {
+  for (const node of list) {
+    if (node.value === id) return node.label;
+    if (node.children) {
+      const found = findDeptLabel(node.children, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+// 注册开关：关闭时重定向回登录页；同时加载部门树（免鉴权，失败不阻塞注册）
 onMounted(async () => {
+  getPublicDeptTreeApi()
+    .then((result: any) => {
+      deptTree.value = Array.isArray(result) ? result : [];
+    })
+    .catch(() => {
+      deptTree.value = [];
+    });
   try {
     const data = await getRegisterStatusApi();
     if (!data?.registerEnabled) {
@@ -100,14 +122,15 @@ const formSchema = computed((): VbenFormSchema[] => {
         .regex(/^1[3-9]\d{9}$/, { message: '请输入正确的手机号' }),
     },
     {
-      component: 'VbenInput',
+      component: 'TreeSelect',
       componentProps: {
-        placeholder: '请输入申请部门',
+        placeholder: '请选择申请部门（选填）',
         allowClear: true,
+        treeData: deptTree.value,
+        treeDefaultExpandAll: true,
       },
-      fieldName: 'deptName',
+      fieldName: 'deptId',
       label: '部门',
-      rules: z.string().min(1, { message: '部门不能为空' }),
     },
     {
       component: 'VbenInput',
@@ -118,6 +141,15 @@ const formSchema = computed((): VbenFormSchema[] => {
       fieldName: 'postName',
       label: '岗位',
       rules: z.string().min(1, { message: '岗位不能为空' }),
+    },
+    {
+      component: 'VbenInput',
+      componentProps: {
+        placeholder: '如 8000-12000 元/月（选填）',
+        allowClear: true,
+      },
+      fieldName: 'expectedSalary',
+      label: '期望薪资',
     },
     {
       component: 'VbenInput',
@@ -172,10 +204,17 @@ async function handleSubmit(value: Recordable<any>) {
     }
   }
 
-  await registerApi(value);
+  const payload = { ...value };
+  const deptId = payload.deptId;
+  delete payload.deptId;
+  if (deptId) {
+    payload.deptName = findDeptLabel(deptTree.value, String(deptId)) ?? '';
+  }
 
-  // 注册用户待审核（status=0），不自动登录，提示后跳转登录页
-  window.$message?.success('注册成功，请等待管理员审核通过后登录');
+  await registerApi(payload);
+
+  // 注册即启用（status=1），不自动登录，提示后跳转登录页
+  window.$message?.success('注册成功，请登录');
   router.replace('/auth/login');
 }
 </script>

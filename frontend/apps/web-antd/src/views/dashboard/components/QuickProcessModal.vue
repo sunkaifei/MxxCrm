@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { useUserStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 
 import {
   Button,
@@ -11,11 +11,19 @@ import {
   InputNumber,
   message,
   Modal,
+  Radio,
   Select,
   Tag,
 } from 'ant-design-vue';
 
-import { createFollowupApi, createPaymentApi, processApprovalApi } from '#/api';
+import {
+  createCustomerApi,
+  createFollowupApi,
+  createOpportunityApi,
+  createPaymentApi,
+  getCustomerListApi,
+  processApprovalApi,
+} from '#/api';
 import { $t } from '#/locales';
 
 defineOptions({
@@ -44,6 +52,7 @@ const emit = defineEmits<{
 
 const router = useRouter();
 const userStore = useUserStore();
+const accessStore = useAccessStore();
 
 const submitting = ref(false);
 const comment = ref('');
@@ -58,6 +67,82 @@ const paymentForm = ref({
   amount: 0,
   method: 1,
 });
+
+// ===== 快捷新建（方案三期 #3：受各自 save 权限码守卫） =====
+const QUICK_CREATE_PERMS: Record<string, string> = {
+  createCustomer: 'crm:customer:save',
+  createFollowup: 'crm:followup:save',
+  createOpportunity: 'crm:opportunity:save',
+};
+// 新建客户表单
+const customerForm = ref({
+  customerType: 1,
+  companyName: '',
+  personName: '',
+  personalMobile: '',
+});
+// 快捷写跟进表单（固定挂客户）
+const quickFollowUpForm = ref({
+  customerId: undefined as undefined | number,
+  method: 1,
+  content: '',
+  nextFollowDate: '',
+});
+// 新建商机表单
+const opportunityForm = ref({
+  customerId: undefined as undefined | number,
+  title: '',
+  amount: undefined as undefined | number,
+  expectedCloseDate: '',
+});
+// 客户远程搜索选项（写跟进/新建商机共用）
+const customerOptions = ref<{ label: null | string; value: number }[]>([]);
+const customerSearching = ref(false);
+let customerSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+function isQuickCreateType(type: string): boolean {
+  return type.startsWith('create');
+}
+
+async function searchCustomerOptions(keyword: string) {
+  customerSearching.value = true;
+  try {
+    const result: any = await getCustomerListApi({
+      page: 1,
+      pageSize: 20,
+      keywords: keyword || undefined,
+    });
+    const list = result?.data?.items || result?.items || result?.list || [];
+    customerOptions.value = list.map((item: any) => ({
+      value: Number(item.id),
+      label: item.companyName || item.customerName || item.name || `客户#${item.id}`,
+    }));
+  } catch {
+    customerOptions.value = [];
+  } finally {
+    customerSearching.value = false;
+  }
+}
+
+function handleCustomerSearch(keyword: string) {
+  if (customerSearchTimer) clearTimeout(customerSearchTimer);
+  customerSearchTimer = setTimeout(() => {
+    searchCustomerOptions(keyword.trim());
+  }, 300);
+}
+
+function handleCustomerFocus() {
+  if (customerOptions.value.length === 0) {
+    searchCustomerOptions('');
+  }
+}
+
+/** 快捷新建提交前的前端权限守卫（后端 require_permission 兜底） */
+function hasQuickCreatePerm(type: string): boolean {
+  const perm = QUICK_CREATE_PERMS[type];
+  if (!perm) return false;
+  return accessStore.hasAccessCode(perm);
+}
 
 // 跟进方式选项
 const followUpMethods = [
@@ -95,6 +180,15 @@ const modalTitle = computed(() => {
     case 'contract': {
       return $t('page.dashboard.quickProcessContract');
     }
+    case 'createCustomer': {
+      return $t('page.dashboard.quickCreateCustomer');
+    }
+    case 'createFollowup': {
+      return $t('page.dashboard.quickCreateFollowUp');
+    }
+    case 'createOpportunity': {
+      return $t('page.dashboard.quickCreateOpportunity');
+    }
     case 'followUp': {
       return $t('page.dashboard.quickProcessFollowUp');
     }
@@ -119,6 +213,25 @@ function resetForm() {
     content: '',
   };
   paymentForm.value = { amount: 0, method: 1 };
+  customerForm.value = {
+    customerType: 1,
+    companyName: '',
+    personName: '',
+    personalMobile: '',
+  };
+  quickFollowUpForm.value = {
+    customerId: undefined,
+    method: 1,
+    content: '',
+    nextFollowDate: '',
+  };
+  opportunityForm.value = {
+    customerId: undefined,
+    title: '',
+    amount: undefined,
+    expectedCloseDate: '',
+  };
+  customerOptions.value = [];
 }
 
 watch(
@@ -164,21 +277,38 @@ async function handleApproval(action: 1 | 2) {
   }
 }
 
-// 保存跟进
+// 保存跟进（后端 FollowupSaveRequest 为 camelCase：activityType/customerId/leadId/nextFollowDate）
 async function handleSaveFollowUp() {
   if (!followUpForm.value.content.trim()) {
     message.warning('请填写跟进记录');
     return;
   }
+  const itemType = props.todoItem?.itemType;
+  const itemId = Number(
+    props.todoItem?.itemId || props.todoItem?.businessId || 0,
+  );
+  if (!itemId) {
+    message.error('跟进目标缺失，无法保存');
+    return;
+  }
   submitting.value = true;
   try {
-    await createFollowupApi({
-      itemType: props.todoItem?.itemType || 'customer',
-      itemId: props.todoItem?.itemId || props.todoItem?.businessId,
-      method: followUpForm.value.method,
+    const payload: any = {
+      activityType: followUpForm.value.method,
       content: followUpForm.value.content,
-      nextFollowAt: followUpForm.value.nextFollowAt || undefined,
-    });
+    };
+    if (itemType === 'lead') {
+      payload.leadId = itemId;
+      payload.sourceType = 1;
+    } else {
+      payload.customerId = itemId;
+      payload.sourceType = 2;
+    }
+    const nextAt = followUpForm.value.nextFollowAt;
+    if (nextAt) {
+      payload.nextFollowDate = nextAt.slice(0, 10);
+    }
+    await createFollowupApi(payload);
     message.success('跟进已保存');
     emit('processed');
     close();
@@ -208,6 +338,106 @@ async function handleSavePayment() {
     close();
   } catch (error: any) {
     message.error(error?.message || '登记失败');
+  } finally {
+    submitting.value = false;
+  }
+}
+
+// ===== 快捷新建提交 =====
+
+// 快捷新建：客户
+async function handleQuickCreateCustomer() {
+  if (!hasQuickCreatePerm('createCustomer')) {
+    message.error('暂无新建客户权限');
+    return;
+  }
+  if (customerForm.value.customerType === 1) {
+    if (!customerForm.value.companyName.trim()) {
+      message.warning('请填写公司名称');
+      return;
+    }
+  } else if (!customerForm.value.personName.trim()) {
+    message.warning('请填写姓名');
+    return;
+  }
+  submitting.value = true;
+  try {
+    await createCustomerApi({
+      customerType: customerForm.value.customerType,
+      companyName: customerForm.value.companyName.trim() || undefined,
+      personName: customerForm.value.personName.trim() || undefined,
+      personalMobile: customerForm.value.personalMobile.trim() || undefined,
+    });
+    message.success('客户已创建');
+    emit('processed');
+    close();
+  } catch (error: any) {
+    message.error(error?.message || '创建失败');
+  } finally {
+    submitting.value = false;
+  }
+}
+
+// 快捷新建：跟进记录（固定挂客户）
+async function handleQuickCreateFollowUp() {
+  if (!hasQuickCreatePerm('createFollowup')) {
+    message.error('暂无写跟进权限');
+    return;
+  }
+  if (!quickFollowUpForm.value.customerId) {
+    message.warning('请选择跟进客户');
+    return;
+  }
+  if (!quickFollowUpForm.value.content.trim()) {
+    message.warning('请填写跟进记录');
+    return;
+  }
+  submitting.value = true;
+  try {
+    await createFollowupApi({
+      sourceType: 2,
+      customerId: quickFollowUpForm.value.customerId,
+      activityType: quickFollowUpForm.value.method,
+      content: quickFollowUpForm.value.content,
+      nextFollowDate: quickFollowUpForm.value.nextFollowDate || undefined,
+    });
+    message.success('跟进已保存');
+    emit('processed');
+    close();
+  } catch (error: any) {
+    message.error(error?.message || '保存失败');
+  } finally {
+    submitting.value = false;
+  }
+}
+
+// 快捷新建：商机
+async function handleQuickCreateOpportunity() {
+  if (!hasQuickCreatePerm('createOpportunity')) {
+    message.error('暂无新建商机权限');
+    return;
+  }
+  if (!opportunityForm.value.customerId) {
+    message.warning('请选择所属客户');
+    return;
+  }
+  if (!opportunityForm.value.title.trim()) {
+    message.warning('请填写商机名称');
+    return;
+  }
+  submitting.value = true;
+  try {
+    await createOpportunityApi({
+      customerId: opportunityForm.value.customerId,
+      title: opportunityForm.value.title.trim(),
+      amount: opportunityForm.value.amount || undefined,
+      expectedCloseDate: opportunityForm.value.expectedCloseDate || undefined,
+    });
+    message.success('商机已创建');
+    emit('processed');
+    close();
+  } catch (error: any) {
+    message.error(error?.message || '创建失败');
   } finally {
     submitting.value = false;
   }
@@ -460,10 +690,183 @@ function goDetail() {
           <Button type="primary" @click="goDetail">查看详情</Button>
         </div>
       </template>
+
+      <!-- 快捷新建：客户 -->
+      <template v-else-if="todoType === 'createCustomer'">
+        <div class="space-y-3">
+          <div>
+            <div class="mb-1 text-sm text-gray-600">客户类型</div>
+            <Radio.Group v-model:value="customerForm.customerType">
+              <Radio :value="1">企业</Radio>
+              <Radio :value="2">个人</Radio>
+            </Radio.Group>
+          </div>
+          <div v-if="customerForm.customerType === 1">
+            <div class="mb-1 text-sm text-gray-600">
+              公司名称<span class="text-red-500">*</span>
+            </div>
+            <Input
+              v-model:value="customerForm.companyName"
+              placeholder="请输入公司名称"
+              :maxlength="200"
+            />
+          </div>
+          <div v-else>
+            <div class="mb-1 text-sm text-gray-600">
+              姓名<span class="text-red-500">*</span>
+            </div>
+            <Input
+              v-model:value="customerForm.personName"
+              placeholder="请输入姓名"
+              :maxlength="100"
+            />
+          </div>
+          <div>
+            <div class="mb-1 text-sm text-gray-600">手机号</div>
+            <Input
+              v-model:value="customerForm.personalMobile"
+              placeholder="请输入手机号（选填）"
+              :maxlength="20"
+            />
+          </div>
+        </div>
+        <div class="mt-3 flex justify-end">
+          <Button
+            type="primary"
+            :loading="submitting"
+            @click="handleQuickCreateCustomer"
+          >
+            创建客户
+          </Button>
+        </div>
+      </template>
+
+      <!-- 快捷新建：跟进记录 -->
+      <template v-else-if="todoType === 'createFollowup'">
+        <div class="space-y-3">
+          <div>
+            <div class="mb-1 text-sm text-gray-600">
+              跟进客户<span class="text-red-500">*</span>
+            </div>
+            <Select
+              v-model:value="quickFollowUpForm.customerId"
+              show-search
+              :filter-option="false"
+              :loading="customerSearching"
+              :options="customerOptions"
+              placeholder="输入名称搜索客户"
+              class="w-full"
+              @search="handleCustomerSearch"
+              @focus="handleCustomerFocus"
+            />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="mb-1 text-sm text-gray-600">跟进方式</div>
+              <Select
+                v-model:value="quickFollowUpForm.method"
+                class="w-full"
+                :options="followUpMethods"
+              />
+            </div>
+            <div>
+              <div class="mb-1 text-sm text-gray-600">下次跟进日期</div>
+              <DatePicker
+                v-model:value="quickFollowUpForm.nextFollowDate"
+                class="w-full"
+                value-format="YYYY-MM-DD"
+              />
+            </div>
+          </div>
+          <div>
+            <div class="mb-1 text-sm text-gray-600">
+              跟进记录<span class="text-red-500">*</span>
+            </div>
+            <Input.TextArea
+              v-model:value="quickFollowUpForm.content"
+              :rows="4"
+              placeholder="请填写跟进记录"
+            />
+          </div>
+        </div>
+        <div class="mt-3 flex justify-end">
+          <Button
+            type="primary"
+            :loading="submitting"
+            @click="handleQuickCreateFollowUp"
+          >
+            保存跟进
+          </Button>
+        </div>
+      </template>
+
+      <!-- 快捷新建：商机 -->
+      <template v-else-if="todoType === 'createOpportunity'">
+        <div class="space-y-3">
+          <div>
+            <div class="mb-1 text-sm text-gray-600">
+              所属客户<span class="text-red-500">*</span>
+            </div>
+            <Select
+              v-model:value="opportunityForm.customerId"
+              show-search
+              :filter-option="false"
+              :loading="customerSearching"
+              :options="customerOptions"
+              placeholder="输入名称搜索客户"
+              class="w-full"
+              @search="handleCustomerSearch"
+              @focus="handleCustomerFocus"
+            />
+          </div>
+          <div>
+            <div class="mb-1 text-sm text-gray-600">
+              商机名称<span class="text-red-500">*</span>
+            </div>
+            <Input
+              v-model:value="opportunityForm.title"
+              placeholder="请输入商机名称"
+              :maxlength="200"
+            />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="mb-1 text-sm text-gray-600">商机金额</div>
+              <InputNumber
+                v-model:value="opportunityForm.amount"
+                class="w-full"
+                :min="0"
+                :precision="2"
+                placeholder="选填"
+              />
+            </div>
+            <div>
+              <div class="mb-1 text-sm text-gray-600">预计成交日期</div>
+              <DatePicker
+                v-model:value="opportunityForm.expectedCloseDate"
+                class="w-full"
+                value-format="YYYY-MM-DD"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 flex justify-end">
+          <Button
+            type="primary"
+            :loading="submitting"
+            @click="handleQuickCreateOpportunity"
+          >
+            创建商机
+          </Button>
+        </div>
+      </template>
     </div>
 
-    <!-- 底部固定链接 -->
-    <div class="mt-4 border-t border-dashed border-gray-200 pt-3 text-center">
+    <!-- 底部固定链接（快捷新建无详情可看） -->
+    <div
+      v-if="!todoType || !isQuickCreateType(todoType)"
+      class="mt-4 border-t border-dashed border-gray-200 pt-3 text-center"
+    >
       <a
         class="cursor-pointer text-sm text-blue-500 hover:underline"
         @click="goDetail"

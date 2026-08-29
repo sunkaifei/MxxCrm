@@ -30,6 +30,14 @@ pub struct DashboardCardSaveRequest {
     pub page_key: Option<String>,
     /// 显示顺序
     pub sort_order: Option<i32>,
+    /// 模板布局：栅格列偏移（方案 5.1 变更 1）
+    pub default_x: Option<i32>,
+    /// 模板布局：栅格行偏移
+    pub default_y: Option<i32>,
+    /// 模板布局：宽（列数 1-12）
+    pub default_w: Option<i32>,
+    /// 模板布局：高（行数）
+    pub default_h: Option<i32>,
     /// 状态（1启用 0停用）
     pub status: Option<i32>,
     /// 备注
@@ -59,8 +67,53 @@ pub struct DashboardCardListQuery {
     pub status: Option<i32>,
 }
 
-/// 卡片视图对象（含已分配角色ID）
+/// 角色视角预览查询参数（管理页增强：选角色预览其工作台组合）
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CardRolePreviewQuery {
+    pub role_id: Option<i64>,
+}
+
+/// 设计器模板布局单项（方案 5.2：POST /dashboard/card/layout/save）
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[serde(rename_all(deserialize = "camelCase"))]
+pub struct CardLayoutItem {
+    /// 卡片编码
+    pub card_code: Option<String>,
+    pub x: Option<i32>,
+    pub y: Option<i32>,
+    pub w: Option<i32>,
+    pub h: Option<i32>,
+}
+
+/// 设计器模板布局保存请求
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[serde(rename_all(deserialize = "camelCase"))]
+pub struct CardLayoutSaveRequest {
+    /// 页面/工作台标识
+    pub page_key: Option<String>,
+    /// 布局条目（该页全量提交）
+    pub items: Option<Vec<CardLayoutItem>>,
+}
+
+/// 设计器模板布局视图对象
 #[derive(Debug, serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CardLayoutVO {
+    pub id: i64,
+    pub card_code: Option<String>,
+    pub card_name: Option<String>,
+    pub page_key: Option<String>,
+    /// 状态（1启用 0停用，设计器置灰展示）
+    pub status: Option<i32>,
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+/// 卡片视图对象（含已分配角色ID）
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DashboardCardVO {
     pub id: i64,
@@ -68,6 +121,14 @@ pub struct DashboardCardVO {
     pub card_name: Option<String>,
     pub page_key: Option<String>,
     pub sort_order: Option<i32>,
+    /// 模板布局：栅格列偏移
+    pub default_x: Option<i32>,
+    /// 模板布局：栅格行偏移
+    pub default_y: Option<i32>,
+    /// 模板布局：宽（列数）
+    pub default_w: Option<i32>,
+    /// 模板布局：高（行数）
+    pub default_h: Option<i32>,
     pub status: Option<i32>,
     pub remark: Option<String>,
     /// 已分配可见角色ID集合
@@ -99,6 +160,10 @@ impl DashboardCardModel {
             card_name: Set(req.card_name.clone()),
             page_key: Set(req.page_key.clone()),
             sort_order: Set(req.sort_order),
+            default_x: Set(req.default_x),
+            default_y: Set(req.default_y),
+            default_w: Set(req.default_w.or(Some(12))),
+            default_h: Set(req.default_h.or(Some(6))),
             status: Set(req.status.or(Some(1))),
             remark: Set(req.remark.clone()),
             deleted: Set(Some(0)),
@@ -134,6 +199,18 @@ impl DashboardCardModel {
         }
         if let Some(v) = req.sort_order {
             payload.sort_order = Set(Some(v));
+        }
+        if let Some(v) = req.default_x {
+            payload.default_x = Set(Some(v));
+        }
+        if let Some(v) = req.default_y {
+            payload.default_y = Set(Some(v));
+        }
+        if let Some(v) = req.default_w {
+            payload.default_w = Set(Some(v));
+        }
+        if let Some(v) = req.default_h {
+            payload.default_h = Set(Some(v));
         }
         if let Some(v) = req.status {
             payload.status = Set(Some(v));
@@ -192,6 +269,43 @@ impl DashboardCardModel {
             .order_by_asc(dashboard_card::Column::SortOrder)
             .all(db)
             .await
+    }
+
+    /// 查询某页全部卡片（含停用，设计器模板布局用）
+    pub async fn find_by_page_key(db: &DbConn, page_key: &str) -> Result<Vec<dashboard_card::Model>, DbErr> {
+        DashboardCard::find()
+            .filter(dashboard_card::Column::Deleted.eq(0))
+            .filter(dashboard_card::Column::PageKey.eq(page_key))
+            .order_by_asc(dashboard_card::Column::SortOrder)
+            .order_by_asc(dashboard_card::Column::Id)
+            .all(db)
+            .await
+    }
+
+    /// 按编码更新模板布局（设计器保存，方案 5.2）
+    pub async fn update_layout_by_code<C: ConnectionTrait>(
+        db: &C,
+        card_code: &str,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+    ) -> Result<u64, DbErr> {
+        let payload = dashboard_card::ActiveModel {
+            default_x: Set(Some(x)),
+            default_y: Set(Some(y)),
+            default_w: Set(Some(w)),
+            default_h: Set(Some(h)),
+            update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
+            ..Default::default()
+        };
+        let res = DashboardCard::update_many()
+            .set(payload)
+            .filter(dashboard_card::Column::CardCode.eq(card_code))
+            .filter(dashboard_card::Column::Deleted.eq(0))
+            .exec(db)
+            .await?;
+        Ok(res.rows_affected)
     }
 }
 

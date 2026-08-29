@@ -320,7 +320,8 @@
       "title": "外勤拜访",
       "button": {
         "add": "新增拜访",
-        "export": "导出"
+        "export": "导出",
+        "info": "查看详情"
       }
     },
     "recycle": {

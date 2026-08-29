@@ -179,14 +179,16 @@ const gridOptions: VxeGridProps = {
           params.checkInEnd = formValues.checkInDateRange[1];
         }
         const result = await getVisitListApi(params);
-        // 无数据 600px，有数据按内容自适应
+        // 无数据固定 600px（空态居中）；有数据默认 600px，内容超过则响应式撑高
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
           if (items.length === 0) {
             gridEl.style.setProperty('height', '600px', 'important');
+            gridEl.style.removeProperty('min-height');
           } else {
             gridEl.style.removeProperty('height');
+            gridEl.style.setProperty('min-height', '600px', 'important');
           }
         }
         return result;
@@ -400,10 +402,10 @@ onMounted(() => {
 
       <template #action="{ row }">
         <a
-          v-if="accessStore.hasAccessCode('crm:visit:list')"
+          v-if="accessStore.hasAccessCode('crm:visit:view')"
           class="text-blue-600 cursor-pointer mx-1"
           @click="() => handleView(row)"
-          >查看详情</a
+          >{{ $t('page.crm.visit.button.info') }}</a
         >
       </template>
     </Grid>

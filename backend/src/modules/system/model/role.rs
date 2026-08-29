@@ -25,6 +25,8 @@ pub struct RoleSaveRequest {
     pub sort: Option<i32>,
     pub status: Option<i32>,
     pub remark: Option<String>,
+    /// 角色默认首页（方案 5.3 M4：/ 开头路由，须在角色菜单内）
+    pub home_path: Option<String>,
 }
 
 impl From<RoleSaveRequest> for RoleSaveDTO {
@@ -37,6 +39,7 @@ impl From<RoleSaveRequest> for RoleSaveDTO {
             sort: item.sort,
             status: item.status,
             remark: item.remark,
+            home_path: item.home_path,
             deleted: None,
             create_by: None,
             create_time: None,
@@ -58,6 +61,8 @@ pub struct RoleUpdateRequest {
     pub sort: Option<i32>,
     pub status: Option<i32>,
     pub remark: Option<String>,
+    /// 角色默认首页（方案 5.3 M4）
+    pub home_path: Option<String>,
 }
 
 impl From<RoleUpdateRequest> for RoleSaveDTO {
@@ -70,6 +75,7 @@ impl From<RoleUpdateRequest> for RoleSaveDTO {
             sort: item.sort,
             status: item.status,
             remark: item.remark,
+            home_path: item.home_path,
             deleted: None,
             create_by: None,
             create_time: None,
@@ -121,6 +127,8 @@ pub struct RoleSaveDTO {
     pub update_time: Option<DateTime>,
     /// 备注
     pub remark: Option<String>,
+    /// 角色默认首页（方案 5.3 M4：多角色取 sort 最小者的 home_path，无则 /workspace）
+    pub home_path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -140,6 +148,8 @@ pub struct RoleDetailVO {
     pub remark: Option<String>,
     pub sort: Option<i32>,
     pub status: Option<i32>,
+    /// 角色默认首页（方案 5.3 M4）
+    pub home_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dept_ids: Option<Vec<String>>,
 }
@@ -154,6 +164,7 @@ impl From<role::Model> for RoleDetailVO {
             remark: item.remark,
             sort: item.sort,
             status: item.status,
+            home_path: item.home_path,
             dept_ids: None,
         }
     }
@@ -172,6 +183,8 @@ pub struct RoleListVO {
     pub remark: Option<String>,
     pub sort: Option<i32>,
     pub status: Option<i32>,
+    /// 角色默认首页（方案 5.3 M4：编辑抽屉回显用）
+    pub home_path: Option<String>,
     pub create_time: Option<String>,
 }
 
@@ -185,6 +198,7 @@ impl From<role::Model> for RoleListVO {
             remark: item.remark,
             sort: item.sort,
             status: item.status,
+            home_path: item.home_path,
             create_time: item.create_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
@@ -248,6 +262,7 @@ impl RoleModel {
             sort:        Set(req.sort.clone()),
             status:      Set(req.status.clone()),
             remark:      Set(req.remark.clone()),
+            home_path:   Set(req.home_path.clone()),
             create_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -279,6 +294,7 @@ impl RoleModel {
         if let Some(v) = req.sort { payload.sort = Set(Some(v)); }
         if let Some(v) = req.status { payload.status = Set(Some(v)); }
         if let Some(v) = req.remark.clone() { payload.remark = Set(Some(v)); }
+        if let Some(v) = req.home_path.clone() { payload.home_path = Set(Some(v)); }
         if let Some(v) = req.update_by.clone() { payload.update_by = Set(Some(v)); }
 
         let update_result: UpdateResult = Role::update_many()

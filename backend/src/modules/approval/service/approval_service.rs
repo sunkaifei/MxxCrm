@@ -12,7 +12,12 @@ use crate::modules::sale::entity::invoice;
 use crate::modules::sale::entity::order;
 use crate::modules::system::entity::admin::{Column as AdminColumn, Entity as AdminEntity};
 use crate::modules::system::entity::admin_role_merge::{Column as RoleMergeColumn, Entity as RoleMergeEntity};
+use crate::modules::system::entity::dept_default_role::{
+    Column as DeptDefaultRoleColumn, Entity as DeptDefaultRoleEntity,
+};
 use crate::modules::system::entity::role::{Column as RoleColumn, Entity as RoleEntity};
+use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
+use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, AdminRolesMergeSaveDTO};
 use crate::modules::system::service::profile_service;
 
 use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, TransactionTrait};
@@ -595,11 +600,24 @@ impl ApprovalService {
         let mut extra = req.extra_data.clone().unwrap_or_else(|| serde_json::json!({}));
         if let serde_json::Value::Object(map) = &mut extra {
             map.insert("userLevel".to_string(), serde_json::json!(level));
-            if let Ok(Some(dept_id)) = ApprovalModel::find_user_dept_id(db, req.business_id).await {
+            let mut dept_id =
+                ApprovalModel::find_user_dept_id(db, req.business_id).await.ok().flatten();
+            if dept_id.is_none() {
+                dept_id = Self::extract_intent_dept_id(req.extra_data.as_ref());
+            }
+            if let Some(dept_id) = dept_id {
                 map.insert("userDeptId".to_string(), serde_json::json!(dept_id));
             }
         }
         Ok(Some(extra))
+    }
+
+    /// extra_data.intentDeptId 取值：兼容数字与字符串
+    /// （部门树雪花 ID 前端以字符串承载，防 JS 精度丢失，后端解析需双兼容）
+    fn extract_intent_dept_id(extra_data: Option<&serde_json::Value>) -> Option<i64> {
+        extra_data?
+            .get("intentDeptId")
+            .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok())))
     }
 
     /// 查询用户的所有角色名称（未删除角色），用于角色分级
@@ -636,26 +654,130 @@ impl ApprovalService {
         ApprovalModel::find_user_dept_id(db, submitter_id).await
     }
 
-    /// 用户审核审批：business_type="user" 的实例审批通过（status=3）后自动启用用户
-    /// （audit_status=1 + status=1），best-effort，失败不影响审批主流程
+    /// 用户审核审批：business_type="user" 的实例审批通过（status=3）后的收尾动作，
+    /// 三步均为 best-effort，失败不影响审批主流程：
+    /// 1. 启用账号（audit_status=1）
+    /// 2. 员工编号补分配（注册用户审批通过时尚未分配 employee_no 的场景）
+    /// 3. 意向部门落库（仅当用户尚无部门时写入 extra_data.intentDeptId）+ 按部门默认角色映射追加缺失角色
     async fn finish_user_audit_if_approved(db: &DatabaseConnection, instance_id: i64) {
         if let Ok(Some(inst)) = ApprovalModel::find_instance_by_id_raw(db, instance_id).await {
             if inst.business_type.as_deref() == Some("user") && inst.status == Some(3) {
+                let user_id = inst.business_id.unwrap_or_default();
                 let _ = crate::modules::system::service::admin_service::update_audit_status(
                     db,
-                    inst.business_id.unwrap_or_default(),
+                    user_id,
                     1,
                 )
                 .await;
+                Self::assign_employee_no_if_missing(db, user_id).await;
+                Self::apply_intent_dept_and_default_roles(db, user_id, inst.extra_data.as_ref())
+                    .await;
             }
+        }
+    }
+
+    /// 员工编号补分配：按编号规则（module_code=employee）生成并回写，已分配或生成失败时静默跳过
+    async fn assign_employee_no_if_missing(db: &DatabaseConnection, user_id: i64) {
+        if user_id <= 0 {
+            return;
+        }
+        let admin = match AdminEntity::find_by_id(user_id).one(db).await {
+            Ok(Some(a)) => a,
+            _ => return,
+        };
+        let need_assign = admin
+            .employee_no
+            .as_deref()
+            .map(|s| s.trim().is_empty())
+            .unwrap_or(true);
+        if !need_assign {
+            return;
+        }
+        if let Ok(no) = crate::modules::company::service::code_rule_service::generate_code(
+            db,
+            "employee",
+            None,
+            None,
+            None,
+        )
+        .await
+        {
+            let _ = crate::modules::system::model::admin::AdminModel::update_employee_no(
+                db,
+                user_id,
+                &no,
+            )
+            .await;
+        }
+    }
+
+    /// 意向部门落库 + 部门默认角色追加（best-effort）：
+    /// - 意向部门：仅当用户在 admin_dept_merge 无记录时写入（extra_data.intentDeptId），已有部门不覆盖
+    /// - 默认角色：按 mxx_system_dept_default_role 查部门映射，向 admin_role_merge 只追加缺失角色；
+    ///   无映射或部门无法确定时跳过，不猜测
+    async fn apply_intent_dept_and_default_roles(
+        db: &DatabaseConnection,
+        user_id: i64,
+        extra_data: Option<&serde_json::Value>,
+    ) {
+        if user_id <= 0 {
+            return;
+        }
+        let intent_dept_id = Self::extract_intent_dept_id(extra_data);
+        let existing_depts =
+            AdminDeptMergeModel::find_by_admin_id(db, user_id).await.unwrap_or_default();
+        let dept_id = if existing_depts.is_empty() {
+            match intent_dept_id {
+                Some(did) if did > 0 => {
+                    let _ = AdminDeptMergeModel::save(db, user_id, did).await;
+                    Some(did)
+                }
+                _ => None,
+            }
+        } else {
+            existing_depts.iter().filter_map(|m| m.dept_id).next()
+        };
+        let Some(dept_id) = dept_id else {
+            return;
+        };
+        let default_roles = DeptDefaultRoleEntity::find()
+            .filter(DeptDefaultRoleColumn::DeptId.eq(dept_id))
+            .all(db)
+            .await
+            .unwrap_or_default();
+        if default_roles.is_empty() {
+            return;
+        }
+        let owned = AdminRoleMergeModel::find_by_admin_id(db, &Some(user_id))
+            .await
+            .unwrap_or_default();
+        let owned_ids: Vec<i64> = owned.iter().filter_map(|m| m.role_id).collect();
+        let to_add: Vec<AdminRolesMergeSaveDTO> = default_roles
+            .into_iter()
+            .filter(|r| !owned_ids.contains(&r.role_id))
+            .map(|r| AdminRolesMergeSaveDTO {
+                admin_id: Some(user_id),
+                role_id: Some(r.role_id),
+                ..Default::default()
+            })
+            .collect();
+        if !to_add.is_empty() {
+            let _ = AdminRoleMergeModel::insert_batch(db, &to_add).await;
         }
     }
 
     /// B10：站内通知配置（仅人事相关流程 user/resign 发通知，其他业务类型保持原行为不打扰）
     /// 返回 (通知类型, 落地页链接)；返回 None 表示不发通知
-    fn notify_config(business_type: &str) -> Option<(i32, &'static str)> {
+    /// 落地页按接收人区分：发起人本人 → /workspace（工作台引导卡承接审批状态）；审批人 → 待我审批页
+    fn notify_config(business_type: &str, to_submitter: bool) -> Option<(i32, &'static str)> {
         match business_type {
-            "user" | "resign" => Some((9, "/system/user")),
+            "user" | "resign" => {
+                if to_submitter {
+                    Some((9, "/workspace"))
+                } else {
+                    Some((9, "/system/approval/todo"))
+                }
+            }
             _ => None,
         }
     }
@@ -684,11 +806,11 @@ impl ApprovalService {
         let Ok(Some(inst)) = ApprovalModel::find_instance_by_id(db, instance_id).await else {
             return;
         };
-        let Some((ntype, link)) = Self::notify_config(&inst.business_type) else {
-            return;
-        };
         let biz_title = inst.business_title.clone().unwrap_or_else(|| "审批申请".to_string());
         if inst.status == 1 || inst.status == 2 {
+            let Some((ntype, link)) = Self::notify_config(&inst.business_type, false) else {
+                return;
+            };
             let approvers: Vec<i64> = Self::notify_approver_ids(&inst)
                 .into_iter()
                 .filter(|&id| id != inst.submitter_id)
@@ -712,6 +834,9 @@ impl ApprovalService {
                 .await;
             }
         } else if inst.status == 3 {
+            let Some((ntype, link)) = Self::notify_config(&inst.business_type, true) else {
+                return;
+            };
             let _ = NotificationService::send_system_notification(
                 db,
                 inst.submitter_id,
@@ -732,12 +857,12 @@ impl ApprovalService {
         let Ok(Some(inst)) = ApprovalModel::find_instance_by_id(db, instance_id).await else {
             return;
         };
-        let Some((ntype, link)) = Self::notify_config(&inst.business_type) else {
-            return;
-        };
         let biz_title = inst.business_title.clone().unwrap_or_else(|| "审批申请".to_string());
         match inst.status {
             3 => {
+                let Some((ntype, link)) = Self::notify_config(&inst.business_type, true) else {
+                    return;
+                };
                 let _ = NotificationService::send_system_notification(
                     db,
                     inst.submitter_id,
@@ -758,6 +883,9 @@ impl ApprovalService {
                 }
             }
             4 => {
+                let Some((ntype, link)) = Self::notify_config(&inst.business_type, true) else {
+                    return;
+                };
                 let _ = NotificationService::send_system_notification(
                     db,
                     inst.submitter_id,
@@ -769,6 +897,9 @@ impl ApprovalService {
                 .await;
             }
             _ => {
+                let Some((ntype, link)) = Self::notify_config(&inst.business_type, false) else {
+                    return;
+                };
                 let approvers: Vec<i64> = Self::notify_approver_ids(&inst)
                     .into_iter()
                     .filter(|&id| id != inst.submitter_id)

@@ -1,4 +1,4 @@
-import { requestClient } from '#/api/request';
+import { baseRequestClient, requestClient } from '#/api/request';
 
 type PageParams = Record<string, any>;
 
@@ -25,4 +25,11 @@ export const deleteDeptApi = async (ids: number[]) => {
  */
 export const getDeptTreeApi = async () => {
   return requestClient.get('/api/system/dept/tree');
+};
+
+/**
+ * 获取部门树（注册页免登录使用，后端白名单放行）
+ */
+export const getPublicDeptTreeApi = async () => {
+  return baseRequestClient.get('/api/system/dept/tree');
 };

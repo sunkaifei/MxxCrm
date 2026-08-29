@@ -12,6 +12,7 @@ pub mod admin_preference;
 pub mod admin_role_merge;
 pub mod admin_post_merge;
 pub mod admin_dept_merge;
+pub mod dept_default_role;
 pub mod menu;
 pub mod config;
 pub mod role;
@@ -56,4 +57,8 @@ pub mod employee_salary;
 pub mod hire_salary_data;
 pub mod dashboard_card;
 pub mod dashboard_card_role_merge;
+pub mod dashboard_user_layout;
+pub mod workspace;
+pub mod onboarding_step;
+pub mod onboarding_config;
 

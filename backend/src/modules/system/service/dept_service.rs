@@ -315,6 +315,7 @@ pub async fn select_by_admin_id(db: &DbConn, admin_id: &Option<i64>) -> Result<V
                 phone: dept.phone,
                 email: dept.email,
                 status: dept.status,
+                default_role_id: None,
                 deleted: dept.deleted,
                 create_by: dept.create_by,
                 create_time: dept.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),

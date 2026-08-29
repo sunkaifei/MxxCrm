@@ -3,21 +3,43 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { computed, h, ref, watch } from 'vue';
+import { computed, h, reactive, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideEye } from '@vben/icons';
+import { LucideEye, LucidePencil, LucidePlus } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, Drawer, message, Popconfirm, Tabs, Tag } from 'ant-design-vue';
+import {
+  Button,
+  DatePicker,
+  Drawer,
+  Form,
+  FormItem,
+  Input,
+  message,
+  Modal,
+  Popconfirm,
+  Radio,
+  Select,
+  Tabs,
+  Tag,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteFollowupApi, getFollowupListApi } from '#/api';
+import {
+  createFollowupApi,
+  deleteFollowupApi,
+  getFollowupListApi,
+  getLeadListApi,
+  updateFollowupApi,
+} from '#/api';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
+import CustomerSelectModal from '../components/CustomerSelectModal.vue';
+import OpportunitySelectModal from '../components/OpportunitySelectModal.vue';
 import CustomerDetail from '../customer/detail.vue';
 import LeadDetail from '../lead/detail.vue';
 import OpportunityDetail from '../opportunity/detail.vue';
@@ -227,6 +249,181 @@ async function handleDelete(row: any) {
   }
 }
 
+// ========== 新增/编辑跟进 ==========
+const formDrawerVisible = ref(false);
+const formMode = ref<'create' | 'edit'>('create');
+const editingId = ref<null | number>(null);
+const formSubmitting = ref(false);
+
+const formData = reactive({
+  sourceType: 2,
+  leadId: undefined as undefined | number,
+  customerId: undefined as undefined | number,
+  opportunityId: undefined as undefined | number,
+  sourceName: '',
+  activityType: 1,
+  content: '',
+  nextFollowDate: undefined as any,
+});
+
+const customerPickerVisible = ref(false);
+const opportunityPickerVisible = ref(false);
+
+// 线索选择（内嵌弹窗）
+const leadPickerVisible = ref(false);
+const leadKeyword = ref('');
+const leadOptions = ref<any[]>([]);
+const leadSearching = ref(false);
+
+// 来源类型标签
+const sourceLabel = computed(() => {
+  const map: Record<number, string> = {
+    1: '线索',
+    2: '客户',
+    3: '商机',
+  };
+  return map[formData.sourceType] || '来源';
+});
+
+const activityOptions = [1, 2, 3, 4, 5, 6, 7].map((v) => ({
+  value: v,
+  label: activityLabelMap[v],
+}));
+
+function resetForm() {
+  formData.sourceType = 2;
+  formData.leadId = undefined;
+  formData.customerId = undefined;
+  formData.opportunityId = undefined;
+  formData.sourceName = '';
+  formData.activityType = 1;
+  formData.content = '';
+  formData.nextFollowDate = undefined;
+}
+
+// 来源类型切换时清空已选来源
+watch(
+  () => formData.sourceType,
+  () => {
+    formData.leadId = undefined;
+    formData.customerId = undefined;
+    formData.opportunityId = undefined;
+    formData.sourceName = '';
+  },
+);
+
+function openCreate() {
+  formMode.value = 'create';
+  editingId.value = null;
+  resetForm();
+  formDrawerVisible.value = true;
+}
+
+function openEdit(row: any) {
+  const id = row.id ?? row.id_;
+  if (!id) return;
+  formMode.value = 'edit';
+  editingId.value = Number(id);
+  resetForm();
+  formData.sourceType = row.sourceType ?? 2;
+  formData.leadId = row.leadId ?? row.lead_id;
+  formData.customerId = row.customerId ?? row.customer_id;
+  formData.opportunityId = row.opportunityId ?? row.opportunity_id;
+  formData.activityType = row.activityType ?? row.activity_type ?? 1;
+  formData.content = row.content ?? '';
+  formData.nextFollowDate = row.nextFollowDate ?? row.next_follow_date;
+  formData.sourceName =
+    formData.sourceType === 1
+      ? row.leadName || '-'
+      : row.customerName || '-';
+  formDrawerVisible.value = true;
+}
+
+// 打开来源选择器：1=线索内嵌弹窗，2=客户弹窗，3=商机弹窗
+function openSourcePicker() {
+  if (formData.sourceType === 1) {
+    leadKeyword.value = '';
+    handleLeadSearch('');
+    leadPickerVisible.value = true;
+  } else if (formData.sourceType === 2) {
+    customerPickerVisible.value = true;
+  } else if (formData.sourceType === 3) {
+    opportunityPickerVisible.value = true;
+  }
+}
+
+async function handleLeadSearch(keyword?: string) {
+  leadSearching.value = true;
+  try {
+    const res: any = await getLeadListApi({
+      page: 1,
+      pageSize: 20,
+      keywords: keyword || undefined,
+    });
+    leadOptions.value = (res as any)?.items ?? [];
+  } catch {
+    leadOptions.value = [];
+  } finally {
+    leadSearching.value = false;
+  }
+}
+
+function onSelectCustomer(row: any) {
+  formData.customerId = Number(row.id ?? row.id_);
+  formData.sourceName = row.companyName || '-';
+  customerPickerVisible.value = false;
+}
+
+function onSelectOpportunity(row: any) {
+  formData.opportunityId = Number(row.id ?? row.id_);
+  formData.sourceName =
+    row.title || row.opportunityName || row.name || `#${row.id}`;
+  opportunityPickerVisible.value = false;
+}
+
+function onSelectLead(row: any) {
+  formData.leadId = Number(row.id ?? row.id_);
+  formData.sourceName = row.companyName || '-';
+  leadPickerVisible.value = false;
+}
+
+async function handleSubmit() {
+  if (!formData.sourceName) {
+    message.warning('请选择跟进来源');
+    return;
+  }
+  if (!formData.content?.trim()) {
+    message.warning('请填写跟进内容');
+    return;
+  }
+  formSubmitting.value = true;
+  try {
+    const payload: any = {
+      sourceType: formData.sourceType,
+      leadId: formData.leadId,
+      customerId: formData.customerId,
+      opportunityId: formData.opportunityId,
+      activityType: formData.activityType,
+      content: formData.content,
+      nextFollowDate: formData.nextFollowDate || undefined,
+    };
+    if (formMode.value === 'edit' && editingId.value !== null) {
+      payload.id = String(editingId.value);
+      await updateFollowupApi(payload);
+      message.success('跟进记录已更新');
+    } else {
+      await createFollowupApi(payload);
+      message.success('跟进记录已创建');
+    }
+    formDrawerVisible.value = false;
+    gridApi.query();
+  } catch {
+    // 全局拦截器处理
+  } finally {
+    formSubmitting.value = false;
+  }
+}
+
 const formOptions: VbenFormProps = {
   collapsed: false,
   showCollapseButton: false,
@@ -381,7 +578,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 120,
+      width: 160,
     },
   ],
 };
@@ -408,6 +605,20 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
       v-show="activeTab !== 'recycle'"
       :table-title="$t('page.crm.followup.title')"
     >
+
+      <template #toolbar-tools>
+        <Button
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('crm:followup:save')
+          "
+          type="primary"
+          :icon="h(LucidePlus)"
+          @click="openCreate"
+        >
+          新增跟进
+        </Button>
+      </template>
 
       <template #followTimeSlot="{ row }">
         {{ formatDateTime(row.followTime) }}
@@ -452,6 +663,15 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
           type="link"
           :icon="h(LucideEye)"
           @click="() => openDetail(row)"
+        />
+        <Button
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('crm:followup:update')
+          "
+          type="link"
+          :icon="h(LucidePencil)"
+          @click="() => openEdit(row)"
         />
         <Popconfirm
           v-if="
@@ -562,5 +782,124 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
         :id="opportunityDetailId"
       />
     </Drawer>
+
+    <!-- 新增/编辑跟进 -->
+    <Drawer
+      v-model:open="formDrawerVisible"
+      width="min(560px, 92vw)"
+      placement="right"
+      :destroy-on-close="true"
+      :mask-closable="true"
+      :closable="true"
+      :title="formMode === 'edit' ? '编辑跟进记录' : '新增跟进记录'"
+    >
+      <Form layout="vertical">
+        <FormItem label="来源类型" required>
+          <Radio.Group v-model:value="formData.sourceType">
+            <Radio :value="1">线索跟进</Radio>
+            <Radio :value="2">客户跟进</Radio>
+            <Radio :value="3">商机跟进</Radio>
+          </Radio.Group>
+        </FormItem>
+        <FormItem :label="`${sourceLabel}来源`" required>
+          <Input
+            v-model:value="formData.sourceName"
+            readonly
+            :placeholder="`点击右侧按钮选择${sourceLabel}`"
+          />
+          <Button class="mt-2" type="primary" ghost @click="openSourcePicker">
+            选择{{ sourceLabel }}
+          </Button>
+        </FormItem>
+        <FormItem label="跟进方式">
+          <Select
+            v-model:value="formData.activityType"
+            :options="activityOptions"
+            style="width: 100%"
+          />
+        </FormItem>
+        <FormItem label="跟进内容" required>
+          <Input.TextArea
+            v-model:value="formData.content"
+            :rows="4"
+            placeholder="请输入跟进内容"
+            :maxlength="1000"
+            show-count
+          />
+        </FormItem>
+        <FormItem label="下次跟进时间">
+          <DatePicker
+            v-model:value="formData.nextFollowDate"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+            placeholder="选择下次跟进时间"
+          />
+        </FormItem>
+      </Form>
+      <div class="flex justify-end gap-2 mt-4">
+        <Button @click="formDrawerVisible = false">取消</Button>
+        <Button type="primary" :loading="formSubmitting" @click="handleSubmit">
+          保存
+        </Button>
+      </div>
+    </Drawer>
+
+    <!-- 线索选择弹窗 -->
+    <Modal
+      v-model:open="leadPickerVisible"
+      title="选择线索"
+      :footer="null"
+      :width="640"
+    >
+      <div class="flex items-center gap-2 mb-3">
+        <Input
+          v-model:value="leadKeyword"
+          placeholder="输入公司名称/联系人搜索"
+          allow-clear
+          @press-enter="handleLeadSearch(leadKeyword)"
+        />
+        <Button type="primary" @click="handleLeadSearch(leadKeyword)">
+          搜索
+        </Button>
+      </div>
+      <div v-if="leadSearching" class="py-8 text-center text-gray-400">
+        加载中...
+      </div>
+      <div
+        v-else-if="leadOptions.length === 0"
+        class="py-8 text-center text-gray-400"
+      >
+        暂无数据
+      </div>
+      <div v-else class="max-h-80 overflow-auto border rounded">
+        <div
+          v-for="item in leadOptions"
+          :key="item.id"
+          class="flex items-center justify-between px-3 py-2 border-b last:border-b-0 cursor-pointer hover:bg-blue-50"
+          @click="onSelectLead(item)"
+        >
+          <div>
+            <div class="font-medium">{{ item.companyName || '-' }}</div>
+            <div class="text-xs text-gray-500">
+              {{ item.contactName ? `联系人：${item.contactName}` : '' }}
+            </div>
+          </div>
+          <Button size="small" type="primary" @click.stop="onSelectLead(item)">
+            选择
+          </Button>
+        </div>
+      </div>
+    </Modal>
+
+    <!-- 客户选择弹窗 -->
+    <CustomerSelectModal
+      v-model:visible="customerPickerVisible"
+      @select="onSelectCustomer"
+    />
+    <!-- 商机选择弹窗 -->
+    <OpportunitySelectModal
+      v-model:visible="opportunityPickerVisible"
+      @select="onSelectOpportunity"
+    />
   </Page>
 </template>

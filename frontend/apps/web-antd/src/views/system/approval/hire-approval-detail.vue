@@ -405,6 +405,16 @@ const infoGroups = computed(() => {
     { label: '用户名', value: f(r.userName) },
   ];
   if (f(r.roleName)) contactItems.push({ label: '角色', value: f(r.roleName) });
+  // 入职意向（13.4-3：仅提交人本人与审批链节点审批人可见——详情接口按放行条件填充；
+  // 意向部门用于审批通过后分配部门与默认角色，期望薪资仅供审批参考，不写入薪资档案）
+  const intent = instanceDetail.value?.intentSummary || null;
+  const intentItems: { label: string; value: string }[] = [];
+  if (intent) {
+    const deptLabel = f(intent.intentDeptName) || f(intent.intentDeptId);
+    if (deptLabel) intentItems.push({ label: '意向部门', value: deptLabel });
+    if (f(intent.expectedSalary))
+      intentItems.push({ label: '期望薪资', value: f(intent.expectedSalary) });
+  }
   // 合同信息（决定试用期法定上限，供审批人参考）
   const contractType = r.contractType ?? hrArchive.value?.contractType;
   const contractMonths = r.contractMonths ?? hrArchive.value?.contractMonths;
@@ -438,6 +448,7 @@ const infoGroups = computed(() => {
       ],
     },
     { title: '联系方式', items: contactItems },
+    ...(intentItems.length > 0 ? [{ title: '入职意向', items: intentItems }] : []),
   ];
 });
 

@@ -29,6 +29,9 @@ pub struct DeptSaveRequest {
     pub phone: Option<String>,
     pub email: Option<String>,
     pub status: Option<i32>,
+    /// 入职默认角色ID（13.3-5）：Some(>0)=设置 Some(0)=清除 None=不处理
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
+    pub default_role_id: Option<i64>,
 }
 
 impl From<DeptSaveRequest> for DeptSaveDTO {
@@ -71,6 +74,9 @@ pub struct DeptUpdateRequest {
     pub phone: Option<String>,
     pub email: Option<String>,
     pub status: Option<i32>,
+    /// 入职默认角色ID（13.3-5）：Some(>0)=设置 Some(0)=清除 None=不处理
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
+    pub default_role_id: Option<i64>,
 }
 
 impl From<DeptUpdateRequest> for DeptSaveDTO {
@@ -165,6 +171,9 @@ pub struct DeptDetailVO {
     pub phone: Option<String>,
     pub email: Option<String>,
     pub status: Option<i32>,
+    /// 入职默认角色ID（13.3-5 编辑抽屉回显）
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub default_role_id: Option<i64>,
     pub deleted: Option<i32>,
     pub create_by: Option<String>,
     pub create_time: Option<String>,
@@ -186,6 +195,7 @@ impl From<dept::Model> for DeptDetailVO {
             phone: model.phone,
             email: model.email,
             status: model.status,
+            default_role_id: None,
             deleted: model.deleted,
             create_by: model.create_by,
             create_time: model.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),

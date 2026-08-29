@@ -39,7 +39,7 @@ const MODULE_TABLES: &[(&str, &str)] = &[
 
 /// 五表软删数据 UNION 视图（静态 SQL，无外部参数）
 const UNION_SQL: &str = "SELECT id, 'customer' AS module, '客户' AS module_label, COALESCE(NULLIF(company_name, ''), '未命名客户') AS title, delete_by, create_time, delete_time FROM mxx_crm_customer WHERE deleted = 1 \
-    UNION ALL SELECT id, 'opportunity', '商机', COALESCE(NULLIF(title, ''), '未命名商机'), delete_by, create_time, delete_time FROM mxx_crm_opportunity WHERE deleted = 1 \
+    UNION ALL SELECT id, 'opportunity', '商机', COALESCE(NULLIF(name, ''), '未命名商机'), delete_by, create_time, delete_time FROM mxx_crm_opportunity WHERE deleted = 1 \
     UNION ALL SELECT id, 'followup', '跟进', COALESCE(NULLIF(content, ''), '跟进记录'), delete_by, create_time, delete_time FROM mxx_crm_followup WHERE deleted = 1 \
     UNION ALL SELECT id, 'contact', '联系人', COALESCE(NULLIF(name, ''), '未命名联系人'), delete_by, create_time, delete_time FROM mxx_crm_contact WHERE deleted = 1 \
     UNION ALL SELECT id, 'lead', '线索', COALESCE(NULLIF(company_name, ''), NULLIF(contact_name, ''), '未命名线索'), delete_by, create_time, delete_time FROM mxx_crm_lead WHERE deleted = 1";

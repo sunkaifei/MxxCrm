@@ -60,7 +60,7 @@ const statusLabelMap: Record<number, string> = {
   5: '已回收',
   6: '未核查',
   7: '核查中',
-  8: '有效线索',
+  8: '线索池',
 };
 const statusColorMap: Record<number, string> = {
   1: 'blue',

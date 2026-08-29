@@ -8,6 +8,8 @@ import { Button, Drawer, message, Select } from 'ant-design-vue';
 
 import { submitApprovalApi } from '#/api';
 
+import { getDeptTreeApi } from '#/api/core/system/dept';
+
 import HireApprovalDetail from '../approval/hire-approval-detail.vue';
 
 const props = defineProps<{
@@ -80,14 +82,31 @@ watch(contractType, (val, old) => {
     contractMonths.value = 36;
   }
 });
-// 抽屉打开时预填员工档案已有合同信息（HR 已维护则回显，避免重复填写）
+// ===== 入职意向（无部门用户提交审批时选意向部门，审批通过后据此分配部门与默认角色）=====
+const intentDeptId = ref<string | null>(null);
+const expectedSalary = ref<number | null>(null);
+const deptTree = ref<any[]>([]);
+// 无部门判断口径：!row?.deptName——已有归属部门则无需再选意向部门
+const needIntentDept = computed(() => !props.row?.deptName);
+
+// 抽屉打开时预填员工档案已有合同信息（HR 已维护则回显，避免重复填写），并重置意向/加载部门树
 watch(
   () => props.visible,
-  (val) => {
+  async (val) => {
     if (val) {
       contractType.value = props.row?.contractType ?? 1;
       contractMonths.value =
         props.row?.contractType === 2 ? undefined : (props.row?.contractMonths ?? 36);
+      intentDeptId.value = null;
+      expectedSalary.value = null;
+      if (needIntentDept.value && deptTree.value.length === 0) {
+        try {
+          const result = await getDeptTreeApi();
+          deptTree.value = Array.isArray(result) ? result : [];
+        } catch {
+          deptTree.value = [];
+        }
+      }
     }
   },
 );
@@ -113,10 +132,12 @@ async function handleSubmit() {
       businessType: 'user',
       businessId: row.id,
       businessTitle: row.nickName || row.userName || `用户#${row.id}`,
-      // 合同信息：经 extra_data 提交，后端写入员工档案并随审批实例留痕
+      // 合同信息/入职意向：经 extra_data 提交，后端写入员工档案并随审批实例留痕
       extraData: {
         contractType: contractType.value,
         contractMonths: contractType.value === 2 ? null : contractMonths.value,
+        intentDeptId: intentDeptId.value ?? null,
+        expectedSalary: expectedSalary.value ?? null,
       },
     });
     message.success('已提交审核，等待审批人处理');
@@ -198,6 +219,36 @@ async function handleSubmit() {
         </div>
         <div class="su-contract-tip">
           合同信息将随审批提交写入员工档案，并供审批人在详情中复核
+        </div>
+      </div>
+
+      <!-- ===== 入职意向（意向部门/期望薪资，随审批实例留痕） ===== -->
+      <div class="su-contract">
+        <div class="su-contract-title">入职意向</div>
+        <div class="su-contract-form">
+          <div v-if="needIntentDept" class="su-contract-item">
+            <span class="su-contract-label">意向部门</span>
+            <TreeSelect
+              v-model:value="intentDeptId"
+              :tree-data="deptTree"
+              style="width: 240px"
+              placeholder="请选择意向部门"
+              allow-clear
+              tree-default-expand-all
+            />
+          </div>
+          <div class="su-contract-item">
+            <span class="su-contract-label">期望薪资</span>
+            <InputNumber
+              v-model:value="expectedSalary"
+              :min="0"
+              style="width: 180px"
+              placeholder="选填"
+            />
+          </div>
+        </div>
+        <div class="su-contract-tip">
+          意向部门用于审批通过后分配所属部门与默认角色；期望薪资仅供审批参考，不写入薪资档案
         </div>
       </div>
 

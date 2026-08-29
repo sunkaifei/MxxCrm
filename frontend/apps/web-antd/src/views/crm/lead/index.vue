@@ -720,7 +720,10 @@ function handleDeleteConfirm(row: any) {
           批量转移线索
         </Button>
         <Button
-          v-if="!isSubordinateView"
+          v-if="
+            !isSubordinateView &&
+            accessStore.hasAccessCode('crm:lead:delete')
+          "
           @click="handleBatchDelete"
           class="mr-2"
           danger

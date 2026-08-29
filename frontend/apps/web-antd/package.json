@@ -45,6 +45,7 @@
     "@vueuse/core": "catalog:",
     "ant-design-vue": "catalog:",
     "dayjs": "catalog:",
+    "gridstack": "^13.2.0",
     "lucide-vue-next": "catalog:",
     "monaco-editor": "catalog:",
     "pinia": "catalog:",

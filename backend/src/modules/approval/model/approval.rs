@@ -342,6 +342,24 @@ pub struct ApprovalInstanceVO {
     pub hire_salary_stages: Vec<HireSalaryStageVO>,
     /// 已办视角：当前查询人在这张单上的最新处理动作（1通过/2驳回/3转办/4委派/5加签/6退回/7撤回；其余视角为空）
     pub my_action: Option<i32>,
+    /// 入职意向摘要（意向部门/期望薪资；仅详情接口填充，列表不返回，13.4-3 可见性由详情接口放行条件保证）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent_summary: Option<IntentSummaryVO>,
+}
+
+/// 入职意向摘要（13.4-3：期望薪资/意向部门仅提交人本人与审批链节点审批人可见，审批表单与“我的审批”详情展示）
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct IntentSummaryVO {
+    /// 意向部门 ID（雪花 ID 字符串）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent_dept_id: Option<String>,
+    /// 意向部门名称
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent_dept_name: Option<String>,
+    /// 期望薪资（注册/提交时为文本或数字，原样透出仅供审批参考）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_salary: Option<serde_json::Value>,
 }
 
 /// 岗位薪资带宽参照（入职定薪详情展示：岗位带宽区间）
@@ -1188,6 +1206,10 @@ impl ApprovalModel {
         let (salary_band, hire_salary_stages) =
             Self::load_hire_salary_context(db, &inst).await.unwrap_or((None, vec![]));
 
+        // 入职意向摘要（13.4-3：仅详情接口填充，可见性由详情接口放行条件保证——
+        // 仅提交人本人与审批链节点审批人可查看详情；须在 extra_data 被 move 前提取）
+        let intent_summary = Self::build_intent_summary(db, inst.extra_data.as_ref()).await;
+
         Ok(Some(ApprovalInstanceVO {
             id: inst.id,
             flow_code: inst.flow_code.unwrap_or_default(),
@@ -1219,7 +1241,43 @@ impl ApprovalModel {
             salary_band,
             hire_salary_stages,
             my_action: None,
+            intent_summary,
         }))
+    }
+
+    /// 构建入职意向摘要：extra_data.intentDeptId/expectedSalary 摘录 + 意向部门名称解析
+    /// （13.4-3：仅详情接口填充；期望薪资仅供审批参考，任何环节不写入薪资档案）
+    async fn build_intent_summary(
+        db: &impl ConnectionTrait,
+        extra_data: Option<&serde_json::Value>,
+    ) -> Option<IntentSummaryVO> {
+        let extra = extra_data?;
+        let intent_dept_id = Self::extract_intent_dept_id(extra);
+        let expected_salary = extra.get("expectedSalary").cloned().filter(|v| !v.is_null());
+        if intent_dept_id.is_none() && expected_salary.is_none() {
+            return None;
+        }
+        let intent_dept_name = match intent_dept_id {
+            Some(did) => DeptEntity::find_by_id(did)
+                .one(db)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|d| d.dept_name),
+            None => None,
+        };
+        Some(IntentSummaryVO {
+            intent_dept_id: intent_dept_id.map(|v| v.to_string()),
+            intent_dept_name,
+            expected_salary,
+        })
+    }
+
+    /// extra_data.intentDeptId 取值：兼容数字与字符串（部门树雪花 ID 前端以字符串承载，防 JS 精度丢失）
+    fn extract_intent_dept_id(extra: &serde_json::Value) -> Option<i64> {
+        extra
+            .get("intentDeptId")
+            .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok())))
     }
 
     /// 加载入职定薪上下文：岗位薪资带宽参照 + 各环节定薪数据（仅 hire_approval 流程）
@@ -1471,6 +1529,7 @@ impl ApprovalModel {
                     salary_band: None,
                     hire_salary_stages: vec![],
                     my_action: None,
+                    intent_summary: None,
                 }
             })
             .collect();

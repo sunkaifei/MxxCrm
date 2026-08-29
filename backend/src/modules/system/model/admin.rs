@@ -319,6 +319,8 @@ pub struct UserRegisterRequest {
     pub dept_name: Option<String>,
     ///申请岗位（文本，写入 remark）
     pub post_name: Option<String>,
+    ///期望薪资（选填，仅审批参考，写入 remark）
+    pub expected_salary: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -331,10 +333,26 @@ pub struct CheckUsernameResult {
 impl From<UserRegisterRequest> for AdminSaveRequest {
     fn from(req: UserRegisterRequest) -> Self {
         let username = req.username.clone().unwrap_or_default();
-        // 将申请部门/岗位拼入 remark，审核时管理员可见
+        // 将申请部门/岗位/期望薪资拼入 remark，审核时管理员可见（仅拼非空段）
         let dept = req.dept_name.unwrap_or_default();
         let post = req.post_name.unwrap_or_default();
-        let remark = format!("申请部门：{}；申请岗位：{}", dept, post);
+        let salary = req.expected_salary.unwrap_or_default();
+        let mut remark = String::new();
+        if !dept.is_empty() {
+            remark.push_str(&format!("申请部门：{}", dept));
+        }
+        if !post.is_empty() {
+            if !remark.is_empty() {
+                remark.push('；');
+            }
+            remark.push_str(&format!("申请岗位：{}", post));
+        }
+        if !salary.is_empty() {
+            if !remark.is_empty() {
+                remark.push('；');
+            }
+            remark.push_str(&format!("期望薪资：{}", salary));
+        }
         AdminSaveRequest {
             user_name: req.username,
             nick_name: req.nick_name.or(Some(username)),
@@ -347,7 +365,7 @@ impl From<UserRegisterRequest> for AdminSaveRequest {
             gender: None,
             avatar: None,
             password: req.password,
-            status: Some(0), // 待审核，审核通过后改为1
+            status: Some(1), // 账号启用，可登录走入职引导；审核状态由 audit_status=0 承接
             remark: Some(remark),
             sort: None,
             direct_manager_id: None,
@@ -456,6 +474,8 @@ pub struct TokenVO {
     pub refresh_token: Option<String>,
     pub expires_in: Option<i64>,
     pub role: Vec<String>,
+    /// 角色默认首页（方案 5.3 M4：多角色取 sort 最小者的 home_path，无则 /workspace）
+    pub home_path: Option<String>,
 }
 
 /// 用户角色名称DTO

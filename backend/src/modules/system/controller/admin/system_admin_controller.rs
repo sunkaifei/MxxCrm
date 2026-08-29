@@ -232,6 +232,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
             };
             admin_service::update_login_info(&db, &update_user).await.unwrap_or_default();
 
+            let home_path = role_service::find_user_home_path(&db, &Some(user_info.id)).await.unwrap_or(None);
             let user_token = TokenVO {
                 access_token: Option::from(token.clone()),
                 token_type: Option::from("Bearer".to_string()),
@@ -239,6 +240,7 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
                 refresh_token: Option::from(refresh_token_plain.clone()),
                 expires_in: Option::from(access_expire_secs as i64),
                 role: user_role_keys,
+                home_path,
             };
             Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_token, "local")))
         }
@@ -1032,12 +1034,14 @@ pub async fn post_refresh(state: web::Data<AppState>, item: web::Json<RefreshTok
     let is_admin = admin.user_type == Some(1);
     let role_keys = find_user_role_keys(db, &is_admin, &Some(info.user_id)).await.unwrap_or_default();
 
+    let home_path = role_service::find_user_home_path(db, &Some(info.user_id)).await.unwrap_or(None);
     let user_token = TokenVO {
         access_token: Some(new_access),
         token_type: Some("Bearer".to_string()),
         refresh_token: Some(new_refresh_plain),
         expires_in: Some(access_expire_secs as i64),
         role: role_keys,
+        home_path,
     };
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(user_token, "local")))
 }

@@ -3,45 +3,119 @@ import type { WorkbenchQuickNavItem } from '@vben/common-ui';
 
 import type { QuickNavItem } from '#/api';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { WorkbenchHeader, WorkbenchQuickNav } from '@vben/common-ui';
-import { preferences } from '@vben/preferences';
+import { IconifyIcon } from '@vben/icons';
 import { useUserStore } from '@vben/stores';
 import { openWindow } from '@vben/utils';
 
-import { Card, Empty, Spin, Tag } from 'ant-design-vue';
+import { Button, Empty, message, Popover, Select } from 'ant-design-vue';
 
 import {
   getCustomerListApi,
   getMenusRouterApi,
+  getMyProfileApi,
   getOpportunityListApi,
   getQuickNavPreferenceApi,
   getSaleSimpleModeApi,
   getTodaySummaryApi,
-  getTodoApprovalListApi,
-  getTodoFollowUpListApi,
-  getTodoPaymentListApi,
-  getWeekWorkloadApi,
 } from '#/api';
-import { getPlanListApi } from '#/api/core/statistics';
+import {
+  getUserLayoutApi,
+  saveUserLayoutApi,
+} from '#/api/core/system/dashboard-card';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
 import ContractApprovalDrawer from '../../crm/contract/approval-drawer.vue';
 // 审批流抽屉组件（复用业务模块现有组件，工作台内嵌打开）
 import OrderApprovalDrawer from '../../sale/order/approval-drawer.vue';
 import QuickNavSettingsModal from '../components/QuickNavSettingsModal.vue';
-import QuickProcessModal from '../components/QuickProcessModal.vue';
 import TodoOverviewCard from '../components/TodoOverviewCard.vue';
 import WorkLogCard from '../components/WorkLogCard.vue';
-import { useDashboardPermission } from './config';
+import { getCanvasCardDef } from './canvas';
+import OnboardingCard from './components/OnboardingCard.vue';
+import SmartTodoCard from './components/SmartTodoCard.vue';
+import WeekLoadCard from './components/WeekLoadCard.vue';
+import {
+  useDashboardPermission,
+  useWorkspaceCards,
+  WORKSPACE_CARD_CODES,
+} from './config';
 
 const router = useRouter();
 const userStore = useUserStore();
 
 // ===== 工作台模块权限控制 =====
 const { canShow, filterOverviewTabs, isBizUser } = useDashboardPermission();
+
+// ===== 注册卡可见性（方案 3.2/4.1：第一层卡片注册表，cardModeEnabled=false 回旧渲染） =====
+const {
+  cardModeEnabled,
+  visibleCodes,
+  cardsLoaded,
+  hasCard,
+  loadWorkspaceCards,
+  workspaceList,
+  currentWorkspaceCode,
+  workspacesLoaded,
+  loadWorkspaces,
+  switchWorkspace,
+} = useWorkspaceCards();
+const { isSuperAdmin } = useSuperAdminGuard();
+
+// 入职审批状态（audit_status=1 已通过 → 引导卡消失；NULL/0 → 显示，覆盖 HR 建号未审批）
+const myAuditStatus = ref<null | number>(null);
+async function loadMyAuditStatus() {
+  try {
+    const res: any = await getMyProfileApi();
+    const p = res?.data ?? res ?? {};
+    myAuditStatus.value = p.auditStatus ?? p.audit_status ?? null;
+  } catch {
+    myAuditStatus.value = null;
+  }
+}
+
+// 引导卡显示条件（方案 4.4）：hasCard + userType != 1 + audit_status != 1（含 NULL）
+const currentUserType = computed(() => {
+  const info: any = userStore.userInfo || {};
+  return Number(info.userType ?? info.user_type ?? 0);
+});
+const showOnboardingCard = computed(
+  () =>
+    cardModeEnabled.value &&
+    hasCard(WORKSPACE_CARD_CODES.onboarding) &&
+    currentUserType.value !== 1 &&
+    Number(myAuditStatus.value) !== 1,
+);
+
+// 空态提示（方案 4.5-1）：注册卡全不可见（visibleCodes=[]，接口失败降级为 null 时不提示）；
+// 非超管仅提示，超管附"去配置"入口
+const showEmptyTip = computed(
+  () =>
+    cardsLoaded.value &&
+    cardModeEnabled.value &&
+    visibleCodes.value !== null &&
+    visibleCodes.value.length === 0,
+);
+
+// 引导卡"查看待办总览"：定位工作台待办概览卡（ref 定位，卡片被隐藏时回退审批待办页）
+function handleViewTodos() {
+  if (showOverviewCard.value && hasCard(WORKSPACE_CARD_CODES.todoOverview)) {
+    const card: any = getCardRef(WORKSPACE_CARD_CODES.todoOverview);
+    if (card?.$el) {
+      card.$el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+  }
+  router.push('/system/approval/todo').catch(() => {});
+}
+// 空态提示"去配置"：跳转工作台设计器（超管入口）
+function goConfigure() {
+  router.push('/system/dashboard-designer').catch(() => {});
+}
 // 待办概览卡可见 tab（按权限过滤）
 const visibleOverviewTabs = computed(() =>
   filterOverviewTabs([
@@ -56,7 +130,7 @@ const visibleOverviewTabs = computed(() =>
 );
 // 待办概览整卡：无任何 tab 权限则隐藏
 const showOverviewCard = computed(() => visibleOverviewTabs.value.length > 0);
-// 智能待办区：任一待办类型有权限则显示
+// 智能待办区可见性（画布过滤用；SmartTodoCard 内部同样自判）
 const showSmartTodo = computed(
   () =>
     canShow('approval') ||
@@ -88,7 +162,7 @@ const approvalCurrentUserId = computed(() =>
   userStore.userInfo?.userId ? Number(userStore.userInfo.userId) : undefined,
 );
 
-// 处理 QuickProcessModal 的查看审批流详情事件：在工作台内嵌打开抽屉
+// 处理查看审批流详情事件：在工作台内嵌打开抽屉
 function handleViewApproval(payload: {
   businessId: number;
   businessType: string;
@@ -116,21 +190,34 @@ function handleViewApproval(payload: {
   }
 }
 
-// 审批抽屉操作成功后刷新待办列表
+// 审批抽屉操作成功后刷新相关卡片（卡片自加载，经 expose reload 触发）
 function handleApprovalSuccess() {
-  loadSmartTodos();
+  getCardRef(WORKSPACE_CARD_CODES.smartTodo)?.reload?.();
+  getCardRef(WORKSPACE_CARD_CODES.weekLoad)?.reload?.();
   workLogRefreshKey.value++;
 }
 
 // ===== 工作日志刷新 key =====
 const workLogRefreshKey = ref(0);
 
+// ===== 卡片实例引用（画布/回退两种模式统一经 bindCardRef 收集，供 reload/定位） =====
+const cardRefMap: Record<string, any> = {};
+function bindCardRef(el: any, code: string) {
+  if (el) {
+    cardRefMap[code] = el;
+  } else {
+    delete cardRefMap[code];
+  }
+}
+function getCardRef(code: string): any {
+  return cardRefMap[code];
+}
+
 // ===== 快捷导航 =====
 const quickNavItems = ref<WorkbenchQuickNavItem[]>([]);
 const navSettingsVisible = ref(false);
 // 销售简易模式开关
 const saleSimpleMode = ref(false);
-
 // 标准模式默认快捷导航（按销售流程排序：客户→商机→报价单→订单→合同→回款）
 const defaultQuickNavStandard: WorkbenchQuickNavItem[] = [
   {
@@ -286,279 +373,6 @@ async function loadQuickNav() {
   }
 }
 
-// ===== 智能待办 =====
-interface SmartTodoItem {
-  id: number;
-  type: 'approval' | 'followUp' | 'payment' | 'planApproval';
-  title: string;
-  meta: string;
-  color: string;
-  badge?: number;
-  raw: any;
-  /** 已处理标记（当天保留显示，带删除线） */
-  done?: boolean;
-  processedAt?: string;
-}
-
-const todoLoading = ref(false);
-const todoItems = ref<SmartTodoItem[]>([]);
-const todoTotalCount = ref(0);
-const quickProcessVisible = ref(false);
-const currentTodoItem = ref<any>(null);
-// 当前点击的待办项（用于处理完后标记已处理）
-const currentClickedTodo = ref<null | SmartTodoItem>(null);
-
-// 今日已处理待办缓存（跨天自动清空，当天保留显示删除线）
-const processedToday = ref<SmartTodoItem[]>([]);
-
-// ===== 今日已处理待办缓存（localStorage，跨天自动清空） =====
-const PROCESSED_TODAY_KEY = computed(
-  () => `todo_processed_${userStore.userInfo?.userId || 'guest'}`,
-);
-
-function getTodayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function loadProcessedToday(): SmartTodoItem[] {
-  try {
-    const raw = localStorage.getItem(PROCESSED_TODAY_KEY.value);
-    if (!raw) return [];
-    const cache = JSON.parse(raw);
-    // 跨天清空：日期不匹配则清除前一天已处理记录
-    if (cache.date !== getTodayStr()) {
-      localStorage.removeItem(PROCESSED_TODAY_KEY.value);
-      return [];
-    }
-    return (cache.items || []).map((p: any) => ({ ...p, done: true }));
-  } catch {
-    return [];
-  }
-}
-
-function saveProcessedToday(items: SmartTodoItem[]) {
-  const compact = items.map((p) => ({
-    id: p.id,
-    type: p.type,
-    title: p.title,
-    meta: p.meta,
-    color: p.color,
-    processedAt: p.processedAt,
-  }));
-  localStorage.setItem(
-    PROCESSED_TODAY_KEY.value,
-    JSON.stringify({ date: getTodayStr(), items: compact }),
-  );
-}
-
-function markAsProcessed(item: SmartTodoItem) {
-  const exists = processedToday.value.some(
-    (p) => p.type === item.type && p.id === item.id,
-  );
-  if (!exists) {
-    processedToday.value.push({
-      ...item,
-      done: true,
-      processedAt: new Date().toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    });
-    saveProcessedToday(processedToday.value);
-  }
-}
-
-// ===== WorkbenchHeader 动态数据 =====
-// 今日已处理数（来自 mxx_work_log 持久化，由后端聚合接口返回）
-const todoProcessed = ref(0);
-// 今日待办总数（= 已处理数 + 剩余待办数，由后端聚合接口返回）
-const todoTotal = ref(0);
-const customerCount = ref(0);
-const opportunityCount = ref(0);
-
-const todoCount = computed(() => todoTotalCount.value);
-
-// 审批业务类型中文映射
-const businessTypeMap: Record<string, string> = {
-  order: '订单',
-  quotation: '报价单',
-  contract: '合同',
-  payment: '回款',
-  invoice: '发票',
-  opportunity: '商机',
-  customer: '客户',
-};
-
-async function loadSmartTodos() {
-  // 无任何待办类型权限：直接跳过，避免无效请求
-  if (!showSmartTodo.value) {
-    todoItems.value = [];
-    todoTotalCount.value = 0;
-    return;
-  }
-  todoLoading.value = true;
-  try {
-    const [approvalResp, followUpResp, paymentResp, planResp]: any[] =
-      await Promise.all([
-        canShow('approval')
-          ? getTodoApprovalListApi({ pageNum: 1, pageSize: 5 }).catch(() => ({
-              items: [],
-              total: 0,
-            }))
-          : Promise.resolve({ items: [], total: 0 }),
-        canShow('followUp')
-          ? getTodoFollowUpListApi({
-              pageNum: 1,
-              pageSize: 5,
-              rangeType: 'overdue',
-            }).catch(() => ({ items: [], total: 0 }))
-          : Promise.resolve({ items: [], total: 0 }),
-        canShow('payment')
-          ? getTodoPaymentListApi({ pageNum: 1, pageSize: 5, days: 7 }).catch(
-              () => ({ items: [], total: 0 }),
-            )
-          : Promise.resolve({ items: [], total: 0 }),
-        canShow('planApproval')
-          ? getPlanListApi({
-              pendingMyApproval: true,
-              year: new Date().getFullYear(),
-            }).catch(() => [])
-          : Promise.resolve([]),
-      ]);
-
-    const items: SmartTodoItem[] = [];
-
-    // 审批待办
-    const approvalItems = approvalResp?.items || [];
-    approvalItems.forEach((item: any) => {
-      const bizName = businessTypeMap[item.businessType] || '业务';
-      const submitter = item.submitterName || '某人';
-      const bizTitle = item.businessTitle || '';
-      items.push({
-        id: item.id,
-        type: 'approval',
-        title: bizTitle || `${bizName}审批`,
-        meta: `由 ${submitter} 发起的${bizName} ${bizTitle} 审批流程，请尽快审核`,
-        color: '#1890ff',
-        raw: item,
-      });
-    });
-
-    // 跟进待办
-    const followUpItems = followUpResp?.items || [];
-    followUpItems.forEach((item: any) => {
-      const overdueDays = item.overdueDays || 0;
-      const itemTypeText = item.itemType === 'lead' ? '线索' : '客户';
-      items.push({
-        id: item.id,
-        type: 'followUp',
-        title: item.name || `${itemTypeText}跟进`,
-        meta: `该${itemTypeText}已逾期 ${overdueDays} 天未跟进，请尽快联系`,
-        color: '#ff4d4f',
-        raw: item,
-      });
-    });
-
-    // 待回款
-    const paymentItems = paymentResp?.items || [];
-    paymentItems.forEach((item: any) => {
-      const planAmount = item.planAmount || 0;
-      const remainingDays = item.remainingDays ?? 0;
-      const contractTitle = item.contractTitle || '';
-      const stageName = item.stageName || '回款阶段';
-      let timeDesc: string;
-      if (remainingDays < 0) {
-        timeDesc = `已逾期 ${Math.abs(remainingDays)} 天`;
-      } else if (remainingDays === 0) {
-        timeDesc = '今日到期';
-      } else {
-        timeDesc = `还有 ${remainingDays} 天到期`;
-      }
-      items.push({
-        id: item.id,
-        type: 'payment',
-        title: `${stageName} - ${contractTitle || '回款提醒'}`,
-        meta: `计划回款 ¥${planAmount}，${timeDesc}，请尽快跟进回款`,
-        color: '#13c2c2',
-        raw: item,
-      });
-    });
-
-    // 计划待审批（上级主管可见）
-    const planItems = Array.isArray(planResp) ? planResp : planResp?.data || [];
-    planItems.forEach((item: any) => {
-      const empName = item.employeeName || '员工';
-      const totalContract = Number(item.totalContractTarget || 0);
-      const amtText =
-        totalContract >= 10_000
-          ? `${(totalContract / 10_000).toFixed(1)}万`
-          : `${totalContract}`;
-      items.push({
-        id: item.id,
-        type: 'planApproval',
-        title: `${empName} ${item.year}年销售计划`,
-        meta: `合同目标 ¥${amtText}，第${item.approvalLevel || 1}级/共${item.totalLevels || 1}级审批，请尽快审核`,
-        color: '#722ed1',
-        raw: item,
-      });
-    });
-
-    // 汇总总数
-    todoTotalCount.value =
-      (approvalResp?.total || 0) +
-      (followUpResp?.total || 0) +
-      (paymentResp?.total || 0) +
-      planItems.length;
-
-    // 未处理项最多 5 条
-    const pendingItems = items.slice(0, 5);
-    // 今日已处理项：排除仍出现在未处理列表中的（防重复），最多追加 3 条
-    const pendingKeys = new Set(pendingItems.map((i) => `${i.type}-${i.id}`));
-    const doneItems = processedToday.value
-      .filter((p) => !pendingKeys.has(`${p.type}-${p.id}`))
-      .slice(0, 3);
-    todoItems.value = [...pendingItems, ...doneItems];
-  } catch {
-    todoItems.value = [];
-    todoTotalCount.value = 0;
-  } finally {
-    todoLoading.value = false;
-  }
-}
-
-function handleTodoClick(item: SmartTodoItem) {
-  // 已处理项点击不触发操作
-  if (item.done) return;
-  // 计划待审批：跳转业绩页处理（在业绩页待审批抽屉中完成审批）
-  if (item.type === 'planApproval') {
-    router.push('/dashboard/performance').catch(() => {});
-    return;
-  }
-  currentClickedTodo.value = item;
-  const raw = item.raw || {};
-  currentTodoItem.value = {
-    ...raw,
-    type: item.type,
-    // 审批类型：raw.businessId 是业务ID（如订单ID），raw.id 是审批实例ID，不能覆盖
-    // 其他类型：raw.id 即为业务ID，作为 businessId 传给快速处理弹窗
-    businessId: item.type === 'approval' ? raw.businessId : raw.id,
-    businessTitle: item.title,
-  };
-  quickProcessVisible.value = true;
-}
-
-function handleProcessed() {
-  // 标记当前处理的待办为已处理（当天保留显示删除线，跨天自动清空）
-  if (currentClickedTodo.value) {
-    markAsProcessed(currentClickedTodo.value);
-    currentClickedTodo.value = null;
-  }
-  loadSmartTodos();
-  loadTodaySummary();
-  workLogRefreshKey.value++;
-}
-
 // ===== 待办概览卡片点击 =====
 const overviewRouteMap: Record<string, string> = {
   approval: '/system/approval/todo',
@@ -580,32 +394,6 @@ function handleOverviewClick(tabKey: string) {
   }
 }
 
-// ===== 本周工作负载 =====
-const weekLoading = ref(false);
-const weekWorkload = ref<Array<{ count: number; day: string }>>([]);
-
-const weekMaxCount = computed(() => {
-  return Math.max(1, ...weekWorkload.value.map((w) => w.count || 0));
-});
-
-async function loadWeekWorkload() {
-  weekLoading.value = true;
-  try {
-    const res: any = await getWeekWorkloadApi();
-    if (Array.isArray(res)) {
-      weekWorkload.value = res;
-    } else if (Array.isArray(res?.items)) {
-      weekWorkload.value = res.items;
-    } else {
-      weekWorkload.value = [];
-    }
-  } catch {
-    weekWorkload.value = [];
-  } finally {
-    weekLoading.value = false;
-  }
-}
-
 // ===== 快捷导航点击跳转 =====
 function navTo(nav: WorkbenchQuickNavItem) {
   if (nav.url?.startsWith('http')) {
@@ -621,7 +409,28 @@ function navTo(nav: WorkbenchQuickNavItem) {
   }
 }
 
-// ===== WorkbenchHeader 动态数据加载 =====
+// ===== WorkbenchHeader 动态数据 =====
+// 今日已处理数（来自 mxx_work_log 持久化，由后端聚合接口返回）
+const todoProcessed = ref(0);
+// 今日待办总数（= 已处理数 + 剩余待办数，由后端聚合接口返回）
+const todoTotal = ref(0);
+const customerCount = ref(0);
+const opportunityCount = ref(0);
+// 智能待办总数（由 SmartTodoCard 经 count-change 事件上抛）
+const todoCount = ref(0);
+
+// 智能待办处理完成：刷新头部汇总与工作日志（待办列表由卡片内部重载）
+function handleSmartProcessed() {
+  loadTodaySummary();
+  workLogRefreshKey.value++;
+}
+
+// 引导卡提交审批成功：刷新审批状态 + 智能待办（计划待审批随审核状态变化）
+function handleAuditChange() {
+  loadMyAuditStatus();
+  getCardRef(WORKSPACE_CARD_CODES.smartTodo)?.reload?.();
+}
+
 // 加载客户总数（无权限不请求，显示 --）
 async function loadCustomerCount() {
   if (!canShow('customer')) {
@@ -669,200 +478,502 @@ async function loadTodaySummary() {
   }
 }
 
+// ===== 画布布局（方案 5.3-M1：gridstack 12 列画布；M3：page_key 即工作台码，切换重载） =====
+const pageKey = computed(() => currentWorkspaceCode.value);
+
+interface CanvasLayoutItem {
+  cardCode: string;
+  h: number;
+  hidden: number;
+  w: number;
+  x: number;
+  y: number;
+}
+
+const layoutItems = ref<CanvasLayoutItem[]>([]);
+const canvasReady = ref(false);
+const canvasContainer = ref<HTMLElement>();
+let gridStack: any = null;
+let rebuildingGrid = false;
+let saveTimer: null | ReturnType<typeof setTimeout> = null;
+
+// 卡片内容级可见性（第二层过滤：卡片注册可见 ≠ 内容可见）
+function isCardContentVisible(code: string): boolean {
+  switch (code) {
+    case WORKSPACE_CARD_CODES.onboarding:
+      return currentUserType.value !== 1 && Number(myAuditStatus.value) !== 1;
+    case WORKSPACE_CARD_CODES.smartTodo:
+      return showSmartTodo.value;
+    case WORKSPACE_CARD_CODES.todoOverview:
+      return showOverviewCard.value;
+    case WORKSPACE_CARD_CODES.weekLoad:
+      return true;
+    default:
+      return true;
+  }
+}
+
+// 卡片标题（隐藏待恢复列表展示用）
+const CARD_TITLE_KEYS: Record<string, string> = {
+  [WORKSPACE_CARD_CODES.onboarding]: 'page.dashboard.onboarding.cardTitle',
+  [WORKSPACE_CARD_CODES.smartTodo]: 'page.dashboard.todoList',
+  [WORKSPACE_CARD_CODES.todoOverview]: 'page.dashboard.todoOverview',
+  [WORKSPACE_CARD_CODES.weekLoad]: 'page.dashboard.weekWorkload',
+  // 三期 8 张岗位卡（d31 种子）
+  [WORKSPACE_CARD_CODES.announcement]:
+    'page.dashboard.workspace.cards.announcement.title',
+  [WORKSPACE_CARD_CODES.stockAlert]:
+    'page.dashboard.workspace.cards.stockAlert.title',
+  [WORKSPACE_CARD_CODES.stockDocTodo]:
+    'page.dashboard.workspace.cards.stockDocTodo.title',
+  [WORKSPACE_CARD_CODES.purchaseApproval]:
+    'page.dashboard.workspace.cards.purchaseApproval.title',
+  [WORKSPACE_CARD_CODES.paymentReminder]:
+    'page.dashboard.workspace.cards.paymentReminder.title',
+  [WORKSPACE_CARD_CODES.payslipStat]:
+    'page.dashboard.workspace.cards.payslipStat.title',
+  [WORKSPACE_CARD_CODES.hrTodo]: 'page.dashboard.workspace.cards.hrTodo.title',
+  [WORKSPACE_CARD_CODES.salesPerformance]:
+    'page.dashboard.workspace.cards.salesPerformance.title',
+};
+function cardTitle(code: string): string {
+  const key = CARD_TITLE_KEYS[code];
+  return key ? $t(key) : code;
+}
+
+// 画布动态渲染注入（方案 9.1：注册表保持纯净，index.vue 按 code 注入参数与事件）
+function cardProps(code: string): Record<string, any> {
+  if (code === WORKSPACE_CARD_CODES.todoOverview) {
+    return { visibleTabs: visibleOverviewTabs.value };
+  }
+  return {};
+}
+
+function cardEvents(code: string): Record<string, any> {
+  switch (code) {
+    case WORKSPACE_CARD_CODES.onboarding: {
+      return { onAuditChange: handleAuditChange, onViewTodos: handleViewTodos };
+    }
+    case WORKSPACE_CARD_CODES.todoOverview: {
+      return { onClickCard: handleOverviewClick };
+    }
+    case WORKSPACE_CARD_CODES.smartTodo: {
+      return {
+        onCountChange: (n: number) => {
+          todoCount.value = n;
+        },
+        onProcessed: handleSmartProcessed,
+        onViewApproval: handleViewApproval,
+      };
+    }
+    default: {
+      return {};
+    }
+  }
+}
+
+// 画布可见节点（hidden + 注册表 + 两层可见性过滤）与隐藏待恢复列表
+const gridDomItems = computed(() =>
+  layoutItems.value.filter(
+    (item) =>
+      item.hidden !== 1 &&
+      hasCard(item.cardCode) &&
+      isCardContentVisible(item.cardCode) &&
+      !!getCanvasCardDef(item.cardCode),
+  ),
+);
+const hiddenLayoutItems = computed(() =>
+  layoutItems.value.filter(
+    (item) =>
+      item.hidden === 1 &&
+      hasCard(item.cardCode) &&
+      isCardContentVisible(item.cardCode) &&
+      !!getCanvasCardDef(item.cardCode),
+  ),
+);
+
+// 画布模式判定（回退分支渲染条件：总开关关闭或画布初始化失败，方案 3.4）
+const canvasFailed = ref(false);
+let canvasInitTried = false;
+const useCanvasMode = computed(
+  () => cardModeEnabled.value && canvasReady.value && !canvasFailed.value,
+);
+
+// 拉取个人布局（后端已合并模板默认值与个人覆盖，仅启用卡片）
+async function loadUserLayout(): Promise<CanvasLayoutItem[]> {
+  try {
+    const list: any = await getUserLayoutApi(pageKey.value);
+    return (Array.isArray(list) ? list : []).map((i: any) => ({
+      cardCode: String(i?.cardCode || ''),
+      h: Math.max(1, Number(i?.h) || 6),
+      hidden: Number(i?.hidden) === 1 ? 1 : 0,
+      w: Math.min(12, Math.max(1, Number(i?.w) || 12)),
+      x: Math.max(0, Number(i?.x) || 0),
+      y: Math.max(0, Number(i?.y) || 0),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function gridStackOptions() {
+  return {
+    cellHeight: 80,
+    column: 12,
+    margin: 8,
+    minRow: 1,
+  };
+}
+
+// 初始化画布：动态加载 gridstack（失败仅降级回退渲染，不影响旧模式）
+async function initCanvas() {
+  if (canvasInitTried) return;
+  canvasInitTried = true;
+  layoutItems.value = await loadUserLayout();
+  await nextTick();
+  if (!canvasContainer.value) return;
+  try {
+    const { GridStack } = await import('gridstack');
+    gridStack = GridStack.init(
+      gridStackOptions(),
+      canvasContainer.value.querySelector('.grid-stack') as HTMLElement,
+    );
+    bindGridEvents();
+    canvasReady.value = true;
+  } catch {
+    canvasFailed.value = true;
+  }
+}
+
+// 拖拽/缩放结束触发 change，防抖 500ms 后持久化（rebuild 期间的 change 忽略）
+function bindGridEvents() {
+  if (!gridStack) return;
+  gridStack.on('change', () => {
+    if (rebuildingGrid) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      void saveLayout();
+    }, 500);
+  });
+}
+
+// 布局持久化：画布实际节点 + 仍隐藏卡片（hidden=1 原样保留）合并上报
+async function saveLayout() {
+  if (!gridStack) return;
+  try {
+    const saved: any[] = gridStack.save(false) || [];
+    const cards = saved
+      .filter((n) => n && n.id && getCanvasCardDef(String(n.id)))
+      .map((n) => ({
+        cardCode: String(n.id),
+        h: Math.max(1, Math.round(Number(n.h) || 1)),
+        hidden: 0,
+        w: Math.min(12, Math.max(1, Math.round(Number(n.w) || 12))),
+        x: Math.max(0, Math.round(Number(n.x) || 0)),
+        y: Math.max(0, Math.round(Number(n.y) || 0)),
+      }));
+    const hiddenCards = layoutItems.value
+      .filter((i) => i.hidden === 1 && getCanvasCardDef(i.cardCode))
+      .map((i) => ({ ...i }));
+    await saveUserLayoutApi({
+      cards: [...cards, ...hiddenCards],
+      pageKey: pageKey.value,
+    });
+    for (const c of cards) {
+      const item = layoutItems.value.find((i) => i.cardCode === c.cardCode);
+      if (item) Object.assign(item, c);
+    }
+  } catch {
+    message.error($t('page.dashboard.canvas.saveFailed'));
+  }
+}
+
+// 重建画布（复位/恢复卡片后调用）：destroy → 重载布局 → 清 inline 残留 → 重新 init
+async function rebuildGrid() {
+  if (!canvasContainer.value) return;
+  rebuildingGrid = true;
+  try {
+    if (gridStack) {
+      gridStack.destroy(false);
+      gridStack = null;
+    }
+    layoutItems.value = await loadUserLayout();
+    await nextTick();
+    if (!canvasContainer.value) return;
+    canvasContainer.value
+      .querySelectorAll('.grid-stack-item')
+      .forEach((el) => (el as HTMLElement).removeAttribute('style'));
+    const { GridStack } = await import('gridstack');
+    gridStack = GridStack.init(
+      gridStackOptions(),
+      canvasContainer.value.querySelector('.grid-stack') as HTMLElement,
+    );
+    bindGridEvents();
+  } catch {
+    canvasFailed.value = true;
+  } finally {
+    rebuildingGrid = false;
+  }
+}
+
+// 隐藏卡片：从画布移除节点（DOM 由 Vue 管理），hidden=1 持久化
+function hideCard(code: string) {
+  const item = layoutItems.value.find((i) => i.cardCode === code);
+  if (!item || item.hidden === 1) return;
+  item.hidden = 1;
+  rebuildingGrid = true;
+  try {
+    const el = gridStack?.el?.querySelector(`[gs-id="${code}"]`);
+    if (el && gridStack) gridStack.removeWidget(el, false);
+  } finally {
+    rebuildingGrid = false;
+  }
+  void saveLayout();
+}
+
+async function restoreCard(code: string) {
+  const item = layoutItems.value.find((i) => i.cardCode === code);
+  if (!item) return;
+  item.hidden = 0;
+  await rebuildGrid();
+  void saveLayout();
+}
+
+// 复位：清空个人覆盖（reset=true），后端回退模板默认布局
+async function resetLayout() {
+  try {
+    await saveUserLayoutApi({ pageKey: pageKey.value, reset: true });
+    message.success($t('page.dashboard.canvas.resetDone'));
+    await rebuildGrid();
+  } catch {
+    message.error($t('page.dashboard.canvas.saveFailed'));
+  }
+}
+
+// 注册卡与工作台列表就绪且总开关开启后初始化画布（M3：布局按当前工作台 pageKey 拉取）
+watch(
+  [cardModeEnabled, cardsLoaded, workspacesLoaded],
+  async ([enabled, loaded, wsLoaded]) => {
+    if (enabled && loaded && wsLoaded && !canvasInitTried) {
+      await nextTick();
+      await initCanvas();
+    }
+  },
+  { immediate: true },
+);
+
+// 切换工作台（方案 5.3-M3）：记忆最近使用 + 按新 pageKey 重载个人布局
+async function handleWorkspaceSwitch(value: any) {
+  const code = String(value ?? '');
+  switchWorkspace(code);
+  if (useCanvasMode.value) {
+    await rebuildGrid();
+  }
+}
+
 onMounted(() => {
-  // 初始化今日已处理待办缓存（跨天自动清空）
-  processedToday.value = loadProcessedToday();
+  loadWorkspaceCards();
+  loadWorkspaces();
+  loadMyAuditStatus();
   loadQuickNav();
-  loadSmartTodos();
-  loadWeekWorkload();
   loadCustomerCount();
   loadOpportunityCount();
   loadTodaySummary();
 });
+
+onBeforeUnmount(() => {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  if (gridStack) {
+    rebuildingGrid = true;
+    gridStack.destroy(false);
+    gridStack = null;
+  }
+});
 </script>
 
 <template>
-  <div class="p-5">
+  <div class="workspace-page">
     <WorkbenchHeader
-      :avatar="userStore.userInfo?.avatar || preferences.app.defaultAvatar"
-      :customer-count="canShow('customer') ? customerCount : null"
-      :opportunity-count="canShow('opportunity') ? opportunityCount : null"
+      :avatar="(userStore.userInfo as any)?.avatar || ''"
+      :customer-count="customerCount"
+      :opportunity-count="opportunityCount"
       :todo-processed="todoProcessed"
       :todo-total="todoTotal"
     >
-      <template #title> {{ welcomeText }}，开始您一天的工作吧！ </template>
+      <template #title>{{ welcomeText }}</template>
       <template #description>
-        {{ $t('page.dashboard.todoList') }} {{ todoCount }} 项
+        <!-- 工作台切换器（方案 5.3-M3）：仅画布模式且存在多个有权限工作台时展示 -->
+        <span
+          v-if="cardModeEnabled && workspaceList.length > 1"
+          class="mt-2 flex items-center gap-2"
+        >
+          <span class="text-sm">{{ $t('page.dashboard.workspace.switch') }}</span>
+          <Select
+            :value="currentWorkspaceCode"
+            :options="workspaceList"
+            class="w-40"
+            size="small"
+            @change="handleWorkspaceSwitch"
+          />
+        </span>
       </template>
     </WorkbenchHeader>
 
-    <div class="mt-5 flex flex-col gap-5 lg:flex-row">
-      <!-- 左列 3/5 -->
-      <div class="flex w-full flex-col gap-5 lg:w-3/5">
+    <!-- 空态提示：注册卡全部不可见（方案 4.5-1），超管附去配置入口 -->
+    <div v-if="showEmptyTip" class="empty-tip">
+      <Empty :description="$t('page.dashboard.workspaceEmptyCards')" />
+      <Button v-if="isSuperAdmin" type="primary" @click="goConfigure">
+        {{ $t('page.dashboard.workspaceGoConfig') }}
+      </Button>
+    </div>
+
+    <!-- 画布模式（方案 5.3-M1）：gridstack 12 列，拖拽/缩放/隐藏/复位 -->
+    <div v-if="cardModeEnabled && !canvasFailed" class="canvas-wrap">
+      <div
+        v-if="useCanvasMode && gridDomItems.length > 0"
+        class="canvas-toolbar"
+      >
+        <span class="canvas-tip">
+          {{ $t('page.dashboard.canvas.tip') }}
+        </span>
+        <div class="canvas-actions">
+          <Popover
+            v-if="hiddenLayoutItems.length > 0"
+            placement="bottomRight"
+            trigger="click"
+          >
+            <template #content>
+              <div class="restore-list">
+                <div
+                  v-for="item in hiddenLayoutItems"
+                  :key="item.cardCode"
+                  class="restore-item"
+                  @click="restoreCard(item.cardCode)"
+                >
+                  <span>{{ cardTitle(item.cardCode) }}</span>
+                  <span class="restore-action">
+                    {{ $t('page.dashboard.canvas.restore') }}
+                  </span>
+                </div>
+              </div>
+            </template>
+            <Button size="small">
+              {{
+                $t('page.dashboard.canvas.hiddenTip', {
+                  n: hiddenLayoutItems.length,
+                })
+              }}
+            </Button>
+          </Popover>
+          <Button size="small" @click="resetLayout">
+            {{ $t('page.dashboard.canvas.reset') }}
+          </Button>
+        </div>
+      </div>
+      <div
+        v-show="useCanvasMode && gridDomItems.length > 0"
+        ref="canvasContainer"
+        class="workspace-canvas"
+      >
+        <div class="grid-stack">
+          <div
+            v-for="item in gridDomItems"
+            :key="item.cardCode"
+            class="grid-stack-item"
+            :gs-h="item.h"
+            :gs-id="item.cardCode"
+            :gs-max-h="getCanvasCardDef(item.cardCode)?.maxH"
+            :gs-max-w="getCanvasCardDef(item.cardCode)?.maxW"
+            :gs-min-h="getCanvasCardDef(item.cardCode)?.minH"
+            :gs-min-w="getCanvasCardDef(item.cardCode)?.minW"
+            :gs-w="item.w"
+            :gs-x="item.x"
+            :gs-y="item.y"
+          >
+            <div class="grid-stack-item-content">
+              <component
+                :is="getCanvasCardDef(item.cardCode)?.component"
+                :ref="(el: any) => bindCardRef(el, item.cardCode)"
+                v-bind="cardProps(item.cardCode)"
+                v-on="cardEvents(item.cardCode)"
+              />
+              <Button
+                class="card-hide-btn"
+                size="small"
+                type="text"
+                @click="hideCard(item.cardCode)"
+              >
+                <IconifyIcon icon="lucide:x" class="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 画布初始化占位（加载个人布局与 gridstack 期间） -->
+      <div
+        v-if="cardModeEnabled && !canvasReady && !canvasFailed"
+        class="canvas-init-placeholder"
+      ></div>
+    </div>
+
+    <!-- 回退渲染（方案 3.4）：总开关关闭或画布初始化失败时保持两列布局 -->
+    <div v-else class="workspace-fallback">
+      <div class="fallback-col">
+        <OnboardingCard
+          v-if="showOnboardingCard"
+          :ref="(el: any) => bindCardRef(el, WORKSPACE_CARD_CODES.onboarding)"
+          @audit-change="handleAuditChange"
+          @view-todos="handleViewTodos"
+        />
         <TodoOverviewCard
-          v-if="showOverviewCard"
+          :ref="(el: any) => bindCardRef(el, WORKSPACE_CARD_CODES.todoOverview)"
           :visible-tabs="visibleOverviewTabs"
           @click-card="handleOverviewClick"
         />
         <WorkLogCard :refresh-key="workLogRefreshKey" />
       </div>
-      <!-- 右列 2/5 -->
-      <div class="flex w-full flex-col gap-5 lg:w-2/5">
-        <!-- 快捷导航 + 设置图标 -->
-        <div class="relative">
+      <div class="fallback-col fallback-col-side">
+        <div class="quick-nav-wrap">
           <WorkbenchQuickNav
             :items="quickNavItems"
             :title="$t('page.dashboard.quickNav')"
             @click="navTo"
           />
-          <button
-            class="settings-btn absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-600"
-            type="button"
-            :title="$t('page.dashboard.settings')"
-            @click="navSettingsVisible = true"
-          >
-            <svg
-              class="size-4"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              viewBox="0 0 24 24"
+          <Popover placement="left" trigger="hover">
+            <template #content>
+              <span>{{ $t('page.dashboard.customQuickNav') }}</span>
+            </template>
+            <Button
+              class="settings-btn"
+              shape="circle"
+              size="small"
+              type="text"
+              @click="navSettingsVisible = true"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              />
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          </button>
+              <IconifyIcon icon="lucide:settings" class="size-4" />
+            </Button>
+          </Popover>
         </div>
-
-        <!-- 智能待办（无权限类型不显示） -->
-        <Card v-if="showSmartTodo">
-          <template #title>
-            <div class="flex items-center gap-2">
-              <span
-                class="inline-block size-2 rounded-full bg-red-500"
-                aria-hidden="true"
-              ></span>
-              <span>{{ $t('page.dashboard.todoList') }}</span>
-            </div>
-          </template>
-          <Spin :spinning="todoLoading">
-            <div v-if="todoItems.length > 0" class="todo-list">
-              <div
-                v-for="item in todoItems"
-                :key="`${item.type}-${item.id}`"
-                class="todo-item flex cursor-pointer items-start gap-3 py-3 transition hover:bg-gray-50"
-                :class="{ 'opacity-60': item.done }"
-                @click="handleTodoClick(item)"
-              >
-                <span
-                  class="mt-1.5 inline-block size-2 shrink-0 rounded-full"
-                  :style="{ background: item.color }"
-                  aria-hidden="true"
-                ></span>
-                <div class="min-w-0 flex-1">
-                  <div
-                    class="truncate text-sm font-medium text-gray-800"
-                    :class="{ 'line-through text-gray-400': item.done }"
-                  >
-                    {{ item.title }}
-                  </div>
-                  <div
-                    class="mt-0.5 truncate text-xs text-gray-500"
-                    :class="{ 'line-through': item.done }"
-                  >
-                    {{ item.meta }}
-                  </div>
-                </div>
-                <Tag v-if="item.done" color="default" class="ml-2 shrink-0">
-                  已处理
-                </Tag>
-                <Tag v-else-if="item.badge" color="red" class="ml-2 shrink-0">
-                  {{ item.badge }}
-                </Tag>
-              </div>
-            </div>
-            <Empty
-              v-else
-              :image="Empty.PRESENTED_IMAGE_SIMPLE"
-              description="暂无待办"
-              class="py-8"
-            />
-          </Spin>
-        </Card>
-
-        <!-- 本周工作负载 -->
-        <Card>
-          <template #title>
-            <div class="flex items-center gap-2">
-              <span
-                class="inline-block size-2 rounded-full bg-blue-500"
-                aria-hidden="true"
-              ></span>
-              <span>{{ $t('page.dashboard.weekWorkload') }}</span>
-            </div>
-          </template>
-          <Spin :spinning="weekLoading">
-            <div
-              v-if="weekWorkload.length > 0"
-              class="week-chart flex h-40 items-end justify-between gap-2 px-2"
-            >
-              <div
-                v-for="(w, idx) in weekWorkload"
-                :key="idx"
-                class="flex flex-1 flex-col items-center gap-1"
-              >
-                <div class="text-xs text-gray-500">{{ w.count || 0 }}</div>
-                <div
-                  class="w-full rounded-t transition-all duration-300"
-                  :style="{
-                    height: `${Math.max(
-                      4,
-                      ((w.count || 0) / weekMaxCount) * 110,
-                    )}px`,
-                    background: 'linear-gradient(180deg, #1890ff, #69c0ff)',
-                  }"
-                ></div>
-                <div class="text-xs text-gray-600">{{ w.day }}</div>
-              </div>
-            </div>
-            <Empty
-              v-else
-              :image="Empty.PRESENTED_IMAGE_SIMPLE"
-              description="暂无数据"
-              class="py-8"
-            />
-          </Spin>
-        </Card>
+        <SmartTodoCard
+          :ref="(el: any) => bindCardRef(el, WORKSPACE_CARD_CODES.smartTodo)"
+          @count-change="(n: number) => (todoCount = n)"
+          @processed="handleSmartProcessed"
+          @view-approval="handleViewApproval"
+        />
+        <WeekLoadCard
+          :ref="(el: any) => bindCardRef(el, WORKSPACE_CARD_CODES.weekLoad)"
+        />
       </div>
     </div>
 
-    <!-- 快速处理弹窗 -->
-    <QuickProcessModal
-      v-model:visible="quickProcessVisible"
-      :todo-item="currentTodoItem"
-      @processed="handleProcessed"
-      @view-approval="handleViewApproval"
-    />
-    <!-- 快捷导航设置弹窗 -->
-    <QuickNavSettingsModal
-      v-model:visible="navSettingsVisible"
-      @saved="loadQuickNav"
-    />
-
-    <!-- 内嵌审批流抽屉：复用业务模块组件，避免跳转 -->
-    <!-- 始终挂载（visible 初始 false 不显示），确保 watch visible 能正常触发 loadDetail -->
+    <!-- 内嵌审批抽屉与快捷导航设置 -->
     <OrderApprovalDrawer
       v-model:visible="orderApprovalVisible"
       :order-id="approvalDrawerOrderId"
-      :current-user-id="approvalCurrentUserId"
       @success="handleApprovalSuccess"
     />
     <ContractApprovalDrawer
@@ -871,21 +982,148 @@ onMounted(() => {
       :current-user-id="approvalCurrentUserId"
       @success="handleApprovalSuccess"
     />
+    <QuickNavSettingsModal
+      v-model:visible="navSettingsVisible"
+      @saved="loadQuickNav"
+    />
   </div>
 </template>
 
-<style scoped>
-.todo-list {
-  max-height: 360px;
-  overflow-y: auto;
+<style lang="scss">
+@import 'gridstack/dist/gridstack.css';
+</style>
+
+<style lang="scss" scoped>
+.workspace-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
 }
 
-.todo-item + .todo-item {
-  border-top: 1px dashed #f0f0f0;
+.empty-tip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 0;
 }
 
-/* 设置按钮：父级 hover 时显示 */
-.relative:hover .settings-btn {
+// ===== 画布模式（方案 5.3-M1） =====
+.canvas-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.canvas-tip {
+  color: hsl(var(--foreground) / 60%);
+  font-size: 12px;
+}
+
+.canvas-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.workspace-canvas {
+  min-height: 200px;
+}
+
+.grid-stack-item-content {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+
+  > :first-child {
+    height: 100%;
+  }
+}
+
+.card-hide-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.grid-stack-item:hover .card-hide-btn {
   opacity: 1;
+}
+
+.restore-list {
+  min-width: 160px;
+}
+
+.restore-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+  cursor: pointer;
+
+  &:hover .restore-action {
+    color: hsl(var(--primary));
+  }
+}
+
+.restore-action {
+  color: hsl(var(--foreground) / 50%);
+  font-size: 12px;
+}
+
+.canvas-init-placeholder {
+  min-height: 120px;
+}
+
+// ===== 回退渲染（方案 3.4，旧两列布局） =====
+.workspace-fallback {
+  display: flex;
+  gap: 16px;
+}
+
+.fallback-col {
+  display: flex;
+  flex: 2;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+
+  &.fallback-col-side {
+    flex: 1;
+  }
+}
+
+.quick-nav-wrap {
+  position: relative;
+
+  .settings-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  &:hover .settings-btn {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace-fallback {
+    flex-direction: column;
+  }
 }
 </style>
