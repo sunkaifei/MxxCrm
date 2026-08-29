@@ -92,7 +92,8 @@ defineExpose({ reload: loadSummary });
         class="grid grid-cols-2 gap-2"
       >
         <div
-          class="rounded-md bg-gray-50 px-3 py-2 dark:bg-gray-800"
+          class="cursor-pointer rounded-md bg-gray-50 px-3 py-2 transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+          @click="goList"
         >
           <div class="text-xl font-semibold text-gray-800 dark:text-gray-100">
             {{ summary.totalCount }}
@@ -102,7 +103,8 @@ defineExpose({ reload: loadSummary });
           </div>
         </div>
         <div
-          class="rounded-md bg-blue-50 px-3 py-2 dark:bg-blue-950"
+          class="cursor-pointer rounded-md bg-blue-50 px-3 py-2 transition-colors hover:bg-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900"
+          @click="goList"
         >
           <div class="text-xl font-semibold text-blue-600">
             {{ summary.sentCount }}
@@ -112,7 +114,8 @@ defineExpose({ reload: loadSummary });
           </div>
         </div>
         <div
-          class="rounded-md bg-green-50 px-3 py-2 dark:bg-green-950"
+          class="cursor-pointer rounded-md bg-green-50 px-3 py-2 transition-colors hover:bg-green-100 dark:bg-green-950 dark:hover:bg-green-900"
+          @click="goList"
         >
           <div class="text-xl font-semibold text-green-600">
             {{ summary.readCount }}
@@ -122,7 +125,8 @@ defineExpose({ reload: loadSummary });
           </div>
         </div>
         <div
-          class="rounded-md bg-orange-50 px-3 py-2 dark:bg-orange-950"
+          class="cursor-pointer rounded-md bg-orange-50 px-3 py-2 transition-colors hover:bg-orange-100 dark:bg-orange-950 dark:hover:bg-orange-900"
+          @click="goList"
         >
           <div class="text-xl font-semibold text-orange-500">
             {{ summary.unreadCount }}

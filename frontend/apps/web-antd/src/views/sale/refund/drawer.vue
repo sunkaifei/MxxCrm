@@ -31,6 +31,7 @@ import {
   getWarehouseListApi,
   updateRefundApi,
 } from '#/api';
+import { useProductUnits } from '#/components/UnitSelect';
 
 // drawerData 在 onOpenChange 中手动赋值，避免引用尚未定义的 drawerApi
 const drawerData = ref<{ create: boolean; row: any }>({
@@ -60,6 +61,12 @@ const orderInfo = ref<{
 
 // ===== 退货明细 =====
 const items = ref<any[]>([]);
+
+const { ensureUnits, precisionOf } = useProductUnits();
+
+function qtyStep(unit?: null | string) {
+  return precisionOf(unit) === 0 ? 1 : 0.01;
+}
 // 退货类型：1=整单退货, 2=部分退货
 const refundType = ref<number>(2);
 
@@ -329,13 +336,6 @@ const itemColumns = [
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 220 },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
   {
-    title: '单位',
-    dataIndex: 'unit',
-    key: 'unit',
-    width: 55,
-    align: 'center' as const,
-  },
-  {
     title: '已发货',
     dataIndex: 'deliveredQty',
     key: 'deliveredQty',
@@ -343,6 +343,13 @@ const itemColumns = [
     align: 'right' as const,
   },
   { title: '退货数量', key: 'refundQty', width: 100, align: 'center' as const },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 55,
+    align: 'center' as const,
+  },
   {
     title: '单价',
     dataIndex: 'unitPrice',
@@ -510,6 +517,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       basicFormApi.resetForm();
       // 加载仓库列表
       loadWarehouseList();
+      ensureUnits();
       if (!drawerData.value.create && drawerData.value.row?.id) {
         loadRefundDetail(Number(drawerData.value.row.id));
       }
@@ -705,7 +713,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 </div>
               </template>
               <template v-else-if="column.key === 'deliveredQty'">
-                {{ Number(record.deliveredQty || 0).toFixed(0) }}
+                {{
+                  Number(record.deliveredQty || 0).toFixed(
+                    precisionOf(record.unit),
+                  )
+                }}
               </template>
               <template v-else-if="column.key === 'refundQty'">
                 <div class="flex items-center justify-center gap-1">
@@ -726,7 +738,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
                     v-model:value="record.refundQty"
                     :min="0"
                     :max="Number(record.deliveredQty) || 0"
-                    :precision="0"
+                    :precision="precisionOf(record.unit)"
+                    :step="qtyStep(record.unit)"
                     style="width: 80px"
                     size="small"
                     :disabled="refundType === 2 && !record.selected"

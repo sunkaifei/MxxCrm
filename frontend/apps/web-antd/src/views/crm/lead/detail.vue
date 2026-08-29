@@ -28,6 +28,9 @@ import {
   updateLeadApi,
 } from '#/api';
 
+import DynamicFieldControl from '#/components/DynamicFieldControl.vue';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+
 import TagSelector from '../components/TagSelector.vue';
 
 const props = defineProps<{
@@ -88,6 +91,11 @@ const lead = ref<any>({});
 const followupRecords = ref<any[]>([]);
 const tagSelectorRef = ref<InstanceType<typeof TagSelector>>();
 const activeSection = ref<'background' | 'followup' | 'info'>('info');
+
+// 自定义字段（P0-14/P1-5）：schema 加载 + 表单值容器（键=fieldKey，值随控件双向绑定）
+const fieldSchema = useFieldSchema('crm_lead');
+fieldSchema.loadSchema();
+const cfValues = reactive<Record<string, any>>({});
 
 // 企业背调数据
 const bgLoading = ref(false);
@@ -341,6 +349,10 @@ async function fetchDetail() {
       }
     });
 
+    // 自定义字段回显：清空重建防脏键残留（接口 camelCase 透传 customFields）
+    Object.keys(cfValues).forEach((k) => delete cfValues[k]);
+    Object.assign(cfValues, (res as any).customFields ?? {});
+
     // 加载背调数据
     await fetchBackgroundCheck();
   } catch {
@@ -495,9 +507,30 @@ async function handleSave() {
     return;
   }
 
+  // 自定义字段必填前端兜底：仅新建强拦截；编辑对齐后端 7.4 规则 5 存量弱约束放行（后端 400 拦截兜底）
+  if (isCreate.value) {
+    const missingField = fieldSchema.items.value.find((i) => {
+      if (Number(i.required) !== 1) return false;
+      const v = cfValues[i.fieldKey];
+      return (
+        v === undefined ||
+        v === null ||
+        v === '' ||
+        (Array.isArray(v) && v.length === 0)
+      );
+    });
+    if (missingField) {
+      message.error(`请填写「${missingField.fieldLabel}」`);
+      return;
+    }
+  }
+
   saving.value = true;
   try {
-    const payload: any = { ...form };
+    const payload: any = {
+      ...form,
+      customFields: fieldSchema.buildSubmitPayload(cfValues),
+    };
     if (isCreate.value) {
       payload.status = 6;
       payload.assignedTo = Number(useUserStore().userInfo?.userId) || undefined;
@@ -617,6 +650,8 @@ watch(
 function resetForm() {
   lead.value = {};
   followupRecords.value = [];
+  // 自定义字段值一并清空，避免上一次编辑残留
+  Object.keys(cfValues).forEach((k) => delete cfValues[k]);
   Object.keys(form).forEach((key) => {
     if (key === 'currency') (form as any)[key] = 'CNY';
     else if (key === 'status') (form as any)[key] = undefined;
@@ -1027,6 +1062,20 @@ function resetForm() {
                       :rows="3"
                       :maxlength="2000"
                       show-count
+                    />
+                  </Form.Item>
+
+                  <!-- 自定义字段动态渲染（P0-14/P1-5）：编辑角色软约束禁用，硬约束由后端 400 拦截 -->
+                  <Form.Item
+                    v-for="item in fieldSchema.items.value"
+                    :key="item.fieldKey"
+                    :label="item.fieldLabel"
+                    :required="Number(item.required) === 1"
+                  >
+                    <DynamicFieldControl
+                      v-model:value="cfValues[item.fieldKey]"
+                      :item="item"
+                      :disabled="!fieldSchema.isRoleEditable(item)"
                     />
                   </Form.Item>
 

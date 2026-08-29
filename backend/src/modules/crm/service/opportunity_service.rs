@@ -17,6 +17,7 @@ use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::admin_service::build_admin_name_map;
 use crate::modules::system::service::role_service;
+use crate::modules::system::service::field_def_service;
 use crate::modules::system::service::sales_flow_config_service;
 use crate::modules::sale::entity::{quotation, quotation::Entity as Quotation};
 use crate::modules::sale::model::order::{OrderModel, OrderSaveDTO};
@@ -44,7 +45,12 @@ pub async fn insert(db: &DbConn, form_data: &OpportunitySaveRequest, created_by:
         }
     }
 
+    // 自定义字段强校验（P1-8/P1-11：未知/停用键、类型不符、必填缺失 400；校验器原地归一化，结果须赋回 DTO 落库）
+    let mut custom_fields = form_data.custom_fields.clone();
+    field_def_service::validate_custom_fields(db, "crm_opportunity", &mut custom_fields, created_by, true, None).await?;
+
     let mut dto: OpportunitySaveDTO = form_data.clone().into();
+    dto.custom_fields = custom_fields;
     dto.created_by = Some(created_by);
     let result = OpportunityModel::insert(&db, &dto).await?;
     Ok(result)
@@ -71,7 +77,15 @@ pub async fn update(db: &DbConn, form_data: &OpportunityUpdateRequest, updated_b
         }
     }
 
+    // 旧值：校验器用于 editable_roles 变更判定 + 按 key 合并旧值（7.3 防丢失更新）
+    let old_model = OpportunityModel::find_by_id(db, form_data.id.unwrap_or_default())
+        .await?
+        .ok_or_else(|| Error::from("商机不存在".to_string()))?;
+    // 自定义字段强校验（编辑不触发必填强约束 7.4 规则 5；归一化+合并结果须赋回 DTO 落库）
+    let mut custom_fields = form_data.custom_fields.clone();
+    field_def_service::validate_custom_fields(db, "crm_opportunity", &mut custom_fields, updated_by, false, old_model.custom_fields.as_ref()).await?;
     let mut dto: OpportunitySaveDTO = form_data.clone().into();
+    dto.custom_fields = custom_fields;
     dto.updated_by = Some(updated_by);
     let result = OpportunityModel::update_by_id(&db, &form_data.id, &dto).await?;
     Ok(result)
@@ -250,14 +264,9 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
             Some(vec![current_user_id])
         }
         "subordinate" => {
-            // 下属商机：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
-            let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
-            if subordinate_ids.is_empty() {
-                Some(vec![-1])
-            } else {
-                Some(subordinate_ids)
-            }
+            // 下属商机：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
+            crate::modules::system::service::subordinate_service
+                ::get_subordinate_scope_ids(db, current_user_id).await?
         }
         _ => {
             // all：按多角色合并后的数据权限过滤
@@ -580,6 +589,8 @@ pub async fn convert_to_order(db: &DbConn, opportunity_id: i64, user_id: i64) ->
         auto_renew: None,
         create_by: Some(user_id),
         update_by: None,
+        // 商机转订单：跨模块字段定义不同，不继承 custom_fields
+        custom_fields: None,
     };
 
     let order_id = OrderModel::insert(&txn, &order_dto).await?;

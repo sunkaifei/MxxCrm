@@ -15,7 +15,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractSaveDTO, ContractSaveRequest, ContractUpdateRequest};
+use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractSaveDTO, ContractSaveRequest, ContractSelectQuery, ContractUpdateRequest};
 use crate::modules::crm::model::contract_commission_member::ContractCommissionMemberSaveDTO;
 use crate::modules::crm::service::contract_commission_service;
 use crate::modules::crm::service::contract_service;
@@ -23,6 +23,7 @@ use crate::modules::crm::controller::admin::contract_payment_plan_controller;
 use crate::modules::finance::service::commission_calc_service;
 use crate::modules::system::service::edit_log_service;
 use crate::modules::system::service::audit_service;
+use crate::modules::system::service::{field_def_service, field_perm_service};
 use crate::modules::system::entity::admin::Entity as Admin;
 use sea_orm::EntityTrait;
 use serde::Deserialize;
@@ -230,7 +231,7 @@ pub async fn bath_delete_contract(state: web::Data<AppState>, req: HttpRequest, 
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
-pub async fn contract_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
+pub async fn contract_info(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
 
@@ -239,7 +240,13 @@ pub async fn contract_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 
     match contract_service::find_by_id(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Ok(data) => {
+            // 标准敏感字段出口裁剪（P2-1）：无可见权限的角色不返回对应字段（含 camelCase 变体）
+            let mut value = serde_json::to_value(&data).unwrap_or_default();
+            let (is_admin, role_keys) = field_def_service::load_user_role(db, get_current_user_id(&req)).await.unwrap_or((false, Vec::new()));
+            field_perm_service::trim_for_view(db, "crm_contract", is_admin, &role_keys, &mut value).await;
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(value, "local"))
+        },
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -250,6 +257,22 @@ pub async fn contract_list(state: web::Data<AppState>, req: HttpRequest, query: 
     let current_user_id = get_current_user_id(&req);
 
     match contract_service::list(&db, &query, current_user_id).await {
+        Ok(page_data) => {
+            let page = page_data.current_page as u32;
+            let total = page_data.total as u32;
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
+        },
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 合同选择列表（发票等单据关联合同场景）：仅当前用户自己签订的合同
+pub async fn contract_select(state: web::Data<AppState>, req: HttpRequest, query: web::Query<ContractSelectQuery>) -> HttpResponse {
+    let db = &state.db;
+    let query = query.0;
+    let current_user_id = get_current_user_id(&req);
+
+    match contract_service::select_list(&db, &query, current_user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -441,6 +464,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/list",
                 web::get()
                     .to(contract_list)
+                    .wrap(require_permission("crm:contract:list")),
+            )
+            // GET /contract/select - 合同选择列表（自己签订的合同，含已开票金额）
+            .route(
+                "/select",
+                web::get()
+                    .to(contract_select)
                     .wrap(require_permission("crm:contract:list")),
             )
             // POST /contract/submit - 提交合同审批

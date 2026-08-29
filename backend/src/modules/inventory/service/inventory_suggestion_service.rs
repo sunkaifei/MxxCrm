@@ -15,8 +15,11 @@ use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter};
 use std::collections::HashMap;
 
 use crate::core::errors::error::{Error, Result};
-use crate::modules::inventory::entity::{stock, warehouse};
+use crate::modules::inventory::entity::{alert_rule, stock, warehouse};
+use crate::modules::message::model::notification::SendNotificationRequest;
+use crate::modules::message::service::notification_service::NotificationService;
 use crate::modules::product::entity::product as product_entity;
+use crate::modules::system::entity::admin;
 use crate::modules::purchase::model::purchase_requisition::{
     RequisitionItemDTO, RequisitionSaveRequest,
 };
@@ -215,5 +218,189 @@ pub async fn generate_requisition(
         items,
         total,
         requisition_id: Some(requisition_id),
+    })
+}
+
+/// 低库存扫描通知结果
+#[derive(Debug, Clone)]
+pub struct ScanNotifyResult {
+    /// 本次扫描到的低库存项数
+    pub low_stock_count: usize,
+    /// 实际成功通知的用户数
+    pub notified_users: usize,
+    /// 是否兜底通知了超管（预警规则均未配置订阅人）
+    pub fallback_to_admin: bool,
+}
+
+/// 扫描低库存并按预警规则订阅人发送站内通知
+///
+/// 订阅人来源：启用低库存预警规则的 notify_users（逗号分隔用户ID）并集；
+/// 未配置订阅人的规则默认通知其覆盖仓库的主管（manager_id，不限仓库则取全部启用仓库主管）；
+/// 全部无有效订阅人时，兜底通知全部启用状态的超级管理员（user_type=1）。
+pub async fn scan_and_notify(db: &DbConn) -> Result<ScanNotifyResult> {
+    // 1. 扫描低库存明细
+    let items = scan_low_stock(db).await?;
+    let low_stock_count = items.len();
+    if items.is_empty() {
+        return Ok(ScanNotifyResult {
+            low_stock_count: 0,
+            notified_users: 0,
+            fallback_to_admin: false,
+        });
+    }
+
+    // 2. 收集订阅人：启用低库存预警规则的 notify_users 并集（逗号分隔，容错非数字/空串）
+    let rules = alert_rule::Entity::find()
+        .filter(alert_rule::Column::Deleted.eq(0))
+        .filter(alert_rule::Column::EnableLowAlert.eq(true))
+        .all(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+
+    let mut subscriber_set: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    // 未配置订阅人的规则：默认通知仓库主管（按规则限定仓库取 manager_id，不限仓库则取全部启用仓库主管）
+    let mut default_warehouse_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    let mut default_all_warehouses = false;
+    for rule in &rules {
+        let mut parsed: Vec<i64> = Vec::new();
+        if let Some(raw) = &rule.notify_users {
+            // 兼容两种存储格式：JSON 数组 "[1,2]" 与逗号分隔 "1,2"（含中文逗号/空格）
+            let normalized: String = raw
+                .chars()
+                .map(|c| if matches!(c, '[' | ']' | '"' | ' ' | '，' | '；') { ',' } else { c })
+                .collect();
+            for part in normalized.split(',') {
+                let part = part.trim();
+                if part.is_empty() {
+                    continue;
+                }
+                if let Ok(uid) = part.parse::<i64>() {
+                    if uid > 0 {
+                        parsed.push(uid);
+                    }
+                }
+            }
+        }
+        if parsed.is_empty() {
+            match rule.warehouse_id {
+                Some(wid) => {
+                    default_warehouse_ids.insert(wid);
+                }
+                None => {
+                    default_all_warehouses = true;
+                }
+            }
+        } else {
+            for uid in parsed {
+                subscriber_set.insert(uid);
+            }
+        }
+    }
+    // 批量查询仓库主管（防 N+1）：作为未配置订阅人规则的默认订阅人
+    if default_all_warehouses || !default_warehouse_ids.is_empty() {
+        let mut wq = warehouse::Entity::find()
+            .filter(warehouse::Column::Deleted.eq(0))
+            .filter(warehouse::Column::IsActive.eq(true))
+            .filter(warehouse::Column::ManagerId.is_not_null());
+        if !default_all_warehouses {
+            let wids: Vec<i64> = default_warehouse_ids.into_iter().collect();
+            wq = wq.filter(warehouse::Column::Id.is_in(wids));
+        }
+        let warehouses = wq
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        for w in warehouses {
+            if let Some(mid) = w.manager_id {
+                if mid > 0 {
+                    subscriber_set.insert(mid);
+                }
+            }
+        }
+    }
+    let mut subscriber_ids: Vec<i64> = subscriber_set.into_iter().collect();
+
+    // 过滤有效订阅人（存在且启用未删除），避免向已删除/停用账号发送通知
+    if !subscriber_ids.is_empty() {
+        let valid_users = admin::Entity::find()
+            .filter(admin::Column::Id.is_in(subscriber_ids.clone()))
+            .filter(admin::Column::Status.eq(1))
+            .filter(admin::Column::Deleted.eq(0))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        let valid_ids: std::collections::HashSet<i64> =
+            valid_users.into_iter().map(|a| a.id).collect();
+        subscriber_ids.retain(|uid| valid_ids.contains(uid));
+    }
+
+    // 3. 无有效订阅者时兜底通知全部启用状态的超级管理员
+    let mut fallback_to_admin = false;
+    if subscriber_ids.is_empty() {
+        fallback_to_admin = true;
+        let admins = admin::Entity::find()
+            .filter(admin::Column::UserType.eq(1))
+            .filter(admin::Column::Status.eq(1))
+            .filter(admin::Column::Deleted.eq(0))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        subscriber_ids = admins.into_iter().map(|a| a.id).collect();
+    }
+
+    if subscriber_ids.is_empty() {
+        log::warn!(
+            "[low_stock_suggestion] 检测到 {} 项低库存，但无订阅人且无启用超管，跳过通知",
+            low_stock_count
+        );
+        return Ok(ScanNotifyResult {
+            low_stock_count,
+            notified_users: 0,
+            fallback_to_admin,
+        });
+    }
+
+    // 4. 组装通知内容（明细最多展示 5 条，避免内容超长）
+    let mut content = format!("当前共有 {} 项产品可用库存低于警戒线：\n", low_stock_count);
+    for item in items.iter().take(5) {
+        content.push_str(&format!(
+            "· {}（{}）可用 {} / 警戒线 {}，建议采购 {}\n",
+            item.product_name.as_deref().unwrap_or("未知产品"),
+            item.warehouse_name.as_deref().unwrap_or("未知仓库"),
+            item.available_quantity,
+            item.alert_min_quantity,
+            item.suggest_quantity
+        ));
+    }
+    if low_stock_count > 5 {
+        content.push_str(&format!("……等共 {} 项。", low_stock_count));
+    }
+    content.push_str("请前往库存预警页面查看处理。");
+
+    // 5. 批量发送站内通知（type=3 业务通知；发送失败仅记录日志，不影响扫描结果）
+    let req = SendNotificationRequest {
+        title: "低库存预警提醒".to_string(),
+        content: Some(content),
+        r#type: 3,
+        biz_type: Some("low_stock_alert".to_string()),
+        biz_id: None,
+        receiver_id: None,
+        receiver_ids: Some(subscriber_ids.clone()),
+        link_url: Some("/inventory-alert".to_string()),
+    };
+    let notified_users = subscriber_ids.len();
+    if let Err(e) = NotificationService::send_notification(db, None, subscriber_ids, req).await {
+        log::warn!("[low_stock_suggestion] 站内通知发送失败：{:?}", e);
+        return Ok(ScanNotifyResult {
+            low_stock_count,
+            notified_users: 0,
+            fallback_to_admin,
+        });
+    }
+
+    Ok(ScanNotifyResult {
+        low_stock_count,
+        notified_users,
+        fallback_to_admin,
     })
 }

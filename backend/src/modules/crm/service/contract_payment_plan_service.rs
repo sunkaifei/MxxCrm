@@ -120,14 +120,9 @@ pub async fn page_list(db: &DbConn, query: &PaymentPlanListQuery, current_user_i
             Some(vec![current_user_id])
         }
         "subordinate" => {
-            // 下属回款计划：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
-            let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
-            if subordinate_ids.is_empty() {
-                Some(vec![-1])
-            } else {
-                Some(subordinate_ids)
-            }
+            // 下属回款计划：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
+            crate::modules::system::service::subordinate_service
+                ::get_subordinate_scope_ids(db, current_user_id).await?
         }
         _ => {
             // all：按多角色合并后的数据权限过滤

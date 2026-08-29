@@ -41,17 +41,11 @@ impl JWTToken {
         let now = SystemTime::now();
         let now = now.duration_since(UNIX_EPOCH).expect("获取系统时间失败");
 
-        //根据 issuer 选择不同的过期时间
+        // R6：删除原 admin 分支（读 jwt_expire_admin）——admin 链路已统一走 new_with_expire
+        // （DB 配置为唯一真源），该分支为死代码；本构造器仅 user 端在用，统一读 jwt_expire_user
         let issuer_str = issuer.unwrap_or("mxx_B2B_admin");
-        let jwt_expire = if issuer_str == "mxx_B2B_user" {
-            let expire = config::section::<i64>("server", "jwt_expire_user", 28800);
-            log::debug!("[JWT] 用户端过期时间配置: {} 秒", expire);
-            expire
-        } else {
-            let expire = config::section::<i64>("server", "jwt_expire_admin", 28800);
-            log::debug!("[JWT] 管理端过期时间配置: {} 秒", expire);
-            expire
-        };
+        let jwt_expire = config::section::<i64>("server", "jwt_expire_user", 28800);
+        log::debug!("[JWT] 用户端过期时间配置: {} 秒", jwt_expire);
         let expire_duration = Duration::from_secs(jwt_expire as u64);
 
         JWTToken {

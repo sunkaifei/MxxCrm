@@ -47,6 +47,10 @@ pub struct Model {
     pub create_time: Option<DateTime>,
     pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
+    /// 删除人ID（软删记录人，回收站可见性依据）
+    pub delete_by: Option<i64>,
+    /// 删除时间（回收站保留期计算依据）
+    pub delete_time: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

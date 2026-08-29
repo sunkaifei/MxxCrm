@@ -73,16 +73,66 @@ export const updatePlanTargetsApi = async (params: {
   );
 };
 
-/** 查询计划列表 */
-export const getPlanListApi = async (params?: {
+/** 计划列表项（摘要，含完成度） */
+export interface PlanListItem {
+  id?: number;
   employeeId?: number;
+  employeeName?: string;
+  deptName?: string;
+  year?: number;
+  status?: number;
+  version?: number;
+  totalContractTarget?: number | string;
+  totalPaymentTarget?: number | string;
+  totalContractActual?: number | string;
+  totalPaymentActual?: number | string;
+  completionRate?: number | string;
+  paymentCompletionRate?: number | string;
+  applyReason?: string;
+  createTime?: string;
+  updateTime?: string;
+  currentApproverId?: number;
+  currentApproverName?: string;
+  approvalLevel?: number;
+  totalLevels?: number;
+  submitTime?: string;
+  isFrozen?: number;
+}
+
+/** 计划分页列表结果 */
+export interface PlanListPageResult {
+  total: number;
+  page: number;
+  pageSize: number;
+  items: PlanListItem[];
+}
+
+/** 查询计划列表（分页 + 排序白名单） */
+export const getPlanListApi = async (params?: {
+  /** 按部门筛选 */
+  deptId?: number;
+  employeeId?: number;
+  /** 员工姓名关键词（昵称/用户名模糊匹配） */
+  keyword?: string;
+  /** 排序字段：submitTime/totalContractTarget/completionRate/paymentCompletionRate/employeeName/status */
+  orderBy?: string;
+  /** 排序方向，缺省 desc */
+  orderDir?: 'asc' | 'desc';
+  /** 页码，从 1 开始 */
+  page?: number;
+  /** 每页条数，缺省 20，最大 200 */
+  pageSize?: number;
   /** 待我审批模式：true=查询当前用户作为审批人的待审计划 */
   pendingMyApproval?: boolean;
   status?: number;
+  /** 状态多选筛选（团队列表状态复选） */
+  statusList?: number[];
   year?: number;
-}) => {
+}): Promise<PlanListPageResult> => {
   return requestClient.get('/api/system/statistics/performance/plan/list', {
     params,
+    // 数组参数用重复键序列化（statusList=1&statusList=2），对齐后端 serde_urlencoded
+    paramsSerializer: 'repeat',
   });
 };
 
@@ -114,5 +164,31 @@ export const getPlanCoverageApi = async (params: { year?: number }) => {
   return requestClient.get(
     '/api/system/statistics/performance/plan/coverage',
     { params },
+  );
+};
+
+/** 单员工逐月"目标 vs 实际"钻取（团队列表行操作打开） */
+export const getMonthlyCompareApi = async (params: {
+  employeeId: number;
+  year?: number;
+}) => {
+  return requestClient.get(
+    '/api/system/statistics/performance/plan/monthly-compare',
+    { params },
+  );
+};
+
+/** 撤回计划（待审批→草稿，仅第一级未审可撤） */
+export const withdrawPlanApi = async (planId: number) => {
+  return requestClient.post('/api/system/statistics/performance/plan/withdraw', {
+    planId,
+  });
+};
+
+/** 站内催办：对未提交当年计划的员工发送提醒（manage 权限），返回催办人数 */
+export const remindPlanApi = async (params: { year?: number }) => {
+  return requestClient.post(
+    '/api/system/statistics/performance/plan/remind',
+    params,
   );
 };

@@ -4,3 +4,4 @@ pub mod spec;
 pub mod sku_template;
 pub mod brand;
 pub mod unit_conversion;
+pub mod product_unit;

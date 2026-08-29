@@ -230,8 +230,8 @@ function removeItem(index: number) {
             <tr>
               <th class="border px-2 py-1.5">产品名称</th>
               <th class="border px-2 py-1.5">SKU</th>
-              <th class="border px-2 py-1.5">单位</th>
               <th class="border px-2 py-1.5">退货数量</th>
+              <th class="border px-2 py-1.5">单位</th>
               <th class="border px-2 py-1.5">单价</th>
               <th class="border px-2 py-1.5">金额</th>
               <th class="border px-2 py-1.5">退货原因</th>
@@ -256,18 +256,18 @@ function removeItem(index: number) {
               </td>
               <td class="border px-2 py-1">
                 <input
-                  v-model="item.unit"
-                  class="w-full border rounded px-2 py-1 text-sm"
-                  placeholder="单位"
-                />
-              </td>
-              <td class="border px-2 py-1">
-                <input
                   v-model.number="item.returnQuantity"
                   type="number"
                   min="0"
                   class="w-full border rounded px-2 py-1 text-sm"
                   placeholder="退货数量"
+                />
+              </td>
+              <td class="border px-2 py-1">
+                <input
+                  v-model="item.unit"
+                  class="w-full border rounded px-2 py-1 text-sm"
+                  placeholder="单位"
                 />
               </td>
               <td class="border px-2 py-1">

@@ -12,10 +12,19 @@ use sea_orm::*;
 use rust_decimal::Decimal;
 use crate::modules::inventory::entity::{stock, stock_log};
 
+/// 构造 SKU 维度过滤条件：Some(id) 精确匹配规格行，None 匹配单规格（sku_id 为空）行
+pub(crate) fn sku_condition(sku_id: Option<i64>) -> sea_orm::sea_query::SimpleExpr {
+    match sku_id {
+        Some(id) => stock::Column::SkuId.eq(id),
+        None => stock::Column::SkuId.is_null(),
+    }
+}
+
 /// 增加库存（入库审核时调用）
 pub async fn increase_stock<C: ConnectionTrait>(
     db: &C,
     product_id: i64,
+    sku_id: Option<i64>,
     warehouse_id: i64,
     quantity: Decimal,
     unit_price: Option<Decimal>,
@@ -24,6 +33,7 @@ pub async fn increase_stock<C: ConnectionTrait>(
 
     let existing = stock::Entity::find()
         .filter(stock::Column::ProductId.eq(product_id))
+        .filter(sku_condition(sku_id))
         .filter(stock::Column::WarehouseId.eq(warehouse_id))
         .filter(stock::Column::Deleted.eq(0))
         .lock_exclusive()
@@ -63,6 +73,7 @@ pub async fn increase_stock<C: ConnectionTrait>(
             let avail = quantity - Decimal::ZERO;
             let active = stock::ActiveModel {
                 product_id: Set(Some(product_id)),
+                sku_id: Set(sku_id),
                 warehouse_id: Set(Some(warehouse_id)),
                 quantity: Set(Some(quantity)),
                 reserved_quantity: Set(Some(Decimal::ZERO)),
@@ -99,6 +110,7 @@ pub async fn increase_stock<C: ConnectionTrait>(
 pub async fn decrease_stock<C: ConnectionTrait>(
     db: &C,
     product_id: i64,
+    sku_id: Option<i64>,
     warehouse_id: i64,
     quantity: Decimal,
 ) -> Result<Decimal, DbErr> {
@@ -106,6 +118,7 @@ pub async fn decrease_stock<C: ConnectionTrait>(
 
     let existing = stock::Entity::find()
         .filter(stock::Column::ProductId.eq(product_id))
+        .filter(sku_condition(sku_id))
         .filter(stock::Column::WarehouseId.eq(warehouse_id))
         .filter(stock::Column::Deleted.eq(0))
         .lock_exclusive()
@@ -146,6 +159,7 @@ pub async fn decrease_stock<C: ConnectionTrait>(
 pub async fn write_stock_log<C: ConnectionTrait>(
     db: &C,
     product_id: i64,
+    sku_id: Option<i64>,
     warehouse_id: i64,
     warehouse_area_id: Option<i64>,
     change_type: &str,
@@ -159,6 +173,7 @@ pub async fn write_stock_log<C: ConnectionTrait>(
     // 获取当前库存数量
     let current = stock::Entity::find()
         .filter(stock::Column::ProductId.eq(product_id))
+        .filter(sku_condition(sku_id))
         .filter(stock::Column::WarehouseId.eq(warehouse_id))
         .filter(stock::Column::Deleted.eq(0))
         .one(db)
@@ -172,6 +187,7 @@ pub async fn write_stock_log<C: ConnectionTrait>(
     let now = chrono::Local::now().naive_local();
     let active = stock_log::ActiveModel {
         product_id: Set(Some(product_id)),
+        sku_id: Set(sku_id),
         warehouse_id: Set(Some(warehouse_id)),
         warehouse_area_id: Set(warehouse_area_id),
         change_type: Set(Some(change_type.to_string())),

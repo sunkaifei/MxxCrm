@@ -95,6 +95,8 @@ pub struct SpecGroupVO {
     pub specs: Vec<SpecVO>,
     /// 已保存的SKU列表
     pub skus: Vec<super::product::SkuVO>,
+    /// 未指定规格的库存合计（sku_id 为空的真实库存行，用于展开区与产品库存合计对账）
+    pub unassigned_stock: Option<i64>,
 }
 
 /// SKU批量保存请求

@@ -28,7 +28,7 @@
       }
     },
     "analytics": "分析页",
-    "workspace": "工作台",
+    "workspaceMenu": "工作台",
     "emptyCardsTip": "当前工作台暂未配置可见卡片，请联系管理员或前往工作台设计器配置",
     "goConfigure": "去配置",
     "dataCenter": "数据中心",
@@ -82,12 +82,38 @@
     },
     "workspace": {
       "switch": "工作台",
+      "names": {
+        "default": "默认工作台",
+        "sales": "销售工作台",
+        "warehouse": "仓储工作台",
+        "finance": "财务工作台",
+        "hr": "人事工作台"
+      },
       "cards": {
         "more": "更多",
         "announcement": {
           "title": "公司公告",
           "unread": "未读",
           "empty": "暂无公告"
+        },
+        "calendar": {
+          "title": "任务日历",
+          "mon": "一",
+          "tue": "二",
+          "wed": "三",
+          "thu": "四",
+          "fri": "五",
+          "sat": "六",
+          "sun": "日",
+          "followUp": "跟进提醒",
+          "payment": "待回款",
+          "contract": "合同到期",
+          "opportunity": "商机预计成交",
+          "invoice": "发票到期",
+          "order": "订单付款到期",
+          "dayTitle": "{date} 的工作安排（{n} 项）",
+          "emptyDay": "当日暂无任务",
+          "pickTip": "点击日期查看当天任务"
         },
         "hrTodo": {
           "title": "人事待办",

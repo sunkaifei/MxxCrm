@@ -15,9 +15,13 @@ import {
   updateContactApi,
 } from '#/api';
 import { requestClient } from '#/api/request';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { $t } from '#/locales';
 
 const data = ref();
+
+// 自定义字段：schema 适配器（表单尾部注入 + 提交剥离合并 customFields）
+const fieldSchema = useFieldSchema('crm_contact');
 
 const currentCompanyName = ref<string>('');
 const currentCustomerId = ref<null | number>(null);
@@ -490,9 +494,17 @@ const [Drawer, drawerApi] = useVbenDrawer({
             : undefined;
       }
 
+      // 自定义字段剥离：动态键从标准字段剔除，统一并入 customFields 提交
+      // （空值归一为 null=清空语义；停用键不提交，由后端合并保留存量）
+      const customFields = fieldSchema.buildSubmitPayload(values);
+      const dynamicKeys = new Set(
+        fieldSchema.items.value.map((i) => i.fieldKey),
+      );
+
       // 清理空值：空字符串/null/undefined 不提交，后端按 None 处理
       const contactFields: Record<string, any> = {};
       for (const [key, val] of Object.entries(rawFields)) {
+        if (dynamicKeys.has(key)) continue;
         if (val !== '' && val !== null && val !== undefined) {
           contactFields[key] = val;
         }
@@ -502,6 +514,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const payload: Record<string, any> = isCreate
         ? contactFields
         : { ...contactFields, id: Number(data.value.row.id) };
+      // 仅在存在启用动态字段时携带，避免空对象无谓写入
+      if (Object.keys(customFields).length > 0) {
+        payload.customFields = customFields;
+      }
       if (customerId) {
         payload.customerId = Number(customerId);
       }
@@ -525,9 +541,26 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
       const row = data.value?.row ? { ...data.value.row } : {};
+      // 动态字段回显兜底：先展开列表行 customFields（详情加载成功后会被最新值覆盖）
+      if (row.customFields && typeof row.customFields === 'object') {
+        Object.assign(row, row.customFields);
+      }
       setLoading(false);
 
       const isCreate = data.value?.create;
+
+      // 动态字段注入：拉取 schema 并幂等追加到表单尾部
+      // （须先于 resetForm/setValues 执行：vben setValues 默认过滤 schema 外字段）
+      await fieldSchema.loadSchema();
+      baseFormApi.setState((prev: any) => {
+        const dynamicKeys = new Set(
+          fieldSchema.items.value.map((i) => i.fieldKey),
+        );
+        const base = (prev.schema ?? []).filter(
+          (s: any) => !dynamicKeys.has(s.fieldName),
+        );
+        return { schema: [...base, ...fieldSchema.toFormSchema({ weakRequired: !isCreate })] };
+      });
 
       // 编辑模式下所属企业禁止修改
       baseFormApi.updateSchema([
@@ -578,6 +611,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 currentCompanyName.value = d.currentCompany.companyName || '';
                 currentCustomerId.value = d.currentCompany.customerId;
               }
+            }
+            // 动态字段：详情接口的 customFields 覆盖列表行旧值
+            if (d.customFields && typeof d.customFields === 'object') {
+              Object.assign(row, d.customFields);
             }
           }
         } catch {

@@ -28,21 +28,26 @@ use sea_orm::{
     Value,
 };
 
-/// 支持回收站的业务模块 -> 物理表名（白名单，防 SQL 注入）
+/// 支持回收站的业务模块 -> 物理表名（白名单，防 SQL 注入；visit 与 followup 同表，均为 mxx_crm_followup）
 const MODULE_TABLES: &[(&str, &str)] = &[
     ("customer", "mxx_crm_customer"),
     ("opportunity", "mxx_crm_opportunity"),
     ("followup", "mxx_crm_followup"),
+    ("visit", "mxx_crm_followup"),
     ("contact", "mxx_crm_contact"),
     ("lead", "mxx_crm_lead"),
+    ("delivery", "mxx_sale_order_delivery"),
 ];
 
-/// 五表软删数据 UNION 视图（静态 SQL，无外部参数）
+/// 软删数据 UNION 视图（visit 为 followup 表 activity_type=2 的拆分视图，回收站中与普通跟进分开归类；
+/// 静态 SQL，无外部参数）
 const UNION_SQL: &str = "SELECT id, 'customer' AS module, '客户' AS module_label, COALESCE(NULLIF(company_name, ''), '未命名客户') AS title, delete_by, create_time, delete_time FROM mxx_crm_customer WHERE deleted = 1 \
     UNION ALL SELECT id, 'opportunity', '商机', COALESCE(NULLIF(name, ''), '未命名商机'), delete_by, create_time, delete_time FROM mxx_crm_opportunity WHERE deleted = 1 \
-    UNION ALL SELECT id, 'followup', '跟进', COALESCE(NULLIF(content, ''), '跟进记录'), delete_by, create_time, delete_time FROM mxx_crm_followup WHERE deleted = 1 \
+    UNION ALL SELECT id, 'followup', '跟进', COALESCE(NULLIF(content, ''), '跟进记录'), delete_by, create_time, delete_time FROM mxx_crm_followup WHERE deleted = 1 AND (activity_type IS NULL OR activity_type <> 2) \
+    UNION ALL SELECT id, 'visit', '外勤拜访', COALESCE(NULLIF(content, ''), '外勤拜访'), delete_by, create_time, delete_time FROM mxx_crm_followup WHERE deleted = 1 AND activity_type = 2 \
     UNION ALL SELECT id, 'contact', '联系人', COALESCE(NULLIF(name, ''), '未命名联系人'), delete_by, create_time, delete_time FROM mxx_crm_contact WHERE deleted = 1 \
-    UNION ALL SELECT id, 'lead', '线索', COALESCE(NULLIF(company_name, ''), NULLIF(contact_name, ''), '未命名线索'), delete_by, create_time, delete_time FROM mxx_crm_lead WHERE deleted = 1";
+    UNION ALL SELECT id, 'lead', '线索', COALESCE(NULLIF(company_name, ''), NULLIF(contact_name, ''), '未命名线索'), delete_by, create_time, delete_time FROM mxx_crm_lead WHERE deleted = 1 \
+    UNION ALL SELECT id, 'delivery', '虚拟交付', COALESCE(NULLIF(delivery_no, ''), '虚拟交付'), delete_by, create_time, delete_time FROM mxx_sale_order_delivery WHERE deleted = 1";
 
 /// 模块中文名（审计摘要使用）
 pub fn module_label(module: &str) -> &'static str {
@@ -50,8 +55,10 @@ pub fn module_label(module: &str) -> &'static str {
         "customer" => "客户",
         "opportunity" => "商机",
         "followup" => "跟进",
+        "visit" => "外勤拜访",
         "contact" => "联系人",
         "lead" => "线索",
+        "delivery" => "虚拟交付",
         _ => "数据",
     }
 }
@@ -263,7 +270,8 @@ pub async fn purge(db: &DbConn, module: &str, id: i64, current_user_id: i64) -> 
         "contact" => {
             exec_sql(&txn, "DELETE FROM mxx_crm_customer_contact_merge WHERE contact_id = $1", id.into()).await?;
         }
-        "followup" => {}
+        "followup" | "visit" => {}
+        "delivery" => {}
         _ => return Err(Error::from("无效的数据模块")),
     }
     let del_sql = format!("DELETE FROM \"{}\" WHERE id = $1 AND deleted = 1", table);
@@ -296,7 +304,12 @@ pub async fn purge_expired(db: &DbConn) -> Result<u64> {
         cutoff.into(),
     )
     .await?;
+    // MODULE_TABLES 中 followup/visit 指向同一张物理表，去重避免重复 DELETE
+    let mut seen = std::collections::HashSet::new();
     for (_, table) in MODULE_TABLES {
+        if !seen.insert(*table) {
+            continue;
+        }
         let sql = format!("DELETE FROM \"{}\" WHERE deleted = 1 AND delete_time < $1", table);
         total += exec_sql(&txn, &sql, cutoff.into()).await?;
     }

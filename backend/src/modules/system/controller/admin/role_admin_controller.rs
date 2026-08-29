@@ -16,9 +16,39 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::system::model::role::{ListQuery, RoleSaveDTO, RoleSaveRequest, RoleUpdateRequest, UpdateRoleDeptRequest, UpdateRoleMenuRequest};
+use crate::modules::system::model::role::{ListQuery, RoleDetailVO, RoleSaveDTO, RoleSaveRequest, RoleUpdateRequest, UpdateRoleDeptRequest, UpdateRoleMenuRequest};
 use crate::modules::system::service::menu_service::contains_all_elements;
-use crate::modules::system::service::{admin_service, menu_service, role_service, permission_cache_service};
+use crate::modules::system::service::{admin_service, audit_service, menu_service, role_service, permission_cache_service};
+use sea_orm::DbConn;
+
+/// P0-3: 角色 data_scope 变更审计摘要（仅在实际变化时记录，best-effort 不阻断业务）
+///
+/// before_detail 为 None（快照查询失败）时不产生摘要，保证摘要准确性；
+/// after_scope 为 None 表示本次未修改 data_scope，同样不产生摘要。
+async fn audit_data_scope_change(db: &DbConn, req: &HttpRequest, role_id: i64, before_detail: Option<RoleDetailVO>, after_scope: &Option<i32>) {
+    let Some(before) = before_detail else { return };
+    if after_scope.is_none() || before.data_scope == *after_scope {
+        return;
+    }
+    let role_name = before.role_name.unwrap_or_else(|| format!("#{}", role_id));
+    let summary = format!(
+        "角色[{}] 数据范围: {} → {}",
+        role_name,
+        audit_service::data_scope_text(&before.data_scope),
+        audit_service::data_scope_text(after_scope)
+    );
+    audit_service::record(
+        db,
+        req,
+        "auth",
+        "update",
+        "role",
+        role_id,
+        summary,
+        audit_service::snap(vec![("data_scope", serde_json::json!(before.data_scope))]),
+        audit_service::snap(vec![("data_scope", serde_json::json!(after_scope))]),
+    ).await;
+}
 
 // 添加角色信息
 pub async fn role_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<RoleSaveRequest>) -> Result<HttpResponse> {
@@ -52,6 +82,53 @@ pub async fn role_insert(state: web::Data<AppState>, req: HttpRequest, form_data
 
     // 插入角色信息
     let result = role_service::insert(&db, &role_data).await;
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
+}
+
+// 复制角色（P3-1 一键复制）：深拷贝源角色的菜单/部门/数据范围配置
+pub async fn role_copy(state: web::Data<AppState>, req: HttpRequest, id: web::Path<i64>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let role_id = id.into_inner();
+
+    // 获取用户信息
+    let admin = match admin_service::get_by_detail(&db, &Some(get_current_user_id(&req))).await {
+        Ok(admin) => admin,
+        Err(_) => return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "获取当前管理员信息错误", "local"))),
+    };
+
+    // 源角色快照：用于审计摘要（best-effort，查询失败不阻断复制）
+    let source_detail = role_service::get_by_detail(&db, &Some(role_id)).await.ok();
+
+    let result = role_service::copy_role(&db, role_id, admin.user_name).await;
+
+    // P0-3: 复制成功后记录审计（best-effort，不阻断业务）
+    if let Ok(new_id) = result.as_ref() {
+        let source_name = source_detail.as_ref()
+            .and_then(|d| d.role_name.clone())
+            .unwrap_or_else(|| format!("#{}", role_id));
+        let new_name = role_service::get_by_detail(&db, &Some(*new_id)).await.ok()
+            .and_then(|d| d.role_name)
+            .unwrap_or_else(|| format!("#{}", new_id));
+        let summary = format!("复制角色[{}] → 新角色[{}]", source_name, new_name);
+        audit_service::record(
+            db,
+            &req,
+            "auth",
+            "copy",
+            "role",
+            *new_id,
+            summary,
+            audit_service::snap(vec![
+                ("source_role_id", serde_json::json!(role_id)),
+                ("source_role_name", serde_json::json!(source_name)),
+            ]),
+            audit_service::snap(vec![
+                ("new_role_id", serde_json::json!(new_id)),
+                ("new_role_name", serde_json::json!(new_name)),
+            ]),
+        ).await;
+    }
+
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -106,6 +183,8 @@ pub async fn update_role(state: web::Data<AppState>, req: HttpRequest, id: web::
 
     // 超级管理员角色只允许修改数据权限、备注、排序、状态，不允许修改角色名和key
     if role_id == 1 {
+        // P0-3: 更新前取角色快照，用于 data_scope 变更审计摘要
+        let before_detail = role_service::get_by_detail(&db, &Some(role_id)).await.ok();
         // 构建只包含安全字段的更新数据
         let role_data = RoleSaveDTO {
             id: Some(role_id),
@@ -123,6 +202,12 @@ pub async fn update_role(state: web::Data<AppState>, req: HttpRequest, id: web::
             update_time: None,
         };
         let result = role_service::update_by_id(&db, &role_data).await;
+        // P0-1: 超管角色 data_scope 变更后，清除该角色所有用户的数据权限缓存
+        if result.is_ok() {
+            permission_cache_service::invalidate_by_role_id(&db, 1).await;
+            // P0-3: data_scope 变更审计摘要（保存成功才记录）
+            audit_data_scope_change(&db, &req, role_id, before_detail, &form_data.data_scope).await;
+        }
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)));
     }
 
@@ -151,8 +236,17 @@ pub async fn update_role(state: web::Data<AppState>, req: HttpRequest, id: web::
     role_data.id = Some(role_id);
     role_data.update_by = admin.user_name;
 
+    // P0-3: 更新前取角色快照，用于 data_scope 变更审计摘要
+    let before_detail = role_service::get_by_detail(&db, &Some(role_id)).await.ok();
+
     // 更新角色信息
     let result = role_service::update_by_id(&db, &role_data).await;
+    // P0-1: 角色（可能含 data_scope）变更后，清除该角色所有用户的数据权限缓存
+    if result.is_ok() {
+        permission_cache_service::invalidate_by_role_id(&db, role_id).await;
+        // P0-3: data_scope 变更审计摘要（保存成功才记录）
+        audit_data_scope_change(&db, &req, role_id, before_detail, &role_data.data_scope).await;
+    }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -186,24 +280,49 @@ pub async fn update_role_menus(state: web::Data<AppState>, req: HttpRequest, ite
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "授权的部分元素不在您的权限之内", "local")));
     }
 
+    // P0-3: 更新前取菜单授权快照与角色名，用于变更摘要（仅计数与差值，不落全量清单）
+    let before_menu_ids: std::collections::HashSet<i64> = role_service::get_role_menu_list_by_role_id(db, &Some(role_id))
+        .await
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|s| s.as_ref().and_then(|x| x.parse::<i64>().ok()))
+        .collect();
+    let role_name = role_service::get_by_detail(db, &Some(role_id))
+        .await
+        .ok()
+        .and_then(|d| d.role_name)
+        .unwrap_or_else(|| format!("#{}", role_id));
+
     // 更新角色菜单
     let result = role_service::update_role_menus(db, &sys_role).await;
     // v2.0: 角色菜单权限变更后，清除该角色所有用户的权限缓存
     if result.is_ok() {
         permission_cache_service::invalidate_by_role_id(db, role_id).await;
-        // 审计埋点：保存角色授权（D01-8，权限集合摘要）
-        crate::modules::system::service::audit_service::record(
+        // P0-3 审计摘要：菜单权限前后计数与增减差值（保存成功才记录）
+        let after_menu_ids: std::collections::HashSet<i64> = menu_ids.iter().copied().collect();
+        let added = after_menu_ids.difference(&before_menu_ids).count();
+        let removed = before_menu_ids.difference(&after_menu_ids).count();
+        let summary = format!(
+            "角色[{}] 菜单权限 {}→{} 项（+{}/-{}）",
+            role_name,
+            before_menu_ids.len(),
+            after_menu_ids.len(),
+            added,
+            removed
+        );
+        audit_service::record(
             db,
             &req,
             "auth",
             "grant",
             "role",
             role_id,
-            format!("更新角色 #{} 菜单权限（{} 项）", role_id, menu_ids.len()),
-            None,
-            crate::modules::system::service::audit_service::snap(vec![
-                ("menu_ids", serde_json::json!(menu_ids)),
-                ("menu_count", serde_json::json!(menu_ids.len())),
+            summary,
+            audit_service::snap(vec![("menu_count", serde_json::json!(before_menu_ids.len()))]),
+            audit_service::snap(vec![
+                ("menu_count", serde_json::json!(after_menu_ids.len())),
+                ("added", serde_json::json!(added)),
+                ("removed", serde_json::json!(removed)),
             ]),
         ).await;
     }
@@ -251,6 +370,10 @@ pub async fn update_role_depts(state: web::Data<AppState>, req: HttpRequest, ite
     }
 
     let result = role_service::update_role_depts(db, &sys_role).await;
+    // P0-1: 角色自定义数据范围变更后，清除该角色所有用户的数据权限缓存
+    if result.is_ok() {
+        permission_cache_service::invalidate_by_role_id(db, role_id).await;
+    }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -298,6 +421,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/save",
                 web::post()
                     .to(role_insert)
+                    .wrap(require_permission("system:role:save")),
+            )
+            // POST /role/copy/{id} - 复制角色（P3-1 一键复制，复用新增权限码）
+            .route(
+                "/copy/{id}",
+                web::post()
+                    .to(role_copy)
                     .wrap(require_permission("system:role:save")),
             )
             // DELETE /role/bath_delete - 批量删除角色

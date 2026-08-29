@@ -26,9 +26,13 @@ import {
   modifyPlanApi,
   submitPlanApi,
   updatePlanTargetsApi,
+  withdrawPlanApi,
 } from '#/api/core/statistics';
+import { $t } from '#/locales';
 
 const props = defineProps<{
+  /** 代建/代改/审批查看：目标员工（缺省=当前登录人自己） */
+  targetEmployeeId?: number;
   visible: boolean;
   year: number;
 }>();
@@ -48,6 +52,8 @@ const planStatus = ref<PlanStatus>('none');
 const planId = ref<null | number>(null);
 const planDetail = ref<any>(null);
 const approvalLogs = ref<any[]>([]);
+/** 列表项原始数据（撤回按钮显隐依赖 currentApproverId/approvalLevel） */
+const planListItem = ref<any>(null);
 
 // ===== 入职月份判断 =====
 const hireMonth = computed(() => {
@@ -94,7 +100,9 @@ function initMonthlyTargets() {
 function toWan(val: number): string {
   if (!val) return '';
   const wan = val / 10_000;
-  return wan >= 1 ? `≈${wan.toFixed(2)}万` : '';
+  return wan >= 1
+    ? `≈${wan.toFixed(2)}${$t('page.statistics.performancePlan.wanUnit')}`
+    : '';
 }
 
 // ===== 全年累加 =====
@@ -110,7 +118,8 @@ const totalContractCount = computed(() =>
 
 function formatCurrency(val: number) {
   if (!val) return '¥0';
-  if (val >= 10_000) return `¥${(val / 10_000).toFixed(2)}万`;
+  if (val >= 10_000)
+    return `¥${(val / 10_000).toFixed(2)}${$t('page.statistics.performancePlan.wanUnit')}`;
   return `¥${val.toLocaleString()}`;
 }
 
@@ -126,15 +135,15 @@ const batchMode = ref<BatchMode>('applyAll');
 const batchValue = ref<number | undefined>(undefined);
 
 const batchFieldLabels: Record<BatchField, string> = {
-  contractTargetAmount: '合同金额',
-  paymentTargetAmount: '回款金额',
-  contractTargetCount: '合同数量',
+  contractTargetAmount: $t('page.statistics.performancePlan.contractAmount'),
+  paymentTargetAmount: $t('page.statistics.performancePlan.paymentAmount'),
+  contractTargetCount: $t('page.statistics.performancePlan.contractCount'),
 };
 
 const batchFieldUnits: Record<BatchField, string> = {
-  contractTargetAmount: '元',
-  paymentTargetAmount: '元',
-  contractTargetCount: '个',
+  contractTargetAmount: $t('page.statistics.performancePlan.unitYuan'),
+  paymentTargetAmount: $t('page.statistics.performancePlan.unitYuan'),
+  contractTargetCount: $t('page.statistics.performancePlan.unitCount'),
 };
 
 /**
@@ -144,18 +153,20 @@ const batchFieldUnits: Record<BatchField, string> = {
  */
 function applyBatch() {
   if (batchValue.value === undefined || batchValue.value === null) {
-    message.warning('请先输入数值');
+    message.warning($t('page.statistics.performancePlan.enterValueFirst'));
     return;
   }
   const val = Number(batchValue.value);
   if (Number.isNaN(val) || val < 0) {
-    message.warning('请输入有效的非负数');
+    message.warning(
+      $t('page.statistics.performancePlan.enterValidNonNegative'),
+    );
     return;
   }
 
   const targets = editableMonths.value;
   if (targets.length === 0) {
-    message.warning('没有可应用的月份');
+    message.warning($t('page.statistics.performancePlan.noEditableMonths'));
     return;
   }
 
@@ -165,7 +176,11 @@ function applyBatch() {
       m[batchField.value] = val;
     });
     message.success(
-      `已将 ${val}${batchFieldUnits[batchField.value]} 应用到 ${targets.length} 个月份`,
+      $t('page.statistics.performancePlan.applyAllSuccess', {
+        val,
+        unit: batchFieldUnits[batchField.value],
+        n: targets.length,
+      }),
     );
   } else {
     // 按总数平均分解
@@ -180,7 +195,12 @@ function applyBatch() {
       }
     });
     message.success(
-      `已将 ${val}${batchFieldUnits[batchField.value]} 平均分解到 ${targets.length} 个月份（每月 ${base}）`,
+      $t('page.statistics.performancePlan.splitTotalSuccess', {
+        val,
+        unit: batchFieldUnits[batchField.value],
+        n: targets.length,
+        base,
+      }),
     );
   }
 
@@ -196,18 +216,21 @@ function clearAll() {
     m.paymentTargetAmount = 0;
     m.contractTargetCount = 0;
   });
-  message.success('已清零所有可编辑月份');
+  message.success($t('page.statistics.performancePlan.clearedAll'));
 }
 
 // ===== 加载计划数据 =====
 async function loadPlan() {
   loading.value = true;
   try {
-    const employeeId = userStore.userInfo?.userId || userStore.userInfo?.id;
+    const employeeId =
+      props.targetEmployeeId ??
+      userStore.userInfo?.userId ??
+      userStore.userInfo?.id;
     const res = await getPlanListApi({ year: props.year, employeeId });
     // 注意：requestClient 已配置 responseReturn: 'data'，拦截器会自动解包 data 字段
-    // 所以 res 本身就是 plans 数组，无需再 res?.data
-    const plans = Array.isArray(res) ? res : res?.data || [];
+    // 所以 res 是分页对象，计划列表取 items 字段
+    const plans = res?.items || [];
     if (plans.length === 0) {
       planStatus.value = 'none';
       planId.value = null;
@@ -217,13 +240,21 @@ async function loadPlan() {
     }
 
     const plan = plans[0];
-    planId.value = plan.id;
+    if (!plan) {
+      planStatus.value = 'none';
+      planId.value = null;
+      planDetail.value = null;
+      initMonthlyTargets();
+      return;
+    }
+    planListItem.value = plan;
+    planId.value = plan.id ?? null;
     const statusNum = Number(plan.status);
     planStatus.value =
       (['draft', 'pending', 'approved', 'rejected'] as const)[statusNum] ||
       'none';
 
-    const detailRes = await getPlanDetailApi(plan.id);
+    const detailRes = await getPlanDetailApi(Number(plan.id));
     // detailRes 已被拦截器解包，本身就是详情对象
     const detail =
       detailRes && typeof detailRes === 'object' && !Array.isArray(detailRes)
@@ -248,9 +279,10 @@ async function loadPlan() {
       };
     });
   } catch (error: any) {
-    const msg = error?.message || '加载计划失败';
+    const msg =
+      error?.message || $t('page.statistics.performancePlan.loadFailed');
     if (msg.includes('403') || msg.includes('权限')) {
-      message.warning('您没有查看销售计划的权限');
+      message.warning($t('page.statistics.performancePlan.noViewPermission'));
     } else {
       console.error('加载计划失败', error);
     }
@@ -263,7 +295,9 @@ async function loadPlan() {
 // ===== 保存草稿 =====
 async function handleSaveDraft() {
   if (totalContractAmount.value === 0) {
-    message.warning('请至少填写一个月的合同目标金额');
+    message.warning(
+      $t('page.statistics.performancePlan.contractTargetRequired'),
+    );
     return;
   }
   submitting.value = true;
@@ -286,8 +320,13 @@ async function handleSaveDraft() {
         monthlyTargets: targets,
       });
     } else if (!planId.value) {
+      const employeeId =
+        props.targetEmployeeId ??
+        userStore.userInfo?.userId ??
+        userStore.userInfo?.id;
       const res = await createPlanApi({
         year: props.year,
+        employeeId,
         monthlyTargets: targets,
       });
       // res 已被拦截器解包，本身就是详情对象
@@ -295,14 +334,18 @@ async function handleSaveDraft() {
       if (typeof newId === 'number' && newId > 0) {
         planId.value = newId;
       } else {
-        throw new Error('创建计划失败：未返回有效ID');
+        throw new Error(
+          $t('page.statistics.performancePlan.createPlanFailed'),
+        );
       }
     }
     planStatus.value = 'draft';
-    message.success('草稿已保存');
+    message.success($t('page.statistics.performancePlan.draftSaved'));
     await loadPlan();
   } catch (error: any) {
-    message.error(error?.message || '保存失败');
+    message.error(
+      error?.message || $t('page.statistics.performancePlan.saveFailed'),
+    );
   } finally {
     submitting.value = false;
   }
@@ -311,18 +354,22 @@ async function handleSaveDraft() {
 // ===== 提交审批 =====
 async function handleSubmit() {
   if (!planId.value) {
-    message.warning('请先保存草稿');
+    message.warning($t('page.statistics.performancePlan.saveDraftFirst'));
     return;
   }
   submitting.value = true;
   try {
     await submitPlanApi(planId.value);
     planStatus.value = 'pending';
-    message.success('已提交审批，请等待上级审批');
+    message.success(
+      $t('page.statistics.performancePlan.submittedForApproval'),
+    );
     await loadPlan();
     emit('success');
   } catch (error: any) {
-    message.error(error?.message || '提交失败');
+    message.error(
+      error?.message || $t('page.statistics.performancePlan.submitFailed'),
+    );
   } finally {
     submitting.value = false;
   }
@@ -334,11 +381,13 @@ const showModifyInput = ref(false);
 
 async function handleApplyModify() {
   if (!planId.value) {
-    message.warning('暂无可修改的计划');
+    message.warning($t('page.statistics.performancePlan.noPlanToModify'));
     return;
   }
   if (!modifyReason.value.trim()) {
-    message.warning('请填写修改原因');
+    message.warning(
+      $t('page.statistics.performancePlan.modifyReasonRequired'),
+    );
     return;
   }
   submitting.value = true;
@@ -359,10 +408,12 @@ async function handleApplyModify() {
     planStatus.value = 'pending';
     modifyReason.value = '';
     showModifyInput.value = false;
-    message.success('修改申请已提交，请等待审批');
+    message.success($t('page.statistics.performancePlan.modifySubmitted'));
     await loadPlan();
   } catch (error: any) {
-    message.error(error?.message || '申请修改失败');
+    message.error(
+      error?.message || $t('page.statistics.performancePlan.applyModifyFailed'),
+    );
   } finally {
     submitting.value = false;
   }
@@ -381,29 +432,37 @@ const statusConfig = computed<
   Record<PlanStatus, { color: string; desc: string; text: string }>
 >(() => {
   const pendingDesc = planDetail.value?.currentApproverName
-    ? `计划已提交，当前审批人：${planDetail.value.currentApproverName}（第${planDetail.value.approvalLevel || 1}级/共${planDetail.value.totalLevels || 1}级），期间不可修改`
-    : '计划已提交，等待上级审批，期间不可修改';
+    ? $t('page.statistics.performancePlan.pendingDescWithApprover', {
+        approver: planDetail.value.currentApproverName,
+        level: planDetail.value.approvalLevel || 1,
+        total: planDetail.value.totalLevels || 1,
+      })
+    : $t('page.statistics.performancePlan.pendingDesc');
   return {
     none: {
       color: 'default',
-      text: '未创建',
-      desc: '请填写每月销售目标并保存',
+      text: $t('page.statistics.performancePlan.none'),
+      desc: $t('page.statistics.performancePlan.noneDesc'),
     },
     draft: {
       color: 'warning',
-      text: '草稿',
-      desc: '草稿可继续编辑，确认后点击提交审批',
+      text: $t('page.statistics.performancePlan.draft'),
+      desc: $t('page.statistics.performancePlan.draftDesc'),
     },
-    pending: { color: 'processing', text: '审批中', desc: pendingDesc },
+    pending: {
+      color: 'processing',
+      text: $t('page.statistics.performancePlan.pendingBadge'),
+      desc: pendingDesc,
+    },
     approved: {
       color: 'success',
-      text: '已通过',
-      desc: '计划已审批通过，如需修改请申请变更',
+      text: $t('page.statistics.performancePlan.approved'),
+      desc: $t('page.statistics.performancePlan.approvedDesc'),
     },
     rejected: {
       color: 'error',
-      text: '已驳回',
-      desc: '计划被驳回，请修改后重新提交',
+      text: $t('page.statistics.performancePlan.rejected'),
+      desc: $t('page.statistics.performancePlan.rejectedDesc'),
     },
   };
 });
@@ -419,22 +478,61 @@ const canSubmit = computed(
 );
 const canModify = computed(() => planStatus.value === 'approved');
 
+// ===== 撤回：仅本人的待审批计划，且第一级审批未处理前 =====
+const canWithdraw = computed(() => {
+  if (planStatus.value !== 'pending' || !planListItem.value) return false;
+  const item = planListItem.value;
+  const myId = userStore.userInfo?.userId ?? userStore.userInfo?.id;
+  const isMine = item.employeeId === myId;
+  const firstLevelPending = (item.approvalLevel ?? 1) === 1;
+  return isMine && firstLevelPending;
+});
+
+async function handleWithdraw() {
+  if (!planId.value) return;
+  submitting.value = true;
+  try {
+    await withdrawPlanApi(planId.value);
+    message.success($t('page.statistics.performancePlan.withdrawSuccess'));
+    await loadPlan();
+    emit('success');
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.statistics.performancePlan.withdrawFailed'),
+    );
+  } finally {
+    submitting.value = false;
+  }
+}
+
 const drawerFooter = computed(() => {
   const buttons = [];
   if (canEdit.value) {
     buttons.push({
-      text: '保存草稿',
+      text: $t('page.statistics.performancePlan.save'),
       type: 'default',
       action: handleSaveDraft,
     });
   }
   if (canSubmit.value) {
-    buttons.push({ text: '提交审批', type: 'primary', action: handleSubmit });
+    buttons.push({
+      text: $t('page.statistics.performancePlan.submit'),
+      type: 'primary',
+      action: handleSubmit,
+    });
+  }
+  if (canWithdraw.value) {
+    buttons.push({
+      text: $t('page.statistics.performancePlan.withdraw'),
+      type: 'default',
+      danger: true,
+      action: handleWithdraw,
+    });
   }
   if (canModify.value && !showModifyInput.value) {
     buttons.push({
-      text: '申请修改',
-      type: 'default',
+      text: $t('page.statistics.performancePlan.applyModify'),
+      type: 'primary',
       action: () => (showModifyInput.value = true),
     });
   }
@@ -443,25 +541,25 @@ const drawerFooter = computed(() => {
 
 // 月份名称
 const monthNames = [
-  '一月',
-  '二月',
-  '三月',
-  '四月',
-  '五月',
-  '六月',
-  '七月',
-  '八月',
-  '九月',
-  '十月',
-  '十一月',
-  '十二月',
+  $t('page.statistics.performancePlan.january'),
+  $t('page.statistics.performancePlan.february'),
+  $t('page.statistics.performancePlan.march'),
+  $t('page.statistics.performancePlan.april'),
+  $t('page.statistics.performancePlan.may'),
+  $t('page.statistics.performancePlan.june'),
+  $t('page.statistics.performancePlan.july'),
+  $t('page.statistics.performancePlan.august'),
+  $t('page.statistics.performancePlan.september'),
+  $t('page.statistics.performancePlan.october'),
+  $t('page.statistics.performancePlan.november'),
+  $t('page.statistics.performancePlan.december'),
 ];
 </script>
 
 <template>
   <Drawer
     :open="visible"
-    title="个人销售计划设置"
+    :title="$t('page.statistics.performancePlan.planSettingTitle')"
     width="820px"
     :body-style="{ padding: '0' }"
     @close="emit('update:visible', false)"
@@ -475,20 +573,27 @@ const monthNames = [
               icon="lucide:calendar-days"
               class="text-lg text-primary"
             />
-            <span class="text-base font-semibold">{{ year }} 年销售计划</span>
+            <span class="text-base font-semibold">{{
+              $t('page.statistics.performancePlan.yearPlanLabel', { year })
+            }}</span>
             <Tag :color="statusConfig[planStatus].color">
               {{ statusConfig[planStatus].text }}
             </Tag>
           </div>
           <Button size="small" @click="emit('update:visible', false)">
             <template #icon><IconifyIcon icon="lucide:x" /></template>
-            关闭
+            {{ $t('page.statistics.performancePlan.close') }}
           </Button>
         </div>
         <Alert :message="statusConfig[planStatus].desc" type="info" show-icon />
         <Alert
           v-if="isCurrentYearHire"
-          :message="`您于 ${year} 年 ${hireMonth} 月入职，目标从 ${hireMonth} 月开始设置，之前月份不可编辑`"
+          :message="
+            $t('page.statistics.performancePlan.hireMonthTip', {
+              year,
+              month: hireMonth,
+            })
+          "
           type="warning"
           show-icon
           class="mt-2"
@@ -501,17 +606,23 @@ const monthNames = [
           class="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700"
         >
           <IconifyIcon icon="lucide:wand-2" class="text-primary" />
-          <span>快捷批量操作</span>
-          <span class="text-xs font-normal text-gray-400"
-            >（仅作用于可编辑月份）</span
-          >
+          <span>{{ $t('page.statistics.performancePlan.quickBatch') }}</span>
+          <span class="text-xs font-normal text-gray-400">{{
+            $t('page.statistics.performancePlan.batchScopeTip')
+          }}</span>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <!-- 字段选择 -->
           <select v-model="batchField" class="batch-select">
-            <option value="contractTargetAmount">合同金额</option>
-            <option value="paymentTargetAmount">回款金额</option>
-            <option value="contractTargetCount">合同数量</option>
+            <option value="contractTargetAmount">
+              {{ $t('page.statistics.performancePlan.contractAmount') }}
+            </option>
+            <option value="paymentTargetAmount">
+              {{ $t('page.statistics.performancePlan.paymentAmount') }}
+            </option>
+            <option value="contractTargetCount">
+              {{ $t('page.statistics.performancePlan.contractCount') }}
+            </option>
           </select>
 
           <!-- 模式切换 -->
@@ -521,14 +632,14 @@ const monthNames = [
               :class="[batchMode === 'applyAll' ? 'batch-mode-active' : '']"
               @click="batchMode = 'applyAll'"
             >
-              应用到所有月份
+              {{ $t('page.statistics.performancePlan.applyAllMonths') }}
             </button>
             <button
               class="batch-mode-btn"
               :class="[batchMode === 'splitTotal' ? 'batch-mode-active' : '']"
               @click="batchMode = 'splitTotal'"
             >
-              按总数分解
+              {{ $t('page.statistics.performancePlan.splitTotal') }}
             </button>
           </div>
 
@@ -536,11 +647,17 @@ const monthNames = [
           <InputNumber
             v-model:value="batchValue"
             :min="0"
-            :step="batchField === 'contractTargetCount' ? 1 : 10000"
+            :step="1"
             :placeholder="
               batchMode === 'applyAll'
-                ? `每月${batchFieldLabels[batchField]}`
-                : `总${batchFieldLabels[batchField]}`
+                ? $t(
+                    'page.statistics.performancePlan.monthlyFieldPlaceholder',
+                    { field: batchFieldLabels[batchField] },
+                  )
+                : $t(
+                    'page.statistics.performancePlan.totalFieldPlaceholder',
+                    { field: batchFieldLabels[batchField] },
+                  )
             "
             style="width: 180px"
           />
@@ -551,14 +668,16 @@ const monthNames = [
           <!-- 执行按钮 -->
           <Button type="primary" size="small" @click="applyBatch">
             <template #icon><IconifyIcon icon="lucide:check" /></template>
-            应用
+            {{ $t('page.statistics.performancePlan.apply') }}
           </Button>
 
           <!-- 清零 -->
-          <Tooltip title="清零所有可编辑月份的数据">
+          <Tooltip
+            :title="$t('page.statistics.performancePlan.clearAllTooltip')"
+          >
             <Button size="small" danger ghost @click="clearAll">
               <template #icon><IconifyIcon icon="lucide:eraser" /></template>
-              清零
+              {{ $t('page.statistics.performancePlan.clearAll') }}
             </Button>
           </Tooltip>
 
@@ -566,10 +685,12 @@ const monthNames = [
           <span class="ml-auto text-xs text-gray-400">
             <IconifyIcon icon="lucide:info" class="mr-1" />
             <template v-if="batchMode === 'applyAll'"
-              >将输入值填入每个可编辑月份</template
+              >{{ $t('page.statistics.performancePlan.applyAllTip') }}</template
             >
             <template v-else
-              >将总数平均分解到每个可编辑月份，余数分配到前几个月</template
+              >{{
+                $t('page.statistics.performancePlan.splitTotalTip')
+              }}</template
             >
           </span>
         </div>
@@ -580,8 +701,10 @@ const monthNames = [
         <!-- approved 状态只读锁定提示 -->
         <Alert
           v-if="planStatus === 'approved'"
-          message="计划已审批通过，数据已锁定"
-          description="审批通过的计划不可直接编辑。如需调整目标，请点击底部「申请修改」按钮发起变更审批，经上级审批通过后方可修改。"
+          :message="$t('page.statistics.performancePlan.approvedLockedTitle')"
+          :description="
+            $t('page.statistics.performancePlan.approvedLockedDesc')
+          "
           type="warning"
           show-icon
           class="mb-4"
@@ -596,7 +719,9 @@ const monthNames = [
           <template #title>
             <div class="flex items-center gap-2">
               <IconifyIcon icon="lucide:git-branch" />
-              <span>审批流程</span>
+              <span>{{
+                $t('page.statistics.performancePlan.approvalProcess')
+              }}</span>
             </div>
           </template>
           <Timeline>
@@ -608,23 +733,31 @@ const monthNames = [
               "
             >
               <div class="flex items-center gap-2">
-                <span class="font-medium">第{{ node.level }}级</span>
+                <span class="font-medium">{{
+                  $t('page.statistics.performancePlan.levelN', {
+                    level: node.level,
+                  })
+                }}</span>
                 <span>{{ node.approverName }}</span>
                 <Tag v-if="node.status === 0" color="processing" size="small">
-                  待审批
+                  {{ $t('page.statistics.performancePlan.pending') }}
                 </Tag>
                 <Tag v-else-if="node.status === 1" color="success" size="small">
-                  已通过
+                  {{ $t('page.statistics.performancePlan.approved') }}
                 </Tag>
                 <Tag v-else-if="node.status === 2" color="error" size="small">
-                  已驳回
+                  {{ $t('page.statistics.performancePlan.rejected') }}
                 </Tag>
                 <Tag v-else-if="node.status === 3" color="default" size="small">
-                  已跳过
+                  {{ $t('page.statistics.performancePlan.skipped') }}
                 </Tag>
               </div>
               <div v-if="node.comment" class="mt-1 text-xs text-gray-500">
-                意见：{{ node.comment }}
+                {{
+                  $t('page.statistics.performancePlan.commentLine', {
+                    comment: node.comment,
+                  })
+                }}
               </div>
             </TimelineItem>
           </Timeline>
@@ -634,19 +767,31 @@ const monthNames = [
           <template #title>
             <div class="flex items-center gap-2">
               <IconifyIcon icon="lucide:edit-3" />
-              <span>月度目标设置</span>
+              <span>{{
+                $t('page.statistics.performancePlan.monthlyTargetSetting')
+              }}</span>
             </div>
           </template>
           <template #extra>
-            <span class="text-xs text-gray-400">单位：元 / 个</span>
+            <span class="text-xs text-gray-400">{{
+              $t('page.statistics.performancePlan.unitLabel')
+            }}</span>
           </template>
 
           <!-- 表头 -->
           <div class="target-row target-header">
-            <div class="target-cell target-month">月份</div>
-            <div class="target-cell target-amount">合同金额目标</div>
-            <div class="target-cell target-amount">回款金额目标</div>
-            <div class="target-cell target-count">合同数量</div>
+            <div class="target-cell target-month">
+              {{ $t('page.statistics.performancePlan.month') }}
+            </div>
+            <div class="target-cell target-amount">
+              {{ $t('page.statistics.performancePlan.contractAmountTarget') }}
+            </div>
+            <div class="target-cell target-amount">
+              {{ $t('page.statistics.performancePlan.paymentAmountTarget') }}
+            </div>
+            <div class="target-cell target-count">
+              {{ $t('page.statistics.performancePlan.contractCount') }}
+            </div>
           </div>
 
           <!-- 月份行 -->
@@ -661,7 +806,7 @@ const monthNames = [
                 monthNames[m.month - 1]
               }}</span>
               <Tag v-if="!m.editable" size="small" color="default" class="ml-1">
-                入职前
+                {{ $t('page.statistics.performancePlan.beforeHire') }}
               </Tag>
             </div>
             <div class="target-cell target-amount">
@@ -713,21 +858,31 @@ const monthNames = [
         >
           <div class="grid grid-cols-3 gap-4 text-center">
             <div class="summary-item">
-              <div class="text-xs text-gray-500 mb-1">全年合同目标累加</div>
+              <div class="text-xs text-gray-500 mb-1">
+                {{ $t('page.statistics.performancePlan.yearContractTotal') }}
+              </div>
               <div class="text-xl font-bold text-blue-600">
                 {{ formatCurrency(totalContractAmount) }}
               </div>
             </div>
             <div class="summary-item">
-              <div class="text-xs text-gray-500 mb-1">全年回款目标累加</div>
+              <div class="text-xs text-gray-500 mb-1">
+                {{ $t('page.statistics.performancePlan.yearPaymentTotal') }}
+              </div>
               <div class="text-xl font-bold text-purple-600">
                 {{ formatCurrency(totalPaymentAmount) }}
               </div>
             </div>
             <div class="summary-item">
-              <div class="text-xs text-gray-500 mb-1">全年合同数量</div>
+              <div class="text-xs text-gray-500 mb-1">
+                {{ $t('page.statistics.performancePlan.yearContractCount') }}
+              </div>
               <div class="text-xl font-bold text-orange-500">
-                {{ totalContractCount }} 个
+                {{
+                  $t('page.statistics.performancePlan.countWithUnit', {
+                    n: totalContractCount,
+                  })
+                }}
               </div>
             </div>
           </div>
@@ -736,22 +891,28 @@ const monthNames = [
         <!-- 申请修改输入框 -->
         <Card v-if="showModifyInput" size="small" class="mb-4">
           <template #title>
-            <span class="text-red-500">申请修改已审批通过的计划</span>
+            <span class="text-red-500">{{
+              $t('page.statistics.performancePlan.applyModifyTitle')
+            }}</span>
           </template>
           <Input.TextArea
             v-model:value="modifyReason"
             :rows="3"
-            placeholder="请填写修改原因，提交后将进入审批流程"
+            :placeholder="
+              $t('page.statistics.performancePlan.modifyReasonPlaceholder')
+            "
           />
           <div class="mt-2 flex justify-end gap-2">
-            <Button size="small" @click="showModifyInput = false">取消</Button>
+            <Button size="small" @click="showModifyInput = false">
+              {{ $t('page.statistics.performancePlan.cancel') }}
+            </Button>
             <Button
               size="small"
               type="primary"
               :loading="submitting"
               @click="handleApplyModify"
             >
-              提交修改申请
+              {{ $t('page.statistics.performancePlan.submitModifyRequest') }}
             </Button>
           </div>
         </Card>
@@ -761,7 +922,9 @@ const monthNames = [
           <template #title>
             <div class="flex items-center gap-2">
               <IconifyIcon icon="lucide:history" />
-              <span>审批记录</span>
+              <span>{{
+                $t('page.statistics.performancePlan.approvalRecord')
+              }}</span>
             </div>
           </template>
           <Timeline>
@@ -774,16 +937,24 @@ const monthNames = [
             >
               <div class="font-medium">
                 {{
-                  { 1: '提交审批', 2: '审批通过', 3: '驳回', 4: '申请修改' }[
-                    log.action as number
-                  ] || '操作'
+                  {
+                    1: $t('page.statistics.performancePlan.submit'),
+                    2: $t('page.statistics.performancePlan.approve'),
+                    3: $t('page.statistics.performancePlan.reject'),
+                    4: $t('page.statistics.performancePlan.applyModify'),
+                  }[log.action as number] ||
+                  $t('page.statistics.performancePlan.operate')
                 }}
               </div>
               <div class="text-xs text-gray-500">
                 {{ log.operatorName }} · {{ log.createTime }}
               </div>
               <div v-if="log.reason" class="mt-1 text-sm text-gray-600">
-                原因：{{ log.reason }}
+                {{
+                  $t('page.statistics.performancePlan.reasonLine', {
+                    reason: log.reason,
+                  })
+                }}
               </div>
             </TimelineItem>
           </Timeline>
@@ -794,10 +965,13 @@ const monthNames = [
     <!-- 底部按钮 -->
     <template #footer>
       <div class="flex justify-end gap-2">
-        <Button @click="emit('update:visible', false)">取消</Button>
+        <Button @click="emit('update:visible', false)">
+          {{ $t('page.statistics.performancePlan.cancel') }}
+        </Button>
         <template v-for="btn in drawerFooter" :key="btn.text">
           <Button
             :type="btn.type as any"
+            :danger="(btn as any).danger"
             :loading="submitting"
             @click="btn.action"
           >

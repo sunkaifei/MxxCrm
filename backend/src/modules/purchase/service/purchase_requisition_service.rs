@@ -322,6 +322,7 @@ pub async fn convert_to_po(db: &DbConn, pr_ids: Vec<i64>, supplier_id: i64, oper
                 po_id: None,
                 pr_item_id: Some(item.id),
                 product_id: item.product_id,
+                sku_id: None,
                 product_name: item.product_name,
                 product_sku: item.product_sku,
                 spec: item.spec,

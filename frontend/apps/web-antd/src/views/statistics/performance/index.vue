@@ -35,6 +35,7 @@ import {
   getPerformanceRankingApi,
   getPlanListApi,
 } from '#/api/core/statistics';
+import { $t } from '#/locales';
 
 import BehaviorMetrics from './components/BehaviorMetrics.vue';
 import CustomerBreakdown from './components/CustomerBreakdown.vue';
@@ -47,6 +48,7 @@ import ProductBreakdown from './components/ProductBreakdown.vue';
 import ProgressAlert from './components/ProgressAlert.vue';
 import RegionBreakdown from './components/RegionBreakdown.vue';
 import SalesFunnel from './components/SalesFunnel.vue';
+import TeamPlanList from './components/TeamPlanList.vue';
 import PlanSettingDrawer from './PlanSettingDrawer.vue';
 
 defineOptions({ name: 'PerformanceOverview' });
@@ -64,8 +66,16 @@ const hasPlanManagePermission = computed(() =>
 );
 // 销售计划审批权限：有此权限的用户可审批下属计划
 const hasPlanApprovePermission = computed(() =>
-  hasAccessByCodes(['statistics:performance-plan:approve']),
+  hasAccessByCodes(['statistics:performance-plan:audit']),
 );
+
+// 团队计划页签：manage 或 audit 权限可见，普通员工不可见（方案 §4.6.1）
+const canViewTeam = computed(
+  () =>
+    hasPlanPermission.value &&
+    (hasPlanManagePermission.value || hasPlanApprovePermission.value),
+);
+const activeTab = ref<'personal' | 'team'>('personal');
 
 // ===== 时间维度 =====
 type TimeDimension = 'day' | 'month' | 'year';
@@ -129,22 +139,32 @@ const queryParams = computed(() => ({
   time_dimension: timeDimension.value,
 }));
 
-async function loadData() {
-  loading.value = true;
-  try {
-    const params: any = { ...queryParams.value };
-    const [monthlyRes, rankingRes, comparisonRes, forecastRes] =
-      await Promise.all([
-        getMonthlyPerformanceApi(params),
-        getPerformanceRankingApi({
-          ...params,
-          order_by: 'contract_amount',
-        }),
-        getPerformanceComparisonApi(params).catch(() => ({})),
-        getPerformanceForecastApi(params).catch(() => ({})),
-      ]);
+// ===== 排行榜排序维度（方案 §4.5.4：支持完成率排序） =====
+const rankingOrderBy = ref<
+  | 'contract_amount'
+  | 'contract_completion_rate'
+  | 'payment_amount'
+  | 'payment_completion_rate'
+>('contract_amount');
+const rankingOrderByOptions = [
+  { label: '按合同额', value: 'contract_amount' },
+  { label: '按回款额', value: 'payment_amount' },
+  { label: '按合同完成率', value: 'contract_completion_rate' },
+  { label: '按回款完成率', value: 'payment_completion_rate' },
+];
 
-    monthlyData.value = monthlyRes?.data?.months || monthlyRes?.months || [];
+watch(rankingOrderBy, () => {
+  loadRanking();
+});
+
+// 排行榜独立加载（方案 §4.5.4：order_by 支持完成率排序，切换时仅重拉排行榜）
+// 内部自带失败兜底，永不 reject，可安全地浮空调用
+async function loadRanking() {
+  try {
+    const rankingRes = await getPerformanceRankingApi({
+      ...queryParams.value,
+      order_by: rankingOrderBy.value,
+    });
     const rankingList = Array.isArray(rankingRes)
       ? rankingRes
       : (rankingRes?.data ?? []);
@@ -162,9 +182,6 @@ async function loadData() {
         monthOnMonth: item.monthOnMonth || item.month_on_month || 0,
       })) || [];
 
-    comparisonData.value = comparisonRes?.data || comparisonRes || {};
-    forecastData.value = forecastRes?.data || forecastRes || {};
-
     // 个人视图额外加载自己的数据
     if (isPersonalView.value) {
       personalData.value =
@@ -172,6 +189,31 @@ async function loadData() {
           (r: any) => r.employeeId === userStore.userInfo?.userId,
         ) || {};
     }
+  } catch (error) {
+    console.error('加载排行榜数据失败', error);
+    rankingData.value = [];
+    if (isPersonalView.value) {
+      personalData.value = {};
+    }
+  }
+}
+
+async function loadData() {
+  loading.value = true;
+  try {
+    const params: any = { ...queryParams.value };
+    // 排行榜内部自带失败兜底；不并入 Promise.all 元组，避免 TS 对 .catch 链的元组推断污染
+    const rankingPromise = loadRanking();
+    const [monthlyRes, comparisonRes, forecastRes] = await Promise.all([
+      getMonthlyPerformanceApi(params),
+      getPerformanceComparisonApi(params).catch(() => ({})),
+      getPerformanceForecastApi(params).catch(() => ({})),
+    ]);
+    await rankingPromise;
+
+    monthlyData.value = monthlyRes?.data?.months || monthlyRes?.months || [];
+    comparisonData.value = comparisonRes?.data || comparisonRes || {};
+    forecastData.value = forecastRes?.data || forecastRes || {};
   } catch (error) {
     console.error('加载业绩数据失败', error);
     monthlyData.value = [];
@@ -554,16 +596,15 @@ async function checkPlanStatus() {
       year: selectedYear.value,
       employeeId,
     });
-    // requestClient 已配置 responseReturn: 'data'，res 本身就是 plans 数组
-    const plans = Array.isArray(res) ? res : res?.data || [];
+    // requestClient 已配置 responseReturn: 'data'，res 为分页对象 { total, page, pageSize, items }
+    const plans = res?.items || [];
     if (plans.length === 0) {
       planStatus.value = 'none';
     } else {
       const statusNum = Number(plans[0].status);
       planStatus.value =
-        (['none', 'draft', 'pending', 'approved', 'rejected'] as const)[
-          statusNum
-        ] || 'none';
+        (['draft', 'pending', 'approved', 'rejected'] as const)[statusNum] ||
+        'none';
     }
     // 同时加载待审批数量
     if (hasPlanApprovePermission.value) {
@@ -581,8 +622,8 @@ async function loadPendingCount() {
       year: selectedYear.value,
       pendingMyApproval: true,
     });
-    const plans = Array.isArray(res) ? res : res?.data || [];
-    pendingApprovalCount.value = plans.length;
+    const plans = res?.items || [];
+    pendingApprovalCount.value = Number(res?.total ?? plans.length) || 0;
   } catch {
     pendingApprovalCount.value = 0;
   }
@@ -605,7 +646,7 @@ const planButtonConfig = computed(() => {
     case 'approved': {
       // 审批通过后隐藏入口（用户选择"隐藏入口仅留查看"）
       return {
-        text: '查看计划',
+        text: $t('page.statistics.viewPlan'),
         color: '#52c41a',
         icon: 'lucide:eye',
         show: true,
@@ -613,7 +654,7 @@ const planButtonConfig = computed(() => {
     }
     case 'draft': {
       return {
-        text: '编辑计划（草稿）',
+        text: $t('page.statistics.editPlanDraft'),
         color: '#faad14',
         icon: 'lucide:edit',
         show: true,
@@ -621,7 +662,7 @@ const planButtonConfig = computed(() => {
     }
     case 'none': {
       return {
-        text: '设置销售计划',
+        text: $t('page.statistics.setSalesPlan'),
         color: '#ff4d4f',
         icon: 'lucide:alert-circle',
         show: true,
@@ -629,7 +670,7 @@ const planButtonConfig = computed(() => {
     }
     case 'pending': {
       return {
-        text: '查看计划（审批中）',
+        text: $t('page.statistics.viewPlanPending'),
         color: '#1890ff',
         icon: 'lucide:clock',
         show: true,
@@ -637,7 +678,7 @@ const planButtonConfig = computed(() => {
     }
     case 'rejected': {
       return {
-        text: '重新提交计划',
+        text: $t('page.statistics.resubmitPlan'),
         color: '#ff4d4f',
         icon: 'lucide:rotate-ccw',
         show: true,
@@ -645,7 +686,7 @@ const planButtonConfig = computed(() => {
     }
     default: {
       return {
-        text: '设置销售计划',
+        text: $t('page.statistics.setSalesPlan'),
         color: '#1890ff',
         icon: 'lucide:target',
         show: true,
@@ -844,6 +885,8 @@ async function handleExport(format: 'excel' | 'pdf') {
 <template>
   <Page auto-content-height>
     <Spin :spinning="loading">
+      <Tabs v-model:active-key="activeTab" size="large">
+        <Tabs.TabPane key="personal" tab="个人视图">
       <!-- ============ 模块1：顶部工具栏 ============ -->
       <Card class="mb-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -925,7 +968,7 @@ async function handleExport(format: 'excel' | 'pdf') {
                 <template #icon>
                   <IconifyIcon icon="lucide:clipboard-check" />
                 </template>
-                待我审批
+                {{ $t('page.statistics.pendingApproval') }}
               </Button>
             </Badge>
 
@@ -1014,7 +1057,11 @@ async function handleExport(format: 'excel' | 'pdf') {
 
       <!-- ============ 模块4.5：销售计划进度（个人+团队） ============ -->
       <div v-if="hasPlanPermission" class="mb-4">
-        <PlanProgressCard :year="selectedYear" />
+        <PlanProgressCard
+          :year="selectedYear"
+          :plan-status="planStatus"
+          @view-team="activeTab = 'team'"
+        />
       </div>
 
       <!-- ============ 模块5+6：月度趋势 + 完成率环形 ============ -->
@@ -1147,6 +1194,19 @@ async function handleExport(format: 'excel' | 'pdf') {
           <Tabs.TabPane key="region" tab="区域维度" />
           <Tabs.TabPane key="employee-comparison" tab="员工对比" />
         </Tabs>
+
+        <!-- 排序维度（方案 §4.5.4：排行榜支持完成率排序） -->
+        <div
+          v-if="breakdownTab === 'dept' || breakdownTab === 'employee'"
+          class="mb-2 text-right"
+        >
+          <Select
+            v-model:value="rankingOrderBy"
+            :options="rankingOrderByOptions"
+            size="small"
+            style="width: 170px"
+          />
+        </div>
 
         <!-- 部门排名 -->
         <Table
@@ -1351,6 +1411,11 @@ async function handleExport(format: 'excel' | 'pdf') {
       <div v-if="isPersonalView" class="mb-4">
         <PersonalGrowth />
       </div>
+        </Tabs.TabPane>
+        <Tabs.TabPane v-if="canViewTeam" key="team" :tab="$t('page.statistics.performancePlan.teamPlanTab')">
+          <TeamPlanList :year="selectedYear" />
+        </Tabs.TabPane>
+      </Tabs>
 
       <!-- 个人销售计划设置抽屉 -->
       <PlanSettingDrawer

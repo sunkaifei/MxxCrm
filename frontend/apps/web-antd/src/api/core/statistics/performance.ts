@@ -1,24 +1,5 @@
 import { requestClient } from '#/api/request';
 
-/** 业绩目标（个人/部门/全公司） */
-export const getPerformanceTargetApi = async (params?: {
-  employee_id?: number;
-  month?: number;
-  year?: number;
-}) => {
-  return requestClient.get('/api/system/statistics/performance/target', {
-    params,
-  });
-};
-
-/** 保存业绩目标 */
-export const savePerformanceTargetApi = async (param: { targets: any[] }) => {
-  return requestClient.post(
-    '/api/system/statistics/performance/target/save',
-    param,
-  );
-};
-
 /** 月度业绩趋势 */
 export const getMonthlyPerformanceApi = async (params?: {
   department_id?: number;

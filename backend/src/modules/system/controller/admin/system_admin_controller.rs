@@ -11,6 +11,8 @@
 extern crate bcrypt;
 
 use crate::core::errors::error::{Error, Result};
+use actix_multipart::form::text::Text;
+use actix_multipart::form::MultipartForm;
 use actix_web::{web, HttpRequest, HttpResponse};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use std::time::Duration;
@@ -28,7 +30,9 @@ use crate::modules::system::model::admin::{AdminSaveRequest, AdminUpdateRequest,
 use crate::modules::system::model::admin::{ListQuery, TokenVO};
 use crate::modules::system::model::resign::ResignApplyRequest;
 use crate::modules::system::service::menu_service::find_user_role_keys;
-use crate::modules::system::service::{admin_service, dept_service, post_service, role_service, system_log_service, permission_cache_service, session_service, resign_service};
+use crate::modules::system::service::{admin_service, audit_service, dept_service, perm_set_service, post_service, role_service, system_log_service, permission_cache_service, session_service, resign_service};
+use crate::modules::upload::model::attachment::ImageFormRequest;
+use crate::modules::upload::service::attachment_service;
 
 // 添加用户信息
 pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveRequest>) -> Result<HttpResponse> {
@@ -50,6 +54,10 @@ pub async fn save_admin(state: web::Data<AppState>, item: web::Json<AdminSaveReq
         }
     }
     let result = admin_service::insert(&db, &item.0).await;
+    // P1-2: 新增用户会进入其上级的下属范围，沿新用户上级链回溯清除汇报线缓存
+    if let Ok(new_id) = &result {
+        permission_cache_service::invalidate_report_line_upchain(db, *new_id).await;
+    }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
@@ -171,13 +179,23 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
                 if max_devices > 0 && tokens.len() >= max_devices {
                     // tokens 按登录先后有序追加，移除最旧的
                     let drop_count = tokens.len() - max_devices + 1;
-                    tokens.drain(0..drop_count);
+                    // G7：被挤出设备同步删除存储层会话，防止经 DB/Redis 降级回填复活
+                    let store = session_service::get_session_store();
+                    for dropped in tokens.drain(0..drop_count) {
+                        if let Err(e) = store.remove_by_token(&db, user_info.id, &dropped).await {
+                            log::warn!("[登录] 挤出设备清理存储会话失败 user_id={}, err={}", user_info.id, e);
+                        }
+                    }
                 }
                 tokens.push(token.clone());
-                CONTEXT.cache_service.set_json(&key, &tokens).await?;
+                // R2：token 集合带 TTL，与 access 过期对齐，避免登录写入造成集合键永生
+                let ttl_secs = permission_cache_service::get_access_token_expire_secs().await;
+                CONTEXT.cache_service.set_json_ex(&key, &tokens, Some(Duration::from_secs(ttl_secs))).await?;
             } else {
                 // 单设备模式：覆盖旧 token（现有逻辑不变）
-                CONTEXT.cache_service.set_string(&format!("user_{}", user_info.id.to_string().as_str()), &token.clone().as_str()).await?;
+                // R2：token 缓存带 TTL，与 access 过期对齐，避免缓存键永生
+                let ttl_secs = permission_cache_service::get_access_token_expire_secs().await;
+                CONTEXT.cache_service.set_string_ex(&format!("user_{}", user_info.id.to_string().as_str()), &token.clone().as_str(), Some(Duration::from_secs(ttl_secs))).await?;
             }
 
             // v1.2: 同步写入 DB session 表（mem 模式重启后降级验证用）
@@ -191,8 +209,9 @@ pub async fn post_login(state: web::Data<AppState>,request: HttpRequest, item: w
                     log::warn!("[登录] 清理旧 DB session 失败 user_id={}: {}", user_info.id, e);
                 }
             }
+            // R1 双时间拆参：expire_time=access_expire_secs（与 JWT exp 对齐）、refresh_expire_time=session_expire_secs（滑动续期基准）
             if let Err(e) = session_service::get_session_store()
-                .create_session(&db, user_info.id, &token, &refresh_token_hash, &oper_ip.clone().unwrap_or_default(), session_expire_secs as i64)
+                .create_session(&db, user_info.id, &token, &refresh_token_hash, &oper_ip.clone().unwrap_or_default(), access_expire_secs as i64, session_expire_secs as i64)
                 .await
             {
                 log::warn!("[登录] 写入 DB session 失败 user_id={}: {}", user_info.id, e);
@@ -387,7 +406,23 @@ pub async fn admin_batch_delete(state: web::Data<AppState>, item: web::Json<Bath
             return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")));
         }
 
+        // P1-2: 物理删除前采集受影响用户及其上级链（删除后行不可查，无法回溯）
+        let ids_num: Vec<i64> = ids_vec.iter()
+            .filter_map(|s| s.as_deref().and_then(|t| t.parse::<i64>().ok()))
+            .collect();
+        let affected = permission_cache_service::collect_report_line_affected_ids(db, &ids_num).await;
+
         let result = admin_service::batch_delete_by_ids(&db, &ids_vec).await;
+        // P1-2: 删除成功后统一清除受影响用户的汇报线缓存
+        if result.is_ok() {
+            permission_cache_service::invalidate_report_line_caches(&affected).await;
+            // R3(补充)：用户删除属"全端下线"场景——先删存储层会话（防 DB 降级复活），
+            // 再清缓存 + 断 WS。否则被删用户旧 token 在权限缓存 TTL 内仍可通过校验访问接口，
+            // 且 mxx_system_session 残留行要等 R5 每日清理才消失
+            for id in ids_num {
+                permission_cache_service::revoke_user_session(&db, id).await;
+            }
+        }
         Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
     } else {
         Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "删除的ID不能为空", "local")))
@@ -402,21 +437,66 @@ pub async fn admin_soft_delete(state: web::Data<AppState>, path: web::Path<i64>)
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "不能删除超级管理员账户", "local")));
     }
     let result = admin_service::soft_delete_by_id(&db, id).await;
+    // P1-2: 软删除行保留，直接沿该用户上级链回溯清除汇报线缓存
+    if result.is_ok() {
+        permission_cache_service::invalidate_report_line_upchain(db, id).await;
+        // R3(补充)：软删除同样属"全端下线"——deleted=1 后用户行仍在、status 可能仍为 1，
+        // 若不删会话行 + 清缓存，user_type=1 类型用户经 is_admin 短路仍可持续获得全量权限
+        permission_cache_service::revoke_user_session(db, id).await;
+    }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
-pub async fn update_user_role(state: web::Data<AppState>, item: web::Json<UpdateAdminRoleRequest>) -> Result<HttpResponse> {
+pub async fn update_user_role(state: web::Data<AppState>, req: HttpRequest, item: web::Json<UpdateAdminRoleRequest>) -> Result<HttpResponse> {
     if is_demo_mode() {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "演示站模式下禁止修改用户角色", "local")));
     }
     let db = &state.db;
     let user_role = item.0;
     let admin_id = user_role.admin_id;
+
+    // P0-3: 变更前取用户名与角色快照，用于角色分配变更审计摘要
+    let before_roles: Vec<String> = role_service::select_by_admin_id(&db, &admin_id)
+        .await
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|r| r.role_name.clone())
+        .collect();
+    let user_name = admin_service::get_by_detail(&db, &admin_id)
+        .await
+        .ok()
+        .and_then(|a| a.user_name)
+        .unwrap_or_else(|| format!("#{}", admin_id.unwrap_or_default()));
+
     let result = role_service::batch_update_role(&db, &Some(user_role.role_ids), &admin_id).await;
     // v2.0: 用户角色变更后，清除该用户的权限缓存
     if result.is_ok() {
         if let Some(uid) = admin_id {
             permission_cache_service::invalidate_by_user_id(uid).await;
+            // P0-3: 角色分配变更审计摘要（保存成功才记录，复查 DB 为准）
+            let after_roles: Vec<String> = role_service::select_by_admin_id(&db, &admin_id)
+                .await
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|r| r.role_name.clone())
+                .collect();
+            let summary = format!(
+                "用户[{}] 角色: [{}] → [{}]",
+                user_name,
+                before_roles.join(", "),
+                after_roles.join(", ")
+            );
+            audit_service::record(
+                db,
+                &req,
+                "auth",
+                "grant",
+                "admin",
+                uid,
+                summary,
+                audit_service::snap(vec![("role_names", serde_json::json!(before_roles))]),
+                audit_service::snap(vec![("role_names", serde_json::json!(after_roles))]),
+            ).await;
         }
     }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
@@ -454,16 +534,35 @@ pub async fn admin_update(state: web::Data<AppState>, item: web::Json<AdminUpdat
     if result.id.unwrap_or_default() == 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "用户信息不存在", "local")));
     }
+    // 登录名创建后不可修改：提交值与原值（归一化规则与 DTO 转换一致：trim + 去空格 + 小写）不一致时拒绝，
+    // 防止 API 直调绕过前端锁定；避免换登录账号导致审计 create_by 快照断裂、JWT 内 username 短期失真
+    if let Some(ref input_name) = item.user_name {
+        let input_norm = input_name.trim().replace(' ', "").to_lowercase();
+        let old_norm = result.user_name.clone().unwrap_or_default().trim().replace(' ', "").to_lowercase();
+        if !old_norm.is_empty() && input_norm != old_norm {
+            return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "登录名创建后不可修改", "local")));
+        }
+    }
+    // P1-2: 记录变更前的直属上级，用于清除旧上级链的汇报线缓存
+    let old_manager_id = result.direct_manager_id;
     let result = admin_service::update_admin(&db, &item).await;
     // v2.0: 用户信息变更后清除缓存
     if result.is_ok() {
         if let Some(uid) = item.id {
             if item.status == Some(0) {
-                // 用户被禁用：清除Token + 权限缓存，立即踢下线
-                permission_cache_service::invalidate_user_session(uid).await;
+                // R3：禁用后先删存储层会话（防 DB 降级复活），再清缓存 + 断 WS
+                permission_cache_service::revoke_user_session(db, uid).await;
             } else {
                 // 其他变更：仅清除权限缓存
                 permission_cache_service::invalidate_by_user_id(uid).await;
+            }
+            // P1-2: 沿新上级链回溯清除汇报线缓存；上级被调整（传正数设置或传 0 清除）时
+            // 同时清除旧上级链——旧上级的下属列表不再包含该用户
+            permission_cache_service::invalidate_report_line_upchain(db, uid).await;
+            if item.direct_manager_id.is_some() {
+                if let Some(old_mgr) = old_manager_id {
+                    permission_cache_service::invalidate_report_line_upchain(db, old_mgr).await;
+                }
             }
         }
     }
@@ -505,7 +604,8 @@ pub async fn update_password(
     let result = admin_service::update_user_password(&db, &item.user_id, &Some(hashed_password)).await;
     // v1.1: 改密成功后强制目标用户所有设备重新登录（防止密码泄露后旧 token 仍可用）
     if let Ok(_) = result {
-        permission_cache_service::invalidate_user_session(item.user_id.unwrap_or_default()).await;
+        // R3：改密后先删存储层会话（防 DB 降级复活），再清缓存 + 断 WS
+        permission_cache_service::revoke_user_session(db, item.user_id.unwrap_or_default()).await;
     }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
@@ -565,7 +665,8 @@ pub async fn update_my_password(state: web::Data<AppState>, req: HttpRequest, it
 
     // v1.1: 改密成功后强制自己所有设备重新登录（本请求已放行，下次请求即 401）
     if let Ok(_) = result {
-        permission_cache_service::invalidate_user_session(admin.id).await;
+        // R3：改密后先删存储层会话（防 DB 降级复活），再清缓存 + 断 WS
+        permission_cache_service::revoke_user_session(db, admin.id).await;
     }
 
     match result {
@@ -581,7 +682,7 @@ pub async fn kick_offline(
     state: web::Data<AppState>,
     path: web::Path<i64>,
 ) -> Result<HttpResponse> {
-    let _db = &state.db;
+    let db = &state.db;
     let user_id = path.into_inner();
 
     // 不能踢超级管理员
@@ -589,8 +690,8 @@ pub async fn kick_offline(
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "不能踢超级管理员下线", "local")));
     }
 
-    // 清除该用户所有缓存（token + 权限 + 多设备集合）并断开 WebSocket
-    permission_cache_service::invalidate_user_session(user_id).await;
+    // R3：先删存储层会话（防 DB 降级复活），再清缓存（token + 权限 + 多设备集合）并断开 WebSocket
+    permission_cache_service::revoke_user_session(db, user_id).await;
 
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("已强制下线".to_string(), "local")))
 }
@@ -611,6 +712,10 @@ pub async fn audit_user(state: web::Data<AppState>, path: web::Path<i64>, item: 
     let result = admin_service::update_audit_status(db, user_id, audit_status).await;
     match result {
         Ok(_) => {
+            // P1-2: 审核通过（启用）使用户进入上级的下属可见范围，回溯清除上级链汇报线缓存
+            if audit_status == 1 {
+                permission_cache_service::invalidate_report_line_upchain(db, user_id).await;
+            }
             let msg = if audit_status == 1 { "审核已通过，用户已启用" } else { "已拒绝" };
             Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success(msg.to_string(), "local")))
         }
@@ -686,10 +791,15 @@ pub async fn update_admin_status(state: web::Data<AppState>, item: web::Json<Upd
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "超级管理员不能禁用", "local")))
     }
     let result = admin_service::update_user_status(&db, &admin_status).await;
-    // v1.1: 禁用用户（status=0）时即时清理会话 + 断开 WebSocket，启用则无需处理
+    // v1.1: 禁用用户（status=0）时即时清理会话 + 断开 WebSocket
     if let Ok(_) = result {
         if admin_status.status.unwrap_or(1) == 0 {
-            permission_cache_service::invalidate_user_session(admin_status.id.unwrap_or_default()).await;
+            // R3 双删：禁用即踢下线，连同存储层会话行一并删除
+            permission_cache_service::revoke_user_session(db, admin_status.id.unwrap_or_default()).await;
+        }
+        // P1-2: 停使用户从上级下属范围消失、启用使其重新进入，均需回溯清除上级链汇报线缓存
+        if let Some(uid) = admin_status.id {
+            permission_cache_service::invalidate_report_line_upchain(db, uid).await;
         }
     }
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
@@ -719,6 +829,19 @@ pub async fn get_user_detail(state: web::Data<AppState>, item: web::Path<InfoId>
         .collect();
     admin_detail.role_ids = Some(role_data);
     admin_detail.role_names = Some(role_name_data);
+
+    // 查询用户关联的权限集（RBAC 附加授权，与角色独立叠加）
+    let result_perm_sets = perm_set_service::select_by_admin_id(&db, &admin_detail.id).await.unwrap_or_default();
+    let perm_set_data: Vec<Option<String>> = result_perm_sets
+        .iter()
+        .map(|p| p.id.map(|id| id.to_string()))
+        .collect();
+    let perm_set_name_data: Vec<Option<String>> = result_perm_sets
+        .iter()
+        .map(|p| p.perm_set_name.clone())
+        .collect();
+    admin_detail.perm_set_ids = Some(perm_set_data);
+    admin_detail.perm_set_names = Some(perm_set_name_data);
 
     // 查询用户关联的部门
     let result_depts = dept_service::select_by_admin_id(&db, &admin_detail.id).await.unwrap_or_default();
@@ -764,7 +887,11 @@ pub async fn get_user_info(state: web::Data<AppState>,req: HttpRequest, ) -> Res
     let permissions: Vec<String> = find_user_role_keys(&db, &is_admin, &Some(user_info.id)).await?;
     //查询用户所在权限组
     let roles: Vec<String> = role_service::user_by_role_group(&db, &Some(user_info.id)).await?;
-    //查询用户数据权限范围（取最小值，数值越小权限越大）
+    // 查询用户数据权限范围（取最小值，数值越小权限越大）
+    // 【v2.0 口径说明 · 防御注释】此 min() 仅为前端展示口径，不是数据权限真源：
+    // 后端行级过滤以 data_scope_service::get_accessible_user_ids 的多角色并集为唯一真源。
+    // 两者在 Tab 粒度严格等效的前提是五档嵌套（1⊃4⊃3⊃5）且 scope=2 为集合并集不破坏 Tab 判定
+    // （逐档推演见 docs/权限体系优化方案.md 附录 B）；若未来新增非嵌套档位，需重新评估等效性。
     let role_details = role_service::select_by_admin_id(&db, &Some(user_info.id)).await?;
     let data_scope = role_details.iter()
         .filter_map(|r| r.data_scope)
@@ -831,6 +958,39 @@ pub async fn update_avatar(state: web::Data<AppState>, req: HttpRequest, item: w
     match AdminModel::update_avatar(db, user_id, &avatar).await {
         Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(avatar, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("更新头像失败: {}", e), "local"))),
+    }
+}
+
+/// # 上传当前登录用户头像（multipart，仅登录即可）
+///
+/// 供“个人中心-更换头像”使用。通用附件上传接口要求 `attachment:file:upload` 权限，
+/// 岗位角色（如库管）通常没有该权限导致无法更换头像。本接口：
+///
+/// - 无需权限码（仅操作本人数据，登录即可）
+/// - 强制 entity_type=avatar，走覆盖式上传（同一用户仅保留一条头像记录，物理路径稳定）
+/// - 返回 JSON（与附件上传接口结构一致：{ code, msg, data: { url, ... } }）
+pub async fn upload_my_avatar(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    MultipartForm(mut form): MultipartForm<ImageFormRequest>,
+) -> Result<HttpResponse> {
+    if is_demo_mode() {
+        return Ok(HttpResponse::Ok().json(serde_json::json!({ "code": 400, "msg": "演示站模式下禁止修改头像", "data": null })));
+    }
+    let admin_token: JWTToken = get_user(&req).unwrap_or_default();
+    let user_id = match admin_token.id {
+        Some(id) if id > 0 => id,
+        _ => return Ok(HttpResponse::Ok().json(serde_json::json!({ "code": 400, "msg": "用户未登录或token无效", "data": null }))),
+    };
+
+    // 忽略客户端传入的 entity_type/entity_id，强制走头像覆盖上传分支
+    form.entity_type = Some(Text("avatar".to_string()));
+    form.entity_id = None;
+
+    let db = &state.db;
+    match attachment_service::upload_file(db, form, Some(user_id)).await {
+        Ok(data) => Ok(HttpResponse::Ok().json(serde_json::json!({ "code": 200, "msg": "success", "data": data }))),
+        Err(e) => Ok(HttpResponse::Ok().json(serde_json::json!({ "code": 400, "msg": e.to_string(), "data": null }))),
     }
 }
 
@@ -940,7 +1100,9 @@ pub async fn logout(state: web::Data<AppState>, request: HttpRequest, item: Opti
             let before = tokens.len();
             tokens.retain(|t| t != &token);
             if tokens.len() != before {
-                let _ = CONTEXT.cache_service.set_json(&key, &tokens).await;
+                // R2：登出回写集合带 TTL，与 access 过期对齐，避免回写造成集合键永生
+                let ttl = permission_cache_service::get_access_token_expire_secs().await;
+                let _ = CONTEXT.cache_service.set_json_ex(&key, &tokens, Some(Duration::from_secs(ttl))).await;
             }
         } else {
             let _ = CONTEXT.cache_service.del(&format!("user_{}", user_id)).await;
@@ -954,7 +1116,7 @@ pub async fn logout(state: web::Data<AppState>, request: HttpRequest, item: Opti
 ///
 /// 流程：refreshToken 哈希定位会话 → 校验用户状态 → 旋转签发
 /// （新 accessToken + 新 refreshToken，旧的立即作废）→ 同步缓存 → 滑动续期
-pub async fn post_refresh(state: web::Data<AppState>, item: web::Json<RefreshTokenRequest>) -> Result<HttpResponse> {
+pub async fn post_refresh(state: web::Data<AppState>, req: HttpRequest, item: web::Json<RefreshTokenRequest>) -> Result<HttpResponse> {
     let db = &state.db;
     let refresh_plain = item.refresh_token.clone().unwrap_or_default();
 
@@ -970,6 +1132,17 @@ pub async fn post_refresh(state: web::Data<AppState>, item: web::Json<RefreshTok
     let info = match store.find_valid_by_refresh(db, &refresh_hash).await {
         Ok(Some(info)) => info,
         _ => {
+            // P0-2: 复用攻击检测——宽限窗内命中已旋转作废的旧凭据，判定凭据泄露，
+            // 全端撤销（Token + 权限/数据权限缓存 + WS 断开）并记录告警日志
+            if permission_cache_service::is_rt_reuse_detect_enabled().await {
+                if let Some(reuse_user_id) = permission_cache_service::find_rotated_refresh_user(&refresh_hash).await {
+                    let client_ip = req.connection_info().realip_remote_addr().unwrap_or("unknown").to_string();
+                    log::error!("[刷新检测] 检测到 refreshToken 复用攻击（疑似凭据泄露）user_id={}, ip={}，已撤销该用户全部会话", reuse_user_id, client_ip);
+                    // R3：凭据泄露全端撤销——先删存储层会话（防 DB 降级复活），再清缓存 + 断 WS
+                    permission_cache_service::revoke_user_session(db, reuse_user_id).await;
+                    return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "检测到刷新凭据异常使用，已下线全部设备，请重新登录", "local")));
+                }
+            }
             return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "登录已过期，请重新登录", "local")));
         }
     };
@@ -985,6 +1158,12 @@ pub async fn post_refresh(state: web::Data<AppState>, item: web::Json<RefreshTok
     if admin.status != Some(1) {
         let _ = store.remove_by_refresh(db, &refresh_hash).await;
         return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "账号已被禁用", "local")));
+    }
+    // R3(补充)：软删除（deleted=1）用户不得续期——get_by_detail 不过滤 deleted，
+    // 仅校验 status 会让被删除账号持续旋转刷新直至会话被清
+    if admin.deleted == Some(1) {
+        let _ = store.remove_by_refresh(db, &refresh_hash).await;
+        return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "账号已被删除", "local")));
     }
     if let Ok(flag) = CONTEXT.cache_service.get_string(&format!("user_disabled:{}", info.user_id)).await {
         if !flag.is_empty() {
@@ -1009,14 +1188,18 @@ pub async fn post_refresh(state: web::Data<AppState>, item: web::Json<RefreshTok
         }
     };
 
-    // 5) 旋转会话（旧 refreshToken 立即作废）
+    // 5) 旋转会话（旧 refreshToken 立即作废；R1 双时间：access 窗口与 refresh 窗口分列）
     if let Err(e) = store
-        .rotate_session(db, &info, &refresh_hash, &new_access, &new_refresh_hash, session_expire_secs as i64)
+        .rotate_session(db, &info, &refresh_hash, &new_access, &new_refresh_hash, access_expire_secs as i64, session_expire_secs as i64)
         .await
     {
         log::error!("[刷新] 旋转会话失败 user_id={}: {}", info.user_id, e);
-        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(500, "刷新会话失败，请重新登录", "local")));
+        // R7：旧凭据已被并发消费（乐观锁未命中）与凭据失效同语义，返回 401 让客户端重新登录
+        return Ok(HttpResponse::Unauthorized().content_type(MPACK).body(MetaResp::<String>::fail(401, "登录已过期，请重新登录", "local")));
     }
+
+    // P0-2: 记录旋转作废的旧凭据哈希（宽限窗 600s 内重现即判复用攻击）
+    permission_cache_service::mark_rotated_refresh_token(&refresh_hash, info.user_id).await;
 
     // 6) 同步缓存（单设备覆盖；多设备集合内替换）
     let multi = permission_cache_service::is_multi_device_mode().await;
@@ -1025,9 +1208,10 @@ pub async fn post_refresh(state: web::Data<AppState>, item: web::Json<RefreshTok
         let mut tokens: Vec<String> = CONTEXT.cache_service.get_json(&key).await.unwrap_or_default();
         tokens.retain(|t| t != &info.old_token);
         tokens.push(new_access.clone());
-        CONTEXT.cache_service.set_json(&key, &tokens).await?;
+        // R2：刷新后回写集合 TTL 与新 accessToken 有效期对齐
+        CONTEXT.cache_service.set_json_ex(&key, &tokens, Some(Duration::from_secs(access_expire_secs))).await?;
     } else {
-        CONTEXT.cache_service.set_string(&format!("user_{}", info.user_id), &new_access).await?;
+        CONTEXT.cache_service.set_string_ex(&format!("user_{}", info.user_id), &new_access, Some(Duration::from_secs(access_expire_secs))).await?;
     }
 
     // 7) 返回新凭据（role 供前端刷新权限码缓存）
@@ -1116,6 +1300,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/userinfo", web::get().to(get_user_info))
             // PUT /admin/avatar - 修改头像
             .route("/avatar", web::put().to(update_avatar))
+            // POST /admin/avatar/upload - 上传当前登录用户头像（仅登录即可，无权限码要求）
+            .route("/avatar/upload", web::post().to(upload_my_avatar))
             // GET /admin/options - 用户下拉选项
             .route("/options", web::get().to(admin_options))
             // GET /admin/list - 用户列表（带权限校验）

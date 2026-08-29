@@ -27,6 +27,8 @@ import {
   getWarehouseListApi,
   updateQuotationApi,
 } from '#/api';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+import { formatQty, useProductUnits } from '#/components/UnitSelect';
 
 import OpportunitySelectModal from '../../crm/components/OpportunitySelectModal.vue';
 import ProductSelectModal from '../components/ProductSelectModal.vue';
@@ -37,6 +39,10 @@ const drawerData = ref<{
   needRefresh?: boolean;
   row?: any;
 }>({ create: true });
+// 自定义字段：schema 适配器（表单尾部注入 + 提交剥离合并 customFields）
+const fieldSchema = useFieldSchema('sale_quotation');
+// 自定义字段回显缓存：列表行 customFields 先兜底，详情接口加载后覆盖
+const pendingCustomFields = ref<Record<string, any>>({});
 const isEdit = computed(() => !drawerData.value.create);
 const isReadOnly = ref(false);
 const activeTab = ref('basic');
@@ -317,6 +323,11 @@ interface QuotationItem {
 
 let itemKeyCounter = 0;
 const quotationItems = ref<QuotationItem[]>([]);
+const { ensureUnits, precisionOf } = useProductUnits();
+
+function qtyStep(unit?: null | string) {
+  return precisionOf(unit) === 0 ? 1 : 0.01;
+}
 
 function removeItem(index: number) {
   quotationItems.value.splice(index, 1);
@@ -376,13 +387,7 @@ const itemColumns = [
   },
   { title: '产品信息', dataIndex: 'productName', key: 'product', width: 240 },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 110 },
-  {
-    title: '单位',
-    dataIndex: 'unit',
-    key: 'unit',
-    width: 55,
-    align: 'center' as const,
-  },
+  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
   {
     title: '单价(只读)',
     dataIndex: 'unitPrice',
@@ -390,7 +395,13 @@ const itemColumns = [
     width: 95,
     align: 'right' as const,
   },
-  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 55,
+    align: 'center' as const,
+  },
   {
     title: '单重(kg)',
     dataIndex: 'weight',
@@ -706,6 +717,13 @@ async function loadDetail(id: number) {
     }
     // 等待下拉选项渲染完成后再设置表单值，确保Select能匹配到label
     await nextTick();
+    // 动态字段回显：列表行兜底 + 详情接口 customFields 覆盖，展开进表单值
+    const customFieldsData: Record<string, any> = {
+      ...pendingCustomFields.value,
+    };
+    if (data.customFields && typeof data.customFields === 'object') {
+      Object.assign(customFieldsData, data.customFields);
+    }
     // 负责人：新建时由客户/商机的 assignedTo 带出；编辑时回显已有负责人，状态由审批流控制，不在表单中展示
     basicFormApi.setValues({
       title: data.title,
@@ -723,6 +741,7 @@ async function loadDetail(id: number) {
         data.ownerUserId === null || data.ownerUserId === undefined
           ? undefined
           : Number(data.ownerUserId),
+      ...customFieldsData,
     });
     tradeFormApi.setValues({
       paymentTerms: data.paymentTerms,
@@ -819,6 +838,15 @@ async function handleSubmit() {
     tradeValues = {};
   }
 
+  // 自定义字段剥离：动态键从标准字段剔除，统一并入 customFields 提交
+  // （空值归一为 null=清空语义；停用键不提交，由后端合并保留存量）
+  const customFields = fieldSchema.buildSubmitPayload(values);
+  const dynamicKeys = new Set(fieldSchema.items.value.map((i) => i.fieldKey));
+  const standardValues: Record<string, any> = {};
+  for (const [key, val] of Object.entries(values)) {
+    if (!dynamicKeys.has(key)) standardValues[key] = val;
+  }
+
   const toNumber = (v: any) =>
     v === null || v === undefined || v === '' ? undefined : Number(v);
 
@@ -842,7 +870,7 @@ async function handleSubmit() {
   let data;
   try {
     data = {
-      ...values,
+      ...standardValues,
       ...(tradeValues as any),
       customerId: custId,
       contactId: contId,
@@ -875,6 +903,10 @@ async function handleSubmit() {
       taxAmount: Number(summary.value.tax || 0),
       grandTotal: Number(summary.value.grand || 0),
     };
+    // 仅在存在启用动态字段时携带，避免空对象无谓写入
+    if (Object.keys(customFields).length > 0) {
+      data.customFields = customFields;
+    }
   } catch (error) {
     console.error('[报价单提交] 5. 构造提交数据失败:', error);
     message.error('构造提交数据失败');
@@ -923,13 +955,32 @@ const [Drawer, drawerApi] = useVbenDrawer({
     overallDiscountRate.value = 100;
     customerOptions.value = [];
     contactOptions.value = [];
+    // 清空上次的动态字段回显缓存，避免串数据
+    pendingCustomFields.value = {};
+    // 动态字段注入：拉取 schema 并幂等追加到表单尾部
+    // （须先于 resetForm/setValues 执行：vben setValues 默认过滤 schema 外字段）
+    await fieldSchema.loadSchema();
+    basicFormApi.setState((prev: any) => {
+      const dynamicKeys = new Set(
+        fieldSchema.items.value.map((i) => i.fieldKey),
+      );
+      const base = (prev.schema ?? []).filter(
+        (s: any) => !dynamicKeys.has(s.fieldName),
+      );
+      return { schema: [...base, ...fieldSchema.toFormSchema({ weakRequired: !drawerData.value.create })] };
+    });
     basicFormApi.resetForm();
     tradeFormApi.resetForm();
     // 加载发货仓库列表（供选品时参考库存，可选）
     await loadWarehouseList();
+    ensureUnits();
 
     if (!drawerData.value.create && drawerData.value.row?.id) {
       // 编辑模式：加载报价单详情
+      // 动态字段回显兜底：先保存列表行 customFields（详情加载成功后会被最新值覆盖）
+      const rowCf = drawerData.value.row?.customFields;
+      pendingCustomFields.value =
+        rowCf && typeof rowCf === 'object' ? { ...rowCf } : {};
       loadDetail(drawerData.value.row.id);
     } else if (drawerData.value.fromOpportunity) {
       // 从商机转入：预填商机、客户、联系人
@@ -1066,12 +1117,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
                   v-if="!isReadOnly"
                   v-model:value="record.quantity"
                   :min="1"
-                  :precision="2"
+                  :precision="precisionOf(record.unit)"
+                  :step="qtyStep(record.unit)"
                   style="width: 80px"
                   size="small"
                   @change="() => recalculateItem(index)"
                 />
-                <span v-else class="text-right">{{ record.quantity }}</span>
+                <span v-else class="text-right">{{ formatQty(record.quantity, record.unit) }}</span>
               </template>
               <template v-else-if="column.key === 'discountRate'">
                 <InputNumber

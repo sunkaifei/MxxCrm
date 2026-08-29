@@ -91,6 +91,8 @@ pub struct SafetyStockRequest {
     pub warehouse_id: i64,
     /// 产品ID
     pub product_id: i64,
+    /// SKU ID（NULL表示单规格产品）
+    pub sku_id: Option<i64>,
     /// 最低库存警戒线
     pub alert_min_quantity: Option<Decimal>,
     /// 最高库存警戒线
@@ -138,6 +140,12 @@ pub struct StockWarningVO {
     pub warehouse_id: Option<i64>,
     /// 仓库名称
     pub warehouse_name: Option<String>,
+    /// SKU ID（NULL表示单规格产品）
+    pub sku_id: Option<i64>,
+    /// SKU编码
+    pub sku_code: Option<String>,
+    /// 规格描述（如 "颜色:红色 尺寸:XL"）
+    pub spec_text: Option<String>,
     /// 库存数量
     pub quantity: Option<Decimal>,
     /// 可用数量

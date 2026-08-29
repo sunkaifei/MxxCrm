@@ -25,6 +25,7 @@ use crate::modules::sale::model::quotation::{
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
+use crate::modules::system::service::field_def_service;
 use crate::modules::system::service::role_service;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -75,6 +76,8 @@ pub async fn insert(db: &DbConn, form_data: &QuotationSaveRequest, created_by: S
     };
 
     let mut dto: QuotationSaveDTO = form_data.clone().into();
+    // 2.5 自定义字段强校验（P1-8/P1-11：未知/停用键、类型不符、必填缺失 400；归一化+合并结果直接落在 dto.custom_fields）
+    field_def_service::validate_custom_fields(&txn, "sale_quotation", &mut dto.custom_fields, created_by.parse::<i64>().unwrap_or(0), true, None).await?;
     dto.quotation_no = Some(quotation_no);
     dto.status = Some(1);
     dto.approval_status = Some(1);
@@ -144,6 +147,8 @@ pub async fn update(db: &DbConn, form_data: &QuotationUpdateRequest, updated_by:
     }
 
     let mut dto: QuotationSaveDTO = form_data.clone().into();
+    // 3.5 自定义字段强校验（P1-8/P1-11；编辑不触发必填强约束 7.4 规则 5；校验器原地归一化并按 key 合并旧值，直接落在 dto.custom_fields）
+    field_def_service::validate_custom_fields(&txn, "sale_quotation", &mut dto.custom_fields, updated_by.parse::<i64>().unwrap_or(0), false, existing.custom_fields.as_ref()).await?;
     dto.update_by = Some(updated_by.clone());
 
     // 编辑时保留原有负责人：前端表单已移除负责人字段，不覆盖已有值
@@ -542,6 +547,8 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
         auto_renew: None,
         create_by: Some(created_by_i64),
         update_by: None,
+        // 报价单转订单：跨模块字段定义不同，不继承 custom_fields
+        custom_fields: None,
     };
 
     let order_id = OrderModel::insert(&txn, &order_dto).await?;
@@ -657,7 +664,7 @@ async fn freeze_stock_for_quotation(db: &DbConn, quotation_id: i64, operator_id:
         if let Some(s) = stock_record {
             let warehouse_id = s.warehouse_id.unwrap_or(0);
             let reason = format!("报价单 {} 审批通过，预留库存", quotation_no);
-            freeze_service::freeze_stock(db, product_id, warehouse_id, quantity, Some(reason), operator_id).await?;
+            freeze_service::freeze_stock(db, product_id, s.sku_id, warehouse_id, quantity, Some(reason), operator_id).await?;
         }
     }
     Ok(())
@@ -701,7 +708,7 @@ async fn unfreeze_stock_for_quotation(db: &DbConn, quotation_id: i64, operator_i
             let fq = record.freeze_quantity.unwrap_or(Decimal::from(0));
             if fq > Decimal::from(0) {
                 let wid = record.warehouse_id.unwrap_or(0);
-                let _ = freeze_service::unfreeze_stock(db, product_id, wid, fq.min(quantity), operator_id).await;
+                let _ = freeze_service::unfreeze_stock(db, product_id, record.sku_id, wid, fq.min(quantity), operator_id).await;
             }
         }
     }

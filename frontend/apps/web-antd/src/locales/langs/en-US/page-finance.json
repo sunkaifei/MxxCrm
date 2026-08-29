@@ -138,6 +138,27 @@
         "designatedPost": "Specific Position",
         "designatedMember": "Specific Employee"
       },
+      "dimension": {
+        "productLine": {
+          "standard": "Standard Product Line",
+          "premium": "Premium Product Line",
+          "enterprise": "Enterprise Product Line",
+          "custom": "Custom Product Line"
+        },
+        "region": {
+          "north": "North China",
+          "east": "East China",
+          "south": "South China",
+          "west": "West",
+          "central": "Central China"
+        },
+        "customerType": {
+          "vip": "VIP Customer",
+          "strategy": "Strategic Customer",
+          "normal": "Regular Customer",
+          "new": "New Customer"
+        }
+      },
       "calcBaseType": {
         "personalMonthly": "Personal Monthly",
         "teamMonthly": "Team Monthly",
@@ -343,6 +364,23 @@
       "detail": {
         "salaryInfo": "Salary Info",
         "commissionDetail": "Commission Detail",
+        "itemValues": "Custom Item Details",
+        "taxProcess": "Tax Calculation Process",
+        "tax": {
+          "monthlyIncome": "Monthly Income",
+          "cumulativeIncome": "Cumulative Income",
+          "cumulativeDeduction": "Cumulative Deduction",
+          "applicableRate": "Applicable Rate",
+          "quickDeduction": "Quick Deduction",
+          "cumulativeTaxShould": "Cumulative Tax Due",
+          "cumulativeTaxPaid": "Tax Prepaid",
+          "monthlyTax": "Tax This Month",
+          "noData": "No tax detail available"
+        },
+        "drawerTitle": "Salary Detail",
+        "recalcButton": "Recalculate",
+        "recalcConfirmTitle": "Confirm recalculation?",
+        "recalcConfirmContent": "This will delete the employee's pending salary record for this month along with its commission, tax and custom-item details, roll back the cumulative tax, and regenerate based on the latest configuration. Continue?",
         "adjustPerformance": "Adjust Performance/Deduction",
         "performanceBonus": "Performance Bonus",
         "deductionAmount": "Deduction Amount",
@@ -375,6 +413,8 @@
       "column": {
         "employeeName": "Employee",
         "department": "Department",
+        "insuranceCity": "Insurance City",
+        "insuranceCityMissing": "Not Set",
         "hireDate": "Hire Date",
         "yearMonth": "Period",
         "baseSalary": "Base Salary",
@@ -412,7 +452,38 @@
         "approve": "Approve",
         "adjust": "Adjust",
         "pay": "Pay",
-        "handleAppeal": "Handle Appeal"
+        "handleAppeal": "Handle Appeal",
+        "itemValues": "Enter Items"
+      },
+      "itemValues": {
+        "title": "Enter Items - {name} ({year}/{month})",
+        "tip": "Only enabled custom salary items in manual-entry mode are listed. Enter 0 to clear an item; salary is recalculated automatically after saving.",
+        "column": {
+          "itemName": "Item Name",
+          "itemType": "Type",
+          "pretax": "Pre-tax/Post-tax",
+          "taxable": "Taxable",
+          "amount": "Amount"
+        },
+        "type": {
+          "addition": "Addition",
+          "deduction": "Deduction"
+        },
+        "pretax": {
+          "before": "Pre-tax",
+          "after": "Post-tax"
+        },
+        "taxable": {
+          "yes": "Taxable",
+          "no": "Non-taxable"
+        },
+        "disabled": "Disabled",
+        "empty": "No custom salary items available for entry",
+        "message": {
+          "amountInvalid": "Please enter a valid amount (0 or positive)",
+          "saveSuccess": "Saved successfully, salary recalculated",
+          "saveFailed": "Save failed"
+        }
       },
       "summary": {
         "title": "Salary Summary - {year}/{month}",
@@ -480,11 +551,10 @@
         "handleRemark": "Remark",
         "approveRecalcTitle": "Approve Recalculation",
         "approveRecalcContent": "Approving will trigger recalculation for this employee. Existing records will be overwritten. Confirm?",
-        "approveRecalcRemark": "Finance approved recalculation",
         "approveRecalcSuccess": "Recalculation approved. Salary will be recalculated.",
+        "appealRemarkPlaceholder": "Enter your comment (optional)",
         "rejectAppealTitle": "Reject Request",
         "rejectAppealContent": "After rejection, salary will be paid per original calculation. Confirm?",
-        "rejectAppealRemark": "Finance rejected recalculation request",
         "rejectAppealSuccess": "Recalculation request rejected",
         "handleFailed": "Handle failed",
         "submitApprovalTitle": "Submit Salary Approval",
@@ -501,6 +571,7 @@
         "confirmSuccess": "Confirmed successfully",
         "noSelectedRows": "Please select records",
         "batchApproveSelectRequired": "Please select salary records to approve",
+        "batchApproveNoPending": "No pending-approval records in the selection",
         "batchApproveSuccess": "Batch approve succeeded",
         "batchApproveFailed": "Batch approve failed",
         "batchPaySelectRequired": "Please select salary records to pay",
@@ -510,8 +581,10 @@
         "recalcSubmitted": "Recalculation request submitted. Please wait for finance review.",
         "submitFailed": "Submit failed",
         "appealHandled": "Appeal handled",
-        "adjustSuccess": "Adjusted successfully",
-        "adjustFailed": "Adjust failed"
+        "adjustSuccess": "Adjustment successful",
+        "adjustFailed": "Adjust failed",
+        "recalcSuccess": "Recalculated successfully",
+        "recalcFailed": "Recalculation failed"
       },
       "config": {
         "title": "Base Salary Config",
@@ -548,6 +621,7 @@
         "message": {
           "employeeIdRequired": "Please enter employee ID",
           "baseSalaryNegative": "Base salary cannot be negative",
+          "employeeConfigured": "This employee already has a config for the selected period. Please edit the existing entry instead.",
           "deleteTitle": "Delete Base Salary Config",
           "deleteContent": "Confirm delete this config? This cannot be undone."
         }
@@ -819,9 +893,43 @@
         "occurTime": "Occur Time",
         "remark": "Remark",
         "improveBaseInfo": "Please complete basic info",
+        "improveRequired": "Please complete required fields",
         "updateSuccess": "Updated successfully",
         "createSuccess": "Created successfully",
-        "totalItems": "{count} items, total:"
+        "totalItems": "{count} items, total:",
+        "applyDate": "Apply Date",
+        "applyDatePlaceholder": "Select apply date",
+        "expenseTypePlaceholder": "Select expense type",
+        "itemDate": "Date",
+        "itemDatePlaceholder": "Select date",
+        "category": "Category",
+        "categoryPlaceholder": "Category",
+        "description": "Description",
+        "descriptionPlaceholder": "Description",
+        "amountPlaceholder": "Amount",
+        "addItem": "+ Add Item",
+        "upload": "Upload",
+        "clickUpload": "Click to upload",
+        "attachmentTip": "Upload attachments related to the expense request (multiple files supported)",
+        "noAttachment": "No attachments",
+        "detailTotal": "Items total:",
+        "readonlyMode": "Read-only Mode",
+        "editMode": "Edit Mode",
+        "readonly": "Read-only",
+        "editable": "Editable",
+        "relatedBusiness": "Related Business (Optional)",
+        "customer": "Customer",
+        "customerHash": "Customer #{id}",
+        "customerSelect": "Select customer",
+        "opportunity": "Opportunity",
+        "opportunityHash": "Opportunity #{id}",
+        "opportunitySelect": "Select opportunity",
+        "order": "Order",
+        "orderHash": "Order #{id}",
+        "orderSelect": "Select order",
+        "clear": "Clear",
+        "remarkPlaceholder": "Enter remark",
+        "rowAmountRequired": "Amount in row {index} must be greater than 0"
       },
       "message": {
         "selectToDelete": "Please select expense requests to delete",
@@ -981,13 +1089,23 @@
         "infantCare": "Infant Care",
         "seriousIllness": "Serious Illness",
         "otherDeduction": "Other Deduction",
-        "foreignerAllowance": "Foreigner Allowance"
+        "foreignerAllowance": "Foreigner Allowance",
+        "levelPlaceholder": "Enter level",
+        "maxAmountHintLabel": "Max Taxable Amount (empty = above)",
+        "maxAmountPlaceholder": "Leave empty for above",
+        "employeeIdPlaceholder": "Enter employee ID",
+        "taxThresholdUnitLabel": "Threshold (CNY/month)",
+        "specialDeductionUnitLabel": "Special Additional Deduction (CNY/month)",
+        "yearPlaceholder": "All years"
       },
       "message": {
         "loadFailed": "Load failed",
         "saveSuccess": "Saved successfully",
         "deleteSuccess": "Deleted successfully",
-        "deleteConfirm": "Delete this tax rate?"
+        "deleteConfirm": "Delete this tax rate?",
+        "levelRequired": "Please enter level",
+        "rateRange": "Rate must be between 0 and 100",
+        "employeeIdRequired": "Please enter employee ID"
       },
       "guide": {
         "title": "Tax Management Guide",
@@ -1033,6 +1151,10 @@
         "policy": "City Policy Library",
         "empConfig": "Employee Insurance Config"
       },
+      "coverage": {
+        "summary": "{total} employees in payroll: {configured} with manual insurance config, {inherited} inherited from work city policy",
+        "missingTip": "The following {n} employees have neither an insurance config nor a work city set, payroll calculation will be blocked. Please handle promptly:"
+      },
       "placeholder": {
         "allYears": "All Years"
       },
@@ -1067,13 +1189,34 @@
         "criticalIllness": "Critical Illness",
         "policyPeriod": "Effective Period",
         "policyStatus": "Status",
-        "levels": "Contribution Levels"
+        "levels": "Contribution Levels",
+        "source": "Source"
       },
       "status": {
         "notParticipated": "Not Participated",
         "participated": "Participated",
         "active": "Active",
         "inactive": "Inactive"
+      },
+      "source": {
+        "manual": "Manual",
+        "inherited": "From Profile"
+      },
+      "batchSet": {
+        "title": "Batch Set Insurance Scheme",
+        "button": "Batch Set",
+        "stepEmployees": "Step 1: Select Employees",
+        "searchEmployee": "Search employee name",
+        "selectedCount": "{n} selected",
+        "stepScheme": "Step 2: Choose Insurance Scheme",
+        "policy": "City Policy",
+        "level": "Contribution Level",
+        "preview": "The following scheme will be applied to {n} employees: {summary}",
+        "resultTitle": "Execution Result",
+        "doneMsg": "Batch set finished: {n} succeeded, {m} failed",
+        "noEmployee": "Please select employees first",
+        "noPolicy": "Please select a city policy",
+        "failReason": "Failure Reason"
       },
       "drawer": {
         "titlePolicyCreate": "Add City Policy",

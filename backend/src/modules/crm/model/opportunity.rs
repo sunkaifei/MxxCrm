@@ -486,6 +486,8 @@ pub struct OpportunityListVO {
     pub contact_id: Option<i64>,
     /// 联系人姓名
     pub contact_name: Option<String>,
+    /// 自定义字段（JSON格式）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 impl From<opportunity::Model> for OpportunityListVO {
@@ -510,6 +512,7 @@ impl From<opportunity::Model> for OpportunityListVO {
             quote_count: None,
             contact_id: item.contact_id,
             contact_name: None,
+            custom_fields: item.custom_fields,
         }
     }
 }
@@ -646,6 +649,11 @@ impl OpportunityModel {
             shipment_status: Set(req.shipment_status),
             payment_status: Set(req.payment_status),
             invoice_status: Set(req.invoice_status),
+            // 7.3 合并写：custom_fields 未提交时不动该列（防置 NULL 丢存量）；提交时由校验器按 key 与旧值合并
+            custom_fields: match req.custom_fields.clone() {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
             ..Default::default()
         };
 

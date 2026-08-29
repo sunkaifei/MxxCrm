@@ -947,6 +947,7 @@ async fn auto_create_return_inbound(
         total_qty += qty;
         InboundItemRequest {
             product_id: item.product_id.unwrap_or_default(),
+            sku_id: None,
             product_sku: None,
             quantity: qty,
             unit_price: item.unit_price,

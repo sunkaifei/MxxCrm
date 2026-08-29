@@ -14,6 +14,7 @@ import { formatDateTime } from '@vben/utils';
 import { Button, message, Modal, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { formatQty } from '#/components/UnitSelect';
 import { deleteShipmentApi, getShipmentListApi, signShipmentApi } from '#/api';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
@@ -198,6 +199,7 @@ const gridOptions: VxeGridProps = {
       field: 'totalQuantity',
       width: 100,
       align: 'right',
+      formatter: ({ cellValue }: any) => formatQty(cellValue),
     },
     {
       title: '发货状态',

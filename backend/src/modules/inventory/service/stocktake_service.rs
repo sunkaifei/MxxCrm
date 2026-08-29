@@ -11,11 +11,13 @@
 use sea_orm::*;
 use sea_orm::sea_query::Expr;
 use rust_decimal::Decimal;
+use std::collections::HashMap;
 use crate::core::errors::error::{Error, Result};
 use crate::modules::inventory::entity::{stocktake, stocktake_item, stock, warehouse};
 use crate::modules::inventory::entity::{inbound, inbound_item, outbound, outbound_item};
 use crate::modules::inventory::model::stocktake::*;
 use crate::modules::inventory::service::stock_engine;
+use crate::modules::product::entity::product as product_entity;
 use crate::modules::system::entity::admin;
 
 /// 生成盘点单号：PD + yyyyMMdd + 4位流水号
@@ -419,6 +421,7 @@ pub async fn complete(
                     let item_active = inbound_item::ActiveModel {
                         inbound_id: Set(Some(inbound_id)),
                         product_id: Set(Some(product_id)),
+                        sku_id: Set(item.sku_id),
                         product_sku: Set(item.product_sku.clone()),
                         quantity: Set(Some(quantity)),
                         deleted: Set(Some(0)),
@@ -427,10 +430,10 @@ pub async fn complete(
                     };
                     item_active.insert(txn).await?;
 
-                    stock_engine::increase_stock(txn, product_id, wid, quantity, None).await?;
+                    stock_engine::increase_stock(txn, product_id, item.sku_id, wid, quantity, None).await?;
                     let surplus_remark = format!("盘盈入库，盘点单：{}", stocktake_no_clone);
                     stock_engine::write_stock_log(
-                        txn, product_id, wid, None,
+                        txn, product_id, item.sku_id, wid, None,
                         "inbound", "check_surplus",
                         Some(inbound_id), Some(&inbound_no),
                         quantity, Some(updated_by),
@@ -487,6 +490,7 @@ pub async fn complete(
                     let item_active = outbound_item::ActiveModel {
                         outbound_id: Set(Some(outbound_id)),
                         product_id: Set(Some(product_id)),
+                        sku_id: Set(item.sku_id),
                         product_sku: Set(item.product_sku.clone()),
                         quantity: Set(Some(quantity)),
                         deleted: Set(Some(0)),
@@ -495,10 +499,10 @@ pub async fn complete(
                     };
                     item_active.insert(txn).await?;
 
-                    stock_engine::decrease_stock(txn, product_id, wid, quantity).await?;
+                    stock_engine::decrease_stock(txn, product_id, item.sku_id, wid, quantity).await?;
                     let shortage_remark = format!("盘亏出库，盘点单：{}", stocktake_no_clone);
                     stock_engine::write_stock_log(
-                        txn, product_id, wid, None,
+                        txn, product_id, item.sku_id, wid, None,
                         "outbound", "check_shortage",
                         Some(outbound_id), Some(&outbound_no),
                         quantity, Some(updated_by),
@@ -590,18 +594,44 @@ pub async fn get_detail(
     }))
 }
 
-/// 获取盘点明细列表
+/// 获取盘点明细列表（附带产品单位，供前端按单位精度控制数量录入）
 pub async fn get_items(
     db: &DatabaseConnection,
     stocktake_id: i64,
-) -> Result<Vec<stocktake_item::Model>> {
+) -> Result<Vec<serde_json::Value>> {
     let items = stocktake_item::Entity::find()
         .filter(stocktake_item::Column::StocktakeId.eq(stocktake_id))
         .filter(stocktake_item::Column::Deleted.eq(0))
         .all(db)
         .await
         .map_err(|e| Error::from(e.to_string()))?;
-    Ok(items)
+
+    let product_ids: Vec<i64> = items.iter().filter_map(|i| i.product_id).collect();
+    let unit_map: HashMap<i64, String> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_entity::Entity::find()
+            .filter(product_entity::Column::Id.is_in(product_ids))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?
+            .into_iter()
+            .filter_map(|p| p.unit.map(|u| (p.id, u)))
+            .collect()
+    };
+
+    Ok(items
+        .into_iter()
+        .map(|item| {
+            let unit = item
+                .product_id
+                .and_then(|pid| unit_map.get(&pid))
+                .cloned();
+            let mut value = serde_json::json!(item);
+            value["unit"] = serde_json::json!(unit);
+            value
+        })
+        .collect())
 }
 
 /// 盘点单列表查询

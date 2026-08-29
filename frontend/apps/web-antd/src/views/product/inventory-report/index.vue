@@ -4,6 +4,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { LucideImageOff } from '@vben/icons';
 
 import { Button, Card, DatePicker, Form, Tabs } from 'ant-design-vue';
 
@@ -14,6 +15,7 @@ import {
   getStockReportApi,
   getTurnoverReportApi,
 } from '#/api/core/product/report';
+import { formatQty } from '#/components/UnitSelect';
 import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
@@ -113,9 +115,22 @@ const stockGridOptions: VxeGridProps = {
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     {
+      title: $t('page.product.inventory.report.field.productCode'),
+      field: 'productCode',
+      width: 130,
+      align: 'left',
+    },
+    {
+      title: $t('page.product.inventory.report.field.productImage'),
+      field: 'imageUrl',
+      width: 70,
+      slots: { default: 'productImage' },
+    },
+    {
       title: $t('page.product.inventory.report.field.productName'),
       field: 'productName',
       minWidth: 140,
+      align: 'left',
     },
     {
       title: $t('page.product.inventory.report.field.warehouseName'),
@@ -127,21 +142,25 @@ const stockGridOptions: VxeGridProps = {
       title: $t('page.product.inventory.report.field.openingQty'),
       field: 'beginQuantity',
       width: 110,
+      formatter: ({ cellValue, row }: any) => formatQty(cellValue, row?.unit),
     },
     {
       title: $t('page.product.inventory.report.field.inboundQty'),
       field: 'inboundQuantity',
       width: 110,
+      formatter: ({ cellValue, row }: any) => formatQty(cellValue, row?.unit),
     },
     {
       title: $t('page.product.inventory.report.field.outboundQty'),
       field: 'outboundQuantity',
       width: 110,
+      formatter: ({ cellValue, row }: any) => formatQty(cellValue, row?.unit),
     },
     {
       title: $t('page.product.inventory.report.field.closingQty'),
       field: 'endQuantity',
       width: 110,
+      formatter: ({ cellValue, row }: any) => formatQty(cellValue, row?.unit),
     },
   ],
 };
@@ -172,9 +191,22 @@ const turnoverGridOptions: VxeGridProps = {
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     {
+      title: $t('page.product.inventory.report.field.productCode'),
+      field: 'productCode',
+      width: 130,
+      align: 'left',
+    },
+    {
+      title: $t('page.product.inventory.report.field.productImage'),
+      field: 'imageUrl',
+      width: 70,
+      slots: { default: 'productImage' },
+    },
+    {
       title: $t('page.product.inventory.report.field.productName'),
       field: 'productName',
       minWidth: 140,
+      align: 'left',
     },
     {
       title: $t('page.product.inventory.report.field.warehouseName'),
@@ -191,11 +223,13 @@ const turnoverGridOptions: VxeGridProps = {
       title: $t('page.product.inventory.report.field.avgInventory'),
       field: 'avgQuantity',
       width: 120,
+      formatter: ({ cellValue, row }: any) => formatQty(cellValue, row?.unit),
     },
     {
       title: $t('page.product.inventory.report.field.outboundQty'),
       field: 'outboundQuantity',
       width: 110,
+      formatter: ({ cellValue, row }: any) => formatQty(cellValue, row?.unit),
     },
   ],
 };
@@ -225,9 +259,22 @@ const staleGridOptions: VxeGridProps = {
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     {
+      title: $t('page.product.inventory.report.field.productCode'),
+      field: 'productCode',
+      width: 130,
+      align: 'left',
+    },
+    {
+      title: $t('page.product.inventory.report.field.productImage'),
+      field: 'imageUrl',
+      width: 70,
+      slots: { default: 'productImage' },
+    },
+    {
       title: $t('page.product.inventory.report.field.productName'),
       field: 'productName',
       minWidth: 140,
+      align: 'left',
     },
     {
       title: $t('page.product.inventory.report.field.warehouseName'),
@@ -239,6 +286,7 @@ const staleGridOptions: VxeGridProps = {
       title: $t('page.product.inventory.report.field.currentQty'),
       field: 'quantity',
       width: 110,
+      formatter: ({ cellValue, row }: any) => formatQty(cellValue, row?.unit),
     },
     {
       title: $t('page.product.inventory.report.field.staleDays'),
@@ -276,9 +324,22 @@ const costGridOptions: VxeGridProps = {
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     {
+      title: $t('page.product.inventory.report.field.productCode'),
+      field: 'productCode',
+      width: 130,
+      align: 'left',
+    },
+    {
+      title: $t('page.product.inventory.report.field.productImage'),
+      field: 'imageUrl',
+      width: 70,
+      slots: { default: 'productImage' },
+    },
+    {
       title: $t('page.product.inventory.report.field.productName'),
       field: 'productName',
       minWidth: 140,
+      align: 'left',
     },
     {
       title: $t('page.product.inventory.report.field.warehouseName'),
@@ -383,6 +444,24 @@ function handleTabChange(key: number | string) {
       <StockGrid
         :table-title="$t('page.product.inventory.report.type.stockReport')"
       >
+        <template #productImage="{ row }">
+          <div
+            v-if="row.imageUrl"
+            class="mx-auto h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-[hsl(var(--border))]"
+          >
+            <img
+              :src="row.imageUrl"
+              alt="产品图"
+              class="h-full w-full object-cover"
+            />
+          </div>
+          <div
+            v-else
+            class="mx-auto h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] flex"
+          >
+            <LucideImageOff class="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
+          </div>
+        </template>
         <template #warehouseName="{ row }">
           <a
             class="text-primary hover:underline cursor-pointer"
@@ -396,6 +475,24 @@ function handleTabChange(key: number | string) {
       <TurnoverGrid
         :table-title="$t('page.product.inventory.report.type.turnover')"
       >
+        <template #productImage="{ row }">
+          <div
+            v-if="row.imageUrl"
+            class="mx-auto h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-[hsl(var(--border))]"
+          >
+            <img
+              :src="row.imageUrl"
+              alt="产品图"
+              class="h-full w-full object-cover"
+            />
+          </div>
+          <div
+            v-else
+            class="mx-auto h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] flex"
+          >
+            <LucideImageOff class="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
+          </div>
+        </template>
         <template #warehouseName="{ row }">
           <a
             class="text-primary hover:underline cursor-pointer"
@@ -409,6 +506,24 @@ function handleTabChange(key: number | string) {
       <StaleGrid
         :table-title="$t('page.product.inventory.report.type.staleList')"
       >
+        <template #productImage="{ row }">
+          <div
+            v-if="row.imageUrl"
+            class="mx-auto h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-[hsl(var(--border))]"
+          >
+            <img
+              :src="row.imageUrl"
+              alt="产品图"
+              class="h-full w-full object-cover"
+            />
+          </div>
+          <div
+            v-else
+            class="mx-auto h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] flex"
+          >
+            <LucideImageOff class="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
+          </div>
+        </template>
         <template #warehouseName="{ row }">
           <a
             class="text-primary hover:underline cursor-pointer"
@@ -422,6 +537,24 @@ function handleTabChange(key: number | string) {
       <CostGrid
         :table-title="$t('page.product.inventory.report.type.costReport')"
       >
+        <template #productImage="{ row }">
+          <div
+            v-if="row.imageUrl"
+            class="mx-auto h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-[hsl(var(--border))]"
+          >
+            <img
+              :src="row.imageUrl"
+              alt="产品图"
+              class="h-full w-full object-cover"
+            />
+          </div>
+          <div
+            v-else
+            class="mx-auto h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] flex"
+          >
+            <LucideImageOff class="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
+          </div>
+        </template>
         <template #warehouseName="{ row }">
           <a
             class="text-primary hover:underline cursor-pointer"

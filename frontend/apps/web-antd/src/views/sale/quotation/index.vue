@@ -33,6 +33,7 @@ import {
   getQuotationListApi,
   submitQuotationApprovalApi,
 } from '#/api';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
@@ -243,6 +244,20 @@ const gridOptions: VxeGridProps = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+
+// 自定义字段动态列：schema 加载完成后插到固定列与操作列之间（不阻塞首屏）
+const fieldSchema = useFieldSchema('sale_quotation');
+fieldSchema.loadSchema().then(() => {
+  const cols = [...(gridOptions.columns ?? [])];
+  const action = cols.pop(); // 操作列固定最右
+  gridApi.setGridOptions({
+    columns: [
+      ...cols,
+      ...fieldSchema.toGridColumns(),
+      ...(action ? [action] : []),
+    ],
+  });
+});
 
 const [FormDrawer, drawerApi] = useVbenDrawer({
   connectedComponent: QuotationDrawer,

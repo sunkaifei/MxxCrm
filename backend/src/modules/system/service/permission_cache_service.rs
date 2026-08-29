@@ -25,11 +25,13 @@
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use sea_orm::DbConn;
+use sea_orm::{ColumnTrait, DbConn, EntityTrait, QueryFilter};
 
 use crate::core::errors::error::Result;
 use crate::core::kit::config;
 use crate::core::kit::CONTEXT;
+use crate::modules::system::entity::admin::{Column as AdminColumn, Entity as AdminEntity};
+use crate::modules::system::model::admin_perm_set_merge::AdminPermSetMergeModel;
 use crate::modules::system::model::admin_role_merge::AdminRoleMergeModel;
 use crate::modules::system::service::config_service;
 use crate::modules::system::service::menu_service;
@@ -42,6 +44,18 @@ const USER_TOKEN_KEY_PREFIX: &str = "user_";
 
 /// 多设备模式用户 Token 集合缓存键前缀
 const USER_TOKENS_KEY_PREFIX: &str = "user_tokens_";
+
+/// 数据权限缓存键前缀（P0-1：null=全量数据权限，[...]=可见用户ID集合）
+const SCOPE_KEY_PREFIX: &str = "scope:";
+
+/// 汇报线缓存键前缀（P1-2：[...]=汇报线全部下属用户ID）
+const REPORT_LINE_KEY_PREFIX: &str = "rl:";
+
+/// 旋转后旧 refreshToken 哈希缓存键前缀（P0-2 复用攻击检测）
+const ROTATED_RT_KEY_PREFIX: &str = "rotated_rt:";
+
+/// 复用检测宽限窗 TTL（秒）：覆盖网络重试与前端单飞竞态的正常时延
+const ROTATED_RT_TTL: u64 = 600;
 
 /// 默认缓存TTL（秒）
 const DEFAULT_PERM_CACHE_TTL: u64 = 300;
@@ -62,6 +76,16 @@ fn user_token_key(user_id: i64) -> String {
 /// 构建多设备模式用户 Token 集合缓存的键
 fn user_tokens_key(user_id: i64) -> String {
     format!("{}{}", USER_TOKENS_KEY_PREFIX, user_id)
+}
+
+/// 构建数据权限缓存的键
+fn scope_key(user_id: i64) -> String {
+    format!("{}{}", SCOPE_KEY_PREFIX, user_id)
+}
+
+/// 构建汇报线缓存的键（P1-2）
+fn report_line_key(user_id: i64) -> String {
+    format!("{}{}", REPORT_LINE_KEY_PREFIX, user_id)
 }
 
 /// 读取登录模式配置：false=单设备（默认），true=多设备
@@ -125,6 +149,20 @@ pub async fn is_register_enabled() -> bool {
         _ => {
             let db_val = config_service::find_value_by_key_from_db("register_enabled").await.unwrap_or_else(|| "0".to_string());
             let _ = CONTEXT.cache_service.set_string("config:register_enabled", &db_val).await;
+            db_val == "1"
+        }
+    }
+}
+
+/// 读取 refreshToken 复用攻击检测开关（P0-2）：true=开启（默认），false=关闭
+///
+/// 高危安全机制的可灰度开关：异常误判时可在 mxx_system_config 运行时置 0 关闭。
+pub async fn is_rt_reuse_detect_enabled() -> bool {
+    match CONTEXT.cache_service.get_string("config:rt_reuse_detect").await {
+        Ok(v) if !v.is_empty() => v == "1",
+        _ => {
+            let db_val = config_service::find_value_by_key_from_db("rt_reuse_detect").await.unwrap_or_else(|| "1".to_string());
+            let _ = CONTEXT.cache_service.set_string("config:rt_reuse_detect", &db_val).await;
             db_val == "1"
         }
     }
@@ -209,11 +247,88 @@ pub async fn set_permissions(user_id: i64, permissions: &[String]) -> Result<()>
     Ok(())
 }
 
+/// 读取数据权限缓存（P0-1）
+///
+/// 返回值语义：
+/// - `Some(result)`：缓存命中，`result` 为 `None` 表示全量数据权限，`Some(ids)` 表示可见用户ID集合
+/// - `None`：缓存未命中或读取失败，调用方回源计算
+pub async fn get_scope_cache(user_id: i64) -> Option<Option<Vec<i64>>> {
+    match CONTEXT.cache_service.get_json::<Option<Vec<i64>>>(&scope_key(user_id)).await {
+        Ok(v) => Some(v),
+        Err(e) => {
+            log::debug!("[数据权限缓存] 未命中 user_id={}, err={}", user_id, e);
+            None
+        }
+    }
+}
+
+/// 写入数据权限缓存（P0-1），TTL 与权限码缓存对齐
+pub async fn set_scope_cache(user_id: i64, value: &Option<Vec<i64>>) {
+    let json = serde_json::to_string(value).unwrap_or_else(|_| "null".to_string());
+    if let Err(e) = CONTEXT.cache_service.set_string_ex(&scope_key(user_id), &json, Some(cache_ttl())).await {
+        log::warn!("[数据权限缓存] 写入失败 user_id={}, err={}", user_id, e);
+    }
+}
+
+/// 读取汇报线缓存（P1-2）
+///
+/// 返回值语义：
+/// - `Some(result)`：缓存命中，`result` 为 `Some(ids)` 表示汇报线全部下属用户ID（可为空列表），
+///   为 `None` 表示无下属的占位语义
+/// - `None`：缓存未命中或读取失败，调用方回源计算
+pub async fn get_report_line_cache(user_id: i64) -> Option<Option<Vec<i64>>> {
+    match CONTEXT.cache_service.get_json::<Option<Vec<i64>>>(&report_line_key(user_id)).await {
+        Ok(v) => Some(v),
+        Err(e) => {
+            log::debug!("[汇报线缓存] 未命中 user_id={}, err={}", user_id, e);
+            None
+        }
+    }
+}
+
+/// 写入汇报线缓存（P1-2），TTL 与权限码缓存对齐
+pub async fn set_report_line_cache(user_id: i64, value: &Option<Vec<i64>>) {
+    let json = serde_json::to_string(value).unwrap_or_else(|_| "null".to_string());
+    if let Err(e) = CONTEXT.cache_service.set_string_ex(&report_line_key(user_id), &json, Some(cache_ttl())).await {
+        log::warn!("[汇报线缓存] 写入失败 user_id={}, err={}", user_id, e);
+    }
+}
+
+/// 记录旋转作废的旧 refreshToken 哈希（P0-2：旋转成功时调用，宽限窗 600s）
+pub async fn mark_rotated_refresh_token(old_refresh_hash: &str, user_id: i64) {
+    let key = format!("{}{}", ROTATED_RT_KEY_PREFIX, old_refresh_hash);
+    if let Err(e) = CONTEXT.cache_service
+        .set_string_ex(&key, &user_id.to_string(), Some(Duration::from_secs(ROTATED_RT_TTL)))
+        .await
+    {
+        log::warn!("[刷新检测] 记录旋转凭据失败 user_id={}, err={}", user_id, e);
+    }
+}
+
+/// 查询哈希是否为宽限窗内已旋转作废的旧凭据（P0-2：命中即判定复用攻击）
+pub async fn find_rotated_refresh_user(refresh_hash: &str) -> Option<i64> {
+    let key = format!("{}{}", ROTATED_RT_KEY_PREFIX, refresh_hash);
+    match CONTEXT.cache_service.get_string(&key).await {
+        Ok(v) => v.parse::<i64>().ok(),
+        Err(_) => None,
+    }
+}
+
 /// 清除单个用户的权限缓存
 pub async fn invalidate_by_user_id(user_id: i64) {
     let key = perm_key(user_id);
     if let Err(e) = CONTEXT.cache_service.del(&key).await {
         log::warn!("[权限缓存] 清除失败 user_id={}, err={}", user_id, e);
+    }
+    // P0-1: 同步清除数据权限缓存（用户角色/部门/状态变更均经由本函数失效；
+    // perm_set 路径经委托链也会清除 scope，属保守冗余失效，无害）
+    if let Err(e) = CONTEXT.cache_service.del(&scope_key(user_id)).await {
+        log::warn!("[数据权限缓存] 清除失败 user_id={}, err={}", user_id, e);
+    }
+    // P1-2: 同步清除本用户汇报线缓存（自身属性变更路径经由本函数失效）；
+    // 上级链的缓存需在具体变更入口显式调用 invalidate_report_line_upchain
+    if let Err(e) = CONTEXT.cache_service.del(&report_line_key(user_id)).await {
+        log::warn!("[汇报线缓存] 清除失败 user_id={}, err={}", user_id, e);
     }
 }
 
@@ -223,6 +338,94 @@ pub async fn invalidate_by_user_ids(user_ids: &[i64]) {
         invalidate_by_user_id(*uid).await;
     }
     log::debug!("[权限缓存] 批量清除完成, count={}", user_ids.len());
+}
+
+/// 沿 direct_manager_id 向上回溯清除汇报线缓存（P1-2）
+///
+/// 用户 A 的新增/变更/删除/停用/启用都会影响其所有上级的"下属列表"，
+/// 需自 A 起沿上级链逐级清除各上级的 rl: 缓存（A 自身一并清除）。
+/// 注意：回溯时不按 Deleted/Status 过滤，以保证软删/停用场景下链路仍可走通；
+/// 物理删除场景（batch_delete）需在删除前采集上级链，改用
+/// invalidate_report_line_caches 按采集结果清除。
+pub async fn invalidate_report_line_upchain(db: &DbConn, user_id: i64) {
+    if let Err(e) = CONTEXT.cache_service.del(&report_line_key(user_id)).await {
+        log::warn!("[汇报线缓存] 清除失败 user_id={}, err={}", user_id, e);
+    }
+
+    let mut current = user_id;
+    let mut visited: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    visited.insert(user_id);
+    for _ in 0..20 {
+        let row = match AdminEntity::find()
+            .filter(AdminColumn::Id.eq(current))
+            .one(db)
+            .await
+        {
+            Ok(row) => row,
+            Err(e) => {
+                log::warn!("[汇报线缓存] 上级链查询失败 user_id={}, err={}", current, e);
+                break;
+            }
+        };
+        match row.and_then(|u| u.direct_manager_id) {
+            Some(pid) if visited.insert(pid) => {
+                if let Err(e) = CONTEXT.cache_service.del(&report_line_key(pid)).await {
+                    log::warn!("[汇报线缓存] 清除失败 user_id={}, err={}", pid, e);
+                }
+                current = pid;
+            }
+            _ => break,
+        }
+    }
+    log::debug!("[汇报线缓存] 上级链回溯清除完成 user_id={}", user_id);
+}
+
+/// 按给定用户ID集合批量清除汇报线缓存（P1-2）
+///
+/// 适用于物理删除等无法回查链路的场景：调用方先采集受影响用户及其上级链，
+/// 再调用本函数统一清除。
+pub async fn invalidate_report_line_caches(user_ids: &[i64]) {
+    for uid in user_ids {
+        if let Err(e) = CONTEXT.cache_service.del(&report_line_key(*uid)).await {
+            log::warn!("[汇报线缓存] 清除失败 user_id={}, err={}", uid, e);
+        }
+    }
+    log::debug!("[汇报线缓存] 批量清除完成, count={}", user_ids.len());
+}
+
+/// 采集一组用户及其全部上级的用户ID（P1-2，物理删除前调用）
+///
+/// 物理删除后行不可查、无法回溯上级链，因此必须在删除前调用本函数；
+/// 返回"受影响用户全集"（原用户 ∪ 各自的上级链），供删除后统一清除 rl: 缓存。
+pub async fn collect_report_line_affected_ids(db: &DbConn, user_ids: &[i64]) -> Vec<i64> {
+    let mut affected: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    for uid in user_ids {
+        affected.insert(*uid);
+        let mut current = *uid;
+        let mut visited: std::collections::HashSet<i64> = std::collections::HashSet::new();
+        visited.insert(current);
+        for _ in 0..20 {
+            let row = match AdminEntity::find()
+                .filter(AdminColumn::Id.eq(current))
+                .one(db)
+                .await
+            {
+                Ok(row) => row,
+                Err(e) => {
+                    log::warn!("[汇报线缓存] 上级链采集失败 user_id={}, err={}", current, e);
+                    break;
+                }
+            };
+            match row.and_then(|u| u.direct_manager_id) {
+                Some(pid) if visited.insert(pid) => {
+                    affected.insert(pid);
+                    current = pid;
+                }
+                _ => break,
+            }
+        }
+    }
+    affected.into_iter().collect()
 }
 
 /// 清除角色关联的所有用户权限缓存
@@ -235,6 +438,31 @@ pub async fn invalidate_by_role_id(db: &DbConn, role_id: i64) {
 
     log::debug!("[权限缓存] 角色ID={} 关联用户数={}", role_id, admin_ids.len());
     invalidate_by_user_ids(&admin_ids).await;
+}
+
+/// 清除权限集关联的所有用户权限缓存
+///
+/// 调用场景：权限集菜单权限变更、权限集删除、权限集分配关系变更
+pub async fn invalidate_by_perm_set_id(db: &DbConn, perm_set_id: i64) {
+    let admin_ids = AdminPermSetMergeModel::find_admin_ids_by_perm_set_id(db, &Some(perm_set_id))
+        .await
+        .unwrap_or_default();
+
+    log::debug!("[权限缓存] 权限集ID={} 关联用户数={}", perm_set_id, admin_ids.len());
+    invalidate_by_user_ids(&admin_ids).await;
+}
+
+/// 强制用户全端下线（R3 撤销双删）
+///
+/// 先删存储层会话（DB 行 / Redis 键），再清缓存 + 断 WS：
+/// 仅 invalidate_user_session 时 DB 模式下缓存丢失后走 DB 降级验证会"复活"会话，
+/// 存储层先行删除后降级路径同样判定失效，撤销才是终态
+pub async fn revoke_user_session(db: &DbConn, user_id: i64) {
+    let store = crate::modules::system::service::session_service::get_session_store();
+    if let Err(e) = store.remove_session(db, user_id).await {
+        log::warn!("[权限缓存] 删除存储层会话失败 user_id={}, err={}", user_id, e);
+    }
+    invalidate_user_session(user_id).await;
 }
 
 /// 清除用户的登录会话（Token + 权限缓存 + WebSocket 连接）
@@ -260,11 +488,11 @@ pub async fn invalidate_user_session(user_id: i64) {
     log::info!("[权限缓存] 用户会话已清除 user_id={}", user_id);
 }
 
-/// 按单个 token 踢出会话（多设备模式下从用户 Token 集合中移除指定 token）
+/// 按单个 token 踢出会话（存储层 + 缓存集合双删，多设备模式下从用户 Token 集合中移除指定 token）
 ///
 /// 调用场景：在线会话列表的"按会话下线"操作
 /// 返回：true=成功移除，false=token 不在集合中
-pub async fn invalidate_session_by_token(user_id: i64, token: &str) -> bool {
+pub async fn invalidate_session_by_token(db: &DbConn, user_id: i64, token: &str) -> bool {
     let tokens_key = user_tokens_key(user_id);
     let mut tokens: Vec<String> = match CONTEXT.cache_service.get_json(&tokens_key).await {
         Ok(t) => t,
@@ -275,10 +503,17 @@ pub async fn invalidate_session_by_token(user_id: i64, token: &str) -> bool {
     if tokens.len() == before {
         return false;
     }
+    // G6：同步删除存储层会话（DB 行 / Redis 键），防止缓存删除后经 DB 降级回填复活
+    let store = crate::modules::system::service::session_service::get_session_store();
+    if let Err(e) = store.remove_by_token(db, user_id, token).await {
+        log::warn!("[权限缓存] 按会话删除存储层会话失败 user_id={}, err={}", user_id, e);
+    }
     if tokens.is_empty() {
         let _ = CONTEXT.cache_service.del(&tokens_key).await;
     } else {
-        let _ = CONTEXT.cache_service.set_json(&tokens_key, &tokens).await;
+        // R2：回写集合带 TTL，与 access 过期对齐，避免回写造成集合键永生
+        let ttl = get_access_token_expire_secs().await;
+        let _ = CONTEXT.cache_service.set_json_ex(&tokens_key, &tokens, Some(Duration::from_secs(ttl))).await;
     }
     // 单设备模式兼容：若存在 user_{id} 且匹配则一并清除
     if let Ok(cached) = CONTEXT.cache_service.get_string(&user_token_key(user_id)).await {
@@ -416,9 +651,12 @@ pub async fn validate_session_with_db(user_id: i64, token: &str, db: Option<&DbC
                     if !tokens.iter().any(|t| t == token) {
                         tokens.push(token.to_string());
                     }
-                    let _ = CONTEXT.cache_service.set_json(&key, &tokens).await;
+                    // R2：降级回填 TTL 与 accessToken 有效期对齐（原先无 TTL，长滞留将绕过 DB 行过期判定）
+                    let ttl = get_access_token_expire_secs().await;
+                    let _ = CONTEXT.cache_service.set_json_ex(&key, &tokens, Some(Duration::from_secs(ttl))).await;
                 } else {
-                    let _ = CONTEXT.cache_service.set_string(&user_token_key(user_id), token).await;
+                    let ttl = get_access_token_expire_secs().await;
+                    let _ = CONTEXT.cache_service.set_string_ex(&user_token_key(user_id), token, Some(Duration::from_secs(ttl))).await;
                 }
                 true
             }

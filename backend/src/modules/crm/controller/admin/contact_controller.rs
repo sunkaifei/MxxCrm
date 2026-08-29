@@ -19,6 +19,7 @@ use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::controller::admin::contact_edit_log_controller;
 use crate::modules::crm::model::contact::{ContactListQuery, ContactSaveRequest, ContactUpdateRequest, ContactBindRequest, ContactUnbindRequest, ContactSetRoleRequest, ContactCheckRequest};
 use crate::modules::crm::service::contact_service;
+use crate::modules::system::service::{field_def_service, field_perm_service};
 
 pub async fn contact_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<ContactSaveRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -91,7 +92,13 @@ pub async fn contact_info(state: web::Data<AppState>, req: HttpRequest, item: we
     }
 
     match contact_service::find_by_id_checked(&db, item.id.unwrap(), get_current_user_id(&req)).await {
-        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Ok(data) => {
+            // 标准敏感字段出口裁剪（P2-1）：无可见权限的角色不返回对应字段（含 camelCase 变体）
+            let mut value = serde_json::to_value(&data).unwrap_or_default();
+            let (is_admin, role_keys) = field_def_service::load_user_role(db, get_current_user_id(&req)).await.unwrap_or((false, Vec::new()));
+            field_perm_service::trim_for_view(db, "crm_contact", is_admin, &role_keys, &mut value).await;
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(value, "local"))
+        },
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }

@@ -21,6 +21,7 @@ use crate::modules::system::entity::config::{ActiveModel as ConfigActiveModel, C
 use crate::modules::system::model::admin::{AdminDetailVO, AdminListVO, AdminModel, AdminOptionVO, AdminSaveDTO, AdminSaveRequest, AdminUpdateRequest, DeptNameDTO, ListQuery, PageWhere, PostNameDTO, RoleNameDTO, UpdateAdminPasswordRequest, UpdateAdminStatusRequest, UpdateLoginRequest};
 use crate::modules::system::model::admin_dept_merge::{AdminDeptMergeModel, AdminDeptMergeSaveDTO};
 use crate::modules::system::model::admin_post_merge::{AdminPostMergeModel, AdminPostMergeSaveDTO};
+use crate::modules::system::model::admin_perm_set_merge::{AdminPermSetMergeModel, AdminPermSetMergeSaveDTO};
 use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, AdminRolesMergeSaveDTO};
 use crate::modules::system::model::role::RoleModel;
 use crate::modules::system::service::{config_service, dept_service, post_service, role_service};
@@ -196,6 +197,18 @@ pub async fn insert(db: &DbConn, form_data: &AdminSaveRequest) -> Result<i64> {
                     }).collect();
                     AdminRoleMergeModel::insert_batch(tx, &role_merge_list).await
                         .map_err(|e| Error::from(format!("插入角色关联失败: {}", e)))?;
+                }
+                if let Some(perm_set_ids) = form_data_clone.perm_set_ids.clone() {
+                    let perm_set_merge_list: Vec<AdminPermSetMergeSaveDTO> = perm_set_ids.into_iter().map(|id| {
+                        AdminPermSetMergeSaveDTO {
+                            id: None,
+                            admin_id: Some(admin_id),
+                            perm_set_id: Option::from(id),
+                            create_time: None,
+                        }
+                    }).collect();
+                    AdminPermSetMergeModel::insert_batch(tx, &perm_set_merge_list).await
+                        .map_err(|e| Error::from(format!("插入权限集关联失败: {}", e)))?;
                 }
             }
             Ok(admin_id)
@@ -394,6 +407,7 @@ pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result
         let dept_ids = form_data.dept_ids.clone();
         let post_ids = form_data.post_ids.clone();
         let role_ids = form_data.role_ids.clone();
+        let perm_set_ids = form_data.perm_set_ids.clone();
         Box::pin(async move {
             // 更新关联表：部门
             if dept_ids.is_some() {
@@ -449,6 +463,25 @@ pub async fn update_admin(db: &DbConn, form_data: &AdminUpdateRequest) -> Result
                     if !role_merge_list.is_empty() {
                         AdminRoleMergeModel::insert_batch(tx, &role_merge_list).await
                             .map_err(|e| Error::from(format!("插入角色关联失败: {}", e)))?;
+                    }
+                }
+            }
+            // 更新关联表：权限集（RBAC 附加授权，与角色独立叠加）
+            if perm_set_ids.is_some() {
+                AdminPermSetMergeModel::delete_by_admin_id(tx, &Some(admin_id)).await
+                    .map_err(|e| Error::from(format!("删除权限集关联失败: {}", e)))?;
+                if let Some(ref ids) = perm_set_ids {
+                    let perm_set_merge_list: Vec<AdminPermSetMergeSaveDTO> = ids.iter().map(|id| {
+                        AdminPermSetMergeSaveDTO {
+                            id: None,
+                            admin_id: Some(admin_id),
+                            perm_set_id: Option::from(*id),
+                            create_time: None,
+                        }
+                    }).collect();
+                    if !perm_set_merge_list.is_empty() {
+                        AdminPermSetMergeModel::insert_batch(tx, &perm_set_merge_list).await
+                            .map_err(|e| Error::from(format!("插入权限集关联失败: {}", e)))?;
                     }
                 }
             }

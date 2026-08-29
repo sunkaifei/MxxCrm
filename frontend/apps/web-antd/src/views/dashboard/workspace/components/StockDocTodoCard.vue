@@ -102,7 +102,8 @@ defineExpose({ reload: loadSummary });
       <div v-if="summary.items.length > 0">
         <div class="mb-2 flex gap-2">
           <div
-            class="flex-1 rounded-md bg-blue-50 px-2 py-1.5 text-center dark:bg-blue-950"
+            class="flex-1 cursor-pointer rounded-md bg-blue-50 px-2 py-1.5 text-center transition-colors hover:bg-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900"
+            @click="goDoc('inbound')"
           >
             <div class="text-lg font-semibold text-blue-600">
               {{ summary.inboundTotal }}
@@ -112,7 +113,8 @@ defineExpose({ reload: loadSummary });
             </div>
           </div>
           <div
-            class="flex-1 rounded-md bg-green-50 px-2 py-1.5 text-center dark:bg-green-950"
+            class="flex-1 cursor-pointer rounded-md bg-green-50 px-2 py-1.5 text-center transition-colors hover:bg-green-100 dark:bg-green-950 dark:hover:bg-green-900"
+            @click="goDoc('outbound')"
           >
             <div class="text-lg font-semibold text-green-600">
               {{ summary.outboundTotal }}

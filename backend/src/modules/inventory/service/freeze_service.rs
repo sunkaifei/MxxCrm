@@ -13,11 +13,13 @@ use sea_orm::sea_query::Expr;
 use rust_decimal::Decimal;
 use crate::core::errors::error::{Error, Result};
 use crate::modules::inventory::entity::{stock, stock_freeze, stock_log};
+use crate::modules::inventory::service::stock_engine;
 
 /// 冻结库存
 pub async fn freeze_stock(
     db: &DatabaseConnection,
     product_id: i64,
+    sku_id: Option<i64>,
     warehouse_id: i64,
     quantity: Decimal,
     reason: Option<String>,
@@ -30,6 +32,7 @@ pub async fn freeze_stock(
             // 锁定库存行
             let existing = stock::Entity::find()
                 .filter(stock::Column::ProductId.eq(product_id))
+                .filter(stock_engine::sku_condition(sku_id))
                 .filter(stock::Column::WarehouseId.eq(warehouse_id))
                 .filter(stock::Column::Deleted.eq(0))
                 .lock_exclusive()
@@ -53,6 +56,7 @@ pub async fn freeze_stock(
             // 写入冻结记录
             let freeze = stock_freeze::ActiveModel {
                 product_id: Set(Some(product_id)),
+                sku_id: Set(sku_id),
                 warehouse_id: Set(Some(warehouse_id)),
                 freeze_quantity: Set(Some(quantity)),
                 reason: Set(reason),
@@ -71,6 +75,7 @@ pub async fn freeze_stock(
             let available_after = available - quantity;
             let log = stock_log::ActiveModel {
                 product_id: Set(Some(product_id)),
+                sku_id: Set(sku_id),
                 warehouse_id: Set(Some(warehouse_id)),
                 change_type: Set(Some("freeze".to_string())),
                 biz_type: Set(Some("freeze".to_string())),
@@ -97,6 +102,7 @@ pub async fn freeze_stock(
 pub async fn unfreeze_stock(
     db: &DatabaseConnection,
     product_id: i64,
+    sku_id: Option<i64>,
     warehouse_id: i64,
     quantity: Decimal,
     unfreeze_by: i64,
@@ -108,6 +114,7 @@ pub async fn unfreeze_stock(
             // 锁定库存行
             let existing = stock::Entity::find()
                 .filter(stock::Column::ProductId.eq(product_id))
+                .filter(stock_engine::sku_condition(sku_id))
                 .filter(stock::Column::WarehouseId.eq(warehouse_id))
                 .filter(stock::Column::Deleted.eq(0))
                 .lock_exclusive()
@@ -131,6 +138,10 @@ pub async fn unfreeze_stock(
             // 逐条查找并更新冻结记录（按 freeze_time 排序，先进先解）
             let freeze_records = stock_freeze::Entity::find()
                 .filter(stock_freeze::Column::ProductId.eq(product_id))
+                .filter(match sku_id {
+                    Some(id) => stock_freeze::Column::SkuId.eq(id),
+                    None => stock_freeze::Column::SkuId.is_null(),
+                })
                 .filter(stock_freeze::Column::WarehouseId.eq(warehouse_id))
                 .filter(stock_freeze::Column::Status.eq(0))
                 .filter(stock_freeze::Column::Deleted.eq(0))
@@ -194,6 +205,7 @@ pub async fn unfreeze_stock(
             let available_after = available + quantity;
             let log = stock_log::ActiveModel {
                 product_id: Set(Some(product_id)),
+                sku_id: Set(sku_id),
                 warehouse_id: Set(Some(warehouse_id)),
                 change_type: Set(Some("unfreeze".to_string())),
                 biz_type: Set(Some("unfreeze".to_string())),

@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import type { VbenFormProps } from '@vben/common-ui';
-
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, onMounted, ref } from 'vue';
@@ -9,16 +7,32 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Image as AImage, Button, Card, Statistic, Tabs } from 'ant-design-vue';
+import {
+  Image as AImage,
+  Button,
+  Card,
+  Col,
+  Form,
+  Input,
+  RangePicker,
+  Row,
+  Statistic,
+  Tabs,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getVisitListApi, getVisitStatisticsApi } from '#/api';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
+import RecycleBin from '../components/RecycleBin.vue';
 import VisitDetailDrawer from './detail-drawer.vue';
 
 const accessStore = useAccessStore();
+
+// 回收站 Tab 仅超管可见（与其他模块一致）
+const { isSuperAdmin } = useSuperAdminGuard();
 
 // 全部/下属拜访 Tab 显示条件
 const { canViewAll, canViewSubordinate } = useDataScopeTabs();
@@ -41,6 +55,8 @@ const activeTab = ref('my');
 
 function handleTabChange(key: number | string) {
   activeTab.value = String(key);
+  // 回收站视图由 RecycleBin 组件自行查询，不触发业务列表
+  if (key === 'recycle') return;
   gridApi.query();
 }
 
@@ -119,36 +135,25 @@ function formatDistance(row: any): string {
   return `${(d / 1000).toFixed(2)}公里`;
 }
 
-// ========== 搜索表单 ==========
-const formOptions: VbenFormProps = {
-  collapsed: false,
-  showCollapseButton: false,
-  submitOnEnter: true,
-  schema: [
-    {
-      component: 'Input',
-      fieldName: 'customerName',
-      label: '客户名称',
-      componentProps: { placeholder: '请输入客户名称', allowClear: true },
-    },
-    {
-      component: 'RangePicker',
-      fieldName: 'checkInDateRange',
-      label: '签到时间',
-      componentProps: {
-        placeholder: ['开始日期', '结束日期'],
-        style: 'width:100%',
-        valueFormat: 'YYYY-MM-DD',
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'ownerName',
-      label: '负责人',
-      componentProps: { placeholder: '请输入负责人姓名', allowClear: true },
-    },
-  ],
-};
+// ========== 搜索表单（与客户/联系人列表同构：手动表单置于筛选卡片，搜索按钮触发查询） ==========
+const searchForm = ref<{
+  customerName: string;
+  checkInDateRange?: [string, string];
+  ownerName: string;
+}>({ customerName: '', checkInDateRange: undefined, ownerName: '' });
+
+function handleSearch() {
+  gridApi.query();
+}
+
+function handleReset() {
+  searchForm.value = {
+    customerName: '',
+    checkInDateRange: undefined,
+    ownerName: '',
+  };
+  gridApi.query();
+}
 
 // ========== 表格 ==========
 const gridOptions: VxeGridProps = {
@@ -162,21 +167,22 @@ const gridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }, formValues) => {
+      query: async ({ page }) => {
         const params: any = {
           page: page.currentPage,
           pageSize: page.pageSize,
           listType: activeTab.value,
         };
-        if (formValues.customerName)
-          params.customerName = formValues.customerName;
-        if (formValues.ownerName) params.ownerName = formValues.ownerName;
+        if (searchForm.value.customerName)
+          params.customerName = searchForm.value.customerName;
+        if (searchForm.value.ownerName)
+          params.ownerName = searchForm.value.ownerName;
         if (
-          formValues.checkInDateRange &&
-          formValues.checkInDateRange.length === 2
+          searchForm.value.checkInDateRange &&
+          searchForm.value.checkInDateRange.length === 2
         ) {
-          params.checkInStart = formValues.checkInDateRange[0];
-          params.checkInEnd = formValues.checkInDateRange[1];
+          params.checkInStart = searchForm.value.checkInDateRange[0];
+          params.checkInEnd = searchForm.value.checkInDateRange[1];
         }
         const result = await getVisitListApi(params);
         // 无数据固定 600px（空态居中）；有数据默认 600px，内容超过则响应式撑高
@@ -265,7 +271,7 @@ const gridOptions: VxeGridProps = {
   ],
 };
 
-const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
 
 // ========== 详情抽屉 ==========
 const [DetailDrawer, detailDrawerApi] = useVbenDrawer({
@@ -327,23 +333,79 @@ onMounted(() => {
           />
         </div>
       </div>
+
     </Card>
 
-    <Grid table-title="外勤拜访记录" class="visit-grid-card">
-      <template #form-header>
-        <Tabs
-          v-model:active-key="activeTab"
-          class="mb-3"
-          @change="handleTabChange"
-        >
-          <Tabs.TabPane
-            v-for="tab in tabList"
-            :key="tab.key"
-            :tab="tab.label"
-          />
-        </Tabs>
-      </template>
+    <!-- 选项卡 + 搜索表单/回收站视图（与客户/联系人列表同构：选项卡位于筛选卡片区域，业务列表与回收站在卡片内切换） -->
+    <Card :bordered="false" class="visit-list-filter-card">
+      <Tabs
+        v-model:active-key="activeTab"
+        class="mb-4"
+        @change="handleTabChange"
+      >
+        <Tabs.TabPane
+          v-for="tab in tabList"
+          :key="tab.key"
+          :tab="tab.label"
+        />
+        <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
+      </Tabs>
 
+      <!-- 回收站视图：与其他模块共用 RecycleBin，module=visit（后端为 followup 表 activity_type=2 拆分视图） -->
+      <RecycleBin v-show="activeTab === 'recycle'" :module="'visit'" />
+
+      <Form
+        v-show="activeTab !== 'recycle'"
+        :model="searchForm"
+        layout="inline"
+        :label-col="{ style: { width: '90px' } }"
+        class="visit-search-form"
+        @keyup.enter="handleSearch"
+      >
+        <Row :gutter="[16, 12]" style="width: 100%">
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="客户名称" name="customerName">
+              <Input
+                v-model:value="searchForm.customerName"
+                placeholder="请输入客户名称"
+                allow-clear
+                style="width: 100%"
+              />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="签到时间" name="checkInDateRange">
+              <RangePicker
+                v-model:value="searchForm.checkInDateRange"
+                :placeholder="['开始日期', '结束日期']"
+                style="width: 100%"
+                value-format="YYYY-MM-DD"
+              />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="负责人" name="ownerName">
+              <Input
+                v-model:value="searchForm.ownerName"
+                placeholder="请输入负责人姓名"
+                allow-clear
+                style="width: 100%"
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <div class="flex flex-wrap items-center gap-2 mt-3">
+          <Button type="default" @click="handleSearch">搜索</Button>
+          <Button type="default" @click="handleReset">刷新</Button>
+        </div>
+      </Form>
+    </Card>
+
+    <Grid
+      v-show="activeTab !== 'recycle'"
+      table-title="外勤拜访记录"
+      class="visit-grid-card"
+    >
       <template #toolbar-tools>
         <Button class="mr-2" @click="handleRefresh">刷新统计</Button>
       </template>
@@ -433,6 +495,19 @@ onMounted(() => {
 .visit-stat-item {
   flex: 1 1 160px;
   min-width: 160px;
+}
+
+/* 选项卡筛选卡片间距（scoped 固化，不依赖 Tailwind 工具类） */
+.visit-list-filter-card {
+  margin-bottom: 16px;
+}
+
+.visit-search-form :deep(.ant-form-item) {
+  margin-bottom: 0;
+}
+
+.visit-search-form :deep(.ant-form-item-control) {
+  flex: 1;
 }
 
 .visit-address-text {

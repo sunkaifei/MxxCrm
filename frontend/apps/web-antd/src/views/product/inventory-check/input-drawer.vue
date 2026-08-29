@@ -19,6 +19,7 @@ import {
 import { getCheckItemsApi, inputCheckApi } from '#/api/core/product/check';
 import { getProductSpecsApi } from '#/api/core/product/spec';
 import { getAdminOptionsApi } from '#/api/core/system/user';
+import { formatQty, useProductUnits } from '#/components/UnitSelect';
 import { $t } from '#/locales';
 
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
@@ -31,6 +32,12 @@ const items = ref<any[]>([]);
 const productSelectVisible = ref(false);
 const selectedRowKeys = ref<number[]>([]);
 const activeTab = ref<'all' | 'inputted' | 'mine' | 'uninputted'>('all');
+
+const { ensureUnits, precisionOf } = useProductUnits();
+
+function qtyStep(unit?: null | string) {
+  return precisionOf(unit) === 0 ? 1 : 0.01;
+}
 
 // 已添加产品的排除列表（computed 确保响应式）
 // 单规格产品（无 productCode）：整体排除 productId
@@ -163,6 +170,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       selectedRowKeys.value = [];
       activeTab.value = 'all';
       loadAssignees();
+      ensureUnits();
       if (drawerData.value.row?.id) {
         loadItems(drawerData.value.row.id);
       }
@@ -213,6 +221,7 @@ async function loadItems(stocktakeId: number) {
           item.productCode ??
           '',
         productSku: '',
+        unit: item.unit ?? '',
         specInfo: '',
         specInfoList: [] as { label: string; value: string }[],
         systemQuantity: Number(
@@ -344,6 +353,7 @@ function onProductSelected(selectedItems: any[]) {
         productName: item.productName,
         productCode: item.productCode ?? '',
         productSku: '',
+        unit: item.unit || '',
         systemQuantity: 0,
         actualQuantity: null,
         difference: null,
@@ -813,7 +823,9 @@ function toggleFullscreen() {
 
         <!-- 系统数量 -->
         <template v-else-if="column.dataIndex === 'systemQuantity'">
-          <span class="font-medium">{{ record.systemQuantity ?? 0 }}</span>
+          <span class="font-medium">{{
+            formatQty(record.systemQuantity ?? 0, record.unit)
+          }}</span>
         </template>
 
         <!-- 实盘数量 -->
@@ -822,8 +834,8 @@ function toggleFullscreen() {
             v-model:value="record.actualQuantity"
             size="small"
             style="width: 100%"
-            :precision="0"
-            :step="1"
+            :precision="precisionOf(record.unit)"
+            :step="qtyStep(record.unit)"
             placeholder="输入"
           />
         </template>
@@ -878,8 +890,8 @@ function toggleFullscreen() {
             v-model:value="record.recheckQuantity"
             size="small"
             style="width: 100%"
-            :precision="0"
-            :step="1"
+            :precision="precisionOf(record.unit)"
+            :step="qtyStep(record.unit)"
             placeholder="复盘"
           />
           <span v-else class="text-gray-400">-</span>

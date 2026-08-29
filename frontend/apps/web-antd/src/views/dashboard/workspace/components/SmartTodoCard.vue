@@ -254,7 +254,9 @@ async function loadSmartTodos() {
     });
 
     // 计划待审批（上级主管可见）
-    const planItems = Array.isArray(planResp) ? planResp : planResp?.data || [];
+    const planItems = Array.isArray(planResp)
+      ? planResp
+      : planResp?.items || [];
     planItems.forEach((item: any) => {
       const empName = item.employeeName || '员工';
       const totalContract = Number(item.totalContractTarget || 0);

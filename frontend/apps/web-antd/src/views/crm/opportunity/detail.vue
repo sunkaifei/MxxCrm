@@ -37,6 +37,9 @@ import {
   updateOpportunityApi,
 } from '#/api';
 
+import DynamicFieldControl from '#/components/DynamicFieldControl.vue';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+
 const props = defineProps<{
   customerId?: number | string;
   customerName?: string;
@@ -324,6 +327,11 @@ const baseForm = reactive({
   expectedCloseDate: undefined as string | undefined,
   description: '',
 });
+
+// 自定义字段（P0-14/P1-5）：schema 加载 + 表单值容器（键=fieldKey，值随控件双向绑定）
+const fieldSchema = useFieldSchema('crm_opportunity');
+fieldSchema.loadSchema();
+const cfValues = reactive<Record<string, any>>({});
 
 const reqForm = reactive({
   reqType: undefined as number | undefined,
@@ -662,6 +670,10 @@ const loadData = async () => {
     baseForm.expectedCloseDate = data.expectedCloseDate || undefined;
     baseForm.description = data.description || '';
 
+    // 自定义字段回显：清空重建防脏键残留（接口 camelCase 透传 customFields）
+    Object.keys(cfValues).forEach((k) => delete cfValues[k]);
+    Object.assign(cfValues, data?.customFields ?? {});
+
     reqForm.reqDesc = data.requirementSummary || '';
     solForm.solutionOverview = data.solutionSummary || '';
 
@@ -859,6 +871,25 @@ const handleSaveBase = async () => {
   } catch {
     return;
   }
+
+  // 自定义字段必填前端兜底：仅新建强拦截；编辑对齐后端 7.4 规则 5 存量弱约束放行（后端 400 拦截兜底）
+  if (isCreate.value) {
+    const missingField = fieldSchema.items.value.find((i) => {
+      if (Number(i.required) !== 1) return false;
+      const v = cfValues[i.fieldKey];
+      return (
+        v === undefined ||
+        v === null ||
+        v === '' ||
+        (Array.isArray(v) && v.length === 0)
+      );
+    });
+    if (missingField) {
+      message.error(`请填写「${missingField.fieldLabel}」`);
+      return;
+    }
+  }
+
   saving.value = true;
   try {
     const payload = {
@@ -875,6 +906,7 @@ const handleSaveBase = async () => {
       source: baseForm.source,
       expectedCloseDate: baseForm.expectedCloseDate,
       description: baseForm.description,
+      customFields: fieldSchema.buildSubmitPayload(cfValues),
       stage: 1,
     };
 
@@ -1357,6 +1389,19 @@ watch(
                 :rows="4"
                 :maxlength="2000"
                 show-count
+              />
+            </Form.Item>
+            <!-- 自定义字段动态渲染（P0-14/P1-5）：编辑角色软约束禁用，硬约束由后端 400 拦截 -->
+            <Form.Item
+              v-for="item in fieldSchema.items.value"
+              :key="item.fieldKey"
+              :label="item.fieldLabel"
+              :required="Number(item.required) === 1"
+            >
+              <DynamicFieldControl
+                v-model:value="cfValues[item.fieldKey]"
+                :item="item"
+                :disabled="!fieldSchema.isRoleEditable(item)"
               />
             </Form.Item>
           </Form>

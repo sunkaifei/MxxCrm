@@ -48,6 +48,15 @@ export const upsertEmployeeInsuranceConfigApi = async (data: any) =>
   );
 export const previewInsuranceCalcApi = async (data: any) =>
   requestClient.post('/api/system/finance/insurance/preview-calc', data);
+export const batchSetInsuranceConfigApi = async (data: any) =>
+  requestClient.post(
+    '/api/system/finance/insurance/employee-config/batch-set',
+    data,
+  );
+export const getInsuranceCoverageApi = async () =>
+  requestClient.get(
+    '/api/system/finance/insurance/employee-config/coverage',
+  );
 
 // ===== 考勤扣款 =====
 export const getAttendanceListApi = async (params?: any) =>

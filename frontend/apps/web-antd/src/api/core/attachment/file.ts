@@ -27,6 +27,16 @@ export const uploadFileApi = async (
   });
 };
 
+// 上传当前登录用户头像（专用端点：仅登录即可，服务端强制 entity_type=avatar 覆盖上传，
+// 不依赖 attachment:file:upload 权限，岗位角色也能更换头像）
+export const uploadAvatarApi = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return requestClient.post('/api/system/admin/avatar/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
 // 安全下载/预览文件（返回blob）
 export const downloadFileApi = (id: number, mode = 'preview') => {
   return requestClient.get(`/api/system/attachment/download/${id}`, {

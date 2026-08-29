@@ -116,6 +116,7 @@ pub async fn inventory_freeze(state: web::Data<AppState>, req: HttpRequest, body
     let freeze_by = get_current_user_id(&req);
 
     let product_id = body.get("productId").and_then(|v| v.as_i64()).unwrap_or(0);
+    let sku_id = body.get("skuId").and_then(|v| v.as_i64());
     let warehouse_id = body.get("warehouseId").and_then(|v| v.as_i64()).unwrap_or(0);
     let quantity = body.get("quantity").and_then(|v| v.as_f64()).map(|v| rust_decimal::Decimal::try_from(v).unwrap_or_default()).unwrap_or_default();
     let reason = body.get("reason").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -124,7 +125,7 @@ pub async fn inventory_freeze(state: web::Data<AppState>, req: HttpRequest, body
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "参数无效：productId、warehouseId、quantity 必填", "local")));
     }
 
-    match freeze_service::freeze_stock(db, product_id, warehouse_id, quantity, reason, freeze_by).await {
+    match freeze_service::freeze_stock(db, product_id, sku_id, warehouse_id, quantity, reason, freeze_by).await {
         Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("冻结成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -136,6 +137,7 @@ pub async fn inventory_unfreeze(state: web::Data<AppState>, req: HttpRequest, bo
     let unfreeze_by = get_current_user_id(&req);
 
     let product_id = body.get("productId").and_then(|v| v.as_i64()).unwrap_or(0);
+    let sku_id = body.get("skuId").and_then(|v| v.as_i64());
     let warehouse_id = body.get("warehouseId").and_then(|v| v.as_i64()).unwrap_or(0);
     let quantity = body.get("quantity").and_then(|v| v.as_f64()).map(|v| rust_decimal::Decimal::try_from(v).unwrap_or_default()).unwrap_or_default();
 
@@ -143,7 +145,7 @@ pub async fn inventory_unfreeze(state: web::Data<AppState>, req: HttpRequest, bo
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "参数无效：productId、warehouseId、quantity 必填", "local")));
     }
 
-    match freeze_service::unfreeze_stock(db, product_id, warehouse_id, quantity, unfreeze_by).await {
+    match freeze_service::unfreeze_stock(db, product_id, sku_id, warehouse_id, quantity, unfreeze_by).await {
         Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("解冻成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -212,6 +214,7 @@ pub async fn inventory_adjust(state: web::Data<AppState>, req: HttpRequest, body
     let operator_id = get_current_user_id(&req);
 
     let product_id = body.get("productId").and_then(|v| v.as_i64()).unwrap_or(0);
+    let sku_id = body.get("skuId").and_then(|v| v.as_i64());
     let warehouse_id = body.get("warehouseId").and_then(|v| v.as_i64()).unwrap_or(0);
     let quantity = body.get("quantity").and_then(|v| v.as_f64()).map(|v| rust_decimal::Decimal::try_from(v).unwrap_or_default()).unwrap_or_default();
     let reason = body.get("reason").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -223,7 +226,7 @@ pub async fn inventory_adjust(state: web::Data<AppState>, req: HttpRequest, body
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "调整后的库存数量不能为负数", "local")));
     }
 
-    match inventory_service::adjust_stock(db, product_id, warehouse_id, quantity, operator_id, reason).await {
+    match inventory_service::adjust_stock(db, product_id, sku_id, warehouse_id, quantity, operator_id, reason).await {
         Ok(_) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("调整成功".to_string(), "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -235,11 +238,12 @@ pub async fn alert_list(state: web::Data<AppState>, req: HttpRequest) -> Result<
     let query_str = req.query_string();
 
     let product_name = q(query_str, "productName").map(|s| s.to_string());
+    let warehouse_id = q(query_str, "warehouseId").and_then(|s| s.parse().ok());
     let alert_type = q(query_str, "alertType").map(|s| s.to_string());
     let page = q(query_str, "page").and_then(|s| s.parse().ok()).unwrap_or(1);
     let page_size = q(query_str, "pageSize").and_then(|s| s.parse().ok()).unwrap_or(20);
 
-    match inventory_service::get_alert_list(db, product_name, alert_type, page, page_size).await {
+    match inventory_service::get_alert_list(db, product_name, warehouse_id, alert_type, page, page_size).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }

@@ -97,8 +97,9 @@ fn find_rate(rates: &[tax_rate::Model], amount: Decimal) -> (Decimal, Decimal) {
 // ==================== 税率表 CRUD ====================
 
 /// 查询税率表（tax_type: 1=综合所得累计, 2=年终奖月度）
-pub async fn get_tax_rate_list(
-    db: &DatabaseConnection,
+/// 泛型连接参数：可传入普通连接或事务，保证核算主流程内读取与事务一致
+pub(crate) async fn get_tax_rate_list<C: ConnectionTrait>(
+    conn: &C,
     tax_type: Option<i32>,
 ) -> Result<Vec<tax_rate::Model>, String> {
     let mut stmt = tax_rate::Entity::find().filter(tax_rate::Column::Enabled.eq(1));
@@ -106,7 +107,7 @@ pub async fn get_tax_rate_list(
         stmt = stmt.filter(tax_rate::Column::TaxType.eq(t));
     }
     stmt.order_by_asc(tax_rate::Column::Level)
-        .all(db)
+        .all(conn)
         .await
         .map_err(|e| e.to_string())
 }
@@ -278,8 +279,9 @@ pub async fn upsert_employee_tax_config(
 /// - 累计应纳税额 = 累计应纳税所得额 × 税率 - 速算扣除数
 /// - 当月应纳税额 = 累计应纳税额 - 累计已缴税额
 /// - 当月应纳税额 < 0 时取 0
-pub async fn calculate_monthly_tax(
-    db: &DatabaseConnection,
+/// 泛型连接参数：可传入普通连接或事务，保证核算主流程内读取与事务一致
+pub(crate) async fn calculate_monthly_tax<C: ConnectionTrait>(
+    conn: &C,
     employee_id: i64,
     year: i32,
     month: i32,
@@ -288,7 +290,7 @@ pub async fn calculate_monthly_tax(
     let config = employee_tax_config::Entity::find()
         .filter(employee_tax_config::Column::EmployeeId.eq(employee_id))
         .filter(employee_tax_config::Column::Year.eq(year))
-        .one(db)
+        .one(conn)
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "员工个税配置不存在".to_string())?;
@@ -357,7 +359,7 @@ pub async fn calculate_monthly_tax(
     }
 
     // 查税率表（tax_type=1 综合所得累计）
-    let rates = get_tax_rate_list(db, Some(1)).await?;
+    let rates = get_tax_rate_list(conn, Some(1)).await?;
     let (rate, quick_deduction) = find_rate(&rates, cumulative_taxable);
 
     let cumulative_tax_should = cumulative_taxable * rate - quick_deduction;
@@ -462,6 +464,92 @@ pub(crate) async fn save_tax_detail_in_conn<C: ConnectionTrait>(
     active.update(conn).await.map_err(|e| e.to_string())?;
 
     Ok(inserted.id)
+}
+
+/// 个税累计回滚（明细重放法）
+///
+/// 将员工当年个税配置的累计值回滚到「上个月末」状态，供重算前清理脏累计：
+/// - month=1：按累计预扣法自然年清零规则，直接将累计值全部清零
+/// - month>1：取上月最近一条个税明细的累计快照（cumulative_income/cumulative_taxable 等）
+///   回写配置；明细快照即计算当时的全链累计，等价于把累计值重放到上月末
+/// - 上月无明细（员工上月未核算或历史数据缺失）时同样清零，与重算时累计从零起算保持一致
+/// - 配置不存在时直接返回成功（无累计可回滚）
+///
+/// 必须在删除当月个税明细之后、重新计算之前调用，且与调用方处于同一事务内
+pub(crate) async fn rollback_tax_config_in_conn<C: ConnectionTrait>(
+    conn: &C,
+    employee_id: i64,
+    year: i32,
+    month: i32,
+) -> Result<(), String> {
+    // 查询当年配置；不存在则无需回滚
+    let config = employee_tax_config::Entity::find()
+        .filter(employee_tax_config::Column::EmployeeId.eq(employee_id))
+        .filter(employee_tax_config::Column::Year.eq(year))
+        .one(conn)
+        .await
+        .map_err(|e| e.to_string())?;
+    let Some(config) = config else {
+        return Ok(());
+    };
+
+    // 明细重放：取上月末（1..=上月）全部个税明细，对月度值求和还原累计
+    // （明细表不存累计专项/其他扣除快照，累计项一律由月度值推导）
+    let prev_month = month - 1;
+    let details: Vec<salary_tax_detail::Model> = if prev_month >= 1 {
+        salary_tax_detail::Entity::find()
+            .filter(salary_tax_detail::Column::EmployeeId.eq(employee_id))
+            .filter(salary_tax_detail::Column::Year.eq(year))
+            .filter(salary_tax_detail::Column::Month.lte(prev_month))
+            .all(conn)
+            .await
+            .map_err(|e| e.to_string())?
+    } else {
+        Vec::new()
+    };
+
+    // 上月末累计值：无明细时全部清零（与自然年首月清零规则一致）
+    let (cum_income, cum_threshold, cum_special, cum_other, cum_tax_paid) = details
+        .iter()
+        .fold(
+            (
+                Decimal::ZERO,
+                Decimal::ZERO,
+                Decimal::ZERO,
+                Decimal::ZERO,
+                Decimal::ZERO,
+            ),
+            |(income, threshold, special, other, tax_paid), d| {
+                (
+                    income + d.monthly_income.unwrap_or_default(),
+                    threshold + d.monthly_threshold.unwrap_or_default(),
+                    special + d.monthly_special_deduction.unwrap_or_default(),
+                    other + d.monthly_other_deduction.unwrap_or_default(),
+                    tax_paid + d.monthly_tax.unwrap_or_default(),
+                )
+            },
+        );
+
+    // 累计值已与目标一致时无需写库，减少无效 UPDATE
+    if config.cumulative_income == cum_income
+        && config.cumulative_threshold_deduction == cum_threshold
+        && config.cumulative_special_deduction == cum_special
+        && config.cumulative_other_deduction == cum_other
+        && config.cumulative_tax_paid == cum_tax_paid
+    {
+        return Ok(());
+    }
+
+    let now = Utc::now().naive_utc();
+    let mut active: employee_tax_config::ActiveModel = config.into();
+    active.cumulative_income = Set(cum_income);
+    active.cumulative_threshold_deduction = Set(cum_threshold);
+    active.cumulative_special_deduction = Set(cum_special);
+    active.cumulative_other_deduction = Set(cum_other);
+    active.cumulative_tax_paid = Set(cum_tax_paid);
+    active.update_time = Set(Some(now));
+    active.update(conn).await.map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 // ==================== 个税明细查询 ====================

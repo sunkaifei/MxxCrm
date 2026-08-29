@@ -133,6 +133,8 @@ pub struct OrderSaveRequest {
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub dept_id: Option<i64>,
     pub items: Option<Vec<OrderItemSaveDTO>>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -184,6 +186,8 @@ pub struct OrderUpdateRequest {
     #[serde(default, deserialize_with = "deserialize_option_string_to_u64")]
     pub dept_id: Option<i64>,
     pub items: Option<Vec<OrderItemSaveDTO>>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -298,6 +302,8 @@ pub struct OrderSaveDTO {
     pub auto_renew: Option<i32>,
     pub create_by: Option<i64>,
     pub update_by: Option<i64>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -367,6 +373,8 @@ pub struct OrderListVO {
     pub approval_status: Option<i32>,
     /// 审批实例ID
     pub instance_id: Option<i64>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
     pub create_time: Option<DateTime>,
 }
 
@@ -442,6 +450,8 @@ pub struct OrderDetailVO {
     pub approval_status: Option<i32>,
     /// 审批实例ID
     pub instance_id: Option<i64>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
     pub items: Vec<OrderItemVO>,
     pub shipments: Vec<ShipmentListVO>,
 }
@@ -551,6 +561,7 @@ impl From<OrderSaveRequest> for OrderSaveDTO {
             auto_renew: None,
             create_by: None,
             update_by: None,
+            custom_fields: req.custom_fields,
         }
     }
 }
@@ -612,6 +623,7 @@ impl From<OrderUpdateRequest> for OrderSaveDTO {
             auto_renew: None,
             create_by: None,
             update_by: None,
+            custom_fields: req.custom_fields,
         }
     }
 }
@@ -639,6 +651,7 @@ impl From<&order::Model> for OrderListVO {
             owner_user_name: None,
             approval_status: model.approval_status,
             instance_id: model.instance_id,
+            custom_fields: model.custom_fields.clone(),
             create_time: model.create_time,
         }
     }
@@ -705,6 +718,7 @@ impl From<(&order::Model, Vec<order_item::Model>, Vec<shipment::Model>)> for Ord
             create_time: model.create_time,
             update_by: model.update_by,
             update_time: model.update_time,
+            custom_fields: model.custom_fields.clone(),
             items: items.iter().map(|i| i.into()).collect(),
             shipments: shipments.iter().map(|s| s.into()).collect(),
         }
@@ -826,6 +840,7 @@ impl OrderModel {
             update_by: Set(req.update_by),
             update_time: Set(Some(now)),
             deleted: Set(Some(0)),
+            custom_fields: Set(req.custom_fields.clone()),
             ..Default::default()
         };
         SaleOrder::insert(payload).exec(db).await.map(|r| r.last_insert_id)
@@ -883,6 +898,7 @@ impl OrderModel {
         if let Some(v) = req.service_duration { payload.service_duration = Set(Some(v)); }
         if let Some(v) = req.auto_renew { payload.auto_renew = Set(Some(v)); }
         if let Some(v) = req.update_by { payload.update_by = Set(Some(v)); }
+        if let Some(v) = req.custom_fields.clone() { payload.custom_fields = Set(Some(v)); }
 
         let result = SaleOrder::update_many()
             .set(payload)

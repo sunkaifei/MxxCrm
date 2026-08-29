@@ -3,15 +3,14 @@ use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::statistics::model::performance_target::{PerformanceTargetQuery, PerformanceTargetBatchSaveRequest, PerformanceRankingQuery};
-use crate::modules::statistics::model::performance_overview::PerformanceOverviewQuery;
+use crate::modules::statistics::model::performance_overview::{PerformanceRankingQuery, PerformanceOverviewQuery};
 use crate::modules::statistics::model::customer_stats::CustomerStatsQuery;
 use crate::modules::statistics::model::employee_stats::EmployeeStatsQuery;
 use crate::modules::statistics::model::contract_stats::ContractStatsQuery;
 use crate::modules::statistics::model::payment_stats::PaymentStatsQuery;
 use crate::modules::statistics::model::stats_agg::{AggBatchQuery, AggRefreshRequest};
 use crate::modules::statistics::service::stats_range::{StatsRange, StatsScope};
-use crate::modules::statistics::service::{performance_target_service, customer_stats_service, employee_stats_service, contract_stats_service, payment_stats_service, performance_overview_service, stats_agg_query};
+use crate::modules::statistics::service::{customer_stats_service, employee_stats_service, contract_stats_service, payment_stats_service, performance_overview_service, stats_agg_query};
 use crate::modules::statistics::service::{stats_agg_service, stats_cache};
 use crate::modules::system::service::data_scope_service;
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -62,35 +61,6 @@ fn can_use_agg(range: &StatsRange) -> bool {
     range.start.is_some() && range.end.is_some() && !range.covers_today()
 }
 
-pub async fn get_performance_target(state: web::Data<AppState>, query: web::Query<PerformanceTargetQuery>) -> Result<HttpResponse> {
-    let db = &state.db;
-    let query = query.into_inner();
-    
-    match performance_target_service::get_targets(db, query.employee_id, query.year, query.month).await {
-        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
-    }
-}
-
-pub async fn save_performance_target(state: web::Data<AppState>, form_data: web::Json<PerformanceTargetBatchSaveRequest>) -> Result<HttpResponse> {
-    let db = &state.db;
-    let form_data = form_data.0;
-    
-    if form_data.targets.is_none() || form_data.targets.as_ref().unwrap().is_empty() {
-        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "目标数据不能为空", "local")));
-    }
-    
-    match performance_target_service::save_targets(db, form_data.targets.as_ref().unwrap()).await {
-        Ok((saved_count, updated_count)) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success({
-            serde_json::json!({
-                "saved_count": saved_count,
-                "updated_count": updated_count
-            })
-        }, "local"))),
-        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
-    }
-}
-
 pub async fn get_monthly_performance(state: web::Data<AppState>, req: HttpRequest, query: web::Query<PerformanceRankingQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let query = query.into_inner();
@@ -99,7 +69,7 @@ pub async fn get_monthly_performance(state: web::Data<AppState>, req: HttpReques
     let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
-    match performance_target_service::get_monthly_performance(db, query.year, query.department_id, accessible_user_ids).await {
+    match performance_overview_service::get_monthly_performance(db, query.year, query.department_id, accessible_user_ids).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -113,7 +83,7 @@ pub async fn get_performance_ranking(state: web::Data<AppState>, req: HttpReques
     let current_user_id = get_current_user_id(&req);
     let accessible_user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await.unwrap_or(None);
 
-    match performance_target_service::get_performance_ranking(db, query.year, query.month, query.order_by, query.department_id, accessible_user_ids).await {
+    match performance_overview_service::get_performance_ranking(db, query.year, query.month, query.order_by, query.department_id, accessible_user_ids).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -635,23 +605,9 @@ pub async fn agg_batches(state: web::Data<AppState>, query: web::Query<AggBatchQ
 /// 注意：本模块包含五个子领域（performance/customer/employee/contract/payment），
 /// 因此在 register 中使用五个独立的 scope。
 pub fn register(cfg: &mut web::ServiceConfig) {
-    // 业绩目标统计
+    // 业绩统计
     cfg.service(
         web::scope("/statistics/performance")
-            // GET /statistics/performance/target - 业绩目标查询
-            .route(
-                "/target",
-                web::get()
-                    .to(get_performance_target)
-                    .wrap(require_permission("statistics:performance:view")),
-            )
-            // POST /statistics/performance/target/save - 保存业绩目标
-            .route(
-                "/target/save",
-                web::post()
-                    .to(save_performance_target)
-                    .wrap(require_permission("statistics:performance:manage")),
-            )
             // GET /statistics/performance/monthly - 月度业绩
             .route(
                 "/monthly",

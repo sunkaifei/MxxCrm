@@ -20,6 +20,8 @@ pub struct Model {
     pub id: i64,
     /// 产品ID
     pub product_id: Option<i64>,
+    /// SKU ID（多规格产品按规格冻结，单规格为NULL）
+    pub sku_id: Option<i64>,
     /// 仓库ID
     pub warehouse_id: Option<i64>,
     /// 冻结数量

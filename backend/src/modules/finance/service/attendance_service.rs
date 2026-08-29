@@ -348,8 +348,9 @@ pub async fn batch_import(
 /// - 加班费：weekday × (base_salary/21.75/8 × 1.5) + weekend × (×2) + holiday × (×3)
 /// - 全勤奖：无迟到/早退/请假/旷工 且 actual_work_days >= work_days 则 +200
 /// - total_adjustment = deduction_amount - overtime_pay - full_attendance_bonus
-pub async fn calculate_deduction(
-    db: &DatabaseConnection,
+/// 泛型连接参数：可传入普通连接或事务，保证核算主流程内读取与事务一致
+pub async fn calculate_deduction<C: ConnectionTrait>(
+    conn: &C,
     employee_id: i64,
     year: i32,
     month: i32,
@@ -359,7 +360,7 @@ pub async fn calculate_deduction(
         .filter(attendance_record::Column::EmployeeId.eq(employee_id))
         .filter(attendance_record::Column::Year.eq(year))
         .filter(attendance_record::Column::Month.eq(month))
-        .one(db)
+        .one(conn)
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "考勤记录不存在".to_string())?;
@@ -370,7 +371,7 @@ pub async fn calculate_deduction(
         .filter(salary_config::Column::Year.eq(year))
         .filter(salary_config::Column::Status.eq(1))
         .filter(salary_config::Column::Deleted.eq(0))
-        .all(db)
+        .all(conn)
         .await
         .map_err(|e| e.to_string())?;
 

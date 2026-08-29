@@ -11,7 +11,7 @@ use crate::modules::articles::controller::admin::{article_admin_controller, arti
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller, audit_admin_controller, backup_controller, profile_controller, hr_archive_controller, resign_controller, dashboard_card_admin_controller, workspace_admin_controller, onboarding_controller, salary_band_admin_controller, dashboard_workspace_controller};
+use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, perm_set_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller, audit_admin_controller, backup_controller, profile_controller, hr_archive_controller, resign_controller, dashboard_card_admin_controller, workspace_admin_controller, onboarding_controller, salary_band_admin_controller, dashboard_workspace_controller, field_admin_controller, field_perm_admin_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
 use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller};
@@ -21,7 +21,7 @@ use crate::modules::shop::controller::admin::audit_controller;
 use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller, expense_controller as finance_expense_controller, tax_controller, insurance_controller, bank_export_controller, payslip_controller, team_commission_controller, attendance_controller, salary_item_controller, salary_adjustment_controller, commission_pool_controller};
 use crate::modules::ai::controller::admin::{ai_config_controller, background_check_controller};
 use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, visit_controller, work_log_controller, recycle_controller};
-use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller, brand_controller, unit_conversion_controller};
+use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller, brand_controller, unit_conversion_controller, product_unit_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller, purchase_requisition_controller, purchase_receipt_controller, purchase_return_controller, purchase_stock_plan_controller, purchase_report_controller, supplier_brand_controller, supplier_product_controller};
 use crate::modules::production::controller::admin::{production_plan_controller, production_order_controller};
 use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, refund_controller, shipment_controller, delivery_controller, card_pool_controller, entitlement_controller, online_payment_controller, logistics_controller, delivery_notification_controller, tax_invoice_controller, exchange_controller, download_link_controller};
@@ -109,6 +109,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(setting_admin_controller::register)
             // Role Management
             .configure(role_admin_controller::register)
+            // PermSet Management（权限集：RBAC 附加授权，对齐主流 Profile+Permission Set 模式）
+            .configure(perm_set_admin_controller::register)
             // Menu Management
             .configure(menu_admin_controller::register)
             // Dict Management
@@ -370,6 +372,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(brand_controller::register)
             // Product Unit Conversion Management
             .configure(unit_conversion_controller::register)
+            // Product Unit Management
+            .configure(product_unit_controller::register)
             // Production Plan Management
             .configure(production_plan_controller::register)
             // Production Order Management
@@ -406,6 +410,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(onboarding_controller::register)
             // Dashboard Workspace Summary (工作台聚合摘要：8 卡一次返回)
             .configure(dashboard_workspace_controller::register)
+            // Field Definition Management (自定义字段定义管理：元数据 CRUD + 运行侧 schema)
+            .configure(field_admin_controller::register)
+            // Field Permission Management (标准敏感字段权限 FLS：白名单清单 + 角色配置，P2-1)
+            .configure(field_perm_admin_controller::register)
     );
 
     // logout 路由独立注册（不在 /api/system scope 下，避免前缀冲突）

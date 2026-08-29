@@ -15,6 +15,7 @@ pub mod admin_role_merge;
 pub mod admin_post_merge;
 
 pub mod admin_dept_merge;
+pub mod admin_perm_set_merge;
 
 pub mod menu;
 pub mod config;
@@ -23,6 +24,9 @@ pub mod region;
 pub mod role;
 pub mod role_menu_merge;
 pub mod role_dept_merge;
+
+pub mod perm_set;
+pub mod perm_set_menu_merge;
 
 pub mod dept;
 pub mod dept_default_role;
@@ -51,4 +55,6 @@ pub mod workspace;
 pub mod onboarding;
 pub mod resign;
 pub mod dashboard_workspace;
+pub mod field_def;
+pub mod field_perm;
 

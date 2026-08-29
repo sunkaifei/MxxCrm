@@ -97,7 +97,8 @@ defineExpose({ reload: loadSummary });
       <div v-if="summary.items.length > 0">
         <div class="mb-2 flex gap-2">
           <div
-            class="flex-1 rounded-md bg-blue-50 px-2 py-1.5 text-center dark:bg-blue-950"
+            class="flex-1 cursor-pointer rounded-md bg-blue-50 px-2 py-1.5 text-center transition-colors hover:bg-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900"
+            @click="goList"
           >
             <div class="text-lg font-semibold text-blue-600">
               {{ summary.onboarding }}
@@ -107,7 +108,8 @@ defineExpose({ reload: loadSummary });
             </div>
           </div>
           <div
-            class="flex-1 rounded-md bg-orange-50 px-2 py-1.5 text-center dark:bg-orange-950"
+            class="flex-1 cursor-pointer rounded-md bg-orange-50 px-2 py-1.5 text-center transition-colors hover:bg-orange-100 dark:bg-orange-950 dark:hover:bg-orange-900"
+            @click="goList"
           >
             <div class="text-lg font-semibold text-orange-500">
               {{ summary.resign }}
@@ -121,7 +123,8 @@ defineExpose({ reload: loadSummary });
           <div
             v-for="(item, idx) in summary.items"
             :key="idx"
-            class="flex items-center justify-between gap-2 rounded-md border border-gray-100 px-2 py-1.5"
+            class="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-gray-100 px-2 py-1.5 transition-colors hover:border-purple-300 hover:bg-purple-50/60 dark:border-gray-800 dark:hover:border-purple-700 dark:hover:bg-purple-950/40"
+            @click="goList"
           >
             <div class="flex min-w-0 items-center gap-2">
               <Tag :color="typeColor(item.businessType)" class="mr-0">

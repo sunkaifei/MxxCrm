@@ -88,6 +88,7 @@ pub struct Model {
     pub delete_time: Option<DateTime>,
     /// 软删除标识（0-未删除，1-已删除）
     pub deleted: Option<i32>,
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

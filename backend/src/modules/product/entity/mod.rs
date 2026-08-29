@@ -8,3 +8,4 @@ pub mod sku_template_spec;
 pub mod sku_template_spec_value;
 pub mod brand;
 pub mod unit_conversion;
+pub mod product_unit;

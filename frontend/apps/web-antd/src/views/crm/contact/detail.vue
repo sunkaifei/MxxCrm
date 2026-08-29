@@ -34,6 +34,7 @@ import {
 
 import { getContactInfoApi, unbindContactApi } from '#/api';
 import { getContactEditLogApi } from '#/api/core/crm/contact-edit-log';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { $t } from '#/locales';
 
 const props = defineProps<{ id?: number | string }>();
@@ -114,6 +115,21 @@ const loadData = async () => {
     loading.value = false;
   }
 };
+
+// 自定义字段明细展示：拉取 schema，仅展示有值的键（选项/成员/附件按类型格式化）
+const fieldSchema = useFieldSchema('crm_contact');
+fieldSchema.loadSchema();
+const cfRows = computed(() =>
+  fieldSchema.items.value
+    .map((item) => ({
+      label: item.fieldLabel,
+      value: fieldSchema.formatFieldValue(
+        item,
+        (contact.value as any)?.customFields?.[item.fieldKey],
+      ),
+    }))
+    .filter((r) => r.value !== ''),
+);
 
 // 加载修改记录
 async function loadEditLogs() {
@@ -355,6 +371,13 @@ watch(
                     </Descriptions.Item>
                     <Descriptions.Item label="备注" :span="2">
                       {{ contact.notes || '-' }}
+                    </Descriptions.Item>
+                    <Descriptions.Item
+                      v-for="row in cfRows"
+                      :key="row.label"
+                      :label="row.label"
+                    >
+                      {{ row.value }}
                     </Descriptions.Item>
                   </Descriptions>
                 </div>

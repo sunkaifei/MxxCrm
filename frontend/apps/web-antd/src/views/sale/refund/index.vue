@@ -206,14 +206,16 @@ const gridOptions: VxeGridProps = {
           params.endDate = formValues.dateRange[1];
         }
         const result = await getRefundListApi(params);
-        // 无数据 280px，有数据按内容自适应
+        // 无数据固定 600px（空态居中）；有数据默认 600px，内容超过则响应式撑高
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
           if (items.length === 0) {
-            gridEl.style.setProperty('height', '280px', 'important');
+            gridEl.style.setProperty('height', '600px', 'important');
+            gridEl.style.removeProperty('min-height');
           } else {
             gridEl.style.removeProperty('height');
+            gridEl.style.setProperty('min-height', '600px', 'important');
           }
         }
         return result;

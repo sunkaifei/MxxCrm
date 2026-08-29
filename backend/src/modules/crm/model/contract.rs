@@ -86,6 +86,8 @@ pub struct ContractSaveRequest {
     pub their_signer_name: Option<String>,
     /// 对方签署人电话
     pub their_signer_phone: Option<String>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 /// 从字符串反序列化 Decimal（前端传字符串金额）
@@ -237,6 +239,7 @@ impl From<ContractSaveRequest> for ContractSaveDTO {
             our_signer_name: item.our_signer_name,
             their_signer_name: item.their_signer_name,
             their_signer_phone: item.their_signer_phone,
+            custom_fields: item.custom_fields,
             order_id: None,
             deleted: None,
             created_by: None,
@@ -313,6 +316,8 @@ pub struct ContractUpdateRequest {
     pub their_signer_name: Option<String>,
     /// 对方签署人电话
     pub their_signer_phone: Option<String>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 impl From<ContractUpdateRequest> for ContractSaveDTO {
@@ -350,6 +355,7 @@ impl From<ContractUpdateRequest> for ContractSaveDTO {
             our_signer_name: item.our_signer_name,
             their_signer_name: item.their_signer_name,
             their_signer_phone: item.their_signer_phone,
+            custom_fields: item.custom_fields,
             order_id: None,
             deleted: None,
             created_by: None,
@@ -440,6 +446,8 @@ pub struct ContractSaveDTO {
     pub updated_by: Option<i64>,
     /// 更新时间
     pub update_time: Option<DateTime>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 /// 合同详情VO
@@ -517,6 +525,8 @@ pub struct ContractDetailVO {
     pub approval_logs: Option<Vec<ContractApprovalLogVO>>,
     /// 发货状态（0/None-未发货，1-已发货/部分发货/已签收/已完成）
     pub ship_status: Option<i32>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 impl From<contract::Model> for ContractDetailVO {
@@ -557,6 +567,7 @@ impl From<contract::Model> for ContractDetailVO {
             order_id: item.order_id,
             approval_logs: None,
             ship_status: None,
+            custom_fields: item.custom_fields,
         }
     }
 }
@@ -599,6 +610,8 @@ pub struct ContractListVO {
     pub assigned_to: Option<i64>,
     /// 负责人姓名
     pub assigned_to_name: Option<String>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
     /// 创建时间
     pub create_time: Option<DateTime>,
 }
@@ -622,6 +635,7 @@ impl From<contract::Model> for ContractListVO {
             ship_status: None,
             assigned_to: item.assigned_to,
             assigned_to_name: None,
+            custom_fields: item.custom_fields,
             create_time: item.create_time,
         }
     }
@@ -644,6 +658,59 @@ pub struct ContractListQuery {
     pub customer_id: Option<i64>,
     /// 列表类型：all=全部 my=我的合同 subordinate=下属合同
     pub list_type: Option<String>,
+}
+
+/// 合同选择VO（发票等单据关联合同场景）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct ContractSelectVO {
+    /// 合同ID
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub id: Option<i64>,
+    /// 合同编号
+    pub contract_no: Option<String>,
+    /// 合同标题
+    pub title: Option<String>,
+    /// 客户ID
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub customer_id: Option<i64>,
+    /// 客户名称
+    pub customer_name: Option<String>,
+    /// 合同金额（不含税）
+    pub amount: Option<Decimal>,
+    /// 合同总金额（含税）
+    pub total_amount: Option<Decimal>,
+    /// 币种
+    pub currency: Option<CurrencyCode>,
+    /// 合同状态
+    pub status: Option<ContractStatus>,
+    /// 关联订单ID
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub order_id: Option<i64>,
+    /// 订单编号
+    pub order_no: Option<String>,
+    /// 负责人ID
+    #[serde(serialize_with = "serialize_option_u64_to_string")]
+    pub assigned_to: Option<i64>,
+    /// 负责人姓名
+    pub assigned_to_name: Option<String>,
+    /// 已开票金额（status=3 已开票发票合计）
+    pub invoiced_amount: Option<Decimal>,
+    /// 创建时间
+    pub create_time: Option<DateTime>,
+}
+
+/// 合同选择查询参数
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractSelectQuery {
+    /// 页码
+    #[serde(rename = "page")]
+    pub page_num: Option<i64>,
+    /// 每页大小
+    pub page_size: Option<i64>,
+    /// 关键词（搜索合同标题、编号）
+    pub keywords: Option<String>,
 }
 
 /// 合同数据模型操作类
@@ -725,6 +792,7 @@ impl ContractModel {
             our_signer_name: Set(req.our_signer_name.clone()),
             their_signer_name: Set(req.their_signer_name.clone()),
             their_signer_phone: Set(req.their_signer_phone.clone()),
+            custom_fields: Set(req.custom_fields.clone()),
             order_id: Set(req.order_id.clone()),
             created_by: Set(req.created_by.clone()),
             create_time: Set(Option::from(now)),
@@ -800,6 +868,11 @@ impl ContractModel {
             our_signer_name: Set(req.our_signer_name.clone()),
             their_signer_name: Set(req.their_signer_name.clone()),
             their_signer_phone: Set(req.their_signer_phone.clone()),
+            // 7.3 合并写：未提交时不动该列（防置 NULL 丢存量）；提交时由校验器按 key 与旧值合并
+            custom_fields: match req.custom_fields.clone() {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()

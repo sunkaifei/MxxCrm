@@ -70,3 +70,23 @@ pub fn snap(pairs: Vec<(&str, serde_json::Value)>) -> Option<serde_json::Value> 
     }
     Some(serde_json::Value::Object(map))
 }
+
+/// 数据范围档位中文标签（P0-3 审计摘要用）
+pub fn data_scope_label(scope: i32) -> &'static str {
+    match scope {
+        1 => "全部数据",
+        2 => "自定义部门",
+        3 => "本部门",
+        4 => "本部门及以下",
+        5 => "仅本人",
+        _ => "未知档位",
+    }
+}
+
+/// 数据范围 Option 值转可读文案（None 显示"未设置"）
+pub fn data_scope_text(scope: &Option<i32>) -> String {
+    match scope {
+        Some(v) => format!("{}({})", data_scope_label(*v), v),
+        None => "未设置".to_string(),
+    }
+}

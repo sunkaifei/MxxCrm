@@ -33,6 +33,7 @@ pub struct OutboundSaveRequest {
 #[serde(rename_all = "camelCase")]
 pub struct OutboundItemRequest {
     pub product_id: i64,
+    pub sku_id: Option<i64>,
     pub product_sku: Option<String>,
     pub quantity: Decimal,
     pub batch_no: Option<String>,

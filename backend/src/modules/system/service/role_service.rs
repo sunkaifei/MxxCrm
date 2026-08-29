@@ -14,8 +14,8 @@ use crate::modules::system::model::admin_role_merge::{AdminRoleMergeModel, Admin
 use crate::modules::system::model::role::{AdminRoleByName, ListQuery, PageWhere, RoleDetailVO, RoleListVO, RoleModel, RoleOptionVO, RoleSaveDTO, UpdateRoleDeptRequest, UpdateRoleMenuRequest};
 use crate::modules::system::model::role_menu_merge::{RoleMenuMergeModel, RoleMenuMergeSaveDTO};
 use crate::modules::system::model::role_dept_merge::{RoleDeptMergeModel, RoleDeptMergeSaveDTO};
-use sea_orm::{ColumnTrait, DbConn, DbErr, EntityTrait, JoinType, PaginatorTrait, QueryFilter, QuerySelect, RelationTrait, TransactionTrait};
-use crate::modules::system::entity::{menu, role_menu_merge};
+use sea_orm::{ColumnTrait, DbConn, DbErr, EntityTrait, JoinType, PaginatorTrait, QueryFilter, QuerySelect, RelationTrait, Set, TransactionTrait};
+use crate::modules::system::entity::{menu, role, role_menu_merge};
 use crate::modules::system::model::menu::MenuModel;
 use crate::modules::system::service::menu_service;
 
@@ -63,6 +63,101 @@ pub async fn insert(db: &DbConn, form_data: &RoleSaveDTO) -> Result<i64> {
     validate_home_path(db, None, &form_data.home_path).await?;
     let result = RoleModel::insert(&db, form_data).await?;
     Ok(result)
+}
+
+/// 复制角色（P3-1 一键复制）：深拷贝角色基本信息 + 菜单授权 + 部门授权（数据范围）
+///
+/// - 名称追加"副本"、role_key 追加"-copy"后缀，冲突时追加序号防唯一约束冲突
+/// - 主表与两张关联表在同一事务内写入，中途失败不产生"有角色无授权"的半成品数据
+/// - 超级管理员角色（id=1）为系统内置，禁止复制
+/// - 不修改源角色及其缓存，源角色的用户权限不受影响
+pub async fn copy_role(db: &DbConn, source_id: i64, operator: Option<String>) -> Result<i64> {
+    if source_id == 1 {
+        return Err(Error::from("超级管理员角色不允许复制"));
+    }
+    let source = RoleModel::find_by_id(db, source_id).await?
+        .ok_or_else(|| Error::from("源角色不存在或已被删除"))?;
+
+    // 复制前读取源角色的菜单/部门授权快照，事务内只做写入
+    let src_menus = RoleMenuMergeModel::find_by_role_id(db, &Some(source_id)).await?;
+    let src_depts = RoleDeptMergeModel::find_by_role_id(db, &Some(source_id)).await?;
+
+    // 名称加"副本"，已存在则追加序号
+    let base_name = format!("{}副本", source.role_name.clone().unwrap_or_default());
+    let mut new_name = base_name.clone();
+    let mut name_seq = 1;
+    while RoleModel::find_by_name_unique(db, &Some(new_name.clone()), &None).await? > 0 {
+        name_seq += 1;
+        new_name = format!("{}{}", base_name, name_seq);
+    }
+
+    // role_key 加"-copy"后缀，已存在则追加序号，避免权限字符串唯一冲突
+    let base_key = format!("{}-copy", source.role_key.clone().unwrap_or_default());
+    let mut new_key = base_key.clone();
+    let mut key_seq = 1;
+    while RoleModel::find_by_role_key(db, &new_key).await?.is_some() {
+        key_seq += 1;
+        new_key = format!("{}{}", base_key, key_seq);
+    }
+
+    let menu_rows: Vec<RoleMenuMergeSaveDTO> = src_menus.iter()
+        .map(|m| RoleMenuMergeSaveDTO {
+            id: None,
+            menu_id: m.menu_id,
+            role_id: None,
+            create_time: None,
+            update_time: None,
+        })
+        .collect();
+    let dept_rows: Vec<RoleDeptMergeSaveDTO> = src_depts.iter()
+        .map(|d| RoleDeptMergeSaveDTO {
+            id: None,
+            dept_id: d.dept_id,
+            role_id: None,
+            create_time: None,
+            update_time: None,
+        })
+        .collect();
+
+    let now = chrono::Local::now().naive_local();
+    let new_role = role::ActiveModel {
+        role_name: Set(Some(new_name)),
+        role_key: Set(Some(new_key)),
+        data_scope: Set(source.data_scope),
+        sort: Set(source.sort),
+        status: Set(source.status),
+        remark: Set(source.remark.clone()),
+        home_path: Set(source.home_path.clone()),
+        create_by: Set(operator.clone()),
+        update_by: Set(operator),
+        create_time: Set(Some(now.clone())),
+        update_time: Set(Some(now)),
+        ..Default::default()
+    };
+
+    // 主表 + 菜单授权 + 部门授权原子写入
+    let new_id = db.transaction::<_, i64, DbErr>(|txn| {
+        Box::pin(async move {
+            let rid = role::Entity::insert(new_role).exec(txn).await?.last_insert_id;
+            let mut menu_rows = menu_rows;
+            for row in menu_rows.iter_mut() {
+                row.role_id = Some(rid);
+            }
+            if !menu_rows.is_empty() {
+                RoleMenuMergeModel::insert_batch(txn, &menu_rows).await?;
+            }
+            let mut dept_rows = dept_rows;
+            for row in dept_rows.iter_mut() {
+                row.role_id = Some(rid);
+            }
+            if !dept_rows.is_empty() {
+                RoleDeptMergeModel::insert_batch(txn, &dept_rows).await?;
+            }
+            Ok(rid)
+        })
+    }).await.map_err(|e| Error::from(e.to_string()))?;
+
+    Ok(new_id)
 }
 
 /// 批量删除角色

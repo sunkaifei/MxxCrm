@@ -33,11 +33,13 @@ use crate::modules::sale::service::delivery_service;
 /// 交付记录列表
 pub async fn list(
     state: web::Data<AppState>,
+    req: HttpRequest,
     query: web::Query<DeliveryListQuery>,
 ) -> HttpResponse {
     let db = &state.db;
+    let user_id = get_current_user_id(&req);
     let query = query.0;
-    match delivery_service::get_list(db, &query).await {
+    match delivery_service::get_list(db, &query, user_id).await {
         Ok(page_data) => {
             let page = page_data.current_page as u32;
             let total = page_data.total as u32;
@@ -136,15 +138,17 @@ pub async fn resend(state: web::Data<AppState>, item: web::Query<InfoId>) -> Htt
 /// 批量删除交付记录
 pub async fn delete(
     state: web::Data<AppState>,
+    req: HttpRequest,
     item: web::Json<Vec<i64>>,
 ) -> HttpResponse {
     let db = &state.db;
+    let user_id = get_current_user_id(&req);
     let ids = item.into_inner();
     if ids.is_empty() {
         return HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, "请选择要删除的记录", "local"));
     }
-    match DeliveryModel::batch_delete(db, &ids).await {
+    match DeliveryModel::batch_delete(db, &ids, user_id).await {
         Ok(count) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(count, "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)

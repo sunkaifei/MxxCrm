@@ -88,7 +88,7 @@ async fn build_stock_alert(db: &DbConn, visible: bool) -> StockAlertSummary {
     if !visible {
         return StockAlertSummary::default();
     }
-    match inventory_service::get_alert_list(db, None, None, 1, SUMMARY_ITEM_LIMIT as u64).await {
+    match inventory_service::get_alert_list(db, None, None, None, 1, SUMMARY_ITEM_LIMIT as u64).await {
         Ok(data) => StockAlertSummary {
             total: data.total as i64,
             items: data

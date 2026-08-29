@@ -59,6 +59,8 @@ pub struct ContactSaveRequest {
     pub is_shipping: Option<bool>,
     /// 绑定时间
     pub bound_at: Option<DateTime>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 impl From<ContactSaveRequest> for ContactSaveDTO {
@@ -85,6 +87,7 @@ impl From<ContactSaveRequest> for ContactSaveDTO {
             is_billing: item.is_billing,
             is_shipping: item.is_shipping,
             bound_at: item.bound_at,
+            custom_fields: item.custom_fields,
             deleted: None,
             created_by: None,
             create_time: None,
@@ -163,6 +166,8 @@ pub struct ContactUpdateRequest {
     pub customer_id: Option<i64>,
     /// 在客户公司的角色类型（0-决策人 1-影响者 2-使用者 3-其他）
     pub role_type: Option<i32>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 impl From<ContactUpdateRequest> for ContactSaveDTO {
@@ -185,6 +190,7 @@ impl From<ContactUpdateRequest> for ContactSaveDTO {
             notes: item.notes,
             customer_id: item.customer_id,
             role_type: item.role_type,
+            custom_fields: item.custom_fields,
             is_primary: None,
             is_billing: None,
             is_shipping: None,
@@ -254,6 +260,8 @@ pub struct ContactSaveDTO {
     pub updated_by: Option<i64>,
     /// 更新时间
     pub update_time: Option<DateTime>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 // ==================== 联系人关联操作请求 ====================
@@ -349,6 +357,8 @@ pub struct ContactDetailVO {
     pub current_company: Option<ContactCompanyInfo>,
     /// 职业生涯履历
     pub career_history: Option<Vec<CareerHistoryItem>>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
     /// 创建时间
     pub create_time: Option<DateTime>,
     /// 更新时间
@@ -412,6 +422,8 @@ pub struct ContactListVO {
     pub owner_name: Option<String>,
     /// 当前任职角色（0-决策人 1-影响者 2-使用者 3-其他）
     pub role_type: Option<i32>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
     /// 创建时间
     pub create_time: Option<DateTime>,
 }
@@ -502,6 +514,7 @@ impl ContactModel {
             gender: Set(req.gender.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
+            custom_fields: Set(req.custom_fields.clone()),
             created_by: Set(req.created_by.filter(|v| *v > 0)),
             create_time: Set(Option::from(now)),
             update_time: Set(Option::from(now)),
@@ -570,6 +583,11 @@ impl ContactModel {
             gender: Set(req.gender.clone()),
             birthday: Set(req.birthday.clone()),
             notes: Set(req.notes.clone()),
+            // 7.3 合并写：未提交时不动该列（防置 NULL 丢存量）；提交时由校验器按 key 与旧值合并
+            custom_fields: match req.custom_fields.clone() {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
         };

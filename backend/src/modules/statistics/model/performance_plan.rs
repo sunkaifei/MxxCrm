@@ -78,9 +78,30 @@ pub struct PlanQuery {
     pub employee_id: Option<i64>,
     pub year: Option<i32>,
     pub status: Option<i32>,
+    /// 状态多选筛选（团队列表状态复选）
+    #[serde(default, alias = "statusList")]
+    pub status_list: Option<Vec<i32>>,
+    /// 按部门筛选（AdminDeptMerge 关联员工）
+    #[serde(default, alias = "deptId")]
+    pub dept_id: Option<i64>,
+    /// 员工姓名关键词（昵称/用户名模糊匹配）
+    #[serde(default)]
+    pub keyword: Option<String>,
     /// 待我审批模式：true=查询当前登录用户作为 current_approver_id 的待审计划
     #[serde(default, alias = "pendingMyApproval")]
     pub pending_my_approval: Option<bool>,
+    /// 页码（从 1 开始）
+    #[serde(default)]
+    pub page: Option<i64>,
+    /// 每页条数
+    #[serde(default, alias = "pageSize")]
+    pub page_size: Option<i64>,
+    /// 排序字段：submit_time/total_contract_target/completion_rate/payment_completion_rate/employee_name/status
+    #[serde(default, alias = "orderBy")]
+    pub order_by: Option<String>,
+    /// 排序方向：asc/desc，缺省 desc
+    #[serde(default, alias = "orderDir")]
+    pub order_dir: Option<String>,
 }
 
 // ---- Response VOs ----
@@ -161,6 +182,8 @@ pub struct PlanListVO {
     pub id: Option<i64>,
     pub employee_id: Option<i64>,
     pub employee_name: Option<String>,
+    /// 员工所属部门名（团队列表展示）
+    pub dept_name: Option<String>,
     pub year: Option<i32>,
     pub status: Option<i32>,
     pub version: Option<i32>,
@@ -181,6 +204,24 @@ pub struct PlanListVO {
     pub submit_time: Option<String>,
     /// 是否已冻结
     pub is_frozen: Option<i32>,
+    /// 合同实际金额（已签订合同，口径与进度汇总一致）
+    pub total_contract_actual: Option<Decimal>,
+    /// 回款实际金额（口径与业绩排行一致）
+    pub total_payment_actual: Option<Decimal>,
+    /// 合同完成率（百分比，actual/target*100）
+    pub completion_rate: Option<Decimal>,
+    /// 回款完成率（百分比）
+    pub payment_completion_rate: Option<Decimal>,
+}
+
+/// 计划分页列表 VO
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanListPageVO {
+    pub total: i64,
+    pub page: i64,
+    pub page_size: i64,
+    pub items: Vec<PlanListVO>,
 }
 
 /// 修改申请详情VO（用于编辑时回显）
@@ -252,4 +293,32 @@ pub struct PlanCoverageSummaryVO {
     pub coverage_rate: Option<Decimal>,
     /// 未覆盖者排在最前（管理动作优先补缺）
     pub items: Vec<PlanCoverageVO>,
+}
+
+// ---- 月度对比（逐月目标 vs 实际，方案 §4.5.2）----
+
+/// 月度对比查询参数
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MonthlyCompareQuery {
+    /// 目标员工（必须在数据权限可见范围内）
+    #[serde(alias = "employeeId")]
+    pub employee_id: i64,
+    /// 计划年度，缺省当前自然年
+    #[serde(default)]
+    pub year: Option<i32>,
+}
+
+/// 单月"目标 vs 实际"行
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MonthlyCompareRowVO {
+    pub month: i32,
+    pub contract_target: Decimal,
+    pub contract_actual: Decimal,
+    pub payment_target: Decimal,
+    pub payment_actual: Decimal,
+    /// 合同完成率（百分比，actual/target*100，目标为 0 时记 0）
+    pub contract_rate: Decimal,
+    /// 回款完成率（百分比）
+    pub payment_rate: Decimal,
 }

@@ -25,6 +25,7 @@ import {
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteContactApi, getContactListApi } from '#/api';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
@@ -191,12 +192,12 @@ const gridOptions: VxeGridProps = {
           listType: activeTab.value,
           ...searchForm.value,
         });
-        // 无数据 150px，有数据按内容自适应
+        // 无数据 600px（避免空态列表塌缩），有数据按内容自适应
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
           if (items.length === 0) {
-            gridEl.style.setProperty('height', '150px', 'important');
+            gridEl.style.setProperty('height', '600px', 'important');
           } else {
             gridEl.style.removeProperty('height');
           }
@@ -296,6 +297,20 @@ const gridOptions: VxeGridProps = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
+
+// 自定义字段动态列：schema 加载完成后插到固定列与操作列之间（不阻塞首屏）
+const fieldSchema = useFieldSchema('crm_contact');
+fieldSchema.loadSchema().then(() => {
+  const cols = [...(gridOptions.columns ?? [])];
+  const action = cols.pop(); // 操作列固定最右
+  gridApi.setGridOptions({
+    columns: [
+      ...cols,
+      ...fieldSchema.toGridColumns(),
+      ...(action ? [action] : []),
+    ],
+  });
+});
 
 const [FormDrawer, drawerApi] = useVbenDrawer({
   connectedComponent: ContactDrawer,

@@ -29,6 +29,7 @@ pub struct TransferSaveRequest {
 #[serde(rename_all = "camelCase")]
 pub struct TransferItemRequest {
     pub product_id: i64,
+    pub sku_id: Option<i64>,
     pub product_name: Option<String>,
     pub product_sku: Option<String>,
     pub quantity: Decimal,

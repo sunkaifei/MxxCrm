@@ -89,6 +89,7 @@ pub async fn create(
         let item_active = inbound_item::ActiveModel {
             inbound_id: Set(Some(inbound_id)),
             product_id: Set(Some(item.product_id)),
+            sku_id: Set(item.sku_id),
             product_sku: Set(item.product_sku.clone()),
             quantity: Set(Some(item.quantity)),
             unit_price: Set(item.unit_price),
@@ -375,12 +376,13 @@ pub async fn do_complete_audit(
                 let unit_price = item.unit_price;
 
                 // 更新库存（使用 stock_engine）
-                stock_engine::increase_stock(txn, product_id, warehouse_id, quantity, unit_price).await?;
+                stock_engine::increase_stock(txn, product_id, item.sku_id, warehouse_id, quantity, unit_price).await?;
 
                 // 写入库存流水
                 stock_engine::write_stock_log(
                     txn,
                     product_id,
+                    item.sku_id,
                     warehouse_id,
                     None,
                     "inbound",
@@ -524,6 +526,7 @@ pub async fn create_and_auto_audit(
                 let item_active = inbound_item::ActiveModel {
                     inbound_id: Set(Some(inbound_id)),
                     product_id: Set(Some(item.product_id)),
+                    sku_id: Set(item.sku_id),
                     product_sku: Set(item.product_sku.clone()),
                     quantity: Set(Some(item.quantity)),
                     unit_price: Set(item.unit_price),
@@ -537,12 +540,13 @@ pub async fn create_and_auto_audit(
                 item_active.insert(txn).await?;
 
                 // 更新库存
-                stock_engine::increase_stock(txn, item.product_id, req.warehouse_id, item.quantity, item.unit_price).await?;
+                stock_engine::increase_stock(txn, item.product_id, item.sku_id, req.warehouse_id, item.quantity, item.unit_price).await?;
 
                 // 写入流水
                 stock_engine::write_stock_log(
                     txn,
                     item.product_id,
+                    item.sku_id,
                     req.warehouse_id,
                     None,
                     "inbound",
@@ -672,6 +676,7 @@ pub async fn get_detail(
             "id": item.id,
             "inboundId": item.inbound_id,
             "productId": item.product_id,
+            "skuId": item.sku_id,
             "productSku": item.product_sku,
             "quantity": item.quantity,
             "unitPrice": item.unit_price,
@@ -740,6 +745,7 @@ pub async fn update(
                     let item_active = inbound_item::ActiveModel {
                         inbound_id: Set(Some(id)),
                         product_id: Set(Some(item.product_id)),
+                        sku_id: Set(item.sku_id),
                         product_sku: Set(item.product_sku.clone()),
                         quantity: Set(Some(item.quantity)),
                         unit_price: Set(item.unit_price),
@@ -800,10 +806,11 @@ pub async fn update(
                     let product_id = old_item.product_id.unwrap_or_default();
                     let quantity = old_item.quantity.unwrap_or_default();
                     if quantity != Decimal::ZERO {
-                        stock_engine::decrease_stock(txn, product_id, warehouse_id, quantity).await?;
+                        stock_engine::decrease_stock(txn, product_id, old_item.sku_id, warehouse_id, quantity).await?;
                         stock_engine::write_stock_log(
                             txn,
                             product_id,
+                            old_item.sku_id,
                             warehouse_id,
                             None,
                             "inbound",
@@ -850,6 +857,7 @@ pub async fn update(
                     let item_active = inbound_item::ActiveModel {
                         inbound_id: Set(Some(id)),
                         product_id: Set(Some(item.product_id)),
+                        sku_id: Set(item.sku_id),
                         product_sku: Set(item.product_sku.clone()),
                         quantity: Set(Some(item.quantity)),
                         unit_price: Set(item.unit_price),
@@ -868,10 +876,11 @@ pub async fn update(
                     let product_id = item.product_id;
                     let quantity = item.quantity;
                     if quantity != Decimal::ZERO {
-                        stock_engine::increase_stock(txn, product_id, req_clone.warehouse_id, quantity, item.unit_price).await?;
+                        stock_engine::increase_stock(txn, product_id, item.sku_id, req_clone.warehouse_id, quantity, item.unit_price).await?;
                         stock_engine::write_stock_log(
                             txn,
                             product_id,
+                            item.sku_id,
                             req_clone.warehouse_id,
                             None,
                             "inbound",

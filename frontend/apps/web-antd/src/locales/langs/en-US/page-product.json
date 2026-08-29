@@ -244,7 +244,7 @@
       }
     },
     "inventory": {
-      "title": "Inventory Management",
+      "title": "Inventory Query",
       "inbound": {
         "title": "Inbound Management",
         "create": "Create Inbound",
@@ -374,7 +374,7 @@
           "checkTime": "Check Time",
           "remark": "Remark",
           "productCode": "Product Code",
-          "productName": "Product Name",
+            "productName": "Product Name",
           "productSku": "SKU",
           "systemQuantity": "System Qty",
           "actualQuantity": "Actual Qty",
@@ -428,6 +428,7 @@
       },
       "alert": {
         "title": "Inventory Alert",
+        "module": "Alert Rule",
         "low": "Low Stock Alert",
         "high": "High Stock Alert",
         "stale": "Stale Alert",
@@ -443,7 +444,11 @@
           "alertType": "Alert Type",
           "enableLowAlert": "Low Stock Alert",
           "enableHighAlert": "High Stock Alert",
-          "enableStaleAlert": "Stale Alert"
+          "enableStaleAlert": "Stale Alert",
+          "specText": "Specs",
+          "skuCode": "SKU Code",
+          "sku": "SKU Scope",
+          "diff": "Alert Detail"
         },
         "type": {
           "lowStock": "Low Stock",
@@ -455,6 +460,54 @@
           "edit": "Edit",
           "delete": "Delete",
           "create": "Add Rule"
+        },
+        "ruleForm": {
+          "productAll": "Product (empty = all products)",
+          "productAllPlaceholder": "All products (applies to every product if empty)",
+          "skuAllPlaceholder": "All specs (applies to every spec if empty)",
+          "skuHint": "Unchecked = all specs share the default thresholds below; check specs to set individual thresholds.",
+          "fillChecked": "Fill Checked Rows",
+          "specCol": "Specs",
+          "minCol": "Min Qty",
+          "maxCol": "Max Qty",
+          "warehouseAll": "Warehouse (empty = all warehouses)",
+          "warehouseAllPlaceholder": "All warehouses (applies to every warehouse if empty)",
+          "minPlaceholder": "Min stock threshold",
+          "maxPlaceholder": "Max stock threshold",
+          "staleDaysPlaceholder": "Stale days (default 90)",
+          "notifyUsers": "Notify Users",
+          "notifyUsersPlaceholder": "Click to select a user",
+          "notifyUsersHint": "Notifies warehouse managers by default; selecting a user overrides it.",
+          "needAlertType": "Enable at least one alert type",
+          "needMinQuantity": "Min quantity is required for low stock alert",
+          "needMaxQuantity": "Max quantity is required for high stock alert",
+          "needSpecThreshold": "Checked specs need valid thresholds",
+          "batchCreateSuccess": "Created {count} alert rules",
+          "batchUpsertSuccess": "Saved: {inserted} created, {updated} updated",
+          "needSelectRecord": "Please select records to delete first",
+          "skuAdded": "Rule exists",
+          "skuWillUpdate": "Will update",
+          "overwriteTitle": "Overwrite existing rules",
+          "overwriteContent": "{count} of the {total} checked specs already have alert rules. Saving will overwrite their thresholds. Continue?",
+          "duplicateRule": "An alert rule with the same scope already exists for this product in this warehouse. Please edit the existing rule."
+        },
+        "productSelect": {
+          "title": "Select Product",
+          "searchPlaceholder": "Search product name / code",
+          "searchButton": "Search",
+          "total": "Total {total}",
+          "colProduct": "Product Name",
+          "colCode": "Code",
+          "colSpec": "Specs",
+          "colAction": "Action",
+          "select": "Select",
+          "multiSpec": "Multi-spec",
+          "hasRule": "Has Rule",
+          "skuAdded": "Added",
+          "specCol": "Specs",
+          "ruleStatus": "Rule Status",
+          "loading": "Loading...",
+          "noSku": "No SKU data"
         }
       },
       "report": {
@@ -480,6 +533,7 @@
           "inTransitQty": "In Transit Qty",
           "frozenQty": "Frozen Qty",
           "productCode": "Product Code",
+          "productImage": "Image",
           "staleDays": "Stale Days",
           "lastMovement": "Last Movement",
           "unitCost": "Unit Cost",
@@ -576,6 +630,7 @@
     }
   },
   "inventory": {
+    "title": "Inventory Query",
     "inbound": {
       "title": "Inbound Management"
     },
@@ -592,7 +647,10 @@
       "title": "Stock Check"
     },
     "alert": {
-      "title": "Inventory Alert"
+      "title": "Inventory Alert",
+      "rule": {
+        "title": "Alert Rules"
+      }
     },
     "report": {
       "title": "Inventory Report",

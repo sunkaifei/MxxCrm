@@ -18,6 +18,8 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub id: i64,
     pub product_id: Option<i64>,
+    /// SKU ID（NULL表示对该产品全部规格生效）
+    pub sku_id: Option<i64>,
     pub warehouse_id: Option<i64>,
     pub min_quantity: Option<Decimal>,
     pub max_quantity: Option<Decimal>,

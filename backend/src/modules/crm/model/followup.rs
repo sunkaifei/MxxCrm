@@ -492,7 +492,7 @@ impl FollowupModel {
             .map(|r| r.rows_affected as i64)
     }
 
-    pub async fn update_by_id(db: &DbConn, id: &Option<i64>, req: &FollowupSaveDTO) -> Result<i64, DbErr> {
+    pub async fn update_by_id(db: &impl ConnectionTrait, id: &Option<i64>, req: &FollowupSaveDTO) -> Result<i64, DbErr> {
         let payload = followup::ActiveModel {
             lead_id: Set(req.lead_id.clone()),
             customer_id: Set(req.customer_id.clone()),

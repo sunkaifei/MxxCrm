@@ -140,6 +140,8 @@ pub struct QuotationSaveRequest {
     pub owner_user_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub dept_id: Option<i64>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 impl From<QuotationSaveRequest> for QuotationSaveDTO {
@@ -175,6 +177,7 @@ impl From<QuotationSaveRequest> for QuotationSaveDTO {
             remark: item.remark,
             owner_user_id: item.owner_user_id,
             dept_id: item.dept_id,
+            custom_fields: item.custom_fields,
             deleted: None,
             create_by: None,
             create_time: None,
@@ -222,6 +225,8 @@ pub struct QuotationUpdateRequest {
     pub owner_user_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub dept_id: Option<i64>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 impl From<QuotationUpdateRequest> for QuotationSaveDTO {
@@ -257,6 +262,7 @@ impl From<QuotationUpdateRequest> for QuotationSaveDTO {
             remark: item.remark,
             owner_user_id: item.owner_user_id,
             dept_id: item.dept_id,
+            custom_fields: item.custom_fields,
             deleted: None,
             create_by: None,
             create_time: None,
@@ -305,6 +311,8 @@ pub struct QuotationSaveDTO {
     pub create_time: Option<DateTime>,
     pub update_by: Option<String>,
     pub update_time: Option<DateTime>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 /// 报价单详情VO
@@ -346,6 +354,8 @@ pub struct QuotationDetailVO {
     pub update_time: Option<DateTime>,
     pub items: Option<Vec<QuotationItemSaveDTO>>,
     pub approvals: Option<Vec<QuotationApprovalVO>>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 impl From<quotation::Model> for QuotationDetailVO {
@@ -385,6 +395,7 @@ impl From<quotation::Model> for QuotationDetailVO {
             update_time: item.update_time,
             items: None,
             approvals: None,
+            custom_fields: item.custom_fields,
         }
     }
 }
@@ -417,6 +428,8 @@ pub struct QuotationListVO {
     pub valid_until: Option<Date>,
     pub owner_user_id: Option<i64>,
     pub owner_user_name: Option<String>,
+    /// 自定义字段（键值对）
+    pub custom_fields: Option<serde_json::Value>,
     pub create_time: Option<DateTime>,
 }
 
@@ -436,6 +449,7 @@ impl From<quotation::Model> for QuotationListVO {
             valid_until: item.valid_until,
             owner_user_id: item.owner_user_id,
             owner_user_name: None,
+            custom_fields: item.custom_fields,
             create_time: item.create_time,
         }
     }
@@ -492,6 +506,7 @@ impl QuotationModel {
             remark: Set(req.remark.clone()),
             owner_user_id: Set(req.owner_user_id),
             dept_id: Set(req.dept_id),
+            custom_fields: Set(req.custom_fields.clone()),
             create_by: Set(req.create_by.clone()),
             create_time: Set(Some(now)),
             update_by: Set(req.update_by.clone()),
@@ -540,6 +555,11 @@ impl QuotationModel {
             remark: Set(req.remark.clone()),
             owner_user_id: Set(req.owner_user_id),
             dept_id: Set(req.dept_id),
+            // 7.3 合并写：未提交时不动该列（防置 NULL 丢存量）；提交时由校验器按 key 与旧值合并
+            custom_fields: match req.custom_fields.clone() {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
             update_by: Set(req.update_by.clone()),
             update_time: Set(Some(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()

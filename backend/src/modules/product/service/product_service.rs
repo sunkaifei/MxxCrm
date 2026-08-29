@@ -37,6 +37,10 @@ pub async fn insert(db: &DbConn, form_data: &ProductSaveRequest, created_by: i64
         }
     }
 
+    if let Some(unit) = form_data.unit.as_deref() {
+        crate::modules::product::service::product_unit_service::ensure_unit(&txn, unit, created_by).await?;
+    }
+
     txn.commit().await?;
     Ok(product_id)
 }
@@ -66,6 +70,10 @@ pub async fn update(db: &DbConn, form_data: &ProductUpdateRequest, updated_by: i
         ProductModel::batch_save_skus(&txn, *id, skus).await?;
     }
 
+    if let Some(unit) = form_data.unit.as_deref() {
+        crate::modules::product::service::product_unit_service::ensure_unit(&txn, unit, updated_by).await?;
+    }
+
     txn.commit().await?;
     Ok(result)
 }
@@ -90,7 +98,7 @@ pub async fn get_detail_with_specs(db: &DbConn, id: i64) -> Result<(ProductDetai
             let mut vo: ProductDetailVO = item.into();
             let skus = ProductModel::find_skus_by_product_id(db, id).await?;
             vo.skus = Some(skus.into_iter().map(|s| s.into()).collect());
-            let specs = crate::modules::product::service::spec_service::get_specs(db, id).await?;
+            let specs = crate::modules::product::service::spec_service::get_specs(db, id, None).await?;
             Ok((vo, specs))
         },
         None => Err(crate::core::errors::error::Error::from("产品不存在")),

@@ -89,6 +89,22 @@ impl CacheService {
         Ok(data)
     }
 
+    /// 带 TTL 的 JSON 缓存写入（ex=None 表示不过期）
+    pub async fn set_json_ex<T>(&self, k: &str, v: &T, ex: Option<Duration>) -> Result<String>
+    where
+        T: Serialize + Sync,
+    {
+        let data = serde_json::to_string(v);
+        if data.is_err() {
+            return Err(crate::core::errors::error::Error::from(format!(
+                "MemCacheService set_json_ex fail:{}",
+                data.err().unwrap()
+            )));
+        }
+        let data = self.inner.set_string_ex(k, data.unwrap().as_str(), ex).await?;
+        Ok(data)
+    }
+
     pub async fn get_json<T>(&self, k: &str) -> Result<T>
     where
         T: DeserializeOwned + Sync,

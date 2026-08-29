@@ -12,6 +12,8 @@ import { ref } from 'vue';
 
 import { useAccessStore } from '@vben/stores';
 
+import { $t } from '#/locales';
+
 import {
   getDashboardCardStatusApi,
   getVisibleDashboardCardsApi,
@@ -19,12 +21,35 @@ import {
 import { getWorkspaceListApi } from '#/api/core/system/workspace';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 
-/** 工作台注册卡编码（方案 9.1 注册表：一期 4 张 + 三期 8 张，page_key='default'） */
+/** 预置工作台编码 -> i18n 键（d30 种子五套；自定义工作台回退 DB 名称） */
+const PRESET_WORKSPACE_NAME_KEYS: Record<string, string> = {
+  default: 'page.dashboard.workspace.names.default',
+  sales: 'page.dashboard.workspace.names.sales',
+  warehouse: 'page.dashboard.workspace.names.warehouse',
+  finance: 'page.dashboard.workspace.names.finance',
+  hr: 'page.dashboard.workspace.names.hr',
+};
+
+/**
+ * 工作台显示名：预置工作台按编码走 i18n（跟随界面语言），
+ * 自定义工作台使用管理员维护的 DB 名称
+ */
+export function workspaceDisplayName(
+  code: string,
+  name?: null | string,
+): string {
+  const key = PRESET_WORKSPACE_NAME_KEYS[code];
+  if (key) return $t(key);
+  return name || code;
+}
+
+/** 工作台注册卡编码（方案 9.1 注册表：一期 5 张 + 三期 8 张，page_key='default'） */
 export const WORKSPACE_CARD_CODES = {
   onboarding: 'workspace_onboarding',
   todoOverview: 'workspace_todo_overview',
   smartTodo: 'workspace_smart_todo',
   weekLoad: 'workspace_week_load',
+  calendar: 'workspace_calendar',
   // 三期 8 张岗位卡（d31 种子，sort 40-110）
   announcement: 'workspace_announcement',
   stockAlert: 'workspace_stock_alert',
@@ -95,7 +120,10 @@ async function loadWorkspaces() {
     const list: any = await getWorkspaceListApi();
     const items = (Array.isArray(list) ? list : list?.data || [])
       .map((w: any) => ({
-        label: String(w?.workspaceName || w?.workspaceCode || ''),
+        label: workspaceDisplayName(
+          String(w?.workspaceCode || ''),
+          w?.workspaceName,
+        ),
         value: String(w?.workspaceCode || ''),
       }))
       .filter((w: any) => w.value.length > 0);

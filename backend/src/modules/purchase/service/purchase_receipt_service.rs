@@ -160,11 +160,12 @@ pub async fn to_inbound(db: &DbConn, receipt_id: i64, warehouse_id: i64, operato
         return Err(Error::from("收货单明细为空，无法转为入库单"));
     }
 
-    // 构建入库单请求
+    // 构建入库单请求（透传 SKU：多规格产品按规格入库记账，单规格为 None）
     let inbound_items: Vec<InboundItemRequest> = items
         .iter()
         .map(|item| InboundItemRequest {
             product_id: item.product_id.unwrap_or_default(),
+            sku_id: item.sku_id,
             product_sku: None,
             quantity: item.quantity.unwrap_or_default(),
             unit_price: None,

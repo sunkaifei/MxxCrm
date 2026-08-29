@@ -17,6 +17,8 @@ import {
 } from 'ant-design-vue';
 
 import { getQuotationInfoApi } from '#/api';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+import { formatQty } from '#/components/UnitSelect';
 
 const props = defineProps<{ id: number }>();
 const emit = defineEmits<{ edit: [id: string] }>();
@@ -106,7 +108,13 @@ const itemColumns: TableColumnsType = [
   },
   { title: '产品信息', key: 'product', width: 220 },
   { title: '规格', dataIndex: 'spec', width: 110 },
-  { title: '单位', dataIndex: 'unit', width: 60, align: 'center' },
+  {
+    title: '数量',
+    dataIndex: 'quantity',
+    width: 70,
+    align: 'right',
+    customRender: ({ record, text }: any) => formatQty(text, record?.unit),
+  },
   {
     title: '单价',
     dataIndex: 'unitPrice',
@@ -115,13 +123,7 @@ const itemColumns: TableColumnsType = [
     customRender: ({ text }: any) =>
       `${currencySymbol.value}${formatMoney(text)}`,
   },
-  {
-    title: '数量',
-    dataIndex: 'quantity',
-    width: 70,
-    align: 'right',
-    customRender: ({ text }: any) => Number(text || 0),
-  },
+  { title: '单位', dataIndex: 'unit', width: 60, align: 'center' },
   {
     title: '折扣额',
     dataIndex: 'discountAmount',
@@ -172,6 +174,21 @@ async function fetchDetail() {
     loading.value = false;
   }
 }
+
+// 自定义字段明细展示：拉取 schema，仅展示有值的键（选项/成员/附件按类型格式化）
+const fieldSchema = useFieldSchema('sale_quotation');
+fieldSchema.loadSchema();
+const cfRows = computed(() =>
+  fieldSchema.items.value
+    .map((item) => ({
+      label: item.fieldLabel,
+      value: fieldSchema.formatFieldValue(
+        item,
+        (detail.value as any)?.customFields?.[item.fieldKey],
+      ),
+    }))
+    .filter((r) => r.value !== ''),
+);
 
 onMounted(() => fetchDetail());
 </script>
@@ -322,6 +339,14 @@ onMounted(() => fetchDetail());
         </Descriptions.Item>
         <Descriptions.Item label="创建时间">
           {{ formatDateTime(detail.createTime) }}
+        </Descriptions.Item>
+        <!-- 自定义字段：仅展示有值的键 -->
+        <Descriptions.Item
+          v-for="row in cfRows"
+          :key="row.label"
+          :label="row.label"
+        >
+          {{ row.value }}
         </Descriptions.Item>
       </Descriptions>
     </Card>

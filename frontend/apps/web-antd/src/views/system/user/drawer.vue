@@ -10,11 +10,13 @@ import {
   createUserApi,
   getAdminOptionsApi,
   getDeptTreeApi,
+  getPermSetOptionsApi,
   getPostOptionsApi,
   getRoleOptionsApi,
   getUserDetailApi,
   updateUserApi,
 } from '#/api';
+import { getInsurancePolicyListApi } from '#/api/core/finance';
 import { $t } from '#/locales';
 import { statusList } from '#/store';
 import { calcMaxProbation } from '#/utils/probation';
@@ -61,6 +63,30 @@ const genderOptions = computed(() => [
   { label: $t('page.system.user.genderUnknown'), value: 2 },
 ]);
 
+// 参保地选项：来自社保政策库的城市去重列表（P1-1 参保地归属员工档案）
+const cityOptions = ref<{ label: string; value: string }[]>([]);
+async function loadCityOptions() {
+  try {
+    const res: any = await getInsurancePolicyListApi();
+    const data = res?.data || res;
+    const items = Array.isArray(data) ? data : data?.items || [];
+    const map = new Map<string, string>();
+    for (const item of items) {
+      const p = item?.policy || item;
+      if (p?.cityCode && !map.has(p.cityCode)) {
+        map.set(p.cityCode, p.cityName || p.cityCode);
+      }
+    }
+    cityOptions.value = Array.from(map.entries()).map(([value, label]) => ({
+      value,
+      label,
+    }));
+  } catch {
+    // 政策库加载失败不阻塞员工表单，参保地可留空（届时算薪要求手工配置社保）
+  }
+}
+loadCityOptions();
+
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
   wrapperClass: 'grid-cols-2',
@@ -69,6 +95,9 @@ const [BaseForm, baseFormApi] = useVbenForm({
     componentProps: {
       class: 'w-full',
     },
+    // 固定 label 列宽（默认 100px 会让"试用期工资比例"等 7 字标签折行）：
+    // 取 136px 容纳最长标签 + 必填星号 + 帮助图标；上下行布局会使 20+ 字段表单高度暴增，不采用
+    labelWidth: 136,
   },
   schema: [
     {
@@ -88,7 +117,11 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
+        // 登录名创建后不可修改（主流 CRM 做法）：编辑态锁定，防止换登录账号导致审计归属断裂
+        disabled: computed(() => !isCreate.value),
       },
+      help: () =>
+        isCreate.value ? '' : $t('page.system.user.usernameEditLocked'),
       rules: z
         .string()
         .min(1, { message: $t('ui.formRules.required') })
@@ -284,6 +317,19 @@ const [BaseForm, baseFormApi] = useVbenForm({
       rules: 'selectRequired',
     },
     {
+      component: 'Select',
+      fieldName: 'workCityCode',
+      label: $t('page.system.user.workCityCode'),
+      help: $t('page.system.user.workCityCodeTip'),
+      componentProps: () => ({
+        placeholder: $t('ui.placeholder.select'),
+        allowClear: true,
+        showSearch: true,
+        optionFilterProp: 'label',
+        options: cityOptions.value,
+      }),
+    },
+    {
       component: 'Divider',
       fieldName: '_div2',
       hideLabel: true,
@@ -337,6 +383,22 @@ const [BaseForm, baseFormApi] = useVbenForm({
             name: $t('page.system.user.role'),
           }),
         }),
+    },
+    {
+      component: 'ApiSelect',
+      fieldName: 'permSetIds',
+      label: $t('page.system.user.permSet'),
+      componentProps: {
+        mode: 'multiple',
+        placeholder: $t('page.system.user.permSetPlaceholder'),
+        allowClear: true,
+        showSearch: true,
+        optionFilterProp: 'label',
+        api: async () => {
+          return await getPermSetOptionsApi();
+        },
+      },
+      help: $t('page.system.user.permSetTip'),
     },
     {
       component: 'ApiSelect',
@@ -459,6 +521,11 @@ async function handleOpen() {
         .filter((v: any) => v !== null && v !== undefined)
         .map(String);
     }
+    if (Array.isArray(row.permSetIds)) {
+      row.permSetIds = row.permSetIds
+        .filter((v: any) => v !== null && v !== undefined)
+        .map(String);
+    }
     baseFormApi.setValues(row);
   } finally {
     loading.value = false;
@@ -483,6 +550,20 @@ async function handleSave() {
     values.directManagerId === ''
   ) {
     values.directManagerId = 0;
+  }
+
+  // 参保地：编辑时清空显式传空字符串，后端据此清除 work_city_code；
+  // 创建时保持 undefined（JSON 丢弃），落库为 NULL
+  if (
+    values.workCityCode === null ||
+    values.workCityCode === undefined ||
+    values.workCityCode === ''
+  ) {
+    if (!isCreate.value) {
+      values.workCityCode = '';
+    } else {
+      values.workCityCode = undefined;
+    }
   }
 
   try {

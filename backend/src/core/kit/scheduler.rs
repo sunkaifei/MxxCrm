@@ -17,13 +17,20 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, FixedOffset, Utc};
 use sea_orm::{prelude::Json, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use tokio::sync::{Mutex as AsyncMutex, OnceCell};
 use tokio_cron_scheduler::{Job, JobScheduler, JobSchedulerError};
 
 use crate::modules::system::entity::scheduler_job;
 use crate::modules::system::service::scheduler_service;
+
+/// 调度器统一北京时区（UTC+8，中国无夏令时）：cron 字段按北京时刻直写，
+/// next_run_time 计算同源解释，消除"北京意图 − 8h = UTC cron"的换算心智负担
+pub const BEIJING_TZ: FixedOffset = match FixedOffset::east_opt(8 * 3600) {
+    Some(tz) => tz,
+    None => panic!("UTC+8 偏移固定有效"),
+};
 
 /// V7-2: 调度器全局句柄（用于动态重载）
 /// 注：tokio-cron-scheduler 暂无按 job_id remove 的 API，采用"整调度器重启"策略
@@ -202,16 +209,21 @@ async fn init_registry(registry: &SchedulerRegistry) {
         )
         .await;
 
-    // 注册低库存采购建议扫描处理器
+    // 注册低库存预警扫描处理器（扫描行级警戒线 + 按预警规则订阅人发送站内通知）
     registry
         .register(
             "low_stock_suggestion",
             Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
                 Box::pin(async move {
-                    let suggestions = crate::modules::inventory::service::inventory_suggestion_service::scan_low_stock(&db)
+                    let result = crate::modules::inventory::service::inventory_suggestion_service::scan_and_notify(&db)
                         .await
                         .map_err(|e| e.to_string())?;
-                    Ok(format!("低库存扫描完成：本次生成 {} 条采购建议", suggestions.len()))
+                    Ok(format!(
+                        "低库存扫描完成：检测到 {} 项低库存，已通知 {} 人{}",
+                        result.low_stock_count,
+                        result.notified_users,
+                        if result.fallback_to_admin { "（无规则订阅人，已兜底通知超管）" } else { "" }
+                    ))
                 })
             }),
         )
@@ -244,11 +256,43 @@ async fn init_registry(registry: &SchedulerRegistry) {
             }),
         )
         .await;
+
+    // 注册销售计划年度冻结处理器（销售计划体系完善方案 §4.5.5：每年 1 月 1 日冻结上一年度计划）
+    registry
+        .register(
+            "plan_freeze_job",
+            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
+                Box::pin(async move {
+                    let count = crate::modules::statistics::service::performance_plan_service::freeze_last_year_plans(&db)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    Ok(format!("年度计划冻结完成：本次冻结 {} 条上一年度计划", count))
+                })
+            }),
+        )
+        .await;
+
+    // 注册会话过期清理处理器（认证会话有效期整改 R5：每日 04:00 清理 DB 过期会话行）
+    // Redis 存储模式自带 TTL 过期，clean_expired 返回 0 无需清理
+    registry
+        .register(
+            "session_clean_expired",
+            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
+                Box::pin(async move {
+                    let count = crate::modules::system::service::session_service::get_session_store()
+                        .clean_expired(&db)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    Ok(format!("会话过期清理完成：本次删除 {} 条过期会话", count))
+                })
+            }),
+        )
+        .await;
 }
 
-/// V7-4: 从 handler_params 解析 year/month，缺失时回退为"上月"
+/// V7-4: 从 handler_params 解析 year/month，缺失时回退为"上月"（按北京日期判断，避免 UTC 月边界算错）
 fn parse_year_month_from_params(params: &Option<Json>) -> (i32, i32) {
-    let now = Utc::now();
+    let now = Utc::now().with_timezone(&BEIJING_TZ);
     let default_year = if now.month() == 1 { now.year() - 1 } else { now.year() };
     let default_month = if now.month() == 1 { 12 } else { now.month() - 1 } as i32;
 
@@ -327,7 +371,7 @@ async fn add_job_to_scheduler(
     let max_retries = job.max_retries.unwrap_or(3).max(0);
     let retry_base = job.retry_interval_base.unwrap_or(60).max(1);
 
-    let job_instance = Job::new_async(cron.as_str(), move |_uuid, _l| {
+    let job_instance = Job::new_async_tz(cron.as_str(), BEIJING_TZ, move |_uuid, _l| {
         let db = db_clone.clone();
         let job_code = job_code.clone();
         let job_id = job_id;
@@ -480,7 +524,7 @@ async fn add_job_to_scheduler(
                     let alert_msg = format!(
                         "定时任务 [{}] 在 {} 重试 {} 次后仍失败：{}",
                         job_code,
-                        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                        chrono::Utc::now().with_timezone(&BEIJING_TZ).format("%Y-%m-%d %H:%M:%S"),
                         attempt,
                         error_msg.as_deref().unwrap_or_default()
                     );
@@ -697,7 +741,7 @@ async fn scan_and_recover(db: &DatabaseConnection, check_missed: bool) {
 fn is_auto_rerun_safe(job_code: &str) -> bool {
     matches!(
         job_code,
-        "article_publish" | "static_generate" | "content_collect" | "stock_snapshot_generate" | "low_stock_suggestion" | "db_backup" | "resign_timeout_remind"
+        "article_publish" | "static_generate" | "content_collect" | "stock_snapshot_generate" | "low_stock_suggestion" | "db_backup" | "resign_timeout_remind" | "session_clean_expired"
     )
 }
 

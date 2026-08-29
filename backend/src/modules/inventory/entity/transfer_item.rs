@@ -22,6 +22,8 @@ pub struct Model {
     pub transfer_id: Option<i64>,
     /// 产品ID
     pub product_id: Option<i64>,
+    /// SKU ID（多规格产品按规格调拨，单规格为NULL）
+    pub sku_id: Option<i64>,
     /// 产品名称
     pub product_name: Option<String>,
     /// 产品SKU

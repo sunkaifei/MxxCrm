@@ -16,6 +16,7 @@ import {
 } from 'ant-design-vue';
 
 import { getRefundInfoApi } from '#/api';
+import { formatQty } from '#/components/UnitSelect';
 
 const props = defineProps<{ id?: number | string }>();
 
@@ -107,19 +108,19 @@ const itemColumns = [
   },
   { title: '规格', dataIndex: 'spec', key: 'spec', width: 120 },
   {
-    title: '单位',
-    dataIndex: 'unit',
-    key: 'unit',
-    width: 60,
-    align: 'center' as const,
-  },
-  {
     title: '退货数量',
     dataIndex: 'refundQty',
     key: 'refundQty',
     width: 100,
     align: 'right' as const,
-    customRender: ({ text }: any) => Number(text || 0).toFixed(0),
+    customRender: ({ record, text }: any) => formatQty(text, record?.unit),
+  },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 60,
+    align: 'center' as const,
   },
   {
     title: '单价',

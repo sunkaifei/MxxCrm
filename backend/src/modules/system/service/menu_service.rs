@@ -14,8 +14,11 @@ use crate::core::errors::error::{Error, Result};
 use crate::modules::system::entity::menu::Model;
 use crate::modules::system::entity::{menu as menu_entity, role_menu_merge};
 use crate::modules::system::model::admin::AdminModel;
+use crate::modules::system::model::admin_perm_set_merge::AdminPermSetMergeModel;
 use crate::modules::system::model::admin_role_merge::AdminRoleMergeModel;
 use crate::modules::system::model::menu;
+use crate::modules::system::model::perm_set::PermSetModel;
+use crate::modules::system::model::perm_set_menu_merge::PermSetMenuMergeModel;
 use crate::modules::system::model::menu::{ListQuery, ListMeta, MenuAdminVO, MenuDetailVO, MenuModel, MenuOptionsVO, MenuSaveDTO, MenuSaveRequest, MenuUpdateRequest, PageWhere, Router, MENU_TYPE_BUTTON};
 use crate::modules::system::model::role::RoleModel;
 use crate::modules::system::model::role_menu_merge::RoleMenuMergeModel;
@@ -119,6 +122,30 @@ pub async fn get_user_router_tree(db: &DbConn, is_admin: &bool, user_id: &Option
                             if seen_ids.insert(menu.id) {
                                 list.push(menu);
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 权限集腿：权限集附加授权的菜单同样进入导航树，
+        // 与 find_user_role_keys 的权限码求解保持同一口径（停用的权限集不参与）
+        let result_perm_merge = AdminPermSetMergeModel::find_by_admin_id(db, user_id).await?;
+        for perm_merge in result_perm_merge {
+            let perm_set_id = perm_merge.perm_set_id.unwrap_or_default();
+            if perm_set_id == 0 { continue; }
+            let result_perm_set = PermSetModel::find_by_id(db, perm_set_id).await?;
+            // 停用（status != 1）的权限集不参与菜单求解
+            if !result_perm_set.as_ref().map_or(false, |p| p.status.unwrap_or(0) == 1) { continue; }
+            let perm_set_menu_merge = PermSetMenuMergeModel::find_by_perm_set_id(db, &Some(perm_set_id)).await?;
+            for perm_set_menu in perm_set_menu_merge {
+                let menu_id = perm_set_menu.menu_id.unwrap_or_default();
+                if menu_id == 0 { continue; }
+                let result_menu = MenuModel::find_by_id(db, &Some(menu_id)).await?;
+                if let Some(menu) = result_menu {
+                    if menu.deleted.unwrap_or(0) == 0 && menu.status == 1 {
+                        if seen_ids.insert(menu.id) {
+                            list.push(menu);
                         }
                     }
                 }
@@ -257,10 +284,28 @@ pub async fn find_user_role_keys(db: &DbConn, is_admin: &bool, id: &Option<i64>)
             let role_id = merge.role_id.unwrap_or_default();
             if role_id == 0 { continue; }
             let result_role = RoleModel::find_by_id(db, role_id).await?;
-            if result_role.is_none() { continue; }
+            // 停用（status != 1）的角色不参与权限求解
+            if !result_role.as_ref().map_or(false, |r| r.status.unwrap_or(0) == 1) { continue; }
             let role_menu_merge = RoleMenuMergeModel::find_by_role_id(db, &Some(role_id)).await?;
             for role_menu in role_menu_merge {
                 let menu_id = role_menu.menu_id.unwrap_or_default();
+                if menu_id != 0 {
+                    authorized_ids.insert(menu_id);
+                }
+            }
+        }
+
+        // 收集用户所有权限集授权的菜单 id（并集，去重），
+        // 权限集是角色的附加权限来源（RBAC + 权限集组合授权模式）
+        let result_perm_merge = AdminPermSetMergeModel::find_by_admin_id(db, &id.clone()).await?;
+        for perm_merge in result_perm_merge {
+            let perm_set_id = perm_merge.perm_set_id.unwrap_or_default();
+            if perm_set_id == 0 { continue; }
+            let result_perm_set = PermSetModel::find_by_id(db, perm_set_id).await?;
+            if result_perm_set.is_none() { continue; }
+            let perm_set_menu_merge = PermSetMenuMergeModel::find_by_perm_set_id(db, &Some(perm_set_id)).await?;
+            for perm_set_menu in perm_set_menu_merge {
+                let menu_id = perm_set_menu.menu_id.unwrap_or_default();
                 if menu_id != 0 {
                     authorized_ids.insert(menu_id);
                 }

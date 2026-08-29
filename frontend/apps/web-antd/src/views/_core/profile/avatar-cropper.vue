@@ -5,7 +5,7 @@ import 'vue-advanced-cropper/dist/style.css';
 
 import { Button, message, Modal, Slider } from 'ant-design-vue';
 
-import { uploadFileApi } from '#/api/core/attachment/file';
+import { uploadAvatarApi } from '#/api/core/attachment/file';
 import { $t } from '#/locales';
 
 const props = defineProps<{
@@ -144,7 +144,7 @@ const handleConfirm = async () => {
         }
 
         const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
-        const res: any = await uploadFileApi(file, 'avatar');
+        const res: any = await uploadAvatarApi(file);
 
         if (res?.url || res?.uploadUrl) {
           const url = res.url || res.uploadUrl;

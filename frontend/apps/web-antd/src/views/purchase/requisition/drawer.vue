@@ -301,8 +301,8 @@ function updateItemAmount(item: any) {
               <th class="border px-2 py-1.5">产品名称</th>
               <th class="border px-2 py-1.5">SKU</th>
               <th class="border px-2 py-1.5">规格</th>
-              <th class="border px-2 py-1.5">单位</th>
               <th class="border px-2 py-1.5">数量</th>
+              <th class="border px-2 py-1.5">单位</th>
               <th class="border px-2 py-1.5">预估单价</th>
               <th class="border px-2 py-1.5">预估金额</th>
               <th class="border px-2 py-1.5">备注</th>
@@ -334,19 +334,19 @@ function updateItemAmount(item: any) {
               </td>
               <td class="border px-2 py-1">
                 <input
-                  v-model="item.unit"
-                  class="w-full border rounded px-2 py-1 text-sm"
-                  placeholder="单位"
-                />
-              </td>
-              <td class="border px-2 py-1">
-                <input
                   v-model.number="item.quantity"
                   type="number"
                   min="0"
                   class="w-full border rounded px-2 py-1 text-sm"
                   placeholder="数量"
                   @input="updateItemAmount(item)"
+                />
+              </td>
+              <td class="border px-2 py-1">
+                <input
+                  v-model="item.unit"
+                  class="w-full border rounded px-2 py-1 text-sm"
+                  placeholder="单位"
                 />
               </td>
               <td class="border px-2 py-1">

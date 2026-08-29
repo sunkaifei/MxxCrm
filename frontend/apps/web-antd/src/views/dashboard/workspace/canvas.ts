@@ -9,6 +9,7 @@ import type { Component } from 'vue';
 
 import TodoOverviewCard from '../components/TodoOverviewCard.vue';
 import AnnouncementCard from './components/AnnouncementCard.vue';
+import CalendarCard from './components/CalendarCard.vue';
 import HrTodoCard from './components/HrTodoCard.vue';
 import OnboardingCard from './components/OnboardingCard.vue';
 import PaymentReminderCard from './components/PaymentReminderCard.vue';
@@ -36,7 +37,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 16,
     maxW: 12,
     minH: 6,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_todo_overview',
@@ -44,7 +45,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 14,
     maxW: 12,
     minH: 5,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_smart_todo',
@@ -62,6 +63,14 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     minH: 6,
     minW: 3,
   },
+  {
+    code: 'workspace_calendar',
+    component: CalendarCard,
+    maxH: 24,
+    maxW: 12,
+    minH: 10,
+    minW: 3,
+  },
   // 三期 8 张岗位卡（d31 种子 sort 40-110，minH 按方案 9.1：公告 4、其余 6）
   {
     code: 'workspace_announcement',
@@ -69,7 +78,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 12,
     maxW: 12,
     minH: 4,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_stock_alert',
@@ -77,7 +86,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 12,
     maxW: 12,
     minH: 6,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_stock_doc_todo',
@@ -85,7 +94,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 12,
     maxW: 12,
     minH: 6,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_purchase_approval',
@@ -93,7 +102,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 12,
     maxW: 12,
     minH: 6,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_payment_reminder',
@@ -101,7 +110,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 12,
     maxW: 12,
     minH: 6,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_payslip_stat',
@@ -109,7 +118,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 12,
     maxW: 12,
     minH: 6,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_hr_todo',
@@ -117,7 +126,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 12,
     maxW: 12,
     minH: 6,
-    minW: 6,
+    minW: 4,
   },
   {
     code: 'workspace_sales_performance',
@@ -125,7 +134,7 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     maxH: 12,
     maxW: 12,
     minH: 6,
-    minW: 6,
+    minW: 4,
   },
 ];
 

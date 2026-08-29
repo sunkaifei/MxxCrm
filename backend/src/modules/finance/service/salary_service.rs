@@ -13,16 +13,18 @@ use sea_orm::sea_query::Expr;
 use chrono::{Utc, Datelike, NaiveDate};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::{ToPrimitive, FromPrimitive};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::modules::finance::entity::{
     salary_record, salary_config, salary_calc_log, salary_adjustment,
     commission_detail, commission_rule, commission_tier,
+    salary_tax_detail, salary_item_value, employee_insurance_config,
+    social_insurance_policy,
 };
 use crate::modules::finance::model::salary::{
     SalaryRecordDTO, SalaryDetailDTO, CommissionDetailDTO, SalaryQuery, SalaryUpdateDTO, SalarySummaryDTO,
     SalaryTrendQuery, SalaryTrendMonthlyPointDTO, SalaryTrendDeptPointDTO,
-    SalaryTrendEmployeePointDTO, SalaryTrendSummaryDTO,
+    SalaryTrendEmployeePointDTO, SalaryTrendSummaryDTO, SalaryItemValueVO,
 };
 use crate::modules::crm::entity::{contract, contract_payment_plan};
 use crate::modules::system::entity::{admin, admin_dept_merge, admin_post_merge, dept, post};
@@ -108,6 +110,11 @@ pub async fn get_list(
 
     // 3. 合并：有记录的用记录，没有记录且指定了年月时生成"未核算"占位行
     let emp_ids: Vec<i64> = employees.iter().map(|e| e.id).collect();
+    // 员工档案参保地映射（employees 随后循环中被消费，先取出备用）
+    let emp_city_map: HashMap<i64, Option<String>> = employees
+        .iter()
+        .map(|e| (e.id, e.work_city_code.clone()))
+        .collect();
     let mut record_map: HashMap<i64, salary_record::Model> = HashMap::new();
     for r in records {
         if emp_ids.contains(&r.employee_id) {
@@ -134,13 +141,86 @@ pub async fn get_list(
     let page = std::cmp::max(query.page.unwrap_or(1), 1);
     let page_size = std::cmp::max(query.page_size.unwrap_or(20), 1);
     let start = ((page - 1) * page_size) as usize;
-    let items: Vec<SalaryRecordDTO> = dto_list
+    let mut items: Vec<SalaryRecordDTO> = dto_list
         .into_iter()
         .skip(start)
         .take(page_size as usize)
         .collect();
 
+    // 5. 批量解析参保地（手工配置 > 档案参保地继承，口径与社保核算优先级一致）
+    fill_insurance_city(db, &mut items, &emp_city_map).await?;
+
     Ok((items, total))
+}
+
+/// 批量填充列表行的参保地城市名（防止 N+1，仅针对当前页）：
+/// 1. 手工社保配置（enabled=1）的 city_code 优先；
+/// 2. 无配置则继承档案参保地 work_city_code；
+/// 3. 两者皆无时留空（前端展示"未配置"，该类员工会被核算预检拦截）。
+/// 城市名从政策表 city_code → city_name 翻译，无匹配政策时降级显示原始编码。
+async fn fill_insurance_city(
+    db: &DatabaseConnection,
+    items: &mut [SalaryRecordDTO],
+    emp_city_map: &HashMap<i64, Option<String>>,
+) -> Result<(), String> {
+    if items.is_empty() {
+        return Ok(());
+    }
+    // 1) 当前页员工的手工社保配置（enabled=1）→ city_code
+    let page_emp_ids: Vec<i64> = items.iter().map(|d| d.employee_id).collect();
+    let configs = employee_insurance_config::Entity::find()
+        .filter(employee_insurance_config::Column::EmployeeId.is_in(page_emp_ids))
+        .filter(employee_insurance_config::Column::Enabled.eq(1))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut cfg_city: HashMap<i64, String> = HashMap::new();
+    for c in configs {
+        cfg_city.entry(c.employee_id).or_insert(c.city_code);
+    }
+    // 2) 汇总待翻译的城市编码（配置优先，无配置取档案参保地）
+    let mut city_codes: Vec<String> = Vec::new();
+    for d in items.iter() {
+        let code = cfg_city.get(&d.employee_id).cloned().or_else(|| {
+            emp_city_map
+                .get(&d.employee_id)
+                .cloned()
+                .flatten()
+                .filter(|s| !s.trim().is_empty())
+        });
+        if let Some(code) = code {
+            city_codes.push(code);
+        }
+    }
+    city_codes.sort();
+    city_codes.dedup();
+    // 3) 批量查政策表翻译城市名
+    let mut city_name_map: HashMap<String, String> = HashMap::new();
+    if !city_codes.is_empty() {
+        let policies = social_insurance_policy::Entity::find()
+            .filter(social_insurance_policy::Column::CityCode.is_in(city_codes))
+            .all(db)
+            .await
+            .map_err(|e| e.to_string())?;
+        for p in policies {
+            city_name_map.insert(p.city_code, p.city_name);
+        }
+    }
+    // 4) 回填：查得到政策名用城市名，查不到降级显示原始编码
+    for d in items.iter_mut() {
+        let code = cfg_city.get(&d.employee_id).cloned().or_else(|| {
+            emp_city_map
+                .get(&d.employee_id)
+                .cloned()
+                .flatten()
+                .filter(|s| !s.trim().is_empty())
+        });
+        if let Some(code) = code {
+            let name = city_name_map.get(&code).cloned().unwrap_or(code);
+            d.insurance_city_name = Some(name);
+        }
+    }
+    Ok(())
 }
 
 /// 详情含提成明细
@@ -171,9 +251,46 @@ pub async fn get_detail(db: &DatabaseConnection, id: i64, user_id: i64) -> Resul
 
     let detail_dtos: Vec<CommissionDetailDTO> = details.into_iter().map(CommissionDetailDTO::from).collect();
 
+    // 缺口2: 自定义项明细（快照 code/name/金额/应税 + 回查主表分类便于展示增减与税前税后）
+    let item_values = salary_item_value::Entity::find()
+        .filter(salary_item_value::Column::SalaryRecordId.eq(id))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    let iv_ids: Vec<i64> = item_values.iter().map(|v| v.item_id).collect();
+    let mut item_master: HashMap<i64, crate::modules::finance::entity::salary_item::Model> = HashMap::new();
+    if !iv_ids.is_empty() {
+        let items = crate::modules::finance::entity::salary_item::Entity::find()
+            .filter(crate::modules::finance::entity::salary_item::Column::Id.is_in(iv_ids))
+            .all(db)
+            .await
+            .map_err(|e| e.to_string())?;
+        for it in items {
+            item_master.insert(it.id, it);
+        }
+    }
+    let item_value_dtos: Vec<SalaryItemValueVO> = item_values
+        .iter()
+        .map(|v| {
+            let m = item_master.get(&v.item_id);
+            SalaryItemValueVO {
+                id: v.id,
+                item_id: v.item_id,
+                item_code: v.item_code.clone(),
+                item_name: v.item_name.clone(),
+                amount: v.amount.to_f64().unwrap_or(0.0),
+                is_taxable: v.is_taxable,
+                item_type: m.and_then(|i| i.item_type),
+                is_pretax: m.and_then(|i| i.is_pretax),
+                enabled: m.and_then(|i| i.enabled),
+            }
+        })
+        .collect();
+
     Ok(SalaryDetailDTO {
         record: dto,
         details: detail_dtos,
+        item_values: item_value_dtos,
     })
 }
 
@@ -195,9 +312,9 @@ pub async fn calculate(
         db, year, month, trigger_type, operator_id, operator_name,
     ).await?;
 
-    // 执行核算，捕获结果写入日志
-    match calculate_inner(db, year, month).await {
-        Ok(count) => {
+    // 执行核算，捕获结果写入日志（None=全员核算）
+    match calculate_inner(db, year, month, None).await {
+        Ok((count, _)) => {
             // 工资记录已提交，归集团队提成到管理者的 salary_record.team_commission_amount
             // 团队提成服务使用独立事务，基于当月已回款合同沿 direct_manager_id 向上计算
             let _ = crate::modules::finance::service::team_commission_service::calc_monthly_settlement(
@@ -230,8 +347,66 @@ pub async fn calculate(
     }
 }
 
+/// 单员工重新核算（按已有工资记录触发）
+/// 仅允许对待审核(status=0)的记录重算；已审核/已发放记录需先回退状态。
+/// 重算会删除该员工当月待审核记录及其提成/个税/自定义项明细，回滚其个税累计后按最新配置重新生成。
+/// 返回 Ok(Some(新记录ID))：记录删除重建后 ID 变化，前端需切换新 ID 刷新详情；Ok(None)=未生成新记录。
+pub async fn calculate_single(
+    db: &DatabaseConnection,
+    record_id: i64,
+    operator_id: i64,
+    operator_name: &str,
+) -> Result<Option<i64>, String> {
+    // 1. 加载工资记录
+    let record = salary_record::Entity::find()
+        .filter(salary_record::Column::Id.eq(record_id))
+        .filter(salary_record::Column::Deleted.eq(0))
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "工资记录不存在".to_string())?;
+
+    // 2. 状态校验：仅待审核记录允许重算
+    if record.status.unwrap_or(0) != 0 {
+        return Err("该工资记录已审核或已发放，无法重新核算，请先回退为待审核状态".to_string());
+    }
+
+    let year = record.year;
+    let month = record.month;
+    let employee_id = record.employee_id;
+    let start_time = std::time::Instant::now();
+
+    // 3. 记录核算日志（trigger_type=2 单员工重算）
+    let log_id = insert_calc_log(db, year, month, 2, operator_id, operator_name).await?;
+
+    // 4. 执行单员工范围核算
+    match calculate_inner(db, year, month, Some(employee_id)).await {
+        Ok((_, new_id)) => {
+            // 管理者的团队提成按月整体重新归集（幂等，覆盖管理者记录的 team_commission_amount）
+            let _ = crate::modules::finance::service::team_commission_service::calc_monthly_settlement(
+                db, year, month,
+            ).await;
+            let elapsed = start_time.elapsed().as_millis() as i64;
+            update_calc_log_success(db, log_id, 1, elapsed).await.ok();
+            Ok(new_id)
+        }
+        Err(e) => {
+            let elapsed = start_time.elapsed().as_millis() as i64;
+            update_calc_log_failure(db, log_id, &e, elapsed).await.ok();
+            Err(e)
+        }
+    }
+}
+
 /// 核算内部实现
-async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Result<i64, String> {
+/// only_employee: Some(员工ID)=仅重算该员工的当月记录（单员工重算入口），None=全员核算
+/// 返回 (生成记录数, 最后一条新记录ID)：重算"先删后建"会生成新 ID，单员工重算依赖它刷新详情
+async fn calculate_inner(
+    db: &DatabaseConnection,
+    year: i32,
+    month: i32,
+    only_employee: Option<i64>,
+) -> Result<(i64, Option<i64>), String> {
     // 计算月份起止日期
     let month_start = chrono::NaiveDate::from_ymd_opt(year, month as u32, 1)
         .ok_or_else(|| "日期格式错误".to_string())?;
@@ -246,11 +421,16 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
     let txn = db.begin().await.map_err(|e| e.to_string())?;
 
     // 0. 重算防护：该年月若已存在已审核(status=1)或已发放(status=2)的记录，禁止重算
-    let locked_count = salary_record::Entity::find()
+    // 单员工重算时仅校验该员工自己的记录
+    let mut locked_query = salary_record::Entity::find()
         .filter(salary_record::Column::Year.eq(year))
         .filter(salary_record::Column::Month.eq(month))
         .filter(salary_record::Column::Status.is_in(vec![1, 2]))
-        .filter(salary_record::Column::Deleted.eq(0))
+        .filter(salary_record::Column::Deleted.eq(0));
+    if let Some(emp) = only_employee {
+        locked_query = locked_query.filter(salary_record::Column::EmployeeId.eq(emp));
+    }
+    let locked_count = locked_query
         .count(&txn)
         .await
         .map_err(|e| e.to_string())?;
@@ -262,11 +442,16 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
     }
 
     // 1. 先删除该年月已有的"待审核"(status=0)工资记录及其提成明细
-    let pending_records: Vec<salary_record::Model> = salary_record::Entity::find()
+    // 单员工重算时仅删除该员工自己的记录
+    let mut pending_query = salary_record::Entity::find()
         .filter(salary_record::Column::Year.eq(year))
         .filter(salary_record::Column::Month.eq(month))
         .filter(salary_record::Column::Status.eq(0))
-        .filter(salary_record::Column::Deleted.eq(0))
+        .filter(salary_record::Column::Deleted.eq(0));
+    if let Some(emp) = only_employee {
+        pending_query = pending_query.filter(salary_record::Column::EmployeeId.eq(emp));
+    }
+    let pending_records: Vec<salary_record::Model> = pending_query
         .all(&txn)
         .await
         .map_err(|e| e.to_string())?;
@@ -279,15 +464,39 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
             .exec(&txn)
             .await
             .map_err(|e| e.to_string())?;
+        // P0-1: 删除个税明细，避免重算后同一记录残留多条明细
+        salary_tax_detail::Entity::delete_many()
+            .filter(salary_tax_detail::Column::SalaryRecordId.is_in(pending_ids.clone()))
+            .exec(&txn)
+            .await
+            .map_err(|e| e.to_string())?;
+        // P0-1: 删除自定义项值，避免重算后产生孤儿数据
+        salary_item_value::Entity::delete_many()
+            .filter(salary_item_value::Column::SalaryRecordId.is_in(pending_ids.clone()))
+            .exec(&txn)
+            .await
+            .map_err(|e| e.to_string())?;
         // 删除工资记录
         salary_record::Entity::delete_many()
             .filter(salary_record::Column::Id.is_in(pending_ids))
             .exec(&txn)
             .await
             .map_err(|e| e.to_string())?;
+        // P0-1: 将涉及员工的个税累计回滚到上月末（明细重放法），
+        // 消除历史重算对 employee_tax_config 累计值的重复累加污染
+        let mut rolled_employees: std::collections::HashSet<i64> = std::collections::HashSet::new();
+        for r in &pending_records {
+            if rolled_employees.insert(r.employee_id) {
+                crate::modules::finance::service::tax_service::rollback_tax_config_in_conn(
+                    &txn, r.employee_id, year, month,
+                )
+                .await
+                .map_err(|e| format!("回滚员工{}个税累计失败：{}", r.employee_id, e))?;
+            }
+        }
     }
 
-    // 2. 查询当月完全回款的合同回款计划（received_amount >= plan_amount 且 actual_date 在指定月份）
+    // 2. 查询当月有实际回款的合同回款计划（actual_date 在指定月份）
     let payment_plans: Vec<contract_payment_plan::Model> = contract_payment_plan::Entity::find()
         .filter(contract_payment_plan::Column::ActualDate.gte(month_start))
         .filter(contract_payment_plan::Column::ActualDate.lte(month_end))
@@ -295,21 +504,45 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
         .await
         .map_err(|e| e.to_string())?;
 
-    // 过滤完全回款的计划
-    let fully_paid_plans: Vec<&contract_payment_plan::Model> = payment_plans
-        .iter()
-        .filter(|p| {
-            let received = p.received_amount.unwrap_or_default();
-            let plan = p.plan_amount.unwrap_or_default();
-            received >= plan && !plan.is_zero()
-        })
-        .collect();
-
-    // 3. 获取相关合同信息
-    let contract_ids: Vec<i64> = fully_paid_plans
+    // 2.5 合同级提成口径：整个合同的全部回款计划都收满后，才按合同整体计提一次提成。
+    // 不再按单个回款计划逐笔计提——同一合同拆出多条等额明细易被误认为重复生成，
+    // 且业务规则要求"合同全款收齐才拿提成"。提成基数取该合同全部计划的回款总额。
+    let month_contract_ids: Vec<i64> = payment_plans
         .iter()
         .filter_map(|p| p.contract_id)
-        .collect::<Vec<_>>();
+        .collect::<HashSet<i64>>()
+        .into_iter()
+        .collect();
+    // key: contract_id, value: 全部计划收满后的合同回款总额
+    let mut settled_contract_total: HashMap<i64, Decimal> = HashMap::new();
+    if !month_contract_ids.is_empty() {
+        let all_plans = contract_payment_plan::Entity::find()
+            .filter(contract_payment_plan::Column::ContractId.is_in(month_contract_ids))
+            .filter(contract_payment_plan::Column::Deleted.eq(0))
+            .all(&txn)
+            .await
+            .map_err(|e| e.to_string())?;
+        let mut plans_by_contract: HashMap<i64, Vec<&contract_payment_plan::Model>> = HashMap::new();
+        for p in &all_plans {
+            if let Some(cid) = p.contract_id {
+                plans_by_contract.entry(cid).or_default().push(p);
+            }
+        }
+        for (cid, plans) in plans_by_contract {
+            // 判定"全部回款到位"：合同下至少有一个计划，且每个计划 received >= plan
+            let all_settled = !plans.is_empty()
+                && plans.iter().all(|p| {
+                    p.received_amount.unwrap_or_default() >= p.plan_amount.unwrap_or_default()
+                });
+            if all_settled {
+                let total: Decimal = plans.iter().map(|p| p.received_amount.unwrap_or_default()).sum();
+                settled_contract_total.insert(cid, total);
+            }
+        }
+    }
+
+    // 3. 获取相关合同信息
+    let contract_ids: Vec<i64> = settled_contract_total.keys().copied().collect();
     let mut contract_map: HashMap<i64, contract::Model> = HashMap::new();
     if !contract_ids.is_empty() {
         let contracts = contract::Entity::find()
@@ -322,30 +555,33 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
         }
     }
 
-    // 4. 按合同负责人(assigned_to)分组
+    // 4. 按合同负责人(assigned_to)分组：每个全部回款到位的合同生成一项（即一条提成明细）
     let mut employee_contracts: HashMap<i64, Vec<(i64, Decimal, Decimal, String)>> = HashMap::new();
     // key: employee_id, value: Vec<(contract_id, contract_amount, payment_amount, contract_name)>
-    for plan in fully_paid_plans {
-        if let Some(contract_id) = plan.contract_id {
-            if let Some(contract_model) = contract_map.get(&contract_id) {
-                if let Some(employee_id) = contract_model.assigned_to {
-                    let contract_name = contract_model.title.clone().unwrap_or_default();
-                    let contract_amount = contract_model.amount.unwrap_or_default();
-                    let payment_amount = plan.received_amount.unwrap_or_default();
-                    employee_contracts
-                        .entry(employee_id)
-                        .or_default()
-                        .push((contract_id, contract_amount, payment_amount, contract_name));
-                }
+    // payment_amount 此时为该合同全部计划收满后的回款总额（整合同一笔计提）
+    for (contract_id, total_received) in settled_contract_total {
+        if let Some(contract_model) = contract_map.get(&contract_id) {
+            if let Some(employee_id) = contract_model.assigned_to {
+                let contract_name = contract_model.title.clone().unwrap_or_default();
+                let contract_amount = contract_model.amount.unwrap_or_default();
+                employee_contracts
+                    .entry(employee_id)
+                    .or_default()
+                    .push((contract_id, contract_amount, total_received, contract_name));
             }
         }
     }
 
     // 5. 批量查询参与工资核算的所有在职员工（全员参与，无回款业绩只发底薪）
-    let admins = admin::Entity::find()
+    // 单员工重算时仅加载该员工，避免为全员重新生成记录
+    let mut admins_query = admin::Entity::find()
         .filter(admin::Column::SalaryEnabled.eq(1))
         .filter(admin::Column::Status.eq(1))
-        .filter(admin::Column::Deleted.eq(0))
+        .filter(admin::Column::Deleted.eq(0));
+    if let Some(emp) = only_employee {
+        admins_query = admins_query.filter(admin::Column::Id.eq(emp));
+    }
+    let admins = admins_query
         .all(&txn)
         .await
         .map_err(|e| e.to_string())?;
@@ -406,6 +642,7 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
 
     let now = Utc::now().naive_utc();
     let mut generated_count: i64 = 0;
+    let mut last_salary_id: Option<i64> = None;
 
     // 6. 批量查询员工底薪配置（工资档案模型，不限当年，支持跨年延续）
     // 生效时间 = (year, month.unwrap_or(1))，全年配置视为当年1月生效
@@ -499,6 +736,38 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
                 }
             }
         }
+    }
+
+    // 7.5 社保核算前置预检：一次性收集所有"既无手工社保配置、档案也未设置参保地"的员工，
+    // 聚合为一条错误阻止出账（P1-1 改进：避免 fail-fast 逐个报错，补一人换一人报）。
+    // 预检口径与 insurance_service::calculate_monthly_insurance 保持一致：
+    // 手工配置 = mxx_finance_employee_insurance_config 中 enabled=1 的行；参保地 = work_city_code 非 NULL 且非空白
+    let insured_emp_ids: HashSet<i64> = employee_insurance_config::Entity::find()
+        .filter(employee_insurance_config::Column::EmployeeId.is_in(employee_ids.clone()))
+        .filter(employee_insurance_config::Column::Enabled.eq(1))
+        .all(&txn)
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|c| c.employee_id)
+        .collect();
+    let mut missing_insurance: Vec<String> = Vec::new();
+    for (emp_id, a) in admin_map.iter() {
+        let has_config = insured_emp_ids.contains(emp_id);
+        let has_city = a.work_city_code.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+        if !has_config && !has_city {
+            let name = a.nick_name.clone()
+                .or_else(|| a.user_name.clone())
+                .unwrap_or_else(|| format!("员工{}", emp_id));
+            missing_insurance.push(format!("{}({})", name, emp_id));
+        }
+    }
+    if !missing_insurance.is_empty() {
+        return Err(format!(
+            "以下 {} 名员工未手工配置社保且档案未设置参保地（work_city_code），无法核算社保，已阻止出账：{}。请到【社保公积金管理→员工社保配置】为其添加配置，或在员工档案中填写参保地后重新核算",
+            missing_insurance.len(),
+            missing_insurance.join("、")
+        ));
     }
 
     // 8. 为每个员工匹配提成规则并计算（全员遍历，无回款业绩则提成为 0，只发底薪）
@@ -595,53 +864,57 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
             Decimal::ZERO
         };
 
-        // 扣款：从考勤记录计算（若有），否则为 0
+        // 扣款：从考勤记录计算（若有），否则为 0（事务内读取，保证与删除阶段一致）
         let mut deduction_amount = Decimal::ZERO;
-        if let Ok(attendance_result) = crate::modules::finance::service::attendance_service::calculate_deduction(db, employee_id, year, month).await {
+        if let Ok(attendance_result) = crate::modules::finance::service::attendance_service::calculate_deduction(&txn, employee_id, year, month).await {
             deduction_amount = Decimal::from_f64(attendance_result.deduction_amount).unwrap_or(Decimal::ZERO);
         }
 
         // 社保公积金计算（若有员工配置）
-        // P1-6 修复：未配置时记录告警日志，便于管理员排查
-        let insurance_result = match crate::modules::finance::service::insurance_service::calculate_monthly_insurance(db, employee_id, year, month).await {
-            Ok(r) => r,
-            Err(e) => {
-                log::warn!("[salary] 员工{}({}) 社保配置缺失，按0处理：{}", employee_id, employee_name, e);
-                Default::default()
-            }
-        };
+        // P0-7 修复：事务内读取，避免读到删除阶段之外的快照数据
+        // P1-1 修复：社保计算失败（无参保地且无配置、政策缺失等）显式上抛阻止出账，
+        // 不再静默按 0 计算，避免产生社保为 0 的工资记录（验收 P1-5 / P0-7-1）
+        let insurance_result = crate::modules::finance::service::insurance_service::calculate_monthly_insurance(&txn, employee_id, year, month)
+            .await
+            .map_err(|e| format!("员工{}({})社保核算失败，已阻止出账：{}。请到【社保公积金管理→员工社保配置】检查该员工配置，或在员工档案中填写参保地（work_city_code）后重新核算", employee_id, employee_name, e))?;
 
         // 团队提成：当前员工的工资记录中 team_commission_amount=0
         // 管理者的团队提成由 calculate() 调用 team_commission_service::calc_monthly_settlement 在核算后统一归集
         let team_commission_amount = Decimal::ZERO;
 
         // 应发工资 = 底薪 + 岗位津贴 + 提成 + 绩效 + 团队提成 - 扣款
-        let total_salary = base_with_allowance + total_commission + performance_bonus + team_commission_amount - deduction_amount;
+        // P0-1: gross_before_custom 供个税税基使用，仅并入应税税前自定义项，非应税税前项不并入
+        let gross_before_custom = base_with_allowance + total_commission + performance_bonus + team_commission_amount - deduction_amount;
+        let total_salary = gross_before_custom;
 
         // 个税计算：应纳税所得额 = 应发工资 - 个人社保 - 个人公积金 - 5000(起征点) - 专项附加扣除
-        // P1-6 修复：未配置时记录告警日志
+        // P0-1：个税配置缺失/核算失败不再"静默按 0"（原兜底会与落明细阶段的硬校验冲突），
+        // 改为显式上抛阻止出账，与社保 P1-1 的失败口径一致，避免产生税额为 0 的错误工资记录
         let taxable_income = total_salary - insurance_result.social_insurance_personal - insurance_result.housing_fund_personal;
-        let tax_result = match crate::modules::finance::service::tax_service::calculate_monthly_tax(
-            db, employee_id, year, month, taxable_income.to_f64().unwrap_or(0.0),
-        ).await {
-            Ok(r) => r,
-            Err(e) => {
-                log::warn!("[salary] 员工{}({}) 个税配置缺失，按0处理：{}", employee_id, employee_name, e);
-                Default::default()
-            }
-        };
+        let tax_result = crate::modules::finance::service::tax_service::calculate_monthly_tax(
+            &txn, employee_id, year, month, taxable_income.to_f64().unwrap_or(0.0),
+        )
+        .await
+        .map_err(|e| {
+            format!(
+                "员工{}({})个税核算失败，已阻止出账（请确认其 {} 年个税配置完整）：{}",
+                employee_id, employee_name, year, e
+            )
+        })?;
 
         // P1-3: 自定义工资项引擎接入 calculate 主流程
         // 查询启用的自定义项，按 calc_mode 求值，并按 item_type/is_pretax 参与 total_salary 和个税计算
-        let custom_items = match crate::modules::finance::entity::salary_item::Entity::find()
+        // 缺口3：查询失败必须显式上抛阻止核算（与上方个税失败口径一致），禁止静默降级为空表导致漏算自定义项
+        let custom_items = crate::modules::finance::entity::salary_item::Entity::find()
             .filter(crate::modules::finance::entity::salary_item::Column::Enabled.eq(1))
-            .all(db).await {
-            Ok(items) => items,
-            Err(e) => {
-                log::warn!("[salary] 员工{} 自定义项查询失败：{}", employee_id, e);
-                Vec::new()
-            }
-        };
+            .all(&txn)
+            .await
+            .map_err(|e| {
+                format!(
+                    "员工{}({})自定义工资项查询失败，已阻止核算：{}",
+                    employee_id, employee_name, e
+                )
+            })?;
 
         let mut custom_add_pretax = Decimal::ZERO;   // 税前增项
         let mut custom_sub_pretax = Decimal::ZERO;   // 税前减项
@@ -708,15 +981,22 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
         // 重算 total_salary（含税前自定义项）
         let total_salary = total_salary + custom_add_pretax - custom_sub_pretax;
 
-        // 若有应税自定义项，重算个税
+        // 若有应税自定义项，重算个税（仅应税税前自定义项并入税基，非应税税前项不并入）
+        // 缺口3：重算失败必须显式上抛阻止核算，禁止静默沿用不含自定义项税基的旧税额
         let tax_result = if custom_taxable_pretax != Decimal::ZERO {
-            let new_taxable = total_salary - insurance_result.social_insurance_personal - insurance_result.housing_fund_personal;
-            match crate::modules::finance::service::tax_service::calculate_monthly_tax(
-                db, employee_id, year, month, new_taxable.to_f64().unwrap_or(0.0),
-            ).await {
-                Ok(r) => r,
-                Err(_) => tax_result,
-            }
+            let new_taxable = gross_before_custom + custom_taxable_pretax
+                - insurance_result.social_insurance_personal
+                - insurance_result.housing_fund_personal;
+            crate::modules::finance::service::tax_service::calculate_monthly_tax(
+                &txn, employee_id, year, month, new_taxable.to_f64().unwrap_or(0.0),
+            )
+            .await
+            .map_err(|e| {
+                format!(
+                    "员工{}({})并入应税自定义项后个税重算失败，已阻止核算（请确认其 {} 年个税配置完整）：{}",
+                    employee_id, employee_name, year, e
+                )
+            })?
         } else {
             tax_result
         };
@@ -726,7 +1006,7 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
 
         let salary_model = salary_record::ActiveModel {
             employee_id: Set(employee_id),
-            employee_name: Set(Some(employee_name)),
+            employee_name: Set(Some(employee_name.clone())),
             department_name: Set(department_name),
             year: Set(year),
             month: Set(month),
@@ -753,6 +1033,7 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
 
         let inserted_salary = salary_model.insert(&txn).await.map_err(|e| e.to_string())?;
         let salary_id = inserted_salary.id;
+        last_salary_id = Some(salary_id);
 
         // 更新明细的 salary_record_id 并插入
         for mut detail in detail_models {
@@ -766,17 +1047,19 @@ async fn calculate_inner(db: &DatabaseConnection, year: i32, month: i32) -> Resu
             let _ = cv.insert(&txn).await;
         }
 
-        // 保存个税明细（在主事务内，保证原子性）
-        let _ = crate::modules::finance::service::tax_service::save_tax_detail_in_conn(
+        // 保存个税明细（在主事务内，保证原子性；失败则整个核算事务回滚）
+        crate::modules::finance::service::tax_service::save_tax_detail_in_conn(
             &txn, salary_id, employee_id, year, month, tax_result,
-        ).await;
+        )
+        .await
+        .map_err(|e| format!("保存员工{}({})个税明细失败：{}", employee_id, employee_name, e))?;
 
         generated_count += 1;
     }
 
     txn.commit().await.map_err(|e| e.to_string())?;
 
-    Ok(generated_count)
+    Ok((generated_count, last_salary_id))
 }
 
 /// 按天分段计算当月底薪+岗位津贴（按自然月天数折算）
@@ -1032,16 +1315,116 @@ fn resolve_commission_base(
     }
 }
 
+/// 自定义项联动重算核心：按记录上已保存的自定义项值（回查主表分类）重算应发/个税/实发，
+/// 并在同一事务内重写个税明细与累计配置（P0-1 链路：删旧明细 -> 回滚累计 -> 重算 -> 存明细）。
+/// 供手工调整（update）与项目值录入（save_record_item_values）复用。
+/// amounts: (base_salary, position_allowance, commission_amount, performance_bonus, deduction_amount)
+async fn apply_custom_items_recalc(
+    txn: &DatabaseTransaction,
+    model: &mut salary_record::ActiveModel,
+    existing: &salary_record::Model,
+    amounts: (Decimal, Decimal, Decimal, Decimal, Decimal),
+    custom_values: &[salary_item_value::Model],
+) -> Result<(), String> {
+    let (base, allowance, commission, bonus, deduction) = amounts;
+    let team_commission = existing.team_commission_amount;
+
+    // salary_item_value 不存 item_type/is_pretax，需回查 salary_item 主表分类
+    let item_ids: Vec<i64> = custom_values.iter().map(|v| v.item_id).collect();
+    let mut item_map: HashMap<i64, crate::modules::finance::entity::salary_item::Model> = HashMap::new();
+    if !item_ids.is_empty() {
+        let items = crate::modules::finance::entity::salary_item::Entity::find()
+            .filter(crate::modules::finance::entity::salary_item::Column::Id.is_in(item_ids))
+            .all(txn)
+            .await
+            .map_err(|e| e.to_string())?;
+        for it in items {
+            item_map.insert(it.id, it);
+        }
+    }
+    let mut custom_add_pretax = Decimal::ZERO;
+    let mut custom_sub_pretax = Decimal::ZERO;
+    let mut custom_add_posttax = Decimal::ZERO;
+    let mut custom_sub_posttax = Decimal::ZERO;
+    let mut custom_taxable_pretax = Decimal::ZERO;
+    for v in custom_values {
+        let item = item_map.get(&v.item_id);
+        let item_type = item.and_then(|i| i.item_type).unwrap_or(1); // 1=增项 2=减项
+        let is_pretax = item.and_then(|i| i.is_pretax).unwrap_or(1) == 1; // 1=税前 0=税后
+        let is_taxable = v.is_taxable.unwrap_or(1) == 1; // 1=应税 0=非应税
+        let amount = v.amount;
+        match (item_type, is_pretax) {
+            (1, true) => {
+                custom_add_pretax += amount;
+                if is_taxable { custom_taxable_pretax += amount; }
+            }
+            (2, true) => {
+                custom_sub_pretax += amount;
+                if is_taxable { custom_taxable_pretax -= amount; }
+            }
+            (1, false) => custom_add_posttax += amount,
+            (2, false) => custom_sub_posttax += amount,
+            _ => {}
+        }
+    }
+
+    // 应发工资 = 基础五项 + 税前自定义项（应税/非应税均计入应发）
+    let gross_before_custom = base + allowance + commission + bonus + team_commission - deduction;
+    let total = gross_before_custom + custom_add_pretax - custom_sub_pretax;
+    model.total_salary = Set(total);
+
+    // P0-1: 先删除该记录旧个税明细，并将累计回滚到上月末，避免在新基数上重复累加
+    salary_tax_detail::Entity::delete_many()
+        .filter(salary_tax_detail::Column::SalaryRecordId.eq(existing.id))
+        .exec(txn)
+        .await
+        .map_err(|e| e.to_string())?;
+    crate::modules::finance::service::tax_service::rollback_tax_config_in_conn(
+        txn, existing.employee_id, existing.year, existing.month,
+    )
+    .await?;
+    // 按新应发工资重算个税（读取回滚后的累计基数），失败直接报错回滚，不再静默沿用旧税额
+    // 应纳税所得额 = 基础应发(不含自定义项) + 应税税前自定义项 - 个人社保 - 个人公积金
+    let taxable = gross_before_custom + custom_taxable_pretax
+        - existing.social_insurance_personal
+        - existing.housing_fund_personal;
+    let tax_result = crate::modules::finance::service::tax_service::calculate_monthly_tax(
+        txn, existing.employee_id, existing.year, existing.month, taxable.to_f64().unwrap_or(0.0),
+    )
+    .await
+    .map_err(|e| format!("重算员工{}({}年{}月)个税失败：{}", existing.employee_id, existing.year, existing.month, e))?;
+    let new_tax = tax_result.monthly_tax;
+    let new_net = total - existing.social_insurance_personal - existing.housing_fund_personal - new_tax
+        + custom_add_posttax - custom_sub_posttax;
+    model.tax_amount = Set(new_tax);
+    model.net_salary = Set(new_net);
+
+    // P0-1: 保存个税明细并更新配置累计（与核算流程保持一致）
+    crate::modules::finance::service::tax_service::save_tax_detail_in_conn(
+        txn, existing.id, existing.employee_id, existing.year, existing.month, tax_result,
+    )
+    .await?;
+
+    Ok(())
+}
+
 /// 手动调整
+/// P0-1: 调整后在同一事务内重写个税明细并更新配置累计，保证个税链路数据一致
 pub async fn update(db: &DatabaseConnection, dto: SalaryUpdateDTO) -> Result<(), String> {
-    let mut model: salary_record::ActiveModel = salary_record::Entity::find_by_id(dto.id)
+    // 只允许调整待审核记录，避免已审核/已发放数据被静默改动
+    let existing = salary_record::Entity::find_by_id(dto.id)
         .one(db)
         .await
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| "工资记录不存在".to_string())?
-        .into();
+        .ok_or_else(|| "工资记录不存在".to_string())?;
+    if existing.status.unwrap_or(0) != 0 {
+        return Err("只有待审核状态的工资记录才能调整".to_string());
+    }
 
     let now = Utc::now().naive_utc();
+    let txn = db.begin().await.map_err(|e| e.to_string())?;
+
+    let mut model: salary_record::ActiveModel = existing.clone().into();
 
     if let Some(base_salary) = dto.base_salary {
         model.base_salary = Set(Decimal::from_f64(base_salary).unwrap_or_default());
@@ -1056,45 +1439,127 @@ pub async fn update(db: &DatabaseConnection, dto: SalaryUpdateDTO) -> Result<(),
         model.remark = Set(Some(remark));
     }
 
-    // 重新计算应发工资（含岗位津贴）
-    let existing = salary_record::Entity::find_by_id(dto.id)
-        .one(db)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "工资记录不存在".to_string())?;
-
+    // 应发工资组成（DTO 未传的字段沿用原值）
     let base = dto.base_salary.map(|v| Decimal::from_f64(v).unwrap_or_default()).unwrap_or(existing.base_salary);
     let allowance = existing.position_allowance;
     let commission = existing.commission_amount;
-    let team_commission = existing.team_commission_amount;
     let bonus = dto.performance_bonus.map(|v| Decimal::from_f64(v).unwrap_or_default()).unwrap_or(existing.performance_bonus);
     let deduction = dto.deduction_amount.map(|v| Decimal::from_f64(v).unwrap_or_default()).unwrap_or(existing.deduction_amount);
-    let total = base + allowance + commission + bonus + team_commission - deduction;
-    model.total_salary = Set(total);
 
-    // 联动重算个税与实发工资
-    let personal_ins = existing.social_insurance_personal;
-    let personal_housing = existing.housing_fund_personal;
-    let employee_id_for_tax = existing.employee_id;
-    let tax_year = existing.year;
-    let tax_month = existing.month;
-    let new_tax: Decimal = match crate::modules::finance::service::tax_service::calculate_monthly_tax(
-        db, employee_id_for_tax, tax_year, tax_month, total.to_f64().unwrap_or(0.0),
-    ).await {
-        Ok(r) => r.monthly_tax,
-        Err(_) => existing.tax_amount,
-    };
-    let new_net = total - personal_ins - personal_housing - new_tax;
-    model.tax_amount = Set(new_tax);
-    model.net_salary = Set(new_net);
+    // P0-1/P1: 手工调整纳入自定义工资项并联动重算个税（与项目值录入共用重算核心）
+    let custom_values = salary_item_value::Entity::find()
+        .filter(salary_item_value::Column::SalaryRecordId.eq(dto.id))
+        .all(&txn)
+        .await
+        .map_err(|e| e.to_string())?;
+    apply_custom_items_recalc(
+        &txn, &mut model, &existing,
+        (base, allowance, commission, bonus, deduction),
+        &custom_values,
+    )
+    .await?;
 
     if let Some(uid) = dto.updated_by {
         model.updated_by = Set(Some(uid));
     }
     model.update_time = Set(Some(now));
 
-    let txn = db.begin().await.map_err(|e| e.to_string())?;
     model.update(&txn).await.map_err(|e| e.to_string())?;
+
+    txn.commit().await.map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// 录入/更新工资单自定义项值（缺口1）
+/// 仅允许"手动录入模式且启用中"的项目（公式项由核算自动写入，不接受手工覆盖），
+/// 保存后在同一事务内联动重算应发/个税/实发；仅待审核（status=0）记录可录入。
+pub async fn save_record_item_values(
+    db: &DatabaseConnection,
+    salary_record_id: i64,
+    values: Vec<crate::modules::finance::service::salary_item_service::SalaryItemValueDTO>,
+    updated_by: Option<i64>,
+) -> Result<(), String> {
+    let existing = salary_record::Entity::find_by_id(salary_record_id)
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "工资记录不存在".to_string())?;
+    if existing.status.unwrap_or(0) != 0 {
+        return Err("只有待审核状态的工资记录才能录入项目值".to_string());
+    }
+
+    // 手动录入项目白名单
+    let manual_items = crate::modules::finance::entity::salary_item::Entity::find()
+        .filter(crate::modules::finance::entity::salary_item::Column::CalcMode.eq(1))
+        .filter(crate::modules::finance::entity::salary_item::Column::Enabled.eq(1))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    let manual_id_set: std::collections::HashSet<i64> = manual_items.iter().map(|i| i.id).collect();
+    for v in &values {
+        if v.amount < 0.0 {
+            return Err("项目值金额不能为负数".to_string());
+        }
+        if !manual_id_set.contains(&v.item_id) {
+            return Err("仅允许录入手动模式且启用中的项目".to_string());
+        }
+    }
+
+    let now = Utc::now().naive_utc();
+    let txn = db.begin().await.map_err(|e| e.to_string())?;
+
+    // 先删后插：只覆盖手动项的值行，公式项快照与已停用项目的历史值保持不动
+    let manual_id_list: Vec<i64> = manual_items.iter().map(|i| i.id).collect();
+    if !manual_id_list.is_empty() {
+        salary_item_value::Entity::delete_many()
+            .filter(salary_item_value::Column::SalaryRecordId.eq(salary_record_id))
+            .filter(salary_item_value::Column::ItemId.is_in(manual_id_list))
+            .exec(&txn)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    for v in &values {
+        if v.amount == 0.0 {
+            continue; // 0 值视为清除，不落库
+        }
+        let item = manual_items.iter().find(|i| i.id == v.item_id);
+        let active = salary_item_value::ActiveModel {
+            salary_record_id: Set(salary_record_id),
+            item_id: Set(v.item_id),
+            item_code: Set(item.map(|i| i.item_code.clone())),
+            item_name: Set(item.map(|i| i.item_name.clone())),
+            amount: Set(Decimal::from_f64(v.amount).unwrap_or_default()),
+            is_taxable: Set(item.and_then(|i| i.is_taxable)),
+            ..Default::default()
+        };
+        active.insert(&txn).await.map_err(|e| e.to_string())?;
+    }
+
+    // 读取记录全部自定义项值（含公式项快照与历史值）参与重算
+    let custom_values = salary_item_value::Entity::find()
+        .filter(salary_item_value::Column::SalaryRecordId.eq(salary_record_id))
+        .all(&txn)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut model: salary_record::ActiveModel = existing.clone().into();
+    let amounts = (
+        existing.base_salary,
+        existing.position_allowance,
+        existing.commission_amount,
+        existing.performance_bonus,
+        existing.deduction_amount,
+    );
+    apply_custom_items_recalc(&txn, &mut model, &existing, amounts, &custom_values).await?;
+
+    if let Some(uid) = updated_by {
+        model.updated_by = Set(Some(uid));
+    }
+    model.update_time = Set(Some(now));
+
+    model.update(&txn).await.map_err(|e| e.to_string())?;
+
     txn.commit().await.map_err(|e| e.to_string())?;
 
     Ok(())
@@ -1223,6 +1688,18 @@ pub async fn get_summary(
     let total_bonus: Decimal = records.iter().map(|r| r.performance_bonus).sum();
     let total_deduction: Decimal = records.iter().map(|r| r.deduction_amount).sum();
     let total_salary: Decimal = records.iter().map(|r| r.total_salary).sum();
+    // P0-2：补齐个人社保/公积金/个税/实发合计
+    // 统计口径与列表页一致（不按状态过滤，含待审核/已审核/已发放），保证卡片数值与列表求和相等
+    let total_social_insurance_personal: Decimal = records
+        .iter()
+        .map(|r| r.social_insurance_personal)
+        .sum();
+    let total_housing_fund_personal: Decimal = records
+        .iter()
+        .map(|r| r.housing_fund_personal)
+        .sum();
+    let total_tax_amount: Decimal = records.iter().map(|r| r.tax_amount).sum();
+    let total_net_salary: Decimal = records.iter().map(|r| r.net_salary).sum();
 
     Ok(SalarySummaryDTO {
         total_base: total_base.to_f64().unwrap_or_default(),
@@ -1230,6 +1707,14 @@ pub async fn get_summary(
         total_bonus: total_bonus.to_f64().unwrap_or_default(),
         total_deduction: total_deduction.to_f64().unwrap_or_default(),
         total_salary: total_salary.to_f64().unwrap_or_default(),
+        total_social_insurance_personal: total_social_insurance_personal
+            .to_f64()
+            .unwrap_or_default(),
+        total_housing_fund_personal: total_housing_fund_personal
+            .to_f64()
+            .unwrap_or_default(),
+        total_tax_amount: total_tax_amount.to_f64().unwrap_or_default(),
+        total_net_salary: total_net_salary.to_f64().unwrap_or_default(),
         count,
     })
 }
@@ -1404,7 +1889,7 @@ pub async fn upsert_config(
     let txn = db.begin().await.map_err(|e| e.to_string())?;
 
     // 查找是否已存在
-    let mut existing = salary_config::Entity::find()
+    let existing = salary_config::Entity::find()
         .filter(salary_config::Column::EmployeeId.eq(employee_id))
         .filter(salary_config::Column::Year.eq(year))
         .filter(salary_config::Column::Deleted.eq(0))
@@ -1414,8 +1899,8 @@ pub async fn upsert_config(
     // 精确匹配 month
     let matched = existing.iter().find(|c| c.month == month).cloned();
 
-    if let Some(mut model) = matched {
-        let mut active: salary_config::ActiveModel = model.clone().into();
+    if let Some(model) = matched {
+        let mut active: salary_config::ActiveModel = model.into();
         active.base_salary = Set(Decimal::from_f64(base_salary).unwrap_or_default());
         active.position_allowance = Set(position_allowance.map(|v| Decimal::from_f64(v).unwrap_or_default()));
         active.performance_base = Set(performance_base.map(|v| Decimal::from_f64(v).unwrap_or_default()));

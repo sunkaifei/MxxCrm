@@ -9,7 +9,7 @@ import { Page } from '@vben/common-ui';
 import { LucideChevronDown, LucideChevronUp, LucideList } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
-import { Button, Tag, Tooltip } from 'ant-design-vue';
+import { Button, Segmented, Tag, Tooltip } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getInventoryListApi } from '#/api';
@@ -20,6 +20,24 @@ import StockLogDrawer from '../components/StockLogDrawer.vue';
 import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 
 const accessStore = useAccessStore();
+
+// ============ 视图模式（明细 / 汇总） ============
+const viewMode = ref<'detail' | 'summary'>('detail');
+
+// ============ 统计条（总量来自接口，合计为当前页口径） ============
+const stats = ref({ available: 0, cost: 0, quantity: 0, total: 0 });
+
+function updateStats(total: number, flatList: any[]) {
+  let quantity = 0;
+  let available = 0;
+  let cost = 0;
+  for (const row of flatList) {
+    quantity += Number(row.quantity ?? 0);
+    available += Number(row.availableQuantity ?? 0);
+    cost += Number(row.totalCost ?? 0);
+  }
+  stats.value = { available, cost, quantity, total };
+}
 
 // ============ 仓库弹窗选择 ============
 const warehouseSelectVisible = ref(false);
@@ -42,7 +60,7 @@ function clearWarehouse() {
   gridApi.formApi?.setValues({ warehouseId: '', warehouseDisplay: '' });
 }
 
-// ============ 树形数据转换 ============
+// ============ 树形数据转换（汇总视图） ============
 // 将扁平行转换为按 产品 → 规格(SKU) → 仓库 的三级树形结构
 function buildTreeData(flatList: any[]): any[] {
   const productMap = new Map<number, any>();
@@ -140,6 +158,168 @@ function toggleExpandAll() {
   }
 }
 
+function handleViewModeChange() {
+  allExpanded.value = true;
+  gridApi.setGridOptions({
+    columns: viewMode.value === 'detail' ? detailColumns : summaryColumns,
+  });
+  gridApi.query();
+}
+
+// ============ 列定义 ============
+const detailColumns: VxeGridProps['columns'] = [
+  {
+    title: $t('ui.table.seq'),
+    type: 'seq',
+    width: 48,
+    align: 'center',
+  },
+  {
+    title: '商品',
+    field: 'productName',
+    minWidth: 220,
+    fixed: 'left',
+    slots: { default: 'productCell' },
+  },
+  {
+    title: '仓库',
+    field: 'warehouseName',
+    width: 130,
+    slots: { default: 'warehouseCell' },
+  },
+  {
+    title: '库存数量',
+    field: 'quantity',
+    width: 96,
+    align: 'right',
+    sortable: true,
+    slots: { default: 'quantity' },
+  },
+  {
+    title: '可用数量',
+    field: 'availableQuantity',
+    width: 96,
+    align: 'right',
+    sortable: true,
+    slots: { default: 'availableQuantity' },
+  },
+  {
+    title: '预留',
+    field: 'reservedQuantity',
+    width: 80,
+    align: 'right',
+    sortable: true,
+    slots: { default: 'reservedQuantity' },
+  },
+  {
+    title: '冻结',
+    field: 'frozenQuantity',
+    width: 80,
+    align: 'right',
+    sortable: true,
+    slots: { default: 'frozenQuantity' },
+  },
+  {
+    title: '在途',
+    field: 'inTransitQuantity',
+    width: 80,
+    align: 'right',
+    slots: { default: 'inTransitQuantity' },
+  },
+  {
+    title: '成本单价',
+    field: 'avgCost',
+    width: 100,
+    align: 'right',
+    slots: { default: 'avgCost' },
+  },
+  {
+    title: '库存总成本',
+    field: 'totalCost',
+    width: 110,
+    align: 'right',
+    slots: { default: 'totalCost' },
+  },
+  {
+    title: '最近出入库',
+    field: 'lastInboundTime',
+    width: 150,
+    slots: { default: 'recentActivity' },
+  },
+  {
+    title: $t('ui.table.action'),
+    field: 'action',
+    fixed: 'right',
+    slots: { default: 'action' },
+    width: 72,
+    align: 'center',
+  },
+];
+
+const summaryColumns: VxeGridProps['columns'] = [
+  {
+    title: $t('ui.table.seq'),
+    type: 'seq',
+    width: 48,
+    align: 'center',
+  },
+  {
+    title: '产品 / 规格 / 仓库',
+    field: 'productName',
+    minWidth: 240,
+    slots: { default: 'productCell' },
+  },
+  {
+    title: '库存数量',
+    field: 'quantity',
+    width: 100,
+    align: 'right',
+    slots: { default: 'quantity' },
+  },
+  {
+    title: '可用数量',
+    field: 'availableQuantity',
+    width: 100,
+    align: 'right',
+    slots: { default: 'availableQuantity' },
+  },
+  {
+    title: '预留',
+    field: 'reservedQuantity',
+    width: 80,
+    align: 'right',
+    slots: { default: 'reservedQuantity' },
+  },
+  {
+    title: '冻结',
+    field: 'frozenQuantity',
+    width: 80,
+    align: 'right',
+    slots: { default: 'frozenQuantity' },
+  },
+  {
+    title: '库存总成本',
+    field: 'totalCost',
+    width: 120,
+    align: 'right',
+    slots: { default: 'totalCost' },
+  },
+  {
+    title: '最近出入库',
+    field: 'lastInboundTime',
+    width: 150,
+    slots: { default: 'recentActivity' },
+  },
+  {
+    title: $t('ui.table.action'),
+    field: 'action',
+    fixed: 'right',
+    slots: { default: 'action' },
+    width: 72,
+    align: 'center',
+  },
+];
+
 const formOptions: VbenFormProps = {
   collapsed: false,
   showCollapseButton: false,
@@ -192,6 +372,7 @@ const gridOptions: VxeGridProps = {
   pagerConfig: {},
   cellConfig: { isHover: true } as any,
   stripe: true,
+  // 树形配置常驻：明细视图行无 children 即为普通行
   treeConfig: {
     transform: false,
     rowField: '_id',
@@ -209,103 +390,37 @@ const gridOptions: VxeGridProps = {
           productName: formValues.productName,
           warehouseId: formValues.warehouseId,
         });
-        const flatList = res?.items ?? res?.list ?? [];
+        const flatList = (res?.items ?? res?.list ?? []).map(
+          (row: any, idx: number) => ({
+            ...row,
+            _id: `row_${page.currentPage}_${idx}`,
+          }),
+        );
         const total = res?.total ?? flatList.length;
-        const treeData = buildTreeData(flatList);
-        return { items: treeData, total };
+        updateStats(total, flatList);
+        if (viewMode.value === 'summary') {
+          return { items: buildTreeData(flatList), total };
+        }
+        return { items: flatList, total };
       },
     },
   },
 
-  columns: [
-    {
-      title: $t('ui.table.seq'),
-      type: 'seq',
-      width: 50,
-      align: 'center',
-    },
-    {
-      title: '产品 / 仓库',
-      field: 'productName',
-      minWidth: 180,
-      slots: { default: 'productName' },
-    },
-    {
-      title: '产品编码',
-      field: 'productCode',
-      width: 120,
-      slots: { default: 'productCode' },
-    },
-    {
-      title: '库存数量',
-      field: 'quantity',
-      width: 110,
-      align: 'right',
-      slots: { default: 'quantity' },
-    },
-    {
-      title: '可用数量',
-      field: 'availableQuantity',
-      width: 110,
-      align: 'right',
-      slots: { default: 'availableQuantity' },
-    },
-    {
-      title: '预留数量',
-      field: 'reservedQuantity',
-      width: 100,
-      align: 'right',
-      slots: { default: 'reservedQuantity' },
-    },
-    {
-      title: '冻结数量',
-      field: 'frozenQuantity',
-      width: 100,
-      align: 'right',
-      slots: { default: 'frozenQuantity' },
-    },
-    {
-      title: '库存总成本',
-      field: 'totalCost',
-      width: 120,
-      align: 'right',
-      slots: { default: 'totalCost' },
-    },
-    {
-      title: '最后入库',
-      field: 'lastInboundTime',
-      width: 150,
-      slots: { default: 'lastInboundTime' },
-    },
-    {
-      title: '最后出库',
-      field: 'lastOutboundTime',
-      width: 150,
-      slots: { default: 'lastOutboundTime' },
-    },
-    {
-      title: $t('ui.table.action'),
-      field: 'action',
-      fixed: 'right',
-      slots: { default: 'action' },
-      width: 80,
-      align: 'center',
-    },
-  ],
+  columns: detailColumns,
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+
+// ============ 库存流水抽屉 ============
+const stockLogVisible = ref(false);
+const stockLogProductId = ref<null | number>(null);
+const stockLogProductName = ref('');
 
 function handleViewLog(row: any) {
   stockLogVisible.value = true;
   stockLogProductId.value = Number(row.productId);
   stockLogProductName.value = row.productName || '';
 }
-
-// ============ 库存流水抽屉 ============
-const stockLogVisible = ref(false);
-const stockLogProductId = ref<null | number>(null);
-const stockLogProductName = ref('');
 
 function formatNumber(val: any): string {
   const n = Number(val ?? 0);
@@ -319,14 +434,69 @@ function formatMoney(val: any): string {
     maximumFractionDigits: 2,
   });
 }
+
+function shortTime(val: any): string {
+  const s = String(val ?? '');
+  return s ? s.slice(0, 16) : '—';
+}
 </script>
 
 <template>
   <Page auto-content-height>
     <InventoryProcessGuide current-step="stock" />
+
+    <!-- 统计条：全量记录数 + 当前页合计 -->
+    <div
+      class="mb-1 flex flex-wrap items-center gap-x-5 gap-y-1 px-0.5 py-1 text-foreground"
+    >
+      <div class="flex items-baseline gap-1.5">
+        <span class="text-xs text-muted-foreground">库存记录</span>
+        <span class="text-sm font-semibold tabular-nums">{{
+          formatNumber(stats.total)
+        }}</span>
+        <span class="text-xs text-muted-foreground">条</span>
+      </div>
+      <div class="h-4 w-px bg-border"></div>
+      <div class="flex items-baseline gap-1.5">
+        <span class="text-xs text-muted-foreground">本页合计 · 库存</span>
+        <span class="text-sm font-semibold tabular-nums">{{
+          formatNumber(stats.quantity)
+        }}</span>
+      </div>
+      <div class="h-4 w-px bg-border"></div>
+      <div class="flex items-baseline gap-1.5">
+        <span class="text-xs text-muted-foreground">本页合计 · 可用</span>
+        <span class="text-sm font-semibold tabular-nums">{{
+          formatNumber(stats.available)
+        }}</span>
+      </div>
+      <div class="h-4 w-px bg-border"></div>
+      <div class="flex items-baseline gap-1.5">
+        <span class="text-xs text-muted-foreground">本页合计 · 库存成本</span>
+        <span class="text-sm font-semibold tabular-nums"
+          >¥{{ formatMoney(stats.cost) }}</span
+        >
+      </div>
+    </div>
+
     <Grid :table-title="$t('page.product.inventory.title')">
       <template #toolbar-tools>
-        <Button class="mr-2" size="small" @click="toggleExpandAll">
+        <Segmented
+          v-model:value="viewMode"
+          class="mr-2"
+          size="small"
+          :options="[
+            { label: '明细', value: 'detail' },
+            { label: '汇总', value: 'summary' },
+          ]"
+          @change="handleViewModeChange"
+        />
+        <Button
+          v-if="viewMode === 'summary'"
+          class="mr-2"
+          size="small"
+          @click="toggleExpandAll"
+        >
           <template #icon>
             <component
               :is="allExpanded ? h(LucideChevronUp) : h(LucideChevronDown)"
@@ -336,21 +506,30 @@ function formatMoney(val: any): string {
         </Button>
       </template>
 
-      <!-- 第一列：产品 / 规格 / 仓库 -->
-      <template #productName="{ row }">
+      <!-- 商品列：明细为两行式单元格；汇总视图为 产品/规格/仓库 三级树 -->
+      <template #productCell="{ row }">
         <template v-if="row._isProduct">
-          <span class="font-semibold text-foreground">{{
-            row.productName
-          }}</span>
-          <Tag class="ml-2" color="blue" :bordered="false">
-            {{ row._specCount }}种规格
-          </Tag>
-          <Tag color="geekblue" :bordered="false">
-            {{ row._warehouseCount }}个仓库
-          </Tag>
+          <div class="flex flex-col leading-5">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold text-foreground">{{
+                row.productName
+              }}</span>
+              <Tag color="blue" :bordered="false">
+                {{ row._specCount }}种规格
+              </Tag>
+              <Tag color="geekblue" :bordered="false">
+                {{ row._warehouseCount }}个仓库
+              </Tag>
+            </div>
+            <span
+              v-if="row.productCode"
+              class="truncate font-mono text-xs text-muted-foreground"
+              >{{ row.productCode }}</span
+            >
+          </div>
         </template>
         <template v-else-if="row._isSpec">
-          <span class="pl-2 inline-flex items-center gap-1">
+          <span class="inline-flex items-center gap-1">
             <svg
               viewBox="0 0 24 24"
               width="13"
@@ -365,16 +544,16 @@ function formatMoney(val: any): string {
               <rect x="3" y="14" width="7" height="7" />
               <rect x="14" y="14" width="7" height="7" />
             </svg>
-            <span class="text-foreground font-medium">{{ row.specText }}</span>
+            <span class="font-medium text-foreground">{{ row.specText }}</span>
             <span
               v-if="row.skuCode"
-              class="text-xs text-muted-foreground font-mono"
+              class="font-mono text-xs text-muted-foreground"
               >{{ row.skuCode }}</span
             >
           </span>
         </template>
-        <template v-else>
-          <span class="text-muted-foreground pl-4">
+        <template v-else-if="row._isWarehouse">
+          <span class="text-muted-foreground">
             <svg
               viewBox="0 0 24 24"
               width="13"
@@ -382,7 +561,7 @@ function formatMoney(val: any): string {
               fill="none"
               stroke="currentColor"
               stroke-width="2"
-              class="inline-block -mt-0.5"
+              class="mr-1 inline-block -mt-0.5"
             >
               <path d="M3 21V8l9-5 9 5v13" />
               <path d="M3 21h18" />
@@ -390,107 +569,153 @@ function formatMoney(val: any): string {
             {{ row.warehouseName }}
           </span>
         </template>
-      </template>
-
-      <!-- 产品编码列：仅产品行显示 -->
-      <template #productCode="{ row }">
-        <span
-          v-if="row._isProduct"
-          class="font-mono text-xs text-muted-foreground"
-          >{{ row.productCode || '-' }}</span
-        >
-        <span v-else class="text-muted-foreground">—</span>
-      </template>
-
-      <!-- 库存数量列 -->
-      <template #quantity="{ row }">
-        <template v-if="row._isProduct || row._isSpec">
-          <span
-            class="font-semibold"
-            :class="row._isProduct ? 'text-base' : ''"
-            >{{ formatNumber(row.quantity) }}</span
-          >
-        </template>
         <template v-else>
-          <span
-            :class="{
-              'text-orange-500 font-medium': Number(row.quantity) <= 0,
-            }"
-          >
-            {{ formatNumber(row.quantity) }}
-          </span>
+          <!-- 明细视图：产品名 + 编码/规格 两行式 -->
+          <div class="flex flex-col leading-5">
+            <span class="font-medium text-foreground">{{
+              row.productName || '—'
+            }}</span>
+            <span
+              v-if="row.productCode || row.specText"
+              class="truncate font-mono text-xs text-muted-foreground"
+            >
+              {{ row.productCode || '' }}{{ row.productCode && row.specText ? ' · ' : '' }}{{ row.specText || '' }}
+            </span>
+          </div>
         </template>
       </template>
 
-      <!-- 可用数量列 -->
-      <template #availableQuantity="{ row }">
-        <span :class="row._isProduct || row._isSpec ? 'font-semibold' : ''">
-          {{ formatNumber(row.availableQuantity) }}
+      <!-- 仓库列（仅明细视图使用） -->
+      <template #warehouseCell="{ row }">
+        <span class="inline-flex items-center gap-1.5">
+          <svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="text-muted-foreground"
+          >
+            <path d="M3 21V8l9-5 9 5v13" />
+            <path d="M3 21h18" />
+          </svg>
+          <span>{{ row.warehouseName || '—' }}</span>
         </span>
+      </template>
+
+      <!-- 库存数量列：0 值警示 -->
+      <template #quantity="{ row }">
+        <span
+          v-if="Number(row.quantity) === 0"
+          class="font-medium text-amber-500"
+          >0</span
+        >
+        <span
+          v-else
+          :class="
+            row._isProduct
+              ? 'font-semibold text-base'
+              : row._isSpec
+                ? 'font-semibold'
+                : ''
+          "
+          >{{ formatNumber(row.quantity) }}</span
+        >
+      </template>
+
+      <!-- 可用数量列：主视角数字，0 值警示 -->
+      <template #availableQuantity="{ row }">
+        <span
+          v-if="Number(row.availableQuantity) === 0"
+          class="font-semibold text-amber-500"
+          >0</span
+        >
+        <span v-else class="font-semibold">{{
+          formatNumber(row.availableQuantity)
+        }}</span>
       </template>
 
       <!-- 预留数量列 -->
       <template #reservedQuantity="{ row }">
-        <span v-if="Number(row.reservedQuantity) > 0" class="text-orange-500">
-          {{ formatNumber(row.reservedQuantity) }}
-        </span>
-        <span v-else class="text-muted-foreground">0</span>
+        <span v-if="Number(row.reservedQuantity) > 0">{{
+          formatNumber(row.reservedQuantity)
+        }}</span>
+        <span v-else class="text-muted-foreground">—</span>
       </template>
 
       <!-- 冻结数量列 -->
       <template #frozenQuantity="{ row }">
-        <Tag
-          v-if="row.frozenQuantity && Number(row.frozenQuantity) > 0"
-          color="red"
-          :bordered="false"
+        <span
+          v-if="Number(row.frozenQuantity) > 0"
+          class="font-medium text-red-500"
+          >{{ formatNumber(row.frozenQuantity) }}</span
         >
-          {{ formatNumber(row.frozenQuantity) }}
-        </Tag>
-        <span v-else-if="row._isWarehouse" class="text-muted-foreground"
-          >0</span
-        >
-        <span v-else class="text-muted-foreground">0</span>
+        <span v-else class="text-muted-foreground">—</span>
+      </template>
+
+      <!-- 在途数量列 -->
+      <template #inTransitQuantity="{ row }">
+        <span v-if="Number(row.inTransitQuantity) > 0">{{
+          formatNumber(row.inTransitQuantity)
+        }}</span>
+        <span v-else class="text-muted-foreground">—</span>
+      </template>
+
+      <!-- 成本单价列 -->
+      <template #avgCost="{ row }">
+        <span v-if="Number(row.avgCost) > 0">¥{{ formatMoney(row.avgCost) }}</span>
+        <span v-else class="text-muted-foreground">—</span>
       </template>
 
       <!-- 库存总成本列 -->
       <template #totalCost="{ row }">
         <span
+          v-if="Number(row.totalCost) !== 0"
           :class="
             row._isProduct
               ? 'font-semibold text-primary'
               : row._isSpec
                 ? 'font-medium'
-                : 'text-muted-foreground'
+                : ''
           "
+          >¥{{ formatMoney(row.totalCost) }}</span
         >
-          ¥{{ formatMoney(row.totalCost) }}
-        </span>
-      </template>
-
-      <!-- 时间列：仅仓库行显示具体时间 -->
-      <template #lastInboundTime="{ row }">
-        <span v-if="row._isWarehouse" class="text-xs text-muted-foreground">{{
-          row.lastInboundTime || '-'
-        }}</span>
         <span v-else class="text-muted-foreground">—</span>
       </template>
 
-      <template #lastOutboundTime="{ row }">
-        <span v-if="row._isWarehouse" class="text-xs text-muted-foreground">{{
-          row.lastOutboundTime || '-'
-        }}</span>
+      <!-- 最近出入库列：两行式，秒位截断 -->
+      <template #recentActivity="{ row }">
+        <div
+          v-if="row.lastInboundTime || row.lastOutboundTime"
+          class="flex flex-col text-xs leading-5 text-muted-foreground"
+        >
+          <div>
+            <span class="inline-block w-4">入</span
+            ><span class="tabular-nums">{{
+              shortTime(row.lastInboundTime)
+            }}</span>
+          </div>
+          <div>
+            <span class="inline-block w-4">出</span
+            ><span class="tabular-nums">{{
+              shortTime(row.lastOutboundTime)
+            }}</span>
+          </div>
+        </div>
         <span v-else class="text-muted-foreground">—</span>
       </template>
 
-      <!-- 操作列 -->
+      <!-- 操作列：明细视图每行可看流水；汇总视图仅产品行 -->
       <template #action="{ row }">
         <Tooltip
-          v-if="row._isProduct"
+          v-if="viewMode === 'summary' ? row._isProduct : true"
           :title="$t('page.inventory.tooltip.viewStockLog')"
         >
           <Button
             v-if="accessStore.hasAccessCode('product:inventory:view')"
             type="link"
+            size="small"
             :icon="h(LucideList)"
             @click="() => handleViewLog(row)"
           />

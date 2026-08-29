@@ -2,8 +2,14 @@ import { requestClient } from '#/api/request';
 
 type PageParams = Record<string, any>;
 
-export const getOpportunityListApi = async (params?: PageParams) => {
-  return requestClient.get('/api/system/opportunity/list', { params });
+export const getOpportunityListApi = async (
+  params?: PageParams,
+  config?: Record<string, any>,
+) => {
+  return requestClient.get('/api/system/opportunity/list', {
+    params,
+    ...config,
+  });
 };
 export const getOpportunityInfoApi = async (id: number) => {
   return requestClient.get('/api/system/opportunity/info', { params: { id } });

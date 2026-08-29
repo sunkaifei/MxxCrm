@@ -70,6 +70,8 @@ pub struct DeliveryListQuery {
     pub customer_id: Option<i64>,
     pub status: Option<i32>,
     pub delivery_method: Option<i32>,
+    /// 列表范围：my=我的虚拟订单, subordinate=下属虚拟订单, all=全部虚拟订单
+    pub list_type: Option<String>,
 }
 
 impl From<DeliverySaveRequest> for DeliverySaveDTO {
@@ -184,6 +186,8 @@ impl DeliveryModel {
             create_time: Set(Some(now)),
             update_time: Set(Some(now)),
             deleted: Set(Some(0)),
+            delete_by: Set(None),
+            delete_time: Set(None),
             ..Default::default()
         };
         let result = DeliveryEntity::insert(payload).exec(db).await?;
@@ -234,13 +238,16 @@ impl DeliveryModel {
         Ok(result.rows_affected as i64)
     }
 
-    /// 批量软删除
-    pub async fn batch_delete<C: ConnectionTrait>(db: &C, ids: &[i64]) -> Result<i64, DbErr> {
+    /// 批量软删除（记录删除人与删除时间，回收站可见性依据）
+    pub async fn batch_delete<C: ConnectionTrait>(db: &C, ids: &[i64], user_id: i64) -> Result<i64, DbErr> {
         if ids.is_empty() {
             return Ok(0);
         }
+        let now = chrono::Local::now().naive_local();
         let result = DeliveryEntity::update_many()
             .col_expr(order_delivery::Column::Deleted, sea_orm::sea_query::Expr::value(1))
+            .col_expr(order_delivery::Column::DeleteBy, sea_orm::sea_query::Expr::value(user_id))
+            .col_expr(order_delivery::Column::DeleteTime, sea_orm::sea_query::Expr::value(now))
             .filter(order_delivery::Column::Id.is_in(ids.to_vec()))
             .exec(db)
             .await?;

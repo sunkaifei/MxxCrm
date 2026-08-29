@@ -42,11 +42,14 @@ const props = withDefaults(
     placeholder?: string;
     /** v-model 绑定的用户ID */
     value?: number;
+    /** 禁止选择的用户ID列表（列表中标记"已添加"，不可选） */
+    excludeIds?: Array<number | string>;
   }>(),
   {
     value: undefined,
     placeholder: '点击选择用户',
     disabled: false,
+    excludeIds: () => [],
   },
 );
 
@@ -113,8 +116,15 @@ const columns: TableColumnsType = [
     width: 80,
     fixed: 'right',
     align: 'center',
-    customRender: ({ record }: any) =>
-      h(
+    customRender: ({ record }: any) => {
+      if (isExcluded(record)) {
+        return h(
+          Button,
+          { size: 'small', disabled: true },
+          () => '已添加',
+        );
+      }
+      return h(
         Button,
         {
           type: 'primary',
@@ -125,11 +135,19 @@ const columns: TableColumnsType = [
           },
         },
         () => '选择',
-      ),
+      );
+    },
   },
 ];
 
 const displayName = computed(() => getDisplayName(selectedUser.value));
+
+/** 该用户是否被外部禁止选择（如已添加过） */
+function isExcluded(row: UserVO): boolean {
+  return (props.excludeIds || []).some(
+    (id) => id !== undefined && id !== null && Number(id) === Number(row.id),
+  );
+}
 
 function openModal() {
   if (props.disabled) return;
@@ -180,6 +198,7 @@ function handleTableChange(pag: any) {
 }
 
 function handleSelect(row: UserVO) {
+  if (isExcluded(row)) return;
   selectedUser.value = row;
   emit(
     'update:value',
@@ -197,6 +216,9 @@ function handleClear(e: Event) {
 }
 
 function customRow(record: UserVO) {
+  if (isExcluded(record)) {
+    return { style: { cursor: 'not-allowed' } };
+  }
   return {
     onClick: () => handleSelect(record),
     style: { cursor: 'pointer' },
@@ -204,6 +226,9 @@ function customRow(record: UserVO) {
 }
 
 function rowClassName(record: UserVO) {
+  if (isExcluded(record)) {
+    return 'user-picker-row-excluded';
+  }
   if (
     selectedUser.value &&
     Number(selectedUser.value.id) === Number(record.id)
@@ -320,5 +345,10 @@ watch(
 
 :deep(.user-picker-row-selected) td {
   background-color: #e6f4ff !important;
+}
+
+:deep(.user-picker-row-excluded) td {
+  color: #bfbfbf !important;
+  background-color: #fafafa !important;
 }
 </style>

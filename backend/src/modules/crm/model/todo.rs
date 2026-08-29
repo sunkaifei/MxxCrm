@@ -145,3 +145,28 @@ pub struct ApprovalTodoQuery {
 
 pub type ApprovalTodoVO = crate::modules::approval::model::approval::ApprovalInstanceVO;
 pub type ApprovalTodoResult = ResultPage<Vec<ApprovalTodoVO>>;
+
+// ============ 任务日历（工作台日历卡） ============
+
+/// 任务日历查询：month 格式 YYYY-MM，缺省为当月
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarTaskQuery {
+    pub month: Option<String>,
+}
+
+/// 日历任务明细（一次返回整月全部明细，前端按日期分组打点与过滤）
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct CalendarTaskVO {
+    /// 任务日期（YYYY-MM-DD）
+    pub date: String,
+    /// 任务类型：followUp 跟进提醒 / payment 待回款 / contract 合同到期
+    pub task_type: String,
+    /// 任务标题（客户名/线索标题/回款阶段/合同名）
+    pub title: String,
+    /// 业务 ID（客户/线索/合同），供前端跳转
+    pub business_id: i64,
+    /// 金额（回款计划/合同金额）
+    pub amount: Option<Decimal>,
+}

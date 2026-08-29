@@ -61,10 +61,10 @@ pub async fn policy_upsert(
 
 pub async fn policy_delete(
     state: web::Data<AppState>,
-    query: web::Query<InfoId>,
+    form_data: web::Json<InfoId>,
 ) -> HttpResponse {
     let db = &state.db;
-    let item = query.0;
+    let item = form_data.0;
     if item.id.is_none() {
         return HttpResponse::Ok()
             .content_type(MPACK)
@@ -86,6 +86,21 @@ pub async fn policy_delete(
 #[serde(rename_all = "camelCase")]
 pub struct EmployeeConfigQuery {
     pub employee_id: Option<i64>,
+}
+
+/// 员工社保配置覆盖度（参与核算员工中已配置/继承/缺失统计与缺失名单）
+pub async fn employee_config_coverage(
+    state: web::Data<AppState>,
+) -> HttpResponse {
+    let db = &state.db;
+    match insurance_service::get_insurance_coverage(db).await {
+        Ok(vo) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success(vo, "local")),
+        Err(e) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
 }
 
 pub async fn employee_config_list(
@@ -114,6 +129,23 @@ pub async fn employee_config_upsert(
         Ok(id) => HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success(id, "local")),
+        Err(e) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
+/// P1-2：批量设置参保方案（勾选员工 → 统一应用城市政策+档次）
+pub async fn employee_config_batch_set(
+    state: web::Data<AppState>,
+    form_data: web::Json<insurance_service::BatchSetInsuranceConfigDTO>,
+) -> HttpResponse {
+    let db = &state.db;
+    let dto = form_data.0;
+    match insurance_service::batch_set_employee_config(db, dto).await {
+        Ok(r) => HttpResponse::Ok()
+            .content_type(MPACK)
+            .body(MetaResp::success(r, "local")),
         Err(e) => HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
@@ -168,9 +200,21 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .wrap(require_permission("finance:insurance:list")),
             )
             .route(
+                "/employee-config/coverage",
+                web::get()
+                    .to(employee_config_coverage)
+                    .wrap(require_permission("finance:insurance:list")),
+            )
+            .route(
                 "/employee-config/upsert",
                 web::post()
                     .to(employee_config_upsert)
+                    .wrap(require_permission("finance:insurance:manage")),
+            )
+            .route(
+                "/employee-config/batch-set",
+                web::post()
+                    .to(employee_config_batch_set)
                     .wrap(require_permission("finance:insurance:manage")),
             )
             .route(

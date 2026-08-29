@@ -27,6 +27,12 @@ pub async fn get_product_specs(state: web::Data<AppState>, req: HttpRequest) -> 
         .and_then(|s| s.split("=").nth(1))
         .and_then(|s| s.parse::<i64>().ok())
         .unwrap_or(0);
+    // 可选仓库过滤：SKU 库存按指定仓库汇总，与列表页仓库筛选保持一致
+    let warehouse_id = req.query_string()
+        .split("&")
+        .find(|s| s.starts_with("warehouseId="))
+        .and_then(|s| s.split("=").nth(1))
+        .and_then(|s| s.parse::<i64>().ok());
 
     if product_id <= 0 {
         return Ok(HttpResponse::Ok().content_type(MPACK).body(
@@ -34,7 +40,7 @@ pub async fn get_product_specs(state: web::Data<AppState>, req: HttpRequest) -> 
         ));
     }
 
-    match spec_service::get_specs(db, product_id).await {
+    match spec_service::get_specs(db, product_id, warehouse_id).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }

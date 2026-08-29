@@ -28,6 +28,7 @@ import {
   getShipmentListApi,
   updateShipmentApi,
 } from '#/api';
+import { formatQty, useProductUnits } from '#/components/UnitSelect';
 
 import OrderSelectModal from '../components/OrderSelectModal.vue';
 import ShipmentEditLogTimeline from '../components/ShipmentEditLogTimeline.vue';
@@ -39,6 +40,12 @@ const isFullscreen = ref(false);
 const loading = ref(false);
 const submitting = ref(false);
 const items = ref<any[]>([]);
+
+const { ensureUnits, precisionOf } = useProductUnits();
+
+function qtyStep(unit?: null | string) {
+  return precisionOf(unit) === 0 ? 1 : 0.01;
+}
 const historyShipments = ref<any[]>([]);
 const onlyPending = ref(false);
 
@@ -396,6 +403,24 @@ const totalRemainingQty = computed(() =>
 const totalShipQty = computed(() =>
   items.value.reduce((sum, item) => sum + (Number(item.shipQuantity) || 0), 0),
 );
+
+const summaryUnit = computed(() => {
+  const units = [
+    ...new Set(
+      items.value
+        .map((item) => (item.unit || '').trim())
+        .filter((unit) => unit !== ''),
+    ),
+  ];
+  return units.length === 1 ? units[0]! : '';
+});
+
+const remainingTip = computed(() => {
+  const remaining = totalRemainingQty.value - totalShipQty.value;
+  return summaryUnit.value
+    ? `发货后剩余 ${remaining} ${summaryUnit.value}待发`
+    : `发货后剩余 ${remaining} 待发`;
+});
 
 const overallProgress = computed(() => {
   if (totalOrderQty.value === 0) return 0;
@@ -895,6 +920,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       formApi.resetForm();
       items.value = [];
       historyShipments.value = [];
+      ensureUnits();
       // 重置订单选择器
       selectedOrderId.value = null;
       selectedOrderRow.value = null;
@@ -1202,11 +1228,13 @@ watch(submitting, (val) => {
                   </div>
                 </template>
                 <template v-else-if="column.key === 'quantity'">
-                  <span class="shipment-num">{{ record.quantity }}</span>
+                  <span class="shipment-num">{{
+                    formatQty(record.quantity, record.unit)
+                  }}</span>
                 </template>
                 <template v-else-if="column.key === 'deliveredQuantity'">
                   <span class="shipment-num shipment-num--done">{{
-                    record.deliveredQuantity
+                    formatQty(record.deliveredQuantity, record.unit)
                   }}</span>
                 </template>
                 <template v-else-if="column.key === 'remaining'">
@@ -1216,7 +1244,7 @@ watch(submitting, (val) => {
                       'shipment-num--pending': getMaxShipQty(record) > 0,
                     }"
                   >
-                    {{ getMaxShipQty(record) }}
+                    {{ formatQty(getMaxShipQty(record), record.unit) }}
                   </span>
                 </template>
                 <template v-else-if="column.key === 'progress'">
@@ -1244,7 +1272,8 @@ watch(submitting, (val) => {
                     v-model:value="record.shipQuantity"
                     :min="0"
                     :max="getMaxShipQty(record)"
-                    :precision="0"
+                    :precision="precisionOf(record.unit)"
+                    :step="qtyStep(record.unit)"
                     :disabled="record._disabled"
                     style="width: 130px"
                     placeholder="发货数量"
@@ -1253,7 +1282,7 @@ watch(submitting, (val) => {
                     v-if="getMaxShipQty(record) > 0"
                     class="shipment-ship-hint"
                   >
-                    可发 {{ getMaxShipQty(record) }}
+                    可发 {{ formatQty(getMaxShipQty(record), record.unit) }}
                   </div>
                 </template>
               </template>
@@ -1273,7 +1302,11 @@ watch(submitting, (val) => {
                     >
                       {{ totalShipQty }}
                     </span>
-                    <span class="shipment-summary-bar__unit">件</span>
+                    <span
+                      v-if="summaryUnit"
+                      class="shipment-summary-bar__unit"
+                      >{{ summaryUnit }}</span
+                    >
                   </div>
                   <div class="shipment-summary-bar__right">
                     <template v-if="totalShipQty > 0">
@@ -1284,7 +1317,7 @@ watch(submitting, (val) => {
                         ✓ 发货后该订单将全部发完
                       </span>
                       <span v-else class="shipment-summary-bar__tip">
-                        发货后剩余 {{ totalRemainingQty - totalShipQty }} 件待发
+                        {{ remainingTip }}
                       </span>
                     </template>
                   </div>

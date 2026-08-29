@@ -20,6 +20,7 @@ pub struct Model {
     pub po_id: Option<i64>,
     pub pr_item_id: Option<i64>,
     pub product_id: Option<i64>,
+    pub sku_id: Option<i64>,
     pub product_name: Option<String>,
     pub product_sku: Option<String>,
     pub spec: Option<String>,

@@ -106,7 +106,6 @@ pub struct Model {
     pub invoice_status: Option<i32>,
 
     /// 自定义字段（JSON格式）
-    #[sea_orm(ignore)]
     pub custom_fields: Option<serde_json::Value>,
 
     /// 创建人ID

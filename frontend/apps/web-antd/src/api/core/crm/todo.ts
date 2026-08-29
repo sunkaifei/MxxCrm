@@ -25,3 +25,7 @@ export const getTodoContractListApi = async (params?: any) =>
 /** 停滞商机列表 */
 export const getTodoOpportunityListApi = async (params?: any) =>
   requestClient.get('/api/system/todo/opportunity', { params });
+
+/** 任务日历（指定月份的日程型任务明细，month 格式 YYYY-MM，缺省当月） */
+export const getTodoCalendarApi = async (params?: any) =>
+  requestClient.get('/api/system/todo/calendar', { params });

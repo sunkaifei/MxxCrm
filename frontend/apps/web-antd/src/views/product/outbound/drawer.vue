@@ -25,6 +25,7 @@ import {
   updateOutboundApi,
 } from '#/api/core/product/outbound';
 import { getWarehouseListApi } from '#/api/core/product/warehouse';
+import { formatQty, useProductUnits } from '#/components/UnitSelect';
 import { $t } from '#/locales';
 
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
@@ -33,6 +34,11 @@ import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
 const drawerData = ref<{ create: boolean; row?: any }>({ create: true });
+const { ensureUnits, precisionOf } = useProductUnits();
+
+function qtyStep(unit?: null | string) {
+  return precisionOf(unit) === 0 ? 1 : 0.01;
+}
 
 // ============ 修改原因弹窗（编辑已完成单据时使用） ============
 const changeReasonVisible = ref(false);
@@ -97,6 +103,7 @@ function clearWarehouse() {
 // ============ 产品明细 ============
 interface OutboundItem {
   productId: number;
+  skuId?: number;
   productName: string;
   productCode?: string;
   productSku: string;
@@ -166,12 +173,6 @@ const itemColumns = computed(() => [
     ellipsis: true,
   },
   {
-    title: $t('page.product.outbound.drawer.item.unit'),
-    dataIndex: 'unit',
-    width: 70,
-    align: 'center' as const,
-  },
-  {
     title: $t('page.product.outbound.drawer.item.stock'),
     dataIndex: 'stock',
     width: 100,
@@ -181,6 +182,12 @@ const itemColumns = computed(() => [
     title: $t('page.product.outbound.drawer.item.quantity'),
     dataIndex: 'quantity',
     width: 140,
+  },
+  {
+    title: $t('page.product.outbound.drawer.item.unit'),
+    dataIndex: 'unit',
+    width: 70,
+    align: 'center' as const,
   },
   {
     title: $t('page.product.outbound.drawer.item.batchNo'),
@@ -221,14 +228,15 @@ async function openProductSelect() {
 
 function onProductSelected(items: any[]) {
   const existingKeys = new Set(
-    tableItems.value.map((i) => `${i.productId}-${i.productSku || ''}`),
+    tableItems.value.map((i) => `${i.productId}-${i.skuId || 0}`),
   );
   let added = 0;
   for (const item of items) {
-    const key = `${item.productId}-${item.skuCode || ''}`;
+    const key = `${item.productId}-${item.skuId || 0}`;
     if (existingKeys.has(key)) continue;
     tableItems.value.push({
       productId: item.productId,
+      skuId: item.skuId || 0,
       productName: item.productName,
       productCode: item.productCode,
       productSku: item.skuCode || '',
@@ -356,6 +364,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
         warehouseId: selectedWarehouseId.value,
         items: tableItems.value.map((item) => ({
           productId: item.productId,
+          skuId:
+            item.skuId && item.skuId > 0 ? Number(item.skuId) : undefined,
           productSku: item.productSku || undefined,
           quantity: Number(item.quantity),
           batchNo: item.batchNo || undefined,
@@ -408,6 +418,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       tableItems.value = [];
       selectedWarehouseId.value = undefined;
       loadWarehouseOptions();
+      ensureUnits();
       if (!drawerData.value.create && drawerData.value.row?.id) {
         loadDetail(drawerData.value.row.id);
       }
@@ -443,6 +454,7 @@ async function loadDetail(id: number) {
       productId: Number(item.productId ?? item.product_id ?? 0),
       productName: item.productName ?? '',
       productCode: item.productCode ?? '',
+      skuId: Number(item.skuId ?? item.sku_id ?? 0),
       productSku: item.productSku ?? item.product_sku ?? '',
       spec: item.spec ?? '',
       unit: item.unit ?? '',
@@ -582,7 +594,7 @@ async function submitChangeReason() {
           <!-- 可用库存：只读，库存不足时标红 -->
           <template v-if="column.dataIndex === 'stock'">
             <span :class="{ 'outbound-stock-warn': isShortage(record) }">
-              {{ record.stock }}
+              {{ formatQty(record.stock, record.unit) }}
             </span>
           </template>
 
@@ -594,8 +606,8 @@ async function submitChangeReason() {
                 size="small"
                 style="width: 100%"
                 :min="0"
-                :precision="2"
-                :step="1"
+                :precision="precisionOf(record.unit)"
+                :step="qtyStep(record.unit)"
                 :status="isShortage(record) ? 'error' : ''"
                 @update:value="(val) => (record.quantity = val ?? 0)"
               />

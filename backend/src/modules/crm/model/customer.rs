@@ -9,6 +9,7 @@
 //!
 
 use sea_orm::*;
+use sea_orm::sea_query::SimpleExpr;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
@@ -71,6 +72,10 @@ pub struct CustomerSaveRequest {
     pub cooperated_at: Option<Date>,
     /// 生日月份
     pub birthday_month: Option<i32>,
+    /// 下次跟进时间
+    pub next_follow_at: Option<Date>,
+    /// 跟进周期（天）：NULL/0=不自动推算，>0=每N天需跟进一次
+    pub follow_cycle_days: Option<i32>,
     /// 描述/备注
     pub description: Option<String>,
     /// 自定义字段(JSON格式)
@@ -108,6 +113,8 @@ impl From<CustomerSaveRequest> for CustomerSaveDTO {
             assigned_to: item.assigned_to,
             cooperated_at: item.cooperated_at,
             birthday_month: item.birthday_month,
+            next_follow_at: item.next_follow_at,
+            follow_cycle_days: item.follow_cycle_days,
             description: item.description,
             custom_fields: item.custom_fields,
             deleted: None,
@@ -178,6 +185,10 @@ pub struct CustomerUpdateRequest {
     pub cooperated_at: Option<Date>,
     /// 生日月份
     pub birthday_month: Option<i32>,
+    /// 下次跟进时间
+    pub next_follow_at: Option<Date>,
+    /// 跟进周期（天）：NULL/0=不自动推算，>0=每N天需跟进一次
+    pub follow_cycle_days: Option<i32>,
     /// 描述/备注
     pub description: Option<String>,
     /// 自定义字段(JSON格式)
@@ -215,6 +226,8 @@ impl From<CustomerUpdateRequest> for CustomerSaveDTO {
             assigned_to: item.assigned_to,
             cooperated_at: item.cooperated_at,
             birthday_month: item.birthday_month,
+            next_follow_at: item.next_follow_at,
+            follow_cycle_days: item.follow_cycle_days,
             description: item.description,
             custom_fields: item.custom_fields,
             deleted: None,
@@ -286,6 +299,10 @@ pub struct CustomerSaveDTO {
     pub cooperated_at: Option<Date>,
     /// 生日月份
     pub birthday_month: Option<i32>,
+    /// 下次跟进时间
+    pub next_follow_at: Option<Date>,
+    /// 跟进周期（天）：NULL/0=不自动推算，>0=每N天需跟进一次
+    pub follow_cycle_days: Option<i32>,
     /// 描述/备注
     pub description: Option<String>,
     /// 自定义字段(JSON格式)
@@ -383,6 +400,8 @@ pub struct CustomerDetailVO {
     pub last_deal_at: Option<DateTime>,
     /// 下次跟进时间
     pub next_follow_at: Option<DateTime>,
+    /// 跟进周期（天）：NULL/0=不自动推算，>0=每N天需跟进一次
+    pub follow_cycle_days: Option<i32>,
     /// 跟进记录列表
     pub followups: Option<Vec<crate::modules::crm::model::followup::FollowupListVO>>,
 }
@@ -428,6 +447,7 @@ impl From<customer::Model> for CustomerDetailVO {
             total_deal_count: item.total_deal_count,
             last_deal_at: item.last_deal_at,
             next_follow_at: item.next_follow_at,
+            follow_cycle_days: item.follow_cycle_days,
             followups: None,
         }
     }
@@ -486,6 +506,8 @@ pub struct CustomerListVO {
     pub opportunity_count: Option<i64>,
     /// 联系人数量
     pub contact_count: Option<i64>,
+    /// 自定义字段（P1-1 列表动态列数据源：前端按 listVisible 字段定义渲染）
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 /// 客户标签简要信息（列表展示用）
@@ -524,7 +546,25 @@ impl From<customer::Model> for CustomerListVO {
             tags: None,
             opportunity_count: None,
             contact_count: None,
+            custom_fields: item.custom_fields,
         }
+    }
+}
+
+/// 自定义字段筛选值反序列化（P1-2）：query string 一律为字符串，
+/// 先按 JSON 字面量解析（数字/布尔/JSON 数组），失败回退纯字符串；
+/// 未传与空串均视为 None。serde_urlencoded 不支持 serde_json::Value 直接反序列化，必须经此转换
+fn deserialize_cf_val<'de, D>(de: D) -> Result<Option<serde_json::Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw: Option<String> = Option::deserialize(de)?;
+    match raw {
+        None => Ok(None),
+        Some(s) if s.trim().is_empty() => Ok(None),
+        Some(s) => Ok(Some(
+            serde_json::from_str(&s).unwrap_or(serde_json::Value::String(s)),
+        )),
     }
 }
 
@@ -554,6 +594,17 @@ pub struct CustomerListQuery {
     pub assigned_to: Option<i64>,
     /// 列表类型：all=全部客户, my=我的客户, subordinate=下属客户, todayFollow=今日跟进客户
     pub list_type: Option<String>,
+    /// 自定义字段筛选键（P1-2，配合 cfOp/cfVal）
+    pub cf_key: Option<String>,
+    /// 自定义字段筛选操作符：eq/ne/like/gt/gte/lt/lte/contains
+    pub cf_op: Option<String>,
+    /// 自定义字段筛选值（按字段类型解释：字符串/数字/布尔/数组；反序列化规则见 deserialize_cf_val）
+    #[serde(default, deserialize_with = "deserialize_cf_val")]
+    pub cf_val: Option<serde_json::Value>,
+    /// 自定义字段排序键（P1-3，数字/金额按数值序）
+    pub cf_sort: Option<String>,
+    /// 排序方向：asc/desc，默认 desc
+    pub cf_sort_order: Option<String>,
 }
 
 /// 退回公海请求（退回原因两级结构：原因类型必选，选"其他"时补充说明必填）
@@ -604,6 +655,8 @@ impl CustomerModel {
             birthday_month: Set(req.birthday_month.clone()),
             description: Set(req.description.clone()),
             custom_fields: Set(req.custom_fields.clone()),
+            next_follow_at: Set(req.next_follow_at.map(|d| chrono::NaiveDateTime::new(d, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap()))),
+            follow_cycle_days: Set(req.follow_cycle_days),
             created_by: Set(req.created_by.clone()),
             create_time: Set(Option::from(now)),
             updated_by: Set(req.updated_by.clone()),
@@ -667,7 +720,13 @@ impl CustomerModel {
             cooperated_at: Set(req.cooperated_at.clone()),
             birthday_month: Set(req.birthday_month.clone()),
             description: Set(req.description.clone()),
-            custom_fields: Set(req.custom_fields.clone()),
+            // 7.3 合并写：custom_fields 未提交时不动该列（防置 NULL 丢存量）；提交时由校验器按 key 与旧值合并
+            custom_fields: match req.custom_fields.clone() {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
+            next_follow_at: Set(req.next_follow_at.map(|d| chrono::NaiveDateTime::new(d, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap()))),
+            follow_cycle_days: Set(req.follow_cycle_days),
             updated_by: Set(req.updated_by.clone()),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -701,6 +760,8 @@ impl CustomerModel {
         country: Option<String>,
         source: Option<i32>,
         assigned_to: Option<i64>,
+        cf_filter: Option<SimpleExpr>,
+        cf_order: Option<(SimpleExpr, Order)>,
     ) -> Result<(Vec<customer::Model>, i64), DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0));
@@ -734,6 +795,14 @@ impl CustomerModel {
             query = query.filter(customer::Column::AssignedTo.is_not_null());
         }
 
+        // P1-2/P1-3：自定义字段筛选与排序（服务层经 build_filter_expr/build_order_expr 与索引表达式同源生成）
+        if let Some(cond) = cf_filter {
+            query = query.filter(cond);
+        }
+        if let Some((expr, ord)) = cf_order {
+            query = query.order_by(expr, ord);
+        }
+
         let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
         let num_pages = paginator.num_pages().await? as i64;
 
@@ -751,6 +820,8 @@ impl CustomerModel {
         country: Option<String>,
         source: Option<i32>,
         assigned_ids: Option<Vec<i64>>,
+        cf_filter: Option<SimpleExpr>,
+        cf_order: Option<(SimpleExpr, Order)>,
     ) -> Result<(Vec<customer::Model>, i64), DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0));
@@ -783,6 +854,14 @@ impl CustomerModel {
             query = query.filter(customer::Column::AssignedTo.is_in(ids));
         }
 
+        // P1-2/P1-3：自定义字段筛选与排序（同 select_in_page）
+        if let Some(cond) = cf_filter {
+            query = query.filter(cond);
+        }
+        if let Some((expr, ord)) = cf_order {
+            query = query.order_by(expr, ord);
+        }
+
         let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
         let rows = paginator.fetch_page((page - 1) as u64).await?;
@@ -801,6 +880,8 @@ impl CustomerModel {
         country: Option<String>,
         source: Option<i32>,
         user_ids: Option<Vec<i64>>,
+        cf_filter: Option<SimpleExpr>,
+        cf_order: Option<(SimpleExpr, Order)>,
     ) -> Result<(Vec<customer::Model>, i64), DbErr> {
         use crate::modules::crm::entity::followup;
 
@@ -860,6 +941,14 @@ impl CustomerModel {
             query = query.filter(customer::Column::Source.eq(s));
         }
 
+        // P1-2/P1-3：自定义字段筛选与排序（同 select_in_page）
+        if let Some(cond) = cf_filter {
+            query = query.filter(cond);
+        }
+        if let Some((expr, ord)) = cf_order {
+            query = query.order_by(expr, ord);
+        }
+
         let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
         let rows = paginator.fetch_page((page - 1) as u64).await?;
@@ -917,6 +1006,8 @@ impl CustomerModel {
         country: Option<String>,
         source: Option<i32>,
         industry: Option<i32>,
+        cf_filter: Option<SimpleExpr>,
+        cf_order: Option<(SimpleExpr, Order)>,
     ) -> Result<(Vec<customer::Model>, i64), DbErr> {
         let mut query = Customer::find()
             .filter(customer::Column::Deleted.eq(0))
@@ -944,6 +1035,14 @@ impl CustomerModel {
         }
         if let Some(i) = industry {
             query = query.filter(customer::Column::Industry.eq(i));
+        }
+
+        // P1-2/P1-3：自定义字段筛选与排序（同 select_in_page）
+        if let Some(cond) = cf_filter {
+            query = query.filter(cond);
+        }
+        if let Some((expr, ord)) = cf_order {
+            query = query.order_by(expr, ord);
         }
 
         let paginator = query.order_by_desc(customer::Column::CreateTime).paginate(db, per_page as u64);

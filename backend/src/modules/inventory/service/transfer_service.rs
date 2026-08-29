@@ -99,6 +99,7 @@ pub async fn create(
                 let item_active = transfer_item::ActiveModel {
                     transfer_id: Set(Some(id)),
                     product_id: Set(Some(item.product_id)),
+                    sku_id: Set(item.sku_id),
                     product_name: Set(item.product_name.clone()),
                     product_sku: Set(item.product_sku.clone()),
                     quantity: Set(Some(item.quantity)),
@@ -231,15 +232,16 @@ pub async fn outbound(
                 let quantity = item.quantity.unwrap_or_default();
 
                 // 3.1 从源仓库扣减库存
-                stock_engine::decrease_stock(txn, product_id, from_warehouse_id, quantity).await?;
+                stock_engine::decrease_stock(txn, product_id, item.sku_id, from_warehouse_id, quantity).await?;
 
                 // 3.2 增加目标仓库的 in_transit_quantity
-                increase_in_transit(txn, product_id, to_warehouse_id, quantity).await?;
+                increase_in_transit(txn, product_id, item.sku_id, to_warehouse_id, quantity).await?;
 
                 // 3.3 写入库存流水
                 stock_engine::write_stock_log(
                     txn,
                     product_id,
+                    item.sku_id,
                     from_warehouse_id,
                     None,
                     "transfer_out",
@@ -316,15 +318,16 @@ pub async fn inbound(
                 let quantity = item.quantity.unwrap_or_default();
 
                 // 3.1 减少目标仓库的 in_transit_quantity
-                decrease_in_transit(txn, product_id, to_warehouse_id, quantity).await?;
+                decrease_in_transit(txn, product_id, item.sku_id, to_warehouse_id, quantity).await?;
 
                 // 3.2 向目标仓库增加库存
-                stock_engine::increase_stock(txn, product_id, to_warehouse_id, quantity, None).await?;
+                stock_engine::increase_stock(txn, product_id, item.sku_id, to_warehouse_id, quantity, None).await?;
 
                 // 3.3 写入库存流水
                 stock_engine::write_stock_log(
                     txn,
                     product_id,
+                    item.sku_id,
                     to_warehouse_id,
                     None,
                     "transfer_in",
@@ -522,12 +525,14 @@ async fn update_main<C: ConnectionTrait>(
 async fn increase_in_transit<C: ConnectionTrait>(
     db: &C,
     product_id: i64,
+    sku_id: Option<i64>,
     warehouse_id: i64,
     quantity: Decimal,
 ) -> std::result::Result<(), DbErr> {
     let now = chrono::Local::now().naive_local();
     let existing = stock::Entity::find()
         .filter(stock::Column::ProductId.eq(product_id))
+        .filter(stock_engine::sku_condition(sku_id))
         .filter(stock::Column::WarehouseId.eq(warehouse_id))
         .filter(stock::Column::Deleted.eq(0))
         .lock_exclusive()
@@ -546,6 +551,7 @@ async fn increase_in_transit<C: ConnectionTrait>(
             // 目标仓库无库存记录，创建一条（仅含在途数量）
             let active = stock::ActiveModel {
                 product_id: Set(Some(product_id)),
+                sku_id: Set(sku_id),
                 warehouse_id: Set(Some(warehouse_id)),
                 quantity: Set(Some(Decimal::ZERO)),
                 reserved_quantity: Set(Some(Decimal::ZERO)),
@@ -570,12 +576,14 @@ async fn increase_in_transit<C: ConnectionTrait>(
 async fn decrease_in_transit<C: ConnectionTrait>(
     db: &C,
     product_id: i64,
+    sku_id: Option<i64>,
     warehouse_id: i64,
     quantity: Decimal,
 ) -> std::result::Result<(), DbErr> {
     let now = chrono::Local::now().naive_local();
     let existing = stock::Entity::find()
         .filter(stock::Column::ProductId.eq(product_id))
+        .filter(stock_engine::sku_condition(sku_id))
         .filter(stock::Column::WarehouseId.eq(warehouse_id))
         .filter(stock::Column::Deleted.eq(0))
         .lock_exclusive()

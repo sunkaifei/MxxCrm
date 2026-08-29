@@ -20,7 +20,43 @@ use crate::modules::crm::service::delete_guard_service;
 use chrono::Datelike;
 use rust_decimal::prelude::FromPrimitive;
 use sea_orm::DbConn;
-use sea_orm::{ColumnTrait, EntityTrait, ActiveModelTrait, QueryFilter, Set, TransactionTrait, PaginatorTrait};
+use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, ActiveModelTrait, QueryFilter, Set, TransactionTrait, PaginatorTrait};
+
+/// 计算客户下次跟进日期：手动填写优先；未手动填写时若客户设置了跟进周期（>0）则自动兜底推算，否则不调整
+async fn resolve_customer_next_follow(db: &impl ConnectionTrait, customer_id: i64, manual_date: Option<chrono::NaiveDate>) -> Result<Option<chrono::NaiveDate>> {
+    if manual_date.is_some() {
+        return Ok(manual_date);
+    }
+    let cust = customer::Entity::find_by_id(customer_id)
+        .filter(customer::Column::Deleted.eq(0))
+        .one(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    if let Some(cycle) = cust.and_then(|c| c.follow_cycle_days) {
+        if cycle > 0 {
+            // 推算基准：本次跟进日期（以当前日期为准）
+            let base = chrono::Local::now().naive_local().date();
+            return Ok(Some(base + chrono::Duration::days(cycle as i64)));
+        }
+    }
+    Ok(None)
+}
+
+/// 回写客户下次跟进时间到客户主体表（工作台日历"客户跟进提醒"数据源）
+async fn sync_customer_next_follow(db: &impl ConnectionTrait, customer_id: i64, next_date: Option<chrono::NaiveDate>) -> Result<()> {
+    if let Some(next_date) = next_date {
+        let next_dt = chrono::NaiveDateTime::new(next_date, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+        customer::Entity::update(customer::ActiveModel {
+            id: Set(customer_id),
+            next_follow_at: Set(Some(next_dt)),
+            ..Default::default()
+        })
+        .exec(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    }
+    Ok(())
+}
 
 pub async fn insert(db: &DbConn, form_data: &FollowupSaveRequest, created_by: i64) -> Result<i64> {
     let txn = db.begin().await?;
@@ -44,6 +80,12 @@ pub async fn insert(db: &DbConn, form_data: &FollowupSaveRequest, created_by: i6
         lead_active.id = Set(lead_id);
         lead::Entity::update(lead_active).exec(&txn).await
             .map_err(|e| Error::from(e.to_string()))?;
+    }
+
+    // 客户跟进：同步回写客户下次跟进时间（手动优先，未填时按跟进周期自动兜底推算）
+    if let Some(customer_id) = form_data.customer_id {
+        let next_date = resolve_customer_next_follow(&txn, customer_id, form_data.next_follow_date).await?;
+        sync_customer_next_follow(&txn, customer_id, next_date).await?;
     }
 
     txn.commit().await?;
@@ -70,8 +112,28 @@ pub async fn insert(db: &DbConn, form_data: &FollowupSaveRequest, created_by: i6
 }
 
 pub async fn update(db: &DbConn, form_data: &FollowupUpdateRequest, _updated_by: i64) -> Result<i64> {
+    let txn = db.begin().await?;
     let dto: FollowupSaveDTO = form_data.clone().into();
-    let result = FollowupModel::update_by_id(&db, &form_data.id, &dto).await?;
+    let result = FollowupModel::update_by_id(&txn, &form_data.id, &dto).await?;
+
+    // 编辑跟进记录时同步回写主体表下次跟进时间（手动优先，未填时按跟进周期自动兜底推算）
+    if let Some(customer_id) = form_data.customer_id {
+        let next_date = resolve_customer_next_follow(&txn, customer_id, form_data.next_follow_date).await?;
+        sync_customer_next_follow(&txn, customer_id, next_date).await?;
+    }
+    if let (Some(lead_id), Some(next_date)) = (form_data.lead_id, form_data.next_follow_date) {
+        let next_dt = chrono::NaiveDateTime::new(next_date, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+        lead::Entity::update(lead::ActiveModel {
+            id: Set(lead_id),
+            next_follow_at: Set(Some(next_dt)),
+            ..Default::default()
+        })
+        .exec(&txn)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    }
+
+    txn.commit().await?;
     Ok(result)
 }
 
@@ -196,14 +258,14 @@ pub async fn list(db: &DbConn, query: &FollowupListQuery, current_user_id: i64) 
             ).await?
         }
         "subordinate" => {
-            // 下属跟进：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            // 下属跟进：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
             let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
+                ::get_subordinate_scope_ids(db, current_user_id).await?;
             FollowupModel::select_in_page_by_creator_ids(
                 &db, page, page_size,
                 query.customer_id, query.lead_id, query.opportunity_id,
                 query.only_customer, query.source_type,
-                Some(subordinate_ids),
+                subordinate_ids,
             ).await?
         }
         "todayFollow" => {
@@ -261,10 +323,9 @@ async fn list_grouped(
     let (creator_ids, time_range) = match list_type {
         "my" => (Some(vec![current_user_id]), None),
         "subordinate" => {
-            // 下属跟进：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
-            let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
-            (Some(subordinate_ids), None)
+            // 下属跟进：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
+            (crate::modules::system::service::subordinate_service
+                ::get_subordinate_scope_ids(db, current_user_id).await?, None)
         }
         "todayFollow" => {
             let user_ids = data_scope_service::get_accessible_user_ids(db, current_user_id).await?;
@@ -526,6 +587,12 @@ pub async fn visit_check_in(db: &DbConn, form_data: &VisitCheckInRequest, create
 
     let result = FollowupModel::insert(&txn, &dto).await?;
 
+    // 外勤拜访即客户跟进：同步回写客户下次跟进时间（手动优先，未填时按跟进周期自动兜底推算）
+    if let Some(customer_id) = form_data.customer_id {
+        let next_date = resolve_customer_next_follow(&txn, customer_id, form_data.next_follow_date).await?;
+        sync_customer_next_follow(&txn, customer_id, next_date).await?;
+    }
+
     txn.commit().await?;
 
     // 工作日志埋点（外勤拜访），不影响主业务
@@ -584,10 +651,9 @@ pub async fn visit_list(db: &DbConn, query: &VisitListQuery, current_user_id: i6
     let creator_ids: Option<Vec<i64>> = match list_type {
         "my" => Some(vec![current_user_id]),
         "subordinate" => {
-            // 下属拜访：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
-            let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
-            Some(subordinate_ids)
+            // 下属拜访：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
+            crate::modules::system::service::subordinate_service
+                ::get_subordinate_scope_ids(db, current_user_id).await?
         }
         _ => {
             // all：根据数据权限过滤

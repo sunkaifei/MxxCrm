@@ -21,7 +21,10 @@ use crate::modules::system::entity::{admin::Entity as Admin, tag, tag_merge};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::data_scope_service;
-use sea_orm::{DbConn, ColumnTrait, DatabaseTransaction, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, ConnectionTrait};
+use crate::modules::system::service::field_def_service;
+use crate::modules::system::service::field_perm_service;
+use sea_orm::{DbConn, ColumnTrait, DatabaseTransaction, EntityTrait, Order, PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, ConnectionTrait};
+use sea_orm::sea_query::SimpleExpr;
 use std::collections::{HashMap, HashSet};
 
 /// 检查客户名称是否已存在（按 customer_type 区分查重字段）
@@ -91,7 +94,12 @@ pub async fn insert(db: &DbConn, form_data: &CustomerSaveRequest, created_by: i6
         _ => unreachable!(),
     }
 
+    // 2.5 自定义字段强校验（P1-8/P1-11：未知/停用键、类型不符、必填缺失 400；校验器原地归一化并合并旧值，须赋回 DTO 落库）
+    let mut custom_fields = form_data.custom_fields.clone();
+    field_def_service::validate_custom_fields(&txn, "crm_customer", &mut custom_fields, created_by, true, None).await?;
+
     let mut dto: CustomerSaveDTO = form_data.clone().into();
+    dto.custom_fields = custom_fields;
     dto.customer_type = Some(customer_type);
     dto.created_by = Some(created_by);
     // 新建客户时，若未指定负责人，默认归属当前登录用户（当前销售）
@@ -172,11 +180,28 @@ pub async fn update(db: &DbConn, form_data: &CustomerUpdateRequest, updated_by: 
         _ => {}
     }
 
+    // 3.5 自定义字段强校验（P1-8/P1-11：未知/停用键、类型不符 400；编辑不触发必填强约束 7.4 规则 5；归一化+合并结果须赋回 DTO 落库）
+    let mut custom_fields = form_data.custom_fields.clone();
+    field_def_service::validate_custom_fields(&txn, "crm_customer", &mut custom_fields, updated_by, false, old_model.custom_fields.as_ref()).await?;
+
     // 4. 执行更新
     let mut dto: CustomerSaveDTO = form_data.clone().into();
+    dto.custom_fields = custom_fields;
     // 强制保持原类型，防止前端传值覆盖
     dto.customer_type = Some(customer_type);
     dto.updated_by = Some(updated_by);
+    // 4.0 标准敏感字段写保护（P2-1）：无编辑权限的字段回填旧值（update_by_id 全字段 Set，None 会清空列）
+    let (perm_admin, perm_roles) = field_def_service::load_user_role(&txn, updated_by).await?;
+    if let Some(locked) = field_perm_service::editable_guard_keys(&txn, "crm_customer", perm_admin, &perm_roles).await? {
+        if locked.contains("birthday") { dto.birthday = old_model.birthday; }
+        if locked.contains("wechat") { dto.wechat = old_model.wechat.clone(); }
+        if locked.contains("qq") { dto.qq = old_model.qq.clone(); }
+        if locked.contains("personal_mobile") { dto.personal_mobile = old_model.personal_mobile.clone(); }
+        if locked.contains("personal_email") { dto.personal_email = old_model.personal_email.clone(); }
+        if locked.contains("address") { dto.address = old_model.address.clone(); }
+        if locked.contains("credit_limit") { dto.credit_limit = old_model.credit_limit; }
+        if locked.contains("credit_days") { dto.credit_days = old_model.credit_days; }
+    }
     let result = CustomerModel::update_by_id(&txn, &form_data.id, &dto).await?;
 
     // 4.1 如果负责人(assigned_to)发生变化，级联更新关联业务数据的负责人
@@ -513,11 +538,41 @@ async fn batch_query_customer_tags(
     Ok(result)
 }
 
+/// 构造客户列表的自定义字段筛选/排序表达式（P1-2/P1-3，list/pool_list 共用）
+/// 经 field_def_service::build_filter_expr/build_order_expr 生成，与 6.3 索引表达式同源、参数绑定防注入
+async fn build_cf_query_parts(
+    db: &DbConn,
+    query: &CustomerListQuery,
+) -> Result<(Option<SimpleExpr>, Option<(SimpleExpr, Order)>)> {
+    let cf_filter = match (&query.cf_key, &query.cf_op) {
+        (Some(key), Some(op)) => {
+            let val = query.cf_val.clone().unwrap_or(serde_json::Value::Null);
+            Some(field_def_service::build_filter_expr(db, "crm_customer", key, op, &val).await?)
+        }
+        _ => None,
+    };
+    let cf_order = match &query.cf_sort {
+        Some(key) => {
+            // 方向缺省 desc；仅显式传 asc 才升序
+            let desc = !query.cf_sort_order.as_deref().unwrap_or("desc").eq_ignore_ascii_case("asc");
+            Some((
+                field_def_service::build_order_expr(db, "crm_customer", key).await?,
+                if desc { Order::Desc } else { Order::Asc },
+            ))
+        }
+        None => None,
+    };
+    Ok((cf_filter, cf_order))
+}
+
 pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) -> Result<ResultPage<Vec<CustomerListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
 
     let list_type = query.list_type.as_deref().unwrap_or("all");
+
+    // P1-2/P1-3：自定义字段筛选/排序（字段停用、非法操作符、筛选值类型不符均 400）
+    let (cf_filter, cf_order) = build_cf_query_parts(db, query).await?;
 
     match list_type {
         "my" => {
@@ -527,18 +582,20 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
                 query.keywords.clone(), query.customer_type.clone(),
                 query.level.clone(), query.country.clone(), query.source.clone(),
                 Some(current_user_id),
+                cf_filter, cf_order,
             ).await?;
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
         }
         "subordinate" => {
-            // 下属客户：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            // 下属客户：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
             let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
+                ::get_subordinate_scope_ids(db, current_user_id).await?;
             let (list, total) = CustomerModel::select_in_page_by_assigned_ids(
                 &db, page, page_size,
                 query.keywords.clone(), query.customer_type.clone(),
                 query.level.clone(), query.country.clone(), query.source.clone(),
-                Some(subordinate_ids),
+                subordinate_ids,
+                cf_filter, cf_order,
             ).await?;
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
         }
@@ -552,6 +609,7 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
                 query.keywords.clone(), query.customer_type.clone(),
                 query.level.clone(), query.country.clone(), query.source.clone(),
                 user_ids,
+                cf_filter, cf_order,
             ).await?;
             fill_assignee_and_creator_names(db, list, total, page, page_size).await
         }
@@ -566,6 +624,7 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
                         query.keywords.clone(), query.customer_type.clone(),
                         query.level.clone(), query.country.clone(), query.source.clone(),
                         None,
+                        cf_filter, cf_order,
                     ).await?;
                     fill_assignee_and_creator_names(db, list, total, page, page_size).await
                 }
@@ -576,6 +635,7 @@ pub async fn list(db: &DbConn, query: &CustomerListQuery, current_user_id: i64) 
                         query.keywords.clone(), query.customer_type.clone(),
                         query.level.clone(), query.country.clone(), query.source.clone(),
                         assigned_ids,
+                        cf_filter, cf_order,
                     ).await?;
                     fill_assignee_and_creator_names(db, list, total, page, page_size).await
                 }
@@ -589,6 +649,9 @@ pub async fn pool_list(db: &DbConn, query: &CustomerListQuery) -> Result<ResultP
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
 
+    // P1-2/P1-3：公海列表同样支持自定义字段筛选/排序
+    let (cf_filter, cf_order) = build_cf_query_parts(db, query).await?;
+
     let (list, total) = CustomerModel::select_pool_in_page(
         &db,
         page,
@@ -599,6 +662,7 @@ pub async fn pool_list(db: &DbConn, query: &CustomerListQuery) -> Result<ResultP
         query.country.clone(),
         query.source.clone(),
         query.industry.clone(),
+        cf_filter, cf_order,
     ).await?;
 
     // 批量查询创建人名称（统一调用共用方法）

@@ -24,6 +24,7 @@ import {
   updateInboundApi,
 } from '#/api/core/product/inbound';
 import { getWarehouseListApi } from '#/api/core/product/warehouse';
+import { useProductUnits } from '#/components/UnitSelect';
 import { $t } from '#/locales';
 
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
@@ -32,6 +33,11 @@ import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 const isFullscreen = ref(false);
 const confirmLoading = ref(false);
 const drawerData = ref<{ create: boolean; row?: any }>({ create: true });
+const { ensureUnits, precisionOf } = useProductUnits();
+
+function qtyStep(unit?: null | string) {
+  return precisionOf(unit) === 0 ? 1 : 0.01;
+}
 
 // ============ 修改原因弹窗（编辑已完成单据时使用） ============
 const changeReasonVisible = ref(false);
@@ -142,15 +148,15 @@ const itemColumns = computed(() => [
     ellipsis: true,
   },
   {
+    title: '数量',
+    dataIndex: 'quantity',
+    width: 110,
+  },
+  {
     title: '单位',
     dataIndex: 'unit',
     width: 60,
     align: 'center' as const,
-  },
-  {
-    title: '数量',
-    dataIndex: 'quantity',
-    width: 110,
   },
   {
     title: '单价',
@@ -322,6 +328,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
         )
         .map((item) => ({
           productId: Number(item.productId),
+          skuId:
+            item.skuId && item.skuId > 0 ? Number(item.skuId) : undefined,
           productSku: item.productSku || undefined,
           quantity: Number(item.quantity),
           unitPrice:
@@ -385,6 +393,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       tableItems.value = [];
       selectedWarehouseId.value = undefined;
       loadWarehouseOptions();
+      ensureUnits();
       if (!drawerData.value.create && drawerData.value.row?.id) {
         loadDetail(drawerData.value.row.id);
       }
@@ -420,7 +429,7 @@ async function loadDetail(id: number) {
       productId: Number(item.productId ?? item.product_id),
       productName: item.productName ?? '',
       productCode: item.productCode ?? '',
-      skuId: 0,
+      skuId: Number(item.skuId ?? item.sku_id ?? 0),
       productSku: item.productSku ?? item.product_sku ?? '',
       spec: item.spec ?? '',
       unit: item.unit ?? '',
@@ -546,15 +555,15 @@ async function submitChangeReason() {
         class="inbound-items-table"
       >
         <template #bodyCell="{ column, record, index }">
-          <!-- 数量：可编辑 -->
+          <!-- 数量：可编辑（精度随产品单位：件/台=整数，米/匹=可小数） -->
           <template v-if="column.dataIndex === 'quantity'">
             <InputNumber
               v-model:value="record.quantity"
               size="small"
               style="width: 100%"
-              :precision="0"
+              :precision="precisionOf(record.unit)"
               :min="0"
-              :step="1"
+              :step="qtyStep(record.unit)"
               placeholder="数量"
             />
           </template>

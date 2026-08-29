@@ -265,7 +265,7 @@ pub async fn kick_session(
     state: web::Data<AppState>,
     path: web::Path<(i64, String)>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let _db = &state.db;
+    let db = &state.db;
     let (user_id, token) = path.into_inner();
 
     // 不可踢超级管理员
@@ -273,7 +273,8 @@ pub async fn kick_session(
         return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "不能下线超级管理员的会话", "local")));
     }
 
-    let removed = permission_cache_service::invalidate_session_by_token(user_id, &token).await;
+    // G6：传入 db，存储层 + 缓存双删
+    let removed = permission_cache_service::invalidate_session_by_token(db, user_id, &token).await;
     if removed {
         Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::success("已强制下线".to_string(), "local")))
     } else {

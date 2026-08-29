@@ -94,6 +94,15 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.system.pdfRecord.title'),
         },
       },
+      {
+        name: 'SystemField',
+        path: '/system-ext/field',
+        component: () => import('#/views/system/field/index.vue'),
+        meta: {
+          icon: 'lucide:layout-list',
+          title: $t('page.system.field.title'),
+        },
+      },
     ],
   },
 ];

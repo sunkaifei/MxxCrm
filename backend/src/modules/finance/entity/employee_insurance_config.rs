@@ -54,6 +54,8 @@ pub struct Model {
     pub effective_date: Option<chrono::NaiveDate>,
     pub expiry_date: Option<chrono::NaiveDate>,
     pub enabled: Option<i32>,
+    /// 配置来源：manual=手工配置 inherited=继承档案城市默认方案
+    pub source: Option<String>,
     pub create_time: Option<DateTime>,
     pub update_time: Option<DateTime>,
 }

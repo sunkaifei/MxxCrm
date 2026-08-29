@@ -10,6 +10,7 @@
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTime;
 use serde::{Deserialize, Serialize};
+use crate::utils::string_utils::deserialize_string_to_i64;
 
 /// 业绩概览通用查询参数（同比环比/预测/漏斗/拆解/行为等共用）
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -228,4 +229,65 @@ pub struct PerformanceConfigVO {
     pub show_sensitive_data: bool,
     pub refresh_interval: i64,
     pub custom_milestones: Vec<Decimal>,
+}
+
+// ============== 月度业绩 / 业绩排行 ==============
+// 自旧 performance_target 体系迁入（统一目标源方案 §4.2），
+// 出参保持 snake_case 不变，确保前端图表零改动
+
+/// 业绩排行查询参数（/monthly 与 /ranking 共用）
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PerformanceRankingQuery {
+    #[serde(default)]
+    pub year: Option<i32>,
+    #[serde(default)]
+    pub month: Option<i32>,
+    #[serde(default)]
+    pub order_by: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_string_to_i64")]
+    pub department_id: Option<i64>,
+}
+
+/// 月度业绩单项
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MonthlyPerformanceVO {
+    pub month: Option<i32>,
+    pub contract_target: Option<Decimal>,
+    pub payment_target: Option<Decimal>,
+    pub contract_actual: Option<Decimal>,
+    pub payment_actual: Option<Decimal>,
+    pub contract_completion_rate: Option<Decimal>,
+    pub payment_completion_rate: Option<Decimal>,
+    pub contract_count: Option<i64>,
+    pub payment_count: Option<i64>,
+}
+
+/// 月度业绩汇总
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MonthlyPerformanceStatsVO {
+    pub year: Option<i32>,
+    pub total_contract_target: Option<Decimal>,
+    pub total_payment_target: Option<Decimal>,
+    pub total_contract_actual: Option<Decimal>,
+    pub total_payment_actual: Option<Decimal>,
+    pub contract_completion_rate: Option<Decimal>,
+    pub payment_completion_rate: Option<Decimal>,
+    pub months: Option<Vec<MonthlyPerformanceVO>>,
+}
+
+/// 业绩排行单项
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PerformanceRankingVO {
+    pub rank: Option<i32>,
+    pub employee_id: Option<i64>,
+    pub employee_name: Option<String>,
+    pub department_name: Option<String>,
+    pub contract_amount: Option<Decimal>,
+    pub contract_count: Option<i64>,
+    pub payment_amount: Option<Decimal>,
+    pub payment_count: Option<i64>,
+    pub contract_target: Option<Decimal>,
+    pub payment_target: Option<Decimal>,
+    pub contract_completion_rate: Option<Decimal>,
+    pub payment_completion_rate: Option<Decimal>,
 }

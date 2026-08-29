@@ -3,8 +3,7 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { computed, h, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 
 import { useAccess } from '@vben/access';
 import { Page } from '@vben/common-ui';
@@ -34,6 +33,7 @@ import {
 } from 'ant-design-vue';
 import { RefreshCw } from 'lucide-vue-next';
 
+import { useVbenDrawer } from '#/adapter/drawer';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   approveSalaryApi,
@@ -61,9 +61,15 @@ import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { UserPickerModal } from '#/components/UserPickerModal';
 import { $t } from '#/locales';
 
+import SalaryDetailDrawer from './detail-drawer.vue';
+import ItemValuesModal from './item-values-modal.vue';
+
 const guideStepCount = 5;
 
-const router = useRouter();
+// 工资详情抽屉（connectedComponent 模式，替代原独立详情路由页）
+const [DetailDrawer, detailDrawerApi] = useVbenDrawer({
+  connectedComponent: SalaryDetailDrawer,
+});
 
 // ===== 数据权限分级 =====
 const { hasAccessByRoles } = useAccess();
@@ -163,6 +169,8 @@ const configForm = reactive({
   performanceCoefficient: undefined as number | undefined,
 });
 const configFormSubmitting = ref(false);
+/** 配置表单对应年份的已有配置（用于新增时排除已配置员工） */
+const configYearConfigs = ref<any[]>([]);
 
 async function loadConfigList() {
   configLoading.value = true;
@@ -177,6 +185,40 @@ async function loadConfigList() {
     configLoading.value = false;
   }
 }
+
+async function loadConfigYearConfigs() {
+  try {
+    const res: any = await getSalaryConfigListApi({
+      year: configForm.year,
+    });
+    configYearConfigs.value = Array.isArray(res) ? res : res?.data || [];
+  } catch {
+    configYearConfigs.value = [];
+  }
+}
+
+/** 新增模式下，与表单所选年/月完全匹配（month 均为空视为全年配置）的员工不可重复添加 */
+const configExcludedIds = computed(() => {
+  if (configForm.id) return [];
+  const formMonth = configForm.month ?? null;
+  return configYearConfigs.value
+    .filter((c) => (c.month ?? null) === formMonth)
+    .map((c) => c.employeeId);
+});
+
+watch(
+  [
+    configFormVisible,
+    () => configForm.id,
+    () => configForm.year,
+    () => configForm.month,
+  ],
+  () => {
+    if (configFormVisible.value && !configForm.id) {
+      loadConfigYearConfigs();
+    }
+  },
+);
 
 function openConfigForm(record?: any) {
   if (record) {
@@ -221,6 +263,15 @@ async function submitConfigForm() {
       $t('page.finance.salary.config.message.baseSalaryNegative'),
     );
     return;
+  }
+  if (!configForm.id) {
+    await loadConfigYearConfigs();
+    if (configExcludedIds.value.includes(configForm.employeeId)) {
+      message.warning(
+        $t('page.finance.salary.config.message.employeeConfigured'),
+      );
+      return;
+    }
   }
   configFormSubmitting.value = true;
   try {
@@ -311,6 +362,11 @@ function formatMoneyShort(val: any) {
       value: (num / 10_000).toFixed(1),
     });
   return `¥${num.toLocaleString()}`;
+}
+
+// P0-2：汇总卡片字段缺失时显示 '—'，不再用 || 0 掩盖接口契约缺口
+function formatSummaryStatistic(v: any) {
+  return typeof v?.value === 'number' ? formatMoneyShort(v.value) : '—';
 }
 
 const formOptions: VbenFormProps = {
@@ -425,6 +481,12 @@ const gridOptions: VxeGridProps = {
       minWidth: 120,
     },
     {
+      title: $t('page.finance.salary.column.insuranceCity'),
+      field: 'insuranceCityName',
+      width: 100,
+      slots: { default: 'insuranceCity' },
+    },
+    {
       title: $t('page.finance.salary.column.yearMonth'),
       field: 'year',
       minWidth: 120,
@@ -515,15 +577,22 @@ const gridOptions: VxeGridProps = {
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 function goDetail(row: any) {
-  if (!row?.calculated && !row?.id) {
+  if (!row?.calculated || !row?.id) {
     message.warning($t('page.finance.salary.status.notCalculated'));
     return;
   }
-  void router.push({ path: `/finance/salary/detail/${row.id}` });
+  detailDrawerApi.setData({ id: row.id });
+  detailDrawerApi.open();
+}
+
+// 详情抽屉内审批/发放/调整/重算成功后刷新列表与汇总
+function handleDetailDrawerSuccess() {
+  gridApi.query();
+  loadSummary();
 }
 
 async function handleApprove(row: any) {
-  if (!row?.calculated && !row?.id) {
+  if (!row?.calculated || !row?.id) {
     message.warning($t('page.finance.salary.status.notCalculated'));
     return;
   }
@@ -542,7 +611,7 @@ async function handleApprove(row: any) {
 }
 
 async function handlePay(row: any) {
-  if (!row?.calculated && !row?.id) {
+  if (!row?.calculated || !row?.id) {
     message.warning($t('page.finance.salary.status.notCalculated'));
     return;
   }
@@ -562,6 +631,20 @@ async function handlePay(row: any) {
 
 function handleAdjust(row: any) {
   goDetail(row);
+}
+
+// ===== 缺口1：待审核记录手动录入自定义项值（保存后后端联动重算）=====
+const itemValuesVisible = ref(false);
+const itemValuesRecord = ref<any>(null);
+
+function openItemValues(row: any) {
+  itemValuesRecord.value = row;
+  itemValuesVisible.value = true;
+}
+
+function handleItemValuesSuccess() {
+  gridApi.query();
+  loadSummary();
 }
 
 async function handleCalculate() {
@@ -593,7 +676,13 @@ async function handleBatchApprove() {
     );
     return;
   }
-  const ids = records.map((r: any) => r.id);
+  // P0-5：只对待审核（status=0）记录执行批量审核，过滤已审核/已发放记录
+  const pending = records.filter((r: any) => r.calculated && r.status === 0);
+  if (pending.length === 0) {
+    message.warning($t('page.finance.salary.message.batchApproveNoPending'));
+    return;
+  }
+  const ids = pending.map((r: any) => r.id);
   try {
     await batchApproveSalaryApi(ids);
     message.success($t('page.finance.salary.message.batchApproveSuccess'));
@@ -1037,49 +1126,52 @@ async function handleSyncApproval() {
   }
 }
 
-async function handleApproveAppeal(record: any) {
-  Modal.confirm({
-    title: $t('page.finance.salary.modal.approveRecalcTitle'),
-    content: $t('page.finance.salary.modal.approveRecalcContent'),
-    async onOk() {
-      try {
-        await handleConfirmApi({
-          confirmId: record.id,
-          action: 1,
-          remark: $t('page.finance.salary.modal.approveRecalcRemark'),
-        });
-        message.success($t('page.finance.salary.modal.approveRecalcSuccess'));
-        loadPendingList();
-        gridApi.query();
-      } catch (error: any) {
-        message.error(
-          error?.message || $t('page.finance.salary.modal.handleFailed'),
-        );
-      }
-    },
-  });
+// P0-6：申诉审批弹窗（财务侧，审批人填写意见作为 remark，不再硬编码）
+const appealHandleVisible = ref(false);
+const appealHandleAction = ref(1); // 1=同意重新核算, 2=驳回
+const appealHandleRecord = ref<any>(null);
+const appealHandleRemark = ref('');
+const appealHandleSubmitting = ref(false);
+
+function handleApproveAppeal(record: any) {
+  appealHandleAction.value = 1;
+  appealHandleRecord.value = record;
+  appealHandleRemark.value = '';
+  appealHandleVisible.value = true;
 }
 
-async function handleRejectAppeal(record: any) {
-  Modal.confirm({
-    title: $t('page.finance.salary.modal.rejectAppealTitle'),
-    content: $t('page.finance.salary.modal.rejectAppealContent'),
-    async onOk() {
-      try {
-        await handleConfirmApi({
-          confirmId: record.id,
-          action: 2,
-          remark: $t('page.finance.salary.modal.rejectAppealRemark'),
-        });
-        message.success($t('page.finance.salary.modal.rejectAppealSuccess'));
-        loadPendingList();
-      } catch (error: any) {
-        message.error(
-          error?.message || $t('page.finance.salary.modal.handleFailed'),
-        );
-      }
-    },
-  });
+function handleRejectAppeal(record: any) {
+  appealHandleAction.value = 2;
+  appealHandleRecord.value = record;
+  appealHandleRemark.value = '';
+  appealHandleVisible.value = true;
+}
+
+async function handleAppealHandleSubmit() {
+  if (!appealHandleRecord.value) return;
+  appealHandleSubmitting.value = true;
+  const action = appealHandleAction.value;
+  try {
+    await handleConfirmApi({
+      confirmId: appealHandleRecord.value.id,
+      action,
+      remark: appealHandleRemark.value.trim() || undefined,
+    });
+    message.success(
+      action === 1
+        ? $t('page.finance.salary.modal.approveRecalcSuccess')
+        : $t('page.finance.salary.modal.rejectAppealSuccess'),
+    );
+    appealHandleVisible.value = false;
+    loadPendingList();
+    gridApi.query();
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.salary.modal.handleFailed'),
+    );
+  } finally {
+    appealHandleSubmitting.value = false;
+  }
 }
 
 onMounted(() => {
@@ -1136,76 +1228,77 @@ onMounted(() => {
             {{ $t('page.finance.salary.summary.refresh') }}
           </Button>
         </div>
+        <!-- P0-4：flex 均分保证 9 张卡片一行完整显示，不换行 -->
         <Row :gutter="16">
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.baseSalaryGrandTotal')"
-              :value="summaryData.totalBase || 0"
+              :value="summaryData.totalBase"
               :value-style="{ color: '#1890ff' }"
-              :formatter="(v: any) => formatMoneyShort(v.value)"
+              :formatter="formatSummaryStatistic"
             />
           </Col>
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.commissionGrandTotal')"
-              :value="summaryData.totalCommission || 0"
+              :value="summaryData.totalCommission"
               :value-style="{ color: '#52c41a' }"
-              :formatter="(v: any) => formatMoneyShort(v.value)"
+              :formatter="formatSummaryStatistic"
             />
           </Col>
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.performanceGrandTotal')"
-              :value="summaryData.totalBonus || 0"
+              :value="summaryData.totalBonus"
               :value-style="{ color: '#722ed1' }"
-              :formatter="(v: any) => formatMoneyShort(v.value)"
+              :formatter="formatSummaryStatistic"
             />
           </Col>
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.deductionGrandTotal')"
-              :value="summaryData.totalDeduction || 0"
+              :value="summaryData.totalDeduction"
               :value-style="{ color: '#ff4d4f' }"
-              :formatter="(v: any) => formatMoneyShort(v.value)"
+              :formatter="formatSummaryStatistic"
             />
           </Col>
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.totalSalaryGrandTotal')"
-              :value="summaryData.totalSalary || 0"
+              :value="summaryData.totalSalary"
               :value-style="{ color: '#fa8c16', fontWeight: 'bold' }"
-              :formatter="(v: any) => formatMoneyShort(v.value)"
+              :formatter="formatSummaryStatistic"
             />
           </Col>
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.recordCount')"
-              :value="summaryData.count || 0"
+              :value="summaryData.count ?? '—'"
               :value-style="{ color: '#13c2c2' }"
             />
           </Col>
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.socialInsuranceTotal')"
-              :value="summaryData.totalSocialInsurancePersonal || 0"
+              :value="summaryData.totalSocialInsurancePersonal"
               :value-style="{ color: '#faad14' }"
-              :formatter="(v: any) => formatMoneyShort(v.value)"
+              :formatter="formatSummaryStatistic"
             />
           </Col>
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.taxTotal')"
-              :value="summaryData.totalTaxAmount || 0"
+              :value="summaryData.totalTaxAmount"
               :value-style="{ color: '#eb2f96' }"
-              :formatter="(v: any) => formatMoneyShort(v.value)"
+              :formatter="formatSummaryStatistic"
             />
           </Col>
-          <Col :span="4">
+          <Col :flex="1">
             <Statistic
               :title="$t('page.finance.salary.summary.netSalaryTotal')"
-              :value="summaryData.totalNetSalary || 0"
+              :value="summaryData.totalNetSalary"
               :value-style="{ color: '#1890ff', fontWeight: 'bold' }"
-              :formatter="(v: any) => formatMoneyShort(v.value)"
+              :formatter="formatSummaryStatistic"
             />
           </Col>
         </Row>
@@ -1345,6 +1438,13 @@ onMounted(() => {
         }}{{ $t('page.finance.salary.format.month', { month: row.month }) }}
       </template>
 
+      <template #insuranceCity="{ row }">
+        <span v-if="row.insuranceCityName">{{ row.insuranceCityName }}</span>
+        <Tag v-else color="error">
+          {{ $t('page.finance.salary.column.insuranceCityMissing') }}
+        </Tag>
+      </template>
+
       <template #baseSalary="{ row }">
         <span v-if="!row.calculated" class="text-gray-400">-</span>
         <span v-else :class="{ 'text-gray-400': !row.baseSalary }">
@@ -1456,6 +1556,15 @@ onMounted(() => {
           >
             {{ $t('page.finance.salary.action.adjust') }}
           </Button>
+          <!-- 缺口1：录入自定义项值（仅待审核记录） -->
+          <Button
+            v-if="row.status === 0"
+            type="link"
+            size="small"
+            @click="openItemValues(row)"
+          >
+            {{ $t('page.finance.salary.action.itemValues') }}
+          </Button>
           <Button
             v-if="row.status === 1"
             type="link"
@@ -1534,6 +1643,28 @@ onMounted(() => {
       </div>
     </Modal>
 
+    <!-- P0-6：申诉审批弹窗，审批人可填写意见 -->
+    <Modal
+      v-model:open="appealHandleVisible"
+      :title="
+        appealHandleAction === 1
+          ? $t('page.finance.salary.modal.approveRecalcTitle')
+          : $t('page.finance.salary.modal.rejectAppealTitle')
+      "
+      :confirm-loading="appealHandleSubmitting"
+      @ok="handleAppealHandleSubmit"
+    >
+      <div class="py-4">
+        <Input.TextArea
+          v-model:value="appealHandleRemark"
+          :rows="4"
+          :maxlength="200"
+          show-count
+          :placeholder="$t('page.finance.salary.modal.appealRemarkPlaceholder')"
+        />
+      </div>
+    </Modal>
+
     <!-- 底薪配置抽屉 -->
     <Drawer
       v-model:open="configVisible"
@@ -1597,6 +1728,7 @@ onMounted(() => {
             <UserPickerModal
               v-model:value="configForm.employeeId"
               :disabled="!!configForm.id"
+              :exclude-ids="configForm.id ? [] : configExcludedIds"
             />
           </FormItem>
           <Row :gutter="16">
@@ -1901,6 +2033,16 @@ onMounted(() => {
         </template>
       </Table>
     </Drawer>
+
+    <!-- 缺口1：手动录入自定义项值弹窗 -->
+    <ItemValuesModal
+      v-model:open="itemValuesVisible"
+      :record="itemValuesRecord"
+      @success="handleItemValuesSuccess"
+    />
+
+    <!-- 工资详情抽屉 -->
+    <DetailDrawer @success="handleDetailDrawerSuccess" />
   </Page>
 </template>
 

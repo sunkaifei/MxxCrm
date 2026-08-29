@@ -21,6 +21,8 @@ pub struct SalaryRecordDTO {
     pub employee_id: i64,
     pub employee_name: Option<String>,
     pub department_name: Option<String>,
+    /// 参保地城市名（列表展示用：手工社保配置优先，其次档案参保地继承，皆无为空）
+    pub insurance_city_name: Option<String>,
     pub year: i32,
     pub month: i32,
     pub base_salary: f64,
@@ -44,6 +46,12 @@ pub struct SalaryRecordDTO {
     pub net_salary: f64,
     /// 团队提成金额
     pub team_commission_amount: f64,
+    /// 奖金
+    pub bonus_amount: f64,
+    /// 分配佣金
+    pub allocated_commission: f64,
+    /// 递延佣金
+    pub deferred_commission: f64,
     pub status: Option<i32>,
     /// 员工确认状态: 0=未确认, 1=已确认, 2=申请重新核算
     pub employee_confirmed: Option<i32>,
@@ -64,6 +72,7 @@ impl From<salary_record::Model> for SalaryRecordDTO {
             employee_id: model.employee_id,
             employee_name: model.employee_name,
             department_name: model.department_name,
+            insurance_city_name: None,
             year: model.year,
             month: model.month,
             base_salary: model.base_salary.to_f64().unwrap_or_default(),
@@ -79,6 +88,9 @@ impl From<salary_record::Model> for SalaryRecordDTO {
             tax_amount: model.tax_amount.to_f64().unwrap_or_default(),
             net_salary: model.net_salary.to_f64().unwrap_or_default(),
             team_commission_amount: model.team_commission_amount.to_f64().unwrap_or_default(),
+            bonus_amount: model.bonus_amount.to_f64().unwrap_or_default(),
+            allocated_commission: model.allocated_commission.to_f64().unwrap_or_default(),
+            deferred_commission: model.deferred_commission.to_f64().unwrap_or_default(),
             status: model.status,
             employee_confirmed: model.employee_confirmed,
             confirmed_time: model.confirmed_time.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
@@ -99,6 +111,7 @@ impl SalaryRecordDTO {
             employee_id: emp.id,
             employee_name: emp.nick_name.clone().or_else(|| emp.user_name.clone()),
             department_name: None,
+            insurance_city_name: None,
             year,
             month,
             base_salary: 0.0,
@@ -114,6 +127,9 @@ impl SalaryRecordDTO {
             tax_amount: 0.0,
             net_salary: 0.0,
             team_commission_amount: 0.0,
+            bonus_amount: 0.0,
+            allocated_commission: 0.0,
+            deferred_commission: 0.0,
             status: None,
             employee_confirmed: None,
             confirmed_time: None,
@@ -128,6 +144,7 @@ impl SalaryRecordDTO {
 
 /// 提成明细DTO
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CommissionDetailDTO {
     pub id: i64,
     pub salary_record_id: i64,
@@ -160,12 +177,32 @@ impl From<commission_detail::Model> for CommissionDetailDTO {
     }
 }
 
-/// 工资详情（含提成明细列表）
+/// 工资单自定义项明细 VO（含项目主表分类，供详情页展示）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SalaryItemValueVO {
+    pub id: i64,
+    pub item_id: i64,
+    pub item_code: Option<String>,
+    pub item_name: Option<String>,
+    pub amount: f64,
+    pub is_taxable: Option<i32>,
+    /// 1=增项 2=减项（来自项目主表，项目被删时为空）
+    pub item_type: Option<i32>,
+    /// 1=税前 0=税后
+    pub is_pretax: Option<i32>,
+    /// 项目当前启用状态（1=启用）
+    pub enabled: Option<i32>,
+}
+
+/// 工资详情（含提成明细列表与自定义项明细）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SalaryDetailDTO {
     #[serde(flatten)]
     pub record: SalaryRecordDTO,
     pub details: Vec<CommissionDetailDTO>,
+    #[serde(rename = "itemValues")]
+    pub item_values: Vec<SalaryItemValueVO>,
 }
 
 /// 工资查询参数
@@ -187,6 +224,14 @@ pub struct SalaryCalculateDTO {
     pub month: i32,
 }
 
+/// 单员工重新核算请求（按已有工资记录触发）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SalaryCalculateSingleDTO {
+    /// 工资记录ID
+    pub id: i64,
+}
+
 /// 工资手动调整请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -200,13 +245,24 @@ pub struct SalaryUpdateDTO {
 }
 
 /// 工资汇总
+/// P0-2：补齐个人社保/公积金/个税/实发合计；camelCase 命名与前端读取字段对齐，
+/// 避免 total_base 等下划线键名被前端 totalBase 读取落空后被 `|| 0` 掩盖
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct SalarySummaryDTO {
     pub total_base: f64,
     pub total_commission: f64,
     pub total_bonus: f64,
     pub total_deduction: f64,
     pub total_salary: f64,
+    /// 个人社保合计
+    pub total_social_insurance_personal: f64,
+    /// 个人公积金合计
+    pub total_housing_fund_personal: f64,
+    /// 个税合计
+    pub total_tax_amount: f64,
+    /// 实发工资合计
+    pub total_net_salary: f64,
     pub count: i64,
 }
 

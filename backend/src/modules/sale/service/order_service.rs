@@ -21,6 +21,7 @@ use crate::modules::sale::model::shipment::ShipmentModel;
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
+use crate::modules::system::service::field_def_service;
 use crate::modules::system::service::role_service;
 use crate::modules::system::service::sales_flow_config_service;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
@@ -114,6 +115,8 @@ pub async fn insert(db: &DbConn, form_data: &OrderSaveRequest, created_by: i64) 
     let total_amount = product_amount - discount_amount + shipping_fee + tax_amount + other_fee;
 
     let mut dto: OrderSaveDTO = form_data.clone().into();
+    // 2.5 自定义字段强校验（P1-8/P1-11：未知/停用键、类型不符、必填缺失 400；归一化+合并结果直接落在 dto.custom_fields）
+    field_def_service::validate_custom_fields(&txn, "sale_order", &mut dto.custom_fields, created_by, true, None).await?;
     dto.order_no = Some(order_no);
     dto.order_status = Some(1);
     dto.approval_status = Some(0);
@@ -254,6 +257,8 @@ pub async fn update(db: &DbConn, form_data: &OrderUpdateRequest, updated_by: i64
     let total_amount = product_amount - discount_amount + shipping_fee + tax_amount + other_fee;
 
     let mut dto: OrderSaveDTO = form_data.clone().into();
+    // 3.5 自定义字段强校验（P1-8/P1-11；编辑不触发必填强约束 7.4 规则 5；校验器原地归一化并按 key 合并旧值，直接落在 dto.custom_fields）
+    field_def_service::validate_custom_fields(&txn, "sale_order", &mut dto.custom_fields, updated_by, false, _existing_order.custom_fields.as_ref()).await?;
     dto.product_amount = Some(product_amount);
     dto.total_amount = Some(total_amount);
     dto.update_by = Some(updated_by);
@@ -783,6 +788,8 @@ pub async fn create_contract_from_order(db: &DbConn, order_id: i64, operator_id:
         their_signer_name: order.contact_name.clone(),
         their_signer_phone: None,
         order_id: Some(order_id),
+        // 订单转合同：跨模块字段定义不同，不继承 custom_fields
+        custom_fields: None,
         deleted: Some(0),
         created_by: Some(operator_id),
         create_time: None,

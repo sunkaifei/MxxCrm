@@ -28,6 +28,7 @@ import {
   uploadCategoryImageApi,
 } from '#/api';
 import { getProductSpecsApi } from '#/api/core/product/spec';
+import { UnitSelect } from '#/components/UnitSelect';
 import { $t } from '#/locales';
 const data = ref();
 const activeTab = ref('basic');
@@ -168,6 +169,7 @@ const specList = ref<
     originalPrice: number;
     price: number;
     skuCode: string;
+    specsObj: null | Record<string, string>;
     volume: number;
     weight: number;
   }>
@@ -185,6 +187,7 @@ const specList = ref<
     volume: 0,
     isDefault: false,
     isActive: true,
+    specsObj: null,
   },
 ]);
 
@@ -298,6 +301,7 @@ function generateSpecCombinations(
       volume: 0,
       isDefault: index === 0,
       isActive: true,
+      specsObj: Object.fromEntries(combo.map((c) => [c.name, c.value])),
     };
   });
 }
@@ -321,6 +325,7 @@ watch(specType, (val) => {
         volume: 0,
         isDefault: false,
         isActive: true,
+        specsObj: null,
       },
     ];
   } else {
@@ -403,21 +408,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     setLoading(true);
 
     const specs = specList.value.map((s) => {
-      let specsValue: null | Record<string, string> = null;
-      if (
-        specType.value === 'multiple' &&
-        s.label &&
-        templateSpecs.value.length > 0
-      ) {
-        const values = s.label.split(' / ');
-        const specsObj: Record<string, string> = {};
-        templateSpecs.value.forEach((spec, index) => {
-          if (values[index]) {
-            specsObj[spec.name] = values[index];
-          }
-        });
-        specsValue = specsObj;
-      }
+      const specsValue = specType.value === 'multiple' ? s.specsObj : null;
       return {
         id: s.id,
         specs: specsValue ? JSON.stringify(specsValue) : undefined,
@@ -524,6 +515,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
             volume: 0,
             isDefault: false,
             isActive: true,
+            specsObj: null,
           },
         ];
       }
@@ -612,24 +604,43 @@ async function loadProductDetail(id: number) {
       specKeyCounter = 0;
       specList.value = skuSource.map((s: any) => {
         specKeyCounter++;
-        let label = '';
-        if (s.label) {
-          label = s.label;
-        } else if (typeof s.specs === 'string') {
-          label = s.specs;
-        } else if (
+        let specsObj: null | Record<string, string> = null;
+        if (
           s.specs &&
           typeof s.specs === 'object' &&
           !Array.isArray(s.specs)
         ) {
-          label = Object.entries(s.specs)
+          specsObj = { ...s.specs };
+        } else if (typeof s.specs === 'string' && s.specs.startsWith('{')) {
+          // 兼容历史双重编码数据：specs 存的是 JSON 字符串
+          try {
+            const parsed = JSON.parse(s.specs);
+            if (
+              parsed &&
+              typeof parsed === 'object' &&
+              !Array.isArray(parsed)
+            ) {
+              specsObj = parsed;
+            }
+          } catch {
+            // 解析失败则忽略
+          }
+        }
+        let label = '';
+        if (s.label) {
+          label = s.label;
+        } else if (specsObj) {
+          label = Object.entries(specsObj)
             .map(([k, v]) => `${k}：${v}`)
             .join(' / ');
+        } else if (typeof s.specs === 'string') {
+          label = s.specs;
         }
         return {
           _key: specKeyCounter,
           id: s.id,
           label,
+          specsObj,
           imageUrl: s.imageUrl || s.image || '',
           price: s.price ?? 0,
           costPrice: s.costPrice ?? 0,
@@ -657,6 +668,7 @@ async function loadProductDetail(id: number) {
           volume: 0,
           isDefault: false,
           isActive: productData.isActive ?? true,
+          specsObj: null,
         },
       ];
     }
@@ -749,11 +761,9 @@ function setLoading(loading: boolean) {
             <div class="basic-form-row">
               <label class="basic-form-label">单位名</label>
               <div class="basic-form-control">
-                <Input
+                <UnitSelect
                   v-model:value="formData.unit"
-                  placeholder="请输入单位名"
-                  allow-clear
-                  style="width: 100%"
+                  placeholder="请选择单位"
                 />
               </div>
             </div>

@@ -25,13 +25,13 @@ pub struct Model {
     /// 图标（lucide: 前缀）
     pub icon: Option<String>,
     /// 是否默认工作台（1是 0否）
-    pub is_default: Option<i32>,
+    pub is_default: Option<i16>,
     /// 状态（1启用 0停用）
-    pub status: Option<i32>,
+    pub status: Option<i16>,
     /// 显示顺序
     pub sort: Option<i32>,
     /// 删除标志（0存在 1删除）
-    pub deleted: Option<i32>,
+    pub deleted: Option<i16>,
     /// 创建者
     pub create_by: Option<String>,
     /// 创建时间

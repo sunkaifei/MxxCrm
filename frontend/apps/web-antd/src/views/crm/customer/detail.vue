@@ -92,6 +92,11 @@ import {
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { createFollowupApi } from '#/api/core/crm/followup';
 import { requestClient } from '#/api/request';
+import DynamicFieldControl from '#/components/DynamicFieldControl.vue';
+import {
+  fieldLayoutSpan,
+  useFieldSchema,
+} from '#/components/FieldSchemaAdapter';
 
 import ReasonFormModal from '../components/ReasonFormModal.vue';
 import SendMailModal from '../components/SendMailModal.vue';
@@ -841,6 +846,8 @@ const form = reactive({
   creditLimit: undefined as number | undefined,
   creditDays: undefined as number | undefined,
   cooperatedAt: undefined as string | undefined,
+  nextFollowAt: undefined as string | undefined,
+  followCycleDays: undefined as number | undefined,
   description: '',
   // 个人客户字段
   personName: '',
@@ -853,6 +860,11 @@ const form = reactive({
   nickname: '',
   occupation: '',
 });
+
+// ========== 自定义字段 ==========
+const fieldSchema = useFieldSchema('crm_customer');
+const { items: cfItems } = fieldSchema;
+const cfValues = reactive<Record<string, any>>({});
 
 function fillFormFromCustomer() {
   form.customerType = Number(customer.value.customerType) || 1;
@@ -885,6 +897,11 @@ function fillFormFromCustomer() {
   form.creditLimit = customer.value.creditLimit;
   form.creditDays = customer.value.creditDays;
   form.cooperatedAt = customer.value.cooperatedAt;
+  // 下次跟进时间后端为日期时间，截取日期部分回显
+  form.nextFollowAt = customer.value.nextFollowAt
+    ? String(customer.value.nextFollowAt).slice(0, 10)
+    : undefined;
+  form.followCycleDays = customer.value.followCycleDays;
   form.description = customer.value.description || '';
   // 个人客户字段
   form.personName = customer.value.personName || '';
@@ -896,6 +913,10 @@ function fillFormFromCustomer() {
   form.personalEmail = customer.value.personalEmail || '';
   form.nickname = customer.value.nickname || '';
   form.occupation = customer.value.occupation || '';
+  // 自定义字段：加载 schema 并回显存量值（fire-and-forget，模板响应式更新）
+  fieldSchema.loadSchema();
+  Object.keys(cfValues).forEach((k) => delete cfValues[k]);
+  Object.assign(cfValues, (customer.value as any).customFields ?? {});
 }
 
 function getFieldValueLabel(
@@ -1168,6 +1189,8 @@ const loadData = async () => {
     customer.value = { customerType: initType };
     form.customerType = initType;
     loading.value = false;
+    // 新建模式同样加载动态字段 schema
+    fieldSchema.loadSchema();
     await loadCountries();
     return;
   }
@@ -1518,11 +1541,29 @@ async function handleSaveForm() {
       return;
     }
   }
+  // 自定义字段必填前端兜底：仅新建强拦截；编辑对齐后端 7.4 规则 5 存量弱约束放行（后端 400 拦截兜底）
+  if (isCreate.value) {
+    const missingField = fieldSchema.items.value.find((i) => {
+      if (Number(i.required) !== 1) return false;
+      const v = cfValues[i.fieldKey];
+      return (
+        v === undefined ||
+        v === null ||
+        v === '' ||
+        (Array.isArray(v) && v.length === 0)
+      );
+    });
+    if (missingField) {
+      message.error(`请填写「${missingField.fieldLabel}」`);
+      return;
+    }
+  }
   formSaving.value = true;
   try {
     const payload = {
       ...form,
       customerType: Number(customer.value?.customerType) || 1,
+      customFields: fieldSchema.buildSubmitPayload(cfValues),
     };
     if (isCreate.value) {
       // 新建客户
@@ -2593,12 +2634,53 @@ watch(
                         />
                       </Form.Item>
                     </Col>
+                    <Col :span="12">
+                      <Form.Item label="下次跟进时间">
+                        <DatePicker
+                          v-model:value="form.nextFollowAt"
+                          placeholder="选择日期"
+                          style="width: 100%"
+                          value-format="YYYY-MM-DD"
+                          allow-clear
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col :span="12">
+                      <Form.Item
+                        label="跟进周期（天）"
+                        extra="保存跟进时未填下次时间，则按此周期自动推算"
+                      >
+                        <InputNumber
+                          v-model:value="form.followCycleDays"
+                          placeholder="每 N 天跟进一次，留空不自动"
+                          :min="0"
+                          :precision="0"
+                          style="width: 100%"
+                        />
+                      </Form.Item>
+                    </Col>
                     <Col :span="24">
                       <Form.Item label="备注">
                         <Input.TextArea
                           v-model:value="form.description"
                           placeholder="备注信息"
                           :rows="3"
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col
+                      v-for="item in cfItems"
+                      :key="item.fieldKey"
+                      :span="fieldLayoutSpan(item)"
+                    >
+                      <Form.Item
+                        :label="item.fieldLabel"
+                        :required="Number(item.required) === 1"
+                      >
+                        <DynamicFieldControl
+                          v-model:value="cfValues[item.fieldKey]"
+                          :item="item"
+                          :disabled="!fieldSchema.isRoleEditable(item)"
                         />
                       </Form.Item>
                     </Col>

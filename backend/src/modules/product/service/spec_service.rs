@@ -15,11 +15,14 @@ use crate::modules::product::entity::spec_value::Entity as SpecValue;
 use crate::modules::product::entity::sku::Entity as ProductSku;
 use crate::modules::product::model::product::SkuVO;
 use crate::modules::product::model::spec::*;
+use rust_decimal::prelude::ToPrimitive;
 use sea_orm::*;
 use sea_orm::prelude::*;
+use std::collections::HashMap;
 
 /// 获取产品的规格定义（含规格值和SKU列表）
-pub async fn get_specs(db: &DbConn, product_id: i64) -> Result<SpecGroupVO> {
+/// SKU 库存从 mxx_inventory_stock 按 sku_id 实时汇总（SKU 层是唯一库存事实源），支持按仓库过滤
+pub async fn get_specs(db: &DbConn, product_id: i64, warehouse_id: Option<i64>) -> Result<SpecGroupVO> {
     // 1. 查询规格定义
     let specs = Spec::find()
         .filter(spec::Column::ProductId.eq(product_id))
@@ -76,11 +79,70 @@ pub async fn get_specs(db: &DbConn, product_id: i64) -> Result<SpecGroupVO> {
         .all(db)
         .await?;
 
-    let sku_vos = skus.into_iter().map(|s| s.into()).collect();
+    // 6. 批量查询 SKU 真实库存（mxx_inventory_stock 按 sku_id 汇总，避免 N+1）
+    let sku_ids: Vec<i64> = skus.iter().map(|s| s.id).collect();
+    let stock_map: HashMap<i64, i64> = if sku_ids.is_empty() {
+        HashMap::new()
+    } else {
+        let placeholders: Vec<String> = (1..=sku_ids.len()).map(|i| format!("${}", i)).collect();
+        let mut values: Vec<Value> = sku_ids.iter().map(|&id| id.into()).collect();
+        let mut sql = format!(
+            "SELECT sku_id, COALESCE(SUM(quantity), 0) AS total FROM mxx_inventory_stock WHERE deleted = 0 AND sku_id IN ({}) GROUP BY sku_id",
+            placeholders.join(", ")
+        );
+        if let Some(wid) = warehouse_id {
+            sql.push_str(&format!(" AND warehouse_id = ${}", sku_ids.len() + 1));
+            values.push(wid.into());
+        }
+        let stmt = sea_orm::Statement::from_sql_and_values(db.get_database_backend(), &sql, values);
+        let rows = db.query_all_raw(stmt).await?;
+        let mut map = HashMap::new();
+        for row in rows {
+            let sid: i64 = row.try_get("", "sku_id")?;
+            let total: Decimal = row.try_get("", "total")?;
+            map.insert(sid, total.to_i64().unwrap_or(0));
+        }
+        map
+    };
+
+    // 7. sku_id 为空的库存行（历史/未指定规格数据）合计，作为展开区兜底，保证与产品库存合计对账一致
+    let mut unassigned_sql = "SELECT COALESCE(SUM(quantity), 0) AS total FROM mxx_inventory_stock WHERE deleted = 0 AND sku_id IS NULL AND product_id = $1".to_string();
+    let mut unassigned_values: Vec<Value> = vec![product_id.into()];
+    if let Some(wid) = warehouse_id {
+        unassigned_sql.push_str(" AND warehouse_id = $2");
+        unassigned_values.push(wid.into());
+    }
+    let unassigned_stmt = sea_orm::Statement::from_sql_and_values(
+        db.get_database_backend(),
+        &unassigned_sql,
+        unassigned_values,
+    );
+    let unassigned_stock: Option<i64> = match db.query_one_raw(unassigned_stmt).await? {
+        Some(row) => {
+            let total: Decimal = row.try_get("", "total")?;
+            let t = total.to_i64().unwrap_or(0);
+            if t > 0 { Some(t) } else { None }
+        },
+        None => None,
+    };
+
+    let sku_vos = skus
+        .into_iter()
+        .map(|s| {
+            let mut vo: SkuVO = s.into();
+            if let Some(sid) = vo.id {
+                // 用真实库存覆盖 mxx_product_sku.stock 静态列（该列不随库存单据更新）
+                let total = stock_map.get(&sid).copied().unwrap_or(0);
+                vo.stock = Some(i32::try_from(total).unwrap_or(i32::MAX));
+            }
+            vo
+        })
+        .collect();
 
     Ok(SpecGroupVO {
         specs: spec_vos,
         skus: sku_vos,
+        unassigned_stock,
     })
 }
 

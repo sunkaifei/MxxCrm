@@ -81,7 +81,9 @@
     "select_row": "请选择要操作的行"
   },
   "text": {
-    "do_you_want_delete": "你是否要删除掉该{moduleName}？"
+    "do_you_want_delete": "你是否要删除掉该{moduleName}？",
+    "batch_delete_title": "批量删除",
+    "confirm_batch_delete": "确定要删除选中的 {count} 条记录吗？"
   },
   "form": {
     "description": "描述"

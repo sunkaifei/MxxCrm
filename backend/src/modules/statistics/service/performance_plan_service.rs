@@ -15,19 +15,22 @@ use crate::modules::statistics::entity::plan_monthly_target::{self, Entity as Pl
 use crate::modules::statistics::entity::plan_approval_log::{self, Entity as PlanApprovalLog};
 use crate::modules::statistics::entity::plan_approval_node::{self, Entity as PlanApprovalNode};
 use crate::modules::statistics::model::performance_plan::{
-    PlanDetailVO, PlanListVO, MonthlyTargetVO, ApprovalLogVO, ApprovalNodeVO,
-    CreatePlanRequest, MonthlyTargetInput, ReviewPlanRequest, ModifyPlanRequest,
+    PlanDetailVO, PlanListVO, PlanListPageVO, MonthlyTargetVO, ApprovalLogVO, ApprovalNodeVO,
+    CreatePlanRequest, ReviewPlanRequest, ModifyPlanRequest,
     UpdatePlanTargetsRequest, PlanProgressSummaryVO, ProgressItemVO,
-    PlanCoverageVO, PlanCoverageSummaryVO,
+    PlanCoverageVO, PlanCoverageSummaryVO, MonthlyCompareRowVO,
 };
 use crate::modules::statistics::service::employee_stats_service;
 use crate::modules::statistics::service::stats_range::StatsScope;
 use crate::modules::system::entity::admin::Entity as Admin;
+use crate::modules::system::service::data_scope_service;
 use crate::modules::crm::entity::contract::{self, Entity as Contract};
+use crate::modules::sale::entity::payment::{self, Entity as Payment};
 use sea_orm::{
     ConnectionTrait, DbConn, Statement, TransactionTrait,
     EntityTrait, ColumnTrait, QueryFilter, QueryOrder, ActiveModelTrait, Set, IntoActiveModel,
 };
+use chrono::Datelike;
 use sea_orm::prelude::Decimal;
 
 /// 年度计划覆盖度：数据权限范围内全员 × 当年计划状态（集中管理视角）
@@ -174,6 +177,82 @@ pub async fn create_plan(db: &DbConn, employee_id: i64, req: &CreatePlanRequest)
 /// 提交计划（草稿→待审批）
 /// 提交时按 direct_manager_id 链向上遍历计算审批链，按金额阈值确定层级数
 /// 金额阈值：< 100万=1级审批（直属上级），100万-500万=2级，≥500万=3级
+/// 按提交规则构建审批链：年合同目标总额定级数（<100万=1级、100万-500万=2级、≥500万=3级），
+/// 沿 direct_manager_id 汇报线向上收集审批人（去重、防自审批、防环、截断到级数）
+/// 返回 (审批人链, 年合同目标总额)；链为空表示无上级审批人（提交时应自动通过）
+async fn build_approver_chain<C: ConnectionTrait>(
+    db: &C,
+    plan_id: i64,
+    employee_id: i64,
+) -> Result<(Vec<(i64, String)>, Decimal)> {
+    let targets = PlanMonthlyTarget::find()
+        .filter(plan_monthly_target::Column::PlanId.eq(plan_id))
+        .filter(plan_monthly_target::Column::Deleted.eq(0))
+        .all(db)
+        .await?;
+    let total_amount: Decimal = targets.iter()
+        .map(|t| t.contract_target_amount.unwrap_or(Decimal::from(0)))
+        .sum();
+    let total_amount_f64 = total_amount.to_string().parse::<f64>().unwrap_or(0.0);
+
+    // 金额阈值：100万=1000000，500万=5000000
+    let max_levels = if total_amount_f64 >= 5_000_000.0 {
+        3
+    } else if total_amount_f64 >= 1_000_000.0 {
+        2
+    } else {
+        1
+    };
+
+    let all_admins = Admin::find()
+        .filter(crate::modules::system::entity::admin::Column::Deleted.eq(0))
+        .filter(crate::modules::system::entity::admin::Column::Status.eq(1))
+        .all(db)
+        .await?;
+    let admin_map: std::collections::HashMap<i64, &crate::modules::system::entity::admin::Model> =
+        all_admins.iter().map(|a| (a.id, a)).collect();
+
+    let mut approver_chain: Vec<(i64, String)> = Vec::new();
+    let mut visited: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    visited.insert(employee_id);
+
+    let mut current_id = employee_id;
+    loop {
+        let current_admin = match admin_map.get(&current_id) {
+            Some(a) => a,
+            None => break,
+        };
+        let manager_id = match current_admin.direct_manager_id {
+            Some(mid) if mid > 0 => mid,
+            _ => break, // 无上级，到达组织顶层
+        };
+        // 防自审批：跳过提交人自己
+        if manager_id == employee_id {
+            break;
+        }
+        // 去重防环
+        if visited.contains(&manager_id) {
+            break;
+        }
+        visited.insert(manager_id);
+        let manager_name = admin_map.get(&manager_id)
+            .and_then(|a| a.user_name.clone())
+            .unwrap_or_else(|| format!("用户{}", manager_id));
+        approver_chain.push((manager_id, manager_name));
+
+        current_id = manager_id;
+        // 达到所需层级数即可停止
+        if approver_chain.len() >= max_levels {
+            break;
+        }
+    }
+
+    Ok((approver_chain, total_amount))
+}
+
+/// 提交计划（草稿→待审批）
+/// 提交时按 direct_manager_id 链向上遍历计算审批链，按金额阈值确定层级数
+/// 金额阈值：< 100万=1级审批（直属上级），100万-500万=2级，≥500万=3级
 pub async fn submit_plan(db: &DbConn, plan_id: i64, operator_id: i64, operator_name: &str) -> Result<PlanDetailVO> {
     let txn = db.begin().await?;
 
@@ -196,71 +275,9 @@ pub async fn submit_plan(db: &DbConn, plan_id: i64, operator_id: i64, operator_n
     let new_status = 1; // submitted
     let now = chrono::Local::now().naive_local();
 
-    // ===== 计算年目标总金额，确定审批层级数 =====
-    let targets = PlanMonthlyTarget::find()
-        .filter(plan_monthly_target::Column::PlanId.eq(plan_id))
-        .filter(plan_monthly_target::Column::Deleted.eq(0))
-        .all(&txn)
-        .await?;
-    let total_amount: Decimal = targets.iter()
-        .map(|t| t.contract_target_amount.unwrap_or(Decimal::from(0)))
-        .sum();
-    let total_amount_f64 = total_amount.to_string().parse::<f64>().unwrap_or(0.0);
-
-    // 金额阈值：100万=1000000，500万=5000000
-    let max_levels = if total_amount_f64 >= 5_000_000.0 {
-        3
-    } else if total_amount_f64 >= 1_000_000.0 {
-        2
-    } else {
-        1
-    };
-
-    // ===== 沿 direct_manager_id 链向上收集审批人 =====
+    // ===== 构建审批链（金额定级 + 汇报线遍历）=====
     let employee_id = plan.employee_id;
-    let all_admins = Admin::find()
-        .filter(crate::modules::system::entity::admin::Column::Deleted.eq(0))
-        .filter(crate::modules::system::entity::admin::Column::Status.eq(1))
-        .all(&txn)
-        .await?;
-    let admin_map: std::collections::HashMap<i64, &crate::modules::system::entity::admin::Model> =
-        all_admins.iter().map(|a| (a.id, a)).collect();
-
-    // 向上遍历 direct_manager_id 链，收集审批人（去重，排除提交人自己）
-    let mut approver_chain: Vec<(i64, String)> = Vec::new();
-    let mut visited: std::collections::HashSet<i64> = std::collections::HashSet::new();
-    visited.insert(employee_id);
-
-    let mut current_id = employee_id;
-    loop {
-        let current_admin = match admin_map.get(&current_id) {
-            Some(a) => a,
-            None => break,
-        };
-        let manager_id = match current_admin.direct_manager_id {
-            Some(mid) if mid > 0 => mid,
-            _ => break, // 无上级，到达组织顶层
-        };
-        // 防自审批：跳过提交人自己
-        if manager_id == employee_id {
-            break;
-        }
-        // 去重
-        if visited.contains(&manager_id) {
-            break;
-        }
-        visited.insert(manager_id);
-        let manager_name = admin_map.get(&manager_id)
-            .and_then(|a| a.user_name.clone())
-            .unwrap_or_else(|| format!("用户{}", manager_id));
-        approver_chain.push((manager_id, manager_name));
-
-        current_id = manager_id;
-        // 达到所需层级数即可停止
-        if approver_chain.len() >= max_levels {
-            break;
-        }
-    }
+    let (approver_chain, total_amount) = build_approver_chain(&txn, plan_id, employee_id).await?;
 
     if approver_chain.is_empty() {
         // 无上级审批人（可能是顶层管理者自己），自动通过
@@ -363,11 +380,87 @@ pub async fn approve_plan(db: &DbConn, req: &ReviewPlanRequest, operator_id: i64
         return Err(crate::core::errors::error::Error::BadRequest("仅待审批状态可进行审批操作".to_string()));
     }
 
-    // ===== 校验当前操作人是当前审批人 =====
-    let current_approver_id = plan.current_approver_id.unwrap_or(0);
+    let mut current_approver_id = plan.current_approver_id.unwrap_or(0);
+    let mut current_level = plan.approval_level.unwrap_or(0);
+    let mut total_levels = plan.total_levels.unwrap_or(0);
+    let employee_id = plan.employee_id;
+    let plan_year = plan.year;
+
+    // 自愈：历史脏数据存在 status=1 但无审批链（current_approver_id 为空），
+    // 按提交规则重建审批链与节点快照后继续正常审批流程
     if current_approver_id == 0 {
-        return Err(crate::core::errors::error::Error::BadRequest("该计划无当前审批人，无法审批".to_string()));
+        let (approver_chain, _) = build_approver_chain(&txn, req.plan_id, employee_id).await?;
+        if approver_chain.is_empty() {
+            // 重建后仍无审批人：按“无审批链自动通过”惯例收口
+            let mut active = performance_plan::ActiveModel {
+                id: Set(req.plan_id),
+                status: Set(Some(2)),
+                current_approver_id: Set(None),
+                current_approver_name: Set(None),
+                approval_level: Set(Some(0)),
+                total_levels: Set(Some(0)),
+                ..Default::default()
+            };
+            active.update(&txn).await?;
+            let log = plan_approval_log::ActiveModel {
+                plan_id: Set(req.plan_id),
+                action: Set(2), // approve
+                operator_id: Set(operator_id),
+                operator_name: Set(Some(operator_name.to_string())),
+                reason: Set(Some("历史数据缺失审批链且无可用审批人，系统自动通过".to_string())),
+                previous_status: Set(Some(1)),
+                new_status: Set(Some(2)),
+                current_level: Set(Some(0)),
+                ..Default::default()
+            };
+            log.insert(&txn).await?;
+            txn.commit().await?;
+            return get_plan_detail(db, req.plan_id).await;
+        }
+        // 清理残留节点后写入重建的审批链
+        PlanApprovalNode::delete_many()
+            .filter(plan_approval_node::Column::PlanId.eq(req.plan_id))
+            .filter(plan_approval_node::Column::Deleted.eq(0))
+            .exec(&txn)
+            .await?;
+        for (idx, (approver_id, approver_name)) in approver_chain.iter().enumerate() {
+            let node = plan_approval_node::ActiveModel {
+                plan_id: Set(req.plan_id),
+                level: Set((idx + 1) as i32),
+                approver_id: Set(*approver_id),
+                approver_name: Set(Some(approver_name.clone())),
+                status: Set(Some(0)),
+                comment: Set(None),
+                ..Default::default()
+            };
+            node.insert(&txn).await?;
+        }
+        current_level = 1;
+        total_levels = approver_chain.len() as i32;
+        current_approver_id = approver_chain[0].0;
+        let mut active = performance_plan::ActiveModel {
+            id: Set(req.plan_id),
+            current_approver_id: Set(Some(current_approver_id)),
+            current_approver_name: Set(Some(approver_chain[0].1.clone())),
+            approval_level: Set(Some(current_level)),
+            total_levels: Set(Some(total_levels)),
+            ..Default::default()
+        };
+        active.update(&txn).await?;
+        let log = plan_approval_log::ActiveModel {
+            plan_id: Set(req.plan_id),
+            action: Set(1), // submit
+            operator_id: Set(operator_id),
+            operator_name: Set(Some(operator_name.to_string())),
+            reason: Set(Some("检测到历史数据缺失审批链，系统已自动重建".to_string())),
+            previous_status: Set(Some(1)),
+            new_status: Set(Some(1)),
+            current_level: Set(Some(1)),
+            ..Default::default()
+        };
+        log.insert(&txn).await?;
     }
+
     if current_approver_id != operator_id {
         return Err(crate::core::errors::error::Error::BadRequest(
             format!("您不是当前审批人（当前审批人ID={}），无法审批此计划", current_approver_id)
@@ -375,10 +468,6 @@ pub async fn approve_plan(db: &DbConn, req: &ReviewPlanRequest, operator_id: i64
     }
 
     let previous_status = plan.status;
-    let current_level = plan.approval_level.unwrap_or(1);
-    let total_levels = plan.total_levels.unwrap_or(1);
-    let employee_id = plan.employee_id;
-    let plan_year = plan.year;
 
     // ===== 更新当前审批节点状态 =====
     let current_node = PlanApprovalNode::find()
@@ -475,28 +564,76 @@ pub async fn reject_plan(db: &DbConn, req: &ReviewPlanRequest, operator_id: i64,
         return Err(crate::core::errors::error::Error::BadRequest("仅待审批状态可进行审批操作".to_string()));
     }
 
-    // ===== 校验当前操作人是当前审批人 =====
-    let current_approver_id = plan.current_approver_id.unwrap_or(0);
-    if current_approver_id == 0 {
-        return Err(crate::core::errors::error::Error::BadRequest("该计划无当前审批人，无法审批".to_string()));
-    }
-    if current_approver_id != operator_id {
-        return Err(crate::core::errors::error::Error::BadRequest(
-            format!("您不是当前审批人（当前审批人ID={}），无法审批此计划", current_approver_id)
-        ));
-    }
-
     // ===== 驳回原因必填 =====
     let reason = req.reason.as_ref().map(|s| s.trim()).unwrap_or("");
     if reason.is_empty() {
         return Err(crate::core::errors::error::Error::BadRequest("驳回时必须填写原因".to_string()));
     }
 
-    let previous_status = plan.status;
-    let current_level = plan.approval_level.unwrap_or(1);
+    let mut current_approver_id = plan.current_approver_id.unwrap_or(0);
+    let mut current_level = plan.approval_level.unwrap_or(0);
     let employee_id = plan.employee_id;
     let plan_year = plan.year;
+    let previous_status = plan.status;
     let new_status = 3; // rejected
+
+    // 自愈：历史脏数据存在 status=1 但无审批链（current_approver_id 为空），
+    // 按提交规则重建审批链与节点快照后继续正常审批流程
+    let mut skip_approver_check = false;
+    if current_approver_id == 0 {
+        let (approver_chain, _) = build_approver_chain(&txn, req.plan_id, employee_id).await?;
+        if approver_chain.is_empty() {
+            // 重建后仍无审批人：允许本次驳回直接生效，解除孤儿状态
+            skip_approver_check = true;
+        } else {
+            PlanApprovalNode::delete_many()
+                .filter(plan_approval_node::Column::PlanId.eq(req.plan_id))
+                .filter(plan_approval_node::Column::Deleted.eq(0))
+                .exec(&txn)
+                .await?;
+            for (idx, (approver_id, approver_name)) in approver_chain.iter().enumerate() {
+                let node = plan_approval_node::ActiveModel {
+                    plan_id: Set(req.plan_id),
+                    level: Set((idx + 1) as i32),
+                    approver_id: Set(*approver_id),
+                    approver_name: Set(Some(approver_name.clone())),
+                    status: Set(Some(0)),
+                    comment: Set(None),
+                    ..Default::default()
+                };
+                node.insert(&txn).await?;
+            }
+            current_level = 1;
+            current_approver_id = approver_chain[0].0;
+            let mut active = performance_plan::ActiveModel {
+                id: Set(req.plan_id),
+                current_approver_id: Set(Some(current_approver_id)),
+                current_approver_name: Set(Some(approver_chain[0].1.clone())),
+                approval_level: Set(Some(current_level)),
+                total_levels: Set(Some(approver_chain.len() as i32)),
+                ..Default::default()
+            };
+            active.update(&txn).await?;
+            let log = plan_approval_log::ActiveModel {
+                plan_id: Set(req.plan_id),
+                action: Set(1), // submit
+                operator_id: Set(operator_id),
+                operator_name: Set(Some(operator_name.to_string())),
+                reason: Set(Some("检测到历史数据缺失审批链，系统已自动重建".to_string())),
+                previous_status: Set(Some(1)),
+                new_status: Set(Some(1)),
+                current_level: Set(Some(1)),
+                ..Default::default()
+            };
+            log.insert(&txn).await?;
+        }
+    }
+
+    if !skip_approver_check && current_approver_id != operator_id {
+        return Err(crate::core::errors::error::Error::BadRequest(
+            format!("您不是当前审批人（当前审批人ID={}），无法审批此计划", current_approver_id)
+        ));
+    }
 
     // ===== 更新当前审批节点状态 =====
     let current_node = PlanApprovalNode::find()
@@ -543,6 +680,98 @@ pub async fn reject_plan(db: &DbConn, req: &ReviewPlanRequest, operator_id: i64,
         .await;
 
     get_plan_detail(db, req.plan_id).await
+}
+
+/// 撤回（待审批→草稿，仅第一级未审可撤，方案 §4.5.3）
+/// 校验：计划属于本人、status=1、approval_level=1 且第一级节点未处理
+/// 动作：status 回 0，清空审批进度字段，未审批节点置 3（已跳过），日志 action=5
+pub async fn withdraw_plan(db: &DbConn, plan_id: i64, operator_id: i64, operator_name: &str) -> Result<PlanDetailVO> {
+    let txn = db.begin().await?;
+
+    let plan = PerformancePlan::find_by_id(plan_id)
+        .filter(performance_plan::Column::Deleted.eq(0))
+        .one(&txn)
+        .await?
+        .ok_or_else(|| crate::core::errors::error::Error::BadRequest("计划不存在".to_string()))?;
+
+    // 计划属于本人
+    if plan.employee_id != operator_id {
+        return Err(crate::core::errors::error::Error::BadRequest("仅计划本人可撤回该计划".to_string()));
+    }
+
+    // 仅待审批状态可撤回
+    if plan.status != Some(1) {
+        return Err(crate::core::errors::error::Error::BadRequest("仅待审批状态可撤回".to_string()));
+    }
+
+    // 仅第一级未处理前可撤回
+    if plan.approval_level != Some(1) {
+        return Err(crate::core::errors::error::Error::BadRequest("仅第一级审批未处理前可撤回".to_string()));
+    }
+
+    // ===== 第一级节点必须未处理（按 id 倒序取最新一轮提交的节点）=====
+    let first_node = PlanApprovalNode::find()
+        .filter(plan_approval_node::Column::PlanId.eq(plan_id))
+        .filter(plan_approval_node::Column::Level.eq(1))
+        .filter(plan_approval_node::Column::Deleted.eq(0))
+        .order_by_desc(plan_approval_node::Column::Id)
+        .one(&txn)
+        .await?;
+    match first_node {
+        Some(node) if node.status == Some(0) => {}
+        Some(_) => return Err(crate::core::errors::error::Error::BadRequest("第一级审批已处理，无法撤回".to_string())),
+        None => return Err(crate::core::errors::error::Error::BadRequest("审批节点缺失，无法撤回".to_string())),
+    }
+
+    let previous_status = plan.status;
+    let employee_id = plan.employee_id;
+    let plan_year = plan.year;
+
+    // ===== 未审批节点全部置为已跳过 =====
+    let pending_nodes = PlanApprovalNode::find()
+        .filter(plan_approval_node::Column::PlanId.eq(plan_id))
+        .filter(plan_approval_node::Column::Deleted.eq(0))
+        .filter(plan_approval_node::Column::Status.eq(0))
+        .all(&txn)
+        .await?;
+    for node in pending_nodes {
+        let mut node_active: plan_approval_node::ActiveModel = node.into_active_model();
+        node_active.status = Set(Some(3)); // skipped
+        node_active.update(&txn).await?;
+    }
+
+    // ===== 计划回到草稿态（对齐 create_plan：审批进度字段全部清空）=====
+    let mut active: performance_plan::ActiveModel = plan.into_active_model();
+    active.status = Set(Some(0)); // draft
+    active.current_approver_id = Set(None);
+    active.current_approver_name = Set(None);
+    active.approval_level = Set(None);
+    active.total_levels = Set(None);
+    active.submit_time = Set(None);
+    active.update(&txn).await?;
+
+    // ===== 记录审批日志 =====
+    let log = plan_approval_log::ActiveModel {
+        plan_id: Set(plan_id),
+        action: Set(5), // withdraw
+        operator_id: Set(operator_id),
+        operator_name: Set(Some(operator_name.to_string())),
+        reason: Set(Some("提交人主动撤回".to_string())),
+        previous_status: Set(previous_status),
+        new_status: Set(Some(0)),
+        current_level: Set(Some(1)),
+        ..Default::default()
+    };
+    log.insert(&txn).await?;
+
+    txn.commit().await?;
+
+    // 通知提交人撤回结果
+    let _ = send_plan_notice(db, employee_id, operator_id,
+        &format!("您的 {} 年销售计划已撤回", plan_year),
+        &format!("您已撤回 {} 年销售计划，计划回到草稿状态，可修改后重新提交。", plan_year)).await;
+
+    get_plan_detail(db, plan_id).await
 }
 
 /// 申请修改（已通过→待审批，version+1）
@@ -748,6 +977,11 @@ pub async fn update_plan_targets(
             "仅草稿或已驳回状态可直接更新目标，已通过状态请走申请修改流程".to_string(),
         ));
     }
+    if plan.is_frozen.unwrap_or(0) == 1 {
+        return Err(crate::core::errors::error::Error::BadRequest(
+            "该计划已冻结，不可修改".to_string(),
+        ));
+    }
 
     // 软删除旧月度目标
     let old_targets = PlanMonthlyTarget::find()
@@ -897,16 +1131,29 @@ async fn build_progress_for_employees(
     })
 }
 
-/// 获取计划列表
-/// pending_my_approval=true 时查询当前用户作为 current_approver_id 的待审计划
+/// 获取计划列表（数据权限 + 分页 + 排序白名单 + 完成度聚合）
+/// - pending_my_approval=true：查询当前用户作为 current_approver_id 的待审计划（current_approver_id 天然限定范围）
+/// - 否则：仅返回数据权限范围内员工的计划；显式传 employee_id 必须在权限范围内，否则报越权错误
+/// - 排序白名单：submit_time/total_contract_target/completion_rate/payment_completion_rate/employee_name/status
+///   （聚合字段在内存排序；计划表单员工单年度数据量有限，先全量聚合后内存分页）
 pub async fn get_plan_list(
     db: &DbConn,
     employee_id: Option<i64>,
     year: Option<i32>,
     status: Option<i32>,
+    status_list: Option<Vec<i32>>,
+    dept_id: Option<i64>,
+    keyword: Option<String>,
     pending_my_approval: Option<bool>,
     current_user_id: i64,
-) -> Result<Vec<PlanListVO>> {
+    page: i64,
+    page_size: i64,
+    order_by: Option<String>,
+    order_dir: Option<String>,
+) -> Result<PlanListPageVO> {
+    let page = page.max(1);
+    let page_size = page_size.clamp(1, 200);
+
     let mut query = PerformancePlan::find()
         .filter(performance_plan::Column::Deleted.eq(0));
 
@@ -915,8 +1162,60 @@ pub async fn get_plan_list(
         query = query
             .filter(performance_plan::Column::CurrentApproverId.eq(current_user_id))
             .filter(performance_plan::Column::Status.eq(1));
-    } else if let Some(eid) = employee_id {
-        query = query.filter(performance_plan::Column::EmployeeId.eq(eid));
+    } else {
+        // 数据权限：直接下属 ∪ 本人，再与 data_scope 求交
+        let mut visible_ids = collect_subordinate_ids(db, current_user_id).await;
+        visible_ids.push(current_user_id);
+        if let Ok(Some(scope)) = data_scope_service::get_accessible_user_ids(db, current_user_id).await {
+            visible_ids.retain(|id| scope.contains(id));
+        }
+        if visible_ids.is_empty() {
+            return Ok(PlanListPageVO { total: 0, page, page_size, items: vec![] });
+        }
+        // 部门筛选：解析部门成员 ID 后与可见范围求交
+        if let Some(did) = dept_id {
+            let dept_admin_ids: Vec<i64> = crate::modules::system::entity::admin_dept_merge::Entity::find()
+                .filter(crate::modules::system::entity::admin_dept_merge::Column::DeptId.eq(did))
+                .all(db)
+                .await?
+                .into_iter()
+                .filter_map(|m| m.admin_id)
+                .collect();
+            visible_ids.retain(|id| dept_admin_ids.contains(id));
+            if visible_ids.is_empty() {
+                return Ok(PlanListPageVO { total: 0, page, page_size, items: vec![] });
+            }
+        }
+        // 关键词筛选：昵称/用户名模糊匹配后与可见范围求交
+        if let Some(kw) = keyword.as_deref() {
+            let kw = kw.trim();
+            if !kw.is_empty() {
+                let matched: Vec<i64> = Admin::find()
+                    .filter(crate::modules::system::entity::admin::Column::Deleted.eq(0))
+                    .filter(
+                        sea_orm::Condition::any()
+                            .add(crate::modules::system::entity::admin::Column::UserName.contains(kw))
+                            .add(crate::modules::system::entity::admin::Column::NickName.contains(kw)),
+                    )
+                    .all(db)
+                    .await?
+                    .into_iter()
+                    .map(|a| a.id)
+                    .collect();
+                visible_ids.retain(|id| matched.contains(id));
+                if visible_ids.is_empty() {
+                    return Ok(PlanListPageVO { total: 0, page, page_size, items: vec![] });
+                }
+            }
+        }
+        if let Some(eid) = employee_id {
+            if !visible_ids.contains(&eid) {
+                return Err(Error::BadRequest("目标员工不在您的数据权限范围内".to_string()));
+            }
+            query = query.filter(performance_plan::Column::EmployeeId.eq(eid));
+        } else {
+            query = query.filter(performance_plan::Column::EmployeeId.is_in(visible_ids));
+        }
     }
 
     if let Some(y) = year {
@@ -925,41 +1224,99 @@ pub async fn get_plan_list(
     if let Some(s) = status {
         query = query.filter(performance_plan::Column::Status.eq(s));
     }
-
-    query = query.order_by(performance_plan::Column::SubmitTime, sea_orm::Order::Desc)
-        .order_by(performance_plan::Column::Id, sea_orm::Order::Desc);
+    if let Some(list) = status_list {
+        if !list.is_empty() {
+            query = query.filter(performance_plan::Column::Status.is_in(list));
+        }
+    }
 
     let plans = query.all(db).await?;
+    if plans.is_empty() {
+        return Ok(PlanListPageVO { total: 0, page, page_size, items: vec![] });
+    }
 
-    // 获取员工姓名
-    let admin_map = Admin::find()
+    // 员工姓名 + 部门名（一次性加载，消除 VO 组装 N+1）
+    let admins = Admin::find()
         .filter(crate::modules::system::entity::admin::Column::Deleted.eq(0))
         .all(db)
-        .await?
-        .into_iter()
-        .map(|a| (a.id, a.user_name))
+        .await?;
+    let admin_map = admins
+        .iter()
+        .map(|a| (a.id, a.user_name.clone()))
         .collect::<std::collections::HashMap<i64, Option<String>>>();
+    let mut dept_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for d in crate::modules::system::entity::dept::Entity::find().all(db).await? {
+        if let Some(name) = d.dept_name {
+            dept_map.insert(d.id, name);
+        }
+    }
+    let mut admin_dept_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for m in crate::modules::system::entity::admin_dept_merge::Entity::find().all(db).await? {
+        if let (Some(aid), Some(did)) = (m.admin_id, m.dept_id) {
+            if let Some(name) = dept_map.get(&did) {
+                admin_dept_map.insert(aid, name.clone());
+            }
+        }
+    }
 
-    let mut result = Vec::new();
-    for p in plans {
-        // 获取月度目标汇总
-        let targets = PlanMonthlyTarget::find()
-            .filter(plan_monthly_target::Column::PlanId.eq(p.id))
-            .filter(plan_monthly_target::Column::Deleted.eq(0))
-            .all(db)
-            .await?;
+    // 月度目标汇总：is_in 一次查全，消除逐条 N+1
+    let plan_ids: Vec<i64> = plans.iter().map(|p| p.id).collect();
+    let mut contract_target_map: std::collections::HashMap<i64, Decimal> = std::collections::HashMap::new();
+    let mut payment_target_map: std::collections::HashMap<i64, Decimal> = std::collections::HashMap::new();
+    let targets = PlanMonthlyTarget::find()
+        .filter(plan_monthly_target::Column::PlanId.is_in(plan_ids))
+        .filter(plan_monthly_target::Column::Deleted.eq(0))
+        .all(db)
+        .await?;
+    for t in targets {
+        *contract_target_map.entry(t.plan_id).or_insert(Decimal::from(0)) += t.contract_target_amount.unwrap_or(Decimal::from(0));
+        *payment_target_map.entry(t.plan_id).or_insert(Decimal::from(0)) += t.payment_target_amount.unwrap_or(Decimal::from(0));
+    }
 
-        let total_contract: Decimal = targets.iter()
-            .map(|t| t.contract_target_amount.unwrap_or(Decimal::from(0)))
-            .sum();
-        let total_payment: Decimal = targets.iter()
-            .map(|t| t.payment_target_amount.unwrap_or(Decimal::from(0)))
-            .sum();
+    // 实际值聚合（口径与进度汇总/业绩排行一致）：
+    // 合同实际 = 已签订(status 2/3/4/5)合同，按 assigned_to + 签订年份聚合
+    // 回款实际 = 回款记录，按 owner_user_id + 回款年份聚合
+    let employee_ids: Vec<i64> = plans.iter().map(|p| p.employee_id).collect::<std::collections::HashSet<_>>().into_iter().collect();
+    let mut contract_actual_map: std::collections::HashMap<(i64, i32), Decimal> = std::collections::HashMap::new();
+    let mut payment_actual_map: std::collections::HashMap<(i64, i32), Decimal> = std::collections::HashMap::new();
 
-        result.push(PlanListVO {
+    let contracts = Contract::find()
+        .filter(contract::Column::Deleted.eq(0))
+        .filter(contract::Column::Status.is_in(vec![2_i32, 3, 4, 5]))
+        .filter(contract::Column::AssignedTo.is_in(employee_ids.clone()))
+        .all(db)
+        .await?;
+    for c in contracts {
+        if let (Some(eid), Some(d)) = (c.assigned_to, c.sign_date) {
+            *contract_actual_map.entry((eid, d.year())).or_insert(Decimal::from(0)) += c.amount.unwrap_or(Decimal::from(0));
+        }
+    }
+
+    let payments = Payment::find()
+        .filter(payment::Column::Deleted.eq(0))
+        .filter(payment::Column::OwnerUserId.is_in(employee_ids))
+        .all(db)
+        .await?;
+    for p in payments {
+        if let (Some(eid), Some(d)) = (p.owner_user_id, p.payment_date) {
+            *payment_actual_map.entry((eid, d.year())).or_insert(Decimal::from(0)) += p.amount.unwrap_or(Decimal::from(0));
+        }
+    }
+
+    let zero = Decimal::from(0);
+    let hundred = Decimal::from(100);
+    let mut items: Vec<PlanListVO> = plans.into_iter().map(|p| {
+        let total_contract = contract_target_map.get(&p.id).copied().unwrap_or(zero);
+        let total_payment = payment_target_map.get(&p.id).copied().unwrap_or(zero);
+        let contract_actual = contract_actual_map.get(&(p.employee_id, p.year)).copied().unwrap_or(zero);
+        let payment_actual = payment_actual_map.get(&(p.employee_id, p.year)).copied().unwrap_or(zero);
+        let completion_rate = if total_contract > zero { contract_actual * hundred / total_contract } else { zero };
+        let payment_completion_rate = if total_payment > zero { payment_actual * hundred / total_payment } else { zero };
+        PlanListVO {
             id: Some(p.id),
             employee_id: Some(p.employee_id),
             employee_name: admin_map.get(&p.employee_id).cloned().flatten(),
+            dept_name: admin_dept_map.get(&p.employee_id).cloned(),
             year: Some(p.year),
             status: p.status,
             version: p.version,
@@ -974,10 +1331,145 @@ pub async fn get_plan_list(
             total_levels: p.total_levels,
             submit_time: p.submit_time.map(|t| t.to_string()),
             is_frozen: p.is_frozen,
-        });
+            total_contract_actual: Some(contract_actual),
+            total_payment_actual: Some(payment_actual),
+            completion_rate: Some(completion_rate),
+            payment_completion_rate: Some(payment_completion_rate),
+        }
+    }).collect();
+
+    // 排序白名单（内存排序）：聚合字段无法下推 SQL；同序时按 id 倒序兜底保证分页稳定
+    let order_key = order_by.as_deref().unwrap_or("submit_time");
+    let desc = !matches!(order_dir.as_deref(), Some("asc") | Some("ASC"));
+    use std::cmp::Ordering;
+    items.sort_by(|a, b| {
+        let ord = match order_key {
+            "total_contract_target" => a.total_contract_target.unwrap_or(zero).cmp(&b.total_contract_target.unwrap_or(zero)),
+            "completion_rate" => a.completion_rate.unwrap_or(zero).cmp(&b.completion_rate.unwrap_or(zero)),
+            "payment_completion_rate" => a.payment_completion_rate.unwrap_or(zero).cmp(&b.payment_completion_rate.unwrap_or(zero)),
+            "employee_name" => a.employee_name.clone().unwrap_or_default().cmp(&b.employee_name.clone().unwrap_or_default()),
+            "status" => a.status.unwrap_or(0).cmp(&b.status.unwrap_or(0)),
+            "version" => a.version.unwrap_or(0).cmp(&b.version.unwrap_or(0)),
+            // submit_time 为 "YYYY-MM-DD HH:MM:SS" 固定格式，字符串比较即时间序
+            _ => a.submit_time.clone().unwrap_or_default().cmp(&b.submit_time.clone().unwrap_or_default()),
+        };
+        let ord = if desc { ord.reverse() } else { ord };
+        ord.then(b.id.cmp(&a.id))
+    });
+    let _ = Ordering::Equal;
+
+    let total = items.len() as i64;
+    let start = ((page - 1) * page_size) as usize;
+    let page_items: Vec<PlanListVO> = items
+        .into_iter()
+        .skip(start)
+        .take(page_size as usize)
+        .collect();
+
+    Ok(PlanListPageVO { total, page, page_size, items: page_items })
+}
+
+/// 单员工逐月"目标 vs 实际"钻取（方案 §4.5.2，团队列表行操作打开）
+/// 目标 = 该员工当年已通过(status=2)计划月度目标；实际口径与 get_plan_list 一致
+pub async fn get_monthly_compare(
+    db: &DbConn,
+    employee_id: i64,
+    year: i32,
+    current_user_id: i64,
+) -> Result<Vec<MonthlyCompareRowVO>> {
+    if employee_id <= 0 {
+        return Err(Error::BadRequest("employee_id 不能为空".to_string()));
     }
 
-    Ok(result)
+    // 数据权限：直接下属 ∪ 本人，再与 data_scope 求交（与 get_plan_list 一致）
+    let mut visible_ids = collect_subordinate_ids(db, current_user_id).await;
+    visible_ids.push(current_user_id);
+    if let Ok(Some(scope)) = data_scope_service::get_accessible_user_ids(db, current_user_id).await {
+        visible_ids.retain(|id| scope.contains(id));
+    }
+    if !visible_ids.contains(&employee_id) {
+        return Err(Error::BadRequest("目标员工不在您的数据权限范围内".to_string()));
+    }
+
+    // 目标：唯一索引 uk_plan_employee_year 保证 (employee_id, year, status=2) 至多一条
+    let plan = PerformancePlan::find()
+        .filter(performance_plan::Column::EmployeeId.eq(employee_id))
+        .filter(performance_plan::Column::Year.eq(year))
+        .filter(performance_plan::Column::Status.eq(2))
+        .filter(performance_plan::Column::Deleted.eq(0))
+        .one(db)
+        .await?;
+
+    let zero = Decimal::from(0);
+    let mut contract_target = [zero; 13];
+    let mut payment_target = [zero; 13];
+    if let Some(p) = &plan {
+        let targets = PlanMonthlyTarget::find()
+            .filter(plan_monthly_target::Column::PlanId.eq(p.id))
+            .filter(plan_monthly_target::Column::Deleted.eq(0))
+            .all(db)
+            .await?;
+        for t in targets {
+            let m = t.month as usize;
+            if (1..=12).contains(&m) {
+                contract_target[m] += t.contract_target_amount.unwrap_or(zero);
+                payment_target[m] += t.payment_target_amount.unwrap_or(zero);
+            }
+        }
+    }
+
+    // 实际值聚合（口径与 get_plan_list 一致）：
+    // 合同实际 = 已签订(status 2/3/4/5)合同，按 assigned_to + 签订年月聚合
+    // 回款实际 = 回款记录，按 owner_user_id + 回款年月聚合
+    let mut contract_actual = [zero; 13];
+    let mut payment_actual = [zero; 13];
+
+    let contracts = Contract::find()
+        .filter(contract::Column::Deleted.eq(0))
+        .filter(contract::Column::Status.is_in(vec![2_i32, 3, 4, 5]))
+        .filter(contract::Column::AssignedTo.eq(employee_id))
+        .all(db)
+        .await?;
+    for c in contracts {
+        if let Some(d) = c.sign_date {
+            if d.year() == year {
+                contract_actual[d.month() as usize] += c.amount.unwrap_or(zero);
+            }
+        }
+    }
+
+    let payments = Payment::find()
+        .filter(payment::Column::Deleted.eq(0))
+        .filter(payment::Column::OwnerUserId.eq(employee_id))
+        .all(db)
+        .await?;
+    for p in payments {
+        if let Some(d) = p.payment_date {
+            if d.year() == year {
+                payment_actual[d.month() as usize] += p.amount.unwrap_or(zero);
+            }
+        }
+    }
+
+    // 固定 12 行输出（无目标/无实际月份填 0，前端无需补齐）
+    let hundred = Decimal::from(100);
+    let mut rows: Vec<MonthlyCompareRowVO> = Vec::with_capacity(12);
+    for m in 1..=12 {
+        let ct = contract_target[m];
+        let ca = contract_actual[m];
+        let pt = payment_target[m];
+        let pa = payment_actual[m];
+        rows.push(MonthlyCompareRowVO {
+            month: m as i32,
+            contract_target: ct,
+            contract_actual: ca,
+            payment_target: pt,
+            payment_actual: pa,
+            contract_rate: if ct > zero { ca * hundred / ct } else { zero },
+            payment_rate: if pt > zero { pa * hundred / pt } else { zero },
+        });
+    }
+    Ok(rows)
 }
 
 /// 获取计划详情（含月度目标和审批记录）
@@ -1099,6 +1591,7 @@ pub async fn get_plan_modify_detail(db: &DbConn, plan_id: i64) -> Result<crate::
             id: Some(plan.id),
             employee_id: Some(plan.employee_id),
             employee_name: None,
+            dept_name: None,
             year: Some(plan.year),
             status: plan.status,
             version: plan.version,
@@ -1113,6 +1606,10 @@ pub async fn get_plan_modify_detail(db: &DbConn, plan_id: i64) -> Result<crate::
             total_levels: plan.total_levels,
             submit_time: plan.submit_time.map(|t| t.to_string()),
             is_frozen: plan.is_frozen,
+            total_contract_actual: None,
+            total_payment_actual: None,
+            completion_rate: None,
+            payment_completion_rate: None,
         }),
         monthly_targets: Some(monthly_vos),
     })
@@ -1156,4 +1653,52 @@ async fn send_plan_notice(
     )
     .await;
     Ok(())
+}
+
+// ==================== P2-1: 站内催办 + 年度冻结（方案 §4.5.5） ====================
+
+/// 站内催办：对数据权限范围内尚未创建当年计划（覆盖度 items 中 has_plan=false）的员工
+/// 发送站内通知（通知类型 2=审批通知）；单个发送失败不影响其余，仅记日志
+/// 返回成功催办人数
+pub async fn remind_unsubmitted(db: &DbConn, scope: &StatsScope, year: i32) -> Result<usize> {
+    let coverage = get_plan_coverage(db, scope, year).await?;
+    let title = format!("{} 年度销售计划催办", year);
+    let content = format!(
+        "您尚未创建 {} 年度销售计划，请尽快前往【业绩管理】填写并提交，以免影响团队目标汇总。",
+        year
+    );
+    let mut sent = 0_usize;
+    for item in coverage.items.iter().filter(|v| !v.has_plan) {
+        let sent_result = crate::modules::message::service::notification_service::NotificationService::send_system_notification(
+            db,
+            item.employee_id,
+            title.clone(),
+            content.clone(),
+            2, // 通知类型 2=审批通知
+            Some("/statistics/performance".to_string()),
+        )
+        .await;
+        if sent_result.is_ok() {
+            sent += 1;
+        } else {
+            log::warn!("销售计划催办通知发送失败 employee_id={}", item.employee_id);
+        }
+    }
+    Ok(sent)
+}
+
+/// 年度冻结：将上一年度全部未冻结计划置为 is_frozen=1（每年 1 月 1 日定时任务触发）
+/// 幂等：已冻结记录自动跳过，返回本次实际冻结条数
+pub async fn freeze_last_year_plans(db: &DbConn) -> Result<u64> {
+    let last_year = chrono::Local::now().year() - 1;
+    let res = db
+        .execute_raw(Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            r#"UPDATE mxx_statistics_performance_plan
+               SET is_frozen = 1, update_time = CURRENT_TIMESTAMP
+               WHERE year = $1 AND deleted = 0 AND COALESCE(is_frozen, 0) = 0"#,
+            [last_year.into()],
+        ))
+        .await?;
+    Ok(res.rows_affected())
 }

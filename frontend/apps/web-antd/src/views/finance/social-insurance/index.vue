@@ -7,6 +7,7 @@ import { useAccess } from '@vben/access';
 import { Page } from '@vben/common-ui';
 
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -30,13 +31,16 @@ import {
 } from 'ant-design-vue';
 
 import {
+  batchSetInsuranceConfigApi,
   deleteInsurancePolicyApi,
   getEmployeeInsuranceConfigListApi,
+  getInsuranceCoverageApi,
   getInsurancePolicyListApi,
   previewInsuranceCalcApi,
   upsertEmployeeInsuranceConfigApi,
   upsertInsurancePolicyApi,
 } from '#/api/core/finance';
+import { getUserListApi } from '#/api/core/system/user';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { UserPickerModal } from '#/components/UserPickerModal';
 import { $t } from '#/locales';
@@ -515,6 +519,23 @@ async function runPolicyPreview() {
 const empInsLoading = ref(false);
 const empInsList = ref<any[]>([]);
 
+// ===== 员工社保配置覆盖度（参与核算员工中已配置/继承/缺失统计） =====
+const coverageLoading = ref(false);
+const coverage = ref<any>(null);
+
+async function loadCoverage() {
+  coverageLoading.value = true;
+  try {
+    const res: any = await getInsuranceCoverageApi();
+    const data = res?.data || res;
+    coverage.value = data ?? null;
+  } catch {
+    coverage.value = null;
+  } finally {
+    coverageLoading.value = false;
+  }
+}
+
 function joinedTypes(record: any) {
   const types: string[] = [];
   if (record.participatePension === 1) types.push('养老');
@@ -558,6 +579,23 @@ const empInsColumns = computed(() => [
       record.levelName || $t('page.finance.insurance.drawer.levelTypeCustom'),
   },
   {
+    title: $t('page.finance.insurance.column.source'),
+    key: 'source',
+    width: 100,
+    customRender: ({ record }: any) => {
+      // P1-1：来源标记（存量数据无 source 视为手工配置）
+      const isInherited = record.source === 'inherited';
+      return h(
+        Tag,
+        { color: isInherited ? 'blue' : 'default' },
+        () =>
+          isInherited
+            ? $t('page.finance.insurance.source.inherited')
+            : $t('page.finance.insurance.source.manual'),
+      );
+    },
+  },
+  {
     title: $t('page.finance.insurance.drawer.baseUsed'),
     key: 'baseAmount',
     align: 'right' as const,
@@ -596,6 +634,7 @@ const empInsColumns = computed(() => [
 
 async function loadEmpInsList() {
   empInsLoading.value = true;
+  await loadCoverage();
   try {
     const res: any = await getEmployeeInsuranceConfigListApi();
     const data = res?.data || res;
@@ -610,6 +649,180 @@ async function loadEmpInsList() {
     empInsLoading.value = false;
   }
 }
+
+// ===== P1-2 批量设置参保方案 =====
+const batchSetVisible = ref(false);
+const batchSetSubmitting = ref(false);
+const batchEmployeeLoading = ref(false);
+const batchEmployeeList = ref<any[]>([]);
+const batchSelectedIds = ref<number[]>([]);
+const batchKeyword = ref('');
+const batchPagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0,
+  showSizeChanger: true,
+  showTotal: (total: number) => `共 ${total} 条`,
+});
+const batchCityCode = ref<string>();
+const batchPolicyId = ref<number>();
+const batchLevelId = ref<number>();
+const batchResult = ref<any>(null);
+
+const batchEmployeeColumns = computed(() => [
+  {
+    title: $t('page.finance.common.employeeName'),
+    dataIndex: 'nickName',
+    width: 120,
+  },
+  { title: $t('page.system.user.userName'), dataIndex: 'userName', width: 130 },
+  { title: $t('page.system.user.mobile'), dataIndex: 'mobile', width: 130 },
+]);
+
+const batchRowSelection = computed(() => ({
+  selectedRowKeys: batchSelectedIds.value,
+  preserveSelectedRowKeys: true,
+  onChange: (keys: any[]) => {
+    batchSelectedIds.value = keys.map(Number);
+  },
+}));
+
+const batchPolicyOptions = computed(() =>
+  policyList.value
+    .filter((item: any) => item.policy?.cityCode === batchCityCode.value)
+    .map((item: any) => ({
+      value: item.policy.id,
+      label: `${item.policy.year} 年度（${fmtDate(item.policy.effectiveDate)} ~ ${fmtDate(item.policy.expiryDate)}）`,
+    })),
+);
+
+const batchSelectedPolicy = computed(() =>
+  policyList.value.find((item: any) => item.policy?.id === batchPolicyId.value),
+);
+
+const batchLevelOptions = computed(() =>
+  (batchSelectedPolicy.value?.levels || []).map((lv: any) => ({
+    value: lv.id,
+    label: `${lv.levelName || '档次'}（基数 ${formatMoney(lv.baseAmount)}）`,
+  })),
+);
+
+// 方案摘要（操作前预览展示）
+const batchSchemeSummary = computed(() => {
+  if (!batchSelectedPolicy.value) return '';
+  const policy = batchSelectedPolicy.value.policy;
+  const cityLabel =
+    cityOptions.value.find((c: any) => c.value === batchCityCode.value)?.label ||
+    batchCityCode.value ||
+    '-';
+  const level = (batchSelectedPolicy.value.levels || []).find(
+    (lv: any) => lv.id === batchLevelId.value,
+  );
+  const levelLabel = level
+    ? `${level.levelName || '档次'}（基数 ${formatMoney(level.baseAmount)}）`
+    : '默认档次';
+  return `${cityLabel} · ${policy.year} 年度 · ${levelLabel}`;
+});
+
+function openBatchSetModal() {
+  batchSetVisible.value = true;
+  batchSelectedIds.value = [];
+  batchCityCode.value = undefined;
+  batchPolicyId.value = undefined;
+  batchLevelId.value = undefined;
+  batchResult.value = null;
+  batchKeyword.value = '';
+  batchPagination.current = 1;
+  loadBatchEmployees();
+}
+
+async function loadBatchEmployees() {
+  batchEmployeeLoading.value = true;
+  try {
+    const res: any = await getUserListApi({
+      page: batchPagination.current,
+      pageSize: batchPagination.pageSize,
+      nickName: batchKeyword.value || undefined,
+    });
+    batchEmployeeList.value = res?.items || [];
+    batchPagination.total = res?.total || 0;
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.insurance.message.loadEmpConfigFailed'),
+    );
+    batchEmployeeList.value = [];
+    batchPagination.total = 0;
+  } finally {
+    batchEmployeeLoading.value = false;
+  }
+}
+
+function handleBatchSearch() {
+  batchPagination.current = 1;
+  loadBatchEmployees();
+}
+
+function handleBatchTableChange(pag: any) {
+  batchPagination.current = pag.current;
+  batchPagination.pageSize = pag.pageSize;
+  loadBatchEmployees();
+}
+
+function onBatchCityChange() {
+  batchPolicyId.value = undefined;
+  batchLevelId.value = undefined;
+}
+
+function onBatchPolicyChange() {
+  batchLevelId.value = undefined;
+}
+
+async function submitBatchSet() {
+  if (batchSelectedIds.value.length === 0) {
+    message.warning($t('page.finance.insurance.batchSet.noEmployee'));
+    return;
+  }
+  if (!batchPolicyId.value) {
+    message.warning($t('page.finance.insurance.batchSet.noPolicy'));
+    return;
+  }
+  batchSetSubmitting.value = true;
+  try {
+    const res: any = await batchSetInsuranceConfigApi({
+      employeeIds: batchSelectedIds.value,
+      cityCode: batchCityCode.value,
+      policyId: batchPolicyId.value,
+      policyLevelId: batchLevelId.value,
+    });
+    const data = res?.data || res;
+    batchResult.value = data;
+    message.success(
+      $t('page.finance.insurance.batchSet.doneMsg')
+        .replace('{n}', String(data?.success?.length ?? 0))
+        .replace('{m}', String(data?.failed?.length ?? 0)),
+    );
+    await loadEmpInsList();
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.insurance.message.loadEmpConfigFailed'),
+    );
+  } finally {
+    batchSetSubmitting.value = false;
+  }
+}
+
+// 批量设置失败清单列
+const batchFailedColumns = computed(() => [
+  {
+    title: $t('page.finance.common.employeeId'),
+    dataIndex: 'employeeId',
+    width: 100,
+  },
+  {
+    title: $t('page.finance.insurance.batchSet.failReason'),
+    dataIndex: 'reason',
+  },
+]);
 
 // ===== 员工社保配置表单 =====
 const empInsFormVisible = ref(false);
@@ -1016,13 +1229,56 @@ onMounted(() => {
         </TabPane>
 
         <TabPane key="empIns" :tab="$t('page.finance.insurance.tab.empConfig')">
+          <Alert
+            v-if="coverage"
+            class="mb-4"
+            :type="coverage.missing > 0 ? 'warning' : 'success'"
+            show-icon
+          >
+            <template #message>
+              {{
+                $t('page.finance.insurance.coverage.summary')
+                  .replace('{total}', String(coverage.total))
+                  .replace('{configured}', String(coverage.configured))
+                  .replace('{inherited}', String(coverage.inherited))
+              }}
+            </template>
+            <template v-if="coverage.missing > 0" #description>
+              <div class="flex flex-wrap items-center gap-1">
+                <span>
+                  {{
+                    $t('page.finance.insurance.coverage.missingTip').replace(
+                      '{n}',
+                      String(coverage.missing),
+                    )
+                  }}
+                </span>
+                <Tag
+                  v-for="emp in coverage.missingList"
+                  :key="emp.employeeId"
+                  color="error"
+                >
+                  {{ emp.employeeName }}({{ emp.employeeId }})
+                </Tag>
+              </div>
+            </template>
+          </Alert>
           <div class="mb-4 flex items-center justify-between">
             <Button @click="loadEmpInsList">
               {{ $t('page.finance.common.refresh') }}
             </Button>
-            <Button v-if="canManage" type="primary" @click="openEmpInsForm()">
-              {{ $t('page.finance.insurance.button.createEmpConfig') }}
-            </Button>
+            <Space>
+              <Button
+                v-if="canManage"
+                type="primary"
+                @click="openBatchSetModal"
+              >
+                {{ $t('page.finance.insurance.batchSet.button') }}
+              </Button>
+              <Button v-if="canManage" type="primary" @click="openEmpInsForm()">
+                {{ $t('page.finance.insurance.button.createEmpConfig') }}
+              </Button>
+            </Space>
           </div>
           <Table
             :columns="empInsColumns"
@@ -1763,6 +2019,131 @@ onMounted(() => {
             :scroll="{ x: 520 }"
           />
         </Form>
+      </div>
+    </Modal>
+
+    <!-- P1-2 批量设置参保方案弹窗 -->
+    <Modal
+      v-model:open="batchSetVisible"
+      :title="$t('page.finance.insurance.batchSet.title')"
+      :confirm-loading="batchSetSubmitting"
+      width="860px"
+      @ok="submitBatchSet"
+    >
+      <div class="max-h-[62vh] overflow-y-auto py-2 pr-2">
+        <Divider orientation="left" plain>
+          {{ $t('page.finance.insurance.batchSet.stepEmployees') }}
+        </Divider>
+        <div class="mb-2 flex items-center gap-2">
+          <Input
+            v-model:value="batchKeyword"
+            :placeholder="$t('page.finance.insurance.batchSet.searchEmployee')"
+            allow-clear
+            style="width: 240px"
+            @press-enter="handleBatchSearch"
+          />
+          <Button @click="handleBatchSearch">
+            {{ $t('page.finance.common.query') }}
+          </Button>
+          <span class="text-sm text-gray-500">
+            {{
+              $t('page.finance.insurance.batchSet.selectedCount').replace(
+                '{n}',
+                String(batchSelectedIds.length),
+              )
+            }}
+          </span>
+        </div>
+        <Table
+          :columns="batchEmployeeColumns"
+          :data-source="batchEmployeeList"
+          :loading="batchEmployeeLoading"
+          :row-selection="batchRowSelection"
+          row-key="id"
+          :pagination="batchPagination"
+          size="small"
+          :scroll="{ y: 260 }"
+          @change="handleBatchTableChange"
+        />
+
+        <Divider orientation="left" plain>
+          {{ $t('page.finance.insurance.batchSet.stepScheme') }}
+        </Divider>
+        <Form layout="vertical" autocomplete="off">
+          <Row :gutter="16">
+            <Col :span="8">
+              <FormItem
+                :label="$t('page.finance.insurance.drawer.selectCity')"
+                required
+              >
+                <Select
+                  v-model:value="batchCityCode"
+                  :options="cityOptions"
+                  :placeholder="$t('page.finance.insurance.drawer.selectCity')"
+                  style="width: 100%"
+                  @change="onBatchCityChange"
+                />
+              </FormItem>
+            </Col>
+            <Col :span="8">
+              <FormItem
+                :label="$t('page.finance.insurance.batchSet.policy')"
+                required
+              >
+                <Select
+                  v-model:value="batchPolicyId"
+                  :options="batchPolicyOptions"
+                  :placeholder="$t('page.finance.insurance.batchSet.policy')"
+                  style="width: 100%"
+                  :disabled="!batchCityCode"
+                  @change="onBatchPolicyChange"
+                />
+              </FormItem>
+            </Col>
+            <Col :span="8">
+              <FormItem
+                :label="$t('page.finance.insurance.batchSet.level')"
+              >
+                <Select
+                  v-model:value="batchLevelId"
+                  :options="batchLevelOptions"
+                  :placeholder="$t('page.finance.insurance.batchSet.level')"
+                  style="width: 100%"
+                  :disabled="!batchPolicyId"
+                  allow-clear
+                />
+              </FormItem>
+            </Col>
+          </Row>
+        </Form>
+        <div v-if="batchSchemeSummary" class="rounded bg-blue-50 p-3 text-sm">
+          {{
+            $t('page.finance.insurance.batchSet.preview')
+              .replace('{n}', String(batchSelectedIds.length))
+              .replace('{summary}', batchSchemeSummary)
+          }}
+        </div>
+
+        <template v-if="batchResult">
+          <Divider orientation="left" plain>
+            {{ $t('page.finance.insurance.batchSet.resultTitle') }}
+          </Divider>
+          <div class="mb-2 text-sm">
+            {{
+              $t('page.finance.insurance.batchSet.doneMsg')
+                .replace('{n}', String(batchResult.success?.length ?? 0))
+                .replace('{m}', String(batchResult.failed?.length ?? 0))
+            }}
+          </div>
+          <Table
+            v-if="batchResult.failed?.length > 0"
+            :columns="batchFailedColumns"
+            :data-source="batchResult.failed"
+            :pagination="false"
+            size="small"
+            :scroll="{ y: 200 }"
+          />
+        </template>
       </div>
     </Modal>
   </Page>

@@ -24,11 +24,52 @@ use crate::modules::sale::entity::order::{self, Entity as Order};
 use crate::modules::sale::entity::order_item::{self, Entity as OrderItem};
 use crate::modules::sale::entity::payment::{self, Entity as Payment};
 use crate::modules::sale::entity::quotation::{self, Entity as Quotation};
-use crate::modules::statistics::entity::performance_target::{self, Entity as PerformanceTarget};
+use crate::modules::statistics::entity::performance_plan::{self, Entity as PerformancePlan};
+use crate::modules::statistics::entity::plan_monthly_target::{self, Entity as PlanMonthlyTarget};
 use crate::modules::statistics::model::performance_overview::*;
 use crate::modules::system::entity::admin::{self, Entity as Admin};
+use crate::modules::system::entity::admin_dept_merge::{self, Entity as AdminDeptMerge};
+use crate::modules::system::entity::dept::{self, Entity as Dept};
 
 // ===================== Helper functions =====================
+
+/// 统一目标源（方案 §4.2）：当年已通过（status=2）计划的月度目标
+/// 返回 (employee_id, month, contract_target_amount, payment_target_amount, contract_target_count)
+/// accessible_user_ids 为 None 表示超管全量，Some(empty) 时返回空集合（调用方自行短路）
+pub async fn load_approved_plan_targets(
+    db: &DbConn,
+    year: i32,
+    accessible_user_ids: &Option<Vec<i64>>,
+) -> Result<Vec<(i64, i32, Option<Decimal>, Option<Decimal>, Option<i32>)>> {
+    let mut plan_query = PerformancePlan::find()
+        .filter(performance_plan::Column::Year.eq(year))
+        .filter(performance_plan::Column::Status.eq(2))
+        .filter(performance_plan::Column::Deleted.eq(0));
+    if let Some(ref ids) = accessible_user_ids {
+        plan_query = plan_query.filter(performance_plan::Column::EmployeeId.is_in(ids.clone()));
+    }
+    let plans = plan_query.all(db).await?;
+    if plans.is_empty() {
+        return Ok(vec![]);
+    }
+    let employee_by_plan: HashMap<i64, i64> = plans
+        .into_iter()
+        .map(|p| (p.id, p.employee_id))
+        .collect();
+    let plan_ids: Vec<i64> = employee_by_plan.keys().copied().collect();
+    let targets = PlanMonthlyTarget::find()
+        .filter(plan_monthly_target::Column::PlanId.is_in(plan_ids))
+        .filter(plan_monthly_target::Column::Deleted.eq(0))
+        .all(db)
+        .await?;
+    Ok(targets
+        .into_iter()
+        .filter_map(|t| {
+            let employee_id = *employee_by_plan.get(&t.plan_id)?;
+            Some((employee_id, t.month, t.contract_target_amount, t.payment_target_amount, t.contract_target_count))
+        })
+        .collect())
+}
 
 /// 根据年/月/时间维度计算日期范围（闭区间）
 fn range_for(y: i32, m: Option<i32>, dim: &str) -> (NaiveDate, NaiveDate) {
@@ -325,16 +366,11 @@ pub async fn get_forecast(
 
     let forecast_amount = completed_amount + pipeline_amount * win_rate_decimal;
 
-    // 当年业绩目标（按可访问用户过滤 employee_id）
-    let mut target_query = PerformanceTarget::find()
-        .filter(performance_target::Column::Year.eq(y));
-    if let Some(ref ids) = accessible_user_ids {
-        target_query = target_query.filter(performance_target::Column::EmployeeId.is_in(ids.clone()));
-    }
-    let target_rows = target_query.all(db).await?;
+    // 当年业绩目标（统一目标源：已通过计划的月度合同目标，方案 §4.2）
+    let target_rows = load_approved_plan_targets(db, y, &accessible_user_ids).await?;
     let target_amount: Decimal = target_rows
-        .into_iter()
-        .map(|t| t.contract_target_amount.unwrap_or(Decimal::from(0)))
+        .iter()
+        .map(|(_, _, c, _, _)| c.unwrap_or(Decimal::from(0)))
         .sum();
 
     let gap_amount = if target_amount > forecast_amount {
@@ -1384,4 +1420,278 @@ pub async fn get_milestone(
         remaining,
         milestones,
     })
+}
+
+// ===================== 10. 月度业绩 / 业绩排行 =====================
+// 自旧 performance_target 体系迁入（统一目标源方案 §4.2），
+// 目标口径改为已通过计划月度目标，实际口径与出参结构保持不变
+
+/// GET /statistics/performance/monthly - 月度业绩（目标 vs 实际，按月聚合）
+pub async fn get_monthly_performance(db: &DbConn, year: Option<i32>, _department_id: Option<i64>, accessible_user_ids: Option<Vec<i64>>) -> Result<MonthlyPerformanceStatsVO> {
+    let year = year.unwrap_or(Local::now().year() as i32);
+
+    // 无可访问用户：返回零值结果
+    if let Some(ref ids) = accessible_user_ids {
+        if ids.is_empty() {
+            return Ok(MonthlyPerformanceStatsVO {
+                year: Some(year),
+                total_contract_target: Some(Decimal::from(0)),
+                total_payment_target: Some(Decimal::from(0)),
+                total_contract_actual: Some(Decimal::from(0)),
+                total_payment_actual: Some(Decimal::from(0)),
+                contract_completion_rate: Some(Decimal::from(0)),
+                payment_completion_rate: Some(Decimal::from(0)),
+                months: Some(vec![]),
+            });
+        }
+    }
+
+    // 目标：当年已通过计划的月度目标（统一目标源，方案 §4.2）
+    let target_rows = load_approved_plan_targets(db, year, &accessible_user_ids).await?;
+    let mut month_targets: HashMap<i32, (Decimal, Decimal)> = HashMap::new();
+    for (_eid, m, contract_t, payment_t, _cnt) in &target_rows {
+        let (c, p) = month_targets.entry(*m).or_insert((Decimal::from(0), Decimal::from(0)));
+        *c += contract_t.unwrap_or(Decimal::from(0));
+        *p += payment_t.unwrap_or(Decimal::from(0));
+    }
+
+    // 合同实际：按签订日期月份聚合合同金额（按可访问用户过滤负责人）
+    let mut contract_query = Contract::find()
+        .filter(contract::Column::Deleted.eq(0));
+    if let Some(ref ids) = accessible_user_ids {
+        contract_query = contract_query.filter(contract::Column::AssignedTo.is_in(ids.clone()));
+    }
+    let contracts = contract_query.all(db).await?;
+    let mut month_contract_actual: HashMap<i32, Decimal> = HashMap::new();
+    let mut month_contract_count: HashMap<i32, i64> = HashMap::new();
+    for c in &contracts {
+        if let Some(d) = c.sign_date {
+            if d.year() == year {
+                let m = d.month() as i32;
+                let v = month_contract_actual.entry(m).or_insert(Decimal::from(0));
+                *v += c.amount.unwrap_or(Decimal::from(0));
+                let cnt = month_contract_count.entry(m).or_insert(0);
+                *cnt += 1;
+            }
+        }
+    }
+
+    // 回款实际：按回款日期月份聚合回款金额（按可访问用户过滤负责人）
+    let mut payment_query = Payment::find()
+        .filter(payment::Column::Deleted.eq(0));
+    if let Some(ref ids) = accessible_user_ids {
+        payment_query = payment_query.filter(payment::Column::OwnerUserId.is_in(ids.clone()));
+    }
+    let payments = payment_query.all(db).await?;
+    let mut month_payment_actual: HashMap<i32, Decimal> = HashMap::new();
+    let mut month_payment_count: HashMap<i32, i64> = HashMap::new();
+    for p in &payments {
+        if let Some(d) = p.payment_date {
+            if d.year() == year {
+                let m = d.month() as i32;
+                let v = month_payment_actual.entry(m).or_insert(Decimal::from(0));
+                *v += p.amount.unwrap_or(Decimal::from(0));
+                let cnt = month_payment_count.entry(m).or_insert(0);
+                *cnt += 1;
+            }
+        }
+    }
+
+    let mut months = Vec::new();
+    for m in 1..=12 {
+        let (contract_target, payment_target) = month_targets.get(&m).copied().unwrap_or((Decimal::from(0), Decimal::from(0)));
+        let contract_actual = month_contract_actual.get(&m).copied().unwrap_or(Decimal::from(0));
+        let payment_actual = month_payment_actual.get(&m).copied().unwrap_or(Decimal::from(0));
+        let contract_completion_rate = if contract_target > Decimal::from(0) {
+            contract_actual / contract_target * Decimal::from(100)
+        } else {
+            Decimal::from(0)
+        };
+        let payment_completion_rate = if payment_target > Decimal::from(0) {
+            payment_actual / payment_target * Decimal::from(100)
+        } else {
+            Decimal::from(0)
+        };
+
+        months.push(MonthlyPerformanceVO {
+            month: Some(m),
+            contract_target: Some(contract_target),
+            payment_target: Some(payment_target),
+            contract_actual: Some(contract_actual),
+            payment_actual: Some(payment_actual),
+            contract_completion_rate: Some(contract_completion_rate),
+            payment_completion_rate: Some(payment_completion_rate),
+            contract_count: Some(month_contract_count.get(&m).copied().unwrap_or(0)),
+            payment_count: Some(month_payment_count.get(&m).copied().unwrap_or(0)),
+        });
+    }
+
+    let total_contract_target: Decimal = month_targets.values().map(|(c, _)| *c).sum();
+    let total_payment_target: Decimal = month_targets.values().map(|(_, p)| *p).sum();
+    let total_contract_actual: Decimal = month_contract_actual.values().copied().sum();
+    let total_payment_actual: Decimal = month_payment_actual.values().copied().sum();
+
+    Ok(MonthlyPerformanceStatsVO {
+        year: Some(year),
+        total_contract_target: Some(total_contract_target),
+        total_payment_target: Some(total_payment_target),
+        total_contract_actual: Some(total_contract_actual),
+        total_payment_actual: Some(total_payment_actual),
+        contract_completion_rate: Some(if total_contract_target > Decimal::from(0) { total_contract_actual / total_contract_target * Decimal::from(100) } else { Decimal::from(0) }),
+        payment_completion_rate: Some(if total_payment_target > Decimal::from(0) { total_payment_actual / total_payment_target * Decimal::from(100) } else { Decimal::from(0) }),
+        months: Some(months),
+    })
+}
+
+/// GET /statistics/performance/ranking - 业绩排行（按人聚合目标 vs 实际）
+pub async fn get_performance_ranking(db: &DbConn, year: Option<i32>, month: Option<i32>, order_by: Option<String>, _department_id: Option<i64>, accessible_user_ids: Option<Vec<i64>>) -> Result<Vec<PerformanceRankingVO>> {
+    let year = year.unwrap_or(Local::now().year() as i32);
+    let _ = month;
+
+    // 无可访问用户：返回空排行
+    if let Some(ref ids) = accessible_user_ids {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+    }
+
+    // 目标：当年已通过计划的月度目标（统一目标源，方案 §4.2）
+    let targets = load_approved_plan_targets(db, year, &accessible_user_ids).await?;
+
+    let admin_map = Admin::find()
+        .filter(admin::Column::Deleted.eq(0))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|a| (a.id, a.user_name))
+        .collect::<HashMap<i64, Option<String>>>();
+
+    // 查询员工-部门关联 + 部门名称
+    let admin_ids: Vec<i64> = admin_map.keys().copied().collect();
+    let admin_dept_rows = if admin_ids.is_empty() {
+        vec![]
+    } else {
+        AdminDeptMerge::find()
+            .filter(admin_dept_merge::Column::AdminId.is_in(admin_ids))
+            .all(db)
+            .await?
+    };
+    let dept_ids: Vec<i64> = admin_dept_rows.iter().filter_map(|r| r.dept_id).collect();
+    let dept_map = if dept_ids.is_empty() {
+        HashMap::new()
+    } else {
+        Dept::find()
+            .filter(dept::Column::Deleted.eq(0))
+            .filter(dept::Column::Id.is_in(dept_ids))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|d| (d.id, d.dept_name))
+            .collect::<HashMap<i64, Option<String>>>()
+    };
+    let employee_dept_map: HashMap<i64, Option<String>> = {
+        let mut m: HashMap<i64, Option<String>> = HashMap::new();
+        for r in &admin_dept_rows {
+            if let (Some(aid), Some(did)) = (r.admin_id, r.dept_id) {
+                if let Some(dname) = dept_map.get(&did) {
+                    m.insert(aid, dname.clone());
+                }
+            }
+        }
+        m
+    };
+
+    // (contract_target, payment_target, contract_actual, payment_actual, contract_count, payment_count)
+    let mut employee_stats: HashMap<i64, (Decimal, Decimal, Decimal, Decimal, i64, i64)> = HashMap::new();
+
+    for (eid, _m, contract_t, payment_t, _cnt) in targets {
+        let (ct, pt, _ca, _pa, _cc, _pc) =
+            employee_stats.entry(eid).or_insert((Decimal::from(0), Decimal::from(0), Decimal::from(0), Decimal::from(0), 0, 0));
+        *ct += contract_t.unwrap_or(Decimal::from(0));
+        *pt += payment_t.unwrap_or(Decimal::from(0));
+    }
+
+    // 合同实际：按负责人聚合当年签订的合同金额（按可访问用户过滤负责人）
+    let mut contract_query = Contract::find()
+        .filter(contract::Column::Deleted.eq(0));
+    if let Some(ref ids) = accessible_user_ids {
+        contract_query = contract_query.filter(contract::Column::AssignedTo.is_in(ids.clone()));
+    }
+    let contracts = contract_query.all(db).await?;
+    for c in &contracts {
+        if let Some(d) = c.sign_date {
+            if d.year() == year {
+                let eid = c.assigned_to.unwrap_or(0);
+                let (ct, pt, ca, _pa, cc, _pc) =
+                    employee_stats.entry(eid).or_insert((Decimal::from(0), Decimal::from(0), Decimal::from(0), Decimal::from(0), 0, 0));
+                *ca += c.amount.unwrap_or(Decimal::from(0));
+                *cc += 1;
+            }
+        }
+    }
+
+    // 回款实际：按负责人聚合当年回款金额（按可访问用户过滤负责人）
+    let mut payment_query = Payment::find()
+        .filter(payment::Column::Deleted.eq(0));
+    if let Some(ref ids) = accessible_user_ids {
+        payment_query = payment_query.filter(payment::Column::OwnerUserId.is_in(ids.clone()));
+    }
+    let payments = payment_query.all(db).await?;
+    for p in &payments {
+        if let Some(d) = p.payment_date {
+            if d.year() == year {
+                let eid = p.owner_user_id.unwrap_or(0);
+                let (ct, pt, _ca, pa, _cc, pc) =
+                    employee_stats.entry(eid).or_insert((Decimal::from(0), Decimal::from(0), Decimal::from(0), Decimal::from(0), 0, 0));
+                *pa += p.amount.unwrap_or(Decimal::from(0));
+                *pc += 1;
+            }
+        }
+    }
+
+    let mut ranking: Vec<PerformanceRankingVO> = employee_stats.into_iter()
+        .map(|(eid, (contract_target, payment_target, contract_actual, payment_actual, contract_count, payment_count))| {
+            let contract_completion_rate = if contract_target > Decimal::from(0) {
+                contract_actual / contract_target * Decimal::from(100)
+            } else {
+                Decimal::from(0)
+            };
+            let payment_completion_rate = if payment_target > Decimal::from(0) {
+                payment_actual / payment_target * Decimal::from(100)
+            } else {
+                Decimal::from(0)
+            };
+
+            PerformanceRankingVO {
+                rank: None,
+                employee_id: Some(eid),
+                employee_name: admin_map.get(&eid).cloned().flatten(),
+                department_name: employee_dept_map.get(&eid).and_then(|n| n.clone()),
+                contract_amount: Some(contract_actual),
+                contract_count: Some(contract_count),
+                payment_amount: Some(payment_actual),
+                payment_count: Some(payment_count),
+                contract_target: Some(contract_target),
+                payment_target: Some(payment_target),
+                contract_completion_rate: Some(contract_completion_rate),
+                payment_completion_rate: Some(payment_completion_rate),
+            }
+        })
+        .collect();
+
+    let order_by = order_by.unwrap_or("contract_amount".to_string());
+    // 排序白名单：合同额/回款额/合同完成率/回款完成率（方案 §4.5.4）
+    let sort_key = |v: &PerformanceRankingVO| match order_by.as_str() {
+        "payment_amount" => v.payment_amount.unwrap_or(Decimal::from(0)),
+        "contract_completion_rate" => v.contract_completion_rate.unwrap_or(Decimal::from(0)),
+        "payment_completion_rate" => v.payment_completion_rate.unwrap_or(Decimal::from(0)),
+        _ => v.contract_amount.unwrap_or(Decimal::from(0)),
+    };
+    ranking.sort_by(|a, b| sort_key(b).cmp(&sort_key(a)));
+
+    for (i, item) in ranking.iter_mut().enumerate() {
+        item.rank = Some((i + 1) as i32);
+    }
+
+    Ok(ranking)
 }

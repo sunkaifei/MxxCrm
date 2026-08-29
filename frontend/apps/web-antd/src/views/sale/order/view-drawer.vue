@@ -34,6 +34,8 @@ import {
   updateOrderStatusApi,
 } from '#/api';
 import { searchUsersApi } from '#/api/core/message/chat';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+import { formatQty } from '#/components/UnitSelect';
 
 import {
   approvalStatusColorMap,
@@ -70,6 +72,21 @@ const actionLoading = ref(false);
 
 const userStore = useUserStore();
 const currentUserId = computed(() => userStore.userInfo?.userId);
+
+// 自定义字段明细展示：拉取 schema，仅展示有值的键（选项/成员/附件按类型格式化）
+const fieldSchema = useFieldSchema('sale_order');
+fieldSchema.loadSchema();
+const cfRows = computed(() =>
+  fieldSchema.items.value
+    .map((item) => ({
+      label: item.fieldLabel,
+      value: fieldSchema.formatFieldValue(
+        item,
+        (detail.value as any)?.customFields?.[item.fieldKey],
+      ),
+    }))
+    .filter((r) => r.value !== ''),
+);
 
 // 审批实例（撤销/抄送判断用）
 const apprInstance = ref<any>(null);
@@ -244,7 +261,13 @@ const itemColumns: TableColumnsType = [
   },
   { title: '产品信息', key: 'product', width: 220 },
   { title: '规格', dataIndex: 'spec', width: 110, ellipsis: true },
-  { title: '单位', dataIndex: 'unit', width: 60, align: 'center' },
+  {
+    title: '数量',
+    dataIndex: 'quantity',
+    width: 70,
+    align: 'right',
+    customRender: ({ record, text }: any) => formatQty(text, record?.unit),
+  },
   {
     title: '单价',
     key: 'unitPrice',
@@ -253,13 +276,7 @@ const itemColumns: TableColumnsType = [
     customRender: ({ text }: any) =>
       `${currencySymbol.value}${formatMoney(text)}`,
   },
-  {
-    title: '数量',
-    dataIndex: 'quantity',
-    width: 70,
-    align: 'right',
-    customRender: ({ text }: any) => Number(text || 0),
-  },
+  { title: '单位', dataIndex: 'unit', width: 60, align: 'center' },
   {
     title: '折扣',
     key: 'discountRate',
@@ -780,6 +797,13 @@ watch(
               </DescriptionsItem>
               <DescriptionsItem label="更新时间">
                 {{ formatDateTime(detail.updateTime) }}
+              </DescriptionsItem>
+              <DescriptionsItem
+                v-for="row in cfRows"
+                :key="row.label"
+                :label="row.label"
+              >
+                {{ row.value }}
               </DescriptionsItem>
             </Descriptions>
           </Card>

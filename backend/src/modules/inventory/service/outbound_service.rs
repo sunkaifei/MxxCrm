@@ -87,6 +87,7 @@ pub async fn create(
         let item_active = outbound_item::ActiveModel {
             outbound_id: Set(Some(outbound_id)),
             product_id: Set(Some(item.product_id)),
+            sku_id: Set(item.sku_id),
             product_sku: Set(item.product_sku.clone()),
             quantity: Set(Some(item.quantity)),
             batch_no: Set(item.batch_no.clone()),
@@ -316,12 +317,13 @@ pub async fn do_complete_audit(
                 let quantity = item.quantity.unwrap_or_default();
 
                 // 检查可用库存并扣减（含 SELECT FOR UPDATE 行锁）
-                stock_engine::decrease_stock(txn, product_id, warehouse_id, quantity).await?;
+                stock_engine::decrease_stock(txn, product_id, item.sku_id, warehouse_id, quantity).await?;
 
                 // 写入库存流水
                 stock_engine::write_stock_log(
                     txn,
                     product_id,
+                    item.sku_id,
                     warehouse_id,
                     None,
                     "outbound",
@@ -575,6 +577,7 @@ pub async fn get_detail(
             "outboundId": item.outbound_id,
             "productId": item.product_id,
             "productSku": item.product_sku,
+            "skuId": item.sku_id,
             "productCode": product_code,
             "productName": product_name,
             "spec": spec,
@@ -634,6 +637,7 @@ pub async fn update(
                     let item_active = outbound_item::ActiveModel {
                         outbound_id: Set(Some(id)),
                         product_id: Set(Some(item.product_id)),
+                        sku_id: Set(item.sku_id),
                         product_sku: Set(item.product_sku.clone()),
                         quantity: Set(Some(item.quantity)),
                         batch_no: Set(item.batch_no.clone()),
@@ -695,15 +699,17 @@ pub async fn update(
                         // 取当前库存的 avg_cost 作为回填成本，保证成本不漂移
                         let avg_cost = stock::Entity::find()
                             .filter(stock::Column::ProductId.eq(product_id))
+                            .filter(stock_engine::sku_condition(old_item.sku_id))
                             .filter(stock::Column::WarehouseId.eq(warehouse_id))
                             .filter(stock::Column::Deleted.eq(0))
                             .one(txn)
                             .await?
                             .and_then(|s| s.avg_cost);
-                        stock_engine::increase_stock(txn, product_id, warehouse_id, quantity, avg_cost).await?;
+                        stock_engine::increase_stock(txn, product_id, old_item.sku_id, warehouse_id, quantity, avg_cost).await?;
                         stock_engine::write_stock_log(
                             txn,
                             product_id,
+                            old_item.sku_id,
                             warehouse_id,
                             None,
                             "outbound",
@@ -750,6 +756,7 @@ pub async fn update(
                     let item_active = outbound_item::ActiveModel {
                         outbound_id: Set(Some(id)),
                         product_id: Set(Some(item.product_id)),
+                        sku_id: Set(item.sku_id),
                         product_sku: Set(item.product_sku.clone()),
                         quantity: Set(Some(item.quantity)),
                         batch_no: Set(item.batch_no.clone()),
@@ -766,10 +773,11 @@ pub async fn update(
                     let product_id = item.product_id;
                     let quantity = item.quantity;
                     if quantity != Decimal::ZERO {
-                        stock_engine::decrease_stock(txn, product_id, req_clone.warehouse_id, quantity).await?;
+                        stock_engine::decrease_stock(txn, product_id, item.sku_id, req_clone.warehouse_id, quantity).await?;
                         stock_engine::write_stock_log(
                             txn,
                             product_id,
+                            item.sku_id,
                             req_clone.warehouse_id,
                             None,
                             "outbound",
@@ -984,6 +992,7 @@ pub async fn create_and_auto_audit(
     for item in &req.items {
         let stock_record = stock::Entity::find()
             .filter(stock::Column::ProductId.eq(item.product_id))
+            .filter(stock_engine::sku_condition(item.sku_id))
             .filter(stock::Column::WarehouseId.eq(req.warehouse_id))
             .filter(stock::Column::Deleted.eq(0))
             .one(db)
@@ -1044,6 +1053,7 @@ pub async fn create_and_auto_audit(
                 let item_active = outbound_item::ActiveModel {
                     outbound_id: Set(Some(outbound_id)),
                     product_id: Set(Some(item.product_id)),
+                    sku_id: Set(item.sku_id),
                     product_sku: Set(item.product_sku.clone()),
                     quantity: Set(Some(item.quantity)),
                     batch_no: Set(item.batch_no.clone()),
@@ -1055,12 +1065,13 @@ pub async fn create_and_auto_audit(
                 item_active.insert(txn).await?;
 
                 // 扣减库存
-                stock_engine::decrease_stock(txn, item.product_id, req.warehouse_id, item.quantity).await?;
+                stock_engine::decrease_stock(txn, item.product_id, item.sku_id, req.warehouse_id, item.quantity).await?;
 
                 // 写入流水
                 stock_engine::write_stock_log(
                     txn,
                     item.product_id,
+                    item.sku_id,
                     req.warehouse_id,
                     None,
                     "outbound",

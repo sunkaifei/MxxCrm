@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { VbenFormSchema } from '@vben/common-ui';
 
-import { computed, ref, watch } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import { useVbenForm } from '@vben/common-ui';
 
@@ -9,14 +9,15 @@ import { message, Tooltip } from 'ant-design-vue';
 
 import { useVbenDrawer } from '#/adapter/drawer';
 import { createInvoiceApi, getInvoiceInfoApi, updateInvoiceApi } from '#/api';
+import { getContractInfoApi } from '#/api/core/crm/contract';
+import { getOrderInfoApi } from '#/api/core/sale/order';
 import { getUserListApi } from '#/api/core/system/user';
+import ContractSelectModal from '../../crm/components/ContractSelectModal.vue';
 
-const props = withDefaults(defineProps<{ create?: boolean; row?: any }>(), {
-  create: true,
-  row: () => ({}),
-});
+// connectedComponent 模式下父级 setData 的数据不映射为 props，需通过 drawerApi.getData() 获取
+const drawerData = ref<{ create?: boolean; row?: any }>({});
 
-const isEdit = computed(() => !props.create);
+const isEdit = computed(() => !drawerData.value.create);
 const isFullscreen = ref(false);
 
 const drawerClass = computed(() => [
@@ -45,6 +46,39 @@ const currencyOptions = [
 ];
 
 const userOptions = ref<any[]>([]);
+
+// 已选合同（新建/改选时赋值）与编辑回显的原始关联ID
+const selectedContract = ref<any>(null);
+const editSource = ref<{
+  contractId?: any;
+  orderId?: any;
+  customerId?: any;
+  ownerUserId?: any;
+}>({});
+const contractSelectVisible = ref(false);
+
+// 后端枚举可能以字符串变体名返回（如 "CNY"），归一化为数字
+const currencyNumMap: Record<string, number> = {
+  cny: 1,
+  usd: 2,
+  eur: 3,
+  gbp: 4,
+  jpy: 5,
+  hkd: 6,
+  aud: 7,
+};
+function toCurrencyNum(val: any): number {
+  if (typeof val === 'number') return val;
+  const num = Number(val);
+  if (!Number.isNaN(num) && num > 0) return num;
+  return currencyNumMap[String(val).toLowerCase()] ?? 1;
+}
+function formatContractLabel(row: any): string {
+  if (!row) return '';
+  const title = row.title || (row.id ? `合同 #${row.id}` : '');
+  if (!title) return '';
+  return row.contractNo ? `${title}（${row.contractNo}）` : title;
+}
 
 async function loadUserOptions() {
   try {
@@ -88,53 +122,60 @@ const formSchema: VbenFormSchema[] = [
     },
   },
   {
-    component: 'InputNumber',
-    fieldName: 'contractId',
-    label: '合同ID',
-    componentProps: {
-      placeholder: '请输入合同ID',
-      style: 'width:100%',
-      min: 1,
-    },
-  },
-  {
-    component: 'InputNumber',
-    fieldName: 'orderId',
-    label: '订单ID',
-    componentProps: {
-      placeholder: '请输入订单ID',
-      style: 'width:100%',
-      min: 1,
-    },
-  },
-  {
-    component: 'InputNumber',
-    fieldName: 'customerId',
-    label: '客户ID',
+    component: 'Input',
+    fieldName: 'contractDisplay',
+    label: '关联合同',
     rules: 'required',
     componentProps: {
-      placeholder: '请输入客户ID',
+      placeholder: '点击选择合同',
+      readonly: true,
+      style: 'width:100%;cursor:pointer',
+      onClick: () => (contractSelectVisible.value = true),
+    },
+    renderComponentContent: () => ({
+      suffix: () =>
+        h(
+          'span',
+          {
+            class: 'text-xs text-blue-600',
+            style: 'cursor:pointer;white-space:nowrap;user-select:none',
+            onClick: (e: Event) => {
+              e.stopPropagation();
+              contractSelectVisible.value = true;
+            },
+          },
+          '选择',
+        ),
+    }),
+  },
+  {
+    component: 'Input',
+    fieldName: 'orderDisplay',
+    label: '关联订单',
+    componentProps: {
+      placeholder: '选择合同后自动带出',
+      disabled: true,
       style: 'width:100%',
-      min: 1,
     },
   },
   {
     component: 'Input',
     fieldName: 'customerName',
     label: '客户名称',
-    componentProps: { placeholder: '请输入客户名称' },
+    componentProps: {
+      placeholder: '选择合同后自动带出',
+      disabled: true,
+      style: 'width:100%',
+    },
   },
   {
-    component: 'Select',
-    fieldName: 'ownerUserId',
+    component: 'Input',
+    fieldName: 'ownerDisplay',
     label: '负责人',
     componentProps: {
-      placeholder: '请选择负责人',
-      allowClear: true,
-      showSearch: true,
-      filterOption: (input: string, option: any) =>
-        option.label.toLowerCase().includes(input.toLowerCase()),
-      options: userOptions,
+      placeholder: '选择合同后自动带出',
+      disabled: true,
+      style: 'width:100%',
     },
   },
   {
@@ -243,58 +284,128 @@ const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
 });
 
-watch(
-  () => props.row,
-  async (val) => {
-    if (val && !props.create) {
+// 编辑回显：拉取发票详情填充表单，并解析关联合同/订单/负责人的显示名称
+async function fillForm(row: any) {
+  try {
+    // 确保负责人选项已加载，避免回显降级为 "员工 #id"
+    if (!userOptions.value.length) {
+      await loadUserOptions();
+    }
+    const info = await getInvoiceInfoApi(row.id);
+    const data = info || row;
+    editSource.value = {
+      contractId: data.contractId ?? undefined,
+      orderId: data.orderId ?? undefined,
+      customerId: data.customerId ?? undefined,
+      ownerUserId:
+        data.ownerUserId === null || data.ownerUserId === undefined
+          ? undefined
+          : Number(data.ownerUserId),
+    };
+    // 解析合同显示名（标题+编号）
+    let contractDisplay = '';
+    if (data.contractId) {
       try {
-        const info = await getInvoiceInfoApi(val.id);
-        const data = info || val;
-        formApi.setValues({
-          title: data.title,
-          invoiceType: data.invoiceType ?? 1,
-          invoiceDate: data.invoiceDate,
-          contractId: data.contractId,
-          orderId: data.orderId,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          ownerUserId:
-            data.ownerUserId === null || data.ownerUserId === undefined
-              ? undefined
-              : Number(data.ownerUserId),
-          dueDate: data.dueDate,
-          amount: data.amount ?? 0,
-          taxRate: data.taxRate ?? 0,
-          taxAmount: data.taxAmount ?? 0,
-          currency: data.currency ?? 1,
-          taxNo: data.taxNo,
-          buyerName: data.buyerName,
-          buyerTaxNo: data.buyerTaxNo,
-          buyerBank: data.buyerBank,
-          buyerAddress: data.buyerAddress,
-          remark: data.remark,
-        });
+        const contract = await getContractInfoApi(data.contractId);
+        contractDisplay = formatContractLabel(contract);
       } catch {
-        formApi.setValues(val);
+        contractDisplay = `合同 #${data.contractId}`;
       }
     }
-  },
-  { immediate: true },
-);
+    // 解析订单号显示
+    let orderDisplay = '';
+    if (data.orderId) {
+      try {
+        const order = await getOrderInfoApi(data.orderId);
+        orderDisplay = order?.orderNo || `订单 #${data.orderId}`;
+      } catch {
+        orderDisplay = `订单 #${data.orderId}`;
+      }
+    }
+    // 解析负责人姓名
+    const ownerDisplay =
+      userOptions.value.find((u: any) => u.value === editSource.value.ownerUserId)
+        ?.label ??
+      (editSource.value.ownerUserId
+        ? `员工 #${editSource.value.ownerUserId}`
+        : '');
+    formApi.setValues({
+      title: data.title,
+      invoiceType: data.invoiceType ?? 1,
+      invoiceDate: data.invoiceDate,
+      contractDisplay,
+      orderDisplay,
+      customerName: data.customerName,
+      ownerDisplay,
+      dueDate: data.dueDate,
+      amount: data.amount ?? 0,
+      taxRate: data.taxRate ?? 0,
+      taxAmount: data.taxAmount ?? 0,
+      currency: data.currency ?? 1,
+      taxNo: data.taxNo,
+      buyerName: data.buyerName,
+      buyerTaxNo: data.buyerTaxNo,
+      buyerBank: data.buyerBank,
+      buyerAddress: data.buyerAddress,
+      remark: data.remark,
+    });
+  } catch {
+    formApi.setValues(row);
+  }
+}
+
+// 选择合同后：自动关闭弹窗，带出订单号/客户/负责人，并默认合同金额与币种
+async function handleContractSelect(row: any) {
+  contractSelectVisible.value = false;
+  selectedContract.value = row;
+  let orderDisplay = row.orderNo || '';
+  if (row.orderId && !orderDisplay) {
+    try {
+      const order = await getOrderInfoApi(row.orderId);
+      orderDisplay = order?.orderNo || '';
+    } catch {
+      orderDisplay = '';
+    }
+  }
+  const amount = Number(row.totalAmount ?? row.amount ?? 0);
+  formApi.setValues({
+    contractDisplay: formatContractLabel(row),
+    orderDisplay,
+    customerName: row.customerName || '',
+    ownerDisplay: row.assignedToName || '',
+    ...(amount > 0 ? { amount } : {}),
+    currency: toCurrencyNum(row.currency ?? 1),
+  });
+}
 
 async function handleSubmit() {
   const { valid, values } = await formApi.validate();
   if (!valid || !values) return;
   try {
+    // 剔除仅用于展示的字段，按已选合同（或编辑原关联）组装真实关联数据
+    const {
+      contractDisplay: _cd,
+      orderDisplay: _od,
+      ownerDisplay: _wd,
+      ...rest
+    } = values;
+    const picked = selectedContract.value ?? {};
+    const src = editSource.value;
+    const toId = (v: any) =>
+      v === null || v === undefined || v === '' ? undefined : Number(v);
     const data = {
-      ...values,
-      ownerUserId:
-        values.ownerUserId === null || values.ownerUserId === undefined
-          ? undefined
-          : Number(values.ownerUserId),
+      ...rest,
+      contractId: toId(picked.id ?? src.contractId),
+      orderId: toId(picked.orderId ?? src.orderId),
+      customerId: toId(picked.customerId ?? src.customerId),
+      customerName: picked.customerName ?? rest.customerName,
+      ownerUserId: toId(picked.assignedTo ?? src.ownerUserId),
     };
     if (isEdit.value) {
-      await updateInvoiceApi({ ...data, id: props.row.id });
+      await updateInvoiceApi({
+        ...data,
+        id: drawerData.value.row?.id,
+      });
       message.success('更新成功');
     } else {
       await createInvoiceApi(data);
@@ -315,23 +426,22 @@ const [Drawer, drawerApi] = useVbenDrawer({
     await handleSubmit();
   },
   onOpenChange(isOpen) {
-    if (isOpen) {
-      isFullscreen.value = false;
-      formApi.resetForm();
-      loadUserOptions();
-      if (!props.create && props.row) {
-        formApi.setValues({
-          invoiceType: 1,
-          currency: 1,
-          ...props.row,
-        });
-      } else {
-        formApi.setValues({
-          invoiceType: 1,
-          currency: 1,
-          invoiceDate: new Date().toISOString().slice(0, 10),
-        });
-      }
+    if (!isOpen) return;
+    const data = drawerApi.getData() as { create?: boolean; row?: any };
+    drawerData.value = { create: data?.create ?? true, row: data?.row ?? {} };
+    isFullscreen.value = false;
+    formApi.resetForm();
+    selectedContract.value = null;
+    editSource.value = {};
+    loadUserOptions();
+    if (isEdit.value && drawerData.value.row?.id) {
+      fillForm(drawerData.value.row);
+    } else {
+      formApi.setValues({
+        invoiceType: 1,
+        currency: 1,
+        invoiceDate: new Date().toISOString().slice(0, 10),
+      });
     }
   },
 });
@@ -387,6 +497,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       </Tooltip>
     </template>
     <Form />
+    <ContractSelectModal
+      v-model:visible="contractSelectVisible"
+      @select="handleContractSelect"
+    />
   </Drawer>
 </template>
 

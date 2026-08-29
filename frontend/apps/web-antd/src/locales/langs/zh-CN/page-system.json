@@ -59,6 +59,7 @@
       "mobileExists": "该手机号已被其他账号使用",
       "mobileEditLocked": "手机号由用户本人登录后在用户中心修改，此处不可编辑",
       "emailEditLocked": "邮箱由用户本人登录后在用户中心修改，此处不可编辑",
+      "usernameEditLocked": "登录名创建后不可修改",
       "passwordMinLength": "密码至少需要6个字符",
       "passwordMaxLength": "密码不能超过32个字符",
       "passwordFormat": "密码需要包含字母和数字",
@@ -68,6 +69,9 @@
       "lastLoginIp": "上次登录IP",
       "lastLoginTime": "上次登录时间",
       "role": "角色",
+      "permSet": "权限集（附加）",
+      "permSetPlaceholder": "选择附加权限集（可选）",
+      "permSetTip": "权限集在角色权限之上叠加授权，无需修改角色即可扩展权限",
       "directManager": "直属上级",
       "directManagerTip": "用于审批流向上查找领导，未配置则视为顶层决策人（审批自动通过）",
       "directManagerPlaceholder": "请选择直属上级（可选）",
@@ -81,6 +85,8 @@
       "probationLegalTip": "依据《劳动合同法》第十九条，试用期不得超过合同期限对应的法定上限",
       "salaryEnabled": "参与工资核算",
       "salaryEnabledTip": "关闭后该员工不参与月度工资核算",
+      "workCityCode": "参保地",
+      "workCityCodeTip": "员工社保默认参保城市；未手工配置社保方案时，算薪按此城市匹配当年政策取默认档次",
       "salaryYes": "参与",
       "salaryNo": "不参与",
       "bizEnabled": "参与业务",
@@ -182,6 +188,28 @@
         "edit": "修改角色",
         "assignMenu": "分配菜单",
         "view": "查看角色"
+      }
+    },
+    "permSet": {
+      "module": "权限集",
+      "title": "权限集管理",
+      "name": "权限集名称",
+      "code": "权限集标识",
+      "notFound": "权限集信息不存在",
+      "authTip": "权限集是角色的附加权限来源，勾选的菜单将与用户角色权限叠加（并集生效）",
+      "noMenuData": "暂无菜单数据",
+      "brokenTitle": "存在父级未勾选的菜单",
+      "brokenTip": "检测到以下 {count} 个菜单的父级未勾选，菜单权限需保持从根到叶的完整链路，直接保存后这些菜单将不可见：",
+      "brokenParents": "父级未勾选：",
+      "backToEdit": "返回修改",
+      "saveAsIs": "仍按当前勾选保存",
+      "autoCheckParents": "自动勾选父级并保存",
+      "button": {
+        "create": "新增权限集",
+        "auth": "分配权限",
+        "delete": "删除权限集",
+        "edit": "修改权限集",
+        "view": "查看权限集"
       }
     },
     "api": {
@@ -384,7 +412,15 @@
       "saveSuccess": "模板布局已保存，未自定义布局的用户即时生效",
       "removeCard": "移除",
       "disabledTag": "已停用",
-      "unsavedTip": "当前有未保存的修改"
+      "unsavedTip": "当前有未保存的修改",
+      "colWidth": "栏数",
+      "colWidthTip": "新拖入卡片按所选栏宽添加；画布内卡片可通过头部的 1/2/3 按钮快捷调整栏宽",
+      "cols": {
+        "one": "1 栏",
+        "two": "2 栏",
+        "three": "3 栏"
+      },
+      "colTip": "设为 {n} 栏宽"
     },
     "onboarding": {
       "title": "入职引导配置",
@@ -479,6 +515,9 @@
         "view": "查看PDF模板"
       }
     },
+    "field": {
+      "title": "自定义字段"
+    },
     "pdfRecord": {
       "title": "PDF生成记录",
       "tabGenerate": "生成记录",
@@ -541,7 +580,10 @@
       "opSelfEdit": "本人修改",
       "opHrEdit": "HR代改",
       "opUnlock": "HR解锁",
-      "noLogs": "暂无变更记录"
+      "noLogs": "暂无变更记录",
+      "permList": "员工档案列表",
+      "permView": "员工档案查看",
+      "permUpdate": "员工档案维护"
     },
     "profile": {
       "title": "个人中心",

@@ -35,6 +35,8 @@ import {
 import { getOrderInfoApi } from '#/api/core/sale/order';
 import { getUserListApi } from '#/api/core/system/user';
 import { requestClient } from '#/api/request';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+import { formatQty } from '#/components/UnitSelect';
 import { $t } from '#/locales';
 
 import OrderSelectModal from '../components/OrderSelectModal.vue';
@@ -50,6 +52,9 @@ const props = defineProps<{
 const data = ref();
 const loading = ref(false);
 const isMaximized = ref(false);
+
+// 自定义字段：schema 适配器（表单尾部注入 + 提交剥离合并 customFields）
+const fieldSchema = useFieldSchema('crm_contract');
 
 // 是否为只读模式（由外部传入或根据行数据判断）
 const isReadonly = computed(() => {
@@ -199,8 +204,16 @@ const memberColumns = [
 const orderItemColumns = [
   { title: '商品名称', dataIndex: 'productName', width: 180 },
   { title: '规格', dataIndex: 'spec', width: 120 },
+  {
+    title: '数量',
+    dataIndex: 'quantity',
+    width: 80,
+    customRender: ({ record, value }: any) =>
+      value === null || value === undefined
+        ? '-'
+        : formatQty(value, record?.unit),
+  },
   { title: '单位', dataIndex: 'unit', width: 60 },
-  { title: '数量', dataIndex: 'quantity', width: 80 },
   { title: '单价', dataIndex: 'unitPrice', width: 100 },
   { title: '税率', dataIndex: 'taxRate', width: 80 },
   { title: '金额', dataIndex: 'amount', width: 120 },
@@ -721,6 +734,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
     // 校验必填：订单和合同编号
     const values = await baseFormApi.getValues();
 
+    // 自定义字段剥离：动态键从标准字段剔除，统一并入 customFields 提交
+    // （空值归一为 null=清空语义；停用键不提交，由后端合并保留存量）
+    const customFields = fieldSchema.buildSubmitPayload(values);
+    const dynamicKeys = new Set(
+      fieldSchema.items.value.map((i) => i.fieldKey),
+    );
+    for (const key of dynamicKeys) {
+      delete values[key];
+    }
+
     if (!values.title?.trim()) {
       message.warning('请输入合同标题');
       activeTabKey.value = 'basic';
@@ -809,9 +832,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const isCreate = data.value?.create;
 
     try {
+      const payload: Record<string, any> = isCreate
+        ? values
+        : { ...values, id: data.value.row.id };
+      // 仅在存在启用动态字段时携带，避免空对象无谓写入
+      if (Object.keys(customFields).length > 0) {
+        payload.customFields = customFields;
+      }
       const result: any = isCreate
-        ? await createContractApi(values)
-        : await updateContractApi({ ...values, id: data.value.row.id });
+        ? await createContractApi(payload)
+        : await updateContractApi(payload);
 
       const contractId = isCreate
         ? result?.data?.id || result?.data?.data?.id || result?.id
@@ -872,6 +902,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
       const row = data.value?.row ? { ...data.value.row } : {};
+      // 动态字段回显兜底：展开行数据 customFields（本抽屉无独立详情请求，以传入行为准）
+      if (row.customFields && typeof row.customFields === 'object') {
+        Object.assign(row, row.customFields);
+      }
 
       // 重置
       paymentPlans.value = [];
@@ -967,6 +1001,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (row.orderId) {
         await loadOrderInfo(Number(row.orderId));
       }
+
+      // 动态字段注入：拉取 schema 并幂等追加到表单尾部
+      // （须先于 setValues 执行：vben setValues 默认过滤 schema 外字段）
+      await fieldSchema.loadSchema();
+      baseFormApi.setState((prev: any) => {
+        const dynamicKeys = new Set(
+          fieldSchema.items.value.map((i) => i.fieldKey),
+        );
+        const base = (prev.schema ?? []).filter(
+          (s: any) => !dynamicKeys.has(s.fieldName),
+        );
+        return { schema: [...base, ...fieldSchema.toFormSchema({ weakRequired: !data.value?.create })] };
+      });
 
       baseFormApi.setValues(row);
       setLoading(false);

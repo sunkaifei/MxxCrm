@@ -12,7 +12,7 @@ use crate::core::errors::error::Result;
 use crate::core::kit::global::AppState;
 use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::inventory::model::alert::{AlertRuleListQuery, AlertRuleSaveRequest};
+use crate::modules::inventory::model::alert::{AlertRuleBatchSaveRequest, AlertRuleListQuery, AlertRuleSaveRequest};
 use crate::modules::inventory::service::alert_service;
 use actix_web::{web, HttpRequest, HttpResponse};
 use crate::core::web::permission_guard::require_permission;
@@ -55,6 +55,22 @@ pub async fn rule_save(state: web::Data<AppState>, req: HttpRequest, body: web::
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result)))
 }
 
+/// 批量保存预警规则（多规格一次提交，存在即覆盖更新）
+pub async fn rule_batch_save(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let body = body.0;
+
+    let form_data: AlertRuleBatchSaveRequest = serde_json::from_value(body)?;
+    if form_data.rules.is_empty() {
+        return Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "规则列表为空", "local")));
+    }
+
+    match alert_service::batch_save(db, &form_data.rules, get_current_user_id(&req)).await {
+        Ok((inserted, updated)) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(serde_json::json!({ "inserted": inserted, "updated": updated }), "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
 /// 更新预警规则
 pub async fn rule_update(state: web::Data<AppState>, req: HttpRequest, body: web::Json<serde_json::Value>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -90,6 +106,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/list", web::get().to(rule_list).wrap(require_permission("product:alert:list")))
             .route("/info", web::get().to(rule_info).wrap(require_permission("product:alert:list")))
             .route("/save", web::post().to(rule_save).wrap(require_permission("product:alert:update")))
+            .route("/batch_save", web::post().to(rule_batch_save).wrap(require_permission("product:alert:update")))
             .route("/update", web::put().to(rule_update).wrap(require_permission("product:alert:update")))
             .route("/batch_delete", web::delete().to(rule_batch_delete).wrap(require_permission("product:alert:update"))),
     );

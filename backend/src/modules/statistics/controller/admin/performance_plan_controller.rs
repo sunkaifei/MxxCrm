@@ -15,7 +15,7 @@ use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::statistics::model::performance_plan::{
     CreatePlanRequest, SubmitPlanRequest, ReviewPlanRequest, ModifyPlanRequest, PlanQuery,
-    UpdatePlanTargetsRequest, PlanCoverageQuery,
+    UpdatePlanTargetsRequest, PlanCoverageQuery, MonthlyCompareQuery,
 };
 use crate::modules::statistics::service::performance_plan_service;
 use crate::modules::system::service::data_scope_service;
@@ -106,6 +106,18 @@ pub async fn reject_plan(state: web::Data<AppState>, req: web::Json<ReviewPlanRe
     }
 }
 
+/// 撤回（待审批→草稿，仅第一级未审可撤）
+pub async fn withdraw_plan(state: web::Data<AppState>, req: web::Json<SubmitPlanRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
+    let db = &state.db;
+    let req = req.into_inner();
+    let (user_id, user_name) = get_admin_info(&http_req);
+
+    match performance_plan_service::withdraw_plan(db, req.plan_id, user_id, &user_name).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
 /// 申请修改
 pub async fn modify_plan(state: web::Data<AppState>, req: web::Json<ModifyPlanRequest>, http_req: HttpRequest) -> Result<HttpResponse> {
     let db = &state.db;
@@ -124,8 +136,13 @@ pub async fn get_plan_list(state: web::Data<AppState>, query: web::Query<PlanQue
     let query = query.into_inner();
     let (current_user_id, _) = get_admin_info(&http_req);
 
+    let page = query.page.unwrap_or(1);
+    let page_size = query.page_size.unwrap_or(20).clamp(1, 200);
+
     match performance_plan_service::get_plan_list(
-        db, query.employee_id, query.year, query.status, query.pending_my_approval, current_user_id
+        db, query.employee_id, query.year, query.status, query.status_list, query.dept_id, query.keyword,
+        query.pending_my_approval, current_user_id,
+        page, page_size, query.order_by, query.order_dir
     ).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
@@ -159,6 +176,22 @@ pub async fn get_plan_coverage(state: web::Data<AppState>, http_req: HttpRequest
     }
 }
 
+/// 站内催办：对权限范围内未提交当年计划的员工发送催办通知（方案 §4.5.5 可选增强）
+pub async fn remind_unsubmitted_plans(state: web::Data<AppState>, http_req: HttpRequest, query: web::Query<PlanCoverageQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+    let (current_user_id, _) = get_admin_info(&http_req);
+    let year = q.year.unwrap_or_else(|| chrono::Local::now().year());
+
+    match data_scope_service::get_accessible_user_ids(db, current_user_id).await {
+        Ok(scope) => match performance_plan_service::remind_unsubmitted(db, &scope, year).await {
+            Ok(count) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(count, "local"))),
+            Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+        },
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &format!("数据权限解析失败: {}", e), "local"))),
+    }
+}
+
 /// 获取计划修改详情（编辑回显）
 pub async fn get_plan_modify_detail(state: web::Data<AppState>, query: web::Query<SubmitPlanRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -177,6 +210,19 @@ pub async fn update_plan_targets(state: web::Data<AppState>, req: web::Json<Upda
     let (user_id, user_name) = get_admin_info(&http_req);
 
     match performance_plan_service::update_plan_targets(db, &req, user_id, &user_name).await {
+        Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
+    }
+}
+
+/// 单员工逐月"目标 vs 实际"钻取（团队列表行操作打开，方案 §4.5.2）
+pub async fn get_plan_monthly_compare(state: web::Data<AppState>, query: web::Query<MonthlyCompareQuery>, http_req: HttpRequest) -> Result<HttpResponse> {
+    let db = &state.db;
+    let q = query.into_inner();
+    let (current_user_id, _) = get_admin_info(&http_req);
+    let year = q.year.unwrap_or_else(|| chrono::Local::now().year());
+
+    match performance_plan_service::get_monthly_compare(db, q.employee_id, year, current_user_id).await {
         Ok(data) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local"))),
         Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
@@ -231,6 +277,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                     .to(reject_plan)
                     .wrap(require_permission("statistics:performance-plan:audit")),
             )
+            // POST /statistics/performance/plan/withdraw - 撤回（仅第一级未审可撤）
+            .route(
+                "/withdraw",
+                web::post()
+                    .to(withdraw_plan)
+                    .wrap(require_permission("statistics:performance-plan:manage")),
+            )
             // POST /statistics/performance/plan/modify - 申请修改
             .route(
                 "/modify",
@@ -279,6 +332,20 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::get()
                     .to(get_plan_coverage)
                     .wrap(require_permission("statistics:performance-plan:view")),
+            )
+            // GET /statistics/performance/plan/monthly-compare - 单员工逐月目标 vs 实际
+            .route(
+                "/monthly-compare",
+                web::get()
+                    .to(get_plan_monthly_compare)
+                    .wrap(require_permission("statistics:performance-plan:view")),
+            )
+            // POST /statistics/performance/plan/remind - 站内催办未提交计划的员工
+            .route(
+                "/remind",
+                web::post()
+                    .to(remind_unsubmitted_plans)
+                    .wrap(require_permission("statistics:performance-plan:manage")),
             ),
     );
 }

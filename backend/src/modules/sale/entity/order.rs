@@ -96,6 +96,7 @@ pub struct Model {
     pub update_by: Option<i64>,
     pub update_time: Option<DateTime>,
     pub deleted: Option<i32>,
+    pub custom_fields: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

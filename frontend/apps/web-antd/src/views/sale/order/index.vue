@@ -30,6 +30,7 @@ import {
   signShipmentApi,
   updateOrderStatusApi,
 } from '#/api';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
@@ -367,6 +368,21 @@ const gridOptions: VxeGridProps = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+
+// 自定义字段适配器（销售订单模块），用于列表动态列注入
+const fieldSchema = useFieldSchema('sale_order');
+// 动态列注入：把启用列表展示的自定义字段列插到固定列之后、操作列（固定最右）之前
+fieldSchema.loadSchema().then(() => {
+  const cols = [...(gridOptions.columns ?? [])];
+  const action = cols.pop(); // 操作列固定最右
+  gridApi.setGridOptions({
+    columns: [
+      ...cols,
+      ...fieldSchema.toGridColumns(),
+      ...(action ? [action] : []),
+    ],
+  });
+});
 
 const [FormDrawer, drawerApi] = useVbenDrawer({
   connectedComponent: OrderDrawer,

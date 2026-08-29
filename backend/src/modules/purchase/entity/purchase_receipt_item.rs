@@ -20,6 +20,7 @@ pub struct Model {
     pub receipt_id: Option<i64>,
     pub po_item_id: Option<i64>,
     pub product_id: Option<i64>,
+    pub sku_id: Option<i64>,
     pub quantity: Option<Decimal>,
     pub remark: Option<String>,
     pub deleted: Option<i32>,

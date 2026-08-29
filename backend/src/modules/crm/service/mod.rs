@@ -9,6 +9,7 @@
 //!
 pub mod assign_history_service;
 pub mod customer_edit_log_service;
+pub mod customer_export_service;
 pub mod customer_service;
 pub mod customer_transfer_service;
 pub mod delete_guard_service;

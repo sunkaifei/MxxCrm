@@ -12,17 +12,19 @@ use crate::core::web::response::ResultPage;
 use crate::core::r#enum::contract_status_enum::ContractStatus;
 use crate::modules::approval::service::approval_service::ApprovalService;
 use crate::modules::approval::model::approval::{ApprovalSubmitRequest, ApprovalProcessRequest};
-use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalLogVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractModel, ContractSaveDTO};
+use crate::modules::crm::model::contract::{ContractApprovalDetailVO, ContractApprovalLogVO, ContractApprovalRequest, ContractDetailVO, ContractListQuery, ContractListVO, ContractModel, ContractSaveDTO, ContractSelectQuery, ContractSelectVO};
 use crate::modules::crm::entity::{contract, contract_approval_log, contract_payment_plan, contract::Entity as Contract, contract_approval_log::Entity as ContractApprovalLog, customer::{Entity as Customer, Column as CustomerColumn}};
 use crate::modules::system::entity::admin::{Entity as AdminEntity, Column as AdminColumn};
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
+use crate::modules::system::service::field_def_service;
+use crate::modules::system::service::field_perm_service;
 use crate::modules::system::service::role_service;
 use sea_orm::{DbConn, TransactionTrait, Set, IntoActiveModel, ActiveModelTrait, EntityTrait, ColumnTrait, QueryFilter, QueryOrder, QuerySelect, Condition};
 use std::collections::{HashMap, HashSet};
 use sea_orm::prelude::Decimal;
-use crate::modules::sale::entity::order;
+use crate::modules::sale::entity::{invoice, order};
 
 pub async fn insert(db: &DbConn, form_data: &ContractSaveDTO, created_by: i64) -> Result<i64> {
     // 数据完整性校验：客户必填、标题必填
@@ -52,6 +54,8 @@ pub async fn insert(db: &DbConn, form_data: &ContractSaveDTO, created_by: i64) -
     }
 
     let mut dto = form_data.clone();
+    // 2.5 自定义字段强校验（P1-8/P1-11：未知/停用键、类型不符、必填缺失 400；归一化+合并结果直接落在 dto.custom_fields）
+    field_def_service::validate_custom_fields(&txn, "crm_contract", &mut dto.custom_fields, created_by, true, None).await?;
     dto.created_by = Some(created_by);
     dto.approval_status = Some(0);
     let result = ContractModel::insert(&txn, &dto).await?;
@@ -108,7 +112,21 @@ pub async fn update(db: &DbConn, form_data: &ContractSaveDTO, updated_by: i64) -
     }
 
     let mut dto = form_data.clone();
+    // 3.5 自定义字段强校验（P1-8/P1-11；编辑不触发必填强约束 7.4 规则 5；校验器原地归一化并按 key 合并旧值，直接落在 dto.custom_fields）
+    field_def_service::validate_custom_fields(&txn, "crm_contract", &mut dto.custom_fields, updated_by, false, existing.as_ref().and_then(|m| m.custom_fields.as_ref())).await?;
     dto.updated_by = Some(updated_by);
+    // 标准敏感字段写保护（P2-1）：无编辑权限的字段回填旧值（update_by_id 全字段 Set，None 会清空列）
+    let (perm_admin, perm_roles) = field_def_service::load_user_role(&txn, updated_by).await?;
+    if let Some(locked) = field_perm_service::editable_guard_keys(&txn, "crm_contract", perm_admin, &perm_roles).await? {
+        if let Some(old) = existing.as_ref() {
+            if locked.contains("amount") { dto.amount = old.amount; }
+            if locked.contains("tax_amount") { dto.tax_amount = old.tax_amount; }
+            if locked.contains("total_amount") { dto.total_amount = old.total_amount; }
+            if locked.contains("their_signer_phone") { dto.their_signer_phone = old.their_signer_phone.clone(); }
+            if locked.contains("commission_mode") { dto.commission_mode = old.commission_mode; }
+            if locked.contains("commission_rule_id") { dto.commission_rule_id = old.commission_rule_id; }
+        }
+    }
     let result = ContractModel::update_by_id(&txn, &form_data.id, &dto).await?;
 
     txn.commit().await?;
@@ -189,15 +207,9 @@ pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) 
             Some(vec![current_user_id])
         }
         "subordinate" => {
-            // 下属合同：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
-            let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
-            if subordinate_ids.is_empty() {
-                // 没有下属，返回空列表
-                Some(vec![-1])
-            } else {
-                Some(subordinate_ids)
-            }
+            // 下属合同：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
+            crate::modules::system::service::subordinate_service
+                ::get_subordinate_scope_ids(db, current_user_id).await?
         }
         _ => {
             // all：按多角色合并后的数据权限过滤
@@ -307,6 +319,112 @@ pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) 
             vo.ship_status = ship_status_map.get(&cid).copied();
         }
     }
+
+    Ok(ResultPage::new(data, total, page, page_size))
+}
+
+/// 合同选择列表（发票等单据关联合同场景）：仅当前用户自己签订的合同，附带客户名称、订单号与已开票金额
+pub async fn select_list(db: &DbConn, query: &ContractSelectQuery, current_user_id: i64) -> Result<ResultPage<Vec<ContractSelectVO>>> {
+    let page = query.page_num.unwrap_or(1);
+    let page_size = query.page_size.unwrap_or(20);
+    let keywords = query.keywords.as_deref().map(str::trim).filter(|k| !k.is_empty()).map(|k| k.to_string());
+
+    let (list, total) = ContractModel::select_in_page_by_assigned_tos(
+        db,
+        page,
+        page_size,
+        keywords,
+        None,
+        None,
+        Some(vec![current_user_id]),
+    ).await?;
+
+    // 批量查询客户名称
+    let customer_ids: Vec<i64> = list.iter().filter_map(|c| c.customer_id).collect::<HashSet<_>>().into_iter().collect();
+    let customer_name_map: HashMap<i64, String> = if !customer_ids.is_empty() {
+        Customer::find()
+            .filter(CustomerColumn::Id.is_in(customer_ids.clone()))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|c| (c.id, c.company_name.or(c.short_name).unwrap_or_default()))
+            .collect()
+    } else {
+        HashMap::new()
+    };
+
+    // 批量查询负责人姓名
+    let assigned_ids: Vec<i64> = list.iter().filter_map(|c| c.assigned_to).collect::<HashSet<_>>().into_iter().collect();
+    let assigned_name_map: HashMap<i64, String> = if !assigned_ids.is_empty() {
+        AdminEntity::find()
+            .filter(AdminColumn::Id.is_in(assigned_ids))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|u| (u.id, u.nick_name.unwrap_or_default()))
+            .collect()
+    } else {
+        HashMap::new()
+    };
+
+    // 批量查询关联订单号（合同.order_id -> 订单.order_no）
+    let order_ids: Vec<i64> = list.iter().filter_map(|c| c.order_id).collect::<HashSet<_>>().into_iter().collect();
+    let order_no_map: HashMap<i64, String> = if !order_ids.is_empty() {
+        order::Entity::find()
+            .filter(order::Column::Id.is_in(order_ids.clone()))
+            .filter(order::Column::Deleted.eq(0))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|o| (o.id, o.order_no.clone().unwrap_or_default()))
+            .collect()
+    } else {
+        HashMap::new()
+    };
+
+    // 批量统计已开票金额（status=3 已开票发票按合同汇总）
+    let contract_ids: Vec<i64> = list.iter().map(|c| c.id).collect();
+    let invoiced_map: HashMap<i64, Decimal> = if !contract_ids.is_empty() {
+        let invoiced_invoices = invoice::Entity::find()
+            .filter(invoice::Column::ContractId.is_in(contract_ids.clone()))
+            .filter(invoice::Column::Status.eq(3))
+            .filter(invoice::Column::Deleted.eq(0))
+            .all(db)
+            .await?;
+        let mut map: HashMap<i64, Decimal> = HashMap::new();
+        for inv in invoiced_invoices {
+            if let Some(cid) = inv.contract_id {
+                *map.entry(cid).or_insert(Decimal::ZERO) += inv.amount.unwrap_or(Decimal::ZERO);
+            }
+        }
+        map
+    } else {
+        HashMap::new()
+    };
+
+    let data: Vec<ContractSelectVO> = list.into_iter().map(|c| {
+        let customer_name = c.customer_id.and_then(|cid| customer_name_map.get(&cid).cloned());
+        let order_no = c.order_id.and_then(|oid| order_no_map.get(&oid).cloned());
+        let assigned_to_name = c.assigned_to.and_then(|uid| assigned_name_map.get(&uid).cloned());
+        let invoiced_amount = Some(invoiced_map.get(&c.id).copied().unwrap_or(Decimal::ZERO));
+        ContractSelectVO {
+            id: Some(c.id),
+            contract_no: c.contract_no,
+            title: c.title,
+            customer_id: c.customer_id,
+            customer_name,
+            amount: c.amount,
+            total_amount: c.total_amount,
+            currency: c.currency,
+            status: c.status,
+            order_id: c.order_id,
+            order_no,
+            assigned_to: c.assigned_to,
+            assigned_to_name,
+            invoiced_amount,
+            create_time: c.create_time,
+        }
+    }).collect();
 
     Ok(ResultPage::new(data, total, page, page_size))
 }
@@ -509,6 +627,7 @@ async fn auto_create_outbound_for_contract(
         .iter()
         .map(|item| OutboundItemRequest {
             product_id: item.product_id.unwrap_or_default(),
+            sku_id: None,
             product_sku: item.sku.clone(),
             quantity: item.quantity.unwrap_or_default(),
             batch_no: None,

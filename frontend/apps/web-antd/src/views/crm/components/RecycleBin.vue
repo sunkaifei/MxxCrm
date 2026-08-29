@@ -66,6 +66,17 @@ const formOptions: VbenFormProps = {
   ],
 };
 
+// 无数据/请求异常时固定 600px 空态高度（避免列表塌缩），有数据恢复内容自适应
+function applyRecycleGridHeight(empty: boolean) {
+  const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
+  if (!gridEl) return;
+  if (empty) {
+    gridEl.style.setProperty('height', '600px', 'important');
+  } else {
+    gridEl.style.removeProperty('height');
+  }
+}
+
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, refresh: true, zoom: true },
   pagerConfig: {},
@@ -76,12 +87,22 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        const result = await getRecycleListApi({
-          pageNum: page.currentPage,
-          pageSize: page.pageSize,
-          module: props.module,
-          ...formValues,
-        });
+        let result: any;
+        try {
+          result = await getRecycleListApi({
+            pageNum: page.currentPage,
+            pageSize: page.pageSize,
+            module: props.module,
+            ...formValues,
+          });
+        } catch (error) {
+          // 请求异常同样按无数据处理，保持 600px 空态高度
+          applyRecycleGridHeight(true);
+          throw error;
+        }
+        // 无数据 600px（避免空态列表塌缩），有数据按内容自适应
+        const items = (result as any)?.items ?? [];
+        applyRecycleGridHeight(items.length === 0);
         return result;
       },
     },

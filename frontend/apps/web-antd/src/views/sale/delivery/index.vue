@@ -1,15 +1,25 @@
 <script lang="ts" setup>
-import type { VbenFormProps } from '@vben/common-ui';
-
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
-import { Button, message, Modal, Tag } from 'ant-design-vue';
+import {
+  Button,
+  Card,
+  Col,
+  Form,
+  InputNumber,
+  message,
+  Modal,
+  Row,
+  Select,
+  Tabs,
+  Tag,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -19,9 +29,19 @@ import {
   resendDeliveryApi,
   viewFullDeliveryApi,
 } from '#/api/core/sale/delivery';
+import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
+import RecycleBin from '../../crm/components/RecycleBin.vue';
+
 const accessStore = useAccessStore();
+
+// 回收站 Tab 仅超管可见（与其他模块一致）
+const { isSuperAdmin } = useSuperAdminGuard();
+
+// 全部/下属虚拟订单 Tab 显示条件
+const { canViewAll, canViewSubordinate } = useDataScopeTabs();
 
 // 交付状态映射：1=待发送、2=已发送、3=已签收、4=已撤销、5=已失效
 const statusMap: Record<number, { color: string; label: string }> = {
@@ -54,65 +74,62 @@ const fullContentVisible = ref(false);
 const fullContent = ref('');
 const fullLoading = ref(false);
 
-const formOptions: VbenFormProps = {
-  collapsed: false,
-  showCollapseButton: false,
-  submitOnEnter: true,
-  schema: [
-    {
-      component: 'InputNumber',
-      fieldName: 'orderId',
-      label: '订单ID',
-      componentProps: {
-        placeholder: '请输入订单ID',
-        allowClear: true,
-        controls: false,
-      },
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'customerId',
-      label: '客户ID',
-      componentProps: {
-        placeholder: '请输入客户ID',
-        allowClear: true,
-        controls: false,
-      },
-    },
-    {
-      component: 'Select',
-      fieldName: 'status',
-      label: '交付状态',
-      componentProps: {
-        placeholder: '请选择',
-        allowClear: true,
-        options: [
-          { label: '待发送', value: 1 },
-          { label: '已发送', value: 2 },
-          { label: '已签收', value: 3 },
-          { label: '已撤销', value: 4 },
-          { label: '已失效', value: 5 },
-        ],
-      },
-    },
-    {
-      component: 'Select',
-      fieldName: 'deliveryMethod',
-      label: '交付方式',
-      componentProps: {
-        placeholder: '请选择',
-        allowClear: true,
-        options: [
-          { label: '卡密', value: 1 },
-          { label: '下载链接', value: 2 },
-          { label: '账号密码', value: 3 },
-          { label: '激活码', value: 4 },
-          { label: '服务开通', value: 5 },
-        ],
-      },
-    },
-  ],
-};
+// ========== 选项卡：全部虚拟订单 / 我的虚拟订单 / 下属虚拟订单 / 回收站 ==========
+const allTabList = [
+  { key: 'all', label: '全部虚拟订单' },
+  { key: 'my', label: '我的虚拟订单' },
+  { key: 'subordinate', label: '下属虚拟订单' },
+];
+
+const tabList = computed(() => {
+  const keys: string[] = [];
+  if (canViewAll.value) keys.push('all');
+  keys.push('my');
+  if (canViewSubordinate.value) keys.push('subordinate');
+  return allTabList.filter((t) => keys.includes(t.key));
+});
+
+const activeTab = ref('my');
+
+function handleTabChange(key: number | string) {
+  activeTab.value = String(key);
+  // 回收站视图由 RecycleBin 组件自行查询，不触发业务列表
+  if (key === 'recycle') return;
+  gridApi.query();
+}
+
+// ========== 搜索表单（与客户/联系人列表同构：手动表单置于筛选卡片，搜索按钮触发查询） ==========
+const searchForm = ref<{
+  customerId?: number;
+  deliveryMethod?: number;
+  orderId?: number;
+  status?: number;
+}>({});
+
+const statusOptions = [
+  { label: '待发送', value: 1 },
+  { label: '已发送', value: 2 },
+  { label: '已签收', value: 3 },
+  { label: '已撤销', value: 4 },
+  { label: '已失效', value: 5 },
+];
+
+const deliveryMethodOptions = [
+  { label: '卡密', value: 1 },
+  { label: '下载链接', value: 2 },
+  { label: '账号密码', value: 3 },
+  { label: '激活码', value: 4 },
+  { label: '服务开通', value: 5 },
+];
+
+function handleSearch() {
+  gridApi.query();
+}
+
+function handleReset() {
+  searchForm.value = {};
+  gridApi.query();
+}
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: {
@@ -121,7 +138,6 @@ const gridOptions: VxeGridProps = {
     refresh: true,
     zoom: true,
   },
-  height: 'auto',
   exportConfig: {},
   pagerConfig: {},
   cellConfig: {},
@@ -130,16 +146,32 @@ const gridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }, formValues) => {
+      query: async ({ page }) => {
         const params: any = {
           page: page.currentPage,
           pageSize: page.pageSize,
-          orderId: formValues.orderId,
-          customerId: formValues.customerId,
-          status: formValues.status,
-          deliveryMethod: formValues.deliveryMethod,
+          listType: activeTab.value,
         };
-        return await getDeliveryListApi(params);
+        if (searchForm.value.orderId) params.orderId = searchForm.value.orderId;
+        if (searchForm.value.customerId)
+          params.customerId = searchForm.value.customerId;
+        if (searchForm.value.status) params.status = searchForm.value.status;
+        if (searchForm.value.deliveryMethod)
+          params.deliveryMethod = searchForm.value.deliveryMethod;
+        const result = await getDeliveryListApi(params);
+        // 无数据固定 600px（空态居中）；有数据默认 600px，内容超过则响应式撑高
+        const items = (result as any)?.items ?? [];
+        const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
+        if (gridEl) {
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '600px', 'important');
+            gridEl.style.removeProperty('min-height');
+          } else {
+            gridEl.style.removeProperty('height');
+            gridEl.style.setProperty('min-height', '600px', 'important');
+          }
+        }
+        return result;
       },
     },
   },
@@ -206,7 +238,7 @@ const gridOptions: VxeGridProps = {
   ],
 };
 
-const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
 
 async function handleViewDetail(row: any) {
   detailLoading.value = true;
@@ -275,8 +307,91 @@ async function handleDelete(row: any) {
 </script>
 
 <template>
-  <Page auto-content-height>
-    <Grid :table-title="$t('page.sale.delivery.title')">
+  <Page>
+    <!-- 筛选卡片：选项卡 + 搜索表单/回收站视图（与客户/联系人列表同构） -->
+    <Card :bordered="false" class="delivery-list-filter-card">
+      <Tabs
+        v-model:active-key="activeTab"
+        class="mb-4"
+        @change="handleTabChange"
+      >
+        <Tabs.TabPane
+          v-for="tab in tabList"
+          :key="tab.key"
+          :tab="tab.label"
+        />
+        <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
+      </Tabs>
+
+      <!-- 回收站视图：与其他模块共用 RecycleBin，module=delivery -->
+      <RecycleBin v-show="activeTab === 'recycle'" :module="'delivery'" />
+
+      <Form
+        v-show="activeTab !== 'recycle'"
+        :model="searchForm"
+        layout="inline"
+        :label-col="{ style: { width: '90px' } }"
+        class="delivery-search-form"
+        @keyup.enter="handleSearch"
+      >
+        <Row :gutter="[16, 12]" style="width: 100%">
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="订单ID" name="orderId">
+              <InputNumber
+                v-model:value="searchForm.orderId"
+                placeholder="请输入订单ID"
+                allow-clear
+                style="width: 100%"
+                :controls="false"
+              />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="客户ID" name="customerId">
+              <InputNumber
+                v-model:value="searchForm.customerId"
+                placeholder="请输入客户ID"
+                allow-clear
+                style="width: 100%"
+                :controls="false"
+              />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="交付状态" name="status">
+              <Select
+                v-model:value="searchForm.status"
+                placeholder="请选择"
+                allow-clear
+                style="width: 100%"
+                :options="statusOptions"
+              />
+            </Form.Item>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <Form.Item label="交付方式" name="deliveryMethod">
+              <Select
+                v-model:value="searchForm.deliveryMethod"
+                placeholder="请选择"
+                allow-clear
+                style="width: 100%"
+                :options="deliveryMethodOptions"
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <Button type="default" @click="handleSearch">搜索</Button>
+          <Button type="default" @click="handleReset">刷新</Button>
+        </div>
+      </Form>
+    </Card>
+
+    <Grid
+      v-show="activeTab !== 'recycle'"
+      :table-title="$t('page.sale.delivery.title')"
+      class="delivery-grid-card"
+    >
       <template #deliveryNo="{ row }">
         <a
           v-if="row.deliveryNo"
@@ -418,6 +533,23 @@ async function handleDelete(row: any) {
 </template>
 
 <style scoped>
+/* 筛选卡片与表格卡片间距（scoped 固化，不依赖 Tailwind 工具类） */
+.delivery-list-filter-card {
+  margin-bottom: 16px;
+}
+
+.delivery-grid-card {
+  margin-top: 16px;
+}
+
+.delivery-search-form :deep(.ant-form-item) {
+  margin-bottom: 0;
+}
+
+.delivery-search-form :deep(.ant-form-item-control) {
+  flex: 1;
+}
+
 .delivery-list__no-link {
   font-family: 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   font-size: 13px;

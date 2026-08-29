@@ -105,7 +105,8 @@ defineExpose({ reload: loadSummary });
         <div
           v-for="(item, idx) in summary.items"
           :key="idx"
-          class="flex items-center justify-between gap-2 rounded-md border border-gray-100 px-2 py-1.5"
+          class="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-gray-100 px-2 py-1.5 transition-colors hover:border-cyan-300 hover:bg-cyan-50/60 dark:border-gray-800 dark:hover:border-cyan-700 dark:hover:bg-cyan-950/40"
+          @click="goList"
         >
           <div class="min-w-0 flex-1">
             <div class="truncate text-xs font-medium">

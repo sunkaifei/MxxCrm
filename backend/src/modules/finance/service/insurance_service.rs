@@ -105,6 +105,52 @@ pub struct EmployeeInsuranceConfigDTO {
     pub workinjury_personal_rate: Option<f64>,
 }
 
+/// P1-2 批量设置参保方案请求：员工清单 + 统一应用的参保方案
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchSetInsuranceConfigDTO {
+    /// 目标员工ID清单（非空）
+    pub employee_ids: Vec<i64>,
+    /// 参保城市编码
+    pub city_code: String,
+    /// 城市政策ID
+    pub policy_id: i64,
+    /// 缴费档次ID（空则由后端取政策默认档次）
+    pub policy_level_id: Option<i64>,
+    pub use_policy_base: Option<bool>,
+    /// 自定义缴费基数（use_policy_base=false 时使用）
+    pub base_amount: Option<f64>,
+    pub housing_fund_base: Option<f64>,
+    pub housing_fund_company_rate: Option<f64>,
+    pub housing_fund_personal_rate: Option<f64>,
+    pub participate_pension: Option<i32>,
+    pub participate_medical: Option<i32>,
+    pub participate_unemployment: Option<i32>,
+    pub participate_workinjury: Option<i32>,
+    pub participate_maternity: Option<i32>,
+    pub participate_housing_fund: Option<i32>,
+    pub participate_critical_illness: Option<i32>,
+    pub workinjury_company_rate: Option<f64>,
+    pub workinjury_personal_rate: Option<f64>,
+}
+
+/// 批量设置失败明细项
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchSetFailedItem {
+    pub employee_id: i64,
+    pub reason: String,
+}
+
+/// 批量设置结果：成功/失败清单 + 总数
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchSetResult {
+    pub total: usize,
+    pub success: Vec<i64>,
+    pub failed: Vec<BatchSetFailedItem>,
+}
+
 /// 员工社保配置 + 关联政策/档次信息（列表展示用）
 #[derive(serde::Serialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -138,6 +184,8 @@ pub struct EmployeeConfigWithPolicy {
     pub effective_date: Option<String>,
     pub expiry_date: Option<String>,
     pub enabled: Option<i32>,
+    /// 配置来源：manual=手工配置 inherited=继承档案城市默认方案
+    pub source: Option<String>,
 }
 
 /// 政策 + 档次列表（列表页展示用）
@@ -498,6 +546,92 @@ pub async fn delete_policy(db: &DatabaseConnection, id: i64) -> Result<(), Strin
 
 // ==================== 员工社保配置 ====================
 
+/// 员工社保配置覆盖度明细 VO
+#[derive(serde::Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InsuranceCoverageEmployee {
+    pub employee_id: i64,
+    pub employee_name: String,
+    /// 是否存在手工社保配置（enabled=1）
+    pub has_config: bool,
+    /// 档案参保地（work_city_code），缺失人员恒为空
+    pub work_city_code: Option<String>,
+    /// 能否核算社保（有配置或有参保地）
+    pub covered: bool,
+}
+
+/// 员工社保配置覆盖度 VO（以参与工资核算的员工为分母）
+#[derive(serde::Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InsuranceCoverageVO {
+    /// 参与工资核算的员工总数（salary_enabled=1 且在职）
+    pub total: i64,
+    /// 已手工配置人数
+    pub configured: i64,
+    /// 无手工配置但有参保地（继承城市政策）人数
+    pub inherited: i64,
+    /// 既无配置又无参保地人数（核算时会被阻止出账）
+    pub missing: i64,
+    /// 缺失员工明细
+    pub missing_list: Vec<InsuranceCoverageEmployee>,
+}
+
+/// 查询员工社保配置覆盖度：口径与工资核算预检一致（配置 = enabled=1 的行；参保地 = work_city_code 非空白）
+pub async fn get_insurance_coverage(
+    db: &DatabaseConnection,
+) -> Result<InsuranceCoverageVO, String> {
+    use crate::modules::system::entity::admin;
+
+    let admins = admin::Entity::find()
+        .filter(admin::Column::SalaryEnabled.eq(1))
+        .filter(admin::Column::Status.eq(1))
+        .filter(admin::Column::Deleted.eq(0))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let ids: Vec<i64> = admins.iter().map(|a| a.id).collect();
+    let mut configured_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    if !ids.is_empty() {
+        let cfgs = employee_insurance_config::Entity::find()
+            .filter(employee_insurance_config::Column::EmployeeId.is_in(ids))
+            .filter(employee_insurance_config::Column::Enabled.eq(1))
+            .all(db)
+            .await
+            .map_err(|e| e.to_string())?;
+        for c in cfgs {
+            configured_ids.insert(c.employee_id);
+        }
+    }
+
+    let mut vo = InsuranceCoverageVO::default();
+    vo.total = admins.len() as i64;
+    let mut missing: Vec<InsuranceCoverageEmployee> = Vec::new();
+    for a in &admins {
+        let has_config = configured_ids.contains(&a.id);
+        let city = a.work_city_code.clone().filter(|s| !s.trim().is_empty());
+        if has_config {
+            vo.configured += 1;
+        } else if city.is_some() {
+            vo.inherited += 1;
+        } else {
+            missing.push(InsuranceCoverageEmployee {
+                employee_id: a.id,
+                employee_name: a.nick_name.clone()
+                    .or_else(|| a.user_name.clone())
+                    .unwrap_or_default(),
+                has_config,
+                work_city_code: city,
+                covered: false,
+            });
+        }
+    }
+    missing.sort_by_key(|e| e.employee_id);
+    vo.missing = missing.len() as i64;
+    vo.missing_list = missing;
+    Ok(vo)
+}
+
 /// 查询所有员工社保配置（带政策/档次信息）
 pub async fn get_all_employee_configs(
     db: &DatabaseConnection,
@@ -606,6 +740,7 @@ pub async fn get_all_employee_configs(
             effective_date: date_to_string(c.effective_date),
             expiry_date: date_to_string(c.expiry_date),
             enabled: c.enabled,
+            source: c.source,
         });
     }
     Ok(result)
@@ -639,20 +774,50 @@ pub async fn upsert_employee_config(
         active.city_code = Set(dto.city_code);
         active.policy_id = Set(dto.policy_id);
         active.policy_level_id = Set(dto.policy_level_id);
-        active.use_policy_base = Set(dto.use_policy_base);
+        // P1-2: 可选项仅在显式传入时更新，避免批量设置（未传参与标志/基数模式/比例）
+        //       将以 NULL 覆盖员工已有自定义值；None 语义 = 保持不变
+        if let Some(v) = dto.use_policy_base {
+            active.use_policy_base = Set(Some(v));
+        }
         active.base_amount = Set(to_dec(dto.base_amount));
-        active.housing_fund_base = Set(dto.housing_fund_base.map(to_dec));
-        active.housing_fund_company_rate = Set(dto.housing_fund_company_rate.map(to_dec));
-        active.housing_fund_personal_rate = Set(dto.housing_fund_personal_rate.map(to_dec));
-        active.participate_pension = Set(dto.participate_pension);
-        active.participate_medical = Set(dto.participate_medical);
-        active.participate_unemployment = Set(dto.participate_unemployment);
-        active.participate_workinjury = Set(dto.participate_workinjury);
-        active.participate_maternity = Set(dto.participate_maternity);
-        active.participate_housing_fund = Set(dto.participate_housing_fund);
-        active.participate_critical_illness = Set(dto.participate_critical_illness.map(|v| v as i16));
-        active.workinjury_company_rate = Set(dto.workinjury_company_rate.map(to_dec));
-        active.workinjury_personal_rate = Set(dto.workinjury_personal_rate.map(to_dec));
+        if let Some(v) = dto.housing_fund_base {
+            active.housing_fund_base = Set(Some(to_dec(v)));
+        }
+        if let Some(v) = dto.housing_fund_company_rate {
+            active.housing_fund_company_rate = Set(Some(to_dec(v)));
+        }
+        if let Some(v) = dto.housing_fund_personal_rate {
+            active.housing_fund_personal_rate = Set(Some(to_dec(v)));
+        }
+        if let Some(v) = dto.participate_pension {
+            active.participate_pension = Set(Some(v));
+        }
+        if let Some(v) = dto.participate_medical {
+            active.participate_medical = Set(Some(v));
+        }
+        if let Some(v) = dto.participate_unemployment {
+            active.participate_unemployment = Set(Some(v));
+        }
+        if let Some(v) = dto.participate_workinjury {
+            active.participate_workinjury = Set(Some(v));
+        }
+        if let Some(v) = dto.participate_maternity {
+            active.participate_maternity = Set(Some(v));
+        }
+        if let Some(v) = dto.participate_housing_fund {
+            active.participate_housing_fund = Set(Some(v));
+        }
+        if let Some(v) = dto.participate_critical_illness {
+            active.participate_critical_illness = Set(Some(v as i16));
+        }
+        if let Some(v) = dto.workinjury_company_rate {
+            active.workinjury_company_rate = Set(Some(to_dec(v)));
+        }
+        if let Some(v) = dto.workinjury_personal_rate {
+            active.workinjury_personal_rate = Set(Some(to_dec(v)));
+        }
+        // P1-1：页面手工保存/编辑的配置一律标记为 manual
+        active.source = Set(Some("manual".to_string()));
         active.update_time = Set(Some(now));
         let updated = active.update(&txn).await.map_err(|e| e.to_string())?;
         txn.commit().await.map_err(|e| e.to_string())?;
@@ -678,6 +843,8 @@ pub async fn upsert_employee_config(
             workinjury_company_rate: Set(dto.workinjury_company_rate.map(to_dec)),
             workinjury_personal_rate: Set(dto.workinjury_personal_rate.map(to_dec)),
             enabled: Set(Some(1)),
+            // P1-1：页面手工新增的配置一律标记为 manual
+            source: Set(Some("manual".to_string())),
             create_time: Set(Some(now)),
             update_time: Set(Some(now)),
             ..Default::default()
@@ -686,6 +853,72 @@ pub async fn upsert_employee_config(
         txn.commit().await.map_err(|e| e.to_string())?;
         Ok(inserted.id)
     }
+}
+
+/// P1-2：批量设置参保方案——逐条复用单条 upsert（每条独立事务），单条失败不影响其余，返回成功/失败清单
+///
+/// 批量设置仅用于覆盖手工方案；新增员工默认走档案参保地继承逻辑，无需人工干预。
+/// 未显式选择档次时自动取政策最低档（level_type=0，与档案继承 build_inherited_config 口径一致）。
+pub async fn batch_set_employee_config(
+    db: &DatabaseConnection,
+    dto: BatchSetInsuranceConfigDTO,
+) -> Result<BatchSetResult, String> {
+    if dto.employee_ids.is_empty() {
+        return Err("员工清单为空，未执行批量设置".to_string());
+    }
+    let total = dto.employee_ids.len();
+    // P1-2: 批量未显式选择档次时，取该政策最低档（level_type=0）作为默认档，
+    // 与页面预览"默认档次"文案及继承路径口径一致，避免写入 policy_level_id=NULL
+    // 后算薪降级到政策表头单档（多档政策表头比例可能为 0）导致金额失真
+    let resolved_level_id = match dto.policy_level_id {
+        Some(lid) => Some(lid),
+        None => insurance_policy_level::Entity::find()
+            .filter(insurance_policy_level::Column::PolicyId.eq(dto.policy_id))
+            .filter(insurance_policy_level::Column::LevelType.eq(0i16))
+            .one(db)
+            .await
+            .map_err(|e| format!("查询政策默认档次失败：{}", e))?
+            .map(|l| l.id),
+    };
+    let mut success: Vec<i64> = Vec::new();
+    let mut failed: Vec<BatchSetFailedItem> = Vec::new();
+    for employee_id in dto.employee_ids {
+        let single = EmployeeInsuranceConfigDTO {
+            id: None,
+            employee_id,
+            city_code: dto.city_code.clone(),
+            policy_id: Some(dto.policy_id),
+            policy_level_id: resolved_level_id,
+            // P1-2: 批量"绑定档次"语义 = 按档次基数缴费；未显式传 usePolicyBase 时置 true，
+            // 防止覆盖已有"自定义基数"（use_policy_base=false）员工后 base_amount 被写 0 又钳制到政策下限
+            use_policy_base: dto.use_policy_base.or(Some(true)),
+            base_amount: dto.base_amount.unwrap_or(0.0),
+            housing_fund_base: dto.housing_fund_base,
+            housing_fund_company_rate: dto.housing_fund_company_rate,
+            housing_fund_personal_rate: dto.housing_fund_personal_rate,
+            participate_pension: dto.participate_pension,
+            participate_medical: dto.participate_medical,
+            participate_unemployment: dto.participate_unemployment,
+            participate_workinjury: dto.participate_workinjury,
+            participate_maternity: dto.participate_maternity,
+            participate_housing_fund: dto.participate_housing_fund,
+            participate_critical_illness: dto.participate_critical_illness,
+            workinjury_company_rate: dto.workinjury_company_rate,
+            workinjury_personal_rate: dto.workinjury_personal_rate,
+        };
+        match upsert_employee_config(db, single).await {
+            Ok(_) => success.push(employee_id),
+            Err(e) => failed.push(BatchSetFailedItem {
+                employee_id,
+                reason: e,
+            }),
+        }
+    }
+    Ok(BatchSetResult {
+        total,
+        success,
+        failed,
+    })
 }
 
 // ==================== 社保计算引擎 ====================
@@ -852,58 +1085,189 @@ pub async fn preview_calculation(
     Ok(compute_premiums(&level, use_policy_base, custom_base, &dto))
 }
 
+/// P1-1：按城市 + 年份 + 月份匹配生效中的社保政策
+///
+/// 匹配规则（同一年内不同月份可适用不同生效月的政策）：
+/// 1. 优先取 `effective_month <= month` 的政策中生效月最大的（如政策 4 月生效，核算 6 月则命中）；
+/// 2. 无月份限定（effective_month 为空，视为全年适用）的政策作为兜底；
+/// 3. 仅返回启用且状态生效的政策，避免命中已停用政策。
+async fn find_policy_for_month<C: ConnectionTrait>(
+    conn: &C,
+    city_code: &str,
+    year: i32,
+    month: i32,
+) -> Result<Option<social_insurance_policy::Model>, String> {
+    // 1) 月份限定政策：取生效月 <= 核算月中的最大者
+    let monthly = social_insurance_policy::Entity::find()
+        .filter(social_insurance_policy::Column::CityCode.eq(city_code))
+        .filter(social_insurance_policy::Column::Year.eq(year))
+        .filter(social_insurance_policy::Column::Enabled.eq(1))
+        .filter(social_insurance_policy::Column::Status.eq(1))
+        .filter(social_insurance_policy::Column::EffectiveMonth.is_not_null())
+        .filter(social_insurance_policy::Column::EffectiveMonth.lte(month))
+        .order_by_desc(social_insurance_policy::Column::EffectiveMonth)
+        .order_by_desc(social_insurance_policy::Column::EffectiveDate)
+        .order_by_desc(social_insurance_policy::Column::Id)
+        .one(conn)
+        .await
+        .map_err(|e| e.to_string())?;
+    if monthly.is_some() {
+        return Ok(monthly);
+    }
+    // 2) 全年适用政策（未设生效月）兜底
+    social_insurance_policy::Entity::find()
+        .filter(social_insurance_policy::Column::CityCode.eq(city_code))
+        .filter(social_insurance_policy::Column::Year.eq(year))
+        .filter(social_insurance_policy::Column::Enabled.eq(1))
+        .filter(social_insurance_policy::Column::Status.eq(1))
+        .filter(social_insurance_policy::Column::EffectiveMonth.is_null())
+        .order_by_desc(social_insurance_policy::Column::EffectiveDate)
+        .order_by_desc(social_insurance_policy::Column::Id)
+        .one(conn)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// P1-1：按政策构造"继承默认方案"的员工虚拟配置（仅供算薪内存计算，不落库）
+///
+/// 参与标志默认全部参加；基数默认跟随政策档次。
+/// [Assumption — 待业务确认] 默认档次取政策中的最低档（level_type=0）；
+/// 政策无档次明细（旧结构）时降级为表头单档计算，基数取政策下限。
+async fn build_inherited_config<C: ConnectionTrait>(
+    conn: &C,
+    policy: &social_insurance_policy::Model,
+) -> Result<employee_insurance_config::Model, String> {
+    // 默认档次：政策下的最低档（level_type=0）
+    let level = insurance_policy_level::Entity::find()
+        .filter(insurance_policy_level::Column::PolicyId.eq(policy.id))
+        .filter(insurance_policy_level::Column::LevelType.eq(0i16))
+        .one(conn)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(employee_insurance_config::Model {
+        id: 0,
+        employee_id: 0,
+        city_code: policy.city_code.clone(),
+        policy_id: Some(policy.id),
+        policy_level_id: level.as_ref().map(|l| l.id),
+        use_policy_base: Some(true),
+        base_amount: level
+            .as_ref()
+            .map(|l| l.base_amount)
+            .unwrap_or(policy.base_lower),
+        housing_fund_base: None,
+        housing_fund_company_rate: None,
+        housing_fund_personal_rate: None,
+        participate_pension: Some(1),
+        participate_medical: Some(1),
+        participate_unemployment: Some(1),
+        participate_workinjury: Some(1),
+        participate_maternity: Some(1),
+        participate_housing_fund: Some(1),
+        participate_critical_illness: Some(1),
+        workinjury_company_rate: None,
+        workinjury_personal_rate: None,
+        effective_date: None,
+        expiry_date: None,
+        enabled: Some(1),
+        source: Some("inherited".to_string()),
+        create_time: None,
+        update_time: None,
+    })
+}
+
 /// 计算当月社保公积金（工资核算联动，兼容旧结构）
 ///
-/// 优先级：
-/// 1. 员工配置已关联 policy_level_id → 用档次明细计算（含重大保险）
+/// P1-1 配置优先级（手工配置 > 档案城市默认政策；两者皆无则显式失败阻止出账）：
+/// 1. 员工手工社保配置（manual）已关联 policy_level_id → 用档次明细计算（含重大保险）
 /// 2. 仅关联 city_code → 降级用政策表头单档比例计算（旧结构兼容）
-pub async fn calculate_monthly_insurance(
-    db: &DatabaseConnection,
+/// 3. 无手工配置 → 继承档案参保地（work_city_code）的默认政策与最低档（inherited，不落库）
+///
+/// month 实际参与政策匹配：优先取 effective_month <= 核算月的最新政策，
+/// 无月份限定（全年适用）的政策兜底，支持同一年内不同月份的不同配置。
+pub(crate) async fn calculate_monthly_insurance<C: ConnectionTrait>(
+    conn: &C,
     employee_id: i64,
     year: i32,
-    _month: i32,
+    month: i32,
 ) -> Result<MonthlyInsuranceResult, String> {
-    // 查询员工社保配置
-    let config = employee_insurance_config::Entity::find()
-        .filter(employee_insurance_config::Column::EmployeeId.eq(employee_id))
-        .filter(employee_insurance_config::Column::Enabled.eq(1))
-        .one(db)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "员工社保配置不存在".to_string())?;
-
-    // 查询社保政策：优先用员工配置关联的政策（须启用且生效），
-    // 其次按 city_code + year 匹配状态生效的政策（避免命中同年度已停用政策）
-    let mut policy_opt: Option<social_insurance_policy::Model> = None;
-    if let Some(pid) = config.policy_id {
-        if let Some(p) = social_insurance_policy::Entity::find_by_id(pid)
-            .one(db)
+    // P1-1：month 实际参与政策匹配（同一年内不同月份可适用不同生效月的政策）；
+    // 配置优先级：手工配置（manual）> 档案参保地默认方案（继承，不落库）；
+    // 两者皆无时显式报错，阻止出账（不再静默按 0）。
+    let admin = {
+        use crate::modules::system::entity::admin;
+        admin::Entity::find_by_id(employee_id)
+            .one(conn)
             .await
             .map_err(|e| e.to_string())?
-        {
-            if p.enabled.unwrap_or(1) == 1 && p.status.unwrap_or(1) == 1 {
-                policy_opt = Some(p);
+            .ok_or_else(|| format!("员工{}不存在，无法核算社保", employee_id))?
+    };
+    let employee_name = admin
+        .nick_name
+        .clone()
+        .or_else(|| admin.user_name.clone())
+        .unwrap_or_else(|| format!("员工{}", employee_id));
+
+    // 查询员工手工社保配置（enabled=1）
+    let manual_cfg = employee_insurance_config::Entity::find()
+        .filter(employee_insurance_config::Column::EmployeeId.eq(employee_id))
+        .filter(employee_insurance_config::Column::Enabled.eq(1))
+        .one(conn)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 确定配置与适用政策
+    let (config, policy) = match manual_cfg {
+        Some(cfg) => {
+            // 手工配置路径：优先用配置关联的政策（须启用且生效），
+            // 其次按 city_code + year + month 匹配状态生效的政策（避免命中同年度已停用政策）
+            let mut policy_opt: Option<social_insurance_policy::Model> = None;
+            if let Some(pid) = cfg.policy_id {
+                if let Some(p) = social_insurance_policy::Entity::find_by_id(pid)
+                    .one(conn)
+                    .await
+                    .map_err(|e| e.to_string())?
+                {
+                    if p.enabled.unwrap_or(1) == 1 && p.status.unwrap_or(1) == 1 {
+                        policy_opt = Some(p);
+                    }
+                }
             }
+            if policy_opt.is_none() {
+                policy_opt = find_policy_for_month(conn, &cfg.city_code, year, month).await?;
+            }
+            let policy = policy_opt.ok_or_else(|| {
+                format!(
+                    "员工{}的手工社保配置（城市 {}）在 {} 年 {} 月无生效社保政策，已阻止出账",
+                    employee_name, cfg.city_code, year, month
+                )
+            })?;
+            (cfg, policy)
         }
-    }
-    if policy_opt.is_none() {
-        policy_opt = social_insurance_policy::Entity::find()
-            .filter(social_insurance_policy::Column::CityCode.eq(&config.city_code))
-            .filter(social_insurance_policy::Column::Year.eq(year))
-            .filter(social_insurance_policy::Column::Enabled.eq(1))
-            .filter(social_insurance_policy::Column::Status.eq(1))
-            .order_by_desc(social_insurance_policy::Column::EffectiveDate)
-            .order_by_desc(social_insurance_policy::Column::Id)
-            .one(db)
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-    let policy = policy_opt.ok_or_else(|| {
-        format!(
-            "城市 {} 的 {} 年社保政策不存在",
-            config.city_code, year
-        )
-    })?;
+        None => {
+            // 继承路径：员工未手工配置社保 → 按档案参保地（work_city_code）匹配当年城市政策
+            let city = admin
+                .work_city_code
+                .clone()
+                .filter(|s| !s.trim().is_empty())
+                .ok_or_else(|| {
+                    format!(
+                        "员工{}未手工配置社保且档案未设置参保地（work_city_code），无法核算社保，已阻止出账",
+                        employee_name
+                    )
+                })?;
+            let policy = find_policy_for_month(conn, &city, year, month)
+                .await?
+                .ok_or_else(|| {
+                    format!(
+                        "城市 {} 的 {} 年 {} 月社保政策不存在，员工{}无法核算社保，已阻止出账",
+                        city, year, month, employee_name
+                    )
+                })?;
+            let cfg = build_inherited_config(conn, &policy).await?;
+            (cfg, policy)
+        }
+    };
 
     // 构造计算参数（参与标志 + 员工级覆盖）
     let calc_cfg = PreviewCalcDTO {
@@ -928,7 +1292,7 @@ pub async fn calculate_monthly_insurance(
     // 优先走档次计算
     let result = if let Some(level_id) = config.policy_level_id {
         let level = insurance_policy_level::Entity::find_by_id(level_id)
-            .one(db)
+            .one(conn)
             .await
             .map_err(|e| e.to_string())?;
         if let Some(level) = level {

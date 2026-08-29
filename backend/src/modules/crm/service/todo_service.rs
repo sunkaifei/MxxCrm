@@ -1,4 +1,4 @@
-use chrono::{Local, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate};
 use rust_decimal::Decimal;
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 
@@ -15,6 +15,8 @@ use crate::modules::crm::entity::lead::{Column as LeadColumn, Entity as LeadEnti
 use crate::modules::crm::entity::opportunity::{
     Column as OppColumn, Entity as OppEntity,
 };
+use crate::modules::sale::entity::invoice::{Column as InvoiceColumn, Entity as InvoiceEntity};
+use crate::modules::sale::entity::order::{Column as OrderColumn, Entity as OrderEntity};
 use crate::modules::crm::model::todo::*;
 use crate::modules::statistics::entity::performance_plan::{
     Column as PerfPlanColumn, Entity as PerfPlanEntity,
@@ -449,6 +451,290 @@ impl TodoService {
     }
 
     // ============ Private helpers ============
+
+    /// 任务日历：返回指定月份（缺省当月）用户名下日程型任务明细（跟进提醒/待回款/合同到期）
+    ///
+    /// - 跟进提醒：客户/线索 next_follow_at 落在月内（线索排除已转化/无效，对齐 follow_up_list）
+    /// - 待回款：回款计划 plan_date 落在月内且未完成（status 0/1，仅我名下）
+    /// - 合同到期：合同 end_date 落在月内且执行中（status 2/3，仅我负责）
+    /// - 商机预计成交：expected_close_date 落在月内且未终态（排除 stage 5/6，仅我负责）
+    /// - 发票到期：due_date 落在月内且有效（排除 4=作废/5=红冲，仅我名下）
+    /// - 订单付款到期：payment_due_date 落在月内且未付清（pay_status 1=未支付/2=部分支付，仅我名下）
+    /// 一次返回整月明细，前端按日期分组打点与点击过滤（月度数据量小，无需分页）
+    pub async fn calendar_tasks(
+        db: &DatabaseConnection,
+        user_id: i64,
+        query: &CalendarTaskQuery,
+    ) -> Result<Vec<CalendarTaskVO>> {
+        let today = Local::now().naive_local().date();
+        // 解析月份：YYYY-MM，缺省当月
+        let (year, month) = match query.month.as_deref().map(str::trim) {
+            Some(m) if !m.is_empty() => {
+                let parts: Vec<&str> = m.split('-').collect();
+                if parts.len() != 2 {
+                    return Err(Error::from("month 格式应为 YYYY-MM"));
+                }
+                let y: i32 = parts[0]
+                    .parse()
+                    .map_err(|_| Error::from("month 年份无效"))?;
+                let mo: u32 = parts[1]
+                    .parse()
+                    .map_err(|_| Error::from("month 月份无效"))?;
+                if !(1..=12).contains(&mo) {
+                    return Err(Error::from("month 月份应在 1-12 之间"));
+                }
+                (y, mo)
+            }
+            _ => (today.year(), today.month()),
+        };
+        let month_start = NaiveDate::from_ymd_opt(year, month, 1)
+            .ok_or_else(|| Error::from("month 无效"))?;
+        let next_month_first = if month == 12 {
+            NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+        } else {
+            NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
+        };
+        let month_start_dt = month_start.and_hms_opt(0, 0, 0).unwrap();
+        let next_month_start_dt = next_month_first.and_hms_opt(0, 0, 0).unwrap();
+
+        let mut items: Vec<CalendarTaskVO> = Vec::new();
+
+        // 跟进提醒：客户（next_follow_at 落在月内，仅我名下）
+        let customers = CustomerEntity::find()
+            .filter(CustomerColumn::NextFollowAt.is_not_null())
+            .filter(CustomerColumn::NextFollowAt.gte(month_start_dt))
+            .filter(CustomerColumn::NextFollowAt.lt(next_month_start_dt))
+            .filter(CustomerColumn::AssignedTo.eq(user_id))
+            .filter(CustomerColumn::Deleted.eq(0))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        for c in customers {
+            let d = match c.next_follow_at.map(|t| t.date()) {
+                Some(d) => d,
+                None => continue,
+            };
+            let name = c
+                .company_name
+                .clone()
+                .or(c.short_name.clone())
+                .or(c.person_name.clone())
+                .unwrap_or_default();
+            items.push(CalendarTaskVO {
+                date: d.to_string(),
+                task_type: "followUp".to_string(),
+                title: if name.is_empty() {
+                    "客户跟进".to_string()
+                } else {
+                    name
+                },
+                business_id: c.id,
+                amount: None,
+            });
+        }
+
+        // 跟进提醒：线索（排除已转化/无效线索，对齐 follow_up_list 过滤）
+        let leads = LeadEntity::find()
+            .filter(LeadColumn::NextFollowAt.is_not_null())
+            .filter(LeadColumn::NextFollowAt.gte(month_start_dt))
+            .filter(LeadColumn::NextFollowAt.lt(next_month_start_dt))
+            .filter(LeadColumn::AssignedTo.eq(user_id))
+            .filter(LeadColumn::Deleted.eq(0))
+            .filter(
+                Condition::any()
+                    .add(LeadColumn::Status.is_null())
+                    .add(LeadColumn::Status.is_not_in(vec![3, 4])),
+            )
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        for l in leads {
+            let d = match l.next_follow_at.map(|t| t.date()) {
+                Some(d) => d,
+                None => continue,
+            };
+            let title = l.title.clone().unwrap_or_default();
+            items.push(CalendarTaskVO {
+                date: d.to_string(),
+                task_type: "followUp".to_string(),
+                title: if title.is_empty() {
+                    "线索跟进".to_string()
+                } else {
+                    title
+                },
+                business_id: l.id,
+                amount: None,
+            });
+        }
+
+        // 待回款：回款计划（plan_date 落在月内且未完成 status 0/1，仅我名下）
+        let plans = PlanEntity::find()
+            .filter(PlanColumn::PlanDate.is_not_null())
+            .filter(PlanColumn::PlanDate.gte(month_start))
+            .filter(PlanColumn::PlanDate.lt(next_month_first))
+            .filter(PlanColumn::Status.is_in(vec![0, 1]))
+            .filter(PlanColumn::OwnerUserId.eq(user_id))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        for p in plans {
+            let d = match p.plan_date {
+                Some(d) => d,
+                None => continue,
+            };
+            items.push(CalendarTaskVO {
+                date: d.to_string(),
+                task_type: "payment".to_string(),
+                title: p
+                    .stage_name
+                    .clone()
+                    .unwrap_or_else(|| "回款计划".to_string()),
+                business_id: p.contract_id.unwrap_or(0),
+                amount: p.plan_amount,
+            });
+        }
+
+        // 合同到期：end_date 落在月内且执行中（status 2/3，仅我负责）
+        let contracts = ContractEntity::find()
+            .filter(ContractColumn::EndDate.is_not_null())
+            .filter(ContractColumn::EndDate.gte(month_start))
+            .filter(ContractColumn::EndDate.lt(next_month_first))
+            .filter(ContractColumn::Status.is_in(vec![2, 3]))
+            .filter(ContractColumn::Deleted.eq(0))
+            .filter(ContractColumn::AssignedTo.eq(user_id))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        for ct in contracts {
+            let d = match ct.end_date {
+                Some(d) => d,
+                None => continue,
+            };
+            let title = ct
+                .title
+                .clone()
+                .or(ct.contract_no.clone())
+                .unwrap_or_else(|| "合同".to_string());
+            items.push(CalendarTaskVO {
+                date: d.to_string(),
+                task_type: "contract".to_string(),
+                title,
+                business_id: ct.id,
+                amount: ct.amount,
+            });
+        }
+
+        // 商机预计成交：expected_close_date 落在月内且未到终态（stage 5=成交/丢单、6=作废，仅我负责）
+        let opps = OppEntity::find()
+            .filter(OppColumn::ExpectedCloseDate.is_not_null())
+            .filter(OppColumn::ExpectedCloseDate.gte(month_start))
+            .filter(OppColumn::ExpectedCloseDate.lt(next_month_first))
+            .filter(
+                Condition::any()
+                    .add(OppColumn::Stage.is_null())
+                    .add(OppColumn::Stage.is_not_in(vec![5, 6])),
+            )
+            .filter(OppColumn::AssignedTo.eq(user_id))
+            .filter(OppColumn::Deleted.eq(0))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        for o in opps {
+            let d = match o.expected_close_date {
+                Some(d) => d,
+                None => continue,
+            };
+            let title = o
+                .title
+                .clone()
+                .or(o.opportunity_no.clone())
+                .unwrap_or_else(|| "商机预计成交".to_string());
+            items.push(CalendarTaskVO {
+                date: d.to_string(),
+                task_type: "opportunity".to_string(),
+                title,
+                business_id: o.id,
+                amount: o.amount,
+            });
+        }
+
+        // 发票到期：due_date 落在月内且有效（排除 4=作废、5=红冲，仅我名下）
+        let invoices = InvoiceEntity::find()
+            .filter(InvoiceColumn::DueDate.is_not_null())
+            .filter(InvoiceColumn::DueDate.gte(month_start))
+            .filter(InvoiceColumn::DueDate.lt(next_month_first))
+            .filter(
+                Condition::any()
+                    .add(InvoiceColumn::Status.is_null())
+                    .add(InvoiceColumn::Status.is_not_in(vec![4, 5])),
+            )
+            .filter(InvoiceColumn::OwnerUserId.eq(user_id))
+            .filter(InvoiceColumn::Deleted.eq(0))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        for inv in invoices {
+            let d = match inv.due_date {
+                Some(d) => d,
+                None => continue,
+            };
+            let title = inv
+                .invoice_no
+                .clone()
+                .or(inv.customer_name.clone())
+                .unwrap_or_else(|| "发票到期".to_string());
+            items.push(CalendarTaskVO {
+                date: d.to_string(),
+                task_type: "invoice".to_string(),
+                title,
+                business_id: inv.id,
+                amount: inv.amount,
+            });
+        }
+
+        // 订单付款到期：payment_due_date 落在月内且未付清（pay_status 1=未支付/2=部分支付，仅我名下）
+        let orders = OrderEntity::find()
+            .filter(OrderColumn::PaymentDueDate.is_not_null())
+            .filter(OrderColumn::PaymentDueDate.gte(month_start))
+            .filter(OrderColumn::PaymentDueDate.lt(next_month_first))
+            .filter(
+                Condition::any()
+                    .add(OrderColumn::PayStatus.is_null())
+                    .add(OrderColumn::PayStatus.is_in(vec![1, 2])),
+            )
+            .filter(OrderColumn::OwnerUserId.eq(user_id))
+            .filter(OrderColumn::Deleted.eq(0))
+            .all(db)
+            .await
+            .map_err(|e| Error::from(e.to_string()))?;
+        for od in orders {
+            let d = match od.payment_due_date {
+                Some(d) => d,
+                None => continue,
+            };
+            let title = od
+                .order_no
+                .clone()
+                .or(od.customer_name.clone())
+                .unwrap_or_else(|| "订单付款到期".to_string());
+            items.push(CalendarTaskVO {
+                date: d.to_string(),
+                task_type: "order".to_string(),
+                title,
+                business_id: od.id,
+                amount: od.total_amount,
+            });
+        }
+
+        // 按日期升序，同日按类型稳定排序
+        items.sort_by(|a, b| {
+            a.date
+                .cmp(&b.date)
+                .then_with(|| a.task_type.cmp(&b.task_type))
+        });
+        Ok(items)
+    }
+
 
     async fn count_pending_approval(db: &DatabaseConnection, user_id: i64) -> Result<i64> {
         let page = ApprovalModel::find_instance_list_filtered(

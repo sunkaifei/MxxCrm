@@ -22,6 +22,8 @@ pub struct Model {
     pub inbound_id: Option<i64>,
     /// 产品ID
     pub product_id: Option<i64>,
+    /// SKU ID（多规格产品按规格入库记账，单规格为NULL）
+    pub sku_id: Option<i64>,
     /// 产品SKU
     pub product_sku: Option<String>,
     /// 入库库位ID

@@ -35,6 +35,7 @@ import {
   submitContractApi,
   uploadFileApi,
 } from '#/api';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
@@ -292,12 +293,25 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getContractListApi({
+        const result = await getContractListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
           listType: activeTab.value,
           ...formValues,
         });
+        // 无数据固定 600px（空态居中）；有数据默认 600px，内容超过则响应式撑高
+        const items = (result as any)?.items ?? [];
+        const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
+        if (gridEl) {
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '600px', 'important');
+            gridEl.style.removeProperty('min-height');
+          } else {
+            gridEl.style.removeProperty('height');
+            gridEl.style.setProperty('min-height', '600px', 'important');
+          }
+        }
+        return result;
       },
     },
   },
@@ -371,6 +385,20 @@ const gridOptions: VxeGridProps = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+
+// 自定义字段动态列：schema 加载完成后插到固定列与操作列之间（不阻塞首屏）
+const fieldSchema = useFieldSchema('crm_contract');
+fieldSchema.loadSchema().then(() => {
+  const cols = [...(gridOptions.columns ?? [])];
+  const action = cols.pop(); // 操作列固定最右
+  gridApi.setGridOptions({
+    columns: [
+      ...cols,
+      ...fieldSchema.toGridColumns(),
+      ...(action ? [action] : []),
+    ],
+  });
+});
 
 // ========== Drawer（复用同一个组件，通过 create 区分新建/编辑/查看）==========
 const [Drawer, drawerApi] = useVbenDrawer({

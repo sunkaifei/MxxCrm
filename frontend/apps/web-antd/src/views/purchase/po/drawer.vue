@@ -142,7 +142,7 @@ function onProductSelected(selectedItems: any[]) {
       productId: item.productId,
       productName: item.productName,
       productCode: item.productCode,
-      skuId: item.skuId || 0,
+      skuId: item.skuId || undefined,
       productSku: item.skuCode || '',
       spec: item.spec || '',
       unit: item.unit || '',

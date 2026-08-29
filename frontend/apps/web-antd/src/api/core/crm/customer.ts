@@ -2,8 +2,11 @@ import { requestClient } from '#/api/request';
 
 type PageParams = Record<string, any>;
 
-export const getCustomerListApi = async (params?: PageParams) => {
-  return requestClient.get('/api/system/customer/list', { params });
+export const getCustomerListApi = async (
+  params?: PageParams,
+  config?: Record<string, any>,
+) => {
+  return requestClient.get('/api/system/customer/list', { params, ...config });
 };
 export const getCustomerInfoApi = async (id: number) => {
   return requestClient.get('/api/system/customer/info', { params: { id } });
@@ -38,5 +41,13 @@ export const getCustomerContactsApi = async (id: number) => {
 export const getCustomerAssignHistoryApi = async (id: number) => {
   return requestClient.get('/api/system/customer/assign-history', {
     params: { id },
+  });
+};
+
+// 导出客户列表 xlsx（P1-6，与列表同权限码 crm:customer:list；后端返回二进制流，动态列由后端格式化）
+export const exportCustomersApi = async (params?: PageParams) => {
+  return requestClient.get('/api/system/customer/export', {
+    params,
+    responseType: 'blob',
   });
 };

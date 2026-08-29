@@ -78,7 +78,9 @@
     "select_row": "Please select rows to operate"
   },
   "text": {
-    "do_you_want_delete": "Do you want to delete the {moduleName}?"
+    "do_you_want_delete": "Do you want to delete the {moduleName}?",
+    "batch_delete_title": "Batch Delete",
+    "confirm_batch_delete": "Are you sure you want to delete the selected {count} record(s)?"
   },
   "form": {
     "description": "Description"

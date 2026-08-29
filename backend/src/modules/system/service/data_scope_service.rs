@@ -27,6 +27,7 @@ use crate::modules::system::model::admin::AdminModel;
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::model::role_dept_merge::RoleDeptMergeModel;
+use crate::modules::system::service::permission_cache_service;
 use crate::modules::system::service::role_service;
 use sea_orm::{DbConn, EntityTrait};
 use std::collections::HashSet;
@@ -55,7 +56,31 @@ pub fn collect_child_dept_ids(all_depts: &[dept::Model], parent_id: i64) -> Vec<
 /// - `Ok(None)`：不限制（全部数据权限）
 /// - `Ok(Some(user_ids))`：仅可见这些用户负责的数据
 /// - `Err(...)`：查询失败
+/// ## 缓存（P0-1）
+/// 结果缓存于 `scope:{user_id}`，TTL 300s 与权限码缓存对齐：
+/// 读缓存 → miss 则计算 → 写缓存，所有消费方零改动。
+/// 失效由 permission_cache_service 失效族统一挂接（角色/用户/部门变更路径），
+/// 部门树结构调整不逐点失效，靠 TTL 兜底。
 pub async fn get_accessible_user_ids(
+    db: &DbConn,
+    current_user_id: i64,
+) -> Result<Option<Vec<i64>>> {
+    // P0-1: 先读缓存，命中则跳过角色/部门递归计算
+    if let Some(cached) = permission_cache_service::get_scope_cache(current_user_id).await {
+        log::debug!("[数据权限缓存] 命中 user_id={}", current_user_id);
+        return Ok(cached);
+    }
+
+    let result = compute_accessible_user_ids(db, current_user_id).await?;
+
+    // P0-1: 回填缓存（写入失败仅记日志，不影响主流程）
+    permission_cache_service::set_scope_cache(current_user_id, &result).await;
+
+    Ok(result)
+}
+
+/// 实际计算数据权限可见用户ID列表（P0-1 拆分，本函数无缓存语义）
+async fn compute_accessible_user_ids(
     db: &DbConn,
     current_user_id: i64,
 ) -> Result<Option<Vec<i64>>> {

@@ -42,6 +42,7 @@
       "deleteFailed": "删除失败",
       "noData": "暂无数据",
       "viewDetail": "查看详情",
+      "send": "发送",
       "export": "导出",
       "exportSalary": "导出工资单",
       "exportTax": "导出个税",
@@ -136,6 +137,27 @@
         "designatedDept": "指定部门",
         "designatedPost": "指定岗位",
         "designatedMember": "指定人员"
+      },
+      "dimension": {
+        "productLine": {
+          "standard": "标准产品线",
+          "premium": "高端产品线",
+          "enterprise": "企业产品线",
+          "custom": "定制产品线"
+        },
+        "region": {
+          "north": "华北",
+          "east": "华东",
+          "south": "华南",
+          "west": "西部",
+          "central": "华中"
+        },
+        "customerType": {
+          "vip": "VIP 客户",
+          "strategy": "战略客户",
+          "normal": "普通客户",
+          "new": "新客户"
+        }
       },
       "calcBaseType": {
         "personalMonthly": "个人月度业绩",
@@ -342,6 +364,23 @@
       "detail": {
         "salaryInfo": "工资信息",
         "commissionDetail": "提成明细",
+        "itemValues": "自定义项明细",
+        "taxProcess": "个税计算过程",
+        "tax": {
+          "monthlyIncome": "当月收入",
+          "cumulativeIncome": "累计收入",
+          "cumulativeDeduction": "累计减除",
+          "applicableRate": "适用税率",
+          "quickDeduction": "速算扣除",
+          "cumulativeTaxShould": "累计应纳",
+          "cumulativeTaxPaid": "已缴税额",
+          "monthlyTax": "本月应缴",
+          "noData": "暂无个税明细"
+        },
+        "drawerTitle": "工资详情",
+        "recalcButton": "重新核算",
+        "recalcConfirmTitle": "确认重新核算？",
+        "recalcConfirmContent": "将删除该员工当月待审核的工资记录及其提成、个税、自定义项明细，回滚个税累计后按最新配置重新生成，确定继续吗？",
         "adjustPerformance": "手动调整绩效/扣款",
         "performanceBonus": "绩效奖金",
         "deductionAmount": "扣款金额",
@@ -374,6 +413,8 @@
       "column": {
         "employeeName": "员工姓名",
         "department": "部门",
+        "insuranceCity": "参保地",
+        "insuranceCityMissing": "未配置",
         "hireDate": "入职时间",
         "yearMonth": "年月",
         "baseSalary": "底薪",
@@ -411,7 +452,38 @@
         "approve": "审核",
         "adjust": "调整",
         "pay": "发放",
-        "handleAppeal": "处理申诉"
+        "handleAppeal": "处理申诉",
+        "itemValues": "录入项目值"
+      },
+      "itemValues": {
+        "title": "录入项目值 - {name}（{year}年{month}月）",
+        "tip": "仅列出手动录入模式且启用中的自定义工资项，金额填 0 表示清除该项，保存后自动联动重算工资。",
+        "column": {
+          "itemName": "项目名称",
+          "itemType": "类型",
+          "pretax": "税前/税后",
+          "taxable": "计税",
+          "amount": "金额"
+        },
+        "type": {
+          "addition": "增项",
+          "deduction": "减项"
+        },
+        "pretax": {
+          "before": "税前",
+          "after": "税后"
+        },
+        "taxable": {
+          "yes": "计税",
+          "no": "不计税"
+        },
+        "disabled": "已停用",
+        "empty": "暂无可录入的自定义工资项",
+        "message": {
+          "amountInvalid": "请输入正确的金额（0 或正数）",
+          "saveSuccess": "保存成功，工资已联动重算",
+          "saveFailed": "保存失败"
+        }
       },
       "summary": {
         "title": "{year}年{month}月工资汇总",
@@ -479,11 +551,10 @@
         "handleRemark": "处理备注",
         "approveRecalcTitle": "同意重新核算",
         "approveRecalcContent": "同意后将触发该员工工资重新核算，原记录被覆盖，确认同意？",
-        "approveRecalcRemark": "财务同意重新核算",
         "approveRecalcSuccess": "已同意重新核算，工资将重新计算",
+        "appealRemarkPlaceholder": "请输入审批意见（可选）",
         "rejectAppealTitle": "驳回申请",
         "rejectAppealContent": "驳回后员工工资按原核算结果发放，确认驳回？",
-        "rejectAppealRemark": "财务驳回重新核算申请",
         "rejectAppealSuccess": "已驳回重新核算申请",
         "handleFailed": "处理失败",
         "submitApprovalTitle": "提交工资审批",
@@ -500,6 +571,7 @@
         "confirmSuccess": "确认成功",
         "noSelectedRows": "请选择要操作的记录",
         "batchApproveSelectRequired": "请选择要审核的工资记录",
+        "batchApproveNoPending": "所选记录中没有待审核状态的记录",
         "batchApproveSuccess": "批量审核成功",
         "batchApproveFailed": "批量审核失败",
         "batchPaySelectRequired": "请选择要发放的工资记录",
@@ -510,7 +582,9 @@
         "submitFailed": "提交失败",
         "appealHandled": "申诉已处理",
         "adjustSuccess": "调整成功",
-        "adjustFailed": "调整失败"
+        "adjustFailed": "调整失败",
+        "recalcSuccess": "重新核算成功",
+        "recalcFailed": "重新核算失败"
       },
       "config": {
         "title": "底薪配置",
@@ -547,6 +621,7 @@
         "message": {
           "employeeIdRequired": "请输入员工ID",
           "baseSalaryNegative": "底薪不能为负数",
+          "employeeConfigured": "该员工在所选期间已有底薪配置，不能重复添加，请在列表中编辑",
           "deleteTitle": "删除底薪配置",
           "deleteContent": "确认删除该底薪配置？删除后不可恢复。"
         }
@@ -1076,6 +1151,10 @@
         "policy": "城市政策库",
         "empConfig": "员工社保配置"
       },
+      "coverage": {
+        "summary": "参与工资核算 {total} 人：已配置社保 {configured} 人，凭参保地继承政策 {inherited} 人",
+        "missingTip": "以下 {n} 人既无社保配置、档案也未设置参保地（work_city_code），工资核算将被阻止出账，请及时处理："
+      },
       "column": {
         "cityCode": "城市编码",
         "cityName": "城市名称",
@@ -1107,7 +1186,8 @@
         "criticalIllness": "大病保险",
         "policyPeriod": "有效期",
         "policyStatus": "状态",
-        "levels": "缴费档次"
+        "levels": "缴费档次",
+        "source": "来源"
       },
       "placeholder": {
         "allYears": "全部年度"
@@ -1117,6 +1197,26 @@
         "participated": "已参保",
         "active": "生效",
         "inactive": "停用"
+      },
+      "source": {
+        "manual": "手工配置",
+        "inherited": "继承参保地"
+      },
+      "batchSet": {
+        "title": "批量设置参保方案",
+        "button": "批量设置",
+        "stepEmployees": "第一步：勾选员工",
+        "searchEmployee": "搜索员工姓名",
+        "selectedCount": "已选 {n} 人",
+        "stepScheme": "第二步：选择参保方案",
+        "policy": "城市政策",
+        "level": "缴费档次",
+        "preview": "将为 {n} 名员工应用以下方案：{summary}",
+        "resultTitle": "执行结果",
+        "doneMsg": "批量设置完成：成功 {n} 条，失败 {m} 条",
+        "noEmployee": "请先勾选员工",
+        "noPolicy": "请选择城市政策",
+        "failReason": "失败原因"
       },
       "drawer": {
         "titlePolicyCreate": "新增城市政策",

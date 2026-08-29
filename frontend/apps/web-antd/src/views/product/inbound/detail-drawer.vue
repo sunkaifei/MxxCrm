@@ -51,6 +51,7 @@ import {
   rejectToApprovalApi,
   transferApprovalApi,
 } from '#/api/core/system/approval';
+import { formatQty } from '#/components/UnitSelect';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
 
@@ -361,16 +362,17 @@ const itemColumns = computed(() => [
     customRender: ({ value }: any) => value || '-',
   },
   {
+    title: $t('page.product.inbound.field.itemQuantity'),
+    dataIndex: 'quantity',
+    width: 90,
+    customRender: ({ record, value }: any) =>
+      value === null || value === undefined ? '-' : formatQty(value, record?.unit),
+  },
+  {
     title: $t('page.product.inbound.field.unit') || '单位',
     dataIndex: 'unit',
     width: 70,
     customRender: ({ value }: any) => value || '-',
-  },
-  {
-    title: $t('page.product.inbound.field.itemQuantity'),
-    dataIndex: 'quantity',
-    width: 90,
-    customRender: ({ value }: any) => value ?? '-',
   },
   {
     title: $t('page.product.inbound.field.itemUnitPrice'),

@@ -33,7 +33,7 @@ pub struct Model {
     /// 高（行数）
     pub h: Option<i32>,
     /// 是否隐藏（1隐藏 0显示）
-    pub hidden: Option<i32>,
+    pub hidden: Option<i16>,
     /// 更新时间
     pub update_time: Option<DateTime>,
 }

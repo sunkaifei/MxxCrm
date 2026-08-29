@@ -26,7 +26,56 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+/// 将 SKU 的 specs JSON（如 {"颜色":"红色","尺寸":"XL"}）格式化为文本，如 "颜色：红色/尺寸:XL"
+/// 兼容历史脏数据：specs 为双重编码的 JSON 字符串时先解包；值被拼上"规格名："前缀（如 键"颜色"配值"尺码：红色"）时剥离前缀
+pub(crate) fn format_sku_specs(specs: Option<&serde_json::Value>) -> Option<String> {
+    let value = specs?;
+    let obj = if value.is_object() {
+        value.as_object()?.to_owned()
+    } else if let Some(s) = value.as_str() {
+        serde_json::from_str::<serde_json::Value>(s)
+            .ok()?
+            .as_object()?
+            .to_owned()
+    } else {
+        return None;
+    };
+    let parts: Vec<String> = obj
+        .iter()
+        .map(|(k, val)| {
+            let raw = val.as_str().unwrap_or("");
+            let cleaned = raw
+                .split_once('：')
+                .filter(|(p, _)| obj.contains_key(*p))
+                .map(|(_, r)| r)
+                .unwrap_or(raw);
+            format!("{}：{}", k, cleaned)
+        })
+        .collect();
+    if parts.is_empty() { None } else { Some(parts.join("/")) }
+}
+
+/// 预警规则六级优先级匹配：SKU精确(product+warehouse+sku) > product+sku > product+warehouse > product > warehouse > 全局
+/// key 约定与 rule_map 一致：(product_id, warehouse_id, sku_id)，0 表示不限定
+fn match_alert_rule<'a>(
+    rule_map: &'a HashMap<(i64, i64, i64), &'a alert_rule::Model>,
+    pid: i64,
+    wid: i64,
+    sid: Option<i64>,
+) -> Option<&'a alert_rule::Model> {
+    let mut found: Option<&alert_rule::Model> = None;
+    if let Some(sku_id) = sid {
+        found = found.or_else(|| rule_map.get(&(pid, wid, sku_id)).copied());
+        found = found.or_else(|| rule_map.get(&(pid, 0, sku_id)).copied());
+    }
+    found = found.or_else(|| rule_map.get(&(pid, wid, 0)).copied());
+    found = found.or_else(|| rule_map.get(&(pid, 0, 0)).copied());
+    found = found.or_else(|| rule_map.get(&(0, wid, 0)).copied());
+    found = found.or_else(|| rule_map.get(&(0, 0, 0)).copied());
+    found
+}
 
 pub async fn get_list(db: &DatabaseConnection, query: &InventoryListQuery) -> Result<InventoryListData> {
     let page_num = query.page_num.unwrap_or(1);
@@ -141,12 +190,13 @@ pub async fn get_detail(db: &DatabaseConnection, id: i64) -> Result<InventoryDet
         .ok()
         .flatten();
 
-    // 查询库存流水（最近50条）
+    // 查询库存流水（最近50条，按 SKU 维度过滤：多规格行只展示本规格流水）
     let product_id = stock.product_id.unwrap_or(0);
     let warehouse_id = stock.warehouse_id.unwrap_or(0);
     let logs = stock_log::Entity::find()
         .filter(stock_log::Column::ProductId.eq(product_id))
         .filter(stock_log::Column::WarehouseId.eq(warehouse_id))
+        .filter(stock_engine::sku_condition(stock.sku_id))
         .order_by_desc(stock_log::Column::CreateTime)
         .limit(50)
         .all(db)
@@ -191,14 +241,16 @@ pub async fn set_safety_stock(
     db.transaction::<_, _, sea_orm::DbErr>(|txn| {
         let req_ware_id = req.warehouse_id;
         let req_prod_id = req.product_id;
+        let req_sku_id = req.sku_id;
         let req_min = req.alert_min_quantity;
         let req_max = req.alert_max_quantity;
         Box::pin(async move {
-            // 查找现有库存记录
+            // 查找现有库存记录（含 SKU 维度：None 匹配单规格行）
             let existing = stock::Entity::find()
                 .filter(stock::Column::WarehouseId.eq(req_ware_id))
                 .filter(stock::Column::ProductId.eq(req_prod_id))
                 .filter(stock::Column::Deleted.eq(0))
+                .filter(stock_engine::sku_condition(req_sku_id))
                 .one(txn)
                 .await?;
 
@@ -215,6 +267,7 @@ pub async fn set_safety_stock(
                     let active = stock::ActiveModel {
                         product_id: Set(Some(req_prod_id)),
                         warehouse_id: Set(Some(req_ware_id)),
+                        sku_id: Set(req_sku_id),
                         quantity: Set(Some(Decimal::ZERO)),
                         reserved_quantity: Set(Some(Decimal::ZERO)),
                         available_quantity: Set(Some(Decimal::ZERO)),
@@ -338,6 +391,7 @@ pub async fn get_obsolete_stock_list(
 pub async fn get_alert_list(
     db: &DatabaseConnection,
     product_name: Option<String>,
+    warehouse_id: Option<i64>,
     alert_type: Option<String>,
     page_num: u64,
     page_size: u64,
@@ -348,25 +402,21 @@ pub async fn get_alert_list(
         .all(db)
         .await?;
 
-    // 构建 stock 快速查找映射：key = (product_id, warehouse_id) → rule
-    // 优先匹配精确规则（product+warehouse），其次匹配全局规则（product=None 或 warehouse=None）
-    let mut exact_rules: HashMap<(i64, i64), &alert_rule::Model> = HashMap::new();
-    let mut product_rules: HashMap<i64, &alert_rule::Model> = HashMap::new();
-    let mut warehouse_rules: HashMap<i64, &alert_rule::Model> = HashMap::new();
-    let mut global_rule: Option<&alert_rule::Model> = None;
-
+    // 构建 stock 快速查找映射：key = (product_id, warehouse_id, sku_id)，0 表示不限定
+    // 规则 sku_id=None 表示对该产品全部规格生效；规则查找时 SKU 精确规则优先于全规格规则
+    let mut rule_map: HashMap<(i64, i64, i64), &alert_rule::Model> = HashMap::new();
     for r in &rules {
-        match (r.product_id, r.warehouse_id) {
-            (Some(pid), Some(wid)) => { exact_rules.insert((pid, wid), r); }
-            (Some(pid), None) => { product_rules.entry(pid).or_insert(r); }
-            (None, Some(wid)) => { warehouse_rules.entry(wid).or_insert(r); }
-            (None, None) => { global_rule.get_or_insert(r); }
-        }
+        let key = (r.product_id.unwrap_or(0), r.warehouse_id.unwrap_or(0), r.sku_id.unwrap_or(0));
+        rule_map.entry(key).or_insert(r);
     }
 
     // 2. 查询库存记录
     let mut condition = Entity::find()
         .filter(Column::Deleted.eq(0));
+
+    if let Some(wid) = warehouse_id {
+        condition = condition.filter(Column::WarehouseId.eq(wid));
+    }
 
     if let Some(name) = &product_name {
         let product_ids: Vec<i64> = product_entity::Entity::find()
@@ -384,21 +434,74 @@ pub async fn get_alert_list(
     let stocks = condition.all(db).await?;
     let now = chrono::Local::now().naive_local();
 
+    // 已有库存行集合（sku 用 0 表示无 SKU），供缺货补全时排除已遍历的行
+    let existing_rows: HashSet<(i64, i64, i64)> = stocks
+        .iter()
+        .map(|s| {
+            (
+                s.product_id.unwrap_or(0),
+                s.warehouse_id.unwrap_or(0),
+                s.sku_id.filter(|&id| id > 0).unwrap_or(0),
+            )
+        })
+        .collect();
+
+    // 批量预加载产品/仓库/SKU，避免循环内逐条查询
+    let product_ids: Vec<i64> = stocks.iter().filter_map(|s| s.product_id).collect();
+    let warehouse_ids: Vec<i64> = stocks.iter().filter_map(|s| s.warehouse_id).collect();
+    let sku_ids: Vec<i64> = stocks.iter().filter_map(|s| s.sku_id.filter(|&id| id > 0)).collect();
+    let product_map: HashMap<i64, product_entity::Model> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_entity::Entity::find()
+            .filter(product_entity::Column::Id.is_in(product_ids))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|p| (p.id, p))
+            .collect()
+    };
+    let warehouse_map: HashMap<i64, warehouse_entity::Model> = if warehouse_ids.is_empty() {
+        HashMap::new()
+    } else {
+        warehouse_entity::Entity::find()
+            .filter(warehouse_entity::Column::Id.is_in(warehouse_ids))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|w| (w.id, w))
+            .collect()
+    };
+    let sku_map: HashMap<i64, sku_entity::Model> = if sku_ids.is_empty() {
+        HashMap::new()
+    } else {
+        sku_entity::Entity::find()
+            .filter(sku_entity::Column::Id.is_in(sku_ids))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|s| (s.id, s))
+            .collect()
+    };
+
     let mut items = Vec::new();
     for s in stocks {
         let pid = s.product_id.unwrap_or(0);
         let wid = s.warehouse_id.unwrap_or(0);
-        let product = product_entity::Entity::find_by_id(pid).one(db).await.ok().flatten();
-        let wh = warehouse_entity::Entity::find_by_id(wid).one(db).await.ok().flatten();
+        let sid = s.sku_id.filter(|&id| id > 0);
+        let product = product_map.get(&pid);
+        let wh = warehouse_map.get(&wid);
+        let sku = sid.and_then(|id| sku_map.get(&id));
         let qty = s.quantity.unwrap_or_default();
         let available = s.available_quantity.unwrap_or_default();
 
-        // 合并阈值：stock 表字段 + alert_rule（规则优先）
-        let rule: Option<&alert_rule::Model> = exact_rules.get(&(pid, wid))
-            .copied()
-            .or_else(|| product_rules.get(&pid).copied())
-            .or_else(|| warehouse_rules.get(&wid).copied())
-            .or(global_rule);
+        // 规格文本：多规格行取 SKU specs，单规格行回退产品规格描述
+        let sku_spec_text = sku.as_ref().and_then(|sk| format_sku_specs(sk.specs.as_ref()));
+        let spec_text = sku_spec_text
+            .or_else(|| product.as_ref().and_then(|p| p.sku.clone()));
+
+        // 规则匹配（六级优先级，见 match_alert_rule）
+        let rule: Option<&alert_rule::Model> = match_alert_rule(&rule_map, pid, wid, sid);
 
         let (alert_min, enable_low) = match rule {
             Some(r) if r.enable_low_alert.unwrap_or(false) => (r.min_quantity.or(s.alert_min_quantity), true),
@@ -431,6 +534,9 @@ pub async fn get_alert_list(
                             product_code: product.as_ref().and_then(|p| p.product_no.clone()),
                             warehouse_id: Some(wid),
                             warehouse_name: wh.as_ref().and_then(|w| w.name.clone()),
+                            sku_id: sid,
+                            sku_code: sku.as_ref().and_then(|sk| sk.sku_code.clone()),
+                            spec_text: spec_text.clone(),
                             quantity: Some(qty),
                             available_quantity: Some(available),
                             alert_min_quantity: Some(min),
@@ -457,6 +563,9 @@ pub async fn get_alert_list(
                             product_code: product.as_ref().and_then(|p| p.product_no.clone()),
                             warehouse_id: Some(wid),
                             warehouse_name: wh.as_ref().and_then(|w| w.name.clone()),
+                            sku_id: sid,
+                            sku_code: sku.as_ref().and_then(|sk| sk.sku_code.clone()),
+                            spec_text: spec_text.clone(),
                             quantity: Some(qty),
                             available_quantity: Some(available),
                             alert_min_quantity: alert_min,
@@ -483,6 +592,9 @@ pub async fn get_alert_list(
                             product_code: product.as_ref().and_then(|p| p.product_no.clone()),
                             warehouse_id: Some(wid),
                             warehouse_name: wh.as_ref().and_then(|w| w.name.clone()),
+                            sku_id: sid,
+                            sku_code: sku.as_ref().and_then(|sk| sk.sku_code.clone()),
+                            spec_text: spec_text.clone(),
                             quantity: Some(qty),
                             available_quantity: Some(available),
                             alert_min_quantity: alert_min,
@@ -494,6 +606,96 @@ pub async fn get_alert_list(
                         });
                     }
                 }
+            }
+        }
+    }
+
+    // 3. 缺货补全：从未入库的规格在 stock 表没有行，仅按库存行遍历会漏报 0 库存缺货。
+    //    对明确指定了产品+仓库且启用低库存预警的规则，其覆盖范围内没有库存行的
+    //    规格/产品按 0 库存参与预警（0 < 最低阈值即缺货）。
+    let abs_rules: Vec<&alert_rule::Model> = rules
+        .iter()
+        .filter(|r| {
+            r.product_id.is_some()
+                && r.warehouse_id.is_some()
+                && r.enable_low_alert.unwrap_or(false)
+                && r.min_quantity.map(|m| m > Decimal::ZERO).unwrap_or(false)
+        })
+        .collect();
+
+    if !abs_rules.is_empty() {
+        let covered_pids: Vec<i64> = abs_rules.iter().map(|r| r.product_id.unwrap()).collect();
+        let covered_products: HashMap<i64, product_entity::Model> = product_entity::Entity::find()
+            .filter(product_entity::Column::Id.is_in(covered_pids.clone()))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|p| (p.id, p))
+            .collect();
+        let mut covered_skus: HashMap<i64, Vec<sku_entity::Model>> = HashMap::new();
+        for s in sku_entity::Entity::find()
+            .filter(sku_entity::Column::ProductId.is_in(covered_pids.clone()))
+            .all(db)
+            .await?
+        {
+            covered_skus.entry(s.product_id).or_default().push(s);
+        }
+
+        let mut seen: HashSet<(i64, i64, i64)> = HashSet::new();
+        for r in &abs_rules {
+            let pid = r.product_id.unwrap();
+            let wid = r.warehouse_id.unwrap();
+            // 覆盖的规格单元：指定 sku 仅该规格；未指定则产品全部规格（产品无规格记录时为产品级单元 0）
+            let units: Vec<i64> = match r.sku_id {
+                Some(sid) => vec![sid],
+                None => covered_skus
+                    .get(&pid)
+                    .map(|list| list.iter().map(|s| s.id).collect())
+                    .unwrap_or_else(|| vec![0]),
+            };
+            for sid0 in units {
+                if !seen.insert((pid, wid, sid0)) || existing_rows.contains(&(pid, wid, sid0)) {
+                    continue;
+                }
+                let sid = if sid0 > 0 { Some(sid0) } else { None };
+                // 与库存行同一套六级匹配，保证阈值来源一致
+                let rule = match_alert_rule(&rule_map, pid, wid, sid);
+                let Some(rule) = rule else { continue };
+                if !rule.enable_low_alert.unwrap_or(false) {
+                    continue;
+                }
+                let Some(min) = rule.min_quantity.filter(|m| *m > Decimal::ZERO) else {
+                    continue;
+                };
+                let product = covered_products.get(&pid);
+                let sku = sid.and_then(|id| {
+                    covered_skus
+                        .get(&pid)
+                        .and_then(|list| list.iter().find(|s| s.id == id))
+                });
+                let spec_text = sku
+                    .and_then(|sk| format_sku_specs(sk.specs.as_ref()))
+                    .or_else(|| product.and_then(|p| p.sku.clone()));
+                // 无库存行视为 0 库存，0 < 最低阈值即缺货预警
+                items.push(StockWarningVO {
+                    id: None,
+                    product_id: Some(pid),
+                    product_name: product.and_then(|p| p.name.clone()),
+                    product_code: product.and_then(|p| p.product_no.clone()),
+                    warehouse_id: Some(wid),
+                    warehouse_name: warehouse_map.get(&wid).and_then(|w| w.name.clone()),
+                    sku_id: sid,
+                    sku_code: sku.and_then(|sk| sk.sku_code.clone()),
+                    spec_text,
+                    quantity: Some(Decimal::ZERO),
+                    available_quantity: Some(Decimal::ZERO),
+                    alert_min_quantity: Some(min),
+                    alert_max_quantity: None,
+                    alert_type: Some("low_stock".to_string()),
+                    last_inbound_time: None,
+                    last_outbound_time: None,
+                    obsolete_days: None,
+                });
             }
         }
     }
@@ -513,6 +715,7 @@ pub async fn get_alert_list(
 pub async fn adjust_stock(
     db: &DatabaseConnection,
     product_id: i64,
+    sku_id: Option<i64>,
     warehouse_id: i64,
     new_quantity: Decimal,
     operator_id: i64,
@@ -558,6 +761,7 @@ pub async fn adjust_stock(
                     // 库存记录不存在时创建一条
                     let active = stock::ActiveModel {
                         product_id: Set(Some(pid)),
+                        sku_id: Set(sku_id),
                         warehouse_id: Set(Some(wid)),
                         quantity: Set(Some(new_qty)),
                         reserved_quantity: Set(Some(Decimal::ZERO)),
@@ -577,6 +781,7 @@ pub async fn adjust_stock(
             stock_engine::write_stock_log(
                 txn,
                 pid,
+                sku_id,
                 wid,
                 None,
                 "adjust",
@@ -601,20 +806,56 @@ async fn build_warning_vos(
     db: &DatabaseConnection,
     models: Vec<stock::Model>,
 ) -> Vec<StockWarningVO> {
+    // 批量预加载产品/仓库/SKU，避免循环内逐条查询
+    let product_ids: Vec<i64> = models.iter().filter_map(|s| s.product_id).collect();
+    let warehouse_ids: Vec<i64> = models.iter().filter_map(|s| s.warehouse_id).collect();
+    let sku_ids: Vec<i64> = models.iter().filter_map(|s| s.sku_id.filter(|&id| id > 0)).collect();
+    let product_map: HashMap<i64, product_entity::Model> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_entity::Entity::find()
+            .filter(product_entity::Column::Id.is_in(product_ids))
+            .all(db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| (p.id, p))
+            .collect()
+    };
+    let warehouse_map: HashMap<i64, warehouse_entity::Model> = if warehouse_ids.is_empty() {
+        HashMap::new()
+    } else {
+        warehouse_entity::Entity::find()
+            .filter(warehouse_entity::Column::Id.is_in(warehouse_ids))
+            .all(db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|w| (w.id, w))
+            .collect()
+    };
+    let sku_map: HashMap<i64, sku_entity::Model> = if sku_ids.is_empty() {
+        HashMap::new()
+    } else {
+        sku_entity::Entity::find()
+            .filter(sku_entity::Column::Id.is_in(sku_ids))
+            .all(db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|s| (s.id, s))
+            .collect()
+    };
+
     let mut result: Vec<StockWarningVO> = Vec::with_capacity(models.len());
     for s in models {
-        let product: Option<product_entity::Model> =
-            product_entity::Entity::find_by_id(s.product_id.unwrap_or(0))
-                .one(db)
-                .await
-                .ok()
-                .flatten();
-        let warehouse: Option<warehouse_entity::Model> =
-            warehouse_entity::Entity::find_by_id(s.warehouse_id.unwrap_or(0))
-                .one(db)
-                .await
-                .ok()
-                .flatten();
+        let product = product_map.get(&s.product_id.unwrap_or(0));
+        let warehouse = warehouse_map.get(&s.warehouse_id.unwrap_or(0));
+        let sid = s.sku_id.filter(|&id| id > 0);
+        let sku = sid.and_then(|id| sku_map.get(&id));
+        // 规格文本：多规格行取 SKU specs，单规格行回退产品规格描述
+        let spec_text = sku.as_ref().and_then(|sk| format_sku_specs(sk.specs.as_ref()))
+            .or_else(|| product.as_ref().and_then(|p| p.sku.clone()));
 
         result.push(StockWarningVO {
             id: Some(s.id),
@@ -623,6 +864,9 @@ async fn build_warning_vos(
             product_code: product.as_ref().and_then(|p| p.product_no.clone()),
             warehouse_id: s.warehouse_id,
             warehouse_name: warehouse.as_ref().and_then(|w| w.name.clone()),
+            sku_id: sid,
+            sku_code: sku.as_ref().and_then(|sk| sk.sku_code.clone()),
+            spec_text,
             quantity: s.quantity,
             available_quantity: s.available_quantity,
             alert_min_quantity: s.alert_min_quantity,

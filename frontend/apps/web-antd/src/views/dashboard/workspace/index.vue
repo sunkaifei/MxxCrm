@@ -8,7 +8,7 @@ import { useRouter } from 'vue-router';
 
 import { WorkbenchHeader, WorkbenchQuickNav } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
-import { useUserStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { openWindow } from '@vben/utils';
 
 import { Button, Empty, message, Popover, Select } from 'ant-design-vue';
@@ -47,6 +47,7 @@ import {
 
 const router = useRouter();
 const userStore = useUserStore();
+const accessStore = useAccessStore();
 
 // ===== 工作台模块权限控制 =====
 const { canShow, filterOverviewTabs, isBizUser } = useDashboardPermission();
@@ -414,8 +415,8 @@ function navTo(nav: WorkbenchQuickNavItem) {
 const todoProcessed = ref(0);
 // 今日待办总数（= 已处理数 + 剩余待办数，由后端聚合接口返回）
 const todoTotal = ref(0);
-const customerCount = ref(0);
-const opportunityCount = ref(0);
+const customerCount = ref<null | number>(null);
+const opportunityCount = ref<null | number>(null);
 // 智能待办总数（由 SmartTodoCard 经 count-change 事件上抛）
 const todoCount = ref(0);
 
@@ -431,31 +432,37 @@ function handleAuditChange() {
   getCardRef(WORKSPACE_CARD_CODES.smartTodo)?.reload?.();
 }
 
-// 加载客户总数（无权限不请求，显示 --）
+// 加载客户总数（无权限不请求；失败静默降级，无权限/失败均显示 --）
 async function loadCustomerCount() {
   if (!canShow('customer')) {
-    customerCount.value = 0;
+    customerCount.value = null;
     return;
   }
   try {
-    const res: any = await getCustomerListApi({ pageNum: 1, pageSize: 1 });
+    const res: any = await getCustomerListApi(
+      { pageNum: 1, pageSize: 1 },
+      { silentError: true },
+    );
     customerCount.value = res?.total || 0;
   } catch {
-    customerCount.value = 0;
+    customerCount.value = null;
   }
 }
 
-// 加载商机总数（无权限不请求，显示 --）
+// 加载商机总数（无权限不请求；失败静默降级，无权限/失败均显示 --）
 async function loadOpportunityCount() {
   if (!canShow('opportunity')) {
-    opportunityCount.value = 0;
+    opportunityCount.value = null;
     return;
   }
   try {
-    const res: any = await getOpportunityListApi({ pageNum: 1, pageSize: 1 });
+    const res: any = await getOpportunityListApi(
+      { pageNum: 1, pageSize: 1 },
+      { silentError: true },
+    );
     opportunityCount.value = res?.total || 0;
   } catch {
-    opportunityCount.value = 0;
+    opportunityCount.value = null;
   }
 }
 
@@ -490,12 +497,19 @@ interface CanvasLayoutItem {
   y: number;
 }
 
+interface SaveLayoutPayload {
+  cards: CanvasLayoutItem[];
+  pageKey: string;
+}
+
 const layoutItems = ref<CanvasLayoutItem[]>([]);
 const canvasReady = ref(false);
 const canvasContainer = ref<HTMLElement>();
 let gridStack: any = null;
 let rebuildingGrid = false;
 let saveTimer: null | ReturnType<typeof setTimeout> = null;
+// 已提交未确认（在途或失败）的保存载荷：卸载补交的兜底数据
+let pendingSavePayload: null | SaveLayoutPayload = null;
 
 // 卡片内容级可见性（第二层过滤：卡片注册可见 ≠ 内容可见）
 function isCardContentVisible(code: string): boolean {
@@ -519,6 +533,8 @@ const CARD_TITLE_KEYS: Record<string, string> = {
   [WORKSPACE_CARD_CODES.smartTodo]: 'page.dashboard.todoList',
   [WORKSPACE_CARD_CODES.todoOverview]: 'page.dashboard.todoOverview',
   [WORKSPACE_CARD_CODES.weekLoad]: 'page.dashboard.weekWorkload',
+  [WORKSPACE_CARD_CODES.calendar]:
+    'page.dashboard.workspace.cards.calendar.title',
   // 三期 8 张岗位卡（d31 种子）
   [WORKSPACE_CARD_CODES.announcement]:
     'page.dashboard.workspace.cards.announcement.title',
@@ -658,29 +674,45 @@ function bindGridEvents() {
   });
 }
 
-// 布局持久化：画布实际节点 + 仍隐藏卡片（hidden=1 原样保留）合并上报
-async function saveLayout() {
-  if (!gridStack) return;
-  try {
-    const saved: any[] = gridStack.save(false) || [];
-    const cards = saved
-      .filter((n) => n && n.id && getCanvasCardDef(String(n.id)))
-      .map((n) => ({
+// 组装待保存布局：画布实际节点 + 仍隐藏卡片（hidden=1 原样保留）；h/w 按卡片定义钳制保证所见即所得
+function buildSavePayload(): SaveLayoutPayload | null {
+  if (!gridStack) return null;
+  const saved: any[] = gridStack.save(false) || [];
+  const cards: CanvasLayoutItem[] = saved
+    .filter((n) => n && n.id && getCanvasCardDef(String(n.id)))
+    .map((n) => {
+      const def = getCanvasCardDef(String(n.id));
+      return {
         cardCode: String(n.id),
-        h: Math.max(1, Math.round(Number(n.h) || 1)),
+        h: Math.min(
+          def?.maxH ?? 99,
+          Math.max(def?.minH ?? 1, Math.round(Number(n.h) || 1)),
+        ),
         hidden: 0,
-        w: Math.min(12, Math.max(1, Math.round(Number(n.w) || 12))),
+        w: Math.min(
+          def?.maxW ?? 12,
+          Math.max(def?.minW ?? 1, Math.round(Number(n.w) || 12)),
+        ),
         x: Math.max(0, Math.round(Number(n.x) || 0)),
         y: Math.max(0, Math.round(Number(n.y) || 0)),
-      }));
-    const hiddenCards = layoutItems.value
-      .filter((i) => i.hidden === 1 && getCanvasCardDef(i.cardCode))
-      .map((i) => ({ ...i }));
-    await saveUserLayoutApi({
-      cards: [...cards, ...hiddenCards],
-      pageKey: pageKey.value,
+      };
     });
-    for (const c of cards) {
+  const hiddenCards = layoutItems.value
+    .filter((i) => i.hidden === 1 && getCanvasCardDef(i.cardCode))
+    .map((i) => ({ ...i }));
+  return { cards: [...cards, ...hiddenCards], pageKey: pageKey.value };
+}
+
+// 布局持久化（change 防抖 500ms 后调用）
+async function saveLayout() {
+  const payload = buildSavePayload();
+  if (!payload) return;
+  try {
+    pendingSavePayload = payload;
+    await saveUserLayoutApi(payload);
+    pendingSavePayload = null;
+    for (const c of payload.cards) {
+      if (c.hidden === 1) continue;
       const item = layoutItems.value.find((i) => i.cardCode === c.cardCode);
       if (item) Object.assign(item, c);
     }
@@ -689,9 +721,42 @@ async function saveLayout() {
   }
 }
 
+// 卸载前补交：防抖窗口或请求在途时刷新/关闭页面，axios 会随页面卸载被取消导致布局丢失；
+// 用 keepalive fetch 尽力补交（payload 固化 pageKey，跨工作台补交不会存错页；后端 upsert 幂等）
+function flushPendingSave() {
+  let payload = pendingSavePayload;
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    const fresh = buildSavePayload();
+    if (fresh) payload = fresh;
+  }
+  const token = accessStore.accessToken;
+  if (!payload || !token) return;
+  try {
+    void fetch('/api/system/dashboard/user/layout/save', {
+      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      keepalive: true,
+      method: 'POST',
+    }).catch(() => {});
+  } catch {
+    // 页面卸载场景尽力而为
+  }
+}
+
+// F5/关闭标签页时 Vue 卸载钩子不保证执行，pagehide 是补交的最后时机
+function handlePageHide() {
+  flushPendingSave();
+}
+
 // 重建画布（复位/恢复卡片后调用）：destroy → 重载布局 → 清 inline 残留 → 重新 init
 async function rebuildGrid() {
   if (!canvasContainer.value) return;
+  flushPendingSave();
   rebuildingGrid = true;
   try {
     if (gridStack) {
@@ -766,6 +831,7 @@ watch(
 // 切换工作台（方案 5.3-M3）：记忆最近使用 + 按新 pageKey 重载个人布局
 async function handleWorkspaceSwitch(value: any) {
   const code = String(value ?? '');
+  flushPendingSave();
   switchWorkspace(code);
   if (useCanvasMode.value) {
     await rebuildGrid();
@@ -780,13 +846,13 @@ onMounted(() => {
   loadCustomerCount();
   loadOpportunityCount();
   loadTodaySummary();
+  window.addEventListener('pagehide', handlePageHide);
 });
 
 onBeforeUnmount(() => {
-  if (saveTimer) {
-    clearTimeout(saveTimer);
-    saveTimer = null;
-  }
+  window.removeEventListener('pagehide', handlePageHide);
+  // 补交防抖中的待保存布局（原来直接 clearTimeout 会丢弃变更，拖完立刻刷新即丢失）
+  flushPendingSave();
   if (gridStack) {
     rebuildingGrid = true;
     gridStack.destroy(false);

@@ -24,7 +24,7 @@
 //! - 新增 refreshToken 能力：落库仅存 SHA-256 哈希，支持旋转替换与精确登出
 //! - 时间列命名规范化：created_at → create_time
 
-use sea_orm::{ActiveModelTrait, ColumnTrait, ConnectionTrait, DbConn, DeleteResult, EntityTrait, QueryFilter, Set};
+use sea_orm::{sea_query::Expr, ActiveModelTrait, ColumnTrait, ConnectionTrait, DbConn, DeleteResult, EntityTrait, QueryFilter, Set, Statement};
 
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::config;
@@ -49,6 +49,23 @@ pub fn sha256_hex(input: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// R8：取数据库当前时间（显式转 timestamp 匹配 NaiveDateTime）
+///
+/// 会话窗口的写入列（expire_time）与判定时钟统一取自 DB，
+/// 消除多实例部署 / NTP 漂移下"写入时刻"与"判定时刻"来源不一致的问题
+async fn db_now(db: &DbConn) -> Result<chrono::NaiveDateTime> {
+    let stmt = Statement::from_string(
+        db.get_database_backend(),
+        "SELECT CURRENT_TIMESTAMP::timestamp AS db_now",
+    );
+    let row = db
+        .query_one_raw(stmt)
+        .await?
+        .ok_or_else(|| Error::from("获取数据库时间失败".to_string()))?;
+    row.try_get("", "db_now")
+        .map_err(|e| Error::from(format!("解析数据库时间失败: {}", e)))
+}
+
 /// 刷新会话定位信息（按 refreshToken 哈希查得）
 #[derive(Debug, Clone)]
 pub struct RefreshSessionInfo {
@@ -69,8 +86,9 @@ pub enum SessionStoreType {
 impl SessionStoreType {
     /// 创建会话（登录成功后调用）
     ///
-    /// v1.0：同时写入 refreshToken 哈希与过期时间；access/refresh 过期时间一致
-    /// （refresh 侧由滑动续期在每次刷新时重置）
+    /// v2.0（R1 拆参）：access/refresh 生命周期分离写入——
+    /// `access_expire_secs` 决定 expire_time（与 JWT exp 对齐），
+    /// `refresh_expire_secs` 决定 refresh_expire_time（与配置 session_timeout 对齐）
     pub async fn create_session(
         &self,
         db: &DbConn,
@@ -78,17 +96,18 @@ impl SessionStoreType {
         token: &str,
         refresh_hash: &str,
         ip: &str,
-        expire_secs: i64,
+        access_expire_secs: i64,
+        refresh_expire_secs: i64,
     ) -> Result<()> {
         match self {
             SessionStoreType::Db(store) => {
                 store
-                    .create_session(db, user_id, token, refresh_hash, ip, expire_secs)
+                    .create_session(db, user_id, token, refresh_hash, ip, access_expire_secs, refresh_expire_secs)
                     .await
             }
             SessionStoreType::Redis(store) => {
                 store
-                    .create_session(db, user_id, token, refresh_hash, ip, expire_secs)
+                    .create_session(db, user_id, token, refresh_hash, ip, access_expire_secs, refresh_expire_secs)
                     .await
             }
         }
@@ -143,17 +162,18 @@ impl SessionStoreType {
         old_refresh_hash: &str,
         new_token: &str,
         new_refresh_hash: &str,
-        expire_secs: i64,
+        access_expire_secs: i64,
+        refresh_expire_secs: i64,
     ) -> Result<()> {
         match self {
             SessionStoreType::Db(store) => {
                 store
-                    .rotate_session(db, info, new_token, new_refresh_hash, expire_secs)
+                    .rotate_session(db, info, old_refresh_hash, new_token, new_refresh_hash, access_expire_secs, refresh_expire_secs)
                     .await
             }
             SessionStoreType::Redis(store) => {
                 store
-                    .rotate_session(db, info, old_refresh_hash, new_token, new_refresh_hash, expire_secs)
+                    .rotate_session(db, info, old_refresh_hash, new_token, new_refresh_hash, access_expire_secs, refresh_expire_secs)
                     .await
             }
         }
@@ -191,15 +211,21 @@ impl DbSessionStore {
         token: &str,
         refresh_hash: &str,
         ip: &str,
-        expire_secs: i64,
+        access_expire_secs: i64,
+        refresh_expire_secs: i64,
     ) -> Result<()> {
-        let now = chrono::Local::now().naive_local();
-        let expire_time = now + chrono::Duration::seconds(expire_secs);
+        // R8：时间源取自数据库
+        let now = db_now(db).await?;
+        // R1 双时间拆参：access 窗口与 refresh 窗口分列
+        let expire_time = now + chrono::Duration::seconds(access_expire_secs);
+        let refresh_expire_time = now + chrono::Duration::seconds(refresh_expire_secs);
 
-        // 先删除该用户的过期 session，再插入新 session
+        // 先删除该用户 refresh 窗口已终结的旧 session，再插入新 session。
+        // 判定统一以 refresh_expire_time 为准（同 clean_expired / find_valid_by_refresh）：
+        // 仅 access 过期的行仍承载"待静默刷新"会话（他端设备），不可误删
         let _: DeleteResult = SessionEntity::delete_many()
             .filter(system_session::Column::UserId.eq(user_id))
-            .filter(system_session::Column::ExpireTime.lt(now))
+            .filter(system_session::Column::RefreshExpireTime.lt(now))
             .exec(db)
             .await?;
 
@@ -210,7 +236,7 @@ impl DbSessionStore {
             login_ip: Set(if ip.is_empty() { None } else { Some(ip.to_string()) }),
             login_time: Set(Some(now)),
             expire_time: Set(Some(expire_time)),
-            refresh_expire_time: Set(Some(expire_time)),
+            refresh_expire_time: Set(Some(refresh_expire_time)),
             status: Set(Some(1)),
             create_time: Set(Some(now)),
             ..Default::default()
@@ -220,7 +246,8 @@ impl DbSessionStore {
     }
 
     async fn validate_session(&self, db: &DbConn, user_id: i64, token: &str) -> Result<bool> {
-        let now = chrono::Local::now().naive_local();
+        // R8：时间源取自数据库
+        let now = db_now(db).await?;
 
         let session = SessionEntity::find()
             .filter(system_session::Column::UserId.eq(user_id))
@@ -254,9 +281,13 @@ impl DbSessionStore {
     }
 
     async fn clean_expired(&self, db: &DbConn) -> Result<u64> {
-        let now = chrono::Local::now().naive_local();
+        // R8：时间源取自数据库
+        let now = db_now(db).await?;
+        // 清理语义：仅删 refresh 窗口彻底终结（refresh_expire_time 已过）的会话行。
+        // 不能用 expire_time < now —— access 过期但 refresh 窗口仍有效的行是"待静默刷新"的会话
+        // （用户 2h~8h 内回来应能 refresh 成功），被删将导致其被迫重新登录。
         let result = SessionEntity::delete_many()
-            .filter(system_session::Column::ExpireTime.lt(now))
+            .filter(system_session::Column::RefreshExpireTime.lt(now))
             .exec(db)
             .await?;
         let count = result.rows_affected;
@@ -271,7 +302,8 @@ impl DbSessionStore {
         db: &DbConn,
         refresh_hash: &str,
     ) -> Result<Option<RefreshSessionInfo>> {
-        let now = chrono::Local::now().naive_local();
+        // R8：时间源取自数据库
+        let now = db_now(db).await?;
 
         let row = SessionEntity::find()
             .filter(system_session::Column::RefreshToken.eq(refresh_hash))
@@ -301,25 +333,33 @@ impl DbSessionStore {
         &self,
         db: &DbConn,
         info: &RefreshSessionInfo,
+        old_refresh_hash: &str,
         new_token: &str,
         new_refresh_hash: &str,
-        expire_secs: i64,
+        access_expire_secs: i64,
+        refresh_expire_secs: i64,
     ) -> Result<()> {
-        let now = chrono::Local::now().naive_local();
-        let expire_time = now + chrono::Duration::seconds(expire_secs);
+        // R8：时间源取自数据库
+        let now = db_now(db).await?;
+        let expire_time = now + chrono::Duration::seconds(access_expire_secs);
+        let refresh_expire_time = now + chrono::Duration::seconds(refresh_expire_secs);
 
-        let row = SessionEntity::find_by_id(info.session_id)
-            .one(db)
-            .await
-            .map_err(|e| Error::from(e.to_string()))?
-            .ok_or_else(|| Error::from("会话不存在或已失效".to_string()))?;
+        // R7：乐观锁条件更新——仅当行上 refresh_token 仍是本次请求持有的旧哈希时才旋转，
+        // 防止同一旧 refreshToken 被并发重放消费两次（复用攻击窗口）。
+        // rows_affected == 0 说明会话已被旋转/删除，上层应转 401 让客户端重新登录。
+        let result = SessionEntity::update_many()
+            .col_expr(system_session::Column::Token, Expr::value(new_token.to_string()))
+            .col_expr(system_session::Column::RefreshToken, Expr::value(Some(new_refresh_hash.to_string())))
+            .col_expr(system_session::Column::ExpireTime, Expr::value(Some(expire_time)))
+            .col_expr(system_session::Column::RefreshExpireTime, Expr::value(Some(refresh_expire_time)))
+            .filter(system_session::Column::Id.eq(info.session_id))
+            .filter(system_session::Column::RefreshToken.eq(old_refresh_hash))
+            .exec(db)
+            .await?;
 
-        let mut am: system_session::ActiveModel = row.into();
-        am.token = Set(new_token.to_string());
-        am.refresh_token = Set(Some(new_refresh_hash.to_string()));
-        am.expire_time = Set(Some(expire_time));
-        am.refresh_expire_time = Set(Some(expire_time));
-        am.update(db).await?;
+        if result.rows_affected == 0 {
+            return Err(Error::from("会话已失效或被并发消费".to_string()));
+        }
         Ok(())
     }
 
@@ -364,45 +404,67 @@ impl RedisSessionStore {
         token: &str,
         refresh_hash: &str,
         ip: &str,
-        expire_secs: i64,
+        access_expire_secs: i64,
+        refresh_expire_secs: i64,
     ) -> Result<()> {
         let now = chrono::Local::now().naive_local();
-        let ttl = std::time::Duration::from_secs(expire_secs as u64);
+        // R1 双时间拆参：会话键承载"会话行"语义，须存活至 refresh 窗口终结（与 Db 行一致，
+        // D1：session_timeout 写两键 TTL），access 窗口过期由键值内嵌 expire_time + validate_session
+        // 解析判定；refresh_session:{hash} 索引键 TTL 同为 refresh 窗口。若会话键仅存活 access 窗口，
+        // 闲置 2h~8h 用户回访时 find_valid_by_refresh 的 liveness 校验将误杀待静默刷新的会话
+        let refresh_ttl = std::time::Duration::from_secs(refresh_expire_secs as u64);
 
         let session_value = serde_json::json!({
             "login_ip": ip,
             "login_time": now.format("%Y-%m-%d %H:%M:%S").to_string(),
-            "expire_time": (now + chrono::Duration::seconds(expire_secs)).format("%Y-%m-%d %H:%M:%S").to_string(),
+            "expire_time": (now + chrono::Duration::seconds(access_expire_secs)).format("%Y-%m-%d %H:%M:%S").to_string(),
         });
         CONTEXT
             .cache_service
-            .set_string_ex(&Self::session_key(user_id, token), &session_value.to_string(), Some(ttl))
+            .set_string_ex(&Self::session_key(user_id, token), &session_value.to_string(), Some(refresh_ttl))
             .await?;
 
         // refreshToken 反查索引
         let refresh_index = serde_json::json!({ "user_id": user_id, "token": token });
         CONTEXT
             .cache_service
-            .set_string_ex(&Self::refresh_key(refresh_hash), &refresh_index.to_string(), Some(ttl))
+            .set_string_ex(&Self::refresh_key(refresh_hash), &refresh_index.to_string(), Some(refresh_ttl))
             .await?;
         Ok(())
     }
 
     async fn validate_session(&self, _db: &DbConn, user_id: i64, token: &str) -> Result<bool> {
-        match CONTEXT
-            .cache_service
-            .get_string(&Self::session_key(user_id, token))
-            .await
-        {
-            Ok(val) if !val.is_empty() => Ok(true),
+        // 会话键 TTL = refresh 窗口（同 Db 行存活期），access 窗口的过期判定须解析键值内嵌
+        // expire_time（与 Db 实现校验 expire_time 列语义对齐）；键不存活或内嵌时间已过 → 失效
+        let key = Self::session_key(user_id, token);
+        match CONTEXT.cache_service.get_string(&key).await {
+            Ok(val) if !val.is_empty() => {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&val) {
+                    if let Some(exp) = v.get("expire_time").and_then(|e| e.as_str()) {
+                        if let Ok(exp_ts) = chrono::NaiveDateTime::parse_from_str(exp, "%Y-%m-%d %H:%M:%S") {
+                            if exp_ts < chrono::Local::now().naive_local() {
+                                // access 窗口已过：删除会话键，会话进入"待静默刷新"状态，
+                                // 与 Db 实现 validate_session 过期即删行行为一致
+                                let _ = CONTEXT.cache_service.del(&key).await;
+                                return Ok(false);
+                            }
+                        }
+                    }
+                }
+                Ok(true)
+            }
             _ => Ok(false),
         }
     }
 
     async fn remove_session(&self, _db: &DbConn, user_id: i64) -> Result<()> {
-        // Redis 模式通过 cache prefix 匹配删除
-        // 由于无法批量匹配 key，这里使用 user_ 前缀做兼容
-        let _ = CONTEXT.cache_service.del(&format!("user_{}", user_id)).await;
+        // R4 修复：原实现删除的 `user_{id}` 键与会话实际存储键 `session:{user_id}:{token}` 不匹配，
+        // 导致 Redis 模式下踢下线 / 改密撤销永远删不到会话；改为按前缀扫描逐键删除
+        let pattern = format!("session:{}:*", user_id);
+        let ks = CONTEXT.cache_service.keys(&pattern).await?;
+        for k in ks {
+            let _ = CONTEXT.cache_service.del(&k).await;
+        }
         Ok(())
     }
 
@@ -458,24 +520,27 @@ impl RedisSessionStore {
         old_refresh_hash: &str,
         new_token: &str,
         new_refresh_hash: &str,
-        expire_secs: i64,
+        access_expire_secs: i64,
+        refresh_expire_secs: i64,
     ) -> Result<()> {
-        let ttl = std::time::Duration::from_secs(expire_secs as u64);
+        // R1：新会话键与反查索引键的 TTL 均按 refresh 窗口（会话行存活至 refresh 终结，
+        // 同 create_session；access 过期由键值内嵌 expire_time 在 validate_session 判定）
+        let refresh_ttl = std::time::Duration::from_secs(refresh_expire_secs as u64);
         let now = chrono::Local::now().naive_local();
 
         // 写新会话与反查索引
         let session_value = serde_json::json!({
             "rotate_time": now.format("%Y-%m-%d %H:%M:%S").to_string(),
-            "expire_time": (now + chrono::Duration::seconds(expire_secs)).format("%Y-%m-%d %H:%M:%S").to_string(),
+            "expire_time": (now + chrono::Duration::seconds(access_expire_secs)).format("%Y-%m-%d %H:%M:%S").to_string(),
         });
         CONTEXT
             .cache_service
-            .set_string_ex(&Self::session_key(info.user_id, new_token), &session_value.to_string(), Some(ttl))
+            .set_string_ex(&Self::session_key(info.user_id, new_token), &session_value.to_string(), Some(refresh_ttl))
             .await?;
         let refresh_index = serde_json::json!({ "user_id": info.user_id, "token": new_token });
         CONTEXT
             .cache_service
-            .set_string_ex(&Self::refresh_key(new_refresh_hash), &refresh_index.to_string(), Some(ttl))
+            .set_string_ex(&Self::refresh_key(new_refresh_hash), &refresh_index.to_string(), Some(refresh_ttl))
             .await?;
 
         // 删除旧键（旧 refreshToken 反查索引与旧 accessToken 会话同时作废）

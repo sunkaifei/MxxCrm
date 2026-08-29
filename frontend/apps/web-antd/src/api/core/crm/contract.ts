@@ -5,6 +5,10 @@ type PageParams = Record<string, any>;
 export const getContractListApi = async (params?: PageParams) => {
   return requestClient.get('/api/system/contract/list', { params });
 };
+// 合同选择列表（自己签订的合同，含已开票金额，用于发票等单据关联）
+export const getContractSelectListApi = async (params?: PageParams) => {
+  return requestClient.get('/api/system/contract/select', { params });
+};
 export const getContractInfoApi = async (id: number) => {
   return requestClient.get('/api/system/contract/info', { params: { id } });
 };

@@ -8,6 +8,8 @@ import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
 
+import { useRouter } from 'vue-router';
+
 import { Button, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -18,8 +20,8 @@ import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
 import ProductDetailDrawer from '../components/ProductDetailDrawer.vue';
 import WarehouseDetailDrawer from '../components/WarehouseDetailDrawer.vue';
 import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
-import RuleDrawer from './rule-drawer.vue';
 
+const router = useRouter();
 const accessStore = useAccessStore();
 
 // 预警类型选项
@@ -51,13 +53,6 @@ function onWarehouseSelected(warehouse: any) {
 
 function clearWarehouse() {
   gridApi.formApi?.setValues({ warehouseId: '', warehouseDisplay: '' });
-}
-
-// ============ 规则管理抽屉 ============
-const ruleDrawerVisible = ref(false);
-
-function openRuleDrawer() {
-  ruleDrawerVisible.value = true;
 }
 
 // ============ 产品/仓库详情抽屉 ============
@@ -184,6 +179,12 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'productName' },
     },
     {
+      title: $t('page.product.inventory.alert.field.specText'),
+      field: 'specText',
+      minWidth: 120,
+      formatter: ({ cellValue }: any) => cellValue || '-',
+    },
+    {
       title: $t('page.product.inventory.alert.field.warehouseName'),
       field: 'warehouseName',
       width: 120,
@@ -216,6 +217,12 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'alertType' },
     },
     {
+      title: $t('page.product.inventory.alert.field.diff'),
+      field: 'alertDiff',
+      minWidth: 130,
+      slots: { default: 'alertDiff' },
+    },
+    {
       title: $t('ui.table.action'),
       field: 'action',
       fixed: 'right',
@@ -234,10 +241,17 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
     <Grid :table-title="$t('page.product.inventory.alert.title')">
       <template #toolbar-tools>
         <Button
-          v-if="accessStore.hasAccessCode('product:alert:list')"
+          v-if="accessStore.hasAccessCode('product:alert:update')"
           type="primary"
           class="mr-2"
-          @click="openRuleDrawer"
+          @click="router.push('/alert-rule?create=1')"
+        >
+          {{ $t('page.product.inventory.alert.action.create') }}
+        </Button>
+        <Button
+          v-if="accessStore.hasAccessCode('product:alert:list')"
+          class="mr-2"
+          @click="router.push('/alert-rule')"
         >
           {{ $t('page.product.inventory.alert.action.viewRule') }}
         </Button>
@@ -267,11 +281,38 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
         </Tag>
       </template>
 
-      <template #action>
+      <template #alertDiff="{ row }">
+        <span v-if="row.alertType === 'low_stock'">
+          缺 {{ Math.max(0, (row.alertMinQuantity ?? 0) - (row.quantity ?? 0)) }}
+          件
+        </span>
+        <span v-else-if="row.alertType === 'high_stock'">
+          超 {{ Math.max(0, (row.quantity ?? 0) - (row.alertMaxQuantity ?? 0)) }}
+          件
+        </span>
+        <span v-else-if="row.alertType === 'stale'">
+          {{ row.obsoleteDays ?? 0 }} 天未出入库
+        </span>
+        <span v-else>-</span>
+      </template>
+
+      <template #action="{ row }">
         <Button
           v-if="accessStore.hasAccessCode('product:alert:list')"
           type="link"
-          @click="openRuleDrawer"
+          @click="
+            router.push({
+              path: '/alert-rule',
+              query: {
+                productId: row.productId,
+                productName: row.productName,
+                ...(row.warehouseId ? { warehouseId: row.warehouseId } : {}),
+                ...(row.warehouseName
+                  ? { warehouseName: row.warehouseName }
+                  : {}),
+              },
+            })
+          "
         >
           {{ $t('page.product.inventory.alert.action.viewRule') }}
         </Button>
@@ -283,12 +324,6 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
       :visible="warehouseSelectVisible"
       @update:visible="(val) => (warehouseSelectVisible = val)"
       @select="onWarehouseSelected"
-    />
-
-    <!-- 规则管理抽屉 -->
-    <RuleDrawer
-      :visible="ruleDrawerVisible"
-      @update:visible="(val) => (ruleDrawerVisible = val)"
     />
 
     <!-- 产品详情抽屉 -->

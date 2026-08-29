@@ -82,3 +82,10 @@ export const updateRoleDeptApi = async (
     deptIds: deptIds.map(String),
   });
 };
+
+/**
+ * 复制角色（P3-1 一键复制：深拷贝菜单、部门与数据范围配置）
+ */
+export const copyRoleApi = async (id: number) => {
+  return requestClient.post(`/api/system/role/copy/${id}`);
+};

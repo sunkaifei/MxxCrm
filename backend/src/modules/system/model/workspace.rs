@@ -25,9 +25,9 @@ pub struct WorkspaceSaveRequest {
     /// 图标（lucide: 前缀）
     pub icon: Option<String>,
     /// 是否默认工作台（1是 0否）
-    pub is_default: Option<i32>,
+    pub is_default: Option<i16>,
     /// 状态（1启用 0停用）
-    pub status: Option<i32>,
+    pub status: Option<i16>,
     /// 显示顺序
     pub sort: Option<i32>,
 }
@@ -40,8 +40,8 @@ pub struct WorkspaceVO {
     pub workspace_code: Option<String>,
     pub workspace_name: Option<String>,
     pub icon: Option<String>,
-    pub is_default: Option<i32>,
-    pub status: Option<i32>,
+    pub is_default: Option<i16>,
+    pub status: Option<i16>,
     pub sort: Option<i32>,
 }
 

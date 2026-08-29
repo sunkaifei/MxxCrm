@@ -25,6 +25,7 @@ import {
 } from '#/api/core/product/check';
 import { getInventoryListApi } from '#/api/core/product/inventory';
 import { getAdminOptionsApi } from '#/api/core/system/user';
+import { formatQty, useProductUnits } from '#/components/UnitSelect';
 import { $t } from '#/locales';
 
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
@@ -141,6 +142,7 @@ interface StocktakeItem {
   productName: string;
   productSku?: string;
   productCode?: string;
+  unit?: string;
   systemQuantity?: null | number;
   actualQuantity?: null | number;
   difference?: null | number;
@@ -153,6 +155,12 @@ interface StocktakeItem {
 const tableItems = ref<StocktakeItem[]>([]);
 const productSelectVisible = ref(false);
 const stockLoading = ref(false);
+
+const { ensureUnits, precisionOf } = useProductUnits();
+
+function qtyStep(unit?: null | string) {
+  return precisionOf(unit) === 0 ? 1 : 0.01;
+}
 
 // 已添加产品的排除列表（computed 确保响应式）
 const excludeProductIds = computed(() =>
@@ -331,6 +339,7 @@ function onProductSelected(items: any[]) {
         productName: item.productName,
         productCode: item.productCode,
         productSku: item.skuCode || '',
+        unit: item.unit || '',
         systemQuantity: null,
         actualQuantity: null,
         difference: null,
@@ -520,6 +529,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       selectedWarehouseName.value = '';
       selectedWarehouseId.value = undefined;
       loadAssignees();
+      ensureUnits();
       if (!drawerData.value.create && drawerData.value.row?.id) {
         loadDetail(drawerData.value.row.id);
       } else {
@@ -708,7 +718,9 @@ async function loadDetail(id: number) {
             <span v-if="record.systemQuantity === null" class="text-gray-400"
               >加载中</span
             >
-            <span v-else class="font-medium">{{ record.systemQuantity }}</span>
+            <span v-else class="font-medium">{{
+              formatQty(record.systemQuantity, record.unit)
+            }}</span>
           </template>
 
           <!-- 实盘数量：可编辑 -->
@@ -717,8 +729,8 @@ async function loadDetail(id: number) {
               :value="record.actualQuantity"
               size="small"
               style="width: 100%"
-              :precision="0"
-              :step="1"
+              :precision="precisionOf(record.unit)"
+              :step="qtyStep(record.unit)"
               placeholder="输入"
               @update:value="(val) => onActualQuantityChange(record, val)"
             />

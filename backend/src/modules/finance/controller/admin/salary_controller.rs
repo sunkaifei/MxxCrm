@@ -17,7 +17,8 @@ use crate::core::web::base_controller::{get_current_user, get_current_user_id};
 use crate::core::web::entity::common::InfoId;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::model::salary::{
-    SalaryQuery, SalaryCalculateDTO, SalaryUpdateDTO, SalaryBatchDTO, SalaryTrendQuery,
+    SalaryQuery, SalaryCalculateDTO, SalaryCalculateSingleDTO, SalaryUpdateDTO, SalaryBatchDTO,
+    SalaryTrendQuery,
 };
 use crate::modules::finance::service::salary_service;
 use crate::modules::finance::service::salary_export_service;
@@ -89,6 +90,31 @@ pub async fn calculate(
     match salary_service::calculate(db, dto.year, dto.month, 0, operator_id, operator_name).await {
         Ok(count) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success(count, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
+/// 单员工重新核算（按已有工资记录触发，仅允许待审核状态）
+pub async fn calculate_single(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    form_data: web::Json<SalaryCalculateSingleDTO>,
+) -> HttpResponse {
+    let db = &state.db;
+    let dto = form_data.0;
+
+    if dto.id <= 0 {
+        return HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, "工资记录ID不能为空", "local"));
+    }
+
+    let (operator_id, username) = get_current_user(&req);
+    let operator_name: &str = if username.is_empty() { "财务人员" } else { &username };
+
+    match salary_service::calculate_single(db, dto.id, operator_id, operator_name).await {
+        Ok(new_id) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::success_with_msg(new_id, "重新核算成功", "local")),
         Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
@@ -222,6 +248,7 @@ pub async fn config_list(
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConfigUpsertDTO {
     pub employee_id: i64,
     pub year: i32,
@@ -576,6 +603,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/list", web::get().to(list).wrap(require_permission("finance:salary:list")))
             .route("/detail", web::get().to(detail).wrap(require_permission("finance:salary:list")))
             .route("/calculate", web::post().to(calculate).wrap(require_permission("finance:salary:manage")))
+            .route("/calculate-single", web::post().to(calculate_single).wrap(require_permission("finance:salary:manage")))
             .route("/update", web::post().to(update).wrap(require_permission("finance:salary:manage")))
             .route("/approve", web::post().to(approve).wrap(require_permission("finance:salary:manage")))
             .route("/batch-approve", web::post().to(batch_approve).wrap(require_permission("finance:salary:manage")))

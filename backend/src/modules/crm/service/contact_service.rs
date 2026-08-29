@@ -20,6 +20,8 @@ use crate::modules::crm::model::contact::{
     ContactListVO, ContactModel, ContactSaveDTO, ContactSaveRequest, ContactSetRoleRequest,
     ContactUnbindRequest, ContactUpdateRequest, CustomerContactVO,
 };
+use crate::modules::system::service::field_def_service;
+use crate::modules::system::service::field_perm_service;
 use crate::modules::system::service::role_service;
 use sea_orm::DbConn;
 use sea_orm::DbErr;
@@ -35,6 +37,8 @@ use sea_orm::PaginatorTrait;
 pub async fn insert(db: &DbConn, form_data: &ContactSaveRequest, created_by: i64) -> Result<i64> {
     let mut dto: ContactSaveDTO = form_data.clone().into();
     dto.created_by = Some(created_by);
+    // 2.5 自定义字段强校验（P1-8/P1-11：未知/停用键、类型不符、必填缺失 400；归一化+合并结果直接落在 dto.custom_fields）
+    field_def_service::validate_custom_fields(db, "crm_contact", &mut dto.custom_fields, created_by, true, None).await?;
     let customer_id_opt = form_data.customer_id;
 
     // 联系人主表与客户关联表需原子写入，避免产生无关联的联系人
@@ -69,6 +73,27 @@ pub async fn update(db: &DbConn, form_data: &ContactUpdateRequest, updated_by: i
                 let old_model = contact::Entity::find_by_id(contact_id.unwrap_or_default())
                     .one(txn)
                     .await?;
+
+                // 3.5 自定义字段强校验（P1-8/P1-11；编辑不触发必填强约束 7.4 规则 5；校验器原地归一化并按 key 合并旧值，直接落在 dto.custom_fields）
+                // 事务闭包错误类型为 DbErr，业务 Error 须显式转换后传播
+                field_def_service::validate_custom_fields(txn, "crm_contact", &mut dto.custom_fields, updated_by, false, old_model.as_ref().and_then(|m| m.custom_fields.as_ref())).await
+                    .map_err(|e| sea_orm::DbErr::Custom(e.to_string()))?;
+
+                // 标准敏感字段写保护（P2-1）：无编辑权限的字段回填旧值（update_by_id 全字段 Set，None 会清空列）
+                let (perm_admin, perm_roles) = field_def_service::load_user_role(txn, updated_by).await
+                    .map_err(|e| sea_orm::DbErr::Custom(e.to_string()))?;
+                if let Some(locked) = field_perm_service::editable_guard_keys(txn, "crm_contact", perm_admin, &perm_roles).await
+                    .map_err(|e| sea_orm::DbErr::Custom(e.to_string()))? {
+                    if let Some(old) = &old_model {
+                        if locked.contains("mobile") { dto.mobile = old.mobile.clone(); }
+                        if locked.contains("email") { dto.email = old.email.clone(); }
+                        if locked.contains("phone") { dto.phone = old.phone.clone(); }
+                        if locked.contains("wechat") { dto.wechat = old.wechat.clone(); }
+                        if locked.contains("qq") { dto.qq = old.qq.clone(); }
+                        if locked.contains("whatsapp") { dto.whatsapp = old.whatsapp.clone(); }
+                        if locked.contains("address") { dto.address = old.address.clone(); }
+                    }
+                }
 
                 let result = ContactModel::update_by_id(txn, &contact_id, &dto).await?;
 
@@ -388,6 +413,7 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContactDetailVO> {
                 gender: item.gender,
                 birthday: item.birthday,
                 notes: item.notes,
+                custom_fields: item.custom_fields.clone(),
                 current_company,
                 career_history: if career_history.is_empty() { None } else { Some(career_history) },
                 create_time: item.create_time,
@@ -464,24 +490,27 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
             Some(ids)
         }
         "subordinate" => {
-            // 下属联系人：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
-            let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
-
-            if subordinate_ids.is_empty() {
-                return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
+            // 下属联系人：数据权限可见范围 ∪ 汇报线全部下属（P1-2），再按负责客户中转
+            match crate::modules::system::service::subordinate_service
+                ::get_subordinate_scope_ids(db, current_user_id).await?
+            {
+                None => None, // 全部数据权限（超管/系统管理员）
+                Some(user_ids) => {
+                    if user_ids.is_empty() {
+                        return Ok(ResultPage::new(Vec::<ContactListVO>::new(), 0, page, page_size));
+                    }
+                    let ids: Vec<i64> = customer::Entity::find()
+                        .filter(customer::Column::Deleted.eq(0))
+                        .filter(customer::Column::AssignedTo.is_in(user_ids))
+                        .all(db)
+                        .await
+                        .map_err(|e| Error::from(e.to_string()))?
+                        .iter()
+                        .map(|c| c.id)
+                        .collect();
+                    Some(ids)
+                }
             }
-
-            let ids: Vec<i64> = customer::Entity::find()
-                .filter(customer::Column::Deleted.eq(0))
-                .filter(customer::Column::AssignedTo.is_in(subordinate_ids))
-                .all(db)
-                .await
-                .map_err(|e| Error::from(e.to_string()))?
-                .iter()
-                .map(|c| c.id)
-                .collect();
-            Some(ids)
         }
         _ => {
             // all（含任意未知值兜底）：按数据权限过滤，绝不允许无权限标识落到"不过滤"分支
@@ -637,6 +666,7 @@ pub async fn list(db: &DbConn, query: &ContactListQuery, current_user_id: i64) -
                 created_by: item.created_by,
                 owner_name: item.created_by.and_then(|oid| owner_name_map.get(&oid).cloned().flatten()),
                 role_type,
+                custom_fields: item.custom_fields.clone(),
                 create_time: item.create_time,
             }
         })

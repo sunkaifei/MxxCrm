@@ -28,7 +28,7 @@
       }
     },
     "analytics": "Analytics",
-    "workspace": "Workspace",
+    "workspaceMenu": "Workspace",
     "emptyCardsTip": "No visible cards configured for this workspace. Contact an administrator or go to the Dashboard Designer to configure.",
     "goConfigure": "Configure",
     "dataCenter": "Data Center",
@@ -82,12 +82,38 @@
     },
     "workspace": {
       "switch": "Workspace",
+      "names": {
+        "default": "Default Workspace",
+        "sales": "Sales Workspace",
+        "warehouse": "Warehouse Workspace",
+        "finance": "Finance Workspace",
+        "hr": "HR Workspace"
+      },
       "cards": {
         "more": "More",
         "announcement": {
           "title": "Company Announcements",
           "unread": "Unread",
           "empty": "No announcements"
+        },
+        "calendar": {
+          "title": "Task Calendar",
+          "mon": "Mon",
+          "tue": "Tue",
+          "wed": "Wed",
+          "thu": "Thu",
+          "fri": "Fri",
+          "sat": "Sat",
+          "sun": "Sun",
+          "followUp": "Follow-up",
+          "payment": "Payment Due",
+          "contract": "Contract Expiry",
+          "opportunity": "Opportunity Close",
+          "invoice": "Invoice Due",
+          "order": "Order Payment Due",
+          "dayTitle": "Schedule for {date} ({n})",
+          "emptyDay": "No tasks on this day",
+          "pickTip": "Click a date to view its tasks"
         },
         "hrTodo": {
           "title": "HR Todos",

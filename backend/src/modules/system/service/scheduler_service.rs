@@ -247,17 +247,20 @@ pub fn compute_next_run_time_from(
     }
 
     use chrono::Timelike;
-    let mut candidate = from
+    // cron 字段按北京时刻解释（与调度器 Job::new_async_tz(BEIJING_TZ) 语义一致）：
+    // 扫描在北京墙钟上进行，命中后转回 UTC 返回（DB next_run_time 仍统一存 UTC）
+    let from_bj = from.with_timezone(&crate::core::kit::scheduler::BEIJING_TZ);
+    let mut candidate = from_bj
         .with_second(0)
-        .unwrap_or(from)
+        .unwrap_or(from_bj)
         .with_nanosecond(0)
-        .unwrap_or(from)
+        .unwrap_or(from_bj)
         + chrono::Duration::minutes(1);
 
     let max_minutes: i64 = 400 * 24 * 60;
     for _ in 0..max_minutes {
         if cron_matches(&parts, &candidate) {
-            return Some(candidate);
+            return Some(candidate.with_timezone(&chrono::Utc));
         }
         candidate = candidate + chrono::Duration::minutes(1);
     }
@@ -269,8 +272,8 @@ pub fn compute_next_run_time(cron_expr: &str) -> Option<chrono::DateTime<chrono:
     compute_next_run_time_from(cron_expr, chrono::Utc::now())
 }
 
-/// 简化版 cron 匹配：支持 * / 数字 / 逗号分隔 / 横线范围
-fn cron_matches(parts: &[&str], dt: &chrono::DateTime<chrono::Utc>) -> bool {
+/// 简化版 cron 匹配：支持 * / 数字 / 逗号分隔 / 横线范围（入参为北京墙钟时间）
+fn cron_matches(parts: &[&str], dt: &chrono::DateTime<chrono::FixedOffset>) -> bool {
     use chrono::Datelike;
     use chrono::Timelike;
 
@@ -449,10 +452,10 @@ async fn execute_handler(
     }
 }
 
-/// V7-4: 从 handler_params 解析 year/month，缺失时回退为"上月"
+/// V7-4: 从 handler_params 解析 year/month，缺失时回退为"上月"（按北京日期判断，避免 UTC 月边界算错）
 fn parse_year_month_from_params(params: &Option<sea_orm::prelude::Json>) -> (i32, i32) {
-    use chrono::{Datelike, Utc};
-    let now = Utc::now();
+    use chrono::Datelike;
+    let now = chrono::Utc::now().with_timezone(&crate::core::kit::scheduler::BEIJING_TZ);
     let default_year = if now.month() == 1 { now.year() - 1 } else { now.year() };
     let default_month = if now.month() == 1 { 12 } else { now.month() - 1 } as i32;
 

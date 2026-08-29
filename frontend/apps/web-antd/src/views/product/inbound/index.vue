@@ -12,6 +12,7 @@ import { useAccessStore } from '@vben/stores';
 import { Button, Dropdown, Menu, Popconfirm, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { formatQty } from '#/components/UnitSelect';
 import {
   deleteInboundApi,
   getInboundListApi,
@@ -205,6 +206,7 @@ const gridOptions: VxeGridProps = {
       title: $t('page.product.inbound.field.totalQuantity'),
       field: 'totalQuantity',
       width: 100,
+      formatter: ({ cellValue }: any) => formatQty(cellValue),
     },
     {
       title: $t('page.product.inbound.field.totalAmount'),
@@ -317,8 +319,8 @@ async function handlePrintPdf(row: any) {
         <td>${it.productCode || '-'}</td>
         <td>${it.productName || '-'}</td>
         <td>${it.spec || '-'}</td>
+        <td style="text-align:right">${formatQty(it.quantity, it.unit)}</td>
         <td>${it.unit || '-'}</td>
-        <td style="text-align:right">${it.quantity ?? '-'}</td>
         <td style="text-align:right">${it.unitPrice ?? '-'}</td>
         <td style="text-align:right">${it.totalPrice ?? '-'}</td>
         <td>${it.remark || '-'}</td>
@@ -357,8 +359,8 @@ async function handlePrintPdf(row: any) {
       </table>
       <table class="items">
         <thead><tr>
-          <th>序号</th><th>产品编码</th><th>产品名称</th><th>规格</th><th>单位</th>
-          <th>数量</th><th>单价</th><th>金额</th><th>备注</th>
+          <th>序号</th><th>产品编码</th><th>产品名称</th><th>规格</th>
+          <th>数量</th><th>单位</th><th>单价</th><th>金额</th><th>备注</th>
         </tr></thead>
         <tbody>${itemsHtml || '<tr><td colspan="9" style="text-align:center">无明细</td></tr>'}</tbody>
       </table>

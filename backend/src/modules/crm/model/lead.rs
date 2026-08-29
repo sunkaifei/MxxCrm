@@ -394,6 +394,8 @@ pub struct LeadListVO {
     pub next_follow_at: Option<DateTime>,
     /// 已转客户ID
     pub converted_to_customer_id: Option<i64>,
+    /// 自定义字段（JSON格式）
+    pub custom_fields: Option<serde_json::Value>,
     /// 关联标签列表
     pub tags: Option<Vec<LeadTagVO>>,
 }
@@ -430,6 +432,7 @@ impl From<lead::Model> for LeadListVO {
             create_time: item.create_time,
             next_follow_at: item.next_follow_at,
             converted_to_customer_id: item.converted_to_customer_id,
+            custom_fields: item.custom_fields,
             tags: None,
         }
     }
@@ -593,6 +596,7 @@ impl LeadModel {
         if let Some(v) = &req.next_follow_at { active.next_follow_at = Set(Some(*v)); }
         if let Some(v) = &req.assigned_to { active.assigned_to = Set(Some(*v)); }
         if let Some(v) = &req.description { active.description = Set(Some(v.clone())); }
+        // 7.3 合并写：custom_fields 未提交时不动该列（防置 NULL 丢存量）；提交时已由校验器按 key 与旧值合并后传入
         if let Some(v) = &req.custom_fields { active.custom_fields = Set(Some(v.clone())); }
 
         active.updated_by = Set(req.updated_by);

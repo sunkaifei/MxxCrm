@@ -17,6 +17,13 @@ export const calculateSalaryApi = async (data: {
   return requestClient.post('/api/system/finance/salary/calculate', data);
 };
 
+// 单员工重新核算（仅允许待审核记录）
+export const calculateSalarySingleApi = async (id: number) => {
+  return requestClient.post('/api/system/finance/salary/calculate-single', {
+    id,
+  });
+};
+
 export const updateSalaryApi = async (data: any) => {
   return requestClient.post('/api/system/finance/salary/update', data);
 };

@@ -6,7 +6,7 @@
  */
 import type { GridStack, GridStackElement } from 'gridstack';
 
-import { nextTick, onBeforeUnmount, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -16,6 +16,7 @@ import {
   Button,
   Modal,
   Select,
+  Switch,
   Tag,
   Tooltip,
   message,
@@ -29,6 +30,7 @@ import { getWorkspaceListApi } from '#/api/core/system/workspace';
 import { $t } from '#/locales';
 
 import { WORKSPACE_CANVAS_CARDS } from '../../dashboard/workspace/canvas';
+import { workspaceDisplayName } from '../../dashboard/workspace/config';
 
 interface CardLayoutVO {
   cardCode?: null | string;
@@ -53,6 +55,24 @@ const dirty = ref(false);
 const saving = ref(false);
 const canvasEl = ref<HTMLElement | null>(null);
 
+/** 栏数 → 12 列栅格宽度映射（1 栏 = 全宽 12 列，2 栏 = 6 列，3 栏 = 4 列） */
+const COL_WIDTH_MAP = { one: 12, three: 4, two: 6 } as const;
+const defaultColWidth = ref<number>(COL_WIDTH_MAP.one);
+const colWidthOptions = computed(() => [
+  {
+    label: $t('page.system.dashboardDesigner.cols.one'),
+    value: COL_WIDTH_MAP.one,
+  },
+  {
+    label: $t('page.system.dashboardDesigner.cols.two'),
+    value: COL_WIDTH_MAP.two,
+  },
+  {
+    label: $t('page.system.dashboardDesigner.cols.three'),
+    value: COL_WIDTH_MAP.three,
+  },
+]);
+
 let gridStack: GridStack | null = null;
 
 function cardConstraint(code: string) {
@@ -67,13 +87,86 @@ function refreshInCanvas() {
   inCanvasCodes.value = codes;
 }
 
+/** 设计器卡片预览主题色（按注册卡编码，未命中回退主色） */
+const CARD_PREVIEW_COLORS: Record<string, string> = {
+  workspace_onboarding: '#3b82f6',
+  workspace_todo_overview: '#14b8a6',
+  workspace_smart_todo: '#0ea5e9',
+  workspace_week_load: '#8b5cf6',
+  workspace_announcement: '#f59e0b',
+  workspace_stock_alert: '#ef4444',
+  workspace_stock_doc_todo: '#3b82f6',
+  workspace_purchase_approval: '#f97316',
+  workspace_payment_reminder: '#06b6d4',
+  workspace_payslip_stat: '#22c55e',
+  workspace_hr_todo: '#a855f7',
+  workspace_sales_performance: '#6366f1',
+};
+
+function cardAccentColor(code: string): string {
+  return CARD_PREVIEW_COLORS[code] || 'hsl(var(--primary))';
+}
+
+/** 卡片骨架预览分型：stats 数字+趋势图 / steps 进度+步骤点 / list 行列表 */
+const CARD_PREVIEW_VARIANTS: Record<string, 'list' | 'stats' | 'steps'> = {
+  workspace_onboarding: 'steps',
+  workspace_payslip_stat: 'stats',
+  workspace_sales_performance: 'stats',
+  workspace_todo_overview: 'stats',
+  workspace_week_load: 'stats',
+};
+
+const DESIGNER_SK_CHART_BARS = [42, 68, 55, 82, 61, 90, 74, 58];
+
+function buildSkeletonHtml(code: string): string {
+  const variant = CARD_PREVIEW_VARIANTS[code] || 'list';
+  if (variant === 'stats') {
+    const stats = [0, 1, 2]
+      .map(
+        (i) =>
+          `<div class="designer-sk-stat"><span class="designer-sk-badge${
+            i === 1 ? ' sm' : ''
+          }"></span><span class="designer-sk-big"></span></div>`,
+      )
+      .join('');
+    const bars = DESIGNER_SK_CHART_BARS.map(
+      (v) => `<span class="designer-sk-chart-bar" style="--v: ${v}%"></span>`,
+    ).join('');
+    return `<div class="designer-sk-stats">${stats}</div><div class="designer-sk-chart">${bars}</div>`;
+  }
+  if (variant === 'steps') {
+    return [
+      '<div class="designer-sk-line"><span class="designer-sk-bar" style="width: 46%"></span><span class="designer-sk-num"></span></div>',
+      '<div class="designer-sk-progress"><span style="width: 62%"></span></div>',
+      '<div class="designer-sk-steps"><span class="done"></span><span class="done"></span><span></span><span></span></div>',
+      '<div class="designer-sk-line"><span class="designer-sk-avatar"></span><span class="designer-sk-bar" style="width: 34%"></span><span class="designer-sk-badge"></span></div>',
+    ].join('');
+  }
+  return [
+    '<div class="designer-sk-line"><span class="designer-sk-avatar"></span><span class="designer-sk-bar" style="width: 58%"></span><span class="designer-sk-badge"></span></div>',
+    '<div class="designer-sk-line"><span class="designer-sk-avatar"></span><span class="designer-sk-bar" style="width: 42%"></span><span class="designer-sk-badge sm"></span></div>',
+    '<div class="designer-sk-line"><span class="designer-sk-avatar"></span><span class="designer-sk-bar" style="width: 68%"></span><span class="designer-sk-num"></span></div>',
+    '<div class="designer-sk-line"><span class="designer-sk-avatar"></span><span class="designer-sk-bar" style="width: 36%"></span><span class="designer-sk-badge"></span></div>',
+    '<div class="designer-sk-line"><span class="designer-sk-avatar"></span><span class="designer-sk-bar" style="width: 52%"></span><span class="designer-sk-badge sm"></span></div>',
+  ].join('');
+}
+
 function buildItemEl(card: CardLayoutVO): HTMLElement {
+  // gridstack 规范结构：item > content，间距经 --gs-item-margin-* 内缩 content 实现，
+  // 卡片视觉必须挂在 content 层上，卡片间 16px 间隔才会生效
   const el = document.createElement('div');
-  el.className = 'designer-item';
+  const content = document.createElement('div');
+  content.className = 'designer-item grid-stack-item-content';
+  el.appendChild(content);
   const disabled = Number(card.status) === 0;
+  const code = String(card.cardCode || '');
+  content.style.setProperty('--designer-accent', cardAccentColor(code));
 
   const head = document.createElement('div');
   head.className = 'designer-item-head';
+  const dot = document.createElement('span');
+  dot.className = 'designer-item-dot';
+  head.appendChild(dot);
   const name = document.createElement('span');
   name.className = 'designer-item-name';
   name.textContent = card.cardName || card.cardCode || '';
@@ -84,36 +177,77 @@ function buildItemEl(card: CardLayoutVO): HTMLElement {
     tag.textContent = $t('page.system.dashboardDesigner.disabledTag');
     head.appendChild(tag);
   }
+  // 尺寸标签（编辑时随拖拽缩放由 refreshSizeTags 同步）
+  const size = document.createElement('span');
+  size.className = 'designer-item-size';
+  size.textContent = `${Math.max(1, Number(card.w) || 12)}×${Math.max(1, Number(card.h) || 6)}`;
+  head.appendChild(size);
+
+  // 1/2/3 栏宽快捷按钮（12 列栅格：12/6/4 列）
+  const colBtns = document.createElement('span');
+  colBtns.className = 'designer-item-cols';
+  for (const { n, w } of [
+    { n: 1, w: COL_WIDTH_MAP.one },
+    { n: 2, w: COL_WIDTH_MAP.two },
+    { n: 3, w: COL_WIDTH_MAP.three },
+  ]) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'designer-item-col-btn';
+    btn.dataset.w = String(w);
+    btn.title = $t('page.system.dashboardDesigner.colTip', { n });
+    btn.textContent = String(n);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      gridStack?.update(el as GridStackElement, { w });
+    });
+    colBtns.appendChild(btn);
+  }
+  head.appendChild(colBtns);
+
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'designer-item-remove';
   removeBtn.title = $t('page.system.dashboardDesigner.removeCard');
   removeBtn.textContent = '×';
-  removeBtn.addEventListener('click', () => removeCard(card.cardCode || ''));
+  removeBtn.addEventListener('click', () => removeCard(code));
   head.appendChild(removeBtn);
 
-  const code = document.createElement('div');
-  code.className = 'designer-item-code';
-  code.textContent = card.cardCode || '';
+  const codeEl = document.createElement('div');
+  codeEl.className = 'designer-item-code';
+  codeEl.textContent = code;
 
-  el.appendChild(head);
-  el.appendChild(code);
+  // 内容骨架占位：按卡片分型模拟真实数据形态（静态模板，无业务数据注入）
+  const body = document.createElement('div');
+  body.className = 'designer-item-body';
+  body.innerHTML = buildSkeletonHtml(code);
+
+  content.appendChild(head);
+  content.appendChild(body);
+  content.appendChild(codeEl);
   return el;
 }
 
-function addCardNode(card: CardLayoutVO) {
+function addCardNode(card: CardLayoutVO, widthOverride?: number) {
   if (!gridStack) return;
   const code = String(card.cardCode || '');
   if (!code || inCanvasCodes.value.has(code)) return;
   const c = cardConstraint(code);
-  gridStack.makeWidget(buildItemEl(card) as GridStackElement, {
+  const el = buildItemEl(card);
+  // 错峰入场动画
+  const item = el.querySelector<HTMLElement>('.designer-item');
+  if (item) {
+    item.style.animationDelay = `${Math.min((gridStack.engine.nodes.length || 0) * 45, 360)}ms`;
+  }
+  gridStack.makeWidget(el as GridStackElement, {
     h: Math.max(1, Number(card.h) || 6),
     id: code,
     maxH: c?.maxH,
     maxW: c?.maxW,
     minH: c?.minH,
     minW: c?.minW,
-    w: Math.min(12, Math.max(1, Number(card.w) || 12)),
+    w: widthOverride ?? Math.min(12, Math.max(1, Number(card.w) || 12)),
     x: Math.max(0, Number(card.x) || 0),
     y: Math.max(0, Number(card.y) || 0),
   });
@@ -127,7 +261,22 @@ function removeCard(code: string) {
 
 function addFromPalette(card: CardLayoutVO) {
   if (Number(card.status) === 0) return;
-  addCardNode(card);
+  addCardNode(card, defaultColWidth.value);
+}
+
+/** 拖拽/缩放后同步卡片头部的 w×h 尺寸标签与 1/2/3 栏宽按钮态 */
+function refreshSizeTags() {
+  for (const node of gridStack?.engine.nodes || []) {
+    const sizeEl = node.el?.querySelector('.designer-item-size');
+    if (sizeEl && node.w && node.h) {
+      sizeEl.textContent = `${node.w}×${node.h}`;
+    }
+    node.el
+      ?.querySelectorAll<HTMLButtonElement>('.designer-item-col-btn')
+      .forEach((btn) => {
+        btn.classList.toggle('is-active', Number(btn.dataset.w) === node.w);
+      });
+  }
 }
 
 function bindGridEvents() {
@@ -135,6 +284,18 @@ function bindGridEvents() {
   gridStack.on('added removed change', () => {
     if (editMode.value) dirty.value = true;
     refreshInCanvas();
+    refreshSizeTags();
+  });
+  // 外部拖入不经过 addCardNode 的 inCanvasCodes 拦截，落下后若画布已有同编码卡片则移除
+  gridStack.on('dropped', (_e, _old, node) => {
+    const code = String(node?.id || '');
+    if (!code || !node?.el) return;
+    const dupes = gridStack!.engine.nodes.filter(
+      (n) => String(n.id || '') === code,
+    );
+    if (dupes.length > 1) {
+      gridStack!.removeWidget(node.el as GridStackElement);
+    }
   });
 }
 
@@ -153,6 +314,17 @@ async function initGrid(cards: CardLayoutVO[]) {
   await nextTick();
   if (!canvasEl.value) return;
   const { GridStack: GS } = await import('gridstack');
+  // 外部拖入时 gridstack 默认把 palette 克隆元素直接当 widget（无 content 层、无骨架样式），
+  // 通过 addRemoveCB 拦截，按卡片配置用 buildItemEl 重建规范的 item > content 结构
+  GS.addRemoveCB = (_parent, w, add) => {
+    if (!add) return undefined;
+    const card = paletteCards.value.find(
+      (c) => String(c.cardCode || '') === String(w.id || ''),
+    );
+    return buildItemEl(
+      card ?? ({ cardCode: String(w.id || '') } as CardLayoutVO),
+    );
+  };
   gridStack = GS.init(
     {
       acceptWidgets: true,
@@ -182,11 +354,19 @@ async function loadWorkspaces() {
     const res: any = await getWorkspaceListApi();
     const list = Array.isArray(res) ? res : res?.data || [];
     workspaceOptions.value = list.map((w: any) => ({
-      label: w?.workspaceName || w?.workspaceCode,
+      label: workspaceDisplayName(
+        String(w?.workspaceCode || ''),
+        w?.workspaceName,
+      ),
       value: String(w?.workspaceCode || ''),
     }));
   } catch {
-    workspaceOptions.value = [{ label: '默认工作台', value: 'default' }];
+    workspaceOptions.value = [
+      {
+        label: $t('page.dashboard.workspace.names.default'),
+        value: 'default',
+      },
+    ];
   }
 }
 
@@ -305,6 +485,19 @@ onBeforeUnmount(() => {
             @change="handlePageKeyChange"
           />
         </div>
+        <Tooltip :title="$t('page.system.dashboardDesigner.colWidthTip')">
+          <div class="flex items-center gap-1">
+            <span class="text-sm">
+              {{ $t('page.system.dashboardDesigner.colWidth') }}
+            </span>
+            <Select
+              v-model:value="defaultColWidth"
+              :options="colWidthOptions"
+              class="w-24"
+              size="small"
+            />
+          </div>
+        </Tooltip>
         <div class="ml-auto flex items-center gap-2">
           <span v-if="dirty" class="text-xs text-orange-500">
             {{ $t('page.system.dashboardDesigner.unsavedTip') }}
@@ -345,11 +538,18 @@ onBeforeUnmount(() => {
               'designer-palette-item-disabled': Number(card.status) === 0,
             }"
             :gs-h="card.h || 6"
-            :gs-w="card.w || 12"
+            :gs-id="card.cardCode"
+            :gs-w="defaultColWidth"
+            :style="{
+              '--designer-accent': cardAccentColor(String(card.cardCode || '')),
+            }"
           >
             <div class="flex items-center justify-between gap-1">
-              <span class="truncate">
-                {{ card.cardName || card.cardCode }}
+              <span class="flex min-w-0 items-center gap-1.5">
+                <span class="designer-item-dot shrink-0"></span>
+                <span class="truncate">
+                  {{ card.cardName || card.cardCode }}
+                </span>
               </span>
               <Tooltip
                 v-if="Number(card.status) === 0"
@@ -370,6 +570,9 @@ onBeforeUnmount(() => {
             <div class="mt-1 flex items-center justify-between">
               <span class="truncate text-xs opacity-60">
                 {{ card.cardCode }}
+                <span class="ml-1 opacity-80">
+                  {{ defaultColWidth }}×{{ card.h || 6 }}
+                </span>
               </span>
               <Button
                 v-if="Number(card.status) !== 0"
@@ -406,45 +609,76 @@ onBeforeUnmount(() => {
 
 <style lang="scss">
 @import 'gridstack/dist/gridstack.css';
-</style>
 
-<style lang="scss" scoped>
-.designer-page {
-  min-height: 100%;
-}
-
-.designer-toolbar,
-.designer-palette,
-.designer-canvas {
+// ============================================================
+// 画布动态卡片样式（非 scoped！）
+// buildItemEl 经 document.createElement + gridstack 注入的 DOM
+// 不带 Vue scoped 的 data-v 属性，scoped 选择器永远无法匹配；
+// 故本节必须全局，统一以 designer- 前缀做命名空间隔离。
+// ============================================================
+.designer-item {
+  animation: designer-item-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   background: hsl(var(--card));
-  border-color: hsl(var(--border));
-}
-
-.designer-palette-item {
-  background: hsl(var(--background-deep, var(--card)));
-  border-color: hsl(var(--border));
+  border: 1px solid hsl(var(--border));
+  border-left: 3px solid var(--designer-accent, hsl(var(--primary)));
+  border-radius: 8px;
   color: hsl(var(--foreground));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px hsl(var(--foreground) / 8%),
+    0 4px 12px hsl(var(--foreground) / 6%);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 
-  &.designer-palette-item-disabled {
-    opacity: 0.5;
+  &:hover {
+    border-color: color-mix(
+      in srgb,
+      var(--designer-accent, hsl(var(--primary))) 45%,
+      hsl(var(--border))
+    );
+    border-left-color: var(--designer-accent, hsl(var(--primary)));
+    box-shadow:
+      0 2px 4px hsl(var(--foreground) / 10%),
+      0 8px 20px hsl(var(--foreground) / 12%);
   }
 }
 
-.designer-item {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  color: hsl(var(--foreground));
+// gridstack 对 content 层默认 overflow-y: auto（特异性 0,3,0），卡片需整体裁切不出滚动条
+.grid-stack > .grid-stack-item > .designer-item {
   overflow: hidden;
+}
+
+@keyframes designer-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .designer-item-head {
   align-items: center;
-  background: hsl(var(--accent, hsl(var(--primary) / 8%)));
+  background: color-mix(in srgb, var(--designer-accent, hsl(var(--primary))) 8%, hsl(var(--card)));
   cursor: move;
   display: flex;
+  flex-shrink: 0;
   gap: 6px;
   padding: 6px 10px;
+}
+
+.designer-item-dot {
+  background: var(--designer-accent, hsl(var(--primary)));
+  border-radius: 9999px;
+  display: inline-block;
+  height: 8px;
+  width: 8px;
 }
 
 .designer-item-name {
@@ -454,6 +688,50 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.designer-item-size {
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  color: hsl(var(--foreground) / 60%);
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+.designer-item-cols {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.designer-item-col-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: hsl(var(--foreground) / 50%);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  height: 18px;
+  line-height: 1;
+  padding: 0;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+  width: 18px;
+
+  &:hover {
+    background: hsl(var(--foreground) / 10%);
+    color: hsl(var(--foreground) / 90%);
+  }
+
+  &.is-active {
+    background: var(--designer-accent, hsl(var(--primary)));
+    color: #fff;
+  }
 }
 
 .designer-item-tag {
@@ -469,6 +747,7 @@ onBeforeUnmount(() => {
   border: none;
   color: hsl(var(--foreground) / 60%);
   cursor: pointer;
+  flex-shrink: 0;
   font-size: 16px;
   line-height: 1;
   padding: 0 2px;
@@ -478,14 +757,283 @@ onBeforeUnmount(() => {
   }
 }
 
+// ===== 内容骨架预览（按卡片类型模拟真实数据形态，shimmer 扫光 + 错峰入场） =====
+.designer-item-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 14px;
+
+  // 行级错峰入场
+  > * {
+    animation: designer-sk-up 0.45s ease backwards;
+  }
+
+  @for $i from 1 through 6 {
+    > :nth-child(#{$i}) {
+      animation-delay: #{0.06 * $i}s;
+    }
+  }
+}
+
+@keyframes designer-sk-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// shimmer 扫光：覆盖所有骨架块
+.designer-sk-bar,
+.designer-sk-big,
+.designer-sk-badge,
+.designer-sk-num,
+.designer-sk-avatar {
+  overflow: hidden;
+  position: relative;
+
+  &::after {
+    animation: designer-sk-shimmer 1.8s ease-in-out infinite;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      hsl(var(--foreground) / 9%) 50%,
+      transparent 70%
+    );
+    content: '';
+    inset: 0;
+    position: absolute;
+    transform: translateX(-120%);
+  }
+}
+
+@keyframes designer-sk-shimmer {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+.designer-sk-line {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+
+  > .designer-sk-badge,
+  > .designer-sk-num {
+    margin-left: auto;
+  }
+}
+
+.designer-sk-bar {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+  flex-shrink: 1;
+  height: 10px;
+  min-width: 24px;
+}
+
+.designer-sk-avatar {
+  background: color-mix(
+    in srgb,
+    var(--designer-accent, hsl(var(--primary))) 26%,
+    hsl(var(--muted))
+  );
+  border-radius: 9999px;
+  flex-shrink: 0;
+  height: 20px;
+  width: 20px;
+}
+
+.designer-sk-badge {
+  background: color-mix(
+    in srgb,
+    var(--designer-accent, hsl(var(--primary))) 18%,
+    transparent
+  );
+  border-radius: 9999px;
+  flex-shrink: 0;
+  height: 16px;
+  width: 34px;
+
+  &.sm {
+    width: 22px;
+  }
+}
+
+.designer-sk-num {
+  background: color-mix(
+    in srgb,
+    var(--designer-accent, hsl(var(--primary))) 28%,
+    transparent
+  );
+  border-radius: 4px;
+  flex-shrink: 0;
+  height: 20px;
+  width: 48px;
+}
+
+// stats：数字块 + 迷你柱状趋势
+.designer-sk-stats {
+  display: flex;
+  gap: 14px;
+
+  .designer-sk-stat {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+.designer-sk-big {
+  background: color-mix(
+    in srgb,
+    var(--designer-accent, hsl(var(--primary))) 32%,
+    hsl(var(--muted))
+  );
+  border-radius: 6px;
+  height: 22px;
+  width: 64px;
+}
+
+.designer-sk-chart {
+  align-items: flex-end;
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  min-height: 30px;
+
+  .designer-sk-chart-bar {
+    animation: designer-sk-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    background: linear-gradient(
+      to top,
+      color-mix(
+        in srgb,
+        var(--designer-accent, hsl(var(--primary))) 65%,
+        transparent
+      ),
+      color-mix(
+        in srgb,
+        var(--designer-accent, hsl(var(--primary))) 22%,
+        transparent
+      )
+    );
+    border-radius: 3px 3px 0 0;
+    flex: 1;
+    height: var(--v, 50%);
+    transform-origin: bottom;
+  }
+
+  @for $i from 1 through 8 {
+    .designer-sk-chart-bar:nth-child(#{$i}) {
+      animation-delay: #{0.08 * $i}s;
+    }
+  }
+}
+
+@keyframes designer-sk-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+// steps：进度条 + 步骤点
+.designer-sk-progress {
+  background: hsl(var(--muted));
+  border-radius: 9999px;
+  height: 8px;
+  overflow: hidden;
+
+  > span {
+    background: linear-gradient(
+      90deg,
+      color-mix(
+        in srgb,
+        var(--designer-accent, hsl(var(--primary))) 55%,
+        transparent
+      ),
+      var(--designer-accent, hsl(var(--primary)))
+    );
+    border-radius: 9999px;
+    display: block;
+    height: 100%;
+  }
+}
+
+.designer-sk-steps {
+  display: flex;
+  gap: 6px;
+
+  span {
+    border: 2px solid
+      color-mix(
+        in srgb,
+        var(--designer-accent, hsl(var(--primary))) 45%,
+        transparent
+      );
+    border-radius: 9999px;
+    flex: 1;
+    height: 8px;
+
+    &.done {
+      background: var(--designer-accent, hsl(var(--primary)));
+      border-color: var(--designer-accent, hsl(var(--primary)));
+    }
+  }
+}
+
 .designer-item-code {
-  font-size: 12px;
+  border-top: 1px dashed hsl(var(--border) / 60%);
+  flex-shrink: 0;
+  font-size: 11px;
   opacity: 0.5;
-  padding: 6px 10px;
+  padding: 4px 14px 6px;
+}
+</style>
+
+<style lang="scss" scoped>
+.designer-page {
+  min-height: 100%;
+}
+
+.designer-toolbar,
+.designer-palette {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+// 画布用深一档台面色（--background-deep），让 card 底色的卡片在画布上凸显轮廓
+.designer-canvas {
+  background: hsl(var(--background-deep, var(--muted)));
+  border-color: hsl(var(--border));
+}
+
+.designer-palette-item {
+  background: hsl(var(--background-deep, var(--card)));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+
+  &.designer-palette-item-disabled {
+    opacity: 0.5;
+  }
 }
 
 .designer-grid {
-  background: hsl(var(--background-deep, transparent));
+  // 12 列栅格背景（列宽 1/12，行高 80px 与 cellHeight 对齐），提升画布空间感
+  // 栅格线用 foreground 低透明度：亮色呈深色细线、暗色呈浅色细线，双主题均可见
+  background-image:
+    linear-gradient(hsl(var(--foreground) / 6%) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--foreground) / 6%) 1px, transparent 1px);
+  background-size: calc(100% / 12) 80px;
   border-radius: 8px;
   min-height: 320px;
 }

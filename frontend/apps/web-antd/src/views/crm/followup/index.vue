@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import type { VbenFormProps } from '@vben/common-ui';
-
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, h, reactive, ref, watch } from 'vue';
@@ -12,6 +10,8 @@ import { formatDateTime } from '@vben/utils';
 
 import {
   Button,
+  Card,
+  Col,
   DatePicker,
   Drawer,
   Form,
@@ -21,6 +21,7 @@ import {
   Modal,
   Popconfirm,
   Radio,
+  Row,
   Select,
   Tabs,
   Tag,
@@ -424,51 +425,31 @@ async function handleSubmit() {
   }
 }
 
-const formOptions: VbenFormProps = {
-  collapsed: false,
-  showCollapseButton: false,
-  submitOnEnter: true,
-  schema: [
-    {
-      component: 'Input',
-      fieldName: 'customerName',
-      label: '客户',
-      componentProps: { placeholder: '输入客户名称', allowClear: true },
-    },
-    {
-      component: 'Select',
-      fieldName: 'activityType',
-      label: '跟进方式',
-      componentProps: {
-        placeholder: '全部',
-        allowClear: true,
-        options: [
-          { label: '电话', value: 1 },
-          { label: '拜访', value: 2 },
-          { label: '邮件', value: 3 },
-          { label: '会议', value: 4 },
-          { label: 'WhatsApp', value: 5 },
-          { label: '微信', value: 6 },
-          { label: '其他', value: 7 },
-        ],
-      },
-    },
-    {
-      component: 'Select',
-      fieldName: 'sourceType',
-      label: '跟进来源',
-      componentProps: {
-        placeholder: '全部',
-        allowClear: true,
-        options: [
-          { label: '线索跟进', value: 1 },
-          { label: '客户跟进', value: 2 },
-          { label: '商机跟进', value: 3 },
-        ],
-      },
-    },
-  ],
-};
+// ========== 搜索表单（与客户/联系人列表同构：手动表单置于筛选卡片，搜索按钮触发查询） ==========
+const sourceTypeOptions = [
+  { label: '线索跟进', value: 1 },
+  { label: '客户跟进', value: 2 },
+  { label: '商机跟进', value: 3 },
+];
+
+const searchForm = ref<{
+  customerName: string;
+  activityType?: number;
+  sourceType?: number;
+}>({ customerName: '', activityType: undefined, sourceType: undefined });
+
+function handleSearch() {
+  gridApi.query();
+}
+
+function handleReset() {
+  searchForm.value = {
+    customerName: '',
+    activityType: undefined,
+    sourceType: undefined,
+  };
+  gridApi.query();
+}
 
 const gridOptions: VxeGridProps = {
   toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
@@ -481,13 +462,19 @@ const gridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: true,
     ajax: {
-      query: async ({ page }, formValues) => {
-        const result = await getFollowupListApi({
+      query: async ({ page }) => {
+        const params: any = {
           page: page.currentPage,
           pageSize: page.pageSize,
-          ...formValues,
           listType: activeTab.value,
-        });
+        };
+        if (searchForm.value.customerName)
+          params.customerName = searchForm.value.customerName;
+        if (searchForm.value.activityType != null)
+          params.activityType = searchForm.value.activityType;
+        if (searchForm.value.sourceType != null)
+          params.sourceType = searchForm.value.sourceType;
+        const result = await getFollowupListApi(params);
 
         const items = (result as any)?.items ?? [];
 
@@ -583,27 +570,82 @@ const gridOptions: VxeGridProps = {
   ],
 };
 
-const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
 </script>
 
 <template>
   <Page>
-    <Tabs
-      v-model:active-key="activeTab"
-      @change="handleTabChange"
-      class="mb-4"
-    >
-      <Tabs.TabPane
-        v-for="tab in tabList"
-        :key="tab.key"
-        :tab="tab.label"
-      />
-      <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
-    </Tabs>
+    <!-- 选项卡 + 搜索表单/回收站视图（与客户/联系人/拜访列表同构：选项卡位于筛选卡片区域，业务列表与回收站在卡片内切换） -->
+    <Card :bordered="false" class="followup-filter-card">
+      <Tabs
+        v-model:active-key="activeTab"
+        class="mb-4"
+        @change="handleTabChange"
+      >
+        <Tabs.TabPane
+          v-for="tab in tabList"
+          :key="tab.key"
+          :tab="tab.label"
+        />
+        <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
+      </Tabs>
+
+      <!-- 回收站视图：与其他模块共用 RecycleBin，module=followup -->
+      <RecycleBin v-show="activeTab === 'recycle'" :module="'followup'" />
+
+      <Form
+        v-show="activeTab !== 'recycle'"
+        :model="searchForm"
+        layout="inline"
+        :label-col="{ style: { width: '90px' } }"
+        class="followup-search-form"
+        @keyup.enter="handleSearch"
+      >
+        <Row :gutter="[16, 12]" style="width: 100%">
+          <Col :xs="24" :sm="24" :md="12">
+            <FormItem label="客户" name="customerName">
+              <Input
+                v-model:value="searchForm.customerName"
+                placeholder="输入客户名称"
+                allow-clear
+                style="width: 100%"
+              />
+            </FormItem>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <FormItem label="跟进方式" name="activityType">
+              <Select
+                v-model:value="searchForm.activityType"
+                :options="activityOptions"
+                placeholder="全部"
+                allow-clear
+                style="width: 100%"
+              />
+            </FormItem>
+          </Col>
+          <Col :xs="24" :sm="24" :md="12">
+            <FormItem label="跟进来源" name="sourceType">
+              <Select
+                v-model:value="searchForm.sourceType"
+                :options="sourceTypeOptions"
+                placeholder="全部"
+                allow-clear
+                style="width: 100%"
+              />
+            </FormItem>
+          </Col>
+        </Row>
+        <div class="flex flex-wrap items-center gap-2 mt-3">
+          <Button type="default" @click="handleSearch">搜索</Button>
+          <Button type="default" @click="handleReset">刷新</Button>
+        </div>
+      </Form>
+    </Card>
 
     <Grid
       v-show="activeTab !== 'recycle'"
       :table-title="$t('page.crm.followup.title')"
+      class="followup-grid-card"
     >
 
       <template #toolbar-tools>
@@ -704,8 +746,6 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
         </Popconfirm>
       </template>
     </Grid>
-
-    <RecycleBin v-show="activeTab === 'recycle'" :module="'followup'" />
 
     <Drawer
       v-model:open="detailVisible"
@@ -903,3 +943,22 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
     />
   </Page>
 </template>
+
+<style scoped>
+/* 选项卡筛选卡片与表格卡片间距（scoped 固化，不依赖 Tailwind 工具类） */
+.followup-filter-card {
+  margin-bottom: 16px;
+}
+
+.followup-grid-card {
+  margin-top: 16px;
+}
+
+.followup-search-form :deep(.ant-form-item) {
+  margin-bottom: 0;
+}
+
+.followup-search-form :deep(.ant-form-item-control) {
+  flex: 1;
+}
+</style>

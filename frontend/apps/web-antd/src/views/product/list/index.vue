@@ -4,7 +4,6 @@ import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { computed, h, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucideFilePenLine, LucideImageOff, LucideTrash2 } from '@vben/icons';
@@ -23,11 +22,9 @@ import {
 import { $t } from '#/locales';
 
 import BrandSelectModal from '../inventory-check/BrandSelectModal.vue';
-import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 import ProductDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
-const router = useRouter();
 
 // ============ 分类树数据 ============
 const categoryTreeData = ref<any[]>([]);
@@ -69,26 +66,6 @@ function buildCategoryTree(items: any[]): any[] {
   return roots;
 }
 
-// ============ 仓库弹窗选择 ============
-const warehouseSelectVisible = ref(false);
-
-function openWarehouseSelect() {
-  warehouseSelectVisible.value = true;
-}
-
-function onWarehouseSelected(warehouse: any) {
-  selectedWarehouseId.value = Number(warehouse.id);
-  gridApi.formApi?.setValues({
-    warehouseId: String(warehouse.id),
-    warehouseDisplay: warehouse.warehouseName ?? warehouse.name ?? '',
-  });
-}
-
-function clearWarehouse() {
-  selectedWarehouseId.value = undefined;
-  gridApi.formApi?.setValues({ warehouseId: '', warehouseDisplay: '' });
-}
-
 // ============ 品牌弹窗选择 ============
 const brandSelectVisible = ref(false);
 
@@ -106,12 +83,6 @@ function onBrandSelected(brand: any) {
 function clearBrand() {
   gridApi.formApi?.setValues({ brandId: '', brandDisplay: '' });
 }
-
-/** 当前选中的仓库，用于在表格标题中展示仓库名称 */
-const selectedWarehouseId = ref<number | undefined>();
-
-/** 当前选中的仓库名称，用于在表格标题中展示 */
-const selectedWarehouseName = ref('');
 
 /** 多规格产品的 SKU 数据缓存（按产品 ID 索引） */
 const skuMap = ref<Record<number, any[]>>({});
@@ -159,11 +130,6 @@ function onToggleExpand({ expanded, row }: { expanded: boolean; row: any }) {
   }
 }
 
-/** 跳转到库存管理页 */
-function goToInventory(row: any) {
-  router.push(`/product/inventory?productId=${row.id}`);
-}
-
 // 商品类型映射
 const productTypeNames: Record<number, string> = {
   1: '实物',
@@ -200,29 +166,6 @@ const formOptions: VbenFormProps = {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
       },
-    },
-    {
-      component: 'Input',
-      fieldName: 'warehouseDisplay',
-      label: '仓库',
-      componentProps: {
-        placeholder: '全部仓库（点击选择）',
-        readOnly: true,
-        allowClear: true,
-        style: { cursor: 'pointer' },
-        onClick: () => openWarehouseSelect(),
-        onChange: (e: any) => {
-          if (!e?.target?.value) {
-            clearWarehouse();
-          }
-        },
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'warehouseId',
-      dependencies: { triggerFields: ['warehouseDisplay'] },
-      formItemClass: 'hidden',
     },
     {
       component: 'TreeSelect',
@@ -317,7 +260,6 @@ const gridOptions: VxeGridProps = {
           pageSize: page.pageSize,
           keywords: formValues.name,
           sku: formValues.sku,
-          warehouseId: formValues.warehouseId || undefined,
           categoryId: formValues.categoryId || undefined,
           brandId: formValues.brandId || undefined,
           isActive: formValues.isActive,
@@ -340,6 +282,12 @@ const gridOptions: VxeGridProps = {
       width: 70,
     },
     {
+      title: '产品编号',
+      field: 'productNo',
+      width: 140,
+      align: 'left',
+    },
+    {
       title: '商品图',
       field: 'imageUrl',
       width: 70,
@@ -350,11 +298,6 @@ const gridOptions: VxeGridProps = {
       field: 'name',
       minWidth: 160,
       align: 'left',
-    },
-    {
-      title: '产品编号',
-      field: 'productNo',
-      width: 140,
     },
     {
       title: '品牌',
@@ -376,12 +319,6 @@ const gridOptions: VxeGridProps = {
       title: '销售价',
       field: 'salePrice',
       width: 100,
-    },
-    {
-      title: '库存',
-      field: 'totalStock',
-      width: 120,
-      slots: { default: 'totalStock' },
     },
     {
       title: '类型',
@@ -419,13 +356,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
   },
 });
 
-const tableTitle = computed(() => {
-  const base = $t('page.product.list.title');
-  if (!selectedWarehouseId.value) return base;
-  return selectedWarehouseName.value
-    ? `${base} — ${selectedWarehouseName.value}`
-    : base;
-});
+const tableTitle = computed(() => $t('page.product.list.title'));
 
 const [Drawer, drawerApi] = useVbenDrawer({
   connectedComponent: ProductDrawer,
@@ -486,7 +417,7 @@ onMounted(async () => {
       <template #productImage="{ row }">
         <div
           v-if="row.imageUrl || row.coverImage"
-          class="w-10 h-10 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0"
+          class="w-10 h-10 rounded-lg border border-[hsl(var(--border))] overflow-hidden flex-shrink-0"
         >
           <img
             :src="row.imageUrl || row.coverImage"
@@ -496,9 +427,9 @@ onMounted(async () => {
         </div>
         <div
           v-else
-          class="w-10 h-10 rounded-lg border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-50"
+          class="w-10 h-10 rounded-lg border border-[hsl(var(--border))] flex-shrink-0 flex items-center justify-center bg-[hsl(var(--muted))]"
         >
-          <LucideImageOff class="w-5 h-5 text-gray-400" />
+          <LucideImageOff class="w-5 h-5 text-[hsl(var(--muted-foreground))]" />
         </div>
       </template>
 
@@ -523,47 +454,6 @@ onMounted(async () => {
         <Tag v-else color="default">单规格</Tag>
       </template>
 
-      <template #totalStock="{ row }">
-        <div class="flex items-center gap-1">
-          <span
-            class="cursor-pointer hover:text-blue-500"
-            :class="{
-              'text-red-500 font-medium':
-                row.totalStock === 0 || row.totalStock == null,
-              'text-orange-500':
-                row.totalStock > 0 &&
-                row.safetyStock &&
-                row.totalStock <= row.safetyStock,
-              'text-green-600':
-                row.totalStock > 0 &&
-                (!row.safetyStock || row.totalStock > row.safetyStock),
-            }"
-            @click="goToInventory(row)"
-          >
-            {{ row.totalStock ?? 0 }}
-          </span>
-          <Tag
-            v-if="row.totalStock === 0 || row.totalStock == null"
-            color="red"
-            :bordered="false"
-            style="font-size: 10px"
-          >
-            缺货
-          </Tag>
-          <Tag
-            v-else-if="row.safetyStock && row.totalStock <= row.safetyStock"
-            color="orange"
-            :bordered="false"
-            style="font-size: 10px"
-          >
-            不足
-          </Tag>
-          <Tag v-else color="green" :bordered="false" style="font-size: 10px">
-            正常
-          </Tag>
-        </div>
-      </template>
-
       <template #expandContent="{ row }">
         <div v-if="row.specType === 'multiple'" class="bg-gray-50 p-3">
           <table
@@ -572,20 +462,23 @@ onMounted(async () => {
           >
             <thead>
               <tr class="text-gray-500 text-xs border-b">
+                <th class="text-left py-2 px-3 w-10">序号</th>
                 <th class="text-left py-2 px-3">SKU编码</th>
                 <th class="text-left py-2 px-3">规格</th>
                 <th class="text-right py-2 px-3">价格</th>
-                <th class="text-right py-2 px-3">库存</th>
                 <th class="text-center py-2 px-3">状态</th>
               </tr>
             </thead>
             <tbody>
               <tr
-                v-for="sku in skuMap[row.id]"
+                v-for="(sku, index) in skuMap[row.id]"
                 :key="sku.id"
                 class="border-b border-gray-100"
                 :class="{ 'opacity-50': !sku.isActive }"
               >
+                <td class="py-2 px-3 text-gray-600">
+                  {{ index + 1 }}
+                </td>
                 <td class="py-2 px-3 text-gray-600">
                   {{ sku.skuCode || '-' }}
                 </td>
@@ -599,12 +492,6 @@ onMounted(async () => {
                   </span>
                 </td>
                 <td class="py-2 px-3 text-right">¥{{ sku.price ?? 0 }}</td>
-                <td
-                  class="py-2 px-3 text-right"
-                  :class="{ 'text-red-500': !sku.stock || sku.stock === 0 }"
-                >
-                  {{ sku.stock ?? 0 }}
-                </td>
                 <td class="py-2 px-3 text-center">
                   <Tag
                     :color="sku.isActive ? 'green' : 'red'"
@@ -656,13 +543,6 @@ onMounted(async () => {
       </template>
     </Grid>
     <Drawer />
-
-    <!-- 仓库选择弹窗 -->
-    <WarehouseSelectModal
-      :visible="warehouseSelectVisible"
-      @update:visible="(val) => (warehouseSelectVisible = val)"
-      @select="onWarehouseSelected"
-    />
 
     <!-- 品牌选择弹窗 -->
     <BrandSelectModal

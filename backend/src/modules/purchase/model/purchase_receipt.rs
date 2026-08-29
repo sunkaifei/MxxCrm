@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 pub struct ReceiptItemDTO {
     pub po_item_id: Option<i64>,
     pub product_id: Option<i64>,
+    pub sku_id: Option<i64>,
     pub quantity: Option<Decimal>,
     pub remark: Option<String>,
 }
@@ -117,6 +118,7 @@ pub struct ReceiptItemVO {
     pub receipt_id: Option<i64>,
     pub po_item_id: Option<i64>,
     pub product_id: Option<i64>,
+    pub sku_id: Option<i64>,
     pub quantity: Option<Decimal>,
     pub remark: Option<String>,
 }
@@ -128,6 +130,7 @@ impl From<purchase_receipt_item::Model> for ReceiptItemVO {
             receipt_id: model.receipt_id,
             po_item_id: model.po_item_id,
             product_id: model.product_id,
+            sku_id: model.sku_id,
             quantity: model.quantity,
             remark: model.remark,
         }
@@ -289,6 +292,7 @@ impl ReceiptItemModel {
                 receipt_id: Set(Some(receipt_id)),
                 po_item_id: Set(item.po_item_id),
                 product_id: Set(item.product_id),
+                sku_id: Set(item.sku_id),
                 quantity: Set(item.quantity),
                 remark: Set(item.remark.clone()),
                 deleted: Set(Some(0)),

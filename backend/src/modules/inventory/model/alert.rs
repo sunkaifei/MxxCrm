@@ -32,6 +32,8 @@ pub struct AlertRuleListQuery {
 #[serde(rename_all = "camelCase")]
 pub struct AlertRuleSaveRequest {
     pub product_id: Option<i64>,
+    /// SKU ID（NULL表示对该产品全部规格生效）
+    pub sku_id: Option<i64>,
     pub warehouse_id: Option<i64>,
     pub min_quantity: Option<Decimal>,
     pub max_quantity: Option<Decimal>,
@@ -40,6 +42,13 @@ pub struct AlertRuleSaveRequest {
     pub enable_high_alert: Option<bool>,
     pub enable_stale_alert: Option<bool>,
     pub notify_users: Option<String>,
+}
+
+// 预警规则批量保存请求
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AlertRuleBatchSaveRequest {
+    pub rules: Vec<AlertRuleSaveRequest>,
 }
 
 // 预警规则列表VO
@@ -57,6 +66,9 @@ pub struct AlertRuleListItem {
     pub id: i64,
     pub product_id: Option<i64>,
     pub product_name: Option<String>,
+    pub sku_id: Option<i64>,
+    pub sku_code: Option<String>,
+    pub spec_text: Option<String>,
     pub warehouse_id: Option<i64>,
     pub warehouse_name: Option<String>,
     pub min_quantity: Option<Decimal>,
@@ -141,6 +153,7 @@ pub async fn insert<C: ConnectionTrait>(
     let now = chrono::Local::now().naive_local();
     let active = alert_rule::ActiveModel {
         product_id: Set(req.product_id),
+        sku_id: Set(req.sku_id),
         warehouse_id: Set(req.warehouse_id),
         min_quantity: Set(req.min_quantity),
         max_quantity: Set(req.max_quantity),
@@ -169,6 +182,7 @@ pub async fn update<C: ConnectionTrait>(
     let now = chrono::Local::now().naive_local();
     alert_rule::Entity::update_many()
         .col_expr(alert_rule::Column::ProductId, Expr::value(req.product_id))
+        .col_expr(alert_rule::Column::SkuId, Expr::value(req.sku_id))
         .col_expr(alert_rule::Column::WarehouseId, Expr::value(req.warehouse_id))
         .col_expr(alert_rule::Column::MinQuantity, Expr::value(req.min_quantity))
         .col_expr(alert_rule::Column::MaxQuantity, Expr::value(req.max_quantity))

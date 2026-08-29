@@ -17,19 +17,32 @@ use crate::modules::system::entity::{tag, tag_merge};
 use crate::modules::system::model::admin_dept_merge::AdminDeptMergeModel;
 use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::data_scope_service;
+use crate::modules::system::service::field_def_service;
 use crate::modules::crm::service::delete_guard_service;
 use sea_orm::{DbConn, DbErr, TransactionTrait, ColumnTrait, EntityTrait, QueryFilter};
 use std::collections::{HashMap, HashSet};
 
 pub async fn insert(db: &DbConn, form_data: &LeadSaveRequest, created_by: i64) -> Result<i64> {
+    // 自定义字段强校验（P1-8/P1-11：未知/停用键、类型不符、必填缺失 400；校验器原地归一化，结果须赋回 DTO 落库）
+    let mut custom_fields = form_data.custom_fields.clone();
+    field_def_service::validate_custom_fields(db, "crm_lead", &mut custom_fields, created_by, true, None).await?;
     let mut dto: LeadSaveDTO = form_data.clone().into();
+    dto.custom_fields = custom_fields;
     dto.created_by = Some(created_by);
     let result = LeadModel::insert(&db, &dto).await?;
     Ok(result)
 }
 
 pub async fn update(db: &DbConn, form_data: &LeadUpdateRequest, updated_by: i64) -> Result<i64> {
+    // 旧值：校验器用于 editable_roles 变更判定 + 按 key 合并旧值（7.3 防丢失更新）
+    let old_model = LeadModel::find_by_id(db, form_data.id.unwrap_or_default())
+        .await?
+        .ok_or_else(|| Error::from("线索不存在".to_string()))?;
+    // 自定义字段强校验（编辑不触发必填强约束 7.4 规则 5；归一化+合并结果须赋回 DTO 落库）
+    let mut custom_fields = form_data.custom_fields.clone();
+    field_def_service::validate_custom_fields(db, "crm_lead", &mut custom_fields, updated_by, false, old_model.custom_fields.as_ref()).await?;
     let mut dto: LeadSaveDTO = form_data.clone().into();
+    dto.custom_fields = custom_fields;
     dto.updated_by = Some(updated_by);
     let result = LeadModel::update_by_id(&db, &form_data.id, &dto).await?;
     Ok(result)
@@ -153,7 +166,9 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
                     ).await?
                 }
                 Some(user_ids) => {
-                    let assigned_ids = if user_ids.is_empty() { None } else { Some(user_ids) };
+                    // 防越权修复（P1-2 顺带）：可见集合为空时按 Some(空) 过滤（model 层空集防护返回空结果），
+                    // 不得降级为 None（不过滤）——原写法使无可见数据的用户在"全部线索"看到全部数据
+                    let assigned_ids = Some(user_ids);
                     LeadModel::select_in_page_by_assigned_ids(
                         &db, page, page_size,
                         search_keywords, query.status, query.level.clone(), query.source.clone(),
@@ -164,13 +179,13 @@ pub async fn list(db: &DbConn, query: &LeadListQuery, current_user_id: i64) -> R
             }
         }
         "subordinate" => {
-            // 下属线索：按汇报关系（direct_manager_id）递归查找所有下属，含跨级别
+            // 下属线索：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
             let subordinate_ids = crate::modules::system::service::subordinate_service
-                ::get_subordinate_ids_default(db, current_user_id).await?;
+                ::get_subordinate_scope_ids(db, current_user_id).await?;
             LeadModel::select_in_page_by_assigned_ids(
                 &db, page, page_size,
                 search_keywords, query.status, query.level.clone(), query.source.clone(),
-                Some(subordinate_ids),
+                subordinate_ids,
                 query.contact_name.clone(), query.mobile.clone(), query.industry,
             ).await?
         }
@@ -365,6 +380,8 @@ pub async fn claim(db: &DbConn, id: i64, user_id: i64) -> Result<i64> {
         assigned_to: Some(user_id),
         cooperated_at: None,
         birthday_month: None,
+        next_follow_at: lead.next_follow_at.map(|dt| dt.date()),
+        follow_cycle_days: None,
         description: lead.description.clone(),
         custom_fields: lead.custom_fields.clone(),
         deleted: None,
@@ -494,6 +511,8 @@ pub async fn convert_to_customer(db: &DbConn, id: i64, user_id: i64) -> Result<i
         assigned_to: Some(user_id),
         cooperated_at: None,
         birthday_month: None,
+        next_follow_at: lead.next_follow_at.map(|dt| dt.date()),
+        follow_cycle_days: None,
         description: lead.description.clone(),
         custom_fields: lead.custom_fields.clone(),
         deleted: None,
@@ -534,6 +553,8 @@ pub async fn convert_to_customer(db: &DbConn, id: i64, user_id: i64) -> Result<i
         gender: None,
         birthday: None,
         notes: None,
+        // 线索转联系人：跨模块字段定义不同，不继承 custom_fields
+        custom_fields: None,
         customer_id: Some(customer_id),
         role_type: Some(0),
         is_primary: Some(true),

@@ -10,13 +10,14 @@
 //! 工资项目自定义引擎控制器
 //!
 
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 use crate::core::kit::global::AppState;
+use crate::core::web::base_controller::get_current_user_id;
 use crate::core::web::permission_guard::require_permission;
 use crate::core::web::response::{MetaResp, MPACK};
-use crate::modules::finance::service::salary_item_service;
+use crate::modules::finance::service::{salary_item_service, salary_service};
 
 /// 删除参数
 #[derive(Deserialize)]
@@ -99,15 +100,17 @@ pub async fn values(
     }
 }
 
-/// 保存自定义项值
+/// 保存自定义项值（联动重算工资单金额与个税）
 pub async fn save_values(
     state: web::Data<AppState>,
+    req: HttpRequest,
     form_data: web::Json<salary_item_service::SaveItemValuesDTO>,
 ) -> HttpResponse {
     let db = &state.db;
     let dto = form_data.0;
+    let operator_id = get_current_user_id(&req);
 
-    match salary_item_service::save_item_values(db, dto.salary_record_id, dto.values).await {
+    match salary_service::save_record_item_values(db, dto.salary_record_id, dto.values, Some(operator_id)).await {
         Ok(_) => HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success("保存成功".to_string(), "local")),
@@ -142,13 +145,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/values",
                 web::get()
                     .to(values)
-                    .wrap(require_permission("finance:salary-item:list")),
+                    .wrap(require_permission("finance:salary:list")),
             )
             .route(
                 "/values/save",
                 web::post()
                     .to(save_values)
-                    .wrap(require_permission("finance:salary-item:manage")),
+                    .wrap(require_permission("finance:salary:manage")),
             ),
     );
 }

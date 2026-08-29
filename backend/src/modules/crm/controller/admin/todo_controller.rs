@@ -105,10 +105,24 @@ pub async fn todo_opportunity_list(
     }
 }
 
+/// GET /todo/calendar - 任务日历（指定月份的日程型任务明细，缺省当月）
+pub async fn todo_calendar(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    query: web::Query<CalendarTaskQuery>,
+) -> HttpResponse {
+    let db = &state.db;
+    match TodoService::calendar_tasks(db, get_current_user_id(&req), &query.0).await {
+        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/todo")
             .route("/summary", web::get().to(todo_summary))
+            .route("/calendar", web::get().to(todo_calendar))
             .route("/approval", web::get().to(todo_approval_list))
             .route("/follow-up", web::get().to(todo_follow_up_list))
             .route("/payment", web::get().to(todo_payment_list))

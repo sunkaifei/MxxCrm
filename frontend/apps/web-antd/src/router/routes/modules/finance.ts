@@ -29,16 +29,6 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        name: 'SalaryDetail',
-        path: '/finance/salary/detail/:id',
-        component: () => import('#/views/finance/salary/detail.vue'),
-        meta: {
-          title: $t('page.finance.salary.detailTitle'),
-          hideInMenu: true,
-          activePath: '/finance/salary',
-        },
-      },
-      {
         name: 'FinancePayment',
         path: '/finance/payment',
         component: () => import('#/views/finance/payment/index.vue'),

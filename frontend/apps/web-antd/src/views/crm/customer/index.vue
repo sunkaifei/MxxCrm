@@ -20,10 +20,12 @@ import {
   Button,
   Card,
   Col,
+  DatePicker,
   Drawer,
   Dropdown,
   Form,
   Input,
+  InputNumber,
   message,
   Modal,
   Popconfirm,
@@ -34,8 +36,13 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteCustomerApi, getCustomerListApi } from '#/api';
+import {
+  deleteCustomerApi,
+  exportCustomersApi,
+  getCustomerListApi,
+} from '#/api';
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
+import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 import { $t } from '#/locales';
@@ -192,6 +199,35 @@ const searchForm = ref({
 
 const { isSuperAdmin } = useSuperAdminGuard();
 
+// 自定义字段筛选（P1-2/P1-3）：单条件（字段+操作符+值）与动态列远程排序；cfFieldItems 在 loadSchema 后填充
+const cfFieldItems = ref<any[]>([]);
+const cfFieldKey = ref<string>();
+const cfOp = ref<string>();
+const cfValue = ref<any>();
+const cfSort = ref<string>();
+const cfSortOrder = ref<string>();
+const activeCfItem = computed(() =>
+  cfFieldItems.value.find((f) => f.fieldKey === cfFieldKey.value),
+);
+
+// 切换筛选字段：操作符重置为该字段默认项并清空旧值
+watch(cfFieldKey, () => {
+  cfOp.value = activeCfItem.value?.operators?.[0]?.value;
+  cfValue.value = undefined;
+});
+
+// 动态列远程排序（P1-3）：数组型列无 sortable 不会触发；取消排序时清空 cfSort
+function onCfSortChange({ field, order }: any) {
+  if (!order) {
+    cfSort.value = undefined;
+    cfSortOrder.value = undefined;
+  } else {
+    cfSort.value = field;
+    cfSortOrder.value = order;
+  }
+  gridApi.query();
+}
+
 function handleTabChange(key: number | string) {
   activeTab.value = key as string;
   if (key === 'recycle') return;
@@ -215,6 +251,13 @@ function handleReset() {
     wechat: '',
     qq: '',
   };
+  // 同步清理自定义字段筛选与动态列排序（P1-2/P1-3）
+  cfFieldKey.value = undefined;
+  cfOp.value = undefined;
+  cfValue.value = undefined;
+  cfSort.value = undefined;
+  cfSortOrder.value = undefined;
+  gridApi.grid?.clearSort?.();
   gridApi.query();
 }
 
@@ -232,10 +275,156 @@ function getCustomerTypeLabel(type: any): string {
   return Number(type) === 2 ? '个人' : '企业';
 }
 
+// 固定列 + 操作列（自定义字段动态列运行时插在两者之间）
+const baseColumns: any[] = [
+  { type: 'checkbox', width: 50 },
+  { title: $t('ui.table.seq'), type: 'seq', width: 60 },
+  {
+    title: '编号',
+    field: 'customerNo',
+    width: 150,
+    headerAlign: 'center',
+    align: 'center',
+    slots: { default: 'customerNo' },
+  },
+  {
+    title: '类型',
+    field: 'customerType',
+    width: 70,
+    align: 'center',
+    slots: { default: 'customerType' },
+  },
+  {
+    title: '客户名称',
+    field: 'companyName',
+    minWidth: 200,
+    headerAlign: 'center',
+    align: 'left',
+    slots: { default: 'customerName' },
+  },
+  {
+    title: '等级',
+    field: 'level',
+    width: 80,
+    slots: { default: 'level' },
+  },
+  {
+    title: '行业',
+    field: 'industry',
+    width: 90,
+    formatter: ({ cellValue }: any) =>
+      industryLabelMap[cellValue] || cellValue || '-',
+  },
+  { title: '国家', field: 'country', width: 80 },
+  {
+    title: '来源',
+    field: 'source',
+    width: 100,
+    formatter: ({ cellValue }: any) =>
+      sourceLabelMap[cellValue] || cellValue || '-',
+  },
+  {
+    title: '联系人',
+    field: 'contactCount',
+    width: 70,
+    align: 'center',
+    formatter: ({ cellValue }: any) => cellValue ?? '-',
+  },
+  {
+    title: '商机数',
+    field: 'opportunityCount',
+    width: 70,
+    align: 'center',
+    formatter: ({ cellValue }: any) => cellValue ?? '-',
+  },
+  {
+    title: '负责人',
+    field: 'assigneeName',
+    width: 90,
+    formatter: ({ cellValue }: any) => cellValue || '-',
+  },
+  {
+    title: $t('ui.table.createTime'),
+    field: 'createTime',
+    slots: { default: 'createdAt' },
+    width: 160,
+  },
+];
+const actionColumns: any[] = [
+  {
+    title: $t('ui.table.action'),
+    field: 'action',
+    fixed: 'right',
+    slots: { default: 'action' },
+    width: 180,
+  },
+];
+
+// 列表查询参数（列表与导出共用）：cf* 由当前筛选状态构建，键名与后端 CustomerListQuery serde camelCase 对齐
+function buildListQueryParams() {
+  const values = searchForm.value;
+  // 自定义字段筛选（P1-2）：有值才传 cf*，值经 buildCfParam 与后端类型对齐
+  const cfItem = activeCfItem.value;
+  const cfVal = cfItem
+    ? fieldSchema.buildCfParam(cfItem.item, cfValue.value)
+    : undefined;
+  return {
+    keywords: values.companyName || undefined,
+    customerType: values.customerType || undefined,
+    level: values.level,
+    industry: values.industry || undefined,
+    source: values.source || undefined,
+    mobile: values.mobile || undefined,
+    phone: values.phone || undefined,
+    wechat: values.wechat || undefined,
+    qq: values.qq || undefined,
+    dealStatus: values.dealStatus,
+    listType: activeTab.value,
+    cfKey: cfVal !== undefined ? cfFieldKey.value : undefined,
+    cfOp: cfVal !== undefined ? (cfItem?.fixedOp ?? cfOp.value) : undefined,
+    cfVal,
+    // 动态列远程排序（P1-3）：数字/金额后端按 ::numeric 数值序
+    cfSort: cfSort.value || undefined,
+    cfSortOrder: cfSort.value ? cfSortOrder.value || 'desc' : undefined,
+  };
+}
+
+// 导出客户 xlsx（P1-6）：走后端 /customer/export，动态列由后端格式化（vxe 本地导出读不到 row.customFields）
+const exportLoading = ref(false);
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+async function handleExport() {
+  exportLoading.value = true;
+  try {
+    const res: any = await exportCustomersApi(buildListQueryParams());
+    const blob =
+      res instanceof Blob
+        ? res
+        : new Blob([res as any], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          });
+    downloadBlob(blob, `customers_${Date.now()}.xlsx`);
+    message.success('导出成功');
+  } catch (error: any) {
+    message.error(error?.message || '导出失败');
+  } finally {
+    exportLoading.value = false;
+  }
+}
+
 const gridOptions: VxeGridProps = {
-  toolbarConfig: { custom: true, export: true, refresh: true, zoom: true },
-  exportConfig: {},
+  toolbarConfig: { custom: true, refresh: true, zoom: true },
   pagerConfig: {},
+  // 动态列排序走服务端（P1-3）：sortChange 写 cfSort 后重新查询
+  sortConfig: { remote: true, trigger: 'cell' } as any,
   cellConfig: { isHover: true } as any,
   rowConfig: { height: 'auto' as any },
   stripe: true,
@@ -245,28 +434,17 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }) => {
-        const values = searchForm.value;
         const result = await getCustomerListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
-          keywords: values.companyName || undefined,
-          customerType: values.customerType || undefined,
-          level: values.level,
-          industry: values.industry || undefined,
-          source: values.source || undefined,
-          mobile: values.mobile || undefined,
-          phone: values.phone || undefined,
-          wechat: values.wechat || undefined,
-          qq: values.qq || undefined,
-          dealStatus: values.dealStatus,
-          listType: activeTab.value,
+          ...buildListQueryParams(),
         });
-        // 无数据 150px，有数据按内容自适应
+        // 无数据 600px（避免空态列表塌缩），有数据按内容自适应
         const items = (result as any)?.items ?? [];
         const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
         if (gridEl) {
           if (items.length === 0) {
-            gridEl.style.setProperty('height', '150px', 'important');
+            gridEl.style.setProperty('height', '600px', 'important');
           } else {
             gridEl.style.removeProperty('height');
           }
@@ -313,90 +491,22 @@ const gridOptions: VxeGridProps = {
     },
   },
 
-  columns: [
-    { type: 'checkbox', width: 50 },
-    { title: $t('ui.table.seq'), type: 'seq', width: 60 },
-    {
-      title: '编号',
-      field: 'customerNo',
-      width: 150,
-      headerAlign: 'center',
-      align: 'center',
-      slots: { default: 'customerNo' },
-    },
-    {
-      title: '类型',
-      field: 'customerType',
-      width: 70,
-      align: 'center',
-      slots: { default: 'customerType' },
-    },
-    {
-      title: '客户名称',
-      field: 'companyName',
-      minWidth: 200,
-      headerAlign: 'center',
-      align: 'left',
-      slots: { default: 'customerName' },
-    },
-    {
-      title: '等级',
-      field: 'level',
-      width: 80,
-      slots: { default: 'level' },
-    },
-    {
-      title: '行业',
-      field: 'industry',
-      width: 90,
-      formatter: ({ cellValue }: any) =>
-        industryLabelMap[cellValue] || cellValue || '-',
-    },
-    { title: '国家', field: 'country', width: 80 },
-    {
-      title: '来源',
-      field: 'source',
-      width: 100,
-      formatter: ({ cellValue }: any) =>
-        sourceLabelMap[cellValue] || cellValue || '-',
-    },
-    {
-      title: '联系人',
-      field: 'contactCount',
-      width: 70,
-      align: 'center',
-      formatter: ({ cellValue }: any) => cellValue ?? '-',
-    },
-    {
-      title: '商机数',
-      field: 'opportunityCount',
-      width: 70,
-      align: 'center',
-      formatter: ({ cellValue }: any) => cellValue ?? '-',
-    },
-    {
-      title: '负责人',
-      field: 'assigneeName',
-      width: 90,
-      formatter: ({ cellValue }: any) => cellValue || '-',
-    },
-    {
-      title: $t('ui.table.createTime'),
-      field: 'createTime',
-      slots: { default: 'createdAt' },
-      width: 160,
-    },
-    {
-      title: $t('ui.table.action'),
-      field: 'action',
-      fixed: 'right',
-      slots: { default: 'action' },
-      width: 180,
-    },
-  ],
+  columns: [...baseColumns, ...actionColumns],
 };
 
-const [Grid, gridApi] = useVbenVxeGrid({ gridOptions });
+const [Grid, gridApi] = useVbenVxeGrid({
+  gridOptions,
+  gridEvents: { sortChange: onCfSortChange },
+});
+
+// 自定义字段动态列：schema 加载完成后插到固定列与操作列之间；同步填充筛选字段清单
+const fieldSchema = useFieldSchema('crm_customer');
+fieldSchema.loadSchema().then(() => {
+  cfFieldItems.value = fieldSchema.getFilterFields();
+  gridApi.setGridOptions({
+    columns: [...baseColumns, ...fieldSchema.toGridColumns(), ...actionColumns],
+  });
+});
 
 // 商机详情抽屉（使用 OpportunityDetail 组件）
 const oppDetailVisible = ref(false);
@@ -760,6 +870,103 @@ function handleAddContact(row: any) {
                 />
               </Form.Item>
             </Col>
+            <!-- 自定义字段筛选（P1-2/P1-3）：字段+操作符+值 单条件；控件按字段类型分发 -->
+            <Col v-if="cfFieldItems.length > 0" :xs="24" :sm="24" :md="24">
+              <Form.Item label="自定义筛选" name="cfFieldKey">
+                <div class="flex flex-wrap items-center gap-2">
+                  <Select
+                    v-model:value="cfFieldKey"
+                    placeholder="选择字段"
+                    allow-clear
+                    style="width: 170px"
+                    :options="
+                      cfFieldItems.map((f) => ({
+                        label: f.fieldLabel,
+                        value: f.fieldKey,
+                      }))
+                    "
+                  />
+                  <template v-if="cfFieldKey && activeCfItem">
+                    <Select
+                      v-if="activeCfItem.operators.length > 0"
+                      v-model:value="cfOp"
+                      :options="activeCfItem.operators"
+                      style="width: 110px"
+                    />
+                    <Select
+                      v-if="activeCfItem.multiple"
+                      v-model:value="cfValue"
+                      mode="multiple"
+                      allow-clear
+                      show-search
+                      option-filter-prop="label"
+                      :options="activeCfItem.choices"
+                      :placeholder="
+                        activeCfItem.fieldType === 10
+                          ? '请选择成员'
+                          : activeCfItem.fieldType === 9
+                            ? '请选择附件'
+                            : '请选择（可多选）'
+                      "
+                      style="min-width: 200px"
+                    />
+                    <Select
+                      v-else-if="activeCfItem.fieldType === 6"
+                      v-model:value="cfValue"
+                      allow-clear
+                      :options="activeCfItem.choices"
+                      placeholder="请选择"
+                      style="min-width: 200px"
+                    />
+                    <Select
+                      v-else-if="activeCfItem.fieldType === 8"
+                      v-model:value="cfValue"
+                      allow-clear
+                      :options="[
+                        { label: '是', value: 'true' },
+                        { label: '否', value: 'false' },
+                      ]"
+                      placeholder="请选择"
+                      style="min-width: 120px"
+                    />
+                    <Input
+                      v-else-if="
+                        activeCfItem.fieldType === 1 ||
+                        activeCfItem.fieldType === 2
+                      "
+                      v-model:value="cfValue"
+                      placeholder="请输入"
+                      allow-clear
+                      style="min-width: 200px"
+                    />
+                    <InputNumber
+                      v-else-if="
+                        activeCfItem.fieldType === 3 ||
+                        activeCfItem.fieldType === 11
+                      "
+                      v-model:value="cfValue"
+                      placeholder="请输入数值"
+                      style="min-width: 180px"
+                    />
+                    <DatePicker
+                      v-else-if="activeCfItem.fieldType === 4"
+                      v-model:value="cfValue"
+                      value-format="YYYY-MM-DD"
+                      placeholder="请选择日期"
+                      style="min-width: 180px"
+                    />
+                    <DatePicker
+                      v-else-if="activeCfItem.fieldType === 5"
+                      v-model:value="cfValue"
+                      value-format="YYYY-MM-DD HH:mm:ss"
+                      show-time
+                      placeholder="请选择时间"
+                      style="min-width: 220px"
+                    />
+                  </template>
+                </div>
+              </Form.Item>
+            </Col>
           </Row>
         </div>
 
@@ -831,6 +1038,14 @@ function handleAddContact(row: any) {
           ghost
         >
           批量删除
+        </Button>
+        <Button
+          v-if="accessStore.hasAccessCode('crm:customer:list')"
+          :loading="exportLoading"
+          class="mr-2"
+          @click="handleExport"
+        >
+          导出
         </Button>
       </template>
 

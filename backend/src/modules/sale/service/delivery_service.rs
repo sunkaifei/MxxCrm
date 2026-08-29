@@ -11,7 +11,7 @@
 //!
 
 use rust_decimal::prelude::ToPrimitive;
-use sea_orm::{ColumnTrait, Condition, ConnectionTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, TransactionTrait};
+use sea_orm::{ColumnTrait, Condition, ConnectionTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, TransactionTrait};
 
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
@@ -28,12 +28,27 @@ use crate::modules::sale::model::order_delivery::{
 };
 use crate::modules::sale::model::card_pool::CardPoolModel;
 
-/// 列表查询
+/// 按订单负责人集合查询未删除订单ID列表（交付记录无独立归属人，经订单 owner_user_id 间接判定数据范围）
+async fn find_order_ids_by_owners(db: &DbConn, owner_ids: &[i64]) -> Result<Vec<i64>> {
+    let ids: Vec<i64> = crate::modules::sale::entity::order::Entity::find()
+        .filter(crate::modules::sale::entity::order::Column::Deleted.eq(0))
+        .filter(crate::modules::sale::entity::order::Column::OwnerUserId.is_in(owner_ids.to_vec()))
+        .select_only()
+        .column(crate::modules::sale::entity::order::Column::Id)
+        .into_tuple()
+        .all(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    Ok(ids)
+}
+
+/// 列表查询（list_type 数据范围：my=我的虚拟订单, subordinate=下属虚拟订单, all=全部虚拟订单）
 pub async fn get_list(
-    db: &DbConn, query: &DeliveryListQuery
+    db: &DbConn, query: &DeliveryListQuery, current_user_id: i64
 ) -> Result<ResultPage<Vec<DeliveryListVO>>> {
     let page = query.page_num.unwrap_or(1).max(1);
     let page_size = query.page_size.unwrap_or(20).max(1);
+    let list_type = query.list_type.as_deref().unwrap_or("all");
 
     let mut cond = Condition::all();
     cond = cond.add(DeliveryColumn::Deleted.eq(0));
@@ -41,6 +56,50 @@ pub async fn get_list(
     if let Some(cid) = query.customer_id { cond = cond.add(DeliveryColumn::CustomerId.eq(cid)); }
     if let Some(s) = query.status { cond = cond.add(DeliveryColumn::Status.eq(s)); }
     if let Some(m) = query.delivery_method { cond = cond.add(DeliveryColumn::DeliveryMethod.eq(m)); }
+
+    // 数据范围过滤（对齐 contact_service::list 三分支，防越权：前端 tab 只是 UI，权限必须后端强制）
+    match list_type {
+        "my" => {
+            let order_ids = find_order_ids_by_owners(db, &[current_user_id]).await?;
+            if order_ids.is_empty() {
+                return Ok(ResultPage::new(Vec::<DeliveryListVO>::new(), 0, page, page_size));
+            }
+            cond = cond.add(DeliveryColumn::OrderId.is_in(order_ids));
+        }
+        "subordinate" => {
+            // 下属虚拟订单：数据权限可见范围 ∪ 汇报线全部下属（P1-2，仅下属口径并集）
+            match crate::modules::system::service::subordinate_service
+                ::get_subordinate_scope_ids(db, current_user_id).await?
+            {
+                None => {} // 全部数据权限（超管/系统管理员），不加负责人过滤
+                Some(user_ids) => {
+                    if user_ids.is_empty() {
+                        return Ok(ResultPage::new(Vec::<DeliveryListVO>::new(), 0, page, page_size));
+                    }
+                    let order_ids = find_order_ids_by_owners(db, &user_ids).await?;
+                    if order_ids.is_empty() {
+                        return Ok(ResultPage::new(Vec::<DeliveryListVO>::new(), 0, page, page_size));
+                    }
+                    cond = cond.add(DeliveryColumn::OrderId.is_in(order_ids));
+                }
+            }
+        }
+        _ => {
+            // all（含任意未知值兜底）：按数据权限过滤，None=全部数据权限（超管/系统管理员）
+            let accessible = crate::modules::system::service::data_scope_service
+                ::get_accessible_user_ids(db, current_user_id).await?;
+            if let Some(ids) = accessible {
+                if ids.is_empty() {
+                    return Ok(ResultPage::new(Vec::<DeliveryListVO>::new(), 0, page, page_size));
+                }
+                let order_ids = find_order_ids_by_owners(db, &ids).await?;
+                if order_ids.is_empty() {
+                    return Ok(ResultPage::new(Vec::<DeliveryListVO>::new(), 0, page, page_size));
+                }
+                cond = cond.add(DeliveryColumn::OrderId.is_in(order_ids));
+            }
+        }
+    }
 
     let paginator = DeliveryEntity::find()
         .filter(cond)

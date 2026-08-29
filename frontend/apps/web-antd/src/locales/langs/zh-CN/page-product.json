@@ -374,7 +374,7 @@
           "checkTime": "盘点时间",
           "remark": "备注",
           "productCode": "产品编码",
-          "productName": "产品名称",
+            "productName": "产品名称",
           "productSku": "SKU",
           "systemQuantity": "系统数量",
           "actualQuantity": "实盘数量",
@@ -428,6 +428,7 @@
       },
       "alert": {
         "title": "库存预警",
+        "module": "预警规则",
         "low": "低库存预警",
         "high": "高库存预警",
         "stale": "呆滞预警",
@@ -443,7 +444,11 @@
           "alertType": "预警类型",
           "enableLowAlert": "低库存预警",
           "enableHighAlert": "高库存预警",
-          "enableStaleAlert": "呆滞预警"
+          "enableStaleAlert": "呆滞预警",
+          "specText": "规格",
+          "skuCode": "SKU编码",
+          "sku": "适用规格",
+          "diff": "预警详情"
         },
         "type": {
           "lowStock": "低库存",
@@ -455,6 +460,54 @@
           "edit": "编辑",
           "delete": "删除",
           "create": "新增规则"
+        },
+        "ruleForm": {
+          "productAll": "产品（不选=全部产品）",
+          "productAllPlaceholder": "全部产品（不选则对所有产品生效）",
+          "skuAllPlaceholder": "全部规格（不选则对所有规格生效）",
+          "skuHint": "不勾选 = 所有规格统一按下方默认阈值预警；勾选规格 = 可为每个规格单独设置阈值。",
+          "fillChecked": "填充勾选行",
+          "specCol": "规格",
+          "minCol": "最低库存",
+          "maxCol": "最高库存",
+          "warehouseAll": "仓库（不选=全部仓库）",
+          "warehouseAllPlaceholder": "全部仓库（不选则对所有仓库生效）",
+          "minPlaceholder": "最低库存阈值",
+          "maxPlaceholder": "最高库存阈值",
+          "staleDaysPlaceholder": "呆滞天数（默认90）",
+          "notifyUsers": "通知用户",
+          "notifyUsersPlaceholder": "点击选择员工",
+          "notifyUsersHint": "不选择时默认通知仓库主管；选择后通知指定员工。",
+          "needAlertType": "请至少启用一种预警类型",
+          "needMinQuantity": "启用低库存预警时需设置最低数量",
+          "needMaxQuantity": "启用高库存预警时需设置最高数量",
+          "needSpecThreshold": "勾选的规格需填写有效阈值",
+          "batchCreateSuccess": "已批量创建 {count} 条预警规则",
+          "batchUpsertSuccess": "保存成功：新增 {inserted} 条，更新 {updated} 条",
+          "needSelectRecord": "请先勾选要删除的记录",
+          "skuAdded": "已存在规则",
+          "skuWillUpdate": "将更新",
+          "overwriteTitle": "覆盖已有规则",
+          "overwriteContent": "勾选的 {total} 条规格中有 {count} 条已存在预警规则，保存后这些规则的阈值将被更新覆盖，是否继续？",
+          "duplicateRule": "该产品在此仓库下已存在相同适用范围的预警规则，请直接编辑现有规则"
+        },
+        "productSelect": {
+          "title": "选择产品",
+          "searchPlaceholder": "搜索产品名称/编码",
+          "searchButton": "搜索",
+          "total": "共 {total} 条",
+          "colProduct": "产品名称",
+          "colCode": "编码",
+          "colSpec": "规格",
+          "colAction": "操作",
+          "select": "选择",
+          "multiSpec": "多规格",
+          "hasRule": "已有规则",
+          "skuAdded": "已添加",
+          "specCol": "规格",
+          "ruleStatus": "规则状态",
+          "loading": "加载中...",
+          "noSku": "暂无SKU数据"
         }
       },
       "report": {
@@ -480,6 +533,7 @@
           "inTransitQty": "在途数量",
           "frozenQty": "冻结数量",
           "productCode": "产品编码",
+          "productImage": "商品图",
           "staleDays": "呆滞天数",
           "lastMovement": "最后变动",
           "unitCost": "单位成本",
@@ -576,6 +630,7 @@
     }
   },
   "inventory": {
+    "title": "库存查询",
     "inbound": {
       "title": "入库管理"
     },
@@ -592,7 +647,10 @@
       "title": "盘点管理"
     },
     "alert": {
-      "title": "库存预警"
+      "title": "库存预警",
+      "rule": {
+        "title": "预警规则"
+      }
     },
     "report": {
       "title": "库存报表",

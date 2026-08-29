@@ -91,6 +91,8 @@ pub struct Model {
     pub leave_date: Option<NaiveDate>,
     ///员工编号（如 X001，由编号规则模块自动分配，全局唯一且终身不变）
     pub employee_no: Option<String>,
+    ///工作城市/参保地编码（社保默认方案继承依据：手工配置 > 档案城市默认政策）
+    pub work_city_code: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

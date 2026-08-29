@@ -163,12 +163,21 @@ pub async fn update_by_id(db: &DbConn, req: &DashboardCardSaveRequest, update_by
     Ok(result)
 }
 
-/// 批量删除卡片（软删除 + 清理角色关联，事务原子执行）
+/// 批量删除卡片（软删除 + 清理角色关联 + 清理个人布局残留，事务原子执行）
 pub async fn batch_delete_by_ids(db: &DbConn, ids: &Vec<i64>) -> Result<i64> {
+    // 先取待删卡片编码，供个人布局级联清理（防止残留记录阻塞用户后续保存布局）
+    let cards = dashboard_card::Entity::find()
+        .filter(dashboard_card::Column::Id.is_in(ids.clone()))
+        .all(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+    let card_codes: Vec<String> = cards.into_iter().filter_map(|c| c.card_code).collect();
+
     let ids = ids.clone();
     let result = db
         .transaction::<_, i64, DbErr>(|txn| {
             Box::pin(async move {
+                DashboardUserLayoutModel::delete_by_card_codes(txn, &card_codes).await?;
                 DashboardCardRoleMergeModel::delete_by_card_ids(txn, &ids).await?;
                 DashboardCardModel::soft_delete_by_ids(txn, &ids).await
             })
@@ -484,7 +493,7 @@ pub async fn get_user_layout(db: &DbConn, user_id: i64, page_key: &str) -> Resul
                 y: o.and_then(|m| m.y).or(c.default_y).unwrap_or(0),
                 w: o.and_then(|m| m.w).or(c.default_w).unwrap_or(12),
                 h: o.and_then(|m| m.h).or(c.default_h).unwrap_or(6),
-                hidden: o.and_then(|m| m.hidden).unwrap_or(0),
+                hidden: o.and_then(|m| m.hidden).map(|v| v as i32).unwrap_or(0),
             }
         })
         .collect())

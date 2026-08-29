@@ -28,7 +28,6 @@ import { $t } from '#/locales';
 import { statusList } from '#/store';
 
 import UserDetailDrawer from '../../crm/components/UserDetailDrawer.vue';
-import ArchiveDrawer from './archive-drawer.vue';
 import AuditDrawer from './audit-drawer.vue';
 import ColumnsConfigDrawer from './columns-config-drawer.vue';
 import SubmitAuditDrawer from './submit-audit-drawer.vue';
@@ -205,15 +204,6 @@ const detailUserId = ref<null | number | string>(null);
 function openDetail(row: any) {
   detailUserId.value = row.id;
   detailVisible.value = true;
-}
-
-// 档案抽屉（HR 视角）
-const archiveVisible = ref(false);
-const archiveAdminId = ref<null | number>(null);
-
-function openArchive(row: any) {
-  archiveAdminId.value = row.id;
-  archiveVisible.value = true;
 }
 
 // 六项完善明细展示配置（字段 -> i18n key）
@@ -708,15 +698,6 @@ async function handleKickOffline(row: any) {
         >
           {{ $t('page.system.user.button.resubmitAudit') }}
         </Button>
-        <!-- 档案（HR 视角：完善度/解锁/代改留痕） -->
-        <Button
-          v-if="accessStore.hasAccessCode('system:hr-archive:view')"
-          type="link"
-          class="!px-0 mr-2.5"
-          @click="() => openArchive(row)"
-        >
-          {{ $t('page.system.hrArchive.archiveBtn') }}
-        </Button>
 
         <!-- 更多操作下拉菜单：停用/启用、下线、编辑、删除 -->
         <Dropdown placement="bottomRight">
@@ -831,7 +812,6 @@ async function handleKickOffline(row: any) {
       v-model:visible="detailVisible"
       :id="detailUserId ?? undefined"
     />
-    <ArchiveDrawer v-model:open="archiveVisible" :admin-id="archiveAdminId" />
     <SubmitAuditDrawer
       v-model:visible="submitDrawerVisible"
       :row="submitRow"

@@ -12,6 +12,7 @@ import { watch } from 'vue';
 import { Drawer, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { formatQty } from '#/components/UnitSelect';
 import { getStockLogListApi } from '#/api/core/product/stock-log';
 import { $t } from '#/locales';
 
@@ -79,7 +80,13 @@ const gridOptions: VxeGridProps = {
       slots: { default: 'changeType' },
     },
     { title: '仓库', field: 'warehouseName', width: 100 },
-    { title: '变动前', field: 'quantityBefore', width: 80, align: 'right' },
+    {
+      title: '变动前',
+      field: 'quantityBefore',
+      width: 80,
+      align: 'right',
+      formatter: ({ cellValue }: any) => formatQty(cellValue),
+    },
     {
       title: '变动量',
       field: 'changeQuantity',
@@ -87,7 +94,13 @@ const gridOptions: VxeGridProps = {
       align: 'right',
       slots: { default: 'changeQuantity' },
     },
-    { title: '变动后', field: 'quantityAfter', width: 80, align: 'right' },
+    {
+      title: '变动后',
+      field: 'quantityAfter',
+      width: 80,
+      align: 'right',
+      formatter: ({ cellValue }: any) => formatQty(cellValue),
+    },
     { title: '业务单号', field: 'bizNo', minWidth: 140, showOverflow: true },
     { title: '时间', field: 'createTime', width: 150 },
   ],
@@ -129,7 +142,7 @@ watch(
           "
         >
           {{ Number(row.changeQuantity) > 0 ? '+' : ''
-          }}{{ row.changeQuantity }}
+          }}{{ formatQty(row.changeQuantity) }}
         </span>
       </template>
     </Grid>

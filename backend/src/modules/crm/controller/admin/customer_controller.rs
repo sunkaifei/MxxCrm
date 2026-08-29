@@ -19,12 +19,14 @@ use crate::core::web::entity::common::{BathDeleteIdRequest, InfoId};
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::crm::model::customer::{CustomerListQuery, CustomerPoolReleaseRequest, CustomerSaveRequest, CustomerUpdateRequest};
 use crate::modules::crm::model::customer_financial::{CustomerFinancialSaveDTO, CustomerFinancialModel};
+use crate::modules::crm::service::customer_export_service;
 use crate::modules::crm::service::customer_service;
 use crate::modules::crm::service::contact_service;
 use crate::modules::crm::service::assign_history_service;
 use crate::modules::crm::service::customer_edit_log_service;
 use crate::modules::crm::service::customer_transfer_service;
 use crate::modules::system::entity::{admin, admin::Entity as Admin};
+use crate::modules::system::service::{field_def_service, field_perm_service};
 use super::customer_edit_log_controller;
 
 pub async fn customer_insert(state: web::Data<AppState>, req: HttpRequest, form_data: web::Json<CustomerSaveRequest>) -> Result<HttpResponse> {
@@ -97,7 +99,7 @@ pub async fn bath_delete_customer(state: web::Data<AppState>, req: HttpRequest, 
     HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::handle_result(result))
 }
 
-pub async fn customer_info(state: web::Data<AppState>, item: web::Query<InfoId>) -> HttpResponse {
+pub async fn customer_info(state: web::Data<AppState>, req: HttpRequest, item: web::Query<InfoId>) -> HttpResponse {
     let db = &state.db;
     let item = item.0;
 
@@ -106,7 +108,13 @@ pub async fn customer_info(state: web::Data<AppState>, item: web::Query<InfoId>)
     }
 
     match customer_service::find_by_id(&db, item.id.unwrap()).await {
-        Ok(data) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(data, "local")),
+        Ok(data) => {
+            // 标准敏感字段出口裁剪（P2-1）：无可见权限的角色不返回对应字段（含 camelCase 变体）
+            let mut value = serde_json::to_value(&data).unwrap_or_default();
+            let (is_admin, role_keys) = field_def_service::load_user_role(db, get_current_user_id(&req)).await.unwrap_or((false, Vec::new()));
+            field_perm_service::trim_for_view(db, "crm_customer", is_admin, &role_keys, &mut value).await;
+            HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(value, "local"))
+        },
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
     }
 }
@@ -124,6 +132,24 @@ pub async fn customer_list(state: web::Data<AppState>, req: HttpRequest, query: 
             HttpResponse::Ok().content_type(MPACK).body(MetaResp::success_with_page(page_data, "local", page, total))
         },
         Err(e) => HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local")),
+    }
+}
+
+/// 导出客户列表 xlsx（P1-6：表头 = 标准列 + 启用中 listVisible 字段 label，值输出格式化文本/数值）
+pub async fn customer_export(state: web::Data<AppState>, req: HttpRequest, query: web::Query<CustomerListQuery>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let query = query.0;
+    let current_user_id = get_current_user_id(&req);
+
+    match customer_export_service::export_customers(&db, &query, current_user_id).await {
+        Ok(bytes) => {
+            let filename = format!("customers_{}.xlsx", chrono::Local::now().format("%Y%m%d_%H%M%S"));
+            Ok(HttpResponse::Ok()
+                .content_type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .insert_header(("Content-Disposition", format!("attachment; filename=\"{}\"", filename)))
+                .body(bytes))
+        }
+        Err(e) => Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, &e.to_string(), "local"))),
     }
 }
 
@@ -429,6 +455,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/list",
                 web::get()
                     .to(customer_list)
+                    .wrap(require_permission("crm:customer:list")),
+            )
+            // GET /customer/export - 导出客户列表 xlsx（P1-6，与列表同权限码，数据权限随查询链路收口）
+            .route(
+                "/export",
+                web::get()
+                    .to(customer_export)
                     .wrap(require_permission("crm:customer:list")),
             )
             // GET /customer/contacts - 客户下的联系人列表

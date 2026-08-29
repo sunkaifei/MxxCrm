@@ -81,6 +81,21 @@ impl DashboardUserLayoutModel {
         Ok(res.rows_affected)
     }
 
+    /// 按卡片编码集合删除个人覆盖（删除卡片时级联清理，防止残留记录阻塞后续保存）
+    pub async fn delete_by_card_codes<C: ConnectionTrait>(
+        db: &C,
+        card_codes: &[String],
+    ) -> Result<u64, DbErr> {
+        if card_codes.is_empty() {
+            return Ok(0);
+        }
+        let res = dashboard_user_layout::Entity::delete_many()
+            .filter(dashboard_user_layout::Column::CardCode.is_in(card_codes.to_vec()))
+            .exec(db)
+            .await?;
+        Ok(res.rows_affected)
+    }
+
     /// 批量插入个人覆盖
     pub async fn insert_batch<C: ConnectionTrait>(
         db: &C,
@@ -99,7 +114,7 @@ impl DashboardUserLayoutModel {
                 y: Set(Some(item.y.unwrap_or(0))),
                 w: Set(Some(item.w.unwrap_or(12))),
                 h: Set(Some(item.h.unwrap_or(6))),
-                hidden: Set(Some(item.hidden.unwrap_or(0))),
+                hidden: Set(Some(item.hidden.unwrap_or(0) as i16)),
                 update_time: Set(Some(now)),
                 ..Default::default()
             })

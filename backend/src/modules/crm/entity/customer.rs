@@ -58,6 +58,8 @@ pub struct Model {
     pub cooperated_at: Option<Date>,
     pub birthday_month: Option<i32>,
     pub next_follow_at: Option<DateTime>,
+    /// 跟进周期（天）：NULL/0=不自动推算，>0=每N天需跟进一次
+    pub follow_cycle_days: Option<i32>,
     pub description: Option<String>,
     pub custom_fields: Option<serde_json::Value>,
     /// 纬度

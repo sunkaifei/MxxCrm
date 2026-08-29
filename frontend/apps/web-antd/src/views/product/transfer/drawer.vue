@@ -20,6 +20,7 @@ import {
   createTransferApi,
   getTransferInfoApi,
 } from '#/api/core/product/transfer';
+import { formatQty, useProductUnits } from '#/components/UnitSelect';
 import { $t } from '#/locales';
 
 import ProductSelectModal from '../../sale/components/ProductSelectModal.vue';
@@ -80,6 +81,7 @@ function onWarehouseSelected(warehouse: any) {
 // ============ 产品明细 ============
 interface TransferItem {
   productId: number;
+  skuId?: number;
   productName: string;
   productCode?: string;
   productSku?: string;
@@ -94,6 +96,12 @@ interface TransferItem {
 
 const tableItems = ref<TransferItem[]>([]);
 const productSelectVisible = ref(false);
+
+const { ensureUnits, precisionOf } = useProductUnits();
+
+function qtyStep(unit?: null | string) {
+  return precisionOf(unit) === 0 ? 1 : 0.01;
+}
 // 源仓库ID（传给 ProductSelectModal 查询源仓库库存）
 const fromWarehouseId = ref<number | undefined>();
 // 目标仓库ID（用于排除重复选择）
@@ -134,14 +142,15 @@ function openProductSelect() {
 
 function onProductSelected(items: any[]) {
   const existingKeys = new Set(
-    tableItems.value.map((i) => `${i.productId}-${i.productSku || ''}`),
+    tableItems.value.map((i) => `${i.productId}-${i.skuId || 0}`),
   );
   let added = 0;
   for (const item of items) {
-    const key = `${item.productId}-${item.skuCode || ''}`;
+    const key = `${item.productId}-${item.skuId || 0}`;
     if (!existingKeys.has(key)) {
       tableItems.value.push({
         productId: item.productId,
+        skuId: item.skuId || 0,
         productName: item.productName,
         productCode: item.productCode,
         productSku: item.skuCode || '',
@@ -167,7 +176,6 @@ function removeItem(index: number) {
 const itemColumns = computed(() => [
   { title: '产品名称', dataIndex: 'productName', width: 160, ellipsis: true },
   { title: '规格', dataIndex: 'spec', width: 130, ellipsis: true },
-  { title: '单位', dataIndex: 'unit', width: 70, align: 'center' as const },
   {
     title: '源仓库库存',
     dataIndex: 'stock',
@@ -175,6 +183,7 @@ const itemColumns = computed(() => [
     align: 'right' as const,
   },
   { title: '调拨数量', dataIndex: 'quantity', width: 140 },
+  { title: '单位', dataIndex: 'unit', width: 70, align: 'center' as const },
   { title: '备注', dataIndex: 'remark', width: 160 },
   {
     title: $t('ui.table.action'),
@@ -292,6 +301,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         remark: values.remark,
         items: tableItems.value.map((i) => ({
           productId: i.productId,
+          skuId: i.skuId && i.skuId > 0 ? Number(i.skuId) : undefined,
           productName: i.productName,
           productSku: i.productSku,
           quantity: Number(i.quantity),
@@ -324,6 +334,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       tableItems.value = [];
       fromWarehouseId.value = undefined;
       toWarehouseId.value = undefined;
+      ensureUnits();
       if (!drawerData.value.create && drawerData.value.row?.id) {
         loadDetail(drawerData.value.row.id);
       }
@@ -357,6 +368,7 @@ async function loadDetail(id: number) {
 
     tableItems.value = items.map((item: any) => ({
       productId: Number(item.product_id ?? item.productId ?? 0),
+      skuId: Number(item.sku_id ?? item.skuId ?? 0),
       productName: item.product_name ?? item.productName ?? '',
       productSku: item.product_sku ?? item.productSku ?? '',
       spec: '',
@@ -473,7 +485,9 @@ async function loadDetail(id: number) {
               class="text-gray-400"
               >-</span
             >
-            <span v-else class="font-medium">{{ record.stock }}</span>
+            <span v-else class="font-medium">{{
+              formatQty(record.stock, record.unit)
+            }}</span>
           </template>
 
           <!-- 调拨数量（可编辑，超库存标红） -->
@@ -483,8 +497,8 @@ async function loadDetail(id: number) {
               size="small"
               style="width: 100%"
               :min="0"
-              :precision="2"
-              :step="1"
+              :precision="precisionOf(record.unit)"
+              :step="qtyStep(record.unit)"
               placeholder="输入"
               :status="isOverStock(record) ? 'error' : ''"
               @update:value="(val) => (record.quantity = val)"

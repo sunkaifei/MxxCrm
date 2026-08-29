@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 pub struct PoSaveItemDTO {
     pub pr_item_id: Option<i64>,
     pub product_id: Option<i64>,
+    pub sku_id: Option<i64>,
     pub product_name: Option<String>,
     pub product_sku: Option<String>,
     pub spec: Option<String>,
@@ -102,6 +103,7 @@ impl From<PurchaseOrderSaveRequest> for PurchaseOrderSaveDTO {
                 po_id: None,
                 pr_item_id: i.pr_item_id,
                 product_id: i.product_id,
+                sku_id: i.sku_id,
                 product_name: i.product_name,
                 product_sku: i.product_sku,
                 spec: i.spec,
@@ -178,6 +180,7 @@ impl From<PurchaseOrderUpdateRequest> for PurchaseOrderSaveDTO {
                 po_id: None,
                 pr_item_id: i.pr_item_id,
                 product_id: i.product_id,
+                sku_id: i.sku_id,
                 product_name: i.product_name,
                 product_sku: i.product_sku,
                 spec: i.spec,

@@ -35,6 +35,9 @@ pub struct AdminSaveRequest {
     ///角色
     #[serde(deserialize_with = "deserialize_string_vec_to_u64_vec", default)]
     pub role_ids: Option<Vec<i64>>,
+    ///权限集
+    #[serde(deserialize_with = "deserialize_string_vec_to_u64_vec", default)]
+    pub perm_set_ids: Option<Vec<i64>>,
     ///部门
     #[serde(deserialize_with = "deserialize_string_vec_to_u64_vec", default)]
     pub dept_ids: Option<Vec<i64>>,
@@ -82,6 +85,9 @@ pub struct AdminSaveRequest {
     ///劳动合同期限（月）；无固定期限为空
     #[serde(default)]
     pub contract_months: Option<i32>,
+    ///工作城市/参保地编码（社保默认方案继承依据）
+    #[serde(default)]
+    pub work_city_code: Option<String>,
 }
 
 impl From<AdminSaveRequest> for AdminSaveDTO {
@@ -117,6 +123,7 @@ impl From<AdminSaveRequest> for AdminSaveDTO {
             contract_type: req.contract_type,
             contract_months: req.contract_months,
             employee_no: None,
+            work_city_code: req.work_city_code,
         }
     }
 }
@@ -140,6 +147,9 @@ pub struct AdminUpdateRequest {
     ///角色
     #[serde(deserialize_with = "deserialize_string_vec_to_u64_vec", default)]
     pub role_ids: Option<Vec<i64>>,
+    ///权限集
+    #[serde(deserialize_with = "deserialize_string_vec_to_u64_vec", default)]
+    pub perm_set_ids: Option<Vec<i64>>,
     ///部门
     #[serde(deserialize_with = "deserialize_string_vec_to_u64_vec", default)]
     pub dept_ids: Option<Vec<i64>>,
@@ -180,6 +190,9 @@ pub struct AdminUpdateRequest {
     ///劳动合同期限（月）；无固定期限为空
     #[serde(default)]
     pub contract_months: Option<i32>,
+    ///工作城市/参保地编码（社保默认方案继承依据；空字符串表示清除）
+    #[serde(default)]
+    pub work_city_code: Option<String>,
 }
 
 impl From<AdminUpdateRequest> for AdminSaveDTO {
@@ -215,6 +228,7 @@ impl From<AdminUpdateRequest> for AdminSaveDTO {
             contract_type: req.contract_type,
             contract_months: req.contract_months,
             employee_no: None,
+            work_city_code: req.work_city_code,
         }
     }
 }
@@ -277,6 +291,8 @@ pub struct AdminSaveDTO {
     pub contract_months: Option<i32>,
     ///员工编号（如 X001，由编号规则模块自动分配，全局唯一且终身不变）
     pub employee_no: Option<String>,
+    ///工作城市/参保地编码（社保默认方案继承依据）
+    pub work_city_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -359,6 +375,7 @@ impl From<UserRegisterRequest> for AdminSaveRequest {
             user_type: Some(0),
             post_ids: None,
             role_ids: None,
+            perm_set_ids: None,
             dept_ids: None,
             email: req.email,
             mobile: req.mobile,
@@ -377,6 +394,7 @@ impl From<UserRegisterRequest> for AdminSaveRequest {
             // 劳动合同信息由管理端创建账号（AdminSaveRequest 直传）时录入，自助注册暂无
             contract_type: None,
             contract_months: None,
+            work_city_code: None,
         }
     }
 }
@@ -445,6 +463,7 @@ impl From<UpdateLoginRequest> for AdminSaveDTO {
             contract_type: None,
             contract_months: None,
             employee_no: None,
+            work_city_code: None,
         }
     }
 }
@@ -650,6 +669,10 @@ pub struct AdminDetailVO {
     pub role_ids: Option<Vec<Option<String>>>,
     ///角色名称列表（与roleIds顺序对应）
     pub role_names: Option<Vec<Option<String>>>,
+    ///权限集ID
+    pub perm_set_ids: Option<Vec<Option<String>>>,
+    ///权限集名称列表（与permSetIds顺序对应）
+    pub perm_set_names: Option<Vec<Option<String>>>,
     ///用户邮箱
     pub email: Option<String>,
     ///手机号码
@@ -699,6 +722,8 @@ pub struct AdminDetailVO {
     pub contract_months: Option<i32>,
     ///员工编号（如 X001，由编号规则模块自动分配，全局唯一且终身不变）
     pub employee_no: Option<String>,
+    ///工作城市/参保地编码（社保默认方案继承依据）
+    pub work_city_code: Option<String>,
 }
 
 impl From<admin::Model> for AdminDetailVO {
@@ -714,6 +739,8 @@ impl From<admin::Model> for AdminDetailVO {
             post_names: None,
             role_ids: None,
             role_names: None,
+            perm_set_ids: None,
+            perm_set_names: None,
             email: model.email,
             mobile: model.mobile,
             gender: model.gender,
@@ -738,6 +765,7 @@ impl From<admin::Model> for AdminDetailVO {
             contract_type: model.contract_type,
             contract_months: model.contract_months,
             employee_no: model.employee_no,
+            work_city_code: model.work_city_code,
         }
     }
 }
@@ -850,6 +878,7 @@ impl AdminModel {
             contract_type: Set(form_data.contract_type.to_owned()),
             contract_months: Set(form_data.contract_months.to_owned()),
             employee_no: Set(form_data.employee_no.to_owned()),
+            work_city_code: Set(form_data.work_city_code.to_owned()),
             create_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time:     Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()
@@ -947,6 +976,15 @@ impl AdminModel {
             if v == 2 {
                 payload.contract_months = Set(None);
             }
+        }
+        // 参保地：传非空字符串表示设置，传空字符串表示清除，字段缺失表示不更新
+        if let Some(v) = form_data.work_city_code.clone() {
+            let trimmed = v.trim().to_string();
+            payload.work_city_code = if trimmed.is_empty() {
+                Set(None)
+            } else {
+                Set(Some(trimmed))
+            };
         }
         // 直属上级：前端传正数表示设置上级，传 0/null 表示清除上级，字段缺失表示不更新
         if let Some(v) = form_data.direct_manager_id {
@@ -1127,6 +1165,8 @@ impl AdminModel {
     pub async fn find_by_username(db: &DbConn, username: &Option<String>) -> Result<Option<admin::Model>, DbErr> {
         Admin::find()
             .filter(admin::Column::UserName.eq(username.clone().unwrap_or_default().to_lowercase()))
+            // G5：过滤软删除用户，禁止已删除账号重新登录
+            .filter(admin::Column::Deleted.eq(0))
             .one(db)
             .await
     }
@@ -1258,6 +1298,9 @@ impl AdminModel {
             .column(admin::Column::ContractType)
             .column(admin::Column::ContractMonths)
             .column(admin::Column::EmployeeNo)
+            .column(admin::Column::AuditStatus)
+            .column(admin::Column::IdCardNo)
+            .column(admin::Column::BankCardNo)
             .join_rev(
                 JoinType::LeftJoin,
                 admin_dept_merge::Relation::Admin.def(),

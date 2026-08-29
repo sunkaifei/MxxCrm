@@ -18,6 +18,10 @@ export const createAlertRuleApi = async (data: any) => {
   return requestClient.post('/api/system/alert/rule/save', data);
 };
 
+export const batchSaveAlertRuleApi = async (rules: any[]) => {
+  return requestClient.post('/api/system/alert/rule/batch_save', { rules });
+};
+
 export const updateAlertRuleApi = async (data: any) => {
   return requestClient.put('/api/system/alert/rule/update', data);
 };

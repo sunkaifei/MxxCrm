@@ -1,9 +1,12 @@
 import { requestClient } from '#/api/request';
 
-/** 获取产品规格定义和SKU列表 */
-export const getProductSpecsApi = async (productId: number) => {
+/** 获取产品规格定义和SKU列表（可选按仓库过滤 SKU 库存汇总） */
+export const getProductSpecsApi = async (
+  productId: number,
+  warehouseId?: number,
+) => {
   return requestClient.get('/api/system/product/spec/list', {
-    params: { productId },
+    params: warehouseId ? { productId, warehouseId } : { productId },
   });
 };
 

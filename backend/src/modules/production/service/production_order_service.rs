@@ -176,6 +176,7 @@ pub async fn inbound(db: &DbConn, id: i64) -> Result<()> {
         remark: Some(format!("由生产工单[{}]完工入库", mo_no)),
         items: vec![InboundItemRequest {
             product_id,
+            sku_id: None,
             product_sku: None,
             quantity: inbound_qty,
             unit_price: None,

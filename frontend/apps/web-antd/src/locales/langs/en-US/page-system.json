@@ -88,6 +88,7 @@
       "mobileExists": "This mobile number is already used by another account",
       "mobileEditLocked": "Mobile number can only be changed by the user after logging in (User Center)",
       "emailEditLocked": "Email can only be changed by the user after logging in (User Center)",
+      "usernameEditLocked": "Login name cannot be changed after creation",
       "passwordMinLength": "Password must be at least 6 characters",
       "passwordMaxLength": "Password cannot exceed 32 characters",
       "passwordFormat": "Password must contain both letters and numbers",
@@ -97,6 +98,9 @@
       "lastLoginIp": "Last Login IP",
       "lastLoginTime": "Last Login Time",
       "role": "Role",
+      "permSet": "Permission Sets",
+      "permSetPlaceholder": "Select additional permission sets (optional)",
+      "permSetTip": "Permission sets grant extra permissions on top of roles, no role changes needed",
       "hireDate": "Hire Date",
       "probationMonths": "Probation (months)",
       "probationMonthsTip": "0 means no probation; regularization date = hire date + probation months (pro-rated by day)",
@@ -107,6 +111,8 @@
       "probationLegalTip": "Per Article 19 of the Labor Contract Law, probation must not exceed the statutory cap for the contract term",
       "salaryEnabled": "Payroll Enabled",
       "salaryEnabledTip": "Turn off to exclude this employee from monthly payroll",
+      "workCityCode": "Insurance City",
+      "workCityCodeTip": "Default social insurance city; if no manual config exists, payroll matches the city's yearly policy at the default level",
       "salaryYes": "Yes",
       "salaryNo": "No",
       "employeeNo": "Employee No.",
@@ -207,6 +213,28 @@
         "update": "Update",
         "assignMenu": "Assign Menu",
         "view": "View Role"
+      }
+    },
+    "permSet": {
+      "module": "Permission Set",
+      "title": "Permission Set Management",
+      "name": "Permission Set Name",
+      "code": "Permission Set Code",
+      "notFound": "Permission set not found",
+      "authTip": "Permission sets are an additional permission source on top of roles; checked menus are merged (union) with role permissions",
+      "noMenuData": "No menu data",
+      "brokenTitle": "Menus with unchecked parents",
+      "brokenTip": "{count} checked menu(s) have unchecked parents. Menu permissions require a complete root-to-leaf chain; saving as-is will make these menus invisible:",
+      "brokenParents": "Unchecked parents: ",
+      "backToEdit": "Back to Edit",
+      "saveAsIs": "Save As Is",
+      "autoCheckParents": "Auto-check Parents & Save",
+      "button": {
+        "create": "Create",
+        "auth": "Assign Permissions",
+        "delete": "Delete",
+        "edit": "Edit",
+        "view": "View"
       }
     },
     "api": {
@@ -409,7 +437,15 @@
       "saveSuccess": "Template layout saved. Users without personal layouts see it immediately.",
       "removeCard": "Remove",
       "disabledTag": "Disabled",
-      "unsavedTip": "You have unsaved changes"
+      "unsavedTip": "You have unsaved changes",
+      "colWidth": "Columns",
+      "colWidthTip": "New cards are added with the selected column width; use the 1/2/3 buttons on a card header to adjust it on canvas",
+      "cols": {
+        "one": "1 Col",
+        "two": "2 Cols",
+        "three": "3 Cols"
+      },
+      "colTip": "Set to {n}-column width"
     },
     "onboarding": {
       "title": "Onboarding Config",
@@ -504,6 +540,9 @@
         "view": "View PDF Template"
       }
     },
+    "field": {
+      "title": "Custom Fields"
+    },
     "pdfRecord": {
       "title": "PDF Generation Records",
       "tabGenerate": "Generation Records",
@@ -566,7 +605,10 @@
       "opSelfEdit": "Self Edit",
       "opHrEdit": "HR Edit",
       "opUnlock": "HR Unlock",
-      "noLogs": "No change logs"
+      "noLogs": "No change logs",
+      "permList": "Employee Archive List",
+      "permView": "Employee Archive View",
+      "permUpdate": "Employee Archive Maintain"
     },
     "profile": {
       "title": "Profile Center",
