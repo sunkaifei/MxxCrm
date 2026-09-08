@@ -124,6 +124,39 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
     },
     {
+      // 批2: 登录安全策略——强制 MFA / IP 白名单 / 登录时段
+      component: 'RadioGroup',
+      fieldName: 'mfaRequired',
+      defaultValue: 0,
+      label: '登录强制MFA',
+      componentProps: {
+        options: [
+          { label: '否', value: 0 },
+          { label: '是', value: 1 },
+        ],
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'ipWhitelist',
+      label: '登录IP白名单',
+      componentProps: {
+        type: 'textarea',
+        rows: 2,
+        placeholder: '逗号分隔，支持CIDR，如 10.0.0.0/24,192.168.1.100（留空不限制）',
+        allowClear: true,
+      },
+    },
+    {
+      component: 'Input',
+      fieldName: 'loginHours',
+      label: '允许登录时段',
+      componentProps: {
+        placeholder: 'HH:mm-HH:mm 多段逗号分隔，如 09:00-18:00（留空不限制）',
+        allowClear: true,
+      },
+    },
+    {
       component: 'RadioGroup',
       fieldName: 'status',
       defaultValue: 1,

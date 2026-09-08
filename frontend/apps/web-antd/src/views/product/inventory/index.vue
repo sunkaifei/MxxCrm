@@ -3,16 +3,34 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { LucideChevronDown, LucideChevronUp, LucideList } from '@vben/icons';
+import {
+  LucideChevronDown,
+  LucideChevronUp,
+  LucideList,
+  LucideTrash2,
+  LucideUndo2,
+} from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
-import { Button, Segmented, Tag, Tooltip } from 'ant-design-vue';
+import {
+  Button,
+  Popconfirm,
+  Segmented,
+  Tabs,
+  Tag,
+  Tooltip,
+} from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getInventoryListApi } from '#/api';
+import {
+  getInventoryListApi,
+  purgeInventoryApi,
+  recycleDeleteInventoryApi,
+  restoreInventoryApi,
+} from '#/api';
 import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
@@ -23,6 +41,21 @@ const accessStore = useAccessStore();
 
 // ============ 视图模式（明细 / 汇总） ============
 const viewMode = ref<'detail' | 'summary'>('detail');
+// ===== 范围视图（所有库存/我的库存/回收站）=====
+const activeTab = ref('all');
+const crossViewEnabled = ref(false);
+const isManagement = ref(false);
+const isRecycle = computed(() => activeTab.value === 'recycle');
+const tabList = [
+  { key: 'all', label: '所有库存' },
+  { key: 'mine', label: '我的库存' },
+  { key: 'recycle', label: '回收站' },
+];
+
+async function handleTabChange() {
+  gridApi.setGridOptions({ columns: buildColumns() });
+  gridApi.query();
+}
 
 // ============ 统计条（总量来自接口，合计为当前页口径） ============
 const stats = ref({ available: 0, cost: 0, quantity: 0, total: 0 });
@@ -158,6 +191,40 @@ function toggleExpandAll() {
   }
 }
 
+// ===== 回收站操作 =====
+async function handleRecycleDelete(row: any) {
+  row.pending = true;
+  try {
+    await recycleDeleteInventoryApi([Number(row.id)]);
+    window.$message.success('已移入回收站');
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
+async function handleRestore(row: any) {
+  row.pending = true;
+  try {
+    await restoreInventoryApi(Number(row.id));
+    window.$message.success('已恢复');
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
+async function handlePurge(row: any) {
+  row.pending = true;
+  try {
+    await purgeInventoryApi(Number(row.id));
+    window.$message.success('已彻底删除');
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
 function handleViewModeChange() {
   allExpanded.value = true;
   gridApi.setGridOptions({
@@ -167,12 +234,15 @@ function handleViewModeChange() {
 }
 
 // ============ 列定义 ============
-const detailColumns: VxeGridProps['columns'] = [
+function buildColumns(): VxeGridProps['columns'] {
+  const isRecycle = activeTab.value === 'recycle';
+  const cols: VxeGridProps['columns'] = [
   {
     title: $t('ui.table.seq'),
     type: 'seq',
     width: 48,
     align: 'center',
+    fixed: 'left',
   },
   {
     title: '商品',
@@ -246,15 +316,25 @@ const detailColumns: VxeGridProps['columns'] = [
     width: 150,
     slots: { default: 'recentActivity' },
   },
+    ...(isRecycle
+      ? [
+          { title: '删除人', field: 'deleteByName', width: 100 },
+          { title: '删除时间', field: 'deleteTime', width: 160 },
+        ]
+      : []),
   {
     title: $t('ui.table.action'),
     field: 'action',
     fixed: 'right',
     slots: { default: 'action' },
-    width: 72,
+    width: isRecycle ? 110 : 72,
     align: 'center',
   },
-];
+  ];
+  return cols;
+}
+
+const detailColumns = buildColumns();
 
 const summaryColumns: VxeGridProps['columns'] = [
   {
@@ -262,6 +342,7 @@ const summaryColumns: VxeGridProps['columns'] = [
     type: 'seq',
     width: 48,
     align: 'center',
+    fixed: 'left',
   },
   {
     title: '产品 / 规格 / 仓库',
@@ -384,12 +465,28 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        const res: any = await getInventoryListApi({
-          page: page.currentPage,
-          pageSize: page.pageSize,
-          productName: formValues.productName,
-          warehouseId: formValues.warehouseId,
-        });
+        const load = async (scope: string) => {
+          const r: any = await getInventoryListApi({
+            page: page.currentPage,
+            pageSize: page.pageSize,
+            productName: formValues.productName,
+            warehouseId: formValues.warehouseId,
+            scope,
+          });
+          crossViewEnabled.value = Boolean(r?.crossViewEnabled);
+          isManagement.value = Boolean(r?.isManagement);
+          return r;
+        };
+        let res = await load(activeTab.value);
+        // 普通用户（无管理/互看权限）默认落在"所有库存"时，自动切到"我的库存"并加载其数据
+        if (
+          activeTab.value === 'all' &&
+          !isManagement.value &&
+          !crossViewEnabled.value
+        ) {
+          activeTab.value = 'mine';
+          res = await load('mine');
+        }
         const flatList = (res?.items ?? res?.list ?? []).map(
           (row: any, idx: number) => ({
             ...row,
@@ -480,6 +577,19 @@ function shortTime(val: any): string {
     </div>
 
     <Grid :table-title="$t('page.product.inventory.title')">
+      <template #form-header>
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList.filter((t) => t.key !== 'all' || isManagement || crossViewEnabled)"
+            :key="tab.key"
+            :tab="tab.label"
+          />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Segmented
           v-model:value="viewMode"
@@ -706,20 +816,55 @@ function shortTime(val: any): string {
         <span v-else class="text-muted-foreground">—</span>
       </template>
 
-      <!-- 操作列：明细视图每行可看流水；汇总视图仅产品行 -->
+      <!-- 操作列：明细视图每行可看流水；汇总视图仅产品行；回收站为恢复/彻底删除 -->
       <template #action="{ row }">
-        <Tooltip
-          v-if="viewMode === 'summary' ? row._isProduct : true"
-          :title="$t('page.inventory.tooltip.viewStockLog')"
-        >
-          <Button
-            v-if="accessStore.hasAccessCode('product:inventory:view')"
-            type="link"
-            size="small"
-            :icon="h(LucideList)"
-            @click="() => handleViewLog(row)"
-          />
-        </Tooltip>
+        <template v-if="isRecycle">
+          <Popconfirm
+            title="确认恢复该库存记录？"
+            ok-text="恢复"
+            cancel-text="取消"
+            @confirm="() => handleRestore(row)"
+          >
+            <Button type="link" size="small" :icon="h(LucideUndo2)" />
+          </Popconfirm>
+          <Popconfirm
+            v-if="isManagement"
+            title="彻底删除后不可恢复，确认？"
+            ok-text="彻底删除"
+            cancel-text="取消"
+            @confirm="() => handlePurge(row)"
+          >
+            <Button type="link" danger size="small" :icon="h(LucideTrash2)" />
+          </Popconfirm>
+        </template>
+        <template v-else>
+          <Tooltip
+            v-if="viewMode === 'summary' ? row._isProduct : true"
+            :title="$t('page.inventory.tooltip.viewStockLog')"
+          >
+            <Button
+              v-if="accessStore.hasAccessCode('product:inventory:view')"
+              type="link"
+              size="small"
+              :icon="h(LucideList)"
+              @click="() => handleViewLog(row)"
+            />
+          </Tooltip>
+          <Popconfirm
+            v-if="
+              !isRecycle &&
+              accessStore.hasAccessCode('product:inventory:update') &&
+              !viewMode.startsWith &&
+              Number(row.quantity) === 0
+            "
+            title="仅零库存记录可删除，确认移入回收站？"
+            ok-text="删除"
+            cancel-text="取消"
+            @confirm="() => handleRecycleDelete(row)"
+          >
+            <Button type="link" danger size="small" :icon="h(LucideTrash2)" />
+          </Popconfirm>
+        </template>
       </template>
     </Grid>
 

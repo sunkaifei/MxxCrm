@@ -13,6 +13,14 @@ const routes: RouteRecordRaw[] = [
     path: '/crm',
     children: [
       {
+        name: 'CrmPool',
+        path: '/crm/pool',
+        component: () => import('#/views/crm/pool/index.vue'),
+        meta: {
+          title: $t('page.crm.pool.title'),
+        },
+      },
+      {
         name: 'CrmLeadPool',
         path: '/crm/lead-pool',
         component: () => import('#/views/crm/lead-pool/index.vue'),

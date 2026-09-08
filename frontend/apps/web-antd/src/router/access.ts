@@ -13,7 +13,7 @@ import { getAllMenusApi } from '#/api';
 import { BasicLayout, EmptyLayout, IFrameView } from '#/layouts';
 import { $t } from '#/locales';
 
-const forbiddenComponent = () => import('#/views/_core/fallback/forbidden.vue');
+const forbiddenComponent = () => import('#/views/base/fallback/forbidden.vue');
 
 /**
  * 菜单名 i18n 翻译（带 .title fallback）。

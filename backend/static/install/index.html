@@ -353,6 +353,7 @@ a:hover { color: var(--primary-hover); }
 .conn-result .result-detail { margin-top: 8px; }
 .conn-result .result-detail dt { font-weight: 500; margin-top: 4px; }
 .conn-result .result-detail dd { margin-left: 12px; color: var(--text-secondary); }
+.conn-result .result-hint { margin-top: 8px; color: var(--text-secondary); }
 
 /* ===== Import ===== */
 .import-progress {
@@ -1073,47 +1074,71 @@ function getDbFields() {
   };
 }
 
-function onDbNext() {
+async function onDbNext() {
   const cfg = getDbFields();
   if (!cfg.password) {
     showAlert('dbAlert', '请输入数据库密码');
     return;
   }
   $('btnNext').disabled = true;
-  $('btnNext').innerHTML = '<span class="loading-spinner"></span> 测试连接中...';
+  $('btnNext').innerHTML = '<span class="loading-spinner"></span> 检测中...';
   hideAlert('dbAlert');
   hideConnResult();
 
-  apiPost('/api/install/test-connection', cfg)
-    .then(resp => {
-      $('btnNext').disabled = false;
-      $('btnNext').textContent = '下一步';
-      if (resp.code === 200 && resp.data) {
-        const d = resp.data;
-        let cls = 'success';
-        let detail = '<dl class="result-detail">';
-        detail += '<dt>数据库</dt><dd>' + (d.database_exists ? '存在' : '不存在') + '</dd>';
-        detail += '<dt>表数量</dt><dd>' + (d.table_count || 0) + '</dd>';
-        detail += '<dt>核心表</dt><dd>' + (d.has_core_tables ? '✓ 已存在' : '✗ 未检测到') + '</dd>';
-        detail += '<dt>pgcrypto 扩展</dt><dd>' + (d.pgcrypto_installed ? '✓ 已安装' : '✗ 未安装') + '</dd>';
-        detail += '<dt>pg_restore</dt><dd>' + (d.pg_restore_available ? '✓ 可用' : '✗ 不可用') + '</dd>';
-        detail += '</dl>';
-        showConnResult('连接成功', cls, detail);
-        if (!d.database_exists) {
-          showConnResult('数据库 "' + cfg.database + '" 不存在，将自动创建', 'loading', '');
-        }
-        // 自动进入下一步
-        dbConfig = cfg;
-        setTimeout(() => { currentStep = 3; updateProgress(); startImport(); }, 800);
-      } else {
-        showConnResult(resp.msg || '连接失败', 'fail', '');
-      }
-    })
-    .catch(e => {
-      $('btnNext').disabled = false;
-      $('btnNext').textContent = '下一步';
-      showConnResult('网络错误：' + e.message, 'fail', '');
+  // 目标库不存在时 PostgreSQL 会直接拒绝连接，导致后续每步都失败；
+  // 故先尝试自动建库（库已存在或无权建库都会失败，此处仅记录原因，不中断流程）
+  let createMsg = '';
+  try {
+    const createResp = await apiPost('/api/install/create-database', {
+      host: cfg.host, port: cfg.port, username: cfg.username,
+      password: cfg.password, database: cfg.database,
     });
+    if (createResp.code !== 200) {
+      const m = createResp.msg || '';
+      // "已存在"属正常情况（重复安装/重装），不算失败原因，不展示
+      if (!/already exists|已存在|已经存在/i.test(m)) {
+        createMsg = m || '自动建库未成功';
+      }
+      console.log('Create database result:', createResp);
+    }
+  } catch (e) {
+    createMsg = e.message;
+  }
+
+  try {
+    const resp = await apiPost('/api/install/test-connection', cfg);
+    $('btnNext').disabled = false;
+    $('btnNext').textContent = '下一步';
+    if (resp.code === 200 && resp.data) {
+      const d = resp.data;
+      let cls = 'success';
+      let detail = '<dl class="result-detail">';
+      detail += '<dt>数据库</dt><dd>' + (d.database_exists ? '存在' : '不存在') + '</dd>';
+      detail += '<dt>表数量</dt><dd>' + (d.table_count || 0) + '</dd>';
+      detail += '<dt>核心表</dt><dd>' + (d.has_core_tables ? '✓ 已存在' : '✗ 未检测到') + '</dd>';
+      detail += '<dt>pgcrypto 扩展</dt><dd>' + (d.pgcrypto_installed ? '✓ 已安装' : '✗ 未安装') + '</dd>';
+      detail += '<dt>pg_restore</dt><dd>' + (d.pg_restore_available ? '✓ 可用' : '✗ 不可用') + '</dd>';
+      detail += '</dl>';
+      showConnResult('连接成功', cls, detail);
+      if (!d.database_exists) {
+        showConnResult('数据库 "' + cfg.database + '" 已就绪（空库），将自动导入初始数据', 'loading', '');
+      }
+      // 自动进入下一步
+      dbConfig = cfg;
+      setTimeout(() => { currentStep = 3; updateProgress(); startImport(); }, 800);
+    } else {
+      // 连接失败时若自动建库也失败，附带建库原因，便于定位（常见为账号缺少 CREATEDB 权限）
+      showConnResult(
+        resp.msg || '连接失败',
+        'fail',
+        createMsg ? '<p class="result-hint">自动建库失败：' + createMsg + '</p>' : ''
+      );
+    }
+  } catch (e) {
+    $('btnNext').disabled = false;
+    $('btnNext').textContent = '下一步';
+    showConnResult('网络错误：' + e.message, 'fail', '');
+  }
 }
 
 function showConnResult(msg, type, detail) {

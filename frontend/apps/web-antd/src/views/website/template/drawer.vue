@@ -10,6 +10,8 @@ import { message, Upload } from 'ant-design-vue';
 import { useVbenForm } from '#/adapter/form';
 import { templateApi } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
+import { useAssetDomain } from '#/composables/use-asset-domain';
+import { resolveAssetUrl } from '#/utils/asset-url';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -107,7 +109,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const row = data.value?.row || {};
       baseFormApi.setValues(row);
       previewPicUrl.value = row.previewPic || '';
-      syncFileList(previewPicUrl.value);
+      // 回显同样拼接资源域名，与上传后展示行为一致（附件URL统一方案 v1.1）
+      syncFileList(resolveAssetUrl(previewPicUrl.value, assetDomain.value));
       setLoading(false);
     }
   },
@@ -121,16 +124,19 @@ function setLoading(loading: boolean) {
 const fileList = ref<UploadFile[]>([]);
 const previewPicUrl = ref('');
 const uploading = ref(false);
+// 附件URL统一方案 v1.1：全局资源访问域名（预览图展示拼接用）
+const { assetDomain } = useAssetDomain();
 
 async function handleUpload(file: File) {
   uploading.value = true;
   try {
-    const res: any = await uploadFileApi(file, 'common');
+    // 附件URL统一方案 v1.1：模板预览图公开（is_public=1，可走 /api/open/file/{id} 前台展示）
+    const res: any = await uploadFileApi(file, 'common', undefined, undefined, 1);
     // 尝试多种 response 格式兼容
     const url = res?.data?.url || res?.url || res?.data;
     if (url && typeof url === 'string') {
       previewPicUrl.value = url;
-      syncFileList(url);
+      syncFileList(resolveAssetUrl(url, assetDomain.value));
       message.success('上传成功');
     } else {
       message.error('上传返回异常：未获取到图片地址');

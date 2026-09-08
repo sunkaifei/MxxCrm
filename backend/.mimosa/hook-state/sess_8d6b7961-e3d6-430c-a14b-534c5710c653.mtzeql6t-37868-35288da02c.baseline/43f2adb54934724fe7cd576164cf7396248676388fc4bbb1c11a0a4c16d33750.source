@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ListQuery","PageWhere","ShopDetailVO","ShopListVO","ShopModel","ShopSaveDTO","ShopSaveRequest","ShopUpdateRequest"]};

@@ -3,6 +3,11 @@ import { requestClient } from '#/api/request';
 export interface NavigationListParams {
   websiteId?: number;
   navType?: string;
+  dataType?: string;
+  isShow?: number;
+  keywords?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface NavigationSaveDTO {
@@ -19,6 +24,12 @@ export interface NavigationSaveDTO {
   isNewWindowOpen?: number;
   target?: string;
   icon?: string;
+  /** 可见性：是否对未登录访客可见（0否，1是） */
+  visibleGuest?: number;
+  /** 可见性：可见设备，逗号分隔（pc,mobile；空=全部） */
+  visibleDevices?: string;
+  /** SEO：rel 属性 */
+  rel?: string;
 }
 
 export interface NavigationVO {
@@ -35,6 +46,9 @@ export interface NavigationVO {
   isNewWindowOpen?: number;
   target?: string;
   icon?: string;
+  visibleGuest?: number;
+  visibleDevices?: string;
+  rel?: string;
   createTime?: string;
 }
 
@@ -55,4 +69,8 @@ export const navigationApi = {
     requestClient.delete('/api/system/navigation/batch_delete', {
       data: { ids },
     }),
+
+  /** 拖拽排序落库 */
+  updateSort: (id: number, sort: number) =>
+    requestClient.put('/api/system/navigation/update_sort', { id, sort }),
 };

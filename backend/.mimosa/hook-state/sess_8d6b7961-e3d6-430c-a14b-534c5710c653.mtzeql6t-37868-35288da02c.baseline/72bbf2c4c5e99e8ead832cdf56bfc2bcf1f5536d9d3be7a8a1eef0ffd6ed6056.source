@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add","batch_delete","export_template","get_by_detail","get_by_options","get_by_page","get_template_tags","import_template","register","update_by_id"],"struct":["ImportQuery","TemplateImportForm"]};

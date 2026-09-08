@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete","bulk_upsert","create","find_current_all","get_by_id","get_by_page","render_template","send_notification","toggle_enabled","update"]};

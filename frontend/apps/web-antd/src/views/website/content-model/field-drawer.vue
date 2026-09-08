@@ -52,7 +52,14 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: '请输入英文标识符（如 author）',
         allowClear: true,
       },
-      rules: z.string().min(1, { message: '请输入字段名称' }),
+      // 与后端 is_valid_identifier 保持一致：字母/下划线开头，仅含字母数字下划线
+      rules: z
+        .string()
+        .min(1, { message: '请输入字段名称' })
+        .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, {
+          message: '字段名称须为英文标识符（字母或下划线开头，仅含字母、数字、下划线）',
+        })
+        .max(60, { message: '字段名称不能超过 60 个字符' }),
     },
     {
       component: 'Input',

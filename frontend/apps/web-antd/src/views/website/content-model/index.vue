@@ -6,12 +6,14 @@ import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import {
   LucideFilePenLine,
   LucideList,
   LucidePlus,
+  LucideFileText,
   LucideTrash2,
 } from '@vben/icons';
 
@@ -152,12 +154,22 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 240,
+      width: 340,
     },
   ],
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+
+const router = useRouter();
+
+/** T-P1.2：跳转通用内容页管理该模型的动态内容 */
+function handleManageContent(row: any) {
+  router.push({
+    path: '/website/content-data',
+    query: { code: row.modelCode },
+  });
+}
 
 const [Drawer, drawerApi] = useVbenDrawer({
   connectedComponent: ContentModelDrawer,
@@ -330,6 +342,20 @@ const fieldColumns: TableColumnsType = [
           @click="() => handleFieldManage(row)"
         >
           字段管理
+        </Button>
+        <Button
+          type="primary"
+          link
+          :icon="h(LucideFileText)"
+          :disabled="row.isSystem === 1 || row.status !== 1"
+          :title="
+            row.isSystem === 1
+              ? '系统内置模型继续使用专属数据表，不走通用内容管理'
+              : ''
+          "
+          @click="() => handleManageContent(row)"
+        >
+          管理内容
         </Button>
         <Popconfirm
           v-if="row.isSystem !== 1"

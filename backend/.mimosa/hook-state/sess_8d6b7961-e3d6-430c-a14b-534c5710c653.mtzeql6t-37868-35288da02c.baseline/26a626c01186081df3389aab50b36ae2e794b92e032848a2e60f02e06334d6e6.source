@@ -1,0 +1,46 @@
+# -*- coding: utf-8 -*-
+import pg8000
+
+conn = pg8000.connect(user="postgres", password="123456", host="127.0.0.1", port=5432, database="mxxcrm_data")
+cur = conn.cursor()
+
+def q(sql, label):
+    print("=" * 10, label, "=" * 10)
+    try:
+        cur.execute(sql)
+        rows = cur.fetchall()
+        if cur.description:
+            cols = [d[0] for d in cur.description]
+            print(" | ".join(cols))
+            for r in rows:
+                print(" | ".join("" if v is None else str(v) for v in r))
+        print("(rows=%d)" % len(rows))
+    except Exception as e:
+        print("ERR:", e)
+
+# 1. 表是否存在 + 列
+q("""SELECT column_name, data_type FROM information_schema.columns
+     WHERE table_name='mxx_sale_entitlement' ORDER BY ordinal_position""",
+  "mxx_sale_entitlement 列定义")
+
+# 2. 行数
+q("SELECT count(*) AS total, count(*) FILTER (WHERE deleted=1) AS deleted_rows FROM mxx_sale_entitlement",
+  "权益数据量")
+
+# 3. 菜单是否注册
+q("""SELECT id, parent_id, name, type, path, component, perm, status
+     FROM mxx_system_menu WHERE perm LIKE 'sale:entitlement%' OR component LIKE '%entitlement%' OR name LIKE '%entitlement%' OR path LIKE '%entitlement%'
+     ORDER BY id""",
+  "权益菜单/权限记录")
+
+# 4. 相关权限码是否落在任何菜单
+q("""SELECT perm FROM mxx_system_menu WHERE perm LIKE 'sale:%' AND (perm LIKE '%entitlement%' OR perm LIKE '%delivery%' OR perm LIKE '%card%') ORDER BY perm""",
+  "销售虚拟类权限码")
+
+# 5. 删除字段探测（回收站依赖）
+q("""SELECT column_name FROM information_schema.columns
+     WHERE table_name='mxx_sale_entitlement' AND column_name IN ('deleted','delete_by','delete_time')""",
+  "删除/回收字段")
+
+conn.close()
+print("DONE")

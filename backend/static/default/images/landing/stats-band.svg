@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="360" viewBox="0 0 1440 360" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sb" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#101A3D"/>
+      <stop offset="0.5" stop-color="#1B2A6B"/>
+      <stop offset="1" stop-color="#101A3D"/>
+    </linearGradient>
+    <pattern id="diag" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="28" stroke="#FFFFFF" stroke-opacity="0.04"/>
+    </pattern>
+  </defs>
+  <rect width="1440" height="360" fill="url(#sb)"/>
+  <rect width="1440" height="360" fill="url(#diag)"/>
+  <circle cx="120" cy="40" r="220" fill="#4C6FFF" opacity="0.10"/>
+  <circle cx="1340" cy="330" r="240" fill="#FF7A2F" opacity="0.08"/>
+</svg>

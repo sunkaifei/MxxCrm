@@ -8,22 +8,37 @@
 //! 版权所有，侵权必究！
 //!
 
-use sea_orm::DbConn;
+use sea_orm::{DbConn, EntityTrait, QueryFilter, ColumnTrait};
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::website::model::content_model::{ListQuery, PageWhere, ContentModelDetailVO, ContentModelListVO, ContentModelModel, ContentModelSaveDTO};
-use crate::modules::website::model::content_model_field::{ContentModelFieldModel};
+use crate::modules::website::entity::content_model_field;
 use crate::modules::website::service::dynamic_table_service::DynamicTableService;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 
 pub async fn insert(db: &DbConn, form_data: &ContentModelSaveDTO) -> Result<i64> {
     let result = ContentModelModel::insert(&db, form_data).await?;
 
-    // 创建动态表
+    // 创建动态表（T-P0.1：带上该模型已定义的字段；新建模型时通常为空，
+    // 后续「加字段」由 content_model_field_service 负责 ALTER 加列）
     if result > 0 {
         let model_code = form_data.model_code.as_ref().ok_or_else(|| Error::from("模型编码不能为空"))?;
-        // 获取字段定义（如果有的话）
-        let fields: Vec<(String, String, bool)> = Vec::new(); // 新建模型时暂时没有字段
+
+        let field_rows = content_model_field::Entity::find()
+            .filter(content_model_field::Column::ModelId.eq(result))
+            .filter(content_model_field::Column::Deleted.eq(0))
+            .filter(content_model_field::Column::Status.eq(1))
+            .all(db)
+            .await
+            .unwrap_or_default();
+        let fields: Vec<(String, i32, bool)> = field_rows
+            .iter()
+            .filter_map(|f| {
+                let name = f.field_name.clone()?;
+                Some((name, f.field_type.unwrap_or(1), f.is_required.unwrap_or(0) == 1))
+            })
+            .collect();
+
         if let Err(e) = DynamicTableService::create_table(&db, model_code, &fields).await {
             log::warn!("创建动态表失败（不影响模型创建）: {:?}", e);
         }

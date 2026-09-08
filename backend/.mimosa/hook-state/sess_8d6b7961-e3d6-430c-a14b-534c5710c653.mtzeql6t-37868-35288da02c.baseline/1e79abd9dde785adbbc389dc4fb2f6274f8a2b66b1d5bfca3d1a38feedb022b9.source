@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["download","generate","generate_excel","list","register"],"struct":["FileListQuery","GenerateDTO","GenerateResult"]};

@@ -1,0 +1,27 @@
+//!
+//! Copyright (c) 2024-2999 北京心月狐科技有限公司 All rights reserved.
+//!
+//! https://www.mxxshop.com
+//!
+//! Licensed 并不是自由软件，未经许可不能去掉 MxxShop 相关版权
+//!
+//! 版权所有，侵权必究！
+//!
+
+pub mod payment_admin_controller;
+pub mod member_fee_admin_controller;
+pub mod refund_admin_controller;
+pub mod statistics_admin_controller;
+pub mod commission_rule_controller;
+pub mod salary_controller;
+pub mod payment_controller;
+pub mod expense_controller;
+pub mod tax_controller;
+pub mod insurance_controller;
+pub mod bank_export_controller;
+pub mod payslip_controller;
+pub mod team_commission_controller;
+pub mod attendance_controller;
+pub mod salary_item_controller;
+pub mod salary_adjustment_controller;
+pub mod commission_pool_controller;

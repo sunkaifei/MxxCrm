@@ -54,6 +54,21 @@ async function bootstrap(namespace: string) {
   // 配置 pinia-tore
   await initStores(app, { namespace });
 
+  // A-2.4: 多标签页登出同步——其他标签登出后，本标签立即失效并弹出重新登录
+  {
+    const { useAccessStore } = await import('@vben/stores');
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'mxx_force_logout_at' && event.newValue) {
+        const accessStore = useAccessStore();
+        accessStore.setAccessToken(null);
+        accessStore.setRefreshToken(null);
+        if (preferences.app.loginExpiredMode === 'modal') {
+          accessStore.setLoginExpired(true);
+        }
+      }
+    });
+  }
+
   // 安装权限指令
   registerAccessDirective(app);
 

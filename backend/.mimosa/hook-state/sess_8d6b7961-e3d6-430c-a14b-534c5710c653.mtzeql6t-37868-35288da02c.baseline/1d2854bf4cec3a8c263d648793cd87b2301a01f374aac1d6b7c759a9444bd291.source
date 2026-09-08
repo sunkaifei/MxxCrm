@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["generate_daily_statistics","get_list","get_summary"]};

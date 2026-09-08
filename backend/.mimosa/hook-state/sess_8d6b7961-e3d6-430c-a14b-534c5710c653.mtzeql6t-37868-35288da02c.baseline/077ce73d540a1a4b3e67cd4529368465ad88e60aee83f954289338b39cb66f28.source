@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["create_member_fee","get_my_member_info","purchase_member"]};

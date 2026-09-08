@@ -35,6 +35,18 @@
     "codeLogin": "Code Login",
     "qrcodeLogin": "Qr Code Login",
     "forgetPassword": "Forget Password",
-    "profile": "Profile"
+    "profile": "Profile",
+    "loginSecurity": {
+      "captchaTip": "Enter captcha",
+      "clickCaptchaTitle": "Security Check",
+      "clickHintPrefix": "Click in order: ",
+      "clickRefresh": "Refresh",
+      "clickConfirm": "Confirm",
+      "clickCancel": "Cancel",
+      "clickLoadFail": "Failed to load captcha",
+      "clickNeedAll": "Click all characters in order",
+      "clickVerifyFail": "Verification failed"
+    },
+    "ssoCallback": "SSO Callback"
   }
 }

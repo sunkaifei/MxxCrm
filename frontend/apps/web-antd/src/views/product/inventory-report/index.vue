@@ -1,12 +1,12 @@
 <script lang="ts" setup>
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { LucideImageOff } from '@vben/icons';
 
-import { Button, Card, DatePicker, Form, Tabs } from 'ant-design-vue';
+import { Button, Card, DatePicker, Form, Segmented, Tabs } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -20,6 +20,24 @@ import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
 import WarehouseDetailDrawer from '../components/WarehouseDetailDrawer.vue';
+
+// 范围视图：后端报表接口返回权限标记动态判定"全部报表"可见性
+// （超管/管理层 isManagement=true，开启仓库数据互看 crossViewEnabled=true），
+// 无权用户即使落在"全部"也会自动回退"我的仓库报表"
+const crossViewEnabled = ref(false);
+const isManagement = ref(false);
+const canViewAll = computed(
+  () => isManagement.value || crossViewEnabled.value,
+);
+const activeScope = ref('all');
+const scopeOptions = computed(() =>
+  canViewAll.value
+    ? [
+        { label: $t('page.product.inventory.report.scope.all'), value: 'all' },
+        { label: $t('page.product.inventory.report.scope.mine'), value: 'mine' },
+      ]
+    : [{ label: $t('page.product.inventory.report.scope.mine'), value: 'mine' }],
+);
 
 // 仓库详情抽屉
 const warehouseDetailVisible = ref(false);
@@ -78,6 +96,11 @@ function handleReset() {
   handleSearch();
 }
 
+// 范围切换（全部报表 / 我的仓库报表）：重新加载当前报表类型
+function handleScopeChange() {
+  handleSearch();
+}
+
 function handleGridHeight(api: any, data: any[]) {
   const gridEl = api.grid?.$el as HTMLElement | undefined;
   if (gridEl) {
@@ -101,10 +124,26 @@ const stockGridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async () => {
-        const res: any = await getStockReportApi({
-          startDate: searchForm.value.dateRange?.[0],
-          endDate: searchForm.value.dateRange?.[1],
-        });
+        const load = async (scope: string) => {
+          const res: any = await getStockReportApi({
+            startDate: searchForm.value.dateRange?.[0],
+            endDate: searchForm.value.dateRange?.[1],
+            scope,
+          });
+          crossViewEnabled.value = Boolean(res?.crossViewEnabled);
+          isManagement.value = Boolean(res?.isManagement);
+          return res;
+        };
+        let res = await load(activeScope.value);
+        // 普通用户（无管理/互看权限）落在"全部报表"时自动切到"我的仓库报表"
+        if (
+          activeScope.value === 'all' &&
+          !isManagement.value &&
+          !crossViewEnabled.value
+        ) {
+          activeScope.value = 'mine';
+          res = await load('mine');
+        }
         const items = Array.isArray(res) ? res : (res?.items ?? []);
         handleGridHeight(stockGridApi, items);
         return { items, total: items.length };
@@ -131,6 +170,13 @@ const stockGridOptions: VxeGridProps = {
       field: 'productName',
       minWidth: 140,
       align: 'left',
+    },
+    {
+      title: '规格',
+      field: 'specDesc',
+      minWidth: 130,
+      align: 'left',
+      formatter: ({ cellValue }: any) => cellValue || '—',
     },
     {
       title: $t('page.product.inventory.report.field.warehouseName'),
@@ -177,10 +223,26 @@ const turnoverGridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async () => {
-        const res: any = await getTurnoverReportApi({
-          startDate: searchForm.value.dateRange?.[0],
-          endDate: searchForm.value.dateRange?.[1],
-        });
+        const load = async (scope: string) => {
+          const res: any = await getTurnoverReportApi({
+            startDate: searchForm.value.dateRange?.[0],
+            endDate: searchForm.value.dateRange?.[1],
+            scope,
+          });
+          crossViewEnabled.value = Boolean(res?.crossViewEnabled);
+          isManagement.value = Boolean(res?.isManagement);
+          return res;
+        };
+        let res = await load(activeScope.value);
+        // 普通用户（无管理/互看权限）落在"全部报表"时自动切到"我的仓库报表"
+        if (
+          activeScope.value === 'all' &&
+          !isManagement.value &&
+          !crossViewEnabled.value
+        ) {
+          activeScope.value = 'mine';
+          res = await load('mine');
+        }
         const items = Array.isArray(res) ? res : (res?.items ?? []);
         handleGridHeight(turnoverGridApi, items);
         return { items, total: items.length };
@@ -246,9 +308,25 @@ const staleGridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async () => {
-        const res: any = await getObsoleteReportApi({
-          days: 90,
-        });
+        const load = async (scope: string) => {
+          const res: any = await getObsoleteReportApi({
+            days: 90,
+            scope,
+          });
+          crossViewEnabled.value = Boolean(res?.crossViewEnabled);
+          isManagement.value = Boolean(res?.isManagement);
+          return res;
+        };
+        let res = await load(activeScope.value);
+        // 普通用户（无管理/互看权限）落在"全部报表"时自动切到"我的仓库报表"
+        if (
+          activeScope.value === 'all' &&
+          !isManagement.value &&
+          !crossViewEnabled.value
+        ) {
+          activeScope.value = 'mine';
+          res = await load('mine');
+        }
         const items = Array.isArray(res) ? res : (res?.items ?? []);
         handleGridHeight(staleGridApi, items);
         return { items, total: items.length };
@@ -313,7 +391,24 @@ const costGridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async () => {
-        const res: any = await getCostReportApi({});
+        const load = async (scope: string) => {
+          const res: any = await getCostReportApi({
+            scope,
+          });
+          crossViewEnabled.value = Boolean(res?.crossViewEnabled);
+          isManagement.value = Boolean(res?.isManagement);
+          return res;
+        };
+        let res = await load(activeScope.value);
+        // 普通用户（无管理/互看权限）落在"全部报表"时自动切到"我的仓库报表"
+        if (
+          activeScope.value === 'all' &&
+          !isManagement.value &&
+          !crossViewEnabled.value
+        ) {
+          activeScope.value = 'mine';
+          res = await load('mine');
+        }
         const items = Array.isArray(res) ? res : (res?.items ?? []);
         handleGridHeight(costGridApi, items);
         return { items, total: items.length };
@@ -405,6 +500,13 @@ function handleTabChange(key: number | string) {
   <Page>
     <InventoryProcessGuide current-step="report" />
     <Card :bordered="false" class="mb-4">
+      <Segmented
+        v-model:value="activeScope"
+        :options="scopeOptions"
+        class="mb-4"
+        @change="handleScopeChange"
+      />
+
       <Tabs
         v-model:active-key="activeTab"
         @change="handleTabChange"

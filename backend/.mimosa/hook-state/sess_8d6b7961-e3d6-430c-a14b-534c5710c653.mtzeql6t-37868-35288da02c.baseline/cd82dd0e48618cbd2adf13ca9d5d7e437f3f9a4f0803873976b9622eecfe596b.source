@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["allocate","compute_allocations","ensure_salary_record","get_allocation_log","get_pending_list"],"struct":["AllocateDTO","AllocateMemberItem","AllocationLogVO","PendingCommissionVO","PendingQuery"]};

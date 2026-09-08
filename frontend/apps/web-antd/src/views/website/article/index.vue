@@ -6,9 +6,10 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { h, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideEye, LucideFilePenLine, LucidePlus } from '@vben/icons';
+import { LucidePlus } from '@vben/icons';
 
 import { Button, Image, message, Modal, Tag } from 'ant-design-vue';
+import { Drawer as AntDrawer } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { articleApi, categoryApi } from '#/api';
@@ -16,8 +17,15 @@ import { articleApi, categoryApi } from '#/api';
 import ArticleDrawer from './drawer.vue';
 
 const categoryTree = ref<any[]>([]);
+const categoryMap = ref<Record<number, string>>({});
 const detailModalVisible = ref(false);
 const detailData = ref<any>(null);
+const detailFullscreen = ref(false);
+
+function getCategoryName(id: number | string | undefined): string {
+  const key = Number(id);
+  return categoryMap.value[key] || `ID:${id}`;
+}
 
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -105,11 +113,13 @@ const gridOptions: VxeGridProps = {
       title: '文章标题',
       field: 'title',
       width: 240,
+      slots: { default: 'titleLink' },
     },
     {
       title: '分类',
       field: 'categoryId',
       width: 120,
+      slots: { default: 'categoryName' },
     },
     {
       title: '作者',
@@ -191,6 +201,15 @@ async function viewDetail(row: any) {
 
 async function loadCategoryTree() {
   const result = await categoryApi.tree();
+  const map = new Map<number, string>();
+  const walk = (nodes: any[]) => {
+    for (const n of nodes) {
+      map.set(Number(n.id), n.name || n.categoryName || `栏目${n.id}`);
+      if (n.children) walk(n.children);
+    }
+  };
+  walk(result);
+  categoryMap.value = Object.fromEntries(map);
   const mapTree = (nodes: any[]): any[] =>
     nodes.map((node) => ({
       title: node.name,
@@ -215,6 +234,20 @@ onMounted(() => {
         </Button>
       </template>
 
+      <template #titleLink="{ row }">
+        <span
+          class="cursor-pointer font-medium hover:text-[hsl(var(--primary))]"
+          title="点击查看文章详情"
+          @click="() => viewDetail(row)"
+        >
+          {{ row.title }}
+        </span>
+      </template>
+
+      <template #categoryName="{ row }">
+        {{ getCategoryName(row.categoryId) }}
+      </template>
+
       <template #status="{ row }">
         <Tag
           :color="
@@ -237,30 +270,28 @@ onMounted(() => {
       </template>
 
       <template #action="{ row }">
-        <Button
-          type="primary"
-          link
-          :icon="h(LucideEye)"
-          @click="() => viewDetail(row)"
-        >
-          详情
+        <Button type="link" size="small" @click="() => handleEdit(row)">
+          编辑
         </Button>
-        <Button
-          type="primary"
-          link
-          :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
-        >
-          修改
-        </Button>
-        <Button type="primary" link danger @click="() => handleDelete(row)">
+        <Button type="link" danger size="small" @click="() => handleDelete(row)">
           删除
         </Button>
       </template>
     </Grid>
     <Drawer />
 
-    <Modal v-model:open="detailModalVisible" title="文章详情" width="800">
+    <AntDrawer
+      :open="detailModalVisible"
+      title="文章详情"
+      placement="right"
+      :width="detailFullscreen ? '100%' : '75%'"
+      @close="detailModalVisible = false"
+    >
+      <template #extra>
+        <Button type="link" size="small" @click="detailFullscreen = !detailFullscreen">
+          {{ detailFullscreen ? '还原' : '最大化' }}
+        </Button>
+      </template>
       <div v-if="detailData" class="space-y-4">
         <div class="flex gap-4">
           <Image
@@ -276,7 +307,7 @@ onMounted(() => {
             <p class="text-gray-500">{{ detailData.shortTitle || '-' }}</p>
             <div class="flex gap-4 text-sm text-gray-600">
               <span>作者：{{ detailData.author || '-' }}</span>
-              <span>分类ID：{{ detailData.categoryId ?? '-' }}</span>
+              <span>分类：{{ getCategoryName(detailData.categoryId) }}</span>
             </div>
             <div class="flex gap-4 text-sm text-gray-600">
               <span>短链接：{{ detailData.shortUrl || '-' }}</span>
@@ -336,6 +367,6 @@ onMounted(() => {
           <div class="bg-gray-50 p-4 rounded" v-html="detailData.content"></div>
         </div>
       </div>
-    </Modal>
+    </AntDrawer>
   </Page>
 </template>

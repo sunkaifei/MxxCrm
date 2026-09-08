@@ -22,8 +22,11 @@ export const updateEntitlementApi = async (data: any) => {
   return requestClient.put('/api/system/sale/entitlement/update', data);
 };
 
-// 续约
-export const renewEntitlementApi = async (data: any) => {
+// 续约（P0.1：字段契约 oldEntitlementId + newOrderId）
+export const renewEntitlementApi = async (data: {
+  newOrderId: number;
+  oldEntitlementId: number;
+}) => {
   return requestClient.post('/api/system/sale/entitlement/renew', data);
 };
 
@@ -39,4 +42,50 @@ export const getEntitlementByCustomerApi = async (customerId: number) => {
   return requestClient.get('/api/system/sale/entitlement/by-customer', {
     params: { id: customerId },
   });
+};
+
+// P0.3 回收站还原
+export const restoreEntitlementApi = async (ids: number[]) => {
+  return requestClient.post('/api/system/sale/entitlement/restore', ids);
+};
+
+// P0.7 操作日志
+export const getEntitlementLogApi = async (entitlementId: number) => {
+  return requestClient.get('/api/system/sale/entitlement/log/list', {
+    params: { entitlementId },
+  });
+};
+
+// P1.3 配额流水
+export const getEntitlementUsageApi = async (entitlementId: number) => {
+  return requestClient.get('/api/system/sale/entitlement/usage/list', {
+    params: { entitlementId },
+  });
+};
+
+// P1.3 配额扣减
+export const consumeEntitlementQuotaApi = async (data: {
+  amount: number;
+  bizId?: number;
+  bizType?: number;
+  id: number;
+  remark?: string;
+}) => {
+  return requestClient.post('/api/system/sale/entitlement/usage/consume', data);
+};
+
+// P1.3 配额返还
+export const refundEntitlementQuotaApi = async (data: {
+  amount: number;
+  bizId?: number;
+  bizType?: number;
+  id: number;
+  remark?: string;
+}) => {
+  return requestClient.post('/api/system/sale/entitlement/usage/refund', data);
+};
+
+// P1.7 月度统计
+export const getEntitlementSummaryApi = async () => {
+  return requestClient.get('/api/system/sale/entitlement/summary');
 };

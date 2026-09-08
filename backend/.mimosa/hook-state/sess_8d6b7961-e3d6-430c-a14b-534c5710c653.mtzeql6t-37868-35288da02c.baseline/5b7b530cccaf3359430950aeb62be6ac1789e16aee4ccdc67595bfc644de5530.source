@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["get_spu_detail","get_spu_list"]};

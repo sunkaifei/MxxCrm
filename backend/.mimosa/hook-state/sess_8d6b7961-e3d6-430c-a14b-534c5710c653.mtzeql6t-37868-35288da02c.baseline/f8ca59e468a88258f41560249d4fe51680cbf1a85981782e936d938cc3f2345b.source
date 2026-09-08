@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["commission_rule","expense","finance_statistics","member_fee","member_order","member_product","payment","payment_record","refund_record","salary","wechat_pay"]};

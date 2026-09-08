@@ -601,6 +601,19 @@ const [BaseForm, baseFormApi] = useVbenForm({
         options: currencyList,
       },
     },
+    {
+      // T2.6：合同成本金额（利润口径，供毛利提成试算使用）
+      component: 'InputNumber',
+      fieldName: 'costAmount',
+      label: '合同成本金额',
+      componentProps: {
+        placeholder: '选填，用于毛利提成试算',
+        allowClear: true,
+        min: 0,
+        precision: 2,
+        style: { width: '100%' },
+      },
+    },
 
     // ---- 日期与条款 ----
     {
@@ -827,6 +840,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
     // 将提成配置同步到提交数据
     values.commissionRuleId = selectedRuleId.value;
     values.commissionMode = commissionMode.value;
+
+    // 金额字段：后端仅接受字符串（deserialize_decimal_from_string），表单 InputNumber 输出数字需转换
+    for (const key of ['amount', 'taxAmount', 'totalAmount', 'costAmount']) {
+      const val = (values as Record<string, any>)[key];
+      if (val === null || val === undefined || val === '') {
+        delete (values as Record<string, any>)[key];
+      } else {
+        (values as Record<string, any>)[key] = String(val);
+      }
+    }
 
     setLoading(true);
     const isCreate = data.value?.create;

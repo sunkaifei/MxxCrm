@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["QUOTATION_FIELD_LABELS"],"fn":["bath_delete_quotation","quotation_approve","quotation_convert_order","quotation_info","quotation_insert","quotation_list","quotation_reject","quotation_submit_approval","quotation_update","register"],"struct":["QuotationApprovalRequest"]};

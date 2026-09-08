@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MailConfigListQuery","MailConfigModel","MailConfigSaveRequest","MailConfigUpdateRequest","MailConfigVO","MailLogListQuery","MailLogModel","MailLogSaveDTO","MailLogVO","MailTemplateListQuery","MailTemplateModel","MailTemplateOption","MailTemplateSaveRequest","MailTemplateUpdateRequest","MailTemplateVO","SendMailRequest"]};

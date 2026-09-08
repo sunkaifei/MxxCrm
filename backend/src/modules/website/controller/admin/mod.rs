@@ -25,6 +25,7 @@ pub mod website_page_admin_controller;
 
 pub mod content_model_admin_controller;
 pub mod content_model_field_admin_controller;
+pub mod content_data_admin_controller;
 pub mod leave_msg_admin_controller;
 pub mod navigation_admin_controller;
 
@@ -33,3 +34,4 @@ pub mod website_user_admin_controller;
 pub mod website_order_admin_controller;
 pub mod website_refund_admin_controller;
 pub mod website_notification_config_admin_controller;
+pub mod website_product_admin_controller;

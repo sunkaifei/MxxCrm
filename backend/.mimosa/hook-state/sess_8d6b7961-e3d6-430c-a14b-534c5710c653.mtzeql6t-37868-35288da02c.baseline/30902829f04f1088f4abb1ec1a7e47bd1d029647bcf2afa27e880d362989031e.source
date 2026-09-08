@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["activity_type_enum","contract_status_enum","contract_type_enum","currency_code_enum","customer_level_enum","industry_enum","industry_type_enum","lead_source_enum","lead_status_enum","menu_enums","opportunity_stage_enum","payment_method_enum","payment_status_enum","purchase_status_enum"]};

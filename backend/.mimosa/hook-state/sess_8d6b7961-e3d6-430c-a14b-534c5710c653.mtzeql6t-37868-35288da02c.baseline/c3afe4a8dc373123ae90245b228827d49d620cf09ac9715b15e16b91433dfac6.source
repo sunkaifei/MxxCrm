@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["find_by_id","insert","select_page","update_by_id","warehouse_type_name"],"struct":["WarehouseDetailVO","WarehouseListQuery","WarehouseListVO","WarehouseSaveRequest","WarehouseUpdateRequest","WarehouseVO"]};

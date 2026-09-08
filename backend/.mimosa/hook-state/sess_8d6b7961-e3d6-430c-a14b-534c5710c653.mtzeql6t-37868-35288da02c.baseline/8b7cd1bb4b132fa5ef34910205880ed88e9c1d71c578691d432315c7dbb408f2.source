@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["mxx_crm",[["impl&lt;S, B&gt; Transform&lt;S, ServiceRequest&gt; for <a class=\"struct\" href=\"mxx_crm/core/middleware/operation_log/struct.OperationLog.html\" title=\"struct mxx_crm::core::middleware::operation_log::OperationLog\">OperationLog</a><div class=\"where\">where\n    S: Service&lt;ServiceRequest, Response = ServiceResponse&lt;B&gt;, Error = Error&gt; + 'static,\n    S::Future: 'static,\n    B: MessageBody + 'static,</div>",0],["impl&lt;S, B&gt; Transform&lt;S, ServiceRequest&gt; for <a class=\"struct\" href=\"mxx_crm/core/web/permission_guard/struct.PermissionGuard.html\" title=\"struct mxx_crm::core::web::permission_guard::PermissionGuard\">PermissionGuard</a><div class=\"where\">where\n    S: Service&lt;ServiceRequest, Response = ServiceResponse&lt;B&gt;, Error = Error&gt; + 'static,\n    S::Future: 'static,\n    B: 'static,</div>",0],["impl&lt;S, B&gt; Transform&lt;S, ServiceRequest&gt; for <a class=\"struct\" href=\"mxx_crm/utils/auth/struct.Auth.html\" title=\"struct mxx_crm::utils::auth::Auth\">Auth</a><div class=\"where\">where\n    S: Service&lt;ServiceRequest, Response = ServiceResponse&lt;B&gt;, Error = Error&gt; + 'static,\n    S::Future: 'static,</div>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[1202]}

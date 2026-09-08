@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_import","calculate_deduction","delete","detail","list","register","upsert"],"struct":["BatchImportDTO","DeductionQuery","DeleteQuery","DetailQuery","ListQuery"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","delete_by_id","find_by_key_unique","get_all","get_by_detail","get_by_key","insert","is_api_key_config","mask_api_key","update_by_id"]};

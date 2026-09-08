@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_MANAGER_LEVELS"],"fn":["calc_monthly_settlement","calc_pool_fund_round","calc_reallocation_round","calc_team_bonus_round","coefficient_by_rule_type","default_coefficient_by_level","get_rule_rate","get_team_commission_list","get_team_summary","month_range"],"struct":["TeamCommissionListDTO","TeamCommissionSummaryDTO"]};

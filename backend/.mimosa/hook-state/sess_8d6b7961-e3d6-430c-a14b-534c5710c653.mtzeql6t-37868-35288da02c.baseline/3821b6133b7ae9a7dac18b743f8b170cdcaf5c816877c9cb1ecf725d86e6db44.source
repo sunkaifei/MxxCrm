@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["SupplierDetailVO","SupplierListQuery","SupplierListVO","SupplierModel","SupplierSaveRequest","SupplierUpdateRequest"]};

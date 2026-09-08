@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PREF_KEY_QUICK_NAV","PREF_KEY_SALE_SIMPLE_MODE"],"fn":["find_by_admin_and_key","find_quick_nav","find_sale_simple_mode","save","save_quick_nav","save_sale_simple_mode"]};

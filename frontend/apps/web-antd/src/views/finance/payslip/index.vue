@@ -53,6 +53,7 @@ const isFullScope = computed(() =>
     'super_admin',
     'admin',
     'finance',
+    'finance_manager',
     'general_manager',
     'boss',
     'cw',

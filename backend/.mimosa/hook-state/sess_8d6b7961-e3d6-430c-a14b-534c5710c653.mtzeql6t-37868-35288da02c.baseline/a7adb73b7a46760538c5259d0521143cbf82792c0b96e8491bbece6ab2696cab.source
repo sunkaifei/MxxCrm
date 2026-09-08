@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["get_settlement_detail","get_settlement_list"]};

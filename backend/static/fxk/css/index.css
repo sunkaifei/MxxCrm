@@ -1,0 +1,1373 @@
+/* 首页header有背景色 */
+.fxiaoke-navigation__wrapper{
+  background-color: #F0F4FB;
+}
+.common-h2 .yellow{
+  color: #FF8000;
+}
+.page-container .n-tabs{
+  width: 100%;
+  display: none;
+  position: fixed;
+  background-color: #fff;
+}
+.page-container .tabs-display{
+  display: flex;
+  z-index: 9;
+  box-shadow: 0px 2px 0px 0px rgb(24 28 37 / 8%);
+}
+.page-container .n-tabs .tabs-list{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 1200px;
+  margin: 0 auto;
+  height: 56px;
+}
+.page-container .n-tabs .tabs-list .tab-item{
+  cursor: pointer;
+  color: #545861;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+}
+.page-container .n-tabs .tabs-list .selected{
+  color: #FF8000;
+  background-color: #FFF3EB;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+.page-container .n-banner{
+  width: 100%;
+  position: relative;
+  background-color: #F0F4FB;
+  margin-top: 55px;
+}
+.n-banner .banner-container{
+  background: url(/static/fxk/a/5922db9248d4-nner底纹-2x.png);
+  background-size: cover;
+  padding: 0;
+}
+.n-banner .swiper-wrapper{
+  display: flex;
+  align-items: center;
+}
+.n-banner .swiper-container{
+  padding: 52px 0 91px 0;
+}
+.n-banner .swiper-content{
+  max-width: 1200px;
+  width: 100%;
+  margin: auto;
+}
+.my-pagination-bullets {
+  position: relative;
+  margin: auto;
+  width: 1200px;
+  bottom: 20px;
+  text-align: left;
+}
+
+.my-bullet {
+  display: inline-block;
+  width: 30px;
+  height: 4px;
+  background: #000000;
+  border-radius: 3px;
+  opacity: 0.1;
+}
+
+.my-bullet+.my-bullet {
+  margin-left: 4px;
+}
+
+.my-bullet-active {
+  background: #FFA250;
+  opacity: 1;
+}
+.n-banner .left{
+  margin-right: 44px;
+  text-align: left;
+  width: 536px;
+}
+.n-banner .right{
+  position: relative;
+}
+.n-banner .video-dialog-visible{
+  cursor: pointer;
+}
+/* .n-banner .right .banner-video-mask{
+  display: none;
+  position: absolute;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, #000000 100%);
+  height: 110px;
+  width: 100%;
+  z-index: 1;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 20px;
+  text-overflow: ellipsis;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 46px 24px 0 24px;
+}
+.n-banner .right a{
+  display: inline-block;
+}
+.n-banner .right:hover .banner-video-mask {
+  display: inline-block;
+}
+.n-banner .right img,.n-banner .right video{
+  max-width: 620px;
+  width: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+} */
+
+.n-banner .content{
+  margin-bottom: 16px;
+}
+.n-banner .btn-group{
+  display: flex;
+  flex-wrap: wrap;
+}
+.n-banner .btn-group .common-btn{
+  margin-top: 16px;
+}
+.n-banner .btn-group .primary-btn:hover{
+  color: #fff;
+}
+.n-banner .btn-group .plain-btn:hover{
+  color: #FF8000;
+}
+.n-banner .btn-group .common-btn:first-child{
+  margin-right: 16px;
+}
+.branch-img-container{
+    position: absolute;
+    bottom: 0;
+    z-index: 1;
+    left: 50%;
+    transform: translate(-50%,50%);
+    max-width: 1200px;
+    width: 100%;
+    display: flex;
+}
+.branch-img-wrapper{
+    box-shadow: 0px 2px 24px rgb(0 0 0 / 8%);
+    border: 1px solid #DEE1E6;
+    border-radius: 8px;
+}
+.branch-img{
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+  display: block;
+}
+
+/* sem页面banner */
+.n-sem-banner .banner-container{
+  background: url(/static/fxk/a/login-bg-s.png);
+  background-repeat: no-repeat;
+  background-size: cover;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 118px 80px 40px;
+}
+.n-sem-banner .login-container{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.login-left-body > div {
+  margin-top: 24px;
+  margin-right: 7vw;
+}
+.login-left-body > div >div{
+  margin-top: 24px;
+}
+.login-left-body .percent-wrapper{
+  margin-top: 4px;
+}
+.login-left-body .percent-text{
+  font-size: 40px;
+  line-height: 46px;
+  color: #545861;
+  font-weight: bold;
+  vertical-align: baseline;
+}
+/* div包含iframe或者img等行内标签时，div没设置高度，iframe设置高度时候，底部会多出几px的空白，可以手动
+ * 设置display值 
+*/
+.login-right .reg-iframe{
+  border-radius: 8px;
+  display: block;
+  height: 428px;
+  width: 340px;
+}
+
+.sem-page-container .container-pro{
+  margin-top: 34px;
+}
+
+.chart-wrapper{
+  display: flex;
+  justify-content: space-between;
+}
+.chart-item {
+  background: linear-gradient(140.75deg, #FFFFFF 0%, #FFFFFF 77.52%);
+  border: 1px solid #DEE1E8;
+  border-radius: 8px;
+  padding: 36px;
+  width: 588px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+.chart-item .des{
+  margin: 8px 0 32px 0;
+  flex: 1;
+}
+.chart-img{
+  width: 100%;
+}
+.container-crm .img-wrapper{
+  padding: 31px 77.5px;
+  background-color: #fff;
+}
+.container-digital .whitepaper-btn{
+  padding: 7px 18px;
+  border: 1px solid #CCCCCC;
+  border-radius: 20px;
+  color: #272B34;
+  display: inline-block;
+}
+/* 居中并列超过两个的按钮宽度固定  而非边距固定 */
+
+.btn-wrapper .fx-btn{
+  width: 144px;
+  height: 40px;
+  font-size: 16px;
+  margin-right: 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-wrapper .fx-btn:hover{
+  color: #fff;
+}
+.btn-wrapper .fx-btn:last-child{
+  margin-right: 0;
+}
+.fx-btn-free{
+  color: #fff;
+  background-color: #FF8000;
+}
+.btn-wrapper .sensor-demo-btn,
+.btn-wrapper .whitepaper-btn{
+  border: 1px solid #CCCCCC;
+  color: #272B34;
+  background-color: #fff;
+}
+.btn-wrapper .sensor-demo-btn:hover,
+.btn-wrapper .whitepaper-btn:hover{
+  color: #272B34;
+}
+
+/* pro-container */
+.pro-container{
+  display: flex;
+  flex-wrap: wrap;
+}
+.pro-container .pro-item{
+  font-size: 14px;
+  color: #272B34;
+  font-weight: 400;
+  padding: 24px;
+  width: 282px;
+  text-align: left;
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0px 2px 24px 0px rgb(0 0 0 / 8%);
+  display: inline-flex;
+  flex-direction: column;
+  background-color: #fff;
+}
+
+.pro-item .item-title{
+  position: relative;
+  padding-left: 16px;
+}
+.pro-item .item-title::before{
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 0;
+  width: 8px;
+  height: calc(100% - 12px);
+  background-color: #ff8000;
+  border-radius: 4px;
+}
+.pro-item .item-content{
+  line-height: 24px;
+}
+.pro-item .feat{
+  flex: 1;
+  line-height: 28px;
+  padding-top: 16px;
+  border-top: 1px dashed #C1C5CE;
+}
+.pro-item .feat .text-14{
+  color: #272B34;
+}
+.pro-item .icon-duigou{
+  margin-right: 7px;
+  color: #faa253 !important;
+}
+.pro-item .item-footer{
+  display: flex;
+  margin-top: 40px;
+}
+.pro-item .item-footer .detail-btn{
+  width: 120px;
+  height: 40px;
+  border-radius: 20px;
+  border: 1px solid #ff8000;
+  font-size: 16px;
+  font-weight: 500;
+  color: #ff8000;
+  line-height: 40px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pro-item .whitepaper-btn{
+  width: 120px;
+  height: 40px;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #dee1e6;
+  font-size: 16px;
+  color: #181c25;
+  line-height: 40px;
+  margin-left: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pro-container .pro-item-l{
+  width: 384px;
+  box-shadow: none;
+  border: 1px solid var(---, #DEE1E8);
+  border-radius: 8px;
+}
+.container-scene .swiper-slide{
+  padding: 24px;
+  text-align: left;
+  display: flex;
+  flex-wrap: wrap;
+  padding-bottom: 0;
+}
+.scene-swiper{
+  width: calc(100% - 96px);
+  overflow: hidden;
+  margin: auto;
+}
+.scene-swiper .scene-item{
+  width: 246px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 32px 24px;
+  color: #fff;
+}
+.scene-item>.title{
+  font-size: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed #fff;
+  display: flex;
+  align-items: center;
+}
+.scene-item>.title>.iconfont{
+  font-size: 28px;
+  margin-right: 8px;
+}
+.scene-item .scene-content{
+  margin-top: 14px;
+  flex: 1;
+  line-height: 24px;
+  font-size: 14px;
+  color: #fff;
+}
+.scene-item .detail-btn{
+  width: 100%;
+  height: 40px;
+  border-radius: 20px;
+  border: 1px solid #fff;
+  text-align: center;
+  font-weight: 500;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  margin-top: 60px;
+}
+.swiper-arrow{
+  width: 100%;
+  position: absolute;
+  top: 50%;
+  display: flex;
+  justify-content: space-between;
+  transform: translateY(-50%);
+}
+
+.container-scene .swiper-arrow{
+  top: calc(50% + 50px);
+}
+
+/* features - SEM 为什么选择纷享销客：三列瀑布流 */
+.container-feature .feature-lists{
+  position: relative;
+  height: auto;
+  width: 100%;
+  max-width: 1200px;
+  margin: 24px auto 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  gap: 24px;
+  align-items: stretch;
+}
+.container-feature .feature-lists .list-item{
+  padding: 24px;
+  border-radius: 8px;
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #F0F5FC;
+  display: flex;
+  flex-direction: column;
+}
+.container-feature .common-h3{
+  text-align: left;
+  flex-shrink: 0;
+}
+.container-feature .feature-lists .item-content{
+  flex: 1;
+}
+.feature-lists .list-item:nth-child(1){
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  padding-bottom: 140px;
+}
+.feature-lists .list-item:nth-child(2){
+  grid-column: 2;
+  grid-row: 1;
+}
+.feature-lists .list-item:nth-child(3){
+  grid-column: 3;
+  grid-row: 1;
+}
+.feature-lists .list-item:nth-child(4){
+  grid-column: 2;
+  grid-row: 2;
+}
+.feature-lists .list-item:nth-child(5){
+  grid-column: 3;
+  grid-row: 2;
+  padding-bottom: 24px;
+}
+.container-feature .feature-lists .item-content b{
+  font-weight: 600;
+}
+.feature-lists .list-item:nth-child(1) .feature-icon{
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 70%;
+  z-index: 0;
+  pointer-events: none;
+}
+.feature-lists .list-item:nth-child(5) .feature-icon{
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 35%;
+  z-index: 0;
+  pointer-events: none;
+}
+.feature-lists .list-item:nth-child(1) .item-content,
+.feature-lists .list-item:nth-child(5) .item-content{
+  position: relative;
+  z-index: 1;
+}
+.container-feature .feature-lists .item-content{
+  border-top: 1px dashed #c1c5ce;
+  padding-top: 16px;
+  padding-left: 17px;
+}
+.container-feature .feature-lists .item-content li{
+  margin-bottom: 12px;
+  color: #272B34;
+  text-align: left;
+  list-style: disc;
+}
+.container-feature .feature-lists .item-content li:last-child{
+  margin-bottom: 0;
+}
+
+.container-sem-scene .swiper-arrow{
+  top: calc(50% + 33px);
+  transform: translateY(-50%);
+}
+.container-customer .tab{
+  width: 100%;
+  margin: 24px 0;
+  border-bottom: 1px solid #dee1e6;
+  display: flex;
+  justify-content: center;
+}
+
+.container-customer .tab li{
+  cursor: pointer;
+  line-height: 38px;
+  font-size: 18px;
+  margin: 0 60px;
+}
+.container-customer .tab li.active{
+  border-bottom: 4px solid #ff8000;
+  color: #ff8000;
+}
+.container-customer .tab .li{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+  color: #181c25;
+}
+.container-customer .tab .li img{
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+}
+.case .case-detail .case-wrapper{
+  display: none;
+}
+.case .case-detail .case-wrapper.selected{
+  display: block;
+}
+.case .lists{
+  display: flex;
+  justify-content: space-between;
+}
+.case .lists .list{
+  position: relative;
+  padding: 24px;
+  border-radius: 8px;
+  width: 588px;
+  background-image: url(/static/fxk/a/customer-testimonial-4.png);
+  background-repeat: no-repeat;
+  background-size: 38px;
+  background-position: 24px 103px;
+  border: 1px solid #DEE1E6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 24px;
+}
+.case .lists .list:last-child{
+  margin-right: 0;
+}
+.case .list .logo{
+  height: 28px;
+  object-fit: contain;
+  margin-bottom: 22px;
+}
+.case .list .title{
+  color: #181C25;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 28px;
+}
+.case .list .desc{
+  color: #545861;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  flex: 1;
+  text-align: left;
+}
+.case .list .position{
+  font-size: 16px;
+  color: #181c25;
+  align-self: flex-end;
+}
+.case-logo-wrapper .case-logo{
+  border: 1px solid #DEE1E8;
+  border-radius: 8px;
+}
+.case-logo-wrapper .img{
+  width: 100%;
+  display: flex;
+  border-radius: 8px;
+}
+.direction{
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  line-height: 48px;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid #ccc;
+}
+.direction-active{
+  color: #ff8000;
+  border: 1px solid #ff8000;
+}
+.container-customer .swiper-container{
+  width: 100%;
+  margin: 24px auto 20px auto;
+  border: 1px solid #DEE1E6;
+  border-radius: 8px;
+  box-shadow: 0px 2px 12px 0px rgba(74, 74, 74, 0.10);
+  text-align: left;
+}
+.container-customer .swiper-slide{
+  padding: 24px;
+  display: flex;
+  background-color: #fff;
+}
+.container-customer .swiper-slide .image{
+  margin-right: 24px;
+  width: 200px;
+  height: 190px;
+}
+.container-customer .slide-p{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 0;
+  height: 100%;
+}
+.container-customer .slide-p .p4{
+  color: #272B34;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  flex: 1;
+}
+.container-customer .slide-p .p5{
+  display: flex;
+  color: #181C25;
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 500;
+}
+.container-customer .slide-p .p5 span,
+.container-customer .swiper-slide .info span{
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 22px;
+  letter-spacing: 0.5;
+  margin-left: 16px;
+  padding: 0 8px;
+}
+.container-customer .swiper-slide .green{
+  background: #D7F6E5;
+  color: #30C776;
+}
+.container-customer .swiper-slide .yellow
+{
+  color: #FF8000;
+  background: #FFF3EB;
+}
+.indicator{
+  width: calc(100% - 96px - 48px);
+  display: flex;
+  margin: auto;
+}
+.container-customer .indicator{
+  width: 100%;
+}
+.indicator>div{
+  flex: 1;
+  height: 64px;
+  margin-right: 8px;
+  border-radius: 8px;
+  box-shadow: 0px 2px 12px 0px rgba(74, 74, 74, 0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background-color: #fff;
+}
+/* 
+设置overflow为visible之外的值之后，会形成块级格式化上下文(BFC)，导致原本在margin上的阴影就会被裁切隐藏掉，
+原本是不会的。所以需要用padding占据原来margin占据的空间，阴影在padding上就不会被裁切隐藏。
+ */
+.sem-page-container .indicator,
+.container-customer .indicator{
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin-bottom: -12px;
+  position: relative;
+}
+.sem-page-container .indicator::-webkit-scrollbar{
+  display: none;
+}
+.sem-page-container .indicator:hover::-webkit-scrollbar{
+  display: block;
+  height: 5px;
+  position: absolute;
+  top: 0;
+}
+.sem-page-container .indicator>div{
+  min-width: 125px;
+  flex-shrink: 0;
+}
+
+.indicator>div:last-child{
+  margin-right: 0;
+}
+.indicator-active::after{
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(45deg, #ff704f 0%, #ff9326 100%);
+  bottom: 0px;
+  left: 0px;
+  border-radius: 0 0 8px 8px;
+}
+.indicator>div img{
+  height: 32px;
+}
+
+.container-knowledge .article-link{
+  margin: 8px 0 0 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.article-link .article-btn {
+  width: 130px;
+  height: 28px;
+  background: #FFFFFF;
+  box-shadow: 0px 2px 20px rgb(0 0 0 / 8%);
+  border-radius: 4px;
+  line-height: 28px;
+  text-align: center;
+  color: #181C25;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 24px;
+  margin-top: 16px;
+}
+.article-link .article-btn:first-child{
+  margin-left: 0;
+}
+.article-link .article-btn img{
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+}
+.container-knowledge .articles{
+  display: flex;
+  flex-wrap: wrap;
+  color: #181C25;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.articles .article-item{
+  padding: 16px;
+  width: 282px;
+  font-size: 14px;
+  line-height: 24px;
+  border-radius: 8px;
+  border: 0px solid #FFA250;
+  box-shadow: 0px 2px 20px 0px rgba(0, 0, 0, 0.08);
+  text-align: left;
+}
+.sem-page-container .articles .article-item{
+  padding: 24px;
+}
+
+.article-item .article-img{
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  margin-bottom: 16px;
+}
+.article-item .article-border{
+  margin: 16px 0 16px 0;
+  width: 100%;
+  height: 1px;
+  background: #DEE1E6;
+}
+.article-item .article-feat-1{
+  display: none;
+}
+.article-item .article-feat{
+  margin-bottom: 8px;
+  color: #181C25;
+}
+.article-item .article-feat:hover{
+  color: #181C25;
+}
+
+.sem-page-container .articles .common-h3{
+  color: #181C25;
+  margin-bottom: 16px;
+}
+.sem-page-container .articles .article-feat{
+  margin-bottom: 0;
+  position: relative;
+  padding-left: 15px;
+}
+.sem-page-container .articles .article-feat::before{
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #000;
+  transform: translateY(-50%);
+}
+
+
+@media screen and (max-width: 1200px){
+  .n-banner .swiper-content,
+  .page-container .n-tabs{
+    padding: 0 24px;
+  }
+  .n-sem-banner .banner-container{
+    padding: 40px 10vw 80px 3vw;
+  }
+  .n-sem-banner .login-container{
+    gap: 5vw;
+  }
+
+  /* SEM 平板：避免 flex:1 + space-between 把表单挤到页面底部 */
+  @media screen and (min-width: 801px) and (max-width: 1200px) {
+    .n-sem-banner .login-container{
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 32px;
+    }
+    .n-sem-banner .login-left,
+    .n-sem-banner .login-right{
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: 640px;
+    }
+    .n-sem-banner .login-right{
+      max-width: 384px;
+    }
+  }
+  .my-pagination-bullets{
+    left: 24px;
+  }
+  .branch-img-wrapper{
+    margin: 0 24px;
+  }
+  .swiper-arrow{
+    width: calc(100% - 48px);
+  }
+
+  /* sem页面为什么选择纷享销客 - 平板保持三列瀑布流 */
+  .container-feature .feature-lists{
+    height: auto;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto auto;
+    gap: 24px;
+    align-items: stretch;
+  }
+  .container-feature .feature-lists .list-item{
+    position: relative;
+    left: auto;
+    top: auto;
+    right: auto;
+    width: auto;
+    min-height: 0;
+    height: auto;
+    margin: 0;
+    padding-bottom: 24px;
+  }
+  .container-feature .feature-lists .list-item:nth-child(1){
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    padding-bottom: 100px;
+  }
+  .container-feature .feature-lists .list-item:nth-child(2){
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .container-feature .feature-lists .list-item:nth-child(3){
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .container-feature .feature-lists .list-item:nth-child(4){
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .container-feature .feature-lists .list-item:nth-child(5){
+    grid-column: 3;
+    grid-row: 2;
+    padding-bottom: 100px;
+  }
+  .feature-lists .list-item:nth-child(1) .feature-icon{
+    width: 30%;
+    z-index: 0;
+  }
+}
+
+
+/* 移动端适配 */
+@media screen and (max-width: 800px){
+  .n-banner .swiper-container{
+    padding: 6.4vw 0 11.5vw 0;
+  }
+  .n-banner .swiper-wrapper{
+    align-items: flex-start;
+  }
+  .n-banner .swiper-content{
+    padding: 0 4.2vw;
+    flex-direction: column;
+    align-items: baseline;
+    height: 100%;
+  }
+  .my-pagination-bullets{
+    width: 100%;
+    text-align: center;
+    bottom: 0.2vw;
+    position: relative;
+    margin: auto;
+    left: 0;
+  }
+  .my-bullet {
+    height: 3px;
+    width: 25px;
+  }
+  .n-banner .left{
+    width: 100%;
+    text-align: center;
+    margin-right: 0;
+  }
+  .n-banner .right{
+    width: 100%;
+  }
+  .n-banner .right img, .n-banner .right video{
+    max-width: none;
+    object-fit: contain;
+  }
+  /* 为了让移动端的banner一样高  按钮、图片都在同一水平 所以需要固定内容的高度，最多展示四行，超出省略 */
+  .n-banner .content{
+    height: auto;
+    margin-bottom: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    line-clamp: 4;
+    -webkit-line-clamp: 4;
+    word-break: break-all;
+  }
+  .n-banner .header-wrapper{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: calc(8.5vw + 21.6vw + 3.2vw);
+  }
+  .branch-img-wrapper{
+    margin: 0;
+    width: 100%;
+    box-shadow: none;
+    border: none;
+  }
+  .n-banner .btn-group{
+    margin: 4.2vw 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 4.2vw;
+  }
+  .n-banner .btn-group .common-btn{
+    flex: 1;
+    height: 9.6vw;
+    font-size: 3.7vw;
+    line-height: 6.4vw;
+    margin: 0 !important;
+    display: flex;
+    justify-content: center;
+    border-radius: 5.2vw;
+  }
+  .n-banner .btn-single .common-btn{
+    flex: none;
+    padding: 0 9vw;
+  } 
+  .n-sem-banner .banner-container{
+    padding: 0;
+  }
+  .n-sem-banner .login-container{
+    padding: 6.4vw 0 15vw 0;
+    display: block;
+    background-color: #F0F4FB;
+  }
+  .n-sem-banner .login-left{
+    position: absolute;
+    top: -56px;
+  }
+  .n-sem-banner .mobile-login-bg img{
+    width: 100vw;
+  }
+  .login-container .login-right{
+    margin-top: calc(56.8vw - 19.2vw + 8px);
+    padding: 0 4vw;
+    position: relative;
+  }
+  .login-right .reg-iframe{
+    width: 100%;
+    height: 95vw;
+    min-height: inherit;
+    max-height: inherit;
+  }
+  .swiper-arrow{
+    width: calc(100% - 48px);
+  }
+  .container-digital{
+    margin-top: 7.4vw;
+  }
+  .chart-wrapper {
+    flex-direction: column;
+    padding: 0 4vw;
+    gap: 4vw;
+  }
+  .chart-wrapper .chart-item{
+    width: 100%;
+    padding: 4.2vw;
+  }
+  .padding-24{
+    padding: 0 4vw;
+  }
+  .img-wrapper{
+    margin-right: 3.2vw;
+    height: 62.9vw;
+    width: fit-content;
+  }
+  .img-wrapper img{
+    width: auto;
+    height: 100%;
+  }
+  .sem-page-container .container-knowledge .articles{
+    margin: 0;
+    gap: 0;
+  }
+  .sem-page-container .container-knowledge .articles .article-item{
+    box-shadow: none;
+  }
+  .pro-container,
+  .container-scene .swiper-wrapper,
+  .case-wrapper .lists,
+  .crm-img-wrapper,
+  .case-wrapper .case-logo-wrapper,
+  .container-customer .indicator,
+  .container-feature .feature-lists,
+  .sem-page-container .articles
+  {
+    display: flex;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    padding-left: 4vw;
+    margin-top: 3.2vw !important;
+  }
+  .container-feature .feature-lists {
+    gap: 0;
+  }
+  .pro-container .pro-item,
+  .container-scene .swiper-wrapper .swiper-slide,
+  .case-wrapper .lists .list,
+  .case-wrapper .case-logo-wrapper,
+  .container-customer .indicator > div,
+  .container-feature .feature-lists .list-item,
+  .sem-page-container .articles .article-item{
+    margin-right: 3.2vw !important;
+  }
+  .pro-container::after,
+  .container-scene .swiper-wrapper .swiper-slide:last-child:after,
+  .case-wrapper .lists::after,
+  .case-wrapper .case-logo-wrapper::after,
+  .container-customer .indicator::after,
+  .container-feature .feature-lists .list-item::after,
+  .crm-img-wrapper::after,
+  .container-feature .feature-lists::after,
+  .sem-page-container .articles::after{
+    content: '';
+    width: 0.8vw;
+    flex-shrink: 0;
+  }
+  .pro-container .pro-item{
+    box-shadow: none;
+    border: 1px solid #DEE1E8;
+  }
+  .sem-page-container .pro-container{
+    margin-top: 2.1vw !important;
+  }
+  .pro-item .item-title{
+    padding-left: 3vw;
+  }
+  .pro-item .item-title::before{
+    height: calc(100% - 3.2vw);
+    width: 1vw;
+  }
+  .pro-item .item-footer{
+    margin-top: 4.3vw;
+  }
+  /* 边框计算规则：内容整体高度（包括边框）/2 */
+  .pro-item .item-footer .detail-btn,
+  .pro-item .whitepaper-btn{
+    width: auto;
+    height: auto;
+    border-radius: calc(3.3vw + 1px);
+    padding: 0.6vw 3.2vw;
+  }
+  .pro-container .pro-item .item-content{
+    display: none;
+  }
+  .scene-swiper,
+  .scene-swiper .swiper-wrapper{
+    width: 100%;
+    margin: 0;
+  }
+  .container-scene .swiper-wrapper .swiper-slide{
+    margin-top: 3.2vw;
+    gap: 3.2vw;
+  }
+  .container-scene .swiper-wrapper .swiper-slide:last-child{
+    margin-right: 0 !important;
+  }
+  .container-scene .swiper-slide{
+    width: auto;
+    padding: 0 !important;
+  }
+  /* 防止有些文字少的时候 高度不一样高  这里最多容纳五行 */
+  .scene-item .scene-content{
+    min-height: 27vw;
+    height: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+    word-break: break-all;
+  }
+  .pro-container .pro-item,
+  .scene-swiper .scene-item,
+  .case-detail .lists .list,
+  .container-feature .feature-lists .list-item,
+  .sem-page-container .articles .article-item{
+    /* 4vw是容器边距  3.2vw是item边距 */
+    width: calc(2/3 * (100vw - 4vw - 3.2vw));
+    padding: 4.2vw;
+    border-radius: 2.1vw;
+    flex-shrink: 0;
+  }
+  .container-feature .feature-lists .list-item{
+    margin: 0;
+    min-height: 0;
+    height: auto;
+    padding-bottom: 4.2vw;
+    grid-column: auto;
+    grid-row: auto;
+    justify-self: auto;
+  }
+  .container-feature .feature-lists .list-item:nth-child(1),
+  .container-feature .feature-lists .list-item:nth-child(2),
+  .container-feature .feature-lists .list-item:nth-child(3),
+  .container-feature .feature-lists .list-item:nth-child(4),
+  .container-feature .feature-lists .list-item:nth-child(5){
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .container-feature .feature-lists .list-item:nth-child(1),
+  .container-feature .feature-lists .list-item:nth-child(5){
+    padding-bottom: 24vw;
+  }
+  .container-feature .feature-lists .item-content{
+    padding-left: 3.7vw;
+  }
+  .container-customer .tab{
+    justify-content: space-between;
+    padding: 0 4vw;
+    margin: 3.2vw 0;
+  }
+  .container-customer .tab li{
+    margin: 0;
+  }
+  .case-logo-wrapper .case-logo{
+    border: none;
+    margin-right: 3.2vw;
+  }
+  .sem-page-container .case-logo-wrapper .case-logo{
+    border: 1px solid #DEE1E8;
+    margin: 0 4vw;
+  }
+  .case .case-wrapper .img{
+    height: 44.7vw;
+    width: auto;
+  }
+  .container-customer .swiper-container{
+    width: auto;
+    margin: 3.2vw 4vw;
+  }
+  .container-customer .swiper-slide{
+    padding: 4.2vw;
+    flex-direction: column;
+    justify-content: space-between;
+    height: auto;
+  }
+  .container-customer .swiper-slide p{
+    color: #272B34;
+  }
+  .container-customer .swiper-slide .image{
+    width: 17.1vw;
+    height: 17.1vw;
+    object-fit: cover;
+  }
+  .container-customer .person{
+    display: flex;
+    margin-top: 2.1vw;
+  }
+  .container-customer .info{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.8vw 0;
+  }
+  .sem-page-container .container-customer .info{
+    justify-content: center;
+  }
+  .container-customer .swiper-slide .info span{
+    width: fit-content;
+    font-size: 3.2vw;
+    line-height: 4.8vw;
+    margin-left: 0;
+  }
+  .indicator{
+    width: auto;
+  }
+  .sem-page-container .indicator>div,
+  .indicator>div{
+    height: 12.7vw;
+    width: 25vw;
+    background-color: #fff;
+    flex-shrink: 0;
+    flex: none;
+    margin-right: 0;
+  }
+  .indicator>div img{
+    height: 50%;
+    object-fit: contain;
+  }
+  .sem-page-container .indicator:hover::-webkit-scrollbar{
+    display: none;
+  }
+  .container-customer .tab .li img{
+    width: 3.2vw;
+    height: 3.2vw;
+  }
+  .case .list .title,
+  .case .list .com{
+    width: 100%;
+    text-align: left;
+  }
+  .case .list .title{
+    margin-bottom: 2.1vw;
+  }
+  .case .list .logo{
+    margin-bottom: 3.2vw;
+    height: 6.4vw;
+  }
+  .container-knowledge .article-link{
+    gap: 2.1vw;
+    justify-content: flex-start;
+    margin: 3.2vw 4vw;
+  }
+  .article-link .article-btn{
+    margin: 0;
+    padding: 2.6vw 0;
+    width: calc(1/3 * (100% - 4.2vw));
+    height: auto;
+    border-radius: 2.1vw;
+  }
+  .article-link .article-btn img{
+    width: 3.2vw;
+    height: 3.2vw;
+    margin-left: 1vw;
+  }
+  .container-knowledge .articles{
+    margin: 0 4vw;
+    flex-direction: column;
+    gap: 3.2vw;
+  }
+  .articles .article-item{
+    width: 100%;
+  }
+  .article-item .article-feat{
+    margin-bottom: 2.1vw;
+  }
+  .article-btn-wrapper{
+    width: 100%;
+    height: 9.6vw;
+    border: 1px solid #EAEDF2;
+    border-radius: 1vw;
+    margin: 0;
+    justify-content: center;
+    align-items: center;
+    background-color: #fff;
+  }
+  .prod-btn{
+    color: #ff8000;
+    font-size: 3.2vw;
+  }
+  .prod-btn:hover{
+    color: #ff8000;
+  }
+  .article-item .article-img{
+    height: 48vw;
+    object-fit: cover;
+  }
+  .sem-page-container .articles .common-h3{
+    margin-bottom: 12px;
+  }
+}

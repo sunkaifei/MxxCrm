@@ -158,6 +158,21 @@
     "paymentCompletionRate": "回款完成率",
     "deptRanking": "部门排名",
     "salespersonRanking": "销售员排名",
+    "deptFilter": "部门",
+    "deptAll": "全部部门",
+    "planGuideTitle": "年度销售计划",
+    "planGuideNone": "你还没有本年度销售计划。设置合同与回款目标并提交审批后，这里将展示目标与完成进度。",
+    "planGuideDraft": "你的计划还是草稿，编辑并提交审批后目标才会生效。",
+    "planGuidePending": "计划审批中，通过后这里将自动展示目标与完成进度。",
+    "planGuideRejected": "计划已驳回，请根据审批意见修改后重新提交。",
+    "planGuideAction": "去填写计划",
+    "planGuideEdit": "继续编辑计划",
+    "masked": "**",
+    "maskedTip": "管理员已开启金额隐私",
+    "unassignedBadgeTitle": "数据质量提醒",
+    "unassignedContractWarning": "存在 {amount} 未分配合同",
+    "unassignedPaymentWarning": "存在 {amount} 未分配回款",
+    "unassignedGoView": "去处理",
     "customerDimension": "客户维度",
     "productDimension": "产品维度",
     "regionDimension": "区域维度",
@@ -221,6 +236,11 @@
       "followUpTotalCol": "跟进总量"
     },
     "performancePlan": {
+      "button": {
+        "view": "查看计划",
+        "manage": "填写计划",
+        "audit": "审批计划"
+      },
       "none": "无计划",
       "draft": "草稿",
       "pending": "待审批",

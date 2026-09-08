@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete","convert_to_lead","create_lead_in_txn","find_by_id","find_unconverted","get_by_page","submit","update_status"]};

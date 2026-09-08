@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["allocate","allocation_log","calculate","list","pending_list","register","summary"],"struct":["AllocationLogQuery","CalculateDTO","ListQuery","PendingListQuery","SummaryQuery"]};

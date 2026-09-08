@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","bind_contact","check_duplicate","find_by_customer","find_by_id","get_accessible_user_ids","insert","list","set_role","unbind_contact","update"]};

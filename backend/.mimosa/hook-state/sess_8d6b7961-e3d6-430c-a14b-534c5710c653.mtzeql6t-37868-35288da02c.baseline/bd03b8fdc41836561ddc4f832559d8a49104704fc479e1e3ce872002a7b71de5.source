@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","category_tree","find_by_id","get_category_tree","save","update"]};

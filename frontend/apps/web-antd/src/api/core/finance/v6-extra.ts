@@ -70,6 +70,14 @@ export const generateBankExcelFileApi = async (data: {
     responseType: 'blob',
   });
 
+// T2.5: 代发文件状态流转（1→2→3/4 正向流转）
+export const markBankFileStatusApi = async (data: {
+  id: number;
+  remark?: string;
+  /** 2=已上传银行 3=回盘成功 4=回盘失败 */
+  status: number;
+}) => requestClient.post('/api/system/finance/bank-export/mark-status', data);
+
 // ===== 工资项目 =====
 export const getSalaryItemListApi = async () =>
   requestClient.get('/api/system/finance/salary-item/list');

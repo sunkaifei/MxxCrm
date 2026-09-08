@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "mimosa-finding-history/v1",
+  "runId": "20260912T163715270Z-24912-8f08cb077cf3",
+  "runStatus": "inconclusive",
+  "errors": [
+    "baseline-read:static/fxk/js/base.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/compony-select.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/html5.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/industry-solution.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/intlTelInput.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/jquery.cookie.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/method-box.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/sub-nav.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/validate.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:static/fxk/js/white-paper.js: baseline_snapshot_unreadable: file is missing from task baseline",
+    "scan:static/fxk/js/base.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/compony-select.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/html5.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/industry-solution.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/intlTelInput.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/jquery.cookie.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/method-box.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/sub-nav.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/validate.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:static/fxk/js/white-paper.js: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+  ],
+  "target": ".",
+  "revision": "db4867795ae0c8d25c59d169c5c1c32d6486ad28",
+  "diffHash": "64e767ae316ce6823feaa2cf9afd1119c8b64c9b9ce6553d4202a158d1092af6",
+  "rulesVersion": "unavailable",
+  "recordedAt": "2026-09-12T16:37:15.270Z",
+  "timing": {
+    "startedAt": "2026-09-12T16:37:09.261Z",
+    "completedAt": "2026-09-12T16:37:15.270Z",
+    "durationMs": 6009
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "modelCalls": 0,
+    "measurement": "known-zero"
+  },
+  "findings": {
+    "total": 0,
+    "bySeverity": {},
+    "byStatus": {}
+  },
+  "coverage": {
+    "status": "partial",
+    "reasonCounts": {
+      "baseline_snapshot_unreadable": 10,
+      "scanner_failed": 10,
+      "project_check_failed": 20
+    }
+  },
+  "evidenceBoundary": "static_only",
+  "immutableReport": ".mimosa/reports/task-review-sess_8d6b7961-e3d6-430c-a14b-534c5710c653-20260912T163715270Z-24912-8f08cb077cf3.json"
+}

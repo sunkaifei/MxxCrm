@@ -18,6 +18,7 @@ async function initSetupVbenForm() {
       modelPropNameMap: {
         Checkbox: 'checked',
         CodeEditor: 'modelValue',
+        RichTextEditor: 'modelValue',
         Radio: 'checked',
         Switch: 'checked',
         Upload: 'fileList',

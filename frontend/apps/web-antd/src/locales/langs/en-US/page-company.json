@@ -68,7 +68,20 @@
         "edit": "Edit",
         "accountSave": "Save Account",
         "accountDelete": "Delete Account"
-      }
+      },
+      "basicInfo": "Company Basic Info",
+      "accountInfo": "Bank Account Info",
+      "companyName": "Company Name",
+      "creditCode": "Unified Social Credit Code",
+      "legalPerson": "Legal Representative",
+      "legalPhone": "Legal Person Phone",
+      "registerAddress": "Registered Address",
+      "contactPhone": "Contact Phone",
+      "contactEmail": "Contact Email",
+      "taxNumber": "Tax Number",
+      "invoiceTitle": "Invoice Title",
+      "businessScope": "Business Scope",
+      "remark": "Remarks"
     },
     "codeRule": {
       "title": "Code Rule Config",

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","batch_update_role","find_by_name_unique","find_role_menu_merge_by_role_id","get_by_detail","get_by_page","get_role_dept_list_by_role_id","get_role_menu_list_by_role_id","get_role_options","insert","select_by_admin_id","select_by_ids","update_by_id","update_role_depts","update_role_menus","user_by_role_group"]};

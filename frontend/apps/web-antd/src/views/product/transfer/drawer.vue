@@ -10,6 +10,8 @@ import {
   Input,
   InputNumber,
   message,
+  Radio,
+  RadioGroup,
   Table,
   Tag,
   Tooltip,
@@ -18,6 +20,7 @@ import {
 import { useVbenForm } from '#/adapter/form';
 import {
   createTransferApi,
+  updateTransferApi,
   getTransferInfoApi,
 } from '#/api/core/product/transfer';
 import { formatQty, useProductUnits } from '#/components/UnitSelect';
@@ -104,6 +107,12 @@ function qtyStep(unit?: null | string) {
 }
 // 源仓库ID（传给 ProductSelectModal 查询源仓库库存）
 const fromWarehouseId = ref<number | undefined>();
+// W12 调拨模式：direct=直调（默认，建单校验源仓库存） / request=申请（调入方发起，不校验不暴露源仓库存）
+const transferMode = ref<'direct' | 'request'>('direct');
+// 申请模式下不向选品弹窗传源仓ID（档案引用可选品，但不展示/校验源仓库存）
+const productSelectWarehouseId = computed(() =>
+  transferMode.value === 'request' ? undefined : fromWarehouseId.value,
+);
 // 目标仓库ID（用于排除重复选择）
 const toWarehouseId = ref<number | undefined>();
 
@@ -286,7 +295,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
           message.warning(`请填写产品「${item.productName}」的调拨数量`);
           return;
         }
-        if (isOverStock(item)) {
+        if (transferMode.value !== 'request' && isOverStock(item)) {
           message.warning(`产品「${item.productName}」调拨数量超过源仓库库存`);
           return;
         }
@@ -299,6 +308,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         fromWarehouseId: Number(values.fromWarehouseId),
         toWarehouseId: Number(values.toWarehouseId),
         remark: values.remark,
+        transferMode: transferMode.value,
         items: tableItems.value.map((i) => ({
           productId: i.productId,
           skuId: i.skuId && i.skuId > 0 ? Number(i.skuId) : undefined,
@@ -312,6 +322,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (drawerData.value.create) {
         await createTransferApi(data);
         message.success($t('ui.notification.create_success'));
+      } else {
+        // 编辑（仅草稿/驳回态入口；后端状态机二次校验）
+        await updateTransferApi({ ...data, id: drawerData.value?.row?.id });
+        message.success($t('ui.notification.update_success'));
       }
       drawerApi.setData({ needRefresh: true });
       drawerApi.close();
@@ -446,6 +460,19 @@ async function loadDetail(id: number) {
     </template>
 
     <div class="transfer-drawer__body">
+      <!-- W12 调拨模式：直拨 / 申请调拨 -->
+      <div class="transfer-mode-bar" style="margin-bottom: 12px">
+        <RadioGroup v-model:value="transferMode" option-type="button" size="small">
+          <Radio value="direct">直拨（我是调出方）</Radio>
+          <Radio value="request">申请调拨（我是调入方）</Radio>
+        </RadioGroup>
+        <span
+          v-if="transferMode === 'request'"
+          style="margin-left: 8px; font-size: 12px; color: #faad14"
+        >
+          申请模式：无需查看对方库存，由调出方负责人确认数量后交老板终审
+        </span>
+      </div>
       <!-- 调拨信息表单 -->
       <MainForm />
 
@@ -537,7 +564,7 @@ async function loadDetail(id: number) {
       :visible="productSelectVisible"
       :exclude-ids="excludeProductIds"
       :exclude-sku-codes="excludeSkuCodes"
-      :warehouse-id="fromWarehouseId"
+      :warehouse-id="productSelectWarehouseId"
       @update:visible="(val) => (productSelectVisible = val)"
       @select="onProductSelected"
     />

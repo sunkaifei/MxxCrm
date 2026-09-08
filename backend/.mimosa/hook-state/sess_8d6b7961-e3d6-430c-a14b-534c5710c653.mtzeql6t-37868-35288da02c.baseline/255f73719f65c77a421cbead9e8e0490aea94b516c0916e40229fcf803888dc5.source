@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","convert_to_order","convert_to_quotation","find_by_id","get_accessible_user_ids","insert","list","update"]};

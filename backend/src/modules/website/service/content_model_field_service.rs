@@ -8,14 +8,49 @@
 //! 版权所有，侵权必究！
 //!
 
-use sea_orm::DbConn;
+use sea_orm::{DbConn, EntityTrait, QueryFilter, ColumnTrait};
 use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::website::model::content_model_field::{ListQuery, PageWhere, FieldDetailVO, FieldListVO, ContentModelFieldModel, FieldSaveDTO};
+use crate::modules::website::entity::content_model;
+use crate::modules::website::service::dynamic_table_service::DynamicTableService;
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 
+/// 同步字段到动态物理表（T-P0.2）：
+/// 取模型编码后，对 `mxx_model_{code}` 执行 ADD COLUMN IF NOT EXISTS。
+/// 表不存在 / 加列失败不阻断字段记录写入（记 warning）。
+async fn sync_column_to_dynamic_table(db: &DbConn, model_id: i64, dto: &FieldSaveDTO) {
+    let name = match dto.field_name.as_deref() {
+        Some(n) if !n.is_empty() => n.to_string(),
+        _ => return,
+    };
+    let ft = dto.field_type.unwrap_or(1);
+    if let Ok(Some(model)) = content_model::Entity::find_by_id(model_id)
+        .filter(content_model::Column::Deleted.eq(0))
+        .one(db)
+        .await
+    {
+        if let Some(code) = model.model_code {
+            if let Err(e) = DynamicTableService::add_column_if_not_exists(db, &code, &name, ft).await {
+                log::warn!("[content_model_field] 动态表加列失败: {:?}", e);
+            }
+        }
+    }
+}
+
 pub async fn insert(db: &DbConn, form_data: &FieldSaveDTO) -> Result<i64> {
-    let result = ContentModelFieldModel::insert(&db, form_data).await?;
+    let model_id = form_data.model_id.ok_or_else(|| Error::from("模型ID不能为空"))?;
+    // T-P1.4：同模型内字段名唯一校验
+    if let Some(name) = form_data.field_name.as_deref() {
+        let existing = ContentModelFieldModel::find_by_model_id(db, &Some(model_id)).await?;
+        if existing.iter().any(|f| f.field_name.as_deref() == Some(name)) {
+            return Err(Error::from(format!("字段名「{}」在该模型下已存在", name)));
+        }
+    }
+    let result = ContentModelFieldModel::insert(db, form_data).await?;
+    if result > 0 {
+        sync_column_to_dynamic_table(db, model_id, form_data).await;
+    }
     Ok(result)
 }
 
@@ -29,7 +64,24 @@ pub async fn batch_delete_by_ids(db: &DbConn, ids_vec: &Vec<Option<String>>) -> 
 }
 
 pub async fn update_by_id(db: &DbConn, form_data: &FieldSaveDTO) -> Result<i64> {
+    // T-P1.4：更新时字段名唯一校验（排除自身）
+    if let (Some(mid), Some(name), Some(self_id)) =
+        (form_data.model_id, form_data.field_name.as_deref(), form_data.id)
+    {
+        let existing = ContentModelFieldModel::find_by_model_id(db, &Some(mid)).await?;
+        if existing
+            .iter()
+            .any(|f| f.id != self_id && f.field_name.as_deref() == Some(name))
+        {
+            return Err(Error::from(format!("字段名「{}」在该模型下已存在", name)));
+        }
+    }
     let result = ContentModelFieldModel::update_by_id(&db, &form_data.id, form_data).await?;
+    if result > 0 {
+        if let Some(mid) = form_data.model_id {
+            sync_column_to_dynamic_table(db, mid, form_data).await;
+        }
+    }
     Ok(result)
 }
 

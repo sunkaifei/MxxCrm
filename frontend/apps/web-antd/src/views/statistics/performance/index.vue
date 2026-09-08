@@ -22,7 +22,9 @@ import {
   Tabs,
   Tag,
   Tooltip,
+  TreeSelect,
 } from 'ant-design-vue';
+import { useRouter } from 'vue-router';
 
 import {
   exportPerformanceApi,
@@ -31,10 +33,12 @@ import {
   getEmployeeFollowUpApi,
   getMonthlyPerformanceApi,
   getPerformanceComparisonApi,
+  getPerformanceConfigApi,
   getPerformanceForecastApi,
   getPerformanceRankingApi,
   getPlanListApi,
 } from '#/api/core/statistics';
+import { getDeptTreeApi } from '#/api/core/system/dept';
 import { $t } from '#/locales';
 
 import BehaviorMetrics from './components/BehaviorMetrics.vue';
@@ -54,6 +58,7 @@ import PlanSettingDrawer from './PlanSettingDrawer.vue';
 defineOptions({ name: 'PerformanceOverview' });
 
 const userStore = useUserStore();
+const router = useRouter();
 const { hasAccessByCodes } = useAccess();
 
 // 销售计划权限：没有权限则不渲染计划进度卡片、不调用计划相关 API
@@ -74,6 +79,12 @@ const canViewTeam = computed(
   () =>
     hasPlanPermission.value &&
     (hasPlanManagePermission.value || hasPlanApprovePermission.value),
+);
+
+// 员工对比页签：跨员工业绩数据属管理视角，未授权角色（如业务员）不可见；
+// 权限码在角色管理/权限集中分配，无需改代码即可调整可见范围
+const canViewEmployeeComparison = computed(() =>
+  hasAccessByCodes(['statistics:performance:employee-compare']),
 );
 const activeTab = ref<'personal' | 'team'>('personal');
 
@@ -133,11 +144,57 @@ const personalData = ref<any>({});
 const comparisonData = ref<any>({});
 const forecastData = ref<any>({});
 
+// WP1：部门筛选（联动月度趋势与维度拆解榜单）
+const selectedDeptId = ref<number>();
+const deptTreeData = ref<any[]>([]);
+
+// WP4：未分配负责人金额（数据质量护栏）
+const unassignedContractAmount = ref(0);
+const unassignedPaymentAmount = ref(0);
+
+// WP3：业绩统计配置（榜单口径，拉取失败时保持默认）
+const performanceConfig = ref({
+  statScope: 'all_users',
+  showZeroTargetRows: false,
+  hideOtherActual: false,
+  hideOtherTarget: false,
+  rankingTopN: 10,
+});
+
 const queryParams = computed(() => ({
   year: selectedYear.value,
   month: timeDimension.value === 'year' ? undefined : selectedMonth.value,
   time_dimension: timeDimension.value,
+  department_id: selectedDeptId.value,
 }));
+
+async function loadDeptTree() {
+  try {
+    const res: any = await getDeptTreeApi();
+    deptTreeData.value = res?.data || res || [];
+  } catch {
+    deptTreeData.value = [];
+  }
+}
+
+async function loadPerformanceConfig() {
+  try {
+    const res: any = await getPerformanceConfigApi();
+    const cfg = res?.data || res || {};
+    const topN = Number(cfg.rankingTopN ?? cfg.ranking_top_n);
+    performanceConfig.value = {
+      statScope: cfg.statScope ?? cfg.stat_scope ?? 'all_users',
+      showZeroTargetRows: Boolean(
+        cfg.showZeroTargetRows ?? cfg.show_zero_target_rows,
+      ),
+      hideOtherActual: Boolean(cfg.hideOtherActual ?? cfg.hide_other_actual),
+      hideOtherTarget: Boolean(cfg.hideOtherTarget ?? cfg.hide_other_target),
+      rankingTopN: topN > 0 ? topN : 10,
+    };
+  } catch {
+    // 保持默认口径，页面可用性优先
+  }
+}
 
 // ===== 排行榜排序维度（方案 §4.5.4：支持完成率排序） =====
 const rankingOrderBy = ref<
@@ -165,28 +222,47 @@ async function loadRanking() {
       ...queryParams.value,
       order_by: rankingOrderBy.value,
     });
-    const rankingList = Array.isArray(rankingRes)
-      ? rankingRes
-      : (rankingRes?.data ?? []);
+    // WP4：后端返回 { list, unassigned_contract_amount, unassigned_payment_amount }
+    const payload: any = rankingRes?.data ?? rankingRes ?? {};
+    const rankingList: any[] = Array.isArray(payload)
+      ? payload
+      : (payload.list ?? []);
+    unassignedContractAmount.value =
+      Number(
+        payload?.unassigned_contract_amount ??
+          payload?.unassignedContractAmount ??
+          0,
+      ) || 0;
+    unassignedPaymentAmount.value =
+      Number(
+        payload?.unassigned_payment_amount ??
+          payload?.unassignedPaymentAmount ??
+          0,
+      ) || 0;
+    // WP3：后端对打码行金额置 null（未打码行恒为数值），此处保留 null 语义
     rankingData.value =
       rankingList.map((item: any) => ({
         rank: item.rank,
+        employeeId: item.employeeId ?? item.employee_id,
         employeeName: item.employeeName || item.employee_name,
         departmentName: item.departmentName || item.department_name,
-        contractAmount: item.contractAmount || item.contract_amount || 0,
-        contractTarget: item.contractTarget || item.contract_target || 0,
-        paymentAmount: item.paymentAmount || item.payment_amount || 0,
-        paymentTarget: item.paymentTarget || item.payment_target || 0,
+        contractAmount: item.contractAmount ?? item.contract_amount ?? null,
+        contractTarget: item.contractTarget ?? item.contract_target ?? null,
+        paymentAmount: item.paymentAmount ?? item.payment_amount ?? null,
+        paymentTarget: item.paymentTarget ?? item.payment_target ?? null,
         completionRate:
           item.contractCompletionRate || item.contract_completion_rate || 0,
         monthOnMonth: item.monthOnMonth || item.month_on_month || 0,
+        // WP2：目标缺失引导标记
+        hasApprovedPlan: item.hasApprovedPlan ?? item.has_approved_plan,
       })) || [];
 
-    // 个人视图额外加载自己的数据
+    // 个人视图额外加载自己的数据（取归一化后的行，避免字段命名差异）
     if (isPersonalView.value) {
       personalData.value =
-        rankingList.find(
-          (r: any) => r.employeeId === userStore.userInfo?.userId,
+        rankingData.value.find(
+          (r: any) =>
+            String(r.employeeId) === String(userStore.userInfo?.userId),
         ) || {};
     }
   } catch (error) {
@@ -223,7 +299,11 @@ async function loadData() {
   }
 }
 
-onMounted(() => loadData());
+onMounted(() => {
+  loadData();
+  loadDeptTree();
+  loadPerformanceConfig();
+});
 
 // ===== 汇总计算 =====
 // 后端 Decimal 经 msgpack 序列化后为字符串，统一用 Number() 转换避免字符串拼接
@@ -281,6 +361,56 @@ function formatCurrency(val: any) {
   if (num >= 100_000_000) return `¥${(num / 100_000_000).toFixed(2)}亿`;
   if (num >= 10_000) return `¥${(num / 10_000).toFixed(1)}万`;
   return `¥${num.toLocaleString()}`;
+}
+
+// ===== WP3：榜单口径（隐私打码 + TopN 截断） =====
+const rankingTopN = computed(
+  () => Number(performanceConfig.value.rankingTopN) || 0,
+);
+const rankingDisplayData = computed(() =>
+  rankingTopN.value > 0
+    ? rankingData.value.slice(0, rankingTopN.value)
+    : rankingData.value,
+);
+
+// 金额打码仅对个人视角的他人行生效，与后端口径一致
+function isMaskedRow(record: any, kind: 'actual' | 'target') {
+  if (!isPersonalView.value) return false;
+  if (
+    record.employeeId &&
+    String(record.employeeId) === String(userStore.userInfo?.userId)
+  ) {
+    return false;
+  }
+  // 后端打码行金额恒为 null（未打码行恒为数值），兜底配置拉取失败的场景
+  const nullMasked =
+    kind === 'actual' ? record.contractAmount == null : record.contractTarget == null;
+  return (
+    nullMasked ||
+    (kind === 'actual'
+      ? performanceConfig.value.hideOtherActual
+      : performanceConfig.value.hideOtherTarget)
+  );
+}
+
+function formatRankAmount(
+  record: any,
+  field: string,
+  kind: 'actual' | 'target',
+) {
+  return isMaskedRow(record, kind)
+    ? $t('page.statistics.masked')
+    : formatCurrency(record[field]);
+}
+
+// ===== WP4：未分配负责人警示（跳转合同列表处理） =====
+const showUnassignedBadge = computed(
+  () =>
+    unassignedContractAmount.value > 0 || unassignedPaymentAmount.value > 0,
+);
+
+function goUnassignedContracts() {
+  router.push('/sale/contract');
 }
 
 // ===== 进度预警条 =====
@@ -568,11 +698,21 @@ watch(breakdownTab, (val) => {
 
 // 筛选条件变化时重置员工对比缓存，下次切换 Tab 重新加载
 watch(
-  () => [selectedYear.value, selectedMonth.value, timeDimension.value],
+  () => [
+    selectedYear.value,
+    selectedMonth.value,
+    timeDimension.value,
+    selectedDeptId.value,
+  ],
   () => {
     employeeComparisonLoaded.value = false;
   },
 );
+
+// WP1：部门切换立即联动月度趋势与榜单（comparison/forecast 后端不支持部门过滤，自动忽略该参数）
+watch(selectedDeptId, () => {
+  loadData();
+});
 
 // ===== 个人销售计划抽屉 =====
 const planDrawerVisible = ref(false);
@@ -706,6 +846,42 @@ function handlePendingRefresh() {
   checkPlanStatus();
 }
 
+// ===== WP2：目标缺失引导（个人视角无生效年度计划时） =====
+const personalHasApprovedPlan = computed(() => {
+  const v = personalData.value?.hasApprovedPlan;
+  if (v !== undefined && v !== null) return v === true;
+  // 无业绩数据（不在榜单）时兜底用计划状态判断
+  return planStatus.value === 'approved';
+});
+const showPlanGuideCard = computed(
+  () => isPersonalView.value && !personalHasApprovedPlan.value,
+);
+const planGuideText = computed(() => {
+  switch (planStatus.value) {
+    case 'draft': {
+      return $t('page.statistics.planGuideDraft');
+    }
+    case 'pending': {
+      return $t('page.statistics.planGuidePending');
+    }
+    case 'rejected': {
+      return $t('page.statistics.planGuideRejected');
+    }
+    default: {
+      return $t('page.statistics.planGuideNone');
+    }
+  }
+});
+const planGuideActionText = computed(() =>
+  planStatus.value === 'draft'
+    ? $t('page.statistics.planGuideEdit')
+    : $t('page.statistics.planGuideAction'),
+);
+// 完成率 UI 仅在有生效目标时展示，避免无目标用户看到 0%
+const hideCompletionHint = computed(
+  () => isPersonalView.value && !personalHasApprovedPlan.value,
+);
+
 // ===== 同比环比箭头 =====
 function trendArrow(yoy?: number, mom?: number) {
   if (yoy === undefined && mom === undefined) return null;
@@ -740,10 +916,14 @@ const kpiCards = computed(() => {
     {
       title: '合同实际',
       value: formatCurrency(totalContractActual.value),
-      sub: `完成 ${getRate(totalContractTarget.value, totalContractActual.value)}%`,
-      progress: Number(
-        getRate(totalContractTarget.value, totalContractActual.value),
-      ),
+      sub: hideCompletionHint.value
+        ? undefined
+        : `完成 ${getRate(totalContractTarget.value, totalContractActual.value)}%`,
+      progress: hideCompletionHint.value
+        ? undefined
+        : Number(
+            getRate(totalContractTarget.value, totalContractActual.value),
+          ),
       icon: 'lucide:file-check',
       color: '#52c41a',
       bg: '#f6ffed',
@@ -760,10 +940,14 @@ const kpiCards = computed(() => {
     {
       title: '回款实际',
       value: formatCurrency(totalPaymentActual.value),
-      sub: `完成 ${getRate(totalPaymentTarget.value, totalPaymentActual.value)}%`,
-      progress: Number(
-        getRate(totalPaymentTarget.value, totalPaymentActual.value),
-      ),
+      sub: hideCompletionHint.value
+        ? undefined
+        : `完成 ${getRate(totalPaymentTarget.value, totalPaymentActual.value)}%`,
+      progress: hideCompletionHint.value
+        ? undefined
+        : Number(
+            getRate(totalPaymentTarget.value, totalPaymentActual.value),
+          ),
       icon: 'lucide:dollar-sign',
       color: '#fa8c16',
       bg: '#fff7e6',
@@ -815,7 +999,9 @@ const personalCards = computed(() => [
   {
     title: '本月实际',
     value: formatCurrency(personalData.value?.contractAmount || 0),
-    sub: `完成 ${formatPercent(personalData.value?.completionRate || 0)}%`,
+    sub: hideCompletionHint.value
+      ? undefined
+      : `完成 ${formatPercent(personalData.value?.completionRate || 0)}%`,
     icon: 'lucide:check-circle',
     color: '#52c41a',
   },
@@ -999,6 +1185,33 @@ async function handleExport(format: 'excel' | 'pdf') {
         />
       </div>
 
+      <!-- ============ 模块2.5：目标缺失引导卡（WP2） ============ -->
+      <Card v-if="showPlanGuideCard" class="mb-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100"
+          >
+            <IconifyIcon icon="lucide:target" class="text-xl text-orange-500" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="font-medium">
+              {{ $t('page.statistics.planGuideTitle') }}
+            </div>
+            <div class="mt-1 text-sm text-gray-500">
+              {{ planGuideText }}
+            </div>
+          </div>
+          <Button
+            v-if="hasPlanManagePermission"
+            type="primary"
+            size="small"
+            @click="openPlanDrawer"
+          >
+            {{ planGuideActionText }}
+          </Button>
+        </div>
+      </Card>
+
       <!-- ============ 模块3：8 个 KPI 卡片（带同比环比箭头） ============ -->
       <Row :gutter="[16, 16]" class="mb-4">
         <Col
@@ -1066,8 +1279,27 @@ async function handleExport(format: 'excel' | 'pdf') {
 
       <!-- ============ 模块5+6：月度趋势 + 完成率环形 ============ -->
       <Row :gutter="[16, 16]" class="mb-4">
-        <Col :xs="24" :lg="16">
+        <Col :xs="24" :lg="hideCompletionHint ? 24 : 16">
           <Card title="月度业绩趋势（目标 vs 实际 vs 预测）">
+            <template #extra>
+              <TreeSelect
+                v-if="!isPersonalView"
+                v-model:value="selectedDeptId"
+                :allow-clear="true"
+                :dropdown-style="{ maxHeight: '320px', overflow: 'auto' }"
+                :field-names="{
+                  children: 'children',
+                  label: 'label',
+                  value: 'value',
+                }"
+                :placeholder="$t('page.statistics.deptAll')"
+                :tree-data="deptTreeData"
+                size="small"
+                style="min-width: 140px"
+                tree-default-expand-all
+                tree-node-filter-prop="label"
+              />
+            </template>
             <div v-if="monthlyData.length === 0" class="py-8">
               <Empty description="暂无数据" />
             </div>
@@ -1133,7 +1365,7 @@ async function handleExport(format: 'excel' | 'pdf') {
             </div>
           </Card>
         </Col>
-        <Col :xs="24" :lg="8">
+        <Col v-if="!hideCompletionHint" :xs="24" :lg="8">
           <Card title="完成率分析">
             <div class="flex flex-col items-center gap-4 py-4">
               <Progress
@@ -1186,13 +1418,67 @@ async function handleExport(format: 'excel' | 'pdf') {
 
       <!-- ============ 模块8：维度拆解 Tabs（部门排名/销售员排名/客户/产品/区域） ============ -->
       <Card class="mb-4">
+        <template #extra>
+          <TreeSelect
+            v-if="!isPersonalView"
+            v-model:value="selectedDeptId"
+            :allow-clear="true"
+            :dropdown-style="{ maxHeight: '320px', overflow: 'auto' }"
+            :field-names="{
+              children: 'children',
+              label: 'label',
+              value: 'value',
+            }"
+            :placeholder="$t('page.statistics.deptAll')"
+            :tree-data="deptTreeData"
+            size="small"
+            style="min-width: 140px"
+            tree-default-expand-all
+            tree-node-filter-prop="label"
+          />
+        </template>
         <Tabs v-model:active-key="breakdownTab">
-          <Tabs.TabPane key="dept" tab="部门排名" />
+          <Tabs.TabPane key="dept">
+            <template #tab>
+              <span>{{ $t('page.statistics.deptRanking') }}</span>
+              <!-- WP4：未分配负责人金额警示，点击跳转合同列表处理 -->
+              <Tooltip
+                v-if="showUnassignedBadge && !isPersonalView"
+                :title="$t('page.statistics.unassignedBadgeTitle')"
+              >
+                <Tag
+                  color="warning"
+                  class="ml-2 cursor-pointer"
+                  @click.stop="goUnassignedContracts"
+                >
+                  <IconifyIcon icon="lucide:alert-triangle" class="mr-1" />
+                  <template v-if="unassignedContractAmount > 0">
+                    {{
+                      $t('page.statistics.unassignedContractWarning', {
+                        amount: formatCurrency(unassignedContractAmount),
+                      })
+                    }}
+                  </template>
+                  <template v-else>
+                    {{
+                      $t('page.statistics.unassignedPaymentWarning', {
+                        amount: formatCurrency(unassignedPaymentAmount),
+                      })
+                    }}
+                  </template>
+                </Tag>
+              </Tooltip>
+            </template>
+          </Tabs.TabPane>
           <Tabs.TabPane key="employee" tab="销售员排名" />
           <Tabs.TabPane key="customer" tab="客户维度" />
           <Tabs.TabPane key="product" tab="产品维度" />
           <Tabs.TabPane key="region" tab="区域维度" />
-          <Tabs.TabPane key="employee-comparison" tab="员工对比" />
+          <Tabs.TabPane
+            v-if="canViewEmployeeComparison"
+            key="employee-comparison"
+            tab="员工对比"
+          />
         </Tabs>
 
         <!-- 排序维度（方案 §4.5.4：排行榜支持完成率排序） -->
@@ -1259,11 +1545,11 @@ async function handleExport(format: 'excel' | 'pdf') {
           </template>
         </Table>
 
-        <!-- 销售员排名 -->
+        <!-- 销售员排名（WP3：按 rankingTopN 截断展示，金额按配置打码） -->
         <Table
           v-else-if="breakdownTab === 'employee'"
           :columns="rankingColumnsFor('employee')"
-          :data-source="rankingData"
+          :data-source="rankingDisplayData"
           :pagination="{ pageSize: 10, showSizeChanger: true }"
           row-key="rank"
           size="middle"
@@ -1284,12 +1570,28 @@ async function handleExport(format: 'excel' | 'pdf') {
               </div>
             </template>
             <template v-else-if="column.dataIndex === 'contractAmount'">
-              {{ formatCurrency(record.contractAmount) }}
+              <Tooltip
+                :title="
+                  isMaskedRow(record, 'actual')
+                    ? $t('page.statistics.maskedTip')
+                    : ''
+                "
+              >
+                {{ formatRankAmount(record, 'contractAmount', 'actual') }}
+              </Tooltip>
             </template>
             <template v-else-if="column.dataIndex === 'contractTarget'">
-              <span class="text-gray-500">{{
-                formatCurrency(record.contractTarget)
-              }}</span>
+              <Tooltip
+                :title="
+                  isMaskedRow(record, 'target')
+                    ? $t('page.statistics.maskedTip')
+                    : ''
+                "
+              >
+                <span class="text-gray-500">{{
+                  formatRankAmount(record, 'contractTarget', 'target')
+                }}</span>
+              </Tooltip>
             </template>
             <template v-else-if="column.dataIndex === 'completionRate'">
               <Progress
@@ -1305,7 +1607,15 @@ async function handleExport(format: 'excel' | 'pdf') {
               />
             </template>
             <template v-else-if="column.dataIndex === 'paymentAmount'">
-              {{ formatCurrency(record.paymentAmount) }}
+              <Tooltip
+                :title="
+                  isMaskedRow(record, 'actual')
+                    ? $t('page.statistics.maskedTip')
+                    : ''
+                "
+              >
+                {{ formatRankAmount(record, 'paymentAmount', 'actual') }}
+              </Tooltip>
             </template>
           </template>
         </Table>

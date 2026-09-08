@@ -1,0 +1,144 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "pretooluse-2fad4234d298431106f9b3b4ecc75fac",
+  "runId": null,
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": []
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "PreToolUse"
+  },
+  "revision": null,
+  "diffHash": null,
+  "rulesVersion": null,
+  "sessionHash": "bb773bec7ba5973fd1ff07725333bfee3e4ec53e7ef5c75c11a97e3a7477c6fb",
+  "reportRef": null,
+  "events": [
+    {
+      "eventId": "hook-4f0acc83c36af89962985033068d5250",
+      "findingId": "mimosa-7e52f624c1e668d334a32b6f",
+      "type": "finding_blocked",
+      "at": "2026-09-12T15:49:29.591Z",
+      "identity": {
+        "projectRelativeFile": "scripts/fetch_fxk_assets.py",
+        "ruleId": "security",
+        "codeEvidenceHash": "178afd64ddd997d65d1fff9760393766ebf1bfcaa6355334b6adef9c55d48fe1",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 17,
+      "endLine": 17,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "178afd64ddd997d65d1fff9760393766ebf1bfcaa6355334b6adef9c55d48fe1"
+      },
+      "sequence": 0
+    },
+    {
+      "eventId": "hook-7b8fae2021aed46e1e143acc7c8afe85",
+      "findingId": "mimosa-1ad8e0be005222140693cea9",
+      "type": "finding_blocked",
+      "at": "2026-09-12T15:49:29.591Z",
+      "identity": {
+        "projectRelativeFile": "scripts/fetch_fxk_assets.py",
+        "ruleId": "security",
+        "codeEvidenceHash": "fd6e4e86f3f37d9725d8724ef26eebb415c6646c1e8d618d0bcef89cfc43467a",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 66,
+      "endLine": 66,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "fd6e4e86f3f37d9725d8724ef26eebb415c6646c1e8d618d0bcef89cfc43467a"
+      },
+      "sequence": 1
+    },
+    {
+      "eventId": "hook-d1dd49dae30ac57f1d00b9af065abf85",
+      "findingId": "mimosa-c0049e5816f9677475c79989",
+      "type": "finding_blocked",
+      "at": "2026-09-12T15:49:29.591Z",
+      "identity": {
+        "projectRelativeFile": "scripts/fetch_fxk_assets.py",
+        "ruleId": "security",
+        "codeEvidenceHash": "3d693e2f943722292256ae6543b39e8266295e5a2594738f1aefc1f56f5d6d91",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 73,
+      "endLine": 73,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "3d693e2f943722292256ae6543b39e8266295e5a2594738f1aefc1f56f5d6d91"
+      },
+      "sequence": 2
+    },
+    {
+      "eventId": "hook-d49c3ba718cb11b116e36540f52c2053",
+      "findingId": "mimosa-a8762376897d8557ebe9d435",
+      "type": "finding_blocked",
+      "at": "2026-09-12T15:49:29.591Z",
+      "identity": {
+        "projectRelativeFile": "scripts/fetch_fxk_assets.py",
+        "ruleId": "security",
+        "codeEvidenceHash": "8cb65ba3ddb8b9df0cda5ad8a65eef2a2f0d7639f5b15e575078a95af3c344cd",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 80,
+      "endLine": 80,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "8cb65ba3ddb8b9df0cda5ad8a65eef2a2f0d7639f5b15e575078a95af3c344cd"
+      },
+      "sequence": 3
+    },
+    {
+      "eventId": "hook-36b17aa4eaf39ef6a274d8b736d2218e",
+      "findingId": "mimosa-1ad8e0be005222140693cea9",
+      "type": "finding_blocked",
+      "at": "2026-09-12T15:49:29.591Z",
+      "identity": {
+        "projectRelativeFile": "scripts/fetch_fxk_assets.py",
+        "ruleId": "security",
+        "codeEvidenceHash": "fd6e4e86f3f37d9725d8724ef26eebb415c6646c1e8d618d0bcef89cfc43467a",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 82,
+      "endLine": 82,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "fd6e4e86f3f37d9725d8724ef26eebb415c6646c1e8d618d0bcef89cfc43467a"
+      },
+      "sequence": 4
+    }
+  ],
+  "observedFindingIds": [],
+  "verifiedFiles": [],
+  "recordedAt": "2026-09-12T15:49:30.352Z"
+}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["PathParams","get_article_list","get_by_short_url"]};

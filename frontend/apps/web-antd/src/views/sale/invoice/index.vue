@@ -23,8 +23,9 @@ import {
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteInvoiceApi,
+  restoreInvoiceApi,
   downloadFileApi,
-  getAttachmentsByEntityApi,
+  getInvoiceFilesApi,
   getInvoiceListApi,
   voidInvoiceApi,
 } from '#/api';
@@ -45,6 +46,7 @@ const allTabList = [
   { key: 'all', label: '全部发票' },
   { key: 'my', label: '我的发票' },
   { key: 'subordinate', label: '下属发票' },
+  { key: 'recycle', label: '回收站' },
 ];
 
 const tabList = computed(() => {
@@ -286,7 +288,7 @@ function handleApprovalRefresh() {
 // 下载发票：下载财务审核后上传的税控发票文件（entity_type=invoice 附件）
 async function handleDownloadInvoice(row: any) {
   try {
-    const res: any = await getAttachmentsByEntityApi('invoice', row.id);
+    const res: any = await getInvoiceFilesApi(row.id);
     const list = Array.isArray(res) ? res : (res?.items ?? []);
     if (!list || list.length === 0) {
       window.$message.warning('财务尚未上传发票文件');
@@ -307,6 +309,18 @@ async function handleDownloadInvoice(row: any) {
     window.URL.revokeObjectURL(url);
   } catch (error: any) {
     window.$message.error(error?.message || '下载失败');
+  }
+}
+
+// 回收站恢复（仅创建人）
+async function handleRestore(row: any) {
+  row.pending = true;
+  try {
+    await restoreInvoiceApi(row.id);
+    window.$message.success('已恢复到我的发票');
+  } finally {
+    row.pending = false;
+    gridApi.query();
   }
 }
 
@@ -463,6 +477,17 @@ async function handleBatchDelete() {
       </template>
 
       <template #action="{ row }">
+        <!-- 回收站 Tab：仅显示恢复 -->
+        <template v-if="activeTab === 'recycle'">
+          <Button
+            type="link"
+            :loading="row.pending"
+            @click="() => handleRestore(row)"
+          >
+            恢复
+          </Button>
+        </template>
+        <template v-else>
         <!-- 审核中：点击打开审批进度页（审批详情/流程图/流转记录） -->
         <a
           v-if="row.approvalStatus === 1 || row.approvalStatus === 2"
@@ -498,8 +523,12 @@ async function handleBatchDelete() {
           <a class="invoice-link" @click.prevent> 更多 ▾ </a>
           <template #overlay>
             <Menu>
-              <MenuItem key="download" @click="handleDownloadInvoice(row)">
-                下载发票
+              <MenuItem
+                key="download"
+                :disabled="row.approvalStatus !== 3"
+                @click="handleDownloadInvoice(row)"
+              >
+                {{ row.approvalStatus === 3 ? '下载发票' : '下载发票（审批通过后开放）' }}
               </MenuItem>
               <MenuItem
                 v-if="
@@ -552,6 +581,7 @@ async function handleBatchDelete() {
             </Menu>
           </template>
         </Dropdown>
+        </template>
       </template>
     </Grid>
     <FormDrawer />

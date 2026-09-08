@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["delete","get_accessible_user_ids","list","page_list","save"]};

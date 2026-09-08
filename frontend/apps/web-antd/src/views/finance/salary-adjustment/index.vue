@@ -43,7 +43,7 @@ const guideStepCount = 5;
 
 // ===== 权限 =====
 const { hasAccessByRoles } = useAccess();
-const canManage = computed(() => hasAccessByRoles(['super_admin', 'finance']));
+const canManage = computed(() => hasAccessByRoles(['super_admin', 'finance', 'finance_manager']));
 
 // ===== 通用工具 =====
 function formatMoney(val: any) {
@@ -119,6 +119,12 @@ const columns = computed(() => [
     title: $t('page.finance.adjustment.column.employeeName'),
     dataIndex: 'employeeName',
     width: 120,
+  },
+  {
+    title: $t('page.finance.adjustment.column.postName'),
+    dataIndex: 'postName',
+    width: 110,
+    customRender: ({ text }: any) => text || '-',
   },
   {
     title: $t('page.finance.adjustment.column.adjustmentDate'),
@@ -246,7 +252,7 @@ async function submitForm() {
       oldPositionAllowance: adjustmentForm.oldPositionAllowance,
       newPositionAllowance: adjustmentForm.newPositionAllowance,
       newPerformanceBase: adjustmentForm.newPerformanceBase,
-      reason: adjustmentForm.reason,
+      adjustmentReason: adjustmentForm.reason,
     });
     message.success($t('page.finance.adjustment.message.createSuccess'));
     formVisible.value = false;
@@ -604,6 +610,11 @@ onMounted(() => {
             :label="$t('page.finance.adjustment.column.employeeName')"
           >
             {{ detailRecord.employeeName || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem
+            :label="$t('page.finance.adjustment.column.postName')"
+          >
+            {{ detailRecord.postName || '-' }}
           </DescriptionsItem>
           <DescriptionsItem
             :label="$t('page.finance.adjustment.column.adjustmentDate')"

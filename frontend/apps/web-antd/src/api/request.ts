@@ -22,6 +22,56 @@ import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
+// 登录过期时页面刷新/轮询会并发多个 401，同一过期期间错误提示只弹一次；
+// 会话恢复有效（任一请求成功返回）后自动复位，保证下次过期仍能正常提示
+let authErrorShown = false;
+function showAuthErrorOnce(errorMessage: string) {
+  if (authErrorShown) return;
+  authErrorShown = true;
+  message.error(errorMessage);
+}
+
+// 重新认证单飞：并发 401 时只执行一次登出/弹出过期弹窗
+let reAuthPromise: null | Promise<void> = null;
+
+/**
+ * 提取后端返回的原始错误信息
+ * 用于 403 这类原本被本地文案整体覆盖的场景，便于定位真实原因
+ * 优先级：msgpack/json 的 msg > 纯文本原文（actix ErrorForbidden 即纯文本）> ''
+ */
+function pickBackendErrorMsg(error: any): string {
+  const data = error?.response?.data;
+  if (data === null || data === undefined) return '';
+  if (typeof data === 'string') return data.trim();
+  if (!(data instanceof ArrayBuffer)) {
+    const obj = data as Record<string, unknown>;
+    return String(obj.msg ?? obj.message ?? obj.error ?? '').trim();
+  }
+  const bytes = new Uint8Array(data);
+  if (bytes.length === 0) return '';
+  const headers = (error?.response?.headers ?? {}) as Record<string, string>;
+  const contentType = String(
+    headers['content-type'] || headers['Content-Type'] || '',
+  );
+  const text = new TextDecoder('utf-8').decode(bytes).trim();
+  if (contentType.includes('application/msgpack')) {
+    try {
+      const decoded = decode(bytes) as { msg?: string };
+      const msg = String(decoded?.msg ?? '').trim();
+      if (msg) return msg;
+    } catch {
+      // 忽略：回落到纯文本
+    }
+  }
+  try {
+    const obj = JSON.parse(text) as Record<string, unknown>;
+    return String(obj.msg ?? obj.message ?? obj.error ?? '').trim() || text;
+  } catch {
+    // 非 JSON：直接使用纯文本
+    return text;
+  }
+}
+
 function createRequestClient(
   baseURL: string,
   options?: RequestClientOptions,
@@ -37,17 +87,27 @@ function createRequestClient(
    * 重新认证逻辑
    */
   async function doReAuthenticate() {
-    console.warn('Access token or refresh token is invalid or expired. ');
-    const accessStore = useAccessStore();
-    const authStore = useAuthStore();
-    accessStore.setAccessToken(null);
-    if (
-      preferences.app.loginExpiredMode === 'modal' &&
-      accessStore.isAccessChecked
-    ) {
-      accessStore.setLoginExpired(true);
-    } else {
-      await authStore.logout();
+    if (reAuthPromise) return reAuthPromise;
+    reAuthPromise = (async () => {
+      console.warn('Access token or refresh token is invalid or expired. ');
+      const accessStore = useAccessStore();
+      const authStore = useAuthStore();
+      accessStore.setAccessToken(null);
+      // A-2.4: 同步清除 refreshToken，避免残留凭据在下次 401 时静默换新 token
+      accessStore.setRefreshToken(null);
+      if (
+        preferences.app.loginExpiredMode === 'modal' &&
+        accessStore.isAccessChecked
+      ) {
+        accessStore.setLoginExpired(true);
+      } else {
+        await authStore.logout();
+      }
+    })();
+    try {
+      return await reAuthPromise;
+    } finally {
+      reAuthPromise = null;
     }
   }
 
@@ -169,7 +229,9 @@ function createRequestClient(
       if (status === 403) {
         error.response.data = {
           code: 403,
-          msg: '权限不足，请联系管理员',
+          // 优先展示后端原始信息（如「缺少权限: website:notification:view」），
+          // 便于定位是哪个权限码缺失；后端无信息时兜底为通用文案
+          msg: pickBackendErrorMsg(error) || '权限不足，请联系管理员',
         };
       } else if (status === 401) {
         error.response.data = {
@@ -240,9 +302,22 @@ function createRequestClient(
       const responseData = error?.response?.data ?? {};
       const errorMessage =
         responseData?.error ?? responseData?.message ?? responseData?.msg ?? '';
+      // 登录过期只提示一次，避免刷新页面时并发请求各弹一个错
+      if (error?.response?.status === 401) {
+        showAuthErrorOnce(errorMessage || msg);
+        return;
+      }
       message.error(errorMessage || msg);
     }),
   );
+
+  // 任一请求成功返回即视为会话已恢复有效，复位登录过期的"只提示一次"状态
+  client.addResponseInterceptor({
+    fulfilled: (value) => {
+      authErrorShown = false;
+      return value;
+    },
+  });
 
   return client;
 }

@@ -3,17 +3,22 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { ref } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { LucideTrash2, LucideUndo2 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import { useRouter } from 'vue-router';
 
-import { Button, Tag } from 'ant-design-vue';
+import { Button, Popconfirm, Tabs, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getAlertListApi } from '#/api/core/product/alert';
+import {
+  purgeInventoryApi,
+  restoreInventoryApi,
+} from '#/api/core/product/inventory';
 import { $t } from '#/locales';
 
 import InventoryProcessGuide from '../components/InventoryProcessGuide.vue';
@@ -23,6 +28,44 @@ import WarehouseSelectModal from '../inventory-check/WarehouseSelectModal.vue';
 
 const router = useRouter();
 const accessStore = useAccessStore();
+
+// ============ 范围视图（全部库存预警/我的库存预警/回收站） ============
+const activeTab = ref('all');
+const crossViewEnabled = ref(false);
+const isManagement = ref(false);
+const isRecycle = computed(() => activeTab.value === 'recycle');
+const tabList = [
+  { key: 'all', label: $t('page.product.inventory.alert.tab.all') },
+  { key: 'mine', label: $t('page.product.inventory.alert.tab.mine') },
+  { key: 'recycle', label: $t('page.product.inventory.alert.tab.recycle') },
+];
+
+async function handleTabChange() {
+  gridApi.setGridOptions({ columns: buildColumns() });
+  gridApi.query();
+}
+
+async function handleRestore(row: any) {
+  row.pending = true;
+  try {
+    await restoreInventoryApi(Number(row.id));
+    window.$message.success($t('page.product.inventory.alert.action.restore'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
+async function handlePurge(row: any) {
+  row.pending = true;
+  try {
+    await purgeInventoryApi(Number(row.id));
+    window.$message.success($t('page.product.inventory.alert.action.purge'));
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
 
 // 预警类型选项
 const alertTypeOptions = [
@@ -142,35 +185,9 @@ function getAlertTypeTag(type: string) {
   return map[type] || { label: $t('ui.unknown'), color: 'default' };
 }
 
-const gridOptions: VxeGridProps = {
-  toolbarConfig: {
-    custom: true,
-    export: true,
-    refresh: true,
-    zoom: true,
-  },
-  height: 'auto',
-  exportConfig: {},
-  pagerConfig: {},
-  cellConfig: { isHover: true } as any,
-  stripe: true,
-
-  proxyConfig: {
-    autoLoad: true,
-    ajax: {
-      query: async ({ page }, formValues) => {
-        return await getAlertListApi({
-          page: page.currentPage,
-          pageSize: page.pageSize,
-          productName: formValues.productName,
-          warehouseId: formValues.warehouseId || undefined,
-          alertType: formValues.alertType,
-        });
-      },
-    },
-  },
-
-  columns: [
+function buildColumns(): VxeGridProps['columns'] {
+  const recycleMode = activeTab.value === 'recycle';
+  return [
     { title: $t('ui.table.seq'), type: 'seq', width: 60 },
     {
       title: $t('page.product.inventory.alert.field.productName'),
@@ -222,14 +239,76 @@ const gridOptions: VxeGridProps = {
       minWidth: 130,
       slots: { default: 'alertDiff' },
     },
+    ...(recycleMode
+      ? [
+          {
+            title: $t('page.product.inventory.alert.field.deleteByName'),
+            field: 'deleteByName',
+            width: 100,
+          },
+          {
+            title: $t('page.product.inventory.alert.field.deleteTime'),
+            field: 'deleteTime',
+            width: 160,
+          },
+        ]
+      : []),
     {
       title: $t('ui.table.action'),
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 100,
+      width: recycleMode ? 120 : 100,
     },
-  ],
+  ];
+}
+
+const gridOptions: VxeGridProps = {
+  toolbarConfig: {
+    custom: true,
+    export: true,
+    refresh: true,
+    zoom: true,
+  },
+  height: 'auto',
+  exportConfig: {},
+  pagerConfig: {},
+  cellConfig: { isHover: true } as any,
+  stripe: true,
+
+  proxyConfig: {
+    autoLoad: true,
+    ajax: {
+      query: async ({ page }, formValues) => {
+        const load = async (scope: string) => {
+          const r: any = await getAlertListApi({
+            page: page.currentPage,
+            pageSize: page.pageSize,
+            productName: formValues.productName,
+            warehouseId: formValues.warehouseId || undefined,
+            alertType: formValues.alertType,
+            scope,
+          });
+          crossViewEnabled.value = Boolean(r?.crossViewEnabled);
+          isManagement.value = Boolean(r?.isManagement);
+          return r;
+        };
+        let res = await load(activeTab.value);
+        // 普通用户（无管理/互看权限）默认落在"全部库存预警"时，自动切到"我的库存预警"并加载其数据
+        if (
+          activeTab.value === 'all' &&
+          !isManagement.value &&
+          !crossViewEnabled.value
+        ) {
+          activeTab.value = 'mine';
+          res = await load('mine');
+        }
+        return res;
+      },
+    },
+  },
+
+  columns: buildColumns(),
 };
 
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
@@ -239,6 +318,22 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
   <Page auto-content-height>
     <InventoryProcessGuide current-step="alert" />
     <Grid :table-title="$t('page.product.inventory.alert.title')">
+      <template #form-header>
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList.filter(
+              (t) => t.key !== 'all' || isManagement || crossViewEnabled,
+            )"
+            :key="tab.key"
+            :tab="tab.label"
+          />
+        </Tabs>
+      </template>
+
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('product:alert:update')"
@@ -297,25 +392,46 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
       </template>
 
       <template #action="{ row }">
-        <Button
-          v-if="accessStore.hasAccessCode('product:alert:list')"
-          type="link"
-          @click="
-            router.push({
-              path: '/alert-rule',
-              query: {
-                productId: row.productId,
-                productName: row.productName,
-                ...(row.warehouseId ? { warehouseId: row.warehouseId } : {}),
-                ...(row.warehouseName
-                  ? { warehouseName: row.warehouseName }
-                  : {}),
-              },
-            })
-          "
-        >
-          {{ $t('page.product.inventory.alert.action.viewRule') }}
-        </Button>
+        <template v-if="isRecycle">
+          <Popconfirm
+            :title="$t('page.product.inventory.alert.action.restoreConfirm')"
+            :ok-text="$t('page.product.inventory.alert.action.restore')"
+            :cancel-text="$t('ui.button.cancel')"
+            @confirm="() => handleRestore(row)"
+          >
+            <Button type="link" size="small" :icon="h(LucideUndo2)" />
+          </Popconfirm>
+          <Popconfirm
+            v-if="isManagement"
+            :title="$t('page.product.inventory.alert.action.purgeConfirm')"
+            :ok-text="$t('page.product.inventory.alert.action.purge')"
+            :cancel-text="$t('ui.button.cancel')"
+            @confirm="() => handlePurge(row)"
+          >
+            <Button type="link" danger size="small" :icon="h(LucideTrash2)" />
+          </Popconfirm>
+        </template>
+        <template v-else>
+          <Button
+            v-if="accessStore.hasAccessCode('product:alert:list')"
+            type="link"
+            @click="
+              router.push({
+                path: '/alert-rule',
+                query: {
+                  productId: row.productId,
+                  productName: row.productName,
+                  ...(row.warehouseId ? { warehouseId: row.warehouseId } : {}),
+                  ...(row.warehouseName
+                    ? { warehouseName: row.warehouseName }
+                    : {}),
+                },
+              })
+            "
+          >
+            {{ $t('page.product.inventory.alert.action.viewRule') }}
+          </Button>
+        </template>
       </template>
     </Grid>
 

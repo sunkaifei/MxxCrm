@@ -146,6 +146,13 @@ Mxx-CRM 是一款现代化的客户关系管理系统，采用前后端分离架
 
 - **回款分析**：回款完成率、月度回款趋势、回款状态分析、回款排行
 
+### 8. 网站管理模块（CMS）
+
+- **内容模型**：自定义内容模型与字段（单行/多行/富文本/数字/日期/下拉/单选/多选/图片/文件），模型即建表，字段即列
+- **内容管理**：由 `modelCode` 驱动的**通用内容页**，按模型字段动态生成列表列头与表单控件，所有模型（含后续新建）零前端改动即可管理内容
+- **导航管理**：多位置导航配置、引用式解析、可见性/图标/SEO 设置
+- **前台模板**：内置模板标签 `get_model_list` / `get_model_detail` 输出动态模型内容
+
 ## 项目结构
 
 ```
@@ -363,12 +370,78 @@ mxx-crm-deploy/
 
 ```bash
 chmod +x mxx-crm
+
+# 前台启动（关闭终端即退出，Ctrl+C 停止）
 ./mxx-crm
+
+# 后台启动（生产推荐）
+nohup ./mxx-crm > mxx-crm.log 2>&1 &
+echo $! > mxx-crm.pid
 ```
 
 启动后访问 <http://localhost:8080> 即可打开系统。
 
+> 端口以运行目录下 `config/config.ini` 中 `server_port` 为准（默认 `8080`），访问地址相应调整。
+
 **注意**：启动后无需额外启动前端服务，前端页面已嵌入在二进制文件中，直接访问端口即可。
+
+### 6. 关闭
+
+**前台运行时**：在启动窗口按 `Ctrl+C` 即可停止。
+
+**后台运行时（Linux/macOS）**：
+
+```bash
+# 方式一：使用启动时记录的 PID 文件
+kill $(cat mxx-crm.pid)
+
+# 方式二：先查进程，再按 PID 停止
+ps -ef | grep mxx-crm
+kill <PID>
+
+# 方式三：按进程名停止（最简，等价于 kill 所有 mxx-crm 进程）
+pkill mxx-crm
+
+# 若进程无响应，可强制结束
+kill -9 <PID>
+pkill -9 mxx-crm
+```
+
+**Windows**：
+
+- 前台窗口：按 `Ctrl+C`，或直接关闭控制台窗口。
+- 后台运行：任务管理器中结束 `mxx-crm.exe` 进程，或执行：
+
+```powershell
+taskkill /IM mxx-crm.exe /F
+```
+
+**注意**：关闭服务前请确认没有正在执行的出入库、审批等业务操作；数据库连接会在进程退出时自动释放，无需额外清理。
+
+### 7. 常见问题：点选验证码字体加载失败（Linux）
+
+**现象**：登录页点选验证码不显示图片，提示
+
+```
+点选验证码字体加载失败: 未找到可用的 CJK 字体文件，尝试过:
+["C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/simhei.ttf", "C:/Windows/Fonts/simsun.ttc",
+ "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"]（请检查 captcha_font_path 配置）
+```
+
+**原因**：验证码用 `ab_glyph` 从本地字体文件栅格化汉字，若候选路径均为 Windows 字体（服务器上不存在），且系统未安装 CJK 字体，则加载失败。
+
+**解决办法**：把程序自带的思源黑体复制到候选路径之一（`ab_glyph` 按字节内容解析字体，不看扩展名，`.otf` 命名为 `.ttc` 一样能加载）：
+
+```bash
+mkdir -p /usr/share/fonts/truetype/noto/
+cp /home/web/mxxsaas.com/service/assets/fonts/SourceHanSansSC-Regular.otf \
+   /usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc
+ls -la /usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc
+```
+
+**无需重启程序**，回到登录页点验证码上的「点击重试」或「刷新」即可出图（字体加载失败不会缓存，每次都会重新尝试）。
+
+> 说明：新版程序已将 `assets/fonts/SourceHanSansSC-Regular.otf` 列为**首选**候选路径（相对进程工作目录），只要运行目录结构与本文档「4. 新建运行目录并复制文件」一致，即无需本节的复制操作。
 
 ## 许可证
 

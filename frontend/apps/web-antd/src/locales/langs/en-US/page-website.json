@@ -27,7 +27,7 @@
         "sync": "Sync"
       }
     },
-    "list": "Website Settings",
+    "settings": "Website Settings",
     "categoryTitle": "Category",
     "articleTitle": "Article",
     "articleFieldTitle": "Custom Fields",
@@ -131,7 +131,8 @@
         "view": "View",
         "delete": "Delete",
         "convertLead": "Convert to Lead",
-        "markProcessed": "Mark Processed"
+        "markProcessed": "Mark Processed",
+        "markIgnored": "Mark as Ignored"
       }
     },
     "links": {
@@ -156,7 +157,8 @@
       "button": {
         "view": "View",
         "edit": "Edit",
-        "toggle": "Enable/Disable"
+        "toggle": "Enable/Disable",
+        "list": "Notification List"
       }
     },
     "banner": {
@@ -206,7 +208,12 @@
         "fieldAdd": "Add Field",
         "fieldEdit": "Edit Field",
         "fieldDelete": "Delete Field",
-        "fieldView": "View Field"
+        "fieldView": "View Field",
+        "dataAdd": "Add Data",
+        "dataEdit": "Edit Data",
+        "dataList": "Data List",
+        "dataView": "View Data",
+        "dataDelete": "Delete Data"
       }
     },
     "templateVar": {
@@ -224,18 +231,57 @@
         "edit": "Edit Field",
         "delete": "Delete Field"
       }
+    },
+    "productTitle": "Products",
+    "product": {
+      "button": {
+        "view": "View",
+        "add": "Add Products",
+        "shelf": "List",
+        "offShelf": "Delist",
+        "delete": "Remove"
+      },
+      "status": {
+        "listed": "Listed",
+        "unlisted": "Delisted"
+      },
+      "form": {
+        "keywords": "Product Name",
+        "status": "Status",
+        "all": "All"
+      },
+      "picker": {
+        "title": "Select Products",
+        "added": "Already listed",
+        "confirm": "Add Selected"
+      },
+      "sortTip": "Lower values appear first"
     }
   },
   "shop": {
     "title": "Shop Management",
-    "category": "Category",
     "supplierAudit": "Supplier Audit",
     "goodsAudit": "Goods Audit",
-    "goods": "Goods Management",
     "shopList": "Shop List",
     "orderList": "Order Management",
     "settlement": "Settlement",
     "promotion": "Promotion",
-    "commissionConfig": "Commission Config"
+    "commissionConfig": "Commission Config",
+    "category": {
+      "title": "Category Management",
+      "button": {
+        "create": "Add Category",
+        "edit": "Edit Category",
+        "delete": "Delete Category"
+      }
+    },
+    "goods": {
+      "title": "Goods Management",
+      "button": {
+        "create": "Add Goods",
+        "edit": "Edit Goods",
+        "delete": "Delete Goods"
+      }
+    }
   }
 }

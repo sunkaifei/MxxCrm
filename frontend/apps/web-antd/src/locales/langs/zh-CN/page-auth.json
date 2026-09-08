@@ -35,6 +35,18 @@
     "codeLogin": "验证码登录",
     "qrcodeLogin": "二维码登录",
     "forgetPassword": "忘记密码",
-    "profile": "个人中心"
+    "profile": "个人中心",
+    "loginSecurity": {
+      "captchaTip": "请输入验证码",
+      "clickCaptchaTitle": "安全验证",
+      "clickHintPrefix": "请按顺序点击：",
+      "clickRefresh": "换一张",
+      "clickConfirm": "确认",
+      "clickCancel": "取消",
+      "clickLoadFail": "验证码加载失败",
+      "clickNeedAll": "请按顺序点击全部文字",
+      "clickVerifyFail": "验证未通过"
+    },
+    "ssoCallback": "SSO回调"
   }
 }

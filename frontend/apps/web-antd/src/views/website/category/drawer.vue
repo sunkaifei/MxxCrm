@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import type { CategorySaveDTO } from '#/api/core/shop/category';
 
 import { computed, ref } from 'vue';
 
@@ -117,6 +116,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
         optionType: 'button',
         options: [
           { label: '文章', value: 1 },
+          { label: '产品', value: 2 },
           { label: '自定义链接', value: 3 },
         ],
       },
@@ -234,11 +234,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     try {
       await (data.value?.create
-        ? categoryApi.save(values as CategorySaveDTO)
+        ? categoryApi.save(values as Record<string, any>)
         : categoryApi.update({
             ...values,
             id: data.value.row.id,
-          } as CategorySaveDTO));
+          } as Record<string, any>));
 
       message.success(data.value?.create ? '新增成功' : '更新成功');
       drawerApi.setData({ needRefresh: true });

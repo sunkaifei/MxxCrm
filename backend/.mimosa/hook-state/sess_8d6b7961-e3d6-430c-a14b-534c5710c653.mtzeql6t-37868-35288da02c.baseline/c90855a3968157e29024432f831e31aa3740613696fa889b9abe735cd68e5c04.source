@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["get_service_detail","get_service_index","get_service_list"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["csv_escape","export_salary_csv","export_salary_xlsx","export_tax_csv","export_tax_xlsx","opt_dec","opt_dec_f64"]};

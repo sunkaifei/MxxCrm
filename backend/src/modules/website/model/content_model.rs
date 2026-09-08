@@ -43,10 +43,10 @@ pub struct ContentModelSaveRequest {
     // 是否有附件
     pub has_attachment: Option<i32>,
     // 列表模板ID
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub list_template_id: Option<i64>,
     // 详情模板ID
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub detail_template_id: Option<i64>,
     // 排序
     pub sort: Option<i32>,
@@ -85,7 +85,7 @@ impl From<ContentModelSaveRequest> for ContentModelSaveDTO {
 #[serde(rename_all = "camelCase")]
 pub struct ContentModelUpdateRequest {
     // 模型ID
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub id: Option<i64>,
     // 模型编码
     pub model_code: Option<String>,
@@ -112,10 +112,10 @@ pub struct ContentModelUpdateRequest {
     // 是否有附件
     pub has_attachment: Option<i32>,
     // 列表模板ID
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub list_template_id: Option<i64>,
     // 详情模板ID
-    #[serde(deserialize_with = "deserialize_string_to_u64")]
+    #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub detail_template_id: Option<i64>,
     // 排序
     pub sort: Option<i32>,
@@ -402,6 +402,8 @@ impl ContentModelModel {
             detail_template_id: Set(dto.detail_template_id.to_owned()),
             sort: Set(dto.sort.to_owned()),
             status: Set(dto.status.to_owned()),
+            is_system: Set(Some(0)),
+            deleted: Set(Some(0)),
             create_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             ..Default::default()

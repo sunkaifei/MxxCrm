@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["inventory_info","inventory_list","register"]};

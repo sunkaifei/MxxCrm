@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["article_detail","build_canonical_url","category_page","cms_index","custom_page","get_nav_categories","get_template_text","get_template_text_with_fallback","is_mobile_request","prepare_site_and_cms","product_detail","product_list","render_html","robots_txt","search","select_template_id","sitemap","sitemap_xml"]};

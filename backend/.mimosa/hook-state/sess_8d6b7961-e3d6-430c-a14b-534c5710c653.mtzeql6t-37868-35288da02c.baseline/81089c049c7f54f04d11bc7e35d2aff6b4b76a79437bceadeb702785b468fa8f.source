@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MediaCategoryDetailVO","MediaCategoryListVO","MediaCategorySaveDTO","MediaCategorySaveRequest","MediaCategorySelectVO","MediaCategoryUpdateRequest","WebsiteMediaCategoryModel"]};

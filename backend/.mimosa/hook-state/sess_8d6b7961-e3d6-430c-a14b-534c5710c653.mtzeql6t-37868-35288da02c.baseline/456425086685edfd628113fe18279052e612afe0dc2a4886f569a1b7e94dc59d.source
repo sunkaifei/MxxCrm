@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["article","article_field","article_label_merge","article_revision","article_tag","category","comment","label"]};

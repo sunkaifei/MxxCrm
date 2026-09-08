@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MonthlyPerformanceStatsVO","MonthlyPerformanceVO","PerformanceRankingQuery","PerformanceRankingVO","PerformanceTargetBatchSaveRequest","PerformanceTargetQuery","PerformanceTargetSaveRequest","PerformanceTargetVO"]};

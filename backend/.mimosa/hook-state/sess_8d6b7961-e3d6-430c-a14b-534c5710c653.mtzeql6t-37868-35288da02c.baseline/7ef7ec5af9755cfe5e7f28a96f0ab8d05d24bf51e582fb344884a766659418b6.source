@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["apply","approve_payment","batch_delete_by_ids","cancel_apply","confirm","find_by_id","get_accessible_user_ids","get_applications","get_payment_approval_detail","get_unapplied","insert","list","reject","reject_payment","submit_payment","update"]};

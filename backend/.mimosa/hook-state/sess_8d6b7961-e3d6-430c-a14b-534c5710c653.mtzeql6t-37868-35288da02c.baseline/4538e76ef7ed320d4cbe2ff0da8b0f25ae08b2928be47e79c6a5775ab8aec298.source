@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","batch_update_dept","build_tree","collect_child_dept_ids","dept_all_tree","dept_options_tree","get_all_tree","get_dept_options","get_dept_tree","insert","select_by_admin_id","select_by_ids","update_by_id"]};

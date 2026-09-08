@@ -1,0 +1,481 @@
+{
+  "schema_version": "mimosa-task-review/v2",
+  "run_id": "20260912T203442175Z-36300-2fb1d93658d6",
+  "run_status": "inconclusive",
+  "errors": [
+    {
+      "stage": "scan",
+      "target": "src/modules/website/entity/website_product.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/model/website_product.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/service/website_product_service.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/controller/admin/website_product_admin_controller.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/controller/open/cms_open_controller.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/core/web/tags/cms_tags.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/entity/mod.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/model/mod.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/service/mod.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/controller/admin/mod.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/routes/admin_routes.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    }
+  ],
+  "coverage": {
+    "schema_version": "mimosa-hook-coverage/v1",
+    "status": "partial",
+    "scope": "hook_observed_diff",
+    "baseline": {
+      "complete": true,
+      "captured_files": 3160,
+      "candidate_limit": 5000,
+      "truncated": false,
+      "enumeration_error_count": 0,
+      "snapshot_error_count": 0,
+      "compensated_target_count": 11
+    },
+    "change_tracking": {
+      "touched_observed": 11,
+      "touched_retained": 11,
+      "truncated": false,
+      "bash_mutation": true,
+      "bash_discovered": 11,
+      "bash_discovery_limit": 80,
+      "bash_discovery_truncated": false
+    },
+    "candidates": {
+      "eligible_files": 11,
+      "selected_files": 11,
+      "limit": 20,
+      "truncated": false
+    },
+    "scanning": {
+      "required_files": 11,
+      "scanned_files": 0,
+      "skipped_files": 0,
+      "failed_files": 11,
+      "project_checks_required": 0,
+      "project_checks_completed": 0
+    },
+    "notification": {
+      "eligible_findings": 0,
+      "detailed_findings": 0,
+      "detail_limit": 3,
+      "truncated": false
+    },
+    "reason_counts": {
+      "scanner_failed": 11,
+      "project_check_failed": 11
+    },
+    "reasons": [
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/entity/website_product.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/website_product.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/website_product_service.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/admin/website_product_admin_controller.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/open/cms_open_controller.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/core/web/tags/cms_tags.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/entity/mod.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/mod.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/mod.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/admin/mod.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/routes/admin_routes.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/entity/website_product.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/website_product.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/website_product_service.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/admin/website_product_admin_controller.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/open/cms_open_controller.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/core/web/tags/cms_tags.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/entity/mod.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/mod.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/mod.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/admin/mod.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/routes/admin_routes.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      }
+    ],
+    "reasons_truncated": false
+  },
+  "generated_at": "2026-09-12T20:34:42.175Z",
+  "session_id": "sess_8d6b7961-e3d6-430c-a14b-534c5710c653",
+  "target": ".",
+  "revision": "db4867795ae0c8d25c59d169c5c1c32d6486ad28",
+  "rules_version": "unavailable",
+  "diff_hash": "1952afc2c76c1d1d7e19348ebf73aaa3bba6070952a7f8bb15272f2e9d3974a2",
+  "diff": {
+    "algorithm": "sha256",
+    "changed_file_count": 11,
+    "changed_files": [
+      {
+        "file": "src/core/web/tags/cms_tags.rs",
+        "ranges": [
+          {
+            "start": 269,
+            "end": 269
+          },
+          {
+            "start": 272,
+            "end": 280
+          }
+        ],
+        "before_hash": "abdd66745903eb1111d7405a3086908e86df1548827d373b85624b221bf0e3c2",
+        "after_hash": "437a0ec4b1846dc9cf712b17307d93cd7018c3bc40d78f393ae22f015465a471"
+      },
+      {
+        "file": "src/modules/website/controller/admin/mod.rs",
+        "ranges": [
+          {
+            "start": 35,
+            "end": 36
+          }
+        ],
+        "before_hash": "479458cdd8e18ba232f75a1b63ce6f6684be13add326d21b7b38c89ed5946292",
+        "after_hash": "6daae12bcad2ff086a2a5ef7a39749ccd9e98848bc80e8f1c3b63828811c50e2"
+      },
+      {
+        "file": "src/modules/website/controller/admin/website_product_admin_controller.rs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 96
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "7dfcc75eb28706df25b93c7f23c27b5d6e99b0a066703d2e6e6931d467a4f627"
+      },
+      {
+        "file": "src/modules/website/controller/open/cms_open_controller.rs",
+        "ranges": [
+          {
+            "start": 28,
+            "end": 28
+          },
+          {
+            "start": 321,
+            "end": 338
+          },
+          {
+            "start": 377,
+            "end": 380
+          },
+          {
+            "start": 418,
+            "end": 424
+          },
+          {
+            "start": 502,
+            "end": 503
+          },
+          {
+            "start": 628,
+            "end": 629
+          },
+          {
+            "start": 730,
+            "end": 731
+          }
+        ],
+        "before_hash": "b40568c7cc3fa17dd798204ba7f2e86c39cddb4670ef9e74a14c60a6b616be10",
+        "after_hash": "9217a8d8cf99123c1f548871db48892ace7d9d9673f4ced10819cba1ed42a9e1"
+      },
+      {
+        "file": "src/modules/website/entity/mod.rs",
+        "ranges": [
+          {
+            "start": 43,
+            "end": 43
+          }
+        ],
+        "before_hash": "4339d78fcc32d2fd73b36a957543238e10aecaafea8121d4d3734dcc0a091a2f",
+        "after_hash": "7a71bb85f92e36b253376119343b91d1eded41d939bab7cebad8a6d2208e8ffb"
+      },
+      {
+        "file": "src/modules/website/entity/website_product.rs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 37
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "530a7da78b5bb320125c64570ee580377dbd6741bcea7346c25d39d248a898e9"
+      },
+      {
+        "file": "src/modules/website/model/mod.rs",
+        "ranges": [
+          {
+            "start": 41,
+            "end": 41
+          }
+        ],
+        "before_hash": "a03183fea6243f26d47ce1e5e3b44e0d388ca5909fa816a933fa5813e0859ccc",
+        "after_hash": "7ca5ad40fab88fe090e2cc97a5e397602b9f176bf1ffa5ad13d67588e2efa45f"
+      },
+      {
+        "file": "src/modules/website/model/website_product.rs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 84
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "0735afe0d670e1968e731ea4849ec0a9fe5e224ff3977c81624f62899dc37298"
+      },
+      {
+        "file": "src/modules/website/service/mod.rs",
+        "ranges": [
+          {
+            "start": 40,
+            "end": 40
+          }
+        ],
+        "before_hash": "e2120d384efa9d2c4998e632cdf8e7ef7331e7416fe636bfe61aa4224d096610",
+        "after_hash": "b3205a942c2d64bf7ac0b9cf5fd34f4b78f248842b447db072b547781a96cde9"
+      },
+      {
+        "file": "src/modules/website/service/website_product_service.rs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 393
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "152ad203c7235a6f7e0a3dd3c68f737e106bd01599acdf9e4976cd4c993087d4"
+      },
+      {
+        "file": "src/routes/admin_routes.rs",
+        "ranges": [
+          {
+            "start": 18,
+            "end": 18
+          },
+          {
+            "start": 213,
+            "end": 214
+          }
+        ],
+        "before_hash": "431a54f7bdefee2cfdec657af31e9019048f241a5d64e5a13103fa42017efdad",
+        "after_hash": "371aa596685d7acbbdf69ce6bebf31d629a71f3c63fb8d3f3399e51687f41ac2"
+      }
+    ]
+  },
+  "timing": {
+    "started_at": "2026-09-12T20:34:35.055Z",
+    "completed_at": "2026-09-12T20:34:42.175Z",
+    "duration_ms": 7120,
+    "measurement": "hook_wall_clock"
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "model_calls": 0,
+    "measurement": "known-zero"
+  },
+  "telemetry": {
+    "schemaVersion": "mimosa-gate-telemetry/v1",
+    "profile": "gate",
+    "operation": "Stop",
+    "outcome": "partial/INCONCLUSIVE",
+    "latencyMs": 7120,
+    "peakMemoryBytes": 127754240,
+    "memoryMeasurement": "max-observed-process-rss",
+    "scannedFiles": 0,
+    "cache": {
+      "hits": 0,
+      "misses": 0,
+      "measurement": "not-applicable"
+    },
+    "denyCount": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "total": 0,
+      "modelCalls": 0,
+      "measurement": "known-zero"
+    }
+  },
+  "finding_count": 0,
+  "rewake_finding_count": 0,
+  "evidence_boundary": {
+    "scan": "candidate",
+    "static_fix_verification": "observed_static_only",
+    "runtime_verification": "not_performed"
+  },
+  "finding_events": [],
+  "findings": [],
+  "artifacts": {
+    "immutable_report": ".mimosa/reports/task-review-sess_8d6b7961-e3d6-430c-a14b-534c5710c653-20260912T203442175Z-36300-2fb1d93658d6.json",
+    "latest_report": ".mimosa/reports/task-review-sess_8d6b7961-e3d6-430c-a14b-534c5710c653.json",
+    "history_summary": ".mimosa/history/run-20260912T203442175Z-36300-2fb1d93658d6.json"
+  }
+}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_shop","get_shop_detail","get_shop_list","register","save_shop","update_shop"]};

@@ -1,0 +1,130 @@
+# -*- coding: utf-8 -*-
+# E2E: complete all employee approval flows (hire_approval + pending user_approval)
+import json, re, sys, io, time
+import urllib.request
+import msgpack
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+BASE = "http://127.0.0.1:8088"
+
+def call(method, path, token=None, body=None):
+    req = urllib.request.Request(BASE + path, method=method)
+    req.add_header("Content-Type", "application/json")
+    if token:
+        req.add_header("Authorization", "Bearer " + token)
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    try:
+        with urllib.request.urlopen(req, data=data, timeout=30) as resp:
+            return msgpack.unpackb(resp.read(), raw=False)
+    except urllib.error.HTTPError as e:
+        raise RuntimeError("HTTP %s %s body=%s" % (e.code, path, e.read()[:300]))
+
+tokens = {}
+def login(username):
+    if username in tokens:
+        return tokens[username]
+    r = call("POST", "/api/system/auth/login", body={"username": username, "password": "admin123"})
+    s = json.dumps(r, default=str)
+    toks = re.findall(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+", s)
+    assert toks, "login fail %s: %s" % (username, s[:200])
+    tokens[username] = max(toks, key=len)
+    return tokens[username]
+
+def process(tok, instance_id, comment, **extra):
+    body = {"instanceId": instance_id, "action": 1, "approverId": 0,
+            "comment": comment}
+    body.update(extra)
+    return call("POST", "/api/system/approval/process", tok, body)
+
+def detail(tok, instance_id):
+    return call("GET", "/api/system/approval/detail/%d" % instance_id, tok)
+
+def node_of(inst_detail):
+    d = inst_detail.get("data") or inst_detail
+    if isinstance(d, dict):
+        for k in ("currentNodeKey", "current_node_key"):
+            if k in d: return d.get(k), d.get("status")
+    return None, None
+
+DEPT_LEADER = {116: "ceo", 117: "sales", 118: "manager", 119: "zhangsan",
+               120: "purchase", 106: "fin_manager", 122: "hr_manager"}
+
+def walk_hire(instance_id, dept, final_salary):
+    """走完一个 hire_approval 实例：部门经理 -> 人事 -> CEO -> 财务定薪"""
+    dept_leader = DEPT_LEADER[dept]
+    steps = [
+        ("n_1787687341591_1", dept_leader,
+         dict(suggestedSalary=final_salary, probationMonths=3,
+              abilityAssessment="综合能力良好，同意入职"),
+         "同意入职，建议月薪%d" % final_salary),
+        ("hr_manager", "hr_manager",
+         dict(probationRatio="0.8"), "复核通过，试用期3个月，比例80%"),
+        ("ceo_approval", "ceo",
+         dict(ceoOpinion="同意入职定薪"), "同意"),
+        ("finance_manager", "fin_manager",
+         dict(finalSalary=final_salary, effectiveDate="2026-09-01"),
+         "定薪录入完成"),
+    ]
+    for expect_node, approver, extra, comment in steps:
+        d, st = node_of(detail(login("admin"), instance_id))
+        if st == 3:
+            return True
+        assert d == expect_node, "expect node %s got %s (status=%s)" % (expect_node, d, st)
+        tok = login(approver)
+        r = process(tok, instance_id, comment, **extra)
+        assert r.get("code") == 200, "process %s@%s fail: %s" % (instance_id, expect_node, str(r)[:300])
+    d, st = node_of(detail(login("admin"), instance_id))
+    assert st == 3, "instance %d not finished, node=%s status=%s" % (instance_id, d, st)
+    return True
+
+# ===== A. 存量 user_approval 实例 45（销售经理，node=sales_director）=====
+r = process(login("sales"), 45, "同意转正")
+print("A1. instance 45 sales_director:", r.get("code"), r.get("msg"))
+d, st = node_of(detail(login("admin"), 45))
+print("A2. instance 45 now: node=%s status=%s" % (d, st))
+if st != 3:
+    assert d == "ceo", "unexpected node %s" % d
+    r = process(login("ceo"), 45, "同意")
+    print("A3. instance 45 ceo:", r.get("code"), r.get("msg"))
+
+# ===== B. 为 11 名待审批员工提交 hire_approval 并走完 =====
+PENDING = [
+    # uid, dept, final_salary
+    (4, 116, 10000), (5, 117, 25000), (8, 120, 8000), (9, 119, 8000),
+    (10, 118, 8000), (12, 106, 8000), (13, 116, 30000), (14, 120, 7000),
+    (15, 120, 6000), (16, 122, 12000), (17, 106, 15000),
+]
+admin_tok = login("admin")
+NAME = {3:"超级管理员",4:"系统管理员",5:"销售总监",6:"销售经理",7:"业务员",8:"采购专员",
+        9:"张三",10:"李四",12:"财务专员",13:"CEO",14:"库管",15:"制单员",16:"人事经理",17:"财务经理"}
+
+# 续跑支持：已存在进行中实例的员工直接复用（文件由外部 psql 生成，行格式 instance_id|uid）
+existing = {}
+import os
+_active_file = os.path.join(os.path.dirname(__file__), "_active_instances.txt")
+if os.path.exists(_active_file):
+    for line in io.open(_active_file, encoding="utf-8"):
+        parts = line.strip().split("|")
+        if len(parts) == 2 and parts[1].isdigit():
+            existing[int(parts[1])] = int(parts[0])
+    print("reuse active instances:", existing)
+
+for uid, dept, salary in PENDING:
+    title = NAME.get(uid, str(uid))
+    if uid in existing:
+        inst_id = existing[uid]
+        print("B. user %s(%s) -> reuse instance %s" % (title, uid, inst_id))
+    else:
+        r = call("POST", "/api/system/approval/submit", admin_tok, {
+            "flowCode": "hire_approval", "businessType": "user",
+            "businessId": uid, "businessTitle": title,
+            "extraData": {"userDeptId": dept},
+        })
+        assert r.get("code") == 200, "submit fail %s: %s" % (uid, str(r)[:300])
+        inst = r.get("data")
+        inst_id = inst.get("instanceId") if isinstance(inst, dict) else inst
+        print("B. user %s(%s) -> instance %s" % (title, uid, inst_id))
+    walk_hire(int(inst_id), dept, salary)
+    print("   instance %s DONE (status=3)" % inst_id)
+
+print("ALL FLOWS COMPLETED")

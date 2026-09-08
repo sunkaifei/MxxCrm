@@ -12,6 +12,8 @@ import { Button, Image, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteBannerApi, getBannerListApi } from '#/api';
+import { useAssetDomain } from '#/composables/use-asset-domain';
+import { resolveAssetUrl } from '#/utils/asset-url';
 
 import BannerDrawer from './drawer.vue';
 
@@ -24,6 +26,7 @@ const positionOptions = [
   { label: '分类顶部', value: 'category_top' },
 ];
 
+const { assetDomain } = useAssetDomain();
 const positionMap: Record<string, string> = {
   home_top: '首页顶部',
   home_middle: '首页中部',
@@ -201,7 +204,7 @@ async function handleDelete(row: any) {
       <template #image="{ row }">
         <Image
           v-if="row.imageUrl"
-          :src="row.imageUrl"
+          :src="resolveAssetUrl(row.imageUrl, assetDomain)"
           :width="80"
           :height="50"
           fit="cover"

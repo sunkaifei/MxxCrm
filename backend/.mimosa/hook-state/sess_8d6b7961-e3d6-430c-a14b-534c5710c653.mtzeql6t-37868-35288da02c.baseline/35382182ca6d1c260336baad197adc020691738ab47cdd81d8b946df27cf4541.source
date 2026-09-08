@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["clear_output","generate_all","generate_articles","generate_categories","generate_index","register"]};

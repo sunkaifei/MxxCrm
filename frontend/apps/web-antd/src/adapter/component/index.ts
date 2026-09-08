@@ -94,6 +94,9 @@ const AutoComplete = defineAsyncComponent(
 const CodeEditor = defineAsyncComponent(
   () => import('#/components/CodeEditor/index.vue'),
 );
+const RichTextEditor = defineAsyncComponent(
+  () => import('#/components/RichTextEditor/index.vue'),
+);
 const Button = defineAsyncComponent(() => import('ant-design-vue/es/button'));
 const Checkbox = defineAsyncComponent(
   () => import('ant-design-vue/es/checkbox'),
@@ -631,6 +634,7 @@ export type ComponentType =
   | 'RadioGroup'
   | 'RangePicker'
   | 'Rate'
+  | 'RichTextEditor'
   | 'Select'
   | 'Space'
   | 'Switch'
@@ -665,6 +669,7 @@ export interface ComponentPropsMap {
   RadioGroup: RadioGroupProps;
   RangePicker: RangePickerProps;
   Rate: RateProps;
+  RichTextEditor: Record<string, any>;
   Select: SelectProps;
   Space: SpaceProps;
   Switch: SwitchProps;
@@ -707,6 +712,7 @@ async function initComponentAdapter() {
     CheckboxGroup,
     CodeEditor,
     DatePicker,
+    RichTextEditor,
     // 自定义默认按钮
     DefaultButton: (props, { attrs, slots }) => {
       return h(Button, { ...props, ...attrs, type: 'default' }, slots);

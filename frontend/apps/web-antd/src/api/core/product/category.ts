@@ -29,6 +29,7 @@ export const uploadCategoryImageApi = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('type_id', '1'); // 产品分类图片使用附件分类 id=1
+  formData.append('entity_type', 'product'); // 后端必填：业务类型（缺失时报"entity_type 不能为空"）
 
   const accessStore = useAccessStore();
   const token = accessStore.accessToken;
@@ -45,8 +46,14 @@ export const uploadCategoryImageApi = async (file: File): Promise<string> => {
     throw new Error(`Upload failed: ${resp.status} ${resp.statusText}`);
   }
 
-  const blob = await resp.arrayBuffer();
-  const { decode } = await import('@msgpack/msgpack');
-  const decoded: any = decode(new Uint8Array(blob));
-  return decoded?.data?.url || '';
+  // 修复：上传接口返回 JSON（JsonResp{code,msg,data}），此前误用 msgpack 解析导致
+  // "Extra 56 of 57 byte(s) found at buffer[1]"（JSON 文本被当作 msgpack 帧）
+  const json: any = await resp.json();
+  if (json?.code !== 200) {
+    throw new Error(json?.msg || '上传失败');
+  }
+  const data = json?.data;
+  // data 兼容字符串 URL 或对象（{url}）两种形态
+  if (typeof data === 'string') return data;
+  return data?.url || data?.fileUrl || '';
 };

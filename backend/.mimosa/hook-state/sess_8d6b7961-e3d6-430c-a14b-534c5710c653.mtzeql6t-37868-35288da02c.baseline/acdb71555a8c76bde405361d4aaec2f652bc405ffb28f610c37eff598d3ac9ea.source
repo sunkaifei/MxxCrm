@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["contact_controller","contact_edit_log_controller","contract_controller","contract_payment_plan_controller","customer_controller","customer_edit_log_controller","followup_controller","lead_controller","opportunity_controller","todo_controller","visit_controller","work_log_controller"]};

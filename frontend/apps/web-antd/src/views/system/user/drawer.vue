@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue';
 
 import { z } from '@vben/common-ui';
 
+import { useAccessStore } from '@vben/stores';
+
 import { Button, Drawer, message } from 'ant-design-vue';
 
 import { useVbenForm } from '#/adapter/form';
@@ -64,8 +66,11 @@ const genderOptions = computed(() => [
 ]);
 
 // 参保地选项：来自社保政策库的城市去重列表（P1-1 参保地归属员工档案）
+const accessStore = useAccessStore();
 const cityOptions = ref<{ label: string; value: string }[]>([]);
 async function loadCityOptions() {
+  // 政策库接口属财务权限（finance:insurance:list），无权限用户跳过加载，避免进页面就 403 弹窗；参保地下拉留空不影响其余字段
+  if (!accessStore.hasAccessCode('finance:insurance:list')) return;
   try {
     const res: any = await getInsurancePolicyListApi();
     const data = res?.data || res;
@@ -85,7 +90,6 @@ async function loadCityOptions() {
     // 政策库加载失败不阻塞员工表单，参保地可留空（届时算薪要求手工配置社保）
   }
 }
-loadCityOptions();
 
 const [BaseForm, baseFormApi] = useVbenForm({
   showDefaultActions: false,
@@ -193,11 +197,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
         maxlength: 11,
-        // 手机号仅创建时可录入，编辑时锁定，由用户登录后到用户中心自行修改
-        disabled: computed(() => !isCreate.value),
       },
-      help: () =>
-        isCreate.value ? '' : $t('page.system.user.mobileEditLocked'),
       rules: z
         .string()
         .min(1, { message: $t('ui.formRules.required') })
@@ -212,11 +212,15 @@ const [BaseForm, baseFormApi] = useVbenForm({
       componentProps: {
         placeholder: $t('ui.placeholder.input'),
         allowClear: true,
-        // 邮箱仅创建时可录入，编辑时锁定，由用户登录后到用户中心自行修改
-        disabled: computed(() => !isCreate.value),
       },
-      help: () =>
-        isCreate.value ? '' : $t('page.system.user.emailEditLocked'),
+      rules: z
+        .string()
+        .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
+          message: $t('page.system.user.emailFormatError'),
+        })
+        .or(z.literal(''))
+        .nullable()
+        .optional(),
     },
     {
       component: 'DatePicker',
@@ -488,6 +492,8 @@ const [BaseForm, baseFormApi] = useVbenForm({
 });
 
 async function handleOpen() {
+  // 参保地选项延迟到抽屉实际打开时加载（setup 阶段提前请求会让无财务权限的用户进列表页就 403）
+  loadCityOptions();
   if (isCreate.value) {
     baseFormApi.resetForm();
     baseFormApi.setValues({

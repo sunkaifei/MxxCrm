@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["admin_batch_delete","admin_detail","admin_handle","admin_list","admin_mark_refunded","apply","gen_refund_no","get_detail","user_cancel","user_list"]};

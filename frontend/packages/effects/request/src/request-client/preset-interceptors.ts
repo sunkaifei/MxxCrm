@@ -74,6 +74,8 @@ export const authenticateResponseInterceptor = ({
       if (client.isRefreshing) {
         return new Promise((resolve) => {
           client.refreshTokenQueue.push((newToken: string) => {
+            // 标记为重试请求：刷新失败后重放时不再二次触发刷新，直接进入重新认证
+            config.__isRetryRequest = true;
             config.headers.Authorization = formatToken(newToken);
             resolve(client.request(config.url, { ...config }));
           });

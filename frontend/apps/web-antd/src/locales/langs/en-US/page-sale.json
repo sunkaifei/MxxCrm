@@ -130,7 +130,10 @@
         "create": "New",
         "edit": "Edit",
         "renew": "Renew",
-        "delete": "Delete"
+        "delete": "Delete",
+        "view": "View",
+        "activate": "Activate",
+        "pause": "Pause"
       }
     },
     "invoice": {

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete","detail","handle","list","mark_refunded","register"],"struct":["MarkRefundedRequest"]};

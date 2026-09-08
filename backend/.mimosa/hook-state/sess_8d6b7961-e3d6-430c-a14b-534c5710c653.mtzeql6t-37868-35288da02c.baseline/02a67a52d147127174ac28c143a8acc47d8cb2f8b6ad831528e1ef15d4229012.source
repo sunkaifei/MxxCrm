@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","batch_update","bind_attachments","build_storage_path","build_upload_url","download_file","get_by_detail","get_by_entity","get_by_page","parse_type_id","save_file_to_local","unbind_attachments","update","upload_avatar","upload_file","upload_storage_url"]};

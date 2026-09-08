@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["delete","list","register","save_values","upsert","values"],"struct":["DeleteQuery","ValuesQuery"]};

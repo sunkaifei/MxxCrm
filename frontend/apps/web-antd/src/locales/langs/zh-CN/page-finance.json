@@ -1492,7 +1492,10 @@
         "download": "下载",
         "invalidate": "作废",
         "generate": "生成代发文件",
-        "downloadFile": "下载文件"
+        "downloadFile": "下载文件",
+        "markUploaded": "标记已上传",
+        "markReturned": "标记回盘成功",
+        "markReturnFailed": "标记回盘失败"
       },
       "bankType": {
         "icbc": "工商银行",
@@ -1510,7 +1513,11 @@
         "generating": "生成中",
         "success": "成功",
         "failed": "失败",
-        "invalidated": "已作废"
+        "invalidated": "已作废",
+        "generated": "已生成",
+        "uploaded": "已上传银行",
+        "returned": "回盘成功",
+        "returnFailed": "回盘失败"
       },
       "column": {
         "yearMonth": "年月",
@@ -1521,7 +1528,8 @@
         "totalAmount": "总金额",
         "status": "状态",
         "createTime": "生成时间",
-        "operator": "操作人"
+        "operator": "操作人",
+        "remark": "备注"
       },
       "modal": {
         "title": "银行代发文件",
@@ -1543,7 +1551,11 @@
         "loadFailed": "加载失败",
         "generateFailed": "生成失败",
         "bankTypeRequired": "请选择银行类型",
-        "noData": "暂无银行代发文件记录"
+        "noData": "暂无银行代发文件记录",
+        "markSuccess": "状态更新成功",
+        "markFailed": "状态更新失败",
+        "markConfirm": "确认将该代发文件状态更新为「{status}」吗？",
+        "remarkRequired": "请填写备注"
       },
       "guide": {
         "title": "银行代发使用说明",
@@ -1700,6 +1712,7 @@
       "column": {
         "employeeId": "员工ID",
         "employeeName": "员工姓名",
+        "postName": "岗位",
         "adjustmentDate": "调薪日期",
         "adjustmentType": "调薪类型",
         "oldBaseSalary": "原底薪",

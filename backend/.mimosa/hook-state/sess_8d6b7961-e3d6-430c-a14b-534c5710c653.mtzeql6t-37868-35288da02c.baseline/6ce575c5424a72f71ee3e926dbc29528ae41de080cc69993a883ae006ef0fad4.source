@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_refund","refund_approve","refund_cancel","refund_info","refund_insert","refund_list","refund_payment","refund_quality_check","refund_receive","refund_reject","refund_submit","refund_update","register"]};

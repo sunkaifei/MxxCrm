@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["detail","expense","list","log","register","save"],"struct":["ListQuery","LogQuery"]};

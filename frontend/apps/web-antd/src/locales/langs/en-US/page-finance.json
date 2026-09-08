@@ -1492,7 +1492,10 @@
         "download": "Download",
         "invalidate": "Invalidate",
         "generate": "Generate Payment File",
-        "downloadFile": "Download File"
+        "downloadFile": "Download File",
+        "markUploaded": "Mark Uploaded",
+        "markReturned": "Mark Returned OK",
+        "markReturnFailed": "Mark Return Failed"
       },
       "bankType": {
         "icbc": "ICBC",
@@ -1510,7 +1513,11 @@
         "generating": "Generating",
         "success": "Success",
         "failed": "Failed",
-        "invalidated": "Invalidated"
+        "invalidated": "Invalidated",
+        "generated": "Generated",
+        "uploaded": "Uploaded",
+        "returned": "Returned OK",
+        "returnFailed": "Return Failed"
       },
       "column": {
         "yearMonth": "Period",
@@ -1521,7 +1528,8 @@
         "totalAmount": "Total Amount",
         "status": "Status",
         "createTime": "Created At",
-        "operator": "Operator"
+        "operator": "Operator",
+        "remark": "Remark"
       },
       "modal": {
         "title": "Bank Payment File",
@@ -1543,7 +1551,11 @@
         "loadFailed": "Load failed",
         "generateFailed": "Generate failed",
         "bankTypeRequired": "Please select bank type",
-        "noData": "No bank payment file records"
+        "noData": "No bank payment file records",
+        "markSuccess": "Status updated",
+        "markFailed": "Failed to update status",
+        "markConfirm": "Update this file status to \"{status}\"?",
+        "remarkRequired": "Please enter a remark"
       },
       "guide": {
         "title": "Bank Export Guide",
@@ -1700,6 +1712,7 @@
       "column": {
         "employeeId": "Employee ID",
         "employeeName": "Employee Name",
+        "postName": "Position",
         "adjustmentDate": "Adjustment Date",
         "adjustmentType": "Type",
         "oldBaseSalary": "Old Base",

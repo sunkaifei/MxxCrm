@@ -27,7 +27,7 @@
         "sync": "同步"
       }
     },
-    "list": "网站设置",
+    "settings": "网站设置",
     "categoryTitle": "栏目管理",
     "articleTitle": "文章管理",
     "articleFieldTitle": "自定义字段",
@@ -65,7 +65,8 @@
         "view": "查看模板",
         "preview": "预览模板",
         "apply": "应用到网站"
-      }
+      },
+      "title": "模板"
     },
     "templateData": {
       "button": {
@@ -76,7 +77,8 @@
         "delete": "删除模板数据",
         "view": "查看模板数据",
         "revision": "版本历史"
-      }
+      },
+      "title": "模板数据"
     },
     "category": {
       "button": {
@@ -146,7 +148,8 @@
       "button": {
         "view": "查看通知",
         "edit": "编辑通知",
-        "toggle": "启用/禁用"
+        "toggle": "启用/禁用",
+        "list": "通知列表"
       }
     },
     "navigation": {
@@ -204,7 +207,12 @@
         "fieldAdd": "新增字段",
         "fieldEdit": "编辑字段",
         "fieldDelete": "删除字段",
-        "fieldView": "查看字段"
+        "fieldView": "查看字段",
+        "dataAdd": "新增数据",
+        "dataEdit": "编辑数据",
+        "dataList": "数据列表",
+        "dataView": "查看数据",
+        "dataDelete": "删除数据"
       }
     },
     "templateVar": {
@@ -222,6 +230,32 @@
         "edit": "编辑字段",
         "delete": "删除字段"
       }
+    },
+    "templateManageTitle": "模板管理",
+    "productTitle": "产品管理",
+    "product": {
+      "button": {
+        "view": "查看",
+        "add": "选择产品上架",
+        "shelf": "上架",
+        "offShelf": "下架",
+        "delete": "移除"
+      },
+      "status": {
+        "listed": "已上架",
+        "unlisted": "已下架"
+      },
+      "form": {
+        "keywords": "产品名称",
+        "status": "上架状态",
+        "all": "全部"
+      },
+      "picker": {
+        "title": "从产品库选择产品",
+        "added": "已上架",
+        "confirm": "确定添加"
+      },
+      "sortTip": "数值越小前台展示越靠前"
     }
   },
   "shop": {

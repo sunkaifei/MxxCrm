@@ -13,11 +13,11 @@ const routes: RouteRecordRaw[] = [
     path: '/website',
     children: [
       {
-        name: 'WebsiteList',
-        path: '/website/list',
+        name: 'WebsiteSettings',
+        path: '/website/settings',
         component: () => import('#/views/website/site/settings.vue'),
         meta: {
-          title: $t('page.website.list'),
+          title: $t('page.website.settings'),
         },
       },
       {
@@ -42,6 +42,14 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/website/article/index.vue'),
         meta: {
           title: $t('page.website.articleTitle'),
+        },
+      },
+      {
+        name: 'WebsiteProduct',
+        path: '/website/product',
+        component: () => import('#/views/website/product/index.vue'),
+        meta: {
+          title: $t('page.website.productTitle'),
         },
       },
       {
@@ -82,6 +90,14 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/website/content-model/index.vue'),
         meta: {
           title: $t('page.website.contentModelTitle'),
+        },
+      },
+      {
+        name: 'WebsiteContentData',
+        path: '/website/content-data',
+        component: () => import('#/views/website/content-data/index.vue'),
+        meta: {
+          title: '内容管理',
         },
       },
       {

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["article_open_controller","comment_open_controller"]};

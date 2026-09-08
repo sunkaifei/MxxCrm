@@ -292,10 +292,12 @@
         "create": "Create Transfer",
         "status": {
           "0": "Draft",
-          "1": "Pending Outbound",
-          "2": "In Transit",
-          "3": "Completed",
-          "4": "Cancelled"
+          "1": "Approving",
+          "2": "Pending Outbound",
+          "3": "Pending Inbound",
+          "4": "Completed",
+          "5": "Cancelled",
+          "6": "Rejected"
         },
         "field": {
           "transferNo": "Transfer No.",
@@ -328,6 +330,19 @@
           "targetWarehousePlaceholder": "Select target warehouse",
           "remark": "Remark",
           "remarkPlaceholder": "Enter remark"
+        },
+        "approval": {
+          "approvalTitle": "Approval",
+          "approvalHistory": "Approval History",
+          "approve": "Approve",
+          "reject": "Reject",
+          "commentPlaceholder": "Approval comment (optional)",
+          "submit": "Submit for Approval",
+          "submitSuccess": "Submitted (Warehouse Manager → CEO two-level approval)",
+          "approveSuccess": "Approved",
+          "rejectSuccess": "Rejected, returned to draft",
+          "rejectReason": "Please enter reject reason",
+          "detailTitle": "Transfer Detail"
         }
       },
       "check": {
@@ -374,7 +389,7 @@
           "checkTime": "Check Time",
           "remark": "Remark",
           "productCode": "Product Code",
-            "productName": "Product Name",
+          "productName": "Product Name",
           "productSku": "SKU",
           "systemQuantity": "System Qty",
           "actualQuantity": "Actual Qty",
@@ -434,6 +449,11 @@
         "stale": "Stale Alert",
         "expiry": "Expiry Alert",
         "frozen": "Frozen Alert",
+        "tab": {
+          "all": "All Stock Alerts",
+          "mine": "My Stock Alerts",
+          "recycle": "Recycle Bin"
+        },
         "field": {
           "productName": "Product Name",
           "warehouseName": "Warehouse Name",
@@ -448,7 +468,9 @@
           "specText": "Specs",
           "skuCode": "SKU Code",
           "sku": "SKU Scope",
-          "diff": "Alert Detail"
+          "diff": "Alert Detail",
+          "deleteByName": "Deleted By",
+          "deleteTime": "Deleted At"
         },
         "type": {
           "lowStock": "Low Stock",
@@ -459,7 +481,11 @@
           "viewRule": "View Rule",
           "edit": "Edit",
           "delete": "Delete",
-          "create": "Add Rule"
+          "create": "Add Rule",
+          "restore": "Restore",
+          "purge": "Purge",
+          "restoreConfirm": "Restore this stock record?",
+          "purgeConfirm": "This cannot be undone after purge. Continue?"
         },
         "ruleForm": {
           "productAll": "Product (empty = all products)",
@@ -518,6 +544,10 @@
         "turnover": "Turnover Rate",
         "staleList": "Stale Stock List",
         "costReport": "Cost Report",
+        "scope": {
+          "all": "All Reports",
+          "mine": "My Warehouse Reports"
+        },
         "field": {
           "productName": "Product Name",
           "warehouseName": "Warehouse Name",
@@ -650,6 +680,9 @@
       "title": "Inventory Alert",
       "rule": {
         "title": "Alert Rules"
+      },
+      "action": {
+        "viewRule": "View Rule"
       }
     },
     "report": {

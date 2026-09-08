@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["approve_expense","batch_delete","batch_delete_type","build_save_dto","calculate_expense_amount","get_detail","get_list","get_type_list","insert","make_payment","reject_expense","save_type","submit_expense","update"]};

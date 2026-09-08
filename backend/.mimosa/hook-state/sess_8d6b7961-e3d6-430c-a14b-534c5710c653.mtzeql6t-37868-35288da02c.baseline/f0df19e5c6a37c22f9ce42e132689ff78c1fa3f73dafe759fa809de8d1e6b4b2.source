@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CategoryDetailVO","CategoryModel","CategoryOptionsVO","CategoryPageDTO","CategoryPageRequest","CategorySaveDTO","CategorySaveRequest","CategoryTreeVO","CategoryUpdateRequest"]};

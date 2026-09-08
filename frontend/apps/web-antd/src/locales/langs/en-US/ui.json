@@ -9,10 +9,12 @@
     "select": "Please select",
     "all": "All",
     "startDate": "Start date",
-    "endDate": "End date"
+    "endDate": "End date",
+    "search": "Enter search keywords"
   },
   "formRules": {
-    "required": "This field is required"
+    "required": "This field is required",
+    "selectAtLeastOne": "{name} is required, select at least one"
   },
   "tree": {
     "select_all": "Select All",
@@ -33,7 +35,8 @@
     "remark": "Remark",
     "description": "Description",
     "password": "Password",
-    "auth": "Auth"
+    "auth": "Auth",
+    "total": "{total} records in total"
   },
   "switch": {
     "on": "ON",
@@ -57,7 +60,10 @@
     "delete": "Delete {moduleName}",
     "search": "Search",
     "upload": "Upload Material",
-    "batch_delete": "Batch Delete"
+    "batch_delete": "Batch Delete",
+    "close": "Close",
+    "confirm": "Confirm",
+    "refresh": "Refresh"
   },
   "modal": {
     "create": "Create {moduleName}",
@@ -75,7 +81,8 @@
     "update_status_success": "Update Status Success",
     "update_status_failed": "Update Status Failed",
     "no_auth": "Please select the permissions to be assigned",
-    "select_row": "Please select rows to operate"
+    "select_row": "Please select rows to operate",
+    "edit_success": "Updated successfully"
   },
   "text": {
     "do_you_want_delete": "Do you want to delete the {moduleName}?",

@@ -29,6 +29,7 @@ import {
   generateBankExcelFileApi,
   generateBankFileApi,
   getBankExportListApi,
+  markBankFileStatusApi,
 } from '#/api/core/finance';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { $t } from '#/locales';
@@ -68,14 +69,18 @@ const bankTypeLabelMap: Record<string, string> = {
   abc: $t('page.finance.bankExport.bankType.abc'),
 };
 
-// 状态映射：0=生成中,1=成功,2=失败
+// T2.5 状态机：1=已生成 2=已上传银行 3=回盘成功 4=回盘失败
 const statusMap: Record<number, { color: string; label: string }> = {
-  0: {
-    label: $t('page.finance.bankExport.status.generating'),
+  1: {
+    label: $t('page.finance.bankExport.status.generated'),
     color: 'processing',
   },
-  1: { label: $t('page.finance.bankExport.status.success'), color: 'success' },
-  2: { label: $t('page.finance.bankExport.status.failed'), color: 'error' },
+  2: { label: $t('page.finance.bankExport.status.uploaded'), color: 'warning' },
+  3: { label: $t('page.finance.bankExport.status.returned'), color: 'success' },
+  4: {
+    label: $t('page.finance.bankExport.status.returnFailed'),
+    color: 'error',
+  },
 };
 
 // ===== 列表数据 =====
@@ -181,6 +186,47 @@ function handleDownload(id: number) {
   window.open(downloadBankFileApi(id), '_blank');
 }
 
+// ===== T2.5 状态流转 =====
+const markVisible = ref(false);
+const markLoading = ref(false);
+const markForm = reactive({
+  id: 0,
+  status: 2,
+  remark: '',
+});
+
+function openMark(record: any, status: number) {
+  markForm.id = record.id;
+  markForm.status = status;
+  markForm.remark = '';
+  markVisible.value = true;
+}
+
+async function handleMarkStatus() {
+  // 回盘失败必须填写原因（留痕）
+  if (markForm.status === 4 && !markForm.remark.trim()) {
+    message.warning($t('page.finance.bankExport.message.remarkRequired'));
+    return;
+  }
+  markLoading.value = true;
+  try {
+    await markBankFileStatusApi({
+      id: markForm.id,
+      status: markForm.status,
+      remark: markForm.remark.trim() || undefined,
+    });
+    message.success($t('page.finance.bankExport.message.markSuccess'));
+    markVisible.value = false;
+    loadList();
+  } catch (error: any) {
+    message.error(
+      error?.message || $t('page.finance.bankExport.message.markFailed'),
+    );
+  } finally {
+    markLoading.value = false;
+  }
+}
+
 const columns: ColumnsType = [
   {
     title: $t('page.finance.bankExport.column.yearMonth'),
@@ -229,9 +275,15 @@ const columns: ColumnsType = [
     width: 100,
   },
   {
+    title: $t('page.finance.bankExport.column.remark'),
+    dataIndex: 'remark',
+    ellipsis: true,
+    customRender: ({ text }: any) => text || '-',
+  },
+  {
     title: $t('page.finance.common.action'),
     key: 'action',
-    width: 100,
+    width: 280,
     fixed: 'right',
   },
 ];
@@ -325,15 +377,36 @@ onMounted(() => {
             </Tag>
           </template>
           <template v-else-if="column.key === 'action'">
-            <Button
-              v-if="record.status === 1"
-              type="link"
-              size="small"
-              @click="handleDownload(record.id)"
-            >
+            <Button type="link" size="small" @click="handleDownload(record.id)">
               {{ $t('page.finance.bankExport.button.download') }}
             </Button>
-            <span v-else class="text-gray-400">-</span>
+            <template
+              v-if="accessStore.hasAccessCode('finance:bank-export:manage')"
+            >
+              <!-- T2.5: 1→2 标记已上传银行 -->
+              <Button
+                v-if="record.status === 1"
+                type="link"
+                size="small"
+                @click="openMark(record, 2)"
+              >
+                {{ $t('page.finance.bankExport.button.markUploaded') }}
+              </Button>
+              <!-- T2.5: 2→3/4 回盘结果 -->
+              <template v-if="record.status === 2">
+                <Button type="link" size="small" @click="openMark(record, 3)">
+                  {{ $t('page.finance.bankExport.button.markReturned') }}
+                </Button>
+                <Button
+                  danger
+                  type="link"
+                  size="small"
+                  @click="openMark(record, 4)"
+                >
+                  {{ $t('page.finance.bankExport.button.markReturnFailed') }}
+                </Button>
+              </template>
+            </template>
           </template>
         </template>
         <template #emptyText>
@@ -453,6 +526,30 @@ onMounted(() => {
             {{ $t('page.finance.bankExport.button.downloadFile') }}
           </Button>
         </div>
+      </div>
+    </Modal>
+    <!-- T2.5: 代发文件状态流转弹窗 -->
+    <Modal
+      v-model:open="markVisible"
+      :title="statusMap[markForm.status]?.label"
+      :confirm-loading="markLoading"
+      @ok="handleMarkStatus"
+    >
+      <div class="py-4">
+        <FormItem
+          :label="$t('page.finance.bankExport.column.remark')"
+          :required="markForm.status === 4"
+        >
+          <Input.TextArea
+            v-model:value="markForm.remark"
+            :rows="4"
+            :placeholder="
+              markForm.status === 4
+                ? $t('page.finance.bankExport.message.remarkRequired')
+                : ''
+            "
+          />
+        </FormItem>
       </div>
     </Modal>
   </Page>

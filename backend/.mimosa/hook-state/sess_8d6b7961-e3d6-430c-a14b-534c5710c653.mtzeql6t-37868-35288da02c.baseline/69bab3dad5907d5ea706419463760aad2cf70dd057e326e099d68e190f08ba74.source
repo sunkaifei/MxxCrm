@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["recalculate_amounts"],"struct":["QuotationApprovalModel","QuotationApprovalVO","QuotationDetailVO","QuotationItemModel","QuotationItemSaveDTO","QuotationListQuery","QuotationListVO","QuotationModel","QuotationSaveDTO","QuotationSaveRequest","QuotationUpdateRequest"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["deserialize_option_string_to_u64"],"struct":["ShipmentDetailVO","ShipmentItemModel","ShipmentItemSaveDTO","ShipmentItemVO","ShipmentListQuery","ShipmentListVO","ShipmentModel","ShipmentSaveDTO","ShipmentSaveRequest","ShipmentUpdateRequest"]};

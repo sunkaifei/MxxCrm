@@ -11,6 +11,7 @@ import { computed, h, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import {
+  LucideCheckCircle,
   LucideFilePenLine,
   LucideFileText,
   LucideGlobe,
@@ -20,6 +21,7 @@ import {
   LucideMoreHorizontal,
   LucideSearch,
   LucideSettings,
+  LucideUndo2,
   LucideUpload,
 } from '@vben/icons';
 
@@ -49,6 +51,8 @@ import {
   templateApi,
 } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
+import { useAssetDomain } from '#/composables/use-asset-domain';
+import { normalizeAssetDomain } from '#/utils/asset-url';
 import CodeEditor from '#/components/CodeEditor/index.vue';
 
 // ============ 加载状态 ============
@@ -267,11 +271,14 @@ const urlRulePatternPlaceholder =
   '仅在"自定义"模式下生效。可用占位符：{module} {id} {page} {category}，如 /{category}/{id}.html';
 
 // ============ 主表单数据（直接响应式对象，DEDECMS 风格自定义布局）============
+const { refreshAssetDomain } = useAssetDomain();
+
 const formData = ref<Record<string, any>>({
   siteName: '',
   logo: '',
   domain: '',
   bindDomain: '',
+  assetDomain: '',
   siteMode: 1,
   client: 1,
   showBanner: 1,
@@ -449,6 +456,13 @@ async function handleSave() {
     message.warning('请输入网站名称');
     return;
   }
+  // 资源访问域名：规范化 + 协议校验（附件URL统一方案 v1.1 §7.1）
+  formData.value.assetDomain = normalizeAssetDomain(formData.value.assetDomain);
+  if (formData.value.assetDomain && !/^https?:\/\//i.test(formData.value.assetDomain)) {
+    activeKey.value = 'basic';
+    message.warning('资源访问域名必须包含协议，如 https://cdn.example.com');
+    return;
+  }
   saving.value = true;
   try {
     const values: Record<string, any> = {
@@ -470,6 +484,8 @@ async function handleSave() {
     await siteApi.updateCurrent(values);
     // 同步保存通知配置
     await saveNotifications();
+    // 附件URL统一方案 v1.1：assetDomain 变更后刷新全局缓存，其他页面立即可见
+    await refreshAssetDomain();
     message.success('保存成功');
     await loadSite();
   } catch {
@@ -530,17 +546,6 @@ const statusTagText = computed(() =>
               <Tag :color="statusTagColor">{{ statusTagText }}</Tag>
             </div>
           </div>
-        </div>
-        <div class="status-right">
-          <Button :loading="loading" @click="handleReset">重置</Button>
-          <Button
-            type="primary"
-            :icon="h(LucideFilePenLine)"
-            :loading="saving"
-            @click="handleSave"
-          >
-            保存设置
-          </Button>
         </div>
       </div>
 
@@ -628,6 +633,21 @@ const statusTagText = computed(() =>
                         allow-clear
                       />
                       <p class="field-tip">自定义域名，需要先做 DNS 解析</p>
+                    </div>
+                    <div class="form-item">
+                      <label class="form-label">资源访问域名</label>
+                      <Input
+                        v-model:value="formData.assetDomain"
+                        name="assetDomain"
+                        autocomplete="off"
+                        placeholder="留空=同源相对路径（局域网直启）；或 https://cdn.example.com"
+                        allow-clear
+                        @blur="formData.assetDomain = normalizeAssetDomain(formData.assetDomain)"
+                      />
+                      <p class="field-tip">
+                        附件/图片 URL 前缀。留空则同源相对路径；配置公网域名 / CDN 后，
+                        前台与后台的附件地址自动拼接该前缀（需含 http/https 协议）
+                      </p>
                     </div>
                   </div>
                 </Card>
@@ -1342,15 +1362,33 @@ const statusTagText = computed(() =>
         </section>
       </div>
 
-      <!-- 底部固定保存条 -->
-      <div class="site-footer-bar">
-        <div class="footer-tip">
-          <span v-if="saving">保存中...</span>
-          <span v-else>修改后请点击右侧按钮保存</span>
+      <!-- 底部操作卡片：随页面滚动，不悬浮不遮罩 -->
+      <div class="site-save-bar">
+        <div class="save-hint">
+          <div class="save-hint-icon-wrap">
+            <LucideCheckCircle class="save-hint-icon" aria-hidden="true" />
+          </div>
+          <div class="save-hint-text">
+            <span class="save-hint-title">设置修改后记得保存</span>
+            <span class="save-hint-desc">
+              保存后立即生效；重置将放弃未保存的修改
+            </span>
+          </div>
         </div>
-        <div class="footer-actions">
-          <Button :disabled="saving" @click="handleReset">重置</Button>
-          <Button type="primary" :loading="saving" @click="handleSave">
+        <div class="save-actions">
+          <Button
+            :disabled="saving"
+            :icon="h(LucideUndo2)"
+            @click="handleReset"
+          >
+            重置
+          </Button>
+          <Button
+            type="primary"
+            :icon="h(LucideFilePenLine)"
+            :loading="saving"
+            @click="handleSave"
+          >
             保存设置
           </Button>
         </div>
@@ -1425,8 +1463,9 @@ const statusTagText = computed(() =>
 .site-settings-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: calc(100vh - 88px);
+  /* min-height 而非 height：内容少时撑满视口（保存卡片贴底），
+     内容多时整页一起滚动，状态条随内容滚走，不固定悬停 */
+  min-height: 100%;
   background: hsl(var(--background-deep));
   transition: background 0.3s ease;
 }
@@ -1531,17 +1570,83 @@ const statusTagText = computed(() =>
   border-radius: 50%;
 }
 
-.status-right {
-  display: flex;
-  gap: 8px;
-}
-
 /* ========== 主体布局（Tab 模式） ========== */
+/* 不设内部滚动：整页（状态条 + 选项卡 + 保存卡片）作为一个整体滚动 */
 .site-settings-body {
   display: flex;
   flex: 1;
-  min-height: 0;
-  padding-bottom: 100px;
+  padding-bottom: 14px;
+}
+
+/* ========== 底部操作卡片 ========== */
+.site-save-bar {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 14px 20px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-top: 2px solid hsl(var(--primary));
+  border-radius: 10px;
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 4%);
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.save-hint {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.save-hint-icon-wrap {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 10%);
+  border-radius: 8px;
+}
+
+.save-hint-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.save-hint-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.save-hint-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: hsl(var(--foreground));
+}
+
+.save-hint-desc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: hsl(var(--muted-foreground));
+}
+
+.save-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  margin-left: auto;
 }
 
 /* Tab 容器 */
@@ -1982,36 +2087,6 @@ const statusTagText = computed(() =>
   flex-direction: column;
 }
 
-/* ========== 底部固定条 ========== */
-.site-footer-bar {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  background: hsl(var(--card));
-  border-top: 1px solid hsl(var(--border));
-  box-shadow: 0 -2px 12px hsl(var(--foreground) / 6%);
-  backdrop-filter: blur(8px);
-  transition:
-    background 0.3s ease,
-    border-color 0.3s ease;
-}
-
-.footer-tip {
-  font-size: 13px;
-  color: hsl(var(--muted-foreground));
-}
-
-.footer-actions {
-  display: flex;
-  gap: 8px;
-}
-
 /* 预览iframe */
 .preview-iframe-wrap {
   min-height: 600px;
@@ -2117,9 +2192,14 @@ const statusTagText = computed(() =>
     align-items: flex-start;
   }
 
-  .status-right {
+  .site-save-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .save-actions {
+    margin-left: 0;
     justify-content: flex-end;
-    width: 100%;
   }
 
   .site-tabs :deep(.ant-tabs-nav) {

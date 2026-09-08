@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AreaCascaderVO","AreaDetailVO","AreaListQuery","AreaModel","AreaSaveDTO","AreaSaveRequest","AreaTreeVO","AreaUpdateRequest"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["RefundRecordDTO","RefundRecordModel","RefundRecordQuery","RefundRecordSaveRequest"]};

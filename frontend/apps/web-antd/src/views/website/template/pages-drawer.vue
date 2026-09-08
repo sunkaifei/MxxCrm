@@ -111,16 +111,18 @@ function handlePageSizeChange(_current: number, size: number) {
   loadPages();
 }
 
-// 类型映射
+// 类型映射（T-P0.2：与后端渲染槽位一致——4=模板片段、6=栏目封面/自定义页；9=前台登录、12=购物车）
 const typeOptions = [
   { value: 1, label: '首页', color: 'blue' },
   { value: 2, label: '列表页', color: 'cyan' },
   { value: 3, label: '内容页', color: 'green' },
-  { value: 4, label: '栏目封面', color: 'purple' },
+  { value: 4, label: '模板片段', color: 'purple' },
   { value: 5, label: '报价页', color: 'orange' },
-  { value: 6, label: '专题', color: 'red' },
+  { value: 6, label: '栏目封面/自定义页', color: 'red' },
   { value: 7, label: '产品列表', color: 'geekblue' },
   { value: 8, label: '产品详情', color: 'lime' },
+  { value: 9, label: '前台登录页', color: 'magenta' },
+  { value: 12, label: '购物车页', color: 'gold' },
   { value: 14, label: '页头', color: 'gold' },
   { value: 15, label: '页脚', color: 'volcano' },
 ];

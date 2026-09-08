@@ -29,7 +29,7 @@ import {
 } from '#/api/core/message/chat';
 import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
-import LoginForm from '#/views/_core/authentication/login.vue';
+import LoginForm from '#/views/base/authentication/login.vue';
 
 const notifications = ref<NotificationItem[]>([]);
 const chatSessions = ref<ChatSessionDTO[]>([]);

@@ -22,16 +22,21 @@ import {
   Select,
   Tabs,
   Tag,
+  Textarea,
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
-  addLeadToPoolApi,
   convertLeadToCustomerApi,
   deleteLeadApi,
   getLeadListApi,
   performBackgroundCheckApi,
 } from '#/api';
+import {
+  releasePoolLeadsApi,
+  submitRetainApplyApi,
+} from '#/api/core/crm/lead-pool';
+import { getMyPoolsApi } from '#/api/core/crm/pool';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
@@ -294,6 +299,18 @@ const gridOptions: VxeGridProps = {
           setTimeout(() => syncFixedColumn(), 200);
           setTimeout(() => syncFixedColumn(), 500);
         });
+        // 无数据固定 600px（空态居中）；有数据默认 600px，内容超过则响应式撑高
+        const items = (result as any)?.items ?? [];
+        const gridEl = gridApi.grid?.$el as HTMLElement | undefined;
+        if (gridEl) {
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '600px', 'important');
+            gridEl.style.removeProperty('min-height');
+          } else {
+            gridEl.style.removeProperty('height');
+            gridEl.style.setProperty('min-height', '600px', 'important');
+          }
+        }
         return result;
       },
     },
@@ -416,11 +433,30 @@ function handleBatchTransfer() {
     message.warning('请先选择要转移的线索');
     return;
   }
-  transferLeadIds.value = records.map((r: any) => r.id);
+  // 已转客户（status=3 或 convertedToCustomerId 非空）的线索由客户档案承接，不可转移：
+  // 批量选择时自动跳过并提示，避免后端整批拒绝
+  const blocked = records.filter(
+    (r: any) => r.status === 3 || r.convertedToCustomerId,
+  );
+  const ok = records.filter(
+    (r: any) => !(r.status === 3 || r.convertedToCustomerId),
+  );
+  if (!ok.length) {
+    message.warning('所选线索均为已转客户线索，无法转移');
+    return;
+  }
+  if (blocked.length) {
+    message.warning(`已自动跳过 ${blocked.length} 条已转客户的线索`);
+  }
+  transferLeadIds.value = ok.map((r: any) => r.id);
   transferVisible.value = true;
 }
 
 function handleTransfer(row: any) {
+  if (row.status === 3 || row.convertedToCustomerId) {
+    message.warning('该线索已转为客户，不能转移');
+    return;
+  }
   transferLeadIds.value = [row.id];
   transferVisible.value = true;
 }
@@ -438,14 +474,20 @@ function onTransferSuccess({
   gridApi.query();
 }
 
-// ===== 退回线索池（原因类型必选，选"其他"需补充说明）=====
+// ===== 退回公海（v3.0：原因类型 + 多池时目标池选择，默认回原公海池）=====
 const poolReasonVisible = ref(false);
 const poolReasonSubmitting = ref(false);
 const poolReasonRow = ref<null | { id: number | string }>(null);
+const releaseTargetPoolId = ref<string | undefined>(undefined);
+const myReleasePools = ref<{ id?: string; name?: string }[]>([]);
 
-function openPoolReason(row: any) {
+const showReleaseTarget = computed(() => myReleasePools.value.length > 1);
+
+async function openPoolReason(row: any) {
   poolReasonRow.value = row;
+  releaseTargetPoolId.value = undefined;
   poolReasonVisible.value = true;
+  myReleasePools.value = (await getMyPoolsApi()) || [];
 }
 
 async function onPoolReasonConfirm({
@@ -456,18 +498,70 @@ async function onPoolReasonConfirm({
   reasonType?: number;
 }) {
   const row = poolReasonRow.value;
-  if (!row) return;
-  if (reasonType === undefined) return;
+  if (!row || reasonType === undefined) return;
   poolReasonSubmitting.value = true;
   try {
-    await addLeadToPoolApi({ id: Number(row.id), reason, reasonType });
-    message.success('已退回线索池');
+    const results = await releasePoolLeadsApi({
+      ids: [row.id],
+      reason,
+      reasonType,
+      targetPoolId: releaseTargetPoolId.value || undefined,
+    });
+    const first = Array.isArray(results) ? (results[0] as any) : null;
+    if (first && first.success === false) {
+      message.warning(first.message || '退回失败');
+    } else {
+      message.success('已退回公海');
+    }
     poolReasonVisible.value = false;
     gridApi.query();
   } catch {
-    message.error('操作失败');
+    // 全局拦截器处理错误消息
   } finally {
     poolReasonSubmitting.value = false;
+  }
+}
+
+// ===== 延期保留申请（v3.0：私海线索保留延期，审批通过后回收时点顺延）=====
+const retainVisible = ref(false);
+const retainSaving = ref(false);
+const retainIds = ref<(number | string)[]>([]);
+const retainDays = ref<number>(7);
+const retainReason = ref('');
+
+const retainDaysOptions = [7, 15, 30, 60].map((d) => ({
+  label: `延长 ${d} 天`,
+  value: d,
+}));
+
+function openRetain(rows: any[]) {
+  retainIds.value = rows.map((r) => r.id);
+  retainDays.value = 7;
+  retainReason.value = '';
+  retainVisible.value = true;
+}
+
+function handleBatchRetain() {
+  const records = gridApi.grid?.getCheckboxRecords();
+  if (!records?.length) {
+    message.warning('请先选择要申请延期的线索');
+    return;
+  }
+  openRetain(records);
+}
+
+async function submitRetain() {
+  retainSaving.value = true;
+  try {
+    await submitRetainApplyApi(
+      retainIds.value,
+      retainDays.value,
+      retainReason.value.trim() || undefined,
+    );
+    message.success('延期申请已提交，等待审批');
+    retainVisible.value = false;
+  } finally {
+    retainSaving.value = false;
   }
 }
 
@@ -737,6 +831,16 @@ function handleDeleteConfirm(row: any) {
         <Button
           v-if="
             !isSubordinateView &&
+            accessStore.hasAccessCode('crm:lead-pool:retain')
+          "
+          class="mr-2"
+          @click="handleBatchRetain"
+        >
+          批量延期
+        </Button>
+        <Button
+          v-if="
+            !isSubordinateView &&
             accessStore.hasAccessCode('crm:lead:delete')
           "
           @click="handleBatchDelete"
@@ -807,13 +911,23 @@ function handleDeleteConfirm(row: any) {
                 <div
                   v-if="
                     !isSubordinateView &&
-                    accessStore.hasAccessCode('crm:lead:pool')
+                    accessStore.hasAccessCode('crm:lead-pool:retain')
+                  "
+                  class="more-menu-item"
+                  @click="() => openRetain([row])"
+                >
+                  <span>申请延期</span>
+                </div>
+                <div
+                  v-if="
+                    !isSubordinateView &&
+                    accessStore.hasAccessCode('crm:lead-pool:release')
                   "
                   class="more-menu-item"
                   :class="{ disabled: row.status === 4 }"
                   @click="() => row.status !== 4 && openPoolReason(row)"
                 >
-                  <span>退回线索池</span>
+                  <span>退回公海</span>
                 </div>
                 <div
                   v-if="
@@ -821,6 +935,9 @@ function handleDeleteConfirm(row: any) {
                     accessStore.hasAccessCode('crm:lead:transfer')
                   "
                   class="more-menu-item"
+                  :class="{
+                    disabled: row.status === 3 || !!row.convertedToCustomerId,
+                  }"
                   @click="() => handleTransfer(row)"
                 >
                   <span>转移</span>
@@ -878,15 +995,61 @@ function handleDeleteConfirm(row: any) {
       @success="onTransferSuccess"
     />
 
-    <!-- 退回线索池原因弹窗 -->
+    <!-- 退回公海原因弹窗（多池时可选择目标池，默认回原公海池） -->
     <ReasonFormModal
       v-model:visible="poolReasonVisible"
-      title="退回线索池"
+      title="退回公海"
       mode="pool"
       ok-text="确认退回"
       :submitting="poolReasonSubmitting"
       @confirm="onPoolReasonConfirm"
-    />
+    >
+      <template #top>
+        <div v-if="showReleaseTarget" class="release-target-section">
+          <div class="release-target-title">
+            <span class="release-target-bar"></span>
+            <span>退回目标池</span>
+          </div>
+          <Select
+            v-model:value="releaseTargetPoolId"
+            class="release-target-select"
+            placeholder="默认退回原公海池"
+            allow-clear
+            :options="
+              myReleasePools.map((p) => ({
+                label: p.name || p.id,
+                value: p.id,
+              }))
+            "
+          />
+        </div>
+      </template>
+    </ReasonFormModal>
+
+    <!-- 延期保留申请弹窗 -->
+    <Modal
+      v-model:open="retainVisible"
+      title="申请延期保留"
+      :confirm-loading="retainSaving"
+      ok-text="提交申请"
+      @ok="submitRetain"
+    >
+      <p class="mb-2 text-gray-500">
+        将为 {{ retainIds.length }} 条线索申请延长保留期，审批通过后回收时点顺延：
+      </p>
+      <Select
+        v-model:value="retainDays"
+        class="mb-3 w-full"
+        :options="retainDaysOptions"
+        placeholder="请选择延长天数"
+      />
+      <Textarea
+        v-model:value="retainReason"
+        :rows="3"
+        :maxlength="200"
+        placeholder="延期理由（选填，如：客户决策周期较长）"
+      />
+    </Modal>
   </Page>
 </template>
 
@@ -1083,6 +1246,33 @@ function handleDeleteConfirm(row: any) {
   height: 1px;
   margin: 4px 0;
   background: #f0f0f0;
+}
+
+/* ============ 退回目标池选择区（ReasonFormModal #top 插槽内容） ============ */
+.release-target-section {
+  margin-bottom: 20px;
+}
+
+.release-target-title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #262626;
+}
+
+.release-target-bar {
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  background: #1677ff;
+  border-radius: 2px;
+}
+
+.release-target-select {
+  width: 100%;
 }
 
 :deep(.vxe-table--fixed-right-wrapper .vxe-body--column .vxe-cell) {

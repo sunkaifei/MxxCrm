@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CancelRequest","OrderListQuery","cancel","confirm_receive","create","detail","list"]};

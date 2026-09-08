@@ -138,6 +138,7 @@ const categories = [
   { key: 'invoice', label: '开票配置' },
   { key: 'notification', label: '通知配置' },
   { key: 'exchange_rate', label: '汇率配置' },
+  { key: 'auth', label: '第三方登录' },
   { key: 'ai', label: 'AI 配置' },
 ];
 
@@ -363,7 +364,41 @@ interface ConfigField {
   type: string;
   required?: boolean;
   options?: string[];
+  hint?: string;
 }
+
+// ─── 第三方登录配置引导（说明 + 注册/管理地址） ───
+const CONFIG_GUIDES: Record<
+  string,
+  { desc: string; links: Array<{ label: string; url: string }> }
+> = {
+  wecom: {
+    desc: '用于企业微信扫码登录。需先在管理后台「应用管理」创建自建应用，并将本系统的回调地址配置到应用的「网页授权及JS-SDK可信域名」以及「企业可信IP」，随后在应用详情页获取下方三项凭证。',
+    links: [
+      {
+        label: '注册 / 登录企业微信管理后台',
+        url: 'https://work.weixin.qq.com/',
+      },
+      {
+        label: '企业信息（查看 CorpID）',
+        url: 'https://work.weixin.qq.com/wework_admin/frame',
+      },
+    ],
+  },
+  dingtalk: {
+    desc: '用于钉钉扫码登录。需先注册钉钉开放平台账号，在「应用开发 → 企业内部应用」创建应用并开通「登录与分享」权限，将本系统的回调地址填入应用的「登录回调域名」，随后在应用详情的「凭证与基础信息」中获取下方两项凭证。',
+    links: [
+      {
+        label: '注册 / 登录钉钉开放平台',
+        url: 'https://open-dev.dingtalk.com/',
+      },
+      {
+        label: '企业内部应用管理',
+        url: 'https://open-dev.dingtalk.com/fe/app#/corp/app',
+      },
+    ],
+  },
+};
 
 function getConfigFields(code: string): ConfigField[] {
   // 提示词：只渲染 content 长文本
@@ -454,6 +489,45 @@ function getConfigFields(code: string): ConfigField[] {
       { key: 'api_key', label: 'API Key', type: 'password', required: true },
       { key: 'secret_key', label: 'Secret Key', type: 'password', required: true },
       { key: 'model', label: '模型', type: 'text' },
+    ],
+    wecom: [
+      {
+        key: 'corp_id',
+        label: '企业ID (CorpID)',
+        type: 'text',
+        required: true,
+        hint: '管理后台「我的企业 → 企业信息」页面底部可查看',
+      },
+      {
+        key: 'agent_id',
+        label: '应用AgentId',
+        type: 'text',
+        required: true,
+        hint: '自建应用详情页「AgentId」处查看',
+      },
+      {
+        key: 'corp_secret',
+        label: '应用Secret',
+        type: 'password',
+        required: true,
+        hint: '自建应用详情页「Secret」处查看或获取',
+      },
+    ],
+    dingtalk: [
+      {
+        key: 'app_key',
+        label: '应用Key (ClientId)',
+        type: 'text',
+        required: true,
+        hint: '应用详情页「凭证与基础信息」中的 AppKey',
+      },
+      {
+        key: 'app_secret',
+        label: '应用Secret (ClientSecret)',
+        type: 'password',
+        required: true,
+        hint: '应用详情页「凭证与基础信息」中的 AppSecret',
+      },
     ],
     ecb: [] as ConfigField[],
   };
@@ -625,9 +699,31 @@ function renderConfigCard(item: any, opts?: { deletable: boolean }) {
           // 提示词：只有 content 长文本 → 占满宽度
           const gridCols =
             item.integrationCode.startsWith('prompt_') ? 'grid-cols-1' : 'grid-cols-2';
+          const guide = CONFIG_GUIDES[item.integrationCode];
 
           return (
             <>
+              {/* 配置指引：说明 + 注册/管理地址 */}
+              {guide ? (
+                <div class="mb-3 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-3 py-2">
+                  <div class="text-xs leading-relaxed text-[hsl(var(--muted-foreground))]">
+                    {guide.desc}
+                  </div>
+                  <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                    {guide.links.map((link) => (
+                      <a
+                        class="text-[hsl(var(--primary))] hover:underline"
+                        href={link.url}
+                        key={link.url}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        {link.label} ↗
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {/* 配置表单 */}
               {fields.length > 0 ? (
                 <div class={`grid gap-x-6 gap-y-3 ${gridCols}`}>
@@ -706,6 +802,11 @@ function renderConfigCard(item: any, opts?: { deletable: boolean }) {
                             <span class="text-red-500">*</span>
                           ) : null}
                         </label>
+                        {field.hint ? (
+                          <span class="text-[11px] leading-none text-[hsl(var(--muted-foreground))]">
+                            {field.hint}
+                          </span>
+                        ) : null}
                         {fieldInput}
                       </div>
                     );
@@ -713,8 +814,9 @@ function renderConfigCard(item: any, opts?: { deletable: boolean }) {
                 </div>
               ) : null}
 
-              {/* API 地址（始终展示，AI 提供商必填） */}
-              {item.integrationCode.startsWith('prompt_') ? null : (
+              {/* API 地址（始终展示，AI 提供商必填；auth 登录类无 API 地址概念，隐藏） */}
+              {item.integrationCode.startsWith('prompt_') ||
+              activeCategory.value === 'auth' ? null : (
                 <div class="mt-4 flex flex-col gap-1">
                   <label class="text-xs text-gray-500">
                     API 基础地址

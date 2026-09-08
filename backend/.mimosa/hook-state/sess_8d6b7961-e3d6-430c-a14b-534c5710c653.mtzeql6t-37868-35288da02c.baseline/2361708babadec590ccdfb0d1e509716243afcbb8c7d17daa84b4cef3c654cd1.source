@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["contact","contact_edit_log","contract","contract_commission_member","contract_payment_plan","customer","customer_assign_history","customer_edit_log","customer_financial","followup","lead","opportunity","todo","work_log"]};

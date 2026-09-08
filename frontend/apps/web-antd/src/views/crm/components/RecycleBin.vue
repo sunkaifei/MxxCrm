@@ -150,6 +150,10 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 <template>
   <Grid :table-title="$t('page.crm.recycle.title')">
+    <!-- 透传：调用方可把范围选项卡等渲染进筛选卡片（对齐 #form-header 模式） -->
+    <template #form-header>
+      <slot name="form-header"></slot>
+    </template>
     <template #createTimeSlot="{ row }">
       {{ row.createTime ? formatDateTime(row.createTime) : '-' }}
     </template>

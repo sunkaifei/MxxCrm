@@ -3,7 +3,7 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, onMounted, ref } from 'vue';
+import { h, onMounted, ref, computed } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import {
@@ -11,12 +11,14 @@ import {
   LucideFilePenLine,
   LucidePlay,
   LucideSearch,
+  LucideUndo2,
   LucideSquare,
   LucideTrash2,
 } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
+import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
 
-import { Button, Popconfirm, Tag } from 'ant-design-vue';
+import { Button, Popconfirm, Tag, Tabs } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -24,6 +26,8 @@ import {
   completeCheckApi,
   deleteCheckApi,
   getCheckListApi,
+  restoreCheckApi,
+  purgeCheckApi,
   submitCheckApi,
 } from '#/api/core/product/check';
 import { getWarehouseListApi } from '#/api/core/product/warehouse';
@@ -35,6 +39,62 @@ import CheckDrawer from './drawer.vue';
 import InputDrawer from './input-drawer.vue';
 
 const accessStore = useAccessStore();
+const { isSuperAdmin } = useSuperAdminGuard();
+
+// ===== 范围视图 =====
+const activeTab = ref('all');
+const tabList = [
+  { key: 'all', label: '全部盘点' },
+  { key: 'mine', label: '我的盘点' },
+  { key: 'recycle', label: '回收站' },
+];
+const isRecycle = computed(() => activeTab.value === 'recycle');
+
+async function handleTabChange() {
+  refreshColumns();
+  gridApi.query();
+}
+
+function refreshColumns() {
+  const base = gridOptions.columns;
+  if (!Array.isArray(base)) return;
+  const hasDeleteTime = base.some((c: any) => c.field === 'deleteTime');
+  if (isRecycle.value && !hasDeleteTime) {
+    gridApi.setGridOptions({
+      columns: [
+        ...base,
+        { title: '删除人', field: 'deleteByName', width: 100 },
+        { title: '删除时间', field: 'deleteTime', width: 160 },
+      ],
+    } as any);
+  } else if (!isRecycle.value && hasDeleteTime) {
+    gridApi.setGridOptions({
+      columns: base.filter((c: any) => c.field !== 'deleteTime' && c.field !== 'deleteByName'),
+    } as any);
+  }
+}
+
+async function handleRecycleRestore(row: any) {
+  row.pending = true;
+  try {
+    await restoreCheckApi(Number(row.id));
+    window.$message.success('已恢复');
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
+
+async function handleRecyclePurge(row: any) {
+  row.pending = true;
+  try {
+    await purgeCheckApi(Number(row.id));
+    window.$message.success('已彻底删除');
+  } finally {
+    row.pending = false;
+    gridApi.query();
+  }
+}
 
 const warehouseOptions = ref<{ label: string; value: number }[]>([]);
 
@@ -170,6 +230,7 @@ const gridOptions: VxeGridProps = {
           checkType: formValues.checkType,
           warehouseId: formValues.warehouseId,
           status: formValues.status,
+          scope: activeTab.value,
         });
       },
     },
@@ -355,6 +416,19 @@ function handleDetail(row: any) {
   <Page auto-content-height>
     <InventoryProcessGuide current-step="check" />
     <Grid :table-title="$t('page.product.inventory.check.title')">
+      <template #form-header>
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button
           v-if="accessStore.hasAccessCode('product:check:create')"
@@ -413,6 +487,31 @@ function handleDetail(row: any) {
       </template>
 
       <template #action="{ row }">
+        <template v-if="isRecycle">
+          <Popconfirm
+            title="确认恢复该单据？"
+            ok-text="恢复"
+            cancel-text="取消"
+            @confirm="() => handleRecycleRestore(row)"
+          >
+            <Button
+              v-if="accessStore.hasAccessCode('product:check:delete')"
+              type="link"
+              size="small"
+              :icon="h(LucideUndo2)"
+            />
+          </Popconfirm>
+          <Popconfirm
+            v-if="isSuperAdmin"
+            title="彻底删除后不可恢复，确认？"
+            ok-text="彻底删除"
+            cancel-text="取消"
+            @confirm="() => handleRecyclePurge(row)"
+          >
+            <Button type="link" danger size="small" :icon="h(LucideTrash2)" />
+          </Popconfirm>
+        </template>
+        <template v-else>
         <!-- 草稿(0)：编辑 / 提交 / 删除 -->
         <template v-if="row.status === 0">
           <Button
@@ -482,6 +581,7 @@ function handleDetail(row: any) {
             {{ $t('page.product.inventory.check.viewDetail') }}
           </Button>
         </template>
+              </template>
       </template>
     </Grid>
     <Drawer />

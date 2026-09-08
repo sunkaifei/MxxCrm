@@ -36,7 +36,8 @@
         "convert": "Convert to Customer",
         "assign": "Assign Lead",
         "info": "View Details",
-        "transfer": "Transfer"
+        "transfer": "Transfer",
+        "pool": "Return to Pool"
       },
       "guide": {
         "title": "Lead Management Guide",
@@ -92,7 +93,11 @@
       "title": "Customer Pool",
       "button": {
         "return": "Return to Pool",
-        "claim": "Claim"
+        "claim": "Claim",
+        "batchClaim": "Batch Claim",
+        "apply": "Apply",
+        "retainApply": "Request Extension",
+        "trace": "Trace"
       },
       "guide": {
         "title": "Customer Pool Guide",
@@ -298,13 +303,31 @@
         ]
       }
     },
+    "pool": {
+      "title": "Lead Pool Management",
+      "button": {
+        "save": "New Pool",
+        "update": "Edit",
+        "delete": "Delete",
+        "member": "Members"
+      }
+    },
     "leadPool": {
       "title": "Public Leads",
       "button": {
         "create": "Create Lead",
         "edit": "Edit",
         "delete": "Delete",
-        "info": "View"
+        "info": "View",
+        "claim": "Claim",
+        "apply": "Apply",
+        "applyAudit": "Apply Audit",
+        "assign": "Assign",
+        "release": "Release to Pool",
+        "recycle": "Recycle",
+        "retain": "Request Retain",
+        "retainAudit": "Retain Audit",
+        "history": "Assign History"
       }
     },
     "followup": {
@@ -329,6 +352,23 @@
       "button": {
         "restore": "Restore",
         "purge": "Delete Permanently"
+      }
+    },
+    "customerPoolManage": {
+      "title": "Customer Pool Management",
+      "button": {
+        "save": "Save",
+        "update": "Edit",
+        "delete": "Delete",
+        "member": "Members",
+        "config": "Rules Config",
+        "assign": "Assign",
+        "assignRule": "Auto Assign Rules",
+        "applyAudit": "Application Approval",
+        "retainAudit": "Retention Approval",
+        "freeze": "Frozen List",
+        "dupRule": "Duplicate Rules",
+        "stats": "Pool Stats"
       }
     }
   }

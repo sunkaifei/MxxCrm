@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["account_type_name","delete_account","find_account_by_id","find_accounts","find_info","insert_account","mask_phone","update_account","update_info"],"struct":["CompanyAccountSaveRequest","CompanyAccountVO","CompanyInfoSaveRequest","CompanyInfoVO"]};

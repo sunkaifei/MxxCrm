@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["STATIC_OUTPUT_DIR"],"fn":["clear_output","generate_all","generate_articles","generate_categories","generate_index","output_root","write_html_file"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SHIPMENT_FIELD_LABELS"],"fn":["delete","info","list","register","save","sign","update"]};

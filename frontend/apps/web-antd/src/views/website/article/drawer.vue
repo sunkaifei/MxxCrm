@@ -106,11 +106,12 @@ const [BaseForm, baseFormApi] = useVbenForm({
     {
       component: 'Textarea',
       fieldName: 'content',
-      label: '文章内容',
+      label: '文章内容（HTML）',
       componentProps: {
-        placeholder: '请输入HTML内容',
-        allowClear: true,
-        rows: 6,
+        placeholder: '请输入文章 HTML 内容',
+        rows: 16,
+        class: 'font-mono text-xs',
+        style: 'width: 100%; resize: vertical;',
       },
     },
     {
@@ -191,7 +192,7 @@ const [BaseForm, baseFormApi] = useVbenForm({
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
-  class: 'w-[80%] max-w-[100vw]',
+  class: 'w-[90%] max-w-[100vw]',
   onCancel() {
     drawerApi.close();
   },

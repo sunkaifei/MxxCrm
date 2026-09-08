@@ -1,0 +1,163 @@
+/* ============================================================
+ * MxxCRM 单站 CMS 前台公共样式（产品模块 P-0.3/P-0.4，方案 v3.0 §6.4）
+ * 引入方式：<link rel="stylesheet" href="/static/default/css/cms.css">
+ * ============================================================ */
+
+/* ---------- 按钮体系（cart_button 输出 .cms-btn 系列） ---------- */
+.cms-btn {
+  display: inline-block;
+  padding: 8px 18px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+.cms-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cms-btn-lead {
+  background: #ff6a00;
+  color: #fff;
+}
+.cms-btn-lead:hover { background: #e85f00; color: #fff; }
+.cms-btn-cart {
+  background: #fff;
+  color: #0d6efd;
+  border-color: #0d6efd;
+}
+.cms-btn-cart:hover { background: #f0f6ff; }
+.cms-btn-cart.cms-added { background: #198754; color: #fff; border-color: #198754; }
+.cms-btn-buy {
+  background: #0d6efd;
+  color: #fff;
+}
+.cms-btn-buy:hover { background: #0a58ca; color: #fff; }
+.cms-btn-submit {
+  background: #ff6a00;
+  color: #fff;
+  flex: 1;
+}
+.cms-btn-submit:disabled { background: #ccc; }
+.cms-btn-cancel {
+  background: #f1f3f5;
+  color: #495057;
+}
+
+/* ---------- 咨询留言遮罩 modal（lead_form 输出 .cms-lead-modal） ---------- */
+.cms-lead-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cms-fade-in 0.15s ease;
+}
+.cms-lead-card {
+  position: relative;
+  width: 92%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: cms-slide-up 0.2s ease;
+}
+.cms-lead-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: #adb5bd;
+  cursor: pointer;
+}
+.cms-lead-close:hover { color: #495057; }
+.cms-lead-title { font-size: 18px; margin: 0 0 16px; color: #212529; }
+.cms-lead-form .cms-form-row { margin-bottom: 12px; }
+.cms-lead-form label { display: block; font-size: 13px; margin-bottom: 4px; color: #495057; }
+.cms-lead-form .req { color: #dc3545; }
+.cms-lead-form input,
+.cms-lead-form textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.cms-lead-form input:focus,
+.cms-lead-form textarea:focus {
+  outline: none;
+  border-color: #ff6a00;
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
+}
+.cms-lead-form .cms-form-row:last-of-type { display: flex; gap: 10px; }
+.cms-lead-feedback { font-size: 13px; margin: 8px 0 0; }
+.cms-lead-feedback.ok { color: #198754; }
+.cms-lead-feedback.err { color: #dc3545; }
+
+@keyframes cms-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cms-slide-up {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ---------- 页头购物车角标 ---------- */
+.cms-cart-entry { position: relative; display: inline-flex; align-items: center; }
+.cms-cart-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #dc3545;
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  display: none;
+}
+.cms-cart-badge.show { display: block; }
+
+/* ---------- 导航 active 高亮（T-P2.3，配合 cms.js） ---------- */
+/* 页头动态导航（方案 1：text-secondary） */
+.site-header nav a.active,
+header nav a.text-secondary.active {
+  color: #0d6efd !important;
+  font-weight: 600;
+}
+/* 企业版页头导航（方案 2/3：.nav-link） */
+.nav-link.active {
+  color: #0d6efd;
+  font-weight: 600;
+  background: #f0f6ff;
+  border-radius: 6px;
+}
+/* 企业版落地页导航（方案 4/5：.fxk-links 内链接） */
+.fxk-links > a.active,
+.fxk-drop-panel a.active {
+  color: var(--fxb, #2f54eb);
+  background: #f0f4ff;
+  font-weight: 600;
+}
+/* 页脚导航 */
+.cms-footer-nav a.active {
+  color: #0d6efd !important;
+  font-weight: 600;
+}
+/* 通用下划线提示 */
+header nav a.active::after {
+  content: '';
+  display: block;
+  height: 2px;
+  margin-top: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}

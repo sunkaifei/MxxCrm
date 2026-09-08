@@ -190,13 +190,15 @@ function collapseAll() {
       </template>
 
       <template #contentType="{ row }">
-        <Tag :color="row.contentType === 1 ? 'green' : 'orange'">
+        <Tag :color="row.contentType === 1 ? 'green' : row.contentType === 2 ? 'blue' : 'orange'">
           {{
             row.contentType === 1
               ? '文章'
-              : row.contentType === 3
-                ? '自定义链接'
-                : ''
+              : row.contentType === 2
+                ? '产品'
+                : row.contentType === 3
+                  ? '自定义链接'
+                  : ''
           }}
         </Tag>
       </template>

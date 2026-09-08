@@ -94,3 +94,13 @@ export const getCheckItemsApi = async (stocktakeId: number) => {
     params: { stocktakeId },
   });
 };
+
+/** 回收站恢复 */
+export const restoreCheckApi = async (id: number) => {
+  return requestClient.put(`/api/system/check/restore/${id}`);
+};
+
+/** 回收站彻底删除（仅管理层/超管） */
+export const purgeCheckApi = async (id: number) => {
+  return requestClient.delete(`/api/system/check/purge/${id}`);
+};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["add_cart","delete_cart","get_cart_list","update_cart"]};

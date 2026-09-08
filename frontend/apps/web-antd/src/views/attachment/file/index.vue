@@ -12,6 +12,7 @@ import {
   LucideFilm,
   LucideGrid3x3,
   LucideImage,
+  LucideLink,
   LucideList,
   LucideSearch,
   LucideTrash2,
@@ -44,10 +45,13 @@ import {
   uploadFileApi,
 } from '#/api';
 import { $t } from '#/locales';
+import { useAssetDomain } from '#/composables/use-asset-domain';
+import { resolveAssetUrl } from '#/utils/asset-url';
 
 const SelectOption = Select.Option;
 
 // --- State ---
+const { assetDomain } = useAssetDomain();
 const viewMode = ref<'grid' | 'list'>('grid');
 const searchKeyword = ref('');
 const searchEntityType = ref<string | undefined>(undefined);
@@ -146,6 +150,19 @@ const getFileIcon = (item: any) => {
 };
 
 const isItemPublic = (item: any) => !!(item.isPublic ?? item.is_public);
+
+/// 复制链接（附件URL统一方案 v1.1 §7.2）：公开=拼好资源域名的完整地址；私有=download 接口地址
+async function handleCopyLink(item: any) {
+  const url = isItemPublic(item)
+    ? resolveAssetUrl(item.uploadUrl || item.upload_url, assetDomain.value)
+    : `${window.location.origin}/api/system/attachment/download/${item.id}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    message.success('链接已复制');
+  } catch {
+    message.error('复制失败，请手动复制');
+  }
+}
 const getItemEntityType = (item: any) =>
   item.entityType || item.entity_type || '';
 const getItemUploadedBy = (item: any) =>
@@ -296,7 +313,7 @@ const handlePreview = async (item: any) => {
   previewTitle.value = item.originalName || item.name || item.original_name;
   if (isItemPublic(item)) {
     revokePreviewBlobUrl();
-    previewImage.value = item.uploadUrl || item.upload_url;
+    previewImage.value = resolveAssetUrl(item.uploadUrl || item.upload_url, assetDomain.value);
     previewVisible.value = true;
   } else {
     try {
@@ -635,7 +652,7 @@ onBeforeUnmount(() => {
                 <div class="gc-thumb" @click.stop="handlePreview(item)">
                   <img
                     v-if="isImage(item.ext)"
-                    :src="item.uploadUrl || item.upload_url"
+                    :src="resolveAssetUrl(item.uploadUrl || item.upload_url, assetDomain)"
                     :alt="item.originalName || item.name"
                     class="gc-img"
                     loading="lazy"
@@ -679,7 +696,19 @@ onBeforeUnmount(() => {
                     >
                       {{ getEntityTypeLabel(getItemEntityType(item)) }}
                     </Tag>
-                    <div class="gc-actions">
+                    <Tag :color="isItemPublic(item) ? 'green' : 'default'" class="gc-tag">
+                      {{ isItemPublic(item) ? '公开' : '私有' }}
+                    </Tag>
+                    <Tooltip title="复制链接">
+                        <Button
+                          size="small"
+                          ghost
+                          @click.stop="handleCopyLink(item)"
+                        >
+                          <template #icon><component :is="LucideLink" /></template>
+                        </Button>
+                      </Tooltip>
+                      <div class="gc-actions">
                       <Tooltip title="下载">
                         <Button
                           type="text"
@@ -762,7 +791,7 @@ onBeforeUnmount(() => {
                         <div class="cell-icon-wrap">
                           <img
                             v-if="isImage(item.ext)"
-                            :src="item.uploadUrl || item.upload_url"
+                            :src="resolveAssetUrl(item.uploadUrl || item.upload_url, assetDomain)"
                             class="cell-thumb"
                           />
                           <component

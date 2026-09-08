@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["compare_changes","format_bank_accounts","log_delete","log_transfer","log_update","query_by_customer","val_to_string"],"struct":["TransferAffected"]};

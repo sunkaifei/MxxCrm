@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["PurchaseOrderDetailVO","PurchaseOrderListQuery","PurchaseOrderListVO","PurchaseOrderModel","PurchaseOrderSaveDTO","PurchaseOrderSaveRequest","PurchaseOrderUpdateRequest"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["approve","batch_delete_by_ids","convert_to_order","find_by_id","get_accessible_user_ids","insert","list","reject","submit_approval","update","update_status"]};

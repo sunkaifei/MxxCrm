@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["preview_transfer","send_transfer_notice","transfer_lead"],"struct":["LeadTransferPreviewRequest","LeadTransferPreviewVO","LeadTransferRequest","LeadTransferResult"]};

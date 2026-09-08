@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["approve_adjustment","create_adjustment","get_adjustment_list","get_comparison","get_current_salary_config","get_employee_history","reject_adjustment","upsert_salary_config"],"struct":["RejectDTO","SalaryAdjustmentCreateDTO"]};

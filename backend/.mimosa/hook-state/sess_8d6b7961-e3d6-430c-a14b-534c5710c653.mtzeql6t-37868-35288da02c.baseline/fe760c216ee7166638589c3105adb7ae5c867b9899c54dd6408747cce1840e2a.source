@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_warehouse","register","warehouse_info","warehouse_insert","warehouse_list","warehouse_update"]};

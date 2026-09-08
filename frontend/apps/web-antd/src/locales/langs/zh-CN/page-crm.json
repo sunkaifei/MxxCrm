@@ -36,7 +36,8 @@
         "convert": "转为客户",
         "assign": "分配线索",
         "info": "查看详情",
-        "transfer": "转移"
+        "transfer": "转移",
+        "pool": "退回线索池"
       },
       "guide": {
         "title": "线索管理说明",
@@ -92,7 +93,11 @@
       "title": "公海客户",
       "button": {
         "return": "退回公海",
-        "claim": "认领"
+        "claim": "认领",
+        "batchClaim": "批量领取",
+        "apply": "申领",
+        "retainApply": "申请延期",
+        "trace": "流转轨迹"
       },
       "guide": {
         "title": "公海客户说明",
@@ -298,13 +303,31 @@
         ]
       }
     },
+    "pool": {
+      "title": "线索池管理",
+      "button": {
+        "save": "新建池",
+        "update": "编辑",
+        "delete": "删除",
+        "member": "成员管理"
+      }
+    },
     "leadPool": {
       "title": "公海线索",
       "button": {
         "create": "新增线索",
         "edit": "编辑",
         "delete": "删除",
-        "info": "查看"
+        "info": "查看",
+        "claim": "领取",
+        "apply": "申领",
+        "applyAudit": "申领审批",
+        "assign": "指派",
+        "release": "退回公海",
+        "recycle": "收回",
+        "retain": "申请延期",
+        "retainAudit": "延期审批",
+        "history": "归属历史"
       }
     },
     "followup": {
@@ -329,6 +352,23 @@
       "button": {
         "restore": "还原",
         "purge": "彻底删除"
+      }
+    },
+    "customerPoolManage": {
+      "title": "客户公海管理",
+      "button": {
+        "save": "保存",
+        "update": "编辑",
+        "delete": "删除",
+        "member": "成员管理",
+        "config": "规则配置",
+        "assign": "指派",
+        "assignRule": "自动分配规则",
+        "applyAudit": "申领审批",
+        "retainAudit": "延期审批",
+        "freeze": "冻结列表",
+        "dupRule": "查重规则",
+        "stats": "考核统计"
       }
     }
   }

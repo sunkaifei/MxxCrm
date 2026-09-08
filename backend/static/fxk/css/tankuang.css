@@ -1,0 +1,233 @@
+
+
+.btn-primary {
+	border-color: #3079ED;
+	color: #F3F7FC;
+	background-color: #4D90FE;
+	background: -webkit-linear-gradient(top, #4D90FE, #4787ED);
+	background: -moz-linear-gradient(top, #4D90FE, #4787ED);
+	background: linear-gradient(top, #4D90FE, #4787ED);
+}
+.btn-primary:hover {
+	border-color:#2F5BB7;
+	color:#fff;
+	background-color: #4D90FE;
+	background: -webkit-linear-gradient(top, #4D90FE, #357AE8);
+	background: -moz-linear-gradient(top, #4D90FE, #357AE8);
+	background: linear-gradient(top, #4D90FE, #357AE8);
+}
+.btn-primary:active, .btn-primary.btn-active {
+	box-shadow:#2176D3 0 1px 2px 0 inset;
+	border-color: #3079ED;
+}
+.btn-primary:focus {
+	border-color:#4d90fe;
+	outline:none
+}
+
+.theme-buy {
+	margin-top:10%;
+	text-align: center;
+}
+.theme-gobuy, .theme-signin {
+	font-size: 15px;
+}
+.theme-price {
+	position: relative;
+	bottom: -6px;
+	font-family: microsoft yahei, Arial, Helvetica, sans-serif;
+	margin-right: 20px;
+	font-weight: bold;
+	color: #f60;
+	line-height: 32px;
+	font-size: 24px;
+	display: inline-block;
+}
+.theme-price dfn {
+	font-style: normal;
+	font-size: 18px;
+	margin-right: 2px;
+}
+.theme-desc {
+	padding: 30px;
+}
+.theme-version {
+	padding: 30px;
+}
+.theme-popover-mask {
+	z-index: 9998;
+	position:fixed;
+	top:0;
+	left:0;
+	width:100%;
+	height:100%;
+	background:#000;
+	opacity:0.4;
+	filter:alpha(opacity=40);
+	display:none
+}
+.theme-popover {
+	z-index:9999;
+	position:fixed;
+	top:50%;
+	left:50%;
+	width:760px;
+	
+	margin:-220px 0 0 -380px;
+	border-radius:5px;
+	/*border:solid 2px #666;*/
+	background-color:#fff;
+	display:none;
+	box-shadow: 0 0 10px #666;
+	overflow-y: hidden;
+}
+.theme-poptit {
+	   position: fixed;
+    width: 754px;
+    z-index: 111;
+    background: #f2f2f2;
+}
+.theme-popbod {
+	padding:60px 15px;
+	color:#444;
+	height: 488px;
+	overflow-y: scroll;
+	position: relative;
+}
+.theme-popbom {
+	padding:15px;
+	background-color:#f6f6f6;
+	border-top:1px solid #ddd;
+	border-radius:0 0 5px 5px;
+	color:#666
+}
+.theme-popbom a {
+	margin-left:8px
+}
+.theme-poptit .close {
+	float: right;
+    color: #333333;
+    padding: 5px 15px 0px 9px;
+    margin: -2px -5px -5px;
+    /* text-shadow: 0 1px 0 #ee2020; */
+    font-size: 29px;
+    opacity: 1;
+}
+.theme-poptit .close:hover {
+	color:#444;
+}
+.btn.theme-reg {
+	position: absolute;
+	top: 8px;
+	left: 43%;
+	display: none
+}
+.inp-gray, .feed-mail-inp {
+	border:1px solid #ccc;
+	background-color:#fdfdfd;
+	width:220px;
+	height:16px;
+	padding:4px;
+	color:#444;
+	margin-right:6px
+}
+.dform {
+	padding: 20px 20px 40px;
+	text-align: left;
+}
+.dform .ipt_error {
+	background-color:#FFFFCC;
+	border-color:#FFCC66
+}
+.dform-tip {
+	display:none;
+	background-color:#080;
+	color:#fff;
+	line-height:42px;
+	margin-top:10px;
+display:;
+	font-size: 14px;
+}
+.dform-tip-errer {
+	background-color: #CF301A;
+}
+.dform-tip a {
+	display: inline-block;
+	padding: 0 20px;
+	margin-left:10px;
+	background-color: #FFE924;
+	color: #CF301A;
+}
+.dform-login {
+	padding:0;
+	height: 270px;
+	overflow: hidden;
+}
+.dform-login iframe {
+	height: 470px;
+	margin-top: -180px;
+}
+.theme-signin {
+	margin: -50px -20px -50px 90px;
+	text-align:left;
+	font-size: 14px;
+}
+.theme-signin h4 {
+	color:#999;
+	font-weight:100;
+	margin-bottom: 20px;
+	font-size: 12px;
+}
+.theme-signin li {
+	padding-left: 80px;
+	margin-bottom: 15px;
+}
+.theme-signin li strong {
+	float: left;
+	margin-left: -80px;
+	width: 80px;
+	text-align: right;
+	line-height: 32px;
+}
+.theme-signin .btn {
+	margin-bottom: 10px;
+}
+.theme-signin p {
+	font-size: 12px;
+	color: #999;
+}
+.theme-desc, .theme-version {
+	padding-top: 0
+}
+
+ .md-content{ background-color: #fff; padding:20px 25px; }
+  .md-content h1 {
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 32px;
+  }
+  .md-content h2 {
+    font-size: 18px;
+  }
+  .md-content h2.md-title-small {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .md-content h2,
+  .md-content p {
+    text-indent: 28px;
+	font-size:14px;
+	color:#666666;
+  }
+  .md-content p {
+    line-height: 1.6em;
+    margin-bottom: 10px;
+  }
+.md-modal{
+	height: 400px;
+    width: 1400px;
+    overflow-y: scroll;
+    max-width: 850px;
+
+	
+}

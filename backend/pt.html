@@ -1,0 +1,96 @@
+
+
+
+
+<link rel="stylesheet" href="/static/default/css/cms.css">
+<header class="site-header border-bottom bg-white">
+  <div class="container d-flex align-items-center justify-content-between py-3 flex-wrap gap-2">
+    <a href="/" class="navbar-brand fw-bold text-decoration-none text-dark">{{ site.siteName | default('MxxCRM') }}</a>
+    <nav class="d-flex gap-3">
+      {% for n in get_navigations("header") %}
+      <a class="text-decoration-none text-secondary" href="{{ n.linkUrl | default('#') }}" {% if n.target %}target="{{ n.target }}"{% endif %}>{{ n.name }}</a>
+      {% endfor %}
+      <a class="text-decoration-none text-secondary" href="/product">产品中心</a>
+      <form class="d-flex" method="get" action="/search" style="max-width:200px">
+        <input class="form-control form-control-sm" type="text" name="keyword" placeholder="全站搜索" value="">
+        <button class="btn btn-sm btn-outline-primary ms-1" type="submit">搜索</button>
+      </form>
+    </nav>
+    <div class="d-flex gap-3 align-items-center">
+      {% if get_site_mode() == 2 or get_site_mode() == 3 %}
+      <a class="cms-cart-entry text-decoration-none text-secondary" href="/cart">购物车<span class="cms-cart-badge" id="cms-cart-badge"></span></a>
+      <a class="text-decoration-none text-secondary" href="/user/login">登录 / 注册</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<div class="container py-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">首页</a></li>
+      <li class="breadcrumb-item active">产品中心</li>
+    </ol>
+  </nav>
+  <div class="row g-4">
+    <div class="col-lg-3">
+      <div class="cat-tree border rounded p-3">
+        <h5 class="mb-3">产品分类</h5>
+        <a class="d-block py-1 " href="/product">全部产品</a>
+        
+        <a class="d-block py-1 text-primary fw-bold" href="/product?category_id=10">电子产品</a>
+        
+        <a class="d-block py-1 " href="/product?category_id=11">服装鞋帽</a>
+        
+        <a class="d-block py-1 " href="/product?category_id=12">家居用品</a>
+        
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <form class="toolbar d-flex flex-wrap gap-2 align-items-center mb-3" method="get" action="/product">
+        <input type="hidden" name="category_id" value="10">
+        <input class="form-control" style="max-width:220px" type="text" name="keyword" value="" placeholder="搜索产品名称/编号">
+        <select class="form-select" style="max-width:150px" name="order" onchange="this.form.submit()">
+          <option value="new" selected>最新上架</option>
+          <option value="price_asc" >价格从低到高</option>
+          <option value="price_desc" >价格从高到低</option>
+        </select>
+        <button class="btn btn-primary" type="submit">筛选</button>
+      </form>
+      
+      <div class="text-center text-muted py-5">暂无符合条件的产品</div>
+      
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer border-top mt-5 py-4 bg-light">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <h6>产品中心</h6>
+        {% for c in get_product_categories(0) %}
+        <a class="d-block text-decoration-none text-secondary py-1" href="{{ category_url(c.id) }}">{{ c.name }}</a>
+        {% endfor %}
+      </div>
+      <div class="col-md-4">
+        <h6>快速导航</h6>
+        {% for c in get_categories(0) %}
+        <a class="d-block text-decoration-none text-secondary py-1" href="/category/{{ c.shortUrl }}">{{ c.categoryName }}</a>
+        {% endfor %}
+      </div>
+      <div class="col-md-4">
+        <h6>联系方式</h6>
+        <p class="text-secondary mb-1">{{ site.companyName | default('') }}</p>
+        <p class="text-secondary mb-1">电话：{{ site.companyPhone | default('-') }}</p>
+        <p class="text-secondary mb-1">{{ site.companyAddress | default('') }}</p>
+      </div>
+    </div>
+    <hr>
+    <div class="text-center text-secondary small">
+      © {{ site.copyright | default(site.siteName | default('MxxCRM')) }}
+    </div>
+  </div>
+</footer>
+
+<script src="/static/default/js/cms.js"></script>

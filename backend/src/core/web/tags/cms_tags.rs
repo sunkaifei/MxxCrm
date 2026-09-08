@@ -23,6 +23,7 @@ use crate::modules::articles::model::article::{ArticleListVO, QueryPageRequest};
 use crate::modules::articles::service::article_service;
 use crate::modules::product::model::product::ProductListQuery;
 use crate::modules::product::service::product_service;
+use crate::modules::website::service::dynamic_table_service::DynamicTableService;
 
 /// CMS 标签预取数据
 ///
@@ -41,6 +42,8 @@ pub struct CmsTagData {
     pub pages: HashMap<String, Value>,
     /// 内容模型列表
     pub content_models: Vec<Value>,
+    /// 内容模型内容（T-P2.1）：模型编码 -> 内容行列表（每模型有界预取）
+    pub model_contents: HashMap<String, Vec<Value>>,
     /// 导航列表，按 nav_type 分组（header/footer）
     pub navigations: HashMap<String, Vec<Value>>,
     /// 友情链接列表，按 link_type 分组
@@ -60,6 +63,18 @@ pub struct CmsTagData {
     pub media: HashMap<i64, Value>,
     /// 媒体列表（按 category_id 分组），供 get_media_list / get_media_gallery 标签使用
     pub media_by_category: HashMap<i64, Vec<Value>>,
+    /// P-1.1（B4 修复）：产品分类树（mxx_product_category），供 get_product_categories 使用
+    pub product_categories: Vec<Value>,
+    /// 网站展示产品的栏目分类（栏目管理中内容类型=产品 的栏目），供 get_shelf_categories 使用
+    pub shelf_categories: Vec<Value>,
+    /// 推荐产品 ID（上架清单 is_recommend=1），供 get_recommend_products 使用
+    pub recommend_ids: Vec<i64>,
+    /// P-1.4（B6）：产品品牌（mxx_product_brand），供 get_product_brands 使用
+    pub product_brands: Vec<Value>,
+    /// P-0：公共页头模板原文（type_id=14 最新一条），供 page_head() 标签
+    pub page_head_html: String,
+    /// P-0：公共页脚模板原文（type_id=15 最新一条），供 page_foot() 标签
+    pub page_foot_html: String,
 }
 
 impl CmsTagData {
@@ -153,6 +168,7 @@ impl CmsTagData {
         }
 
         // 5. 预取内容模型（按 sort 升序）
+        let mut model_codes: Vec<String> = Vec::new();
         if let Ok(models) = content_model::Entity::find()
             .filter(content_model::Column::Deleted.eq(0))
             .filter(content_model::Column::Status.eq(1))
@@ -168,37 +184,24 @@ impl CmsTagData {
                     "description": m.description,
                 });
                 data.content_models.push(Value::from_serialize(&model_value));
+                if let Some(code) = m.model_code {
+                    model_codes.push(code);
+                }
             }
         }
 
-        // 6. 预取导航（按 nav_type 分组，按 sort 升序）
-        if let Ok(navs) = navigation::Entity::find()
-            .order_by_asc(navigation::Column::Sort)
-            .all(db).await
-        {
-            let mut nav_map: HashMap<String, Vec<Value>> = HashMap::new();
-            for n in navs {
-                // 根据 is_new_window_open 派生 target 字段（实体无 target 列）
-                let target = if n.is_new_window_open.unwrap_or(0) == 1 { "_blank" } else { "_self" };
-                let nav_value = json!({
-                    "id": n.id,
-                    "websiteId": n.website_id,
-                    "parentId": n.parent_id,
-                    "name": n.name,
-                    "webUrl": n.web_url,
-                    "value": n.value,
-                    "dataType": n.data_type,
-                    "navType": n.nav_type,
-                    "sort": n.sort,
-                    "isShow": n.is_show,
-                    "isNewWindowOpen": n.is_new_window_open,
-                    "target": target,
-                });
-                let nav_type = n.nav_type.unwrap_or_else(|| "header".to_string());
-                nav_map.entry(nav_type).or_default().push(Value::from_serialize(&nav_value));
+        // 5.1 预取内容模型内容（T-P2.1）：每个模型有界取最新 200 条，供 get_model_list/get_model_detail
+        for code in &model_codes {
+            if let Ok((rows, _total)) =
+                DynamicTableService::paginate(db, code, 1, 200, None, None).await
+            {
+                let items: Vec<Value> = rows.iter().map(|r| Value::from_serialize(r)).collect();
+                data.model_contents.insert(code.clone(), items);
             }
-            data.navigations = nav_map;
         }
+
+        // 6. 导航预取在 fetch 末尾统一处理（需依赖 categories/pages/articles，见文件末尾「导航解析与建树」），
+        //    此处不再处理，避免引用式解析/建树时上游数据尚未就绪。
 
         // 7. 预取友情链接（按 link_type 分组，按 sort 升序）
         if let Ok(links) = website_links::Entity::find()
@@ -255,11 +258,21 @@ impl CmsTagData {
             is_active: Some(true),
             page_num: Some(1),
             page_size: Some(100),
+        order: None,
         };
         if let Ok((products, _total, _pages)) = product_service::get_list(db, &product_query).await {
-            data.products = products.into_iter()
+            let mut vos: Vec<Value> = products.into_iter()
                 .map(|p| Value::from_serialize(&p))
                 .collect();
+            // 产品上架口径：站点配置了展示清单时，标签/相关推荐只保留已上架产品
+            if let Some(site) = crate::modules::website::model::website::SiteModel::find_default(db).await.ok().flatten() {
+                let site_id = site.id;
+                if let Ok(Some(ids)) = crate::modules::website::service::website_product_service::listed_product_ids(db, site_id).await {
+                    let set: std::collections::HashSet<i64> = ids.into_iter().collect();
+                    vos.retain(|p| value_as_i64(p, "id").map(|id| set.contains(&id)).unwrap_or(false));
+                }
+            }
+            data.products = vos;
         }
 
         // 11. 预取模板片段（type_id=4，供 include_template 标签使用）
@@ -317,6 +330,124 @@ impl CmsTagData {
             data.media_by_category = by_cat;
         }
 
+
+        // P-1.1（B4 修复）：预取产品分类（此前列表侧栏错用文章分类 get_categories）
+        if let Ok(pcs) = crate::modules::product::entity::category::Entity::find()
+            .filter(crate::modules::product::entity::category::Column::Deleted.eq(0))
+            .order_by_asc(crate::modules::product::entity::category::Column::SortOrder)
+            .all(db).await
+        {
+            data.product_categories = pcs.iter()
+                .map(|c| Value::from_serialize(&json!({
+                    "id": c.id,
+                    "parentId": c.parent_id,
+                    "name": c.name,
+                    "image": c.image,
+                    "sort": c.sort_order,
+                })))
+                .collect();
+        }
+
+        // 网站展示产品的栏目分类（栏目管理中内容类型=产品 的栏目）
+        if let Ok(scs) = crate::modules::articles::entity::category::Entity::find()
+            .filter(crate::modules::articles::entity::category::Column::ContentType.eq(2))
+            .filter(crate::modules::articles::entity::category::Column::Status.eq(1))
+            .filter(crate::modules::articles::entity::category::Column::IsShow.eq(1))
+            .order_by_asc(crate::modules::articles::entity::category::Column::Sort)
+            .all(db).await
+        {
+            data.shelf_categories = scs.iter()
+                .map(|c| Value::from_serialize(&json!({
+                    "id": c.id,
+                    "parentId": c.parent_id,
+                    "name": c.category_name,
+                    "sort": c.sort,
+                })))
+                .collect();
+        }
+
+        // 网站展示产品的推荐 ID（上架清单 is_recommend=1）
+        if let Ok(rcs) = crate::modules::website::entity::website_product::Entity::find()
+            .filter(crate::modules::website::entity::website_product::Column::IsRecommend.eq(1))
+            .filter(crate::modules::website::entity::website_product::Column::Status.eq(1))
+            .filter(crate::modules::website::entity::website_product::Column::Deleted.eq(0))
+            .order_by_asc(crate::modules::website::entity::website_product::Column::Sort)
+            .all(db).await
+        {
+            data.recommend_ids = rcs.iter().filter_map(|r| Some(r.product_id)).collect();
+        }
+
+        // P-0：预取公共页头/页脚模板原文（type_id=14/15）
+        if let Ok(h) = crate::modules::website::service::template_user_data_service::find_latest_by_template_and_type(db, &None, &Some(14)).await {
+            data.page_head_html = h.temptext.unwrap_or_default();
+        }
+        if let Ok(f) = crate::modules::website::service::template_user_data_service::find_latest_by_template_and_type(db, &None, &Some(15)).await {
+            data.page_foot_html = f.temptext.unwrap_or_default();
+        }
+
+        // P-1.4（B6）：预取产品品牌
+        if let Ok(brands) = crate::modules::product::entity::brand::Entity::find()
+            .filter(crate::modules::product::entity::brand::Column::Deleted.eq(0))
+            .all(db).await
+        {
+            data.product_brands = brands.iter()
+                .map(|b| Value::from_serialize(&json!({
+                    "id": b.id,
+                    "name": b.name,
+                    "logo": b.logo,
+                })))
+                .collect();
+        }
+
+        // 13. 导航解析与建树（T-P1.1 引用解析 / T-P1.3 建树 / T-P2.2 icon / T-P2.5 rel）
+        //     需在 categories/pages/articles 全部就绪后执行。
+        if let Ok(navs) = navigation::Entity::find()
+            .filter(navigation::Column::Deleted.eq(0))
+            .order_by_asc(navigation::Column::Sort)
+            .order_by_asc(navigation::Column::Id)
+            .all(db).await
+        {
+            let mut by_type: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+            for n in navs {
+                let data_type = n.data_type.clone().unwrap_or_else(|| "custom".to_string());
+                // 引用式绑定：data_type + value → 真实 URL；custom 直接用 web_url
+                let resolved = data.resolve_nav_url(&data_type, n.value, &n.web_url);
+                // target 收敛（T-P2.6）：优先实体 target 列，其次由 is_new_window_open 派生
+                let target = n.target.clone()
+                    .filter(|s| !s.trim().is_empty())
+                    .unwrap_or_else(|| {
+                        if n.is_new_window_open.unwrap_or(0) == 1 { "_blank".to_string() } else { "_self".to_string() }
+                    });
+                let node = json!({
+                    "id": n.id,
+                    "websiteId": n.website_id,
+                    "parentId": n.parent_id.unwrap_or(0),
+                    "name": n.name,
+                    "webUrl": resolved,
+                    "value": n.value,
+                    "dataType": data_type,
+                    "navType": n.nav_type,
+                    "sort": n.sort,
+                    "isShow": n.is_show,
+                    "isNewWindowOpen": n.is_new_window_open,
+                    "target": target,
+                    "icon": n.icon,
+                    "rel": n.rel,
+                    "visibleGuest": n.visible_guest,
+                    "visibleDevices": n.visible_devices,
+                    "children": Vec::<serde_json::Value>::new(),
+                });
+                let nav_type = n.nav_type.clone().unwrap_or_else(|| "header".to_string());
+                by_type.entry(nav_type).or_default().push(node);
+            }
+            let mut nav_map: HashMap<String, Vec<Value>> = HashMap::new();
+            for (nt, items) in by_type {
+                let tree = build_nav_tree(items, 0);
+                nav_map.insert(nt, tree.into_iter().map(|v| Value::from_serialize(&v)).collect());
+            }
+            data.navigations = nav_map;
+        }
+
         Ok(data)
     }
 
@@ -362,6 +493,28 @@ impl CmsTagData {
     #[allow(dead_code)]
     pub fn get_navigations(&self, nav_type: &str) -> Vec<Value> {
         self.navigations.get(nav_type).cloned().unwrap_or_default()
+    }
+
+    /// 获取某内容模型的内容列表（T-P2.1，从预取数据分页）
+    #[allow(dead_code)]
+    pub fn get_model_list(&self, model_code: &str, limit: Option<usize>, page: Option<usize>) -> Vec<Value> {
+        let limit = limit.unwrap_or(10).min(200);
+        let page = page.unwrap_or(1).max(1);
+        let offset = (page - 1) * limit;
+        match self.model_contents.get(model_code) {
+            Some(list) => list.iter().skip(offset).take(limit).cloned().collect(),
+            None => Vec::new(),
+        }
+    }
+
+    /// 获取某内容模型的单条内容（T-P2.1）
+    #[allow(dead_code)]
+    pub fn get_model_detail(&self, model_code: &str, id: i64) -> Option<Value> {
+        self.model_contents
+            .get(model_code)?
+            .iter()
+            .find(|v| v.get_attr("id").ok().and_then(|x| x.as_i64()) == Some(id))
+            .cloned()
     }
 
     /// 获取指定类型的友情链接
@@ -433,8 +586,89 @@ impl CmsTagData {
             })
             .collect();
 
+        let mut filtered: Vec<Value> = filtered.into_iter().cloned().collect();
+        // P-1.7（B11）：order 排序——new=预取序（最新），price_asc/price_desc=价格升降
+        match _order.as_deref() {
+            Some("price_asc") => filtered.sort_by(|a, b| {
+                let pa = value_as_f64(a, "salePrice").unwrap_or(f64::MAX);
+                let pb = value_as_f64(b, "salePrice").unwrap_or(f64::MAX);
+                pa.partial_cmp(&pb).unwrap_or(std::cmp::Ordering::Equal)
+            }),
+            Some("price_desc") => filtered.sort_by(|a, b| {
+                let pa = value_as_f64(a, "salePrice").unwrap_or(f64::MIN);
+                let pb = value_as_f64(b, "salePrice").unwrap_or(f64::MIN);
+                pb.partial_cmp(&pa).unwrap_or(std::cmp::Ordering::Equal)
+            }),
+            _ => {}
+        }
         filtered.into_iter()
             .skip(offset)
+            .take(limit)
+            .collect()
+    }
+
+    /// P-1.1（B4 修复）：产品分类（parent_id=0 取顶级；配合 category_url 标签使用）
+    pub fn get_product_categories(&self, parent_id: Option<i64>) -> Vec<Value> {
+        let pid = parent_id.unwrap_or(0);
+        self.product_categories.iter()
+            .filter(|c| {
+                let cp = c.get_attr("parentId").ok()
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                if pid == 0 { cp == 0 } else { cp == pid }
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// 网站展示产品的栏目分类（栏目管理中内容类型=产品 的栏目）
+    pub fn get_shelf_categories(&self, parent_id: Option<i64>) -> Vec<Value> {
+        let pid = parent_id.unwrap_or(0);
+        self.shelf_categories.iter()
+            .filter(|c| {
+                let cp = c.get_attr("parentId").ok()
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                if pid == 0 { cp == 0 } else { cp == pid }
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// 推荐产品（上架清单 is_recommend=1，按清单排序）
+    pub fn get_recommend_products(&self, limit: Option<usize>) -> Vec<Value> {
+        let limit = limit.unwrap_or(8).min(50);
+        self.products.iter()
+            .filter(|p| {
+                value_as_i64(p, "id")
+                    .map(|id| self.recommend_ids.contains(&id))
+                    .unwrap_or(false)
+            })
+            .take(limit)
+            .cloned()
+            .collect()
+    }
+
+    /// P-1.4（B6）：产品品牌
+    pub fn get_product_brands(&self) -> Vec<Value> {
+        self.product_brands.clone()
+    }
+
+    /// P-1.4（B6）：相关推荐（同分类、排除自身，取 limit 条）
+    pub fn get_related_products(&self, product_id: i64, limit: Option<usize>) -> Vec<Value> {
+        let limit = limit.unwrap_or(4).min(20);
+        let current_category = self.products.iter()
+            .find(|p| value_as_i64(p, "id") == Some(product_id))
+            .and_then(|p| value_as_i64(p, "categoryId"));
+        self.products.iter()
+            .filter(|p| {
+                let pid = value_as_i64(p, "id").unwrap_or(-1);
+                if pid == product_id { return false; }
+                match current_category {
+                    Some(cid) => value_as_i64(p, "categoryId") == Some(cid),
+                    None => true,
+                }
+            })
             .take(limit)
             .cloned()
             .collect()
@@ -522,6 +756,117 @@ impl CmsTagData {
     }
 }
 
+impl CmsTagData {
+    /// 引用式绑定解析器（T-P1.1 / D2 / D10）：
+    /// `data_type` + `value` → 真实 URL。custom 直接用 `web_url`。
+    ///
+    /// | data_type | 解析目标 |
+    /// |---|---|
+    /// | custom | 直接用 web_url |
+    /// | article_class | 文章分类 → `/category/{short_url}` |
+    /// | product_class | 产品分类 → `/product?category_id={id}` |
+    /// | customview | 自定义页面 → `/page/{page_code}` |
+    /// | article | 文章详情 → `/article/{short_url}` |
+    /// | product | 产品详情 → `/product/{id}` |
+    /// | link_group | 纯分组标题（无链接，返回空串） |
+    fn resolve_nav_url(&self, data_type: &str, value: Option<i64>, web_url: &Option<String>) -> String {
+        let fallback = web_url.clone().unwrap_or_default();
+        match data_type {
+            "custom" => {
+                if fallback.is_empty() { "#".to_string() } else { fallback }
+            }
+            "link_group" => String::new(),
+            "article_class" => value
+                .and_then(|id| self.categories.get(&id))
+                .and_then(|c| c.short_url.clone())
+                .filter(|s| !s.is_empty())
+                .map(|slug| format!("/category/{}", slug))
+                .unwrap_or_else(|| "#".to_string()),
+            "product_class" => match value {
+                Some(id) if id > 0 => format!("/product?category_id={}", id),
+                _ => "#".to_string(),
+            },
+            "customview" => self.pages.values()
+                .find(|p| p.get_attr("id").ok().and_then(|v| v.as_i64()) == value)
+                .and_then(|p| p.get_attr("pageCode").ok().and_then(|v| v.as_str().map(|s| s.to_string())))
+                .filter(|s| !s.is_empty())
+                .map(|code| format!("/page/{}", code))
+                .unwrap_or_else(|| "#".to_string()),
+            "article" => self.articles.iter()
+                .find(|a| {
+                    a.id.as_deref().and_then(|s| s.parse::<i64>().ok()) == value
+                })
+                .and_then(|a| a.short_url.clone())
+                .filter(|s| !s.is_empty())
+                .map(|slug| format!("/article/{}", slug))
+                .or_else(|| value.map(|id| format!("/article/{}", id)))
+                .unwrap_or_else(|| "#".to_string()),
+            "product" => value
+                .filter(|id| *id > 0)
+                .map(|id| format!("/product/{}", id))
+                .unwrap_or_else(|| "#".to_string()),
+            _ => {
+                if fallback.is_empty() { "#".to_string() } else { fallback }
+            }
+        }
+    }
+}
+
+/// 按 `parentId` 将扁平导航列表构建为树（T-P1.3）。
+/// 同 `nav_type` 内组装 children；找不到父级或自身为父级的视为根；
+/// 最多递归 10 层，防止脏数据造成的环引用导致无限递归。
+fn build_nav_tree(items: Vec<serde_json::Value>, depth: usize) -> Vec<serde_json::Value> {
+    if depth >= 10 || items.is_empty() {
+        return items;
+    }
+    let mut id_to_idx: HashMap<i64, usize> = HashMap::new();
+    for (i, it) in items.iter().enumerate() {
+        if let Some(id) = it.get("id").and_then(|v| v.as_i64()) {
+            id_to_idx.insert(id, i);
+        }
+    }
+    let mut children_map: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut roots: Vec<usize> = Vec::new();
+    for (i, it) in items.iter().enumerate() {
+        let pid = it.get("parentId").and_then(|v| v.as_i64()).unwrap_or(0);
+        match id_to_idx.get(&pid) {
+            Some(&pi) if pi != i => children_map.entry(pi).or_default().push(i),
+            _ => roots.push(i),
+        }
+    }
+    let mut result: Vec<serde_json::Value> = Vec::with_capacity(roots.len());
+    for r in roots {
+        let mut node = items[r].clone();
+        let kids: Vec<serde_json::Value> = children_map
+            .get(&r)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|k| items[k].clone())
+            .collect();
+        if let Some(obj) = node.as_object_mut() {
+            obj.insert("children".to_string(), serde_json::Value::Array(build_nav_tree(kids, depth + 1)));
+        }
+        result.push(node);
+    }
+    result
+}
+
+/// 从 minijinja Value 中取数字（兼容字符串/数字两种序列化——
+/// ProductListVO 的 id/Decimal 经 serde 输出为字符串）
+fn value_as_f64(v: &Value, key: &str) -> Option<f64> {
+    v.get_attr(key).ok().and_then(|attr| {
+        attr.as_i64().map(|i| i as f64)
+            .or_else(|| attr.as_str().and_then(|s| s.parse::<f64>().ok()))
+    })
+}
+
+fn value_as_i64(v: &Value, key: &str) -> Option<i64> {
+    v.get_attr(key).ok().and_then(|attr| {
+        attr.as_i64().or_else(|| attr.as_str().and_then(|s| s.parse::<i64>().ok()))
+    })
+}
+
 /// 简单 HTML 转义（用于面包屑输出，避免 XSS）
 fn escape_html(s: &str) -> String {
     s.replace('&', "&amp;")
@@ -544,97 +889,129 @@ fn escape_html(s: &str) -> String {
 
 /// 购物车/咨询按钮：根据站点模式渲染不同按钮
 ///
-/// 模板调用：{{ cart_button(product_id, site_mode) }}
+/// 模板调用：{{ cart_button(product_id, site_mode) }} 或 {{ cart_button(p.id, site_mode, p.sale_price, p.name) }}
 ///
-/// - site_mode=1（展示型）：渲染"立即咨询"按钮，点击展开 lead_form
-/// - site_mode=2（交易型）：渲染"加入购物车"+"立即购买"按钮
-/// - site_mode=3（混合型）：渲染全部按钮
-pub fn cart_button_html(product_id: i64, site_mode: Option<i32>) -> String {
+/// P-0（B1/B9 修复，方案乙）：
+/// - site_mode=1（展示型）：渲染"立即咨询"按钮 + **自动内联留言 modal**（修一次标签全站生效）
+/// - site_mode=2（交易型）：渲染"加入购物车"+"立即购买"（行为由 /static/default/js/cms.js 提供）
+/// - site_mode=3（混合型）：咨询 + 加购 + 立即购买
+/// - 按钮统一 `cms-btn` 系列 class（样式见 /static/default/css/cms.css）
+/// - 输出 data-price/data-name 属性，供 cms.js 组装购物车请求
+pub fn cart_button_html(product_id: i64, site_mode: Option<i32>, price: Option<String>, name: Option<String>) -> String {
     let mode = site_mode.unwrap_or(1);
     let pid = product_id.to_string();
+    // 属性转义：价格/名称进入 HTML 属性，防注入
+    let price_attr = escape_html(price.as_deref().unwrap_or(""));
+    let name_attr = escape_html(name.as_deref().unwrap_or(""));
     let mut html = String::new();
-    html.push_str(r#"<div class="cms-cart-button" data-product-id=""#);
-    html.push_str(&pid);
-    html.push_str(r#"">"#);
+    html.push_str(&format!(
+        r#"<div class="cms-cart-button" data-product-id="{}" data-price="{}" data-name="{}">"#,
+        pid, price_attr, name_attr
+    ));
 
     match mode {
         1 => {
-            // 展示型：仅"立即咨询"
-            html.push_str(r#"<button type="button" class="btn btn-lead" onclick="document.getElementById('lead-form-"#);
-            html.push_str(&pid);
-            html.push_str(r#"').style.display='block'">立即咨询</button>"#);
+            html.push_str(&format!(
+                r#"<button type="button" class="cms-btn cms-btn-lead" onclick="cmsOpenLead({})">立即咨询</button>"#,
+                pid
+            ));
         }
         2 => {
-            // 交易型：加购物车 + 立即购买
-            html.push_str(r#"<button type="button" class="btn btn-cart" onclick="cmsAddCart("#);
-            html.push_str(&pid);
-            html.push_str(r#"')">加入购物车</button>"#);
-            html.push_str(r#"<button type="button" class="btn btn-buy" onclick="cmsBuyNow("#);
-            html.push_str(&pid);
-            html.push_str(r#"')">立即购买</button>"#);
+            html.push_str(&format!(
+                r#"<button type="button" class="cms-btn cms-btn-cart" onclick="cmsAddCart({})">加入购物车</button>"#,
+                pid
+            ));
+            html.push_str(&format!(
+                r#"<button type="button" class="cms-btn cms-btn-buy" onclick="cmsBuyNow({})">立即购买</button>"#,
+                pid
+            ));
         }
         3 => {
-            // 混合型：咨询 + 加购物车 + 立即购买
-            html.push_str(r#"<button type="button" class="btn btn-lead" onclick="document.getElementById('lead-form-"#);
-            html.push_str(&pid);
-            html.push_str(r#"').style.display='block'">立即咨询</button>"#);
-            html.push_str(r#"<button type="button" class="btn btn-cart" onclick="cmsAddCart("#);
-            html.push_str(&pid);
-            html.push_str(r#"')">加入购物车</button>"#);
-            html.push_str(r#"<button type="button" class="btn btn-buy" onclick="cmsBuyNow("#);
-            html.push_str(&pid);
-            html.push_str(r#"')">立即购买</button>"#);
+            html.push_str(&format!(
+                r#"<button type="button" class="cms-btn cms-btn-lead" onclick="cmsOpenLead({})">立即咨询</button>"#,
+                pid
+            ));
+            html.push_str(&format!(
+                r#"<button type="button" class="cms-btn cms-btn-cart" onclick="cmsAddCart({})">加入购物车</button>"#,
+                pid
+            ));
+            html.push_str(&format!(
+                r#"<button type="button" class="cms-btn cms-btn-buy" onclick="cmsBuyNow({})">立即购买</button>"#,
+                pid
+            ));
         }
         _ => {
-            html.push_str(r#"<button type="button" class="btn btn-lead" onclick="document.getElementById('lead-form-"#);
-            html.push_str(&pid);
-            html.push_str(r#"').style.display='block'">立即咨询</button>"#);
+            html.push_str(&format!(
+                r#"<button type="button" class="cms-btn cms-btn-lead" onclick="cmsOpenLead({})">立即咨询</button>"#,
+                pid
+            ));
         }
     }
 
     html.push_str("</div>");
+
+    // 方案乙：展示型/混合型自动内联留言 modal（修一次标签，全站产品模板无需成对调用 lead_form）
+    if mode == 1 || mode == 3 {
+        html.push_str(&lead_form_html(Some(product_id)));
+    }
+
     html
 }
 
-/// 线索/咨询表单：渲染表单 HTML
+/// 线索/咨询表单：渲染遮罩 modal（P-0.2/P-0.3 修复）
 ///
 /// 模板调用：{{ lead_form(product_id=p.id) }} 或 {{ lead_form() }}
-///
-/// 提交到 POST /api/open/lead/submit，字段：name / phone / email / content / product_id
+/// 提交由 /static/default/js/cms.js 接管（fetch POST /api/open/leave_msg/submit，
+/// 字段 contact_name/contact_phone/contact_email/content/product_id → 自动转线索）
 pub fn lead_form_html(product_id: Option<i64>) -> String {
     let pid = product_id.unwrap_or(0);
     let mut html = String::new();
 
-    // 表单容器（默认隐藏，由 cart_button 触发显示）
-    html.push_str(&format!(r#"<div id="lead-form-{}" class="cms-lead-form" style="display:none">"#, pid));
-    html.push_str(r#"<div class="lead-form-inner">"#);
-    html.push_str(r#"<h3 class="lead-form-title">在线咨询</h3>"#);
-    html.push_str(r#"<form action="/api/open/lead/submit" method="post" class="lead-form">"#);
+    // 遮罩 modal（默认隐藏；cms.js 的 cmsOpenLead/cmsCloseLead 控制显隐）
+    html.push_str(&format!(
+        r#"<div id="lead-form-{}" class="cms-lead-modal" style="display:none" role="dialog" aria-modal="true">"#,
+        pid
+    ));
+    html.push_str(r#"<div class="cms-lead-card">"#);
+    html.push_str(&format!(
+        r#"<button type="button" class="cms-lead-close" aria-label="关闭" onclick="cmsCloseLead({})">&times;</button>"#,
+        pid
+    ));
+    html.push_str(r#"<h3 class="cms-lead-title">在线咨询</h3>"#);
+    html.push_str(&format!(
+        r#"<form class="cms-lead-form" onsubmit="return cmsSubmitLead(event, {})">"#,
+        pid
+    ));
 
-    // 隐藏字段：产品 ID
+    // 隐藏字段：产品 ID + 来源标识
     if pid > 0 {
         html.push_str(&format!(r#"<input type="hidden" name="product_id" value="{}">"#, pid));
     }
+    html.push_str(r#"<input type="hidden" name="source" value="website">"#);
 
     // 姓名
-    html.push_str(r#"<div class="form-row"><label>姓名 <span class="req">*</span></label>"#);
-    html.push_str(r#"<input type="text" name="name" required placeholder="请输入您的姓名"></div>"#);
+    html.push_str(r#"<div class="cms-form-row"><label>姓名 <span class="req">*</span></label>"#);
+    html.push_str(r#"<input type="text" name="contactName" required placeholder="请输入您的姓名"></div>"#);
 
     // 电话
-    html.push_str(r#"<div class="form-row"><label>电话 <span class="req">*</span></label>"#);
-    html.push_str(r#"<input type="tel" name="phone" required placeholder="请输入联系电话"></div>"#);
+    html.push_str(r#"<div class="cms-form-row"><label>电话 <span class="req">*</span></label>"#);
+    html.push_str(r#"<input type="tel" name="contactPhone" required placeholder="请输入联系电话"></div>"#);
 
     // 邮箱
-    html.push_str(r#"<div class="form-row"><label>邮箱</label>"#);
-    html.push_str(r#"<input type="email" name="email" placeholder="请输入邮箱（选填）"></div>"#);
+    html.push_str(r#"<div class="cms-form-row"><label>邮箱</label>"#);
+    html.push_str(r#"<input type="email" name="contactEmail" placeholder="请输入邮箱（选填）"></div>"#);
 
     // 留言内容
-    html.push_str(r#"<div class="form-row"><label>留言内容</label>"#);
-    html.push_str(r#"<textarea name="content" rows="3" placeholder="请输入您的需求（选填）"></textarea></div>"#);
+    html.push_str(r#"<div class="cms-form-row"><label>留言内容 <span class="req">*</span></label>"#);
+    html.push_str(r#"<textarea name="content" rows="3" required placeholder="请输入您的需求"></textarea></div>"#);
 
-    // 提交按钮
-    html.push_str(r#"<div class="form-row"><button type="submit" class="btn btn-submit">提交咨询</button>"#);
-    html.push_str(r#"<button type="button" class="btn btn-cancel" onclick="this.closest('.cms-lead-form').style.display='none'">取消</button></div>"#);
+    // 提交按钮（cms.js 防重复提交：提交中禁用按钮）
+    html.push_str(r#"<div class="cms-form-row"><button type="submit" class="cms-btn cms-btn-submit">提交咨询</button>"#);
+    html.push_str(&format!(
+        r#"<button type="button" class="cms-btn cms-btn-cancel" onclick="cmsCloseLead({})">取消</button></div>"#,
+        pid
+    ));
+    html.push_str(r#"<p class="cms-lead-feedback" style="display:none"></p>"#);
 
     html.push_str(r#"</form></div></div>"#);
     html

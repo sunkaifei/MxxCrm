@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CommentAdminUpdateRequest","CommentDetailVO","CommentListVO","CommentModel","CommentSaveRequest","ListQuery","PageWhere"]};

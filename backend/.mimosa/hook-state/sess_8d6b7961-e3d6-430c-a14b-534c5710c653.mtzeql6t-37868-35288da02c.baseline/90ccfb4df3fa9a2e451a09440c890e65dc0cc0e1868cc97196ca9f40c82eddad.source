@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["REFUND_STATUS_APPROVED","REFUND_STATUS_CANCELLED","REFUND_STATUS_PENDING","REFUND_STATUS_REFUNDED","REFUND_STATUS_REJECTED"],"fn":["default_refund_type"],"struct":["RefundApplyRequest","RefundHandleRequest","RefundListQuery","RefundVO","WebsiteRefundModel"]};

@@ -69,6 +69,7 @@ export const LucideGlobe = createIconifyIcon('lucide:globe');
 export const LucideSmartphone = createIconifyIcon('lucide:smartphone');
 export const LucideCalendar = createIconifyIcon('lucide:calendar');
 export const LucideClock = createIconifyIcon('lucide:clock');
+export const LucideHistory = createIconifyIcon('lucide:history');
 export const LucideMessageCircle = createIconifyIcon('lucide:message-circle');
 export const LucideMessageSquare = createIconifyIcon('lucide:message-square');
 export const LucideMoreHorizontal = createIconifyIcon('lucide:more-horizontal');

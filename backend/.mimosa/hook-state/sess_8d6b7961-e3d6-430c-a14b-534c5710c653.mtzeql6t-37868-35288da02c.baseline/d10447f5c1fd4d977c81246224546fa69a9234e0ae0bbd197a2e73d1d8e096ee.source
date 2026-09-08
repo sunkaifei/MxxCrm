@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["chat_admin_controller","my_notification_controller","notification_admin_controller"]};

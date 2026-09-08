@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["list_by_customer","record_claim","record_release","record_transfer"]};

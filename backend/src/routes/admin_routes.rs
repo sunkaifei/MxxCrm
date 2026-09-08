@@ -1,29 +1,26 @@
 use std::collections::HashSet;
 
 use actix_web::dev::ServiceRequest;
-use actix_web::{error, web, Error, Result};
+use actix_web::{error, web, Error, Result, HttpResponse};
+use crate::core::web::response::{MetaResp, MPACK};
 use actix_web_grants::GrantsMiddleware;
 
 use crate::core::kit::config;
 use crate::core::kit::jwt_util::JWTToken;
 use crate::core::kit::global::AppState;
-use crate::modules::articles::controller::admin::{article_admin_controller, article_field_admin_controller, category_admin_controller, comment_admin_controller, label_admin_controller};
+use crate::modules::articles::controller::admin::{article_admin_controller, article_field_admin_controller, article_tag_admin_controller, category_admin_controller, comment_admin_controller, label_admin_controller};
 use crate::modules::search::controller::admin::search_admin_controller;
 use crate::modules::statistics::controller::admin::statistics_admin_controller as sys_statistics_admin_controller;
 use crate::modules::statistics::controller::admin::performance_plan_controller;
-use crate::modules::system::controller::admin::{config_admin_controller, dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, perm_set_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller, audit_admin_controller, backup_controller, profile_controller, hr_archive_controller, resign_controller, dashboard_card_admin_controller, workspace_admin_controller, onboarding_controller, salary_band_admin_controller, dashboard_workspace_controller, field_admin_controller, field_perm_admin_controller};
+use crate::modules::system::controller::admin::{dept_admin_controller, ip_admin_controller, menu_admin_controller, notice_admin_controller, post_admin_controller, region_admin_controller, area_admin_controller, role_admin_controller, perm_set_admin_controller, system_admin_controller, system_dict_controller, system_log_admin_controller, tag_admin_controller, edit_log_admin_controller, mail_controller, admin_preference_controller, scheduler_controller, pdf_controller, setting_admin_controller, integration_config_controller, audit_admin_controller, backup_controller, profile_controller, hr_archive_controller, resign_controller, dashboard_card_admin_controller, workspace_admin_controller, onboarding_controller, salary_band_admin_controller, dashboard_workspace_controller, field_admin_controller, field_perm_admin_controller};
 use crate::modules::approval::controller::admin::approval_controller;
 use crate::modules::upload::controller::admin::attachment_admin_controller;
-use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller};
-use crate::modules::shop::controller::admin::shop_admin_controller;
-use crate::modules::shop::controller::admin::category_controller;
-use crate::modules::shop::controller::admin::audit_controller;
+use crate::modules::website::controller::admin::{my_template_admin_controller, website_admin_controller, template_admin_controller, template_category_admin_controller, website_links_admin_controller, template_data_admin_controller, website_media_admin_controller, content_model_admin_controller, content_model_field_admin_controller, content_data_admin_controller, template_var_admin_controller, template_revision_admin_controller, website_banner_admin_controller, website_block_admin_controller, website_page_admin_controller, leave_msg_admin_controller, navigation_admin_controller, website_user_admin_controller, website_order_admin_controller, website_refund_admin_controller, website_notification_config_admin_controller, website_product_admin_controller};
 use crate::modules::finance::controller::admin::{member_fee_admin_controller, payment_admin_controller, refund_admin_controller, statistics_admin_controller as finance_statistics_admin_controller, commission_rule_controller, salary_controller, payment_controller as finance_payment_controller, expense_controller as finance_expense_controller, tax_controller, insurance_controller, bank_export_controller, payslip_controller, team_commission_controller, attendance_controller, salary_item_controller, salary_adjustment_controller, commission_pool_controller};
 use crate::modules::ai::controller::admin::{ai_config_controller, background_check_controller};
-use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, visit_controller, work_log_controller, recycle_controller};
+use crate::modules::crm::controller::admin::{customer_controller as crm_customer_controller, lead_controller, pool_controller, contact_controller, opportunity_controller, contract_controller, followup_controller, customer_edit_log_controller, todo_controller, visit_controller, work_log_controller, recycle_controller};
 use crate::modules::product::controller::admin::{product_controller, category_controller as product_category_controller, spec_controller, sku_template_controller, brand_controller, unit_conversion_controller, product_unit_controller};
 use crate::modules::purchase::controller::admin::{purchase_order_controller, supplier_controller, purchase_requisition_controller, purchase_receipt_controller, purchase_return_controller, purchase_stock_plan_controller, purchase_report_controller, supplier_brand_controller, supplier_product_controller};
-use crate::modules::production::controller::admin::{production_plan_controller, production_order_controller};
 use crate::modules::sale::controller::admin::{invoice_controller, order_controller as sale_order_controller, order_item_controller, payment_controller as sale_payment_controller, quotation_controller, refund_controller, shipment_controller, delivery_controller, card_pool_controller, entitlement_controller, online_payment_controller, logistics_controller, delivery_notification_controller, tax_invoice_controller, exchange_controller, download_link_controller};
 use crate::modules::inventory::controller::admin::{warehouse_controller, inventory_controller, inbound_controller, outbound_controller, inventory_report_controller, quality_check_controller, batch_controller, stock_snapshot_controller, inventory_suggestion_controller, stocktake_controller, warehouse_area_controller, transfer_controller, alert_controller, serial_number_controller, bin_location_controller};
 use crate::modules::company::controller::admin::company_controller;
@@ -40,7 +37,7 @@ use crate::modules::message::controller::admin::notification_admin_controller;
 use crate::modules::message::controller::admin::my_notification_controller;
 use crate::modules::message::controller::admin::chat_admin_controller;
 use crate::modules::message::websocket;
-use crate::modules::system::service::permission_cache_service;
+use crate::modules::system::service::{auth_security_service, permission_cache_service};
 
 async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
     let path = req.path();
@@ -62,6 +59,27 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
         .pop()
         .unwrap_or_default()
         .to_string();
+
+    // 批2: API 个人访问令牌（PAT）直连鉴权——mxxpat_ 前缀走令牌哈希校验+限流，不走会话
+    if token.starts_with(crate::modules::system::service::auth_security_service::PAT_PREFIX) {
+        let unauthorized = |msg: String| {
+            error::InternalError::from_response(
+                msg.clone(),
+                HttpResponse::Unauthorized().content_type(crate::core::web::response::MPACK)
+                    .body(crate::core::web::response::MetaResp::<String>::fail(401, &msg, "local")),
+            ).into()
+        };
+        let Some(app_state) = req.app_data::<web::Data<AppState>>() else {
+            return Err(unauthorized("无法获取应用状态".to_string()));
+        };
+        return match auth_security_service::authenticate_pat(&app_state.db, &token).await {
+            Ok(user_id) => {
+                let permissions = permission_cache_service::get_or_load_permissions(&app_state.db, user_id).await;
+                Ok(permissions.into_iter().collect())
+            }
+            Err(msg) => Err(unauthorized(msg)),
+        };
+    }
     let jwt_token_e = JWTToken::verify(&config::section::<String>("server", "jwt_secret_admin", "".to_string()), &token);
 
     match jwt_token_e {
@@ -74,7 +92,12 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
                 // v1.2: 缓存未命中时降级查 DB session 表（mem 模式重启不丢登录态）
                 let db = req.app_data::<web::Data<AppState>>().map(|s| s.db.clone());
                 if !permission_cache_service::validate_session_with_db(user_id, &token, db.as_ref()).await {
-                    return Err(error::ErrorUnauthorized("登录状态已失效，请重新登录"));
+                    // A-2.3: 401 统一 msgpack 业务体（与 user 端格式对齐；HTTP 状态仍为 401 供前端拦截器识别）
+                    return Err(error::InternalError::from_response(
+                        "登录状态已失效，请重新登录",
+                        HttpResponse::Unauthorized().content_type(MPACK)
+                            .body(MetaResp::<String>::fail(401, "登录状态已失效，请重新登录", "local")),
+                    ).into());
                 }
 
                 // 从请求中获取数据库连接
@@ -88,11 +111,19 @@ async fn extract(req: &ServiceRequest) -> Result<HashSet<String>, Error> {
                     Ok(HashSet::new())
                 }
             } else {
-                Err(error::ErrorUnauthorized("无效的用户身份"))
+                Err(error::InternalError::from_response(
+                    "无效的用户身份",
+                    HttpResponse::Unauthorized().content_type(MPACK)
+                        .body(MetaResp::<String>::fail(401, "无效的用户身份", "local")),
+                ).into())
             }
         },
         Err(_err) => {
-            Err(error::ErrorUnauthorized("Authorization Not Found"))
+            Err(error::InternalError::from_response(
+                "登录凭据缺失或无效，请重新登录",
+                HttpResponse::Unauthorized().content_type(MPACK)
+                    .body(MetaResp::<String>::fail(401, "登录凭据缺失或无效，请重新登录", "local")),
+            ).into())
         }
     }
 }
@@ -123,8 +154,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(post_admin_controller::register)
             // Salary Band Management（岗位薪资带宽，内嵌岗位管理页）
             .configure(salary_band_admin_controller::register)
-            // Config Management
-            .configure(config_admin_controller::register)
             // Third-party Integration Config Management（第三方接口统一配置中心）
             .configure(integration_config_controller::register)
             // Region Management
@@ -133,6 +162,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(area_admin_controller::register)
             // Website Management
             .configure(website_admin_controller::register)
+            // Article Tag Management（文章标签，/article/tag 前缀需先于 /article 匹配）
+            .configure(article_tag_admin_controller::register)
+            // Article Custom Field Management (G-2.1: 文章自定义字段管理)
+            .configure(article_field_admin_controller::register)
             // Article Management
             .configure(article_admin_controller::register)
             // Category Management (Article)
@@ -158,6 +191,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             // CMS Enhancement: Content Model Management
             .configure(content_model_admin_controller::register)
             .configure(content_model_field_admin_controller::register)
+            // CMS Enhancement: 内容模型动态表内容 CRUD（通用内容页）
+            .configure(content_data_admin_controller::register)
             // CMS Enhancement: Template Variables & Revisions
             .configure(template_var_admin_controller::register)
             .configure(template_revision_admin_controller::register)
@@ -177,12 +212,13 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(website_refund_admin_controller::register)
             // CMS: Website Notification Config Management (网站通知配置管理)
             .configure(website_notification_config_admin_controller::register)
+            // CMS: Website Product Shelf Management (网站展示产品管理——上架清单)
+            .configure(website_product_admin_controller::register)
             // Label Management
             .configure(label_admin_controller::register)
             // Comment Management (文章评论管理)
             .configure(comment_admin_controller::register)
             // Article Custom Field Management (G-2.1: 文章自定义字段管理)
-            .configure(article_field_admin_controller::register)
             // Notice Management
             .configure(notice_admin_controller::register)
             // Tag Management
@@ -195,12 +231,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(performance_plan_controller::register)
             // Data Analysis Statistics Management
             .configure(sys_statistics_admin_controller::register)
-            // Shop Management
-            .configure(shop_admin_controller::register)
-            // Shop Category Management
-            .configure(category_controller::register)
-            // Audit Management
-            .configure(audit_controller::register)
             // Member Fee Management
             .configure(member_fee_admin_controller::register)
             // Payment Record Management
@@ -243,6 +273,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(crm_customer_controller::register)
             // CRM Lead Management
             .configure(lead_controller::register)
+            // CRM Lead Pool Management（公海池体系：池/成员/配置）
+            .configure(pool_controller::register)
             // CRM Contact Management
             .configure(contact_controller::register)
             // CRM Opportunity Management
@@ -374,10 +406,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(unit_conversion_controller::register)
             // Product Unit Management
             .configure(product_unit_controller::register)
-            // Production Plan Management
-            .configure(production_plan_controller::register)
-            // Production Order Management
-            .configure(production_order_controller::register)
             // Approval Flow + Instance Management
             .configure(approval_controller::register)
             // Company Info Management

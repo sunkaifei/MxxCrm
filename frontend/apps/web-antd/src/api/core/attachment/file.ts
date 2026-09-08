@@ -11,17 +11,21 @@ export const getFileInfoApi = async (id: number) => {
 };
 
 // 上传文件（multipart/form-data）
+// isPublic：是否公开（0/1，附件URL统一方案 v1.1 §5.3）——不传按 entity_type 默认；
+// 显式传 1 受后端白名单硬校验（仅 product/avatar/common/banner/website_media）
 export const uploadFileApi = async (
   file: File,
   entityType: string,
   entityId?: number,
   typeId?: number,
+  isPublic?: 0 | 1,
 ) => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('entity_type', entityType);
   if (entityId) formData.append('entity_id', String(entityId));
   if (typeId) formData.append('type_id', String(typeId));
+  if (isPublic !== undefined) formData.append('is_public', String(isPublic));
   return requestClient.post('/api/system/attachment/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });

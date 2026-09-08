@@ -38,7 +38,7 @@ const guideStepCount = 5;
 
 // ===== 权限 =====
 const { hasAccessByRoles } = useAccess();
-const canManage = computed(() => hasAccessByRoles(['super_admin', 'finance']));
+const canManage = computed(() => hasAccessByRoles(['super_admin', 'finance', 'finance_manager']));
 
 // ===== 通用工具 =====
 function formatMoney(val: any) {

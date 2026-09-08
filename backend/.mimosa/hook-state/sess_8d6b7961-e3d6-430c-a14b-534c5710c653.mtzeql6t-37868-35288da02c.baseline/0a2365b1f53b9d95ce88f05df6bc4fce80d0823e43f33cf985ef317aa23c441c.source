@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["format_error"],"struct":["delete_session_handler","get_chat_messages_handler","get_colleague_list_handler","get_session_list_handler","get_unread_count_handler","mark_read_handler","search_users_handler","send_message_handler","start_session_handler"]};

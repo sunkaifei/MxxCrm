@@ -6,6 +6,8 @@
 /.rustup/
 /.workbuddy/
 /.tmp-test/
+/backend/.tmp-test/
+/.uploads/
 /backend/config/production_config.ini
 /backend/config/env_config.ini
 /backend/scripts/
@@ -25,3 +27,4 @@
 /mxx-ecommerce-landing/
 *.log
 *.ps1
+/.mimosa/

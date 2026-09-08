@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_move","bind_attachment","delete_attachment","download_attachment","get_by_entity","get_detail","get_page_list","register","unbind_attachment","update","upload_attachment"],"struct":["JsonResp"]};

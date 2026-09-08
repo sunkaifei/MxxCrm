@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_cc_approval","add_sign_approval","approval_detail","approval_list","cancel_approval","cc_list","cc_mark_read","delegate_approval","delete_flow","flow_detail","flow_list","process_approval","register","reject_to_approval","save_flow","submit_approval","toggle_flow","transfer_approval"],"struct":["CcListQuery","PageQuery"]};

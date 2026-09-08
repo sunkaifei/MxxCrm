@@ -194,7 +194,8 @@
       },
       "sku": {
         "create": "新增规格"
-      }
+      },
+      "title": "产品"
     },
     "finance": {
       "commissionRule": {

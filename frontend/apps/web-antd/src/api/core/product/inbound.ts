@@ -49,3 +49,13 @@ export const submitInboundApi = async (
 export const withdrawInboundApi = async (id: number) => {
   return requestClient.post('/api/system/inbound/withdraw', { id });
 };
+
+/** 回收站恢复（制单人或管理层） */
+export const restoreInboundApi = async (id: number) => {
+  return requestClient.put(`/api/system/inbound/restore/${id}`);
+};
+
+/** 回收站彻底删除（仅管理层/超管） */
+export const purgeInboundApi = async (id: number) => {
+  return requestClient.delete(`/api/system/inbound/purge/${id}`);
+};

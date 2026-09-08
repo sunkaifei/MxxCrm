@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["controller","entity","migration","model","service","websocket"]};

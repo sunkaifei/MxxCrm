@@ -57,8 +57,7 @@
       "mobileRequired": "请输入手机号",
       "mobileFormatError": "手机号格式不正确，请输入 11 位中国大陆手机号",
       "mobileExists": "该手机号已被其他账号使用",
-      "mobileEditLocked": "手机号由用户本人登录后在用户中心修改，此处不可编辑",
-      "emailEditLocked": "邮箱由用户本人登录后在用户中心修改，此处不可编辑",
+      "emailFormatError": "邮箱格式不正确，请输入有效的邮箱地址",
       "usernameEditLocked": "登录名创建后不可修改",
       "passwordMinLength": "密码至少需要6个字符",
       "passwordMaxLength": "密码不能超过32个字符",
@@ -97,7 +96,7 @@
       "employeeNoPlaceholder": "创建后按编号规则自动生成",
       "employeeNoTip": "由企业菜单-编号规则配置自动生成（如 X001），全局唯一且终身不变，不可手工修改",
       "assignNoConfirmTitle": "为未分配编号的员工生成员工编号？",
-      "assignNoConfirmContent": "将按编号规则配置（如 X001）为所有还没有员工编号的员工生成编号，已有编号的员工不受影响。",
+      "assignNoConfirmContent": "仅为在职正式员工（已审核通过、未离职）从最小空闲号开始编号（如 X001、X002）；待审核、停用、离职及超级管理员账号不参与；编号一经分配永久占用，不会复用。",
       "assignNoSuccess": "员工编号分配完成",
       "button": {
         "create": "创建账号",
@@ -111,7 +110,7 @@
         "kickOffline": "踢下线",
         "editAction": "编辑",
         "deleteAction": "删除",
-        "submitAudit": "提交审核",
+        "submitAudit": "提交审批",
         "resubmitAudit": "重新提交",
         "more": "更多",
         "columnsConfig": "列显示设置",
@@ -125,13 +124,20 @@
         "resignApply": "离职申请",
         "resignView": "交接单查看",
         "resignConfirm": "交接代确认",
-        "resignSettle": "财务结算"
+        "resignSettle": "财务结算",
+        "update": "编辑",
+        "resetPwd": "重置密码",
+        "updateStatus": "启/停用"
       },
       "auditStatus": {
-        "pending": "待审核",
+        "pending": "待审批",
         "approved": "已通过",
-        "label": "审核状态"
+        "label": "审批状态"
       },
+      "onJobStatus": "在职状态",
+      "onJobActive": "在职",
+      "onJobPending": "待审核",
+      "onJobInactive": "离职/停用",
       "columnsConfig": {
         "title": "列显示设置",
         "hint": "按查看级别配置员工列表可见列，保存后对应角色查看时生效",
@@ -141,7 +147,9 @@
         "levelManager": "部门负责人",
         "levelEmployee": "普通员工",
         "saveSuccess": "列显示配置保存成功"
-      }
+      },
+      "userName": "用户名",
+      "submitAudit": "提交审批"
     },
     "menu": {
       "module": "菜单",
@@ -168,7 +176,8 @@
         "createChild": "添加子菜单",
         "delete": "删除菜单",
         "edit": "修改菜单",
-        "view": "查看菜单"
+        "view": "查看菜单",
+        "update": "编辑"
       }
     },
     "role": {
@@ -187,7 +196,8 @@
         "delete": "删除角色",
         "edit": "修改角色",
         "assignMenu": "分配菜单",
-        "view": "查看角色"
+        "view": "查看角色",
+        "update": "编辑"
       }
     },
     "permSet": {
@@ -423,6 +433,9 @@
       "colTip": "设为 {n} 栏宽"
     },
     "onboarding": {
+      "button": {
+        "save": "保存配置"
+      },
       "title": "入职引导配置",
       "versionLabel": "配置版本",
       "builtinTip": "内置步骤由系统预置，仅可启用/停用与调整顺序",
@@ -516,6 +529,14 @@
       }
     },
     "field": {
+      "button": {
+        "create": "新增字段",
+        "edit": "编辑字段",
+        "delete": "删除字段",
+        "fieldPerm": "字段权限",
+        "fieldPermSave": "保存字段权限",
+        "status": "启用/停用"
+      },
       "title": "自定义字段"
     },
     "pdfRecord": {
@@ -597,6 +618,7 @@
       "tabResign": "离职申请",
       "tabTransfer": "我的交接任务",
       "tabPassword": "修改密码",
+      "tabAccountBind": "账号绑定",
       "basicInfo": "基本信息",
       "employInfo": "雇佣信息",
       "nickName": "昵称",
@@ -715,7 +737,8 @@
         "flipV": "垂直",
         "reset": "重置",
         "reselect": "重新选择"
-      }
+      },
+      "tabSecurity": "安全设置"
     },
     "approval": {
       "title": "审批流管理",
@@ -990,6 +1013,35 @@
       "button": {
         "save": "保存"
       }
+    },
+    "performanceConfig": {
+      "title": "业绩统计配置",
+      "desc": "配置业绩概览的统计口径、榜单展示与金额隐私。保存后全站生效，用户重新进入页面后生效。",
+      "button": {
+        "manage": "保存配置"
+      },
+      "reset": "重置默认",
+      "resetTip": "已重置为默认配置，点击保存后生效",
+      "saveSuccess": "配置已保存",
+      "scopeTitle": "统计口径",
+      "statScope": "统计对象",
+      "statScopeTip": "决定榜单与 KPI 汇总包含哪些人员",
+      "statScopeAllUsers": "全员业绩",
+      "statScopeAllUsersDesc": "当年有业务数据（合同/回款）的人员（现状默认）",
+      "statScopePlanSales": "仅计划销售",
+      "statScopePlanSalesDesc": "仅当年有已通过年度销售计划的人员",
+      "showZeroTargetRows": "显示 0 目标行",
+      "showZeroTargetRowsTip": "开启后，未设置目标的人员也会出现在榜单中（仅全员口径下有意义）",
+      "privacyTitle": "金额隐私",
+      "privacyAlert": "开启后，个人视图用户查看他人行时对应金额显示 **；管理层与部门视角不受影响",
+      "hideOtherActual": "隐藏他人实际金额",
+      "hideOtherActualTip": "榜单中他人行的实际合同/回款金额打码为 **",
+      "hideOtherTarget": "隐藏他人目标金额",
+      "hideOtherTargetTip": "榜单中他人行的目标金额打码为 **",
+      "rankTitle": "榜单展示",
+      "rankingTopN": "排行默认条数",
+      "rankingTopNTip": "排行榜默认展示前 N 名（3-100）",
+      "rankingTopNUnit": "名"
     },
     "setting": {
       "title": "系统设置",

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ApplyDTO","ApplyPageQuery","ApplyRequest","ApplyVO","SupplierApplyModel"]};

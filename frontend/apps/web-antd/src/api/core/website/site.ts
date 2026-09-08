@@ -8,6 +8,8 @@ export interface SiteSaveDTO {
   homeTemplateDataId?: number;
   domain?: string;
   bindDomain?: string;
+  /** 资源访问域名（附件/图片 URL 前缀，留空=同源相对路径） */
+  assetDomain?: string;
   logo?: string;
   keywords?: string;
   description?: string;
@@ -56,6 +58,8 @@ export interface SiteVO {
   siteName?: string;
   domain?: string;
   bindDomain?: string;
+  /** 资源访问域名（附件/图片 URL 前缀，留空=同源相对路径） */
+  assetDomain?: string;
   logo?: string;
   keywords?: string;
   description?: string;

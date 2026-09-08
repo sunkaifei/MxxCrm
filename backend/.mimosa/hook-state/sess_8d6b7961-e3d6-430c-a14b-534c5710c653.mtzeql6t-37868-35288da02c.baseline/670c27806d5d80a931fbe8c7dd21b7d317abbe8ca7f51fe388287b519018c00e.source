@@ -1,0 +1,67 @@
+# -*- coding: utf-8 -*-
+# E2E: payslip permission model — everyone sees/confirm own only; finance sees all
+import json, re, sys, io
+import urllib.request, urllib.error
+import msgpack
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+BASE = "http://127.0.0.1:8088"
+
+def call(method, path, token=None, body=None):
+    req = urllib.request.Request(BASE + path, method=method)
+    req.add_header("Content-Type", "application/json")
+    if token:
+        req.add_header("Authorization", "Bearer " + token)
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    try:
+        with urllib.request.urlopen(req, data=data, timeout=30) as resp:
+            return msgpack.unpackb(resp.read(), raw=False)
+    except urllib.error.HTTPError as e:
+        return {"_http": e.code, "_body": e.read()[:200].decode("utf-8", "ignore")}
+
+def login(username):
+    r = call("POST", "/api/system/auth/login", body={"username": username, "password": "admin123"})
+    s = json.dumps(r, default=str)
+    toks = re.findall(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+", s)
+    assert toks, "login fail %s: %s" % (username, s[:200])
+    return max(toks, key=len)
+
+# ---- 1. rep (业务员, user 7, sales_rep) —— 非财务角色 ----
+tok_rep = login("rep")
+# 1a. 不带 list_type：强制只看自己
+r = call("GET", "/api/system/finance/payslip/list?page=1&pageSize=50", tok_rep)
+rows = (r.get("data") or [])
+rows = rows if isinstance(rows, list) else rows.get("items") or []
+owners = {row.get("employeeId") or row.get("employee_id") for row in rows}
+print("1a. rep list(无list_type) rows=%d owners=%s" % (len(rows), owners))
+assert owners <= {7}, "rep saw others' payslips: %s" % owners
+# 1b. 试图指定 employeeId=13（CEO）：仍强制只看自己
+r = call("GET", "/api/system/finance/payslip/list?employeeId=13&page=1&pageSize=50", tok_rep)
+rows = (r.get("data") or [])
+rows = rows if isinstance(rows, list) else rows.get("items") or []
+owners = {row.get("employeeId") or row.get("employee_id") for row in rows}
+print("1b. rep list(employeeId=13) rows=%d owners=%s" % (len(rows), owners))
+assert owners <= {7}, "rep bypassed with employeeId: %s" % owners
+# 1c. 看 CEO 的工资条详情（id=200, emp=3）→ 403
+r = call("GET", "/api/system/finance/payslip/detail?id=200", tok_rep)
+print("1c. rep detail(payslip 200, owner=3):", r.get("code"), r.get("msg"), r.get("_http", ""))
+assert r.get("code") in (403,) or r.get("_http") in (400,403), "rep could read others' detail"
+
+# ---- 2. rep 确认自己的工资条（id=200? 不行，200是emp3的；用 15 emp=7） ----
+r = call("POST", "/api/system/finance/payslip/confirm", tok_rep, {"id": 15})
+print("2. rep confirm own payslip 15:", r.get("code"), r.get("msg"))
+# 2b. rep 确认别人的工资条（200, emp=3）→ 拒绝
+r = call("POST", "/api/system/finance/payslip/confirm", tok_rep, {"id": 200})
+print("2b. rep confirm others' payslip 200:", r.get("code"), r.get("msg"))
+assert r.get("code") != 200, "rep confirmed others' payslip!"
+
+# ---- 3. finance（财务, user 12）—— 财务角色看全部 ----
+tok_fin = login("finance")
+r = call("GET", "/api/system/finance/payslip/list?page=1&pageSize=50", tok_fin)
+rows = (r.get("data") or [])
+rows = rows if isinstance(rows, list) else rows.get("items") or []
+owners = {row.get("employeeId") or row.get("employee_id") for row in rows}
+print("3. finance list rows=%d owners=%s" % (len(rows), sorted(owners)))
+assert len(rows) >= 8, "finance should see all payslips"
+
+print("ALL PASS")

@@ -292,12 +292,32 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
-        return await getOpportunityListApi({
+        const result = await getOpportunityListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
           listType: activeTab.value,
           ...formValues,
         });
+        // 高度规则：无数据固定 600px；有数据时仍保持 600px，
+        // 仅当内容超出 600px 才按内容自适应（先解除固定量实测内容高，不足则补回 600px）
+        const items = (result as any)?.items ?? [];
+        const gridEl = (gridApi as any).grid?.$el as HTMLElement | undefined;
+        if (gridEl) {
+          if (items.length === 0) {
+            gridEl.style.setProperty('height', '600px', 'important');
+          } else {
+            gridEl.style.removeProperty('height');
+            nextTick(() => {
+              setTimeout(() => {
+                const h = gridEl.offsetHeight;
+                if (h > 0 && h < 600) {
+                  gridEl.style.setProperty('height', '600px', 'important');
+                }
+              }, 200);
+            });
+          }
+        }
+        return result;
       },
     },
   },
@@ -545,23 +565,24 @@ loadFlowMode();
       message="您当前是超级管理员，仅可查看数据。创建商机等业务操作请使用业务账号登录。"
       style="margin-bottom: 12px"
     />
-    <Tabs
-      v-model:active-key="activeTab"
-      class="mb-3"
-      @change="handleTabChange"
-    >
-      <Tabs.TabPane
-        v-for="tab in tabList"
-        :key="tab.key"
-        :tab="tab.label"
-      />
-      <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
-    </Tabs>
-
     <Grid
       v-show="activeTab !== 'recycle'"
       :table-title="$t('page.crm.opportunity.title')"
     >
+      <template #form-header>
+        <Tabs
+          v-model:active-key="activeTab"
+          class="mb-3"
+          @change="handleTabChange"
+        >
+          <Tabs.TabPane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.label"
+          />
+          <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
+        </Tabs>
+      </template>
       <template #toolbar-tools>
         <Button
           v-if="
@@ -705,7 +726,24 @@ loadFlowMode();
       </template>
     </Grid>
 
-    <RecycleBin v-show="activeTab === 'recycle'" :module="'opportunity'" />
+    <div v-show="activeTab === 'recycle'">
+      <RecycleBin :module="'opportunity'">
+        <template #form-header>
+          <Tabs
+            v-model:active-key="activeTab"
+            class="mb-3"
+            @change="handleTabChange"
+          >
+            <Tabs.TabPane
+              v-for="tab in tabList"
+              :key="tab.key"
+              :tab="tab.label"
+            />
+            <Tabs.TabPane v-if="isSuperAdmin" key="recycle" tab="回收站" />
+          </Tabs>
+        </template>
+      </RecycleBin>
+    </div>
 
     <Drawer
       v-model:open="detailVisible"

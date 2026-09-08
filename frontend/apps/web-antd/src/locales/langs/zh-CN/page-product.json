@@ -292,10 +292,12 @@
         "create": "创建调拨单",
         "status": {
           "0": "草稿",
-          "1": "待出库",
-          "2": "在途",
-          "3": "已完成",
-          "4": "已取消"
+          "1": "审批中",
+          "2": "待出库",
+          "3": "待入库",
+          "4": "已完成",
+          "5": "已取消",
+          "6": "已驳回"
         },
         "field": {
           "transferNo": "调拨单号",
@@ -328,6 +330,19 @@
           "targetWarehousePlaceholder": "请选择目标仓库",
           "remark": "备注",
           "remarkPlaceholder": "请输入备注信息"
+        },
+        "approval": {
+          "approvalTitle": "审批信息",
+          "approvalHistory": "审批记录",
+          "approve": "通过",
+          "reject": "驳回",
+          "commentPlaceholder": "审批意见（选填）",
+          "submit": "提交审批",
+          "submitSuccess": "已提交审批（仓管 → CEO 两级审批）",
+          "approveSuccess": "审批通过",
+          "rejectSuccess": "已驳回，单据退回草稿",
+          "rejectReason": "请填写驳回原因",
+          "detailTitle": "调拨单详情"
         }
       },
       "check": {
@@ -374,7 +389,7 @@
           "checkTime": "盘点时间",
           "remark": "备注",
           "productCode": "产品编码",
-            "productName": "产品名称",
+          "productName": "产品名称",
           "productSku": "SKU",
           "systemQuantity": "系统数量",
           "actualQuantity": "实盘数量",
@@ -434,6 +449,11 @@
         "stale": "呆滞预警",
         "expiry": "临期预警",
         "frozen": "冻结预警",
+        "tab": {
+          "all": "全部库存预警",
+          "mine": "我的库存预警",
+          "recycle": "回收站"
+        },
         "field": {
           "productName": "产品名称",
           "warehouseName": "仓库名称",
@@ -448,7 +468,9 @@
           "specText": "规格",
           "skuCode": "SKU编码",
           "sku": "适用规格",
-          "diff": "预警详情"
+          "diff": "预警详情",
+          "deleteByName": "删除人",
+          "deleteTime": "删除时间"
         },
         "type": {
           "lowStock": "低库存",
@@ -459,7 +481,11 @@
           "viewRule": "查看规则",
           "edit": "编辑",
           "delete": "删除",
-          "create": "新增规则"
+          "create": "新增规则",
+          "restore": "恢复",
+          "purge": "彻底删除",
+          "restoreConfirm": "确认恢复该库存记录？",
+          "purgeConfirm": "彻底删除后不可恢复，确认？"
         },
         "ruleForm": {
           "productAll": "产品（不选=全部产品）",
@@ -518,6 +544,10 @@
         "turnover": "库存周转率",
         "staleList": "呆滞库存清单",
         "costReport": "库存成本报表",
+        "scope": {
+          "all": "全部报表",
+          "mine": "我的仓库报表"
+        },
         "field": {
           "productName": "产品名称",
           "warehouseName": "仓库名称",
@@ -650,6 +680,9 @@
       "title": "库存预警",
       "rule": {
         "title": "预警规则"
+      },
+      "action": {
+        "viewRule": "查看规则"
       }
     },
     "report": {

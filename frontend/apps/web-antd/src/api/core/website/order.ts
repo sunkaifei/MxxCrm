@@ -1,6 +1,12 @@
-import type { DeliveryListParams } from './delivery';
-
 import { requestClient } from '#/api/request';
+
+export interface DeliveryListParams {
+  page?: number;
+  pageSize?: number;
+  orderNo?: string;
+  deliveryNo?: string;
+  status?: number;
+}
 
 export interface OrderListParams {
   page?: number;

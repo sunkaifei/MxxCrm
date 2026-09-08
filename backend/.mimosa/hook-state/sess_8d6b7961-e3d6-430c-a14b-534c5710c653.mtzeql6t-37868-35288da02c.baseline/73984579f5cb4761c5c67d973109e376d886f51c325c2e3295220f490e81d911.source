@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","export_template_scheme","export_template_scheme_zip","get_by_detail","get_by_page","import_template_scheme","import_template_scheme_zip","insert","insert_template_data_in_txn","parse_template_data_value","select_by_template_id","update_by_id","update_template_data_in_txn"]};

@@ -29,20 +29,49 @@ const getTitle = computed(() =>
     : $t('ui.modal.update', { moduleName: $t('page.product.category.title') }),
 );
 
-/** 加载可选上级分类（排除自身和子级） */
+/** 加载可选上级分类：TreeSelect 树结构，排除自身及其子树（防止把自己挂到自己的下级形成环） */
 async function loadParentOptions(excludeId?: null | string) {
+  const rootOption: any = { value: '0', label: '根目录', children: [] };
   try {
     const resp = await getCategoryListApi({ page: 1, pageSize: 999 });
     const list = (resp as any)?.items || (resp as any)?.rows || [];
-    const items = list
-      .filter((c: any) => String(c.id) !== String(excludeId))
-      .map((c: any) => ({
-        value: String(c.id),
-        label: c.name || '',
-      }));
-    parentOptions.value = [{ value: '0', label: '根目录' }, ...items];
+    const exclude = excludeId ? String(excludeId) : '';
+
+    // 建节点（排除自身）
+    const map = new Map<string, any>();
+    for (const c of list) {
+      const id = String(c.id);
+      if (id === exclude) continue;
+      map.set(id, { value: id, label: c.name || '', children: [] });
+    }
+    // 组装父子（父节点被排除的子级提升为根，避免丢失）
+    const tops: any[] = [];
+    for (const c of list) {
+      const id = String(c.id);
+      if (id === exclude) continue;
+      const node = map.get(id);
+      const parentId = c.parentId ? String(c.parentId) : '0';
+      const parent = map.get(parentId);
+      if (parentId !== '0' && parent) {
+        parent.children.push(node);
+      } else {
+        tops.push(node);
+      }
+    }
+    // 剪除空 children
+    const trim = (nodes: any[]) => {
+      for (const n of nodes) {
+        if (n.children?.length) trim(n.children);
+        else delete n.children;
+      }
+      return nodes;
+    };
+    trim(tops);
+
+    rootOption.children = tops;
+    parentOptions.value = [rootOption];
   } catch {
-    parentOptions.value = [{ value: '0', label: '根目录' }];
+    parentOptions.value = [rootOption];
   }
 }
 
@@ -65,13 +94,16 @@ const [BaseForm, baseFormApi] = useVbenForm({
       },
     },
     {
-      component: 'Select',
+      component: 'TreeSelect',
       fieldName: 'parentId',
       label: '上级分类',
       componentProps: {
-        placeholder: '请选择上级分类',
+        placeholder: '请选择上级分类（不选则为一级分类）',
         allowClear: true,
-        options: parentOptions,
+        treeData: parentOptions,
+        treeDefaultExpandAll: true,
+        treeNodeFilterProp: 'label',
+        showSearch: true,
       },
     },
     {

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ArticleTable"],"struct":["ArticleDetailVO","ArticleListVO","ArticleModel","ArticlesSaveDTO","ArticlesSaveRequest","ArticlesUpdateRequest","QueryPageDTO","QueryPageRequest","QueryShortUrlUnique","QueryTitleUnique"]};

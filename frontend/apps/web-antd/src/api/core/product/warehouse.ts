@@ -19,3 +19,13 @@ export const deleteWarehouseApi = async (ids: number[]) => {
     data: { ids },
   });
 };
+
+/** 回收站恢复（负责人/管理层） */
+export const restoreWarehouseApi = async (id: number) => {
+  return requestClient.put(`/api/system/warehouse/restore/${id}`);
+};
+
+/** 彻底删除（仅管理层/超管，回收站内） */
+export const purgeWarehouseApi = async (id: number) => {
+  return requestClient.delete(`/api/system/warehouse/purge/${id}`);
+};

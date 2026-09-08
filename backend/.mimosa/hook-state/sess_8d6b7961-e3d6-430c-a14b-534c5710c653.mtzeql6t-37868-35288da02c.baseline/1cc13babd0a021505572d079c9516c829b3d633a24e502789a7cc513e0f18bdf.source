@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_audit","batch_delete","batch_move_category","batch_recommend","batch_top","get_article_detail","get_article_labels","get_article_list","get_revision_detail","list_revisions","register","restore_revision","save_article","update_article_detail"],"struct":["BatchAuditRequest","BatchMoveCategoryRequest","BatchRecommendRequest","BatchTopRequest"]};

@@ -39,6 +39,10 @@ import {
   getMediaListApi,
 } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
+import { useAssetDomain } from '#/composables/use-asset-domain';
+import { resolveAssetUrl } from '#/utils/asset-url';
+
+const { assetDomain } = useAssetDomain();
 
 import MediaCategoryDrawer from './category-drawer.vue';
 import MediaDrawer from './drawer.vue';
@@ -103,10 +107,11 @@ const getFileIcon = (item: any) => {
 };
 
 const getThumbUrl = (item: any) => {
-  if (item.thumbMedium) return item.thumbMedium;
-  if (item.thumbSmall) return item.thumbSmall;
-  if (item.thumbLarge) return item.thumbLarge;
-  if (isImage(item)) return item.fileUrl;
+  // 附件URL统一方案 v1.1：缩略图/预览拼接资源访问域名
+  if (item.thumbMedium) return resolveAssetUrl(item.thumbMedium, assetDomain.value);
+  if (item.thumbSmall) return resolveAssetUrl(item.thumbSmall, assetDomain.value);
+  if (item.thumbLarge) return resolveAssetUrl(item.thumbLarge, assetDomain.value);
+  if (isImage(item)) return resolveAssetUrl(item.fileUrl, assetDomain.value);
   return '';
 };
 
@@ -188,7 +193,7 @@ const handlePageChange = (page: number, pageSize: number) => {
 const handlePreview = (item: any) => {
   if (!isImage(item)) return;
   previewTitle.value = item.originalName || item.title || '';
-  previewImage.value = item.fileUrl || '';
+  previewImage.value = resolveAssetUrl(item.fileUrl, assetDomain.value);
   previewVisible.value = true;
 };
 
@@ -265,7 +270,7 @@ async function uploadFile(options: any) {
   const { file, onSuccess, onError, onProgress } = options;
   try {
     onProgress?.({ percent: 30 });
-    const res: any = await uploadFileApi(file, 'website_media');
+    const res: any = await uploadFileApi(file, 'website_media', undefined, undefined, 1);
     const data = res?.data;
     const url = data?.url || res?.url;
     const attachmentId = data?.id ? Number(data.id) : undefined;

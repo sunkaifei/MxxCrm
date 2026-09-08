@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_PERM_CACHE_TTL","PERM_KEY_PREFIX","USER_TOKEN_KEY_PREFIX"],"fn":["cache_ttl","get_or_load_permissions","invalidate_by_role_id","invalidate_by_user_id","invalidate_by_user_ids","invalidate_user_session","perm_key","set_permissions","user_token_key","validate_user_token"],"static":["PERM_CACHE_TTL"]};

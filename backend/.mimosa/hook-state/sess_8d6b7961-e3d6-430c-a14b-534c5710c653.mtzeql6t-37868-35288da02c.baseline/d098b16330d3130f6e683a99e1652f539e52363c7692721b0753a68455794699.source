@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_send_payslips","build_payslip_message","clear_payslip_password","generate_payslips","get_payslip_list","get_read_statistics","hash_password","mark_read","send_payslip","send_payslip_email","send_webhook_message","set_payslip_password","verify_payslip_password","withdraw_payslip"],"struct":["ReadStatistics"]};

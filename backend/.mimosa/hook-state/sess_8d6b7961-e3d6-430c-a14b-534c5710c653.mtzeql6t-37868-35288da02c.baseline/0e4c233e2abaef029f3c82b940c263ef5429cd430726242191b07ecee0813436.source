@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DeptAdminByName","DeptDetailVO","DeptModel","DeptOptionVO","DeptOptionsTreeVO","DeptSaveDTO","DeptSaveRequest","DeptTreeListVO","DeptUpdateRequest","ListQuery","PageWhere"]};

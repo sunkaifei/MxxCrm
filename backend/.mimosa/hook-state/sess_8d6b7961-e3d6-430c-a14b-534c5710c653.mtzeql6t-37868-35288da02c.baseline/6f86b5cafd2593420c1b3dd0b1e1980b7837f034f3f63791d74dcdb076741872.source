@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_select_tree","build_tree","category_select_tree","category_tree","delete_by_id","get_by_detail","insert","select_all","select_all_options","update_by_id"]};

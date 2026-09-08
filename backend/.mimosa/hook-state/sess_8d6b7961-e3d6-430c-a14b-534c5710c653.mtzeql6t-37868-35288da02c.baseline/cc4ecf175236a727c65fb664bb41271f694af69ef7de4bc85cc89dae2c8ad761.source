@@ -1,0 +1,652 @@
+# -*- coding: utf-8 -*-
+"""
+gen_v63_enterprise_templates.py
+生成 sql/v63_enterprise_templates.sql：
+方案 2（企业展示型，深蓝+琥珀，标签驱动）与方案 3（综合营销型，红+橙，营销落地风格）各 11 个页面槽。
+幂等：事务内按 (template_id) DELETE + INSERT。
+"""
+import io
+
+import os
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "sql", "v63_enterprise_templates.sql")
+
+PALETTES = {
+    2: {
+        "name": "企业展示型",
+        "primary": "#0f2b46",
+        "primary2": "#1d4ed8",
+        "accent": "#d97706",
+        "ink": "#0f172a",
+        "muted": "#64748b",
+        "soft": "#f6f8fb",
+        "line": "#e2e8f0",
+        "hero_grad": "linear-gradient(120deg,#0f2b46 0%,#1d4ed8 70%,#3b82f6 100%)",
+        "brand_suffix": "",
+        "cta_text": "获取专属方案",
+        "badge": "企业级服务",
+    },
+    3: {
+        "name": "综合营销型",
+        "primary": "#7f1d1d",
+        "primary2": "#dc2626",
+        "accent": "#f59e0b",
+        "ink": "#1c1917",
+        "muted": "#78716c",
+        "soft": "#faf7f2",
+        "line": "#e7e5e4",
+        "hero_grad": "linear-gradient(120deg,#7f1d1d 0%,#dc2626 65%,#f59e0b 120%)",
+        "brand_suffix": "",
+        "cta_text": "立即咨询享优惠",
+        "badge": "限时特惠",
+    },
+}
+
+CSS_SHARED = """
+  <link rel="stylesheet" href="/static/default/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/default/css/cms.css">
+  <style>
+  :root{--ent-primary:@@PRIMARY@@;--ent-primary2:@@PRIMARY2@@;--ent-accent:@@ACCENT@@;--ent-ink:@@INK@@;--ent-muted:@@MUTED@@;--ent-soft:@@SOFT@@;--ent-line:@@LINE@@;}
+  body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ent-ink);}
+  a{text-decoration:none;}
+  .ent-navbar{background:#fff;border-bottom:1px solid var(--ent-line);padding:.65rem 0;}
+  .ent-navbar .brand{font-weight:800;font-size:1.15rem;color:var(--ent-primary);}
+  .ent-navbar .nav-link{color:#334155;font-weight:500;}
+  .ent-navbar .nav-link:hover{color:var(--ent-accent);}
+  .ent-btn{display:inline-block;padding:.6rem 1.4rem;border-radius:8px;font-weight:600;}
+  .ent-btn-accent{background:var(--ent-accent);color:#fff;}
+  .ent-btn-accent:hover{filter:brightness(.94);color:#fff;}
+  .ent-btn-primary{background:var(--ent-primary2);color:#fff;}
+  .ent-btn-primary:hover{filter:brightness(.94);color:#fff;}
+  .ent-section{padding:3.2rem 0;}
+  .ent-title{font-weight:800;font-size:1.6rem;margin-bottom:.4rem;}
+  .ent-sub{color:var(--ent-muted);margin-bottom:2rem;}
+  .ent-card{border:1px solid var(--ent-line);border-radius:12px;background:#fff;height:100%;transition:all .25s ease;}
+  .ent-card:hover{transform:translateY(-3px);box-shadow:0 14px 34px -16px rgba(15,23,42,.25);}
+  .ent-footer{border-top:1px solid var(--ent-line);background:var(--ent-soft);color:var(--ent-muted);padding:2.6rem 0;margin-top:3rem;}
+  .ent-footer a{color:var(--ent-muted);}
+  .ent-footer a:hover{color:var(--ent-accent);}
+  </style>
+"""
+
+HEAD = """{{ page_head() | safe }}
+<link rel="stylesheet" href="/static/default/css/cms.css">
+<style>@@CSSVAR@@
+  .ent-navbar{background:#fff;}
+  </style>
+"""
+
+FOOT = """
+<footer class="ent-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <h6 class="fw-bold">产品与服务</h6>
+        {% for c in get_product_categories(0) %}
+        <a class="d-block py-1" href="{{ category_url(c.id) }}">{{ c.name }}</a>
+        {% endfor %}
+      </div>
+      <div class="col-md-4">
+        <h6 class="fw-bold">快速导航</h6>
+        {% for c in get_categories(0) %}
+        <a class="d-block py-1" href="/category/{{ c.shortUrl | default('') }}">{{ c.categoryName }}</a>
+        {% endfor %}
+      </div>
+      <div class="col-md-4">
+        <h6 class="fw-bold">联系我们</h6>
+        <p class="mb-1">电话：{{ tpl_var("phone") | default('-') }}</p>
+        <p class="mb-1">邮箱：{{ tpl_var("email") | default('-') }}</p>
+        <p class="mb-1">地址：{{ tpl_var("address") | default('-') }}</p>
+      </div>
+    </div>
+    <hr>
+    <div class="d-flex justify-content-between flex-wrap gap-2 small">
+      <span>© {{ site.siteName | default('MxxCRM') }} · {{ tpl_var("icp") | default('') }}</span>
+      <a href="/sitemap.html">站点地图</a>
+    </div>
+  </div>
+</footer>
+<script src="/static/default/js/cms.js"></script>
+"""
+
+
+def head_css(palette):
+    return HEAD.replace("@@CSSVAR@@", CSS_SHARED.replace(
+        "@@PRIMARY@@", palette["primary"]).replace("@@PRIMARY2@@", palette["primary2"])
+        .replace("@@ACCENT@@", palette["accent"]).replace("@@INK@@", palette["ink"])
+        .replace("@@MUTED@@", palette["muted"]).replace("@@SOFT@@", palette["soft"])
+        .replace("@@LINE@@", palette["line"]))
+
+
+def page_home(p):
+    hero = """
+  <section class="ent-hero" style="background:@@HEROGRAD@@;color:#fff;padding:5.5rem 0 4.5rem;">
+    <div class="container">
+      <span style="background:rgba(255,255,255,.16);padding:.25rem .9rem;border-radius:999px;font-size:.8rem;">@@BADGE@@</span>
+      <h1 class="mt-3" style="font-weight:800;letter-spacing:-.02em;">{{ site.siteName | default('MxxCRM') }}</h1>
+      <p style="opacity:.92;max-width:620px;font-size:1.05rem;">{{ site.description | default('企业级客户管理与数字化营销平台，助力企业增长。') }}</p>
+      <div class="d-flex gap-3 mt-4 flex-wrap">
+        <a class="ent-btn ent-btn-accent" href="/product">浏览产品</a>
+        <a class="ent-btn" style="border:1px solid rgba(255,255,255,.6);color:#fff;" href="/user/login">联系我们</a>
+      </div>
+    </div>
+  </section>"""
+    banners = """
+  {% set banners = get_banners("home_top") %}
+  {% if banners | length > 0 %}
+  <section class="py-4" style="background:var(--ent-soft);">
+    <div class="container">
+      <div id="entHero" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-inner rounded-3 overflow-hidden">
+          {% for b in banners %}
+          <div class="carousel-item {{ 'active' if loop.first }}">
+            <a href="{{ b.linkUrl | default('#') }}" target="{{ b.target | default('') }}">
+              <img src="{{ b.imageUrl | default('/static/default/images/placeholder.png') }}" class="d-block w-100" style="height:320px;object-fit:cover;" alt="{{ b.altText | default(b.title) }}">
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#entHero" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+        <button class="carousel-control-next" type="button" data-bs-target="#entHero" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+      </div>
+    </div>
+  </section>
+  {% endif %}"""
+    about = """
+  <section class="ent-section">
+    <div class="container">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-6">
+          <h2 class="ent-title">关于我们</h2>
+          {% set blk = get_block("about_intro") %}
+          {% if blk %}
+          <div>{{ blk.content | safe }}</div>
+          {% else %}
+          <p style="color:var(--ent-muted);">我们专注于为企业提供优质的数字化产品与服务，以专业的技术团队和完善的服务体系，助力客户持续增长。</p>
+          {% endif %}
+          <a class="ent-btn ent-btn-primary mt-2" href="/company-profile">了解更多</a>
+        </div>
+        <div class="col-lg-6">
+          <div class="row g-3 text-center">
+            <div class="col-3"><div class="ent-card p-3"><h4 class="mb-0" style="color:var(--ent-accent);">10+</h4><small style="color:var(--ent-muted);">行业经验</small></div></div>
+            <div class="col-3"><div class="ent-card p-3"><h4 class="mb-0" style="color:var(--ent-accent);">500+</h4><small style="color:var(--ent-muted);">服务客户</small></div></div>
+            <div class="col-3"><div class="ent-card p-3"><h4 class="mb-0" style="color:var(--ent-accent);">99%</h4><small style="color:var(--ent-muted);">客户满意</small></div></div>
+            <div class="col-3"><div class="ent-card p-3"><h4 class="mb-0" style="color:var(--ent-accent);">7×24</h4><small style="color:var(--ent-muted);">技术支持</small></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>"""
+    products = """
+  <section class="ent-section" style="background:var(--ent-soft);">
+    <div class="container">
+      <h2 class="ent-title text-center">产品与服务</h2>
+      <p class="ent-sub text-center">为企业提供全链路数字化解决方案</p>
+      <div class="row g-4">
+        {% for p in get_products(0, 6) %}
+        <div class="col-md-4">
+          <div class="ent-card overflow-hidden">
+            <a href="{{ product_url(p.id) }}"><img src="{{ p.imageUrl | default('/static/default/images/placeholder.png') }}" class="w-100" style="height:190px;object-fit:cover;" alt="{{ p.name }}" loading="lazy"></a>
+            <div class="p-3">
+              <h6><a style="color:var(--ent-ink);" href="{{ product_url(p.id) }}">{{ p.name }}</a></h6>
+              <div class="d-flex justify-content-between align-items-center mt-2">
+                <span style="color:var(--ent-accent);font-weight:700;">{{ product_price(p.salePrice) }}</span>
+                {{ cart_button(p.id, get_site_mode(), p.salePrice, p.name) | safe }}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="text-center mt-4"><a class="ent-btn ent-btn-primary" href="/product">查看全部产品</a></div>
+    </div>
+  </section>"""
+    news = """
+  <section class="ent-section">
+    <div class="container">
+      <h2 class="ent-title text-center">新闻动态</h2>
+      <p class="ent-sub text-center">了解我们的最新进展与行业洞察</p>
+      <div class="row g-4">
+        {% for a in get_articles(0, 4) %}
+        <div class="col-md-6">
+          <div class="ent-card p-3 d-flex gap-3">
+            <div style="min-width:64px;text-align:center;background:var(--ent-soft);border-radius:8px;padding:.5rem 0;">
+              <div style="font-weight:800;color:var(--ent-accent);">{{ format_time(a.create_time) }}</div>
+            </div>
+            <div>
+              <h6 class="mb-1"><a style="color:var(--ent-ink);" href="/article/{{ a.short_url }}">{{ a.title }}</a></h6>
+              <small style="color:var(--ent-muted);">{{ time_ago(a.create_time) }}</small>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>"""
+    partners = """
+  <section class="ent-section" style="background:var(--ent-soft);">
+    <div class="container">
+      <h2 class="ent-title text-center">合作伙伴</h2>
+      <p class="ent-sub text-center">感谢一路同行</p>
+      <div class="row g-3">
+        {% for l in get_links(0) %}
+        <div class="col-6 col-md-3">
+          <div class="ent-card p-3 text-center">
+            <a href="{{ l.linkUrl | default('#') }}" target="_blank" style="color:var(--ent-ink);font-weight:600;">{{ l.linkName }}</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  <section class="ent-section" style="background:@@HEROGRAD@@;color:#fff;text-align:center;">
+    <div class="container">
+      <h2 style="font-weight:800;">@@CTA@@</h2>
+      <p style="opacity:.9;">服务热线：{{ tpl_var("phone") | default('-') }}｜邮箱：{{ tpl_var("email") | default('-') }}</p>
+      <a class="ent-btn ent-btn-accent mt-2" href="/user/login">联系我们</a>
+    </div>
+  </section>"""
+    body = head_css(p) + hero.replace("@@HEROGRAD@@", p["hero_grad"]).replace("@@BADGE@@", p["badge"]) \
+        + banners + about + products.replace("@@HEROGRAD@@", p["hero_grad"]) + news \
+        + partners.replace("@@HEROGRAD@@", p["hero_grad"]).replace("@@CTA@@", p["cta_text"]) + FOOT
+    return body
+
+
+def page_category_list(p):
+    body = head_css(p) + """
+{{ page_head() | safe }}
+<section style="background:@@HEROGRAD@@;color:#fff;padding:3rem 0;">
+  <div class="container">
+    <h1 style="font-weight:800;">{{ category.category_name | default(category_name) }}</h1>
+    <p style="opacity:.9;margin:0;">{{ category.description | default(category_description) | default('') }}</p>
+  </div>
+</section>
+<div class="container py-4">
+  {% set cat_url = '/category/' ~ (category.short_url | default('')) %}
+  {% for a in articles %}
+  <div class="border-bottom py-3">
+    <h5><a style="color:var(--ent-ink);" href="/article/{{ a.short_url }}">{{ a.title }}</a></h5>
+    <small style="color:var(--ent-muted);">{{ a.create_time }}</small>
+  </div>
+  {% else %}
+  <p class="text-muted py-4">本栏目暂无内容</p>
+  {% endfor %}
+  {{ get_pagination_html(page, total, 10, cat_url) | safe }}
+</div>
+{{ page_foot() | safe }}
+<script src="/static/default/js/cms.js"></script>
+""".replace("@@HEROGRAD@@", p["hero_grad"])
+    return body
+
+
+def page_content(p):
+    body = head_css(p) + """
+{{ page_head() | safe }}
+<div class="container py-4" style="max-width:860px;">
+  {{ get_breadcrumbs_html(article.category_id | default(0)) | safe }}
+  <h1 style="font-weight:800;margin:1rem 0 .5rem;">{{ article.title }}</h1>
+  <p style="color:var(--ent-muted);border-bottom:1px solid var(--ent-line);padding-bottom:1rem;">
+    {{ article.create_time | default('') }}{% if article.author %} · {{ article.author }}{% endif %}{% if article.source %} · 来源：{{ article.source }}{% endif %}
+  </p>
+  <div style="line-height:1.9;">{{ article.content | safe }}</div>
+  <div class="d-flex justify-content-between border-top pt-3 mt-4">
+    {% set prev = get_prev_article(article.id) %}
+    {% set next = get_next_article(article.id) %}
+    {% if prev %}<a href="/article/{{ prev.short_url }}">上一篇：{{ prev.title }}</a>{% else %}<span></span>{% endif %}
+    {% if next %}<a href="/article/{{ next.short_url }}">下一篇：{{ next.title }}</a>{% endif %}
+  </div>
+  {% set rel = get_related_articles(article.id, article.category_id, 5) %}
+  {% if rel | length > 0 %}
+  <div class="mt-4 p-3 rounded-3" style="background:var(--ent-soft);">
+    <h6 class="fw-bold mb-2">相关文章</h6>
+    {% for r in rel %}<a class="d-block py-1" style="color:var(--ent-ink);" href="/article/{{ r.short_url }}">{{ r.title }}</a>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{{ page_foot() | safe }}
+<script src="/static/default/js/cms.js"></script>
+""".replace("@@HEROGRAD@@", p["hero_grad"])
+    return body
+
+
+def page_cover(p):
+    body = head_css(p) + """
+{{ page_head() | safe }}
+<section style="background:@@HEROGRAD@@;color:#fff;padding:3.5rem 0;text-align:center;">
+  <div class="container">
+    <h1 style="font-weight:800;">{{ category_name | default(page.pageName | default('')) }}</h1>
+    <p style="opacity:.9;">{{ category_description | default(page.seoDescription | default('')) }}</p>
+  </div>
+</section>
+<div class="container py-4">
+  {% if page %}
+  <div style="line-height:1.9;">{{ page.pageContent | safe }}</div>
+  {% endif %}
+  {% if children and children | length > 0 %}
+  <div class="row g-3 my-3">
+    {% for c in children %}
+    <div class="col-md-4"><div class="ent-card p-3"><a style="color:var(--ent-ink);" href="/category/{{ c.short_url }}">{{ c.category_name }}</a></div></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if category_articles and category_articles | length > 0 %}
+  <div class="my-3">
+    {% for a in category_articles %}
+    <div class="border-bottom py-2"><a style="color:var(--ent-ink);" href="/article/{{ a.short_url }}">{{ a.title }}</a>
+      <small class="float-end" style="color:var(--ent-muted);">{{ a.create_time }}</small></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="ent-section">
+    <h5 class="fw-bold mb-3">在线咨询</h5>
+    <div class="rounded-3 p-4" style="background:var(--ent-soft);max-width:560px;">
+      {{ lead_form() | safe }}
+      <p class="small mt-2" style="color:var(--ent-muted);">提交后我们将在 1 个工作日内与您联系；也可直接致电 {{ tpl_var("phone") | default('-') }}。</p>
+    </div>
+  </div>
+</div>
+{{ page_foot() | safe }}
+<script src="/static/default/js/cms.js"></script>
+""".replace("@@HEROGRAD@@", p["hero_grad"])
+    return body
+
+
+def page_product_list(p):
+    body = head_css(p) + """
+{{ page_head() | safe }}
+<section style="background:@@HEROGRAD@@;color:#fff;padding:2.6rem 0;">
+  <div class="container"><h1 style="font-weight:800;">产品中心</h1></div>
+</section>
+<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-lg-3">
+      <div class="p-3 rounded-3" style="background:var(--ent-soft);">
+        <h6 class="fw-bold mb-2">产品分类</h6>
+        <a class="d-block py-1 fw-bold" style="color:var(--ent-primary2);" href="/product">全部产品</a>
+        {% for c in get_product_categories(0) %}
+        <a class="d-block py-1" style="color:#475569;" href="{{ category_url(c.id) }}">{{ c.name }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="col-lg-9">
+      {% set base = '/product?category_id=' ~ (current_category_id | default(0)) ~ '&order=' ~ (order | default('new')) ~ '&keyword=' ~ (keyword | default('')) %}
+      <div class="row g-4">
+        {% for p in products %}
+        <div class="col-md-4">
+          <div class="ent-card overflow-hidden">
+            <a href="{{ product_url(p.id) }}"><img src="{{ p.imageUrl | default('/static/default/images/placeholder.png') }}" class="w-100" style="height:180px;object-fit:cover;" alt="{{ p.name }}" loading="lazy"></a>
+            <div class="p-3">
+              <h6><a style="color:var(--ent-ink);" href="{{ product_url(p.id) }}">{{ p.name }}</a></h6>
+              <div class="d-flex justify-content-between align-items-center mt-2">
+                <span style="color:var(--ent-accent);font-weight:700;">{{ product_price(p.salePrice) }}</span>
+                {{ cart_button(p.id, site_mode, p.salePrice, p.name) | safe }}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-muted">暂无符合条件的产品</p>
+        {% endfor %}
+      </div>
+      {{ get_pagination_html(current_page, total, page_size, base) | safe }}
+    </div>
+  </div>
+</div>
+{{ page_foot() | safe }}
+<script src="/static/default/js/cms.js"></script>
+""".replace("@@HEROGRAD@@", p["hero_grad"])
+    return body
+
+
+def page_product_detail(p):
+    body = head_css(p) + """
+{{ page_head() | safe }}
+<link rel="canonical" href="{{ canonical_url | default('') }}"/>
+<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <img src="{{ product.imageUrl | default('/static/default/images/placeholder.png') }}" class="w-100 rounded-3 border" style="height:400px;object-fit:cover;" alt="{{ product.name }}">
+      {% if product.carouselImages %}
+      <div class="d-flex gap-2 mt-2 flex-wrap">
+        {% for img in product.carouselImages %}
+        <img src="{{ img }}" class="rounded border" style="width:64px;height:64px;object-fit:cover;cursor:pointer;" onmouseover="document.getElementById('entMainImg').src=this.src">
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="col-lg-6">
+      <h2 style="font-weight:800;">{{ product.name }}</h2>
+      <p class="my-3"><span style="color:var(--ent-accent);font-size:1.8rem;font-weight:800;">{{ product_price(product.salePrice) }}</span>
+        {% if product.marketPrice %}<del class="text-muted ms-2">{{ product_price(product.marketPrice) }}</del>{% endif %}</p>
+      <p style="color:var(--ent-muted);">{{ product.description | default('') }}</p>
+      <p class="{% if product.stock and product.stock > 0 %}text-success{% else %}text-danger{% endif %}">
+        {% if product.stock and product.stock > 0 %}库存 {{ product.stock }} 件{% else %}暂时缺货{% endif %}</p>
+      {{ cart_button(product.id, site_mode, product.salePrice, product.name) | safe }}
+      <hr>
+      <table class="table table-sm small">
+        <tr><th style="width:100px;">编号</th><td>{{ product.productNo | default('-') }}</td></tr>
+        <tr><th>SKU</th><td>{{ product.sku | default('-') }}</td></tr>
+        <tr><th>条形码</th><td>{{ product.barcode | default('-') }}</td></tr>
+        <tr><th>单位</th><td>{{ product.unit | default('-') }}</td></tr>
+      </table>
+    </div>
+  </div>
+  {% if spec_groups and spec_groups.specs and spec_groups.specs | length > 0 %}
+  <div class="mt-4">
+    <h5 class="fw-bold">规格参数</h5>
+    {% for sp in spec_groups.specs %}
+    <div class="border rounded p-3 mb-2"><strong>{{ sp.name }}</strong>
+      <span class="ms-2 text-muted small">{% for v in sp.values %}{{ v.value }}{% if not loop.last %} / {% endif %}{% endfor %}</span>
+    </div>
+    {% endfor %}
+    {% if spec_groups.skus and spec_groups.skus | length > 0 %}
+    <table class="table table-sm table-bordered small mt-2">
+      <thead><tr><th>SKU</th><th>规格</th><th>价格</th><th>库存</th></tr></thead>
+      <tbody>
+      {% for s in spec_groups.skus %}
+      <tr><td>{{ s.skuCode | default('-') }}</td><td>{{ s.specText | default('-') }}</td>
+        <td>{{ product_price(s.price) }}</td><td>{{ s.stock | default(0) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="mt-4"><h5 class="fw-bold">产品详情</h5><div style="line-height:1.9;">{{ product.detail | safe }}</div></div>
+  {% set rel = get_related_products(product.id, 4) %}
+  {% if rel | length > 0 %}
+  <div class="mt-4">
+    <h5 class="fw-bold">相关推荐</h5>
+    <div class="row g-3">
+      {% for r in rel %}
+      <div class="col-md-3">
+        <div class="ent-card overflow-hidden">
+          <a href="{{ product_url(r.id) }}"><img src="{{ r.imageUrl | default('/static/default/images/placeholder.png') }}" class="w-100" style="height:140px;object-fit:cover;" loading="lazy"></a>
+          <div class="p-2"><a style="color:var(--ent-ink);font-size:.9rem;" href="{{ product_url(r.id) }}">{{ r.name }}</a>
+            <div class="small" style="color:var(--ent-accent);">{{ product_price(r.salePrice) }}</div></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+<script type="application/ld+json">{{ jsonld | safe }}</script>
+{{ page_foot() | safe }}
+<script src="/static/default/js/cms.js"></script>
+""".replace("@@HEROGRAD@@", p["hero_grad"])
+    return body
+
+
+def page_login(p):
+    return """
+{{ page_head() | safe }}
+<link rel="stylesheet" href="/static/default/css/cms.css">
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-5">
+      <div class="ent-card p-4">
+        <h4 class="mb-3 text-center">会员登录</h4>
+        <p id="cms-login-tip" class="text-danger small" style="display:none"></p>
+        <form onsubmit="return cmsLogin(event)">
+          <div class="mb-3"><label class="form-label">用户名 / 手机号 / 邮箱</label>
+            <input class="form-control" type="text" name="account" required placeholder="请输入账号"></div>
+          <div class="mb-3"><label class="form-label">密码</label>
+            <input class="form-control" type="password" name="password" required placeholder="请输入密码"></div>
+          <button class="ent-btn ent-btn-primary w-100" type="submit">登录</button>
+        </form>
+        <p class="text-muted small mt-3 mb-0">还没有账号？请联系客服开通。</p>
+      </div>
+    </div>
+  </div>
+</div>
+{{ page_foot() | safe }}
+<script src="/static/default/js/cms.js"></script>
+"""
+
+
+def page_cart(p):
+    return """
+{{ page_head() | safe }}
+<link rel="stylesheet" href="/static/default/css/cms.css">
+<div class="container py-4">
+  <h4 class="mb-3">我的购物车</h4>
+  <div id="cms-cart-box" class="text-muted">加载中…</div>
+</div>
+{{ page_foot() | safe }}
+<script src="/static/default/js/cms.js"></script>
+<script>
+(function () {
+  var token = null;
+  try { token = localStorage.getItem('cmsUserToken'); } catch (e) {}
+  if (!token) { window.location.href = '/user/login?redirect=%2Fcart'; return; }
+  fetch('/api/user/cart/list', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      var box = document.getElementById('cms-cart-box');
+      var list = (res && res.data && (res.data.items || res.data)) || [];
+      if (!Array.isArray(list) || list.length === 0) {
+        box.innerHTML = '<div class="text-center py-5">购物车是空的，<a href="/product">去逛逛</a></div>';
+        return;
+      }
+      var rows = list.map(function (it) {
+        return '<tr><td>' + (it.product_name || '-') + '</td><td>¥' + Number(it.price || 0).toFixed(2) +
+          '</td><td>' + (it.quantity || 0) + '</td><td>¥' + (Number(it.price || 0) * Number(it.quantity || 0)).toFixed(2) + '</td></tr>';
+      }).join('');
+      box.innerHTML = '<table class="table align-middle"><thead><tr><th>产品</th><th>单价</th><th>数量</th><th>小计</th></tr></thead><tbody>' +
+        rows + '</tbody></table><p class="text-end">登录态正常，可联系客服完成下单支付。</p>';
+    })
+    .catch(function () { document.getElementById('cms-cart-box').textContent = '加载失败，请刷新重试'; });
+})();
+</script>
+"""
+
+
+def page_quote(p):
+    body = head_css(p) + """
+{{ page_head() | safe }}
+<section style="background:@@HEROGRAD@@;color:#fff;padding:3rem 0;text-align:center;">
+  <div class="container"><h1 style="font-weight:800;">服务报价</h1>
+  <p style="opacity:.9;">透明定价，按需选择；如有定制需求请联系我们获取专属方案。</p></div>
+</section>
+<div class="container py-4">
+  <div class="row g-4">
+    {% for p2 in get_products(0, 6, 1, "price_asc") %}
+    <div class="col-md-4">
+      <div class="ent-card p-4 h-100 d-flex flex-column">
+        <h5 class="fw-bold">{{ p2.name }}</h5>
+        <div class="my-2" style="font-size:1.5rem;font-weight:800;color:var(--ent-accent);">{{ product_price(p2.salePrice) }}</div>
+        <p class="small" style="color:var(--ent-muted);flex:1;">{{ p2.description | default('详见产品详情页') }}</p>
+        <a class="ent-btn ent-btn-primary mt-2" href="{{ product_url(p2.id) }}">查看详情</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="rounded-3 p-4 mt-4" style="background:var(--ent-soft);max-width:640px;margin:0 auto;">
+    <h5 class="fw-bold">需要定制方案？</h5>
+    {{ lead_form() | safe }}
+    <p class="small mt-2" style="color:var(--ent-muted);">服务热线：{{ tpl_var("phone") | default('-') }}</p>
+  </div>
+</div>
+{{ page_foot() | safe }}
+<script src="/static/default/js/cms.js"></script>
+""".replace("@@HEROGRAD@@", p["hero_grad"])
+    return body
+
+
+def build_pages(pid):
+    p = PALETTES[pid]
+    return [
+        (1, "首页", page_home(p)),
+        (2, "栏目列表页", page_category_list(p)),
+        (3, "内容页", page_content(p)),
+        (5, "报价页", page_quote(p)),
+        (6, "栏目封面/自定义页", page_cover(p)),
+        (7, "产品列表页", page_product_list(p)),
+        (8, "产品详情页", page_product_detail(p)),
+        (9, "前台登录页", page_login(p)),
+        (12, "购物车页", page_cart(p)),
+        (14, "页头", page_head_html(p)),
+        (15, "页脚", FOOT),
+    ]
+
+
+def page_head_html(p):
+    return """<link rel="stylesheet" href="/static/default/css/cms.css">
+<header class="ent-navbar">
+  <div class="container d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <a class="brand text-decoration-none" href="/">{{ site.siteName | default('MxxCRM') }}</a>
+    <nav class="d-flex gap-3 flex-wrap align-items-center">
+      {% for n in get_navigations("header") %}
+      <a class="nav-link" href="{{ n.linkUrl | default('#') }}" {% if n.target %}target="{{ n.target }}"{% endif %}>{{ n.name }}</a>
+      {% endfor %}
+      <a class="nav-link" href="/product">产品中心</a>
+      <form class="d-flex" method="get" action="/search" style="max-width:200px;">
+        <input class="form-control form-control-sm" type="text" name="keyword" placeholder="全站搜索">
+        <button class="btn btn-sm btn-outline-secondary ms-1" type="submit">搜索</button>
+      </form>
+    </nav>
+    <div class="d-flex gap-3 align-items-center">
+      {% if get_site_mode() == 2 or get_site_mode() == 3 %}
+      <a class="cms-cart-entry text-decoration-none text-secondary" href="/cart">购物车<span class="cms-cart-badge"></span></a>
+      <a class="text-decoration-none text-secondary" href="/user/login">登录 / 注册</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+"""
+
+
+def main():
+    parts = [
+        "-- =====================================================================",
+        "-- v63: 企业展示型(2)/综合营销型(3)模板全套页面（前端企业展示模板开发手册 T-P0.1）",
+        "-- 内容：每方案 11 个页面槽（1/2/3/5/6/7/8/9/12/14/15），标签驱动 + get_pagination_html 分页",
+        "-- 幂等：事务内按 template_id DELETE + INSERT，可重复执行。",
+        "-- 执行：PGPASSWORD=123456 psql -U postgres -h 127.0.0.1 -d mxxcrm_data \\",
+        "--        -v ON_ERROR_STOP=1 -f sql/v63_enterprise_templates.sql",
+        "-- =====================================================================",
+        "",
+        "BEGIN;",
+    ]
+    for pid in (2, 3):
+        p = PALETTES[pid]
+        parts.append("")
+        parts.append("-- ---------- 方案 %s：%s ----------" % (pid, p["name"]))
+        parts.append("DELETE FROM mxx_template_user_data WHERE template_id = %d;" % pid)
+        for type_id, name, text in build_pages(pid):
+            delim = "$ent%d_%d$" % (pid, type_id)
+            parts.append(
+                "INSERT INTO mxx_template_user_data (template_id, website_id, type_id, name, temptext, status, deleted, create_time)\n"
+                "VALUES (%d, 1, %d, '%s', %s%s%s, 1, 0, now());"
+                % (pid, type_id, name, delim, text, delim)
+            )
+    parts.append("")
+    parts.append("COMMIT;")
+    parts.append("-- 验收")
+    parts.append("SELECT template_id, type_id, name, length(coalesce(temptext,'')) AS len FROM mxx_template_user_data WHERE template_id IN (2,3) AND deleted=0 ORDER BY template_id, type_id;")
+    io.open(OUT, "w", encoding="utf-8", newline="\n").write("\n".join(parts) + "\n")
+    print("written", OUT)
+
+
+if __name__ == "__main__":
+    main()

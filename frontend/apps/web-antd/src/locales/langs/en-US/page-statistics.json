@@ -158,6 +158,21 @@
     "paymentCompletionRate": "Payment Completion",
     "deptRanking": "Department Ranking",
     "salespersonRanking": "Salesperson Ranking",
+    "deptFilter": "Department",
+    "deptAll": "All Departments",
+    "planGuideTitle": "Annual Sales Plan",
+    "planGuideNone": "You don't have an annual sales plan for this year yet. Set contract and payment targets and submit for approval to see your targets and progress here.",
+    "planGuideDraft": "Your plan is still a draft. Edit and submit it for approval to activate your targets.",
+    "planGuidePending": "Your plan is pending approval. Targets and progress will appear here once approved.",
+    "planGuideRejected": "Your plan was rejected. Please revise it according to the review comments and resubmit.",
+    "planGuideAction": "Set Up Plan",
+    "planGuideEdit": "Continue Editing Plan",
+    "masked": "**",
+    "maskedTip": "Admin has enabled amount privacy",
+    "unassignedBadgeTitle": "Data Quality Alert",
+    "unassignedContractWarning": "Unassigned contracts: {amount}",
+    "unassignedPaymentWarning": "Unassigned payments: {amount}",
+    "unassignedGoView": "Review",
     "customerDimension": "Customer Dimension",
     "productDimension": "Product Dimension",
     "regionDimension": "Region Dimension",
@@ -221,6 +236,11 @@
       "followUpTotalCol": "Follow-ups"
     },
     "performancePlan": {
+      "button": {
+        "view": "View Plan",
+        "manage": "Manage Plan",
+        "audit": "Approve Plan"
+      },
       "none": "No Plan",
       "draft": "Draft",
       "pending": "Pending Approval",

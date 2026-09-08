@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["add_review","get_review_list","get_review_stats"]};

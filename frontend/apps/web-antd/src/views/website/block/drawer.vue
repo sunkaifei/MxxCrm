@@ -10,6 +10,10 @@ import { message, Upload } from 'ant-design-vue';
 import { useVbenForm } from '#/adapter/form';
 import { addBlockApi, updateBlockApi } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
+import { useAssetDomain } from '#/composables/use-asset-domain';
+import { resolveAssetUrl } from '#/utils/asset-url';
+
+const { assetDomain } = useAssetDomain();
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -158,12 +162,13 @@ const imageUrl = ref('');
 
 async function handleImageUpload(file: File) {
   try {
-    const res: any = await uploadFileApi(file, 'block');
+    // 附件URL统一方案 v1.1：区块图公开（is_public=1）
+    const res: any = await uploadFileApi(file, 'block', undefined, undefined, 1);
     const url = res?.data?.url || res?.url;
     if (url) {
       imageUrl.value = url;
       imageFileList.value = [
-        { uid: '-1', name: 'block', status: 'done' as const, url },
+        { uid: '-1', name: 'block', status: 'done' as const, url: resolveAssetUrl(url, assetDomain.value) },
       ];
       message.success('上传成功');
     }
@@ -232,7 +237,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       currentBlockType.value = row.blockType ?? 1;
       applyContentSchema(currentBlockType.value);
       imageUrl.value = row.imageUrl || '';
-      syncImageFileList(imageUrl.value);
+      syncImageFileList(resolveAssetUrl(imageUrl.value, assetDomain.value));
       setLoading(false);
     }
   },

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["admin_batch_delete_orders","admin_order_detail","admin_order_list","admin_update_order","create_order","find_user_by_id","gen_order_no","get_order_detail","get_pending_pay_status","mark_order_paid","user_cancel_order","user_confirm_receive","user_order_list"]};

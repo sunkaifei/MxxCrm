@@ -32,15 +32,6 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        name: 'SystemConfig',
-        path: '/system-ext/config',
-        component: () => import('#/views/system/config/index.vue'),
-        meta: {
-          icon: 'lucide:settings',
-          title: $t('page.system.config.title'),
-        },
-      },
-      {
         name: 'SystemNotice',
         path: '/system-ext/notice',
         component: () => import('#/views/system/notice/index.vue'),

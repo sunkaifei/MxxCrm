@@ -1,0 +1,120 @@
+
+<link rel="stylesheet" href="/static/default/css/cms.css">
+<header class="ent-navbar">
+  <div class="container d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <a class="brand text-decoration-none" href="/">{{ site.siteName | default('MxxCRM') }}</a>
+    <nav class="d-flex gap-3 flex-wrap align-items-center">
+      {% for n in get_navigations("header") %}
+      <a class="nav-link" href="{{ n.linkUrl | default('#') }}" {% if n.target %}target="{{ n.target }}"{% endif %}>{{ n.name }}</a>
+      {% endfor %}
+      <a class="nav-link" href="/product">产品中心</a>
+      <form class="d-flex" method="get" action="/search" style="max-width:200px;">
+        <input class="form-control form-control-sm" type="text" name="keyword" placeholder="全站搜索">
+        <button class="btn btn-sm btn-outline-secondary ms-1" type="submit">搜索</button>
+      </form>
+    </nav>
+    <div class="d-flex gap-3 align-items-center">
+      {% if get_site_mode() == 2 or get_site_mode() == 3 %}
+      <a class="cms-cart-entry text-decoration-none text-secondary" href="/cart">购物车<span class="cms-cart-badge"></span></a>
+      <a class="text-decoration-none text-secondary" href="/user/login">登录 / 注册</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<link rel="stylesheet" href="/static/default/css/cms.css">
+<div class="container py-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">首页</a></li>
+      <li class="breadcrumb-item"><a href="/product">产品中心</a></li>
+      <li class="breadcrumb-item active">休闲运动鞋</li>
+    </ol>
+  </nav>
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <img id="cms-main-img" src="/static/default/images/placeholder.png" class="img-fluid rounded border" alt="休闲运动鞋" style="width:100%;height:420px;object-fit:cover">
+      
+    </div>
+    <div class="col-lg-6">
+      <h2>休闲运动鞋</h2>
+      <p class="my-3">
+        <span class="text-danger" style="font-size:28px;font-weight:700">¥169.00</span>
+        
+      </p>
+      <p class="text-muted">none</p>
+      <p class="small text-danger">
+        暂时缺货
+      </p>
+      <div class="cms-cart-button" data-product-id="4" data-price="169.00" data-name="休闲运动鞋"><button type="button" class="cms-btn cms-btn-lead" onclick="cmsOpenLead(4)">立即咨询</button></div><div id="lead-form-4" class="cms-lead-modal" style="display:none" role="dialog" aria-modal="true"><div class="cms-lead-card"><button type="button" class="cms-lead-close" aria-label="关闭" onclick="cmsCloseLead(4)">&times;</button><h3 class="cms-lead-title">在线咨询</h3><form class="cms-lead-form" onsubmit="return cmsSubmitLead(event, 4)"><input type="hidden" name="product_id" value="4"><input type="hidden" name="source" value="website"><div class="cms-form-row"><label>姓名 <span class="req">*</span></label><input type="text" name="contactName" required placeholder="请输入您的姓名"></div><div class="cms-form-row"><label>电话 <span class="req">*</span></label><input type="tel" name="contactPhone" required placeholder="请输入联系电话"></div><div class="cms-form-row"><label>邮箱</label><input type="email" name="contactEmail" placeholder="请输入邮箱（选填）"></div><div class="cms-form-row"><label>留言内容 <span class="req">*</span></label><textarea name="content" rows="3" required placeholder="请输入您的需求"></textarea></div><div class="cms-form-row"><button type="submit" class="cms-btn cms-btn-submit">提交咨询</button><button type="button" class="cms-btn cms-btn-cancel" onclick="cmsCloseLead(4)">取消</button></div><p class="cms-lead-feedback" style="display:none"></p></form></div></div>
+      <hr>
+      <table class="table table-sm table-bordered small">
+        <tbody>
+          <tr><th style="width:110px">产品编号</th><td>PRD000004</td></tr>
+          <tr><th>SKU</th><td>-</td></tr>
+          <tr><th>条形码</th><td>-</td></tr>
+          <tr><th>单位</th><td>双</td></tr>
+          <tr><th>重量</th><td>-</td></tr>
+          <tr><th>尺寸</th><td>-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <div class="mt-4">
+    <h5>产品详情</h5>
+    <div>none</div>
+  </div>
+  
+  <div class="mt-4">
+    <h5>相关推荐</h5>
+    <div class="row g-3">
+      
+      <div class="col-md-3">
+        <div class="card h-100">
+          <a href="/product/19"><img src="/static/default/images/placeholder.png" class="card-img-top" alt="耐克 Air Zoom Pegasus" style="height:140px;object-fit:cover" loading="lazy"></a>
+          <div class="card-body py-2">
+            <div class="small text-truncate"><a class="text-decoration-none text-dark" href="/product/19">耐克 Air Zoom Pegasus</a></div>
+            <span class="text-danger small">¥899.00</span>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+  
+</div>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","description":null,"image":null,"name":"休闲运动鞋","offers":{"@type":"Offer","availability":"https://schema.org/OutOfStock","price":"169.00","priceCurrency":"CNY"},"sku":null}</script>
+
+<footer class="ent-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <h6 class="fw-bold">产品与服务</h6>
+        {% for c in get_product_categories(0) %}
+        <a class="d-block py-1" href="{{ category_url(c.id) }}">{{ c.name }}</a>
+        {% endfor %}
+      </div>
+      <div class="col-md-4">
+        <h6 class="fw-bold">快速导航</h6>
+        {% for c in get_categories(0) %}
+        <a class="d-block py-1" href="/category/{{ c.shortUrl | default('') }}">{{ c.categoryName }}</a>
+        {% endfor %}
+      </div>
+      <div class="col-md-4">
+        <h6 class="fw-bold">联系我们</h6>
+        <p class="mb-1">电话：{{ tpl_var("phone") | default('-') }}</p>
+        <p class="mb-1">邮箱：{{ tpl_var("email") | default('-') }}</p>
+        <p class="mb-1">地址：{{ tpl_var("address") | default('-') }}</p>
+      </div>
+    </div>
+    <hr>
+    <div class="d-flex justify-content-between flex-wrap gap-2 small">
+      <span>© {{ site.siteName | default('MxxCRM') }} · {{ tpl_var("icp") | default('') }}</span>
+      <a href="/sitemap.html">站点地图</a>
+    </div>
+  </div>
+</footer>
+<script src="/static/default/js/cms.js"></script>
+
+<script src="/static/default/js/cms.js"></script>

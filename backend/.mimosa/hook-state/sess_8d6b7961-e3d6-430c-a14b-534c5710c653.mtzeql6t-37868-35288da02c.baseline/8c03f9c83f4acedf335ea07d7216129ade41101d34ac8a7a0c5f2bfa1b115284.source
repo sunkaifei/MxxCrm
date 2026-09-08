@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BannerDetailVO","BannerListVO","BannerSaveDTO","BannerSaveRequest","BannerUpdateRequest","ListQuery","PageWhere","WebsiteBannerModel"]};

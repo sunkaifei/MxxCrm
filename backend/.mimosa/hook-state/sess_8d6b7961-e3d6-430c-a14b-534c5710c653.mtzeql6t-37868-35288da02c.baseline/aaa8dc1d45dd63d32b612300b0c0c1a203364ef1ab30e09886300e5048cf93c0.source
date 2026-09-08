@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["register","visit_check_in","visit_check_out","visit_info","visit_list","visit_statistics"]};

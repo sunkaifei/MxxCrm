@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ChangePasswordRequest","change_password","get_profile","update_profile"]};

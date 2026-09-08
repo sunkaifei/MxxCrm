@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_regenerate","batch_regenerate_progress","create","delete","generate","info","list","preview","register","toggle_enabled","update"],"struct":["CodeRuleListQuery"]};

@@ -7,6 +7,7 @@ import { useVbenDrawer } from '@vben/common-ui';
 import { LucideMaximize2, LucideUpload, LucideX } from '@vben/icons';
 
 import {
+  Cascader,
   Input,
   InputNumber,
   message,
@@ -141,8 +142,79 @@ function onProductTypeChange(val: number) {
 // 非实物商品才显示虚拟库存开关
 const showVirtualStock = computed(() => formData.value.productType !== 1);
 
-const categoryOptions = ref<Array<{ label: string; value: number }>>([]);
+// 分类改为 Cascader 联级选择：层级化选项（value/label/children）
+const categoryCascaderOptions = ref<
+  Array<{ value: number; label: string; children?: any[] }>
+>([]);
+// 当前选中分类的完整路径（Cascader v-model 需要数组；提交取末位 id）
+const categoryPath = ref<number[]>([]);
 const brandOptions = ref<Array<{ label: string; value: number }>>([]);
+
+/** 由平铺分类列表构建 Cascader 层级选项 */
+function buildCategoryCascaderOptions(
+  items: any[],
+): Array<{ value: number; label: string; children?: any[] }> {
+  const map = new Map<number, any>();
+  const roots: any[] = [];
+  for (const item of items) {
+    map.set(Number(item.id), {
+      value: Number(item.id),
+      label: item.categoryName ?? item.name ?? '',
+      children: [],
+    });
+  }
+  for (const item of items) {
+    const node = map.get(Number(item.id));
+    const parentId = Number(item.parentId || 0);
+    if (parentId && map.has(parentId)) {
+      map.get(parentId).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  // 递归剪除空 children（叶子节点不显示展开箭头）
+  const trim = (nodes: any[]) => {
+    for (const n of nodes) {
+      if (n.children?.length) trim(n.children);
+      else delete n.children;
+    }
+    return nodes;
+  };
+  return trim(roots);
+}
+
+/** 在层级选项中查找 id 的完整路径 */
+function findCategoryPath(
+  nodes: Array<{ value: number; label: string; children?: any[] }>,
+  id: number,
+): number[] {
+  for (const node of nodes) {
+    if (node.value === id) return [node.value];
+    if (node.children?.length) {
+      const sub = findCategoryPath(node.children, id);
+      if (sub.length) return [node.value, ...sub];
+    }
+  }
+  return [];
+}
+
+// Cascader 选中路径变化 → 末位即分类 id，写回 formData（提交/校验逻辑零改动）
+watch(categoryPath, (path) => {
+  formData.value.categoryId = path.length ? path[path.length - 1] : undefined;
+});
+
+// categoryId 被外部赋值（编辑回显）→ 反推完整路径供 Cascader 回显
+watch(
+  () => formData.value.categoryId,
+  (id) => {
+    if (!id) {
+      categoryPath.value = [];
+      return;
+    }
+    const path = findCategoryPath(categoryCascaderOptions.value, Number(id));
+    categoryPath.value = path.length ? path : [Number(id)];
+  },
+);
 
 // Lazy loaded wangeditor editor
 const ProductEditor = defineAsyncComponent(
@@ -527,10 +599,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
         ]);
         const catList = catRes?.items || catRes?.rows || [];
         if (catList.length > 0) {
-          categoryOptions.value = catList.map((c: any) => ({
-            value: Number(c.id),
-            label: c.name,
-          }));
+          categoryCascaderOptions.value = buildCategoryCascaderOptions(catList);
         }
         const brandList = (brandRes as any) || [];
         if (Array.isArray(brandList) && brandList.length > 0) {
@@ -728,11 +797,12 @@ function setLoading(loading: boolean) {
                 商品分类
               </label>
               <div class="basic-form-control">
-                <Select
-                  v-model:value="formData.categoryId"
+                <Cascader
+                  v-model:value="categoryPath"
                   placeholder="请选择商品分类"
                   allow-clear
-                  :options="categoryOptions"
+                  change-on-select
+                  :options="categoryCascaderOptions"
                   style="width: 100%"
                 />
               </div>

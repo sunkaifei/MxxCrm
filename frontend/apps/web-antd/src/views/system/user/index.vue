@@ -216,6 +216,13 @@ const filledItems = [
   { field: 'contactFilled', key: 'page.system.hrArchive.tabContacts' },
 ] as const;
 
+// 在职状态复合筛选：在职=正常启用且审核通过；待审核=未过审；离职/停用=已过审但停用
+const onJobStatusList = computed(() => [
+  { value: 'active', label: $t('page.system.user.onJobActive') },
+  { value: 'pending', label: $t('page.system.user.onJobPending') },
+  { value: 'inactive', label: $t('page.system.user.onJobInactive') },
+]);
+
 const formOptions: VbenFormProps = {
   collapsed: false,
   showCollapseButton: false,
@@ -236,6 +243,15 @@ const formOptions: VbenFormProps = {
       label: $t('ui.table.status'),
       componentProps: {
         options: statusList,
+        placeholder: $t('ui.placeholder.select'),
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'onJobStatus',
+      label: $t('page.system.user.onJobStatus'),
+      componentProps: {
+        options: onJobStatusList,
         placeholder: $t('ui.placeholder.select'),
       },
     },
@@ -262,11 +278,26 @@ const gridOptions: VxeGridProps = {
     autoLoad: true,
     ajax: {
       query: async ({ page }, formValues) => {
+        // 在职状态复合筛选：映射为 status + auditStatus 双条件（优先级高于独立的状态筛选，避免矛盾组合）
+        let queryStatus = formValues.status;
+        let queryAuditStatus: undefined | number;
+        const jobStatus = formValues.onJobStatus;
+        if (jobStatus === 'active') {
+          queryStatus = 1;
+          queryAuditStatus = 1;
+        } else if (jobStatus === 'pending') {
+          queryStatus = undefined;
+          queryAuditStatus = 0;
+        } else if (jobStatus === 'inactive') {
+          queryStatus = 0;
+          queryAuditStatus = 1;
+        }
         const result = await getUserListApi({
           page: page.currentPage,
           pageSize: page.pageSize,
           userName: formValues.userName,
-          status: formValues.status,
+          status: queryStatus,
+          auditStatus: queryAuditStatus,
         });
         // DOM 更新后再同步一次固定列行高（覆盖字体/标签换行后高度计算延迟）
         requestAnimationFrame(() => {

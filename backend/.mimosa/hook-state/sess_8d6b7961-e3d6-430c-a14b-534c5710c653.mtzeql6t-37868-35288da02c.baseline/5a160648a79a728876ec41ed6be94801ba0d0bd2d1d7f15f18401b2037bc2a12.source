@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["SkuTemplateDetailVO","SkuTemplateListQuery","SkuTemplateListVO","SkuTemplateModel","SkuTemplateSaveRequest","SkuTemplateUpdateRequest","SpecSaveItem","SpecVO","SpecValueSaveItem","SpecValueVO","TemplateSpecBatchSaveRequest"]};

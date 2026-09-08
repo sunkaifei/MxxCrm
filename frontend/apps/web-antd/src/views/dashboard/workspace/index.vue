@@ -1103,9 +1103,10 @@ onBeforeUnmount(() => {
   min-height: 200px;
 }
 
+// 不设 height: gridstack 通过 top/bottom inset(= margin 变量)撑开内容区，
+// 显式 height:100% 会让 bottom 失效、内容溢出 8px 吃掉卡片间距
 .grid-stack-item-content {
   position: relative;
-  height: 100%;
   overflow: hidden;
 
   > :first-child {

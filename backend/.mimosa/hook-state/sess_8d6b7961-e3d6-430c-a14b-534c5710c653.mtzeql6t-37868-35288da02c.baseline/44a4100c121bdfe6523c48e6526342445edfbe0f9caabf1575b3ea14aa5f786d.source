@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["init_menu_data","init_message_tables"]};

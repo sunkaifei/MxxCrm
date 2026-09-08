@@ -26,7 +26,28 @@ pub fn get_template(name: &str, ctx: Value) -> Result<String> {
     // 注册自定义过滤器
     env.add_filter("to_json", to_json_filter);
     env.add_filter("default", none_default);
-    env.add_function("format_time", format_time);
+    env.add_function(
+        "format_time",
+        move |time: Option<minijinja::Value>, fmt: Option<String>| -> String {
+            // 复验修复：null/缺失时间返回空串而非 400；fmt 参数保留兼容（自动格式）
+            let _ = fmt;
+            let raw = match &time {
+                Some(v) => v
+                    .as_str()
+                    .map(|s| s.to_string())
+                    .or_else(|| v.as_i64().map(|i| i.to_string()))
+                    .unwrap_or_default(),
+                None => String::new(),
+            };
+            if raw.is_empty() {
+                return String::new();
+            }
+            match format_time(&raw) {
+                Ok(v) => v.as_str().map(|x| x.to_string()).unwrap_or_default(),
+                Err(_) => raw,
+            }
+        },
+    );
     env.add_function("filter_html",filter_html);
     //env.add_function("lang", lang_function);
     let tpl = env.get_template(name)?;
@@ -40,7 +61,28 @@ pub fn get_template_a(template_content: &str, ctx: Value) -> Result<String> {
     // 注册自定义过滤器
     env.add_filter("to_json", to_json_filter);
     env.add_filter("default", none_default);
-    env.add_function("format_time", format_time);
+    env.add_function(
+        "format_time",
+        move |time: Option<minijinja::Value>, fmt: Option<String>| -> String {
+            // 复验修复：null/缺失时间返回空串而非 400；fmt 参数保留兼容（自动格式）
+            let _ = fmt;
+            let raw = match &time {
+                Some(v) => v
+                    .as_str()
+                    .map(|s| s.to_string())
+                    .or_else(|| v.as_i64().map(|i| i.to_string()))
+                    .unwrap_or_default(),
+                None => String::new(),
+            };
+            if raw.is_empty() {
+                return String::new();
+            }
+            match format_time(&raw) {
+                Ok(v) => v.as_str().map(|x| x.to_string()).unwrap_or_default(),
+                Err(_) => raw,
+            }
+        },
+    );
     env.add_function("filter_html", filter_html);
 
     // 添加模板字符串
@@ -93,6 +135,20 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
     env.add_function("get_navigations", move |nav_type: Option<String>| -> Vec<Value> {
         let nt = nav_type.unwrap_or_else(|| "header".to_string());
         navs_data.get(&nt).cloned().unwrap_or_default()
+    });
+
+    // T-P1.3：导航树（同 get_navigations，返回带 children 的嵌套结构，供多级下拉渲染）
+    let navs_tree_data = cms_data.navigations.clone();
+    env.add_function("get_navigation_tree", move |nav_type: Option<String>| -> Vec<Value> {
+        let nt = nav_type.unwrap_or_else(|| "header".to_string());
+        navs_tree_data.get(&nt).cloned().unwrap_or_default()
+    });
+
+    // T-P1.1：取导航项解析后的 URL（引用式绑定已由后端解析写入 webUrl）
+    env.add_function("nav_url", move |nav: Value| -> String {
+        nav.get_attr("webUrl").ok()
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .unwrap_or_default()
     });
 
     let links_data = cms_data.links.clone();
@@ -153,9 +209,10 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
 
     // 文章列表标签：从预取数据中过滤
     let articles_data = cms_data.articles.clone();
-    env.add_function("get_articles", move |category_id: Option<i64>, limit: Option<usize>| -> Vec<Value> {
-        let limit = limit.unwrap_or(10).min(50);
-
+    // T-P0.4（T8 修复）：注册版补 page 参数，与方法层签名一致
+    env.add_function("get_articles", move |category_id: Option<i64>, limit: Option<usize>, page: Option<usize>| -> Vec<Value> {
+        let page = page.unwrap_or(1).max(1);
+        let offset = (page - 1) * limit.unwrap_or(10).min(50);
         articles_data.iter()
             .filter(|a| {
                 match category_id {
@@ -163,9 +220,20 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
                     _ => true,
                 }
             })
-            .take(limit)
+            .skip(offset)
+            .take(limit.unwrap_or(10).min(50))
             .map(|a| Value::from_serialize(a))
             .collect()
+    });
+
+    // T-P1.3：单篇文章取数（企业站内容页/侧栏用）
+    let article_by_id = cms_data.articles.clone();
+    env.add_function("get_article", move |article_id: minijinja::Value| -> Option<Value> {
+        let aid = article_id.as_i64()
+            .or_else(|| article_id.as_str().and_then(|s| s.parse::<i64>().ok()))?;
+        article_by_id.iter()
+            .find(|a| a.id.as_ref().and_then(|s| s.parse::<i64>().ok()) == Some(aid))
+            .map(|a| Value::from_serialize(a))
     });
 
     // 推荐文章标签
@@ -179,26 +247,112 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
             .collect()
     });
 
-    // 产品列表标签：从预取数据中过滤
-    let products_data = cms_data.products.clone();
-    env.add_function("get_products", move |category_id: Option<i64>, limit: Option<usize>| -> Vec<Value> {
-        let limit = limit.unwrap_or(10).min(50);
+    // 产品列表标签：P-1.2（B5/B6 修复）——注册层改调 CmsTagData::get_products，
+    // 支持 (category_id, limit, page, order)，与方法层能力一致，不再内联复制
+    let products_data = std::sync::Arc::new(cms_data.clone());
+    let products_data_for_recommend = std::sync::Arc::clone(&products_data);
+    env.add_function("get_products", move |category_id: Option<i64>, limit: Option<usize>, page: Option<usize>, order: Option<String>| -> Vec<Value> {
+        products_data.get_products(category_id, limit, page, order)
+    });
 
-        products_data.iter()
-            .filter(|p| {
-                match category_id {
-                    Some(cid) if cid > 0 => {
-                        p.get_attr("categoryId").ok()
-                            .and_then(|v| v.as_i64())
-                            .map(|id| id == cid)
-                            .unwrap_or(false)
-                    },
-                    _ => true,
-                }
+    // P-1.1（B4 修复）：产品分类标签——列表侧栏改用它（此前错用文章分类 get_categories）
+    let product_categories = cms_data.product_categories.clone();
+    env.add_function("get_product_categories", move |parent_id: Option<i64>| -> Vec<Value> {
+        let pid = parent_id.unwrap_or(0);
+        product_categories.iter()
+            .filter(|c| {
+                let cp = c.get_attr("parentId").ok()
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                if pid == 0 { cp == 0 } else { cp == pid }
             })
-            .take(limit)
             .cloned()
             .collect()
+    });
+
+    // 网站展示产品的栏目分类标签（栏目管理中内容类型=产品 的栏目）
+    let shelf_categories = cms_data.shelf_categories.clone();
+    env.add_function("get_shelf_categories", move |parent_id: Option<i64>| -> Vec<Value> {
+        let pid = parent_id.unwrap_or(0);
+        shelf_categories.iter()
+            .filter(|c| {
+                let cp = c.get_attr("parentId").ok()
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                if pid == 0 { cp == 0 } else { cp == pid }
+            })
+            .cloned()
+            .collect()
+    });
+
+    // 推荐产品标签（上架清单 is_recommend=1，按清单排序）
+    let recommend_ids = cms_data.recommend_ids.clone();
+    let products_data_rc = std::sync::Arc::clone(&products_data_for_recommend);
+    env.add_function("get_recommend_products", move |limit: Option<usize>| -> Vec<Value> {
+        let limit = limit.unwrap_or(8).min(50);
+        products_data_rc.get_products(None, None, None, None)
+            .into_iter()
+            .filter(|p| {
+                p.get_attr("id").ok()
+                    .and_then(|v| v.as_i64())
+                    .map(|id| recommend_ids.contains(&id))
+                    .unwrap_or(false)
+            })
+            .take(limit)
+            .collect()
+    });
+
+    // P-1.4（B6）：产品品牌标签
+    let product_brands = cms_data.product_brands.clone();
+    env.add_function("get_product_brands", move || -> Vec<Value> {
+        product_brands.clone()
+    });
+
+    // P-1.4（B6）：相关推荐（同分类、排除自身）
+    let related_products = cms_data.clone();
+    env.add_function("get_related_products", move |product_id: minijinja::Value, limit: Option<usize>| -> Vec<Value> {
+        let pid = product_id.as_i64()
+            .or_else(|| product_id.as_str().and_then(|s| s.parse::<i64>().ok()))
+            .unwrap_or(0);
+        related_products.get_related_products(pid, limit)
+    });
+
+    // P-2.4 便利标签：产品详情页 URL（P-1.9 策略乙：数字 ID）
+    env.add_function("product_url", move |product_id: minijinja::Value| -> String {
+        let pid = product_id.as_i64()
+            .or_else(|| product_id.as_str().and_then(|s| s.parse::<i64>().ok()))
+            .unwrap_or(0);
+        if pid > 0 { format!("/product/{}", pid) } else { "/product".to_string() }
+    });
+
+    // P-2.4 便利标签：产品分类 URL（列表页带 category_id 过滤）
+    env.add_function("category_url", move |category_id: minijinja::Value| -> String {
+        let cid = category_id.as_i64()
+            .or_else(|| category_id.as_str().and_then(|s| s.parse::<i64>().ok()))
+            .unwrap_or(0);
+        if cid > 0 { format!("/product?category_id={}", cid) } else { "/product".to_string() }
+    });
+
+    // P-2.4 便利标签：价格格式化（千分位 + ¥；currency 感知预留）
+    env.add_function("product_price", move |price: Option<minijinja::Value>| -> String {
+        // Decimal serde 序列化为字符串，minijinja Value 无 as_f64——经字符串解析
+        let v: f64 = price
+            .and_then(|p| p.as_str().and_then(|s| s.parse::<f64>().ok())
+                .or_else(|| p.as_i64().map(|i| i as f64)))
+            .unwrap_or(0.0);
+        let int_part = v.trunc() as i64;
+        let frac = ((v - v.trunc()) * 100.0).round() as i64;
+        let negative = v < 0.0;
+        let digits = int_part.abs().to_string();
+        let mut grouped = String::new();
+        for (i, ch) in digits.chars().enumerate() {
+            if i > 0 && (digits.len() - i) % 3 == 0 {
+                grouped.push(',');
+            }
+            grouped.push(ch);
+        }
+        let sign = if negative { "-" } else { "" };
+        format!("¥{}{}.{:02}", sign, grouped, frac)
     });
 
     // 栏目树标签
@@ -231,16 +385,57 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
     let site_mode = cms_data.site_mode;
     env.add_function("get_site_mode", move || -> i32 { site_mode });
 
-    // 购物车/咨询按钮：根据站点模式渲染不同按钮
-    env.add_function("cart_button", move |product_id: minijinja::Value, site_mode_param: Option<i32>| -> String {
+    // 购物车/咨询按钮：根据站点模式渲染不同按钮（P-0 方案乙：mode 1/3 自动内联留言 modal）
+    env.add_function("cart_button", move |product_id: minijinja::Value, site_mode_param: Option<i32>, price: Option<minijinja::Value>, name: Option<String>| -> String {
         let pid = product_id.as_i64().or_else(|| product_id.as_str().and_then(|s| s.parse::<i64>().ok())).unwrap_or(0);
-        cart_button_html(pid, site_mode_param.or(Some(site_mode)))
+        let price_str = price
+            .and_then(|p| p.as_str().map(|s| s.to_string())
+                .or_else(|| p.as_i64().map(|i| format!("{}", i))));
+        cart_button_html(pid, site_mode_param.or(Some(site_mode)), price_str, name)
     });
 
-    // 线索/咨询表单：渲染表单 HTML
+    // 线索/咨询表单：渲染遮罩 modal（P-0.2：提交 /api/open/leave_msg/submit，cms.js 接管）
     env.add_function("lead_form", move |product_id: Option<i64>| -> String {
         lead_form_html(product_id)
     });
+
+    // P-0：公共页头/页脚标签（复验收修复：子渲染 type_id=14/15 模板原文，
+    // 使页头/页脚自身的 minijinja 标签（get_navigations/site/tpl_var 等）真实生效；
+    // 此前直接返回原文，`{{ }}`/`{% %}` 以字面量泄漏到页面）
+    let page_head_html = cms_data.page_head_html.clone();
+    env.add_function(
+        "page_head",
+        move |state: &minijinja::State| -> String {
+            let site_val = state.lookup("site");
+            match state
+                .env()
+                .render_str(&page_head_html, minijinja::context!(site => &site_val))
+            {
+                Ok(s) => s,
+                Err(e) => {
+                    log::warn!("[cms] 页头子渲染失败: {}", e);
+                    String::new()
+                }
+            }
+        },
+    );
+    let page_foot_html = cms_data.page_foot_html.clone();
+    env.add_function(
+        "page_foot",
+        move |state: &minijinja::State| -> String {
+            let site_val = state.lookup("site");
+            match state
+                .env()
+                .render_str(&page_foot_html, minijinja::context!(site => &site_val))
+            {
+                Ok(s) => s,
+                Err(e) => {
+                    log::warn!("[cms] 页脚子渲染失败: {}", e);
+                    String::new()
+                }
+            }
+        },
+    );
 
     // TPL-10: include_template 标签
     // 模板调用：{{ include_template("header.html") }}
@@ -303,9 +498,14 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
 
     // ===== G-1.7: 相关文章标签（同分类，排除当前文章） =====
     let related_data = cms_data.articles.clone();
-    env.add_function("get_related_articles", move |article_id: Option<i64>, category_id: Option<i64>, limit: Option<usize>| -> Vec<Value> {
+    env.add_function("get_related_articles", move |article_id: minijinja::Value, category_id: Option<minijinja::Value>, limit: Option<usize>| -> Vec<Value> {
+        let article_id = article_id.as_i64()
+            .or_else(|| article_id.as_str().and_then(|s| s.parse::<i64>().ok()))
+            .unwrap_or(0);
+        let category_id = category_id
+            .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok())));
         let limit = limit.unwrap_or(5).min(20);
-        let aid = article_id.unwrap_or(0);
+        let aid = article_id;
         related_data.iter()
             .filter(|a| {
                 // 排除当前文章
@@ -365,6 +565,8 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
     // ===== G-1.13: HTML 站点地图标签（基于预取栏目和文章） =====
     let sitemap_cats = cms_data.categories.clone();
     let sitemap_articles = cms_data.articles.clone();
+    // T-P0.3（T5 修复）：直接输出带链接的分页 HTML（base_url 自动拼 ?page=N / &page=N）
+    let sitemap_products = cms_data.products.clone();
     env.add_function("get_sitemap_html", move || -> String {
         let mut html = String::from(r#"<ul class="sitemap-list">"#);
         // 栏目
@@ -400,6 +602,25 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
             }
             html.push_str("</li>");
         }
+        // P-2.9（B14 修复）：产品分类与产品 URL 收录
+        let sitemap_pcats = sitemap_products.clone();
+        if !sitemap_pcats.is_empty() {
+            html.push_str(r#"<li><a href="/product">产品中心</a>"#);
+            html.push_str("<ul>");
+            for p in sitemap_pcats.iter() {
+                let pid = p.get_attr("id").ok().and_then(|v| v.as_i64()).unwrap_or(0);
+                let pname = p.get_attr("name").ok().and_then(|v| v.as_str().map(|s| s.to_string())).unwrap_or_default();
+                if pid > 0 {
+                    html.push_str(&format!(
+                        r#"<li><a href="/product/{}">{}</a></li>"#,
+                        pid,
+                        html_escape(&pname)
+                    ));
+                }
+            }
+            html.push_str("</ul>");
+            html.push_str("</li>");
+        }
         html.push_str("</ul>");
         html
     });
@@ -428,14 +649,92 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
             .collect()
     });
 
+    // T-P2.1：内容模型内容标签 —— get_model_list(model_code, limit, page)
+    let model_contents_list = cms_data.model_contents.clone();
+    env.add_function("get_model_list", move |model_code: Option<String>, limit: Option<usize>, page: Option<usize>| -> Vec<Value> {
+        let code = model_code.unwrap_or_default();
+        let limit = limit.unwrap_or(10).min(200);
+        let page = page.unwrap_or(1).max(1);
+        let offset = (page - 1) * limit;
+        match model_contents_list.get(&code) {
+            Some(list) => list.iter().skip(offset).take(limit).cloned().collect(),
+            None => Vec::new(),
+        }
+    });
+
+    // T-P2.1：内容模型单条标签 —— get_model_detail(model_code, id)
+    let model_contents_detail = cms_data.model_contents.clone();
+    env.add_function("get_model_detail", move |model_code: Option<String>, id: minijinja::Value| -> Option<Value> {
+        let code = model_code.unwrap_or_default();
+        let id = id.as_i64()
+            .or_else(|| id.as_str().and_then(|s| s.parse::<i64>().ok()))
+            .unwrap_or(0);
+        model_contents_detail.get(&code)?
+            .iter()
+            .find(|v| v.get_attr("id").ok().and_then(|x| x.as_i64()) == Some(id))
+            .cloned()
+    });
+
     // 注册工具标签（纯函数，无 DB 依赖）
     env.add_filter("truncate", truncate_filter);
     env.add_function("time_ago", time_ago_function);
     env.add_function("pagination", pagination_function);
 
+    // T-P0.3（T5）：带 URL 的分页 HTML（企业展示模板手册 T-P0.3）
+    env.add_function("get_pagination_html", move |page: Option<u64>, total: Option<u64>, page_size: Option<u64>, base_url: String| -> String {
+        let pg = pagination_function(page, total, page_size);
+        // minijinja Value 无 as_u64/as_bool：统一转 serde_json::Value 处理
+        let pg_json: serde_json::Value = serde_json::to_value(&pg).unwrap_or_default();
+        let jnum = |k: &str| pg_json.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
+        let jbool = |k: &str| pg_json.get(k).and_then(|v| v.as_bool()).unwrap_or(false);
+        let cur = jnum("current");
+        let total_pages = if jnum("total") == 0 { 1 } else { jnum("total_pages") };
+        if total_pages <= 1 {
+            return String::new();
+        }
+        let sep = if base_url.contains('?') { "&" } else { "?" };
+        let link = |n: u64, text: &str, active: bool| -> String {
+            if active {
+                format!(r#"<li class="page-item active"><span class="page-link">{}</span></li>"#, text)
+            } else {
+                format!(
+                    r#"<li class="page-item"><a class="page-link" href="{}{}page={}">{}</a></li>"#,
+                    html_escape(&base_url), sep, n, text
+                )
+            }
+        };
+        let mut html = String::from(r#"<nav aria-label="pagination"><ul class="pagination justify-content-center">"#);
+        let prev = jnum("prev_page");
+        let has_prev = jbool("has_prev");
+        if has_prev {
+            html.push_str(&link(prev, "上一页", false));
+        } else {
+            html.push_str(r#"<li class="page-item disabled"><span class="page-link">上一页</span></li>"#);
+        }
+        if let Some(list) = pg_json.get("pages").and_then(|v| v.as_array()) {
+            for item in list {
+                if let Some(n) = item.as_u64() {
+                    html.push_str(&link(n, &n.to_string(), n == cur));
+                }
+            }
+        }
+        let next = jnum("next_page");
+        let has_next = jbool("has_next");
+        if has_next {
+            html.push_str(&link(next, "下一页", false));
+        } else {
+            html.push_str(r#"<li class="page-item disabled"><span class="page-link">下一页</span></li>"#);
+        }
+        html.push_str("</ul></nav>");
+        html
+    });
+
     // ===== P0-7: 上一篇/下一篇文章标签（基于预取文章列表） =====
     let prev_next_data = cms_data.articles.clone();
-    env.add_function("get_prev_article", move |article_id: i64| -> Option<Value> {
+    env.add_function("get_prev_article", move |article_id: minijinja::Value| -> Option<Value> {
+        let article_id = article_id.as_i64()
+            .or_else(|| article_id.as_str().and_then(|s| s.parse::<i64>().ok()))
+            .unwrap_or(0);
         // 按 create_time 降序排列，找到当前文章的前一篇（更早的文章）
         let mut sorted: Vec<&ArticleListVO> = prev_next_data.iter().collect();
         sorted.sort_by(|a, b| {
@@ -453,7 +752,10 @@ fn register_cms_functions(env: &mut Environment, cms_data: &CmsTagData) {
     });
 
     let next_data = cms_data.articles.clone();
-    env.add_function("get_next_article", move |article_id: i64| -> Option<Value> {
+    env.add_function("get_next_article", move |article_id: minijinja::Value| -> Option<Value> {
+        let article_id = article_id.as_i64()
+            .or_else(|| article_id.as_str().and_then(|s| s.parse::<i64>().ok()))
+            .unwrap_or(0);
         let mut sorted: Vec<&ArticleListVO> = next_data.iter().collect();
         sorted.sort_by(|a, b| {
             let ca = a.create_time.as_deref().unwrap_or("");
@@ -511,7 +813,28 @@ pub fn get_template_with_cms(name: &str, ctx: Value, cms_data: &CmsTagData) -> R
     env.set_loader(path_loader("templates"));
     env.add_filter("to_json", to_json_filter);
     env.add_filter("default", none_default);
-    env.add_function("format_time", format_time);
+    env.add_function(
+        "format_time",
+        move |time: Option<minijinja::Value>, fmt: Option<String>| -> String {
+            // 复验修复：null/缺失时间返回空串而非 400；fmt 参数保留兼容（自动格式）
+            let _ = fmt;
+            let raw = match &time {
+                Some(v) => v
+                    .as_str()
+                    .map(|s| s.to_string())
+                    .or_else(|| v.as_i64().map(|i| i.to_string()))
+                    .unwrap_or_default(),
+                None => String::new(),
+            };
+            if raw.is_empty() {
+                return String::new();
+            }
+            match format_time(&raw) {
+                Ok(v) => v.as_str().map(|x| x.to_string()).unwrap_or_default(),
+                Err(_) => raw,
+            }
+        },
+    );
     env.add_function("filter_html", filter_html);
 
     // 注册 CMS 标签函数
@@ -529,7 +852,28 @@ pub fn get_template_a_with_cms(template_content: &str, ctx: Value, cms_data: &Cm
     let mut env = Environment::new();
     env.add_filter("to_json", to_json_filter);
     env.add_filter("default", none_default);
-    env.add_function("format_time", format_time);
+    env.add_function(
+        "format_time",
+        move |time: Option<minijinja::Value>, fmt: Option<String>| -> String {
+            // 复验修复：null/缺失时间返回空串而非 400；fmt 参数保留兼容（自动格式）
+            let _ = fmt;
+            let raw = match &time {
+                Some(v) => v
+                    .as_str()
+                    .map(|s| s.to_string())
+                    .or_else(|| v.as_i64().map(|i| i.to_string()))
+                    .unwrap_or_default(),
+                None => String::new(),
+            };
+            if raw.is_empty() {
+                return String::new();
+            }
+            match format_time(&raw) {
+                Ok(v) => v.as_str().map(|x| x.to_string()).unwrap_or_default(),
+                Err(_) => raw,
+            }
+        },
+    );
     env.add_function("filter_html", filter_html);
 
     // 注册 CMS 标签函数

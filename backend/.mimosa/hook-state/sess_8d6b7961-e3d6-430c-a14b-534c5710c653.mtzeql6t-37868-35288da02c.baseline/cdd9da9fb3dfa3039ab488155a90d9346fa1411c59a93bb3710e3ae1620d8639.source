@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","find_by_id","find_by_id_internal","find_default","insert","list","set_default","update"]};

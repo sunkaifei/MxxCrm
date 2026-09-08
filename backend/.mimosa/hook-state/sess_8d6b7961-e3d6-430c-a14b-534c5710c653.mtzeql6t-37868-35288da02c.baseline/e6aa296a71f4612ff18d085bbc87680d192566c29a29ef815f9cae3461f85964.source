@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ApprovalTodoQuery","ContractTodoQuery","ContractTodoVO","FollowUpTodoQuery","FollowUpTodoVO","OpportunityTodoQuery","OpportunityTodoVO","PaymentTodoQuery","PaymentTodoVO","TodoSummaryVO"],"type":["ApprovalTodoResult","ApprovalTodoVO"]};

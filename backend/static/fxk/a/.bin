@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fxiaoke</title>
+</head>
+<style>
+    html,body{
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+    }
+    ul{
+        margin: 0;
+        padding: 0;
+    }
+    .fxiaoke__error-page{
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100%;
+    }
+    .fx-header-mobile__wrapper{
+        display: none;
+    }
+    .fx-header__wrapper{
+        height: 63px;
+        width: 100%;
+        border-bottom: 1px solid #eeeeee;
+    }
+    .fx-header__wrapper .header__nav-list{
+        width: 1200px;
+        margin: auto;
+        display: flex;
+        height: 100%;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .header__nav-list-left,.header__nav-list-right{
+        list-style: none;
+        display: flex;
+        height: 100%;
+        display: flex;
+        align-items: center;
+    }
+    .header__nav-list-left .nav-item{
+        margin: 0 16px;
+    }
+    .header__nav-list-left .nav-item:hover a{
+        color: #ff8000;
+    }
+    .header__nav-list-right .nav-login{
+        margin-left: 16px;
+    }
+    .header__nav-list-right .nav-reg{
+        margin: 0 12px 0 16px;
+    }
+    .fx-header__wrapper .nav-item a{
+        text-decoration: none;
+        color: #181c25;
+        font-size: 16px;
+    }
+    .fx-header__wrapper .nav-logo{
+        margin: 0 20px 0 0;
+    }
+    .fx-header__wrapper .nav-logo img{
+        height: 40px;
+        object-fit: cover;
+    }
+    .fx-nav-tel,.fx-nav-lang{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .fx-nav-tel svg,.fx-nav-lang svg{
+        margin-right: 8px;
+    }
+    .fx-nav-tel{
+        height: 36px;
+        padding: 0 16px;
+        display: flex;
+        align-items: center;
+        border: 1px solid #6b6d73;
+        border-radius: 999px;
+    }
+    .nav-login{
+        padding: 0 16px;
+        margin-left: 16px;
+        height: 36px;
+        border-radius: 20px;
+        border: 1px solid #ff8000;
+        display: flex;
+        align-items: center;
+    }
+    .fx-header__wrapper .nav-login a{
+        color: #ff8000;
+    }
+    .nav-reg{
+        padding: 0 16px;
+        margin: 0 12px 0 16px;
+        height: 36px;
+        background: #ff8000;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+    }
+    .fx-header__wrapper .nav-reg a{
+        color: #fff;
+    }
+
+    .fx-content__wrapper{
+        width: 1200px;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+    }
+    .fx_maintain_page-img{
+        width: 410px;
+        height: 230px;
+    }
+    .fx_maintain_page-tip{
+        color: var(--Text-H1, #181C25);
+        text-align: center;
+        font-feature-settings: 'clig' off, 'liga' off;
+        font-family: "Source Han Sans CN";
+        font-size: 16px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 24px; /* 150% */
+        margin-top: 30px;
+    }
+    .fx-nav-lang-content{
+        display: none;
+        position: absolute;
+        top: 53px;
+        right: -2px;
+        box-shadow: 0px 4px 12px 0px rgb(0 0 0 / 15%);
+        border-radius: 8px;
+        flex-direction: column;
+        align-items: center;
+        background-color: #fff;
+        list-style: none;
+        padding: 16px;
+    }
+    .nav-language{
+        position: relative;
+        margin-left: 16px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+    }
+    .fx-header__wrapper .nav-item .cur-language a{
+        color: #ff8000;
+    }
+    .fx-nav-lang-content li{
+        font-size: 14px;
+        line-height: 20px;
+        margin-bottom: 16px;
+    }
+    .fx-nav-lang-content li:last-child{
+        margin-bottom: 0;
+    }
+    .nav-language:hover .fx-nav-lang-content{
+        display: flex;
+    }
+    @media screen and (max-width:480px) {
+        .fx-header__wrapper{
+            display: none;
+        }
+        .fx-header-mobile__wrapper{
+            width: 100%;
+            display: flex;
+            align-items: center;
+            height: 60px;
+            background-color: #EEF2FA;
+            padding-left: 13px;
+        }
+        .fx-header-mobile__wrapper img{
+            height: 24px;
+            object-fit: contain;
+        }
+        .fx-content__wrapper{
+            justify-content: normal;
+            margin-top: 150px;
+            width: 100%;
+        }
+        .fx-content__wrapper .fx_maintain_page-img{
+            height: 150px;
+            object-fit: contain;
+        }
+        .fx-content__wrapper .fx_maintain_page-tip{
+            font-size: 14px;
+            font-weight: 400;
+            margin-top: 20px;
+        }
+    }
+</style>
+<body>
+    <div class="fxiaoke__error-page">
+        <div class="fx-header__wrapper">
+           <nav class="header__nav-list">
+            <ul class="header__nav-list-left">
+                <li class="nav-item nav-logo">
+                    <a href="https://www.fxiaoke.com/">
+                        <img src="https://a9.fspage.com/FSR/official-site/img/fxiaoke_logo.png" alt="fxiaoke-logo">
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="https://www.fxiaoke.com/">产品</a>
+                </li>
+                <li class="nav-item">
+                    <a href="https://www.fxiaoke.com/ap/solutions">解决方案</a>
+                </li>
+                <li class="nav-item">
+                    <a href="https://www.fxiaoke.com/crm/fxcase/">客户案例</a>
+                </li>
+                <li class="nav-item">
+                    <a href="https://www.fxiaoke.com/">资源中心</a>
+                </li>
+                <li class="nav-item">
+                    <a href="https://www.fxiaoke.com/">客户支持</a>
+                </li>
+                <li class="nav-item">
+                    <a href="https://www.fxiaoke.com/">关于纷享</a>
+                </li>
+            </ul>
+            <ul class="header__nav-list-right">
+                <li class="nav-item nav-tel">
+                    <div class="fx-nav-tel">
+                        <svg width="14" height="16" viewBox="0 0 14 16" fill="#545861">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M13.8153 14.0488C13.5534 14.5727 13.1604 14.9657 12.3745 15.3586C12.3745 15.3586 11.8505 15.6206 11.7196 15.7516C9.88577 16.7995 5.95621 14.4417 2.94356 10.3812C0.0618839 6.32066 -0.724027 1.99816 1.10976 0.950275L1.37173 0.81929L1.63371 0.688305C2.5506 0.164365 3.07454 -0.0976056 3.86045 0.0333795C4.64636 0.164365 5.1703 0.688305 5.69424 1.47422C6.74212 3.30801 6.48015 4.2249 5.1703 5.01081C5.03932 5.01081 4.77735 5.27278 4.64636 5.27278C4.38439 5.40377 4.90833 6.71362 6.21818 8.54741C7.52804 10.3812 8.57592 11.4291 8.96887 11.1671C8.96887 11.1671 9.36183 10.9051 9.49281 10.9051C9.6238 10.7742 9.88577 10.7742 10.0168 10.6432C11.0646 10.1192 11.9815 10.5122 13.2914 11.953C13.9463 12.6079 14.2083 13.3939 13.8153 14.0488Z" fill="#545861"></path>
+                          </svg>
+                          <span>400 1122 778</span>
+                    </div>
+                </li>
+                <li class="nav-item nav-login">
+                    <a href="https://www.fxiaoke.com/proj/page/login">登录</a>
+                </li>
+                <li class="nav-item nav-reg">
+                    <a href="https://www.fxiaoke.com/ap/reg/">免费试用</a>
+                </li>
+                <li class="nav-item nav-language">
+                    <div class="fx-nav-lang">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="#A3A7B0">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M10.7143 0V0.0254356C10.9006 0.0387488 11.0856 0.0572276 11.2691 0.0807285L11.2951 0.0840918C15.957 0.693775 19.636 4.54683 19.9746 9.28571H20V10.7143H19.9746C19.636 15.4532 15.957 19.3062 11.2951 19.9159C11.1031 19.941 10.9094 19.9606 10.7143 19.9746V20H9.28571V19.975C9.09936 19.9618 8.91438 19.9436 8.73092 19.9205L8.70667 19.9174C4.04115 19.3169 0.359654 15.5098 0.0248346 10.7143H0V9.28571H0.0248346C0.359654 4.49017 4.04115 0.683143 8.70667 0.0826143C8.89808 0.0579761 9.09115 0.0387354 9.28571 0.0250451V0H10.7143ZM1.45756 10.7143C1.73102 14.0672 3.91345 16.8417 6.89822 17.9956C5.67052 16.3785 4.45918 13.9763 4.30272 10.7143H1.45756ZM4.30272 9.28571H1.45756C1.73102 5.93281 3.91344 3.15834 6.89821 2.00441C5.67051 3.62151 4.45918 6.02372 4.30272 9.28571ZM5.73314 10.7143C5.88866 13.6343 6.98108 15.7554 8.06694 17.1723C8.49266 17.7278 8.91783 18.1754 9.28571 18.5195V10.7143H5.73314ZM9.28571 9.28571H5.73314C5.88866 6.36571 6.98108 4.2446 8.06694 2.8277C8.49266 2.27221 8.91783 1.82459 9.28571 1.48046V9.28571ZM10.7143 10.7143V18.5195C11.0822 18.1754 11.5073 17.7278 11.9331 17.1723C13.0189 15.7554 14.1113 13.6343 14.2669 10.7143H10.7143ZM14.2669 9.28571H10.7143V1.48046C11.0822 1.82459 11.5073 2.27221 11.9331 2.8277C13.0189 4.2446 14.1113 6.36571 14.2669 9.28571ZM15.6973 10.7143C15.5412 13.9676 14.3359 16.3657 13.1116 17.9827C16.0862 16.8128 18.265 14.0212 18.5417 10.7143H15.6973ZM18.5417 9.28571H15.6973C15.5412 6.0324 14.3359 3.63431 13.1116 2.01734C16.0862 3.18722 18.265 5.9788 18.5417 9.28571Z" fill="#A3A7B0"></path>
+                          </svg>
+                          <span>
+                            简中
+                          </span>
+                    </div>
+                    <ul class="fx-nav-lang-content">
+                        <li class="cur-language"><a href="https://www.fxiaoke.com/">简中</a></li>
+                        <li><a href="https://www.sharecrm.com/tw">繁中</a></li>
+                        <li><a href="https://www.sharecrm.com/en">ENG</a></li>
+                    </ul>
+                </li>
+            </ul>
+           </nav>
+        </div>
+        <div class="fx-header-mobile__wrapper">
+            <img src="https://a9.fspage.com/FSR/official-site/img/fxiaoke_logo.png" alt="fxiaoke-logo">
+        </div>
+        <div class="fx-content__wrapper">
+            <img class="fx_maintain_page-img" src="https://a9.fspage.com/FSR/official-site/img/fx_maintain_page.png" alt="fx_maintain_page">
+            <span class="fx_maintain_page-tip">网站维护中...</span>
+        </div>
+    </div>
+</body>
+</html>

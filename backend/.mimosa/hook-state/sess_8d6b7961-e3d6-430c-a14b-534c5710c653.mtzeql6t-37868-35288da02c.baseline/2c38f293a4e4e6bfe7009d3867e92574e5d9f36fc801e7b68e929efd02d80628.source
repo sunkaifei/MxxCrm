@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PurchaseStatus","PurchaseStatusVariant"],"struct":["PurchaseStatusEnum","PurchaseStatusIter","PurchaseStatusVariantIter"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ListQuery","PageWhere","TemplateVarDetailVO","TemplateVarListVO","TemplateVarModel","TemplateVarSaveDTO","TemplateVarSaveRequest","TemplateVarUpdateRequest"]};

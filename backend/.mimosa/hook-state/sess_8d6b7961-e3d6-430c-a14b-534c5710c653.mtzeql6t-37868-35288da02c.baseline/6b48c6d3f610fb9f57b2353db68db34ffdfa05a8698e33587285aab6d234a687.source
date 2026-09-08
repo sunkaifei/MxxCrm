@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_save_skus","generate_skus","get_available_spec_values","get_product_specs","get_sku_by_specs","register","save_product_specs"]};

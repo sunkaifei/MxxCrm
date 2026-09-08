@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["base_controller","entity","permission_guard","response","tags"]};

@@ -1,0 +1,177 @@
+
+
+
+
+<link rel="stylesheet" href="/static/default/css/cms.css">
+<header class="site-header border-bottom bg-white">
+  <div class="container d-flex align-items-center justify-content-between py-3 flex-wrap gap-2">
+    <a href="/" class="navbar-brand fw-bold text-decoration-none text-dark">{{ site.siteName | default('MxxCRM') }}</a>
+    <nav class="d-flex gap-3">
+      {% for n in get_navigations("header") %}
+      <a class="text-decoration-none text-secondary" href="{{ n.linkUrl | default('#') }}" {% if n.target %}target="{{ n.target }}"{% endif %}>{{ n.name }}</a>
+      {% endfor %}
+      <a class="text-decoration-none text-secondary" href="/product">产品中心</a>
+      <form class="d-flex" method="get" action="/search" style="max-width:200px">
+        <input class="form-control form-control-sm" type="text" name="keyword" placeholder="全站搜索" value="">
+        <button class="btn btn-sm btn-outline-primary ms-1" type="submit">搜索</button>
+      </form>
+    </nav>
+    <div class="d-flex gap-3 align-items-center">
+      {% if get_site_mode() == 2 or get_site_mode() == 3 %}
+      <a class="cms-cart-entry text-decoration-none text-secondary" href="/cart">购物车<span class="cms-cart-badge" id="cms-cart-badge"></span></a>
+      <a class="text-decoration-none text-secondary" href="/user/login">登录 / 注册</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<div class="container py-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">首页</a></li>
+      <li class="breadcrumb-item active">产品中心</li>
+    </ol>
+  </nav>
+  <div class="row g-4">
+    <div class="col-lg-3">
+      <div class="cat-tree border rounded p-3">
+        <h5 class="mb-3">产品分类</h5>
+        <a class="d-block py-1 text-primary fw-bold" href="/product">全部产品</a>
+        
+        <a class="d-block py-1 " href="/product?category_id=10">电子产品</a>
+        
+        <a class="d-block py-1 " href="/product?category_id=11">服装鞋帽</a>
+        
+        <a class="d-block py-1 " href="/product?category_id=12">家居用品</a>
+        
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <form class="toolbar d-flex flex-wrap gap-2 align-items-center mb-3" method="get" action="/product">
+        
+        <input class="form-control" style="max-width:220px" type="text" name="keyword" value="" placeholder="搜索产品名称/编号">
+        <select class="form-select" style="max-width:150px" name="order" onchange="this.form.submit()">
+          <option value="new" selected>最新上架</option>
+          <option value="price_asc" >价格从低到高</option>
+          <option value="price_desc" >价格从高到低</option>
+        </select>
+        <button class="btn btn-primary" type="submit">筛选</button>
+      </form>
+      
+      <div class="row product-grid g-3">
+        
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 product-card">
+            <a href="/product/4"><img src="" class="card-img-top" alt="休闲运动鞋" loading="lazy" style="height:200px;object-fit:cover"></a>
+            <div class="card-body">
+              <h6 class="card-title"><a class="text-decoration-none text-dark" href="/product/4">休闲运动鞋</a></h6>
+              <p class="price mb-2">
+                <span class="text-danger fw-bold">¥169.00</span>
+                
+              </p>
+              <div class="cms-cart-button" data-product-id="4" data-price="169.00" data-name="休闲运动鞋"><button type="button" class="cms-btn cms-btn-lead" onclick="cmsOpenLead(4)">立即咨询</button></div><div id="lead-form-4" class="cms-lead-modal" style="display:none" role="dialog" aria-modal="true"><div class="cms-lead-card"><button type="button" class="cms-lead-close" aria-label="关闭" onclick="cmsCloseLead(4)">&times;</button><h3 class="cms-lead-title">在线咨询</h3><form class="cms-lead-form" onsubmit="return cmsSubmitLead(event, 4)"><input type="hidden" name="product_id" value="4"><input type="hidden" name="source" value="website"><div class="cms-form-row"><label>姓名 <span class="req">*</span></label><input type="text" name="contactName" required placeholder="请输入您的姓名"></div><div class="cms-form-row"><label>电话 <span class="req">*</span></label><input type="tel" name="contactPhone" required placeholder="请输入联系电话"></div><div class="cms-form-row"><label>邮箱</label><input type="email" name="contactEmail" placeholder="请输入邮箱（选填）"></div><div class="cms-form-row"><label>留言内容 <span class="req">*</span></label><textarea name="content" rows="3" required placeholder="请输入您的需求"></textarea></div><div class="cms-form-row"><button type="submit" class="cms-btn cms-btn-submit">提交咨询</button><button type="button" class="cms-btn cms-btn-cancel" onclick="cmsCloseLead(4)">取消</button></div><p class="cms-lead-feedback" style="display:none"></p></form></div></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 product-card">
+            <a href="/product/3"><img src="" class="card-img-top" alt="运动T恤" loading="lazy" style="height:200px;object-fit:cover"></a>
+            <div class="card-body">
+              <h6 class="card-title"><a class="text-decoration-none text-dark" href="/product/3">运动T恤</a></h6>
+              <p class="price mb-2">
+                <span class="text-danger fw-bold">¥99.00</span>
+                
+              </p>
+              <div class="cms-cart-button" data-product-id="3" data-price="99.00" data-name="运动T恤"><button type="button" class="cms-btn cms-btn-lead" onclick="cmsOpenLead(3)">立即咨询</button></div><div id="lead-form-3" class="cms-lead-modal" style="display:none" role="dialog" aria-modal="true"><div class="cms-lead-card"><button type="button" class="cms-lead-close" aria-label="关闭" onclick="cmsCloseLead(3)">&times;</button><h3 class="cms-lead-title">在线咨询</h3><form class="cms-lead-form" onsubmit="return cmsSubmitLead(event, 3)"><input type="hidden" name="product_id" value="3"><input type="hidden" name="source" value="website"><div class="cms-form-row"><label>姓名 <span class="req">*</span></label><input type="text" name="contactName" required placeholder="请输入您的姓名"></div><div class="cms-form-row"><label>电话 <span class="req">*</span></label><input type="tel" name="contactPhone" required placeholder="请输入联系电话"></div><div class="cms-form-row"><label>邮箱</label><input type="email" name="contactEmail" placeholder="请输入邮箱（选填）"></div><div class="cms-form-row"><label>留言内容 <span class="req">*</span></label><textarea name="content" rows="3" required placeholder="请输入您的需求"></textarea></div><div class="cms-form-row"><button type="submit" class="cms-btn cms-btn-submit">提交咨询</button><button type="button" class="cms-btn cms-btn-cancel" onclick="cmsCloseLead(3)">取消</button></div><p class="cms-lead-feedback" style="display:none"></p></form></div></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 product-card">
+            <a href="/product/2"><img src="" class="card-img-top" alt="笔记本电脑 Pro" loading="lazy" style="height:200px;object-fit:cover"></a>
+            <div class="card-body">
+              <h6 class="card-title"><a class="text-decoration-none text-dark" href="/product/2">笔记本电脑 Pro</a></h6>
+              <p class="price mb-2">
+                <span class="text-danger fw-bold">¥4,999.00</span>
+                
+              </p>
+              <div class="cms-cart-button" data-product-id="2" data-price="4999.00" data-name="笔记本电脑 Pro"><button type="button" class="cms-btn cms-btn-lead" onclick="cmsOpenLead(2)">立即咨询</button></div><div id="lead-form-2" class="cms-lead-modal" style="display:none" role="dialog" aria-modal="true"><div class="cms-lead-card"><button type="button" class="cms-lead-close" aria-label="关闭" onclick="cmsCloseLead(2)">&times;</button><h3 class="cms-lead-title">在线咨询</h3><form class="cms-lead-form" onsubmit="return cmsSubmitLead(event, 2)"><input type="hidden" name="product_id" value="2"><input type="hidden" name="source" value="website"><div class="cms-form-row"><label>姓名 <span class="req">*</span></label><input type="text" name="contactName" required placeholder="请输入您的姓名"></div><div class="cms-form-row"><label>电话 <span class="req">*</span></label><input type="tel" name="contactPhone" required placeholder="请输入联系电话"></div><div class="cms-form-row"><label>邮箱</label><input type="email" name="contactEmail" placeholder="请输入邮箱（选填）"></div><div class="cms-form-row"><label>留言内容 <span class="req">*</span></label><textarea name="content" rows="3" required placeholder="请输入您的需求"></textarea></div><div class="cms-form-row"><button type="submit" class="cms-btn cms-btn-submit">提交咨询</button><button type="button" class="cms-btn cms-btn-cancel" onclick="cmsCloseLead(2)">取消</button></div><p class="cms-lead-feedback" style="display:none"></p></form></div></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 product-card">
+            <a href="/product/1"><img src="" class="card-img-top" alt="智能手机 X1" loading="lazy" style="height:200px;object-fit:cover"></a>
+            <div class="card-body">
+              <h6 class="card-title"><a class="text-decoration-none text-dark" href="/product/1">智能手机 X1</a></h6>
+              <p class="price mb-2">
+                <span class="text-danger fw-bold">¥1,299.00</span>
+                
+              </p>
+              <div class="cms-cart-button" data-product-id="1" data-price="1299.00" data-name="智能手机 X1"><button type="button" class="cms-btn cms-btn-lead" onclick="cmsOpenLead(1)">立即咨询</button></div><div id="lead-form-1" class="cms-lead-modal" style="display:none" role="dialog" aria-modal="true"><div class="cms-lead-card"><button type="button" class="cms-lead-close" aria-label="关闭" onclick="cmsCloseLead(1)">&times;</button><h3 class="cms-lead-title">在线咨询</h3><form class="cms-lead-form" onsubmit="return cmsSubmitLead(event, 1)"><input type="hidden" name="product_id" value="1"><input type="hidden" name="source" value="website"><div class="cms-form-row"><label>姓名 <span class="req">*</span></label><input type="text" name="contactName" required placeholder="请输入您的姓名"></div><div class="cms-form-row"><label>电话 <span class="req">*</span></label><input type="tel" name="contactPhone" required placeholder="请输入联系电话"></div><div class="cms-form-row"><label>邮箱</label><input type="email" name="contactEmail" placeholder="请输入邮箱（选填）"></div><div class="cms-form-row"><label>留言内容 <span class="req">*</span></label><textarea name="content" rows="3" required placeholder="请输入您的需求"></textarea></div><div class="cms-form-row"><button type="submit" class="cms-btn cms-btn-submit">提交咨询</button><button type="button" class="cms-btn cms-btn-cancel" onclick="cmsCloseLead(1)">取消</button></div><p class="cms-lead-feedback" style="display:none"></p></form></div></div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+      <nav class="mt-4">
+      
+      
+      <nav class="mt-4" aria-label="fenye">
+        <ul class="pagination justify-content-center">
+          <li class="page-item ">
+            <a class="page-link" href="/product?category_id=0&amp;keyword=&amp;order=new&amp;page=1">上一页</a>
+          </li>
+          
+          <li class="page-item ">
+            <a class="page-link" href="/product?category_id=0&amp;keyword=&amp;order=new&amp;page=1">1</a>
+          </li>
+          
+          <li class="page-item active">
+            <a class="page-link" href="/product?category_id=0&amp;keyword=&amp;order=new&amp;page=2">2</a>
+          </li>
+          
+          <li class="page-item disabled">
+            <a class="page-link" href="/product?category_id=0&amp;keyword=&amp;order=new&amp;page=2">下一页</a>
+          </li>
+        </ul>
+      </nav>
+      </nav>
+      
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer border-top mt-5 py-4 bg-light">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <h6>产品中心</h6>
+        {% for c in get_product_categories(0) %}
+        <a class="d-block text-decoration-none text-secondary py-1" href="{{ category_url(c.id) }}">{{ c.name }}</a>
+        {% endfor %}
+      </div>
+      <div class="col-md-4">
+        <h6>快速导航</h6>
+        {% for c in get_categories(0) %}
+        <a class="d-block text-decoration-none text-secondary py-1" href="/category/{{ c.shortUrl }}">{{ c.categoryName }}</a>
+        {% endfor %}
+      </div>
+      <div class="col-md-4">
+        <h6>联系方式</h6>
+        <p class="text-secondary mb-1">{{ site.companyName | default('') }}</p>
+        <p class="text-secondary mb-1">电话：{{ site.companyPhone | default('-') }}</p>
+        <p class="text-secondary mb-1">{{ site.companyAddress | default('') }}</p>
+      </div>
+    </div>
+    <hr>
+    <div class="text-center text-secondary small">
+      © {{ site.copyright | default(site.siteName | default('MxxCRM')) }}
+    </div>
+  </div>
+</footer>
+
+<script src="/static/default/js/cms.js"></script>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["cart","category","delivery","order","promotion","refund","review","settlement","shop","shop_user_merge","spu","supplier_apply"]};

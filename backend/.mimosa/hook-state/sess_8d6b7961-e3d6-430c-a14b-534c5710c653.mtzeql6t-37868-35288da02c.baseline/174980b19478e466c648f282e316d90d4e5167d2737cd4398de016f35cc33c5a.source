@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["admin_batch_delete","admin_create","admin_get_by_id","admin_get_by_page","admin_reset_password","admin_update","admin_update_status","change_password","find_by_id","get_profile","login","register","update_profile","validate_password","validate_username"]};

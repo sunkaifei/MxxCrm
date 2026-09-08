@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ListQuery","PageWhere","RegionDetailVO","RegionListVO","RegionModel","RegionSaveDTO","RegionSaveRequest","RegionShortTreeVO","RegionTreeVO","RegionUpdateRequest","RegionUserTreeVO"]};

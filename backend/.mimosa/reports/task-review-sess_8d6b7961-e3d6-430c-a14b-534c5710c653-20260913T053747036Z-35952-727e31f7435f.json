@@ -1,0 +1,1141 @@
+{
+  "schema_version": "mimosa-task-review/v2",
+  "run_id": "20260913T053747036Z-35952-727e31f7435f",
+  "run_status": "inconclusive",
+  "errors": [
+    {
+      "stage": "candidate-select",
+      "target": "src/core/web/entity/common.rs",
+      "reason": "candidate_limit_exceeded: 1 changed reviewable file(s) were not scanned because the limit is 20"
+    },
+    {
+      "stage": "scan",
+      "target": "scripts/patch_stage1.py",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/service/website_product_service.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/controller/admin/website_product_admin_controller.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/core/kit/scheduler.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/controller/open/cms_open_controller.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/core/kit/template.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/service/website_cart_service.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/service/website_order_service.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/product/model/product.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "static/default/js/cms.js",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/utils/string_utils.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/service/navigation_service.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/model/navigation.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/model/template_tag.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/model/website_product.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/entity/navigation.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/entity/website_product.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/website/controller/admin/navigation_admin_controller.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/modules/crm/service/recycle_service.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "src/core/web/tags/cms_tags.rs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    }
+  ],
+  "coverage": {
+    "schema_version": "mimosa-hook-coverage/v1",
+    "status": "partial",
+    "scope": "hook_observed_diff",
+    "baseline": {
+      "complete": true,
+      "captured_files": 3162,
+      "candidate_limit": 5000,
+      "truncated": false,
+      "enumeration_error_count": 0,
+      "snapshot_error_count": 0,
+      "compensated_target_count": 21
+    },
+    "change_tracking": {
+      "touched_observed": 9,
+      "touched_retained": 9,
+      "truncated": false,
+      "bash_mutation": true,
+      "bash_discovered": 21,
+      "bash_discovery_limit": 80,
+      "bash_discovery_truncated": false
+    },
+    "candidates": {
+      "eligible_files": 21,
+      "selected_files": 20,
+      "limit": 20,
+      "truncated": true
+    },
+    "scanning": {
+      "required_files": 20,
+      "scanned_files": 0,
+      "skipped_files": 0,
+      "failed_files": 20,
+      "project_checks_required": 0,
+      "project_checks_completed": 0
+    },
+    "notification": {
+      "eligible_findings": 0,
+      "detailed_findings": 0,
+      "detail_limit": 3,
+      "truncated": false
+    },
+    "reason_counts": {
+      "candidate_limit_exceeded": 1,
+      "scanner_failed": 20,
+      "project_check_failed": 21
+    },
+    "reasons": [
+      {
+        "code": "candidate_limit_exceeded",
+        "stage": "candidate-select",
+        "target": "src/core/web/entity/common.rs",
+        "detail": "1 changed reviewable file(s) were not scanned because the limit is 20",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "scripts/patch_stage1.py",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/website_product_service.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/admin/website_product_admin_controller.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/core/kit/scheduler.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/open/cms_open_controller.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/core/kit/template.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/website_cart_service.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/website_order_service.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/product/model/product.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "static/default/js/cms.js",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/utils/string_utils.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/navigation_service.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/navigation.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/template_tag.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/website_product.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/entity/navigation.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/entity/website_product.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/admin/navigation_admin_controller.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/modules/crm/service/recycle_service.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "src/core/web/tags/cms_tags.rs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "candidate-select",
+        "target": "src/core/web/entity/common.rs",
+        "detail": "candidate_limit_exceeded: 1 changed reviewable file(s) were not scanned because the limit is 20",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "scripts/patch_stage1.py",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/website_product_service.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/admin/website_product_admin_controller.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/core/kit/scheduler.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/open/cms_open_controller.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/core/kit/template.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/website_cart_service.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/website_order_service.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/product/model/product.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "static/default/js/cms.js",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/utils/string_utils.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/service/navigation_service.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/navigation.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/template_tag.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/model/website_product.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/entity/navigation.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/entity/website_product.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/website/controller/admin/navigation_admin_controller.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/modules/crm/service/recycle_service.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "src/core/web/tags/cms_tags.rs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      }
+    ],
+    "reasons_truncated": false
+  },
+  "generated_at": "2026-09-13T05:37:47.036Z",
+  "session_id": "sess_8d6b7961-e3d6-430c-a14b-534c5710c653",
+  "target": ".",
+  "revision": "db4867795ae0c8d25c59d169c5c1c32d6486ad28",
+  "rules_version": "unavailable",
+  "diff_hash": "5968025c83dcec45012532de778eb8315928dd4fefa50527947488f4bead2fa3",
+  "diff": {
+    "algorithm": "sha256",
+    "changed_file_count": 20,
+    "changed_files": [
+      {
+        "file": "scripts/patch_stage1.py",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 116
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "ce9e32174c22310a5e706ee17e91c374a14c0da19b91d16348040ae18139171e"
+      },
+      {
+        "file": "src/core/kit/scheduler.rs",
+        "ranges": [
+          {
+            "start": 140,
+            "end": 171
+          },
+          {
+            "start": 188,
+            "end": 220
+          }
+        ],
+        "before_hash": "62ae003ff443f8fd189d252f72efccea699ca11867eb41590e495ca83e46eb4b",
+        "after_hash": "f581e819f8b7faae7e533b529adc3e8f004d25d0511e385d44eee7061135e387"
+      },
+      {
+        "file": "src/core/kit/template.rs",
+        "ranges": [
+          {
+            "start": 140,
+            "end": 153
+          },
+          {
+            "start": 252,
+            "end": 253
+          },
+          {
+            "start": 288,
+            "end": 304
+          }
+        ],
+        "before_hash": "336c6fea24ef8c451813da686a0aadb5e2c37dc1c07d6cd9c87f2f0d30923b9f",
+        "after_hash": "33a3566486d994aabe086ff59339223ee48b970ffec289d7d69218828bfcbc9a"
+      },
+      {
+        "file": "src/core/web/tags/cms_tags.rs",
+        "ranges": [
+          {
+            "start": 67,
+            "end": 68
+          },
+          {
+            "start": 186,
+            "end": 187
+          },
+          {
+            "start": 352,
+            "end": 362
+          },
+          {
+            "start": 385,
+            "end": 433
+          },
+          {
+            "start": 599,
+            "end": 612
+          },
+          {
+            "start": 720,
+            "end": 815
+          }
+        ],
+        "before_hash": "5fa344a2c89c5f2d12c1e5aa0a47b7eaccab9bc9535f450b67d841ce7b6c778d",
+        "after_hash": "f6a31fd0a19b44c64479675df7d8a0ce9f1b2139921bb5e141fe0083ae8fcf47"
+      },
+      {
+        "file": "src/modules/crm/service/recycle_service.rs",
+        "ranges": [
+          {
+            "start": 41,
+            "end": 41
+          },
+          {
+            "start": 52,
+            "end": 53
+          },
+          {
+            "start": 66,
+            "end": 66
+          },
+          {
+            "start": 280,
+            "end": 283
+          }
+        ],
+        "before_hash": "02461743a208f9112c836e35b3c97ad4652a619ec859a2f325c33d8561ddb8da",
+        "after_hash": "6479ce4020d6dad6d3fa9f2763a1a2281732ee7278290e255c5c21df1bf0aeaa"
+      },
+      {
+        "file": "src/modules/product/model/product.rs",
+        "ranges": [
+          {
+            "start": 323,
+            "end": 330
+          },
+          {
+            "start": 333,
+            "end": 340
+          }
+        ],
+        "before_hash": "7f23b63daa132c215cf24c2a44d8ff19d0eba8b86c4e899ec47343b2e033c152",
+        "after_hash": "c38298ac3fe390c027bdeb23b1cac0185bca7c3b888237663bdaad8a2730e5a8"
+      },
+      {
+        "file": "src/modules/website/controller/admin/navigation_admin_controller.rs",
+        "ranges": [
+          {
+            "start": 13,
+            "end": 13
+          },
+          {
+            "start": 15,
+            "end": 15
+          },
+          {
+            "start": 29,
+            "end": 37
+          },
+          {
+            "start": 45,
+            "end": 45
+          },
+          {
+            "start": 48,
+            "end": 48
+          },
+          {
+            "start": 75,
+            "end": 75
+          },
+          {
+            "start": 99,
+            "end": 99
+          },
+          {
+            "start": 111,
+            "end": 111
+          },
+          {
+            "start": 114,
+            "end": 114
+          },
+          {
+            "start": 119,
+            "end": 119
+          },
+          {
+            "start": 127,
+            "end": 127
+          },
+          {
+            "start": 138,
+            "end": 151
+          },
+          {
+            "start": 182,
+            "end": 187
+          }
+        ],
+        "before_hash": "b0a60bc60bed6e1918b4f90c43c0f517f550f263d90bb5bc5cda90c7a5ebf5d6",
+        "after_hash": "bda2fdff5108fefea82593cab7ecf87f2ee625c65f9f56280b4c3e05d5ce03a8"
+      },
+      {
+        "file": "src/modules/website/controller/admin/website_product_admin_controller.rs",
+        "ranges": [
+          {
+            "start": 21,
+            "end": 24
+          },
+          {
+            "start": 158,
+            "end": 228
+          },
+          {
+            "start": 255,
+            "end": 259
+          }
+        ],
+        "before_hash": "f2355b3140be93ab5f0af9afa22025c35a9f6698f865bd224220f0b572475024",
+        "after_hash": "4fbcef2dfae48e972f02b4e5722f4d01ee6f7c00268207f7217781449382521d"
+      },
+      {
+        "file": "src/modules/website/controller/open/cms_open_controller.rs",
+        "ranges": [
+          {
+            "start": 378,
+            "end": 379
+          },
+          {
+            "start": 381,
+            "end": 381
+          },
+          {
+            "start": 447,
+            "end": 465
+          },
+          {
+            "start": 490,
+            "end": 494
+          }
+        ],
+        "before_hash": "f1ad9e26a480547823d0eff95d795894069c1073bc1489bc52abc2d0e9b89188",
+        "after_hash": "23a43c7e151df3f2a6d4fcee1a81834309071186f1fb1ede3dc7b76889c514cf"
+      },
+      {
+        "file": "src/modules/website/entity/navigation.rs",
+        "ranges": [
+          {
+            "start": 49,
+            "end": 60
+          }
+        ],
+        "before_hash": "c0b5feedcbf27b7b8a9069a655e8f8bf367e50ce77b6079dec77ab003a0bbc57",
+        "after_hash": "a85499abbeb86e759a529d6cd6c995c6212425ae5edf90672afbc9efc137266f"
+      },
+      {
+        "file": "src/modules/website/entity/website_product.rs",
+        "ranges": [
+          {
+            "start": 42,
+            "end": 65
+          }
+        ],
+        "before_hash": "a4bf8e970d5a05cbbfcfae0fbe45762c1b1a3beea1e91645e7e3a62345d4d2fd",
+        "after_hash": "8e350beb0bd5badfdd0bf4c3f1c7a77052908a6eb5caef2ae0d141dc21793436"
+      },
+      {
+        "file": "src/modules/website/model/navigation.rs",
+        "ranges": [
+          {
+            "start": 16,
+            "end": 20
+          },
+          {
+            "start": 22,
+            "end": 22
+          },
+          {
+            "start": 25,
+            "end": 25
+          },
+          {
+            "start": 35,
+            "end": 35
+          },
+          {
+            "start": 37,
+            "end": 38
+          },
+          {
+            "start": 40,
+            "end": 40
+          },
+          {
+            "start": 52,
+            "end": 57
+          },
+          {
+            "start": 66,
+            "end": 73
+          },
+          {
+            "start": 93,
+            "end": 95
+          },
+          {
+            "start": 115,
+            "end": 117
+          },
+          {
+            "start": 126,
+            "end": 126
+          },
+          {
+            "start": 133,
+            "end": 133
+          },
+          {
+            "start": 135,
+            "end": 136
+          },
+          {
+            "start": 147,
+            "end": 152
+          },
+          {
+            "start": 155,
+            "end": 155
+          },
+          {
+            "start": 159,
+            "end": 160
+          },
+          {
+            "start": 162,
+            "end": 162
+          },
+          {
+            "start": 164,
+            "end": 164
+          },
+          {
+            "start": 166,
+            "end": 175
+          },
+          {
+            "start": 178,
+            "end": 178
+          },
+          {
+            "start": 180,
+            "end": 181
+          },
+          {
+            "start": 183,
+            "end": 183
+          },
+          {
+            "start": 186,
+            "end": 186
+          },
+          {
+            "start": 190,
+            "end": 190
+          },
+          {
+            "start": 193,
+            "end": 194
+          },
+          {
+            "start": 205,
+            "end": 208
+          },
+          {
+            "start": 212,
+            "end": 212
+          },
+          {
+            "start": 218,
+            "end": 234
+          },
+          {
+            "start": 241,
+            "end": 241
+          },
+          {
+            "start": 246,
+            "end": 247
+          },
+          {
+            "start": 250,
+            "end": 254
+          },
+          {
+            "start": 257,
+            "end": 258
+          },
+          {
+            "start": 263,
+            "end": 263
+          },
+          {
+            "start": 265,
+            "end": 265
+          },
+          {
+            "start": 270,
+            "end": 307
+          }
+        ],
+        "before_hash": "96362443960541dc8551ad7b48f95824c8b90084ad1726e3f640ffe4302ecd52",
+        "after_hash": "00866350925144491bbe0a29f68eec80764e53e5bd531f537867879df27bba0c"
+      },
+      {
+        "file": "src/modules/website/model/template_tag.rs",
+        "ranges": [
+          {
+            "start": 53,
+            "end": 54
+          },
+          {
+            "start": 56,
+            "end": 76
+          }
+        ],
+        "before_hash": "815b38648becd557247bbc1c872f8fdaa081ab6859ace2da5e8ad314315d5291",
+        "after_hash": "844f588d311cfe65add61964ed1ae266bc3224451d5e0d7335b81370200ab939"
+      },
+      {
+        "file": "src/modules/website/model/website_product.rs",
+        "ranges": [
+          {
+            "start": 130,
+            "end": 187
+          },
+          {
+            "start": 227,
+            "end": 243
+          }
+        ],
+        "before_hash": "97609ff4ca700e400eeed58c5d4ac1db09d14bdd770c8fae56e36c8b431a874a",
+        "after_hash": "f75e2664b0b7aa26743bb8d3544af5733d55395eaade472b0c97c16f8154c6de"
+      },
+      {
+        "file": "src/modules/website/service/navigation_service.rs",
+        "ranges": [
+          {
+            "start": 13,
+            "end": 13
+          },
+          {
+            "start": 16,
+            "end": 16
+          },
+          {
+            "start": 19,
+            "end": 19
+          },
+          {
+            "start": 25,
+            "end": 39
+          },
+          {
+            "start": 62,
+            "end": 71
+          },
+          {
+            "start": 88,
+            "end": 88
+          },
+          {
+            "start": 98,
+            "end": 98
+          }
+        ],
+        "before_hash": "5039301d96220253d03306d4b623e09dcc113bd2b771477962cecfd2c910a29c",
+        "after_hash": "29e3e10c123ead6baac450c6a838c18ce65c2a3a274cd98f6dd9941a3eef709f"
+      },
+      {
+        "file": "src/modules/website/service/website_cart_service.rs",
+        "ranges": [
+          {
+            "start": 23,
+            "end": 30
+          },
+          {
+            "start": 67,
+            "end": 77
+          }
+        ],
+        "before_hash": "4d483d063ace0968f252f36124a60812c02e4f29dd16e93112bfcfe41d687cfa",
+        "after_hash": "98dcd5efcb87a31817bb5d94a8294ea288869f171294acbf7578921330f492c8"
+      },
+      {
+        "file": "src/modules/website/service/website_order_service.rs",
+        "ranges": [
+          {
+            "start": 72,
+            "end": 79
+          }
+        ],
+        "before_hash": "f1515deddb1074c3c277935bd06dc0bc735849a481af69583a9db34d16189cc1",
+        "after_hash": "9c8a92e9df03e1c0b3d8e1f8b1ad75b28fdf3ba7fc39c5861ba6d6b870349827"
+      },
+      {
+        "file": "src/modules/website/service/website_product_service.rs",
+        "ranges": [
+          {
+            "start": 21,
+            "end": 23
+          },
+          {
+            "start": 46,
+            "end": 66
+          },
+          {
+            "start": 71,
+            "end": 95
+          },
+          {
+            "start": 155,
+            "end": 155
+          },
+          {
+            "start": 221,
+            "end": 245
+          },
+          {
+            "start": 256,
+            "end": 257
+          },
+          {
+            "start": 276,
+            "end": 290
+          },
+          {
+            "start": 318,
+            "end": 318
+          },
+          {
+            "start": 441,
+            "end": 441
+          },
+          {
+            "start": 490,
+            "end": 822
+          },
+          {
+            "start": 1034,
+            "end": 1035
+          },
+          {
+            "start": 1118,
+            "end": 1123
+          },
+          {
+            "start": 1134,
+            "end": 1134
+          },
+          {
+            "start": 1136,
+            "end": 1152
+          },
+          {
+            "start": 1155,
+            "end": 1177
+          }
+        ],
+        "before_hash": "2cf57421daeb79581b1db4482e34ec6a57a9b0c067b30693b78cabb981ab4979",
+        "after_hash": "c6d064520c02c93b25ebdd485d040be85717c151bce9e332de98b601158758ef"
+      },
+      {
+        "file": "src/utils/string_utils.rs",
+        "ranges": [
+          {
+            "start": 320,
+            "end": 342
+          }
+        ],
+        "before_hash": "e43da1b25ee6bf893300a7fee256d346808a8a1f813480ae35f6dfd60a848644",
+        "after_hash": "5cf728545ed2462b9895e276930171c89c46376d42e03a79cd79015b9ee6caca"
+      },
+      {
+        "file": "static/default/js/cms.js",
+        "ranges": [
+          {
+            "start": 231,
+            "end": 317
+          }
+        ],
+        "before_hash": "dd00ec5071e9443d3ed14604cf99c485ff4d606e4edea2b23fff3857a7dabafe",
+        "after_hash": "f00cd2fa04b3246529f38b91b9da4cc2163360ff1847a421052472c6f7d36c57"
+      }
+    ]
+  },
+  "timing": {
+    "started_at": "2026-09-13T05:37:39.408Z",
+    "completed_at": "2026-09-13T05:37:47.036Z",
+    "duration_ms": 7628,
+    "measurement": "hook_wall_clock"
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "model_calls": 0,
+    "measurement": "known-zero"
+  },
+  "telemetry": {
+    "schemaVersion": "mimosa-gate-telemetry/v1",
+    "profile": "gate",
+    "operation": "Stop",
+    "outcome": "partial/INCONCLUSIVE",
+    "latencyMs": 7628,
+    "peakMemoryBytes": 125706240,
+    "memoryMeasurement": "max-observed-process-rss",
+    "scannedFiles": 0,
+    "cache": {
+      "hits": 0,
+      "misses": 0,
+      "measurement": "not-applicable"
+    },
+    "denyCount": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "total": 0,
+      "modelCalls": 0,
+      "measurement": "known-zero"
+    }
+  },
+  "finding_count": 0,
+  "rewake_finding_count": 0,
+  "evidence_boundary": {
+    "scan": "candidate",
+    "static_fix_verification": "observed_static_only",
+    "runtime_verification": "not_performed"
+  },
+  "finding_events": [
+    {
+      "finding_id": "mimosa-e6b512b77e3aaffc262a55f3",
+      "file": "scripts/patch_stage2.py",
+      "line": 10,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "路径穿越",
+      "status": "blocked",
+      "decision": "deny",
+      "at": "2026-09-13T01:29:08.666Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "2e248faf93f59608c48ada0df9e46f18df66179e70d798eaa02346c5bccd7333",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-e6b512b77e3aaffc262a55f3",
+      "file": "scripts/patch_stage2.py",
+      "line": 17,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "路径穿越",
+      "status": "blocked",
+      "decision": "deny",
+      "at": "2026-09-13T01:29:59.147Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "2e248faf93f59608c48ada0df9e46f18df66179e70d798eaa02346c5bccd7333",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-e6b512b77e3aaffc262a55f3",
+      "file": "scripts/patch_stage2.py",
+      "line": 15,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "路径穿越",
+      "status": "blocked",
+      "decision": "deny",
+      "at": "2026-09-13T01:31:02.486Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "2e248faf93f59608c48ada0df9e46f18df66179e70d798eaa02346c5bccd7333",
+        "runtime_oracle": false
+      }
+    }
+  ],
+  "findings": [],
+  "artifacts": {
+    "immutable_report": ".mimosa/reports/task-review-sess_8d6b7961-e3d6-430c-a14b-534c5710c653-20260913T053747036Z-35952-727e31f7435f.json",
+    "latest_report": ".mimosa/reports/task-review-sess_8d6b7961-e3d6-430c-a14b-534c5710c653.json",
+    "history_summary": ".mimosa/history/run-20260913T053747036Z-35952-727e31f7435f.json"
+  }
+}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["chat_message","chat_session","chat_session_participant","system_notification","user_online"]};

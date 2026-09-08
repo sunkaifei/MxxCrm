@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ListQuery","PageWhere","SiteAdminListVO","SiteDetailVO","SiteModel","SiteSaveDTO","SiteSaveRequest","SiteUpdateRequest","UpdateDefaultDTO","UpdateDefaultRequest","UpdateStatusDTO","UpdateStatusRequest","WebSiteVO"]};

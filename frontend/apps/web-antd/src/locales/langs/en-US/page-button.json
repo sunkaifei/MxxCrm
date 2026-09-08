@@ -49,6 +49,45 @@
         "edit": "Edit Menu",
         "delete": "Delete Menu",
         "view": "View Menu"
+      },
+      "dept": {
+        "create": "Add Department",
+        "edit": "Edit Department",
+        "delete": "Delete Department",
+        "view": "View Department"
+      },
+      "post": {
+        "create": "Add Post",
+        "edit": "Edit Post",
+        "delete": "Delete Post",
+        "view": "View Post"
+      },
+      "config": {
+        "create": "Add Config",
+        "edit": "Edit Config",
+        "delete": "Delete Config"
+      },
+      "dict": {
+        "create": "Add Dict",
+        "edit": "Edit Dict",
+        "delete": "Delete Dict",
+        "view": "View Dict"
+      },
+      "notice": {
+        "create": "Add Notice",
+        "edit": "Edit Notice",
+        "delete": "Delete Notice",
+        "view": "View Notice"
+      },
+      "tag": {
+        "create": "Add Tag",
+        "edit": "Edit Tag",
+        "delete": "Delete Tag"
+      },
+      "approval": {
+        "create": "Add Approval",
+        "edit": "Edit Approval",
+        "toggle": "Enable/Disable"
       }
     },
     "crm": {
@@ -57,23 +96,41 @@
         "edit": "Edit Lead",
         "delete": "Delete Lead",
         "convert": "Convert",
-        "assign": "Assign"
+        "assign": "Assign",
+        "info": "View Details"
       },
       "customer": {
         "create": "Add Customer",
         "edit": "Edit Customer",
         "delete": "Delete Customer",
-        "assign": "Assign"
+        "assign": "Assign",
+        "view": "View Customer",
+        "followup": "Customer Follow-up"
       },
       "opportunity": {
         "create": "Add Opportunity",
         "edit": "Edit Opportunity",
-        "delete": "Delete Opportunity"
+        "delete": "Delete Opportunity",
+        "view": "View Opportunity"
       },
       "contract": {
         "create": "Add Contract",
         "edit": "Edit Contract",
-        "delete": "Delete Contract"
+        "delete": "Delete Contract",
+        "submit": "Submit Contract",
+        "view": "View Contract"
+      },
+      "contact": {
+        "create": "Add Contact",
+        "edit": "Edit Contact",
+        "delete": "Delete Contact",
+        "view": "View Contact"
+      },
+      "followup": {
+        "save": "Save Now",
+        "update": "Edit Follow-up",
+        "delete": "Delete Follow-up",
+        "info": "View Follow-up"
       }
     },
     "sale": {
@@ -89,6 +146,22 @@
         "create": "Add Payment",
         "edit": "Edit Payment",
         "delete": "Delete Payment"
+      },
+      "quotation": {
+        "create": "New Quotation",
+        "edit": "Edit Quotation",
+        "delete": "Delete Quotation",
+        "send": "Send Quotation",
+        "accept": "Convert to Order",
+        "reject": "Reject Quotation"
+      },
+      "invoice": {
+        "create": "New Invoice",
+        "edit": "Edit Invoice",
+        "delete": "Delete Invoice"
+      },
+      "performance": {
+        "export": "Export"
       }
     },
     "product": {
@@ -105,6 +178,9 @@
         "create": "Add Warehouse",
         "edit": "Edit Warehouse",
         "delete": "Delete Warehouse"
+      },
+      "sku": {
+        "create": "Add SKU"
       }
     },
     "purchase": {
@@ -142,6 +218,33 @@
         "create": "Add Product",
         "edit": "Edit Product",
         "delete": "Delete Product"
+      }
+    },
+    "finance": {
+      "commissionRule": {
+        "create": "Add Rule",
+        "edit": "Edit Rule",
+        "delete": "Delete Rule",
+        "toggle": "Enable/Disable"
+      },
+      "salary": {
+        "calculate": "Run Calculation",
+        "adjust": "Manual Adjustment",
+        "approve": "Salary Approval",
+        "pay": "Pay Salary"
+      },
+      "payment": {
+        "apply": "Apply Payment",
+        "approve": "Approve Payment",
+        "confirm": "Confirm Payment",
+        "cancel": "Cancel Payment"
+      }
+    },
+    "company": {
+      "info": {
+        "edit": "Edit",
+        "accountSave": "Save Account",
+        "accountDelete": "Delete Account"
       }
     }
   }

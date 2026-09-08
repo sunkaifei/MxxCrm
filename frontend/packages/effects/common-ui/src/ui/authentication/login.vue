@@ -72,7 +72,7 @@ async function handleSubmit() {
       REMEMBER_ME_KEY,
       rememberMe.value ? values?.username : '',
     );
-    emit('submit', values);
+    emit('submit', { ...values, rememberMe: rememberMe.value });
   }
 }
 

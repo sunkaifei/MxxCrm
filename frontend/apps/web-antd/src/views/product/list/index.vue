@@ -22,9 +22,18 @@ import {
 import { $t } from '#/locales';
 
 import BrandSelectModal from '../inventory-check/BrandSelectModal.vue';
+import ProductDetailDrawer from '../components/ProductDetailDrawer.vue';
 import ProductDrawer from './drawer.vue';
 
 const accessStore = useAccessStore();
+
+// ============ 产品详情抽屉（标题/编号/图片点击打开） ============
+const detailVisible = ref(false);
+const detailProductId = ref<null | number>(null);
+function openProductDetail(row: any) {
+  detailProductId.value = Number(row.id);
+  detailVisible.value = true;
+}
 
 // ============ 分类树数据 ============
 const categoryTreeData = ref<any[]>([]);
@@ -286,6 +295,7 @@ const gridOptions: VxeGridProps = {
       field: 'productNo',
       width: 140,
       align: 'left',
+      slots: { default: 'productNo' },
     },
     {
       title: '商品图',
@@ -298,6 +308,7 @@ const gridOptions: VxeGridProps = {
       field: 'name',
       minWidth: 160,
       align: 'left',
+      slots: { default: 'productName' },
     },
     {
       title: '品牌',
@@ -414,10 +425,32 @@ onMounted(async () => {
         </Button>
       </template>
 
+      <template #productNo="{ row }">
+        <span
+          class="detail-link cursor-pointer text-[hsl(var(--primary))]"
+          title="点击查看产品详情"
+          @click="openProductDetail(row)"
+        >
+          {{ row.productNo }}
+        </span>
+      </template>
+
+      <template #productName="{ row }">
+        <span
+          class="detail-link cursor-pointer font-medium hover:text-[hsl(var(--primary))]"
+          title="点击查看产品详情"
+          @click="openProductDetail(row)"
+        >
+          {{ row.name }}
+        </span>
+      </template>
+
       <template #productImage="{ row }">
         <div
           v-if="row.imageUrl || row.coverImage"
-          class="w-10 h-10 rounded-lg border border-[hsl(var(--border))] overflow-hidden flex-shrink-0"
+          class="w-10 h-10 cursor-pointer rounded-lg border border-[hsl(var(--border))] overflow-hidden flex-shrink-0"
+          title="点击查看产品详情"
+          @click="openProductDetail(row)"
         >
           <img
             :src="row.imageUrl || row.coverImage"
@@ -427,7 +460,9 @@ onMounted(async () => {
         </div>
         <div
           v-else
-          class="w-10 h-10 rounded-lg border border-[hsl(var(--border))] flex-shrink-0 flex items-center justify-center bg-[hsl(var(--muted))]"
+          class="w-10 h-10 cursor-pointer rounded-lg border border-[hsl(var(--border))] flex-shrink-0 flex items-center justify-center bg-[hsl(var(--muted))]"
+          title="点击查看产品详情"
+          @click="openProductDetail(row)"
         >
           <LucideImageOff class="w-5 h-5 text-[hsl(var(--muted-foreground))]" />
         </div>
@@ -543,6 +578,12 @@ onMounted(async () => {
       </template>
     </Grid>
     <Drawer />
+
+    <!-- 产品详情抽屉（标题/编号/图片点击打开） -->
+    <ProductDetailDrawer
+      v-model:visible="detailVisible"
+      :product-id="detailProductId"
+    />
 
     <!-- 品牌选择弹窗 -->
     <BrandSelectModal

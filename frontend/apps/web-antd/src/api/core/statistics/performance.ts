@@ -127,6 +127,7 @@ export const getPerformanceMilestoneApi = async (params?: {
 
 /** 业绩报表导出（Excel/PDF） */
 export const exportPerformanceApi = async (params: {
+  department_id?: number;
   format: 'excel' | 'pdf';
   month?: number;
   time_dimension?: string;

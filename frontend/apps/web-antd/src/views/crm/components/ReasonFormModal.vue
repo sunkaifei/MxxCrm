@@ -147,6 +147,9 @@ function handleSubmit() {
     :footer="null"
     class="reason-form-modal"
   >
+    <!-- 父组件自定义前置区域（如退回目标池选择） -->
+    <slot name="top"></slot>
+
     <!-- 原因类型（退回场景） -->
     <div v-if="mode === 'pool'" class="reason-section">
       <div class="section-title">

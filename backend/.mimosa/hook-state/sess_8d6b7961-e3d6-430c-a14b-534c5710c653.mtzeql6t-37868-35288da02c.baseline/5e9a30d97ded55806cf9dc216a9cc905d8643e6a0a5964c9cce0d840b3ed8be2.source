@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","batch_update_post","find_by_post_code_unique","find_by_post_name_unique","get_by_detail","get_by_id","get_by_page","get_post_options","save","select_by_admin_id","update_by_id"]};

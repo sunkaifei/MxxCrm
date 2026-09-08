@@ -22,13 +22,30 @@ import { useVbenDrawer } from '#/adapter/drawer';
 import {
   deleteFileApi,
   downloadFileApi,
-  getAttachmentsByEntityApi,
+  getInvoiceFilesApi,
   getInvoiceInfoApi,
+  getInvoiceReconciliationApi,
   uploadFileApi,
 } from '#/api';
 
 const loading = ref(false);
 const detail = ref<any>({});
+
+// ===== T2.2 回款对照（合同维度：开票 vs 回款） =====
+const reconciliation = ref<any>(null);
+const reconciliationLoading = ref(false);
+
+async function loadReconciliation(contractId: number) {
+  reconciliationLoading.value = true;
+  try {
+    const res: any = await getInvoiceReconciliationApi(contractId);
+    reconciliation.value = res ?? null;
+  } catch {
+    reconciliation.value = null;
+  } finally {
+    reconciliationLoading.value = false;
+  }
+}
 
 // ===== 发票文件（财务审核通过后上传的税控发票） =====
 const attachments = ref<any[]>([]);
@@ -48,10 +65,7 @@ const canUpload = computed(
 async function loadAttachments() {
   if (!invoiceId.value) return;
   try {
-    const res: any = await getAttachmentsByEntityApi(
-      ENTITY_TYPE,
-      Number(invoiceId.value),
-    );
+    const res: any = await getInvoiceFilesApi(Number(invoiceId.value));
     const list = Array.isArray(res) ? res : (res?.items ?? []);
     attachments.value = list;
   } catch {
@@ -210,6 +224,33 @@ function formatMoney(val: number) {
   });
 }
 
+// 回款对照派生：后端 Decimal 可能以字符串返回，统一转 number
+function toNum(val: any) {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : 0;
+}
+const reconData = computed(() => {
+  const r = reconciliation.value;
+  if (!r) return null;
+  return {
+    contractTotal: toNum(r.contractTotal),
+    planTotal: toNum(r.planTotal),
+    receivedTotal: toNum(r.receivedTotal),
+    unreceivedTotal: toNum(r.unreceivedTotal),
+    invoicedTotal: toNum(r.invoicedTotal),
+    invoiceCount: toNum(r.invoiceCount),
+    diff: toNum(r.diffReceivedInvoice),
+  };
+});
+// 开票与回款差额的语义判定：>0 开票多于回款（存在待收款风险）
+const reconDiff = computed(() => {
+  const d = reconData.value?.diff ?? 0;
+  if (Math.abs(d) < 0.005) return { tone: 'even', text: '已对齐' };
+  return d > 0
+    ? { tone: 'over', text: '开票多于回款' }
+    : { tone: 'under', text: '回款多于开票' };
+});
+
 // 复制到剪贴板（http 非安全上下文下降级为 execCommand）
 async function copyText(text?: string) {
   if (text === null || text === undefined || text === '') return;
@@ -236,9 +277,17 @@ async function fetchDetail(id: number) {
   try {
     const info = await getInvoiceInfoApi(id);
     detail.value = info ?? {};
+    // T2.2：关联合同存在时加载"回款对照"（合同维度开票 vs 回款）
+    const contractId = Number(detail.value?.contractId);
+    if (contractId) {
+      await loadReconciliation(contractId);
+    } else {
+      reconciliation.value = null;
+    }
   } catch {
     // 详情接口失败时退回行内数据，保证详情仍可读
     detail.value = rowBackup.value;
+    reconciliation.value = null;
   } finally {
     loading.value = false;
   }
@@ -259,6 +308,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       detail.value = row;
       isSubordinateRow.value = !!data?.isSubordinate;
       attachments.value = [];
+      reconciliation.value = null;
+      reconciliationLoading.value = false;
       if (row?.id !== null && row?.id !== undefined) {
         fetchDetail(Number(row.id));
         loadAttachments();
@@ -565,6 +616,76 @@ const [Drawer, drawerApi] = useVbenDrawer({
             {{ formatDateTime(detail.createTime) }}
           </DescriptionsItem>
         </Descriptions>
+      </Card>
+
+      <!-- ===== 回款对照（T2.2：合同维度开票 vs 回款） ===== -->
+      <Card size="small" class="invoice-detail__card">
+        <template #title>
+          <div class="invoice-detail__card-title">
+            <span class="invoice-detail__card-bar"></span>回款对照
+            <span class="invoice-detail__card-hint">
+              按关联合同的回款计划与开票金额对照
+            </span>
+          </div>
+        </template>
+        <div v-if="!detail.contractId" class="invoice-detail__recon-empty">
+          未关联合同，暂无回款对照
+        </div>
+        <div
+          v-else-if="reconciliationLoading"
+          class="invoice-detail__recon-empty"
+        >
+          加载中…
+        </div>
+        <div v-else-if="reconData" class="invoice-detail__recon">
+          <div class="invoice-detail__recon-item">
+            <span class="invoice-detail__recon-label">合同金额</span>
+            <span class="invoice-detail__recon-value">
+              {{ currencySymbol }}{{ formatMoney(reconData.contractTotal) }}
+            </span>
+          </div>
+          <div class="invoice-detail__recon-item">
+            <span class="invoice-detail__recon-label">回款计划</span>
+            <span class="invoice-detail__recon-value">
+              {{ currencySymbol }}{{ formatMoney(reconData.planTotal) }}
+            </span>
+          </div>
+          <div class="invoice-detail__recon-item">
+            <span class="invoice-detail__recon-label">已回款</span>
+            <span
+              class="invoice-detail__recon-value invoice-detail__recon-value--in"
+            >
+              {{ currencySymbol }}{{ formatMoney(reconData.receivedTotal) }}
+            </span>
+          </div>
+          <div class="invoice-detail__recon-item">
+            <span class="invoice-detail__recon-label">待回款</span>
+            <span
+              class="invoice-detail__recon-value invoice-detail__recon-value--wait"
+            >
+              {{ currencySymbol }}{{ formatMoney(reconData.unreceivedTotal) }}
+            </span>
+          </div>
+          <div class="invoice-detail__recon-item">
+            <span class="invoice-detail__recon-label">
+              已开票（{{ reconData.invoiceCount }} 张）
+            </span>
+            <span class="invoice-detail__recon-value">
+              {{ currencySymbol }}{{ formatMoney(reconData.invoicedTotal) }}
+            </span>
+          </div>
+          <div class="invoice-detail__recon-item">
+            <span class="invoice-detail__recon-label">开票-回款差额</span>
+            <span
+              class="invoice-detail__recon-value"
+              :class="`invoice-detail__recon-value--${reconDiff.tone}`"
+            >
+              {{ currencySymbol }}{{ formatMoney(Math.abs(reconData.diff)) }}
+              <em class="invoice-detail__recon-diff">{{ reconDiff.text }}</em>
+            </span>
+          </div>
+        </div>
+        <div v-else class="invoice-detail__recon-empty">暂无对照数据</div>
       </Card>
 
       <!-- ===== 备注 ===== -->
@@ -1055,6 +1176,68 @@ const [Drawer, drawerApi] = useVbenDrawer({
 .invoice-detail__card-hint {
   font-size: 11px;
   font-weight: 400;
+  color: hsl(var(--foreground) / 40%);
+}
+
+/* ===== 回款对照（T2.2） ===== */
+.invoice-detail__recon {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+}
+
+.invoice-detail__recon-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.invoice-detail__recon-label {
+  font-size: 11.5px;
+  color: hsl(var(--foreground) / 45%);
+}
+
+.invoice-detail__recon-value {
+  font-family: var(--inv-mono);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground) / 90%);
+}
+
+/* 已回款：绿；待回款：橙 */
+.invoice-detail__recon-value--in {
+  color: hsl(142 65% 36%);
+}
+
+.invoice-detail__recon-value--wait {
+  color: hsl(28 92% 42%);
+}
+
+/* 开票-回款差额语义色：开票多于回款（待收款风险）红，回款多于开票蓝，对齐灰 */
+.invoice-detail__recon-value--over {
+  color: hsl(354 74% 44%);
+}
+
+.invoice-detail__recon-value--under {
+  color: hsl(212 100% 40%);
+}
+
+.invoice-detail__recon-value--even {
+  color: hsl(var(--foreground) / 55%);
+}
+
+.invoice-detail__recon-diff {
+  margin-left: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  color: hsl(var(--foreground) / 42%);
+}
+
+.invoice-detail__recon-empty {
+  font-size: 12.5px;
   color: hsl(var(--foreground) / 40%);
 }
 

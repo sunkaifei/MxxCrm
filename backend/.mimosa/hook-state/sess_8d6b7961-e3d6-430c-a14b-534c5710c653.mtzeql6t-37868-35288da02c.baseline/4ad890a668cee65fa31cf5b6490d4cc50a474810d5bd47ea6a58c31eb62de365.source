@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["purchase_order_controller","supplier_controller"]};

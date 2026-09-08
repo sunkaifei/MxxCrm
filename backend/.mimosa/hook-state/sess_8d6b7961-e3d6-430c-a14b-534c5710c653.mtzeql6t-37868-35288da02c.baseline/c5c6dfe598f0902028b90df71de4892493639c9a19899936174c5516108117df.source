@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_commission_config","save_contract_members","set_commission_rule"]};

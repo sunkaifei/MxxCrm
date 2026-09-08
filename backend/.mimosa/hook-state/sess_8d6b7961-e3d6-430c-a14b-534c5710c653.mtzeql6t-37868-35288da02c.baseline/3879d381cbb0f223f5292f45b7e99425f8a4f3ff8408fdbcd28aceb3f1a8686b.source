@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["bath_delete_followup","followup_info","followup_insert","followup_list","followup_update","register"]};
