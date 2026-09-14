@@ -38,16 +38,11 @@ pub static SNOWFLAKE: LazyLock<Snowflake> = LazyLock::new(|| {
     Snowflake::new(1,1,1)
 });
 
-async fn serve_frontend(req: HttpRequest) -> HttpResponse {
-    let path = req.path().trim_start_matches('/');
-
-    // 对 /api 路径返回 JSON 404，避免返回 HTML 导致前端 "Unknown content type" 错误
-    if req.path().starts_with("/api") {
-        return HttpResponse::NotFound()
-            .content_type("application/json")
-            .body(r#"{"code":404,"msg":"接口不存在","data":null}"#);
-    }
-
+/// 按相对路径提供内嵌后台前端资源；找不到时回退 index.html（SPA 兜底）
+///
+/// `path` 为不含前缀、不含开头 `/` 的相对路径（如 "js/index-xxx.js"、"index.html"）。
+/// 供默认转发 handler 与可配置前缀的 admin handler 共用。
+pub fn serve_frontend_asset(path: &str) -> HttpResponse {
     if let Some(file) = FrontendAssets::get(path) {
         let content_type = match path.split('.').last() {
             Some("html") => "text/html; charset=utf-8",
@@ -63,7 +58,7 @@ async fn serve_frontend(req: HttpRequest) -> HttpResponse {
             Some("ttf") => "font/ttf",
             _ => "application/octet-stream",
         };
-        
+
         HttpResponse::Ok()
             .content_type(content_type)
             .body(file.data)
@@ -75,6 +70,18 @@ async fn serve_frontend(req: HttpRequest) -> HttpResponse {
             None => HttpResponse::NotFound().body("404 Not Found"),
         }
     }
+}
+
+async fn serve_frontend(req: HttpRequest) -> HttpResponse {
+    // 对 /api 路径返回 JSON 404，避免返回 HTML 导致前端 "Unknown content type" 错误
+    if req.path().starts_with("/api") {
+        return HttpResponse::NotFound()
+            .content_type("application/json")
+            .body(r#"{"code":404,"msg":"接口不存在","data":null}"#);
+    }
+
+    let path = req.path().trim_start_matches('/');
+    serve_frontend_asset(path)
 }
 
 /// 安装模式下的默认页面服务

@@ -330,7 +330,7 @@ pub async fn contract_reject(state: web::Data<AppState>, req: HttpRequest, form_
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ContractSignRequest {
+pub struct ContractSignRequest {
     contract_file: Option<String>,
     contract_images: Option<String>,
 }
@@ -374,14 +374,14 @@ pub async fn contract_approval_detail(state: web::Data<AppState>, req: HttpReque
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SaveCommissionMembersReq {
+pub struct SaveCommissionMembersReq {
     contract_id: i64,
     members: Vec<ContractCommissionMemberSaveDTO>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SetCommissionRuleReq {
+pub struct SetCommissionRuleReq {
     contract_id: i64,
     rule_id: Option<i64>,
 }

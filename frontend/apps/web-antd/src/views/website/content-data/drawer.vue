@@ -203,9 +203,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
         }
       }
     } else {
-      // 默认值
+      // 默认值（$now 哨兵 = 录入时动态取当前时间）
       formState.status = 1;
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const nowStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
       for (const f of fields.value) {
+        if (f.defaultValue === '$now' && customWidget(f.fieldType) === 'date') {
+          formState[f.fieldName] = nowStr;
+          continue;
+        }
         if (f.defaultValue !== undefined && f.defaultValue !== null && f.defaultValue !== '') {
           formState[f.fieldName] = f.defaultValue;
         }
@@ -273,3 +280,10 @@ function setLoading(loading: boolean) {
     </AForm>
   </Drawer>
 </template>
+
+<style>
+.ant-picker-dropdown,
+.ant-select-dropdown {
+  z-index: 3000 !important;
+}
+</style>

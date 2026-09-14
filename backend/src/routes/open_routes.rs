@@ -19,7 +19,9 @@ use crate::modules::website::controller::open::price_open_controller;
 use crate::modules::website::controller::open::leave_msg_open_controller;
 use crate::modules::website::controller::open::website_user_open_controller;
 use actix_files::Files;
-use actix_web::{get, web, HttpResponse};
+use actix_web::{get, web, HttpRequest, HttpResponse};
+
+use crate::core::kit::config;
 
 /// 健康检查
 #[get("/healthz")]
@@ -29,7 +31,38 @@ async fn healthz() -> Result<HttpResponse> {
         .body("ok"))
 }
 
+/// 管理后台前端：按配置的前缀（admin_prefix）提供内嵌前端资源
+///
+/// 前端以相对路径 base（VITE_BASE=./）构建，资源引用均为相对路径，因此可挂在
+/// 任意自定义前缀下均由本 handler 按相对路径取回；路径无扩展名或命中 SPA 兜底
+/// 时返回 index.html。必须注册在开放的 CMS 兜底路由（/{short_url}*）之前。
+async fn serve_admin_frontend(req: HttpRequest) -> HttpResponse {
+    let prefix = config::section::<String>("server", "admin_prefix", "/console".to_string());
+    let prefix = prefix.trim().trim_matches('/');
+    let path = req.path().trim_start_matches('/');
+
+    // 去掉已匹配的前缀段，得到相对路径；无法剥离（即访问前缀根）时回退首页
+    let rel = match path.strip_prefix(&format!("{}/", prefix)) {
+        Some(rest) => rest.trim_start_matches('/').to_string(),
+        None => "index.html".to_string(),
+    };
+
+    crate::serve_frontend_asset(&rel)
+}
+
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
+    // 管理后台：按配置的自定义前缀提供内嵌前端（相对 base 构建）。
+    // 请求经由 default_service 的 serve_frontend 兜底即可，但此处显式注册前缀路由，
+    // 必须保证在下方开放的 CMS 泛化兜底路由（/{short_url}*）之前命中，避免被吞成栏目。
+    let admin_prefix = config::section::<String>("server", "admin_prefix", "/console".to_string());
+    let admin_prefix_clean = admin_prefix.trim().trim_matches('/').to_string();
+    if !admin_prefix_clean.is_empty() {
+        let root = format!("/{}", admin_prefix_clean);
+        let root_path = format!("{}/{{path:.*}}", root);
+        cfg.service(web::resource(root.as_str()).route(web::get().to(serve_admin_frontend)));
+        cfg.service(web::resource(&root_path).route(web::get().to(serve_admin_frontend)));
+    }
+
     cfg
         // 静态资源：templates / static 均在程序包外，按目录直接对外提供，方便在线编辑与切换模板
         .service(Files::new("/static/", "static/"))
