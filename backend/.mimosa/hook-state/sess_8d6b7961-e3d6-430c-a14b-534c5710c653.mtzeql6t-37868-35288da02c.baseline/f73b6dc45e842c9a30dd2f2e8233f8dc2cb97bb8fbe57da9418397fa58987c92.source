@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["age_description","convert_date_format","current_date","current_date_time","date","days_since","format","format_datetime","from_str","from_timestamp","now","parse","time","time_difference","timestamp","timezone","to_string"]};

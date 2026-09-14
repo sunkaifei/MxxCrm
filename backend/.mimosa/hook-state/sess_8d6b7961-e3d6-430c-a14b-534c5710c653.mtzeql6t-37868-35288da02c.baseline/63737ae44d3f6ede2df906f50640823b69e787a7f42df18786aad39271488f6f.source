@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete_ai_config","delete_ai_config","get_ai_config_detail","get_ai_config_list","insert_ai_config","register","update_ai_config"]};

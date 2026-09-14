@@ -39,9 +39,10 @@ const formOptions: VbenFormProps = {
       componentProps: {
         options: [
           { label: '全部', value: '' },
-          { label: '待审核', value: 0 },
-          { label: '已通过', value: 1 },
-          { label: '已驳回', value: 2 },
+          { label: '未审核', value: 0 },
+          { label: '已审核', value: 1 },
+          { label: '已拒绝', value: 2 },
+          { label: '草稿', value: 3 },
         ],
         placeholder: '请选择状态',
         allowClear: true,
@@ -100,55 +101,51 @@ const gridOptions: VxeGridProps = {
 
   columns: [
     {
-      title: '序号',
-      type: 'seq',
-      width: 70,
-    },
-    {
       title: 'ID',
       field: 'id',
-      width: 80,
+      width: 70,
     },
     {
       title: '文章标题',
       field: 'title',
-      width: 240,
+      minWidth: 240,
+      align: 'left',
       slots: { default: 'titleLink' },
     },
     {
       title: '分类',
       field: 'categoryId',
-      width: 120,
+      width: 110,
       slots: { default: 'categoryName' },
     },
     {
       title: '作者',
       field: 'author',
-      width: 120,
+      width: 100,
     },
     {
       title: '状态',
       field: 'status',
       slots: { default: 'status' },
-      width: 100,
+      width: 90,
     },
     {
       title: '置顶',
       field: 'istop',
       slots: { default: 'istop' },
-      width: 80,
+      width: 70,
     },
     {
       title: '创建时间',
       field: 'createTime',
-      width: 160,
+      width: 155,
     },
     {
       title: '操作',
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 200,
+      width: 120,
     },
   ],
 };
@@ -255,11 +252,19 @@ onMounted(() => {
               ? 'warning'
               : row.status === 1
                 ? 'success'
-                : 'error'
+                : row.status === 2
+                  ? 'error'
+                  : 'default'
           "
         >
           {{
-            row.status === 0 ? '待审核' : row.status === 1 ? '已通过' : '已驳回'
+            row.status === 0
+              ? '未审核'
+              : row.status === 1
+                ? '已审核'
+                : row.status === 2
+                  ? '已拒绝'
+                  : '草稿'
           }}
         </Tag>
       </template>
@@ -329,15 +334,19 @@ onMounted(() => {
                       ? 'warning'
                       : detailData.status === 1
                         ? 'success'
-                        : 'error'
+                        : detailData.status === 2
+                          ? 'error'
+                          : 'default'
                   "
                 >
                   {{
                     detailData.status === 0
-                      ? '待审核'
+                      ? '未审核'
                       : detailData.status === 1
-                        ? '已通过'
-                        : '已驳回'
+                        ? '已审核'
+                        : detailData.status === 2
+                          ? '已拒绝'
+                          : '草稿'
                   }}
                 </Tag>
               </span>

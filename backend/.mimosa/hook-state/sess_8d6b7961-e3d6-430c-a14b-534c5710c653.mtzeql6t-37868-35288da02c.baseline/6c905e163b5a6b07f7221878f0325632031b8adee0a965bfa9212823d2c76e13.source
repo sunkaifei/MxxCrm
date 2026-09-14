@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["count_payment_plan_by_customers","preview_transfer","send_transfer_notice","transfer_customer"],"struct":["TransferPreviewRequest","TransferPreviewVO","TransferRequest","TransferResult"]};

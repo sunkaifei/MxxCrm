@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["approve","comparison","create","history","list","register","reject"],"struct":["ApproveQuery","EmployeeQuery","ListQuery"]};

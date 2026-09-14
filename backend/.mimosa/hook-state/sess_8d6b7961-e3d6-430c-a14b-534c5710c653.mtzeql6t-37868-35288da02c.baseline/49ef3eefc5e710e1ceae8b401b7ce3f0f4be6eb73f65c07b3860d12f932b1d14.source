@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AdminRoleByName","ListQuery","PageWhere","RoleDetailVO","RoleListVO","RoleModel","RoleOptionVO","RoleSaveDTO","RoleSaveRequest","RoleUpdateRequest","UpdateRoleDeptRequest","UpdateRoleMenuRequest"]};

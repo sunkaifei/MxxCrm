@@ -97,6 +97,11 @@ fn is_internal_key(key: &str) -> bool {
 pub struct DynamicTableService;
 
 impl DynamicTableService {
+    /// 字段名是否与固定列同名（建表/加列时跳过，数据落在固定列上）
+    pub fn is_fixed_column(name: &str) -> bool {
+        FIXED_COLUMNS.iter().any(|(k, _)| *k == name)
+    }
+
     /// 获取动态表名
     pub fn get_table_name(model_code: &str) -> String {
         format!("mxx_model_{}", model_code)
@@ -135,10 +140,14 @@ impl DynamicTableService {
             "update_time TIMESTAMP".to_string(),
         ];
 
-        // 自定义字段
+        // 自定义字段（与固定列同名的跳过——如模型字段 seo_title 与固定 seo_title 重合，
+        // 数据读写本来就落在固定列上，重复建列会报 42701）
         for (field_name, field_type, is_required) in fields {
             if !is_valid_identifier(field_name) {
                 log::warn!("[dynamic_table] 跳过非法字段名: {}", field_name);
+                continue;
+            }
+            if Self::is_fixed_column(field_name) {
                 continue;
             }
             let col_sql = field_type_to_col_sql(*field_type);

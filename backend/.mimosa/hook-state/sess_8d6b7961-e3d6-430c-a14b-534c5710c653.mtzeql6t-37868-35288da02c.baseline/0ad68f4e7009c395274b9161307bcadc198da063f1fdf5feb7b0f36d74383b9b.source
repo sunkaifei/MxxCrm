@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["annual_bonus_calculate","detail_list","employee_config_list","employee_config_upsert","rate_delete","rate_list","rate_upsert","register"],"struct":["AnnualBonusDTO","EmployeeConfigListQuery","EmployeeConfigQuery","RateListQuery"]};

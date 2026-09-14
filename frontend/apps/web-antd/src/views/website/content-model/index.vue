@@ -5,22 +5,17 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { h, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import {
-  LucideFilePenLine,
-  LucideList,
-  LucidePlus,
-  LucideFileText,
-  LucideTrash2,
-} from '@vben/icons';
+import { LucidePlus } from '@vben/icons';
 
-import { Button, message, Modal, Popconfirm, Table, Tag } from 'ant-design-vue';
+import { Button, Drawer as AntDrawer, message, Modal, Popconfirm, Table, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
+  copyContentModelApi,
   deleteContentModelApi,
   deleteContentModelFieldApi,
   getContentModelFieldListApi,
@@ -162,13 +157,34 @@ const gridOptions: VxeGridProps = {
 const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 const router = useRouter();
+const route = useRoute();
 
-/** T-P1.2：跳转通用内容页管理该模型的动态内容 */
-function handleManageContent(row: any) {
-  router.push({
-    path: '/website/content-data',
-    query: { code: row.modelCode },
+/** 有专属管理模块的模型编码（文章/产品走各自模块的数据表，不共用动态表） */
+const DEDICATED_MODULE_CODES = new Set(['article', 'product']);
+function hasDedicatedModule(row: any) {
+  return DEDICATED_MODULE_CODES.has(String(row?.modelCode || ''));
+}
+
+/** 深链支持：/website/content-model?fields={code} 直达该模型的字段管理（内容管理页「字段管理」按钮跳入） */
+function openFieldManageByCode(code: string) {
+  getContentModelListApi({ page: 1, pageSize: 999 }).then((res: any) => {
+    const list = res?.items || res?.rows || [];
+    const row = list.find((m: any) => m.modelCode === code);
+    if (row) {
+      handleFieldManage(row);
+    }
   });
+}
+onMounted(() => {
+  const fieldsCode = route.query.fields as string;
+  if (fieldsCode) {
+    openFieldManageByCode(fieldsCode);
+  }
+});
+
+/** T-P1.2：跳转通用内容页管理该模型的动态内容（路径参数形式，query 会破坏路由匹配） */
+function handleManageContent(row: any) {
+  router.push({ path: `/website/content-data/${row.modelCode}` });
 }
 
 const [Drawer, drawerApi] = useVbenDrawer({
@@ -204,6 +220,17 @@ async function handleDelete(row: any) {
   });
 }
 
+/** 12-E：复制模型（含字段定义），新编码 = 原编码_copy */
+async function handleCopy(row: any) {
+  try {
+    await copyContentModelApi(row.id);
+    message.success(`已复制为「${row.modelName}副本」`);
+    gridApi.query();
+  } catch {
+    // 错误提示由请求拦截器统一处理
+  }
+}
+
 // ===== 字段管理 =====
 const fieldModalVisible = ref(false);
 const currentModel = ref<any>(null);
@@ -218,7 +245,7 @@ async function loadFieldList(modelId: number) {
       page: 1,
       pageSize: 9999,
     });
-    fieldList.value = res?.rows || res?.list || res?.data?.rows || [];
+    fieldList.value = res?.items || res?.rows || [];
   } catch {
     fieldList.value = [];
   } finally {
@@ -228,8 +255,15 @@ async function loadFieldList(modelId: number) {
 
 function handleFieldManage(row: any) {
   currentModel.value = row;
+  fieldFullscreen.value = false;
   fieldModalVisible.value = true;
   loadFieldList(row.id);
+}
+
+// 字段管理抽屉最大化/还原
+const fieldFullscreen = ref(false);
+function toggleFieldFullscreen() {
+  fieldFullscreen.value = !fieldFullscreen.value;
 }
 
 const [FieldDrawer, fieldDrawerApi] = useVbenDrawer({
@@ -243,7 +277,12 @@ const [FieldDrawer, fieldDrawerApi] = useVbenDrawer({
 });
 
 function handleFieldAdd() {
-  fieldDrawerApi.setData({ create: true, modelId: currentModel.value.id });
+  fieldDrawerApi.setData({
+    create: true,
+    modelId: currentModel.value.id,
+    // T-P1.4：前端唯一性校验依据（同模型内 field_name 不可重复）
+    existingFields: fieldList.value.map((f: any) => f.fieldName),
+  });
   fieldDrawerApi.open();
 }
 
@@ -252,6 +291,7 @@ function handleFieldEdit(row: any) {
     create: false,
     modelId: currentModel.value.id,
     row,
+    existingFields: fieldList.value.map((f: any) => f.fieldName),
   });
   fieldDrawerApi.open();
 }
@@ -309,7 +349,7 @@ const fieldColumns: TableColumnsType = [
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="内容模型管理">
+    <Grid table-title="模型管理">
       <template #toolbar-tools>
         <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
           新增模型
@@ -327,58 +367,59 @@ const fieldColumns: TableColumnsType = [
       </template>
 
       <template #action="{ row }">
-        <Button
-          type="primary"
-          link
-          :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
-        >
+        <Button type="link" size="small" @click="() => handleEdit(row)">
           编辑
         </Button>
-        <Button
-          type="primary"
-          link
-          :icon="h(LucideList)"
-          @click="() => handleFieldManage(row)"
-        >
+        <Button type="link" size="small" @click="() => handleFieldManage(row)">
           字段管理
         </Button>
         <Button
-          type="primary"
-          link
-          :icon="h(LucideFileText)"
-          :disabled="row.isSystem === 1 || row.status !== 1"
+          type="link"
+          size="small"
+          :disabled="hasDedicatedModule(row) || row.status !== 1"
           :title="
-            row.isSystem === 1
-              ? '系统内置模型继续使用专属数据表，不走通用内容管理'
+            hasDedicatedModule(row)
+              ? '该模型有专属管理模块（文章/产品），不走通用内容管理'
               : ''
           "
           @click="() => handleManageContent(row)"
         >
           管理内容
         </Button>
+        <Button
+          type="link"
+          size="small"
+          :disabled="row.isSystem === 1"
+          title="复制模型定义与全部字段（不复制内容数据）"
+          @click="() => handleCopy(row)"
+        >
+          复制
+        </Button>
         <Popconfirm
           v-if="row.isSystem !== 1"
           title="确定要删除该模型吗？"
           @confirm="handleDelete(row)"
         >
-          <Button type="primary" link danger :icon="h(LucideTrash2)">
-            删除
-          </Button>
+          <Button type="link" danger size="small">删除</Button>
         </Popconfirm>
-        <Button v-else type="primary" link disabled>删除</Button>
+        <Button v-else type="link" size="small" disabled>删除</Button>
       </template>
     </Grid>
 
     <Drawer />
 
-    <!-- 字段管理弹窗 -->
-    <Modal
+    <!-- 字段管理抽屉 -->
+    <AntDrawer
       v-model:open="fieldModalVisible"
       :title="`字段管理 - ${currentModel?.modelName || ''}`"
-      width="900px"
+      :width="fieldFullscreen ? '100%' : '75%'"
       :footer="null"
     >
+      <template #extra>
+        <Button type="link" size="small" @click="toggleFieldFullscreen">
+          {{ fieldFullscreen ? '还原' : '最大化' }}
+        </Button>
+      </template>
       <div class="mb-4">
         <Button type="primary" :icon="h(LucidePlus)" @click="handleFieldAdd">
           新增字段
@@ -407,19 +448,19 @@ const fieldColumns: TableColumnsType = [
             </Tag>
           </template>
           <template v-else-if="column.key === 'action'">
-            <Button type="primary" link @click="handleFieldEdit(record)">
+            <Button type="link" size="small" @click="handleFieldEdit(record)">
               编辑
             </Button>
             <Popconfirm
               title="确定要删除该字段吗？"
               @confirm="handleFieldDelete(record)"
             >
-              <Button type="primary" link danger>删除</Button>
+              <Button type="link" danger size="small">删除</Button>
             </Popconfirm>
           </template>
         </template>
       </Table>
-    </Modal>
+    </AntDrawer>
 
     <FieldDrawer />
   </Page>

@@ -57,9 +57,11 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
         status: query.status,
     };
     let select_where = select_where.format();
+    // SeaORM fetch_page 0 基，前端 page 1 基（与 content_model/website_page 同口径）
+    let page_num = std::cmp::max(query.page_num.unwrap_or(1), 1);
     let (list, _total) = TemplateVarModel::select_in_page(
         db,
-        query.page_num.unwrap_or(0),
+        page_num - 1,
         query.page_size.unwrap_or(10),
         select_where.clone(),
     ).await?;

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CommissionDetailDTO","SalaryBatchDTO","SalaryCalculateDTO","SalaryDetailDTO","SalaryQuery","SalaryRecordDTO","SalarySummaryDTO","SalaryTrendDeptPointDTO","SalaryTrendEmployeePointDTO","SalaryTrendMonthlyPointDTO","SalaryTrendQuery","SalaryTrendSummaryDTO","SalaryUpdateDTO"]};

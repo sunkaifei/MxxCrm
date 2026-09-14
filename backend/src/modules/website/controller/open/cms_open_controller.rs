@@ -444,6 +444,19 @@ pub async fn product_detail(
             }
         }
     }
+    // SKU 销售库存口径：清单行设置了每 SKU 前台销售库存时，替换该 SKU 的 stock 为 min(销售库存, 仓储库存)
+    if let Some(qtys) = website_product_service::shelf_sku_quantities(db, site_id, product_id).await? {
+        if let Some(skus) = product.skus.as_mut() {
+            for s in skus.iter_mut() {
+                if let Some(id) = s.id {
+                    if let Some(q) = qtys.get(&id) {
+                        let stock = s.stock.unwrap_or(0) as i32;
+                        s.stock = Some(std::cmp::min(*q, stock));
+                    }
+                }
+            }
+        }
+    }
     // SEO：清单行自定义优先，回退产品默认
     let shelf_row = website_product_service::shelf_row_for(db, site_id, product_id).await?;
     let (ctx_seo_title, ctx_seo_keywords, ctx_seo_description) = match &shelf_row {
@@ -482,10 +495,22 @@ pub async fn product_detail(
         },
     });
 
+    // 前台规格选择（淘宝式）：无全局库存，库存随所选规格显示。
+    // 数据源用 product.skus（已含清单的 SKU 过滤/零售价/销售库存覆盖），而非 spec_groups.skus。
+    let shelf_skus = product.skus.clone().unwrap_or_default();
+    let has_skus = !shelf_skus.is_empty();
+    // 转义 '<'，避免规格值/名称中出现 </script> 破坏内联 JSON
+    let skus_json = serde_json::to_string(&json!({
+        "specs": &spec_groups.specs,
+        "skus": &shelf_skus,
+    })).unwrap_or_default().replace('<', "\\u003c");
+
     let ctx = context!(
         site => &site,
         product => &product,
         spec_groups => &spec_groups,
+        has_skus => has_skus,
+        skus_json => &skus_json,
         related_products => &related,
         related_products_shelf => &related_products_shelf,
         related_articles => &related_article_list,
@@ -882,6 +907,208 @@ pub async fn cart_page(
         site_id => site_id,
         site_mode => site.site_mode.unwrap_or(1),
         canonical_url => build_canonical_url(&site, "/cart"),
+    );
+    render_html(&template_text, ctx, &cms_data)
+}
+
+// ==================== 内容模型前台 URL（12-D）====================
+// /{model_code}        模型内容列表页（type_id=16「模型列表页」模板）
+// /{model_code}/{id}   模型内容详情页（type_id=17「模型详情页」模板）
+// 泛化路由注册在 open_routes 最后，具体路由（/product、/article、/page/...）优先命中。
+
+use crate::modules::website::entity::content_model as content_model_entity;
+use crate::modules::website::service::dynamic_table_service::{
+    is_valid_identifier, DynamicTableService,
+};
+
+#[derive(serde::Deserialize)]
+pub struct ModelContentQuery {
+    pub page: Option<u64>,
+}
+
+/// 按编码取启用中的内容模型
+async fn find_open_model(db: &DbConn, code: &str) -> Option<content_model_entity::Model> {
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    if !is_valid_identifier(code) {
+        return None;
+    }
+    content_model_entity::Entity::find()
+        .filter(content_model_entity::Column::ModelCode.eq(code))
+        .filter(content_model_entity::Column::Deleted.eq(0))
+        .filter(content_model_entity::Column::Status.eq(1))
+        .one(db)
+        .await
+        .ok()
+        .flatten()
+}
+
+/// 兜底 404 页
+fn model_not_found() -> HttpResponse {
+    HttpResponse::NotFound()
+        .content_type(ContentType::html())
+        .body(concat!(
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>404</title></head>",
+            "<body style=\"text-align:center;padding:80px 0;font-family:sans-serif;\">",
+            "<h1>404</h1><p>页面不存在或栏目未启用</p></body></html>",
+        ))
+}
+
+/// 兜底模板用 HTML 转义（正常模板路径由 minijinja 渲染）
+fn fallback_html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+/// 模型内容列表页
+pub async fn model_content_list(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<QueryUrl>,
+    query: web::Query<ModelContentQuery>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let model_code = path.short_url.clone().unwrap_or_default();
+    let model = match find_open_model(db, &model_code).await {
+        Some(m) => m,
+        None => return Ok(model_not_found()),
+    };
+    let (site, site_id, cms_data) = prepare_site_and_cms(&state).await?;
+    let nav_categories = get_nav_categories(db, site_id).await;
+    let site_name = site.site_name.clone().unwrap_or_default();
+    let site_domain = site.domain.clone().unwrap_or_default();
+
+    let page = query.page.unwrap_or(1).max(1);
+    let page_size = 20u64;
+    let (items, total) =
+        DynamicTableService::paginate(db, &model_code, page, page_size, None, None)
+            .await
+            .unwrap_or((Vec::new(), 0u64));
+    let total_pages = if total == 0 { 1 } else { (total + page_size - 1) / page_size };
+
+    // 模板：模型自带 list_template_id → 站点当前模板 → 内置极简列表
+    let template_id = match model.list_template_id {
+        Some(tid) if tid > 0 => Some(tid),
+        _ => select_template_id(&site, &req),
+    };
+    // 模板缺失/未配置时回退内置极简页（错误按空文本处理，不中断整页）
+    let template_text = get_template_text(db, &template_id, 16).await.unwrap_or_default();
+    if template_text.trim().is_empty() {
+        let code_esc = fallback_html_escape(&model_code);
+        let mut lis = String::new();
+        for item in &items {
+            let id = item.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+            let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("（无标题）");
+            let summary = item.get("summary").and_then(|v| v.as_str()).unwrap_or("");
+            lis.push_str(&format!(
+                "<li style=\"margin:14px 0;\"><a href=\"/{code_esc}/{id}\" style=\"font-size:18px;\">{t}</a><p style=\"color:#666;\">{s}</p></li>",
+                code_esc = code_esc,
+                id = id,
+                t = fallback_html_escape(title),
+                s = fallback_html_escape(summary),
+            ));
+        }
+        let mut pager = String::new();
+        for p in 1..=total_pages {
+            if p == page {
+                pager.push_str(&format!("<b style=\"margin:0 6px;\">{}</b>", p));
+            } else {
+                pager.push_str(&format!(
+                    "<a style=\"margin:0 6px;\" href=\"/{code_esc}?page={p}\">{p}</a>",
+                    code_esc = code_esc,
+                    p = p,
+                ));
+            }
+        }
+        let html = format!(
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>{name}</title></head>{}<h1>{name}</h1><ul style=\"list-style:none;padding:0;\">{lis}</ul><div style=\"margin-top:30px;\">{pager}</div></body></html>",
+            "<body style=\"max-width:900px;margin:40px auto;padding:0 20px;font-family:sans-serif;\">",
+            name = fallback_html_escape(model.model_name.as_deref().unwrap_or(&model_code)),
+            lis = lis,
+            pager = pager,
+        );
+        return Ok(HttpResponse::Ok().content_type(ContentType::html()).body(html));
+    }
+
+    let model_ctx = context!(
+        modelCode => &model_code,
+        modelName => model.model_name.clone().unwrap_or_else(|| model_code.clone()),
+        description => model.description.clone().unwrap_or_default(),
+    );
+    let ctx = context!(
+        site => &site,
+        site_name => site_name,
+        site_domain => site_domain,
+        categories => &nav_categories,
+        site_id => site_id,
+        canonical_url => build_canonical_url(&site, &format!("/{}", model_code)),
+        model => &model_ctx,
+        items => &items,
+        page => page,
+        pageSize => page_size,
+        total => total,
+        totalPages => total_pages,
+    );
+    render_html(&template_text, ctx, &cms_data)
+}
+
+/// 模型内容详情页
+pub async fn model_content_detail(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<(String, String)>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    let (model_code, id_segment) = path.into_inner();
+    let Ok(content_id) = id_segment.parse::<i64>() else {
+        return Ok(model_not_found());
+    };
+    let model = match find_open_model(db, &model_code).await {
+        Some(m) => m,
+        None => return Ok(model_not_found()),
+    };
+    let item = match DynamicTableService::find_by_id(db, &model_code, content_id).await? {
+        Some(v) => v,
+        None => return Ok(model_not_found()),
+    };
+    let (site, site_id, cms_data) = prepare_site_and_cms(&state).await?;
+    let nav_categories = get_nav_categories(db, site_id).await;
+    let site_name = site.site_name.clone().unwrap_or_default();
+    let site_domain = site.domain.clone().unwrap_or_default();
+
+    let template_id = match model.detail_template_id {
+        Some(tid) if tid > 0 => Some(tid),
+        _ => select_template_id(&site, &req),
+    };
+    let template_text = get_template_text(db, &template_id, 17).await.unwrap_or_default();
+    if template_text.trim().is_empty() {
+        let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("（无标题）");
+        let content = item.get("content").and_then(|v| v.as_str()).unwrap_or("");
+        let html = format!(
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>{t}</title></head>{}<a href=\"/{code}\">&laquo; 返回列表</a><h1>{t}</h1><div>{c}</div></body></html>",
+            "<body style=\"max-width:900px;margin:40px auto;padding:0 20px;font-family:sans-serif;\">",
+            code = fallback_html_escape(&model_code),
+            t = fallback_html_escape(title),
+            c = content,
+        );
+        return Ok(HttpResponse::Ok().content_type(ContentType::html()).body(html));
+    }
+
+    let model_ctx = context!(
+        modelCode => &model_code,
+        modelName => model.model_name.clone().unwrap_or_else(|| model_code.clone()),
+        description => model.description.clone().unwrap_or_default(),
+    );
+    let ctx = context!(
+        site => &site,
+        site_name => site_name,
+        site_domain => site_domain,
+        categories => &nav_categories,
+        site_id => site_id,
+        canonical_url => build_canonical_url(&site, &format!("/{}/{}", model_code, content_id)),
+        model => &model_ctx,
+        item => &item,
     );
     render_html(&template_text, ctx, &cms_data)
 }

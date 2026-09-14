@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["delete_notification_handler","get_my_notification_list","get_unread_count_handler","mark_all_read_handler","mark_as_read_handler","register"]};

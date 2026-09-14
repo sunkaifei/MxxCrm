@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_audit","batch_move_category","batch_set_recommend","batch_set_top","find_by_title_unique","find_prev_next","find_short_url_unique","get_by_page","get_by_short_url","get_pagination","get_revision_detail","increment_view_count","list_revisions","restore_revision","save_article","save_revision_on_update","update_by_id"]};

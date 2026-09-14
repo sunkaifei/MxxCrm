@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["app","column","config","db","elasticsearch","global","jwt_util","redis","scheduler","sensitive","template","user_auth"],"static":["CONTEXT"],"struct":["ServiceContext"]};

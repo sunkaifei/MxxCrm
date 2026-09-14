@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["OrderDTO","OrderItemDTO","OrderItemModel","OrderItemRequest","OrderItemVO","OrderModel","OrderPageQuery","OrderRequest","OrderVO"]};

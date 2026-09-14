@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["expense_approve","expense_batch_delete","expense_info","expense_list","expense_payment","expense_reject","expense_save","expense_submit","expense_type_batch_delete","expense_type_list","expense_type_save","register"]};

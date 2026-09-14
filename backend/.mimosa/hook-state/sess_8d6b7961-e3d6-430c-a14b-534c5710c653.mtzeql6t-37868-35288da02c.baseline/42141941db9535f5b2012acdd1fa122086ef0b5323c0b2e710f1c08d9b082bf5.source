@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["cancel_order","confirm_receive","create_order","get_order_detail","get_order_list","pay_order"]};

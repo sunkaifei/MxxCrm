@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["_calc_for_contract","_find_tier_rate","_get_contract_plan","_result_to_active_model","calc_monthly_settlement","calc_on_contract_sign","calc_on_payment","preview_contract_commission"],"struct":["CommissionResultVO"]};

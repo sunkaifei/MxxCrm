@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["deserialize_option_string_to_u64"],"struct":["ExpenseApprovalReq","ExpenseDetailVO","ExpenseItemModel","ExpenseItemSaveDTO","ExpenseItemVO","ExpenseListQuery","ExpenseListVO","ExpenseModel","ExpensePaymentReq","ExpenseSaveDTO","ExpenseSaveRequest","ExpenseTypeModel","ExpenseTypeSaveRequest","ExpenseTypeVO"]};

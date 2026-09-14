@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["approve_plan","create_plan","get_admin_info","get_plan_detail","get_plan_list","get_plan_modify_detail","get_plan_progress_summary","modify_plan","register","reject_plan","submit_plan","update_plan_targets"]};

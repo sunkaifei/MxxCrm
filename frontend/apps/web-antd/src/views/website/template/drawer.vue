@@ -11,7 +11,7 @@ import { useVbenForm } from '#/adapter/form';
 import { templateApi } from '#/api';
 import { uploadFileApi } from '#/api/core/attachment/file';
 import { useAssetDomain } from '#/composables/use-asset-domain';
-import { resolveAssetUrl } from '#/utils/asset-url';
+import { toPublicFileUrl } from '#/utils/asset-url';
 
 const data = ref();
 const isCreate = computed(() => data.value?.create);
@@ -109,8 +109,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const row = data.value?.row || {};
       baseFormApi.setValues(row);
       previewPicUrl.value = row.previewPic || '';
-      // 回显同样拼接资源域名，与上传后展示行为一致（附件URL统一方案 v1.1）
-      syncFileList(resolveAssetUrl(previewPicUrl.value, assetDomain.value));
+      uploadedFileId.value = '';
+      // 编辑回显统一走 toPublicFileUrl：存量 /upload/common/... 相对路径自动走 /by-path 反查
+      syncFileList(
+        toPublicFileUrl(
+          { id: uploadedFileId.value, url: previewPicUrl.value },
+          assetDomain.value,
+        ),
+      );
       setLoading(false);
     }
   },
@@ -123,6 +129,7 @@ function setLoading(loading: boolean) {
 // 预览图上传
 const fileList = ref<UploadFile[]>([]);
 const previewPicUrl = ref('');
+const uploadedFileId = ref('');
 const uploading = ref(false);
 // 附件URL统一方案 v1.1：全局资源访问域名（预览图展示拼接用）
 const { assetDomain } = useAssetDomain();
@@ -132,11 +139,16 @@ async function handleUpload(file: File) {
   try {
     // 附件URL统一方案 v1.1：模板预览图公开（is_public=1，可走 /api/open/file/{id} 前台展示）
     const res: any = await uploadFileApi(file, 'common', undefined, undefined, 1);
-    // 尝试多种 response 格式兼容
-    const url = res?.data?.url || res?.url || res?.data;
+    // 兼容多种 response 形态：{data:{...}} / {...} / 字符串
+    const data: any = res?.data ?? res;
+    const url = typeof data === 'string' ? data : data?.url;
     if (url && typeof url === 'string') {
+      uploadedFileId.value = data?.id ? String(data.id) : '';
+      // 数据库永远存相对路径（附件URL统一方案 §8.4），展示层才解析回显地址
       previewPicUrl.value = url;
-      syncFileList(resolveAssetUrl(url, assetDomain.value));
+      syncFileList(
+        toPublicFileUrl({ id: uploadedFileId.value, url }, assetDomain.value),
+      );
       message.success('上传成功');
     } else {
       message.error('上传返回异常：未获取到图片地址');
@@ -153,6 +165,7 @@ async function handleUpload(file: File) {
 function handleRemove() {
   fileList.value = [];
   previewPicUrl.value = '';
+  uploadedFileId.value = '';
 }
 
 function syncFileList(url: string) {

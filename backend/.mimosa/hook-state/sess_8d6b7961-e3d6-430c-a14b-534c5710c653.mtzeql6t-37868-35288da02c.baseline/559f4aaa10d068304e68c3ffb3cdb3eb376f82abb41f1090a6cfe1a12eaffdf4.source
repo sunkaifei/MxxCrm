@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["can_edit_company","delete_account","get_account_list","get_company_info","get_sales_flow_mode","register","save_account","set_sales_flow_mode","update_company_info"],"struct":["SalesFlowModeReq"]};

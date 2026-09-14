@@ -98,6 +98,19 @@ pub async fn add(state: web::Data<AppState>, req: HttpRequest, item: web::Json<T
     }
 }
 
+/// 复制页面
+///
+/// 以指定页面为蓝本生成副本（名称追加「- 副本」、状态禁用），返回新页面 id。
+pub async fn copy(state: web::Data<AppState>, id: web::Path<i64>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let result = template_data_service::copy_by_id(&db, id.into_inner()).await?;
+    if result > 0 {
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<i64>::success(result, "local")))
+    } else {
+        Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::<String>::fail(400, "复制失败", "local")))
+    }
+}
+
 /// 批量删除
 pub async fn batch_delete(state: web::Data<AppState>, item: web::Json<BathDeleteIdRequest>) -> Result<HttpResponse> {
     let db = &state.db;
@@ -198,6 +211,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 "/add",
                 web::post()
                     .to(add)
+                    .wrap(require_permission("template:data:add")),
+            )
+            // POST /template/data/copy/{id} - 复制页面（生成副本）
+            .route(
+                "/copy/{id}",
+                web::post()
+                    .to(copy)
                     .wrap(require_permission("template:data:add")),
             )
             // DELETE /template/data/batch_delete - 批量删除模板数据

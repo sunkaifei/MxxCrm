@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["payment_plan_delete","payment_plan_list","payment_plan_page_list","payment_plan_save","register"],"struct":["ContractIdQuery"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["add_to_pool","batch_delete_by_ids","batch_query_lead_tags","claim","convert_to_customer","find_by_id","get_accessible_user_ids","insert","is_valid_mobile","list","update","update_status"]};

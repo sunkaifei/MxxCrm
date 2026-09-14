@@ -4,13 +4,13 @@ import type { VbenFormProps } from '@vben/common-ui';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import type { ContentModelFieldVO } from '#/api/core/website/content-model';
 
-import { h, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, h, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucidePlus, LucideTrash2 } from '@vben/icons';
 
-import { Button, message, Modal, Tag } from 'ant-design-vue';
+import { Button, message, Modal, Select, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getContentModelFieldListApi, getContentModelListApi } from '#/api';
@@ -19,8 +19,9 @@ import { contentDataApi } from '#/api/core/website/content-data';
 import ContentDataDrawer from './drawer.vue';
 
 const route = useRoute();
+const router = useRouter();
 
-/** 模型编码（从内容模型列表「管理内容」跳转: /website/content-data?code=xxx） */
+/** 模型编码（菜单路由 /website/content-data/{code}，或「管理内容」按钮跳入） */
 const modelCode = ref<string>('');
 const model = ref<any>({});
 const fields = ref<ContentModelFieldVO[]>([]);
@@ -96,9 +97,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
+/** 全部模型清单（工作台顶部的模型切换下拉用） */
+const modelList = ref<any[]>([]);
+
 function loadModelAndFields() {
   return getContentModelListApi({ page: 1, pageSize: 999 }).then(async (res: any) => {
     const list = res?.items || res?.rows || [];
+    modelList.value = list;
     model.value = list.find((m: any) => m.modelCode === modelCode.value) || {};
     if (model.value.id) {
       const fres: any = await getContentModelFieldListApi({
@@ -107,15 +112,64 @@ function loadModelAndFields() {
         pageSize: 999,
       });
       fields.value = fres?.items || fres?.rows || [];
+    } else {
+      fields.value = [];
     }
   });
 }
 
+/** 有专属管理模块的模型编码（文章/产品走各自模块，不共用动态表） */
+const DEDICATED_MODULE_CODES = new Set(['article', 'product']);
+
+/** 工作台顶部下拉的可选模型：无专属模块的模型（含下载等内置）都可管理 */
+const modelOptions = computed(() =>
+  modelList.value.map((m: any) => ({
+    label: Number(m.isSystem) === 1 ? `${m.modelName}（内置）` : m.modelName,
+    value: m.modelCode,
+    disabled: DEDICATED_MODULE_CODES.has(String(m.modelCode || '')),
+  })),
+);
+
+/** 切换模型：刷新字段/列头/数据，并同步 URL 方便分享 */
+async function handleSwitchModel(code: string) {
+  modelCode.value = code;
+  router.replace({ path: `/website/content-data/${code}` });
+  await loadModelAndFields();
+  (gridApi as any)?.setGridOptions?.({ columns: buildColumns() });
+  gridApi.query();
+}
+
+/** 去模型管理：新建模型 / 给当前模型配字段（fields 深链直达字段弹窗） */
+function goModelManage() {
+  router.push('/website/content-model');
+}
+function goFieldManage() {
+  router.push({
+    path: '/website/content-model',
+    query: { fields: modelCode.value },
+  });
+}
+
 onMounted(async () => {
-  modelCode.value = (route.query.code as string) || '';
+  // 兼容三种入口：菜单字面路径 /content-data/{code}（无 :param，需从 path 解析）、query 旧链接、裸路径
+  const fromPath = route.path.match(/\/content-data\/([A-Za-z][\w-]*)/)?.[1];
+  modelCode.value =
+    (route.params.code as string) ||
+    (route.query.code as string) ||
+    fromPath ||
+    '';
   if (!modelCode.value) {
-    message.warning('缺少模型编码，请从「内容模型」列表点击「管理内容」进入');
-    return;
+    // 从菜单直接进入（无 ?code=）：默认定位到第一个自定义模型，没有则回退第一个模型
+    await loadModelAndFields();
+    const first =
+      modelList.value.find((m: any) => Number(m.isSystem) === 0) ||
+      modelList.value[0];
+    if (!first?.modelCode) {
+      message.warning('暂无内容模型，请点击右上角「模型管理」新建模型');
+      return;
+    }
+    modelCode.value = first.modelCode;
+    model.value = first;
   }
   try {
     await loadModelAndFields();
@@ -185,6 +239,17 @@ function handleBatchDelete() {
   <Page auto-content-height>
     <Grid :table-title="`内容管理 - ${model.modelName || modelCode}`">
       <template #toolbar-tools>
+        <Select
+          :value="modelCode"
+          :options="modelOptions"
+          show-search
+          option-filter-prop="label"
+          style="width: 180px"
+          placeholder="切换模型"
+          @change="(v: any) => handleSwitchModel(String(v))"
+        />
+        <Button @click="goFieldManage">字段管理</Button>
+        <Button @click="goModelManage">新建模型</Button>
         <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
           新增内容
         </Button>

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["bath_delete_invoice","invoice_approval_detail","invoice_approve","invoice_info","invoice_insert","invoice_list","invoice_reject","invoice_submit","invoice_update","register"]};

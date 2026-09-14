@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["create","delete","get_accessible_user_ids","get_detail","get_list","sign","update","update_order_ship_status"]};

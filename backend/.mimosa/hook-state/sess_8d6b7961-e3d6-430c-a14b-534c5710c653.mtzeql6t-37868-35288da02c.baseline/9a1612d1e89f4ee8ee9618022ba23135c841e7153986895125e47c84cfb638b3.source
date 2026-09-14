@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["category","product","sku","sku_template","sku_template_spec","sku_template_spec_value","spec","spec_value"]};

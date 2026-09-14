@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete","create","delete_article_values","get_article_values","get_by_category","get_by_id","get_by_page","save_article_values","update"]};

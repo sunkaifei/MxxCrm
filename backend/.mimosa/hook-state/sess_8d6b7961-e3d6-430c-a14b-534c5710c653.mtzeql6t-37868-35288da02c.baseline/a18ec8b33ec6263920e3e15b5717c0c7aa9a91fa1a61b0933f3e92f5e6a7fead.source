@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["register","work_log_create","work_log_today","work_log_today_summary","work_log_week_workload"]};

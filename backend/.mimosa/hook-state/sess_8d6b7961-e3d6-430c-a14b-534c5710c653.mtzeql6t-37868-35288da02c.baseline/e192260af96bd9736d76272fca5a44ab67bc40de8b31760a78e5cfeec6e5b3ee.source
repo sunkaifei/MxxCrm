@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["mail_config_bath_delete","mail_config_info","mail_config_insert","mail_config_list","mail_config_set_default","mail_config_update","mail_log_by_customer","mail_log_list","mail_template_bath_delete","mail_template_info","mail_template_insert","mail_template_list","mail_template_options","mail_template_update","register","send_mail"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["extract_export_name","extract_function_export_name","extract_scope_path","find_project_root","main","run_checks","scan_backend_scopes","scan_frontend_api_dir","scan_rs_file_for_scopes","scan_ts_file_for_api_exports"],"trait":["IdentifierLike"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["batch_update_sku_stock","create_spu","get_spu_detail","get_spu_list","offline_spu","update_spu"]};

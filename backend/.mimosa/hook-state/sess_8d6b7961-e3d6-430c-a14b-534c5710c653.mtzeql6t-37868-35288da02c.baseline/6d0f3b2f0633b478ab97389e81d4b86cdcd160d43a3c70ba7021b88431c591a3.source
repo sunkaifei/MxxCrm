@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["shop","shop_cart","shop_category","shop_delivery","shop_order","shop_order_item","shop_promotion","shop_promotion_spu","shop_refund","shop_review","shop_settlement","shop_sku","shop_spec","shop_spec_value","shop_spu","shop_supplier_apply","shop_user_merge"]};

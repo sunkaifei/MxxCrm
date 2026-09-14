@@ -1,31 +1,22 @@
 <script lang="ts" setup>
-import { h, ref } from 'vue';
+import type { VbenFormProps } from '@vben/common-ui';
+
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { h, nextTick, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
-import {
-  LucideFilePenLine,
-  LucidePlus,
-  LucideSearch,
-  LucideTrash2,
-} from '@vben/icons';
+import { LucidePlus } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
-import { formatDateTime } from '@vben/utils';
 
+import { Button, message, Modal, Popconfirm, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
-  Button,
-  Empty,
-  Input,
-  message,
-  Modal,
-  Pagination,
-  Popconfirm,
-  Select,
-  Skeleton,
-  Space,
-  Tag,
-} from 'ant-design-vue';
-
-import { deleteTemplateDataApi, getTemplateDataListApi } from '#/api';
+  copyTemplateDataApi,
+  deleteTemplateDataApi,
+  getTemplateDataListApi,
+} from '#/api';
 
 import PageEditor from './page-editor.vue';
 
@@ -36,79 +27,23 @@ const [PageEditorInstance, pageEditorApi] = useVbenDrawer({
   connectedComponent: PageEditor,
   onClosed() {
     // 编辑器关闭后刷新列表
-    loadPages();
+    gridApi.query();
     drawerData.value.onRefreshTemplates?.();
   },
 });
 
 // 从父组件接收的数据
 const drawerData = ref<{
-  onEditPage?: (data: { row?: any; templateId: number }) => void;
   onRefreshTemplates?: () => void;
   templateId: number;
   templateName: string;
 }>({ templateId: 0, templateName: '' });
 
-// 页面列表数据
-const pages = ref<any[]>([]);
-const loading = ref(false);
-const total = ref(0);
-const page = ref(1);
-const pageSize = ref(10);
-
-// 搜索条件
-const keywords = ref('');
-const typeId = ref<number | undefined>(undefined);
-const status = ref<number | undefined>(undefined);
-
-async function loadPages() {
-  if (!drawerData.value.templateId) return;
-  loading.value = true;
-  try {
-    const params: any = {
-      templateId: drawerData.value.templateId,
-      page: page.value,
-      pageSize: pageSize.value,
-    };
-    if (keywords.value) params.keywords = keywords.value;
-    if (typeId.value !== undefined) params.typeId = typeId.value;
-    if (status.value !== undefined) params.status = status.value;
-
-    const res: any = await getTemplateDataListApi(params);
-    const data = res?.data || res;
-    pages.value = data?.items || data?.rows || data?.list || [];
-    total.value = data?.total || data?.count || 0;
-  } catch (error: any) {
-    pages.value = [];
-    total.value = 0;
-    message.error(error?.message || '加载页面列表失败');
-  } finally {
-    loading.value = false;
-  }
-}
-
-function handleSearch() {
-  page.value = 1;
-  loadPages();
-}
-
-function handleReset() {
-  keywords.value = '';
-  typeId.value = undefined;
-  status.value = undefined;
-  page.value = 1;
-  loadPages();
-}
-
-function handlePageChange(p: number) {
-  page.value = p;
-  loadPages();
-}
-
-function handlePageSizeChange(_current: number, size: number) {
-  pageSize.value = size;
-  page.value = 1;
-  loadPages();
+// 最大化/还原
+const isFullscreen = ref(false);
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value;
+  drawerApi.setState({ class: isFullscreen.value ? 'w-full' : 'w-[75%]' });
 }
 
 // 类型映射（T-P0.2：与后端渲染槽位一致——4=模板片段、6=栏目封面/自定义页；9=前台登录、12=购物车）
@@ -127,38 +62,141 @@ const typeOptions = [
   { value: 15, label: '页脚', color: 'volcano' },
 ];
 
-function getTypeInfo(typeId: number) {
+function getTypeLabel(typeId: number): string {
   return (
-    typeOptions.find((o) => o.value === typeId) || {
-      label: '未知',
-      color: 'default',
-    }
+    typeOptions.find((o) => o.value === typeId)?.label || `类型${typeId}`
   );
 }
 
-function getTypeLabel(typeId: number): string {
-  return getTypeInfo(typeId).label;
+function getTypeColor(typeId: number): string {
+  return typeOptions.find((o) => o.value === typeId)?.color || 'default';
 }
 
-function getTypeColor(typeId: number): string {
-  return getTypeInfo(typeId).color;
+const formOptions: VbenFormProps = {
+  collapsed: false,
+  showCollapseButton: false,
+  submitOnEnter: true,
+  schema: [
+    {
+      component: 'Input',
+      fieldName: 'keywords',
+      label: '关键词',
+      componentProps: {
+        placeholder: '搜索页面名称',
+        allowClear: true,
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'typeId',
+      label: '页面类型',
+      componentProps: {
+        placeholder: '请选择页面类型',
+        allowClear: true,
+        options: typeOptions.map((o) => ({ value: o.value, label: o.label })),
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'status',
+      label: '状态',
+      componentProps: {
+        placeholder: '请选择状态',
+        allowClear: true,
+        options: [
+          { value: 1, label: '启用' },
+          { value: 0, label: '禁用' },
+        ],
+      },
+    },
+  ],
+};
+
+const gridOptions: VxeGridProps = {
+  toolbarConfig: {
+    custom: true,
+    refresh: true,
+    zoom: false,
+  },
+  height: 'auto',
+  pagerConfig: {},
+  stripe: true,
+  proxyConfig: {
+    autoLoad: false,
+    ajax: {
+      query: async ({ page }, formValues) => {
+        // 抽屉数据未就绪（onOpenChange 之前）不请求
+        if (!drawerData.value.templateId) {
+          return { items: [], total: 0 };
+        }
+        return await getTemplateDataListApi({
+          templateId: drawerData.value.templateId,
+          page: page.currentPage,
+          pageSize: page.pageSize,
+          keywords: formValues.keywords || undefined,
+          typeId: formValues.typeId || undefined,
+          status: formValues.status || undefined,
+        });
+      },
+    },
+  },
+  columns: [
+    { title: '序号', type: 'seq', width: 60 },
+    {
+      title: '页面名称',
+      field: 'name',
+      minWidth: 220,
+      align: 'left',
+    },
+    {
+      title: '页面类型',
+      field: 'typeId',
+      width: 150,
+      slots: { default: 'typeDefault' },
+    },
+    {
+      title: '状态',
+      field: 'status',
+      width: 90,
+      slots: { default: 'statusDefault' },
+    },
+    { title: '排序', field: 'sort', width: 70 },
+    { title: '创建时间', field: 'createTime', width: 165 },
+    {
+      title: '操作',
+      field: 'action',
+      fixed: 'right',
+      width: 150,
+      slots: { default: 'action' },
+    },
+  ],
+};
+
+const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
+
+// 复制
+async function handleCopy(row: any) {
+  try {
+    await copyTemplateDataApi(Number(row.id));
+    message.success('复制成功，副本已创建（默认禁用）');
+    gridApi.query();
+    drawerData.value.onRefreshTemplates?.();
+  } catch {
+    // 全局拦截器处理
+  }
 }
 
 // 删除
-async function handleDelete(row: any) {
+function handleDelete(row: any) {
   Modal.confirm({
     title: '确认删除',
     content: `确定要删除页面「${row.name}」吗？`,
     okType: 'danger',
     onOk: async () => {
-      try {
-        await deleteTemplateDataApi([row.id]);
-        message.success('删除成功');
-        loadPages();
-        drawerData.value.onRefreshTemplates?.();
-      } catch {
-        // 全局拦截器处理
-      }
+      await deleteTemplateDataApi([row.id]);
+      message.success('删除成功');
+      gridApi.query();
+      drawerData.value.onRefreshTemplates?.();
     },
   });
 }
@@ -186,11 +224,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
         templateId: 0,
         templateName: '',
       };
-      page.value = 1;
-      keywords.value = '';
-      typeId.value = undefined;
-      status.value = undefined;
-      loadPages();
+      isFullscreen.value = false;
+      drawerApi.setState({ class: 'w-[75%]' });
+      // 等 Grid 挂载完成后再查询，否则首次打开时 query 会在挂载前丢失
+      nextTick(() => gridApi.query());
     }
   },
 });
@@ -199,163 +236,66 @@ const [Drawer, drawerApi] = useVbenDrawer({
 <template>
   <Drawer>
     <template #title>
-      <span>页面管理 - {{ drawerData.templateName }}</span>
-    </template>
-    <div class="pages-drawer-content">
-      <!-- 搜索栏 -->
-      <div class="pages-search-bar">
-        <Input
-          v-model:value="keywords"
-          placeholder="搜索页面名称"
-          allow-clear
-          style="width: 200px"
-          @press-enter="handleSearch"
-        >
-          <template #prefix>
-            <component :is="LucideSearch" style="font-size: 14px" />
-          </template>
-        </Input>
-        <Select
-          v-model:value="typeId"
-          placeholder="页面类型"
-          allow-clear
-          style="width: 140px"
-          :options="
-            typeOptions.map((o) => ({ value: o.value, label: o.label }))
-          "
-          @change="handleSearch"
-        />
-        <Select
-          v-model:value="status"
-          placeholder="状态"
-          allow-clear
-          style="width: 100px"
-          :options="[
-            { value: 1, label: '启用' },
-            { value: 0, label: '禁用' },
-          ]"
-          @change="handleSearch"
-        />
-        <Button
-          size="small"
-          type="primary"
-          :icon="h(LucideSearch)"
-          @click="handleSearch"
-        >
-          搜索
+      <div class="flex w-full items-center justify-between pr-2">
+        <span>页面管理 - {{ drawerData.templateName }}</span>
+        <Button type="link" size="small" @click="toggleFullscreen">
+          {{ isFullscreen ? '还原' : '最大化' }}
         </Button>
-        <Button size="small" @click="handleReset">重置</Button>
       </div>
+    </template>
 
-      <!-- 顶部操作栏 -->
-      <div class="pages-toolbar">
-        <div class="pages-toolbar-info">
-          <span class="pages-count">共 {{ total }} 个页面</span>
-        </div>
-        <Space>
-          <Button size="small" @click="loadPages">刷新</Button>
+    <div class="h-full">
+      <Grid table-title="页面列表">
+        <template #toolbar-tools>
           <Button
             v-if="accessStore.hasAccessCode('template:data:add')"
             type="primary"
-            size="small"
             :icon="h(LucidePlus)"
             @click="handleCreate"
           >
             新增页面
           </Button>
-        </Space>
-      </div>
+        </template>
 
-      <!-- 加载中 -->
-      <div v-if="loading" class="pages-loading">
-        <div v-for="i in 4" :key="i" class="page-skeleton-row">
-          <Skeleton active :paragraph="{ rows: 1, width: ['60%'] }" />
-        </div>
-      </div>
+        <template #typeDefault="{ row }">
+          <Tag :color="getTypeColor(row.typeId)">
+            {{ getTypeLabel(row.typeId) }}
+          </Tag>
+        </template>
 
-      <!-- 空状态 -->
-      <div v-else-if="pages.length === 0" class="pages-empty">
-        <Empty description="该模板下暂无页面数据">
+        <template #statusDefault="{ row }">
+          <Tag v-if="row.status === 1" color="success">启用</Tag>
+          <Tag v-else color="error">禁用</Tag>
+        </template>
+
+        <template #action="{ row }">
+          <Button
+            v-if="accessStore.hasAccessCode('template:data:update')"
+            type="link"
+            size="small"
+            @click="() => handleEdit(row)"
+          >
+            编辑
+          </Button>
           <Button
             v-if="accessStore.hasAccessCode('template:data:add')"
-            type="primary"
+            type="link"
             size="small"
-            @click="handleCreate"
+            @click="() => handleCopy(row)"
           >
-            新增第一个页面
+            复制
           </Button>
-        </Empty>
-      </div>
-
-      <!-- 页面列表 -->
-      <div v-else class="pages-list">
-        <div v-for="item in pages" :key="item.id" class="page-card">
-          <div class="page-card-left">
-            <div class="page-card-name">
-              <span class="page-name-text" :title="item.name">{{
-                item.name
-              }}</span>
-              <Tag :color="getTypeColor(item.typeId)" size="small">
-                {{ getTypeLabel(item.typeId) }}
-              </Tag>
-            </div>
-            <div class="page-card-meta">
-              <span class="meta-item">排序: {{ item.sort ?? 0 }}</span>
-              <span class="meta-divider">|</span>
-              <span class="meta-item">
-                <Tag
-                  :color="item.status === 1 ? 'success' : 'default'"
-                  size="small"
-                >
-                  {{ item.status === 1 ? '启用' : '禁用' }}
-                </Tag>
-              </span>
-              <span class="meta-divider">|</span>
-              <span class="meta-item"
-                >创建: {{ formatDateTime(item.createTime) }}</span
-              >
-            </div>
-          </div>
-          <div class="page-card-right">
-            <Button
-              v-if="accessStore.hasAccessCode('template:data:update')"
-              type="link"
-              :icon="h(LucideFilePenLine)"
-              @click="handleEdit(item)"
-            >
-              编辑
-            </Button>
-            <Popconfirm
-              title="确定删除该页面吗？"
-              ok-text="确定"
-              cancel-text="取消"
-              @confirm="handleDelete(item)"
-            >
-              <Button
-                v-if="accessStore.hasAccessCode('template:data:delete')"
-                type="link"
-                danger
-                :icon="h(LucideTrash2)"
-              />
-            </Popconfirm>
-          </div>
-        </div>
-      </div>
-
-      <!-- 分页 -->
-      <div v-if="total > pageSize" class="pages-pagination">
-        <Pagination
-          :current="page"
-          :total="total"
-          :page-size="pageSize"
-          :page-size-options="['10', '20', '50']"
-          show-size-changer
-          show-quick-jumper
-          size="small"
-          @change="handlePageChange"
-          @show-size-change="handlePageSizeChange"
-        />
-      </div>
+          <Popconfirm
+            v-if="accessStore.hasAccessCode('template:data:delete')"
+            title="确定删除该页面吗？"
+            ok-text="确定"
+            cancel-text="取消"
+            @confirm="handleDelete(row)"
+          >
+            <Button type="link" danger size="small">删除</Button>
+          </Popconfirm>
+        </template>
+      </Grid>
     </div>
 
     <!-- 嵌套的页面编辑器抽屉 -->
@@ -364,156 +304,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
 </template>
 
 <style scoped>
-.pages-drawer-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 0 4px;
-}
-
-.pages-search-bar {
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  gap: 8px;
+/* 标题行右侧最大化按钮与标题文字同一水平线 */
+:deep(.ant-drawer-header) {
   align-items: center;
-  margin-bottom: 12px;
-}
-
-.pages-toolbar {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.pages-toolbar-info {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.pages-count {
-  font-size: 13px;
-  color: rgb(0 0 0 / 45%);
-}
-
-.pages-loading {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.page-skeleton-row {
-  padding: 12px;
-  background: rgb(0 0 0 / 2%);
-  border-radius: 8px;
-}
-
-.pages-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-}
-
-.pages-list {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-}
-
-.page-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  cursor: default;
-  background: var(--card-background, #fff);
-  border: 1px solid var(--border-color, #f0f0f0);
-  border-radius: 8px;
-  transition:
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
-}
-
-.page-card:hover {
-  border-color: var(--primary-color, #1677ff);
-  box-shadow: 0 2px 8px rgb(22 119 255 / 8%);
-}
-
-.page-card-left {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.page-card-name {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.page-name-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary, rgb(0 0 0 / 88%));
-  white-space: nowrap;
-}
-
-.page-card-meta {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  font-size: 12px;
-  color: rgb(0 0 0 / 45%);
-}
-
-.meta-divider {
-  color: rgb(0 0 0 / 15%);
-}
-
-.page-card-right {
-  display: flex;
-  flex-shrink: 0;
-  gap: 4px;
-  align-items: center;
-  margin-left: 12px;
-}
-
-.pages-pagination {
-  display: flex;
-  flex-shrink: 0;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
-
-/* 暗黑模式适配 */
-:root.dark .page-card {
-  --card-background: #1f1f1f;
-  --border-color: #333;
-  --text-primary: rgb(255 255 255 / 88%);
-}
-
-:root.dark .pages-count {
-  color: rgb(255 255 255 / 45%);
-}
-
-:root.dark .page-skeleton-row {
-  background: rgb(255 255 255 / 4%);
-}
-
-/* 响应式：小屏幕全宽 */
-@media (max-width: 767px) {
-  :deep(.ant-drawer-content-wrapper) {
-    width: 100% !important;
-  }
 }
 </style>

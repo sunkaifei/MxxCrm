@@ -33,6 +33,8 @@ pub struct Model {
     pub sku_ids: Option<String>,
     /// SKU 前台零售价（JSON：{"<skuId>": 价格}；仅作用于前台在线销售，不写回产品库）
     pub sku_prices: Option<String>,
+    /// SKU 前台销售库存（JSON：{"<skuId>": 数量}；仅作用于前台在线销售，钳制为不超过该 SKU 仓储库存）
+    pub sku_quantities: Option<String>,
     /// 推荐标记：1=推荐（前台推荐位可取）
     pub is_recommend: Option<i32>,
     /// 相关产品 ID 列表（逗号分隔的 mxx_product.id）

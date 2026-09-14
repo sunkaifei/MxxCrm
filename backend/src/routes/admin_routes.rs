@@ -180,6 +180,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(edit_log_admin_controller::register)
             // Template Category Management
             .configure(template_category_admin_controller::register)
+            // CMS Enhancement: Template Variables & Revisions（/template/var、/template/revision 必须在 /template 之前注册，否则被父 scope 吞掉）
+            .configure(template_var_admin_controller::register)
+            .configure(template_revision_admin_controller::register)
             // Template Management (含 template/data 子路由，嵌套在 /template scope 内)
             .configure(template_admin_controller::register)
             // My Template Management
@@ -188,14 +191,12 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(website_links_admin_controller::register)
             // Website Media Management (含 media/category 子路由，注册在 /website/media scope 内)
             .configure(website_media_admin_controller::register)
+            // CMS Enhancement: Content Model Field Management（必须在 /content/model 之前注册，否则被子 scope 吞掉）
+            .configure(content_model_field_admin_controller::register)
             // CMS Enhancement: Content Model Management
             .configure(content_model_admin_controller::register)
-            .configure(content_model_field_admin_controller::register)
             // CMS Enhancement: 内容模型动态表内容 CRUD（通用内容页）
             .configure(content_data_admin_controller::register)
-            // CMS Enhancement: Template Variables & Revisions
-            .configure(template_var_admin_controller::register)
-            .configure(template_revision_admin_controller::register)
             // CMS Enhancement: Website Banner/Block/Page Management
             .configure(website_banner_admin_controller::register)
             .configure(website_block_admin_controller::register)

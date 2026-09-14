@@ -20,12 +20,13 @@ pub async fn add(db: &DbConn, user_id: i64, req: CartAddRequest) -> Result<i64> 
     if req.quantity <= 0 {
         return Err(Error::from("数量必须大于0"));
     }
-    // 库存校验：加购数量不得超过上架清单的生效展示数量（12.6 防超卖）
+    // 库存校验：加购数量不得超过上架清单的生效展示数量（12.6 防超卖；多规格按 SKU 销售库存）
     crate::modules::website::service::website_product_service::check_purchase_quantity(
         db,
         req.product_id,
         req.quantity as i64,
         Some(user_id),
+        req.sku_id,
     )
     .await?;
     let req_clone = req.clone();
@@ -72,6 +73,7 @@ pub async fn update(db: &DbConn, user_id: i64, id: i64, req: CartUpdateRequest) 
                 item.product_id,
                 q as i64,
                 Some(user_id),
+                item.sku_id,
             )
             .await?;
         }

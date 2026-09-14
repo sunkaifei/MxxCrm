@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["BUSINESS_TYPE_CONTRACT","BUSINESS_TYPE_ORDER","BUSINESS_TYPE_QUOTATION","BUSINESS_TYPE_SHIPMENT"],"fn":["compare_changes","get_field_label","log_action","log_update","query_page","val_to_string"]};

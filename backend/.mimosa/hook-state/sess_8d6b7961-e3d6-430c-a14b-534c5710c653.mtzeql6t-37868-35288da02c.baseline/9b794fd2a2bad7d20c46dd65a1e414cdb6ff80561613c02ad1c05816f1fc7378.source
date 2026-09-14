@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ArticleTagDetailVO","ArticleTagListVO","ArticleTagModel","ArticleTagSaveDTO","ArticleTagSaveRequest","ArticleTagUpdateRequest","ListQuery","PageWhere"]};

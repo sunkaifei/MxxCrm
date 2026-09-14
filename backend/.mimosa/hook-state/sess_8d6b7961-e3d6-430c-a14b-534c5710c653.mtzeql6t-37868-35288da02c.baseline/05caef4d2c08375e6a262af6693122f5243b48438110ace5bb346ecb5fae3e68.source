@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["cartesian_product","generate_skus","get_available_spec_values","get_sku_by_specs","get_specs","save_specs"]};

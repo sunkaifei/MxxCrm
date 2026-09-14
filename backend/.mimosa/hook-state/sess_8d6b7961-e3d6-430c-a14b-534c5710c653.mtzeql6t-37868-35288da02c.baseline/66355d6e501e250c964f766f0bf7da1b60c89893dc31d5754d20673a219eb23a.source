@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["deposit_from_commission","expense","get_pool_detail","get_pool_list","get_pool_log","save_pool"],"struct":["CommissionPoolSaveDTO","CommissionPoolVO","PoolExpenseDTO","PoolLogVO","PoolQuery"]};

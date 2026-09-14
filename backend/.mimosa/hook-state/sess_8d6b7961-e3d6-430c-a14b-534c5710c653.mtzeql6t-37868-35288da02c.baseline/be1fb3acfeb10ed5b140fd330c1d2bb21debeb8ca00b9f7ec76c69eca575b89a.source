@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ORDER_FIELD_LABELS"],"fn":["batch_delete_order","order_approval_detail","order_approve","order_create_contract","order_info","order_insert","order_list","order_reject","order_submit","order_update","order_update_status","register"]};

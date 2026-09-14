@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CartDTO","CartModel","CartRequest","CartVO"]};

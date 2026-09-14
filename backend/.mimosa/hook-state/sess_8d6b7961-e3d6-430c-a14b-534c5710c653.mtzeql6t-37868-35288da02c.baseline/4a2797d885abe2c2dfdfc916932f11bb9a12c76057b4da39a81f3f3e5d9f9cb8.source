@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["currency_code_to_i32","i32_to_currency_code","i32_to_lead_source"],"struct":["OpportunityDetailVO","OpportunityListQuery","OpportunityListVO","OpportunityModel","OpportunitySaveDTO","OpportunitySaveRequest","OpportunityUpdateRequest"]};

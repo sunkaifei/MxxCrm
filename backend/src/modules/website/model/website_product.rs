@@ -86,6 +86,17 @@ pub struct WebsiteProductSkuPricesRequest {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all(deserialize = "camelCase"))]
+pub struct WebsiteProductSkuQuantitiesRequest {
+    /// 清单行 ID
+    #[serde(deserialize_with = "crate::utils::string_utils::deserialize_string_or_number_to_i64")]
+    pub id: i64,
+    /// SKU 前台销售库存映射：{ "skuId": 数量 }；仅作用于前台在线销售，钳制为不超过该 SKU 仓储库存
+    #[serde(default)]
+    pub quantities: std::collections::HashMap<String, i32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct WebsiteProductShelfRequest {
     /// 清单行 ID 列表（兼容数字/字符串数组）
     #[serde(default, deserialize_with = "crate::utils::string_utils::deserialize_string_or_num_vec_to_i64_vec")]
@@ -218,6 +229,8 @@ pub struct WebsiteProductListVO {
     pub sku_count: Option<i64>,
     /// SKU 前台零售价映射（{"skuId": 价格}；未设置的 SKU 沿用产品库价格）
     pub sku_prices: Option<serde_json::Value>,
+    /// SKU 前台销售库存映射（{"skuId": 数量}；未设置的 SKU 沿用该 SKU 仓储库存）
+    pub sku_quantities: Option<serde_json::Value>,
     /// 推荐标记：1=推荐
     pub is_recommend: Option<i32>,
     /// 相关产品 ID 列表

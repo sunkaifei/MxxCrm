@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["deserialize_currency_from_i32","deserialize_decimal_from_string","deserialize_i64_from_string"],"struct":["ContractApprovalConfig","ContractApprovalDetailVO","ContractApprovalLogVO","ContractApprovalRequest","ContractDetailVO","ContractListQuery","ContractListVO","ContractModel","ContractSaveDTO","ContractSaveRequest","ContractUpdateRequest"]};

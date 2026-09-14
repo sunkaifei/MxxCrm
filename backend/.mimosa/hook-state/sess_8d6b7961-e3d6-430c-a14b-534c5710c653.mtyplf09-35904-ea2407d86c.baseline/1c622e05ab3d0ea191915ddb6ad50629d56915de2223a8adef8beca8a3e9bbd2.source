@@ -1,9 +1,0 @@
-(function() {
-    const implementors = Object.fromEntries([["mxx_crm",[["impl&lt;'r&gt; Decode&lt;'r, Postgres&gt; for <a class=\"enum\" href=\"mxx_crm/core/enum/industry_enum/enum.IndustryType.html\" title=\"enum mxx_crm::core::enum::industry_enum::IndustryType\">IndustryType</a>",0],["impl&lt;'r&gt; Decode&lt;'r, Postgres&gt; for <a class=\"enum\" href=\"mxx_crm/core/enum/industry_type_enum/enum.IndustryType.html\" title=\"enum mxx_crm::core::enum::industry_type_enum::IndustryType\">IndustryType</a>",0],["impl&lt;'r&gt; Decode&lt;'r, Postgres&gt; for <a class=\"enum\" href=\"mxx_crm/core/enum/lead_source_enum/enum.LeadSource.html\" title=\"enum mxx_crm::core::enum::lead_source_enum::LeadSource\">LeadSource</a>",0],["impl&lt;'r&gt; Decode&lt;'r, Postgres&gt; for <a class=\"enum\" href=\"mxx_crm/core/enum/payment_method_enum/enum.PaymentMethod.html\" title=\"enum mxx_crm::core::enum::payment_method_enum::PaymentMethod\">PaymentMethod</a>",0],["impl&lt;'r&gt; Decode&lt;'r, Postgres&gt; for <a class=\"enum\" href=\"mxx_crm/core/enum/payment_status_enum/enum.PaymentStatus.html\" title=\"enum mxx_crm::core::enum::payment_status_enum::PaymentStatus\">PaymentStatus</a>",0],["impl&lt;'r&gt; Decode&lt;'r, Postgres&gt; for <a class=\"enum\" href=\"mxx_crm/core/enum/purchase_status_enum/enum.PurchaseStatus.html\" title=\"enum mxx_crm::core::enum::purchase_status_enum::PurchaseStatus\">PurchaseStatus</a>",0]]]]);
-    if (window.register_implementors) {
-        window.register_implementors(implementors);
-    } else {
-        window.pending_implementors = implementors;
-    }
-})()
-//{"start":59,"fragment_lengths":[1363]}

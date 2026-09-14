@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["auth","domain_utils","encryption_utils","file_utils","response","short_code","snowflake","snowflake_id_utils","string_utils","time_utils"]};

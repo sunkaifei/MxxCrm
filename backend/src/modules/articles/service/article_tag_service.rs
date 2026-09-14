@@ -63,7 +63,8 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
     let select_where = select_where.format();
     let (list, _total) = ArticleTagModel::select_in_page(
         db,
-        query.page_num.unwrap_or(0),
+        // SeaORM fetch_page 0 基，前端 page 1 基
+        std::cmp::max(query.page_num.unwrap_or(1), 1) - 1,
         query.page_size.unwrap_or(10),
         select_where.clone(),
     ).await?;

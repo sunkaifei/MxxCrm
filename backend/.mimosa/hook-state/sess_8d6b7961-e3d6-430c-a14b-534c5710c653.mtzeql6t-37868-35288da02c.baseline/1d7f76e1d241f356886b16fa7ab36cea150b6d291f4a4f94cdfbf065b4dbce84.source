@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["register","todo_approval_list","todo_contract_list","todo_follow_up_list","todo_opportunity_list","todo_payment_list","todo_summary"]};

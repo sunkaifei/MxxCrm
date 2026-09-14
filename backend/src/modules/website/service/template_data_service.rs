@@ -35,6 +35,33 @@ pub async fn update_by_id(db: &DbConn, form_data: &TemplateDataSaveDTO) -> Resul
     let result = TemplateDataModel::update_by_id(&db, &form_data.id, form_data).await?;
     Ok(result)
 }
+/// 复制页面：以现有页面为蓝本生成一份副本
+///
+/// 复制 `temptext`/`type_id`/`model_id`/`sort`；名称追加「- 副本」；
+/// 状态置为禁用（0），避免副本立即覆盖同类型下线上生效的页面，由用户编辑后再启用。
+pub async fn copy_by_id(db: &DbConn, id: i64) -> Result<i64> {
+    let source = TemplateDataModel::find_by_id(&db, &Some(id)).await?
+        .ok_or_else(|| Error::from(format!("页面不存在，id={}", id)))?;
+
+    if source.deleted == Some(1) {
+        return Err(Error::from("页面已删除，无法复制"));
+    }
+
+    let dto = TemplateDataSaveDTO {
+        id: None,
+        template_id: source.template_id,
+        model_id: source.model_id,
+        type_id: source.type_id,
+        name: Some(format!("{} - 副本", source.name.unwrap_or_default())),
+        temptext: source.temptext,
+        sort: source.sort,
+        status: Some(0),
+    };
+
+    let result = TemplateDataModel::insert(&db, &dto).await?;
+    Ok(result)
+}
+
 pub async fn get_by_detail(db: &DbConn, id: &Option<i64>) -> Result<TemplateDataDetailVO> {
     let result = TemplateDataModel::find_by_id(&db, id).await?.ok_or_else(|| {
         Error::from(format!(

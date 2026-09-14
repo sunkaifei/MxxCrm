@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ConfigDetailVO","ConfigListVO","ConfigModel","ConfigSaveDTO","ConfigSaveRequest","ConfigUpdateRequest","ListQuery","PageWhere"]};

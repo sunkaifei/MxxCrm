@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["calculate_monthly_insurance","delete_policy","get_all_employee_configs","get_employee_config_list","get_policy_list","opt_dec","to_dec","upsert_employee_config","upsert_policy"],"struct":["EmployeeInsuranceConfigDTO","InsurancePolicyDTO","MonthlyInsuranceResult"]};

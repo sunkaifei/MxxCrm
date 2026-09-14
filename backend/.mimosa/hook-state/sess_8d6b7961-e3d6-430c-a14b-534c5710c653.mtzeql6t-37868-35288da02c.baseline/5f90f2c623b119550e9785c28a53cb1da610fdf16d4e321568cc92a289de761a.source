@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["delete","get_by_id","get_by_order_id","get_list","insert","update","update_failed","update_paid","update_refunded"]};

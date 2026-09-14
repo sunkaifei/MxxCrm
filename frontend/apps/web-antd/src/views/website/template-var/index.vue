@@ -6,12 +6,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { h } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import {
-  LucideDownload,
-  LucideFilePenLine,
-  LucidePlus,
-  LucideTrash2,
-} from '@vben/icons';
+import { LucideDownload, LucidePlus } from '@vben/icons';
 
 import { Button, message, Popconfirm, Tag } from 'ant-design-vue';
 
@@ -245,18 +240,11 @@ async function handleExportAll() {
       </template>
 
       <template #action="{ row }">
-        <Button
-          type="primary"
-          link
-          :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
-        >
+        <Button type="link" size="small" @click="() => handleEdit(row)">
           编辑
         </Button>
         <Popconfirm title="确定要删除该变量吗？" @confirm="handleDelete(row)">
-          <Button type="primary" link danger :icon="h(LucideTrash2)">
-            删除
-          </Button>
+          <Button type="link" danger size="small">删除</Button>
         </Popconfirm>
       </template>
     </Grid>

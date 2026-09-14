@@ -112,6 +112,11 @@ export const deleteContentModelApi = async (ids: number[]) => {
   });
 };
 
+/** 复制内容模型（12-E）：复制模型定义 + 全部字段定义，新编码 = 原编码_copy */
+export const copyContentModelApi = async (id: number) => {
+  return requestClient.post(`/api/system/content/model/copy/${id}`);
+};
+
 // Content Model Field APIs
 export const getContentModelFieldListApi = async (params?: {
   modelId?: number;

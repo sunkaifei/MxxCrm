@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete","get_area_tree","get_by_page","get_cascader_data","get_children","get_countries","get_detail","get_provinces","insert","msgpack_response","register","update"],"struct":["BatchDeleteRequest","ChildrenQuery","ProvinceQuery"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["flex_i64_opt","flex_i64_vec_opt"],"struct":["TagEntityBatchRequest","TagEntityRemoveRequest","TagEntityRequest","TagEntityResult","TagMergeModel"]};

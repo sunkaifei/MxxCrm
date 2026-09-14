@@ -97,7 +97,9 @@ const routes: RouteRecordRaw[] = [
         path: '/website/content-data',
         component: () => import('#/views/website/content-data/index.vue'),
         meta: {
-          title: '内容管理',
+          title: $t('page.website.contentDataTitle'),
+          // 通用内容页靠 ?code= 驱动，不作为侧边栏菜单项（与后端 hide_in_menu=1 一致）
+          hideInMenu: true,
         },
       },
       {

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BathDeleteIdRequest","BathIdRequest","DeleteIntIdRequest","Id64","InfoId","Pagination","QueryUrl"]};

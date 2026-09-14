@@ -124,6 +124,17 @@ export const saveWebsiteProductSkuPricesApi = async (
   });
 };
 
+// 保存 SKU 前台销售库存（quantities: { [skuId: string]: number }，仅作用于前台在线销售，后端钳制为不超过该 SKU 仓储库存）
+export const saveWebsiteProductSkuQuantitiesApi = async (
+  id: number,
+  quantities: Record<string, number>,
+) => {
+  return requestClient.put('/api/system/website/product/sku_quantities', {
+    id,
+    quantities,
+  });
+};
+
 // 批量移除出展示清单
 export const deleteWebsiteProductApi = async (ids: number[]) => {
   return requestClient.delete('/api/system/website/product/delete', {

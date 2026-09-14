@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Column","PrimaryKey","Relation"],"fn":["default_channels"],"struct":["ActiveModel","ColumnIter","Entity","Model","PrimaryKeyIter","RelationIter"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","build_admin_name_map","find_by_email_unique","find_by_id","find_by_mobile_unique","find_by_name","find_by_name_unique","find_by_nick_name_unique","get_admin_options","get_by_detail","get_by_page","insert","register","soft_delete_by_id","update_admin","update_login_info","update_user_password","update_user_status"]};

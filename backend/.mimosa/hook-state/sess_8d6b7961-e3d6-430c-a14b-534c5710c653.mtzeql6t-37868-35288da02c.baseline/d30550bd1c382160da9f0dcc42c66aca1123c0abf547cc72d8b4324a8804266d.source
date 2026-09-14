@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Token"],"fn":["calculate_formula","delete_item","get_item_list","get_item_values","save_item_values","tokenize","upsert_item"],"struct":["ExprParser","SalaryItemUpsertDTO","SalaryItemValueDTO","SaveItemValuesDTO"]};

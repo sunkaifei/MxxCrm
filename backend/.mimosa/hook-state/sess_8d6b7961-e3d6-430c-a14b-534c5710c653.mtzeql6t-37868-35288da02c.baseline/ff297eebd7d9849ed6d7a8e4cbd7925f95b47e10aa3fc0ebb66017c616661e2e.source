@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["format_error"],"struct":["delete_notification_handler","get_notification_list_handler","get_unread_count_handler","mark_all_read_handler","mark_read_handler"]};

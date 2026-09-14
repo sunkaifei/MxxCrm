@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["LabelDetailVO","LabelListVO","LabelModel","LabelSaveDTO","LabelSaveRequest","LabelUpdateRequest","ListQuery","PageWhere"]};

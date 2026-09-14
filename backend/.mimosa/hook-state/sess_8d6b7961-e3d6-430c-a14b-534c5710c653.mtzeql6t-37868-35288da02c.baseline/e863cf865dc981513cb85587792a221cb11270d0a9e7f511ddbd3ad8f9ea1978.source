@@ -1,2 +1,0 @@
-window.ALL_CRATES = ["check_api_conflicts","gen_password","mxx_crm","rust_xlsxwriter"];
-//{"start":21,"fragment_lengths":[21,15,10,18]}

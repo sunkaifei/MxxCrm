@@ -54,7 +54,7 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
         status: query.status,
     };
     let select_where = select_where.format();
-    let (list, _total) = WebsiteMediaModel::select_in_page(db, query.page_num.unwrap_or(0), query.page_size.unwrap_or(10), select_where.clone()).await?;
+    let (list, _total) = WebsiteMediaModel::select_in_page(db, std::cmp::max(query.page_num.unwrap_or(1), 1) - 1, query.page_size.unwrap_or(10), select_where.clone()).await?;
     let list_data: Vec<MediaListVO> = list.into_iter().map(|item| MediaListVO::from(item)).collect();
     let count = WebsiteMediaModel::select_count(db, select_where).await.unwrap_or(0);
     let page_data = ResultPage::new_simple(list_data, count);

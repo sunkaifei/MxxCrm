@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete_product","product_info","product_insert","product_list","product_update","register"]};

@@ -107,7 +107,8 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
         status: query.status,
     };
     let select_where = select_where.format();
-    let (list, _num_pages) = ContentModelFieldModel::select_in_page(&db, query.page_num.unwrap_or(0), query.page_size.unwrap_or(10), select_where.clone()).await?;
+    let page_num = std::cmp::max(query.page_num.unwrap_or(1), 1);
+    let (list, _num_pages) = ContentModelFieldModel::select_in_page(&db, page_num - 1, query.page_size.unwrap_or(10), select_where.clone()).await?;
     let list_data: Vec<FieldListVO> = list.into_iter().map(|item| FieldListVO::from(item)).collect();
     let count = ContentModelFieldModel::select_count(db, select_where.clone()).await.unwrap_or(0);
     let page_data = ResultPage::new_simple(list_data, count);

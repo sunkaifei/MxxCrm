@@ -21,6 +21,7 @@ pub mod website_media;
 pub mod website_media_category;
 pub mod template_var;
 pub mod template_revision;
+pub mod template_tag;
 pub mod website_banner;
 pub mod website_block;
 pub mod website_page;

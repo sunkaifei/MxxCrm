@@ -83,6 +83,23 @@ pub async fn find_latest_by_template_and_type(
     let result = match found {
         Some(r) => r,
         None => {
+            // ② 母版层回退：运行时层无该模板页面时读模板库母版（页面管理编辑母版即生效，单一数据源）
+            if template_id.map(|t| t > 0).unwrap_or(false) {
+                if let Some(master) = crate::modules::website::model::template_data::TemplateDataModel::find_latest_by_template_and_type(&db, template_id, type_id).await? {
+                    // 母版模型字段与本服务 VO 同构，手工映射（两个 VO 结构相同但类型不同）
+                    let m = master;
+                    return Ok(TemplateDataDetailVO {
+                        id: Option::from(m.id),
+                        template_id: m.template_id,
+                        model_id: m.model_id,
+                        type_id: m.type_id,
+                        name: m.name,
+                        temptext: m.temptext,
+                        sort: m.sort,
+                        status: m.status,
+                    });
+                }
+            }
             log::warn!(
                 "[template_data] template_id={:?} 下 type_id={:?} 无模板数据，回退不限模板取最新（B17/B10 容错）",
                 template_id, type_id

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["article_admin_controller","article_field_admin_controller","article_tag_admin_controller","category_admin_controller","comment_admin_controller","label_admin_controller"]};

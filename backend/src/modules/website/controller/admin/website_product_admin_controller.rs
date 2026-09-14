@@ -21,7 +21,7 @@ use crate::modules::website::model::website_product::{
     WebsiteProductLimitBuyRequest, WebsiteProductListQuery, WebsiteProductQuantityRequest,
     WebsiteProductRecommendRequest, WebsiteProductRelatedRequest, WebsiteProductScheduleRequest,
     WebsiteProductSeoRequest, WebsiteProductShelfRequest, WebsiteProductSkuPricesRequest,
-    WebsiteProductSkusRequest, WebsiteProductSortRequest,
+    WebsiteProductSkuQuantitiesRequest, WebsiteProductSkusRequest, WebsiteProductSortRequest,
 };
 use crate::modules::website::service::website_product_service;
 
@@ -155,6 +155,18 @@ pub async fn sku_prices(
         .body(MetaResp::<String>::success("保存成功".to_string(), "local")))
 }
 
+/// PUT /website/product/sku_quantities - 保存 SKU 前台销售库存（每 SKU 钳制为不超过仓储库存）
+pub async fn sku_quantities(
+    state: web::Data<AppState>,
+    body: web::Json<WebsiteProductSkuQuantitiesRequest>,
+) -> Result<HttpResponse> {
+    let db = &state.db;
+    website_product_service::update_sku_quantities(db, body.id, &body.quantities).await?;
+    Ok(HttpResponse::Ok()
+        .content_type(MPACK)
+        .body(MetaResp::<String>::success("保存成功".to_string(), "local")))
+}
+
 /// PUT /website/product/recommend - 批量设置/取消推荐
 pub async fn recommend(
     state: web::Data<AppState>,
@@ -252,6 +264,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/skus", web::get().to(skus).wrap(require_permission("website:product:list")))
             .route("/update_skus", web::put().to(update_skus).wrap(require_permission("website:product:update")))
             .route("/sku_prices", web::put().to(sku_prices).wrap(require_permission("website:product:update")))
+            .route("/sku_quantities", web::put().to(sku_quantities).wrap(require_permission("website:product:update")))
             .route("/recommend", web::put().to(recommend).wrap(require_permission("website:product:update")))
             .route("/seo", web::put().to(seo).wrap(require_permission("website:product:update")))
             .route("/limit_buy", web::put().to(limit_buy).wrap(require_permission("website:product:update")))

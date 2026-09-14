@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ListQuery","PageDetailVO","PageListVO","PageSaveDTO","PageSaveRequest","PageUpdateRequest","PageWhere","WebsitePageModel"]};

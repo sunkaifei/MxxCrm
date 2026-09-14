@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","batch_delete_data_by_ids","find_by_code_unique","find_by_name_unique","find_data_by_code_unique","find_data_by_label_unique","get_by_id","get_data_by_id","get_dict_data_list_by_code","get_dict_data_page","get_dict_page","insert","insert_data","update_by_id","update_data_by_id"]};

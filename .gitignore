@@ -27,4 +27,6 @@
 /mxx-ecommerce-landing/
 *.log
 *.ps1
-/.mimosa/
+**/.mimosa/
+**/mimosa/
+/.git/

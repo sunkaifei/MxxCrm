@@ -27,11 +27,29 @@
     </div>
     <div class="col-lg-6">
       <h2 style="font-weight:800;">{{ product.name }}</h2>
-      <p class="my-3"><span style="font-size:1.8rem;font-weight:800;">{{ product_price(product.salePrice) }}</span>
+      <p class="my-3"><span id="cms-sku-price" style="font-size:1.8rem;font-weight:800;">{% if has_skus %}价格请选择规格{% else %}{{ product_price(product.salePrice) }}{% endif %}</span>
         {% if product.marketPrice %}<del class="text-muted ms-2">{{ product_price(product.marketPrice) }}</del>{% endif %}</p>
       <p style="color:var(--ent-muted);">{{ product.description | default('') }}</p>
+      {% if has_skus %}
+      <p id="cms-sku-stock" class="text-muted">请选择规格</p>
+      {% else %}
       <p class="{% if product.stock and product.stock > 0 %}text-success{% else %}text-danger{% endif %}">
         {% if product.stock and product.stock > 0 %}库存 {{ product.stock }} 件{% else %}暂时缺货{% endif %}</p>
+      {% endif %}
+      {% if has_skus %}
+      <div id="cms-spec-picker" class="mb-3" data-product-id="{{ product.id }}">
+        {% for sp in spec_groups.specs %}
+        <div class="mb-2">
+          <div class="small fw-semibold mb-1">{{ sp.name }}</div>
+          <div class="d-flex gap-2 flex-wrap">
+            {% for v in sp.values %}
+            <button type="button" class="btn btn-sm btn-outline-secondary cms-spec-value" data-spec-name="{{ sp.name }}" data-spec-value="{{ v.value }}">{{ v.value }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {{ cart_button(product.id, site_mode, product.salePrice, product.name) | safe }}
       <hr>
       <table class="table table-sm small">
@@ -42,7 +60,7 @@
       </table>
     </div>
   </div>
-  {% if spec_groups and spec_groups.specs and spec_groups.specs | length > 0 %}
+  {% if not has_skus and spec_groups and spec_groups.specs and spec_groups.specs | length > 0 %}
   <div class="mt-4">
     <h5 class="fw-bold">规格参数</h5>
     {% for sp in spec_groups.specs %}
@@ -50,17 +68,6 @@
       <span class="ms-2 text-muted small">{% for v in sp.values %}{{ v.value }}{% if not loop.last %} / {% endif %}{% endfor %}</span>
     </div>
     {% endfor %}
-    {% if spec_groups.skus and spec_groups.skus | length > 0 %}
-    <table class="table table-sm table-bordered small mt-2">
-      <thead><tr><th>SKU</th><th>规格</th><th>价格</th><th>库存</th></tr></thead>
-      <tbody>
-      {% for s in spec_groups.skus %}
-      <tr><td>{{ s.skuCode | default('-') }}</td><td>{{ s.specText | default('-') }}</td>
-        <td>{{ product_price(s.price) }}</td><td>{{ s.stock | default(0) }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
   </div>
   {% endif %}
   <div class="mt-4"><h5 class="fw-bold">产品详情</h5><div style="line-height:1.9;">{{ product.detail | safe }}</div></div>
@@ -82,6 +89,7 @@
   {% endif %}
 </div>
 <script type="application/ld+json">{{ jsonld | safe }}</script>
+{% if has_skus %}<script type="application/json" id="cms-sku-data">{{ skus_json | safe }}</script>{% endif %}
 
 {{ page_foot() | safe }}
 <script src="/static/default/js/cms.js"></script>

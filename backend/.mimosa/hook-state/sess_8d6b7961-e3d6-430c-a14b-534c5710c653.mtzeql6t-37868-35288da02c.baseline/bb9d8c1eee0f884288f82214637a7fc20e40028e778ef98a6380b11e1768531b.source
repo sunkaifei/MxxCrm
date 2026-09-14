@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["bath_delete_lead","bath_delete_lead_pool","lead_add_to_pool","lead_claim","lead_convert_to_customer","lead_info","lead_insert","lead_list","lead_pool_info","lead_pool_list","lead_transfer","lead_transfer_preview","lead_update","lead_update_status","register"]};

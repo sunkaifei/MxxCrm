@@ -39,10 +39,11 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         .service(web::resource("/index/").route(web::get().to(cms_open_controller::cms_index)))
         .service(web::resource("/index.html").route(web::get().to(cms_open_controller::cms_index)))
         .service(web::resource("/index.html/").route(web::get().to(cms_open_controller::cms_index)))
-        // 仅暴露公开文件目录（产品图片、用户头像），关闭目录列表
+        // 仅暴露公开文件目录（产品图片、用户头像、模板封面），关闭目录列表
         // 私有文件（合同/发票/报价单/回款凭证/通用附件）通过 /api/system/attachment/download/{id} 接口鉴权访问
         .service(Files::new("/upload/product/", "storage/upload/product/"))
         .service(Files::new("/upload/avatar/", "storage/upload/avatar/"))
+        .service(Files::new("/upload/template/", "storage/upload/template/"))
         // 服务报价页
         .service(web::resource("/price").route(web::get().to(price_open_controller::price_index)))
         .service(web::resource("/price.html").route(web::get().to(price_open_controller::price_index)))
@@ -85,5 +86,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         // 前台用户注册/登录（公开接口）
         .service(website_user_open_controller::register)
         .service(website_user_open_controller::login)
+        // 12-D：内容模型前台 URL（泛化路由必须最后注册，具体路由已全部在上方优先命中；
+        // 占位符名必须是 short_url，与 QueryUrl 字段名一致，否则 Path<QueryUrl> 绑定为 None）
+        .service(web::resource("/{short_url}").route(web::get().to(cms_open_controller::model_content_list)))
+        .service(web::resource("/{short_url}/{content_id}").route(web::get().to(cms_open_controller::model_content_detail)))
     ;
 }

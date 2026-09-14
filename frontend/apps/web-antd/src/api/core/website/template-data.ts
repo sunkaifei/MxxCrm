@@ -59,6 +59,11 @@ export const deleteTemplateDataApi = async (ids: number[]) => {
   });
 };
 
+/** 复制页面：以指定页面为蓝本生成副本，返回新页面 id */
+export const copyTemplateDataApi = async (id: number) => {
+  return requestClient.post(`/api/system/template/data/copy/${id}`);
+};
+
 /** 按模板 ID 查询所有模板数据（不分页，用于抽屉页面列表） */
 export const getTemplateDataListByTemplateApi = async (templateId: number) => {
   return requestClient.get('/api/system/template/data/list_by_template', {

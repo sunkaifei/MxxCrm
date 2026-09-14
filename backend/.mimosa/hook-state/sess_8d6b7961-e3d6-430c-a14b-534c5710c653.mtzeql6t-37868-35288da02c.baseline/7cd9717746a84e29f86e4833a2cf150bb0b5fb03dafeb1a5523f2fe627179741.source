@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["bath_delete_opportunity","opportunity_convert_to_order","opportunity_convert_to_quotation","opportunity_info","opportunity_insert","opportunity_list","opportunity_update","register"]};

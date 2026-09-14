@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["deserialize_option_string_to_u64"],"struct":["InvoiceApprovalDetailVO","InvoiceApprovalReq","InvoiceDetailVO","InvoiceListQuery","InvoiceListVO","InvoiceModel","InvoiceSaveDTO","InvoiceSaveRequest","InvoiceUpdateRequest"]};

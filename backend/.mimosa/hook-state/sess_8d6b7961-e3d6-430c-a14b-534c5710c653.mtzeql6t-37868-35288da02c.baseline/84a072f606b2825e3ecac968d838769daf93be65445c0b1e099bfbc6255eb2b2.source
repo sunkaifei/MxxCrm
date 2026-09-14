@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["all_menu_list","batch_delete_by_ids","build_tree","contains_all_elements","find_by_name_unique","find_by_path_unique","find_by_perms_unique","find_by_route_name_unique","find_user_role_keys","get_by_detail","get_menu_options","get_menu_vec_ids","get_user_router_tree","insert","menu_all_tree","menu_list_tree","router_arr_to_tree","update_by_id"]};

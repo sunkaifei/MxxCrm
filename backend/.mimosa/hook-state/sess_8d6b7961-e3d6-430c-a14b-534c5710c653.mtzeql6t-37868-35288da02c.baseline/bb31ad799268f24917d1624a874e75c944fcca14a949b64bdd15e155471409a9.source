@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["apply_refund","cancel_refund","get_refund_detail","get_refund_list"]};

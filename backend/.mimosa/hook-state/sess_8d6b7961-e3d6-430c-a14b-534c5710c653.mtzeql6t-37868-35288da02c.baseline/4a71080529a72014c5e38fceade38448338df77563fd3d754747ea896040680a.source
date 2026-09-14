@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["delivery_by_order","delivery_list","order_batch_delete","order_detail","order_list","order_ship","order_update","register"]};

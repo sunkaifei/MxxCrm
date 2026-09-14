@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["TagDetailVO","TagListQuery","TagListVO","TagModel","TagMoveToGroupRequest","TagSaveDTO","TagSaveRequest","TagStatisticsVO","TagSuggestVO","TagUpdateRequest","UpdateTagStatusRequest"]};

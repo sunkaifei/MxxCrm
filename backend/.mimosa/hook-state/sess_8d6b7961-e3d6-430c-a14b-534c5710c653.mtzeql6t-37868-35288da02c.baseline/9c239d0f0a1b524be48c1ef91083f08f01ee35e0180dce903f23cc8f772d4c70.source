@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["LeadDetailVO","LeadListQuery","LeadListVO","LeadModel","LeadSaveDTO","LeadSaveRequest","LeadStatusUpdateQuery","LeadTagVO","LeadUpdateRequest"]};

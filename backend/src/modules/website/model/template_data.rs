@@ -261,9 +261,33 @@ impl PageWhere {
 pub struct TemplateDataModel;
 
 impl TemplateDataModel {
+    /// 母版层按模板+类型取最新页面（运行时层 user_data 无该模板页面时由服务层回退调用；
+    /// 母版即生效——「页面管理」编辑的就是本表）
+    pub async fn find_latest_by_template_and_type(
+        db: &DbConn,
+        template_id: &Option<i64>,
+        type_id: &Option<i32>,
+    ) -> Result<Option<template_data::Model>, DbErr> {
+        let data = TemplateData::find()
+            .apply_if(template_id.clone(), |q, v| {
+                q.filter(template_data::Column::TemplateId.eq(v))
+            })
+            .filter(template_data::Column::TypeId.eq(type_id.clone()))
+            .filter(template_data::Column::Deleted.eq(0))
+            .order_by_desc(template_data::Column::Id)
+            .one(db)
+            .await?;
+        Ok(data)
+    }
+
     pub async fn insert(db: &DbConn, dto: &TemplateDataSaveDTO) -> Result<i64, DbErr> {
         let model = template_data::ActiveModel {
-            id:           Set(dto.id.unwrap_or_default().to_owned()),
+            // 主键交给 bigserial 序列；显式 Set(0) 会让第二次插入撞主键（pkey 重复）
+            id: if dto.id.map(|v| v > 0).unwrap_or(false) {
+                Set(dto.id.unwrap())
+            } else {
+                sea_orm::ActiveValue::NotSet
+            },
             template_id:  Set(dto.template_id.to_owned()),
             model_id:     Set(dto.model_id.to_owned()),
             type_id:      Set(dto.type_id.to_owned()),

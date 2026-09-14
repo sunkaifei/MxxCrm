@@ -273,6 +273,7 @@ pub async fn list(
                 sku_ids: if sku_ids.is_empty() { None } else { Some(sku_ids.clone()) },
                 sku_count: Some(sku_ids.len() as i64),
                 sku_prices: r.sku_prices.as_deref().and_then(|s| serde_json::from_str(s).ok()),
+                sku_quantities: r.sku_quantities.as_deref().and_then(|s| serde_json::from_str(s).ok()),
                 is_recommend: r.is_recommend,
                 related_product_ids: if related_pids.is_empty() { None } else { Some(related_pids) },
                 related_article_ids: if related_aids.is_empty() { None } else { Some(related_aids) },
@@ -668,13 +669,15 @@ pub async fn related_shelf_products(
     ))
 }
 
-/// 交易校验：加购/下单数量不得超过生效展示数量（未配置清单的产品放行）
+/// 交易校验：加购/下单数量不得超过生效销售库存（未配置清单的产品放行）
 /// `user_id` 用于检查购物车累加数量（防止多次加购绕过库存限制）
+/// `sku_id` 指定时按该 SKU 的销售库存校验（多规格；清单设置了 sku_quantities 则钳制为 min(销售库存, 该 SKU 仓储库存)）
 pub async fn check_purchase_quantity(
     db: &DatabaseConnection,
     product_id: i64,
     want: i64,
     user_id: Option<i64>,
+    sku_id: Option<i64>,
 ) -> Result<i64> {
     let website_id = default_site_id(db).await;
     let listed = listed_product_ids(db, website_id).await?;
@@ -695,9 +698,30 @@ pub async fn check_purchase_quantity(
         .one(db)
         .await?
         .ok_or_else(|| crate::core::errors::error::Error::from("产品未上架或已下架"))?;
+    // 产品级生效展示数量（min(展示数量, 产品库存基准)）
     let stock = stock_base_map(db, &[product_id]).await?
         .get(&product_id).copied().unwrap_or(0);
-    let effective = std::cmp::min(row.quantity.unwrap_or(0) as i64, stock);
+    let product_effective = std::cmp::min(row.quantity.unwrap_or(0) as i64, stock);
+    // SKU 维度：指定 sku_id 时按该 SKU 校验（未单独配置销售库存则以该 SKU 仓储库存为上限，自动跟随库存变化）
+    let mut sku_effective: Option<i64> = None;
+    if let Some(sid) = sku_id {
+        let sku_model = crate::modules::product::entity::sku::Entity::find_by_id(sid)
+            .one(db)
+            .await?;
+        // 校验该 SKU 确实属于当前产品
+        if let Some(sk) = sku_model.filter(|s| s.product_id == product_id) {
+            let sku_stock = sk.stock.unwrap_or(0) as i64;
+            let cap = match shelf_sku_quantities(db, website_id, product_id).await? {
+                Some(qtys) => qtys
+                    .get(&sid)
+                    .map(|q| std::cmp::min(*q as i64, sku_stock))
+                    .unwrap_or(sku_stock),
+                None => sku_stock,
+            };
+            sku_effective = Some(cap);
+        }
+    }
+    let effective = sku_effective.unwrap_or(product_effective);
     if want > effective {
         return Err(crate::core::errors::error::Error::from(
             format!("库存不足，当前仅可购买 {} 件", effective),
@@ -710,13 +734,15 @@ pub async fn check_purchase_quantity(
             format!("超过每人限购数量 {} 件", limit_buy),
         ));
     }
-    // 购物车累加校验：已有数量 + 本次加购 ≤ 生效展示数量（防止多次加购绕过库存限制）
+    // 购物车累加校验：已有数量 + 本次加购 ≤ 生效销售库存（按产品；指定 SKU 时按 (产品, SKU) 维度）
     if let Some(uid) = user_id {
-        let cart_items = crate::modules::website::entity::website_cart::Entity::find()
+        let mut find = crate::modules::website::entity::website_cart::Entity::find()
             .filter(crate::modules::website::entity::website_cart::Column::UserId.eq(uid))
-            .filter(crate::modules::website::entity::website_cart::Column::ProductId.eq(product_id))
-            .all(db)
-            .await?;
+            .filter(crate::modules::website::entity::website_cart::Column::ProductId.eq(product_id));
+        if let Some(sid) = sku_id {
+            find = find.filter(crate::modules::website::entity::website_cart::Column::SkuId.eq(sid));
+        }
+        let cart_items = find.all(db).await?;
         let cart_qty: i64 = cart_items.iter().map(|c| c.quantity as i64).sum();
         if cart_qty + want > effective {
             return Err(crate::core::errors::error::Error::from(
@@ -921,6 +947,86 @@ pub async fn update_sku_prices(
         .exec(db)
         .await?;
     Ok(())
+}
+
+/// 保存 SKU 前台销售库存（JSON 存 sku_quantities；仅作用于前台在线销售，不写回产品库）
+/// 每 SKU 数量钳制为不超过该 SKU 仓储库存（防超卖），负数拒绝
+pub async fn update_sku_quantities(
+    db: &DatabaseConnection,
+    id: i64,
+    quantities: &std::collections::HashMap<String, i32>,
+) -> Result<()> {
+    let row = website_product::Entity::find()
+        .filter(website_product::Column::Id.eq(id))
+        .filter(website_product::Column::Deleted.eq(0))
+        .one(db)
+        .await?
+        .ok_or_else(|| crate::core::errors::error::Error::from("清单行不存在"))?;
+    // 校验 SKU 归属该产品，并获取每个 SKU 的仓储库存用于钳制
+    let all_skus =
+        crate::modules::product::model::product::ProductModel::find_skus_by_product_id(db, row.product_id).await?;
+    let sku_stock: std::collections::HashMap<i64, i64> = all_skus
+        .iter()
+        .map(|s| (s.id, s.stock.unwrap_or(0) as i64))
+        .collect();
+    let valid: Vec<i64> = all_skus.iter().map(|s| s.id).collect();
+    let mut cleaned: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+    for (sid, qty) in quantities {
+        let Ok(sku_id) = sid.parse::<i64>() else {
+            return Err(crate::core::errors::error::Error::from("SKU 格式非法"));
+        };
+        if !valid.contains(&sku_id) {
+            return Err(crate::core::errors::error::Error::from("包含不属于该产品的 SKU"));
+        }
+        if *qty < 0 {
+            return Err(crate::core::errors::error::Error::from("销售库存不能为负数"));
+        }
+        let stock = sku_stock.get(&sku_id).copied().unwrap_or(0);
+        let clamped = std::cmp::min(*qty as i64, stock) as i32;
+        cleaned.insert(sku_id.to_string(), serde_json::json!(clamped));
+    }
+    let text = if cleaned.is_empty() {
+        String::new()
+    } else {
+        serde_json::Value::Object(cleaned).to_string()
+    };
+    let now = chrono::Local::now().naive_local();
+    website_product::Entity::update_many()
+        .col_expr(website_product::Column::SkuQuantities, Expr::value(text))
+        .col_expr(website_product::Column::UpdateTime, Expr::value(now))
+        .filter(website_product::Column::Id.eq(id))
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
+/// 该产品的 SKU 前台销售库存覆盖（None=未设置，沿用各 SKU 仓储库存）
+pub async fn shelf_sku_quantities(
+    db: &DatabaseConnection,
+    website_id: i64,
+    product_id: i64,
+) -> Result<Option<std::collections::HashMap<i64, i32>>> {
+    let row = website_product::Entity::find()
+        .filter(website_product::Column::WebsiteId.eq(website_id))
+        .filter(website_product::Column::ProductId.eq(product_id))
+        .filter(website_product::Column::Deleted.eq(0))
+        .one(db)
+        .await?;
+    Ok(match row {
+        None => None,
+        Some(r) => match r.sku_quantities.as_deref().and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()) {
+            Some(v) if v.is_object() => {
+                let mut map: std::collections::HashMap<i64, i32> = std::collections::HashMap::new();
+                for (k, val) in v.as_object().unwrap() {
+                    if let (Ok(sku_id), Some(q)) = (k.parse::<i64>(), val.as_i64()) {
+                        map.insert(sku_id, q as i32);
+                    }
+                }
+                if map.is_empty() { None } else { Some(map) }
+            }
+            _ => None,
+        },
+    })
 }
 
 /// 该产品的 SKU 前台零售价覆盖（None=未设置，沿用产品库价格）

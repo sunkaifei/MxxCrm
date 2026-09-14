@@ -36,6 +36,8 @@ const typeOptions = [
   { value: 4, label: '栏目封面' },
   { value: 5, label: '报价页' },
   { value: 6, label: '专题' },
+  { value: 16, label: '模型列表页' },
+  { value: 17, label: '模型详情页' },
 ];
 
 const typeColors: Record<number, string> = {
@@ -45,6 +47,8 @@ const typeColors: Record<number, string> = {
   4: 'purple',
   5: 'orange',
   6: 'red',
+  16: 'geekblue',
+  17: 'volcano',
 };
 
 const templateOptions = ref<{ label: string; value: number }[]>([]);

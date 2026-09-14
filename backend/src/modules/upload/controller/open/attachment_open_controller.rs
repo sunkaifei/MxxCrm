@@ -15,12 +15,57 @@
 //! - 图片 inline 预览，其余 attachment 下载
 //! - NamedFile 流式响应，带 ETag/Last-Modified（浏览器缓存生效）
 
+use std::collections::HashMap;
+
 use actix_files::NamedFile;
 use actix_web::{get, web, HttpRequest, HttpResponse};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::core::kit::global::AppState;
 use crate::modules::upload::entity::attachment::{self, Entity as Attachment};
+
+/// 文件流公共响应：图片 inline 预览，其余 attachment 下载（NamedFile + 缓存头）
+fn serve_public_file(
+    req: &HttpRequest,
+    state: &web::Data<AppState>,
+    att: attachment::Model,
+    not_found: impl Fn() -> HttpResponse,
+) -> HttpResponse {
+    let Some(file_path) = att.path.clone().filter(|p| !p.is_empty()) else {
+        return not_found();
+    };
+    if !std::path::Path::new(&file_path).exists() {
+        return not_found();
+    }
+
+    let mime_type = att
+        .mime_type
+        .clone()
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+    // HeaderValue 拒绝非 ASCII；中文文件名回退 ASCII 兜底名（原始名仍可从 DB 追溯）
+    let ascii_name = format!("file-{}.{}", att.id, att.ext.clone().unwrap_or_default());
+    let disposition = if mime_type.starts_with("image/") {
+        format!("inline; filename=\"{}\"", ascii_name)
+    } else {
+        format!("attachment; filename=\"{}\"", ascii_name)
+    };
+
+    match NamedFile::open(&file_path) {
+        Ok(nf) => {
+            // NamedFile 自带扩展名推断的 Content-Type，此处用 DB 记录的 MIME 覆盖（更准）
+            let mut response = nf.into_response(req);
+            let headers = response.headers_mut();
+            if let Ok(hv) = actix_web::http::header::HeaderValue::from_str(&mime_type) {
+                headers.insert(actix_web::http::header::CONTENT_TYPE, hv);
+            }
+            if let Ok(hv) = actix_web::http::header::HeaderValue::from_str(&disposition) {
+                headers.insert(actix_web::http::header::CONTENT_DISPOSITION, hv);
+            }
+            response
+        }
+        Err(_) => not_found(),
+    }
+}
 
 /// 按附件 ID 读取公开文件（无需登录；scope 已带 /file 前缀，此处为 /{id}）
 #[get("/{id}")]
@@ -31,7 +76,6 @@ pub async fn open_file(
 ) -> HttpResponse {
     let db = &state.db;
     let id = path.into_inner();
-
     let not_found = || HttpResponse::NotFound().finish();
 
     let Ok(Some(att)) = Attachment::find_by_id(id)
@@ -47,48 +91,45 @@ pub async fn open_file(
         return not_found();
     }
 
-    let Some(file_path) = att.path.clone().filter(|p| !p.is_empty()) else {
+    serve_public_file(&req, &state, att, not_found)
+}
+
+/// 按 upload_url 相对路径反查公开文件（存量 `/upload/common/...` 回显场景）。
+/// 与 /{id} 同一 is_public=1 闸门；path 仅作 DB 精确匹配，不参与文件系统路径拼接。
+#[get("/by-path")]
+pub async fn open_file_by_path(
+    req: HttpRequest,
+    state: web::Data<AppState>,
+    query: web::Query<HashMap<String, String>>,
+) -> HttpResponse {
+    let db = &state.db;
+    let not_found = || HttpResponse::NotFound().finish();
+
+    let Some(path) = query
+        .get("path")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    else {
+        return HttpResponse::BadRequest().finish();
+    };
+
+    let Ok(Some(att)) = Attachment::find()
+        .filter(attachment::Column::UploadUrl.eq(path))
+        .filter(attachment::Column::Deleted.eq(0))
+        .one(db)
+        .await
+    else {
         return not_found();
     };
-    if !std::path::Path::new(&file_path).exists() {
+
+    if att.is_public != Some(true) {
         return not_found();
     }
 
-    // 图片 inline 预览，其余 attachment 下载
-    let file_name = att
-        .original_name
-        .clone()
-        .or(att.name.clone())
-        .unwrap_or_else(|| format!("file-{}", id));
-    let mime_type = att
-        .mime_type
-        .clone()
-        .unwrap_or_else(|| "application/octet-stream".to_string());
-    // HeaderValue 拒绝非 ASCII；中文文件名回退 ASCII 兜底名（原始名仍可从 DB 追溯）
-    let ascii_name = format!("file-{}.{}", id, att.ext.clone().unwrap_or_default());
-    let disposition = if mime_type.starts_with("image/") {
-        format!("inline; filename=\"{}\"", ascii_name)
-    } else {
-        format!("attachment; filename=\"{}\"", ascii_name)
-    };
-
-    match NamedFile::open(&file_path) {
-        Ok(nf) => {
-            // NamedFile 自带扩展名推断的 Content-Type，此处用 DB 记录的 MIME 覆盖（更准）
-            let mut response = nf.into_response(&req);
-            let headers = response.headers_mut();
-            if let Ok(hv) = actix_web::http::header::HeaderValue::from_str(&mime_type) {
-                headers.insert(actix_web::http::header::CONTENT_TYPE, hv);
-            }
-            if let Ok(hv) = actix_web::http::header::HeaderValue::from_str(&disposition) {
-                headers.insert(actix_web::http::header::CONTENT_DISPOSITION, hv);
-            }
-            response
-        }
-        Err(_) => not_found(),
-    }
+    serve_public_file(&req, &state, att, not_found)
 }
 
 pub fn register(cfg: &mut web::ServiceConfig) {
-    cfg.service(open_file);
+    // 具体路由先注册：`/by-path` 若放 `/{id}` 之后会被 Path<i64> 截胡成 400
+    cfg.service(open_file_by_path).service(open_file);
 }

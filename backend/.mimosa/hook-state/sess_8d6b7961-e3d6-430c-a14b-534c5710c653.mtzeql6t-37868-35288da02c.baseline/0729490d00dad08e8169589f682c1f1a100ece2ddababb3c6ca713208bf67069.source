@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["SkuModel","SkuVO","SpecModel","SpecVO","SpecValueModel","SpecValueVO","SpuDTO","SpuModel","SpuRequest","SpuVO"]};

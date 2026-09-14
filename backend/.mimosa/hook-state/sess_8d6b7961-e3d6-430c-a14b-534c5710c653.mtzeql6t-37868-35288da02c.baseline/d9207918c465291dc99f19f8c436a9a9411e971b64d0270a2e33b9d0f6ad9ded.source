@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ProductDetailVO","ProductListQuery","ProductListVO","ProductModel","ProductSaveDTO","ProductSaveRequest","ProductUpdateRequest","SkuRequest","SkuVO"]};

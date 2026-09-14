@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete","create","detail","get_current","list","register","toggle","update","update_current"],"struct":["BulkUpsertRequest","ToggleEnabledRequest"]};

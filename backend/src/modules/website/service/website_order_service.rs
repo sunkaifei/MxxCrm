@@ -69,12 +69,13 @@ pub async fn create_order(db: &DbConn, user_id: i64, req: OrderCreateRequest) ->
         if item.quantity <= 0 {
             return Err(Error::from("商品数量必须大于0"));
         }
-        // 库存校验：下单数量不得超过上架清单的生效展示数量（12.6 防超卖）
+        // 库存校验：下单数量不得超过上架清单的生效展示数量（12.6 防超卖；多规格按 SKU 销售库存）
         crate::modules::website::service::website_product_service::check_purchase_quantity(
             db,
             item.product_id,
             item.quantity as i64,
             None,
+            item.sku_id,
         )
         .await?;
     }

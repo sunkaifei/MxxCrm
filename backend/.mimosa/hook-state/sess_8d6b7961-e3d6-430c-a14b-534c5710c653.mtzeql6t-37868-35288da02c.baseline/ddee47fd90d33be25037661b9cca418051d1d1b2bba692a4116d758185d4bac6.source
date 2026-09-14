@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["MENU_TYPE_BUTTON","MENU_TYPE_FOLDER","MENU_TYPE_LINK","MENU_TYPE_MENU"],"enum":["MenuEnum"],"fn":["convert_to_dto"],"struct":["ListMeta","ListQuery","MenuAdminVO","MenuDetailVO","MenuMetaRequest","MenuModel","MenuOptionsVO","MenuSaveDTO","MenuSaveRequest","Meta","PageWhere","Router"],"type":["MenuUpdateRequest"]};

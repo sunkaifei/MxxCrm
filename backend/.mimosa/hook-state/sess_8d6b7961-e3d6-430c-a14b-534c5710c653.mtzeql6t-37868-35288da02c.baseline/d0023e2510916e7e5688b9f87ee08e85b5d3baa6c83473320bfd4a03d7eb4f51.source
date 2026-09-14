@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ApprovalLogVO","ApprovalNodeVO","CreatePlanRequest","ModifyPlanRequest","MonthlyTargetInput","MonthlyTargetVO","PlanDetailVO","PlanListVO","PlanModifyDetailVO","PlanProgressSummaryVO","PlanQuery","ProgressItemVO","ReviewPlanRequest","SubmitPlanRequest","UpdatePlanTargetsRequest"]};

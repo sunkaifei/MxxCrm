@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["bath_delete_role","get_by_detail","get_role_dept_list_by_role_id","get_role_menu_list_by_role_id","register","role_insert","role_list","role_options","update_role","update_role_depts","update_role_menus"]};

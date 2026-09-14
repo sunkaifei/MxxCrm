@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["create_spu","get_skus_by_spu_id","get_specs_by_spu_id","get_spu_by_id","get_spu_page","update_spu_status"]};

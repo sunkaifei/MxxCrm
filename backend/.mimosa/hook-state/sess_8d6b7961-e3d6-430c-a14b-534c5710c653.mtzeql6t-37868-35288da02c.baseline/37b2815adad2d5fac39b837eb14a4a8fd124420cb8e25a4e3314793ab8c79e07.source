@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ArticleFieldListQuery","ArticleFieldModel","ArticleFieldSaveDTO","ArticleFieldVO","ArticleFieldValueBatchDTO","ArticleFieldValueDTO","ArticleFieldValueModel","ArticleFieldValueVO"]};

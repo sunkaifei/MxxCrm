@@ -133,17 +133,45 @@
   }
 
   function productPayload(el, productId) {
-    return {
+    var payload = {
       product_id: productId,
       product_name: el ? (el.getAttribute('data-name') || '') : '',
       product_image: '',
       price: parseFloat(el ? (el.getAttribute('data-price') || '0') : '0') || 0,
       quantity: 1,
     };
+    // 多规格：附带所选 SKU（库存/价格按规格维度，无全局库存）
+    var sel = currentSku(productId);
+    if (sel && sel.skuId) {
+      payload.sku_id = Number(sel.skuId);
+      if (sel.skuCode) { payload.sku_code = sel.skuCode; }
+      if (sel.label) { payload.sku_specs = sel.label; }
+      if (sel.imageUrl) { payload.product_image = sel.imageUrl; }
+      if (sel.price !== undefined && sel.price !== null && sel.price !== '') {
+        payload.price = Number(sel.price) || 0;
+      }
+    }
+    return payload;
+  }
+
+  /* 当前所选规格（由规格选择模块写入 window.cmsSkuSelection[productId]） */
+  function currentSku(productId) {
+    return (window.cmsSkuSelection && window.cmsSkuSelection[productId]) || null;
+  }
+
+  /* 可购买校验：有规格的产品必须先选到有货规格，否则不可加购/购买 */
+  function skuPurchasable(productId) {
+    var data = window.cmsSkuData && window.cmsSkuData[productId];
+    if (!data || !data.skus || data.skus.length === 0) { return true; }
+    var sel = currentSku(productId);
+    if (!sel || !sel.skuId) { alert('请选择完整规格'); return false; }
+    if (Number(sel.stock) <= 0) { alert('该规格暂时缺货，请选择其他规格'); return false; }
+    return true;
   }
 
   window.cmsAddCart = function (productId) {
     if (!ensureLogin()) { return; }
+    if (!skuPurchasable(productId)) { return; }
     var el = findButton(document.querySelector('.cms-cart-button[data-product-id="' + productId + '"]'));
     postJSON(CART_ADD_URL, productPayload(el, productId), true)
       .then(function (res) {
@@ -168,6 +196,7 @@
 
   window.cmsBuyNow = function (productId) {
     if (!ensureLogin()) { return; }
+    if (!skuPurchasable(productId)) { return; }
     var el = findButton(document.querySelector('.cms-cart-button[data-product-id="' + productId + '"]'));
     postJSON(CART_ADD_URL, productPayload(el, productId), true)
       .then(function (res) {
@@ -314,4 +343,148 @@
   } else {
     cmsNavHighlight();
   }
+})();
+
+/* ============================================================
+ * 产品详情规格选择（淘宝式）
+ * 数据来自模板内联 <script type="application/json" id="cms-sku-data">：
+ *   { specs: [{ name, values: [{ value }] }],
+ *     skus:  [{ id, skuCode, label, specs: {规格名:值}, price, stock, imageUrl }] }
+ * 行为：无全局库存——库存/价格随所选规格显示；
+ *       会导致无货的规格值置灰不可选；缺货规格不可加入购物车/立即购买。
+ * 输出：window.cmsSkuData[productId] / window.cmsSkuSelection[productId]（供加购取 sku_id）
+ * ============================================================ */
+(function () {
+  'use strict';
+
+  var dataEl = document.getElementById('cms-sku-data');
+  var picker = document.getElementById('cms-spec-picker');
+  if (!dataEl || !picker) { return; }
+
+  var payload;
+  try { payload = JSON.parse(dataEl.textContent || '{}'); } catch (e) { return; }
+  var specs = (payload && payload.specs) || [];
+  var skus = (payload && payload.skus) || [];
+  if (!specs.length || !skus.length) { return; }
+
+  var productId = picker.getAttribute('data-product-id') || '';
+  var buttons = Array.prototype.slice.call(picker.querySelectorAll('.cms-spec-value'));
+  var names = specs.map(function (g) { return g.name; });
+  var selected = {};
+
+  window.cmsSkuData = window.cmsSkuData || {};
+  window.cmsSkuData[productId] = payload;
+  window.cmsSkuSelection = window.cmsSkuSelection || {};
+
+  function specOf(sku, name) {
+    var sp = sku.specs;
+    if (!sp || typeof sp !== 'object') { return ''; }
+    var v = sp[name];
+    return (v === undefined || v === null) ? '' : String(v);
+  }
+
+  // 选完所有规格时定位 SKU；未选完返回 undefined；组合不存在返回 null
+  function matchSku() {
+    for (var i = 0; i < names.length; i++) {
+      if (!selected[names[i]]) { return undefined; }
+    }
+    return skus.filter(function (s) {
+      return names.every(function (n) { return specOf(s, n) === selected[n]; });
+    })[0] || null;
+  }
+
+  // 在当前已选条件下，选该值是否还能落到有货 SKU
+  function valueAvailable(name, value) {
+    return skus.some(function (s) {
+      if (specOf(s, name) !== value || Number(s.stock) <= 0) { return false; }
+      return names.every(function (n) {
+        return n === name || !selected[n] || specOf(s, n) === selected[n];
+      });
+    });
+  }
+
+  function formatPrice(v) {
+    var n = Number(v) || 0;
+    var neg = n < 0;
+    n = Math.abs(n);
+    var intPart = Math.floor(n);
+    var frac = Math.round((n - intPart) * 100);
+    if (frac === 100) { frac = 0; intPart += 1; }
+    var grouped = String(intPart).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return '¥' + (neg ? '-' : '') + grouped + '.' + (frac < 10 ? '0' + frac : String(frac));
+  }
+
+  function setButtons(disabled) {
+    var box = document.querySelector('.cms-cart-button[data-product-id="' + productId + '"]');
+    if (!box) { return; }
+    var btns = box.querySelectorAll('.cms-btn-cart, .cms-btn-buy');
+    Array.prototype.forEach.call(btns, function (b) {
+      b.disabled = disabled;
+      b.classList.toggle('disabled', disabled);
+    });
+  }
+
+  function render() {
+    buttons.forEach(function (b) {
+      var name = b.getAttribute('data-spec-name');
+      var value = b.getAttribute('data-spec-value');
+      var isSelected = selected[name] === value;
+      b.classList.toggle('active', isSelected);
+      var off = !valueAvailable(name, value) && !isSelected;
+      b.disabled = off;
+      b.classList.toggle('disabled', off);
+    });
+
+    var priceEl = document.getElementById('cms-sku-price');
+    var stockEl = document.getElementById('cms-sku-stock');
+    var sku = matchSku();
+
+    if (sku === undefined) {
+      window.cmsSkuSelection[productId] = null;
+      if (priceEl) { priceEl.textContent = '价格请选择规格'; }
+      if (stockEl) { stockEl.textContent = '请选择规格'; stockEl.className = 'text-muted'; }
+      setButtons(true);
+      return;
+    }
+    if (sku === null) {
+      window.cmsSkuSelection[productId] = null;
+      if (priceEl) { priceEl.textContent = '该规格组合不存在'; }
+      if (stockEl) { stockEl.textContent = '该规格组合不存在'; stockEl.className = 'text-danger'; }
+      setButtons(true);
+      return;
+    }
+
+    var stock = Number(sku.stock) || 0;
+    if (priceEl && sku.price !== undefined && sku.price !== null && sku.price !== '') {
+      priceEl.textContent = formatPrice(sku.price);
+    }
+    if (stockEl) {
+      stockEl.textContent = stock > 0 ? ('库存 ' + stock + ' 件') : '该规格暂时缺货';
+      stockEl.className = stock > 0 ? 'text-success' : 'text-danger';
+    }
+    window.cmsSkuSelection[productId] = {
+      skuId: sku.id,
+      skuCode: sku.skuCode,
+      label: sku.label,
+      price: sku.price,
+      stock: stock,
+      imageUrl: sku.imageUrl,
+    };
+    var box = document.querySelector('.cms-cart-button[data-product-id="' + productId + '"]');
+    if (box && sku.price !== undefined && sku.price !== null && sku.price !== '') {
+      box.setAttribute('data-price', String(Number(sku.price) || 0));
+    }
+    setButtons(stock <= 0);
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var name = b.getAttribute('data-spec-name');
+      var value = b.getAttribute('data-spec-value');
+      if (selected[name] === value) { delete selected[name]; } else { selected[name] = value; }
+      render();
+    });
+  });
+
+  render();
 })();

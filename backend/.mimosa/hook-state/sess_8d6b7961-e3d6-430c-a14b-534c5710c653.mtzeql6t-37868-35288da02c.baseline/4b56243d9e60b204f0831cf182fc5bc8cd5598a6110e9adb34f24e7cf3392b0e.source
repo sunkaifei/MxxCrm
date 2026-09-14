@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["create_order","generate_order_no","get_order_by_id","get_order_page","get_user_orders","pay_order","update_order_status"]};

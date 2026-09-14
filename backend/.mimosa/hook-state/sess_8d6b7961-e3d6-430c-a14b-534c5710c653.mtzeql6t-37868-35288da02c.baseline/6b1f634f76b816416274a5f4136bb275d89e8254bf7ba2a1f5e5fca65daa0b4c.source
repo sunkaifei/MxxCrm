@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_MODE","MODE_BOTH","MODE_SIMPLE","MODE_STANDARD","SALES_FLOW_CONFIG_KEY","VALID_MODES"],"fn":["allows_standard_flow","can_skip_quotation","get_mode","is_quotation_required","set_mode"]};

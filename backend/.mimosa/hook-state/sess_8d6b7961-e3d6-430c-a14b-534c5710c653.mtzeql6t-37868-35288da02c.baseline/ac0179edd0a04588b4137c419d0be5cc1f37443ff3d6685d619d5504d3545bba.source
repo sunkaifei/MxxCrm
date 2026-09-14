@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["get_customer_funnel","get_customer_industry_stats","get_customer_source_stats","get_customer_type_stats"]};

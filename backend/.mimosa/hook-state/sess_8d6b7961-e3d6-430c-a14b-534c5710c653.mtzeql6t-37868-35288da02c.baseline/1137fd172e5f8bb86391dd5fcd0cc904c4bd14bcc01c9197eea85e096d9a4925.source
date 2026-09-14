@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["collect_all","collect_html","collect_rss","collect_single_rule","extract_tag","fetch_url","is_duplicate","load_rules","parse_rss_xml","save_article"],"struct":["CollectRule","CollectedItem"]};

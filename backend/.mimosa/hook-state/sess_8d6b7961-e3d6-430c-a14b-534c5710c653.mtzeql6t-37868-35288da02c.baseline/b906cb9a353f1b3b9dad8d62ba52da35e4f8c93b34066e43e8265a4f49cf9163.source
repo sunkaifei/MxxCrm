@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["invoice","order","order_item","payment","payment_application","quotation","quotation_approval","quotation_item","refund","refund_item","refund_payment","shipment","shipment_item"]};

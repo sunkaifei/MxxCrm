@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["TodaySummaryVO","TodoTypeSummary","WeekWorkloadVO","WorkLogCreateDTO","WorkLogVO"]};

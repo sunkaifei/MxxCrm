@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete","batch_delete_data","get_dict_data_detail","get_dict_data_list","get_dict_data_list_by_code","get_dict_detail","get_dict_page","register","save_dict","save_dict_data","update_dict","update_dict_data"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["add_job_to_scheduler","execute_handler_by_code","init_registry","parse_year_month_from_params","reload_scheduler","send_job_failure_alert","start_scheduler","start_scheduler_inner"],"static":["SCHEDULER_HANDLE","SCHEDULER_REGISTRY"],"struct":["SchedulerRegistry"],"type":["HandlerFn"]};

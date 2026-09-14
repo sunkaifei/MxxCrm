@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["SessionStoreType"],"fn":["ensure_session_table","get_session_store"],"struct":["DbSessionStore","RedisSessionStore"]};

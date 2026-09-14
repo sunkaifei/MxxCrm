@@ -90,6 +90,12 @@ pub async fn get_by_options(state: web::Data<AppState>) -> Result<HttpResponse> 
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
+/// GET /template/tags - 模板标签元数据（供页面编辑器文档面板与标签文档）
+pub async fn get_tags() -> Result<HttpResponse> {
+    let tags = crate::modules::website::model::template_tag::get_all_template_tags();
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(tags, "local")))
+}
+
 pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     template_service::get_by_page(&db, query.into_inner()).await.map(|page_data| {
@@ -136,6 +142,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             )
             // GET /template/common_options - 模板下拉
             .route("/common_options", web::get().to(get_by_options))
+            // GET /template/tags - 模板标签元数据（页面编辑器文档面板）
+            .route("/tags", web::get().to(get_tags))
             // GET /template/list - 模板列表
             .route(
                 "/list",
@@ -194,6 +202,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                         web::get()
                             .to(crate::modules::website::controller::admin::template_data_admin_controller::list_by_template)
                             .wrap(require_permission("template:data:list")),
+                    )
+                    // POST /template/data/copy/{id} - 复制页面（生成副本，默认禁用）
+                    .route(
+                        "/copy/{id}",
+                        web::post()
+                            .to(crate::modules::website::controller::admin::template_data_admin_controller::copy)
+                            .wrap(require_permission("template:data:add")),
                     )
                     // GET /template/data/export/{template_id} - 导出模板方案
                     .route(

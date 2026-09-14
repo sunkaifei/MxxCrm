@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["get_monthly_performance","get_performance_ranking","get_targets","save_targets"]};

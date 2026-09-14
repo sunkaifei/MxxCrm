@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["audit_apply","get_apply_by_id","get_apply_by_user","get_apply_page","submit_apply"]};

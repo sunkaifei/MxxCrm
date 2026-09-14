@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["delete","delete_by_shop_id","delete_by_user_id","exists","find_admin_user_ids_by_shop_id","find_by_shop_and_user","find_shop_ids_by_user_id","find_user_ids_by_shop_id","insert","is_admin","update_admin_status"]};

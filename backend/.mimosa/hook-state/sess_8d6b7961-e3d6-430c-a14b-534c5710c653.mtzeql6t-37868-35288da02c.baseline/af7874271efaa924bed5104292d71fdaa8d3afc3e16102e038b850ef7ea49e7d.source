@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["collect_child_dept_ids","get_accessible_user_ids","get_accessible_user_ids_by_scope","resolve_dept_scope_users"]};

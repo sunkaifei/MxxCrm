@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["all_category_tree","all_list_arr_to_tree","category_arr_to_tree","find_by_id","find_by_name_unique","find_short_url_unique","save_category","select_all_list","update_by_id"]};

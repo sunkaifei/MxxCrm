@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["get_template","get_template_a","get_template_a_with_cms","get_template_with_cms","html_escape","pagination_function","register_cms_functions","render_template","time_ago_function","truncate_filter"],"struct":["PaginationData"]};

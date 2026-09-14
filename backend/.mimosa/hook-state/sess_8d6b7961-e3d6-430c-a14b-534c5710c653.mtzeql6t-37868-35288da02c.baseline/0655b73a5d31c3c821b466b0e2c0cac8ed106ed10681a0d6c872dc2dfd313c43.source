@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["bath_delete_contact","contact_bind","contact_check","contact_info","contact_insert","contact_list","contact_set_role","contact_unbind","contact_update","register"]};

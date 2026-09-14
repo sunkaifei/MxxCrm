@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CareerHistoryItem","ContactBindRequest","ContactCheckRequest","ContactCheckResult","ContactCompanyInfo","ContactDetailVO","ContactListQuery","ContactListVO","ContactModel","ContactSaveDTO","ContactSaveRequest","ContactSetRoleRequest","ContactUnbindRequest","ContactUpdateRequest","CustomerContactVO"]};

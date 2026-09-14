@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["get_by_page","save_log","save_log_with_ip","save_system_log"],"struct":["SaveLogContext"]};

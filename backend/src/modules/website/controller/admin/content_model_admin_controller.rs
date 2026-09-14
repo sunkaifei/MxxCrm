@@ -61,6 +61,13 @@ pub async fn get_by_detail(state: web::Data<AppState>, item: web::Path<InfoId>) 
     Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(result, "local")))
 }
 
+/// 复制内容模型（12-E）：复制模型定义 + 全部字段定义，新编码 = 原编码_copy
+pub async fn copy_by_id(state: web::Data<AppState>, item: web::Path<i64>) -> Result<HttpResponse> {
+    let db = &state.db;
+    let new_id = content_model_service::copy_model(&db, item.into_inner()).await?;
+    Ok(HttpResponse::Ok().content_type(MPACK).body(MetaResp::success(new_id, "local")))
+}
+
 pub async fn get_by_page(state: web::Data<AppState>, query: web::Query<ListQuery>) -> Result<HttpResponse> {
     let db = &state.db;
     let result = content_model_service::get_by_page(&db, query.into_inner()).await?;
@@ -96,6 +103,13 @@ pub fn register(cfg: &mut web::ServiceConfig) {
                 web::put()
                     .to(update_by_id)
                     .wrap(require_permission("content:model:update")),
+            )
+            // POST /content/model/copy/{id} - 复制内容模型（含字段定义，12-E）
+            .route(
+                "/copy/{id}",
+                web::post()
+                    .to(copy_by_id)
+                    .wrap(require_permission("content:model:add")),
             )
             // GET /content/model/detail/{id} - 内容模型详情
             .route(

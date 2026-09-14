@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["website_cart_user_controller","website_order_user_controller","website_refund_user_controller","website_user_user_controller"]};

@@ -227,6 +227,16 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
+    // 初始化网站展示产品 SKU 销售库存列（mxx_website_product.sku_quantities）
+    match crate::modules::website::migration::init_website_product_sku_quantities(&conn).await {
+        Ok(_) => {
+            log::info!("[网站产品] 数据库结构迁移完成");
+        }
+        Err(e) => {
+            log::error!("[网站产品] 数据库结构迁移失败: {:?}", e);
+        }
+    }
+
     // 初始化 DB session 表（mem 缓存模式重启后降级验证用，防止重启丢登录态）
     crate::modules::system::service::session_service::ensure_session_table(&conn).await;
 

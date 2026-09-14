@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["delete_account","get_accounts","get_info","save_account","update_info"]};

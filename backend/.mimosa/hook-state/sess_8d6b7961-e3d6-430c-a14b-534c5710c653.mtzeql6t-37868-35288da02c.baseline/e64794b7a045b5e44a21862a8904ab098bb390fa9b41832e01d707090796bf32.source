@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["access_record_service","contract_stats_service","customer_stats_service","employee_stats_service","payment_stats_service","performance_overview_service","performance_plan_service","performance_target_service","source_service"]};

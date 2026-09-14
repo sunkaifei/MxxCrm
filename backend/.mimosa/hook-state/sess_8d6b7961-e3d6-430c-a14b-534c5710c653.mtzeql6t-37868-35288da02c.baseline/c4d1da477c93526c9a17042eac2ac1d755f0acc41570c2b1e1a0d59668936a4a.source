@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["get_contract_ranking","get_contract_status_analysis","get_contract_type_distribution"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["FIELD_LABELS"],"fn":["get_field_label"],"struct":["ContactEditLogQuery","ContactEditLogVO","EditLogItem"]};

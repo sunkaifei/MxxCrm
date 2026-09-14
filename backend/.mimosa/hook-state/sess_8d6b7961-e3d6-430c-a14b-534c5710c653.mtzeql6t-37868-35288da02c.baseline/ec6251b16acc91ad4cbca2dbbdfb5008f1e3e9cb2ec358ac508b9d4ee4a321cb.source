@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ChatServiceError"],"fn":["push_message_via_websocket","push_read_receipt_via_websocket"],"struct":["ChatService"]};

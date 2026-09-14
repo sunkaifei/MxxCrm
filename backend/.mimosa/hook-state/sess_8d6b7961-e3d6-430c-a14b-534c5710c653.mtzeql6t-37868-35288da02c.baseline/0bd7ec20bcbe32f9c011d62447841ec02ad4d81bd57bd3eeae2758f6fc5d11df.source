@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["assign_history_service","contact_edit_log_service","contact_service","contract_commission_service","contract_payment_plan_service","contract_service","customer_edit_log_service","customer_service","customer_transfer_service","followup_service","lead_service","lead_transfer_service","opportunity_service","todo_service","work_log_service"]};

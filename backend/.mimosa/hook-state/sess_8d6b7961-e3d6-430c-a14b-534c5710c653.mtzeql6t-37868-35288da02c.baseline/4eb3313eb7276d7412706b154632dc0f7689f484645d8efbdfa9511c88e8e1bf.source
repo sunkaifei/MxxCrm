@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["employee_config_list","employee_config_upsert","policy_delete","policy_list","policy_upsert","register"],"struct":["EmployeeConfigQuery","PolicyListQuery"]};

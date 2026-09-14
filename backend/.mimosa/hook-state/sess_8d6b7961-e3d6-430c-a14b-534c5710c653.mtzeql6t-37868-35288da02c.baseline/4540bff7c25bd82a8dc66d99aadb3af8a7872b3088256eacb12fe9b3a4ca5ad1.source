@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["BUSINESS_TYPE_DELETE","BUSINESS_TYPE_INSERT","BUSINESS_TYPE_OTHER","BUSINESS_TYPE_UPDATE"],"fn":["_assert_box_body","business_type_from_method_and_path","extract_user_from_request","is_excluded_path","title_from_path"],"struct":["OperationLog","OperationLogMiddleware"]};

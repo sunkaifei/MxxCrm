@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["bath_delete_payment","payment_application_cancel","payment_application_list","payment_apply","payment_approval_detail","payment_approval_reject","payment_approve","payment_confirm","payment_info","payment_insert","payment_list","payment_reject","payment_submit","payment_unapplied","payment_update","register"]};

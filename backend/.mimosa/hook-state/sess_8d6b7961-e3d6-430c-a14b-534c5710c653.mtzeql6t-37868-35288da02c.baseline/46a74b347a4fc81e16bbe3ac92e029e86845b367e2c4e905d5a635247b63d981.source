@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete","get_detail","get_region_tree","register","save_region","update_by_id"]};

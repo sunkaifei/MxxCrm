@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["batch_delete_by_ids","find_by_key_unique","find_by_name_unique","get_by_detail","get_by_page","insert","select_by_key","update_by_id"]};
