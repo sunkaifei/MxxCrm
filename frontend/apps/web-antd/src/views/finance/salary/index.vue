@@ -39,6 +39,7 @@ import {
   approveSalaryApi,
   batchApproveSalaryApi,
   batchPaySalaryApi,
+  batchRevertSalaryApi,
   calculateSalaryApi,
   confirmSalaryApi,
   deleteSalaryConfigApi,
@@ -719,6 +720,45 @@ async function handleBatchPay() {
   }
 }
 
+// 批量返审批：勾选了已审核/已发放记录则按勾选回退，否则整月回退（重算前置）
+const reverting = ref(false);
+function handleBatchRevert() {
+  const records = gridApi.grid.getCheckboxRecords();
+  const revertible = records.filter(
+    (r: any) => (r.status === 1 || r.status === 2) && r.id,
+  );
+  const ids = revertible.map((r: any) => r.id);
+  const bySelection = ids.length > 0;
+  Modal.confirm({
+    title: $t('page.finance.salary.button.batchRevert'),
+    content: bySelection
+      ? $t('page.finance.salary.message.revertConfirmSelected', {
+          count: ids.length,
+        })
+      : $t('page.finance.salary.message.revertConfirmWholeMonth', {
+          year: summaryYear.value,
+          month: summaryMonth.value,
+        }),
+    onOk: async () => {
+      reverting.value = true;
+      try {
+        await batchRevertSalaryApi(
+          bySelection ? { ids } : { year: summaryYear.value, month: summaryMonth.value },
+        );
+        message.success($t('page.finance.salary.message.revertSuccess'));
+        gridApi.query();
+        loadSummary();
+      } catch (error: any) {
+        message.error(
+          error?.message || $t('page.finance.salary.message.revertFailed'),
+        );
+      } finally {
+        reverting.value = false;
+      }
+    },
+  });
+}
+
 // 底薪配置表格列
 const configColumns = computed(() => [
   {
@@ -1342,6 +1382,20 @@ onMounted(() => {
           </template>
           {{ $t('page.finance.salary.button.batchPay') }}
         </Button>
+        <Tooltip :title="$t('page.finance.salary.tooltip.batchRevert')">
+          <Button
+            v-if="isFullScope || isManagerScope"
+            class="mr-2"
+            :loading="reverting"
+            danger
+            @click="handleBatchRevert"
+          >
+            <template #icon>
+              <IconifyIcon icon="lucide:undo-2" />
+            </template>
+            {{ $t('page.finance.salary.button.batchRevert') }}
+          </Button>
+        </Tooltip>
         <Button
           v-if="showFinanceButtons"
           class="mr-2"

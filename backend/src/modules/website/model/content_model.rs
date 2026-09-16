@@ -48,6 +48,8 @@ pub struct ContentModelSaveRequest {
     // 详情模板ID
     #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub detail_template_id: Option<i64>,
+    // 内容表单布局（JSON：列数/选项卡/字段摆放）
+    pub form_layout: Option<String>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -72,6 +74,7 @@ impl From<ContentModelSaveRequest> for ContentModelSaveDTO {
             has_attachment: form_data.has_attachment,
             list_template_id: form_data.list_template_id,
             detail_template_id: form_data.detail_template_id,
+            form_layout: form_data.form_layout,
             sort: form_data.sort,
             status: form_data.status,
             create_time: None,
@@ -117,6 +120,8 @@ pub struct ContentModelUpdateRequest {
     // 详情模板ID
     #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub detail_template_id: Option<i64>,
+    // 内容表单布局（JSON：列数/选项卡/字段摆放）
+    pub form_layout: Option<String>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -141,6 +146,7 @@ impl From<ContentModelUpdateRequest> for ContentModelSaveDTO {
             has_attachment: form_data.has_attachment,
             list_template_id: form_data.list_template_id,
             detail_template_id: form_data.detail_template_id,
+            form_layout: form_data.form_layout,
             sort: form_data.sort,
             status: form_data.status,
             create_time: None,
@@ -181,6 +187,8 @@ pub struct ContentModelSaveDTO {
     pub list_template_id: Option<i64>,
     // 详情模板ID
     pub detail_template_id: Option<i64>,
+    // 内容表单布局（JSON：列数/选项卡/字段摆放）
+    pub form_layout: Option<String>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -228,6 +236,8 @@ pub struct ContentModelListVO {
     // 详情模板ID
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub detail_template_id: Option<i64>,
+    // 内容表单布局（JSON：列数/选项卡/字段摆放）
+    pub form_layout: Option<String>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -258,6 +268,7 @@ impl From<content_model::Model> for ContentModelListVO {
             has_attachment: model.has_attachment,
             list_template_id: model.list_template_id,
             detail_template_id: model.detail_template_id,
+            form_layout: model.form_layout,
             sort: model.sort,
             status: model.status,
             is_system: model.is_system,
@@ -304,6 +315,8 @@ pub struct ContentModelDetailVO {
     // 详情模板ID
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub detail_template_id: Option<i64>,
+    // 内容表单布局（JSON：列数/选项卡/字段摆放）
+    pub form_layout: Option<String>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -334,6 +347,7 @@ impl From<content_model::Model> for ContentModelDetailVO {
             has_attachment: model.has_attachment,
             list_template_id: model.list_template_id,
             detail_template_id: model.detail_template_id,
+            form_layout: model.form_layout,
             sort: model.sort,
             status: model.status,
             is_system: model.is_system,
@@ -400,6 +414,7 @@ impl ContentModelModel {
             has_attachment: Set(dto.has_attachment.to_owned()),
             list_template_id: Set(dto.list_template_id.to_owned()),
             detail_template_id: Set(dto.detail_template_id.to_owned()),
+            form_layout: Set(dto.form_layout.to_owned()),
             sort: Set(dto.sort.to_owned()),
             status: Set(dto.status.to_owned()),
             is_system: Set(Some(0)),
@@ -442,6 +457,7 @@ impl ContentModelModel {
             has_attachment: Set(dto.has_attachment.to_owned()),
             list_template_id: Set(dto.list_template_id.to_owned()),
             detail_template_id: Set(dto.detail_template_id.to_owned()),
+            form_layout: Set(dto.form_layout.to_owned()),
             sort: Set(dto.sort.to_owned()),
             status: Set(dto.status.to_owned()),
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),

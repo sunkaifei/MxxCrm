@@ -1,0 +1,1 @@
+import{D as e,Y as t,b as n,dt as r,jt as i,k as a,t as o}from"./vue.runtime.esm-bundler-Ca66Aw3b.js";import{t as s}from"./page-Dch3RzRS.js";import{t as c}from"./CommissionPoolPanel-D0jtg4_R.js";o();var l=a({__name:`index`,setup(a){return(a,o)=>(t(),n(i(s),{"auto-content-height":``},{default:r(()=>[e(c)]),_:1}))}});export{l as default};

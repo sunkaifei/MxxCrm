@@ -1,0 +1,1 @@
+import{r as e}from"./chunk-DhT1o15P.js";import{S as t,Y as n,t as r}from"./vue.runtime.esm-bundler-Ca66Aw3b.js";import{t as i}from"./_plugin-vue_export-helper-CGCKg3fL.js";r();var a={};function o(e,r){return n(),t(`div`)}var s=i(a,[[`render`,o]]),c=e({IFrameView:()=>s});export{c as t};

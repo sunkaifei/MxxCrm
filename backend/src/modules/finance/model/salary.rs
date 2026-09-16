@@ -274,6 +274,18 @@ pub struct SalaryBatchDTO {
     pub updated_by: Option<i64>,
 }
 
+/// 批量返审批（回退待审核）请求：优先按 ids；ids 为空时按 year+month 整月回退
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SalaryBatchRevertDTO {
+    pub ids: Option<Vec<i64>>,
+    pub year: Option<i32>,
+    pub month: Option<i32>,
+    /// 返审批原因，缺省自动生成
+    pub reason: Option<String>,
+    pub updated_by: Option<i64>,
+}
+
 // ===== P2-2: 工资历史趋势分析 =====
 
 /// 趋势分析查询参数

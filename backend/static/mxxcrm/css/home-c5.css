@@ -1,0 +1,12 @@
+
+/* v71: 验证码字段强制显示（原站由远程表单配置控制） */
+.reg-form-scope .reg-code-field{display:block !important;}
+
+
+
+/* v73: 移动端弃用远程 iframe 表单，直接显示页内表单 div */
+#marketingFrame{display:none !important;}
+.login-right .sem-reg-form-pc{display:block !important;}
+@media(max-width:768px){
+  .login-right{padding:0 15px 30px !important; box-sizing:border-box;}
+}

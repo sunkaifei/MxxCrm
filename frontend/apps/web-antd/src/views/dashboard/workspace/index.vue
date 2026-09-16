@@ -16,7 +16,7 @@ import { Button, Empty, message, Popover, Select } from 'ant-design-vue';
 import {
   getCustomerListApi,
   getMenusRouterApi,
-  getMyProfileApi,
+  getMyAuditApi,
   getOpportunityListApi,
   getQuickNavPreferenceApi,
   getSaleSimpleModeApi,
@@ -64,15 +64,22 @@ const {
   workspacesLoaded,
   loadWorkspaces,
   switchWorkspace,
+  cardConfigOf,
+  workspaceTimeRange,
+  setWorkspaceTimeRange,
 } = useWorkspaceCards();
 const { isSuperAdmin } = useSuperAdminGuard();
 
 // 入职审批状态（audit_status=1 已通过 → 引导卡消失；NULL/0 → 显示，覆盖 HR 建号未审批）
+//
+// 数据源必须是 GET /profile/audit/my（my_audit，返回 auditStatus）；
+// GET /profile/my 只返回脱敏聚合档案、不含审核字段，取它会导致 myAuditStatus 恒为 null，
+// 引导卡在审批通过后仍不消失。
 const myAuditStatus = ref<null | number>(null);
 async function loadMyAuditStatus() {
   try {
-    const res: any = await getMyProfileApi();
-    const p = res?.data ?? res ?? {};
+    const res: any = await getMyAuditApi();
+    const p = res?.data?.data ?? res?.data ?? res ?? {};
     myAuditStatus.value = p.auditStatus ?? p.audit_status ?? null;
   } catch {
     myAuditStatus.value = null;
@@ -102,6 +109,28 @@ const showEmptyTip = computed(
     visibleCodes.value.length === 0,
 );
 
+// 空态提示（方案 v2.1 P0-3）：当前工作台无任何可渲染卡片
+//
+// 与上一个空态的区别：
+//   showEmptyTip    → "你没有任何可见卡片"（全局性，注册卡全不可见）
+//   showWorkspaceEmpty → "你在这个工作台没有卡片"（局部性，如 sales 工作台未配卡）
+// 优先级：全不可见空态 > 单工作台空态（同时满足时只显示全局那条，避免两条空态叠加）
+const showWorkspaceEmpty = computed(
+  () =>
+    cardsLoaded.value &&
+    cardModeEnabled.value &&
+    !showEmptyTip.value &&
+    visibleCodes.value !== null &&
+    visibleCodes.value.length > 0 &&
+    gridDomItems.value.length === 0,
+);
+
+// 当前工作台名（空态文案用；workspaceList 元素为 {label, value}）
+const currentWorkspaceName = computed(() => {
+  const hit = workspaceList.value.find((w) => w.value === pageKey.value);
+  return hit?.label || $t('page.dashboard.workspaceCurrent');
+});
+
 // 引导卡"查看待办总览"：定位工作台待办概览卡（ref 定位，卡片被隐藏时回退审批待办页）
 function handleViewTodos() {
   if (showOverviewCard.value && hasCard(WORKSPACE_CARD_CODES.todoOverview)) {
@@ -116,6 +145,18 @@ function handleViewTodos() {
 // 空态提示"去配置"：跳转工作台设计器（超管入口）
 function goConfigure() {
   router.push('/system/dashboard-designer').catch(() => {});
+}
+// 空工作台空态（方案 v2.1 P0-3）
+// "去卡片管理"：跳卡片配置中心，用于给该工作台挂卡片
+function goCardManage() {
+  router.push('/system/dashboard-card').catch(() => {});
+}
+// "切换到常用工作台"：普通用户无配置权，只能引导去有卡的工作台
+function goDefaultWorkspace() {
+  const target = workspaceList.value.find((w) => w.value === 'default');
+  if (!target?.value) return;
+  // 复用既有切换逻辑（含 localStorage 记忆）
+  switchWorkspace(target.value);
 }
 // 待办概览卡可见 tab（按权限过滤）
 const visibleOverviewTabs = computed(() =>
@@ -504,6 +545,11 @@ interface SaveLayoutPayload {
 
 const layoutItems = ref<CanvasLayoutItem[]>([]);
 const canvasReady = ref(false);
+// 布局编辑态：默认锁定（staticGrid），点击「自定义布局」进入编辑态才可拖拽/缩放，
+// 避免浏览页面时鼠标误触拖乱卡片
+const canvasEditing = ref(false);
+// 移动端（窄屏）画布：单列 list 堆叠浏览，禁用编辑与保存，避免单列坐标污染桌面布局
+const isMobileCanvas = ref(false);
 const canvasContainer = ref<HTMLElement>();
 let gridStack: any = null;
 let rebuildingGrid = false;
@@ -561,6 +607,13 @@ function cardTitle(code: string): string {
 function cardProps(code: string): Record<string, any> {
   if (code === WORKSPACE_CARD_CODES.todoOverview) {
     return { visibleTabs: visibleOverviewTabs.value };
+  }
+  // 销售业绩卡：注入模型配置的显示形态（value/bar/line/pie，卡片形态参数化 8.1）
+  if (code === WORKSPACE_CARD_CODES.salesPerformance) {
+    const form = cardConfigOf(code)?.displayForm;
+    if (form && ['bar', 'line', 'pie', 'value'].includes(String(form))) {
+      return { displayForm: String(form) };
+    }
   }
   return {};
 }
@@ -638,7 +691,57 @@ function gridStackOptions() {
     column: 12,
     margin: 8,
     minRow: 1,
+    // 浏览态锁定：禁用拖拽/缩放，编辑态经 setStatic(false) 解锁
+    staticGrid: true,
   };
+}
+
+// ===== 画布响应式列数：桌面 12 列 / 平板 6 列 / 手机单列（list 堆叠） =====
+// 单列是纯视图层行为：编辑入口隐藏、保存短路，坐标不落库，桌面布局不被污染
+let currentCanvasCols = 12;
+let resizeTimer: null | ReturnType<typeof setTimeout> = null;
+// 容器级观察器：侧边栏折叠/卡片挂载等不触发 window resize，只有容器自身尺寸变化能被捕获
+let canvasResizeObserver: null | ResizeObserver = null;
+
+function syncCanvasColumns() {
+  if (!gridStack || !canvasContainer.value) return;
+  const w = canvasContainer.value.offsetWidth || 0;
+  // 容器尚未完成首次布局（宽度为 0）时跳过，等 ResizeObserver 通知真实宽度
+  if (w === 0) return;
+  // 860 断点：1280 笔记本（侧边栏展开后内容区约 940px）保持 12 列，
+  // 卡片 w=6 才是整齐的两栏；6 列模式的 moveScale 缩放 + minW 钳制会打乱对齐
+  const target = w < 700 ? 1 : w < 860 ? 6 : 12;
+  isMobileCanvas.value = target === 1;
+  // 单列（移动端）不支持拖拽编辑：进入单列时自动退出编辑态，避免编辑工具栏挤爆且无法操作
+  if (target === 1 && canvasEditing.value) {
+    canvasEditing.value = false;
+  }
+  if (target === currentCanvasCols) return;
+  rebuildingGrid = true;
+  try {
+    currentCanvasCols = target;
+    gridStack.column(target, target === 1 ? 'list' : 'moveScale');
+  } finally {
+    rebuildingGrid = false;
+  }
+}
+
+function handleCanvasResize() {
+  if (resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    resizeTimer = null;
+    syncCanvasColumns();
+  }, 150);
+}
+
+// 进入/退出布局编辑态：退出时立即落库一次（change 防抖之外兜底）
+async function toggleEditLayout() {
+  canvasEditing.value = !canvasEditing.value;
+  if (!gridStack) return;
+  gridStack.setStatic(!canvasEditing.value);
+  if (!canvasEditing.value) {
+    await saveLayout();
+  }
 }
 
 // 初始化画布：动态加载 gridstack（失败仅降级回退渲染，不影响旧模式）
@@ -654,8 +757,15 @@ async function initCanvas() {
       gridStackOptions(),
       canvasContainer.value.querySelector('.grid-stack') as HTMLElement,
     );
+    gridStack.setStatic(!canvasEditing.value);
     bindGridEvents();
+    syncCanvasColumns();
     canvasReady.value = true;
+    // 观察容器尺寸变化（首次布局完成/侧边栏折叠都会触发），替代仅靠 window resize
+    canvasResizeObserver = new ResizeObserver(() => {
+      handleCanvasResize();
+    });
+    canvasResizeObserver.observe(canvasContainer.value);
   } catch {
     canvasFailed.value = true;
   }
@@ -675,8 +785,9 @@ function bindGridEvents() {
 }
 
 // 组装待保存布局：画布实际节点 + 仍隐藏卡片（hidden=1 原样保留）；h/w 按卡片定义钳制保证所见即所得
+// 移动端单列视图下短路：单列坐标（w=1 依次堆叠）落库会覆盖桌面 12 列布局
 function buildSavePayload(): SaveLayoutPayload | null {
-  if (!gridStack) return null;
+  if (!gridStack || isMobileCanvas.value) return null;
   const saved: any[] = gridStack.save(false) || [];
   const cards: CanvasLayoutItem[] = saved
     .filter((n) => n && n.id && getCanvasCardDef(String(n.id)))
@@ -774,7 +885,9 @@ async function rebuildGrid() {
       gridStackOptions(),
       canvasContainer.value.querySelector('.grid-stack') as HTMLElement,
     );
+    gridStack.setStatic(!canvasEditing.value);
     bindGridEvents();
+    syncCanvasColumns();
   } catch {
     canvasFailed.value = true;
   } finally {
@@ -801,8 +914,10 @@ async function restoreCard(code: string) {
   const item = layoutItems.value.find((i) => i.cardCode === code);
   if (!item) return;
   item.hidden = 0;
+  // 先落库再重建：rebuildGrid 内部会从后端重拉布局，
+  // 若后端仍是旧 hidden=1 会把本地恢复覆盖回去（卡片永远回不来）
+  await saveLayout();
   await rebuildGrid();
-  void saveLayout();
 }
 
 // 复位：清空个人覆盖（reset=true），后端回退模板默认布局
@@ -847,10 +962,14 @@ onMounted(() => {
   loadOpportunityCount();
   loadTodaySummary();
   window.addEventListener('pagehide', handlePageHide);
+  window.addEventListener('resize', handleCanvasResize);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('pagehide', handlePageHide);
+  window.removeEventListener('resize', handleCanvasResize);
+  canvasResizeObserver?.disconnect();
+  canvasResizeObserver = null;
   // 补交防抖中的待保存布局（原来直接 clearTimeout 会丢弃变更，拖完立刻刷新即丢失）
   flushPendingSave();
   if (gridStack) {
@@ -871,23 +990,29 @@ onBeforeUnmount(() => {
       :todo-total="todoTotal"
     >
       <template #title>{{ welcomeText }}</template>
-      <template #description>
-        <!-- 工作台切换器（方案 5.3-M3）：仅画布模式且存在多个有权限工作台时展示 -->
-        <span
-          v-if="cardModeEnabled && workspaceList.length > 1"
-          class="mt-2 flex items-center gap-2"
-        >
-          <span class="text-sm">{{ $t('page.dashboard.workspace.switch') }}</span>
-          <Select
-            :value="currentWorkspaceCode"
-            :options="workspaceList"
-            class="w-40"
-            size="small"
-            @change="handleWorkspaceSwitch"
-          />
-        </span>
-      </template>
+      <!-- 工作台切换器已移至画布工具栏（v2.2 用户反馈：问候区不该混入操作控件） -->
     </WorkbenchHeader>
+
+    <!-- 统计时间范围（卡片配置化 K10 全局筛选）：作用于按时间取数的卡片（如销售业绩），浏览态功能 -->
+    <div
+      v-if="cardModeEnabled && useCanvasMode"
+      class="flex items-center gap-2 px-1"
+    >
+      <span class="text-xs" style="color: hsl(var(--foreground) / 55%)">
+        统计范围
+      </span>
+      <Select
+        :value="workspaceTimeRange"
+        :options="[
+          { label: '本月', value: 'month' },
+          { label: '本季', value: 'quarter' },
+          { label: '本年', value: 'year' },
+        ]"
+        size="small"
+        style="width: 96px"
+        @change="(v: any) => setWorkspaceTimeRange(v)"
+      />
+    </div>
 
     <!-- 空态提示：注册卡全部不可见（方案 4.5-1），超管附去配置入口 -->
     <div v-if="showEmptyTip" class="empty-tip">
@@ -897,46 +1022,138 @@ onBeforeUnmount(() => {
       </Button>
     </div>
 
+    <!-- 空态提示（方案 v2.1 P0-3）：当前工作台无卡片 -->
+    <!-- 三层结构：状态说明 + 原因 + 下一步动作（吸收 F4 空态规范） -->
+    <div v-else-if="showWorkspaceEmpty" class="workspace-empty">
+      <div class="workspace-empty__icon">
+        <Empty :image="Empty.PRESENTED_IMAGE_SIMPLE" />
+      </div>
+      <div class="workspace-empty__title">
+        {{
+          isSuperAdmin
+            ? $t('page.dashboard.wsEmptyTitleAdmin', {
+                name: currentWorkspaceName,
+              })
+            : $t('page.dashboard.wsEmptyTitle', { name: currentWorkspaceName })
+        }}
+      </div>
+      <div class="workspace-empty__reason">
+        {{
+          isSuperAdmin
+            ? $t('page.dashboard.wsEmptyReasonAdmin')
+            : $t('page.dashboard.wsEmptyReason')
+        }}
+      </div>
+      <div class="workspace-empty__actions">
+        <template v-if="isSuperAdmin">
+          <Button type="primary" @click="goConfigure">
+            {{ $t('page.dashboard.workspaceGoConfig') }}
+          </Button>
+          <Button @click="goCardManage">
+            {{ $t('page.dashboard.wsEmptyGoCardManage') }}
+          </Button>
+        </template>
+        <template v-else>
+          <Button
+            v-if="workspaceList.length > 1"
+            type="primary"
+            @click="goDefaultWorkspace"
+          >
+            {{ $t('page.dashboard.wsEmptyGoDefault') }}
+          </Button>
+        </template>
+      </div>
+    </div>
+
     <!-- 画布模式（方案 5.3-M1）：gridstack 12 列，拖拽/缩放/隐藏/复位 -->
     <div v-if="cardModeEnabled && !canvasFailed" class="canvas-wrap">
       <div
         v-if="useCanvasMode && gridDomItems.length > 0"
         class="canvas-toolbar"
       >
-        <span class="canvas-tip">
-          {{ $t('page.dashboard.canvas.tip') }}
-        </span>
-        <div class="canvas-actions">
-          <Popover
-            v-if="hiddenLayoutItems.length > 0"
-            placement="bottomRight"
-            trigger="click"
+        <!-- 左侧：工作台切换器（方案 5.3-M3 / v2.2 从问候区移入工具栏） -->
+        <div class="canvas-toolbar__left">
+          <!-- 切换器仅编辑态显示（选择要布局的目标工作台）；浏览态隐藏——
+               普通用户已按角色自动落在自己的工作台，超管日常也只看默认，常驻无意义 -->
+          <span
+            v-if="canvasEditing && cardModeEnabled && workspaceList.length > 1"
+            class="flex items-center gap-2"
           >
-            <template #content>
-              <div class="restore-list">
-                <div
-                  v-for="item in hiddenLayoutItems"
-                  :key="item.cardCode"
-                  class="restore-item"
-                  @click="restoreCard(item.cardCode)"
-                >
-                  <span>{{ cardTitle(item.cardCode) }}</span>
-                  <span class="restore-action">
-                    {{ $t('page.dashboard.canvas.restore') }}
-                  </span>
+            <span class="canvas-tip">
+              {{ $t('page.dashboard.workspace.switch') }}
+            </span>
+            <Select
+              :value="currentWorkspaceCode"
+              :options="workspaceList"
+              class="w-40"
+              size="small"
+              @change="handleWorkspaceSwitch"
+            />
+          </span>
+          <span
+            v-else-if="canvasEditing && cardModeEnabled && workspaceList.length === 1"
+            class="canvas-tip"
+          >
+            {{ workspaceList[0]?.label }}
+          </span>
+          <span
+            v-if="canvasEditing && !isMobileCanvas"
+            class="canvas-tip canvas-tip-editing"
+          >
+            {{ $t('page.dashboard.canvas.editTip') }}
+          </span>
+        </div>
+        <!-- 右侧：编辑态=恢复/复位/完成；锁定态=编辑入口（移动端不提供） -->
+        <div class="canvas-actions">
+          <template v-if="canvasEditing">
+            <Popover
+              placement="bottomRight"
+              trigger="click"
+            >
+              <template #content>
+                <div v-if="hiddenLayoutItems.length > 0" class="restore-list">
+                  <div
+                    v-for="item in hiddenLayoutItems"
+                    :key="item.cardCode"
+                    class="restore-item"
+                    @click="restoreCard(item.cardCode)"
+                  >
+                    <span>{{ cardTitle(item.cardCode) }}</span>
+                    <span class="restore-action">
+                      {{ $t('page.dashboard.canvas.restore') }}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </template>
-            <Button size="small">
-              {{
-                $t('page.dashboard.canvas.hiddenTip', {
-                  n: hiddenLayoutItems.length,
-                })
-              }}
+                <div v-else class="restore-empty">
+                  {{ $t('page.dashboard.canvas.noHiddenCards') }}
+                </div>
+              </template>
+              <Button size="small" type="dashed">
+                <IconifyIcon icon="lucide:plus" class="mr-1 size-3.5" />
+                {{
+                  hiddenLayoutItems.length > 0
+                    ? $t('page.dashboard.canvas.addCards', {
+                        n: hiddenLayoutItems.length,
+                      })
+                    : $t('page.dashboard.canvas.addCard')
+                }}
+              </Button>
+            </Popover>
+            <Button size="small" @click="resetLayout">
+              {{ $t('page.dashboard.canvas.reset') }}
             </Button>
-          </Popover>
-          <Button size="small" @click="resetLayout">
-            {{ $t('page.dashboard.canvas.reset') }}
+            <Button size="small" type="primary" @click="toggleEditLayout">
+              {{ $t('page.dashboard.canvas.editDone') }}
+            </Button>
+          </template>
+          <Button
+            v-else-if="!isMobileCanvas"
+            size="small"
+            class="canvas-edit-btn"
+            @click="toggleEditLayout"
+          >
+            <IconifyIcon icon="lucide:pencil-line" class="mr-1 size-3.5" />
+            {{ $t('page.dashboard.canvas.edit') }}
           </Button>
         </div>
       </div>
@@ -944,6 +1161,7 @@ onBeforeUnmount(() => {
         v-show="useCanvasMode && gridDomItems.length > 0"
         ref="canvasContainer"
         class="workspace-canvas"
+        :class="{ 'canvas-editing': canvasEditing }"
       >
         <div class="grid-stack">
           <div
@@ -1057,6 +1275,12 @@ onBeforeUnmount(() => {
 
 <style lang="scss">
 @import 'gridstack/dist/gridstack.css';
+
+/* 缩放手柄需浮于全局悬浮件（回顶按钮 z-popup=2000）之上，否则右下角手柄无法点按。
+   grid-stack-item 无层叠上下文，手柄 z-index 直接与根层比较。 */
+.grid-stack-item .ui-resizable-handle {
+  z-index: 2100;
+}
 </style>
 
 <style lang="scss" scoped>
@@ -1075,6 +1299,50 @@ onBeforeUnmount(() => {
   padding: 48px 0;
 }
 
+// ===== 空工作台空态（方案 v2.1 P0-3）=====
+// 三层结构：状态说明（title）+ 原因（reason）+ 下一步动作（actions）
+// 视觉对齐项目扁平卡片风格：白底、圆角、极浅描边，不做大面积装饰
+.workspace-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 56px 24px 64px;
+  margin: 4px 0;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+
+  &__icon {
+    // antd Empty 自带下边距，此处收紧以贴合紧凑排版
+    margin-bottom: -4px;
+
+    :deep(.ant-empty) {
+      margin: 0;
+    }
+  }
+
+  &__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  &__reason {
+    max-width: 420px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: hsl(var(--foreground) / 55%);
+    text-align: center;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+}
+
 // ===== 画布模式（方案 5.3-M1） =====
 .canvas-wrap {
   display: flex;
@@ -1084,14 +1352,36 @@ onBeforeUnmount(() => {
 
 .canvas-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 8px 12px;
   padding: 0 4px;
+}
+
+/* 左侧分组：工作台切换器 + 编辑提示（v2.2 切换器从问候区移入） */
+.canvas-toolbar__left {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
 .canvas-tip {
   color: hsl(var(--foreground) / 60%);
   font-size: 12px;
+}
+
+.canvas-tip-editing {
+  color: hsl(var(--primary));
+}
+
+.workspace-canvas.canvas-editing {
+  // 编辑态视觉提示：虚线边框包围画布区域
+  border: 1px dashed hsl(var(--primary) / 45%);
+  border-radius: 8px;
+  padding: 4px;
 }
 
 .canvas-actions {
@@ -1123,8 +1413,20 @@ onBeforeUnmount(() => {
   transition: opacity 0.2s;
 }
 
+// 隐藏卡片按钮仅在编辑态可用：锁定态完全隐藏，避免误点
+.workspace-canvas:not(.canvas-editing) .card-hide-btn {
+  display: none;
+}
+
 .grid-stack-item:hover .card-hide-btn {
   opacity: 1;
+}
+
+.restore-empty {
+  padding: 8px 4px;
+  color: hsl(var(--foreground) / 45%);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .restore-list {

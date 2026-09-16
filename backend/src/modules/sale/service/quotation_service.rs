@@ -119,9 +119,11 @@ pub async fn update(db: &DbConn, form_data: &QuotationUpdateRequest, updated_by:
     let existing = QuotationModel::find_by_id(db, id).await?;
     let existing = existing.ok_or_else(|| Error::from("报价单不存在"))?;
 
-    // 审批中(approval_status=2)不允许修改
-    if existing.approval_status == Some(2) {
-        return Err(Error::from("报价单审批中，不允许修改"));
+    // 审批中(2)/已通过(3)锁定：不允许修改（含 PDF 模板选择，§37）
+    if matches!(existing.approval_status, Some(2) | Some(3)) {
+        return Err(Error::from(
+            "报价单已进入审批或已通过，不允许修改（可复制作废单后重新创建）",
+        ));
     }
 
     let txn = db.begin().await?;

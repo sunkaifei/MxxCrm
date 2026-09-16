@@ -982,7 +982,7 @@ pub async fn model_content_list(
     let page = query.page.unwrap_or(1).max(1);
     let page_size = 20u64;
     let (items, total) =
-        DynamicTableService::paginate(db, &model_code, page, page_size, None, None)
+        DynamicTableService::paginate(db, &model_code, page, page_size, None, None, &[], &[])
             .await
             .unwrap_or((Vec::new(), 0u64));
     let total_pages = if total == 0 { 1 } else { (total + page_size - 1) / page_size };

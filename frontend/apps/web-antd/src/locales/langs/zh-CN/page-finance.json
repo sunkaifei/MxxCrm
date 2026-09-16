@@ -402,6 +402,7 @@
         "pay": "工资发放",
         "batchApprove": "批量审核",
         "batchPay": "批量发放",
+        "batchRevert": "返审批",
         "config": "底薪配置",
         "calcLog": "核算日志",
         "pendingConfirm": "待处理申诉",
@@ -504,6 +505,7 @@
       },
       "tooltip": {
         "calculate": "手动核算指定月份的工资（系统也会在每月1号02:00自动核算上月）",
+        "batchRevert": "将已审核/已发放记录退回待审核：勾选记录则回退所选，未勾选则整月回退；回退后可重新核算",
         "refreshSummary": "刷新工资汇总数据",
         "refreshList": "刷新工资列表"
       },
@@ -577,6 +579,10 @@
         "batchPaySelectRequired": "请选择要发放的工资记录",
         "batchPaySuccess": "批量发放成功",
         "batchPayFailed": "批量发放失败",
+        "revertConfirmSelected": "将所选 {count} 条已审核/已发放工资记录退回待审核？关联工资条将删除，进行中的审批流将自动撤回。",
+        "revertConfirmWholeMonth": "未勾选记录，将把 {year} 年 {month} 月全部已审核/已发放工资记录退回待审核？关联工资条将删除，进行中的审批流将自动撤回。退回后可重新核算。",
+        "revertSuccess": "返审批成功，记录已退回待审核，可重新执行核算",
+        "revertFailed": "返审批失败",
         "recalcRequested": "已提交重新核算申请",
         "recalcSubmitted": "已提交重新核算申请，请等待财务审核",
         "submitFailed": "提交失败",

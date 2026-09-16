@@ -1,0 +1,1 @@
+.stock-row--disabled>td{cursor:not-allowed;color:hsl(var(--muted-foreground))!important;background-color:hsl(var(--muted))!important}

@@ -26,6 +26,7 @@ import {
   getQuotationInfoApi,
   getWarehouseListApi,
   updateQuotationApi,
+  getPdfTemplateListApi,
 } from '#/api';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { formatQty, useProductUnits } from '#/components/UnitSelect';
@@ -45,6 +46,27 @@ const fieldSchema = useFieldSchema('sale_quotation');
 const pendingCustomFields = ref<Record<string, any>>({});
 const isEdit = computed(() => !drawerData.value.create);
 const isReadOnly = ref(false);
+
+// ===== §37：PDF 模板下拉（docType=quotation，含默认模板 + 设计器模板） =====
+const pdfTemplateOptions = ref<{ label: string; value: number }[]>([]);
+async function loadPdfTemplateOptions() {
+  try {
+    const res: any = await getPdfTemplateListApi({
+      docType: 'quotation',
+      status: 1,
+      page: 1,
+      pageSize: 99,
+    });
+    const rows = res?.items || res?.rows || [];
+    pdfTemplateOptions.value = rows.map((t: any) => ({
+      label: t.isDefault === 1 ? `${t.name}（默认）` : t.name,
+      value: Number(t.id),
+    }));
+  } catch {
+    pdfTemplateOptions.value = [];
+  }
+}
+loadPdfTemplateOptions();
 const activeTab = ref('basic');
 const isFullscreen = ref(false);
 
@@ -541,6 +563,19 @@ const basicFormSchema: VbenFormSchema[] = [
     fieldName: 'validUntil',
     label: '有效期至',
     componentProps: { style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+  },
+  {
+    // §37：PDF 模板选择（docType=quotation 的设计器模板，默认=管理端默认模板）
+    component: 'Select',
+    fieldName: 'pdfTemplateId',
+    label: 'PDF模板',
+    componentProps: () => ({
+      options: pdfTemplateOptions.value,
+      placeholder: '默认模板',
+      allowClear: true,
+      disabled: isReadOnly.value,
+    }),
+    help: '进入审批中/已通过后不可再更改',
   },
   {
     component: 'Input',

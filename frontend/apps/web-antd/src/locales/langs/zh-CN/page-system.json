@@ -421,7 +421,9 @@
       "resetConfirm": "将放弃本次全部修改并重新加载已保存的模板布局，是否继续？",
       "saveSuccess": "模板布局已保存，未自定义布局的用户即时生效",
       "removeCard": "移除",
+      "removeText": "删除",
       "disabledTag": "已停用",
+      "sharedTag": "通用",
       "unsavedTip": "当前有未保存的修改",
       "colWidth": "栏数",
       "colWidthTip": "新拖入卡片按所选栏宽添加；画布内卡片可通过头部的 1/2/3 按钮快捷调整栏宽",
@@ -565,6 +567,92 @@
       "downloadIp": "IP地址",
       "downloadTime": "下载时间",
       "reDownload": "重新下载"
+    },
+    "pdfDesigner": {
+      "title": "PDF模板设计器",
+      "pageTitle": "模板设计",
+      "module": "PDF设计器",
+      "button": {
+        "publish": "设为默认",
+        "save": "保存",
+        "saveAs": "另存为",
+        "undo": "撤销",
+        "redo": "重做",
+        "precisePreview": "精确预览",
+        "pagePreview": "分页预览",
+        "importPdf": "导入PDF",
+        "exportBundle": "导出模板包",
+        "importBundle": "导入模板包",
+        "back": "返回",
+        "enterDesign": "可视化设计"
+      },
+      "dataMode": {
+        "placeholder": "占位符",
+        "sample": "样例数据",
+        "real": "真实数据",
+        "outline": "轮廓"
+      },
+      "preset": {
+        "typical": "典型",
+        "long": "超长",
+        "empty": "空值",
+        "zero": "零值",
+        "mixed": "混合",
+        "unicode": "特殊字符",
+        "longlist": "长明细"
+      },
+      "panel": {
+        "elements": "元素库",
+        "datasource": "数据源",
+        "layers": "图层",
+        "templates": "模板",
+        "page": "页面",
+        "element": "元素",
+        "data": "数据",
+        "style": "样式"
+      },
+      "status": {
+        "designSheet": "设计稿 · 单页母版",
+        "zoom": "缩放",
+        "selected": "选中",
+        "none": "未选中",
+        "dirty": "未保存"
+      },
+      "msg": {
+        "loading": "加载中…",
+        "saving": "保存中…",
+        "saved": "保存成功",
+        "saveFailed": "保存失败",
+        "locked": "模板正被 {user} 编辑中，是否强制接管？",
+        "takeover": "强制接管",
+        "draftFound": "发现未保存草稿，是否恢复？",
+        "draftRestore": "恢复",
+        "draftDiscard": "放弃",
+        "outOfPaper": "存在超出纸张的元素，出图时会被裁切，确认继续？",
+        "needBindings": "占位符/样例数据模式下不可设为默认或正式出图",
+        "upgradeUnsupported": "该模板版本高于当前系统，无法加载"
+      }
+    },
+    "pdfAsset": {
+      "title": "PDF素材管理",
+      "name": "素材名称",
+      "code": "素材编码",
+      "type": "素材类型",
+      "typeImage": "图片",
+      "typeBarcode": "条码",
+      "typeQrcode": "二维码",
+      "file": "素材文件",
+      "preview": "预览",
+      "size": "文件大小",
+      "usage": "引用次数",
+      "sort": "排序",
+      "upload": "上传素材",
+      "button": {
+        "create": "新增素材",
+        "edit": "编辑素材",
+        "delete": "删除素材",
+        "copyCode": "复制"
+      }
     },
     "hrArchive": {
       "title": "员工档案管理",

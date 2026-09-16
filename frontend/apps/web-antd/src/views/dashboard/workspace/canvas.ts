@@ -68,7 +68,8 @@ export const WORKSPACE_CANVAS_CARDS: WorkspaceCanvasCardDef[] = [
     component: CalendarCard,
     maxH: 24,
     maxW: 12,
-    minH: 10,
+    // minH 6：卡内日历可滚动（组件 body overflowY auto），允许用户压低高度
+    minH: 6,
     minW: 3,
   },
   // 三期 8 张岗位卡（d31 种子 sort 40-110，minH 按方案 9.1：公告 4、其余 6）

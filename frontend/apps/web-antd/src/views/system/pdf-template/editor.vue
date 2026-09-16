@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue';
 
 import {
   Button,
@@ -20,7 +20,10 @@ import {
   savePdfTemplateApi,
   updatePdfTemplateApi,
 } from '#/api/core/system/pdf-template';
-import CodeEditor from '#/components/CodeEditor/index.vue';
+// Monaco 体积约 13MB（含 worker），异步加载避免拖慢本页打开速度
+const CodeEditor = defineAsyncComponent(
+  () => import('#/components/CodeEditor/index.vue'),
+);
 import { $t } from '#/locales';
 
 const props = defineProps<{

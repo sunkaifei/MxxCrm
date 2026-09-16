@@ -1,0 +1,1 @@
+var e={ON:`ON`,OFF:`OFF`,Select:`Select`},t={CUSTOMER_USER:`Customer`,GUEST_USER:`Guest`,SYS_ADMIN:`Admin`,SYS_MANAGER:`Manager`},n={folder:`Folder`,menu:`Menu`,button:`Button`},r={success:`Success`,failed:`Failed`},i={status:e,authority:t,menuType:n,successStatus:r};export{t as authority,i as default,n as menuType,e as status,r as successStatus};

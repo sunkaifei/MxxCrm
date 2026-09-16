@@ -10,7 +10,8 @@
 
 use std::sync::LazyLock;
 use actix_cors::Cors;
-use actix_web::{web, App, HttpServer, HttpRequest, HttpResponse};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::http::StatusCode;
 use actix_web::error::InternalError;
 use utils::snowflake::Snowflake;
 use crate::core::web::response::{MetaResp, MPACK};
@@ -38,37 +39,150 @@ pub static SNOWFLAKE: LazyLock<Snowflake> = LazyLock::new(|| {
     Snowflake::new(1,1,1)
 });
 
+/// 根据扩展名推断 Content-Type
+///
+/// 注意必须传入**不含 `.br` 后缀**的原始路径，否则会被识别成 octet-stream。
+fn mime_for(path: &str) -> &'static str {
+    match path.rsplit('.').next() {
+        Some("html") | Some("htm") => "text/html; charset=utf-8",
+        Some("css") => "text/css",
+        Some("js") | Some("mjs") => "application/javascript",
+        Some("json") | Some("map") => "application/json",
+        Some("ico") => "image/x-icon",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("webp") => "image/webp",
+        Some("svg") => "image/svg+xml",
+        Some("woff") => "font/woff",
+        Some("woff2") => "font/woff2",
+        Some("ttf") => "font/ttf",
+        _ => "application/octet-stream",
+    }
+}
+
+/// 是否为 Vite 产出的带内容哈希的静态资源（形如 `js/index-a1b2c3d4.js`）
+///
+/// 哈希与内容一一对应，内容永不变 → 可安全使用 immutable 长效缓存；
+/// 而 `index.html` 每次构建都可能变，必须每次 revalidate，否则发版后用户拿到旧入口。
+fn is_hashed_asset(path: &str) -> bool {
+    let file = path.rsplit('/').next().unwrap_or(path);
+    let stem = file.rsplit_once('.').map(|(s, _)| s).unwrap_or(file);
+    match stem.rsplit_once('-') {
+        Some((_, hash)) => hash.len() >= 6 && hash.chars().all(|c| c.is_ascii_alphanumeric()),
+        None => false,
+    }
+}
+
+/// 缓存策略：入口 HTML 每次校验，哈希资源一年强缓存，其余一小时
+fn cache_control_for(path: &str) -> &'static str {
+    if path == "index.html" || path.ends_with("/index.html") {
+        "no-cache, must-revalidate"
+    } else if is_hashed_asset(path) {
+        "public, max-age=31536000, immutable"
+    } else {
+        "public, max-age=3600"
+    }
+}
+
+/// 为响应体生成 ETag（进程内稳定即可，无需跨版本一致）
+fn etag_of(data: &[u8]) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    data.hash(&mut hasher);
+    format!("\"{:x}-{:x}\"", hasher.finish(), data.len())
+}
+
+/// 构造静态资源响应：统一的 ETag / 304 / Cache-Control / Content-Encoding 处理
+fn build_static_response(
+    logical_path: &str,
+    data: &[u8],
+    is_br: bool,
+    if_none_match: Option<&str>,
+) -> HttpResponse {
+    let etag = etag_of(data);
+    let cache_control = cache_control_for(logical_path);
+
+    // 条件请求命中 → 304，只回头部，不传正文
+    if let Some(inm) = if_none_match {
+        let inm = inm.trim().trim_start_matches("W/");
+        if inm == etag {
+            let mut resp = HttpResponse::build(StatusCode::NOT_MODIFIED);
+            resp.content_type(mime_for(logical_path))
+                .insert_header(("Cache-Control", cache_control))
+                .insert_header(("ETag", etag.as_str()));
+            if is_br {
+                resp.insert_header(("Vary", "Accept-Encoding"));
+            }
+            return resp.body(actix_web::body::BoxBody::new(()));
+        }
+    }
+
+    let mut resp = HttpResponse::Ok();
+    resp.content_type(mime_for(logical_path))
+        .insert_header(("Cache-Control", cache_control))
+        .insert_header(("ETag", etag.as_str()));
+
+    // brotli 命中时必须同时声明 Content-Encoding 与 Vary，
+    // 否则中间代理会把 .br 内容误发给不支持的客户端。
+    if is_br {
+        resp.insert_header(("Content-Encoding", "br"))
+            .insert_header(("Vary", "Accept-Encoding"));
+    }
+
+    resp.body(data.to_vec())
+}
+
 /// 按相对路径提供内嵌后台前端资源；找不到时回退 index.html（SPA 兜底）
 ///
 /// `path` 为不含前缀、不含开头 `/` 的相对路径（如 "js/index-xxx.js"、"index.html"）。
 /// 供默认转发 handler 与可配置前缀的 admin handler 共用。
+///
+/// 优化点：
+/// - 客户端声明 `Accept-Encoding: br` 时，直接返回预生成的 `.br` 产物（体积约为原始的 1/5）
+/// - 带哈希的资源返回 immutable 一年强缓存，`index.html` 走 no-cache
+/// - 全量 ETag + `If-None-Match` → 304，二次访问仅传输头部
 pub fn serve_frontend_asset(path: &str) -> HttpResponse {
-    if let Some(file) = FrontendAssets::get(path) {
-        let content_type = match path.split('.').last() {
-            Some("html") => "text/html; charset=utf-8",
-            Some("css") => "text/css",
-            Some("js") => "application/javascript",
-            Some("json") => "application/json",
-            Some("ico") => "image/x-icon",
-            Some("png") => "image/png",
-            Some("jpg") | Some("jpeg") => "image/jpeg",
-            Some("svg") => "image/svg+xml",
-            Some("woff") => "font/woff",
-            Some("woff2") => "font/woff2",
-            Some("ttf") => "font/ttf",
-            _ => "application/octet-stream",
-        };
+    serve_frontend_asset_with_headers(path, None, None)
+}
 
-        HttpResponse::Ok()
-            .content_type(content_type)
-            .body(file.data)
-    } else {
-        match FrontendAssets::get("index.html") {
-            Some(index) => HttpResponse::Ok()
-                .content_type("text/html; charset=utf-8")
-                .body(index.data),
-            None => HttpResponse::NotFound().body("404 Not Found"),
+/// 同 [`serve_frontend_asset`]，额外传入请求头以支持 brotli 协商与条件请求
+pub fn serve_frontend_asset_with_headers(
+    path: &str,
+    accept_encoding: Option<&str>,
+    if_none_match: Option<&str>,
+) -> HttpResponse {
+    let want_br = accept_encoding
+        .unwrap_or("")
+        .to_ascii_lowercase()
+        .contains("br");
+
+    // 优先取 brotli 版本，缺失则回退原始文件
+    let (actual_path, maybe_file, is_br) = if want_br {
+        let br_path = format!("{}.br", path);
+        match FrontendAssets::get(&br_path) {
+            Some(file) => (br_path, Some(file), true),
+            None => (path.to_string(), FrontendAssets::get(path), false),
         }
+    } else {
+        (path.to_string(), FrontendAssets::get(path), false)
+    };
+
+    if let Some(file) = maybe_file {
+        return build_static_response(path, file.data.as_ref(), is_br, if_none_match);
+    }
+
+    // SPA 兜底：任意未知路径都回 index.html
+    match FrontendAssets::get("index.html") {
+        Some(index) => build_static_response(
+            "index.html",
+            index.data.as_ref(),
+            false,
+            if_none_match,
+        ),
+        None => HttpResponse::NotFound().body("404 Not Found"),
     }
 }
 
@@ -81,7 +195,79 @@ async fn serve_frontend(req: HttpRequest) -> HttpResponse {
     }
 
     let path = req.path().trim_start_matches('/');
-    serve_frontend_asset(path)
+
+    let accept_encoding = header_to_str(&req, "accept-encoding");
+    let if_none_match = header_to_str(&req, "if-none-match");
+
+    serve_frontend_asset_with_headers(
+        path,
+        accept_encoding.as_deref(),
+        if_none_match.as_deref(),
+    )
+}
+
+/// 读取请求头中为合法 ASCII 字符串的值（非 ASCII 的头一律忽略，避免 pan‑ic）
+fn header_to_str(req: &HttpRequest, name: &str) -> Option<String> {
+    req.headers()
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+}
+
+#[cfg(test)]
+mod static_asset_tests {
+    use super::*;
+
+    #[test]
+    fn mime_resolved_by_extension() {
+        assert_eq!(mime_for("index.html"), "text/html; charset=utf-8");
+        assert_eq!(mime_for("js/index-a1b2c3.js"), "application/javascript");
+        assert_eq!(mime_for("css/bootstrap-CuKxi1oo.css"), "text/css");
+        assert_eq!(mime_for("favicon.ico"), "image/x-icon");
+        // 必须传原始路径：带上 .br 会被识别成未知类型
+        assert_eq!(mime_for("index.html.br"), "application/octet-stream");
+    }
+
+    #[test]
+    fn hashed_asset_detection() {
+        assert!(is_hashed_asset("js/index-a1b2c3d4.js"));
+        assert!(is_hashed_asset("jse/index-index-COzsSR4Z.js"));
+        assert!(is_hashed_asset("css/bootstrap-CuKxi1oo.css"));
+        // 无哈希的资源不能被 immutable 缓存
+        assert!(!is_hashed_asset("index.html"));
+        assert!(!is_hashed_asset("logo.png"));
+        assert!(!is_hashed_asset("_app.config.js"));
+    }
+
+    #[test]
+    fn cache_control_policy() {
+        assert!(cache_control_for("index.html").contains("no-cache"));
+        assert!(cache_control_for("js/index-a1b2c3d4.js").contains("immutable"));
+        assert!(cache_control_for("logo.png").contains("max-age=3600"));
+    }
+
+    #[test]
+    fn etag_is_stable_and_length_aware() {
+        let a = etag_of(b"hello");
+        let b = etag_of(b"hello");
+        let c = etag_of(b"world");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn brotli_negotiation_returns_not_panicking() {
+        let resp = serve_frontend_asset_with_headers(
+            "index.html",
+            Some("gzip, deflate, br"),
+            None,
+        );
+        let status = resp.status();
+        assert!(
+            status.is_success() || status.as_u16() == 404,
+            "unexpected status: {status}"
+        );
+    }
 }
 
 /// 安装模式下的默认页面服务
@@ -231,6 +417,26 @@ async fn main() -> std::io::Result<()> {
         }
         Err(e) => {
             log::error!("[HR离职交接] 数据库表初始化失败: {:?}", e);
+        }
+    }
+
+    // 初始化可视化 PDF 模板设计器表与菜单（v89：模板扩展列 + 素材/字段元数据/版本表 + 权限 seed）
+    match crate::modules::system::migration::init_pdf_designer_tables(&conn).await {
+        Ok(_) => {
+            log::info!("[PDF设计器] 数据库表与菜单初始化完成");
+        }
+        Err(e) => {
+            log::error!("[PDF设计器] 数据库表初始化失败: {:?}", e);
+        }
+    }
+
+    // 修正 PDF 设计器/素材菜单挂载位置与可见性（v90：从 PDF模板页下移到系统管理目录，设计器页恢复可见）
+    match crate::modules::system::migration::fix_pdf_menu_structure(&conn).await {
+        Ok(_) => {
+            log::info!("[PDF设计器] 菜单结构校正完成");
+        }
+        Err(e) => {
+            log::error!("[PDF设计器] 菜单结构校正失败: {:?}", e);
         }
     }
 

@@ -628,8 +628,19 @@ pub async fn generate_pdf(
     trigger_type: &str,
     operator_id: Option<i64>,
 ) -> Result<PdfGenerateResult> {
-    // 1. 查询模板
-    let template = if let Some(tid) = template_id {
+    // 1. 查询模板：显式指定 > 单据上保存的选择（报价单 pdf_template_id，§37） > docType 默认
+    let mut effective_template_id = template_id;
+    if effective_template_id.is_none() && doc_type == "quotation" {
+        if let Some(q) = Quotation::find()
+            .filter(quo_entity::Column::Id.eq(doc_id))
+            .filter(quo_entity::Column::Deleted.eq(0))
+            .one(db)
+            .await?
+        {
+            effective_template_id = q.pdf_template_id;
+        }
+    }
+    let template = if let Some(tid) = effective_template_id {
         PdfTemplateModel::find_by_id(db, tid)
             .await?
             .ok_or_else(|| Error::from("PDF模板不存在"))?
@@ -639,12 +650,21 @@ pub async fn generate_pdf(
             .ok_or_else(|| Error::from(format!("未找到 {} 类型的默认PDF模板", doc_type)))?
     };
 
-    // 2. 构建上下文
+    // 2. 构建上下文（§37/P1-1：shipment/outbound/inbound/purchase/payment 走真实上下文扩展层）
     let context = match doc_type {
         "quotation" => build_quotation_context(db, doc_id).await?,
         "order" => build_order_context(db, doc_id).await?,
         "contract" => build_contract_context(db, doc_id).await?,
-        _ => return Err(Error::from(format!("不支持的单据类型: {}", doc_type))),
+        other => {
+            match crate::modules::system::service::pdf_context_extra::build_real_context(
+                db, other, doc_id,
+            )
+            .await?
+            {
+                Some(ctx) => ctx,
+                None => return Err(Error::from(format!("不支持的单据类型: {}", doc_type))),
+            }
+        }
     };
 
     // 从上下文中提取单据编号
@@ -664,20 +684,8 @@ pub async fn generate_pdf(
         _ => doc_type.to_string(),
     };
 
-    // 3. 获取模板内容和页面配置
-    let content = template.content.clone().unwrap_or_default();
-    let header_content = template.header_content.clone();
-    let footer_content = template.footer_content.clone();
-    let opts = page_opts_from_template(&template);
-
-    // 4. 生成 PDF 字节
-    let pdf_bytes = pdf_compiler_service::generate_pdf_bytes(
-        &content,
-        &header_content,
-        &footer_content,
-        &context,
-        &opts,
-    )?;
+    // 3~4. 生成 PDF 字节（按 engine 分流；layout 编译失败自动回退 html 链路，§24.2）
+    let pdf_bytes = render_pdf_bytes(db, &template, &context).await?;
 
     // 5. 构建文件路径
     let now = Local::now();
@@ -729,6 +737,83 @@ pub async fn generate_pdf(
         file_path,
         file_size,
     })
+}
+
+/// 按模板 `engine` 分流渲染 PDF 字节。
+///
+/// - `layout`（可视化设计器模板）：`layout_json` → `layout_to_typst` → 内嵌 Typst（带素材虚拟 FS）。
+/// - 其他 / 缺 layout_json / 编译失败：回退既有 html 链路，保证审批自动出图不因模板问题中断（§24.2）。
+///
+/// **防呆（§32.15）**：`layout_json.settings.designSample` 仅服务于设计器画布，
+/// 正式出图时必须完全忽略——`compile_layout` 不读取该字段，此处亦不做任何回填。
+pub async fn render_pdf_bytes(
+    db: &DbConn,
+    template: &pdf_template::Model,
+    context: &Value,
+) -> Result<Vec<u8>> {
+    let engine = template.engine.clone().unwrap_or_else(|| "html".to_string());
+    if engine == "layout" {
+        if let Some(lv) = template.layout_json.clone() {
+            match render_layout_bytes(db, template, &lv, context).await {
+                Ok(bytes) => return Ok(bytes),
+                Err(e) => {
+                    // 回退 html：记录告警但不阻断业务
+                    log::warn!(
+                        "[pdf] 模板 {} 采用 layout 引擎编译失败，已回退 html 链路：{}",
+                        template.id,
+                        e
+                    );
+                }
+            }
+        } else {
+            log::warn!(
+                "[pdf] 模板 {} engine=layout 但缺少 layout_json，已回退 html 链路",
+                template.id
+            );
+        }
+    }
+
+    let content = template.content.clone().unwrap_or_default();
+    let header_content = template.header_content.clone();
+    let footer_content = template.footer_content.clone();
+    let opts = page_opts_from_template(template);
+    pdf_compiler_service::generate_pdf_bytes(
+        &content,
+        &header_content,
+        &footer_content,
+        context,
+        &opts,
+    )
+}
+
+/// layout 引擎渲染：迁移 → 解析 → 素材物化 → 编译 Typst → PDF 字节
+async fn render_layout_bytes(
+    db: &DbConn,
+    template: &pdf_template::Model,
+    layout_value: &Value,
+    context: &Value,
+) -> Result<Vec<u8>> {
+    use crate::modules::system::service::{
+        pdf_asset_service, pdf_layout_schema, pdf_layout_to_typst, typst_world,
+    };
+
+    // schema 迁移（§33.3：正式出图路径也强制先迁移）
+    let mut lv = layout_value.clone();
+    pdf_layout_schema::migrate_layout(&mut lv, None).map_err(Error::from)?;
+    let layout = pdf_layout_schema::LayoutJson::parse_strict(&lv).map_err(Error::from)?;
+
+    let asset_ids = crate::modules::system::service::pdf_designer_service::collect_asset_ids(&layout);
+    let barcode_items = pdf_asset_service::collect_barcode_items(&layout, context);
+    let (fs, catalog) = pdf_asset_service::materialize(db, &asset_ids, &barcode_items).await?;
+
+    let compiled = pdf_layout_to_typst::compile_layout(&layout, context, &catalog)
+        .map_err(Error::from)?;
+    for w in &compiled.warnings {
+        log::info!("[pdf] 模板 {} 编译告警：{}", template.id, w);
+    }
+
+    typst_world::compile_to_pdf_with_assets(&compiled.source, fs)
+        .map_err(|e| Error::from(format!("layout 编译失败: {}", e)))
 }
 
 /// 更新业务单据的 PDF URL 字段

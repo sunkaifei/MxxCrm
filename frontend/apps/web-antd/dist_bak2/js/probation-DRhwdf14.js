@@ -1,0 +1,1 @@
+function e(e,t){if(e===2)return 6;let n=Number(t==null?0:t);return n>=36?6:n>=12?2:+(n>=3)}function t(t,n){if(t===2)return`无固定期限合同 · 试用期上限 ${e(t,n)} 个月`;let r=Number(n==null?0:n);return!r||e(t,n)===0?`合同期限未录入或不足 3 个月，依法不得约定试用期`:`${r%12==0?`${r/12} 年`:`${r} 个月`}固定期限合同 · 试用期上限 ${e(t,n)} 个月`}export{t as n,e as t};

@@ -38,6 +38,8 @@ pub struct Model {
     pub status: Option<i32>,
     /// 备注
     pub remark: Option<String>,
+    /// 卡片配置（JSON：显示形态/时间范围/数据口径/图例等单卡配置）
+    pub card_config: Option<String>,
     /// 删除标志（0存在 1删除）
     pub deleted: Option<i32>,
     /// 创建者

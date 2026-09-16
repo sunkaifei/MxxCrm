@@ -1,0 +1,1 @@
+import{Y as e,b as t,jt as n,k as r,t as i}from"./vue.runtime.esm-bundler-Ca66Aw3b.js";import{n as a,t as o}from"./objectSpread2-D6SnrubU.js";import{t as s}from"./fallback-lqC3G8Ag.js";i(),a();var c=r(o(o({},{name:`Fallback500Demo`}),{},{__name:`internal-error`,setup(r){return(r,i)=>(e(),t(n(s),{status:`500`}))}}));export{c as default};

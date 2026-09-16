@@ -41,6 +41,8 @@ pub struct Model {
     pub is_list_show: Option<i32>,
     // 详情是否显示
     pub is_detail_show: Option<i32>,
+    // 是否唯一约束
+    pub is_unique: Option<i32>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常

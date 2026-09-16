@@ -72,13 +72,19 @@
     "successTag": "已处理",
     "rejectTag": "已驳回",
     "canvas": {
+      "edit": "自定义布局",
+      "editDone": "完成布局",
+      "editTip": "布局编辑中：拖拽卡片调整位置，拖动右下角调整大小，完成后点击「完成布局」锁定",
       "hiddenTip": "{n} 张卡片已隐藏",
       "hide": "隐藏卡片",
       "reset": "复位布局",
       "resetDone": "已恢复默认布局",
       "restore": "恢复显示",
       "saveFailed": "布局保存失败",
-      "tip": "拖拽移动卡片，拖动右下角调整大小"
+      "tip": "拖拽移动卡片，拖动右下角调整大小",
+      "addCard": "添加卡片",
+      "addCards": "添加卡片（{n} 张已隐藏）",
+      "noHiddenCards": "所有卡片均已显示，无隐藏卡片"
     },
     "workspace": {
       "switch": "工作台",
@@ -211,6 +217,13 @@
       "previewNoticeTitle": "【示例】欢迎加入公司，请及时完善入职信息"
     },
     "workspaceEmptyCards": "当前角色未配置工作台卡片，请联系管理员",
-    "workspaceGoConfig": "去配置"
+    "workspaceGoConfig": "去配置",
+    "workspaceCurrent": "当前工作台",
+    "wsEmptyTitle": "「{name}」暂无内容",
+    "wsEmptyReason": "你还没有被分配到这个工作台的卡片。可以切换到其他工作台查看，或联系管理员为你配置。",
+    "wsEmptyTitleAdmin": "「{name}」暂无卡片",
+    "wsEmptyReasonAdmin": "该工作台尚未配置卡片。请在设计器中为它添加卡片，或在卡片管理里调整卡片的所属工作台。",
+    "wsEmptyGoCardManage": "去卡片管理",
+    "wsEmptyGoDefault": "去常用工作台"
   }
 }

@@ -21,6 +21,7 @@ const switchFields = [
   'isSearchable',
   'isListShow',
   'isDetailShow',
+  'isUnique',
 ] as const;
 
 const fieldTypeOptions = [
@@ -34,6 +35,29 @@ const fieldTypeOptions = [
   { label: '多选', value: 8 },
   { label: '图片', value: 9 },
   { label: '文件', value: 10 },
+  { label: '用户（关联系统用户）', value: 11 },
+];
+
+// 系统保留字段名（与后端 RESERVED_FIELD_NAMES 一致）：
+// 这些列创建模型时自动生成，手动创建同名字段会与固定列重名，必须禁止
+const RESERVED_FIELD_NAMES = [
+  'id',
+  'title',
+  'short_url',
+  'category_id',
+  'cover_image',
+  'author',
+  'summary',
+  'content',
+  'seo_title',
+  'seo_keywords',
+  'seo_description',
+  'sort',
+  'status',
+  'deleted',
+  'create_time',
+  'update_time',
+  'create_user_id',
 ];
 
 /** 解析字段选项 JSON（与通用内容页 parseOptions 同口径） */
@@ -90,7 +114,14 @@ const formOptions = reactive({
         .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, {
           message:
             '字段名称须为英文标识符（字母或下划线开头，仅含字母、数字、下划线）',
-        }),
+        })
+        .refine(
+          (val) => !RESERVED_FIELD_NAMES.includes((val || '').toLowerCase()),
+          {
+            message:
+              '该名称是系统保留字段（创建模型时已自动生成，如 id、status 等），请更换其它名称',
+          },
+        ),
     },
     {
       component: 'Input',
@@ -266,6 +297,14 @@ const formOptions = reactive({
       fieldName: 'isDetailShow',
       label: '详情显示',
       defaultValue: true,
+      componentProps: { class: 'w-auto' },
+    },
+    {
+      component: 'Switch',
+      fieldName: 'isUnique',
+      label: '唯一约束',
+      defaultValue: false,
+      help: '开启后该字段在数据表中强制唯一（如同名工单号不允许重复）；若已有重复数据会开启失败',
       componentProps: { class: 'w-auto' },
     },
     {

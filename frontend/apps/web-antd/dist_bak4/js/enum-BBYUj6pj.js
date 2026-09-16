@@ -1,0 +1,1 @@
+var e={ON:`正常`,OFF:`停用`,Select:`请选择`},t={CUSTOMER_USER:`普通用户`,GUEST_USER:`游客`,SYS_ADMIN:`超级管理`,SYS_MANAGER:`普通管理`},n={folder:`目录`,menu:`菜单`,button:`按钮`},r={success:`成功`,failed:`失败`},i={status:e,authority:t,menuType:n,successStatus:r};export{t as authority,i as default,n as menuType,e as status,r as successStatus};

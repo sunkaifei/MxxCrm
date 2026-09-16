@@ -1,0 +1,1 @@
+import{xt as e}from"./vue.runtime.esm-bundler-Y65FNMQw.js";function t(t){let n=e(typeof t==`function`?t():t);function r(e){n.value=e}return[n,r]}export{t};

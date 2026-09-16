@@ -1,0 +1,1 @@
+import{r as e}from"./chunk-DhT1o15P.js";import{i as t,n,r,t as i}from"./Group-IUT6Jyqh.js";var a=e({CheckboxGroup:()=>i,checkboxGroupProps:()=>r,checkboxProps:()=>t,default:()=>o});n.Group=i,n.install=function(e){return e.component(n.name,n),e.component(i.name,i),e};var o=n;export{a as n,o as t};

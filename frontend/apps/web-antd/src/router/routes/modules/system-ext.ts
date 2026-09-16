@@ -63,7 +63,7 @@ const routes: RouteRecordRaw[] = [
         path: '/system-ext/scheduler',
         component: () => import('#/views/system/scheduler/index.vue'),
         meta: {
-          icon: 'lucide:clock-cog',
+          icon: 'lucide:timer',
           title: '定时任务',
         },
       },
@@ -92,6 +92,25 @@ const routes: RouteRecordRaw[] = [
         meta: {
           icon: 'lucide:layout-list',
           title: $t('page.system.field.title'),
+        },
+      },
+      {
+        // 可视化模板设计器（菜单可见；带 ?templateId= 从模板列表进入，不带则开空白版式）
+        name: 'SystemPdfDesigner',
+        path: '/system-ext/pdf-designer',
+        component: () => import('#/views/system/pdf-designer/index.vue'),
+        meta: {
+          icon: 'lucide:layout-dashboard',
+          title: $t('page.system.pdfDesigner.title'),
+        },
+      },
+      {
+        name: 'SystemPdfAsset',
+        path: '/system-ext/pdf-asset',
+        component: () => import('#/views/system/pdf-asset/index.vue'),
+        meta: {
+          icon: 'lucide:image',
+          title: $t('page.system.pdfAsset.title'),
         },
       },
     ],

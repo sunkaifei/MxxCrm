@@ -47,6 +47,14 @@ pub mod pdf_compiler_service;
 pub mod pdf_generator_service;
 pub mod pdf_template_service;
 pub mod html_to_typst;
+// === 可视化 PDF 模板设计器（v89） ===
+pub mod pdf_layout_schema;
+pub mod pdf_formatters;
+pub mod pdf_doc_meta;
+pub mod pdf_asset_service;
+pub mod pdf_layout_to_typst;
+pub mod pdf_designer_service;
+pub mod pdf_context_extra;
 pub mod exchange_rate_service;
 pub mod integration_config_service;
 pub mod profile_service;

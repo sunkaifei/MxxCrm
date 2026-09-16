@@ -5,7 +5,7 @@ import { computed, h, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { LucideEye, LucideFilePenLine, LucidePencil, LucideTrash2 } from '@vben/icons';
+import { LucideEye, LucidePencil, LucideTrash2 } from '@vben/icons';
 import { formatDateTime } from '@vben/utils';
 
 import { Button, Empty, Modal, Popconfirm, Select, Spin, Switch, Tag } from 'ant-design-vue';
@@ -390,22 +390,20 @@ async function handleStatusChange(row: any, checked: boolean) {
       </template>
 
       <template #action="{ row }">
-        <Button
-          type="primary"
-          link
+        <a
+          class="text-action-link"
           v-access:code="['system:dashboard:update']"
-          :icon="h(LucideFilePenLine)"
           @click="() => openAssign(row)"
         >
           {{ $t('page.system.dashboardCard.button.assignRoles') }}
-        </Button>
-        <Button
-          type="primary"
-          link
+        </a>
+        <a
+          class="text-action-link"
           v-access:code="['system:dashboard:update']"
-          :icon="h(LucideFilePenLine)"
           @click="() => handleEdit(row)"
-        />
+        >
+          编辑
+        </a>
         <Popconfirm
           :title="
             $t('ui.text.do_you_want_delete', {
@@ -416,12 +414,12 @@ async function handleStatusChange(row: any, checked: boolean) {
           :cancel-text="$t('ui.button.cancel')"
           @confirm="() => handleDelete(row)"
         >
-          <Button
-            danger
+          <a
+            class="text-action-link text-action-danger"
             v-access:code="['system:dashboard:delete']"
-            link
-            :icon="h(LucideTrash2)"
-          />
+          >
+            删除
+          </a>
         </Popconfirm>
       </template>
     </Grid>
@@ -517,3 +515,21 @@ async function handleStatusChange(row: any, checked: boolean) {
     </Modal>
   </Page>
 </template>
+
+<style scoped>
+/* 操作列纯文字链接（无图标、非表单按钮） */
+.text-action-link {
+  color: #2185eb;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 10px;
+}
+
+.text-action-link:hover {
+  text-decoration: underline;
+}
+
+.text-action-danger {
+  color: #e54545;
+}
+</style>

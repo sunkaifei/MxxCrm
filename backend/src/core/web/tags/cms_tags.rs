@@ -193,7 +193,7 @@ impl CmsTagData {
         // 5.1 预取内容模型内容（T-P2.1）：每个模型有界取最新 200 条，供 get_model_list/get_model_detail
         for code in &model_codes {
             if let Ok((rows, _total)) =
-                DynamicTableService::paginate(db, code, 1, 200, None, None).await
+                DynamicTableService::paginate(db, code, 1, 200, None, None, &[], &[]).await
             {
                 let items: Vec<Value> = rows.iter().map(|r| Value::from_serialize(r)).collect();
                 data.model_contents.insert(code.clone(), items);

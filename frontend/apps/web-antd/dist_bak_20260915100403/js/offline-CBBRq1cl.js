@@ -1,0 +1,1 @@
+import{At as e,J as t,O as n,y as r}from"./vue.runtime.esm-bundler-Y65FNMQw.js";import{t as i}from"./objectSpread2-CwpxwSvQ.js";import{t as a}from"./fallback-n0R43ws0.js";var o=n(i(i({},{name:`FallbackOfflineDemo`}),{},{__name:`offline`,setup(n){return(n,i)=>(t(),r(e(a),{status:`offline`}))}}));export{o as default};

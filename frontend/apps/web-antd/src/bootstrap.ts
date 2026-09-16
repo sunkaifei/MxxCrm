@@ -22,8 +22,13 @@ async function bootstrap(namespace: string) {
   // 全局注册 ant-design-vue message 实例，供 window.$message 调用
   window.$message = message;
 
-  // 预加载 lucide 图标，避免远程加载在火狐浏览器中失败
-  await registerLucideIcons();
+  // 图标集改为**并行**预加载：先启动下载，再做其余初始化，最后统一等待。
+  //
+  // 原实现在此处 `await registerLucideIcons()`，而它在 createApp 之前，
+  // 会把关键路径拉成串行瀑布：index → bootstrap → 图标chunk → 登录页。
+  // 现在图标加载与下面的组件适配器/表单初始化**同时进行**，省掉一整个 RTT。
+  // 仍会在 app.mount 之前 await 完成，因此不会出现图标闪烁。
+  const iconsReady = registerLucideIcons();
 
   // 初始化组件适配器
   await initComponentAdapter();
@@ -92,6 +97,9 @@ async function bootstrap(namespace: string) {
       useTitle(pageTitle);
     }
   });
+
+  // 确保在挂载前图标集就绪 —— 与上面的初始化并行完成，避免阻塞的同時不闪烁
+  await iconsReady;
 
   app.mount('#app');
 }

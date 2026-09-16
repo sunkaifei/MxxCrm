@@ -21,6 +21,7 @@ import {
   registerApi,
   mfaVerifyApi,
 } from '#/api';
+import { setLoggingOut } from '#/api/request';
 import { $t } from '#/locales';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -89,6 +90,8 @@ export const useAuthStore = defineStore('auth', () => {
     params: Recordable<any>,
     onSuccess?: () => Promise<void> | void,
   ) {
+    // 登录即恢复错误提示（清除登出期间置位的抑制标记）
+    setLoggingOut(false);
     // 异步处理用户登录操作并获取 accessToken
     let userInfo: null | UserInfo = null;
     try {
@@ -146,33 +149,58 @@ export const useAuthStore = defineStore('auth', () => {
     };
   }
 
+  // 登出防重入：会话过期自动登出与用户手动登出可能并发（刷新失败链还会递归触发），
+  // 重入会造成多次 DELETE /api/auth/logout 与 redirect 参数多层编码污染
+  let logoutInFlight: null | Promise<void> = null;
+
   async function logout(redirect: boolean = true) {
-    try {
-      // 携带 refreshToken 供后端精确删除当前会话（多设备互不影响）
-      await logoutApi(accessStore.refreshToken);
-    } catch {
-      // 不做任何处理
+    // 已在登录页且凭据已清：刷新失败链/重放请求会多次触发登出，无需重复执行
+    // （重复执行会把登录页 fullPath 编进 redirect 造成多层编码污染）
+    if (
+      !logoutInFlight &&
+      router.currentRoute.value.path === LOGIN_PATH &&
+      !accessStore.accessToken
+    ) {
+      return;
     }
-    // 清空本地双凭据（resetAllStores 将 accessToken/refreshToken 一并复位）
-    accessStore.setAccessToken(null);
-    accessStore.setRefreshToken(null);
-    // A-2.4: 通知其他标签页同步登出（storage 事件跨页触发）
+    if (logoutInFlight) return logoutInFlight;
+    // 登出开始：抑制在途请求批量 401 的错误提示
+    setLoggingOut(true);
+    logoutInFlight = (async () => {
+      try {
+        // 携带 refreshToken 供后端精确删除当前会话（多设备互不影响）
+        await logoutApi(accessStore.refreshToken);
+      } catch {
+        // 不做任何处理
+      }
+      // 清空本地双凭据（resetAllStores 将 accessToken/refreshToken 一并复位）
+      accessStore.setAccessToken(null);
+      accessStore.setRefreshToken(null);
+      // A-2.4: 通知其他标签页同步登出（storage 事件跨页触发）
+      try {
+        localStorage.setItem(FORCE_LOGOUT_KEY, String(Date.now()));
+      } catch {}
+
+      resetAllStores();
+      accessStore.setLoginExpired(false);
+
+      // 回登录页带上当前路由地址
+      await router.replace({
+        path: LOGIN_PATH,
+        query: redirect
+          ? {
+              redirect: encodeURIComponent(router.currentRoute.value.fullPath),
+            }
+          : {},
+      });
+    })();
     try {
-      localStorage.setItem(FORCE_LOGOUT_KEY, String(Date.now()));
-    } catch {}
-
-    resetAllStores();
-    accessStore.setLoginExpired(false);
-
-    // 回登录页带上当前路由地址
-    await router.replace({
-      path: LOGIN_PATH,
-      query: redirect
-        ? {
-            redirect: encodeURIComponent(router.currentRoute.value.fullPath),
-          }
-        : {},
-    });
+      await logoutInFlight;
+    } finally {
+      logoutInFlight = null;
+      // 在途请求此时已基本落定；延迟复位，覆盖跳转期间最后几个失败响应
+      setTimeout(() => setLoggingOut(false), 2000);
+    }
   }
 
   async function fetchUserInfo() {

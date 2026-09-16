@@ -972,7 +972,7 @@ const kpiCards = computed(() => {
     {
       title: '在途商机',
       value: formatCurrency(forecastData.value?.pipelineAmount || 0),
-      icon: 'lucide:pipeline',
+      icon: 'lucide:workflow',
       color: '#2f54eb',
       bg: '#f0f5ff',
       trend: null,

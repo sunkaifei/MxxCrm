@@ -123,10 +123,17 @@ export const LucideUnlock = createIconifyIcon('lucide:unlock');
 export const LucideKeyRound = createIconifyIcon('lucide:key-round');
 
 // 模板管理图标
-export const LucideDisplay = createIconifyIcon('lucide:display');
 export const LucideLayoutGrid = createIconifyIcon('lucide:layout-grid');
 export const LucideMonitor = createIconifyIcon('lucide:monitor');
 export const LucideTablet = createIconifyIcon('lucide:tablet');
+
+/**
+ * lucide 图标集中并没有 `display`，原本指向的是一个不存在的图标（渲染为空白）。
+ * 这里复用语义相同的 monitor，保留导出名以兼容既有引用。
+ *
+ * @deprecated 请直接使用 LucideMonitor
+ */
+export const LucideDisplay = LucideMonitor;
 
 // 通知公告图标
 export const LucideSend = createIconifyIcon('lucide:send');
@@ -144,3 +151,53 @@ export const LucideSquare = createIconifyIcon('lucide:square');
 
 // CRM 删除与作废图标
 export const LucideCircleOff = createIconifyIcon('lucide:circle-off');
+
+// ── 可视化 PDF 模板设计器（views/system/pdf-designer） ──────────────────────
+// ⚠️ 本清单为手工维护的具名导出，新增图标必须在此登记，
+//    否则 `@vben/icons` 无该成员（TS2305/TS2724），
+//    且 scripts/gen-lucide-subset.mjs 扫描不到 lucide: 前缀字符串会漏进子集。
+export const LucideAlignCenterHorizontal = createIconifyIcon(
+  'lucide:align-center-horizontal',
+);
+export const LucideAlignCenterVertical = createIconifyIcon(
+  'lucide:align-center-vertical',
+);
+export const LucideAlignEndHorizontal = createIconifyIcon(
+  'lucide:align-end-horizontal',
+);
+export const LucideAlignEndVertical = createIconifyIcon(
+  'lucide:align-end-vertical',
+);
+export const LucideAlignStartHorizontal = createIconifyIcon(
+  'lucide:align-start-horizontal',
+);
+export const LucideAlignStartVertical = createIconifyIcon(
+  'lucide:align-start-vertical',
+);
+export const LucideArrowDown = createIconifyIcon('lucide:arrow-down');
+export const LucideArrowUp = createIconifyIcon('lucide:arrow-up');
+export const LucideBarcode = createIconifyIcon('lucide:barcode');
+export const LucideCircle = createIconifyIcon('lucide:circle');
+// lucide 新版把 loader 更名为 loader-circle，这里指向新名以保证渲染
+export const LucideLoader = createIconifyIcon('lucide:loader-circle');
+export const LucideEyeOff = createIconifyIcon('lucide:eye-off');
+export const LucideFileInput = createIconifyIcon('lucide:file-input');
+export const LucideHash = createIconifyIcon('lucide:hash');
+export const LucideListTree = createIconifyIcon('lucide:list-tree');
+export const LucideMagnet = createIconifyIcon('lucide:magnet');
+export const LucideMinus = createIconifyIcon('lucide:minus');
+export const LucidePenTool = createIconifyIcon('lucide:pen-tool');
+export const LucideQrCode = createIconifyIcon('lucide:qr-code');
+export const LucideRedo2 = createIconifyIcon('lucide:redo-2');
+export const LucideRepeat = createIconifyIcon('lucide:repeat');
+export const LucideSave = createIconifyIcon('lucide:save');
+export const LucideShapes = createIconifyIcon('lucide:shapes');
+export const LucideShieldCheck = createIconifyIcon('lucide:shield-check');
+export const LucideSparkles = createIconifyIcon('lucide:sparkles');
+export const LucideStamp = createIconifyIcon('lucide:stamp');
+export const LucideStar = createIconifyIcon('lucide:star');
+export const LucideTable = createIconifyIcon('lucide:table');
+export const LucideType = createIconifyIcon('lucide:type');
+export const LucideVariable = createIconifyIcon('lucide:variable');
+export const LucideZoomIn = createIconifyIcon('lucide:zoom-in');
+export const LucideZoomOut = createIconifyIcon('lucide:zoom-out');

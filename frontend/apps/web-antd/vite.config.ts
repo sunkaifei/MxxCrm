@@ -73,6 +73,23 @@ export default defineConfig(async () => {
           },
         },
       ],
+      // dev 冷启动优化：预声明体积较大的依赖，避免「依赖二次预构建」触发整页刷新。
+      // 放在 app 级而非 @vben/vite-config 的 common.ts —— 后者会被打包成
+      // dist/index.mjs 预构建产物，改源码不重新构建本包是不生效的。
+      optimizeDeps: {
+        include: [
+          'vue',
+          'vue-router',
+          'pinia',
+          'dayjs',
+          'lodash-es',
+          '@vueuse/core',
+          'ant-design-vue',
+          '@ant-design/icons-vue',
+          'echarts',
+          'xlsx',
+        ],
+      },
       server: {
         host: '0.0.0.0',
         port: 5668,

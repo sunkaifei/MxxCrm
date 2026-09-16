@@ -130,6 +130,7 @@ catalog:
   oxlint-tsgolint: ^0.20.0
   pinia: ^3.0.4
   pinia-plugin-persistedstate: ^4.7.1
+  pdfjs-dist: ^4.10.38
   pkg-types: ^2.3.1
   playwright: ^1.59.1
   postcss: ^8.5.9

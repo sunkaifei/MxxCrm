@@ -1,0 +1,1 @@
+import{K as e,Tt as t,t as n}from"./vue.runtime.esm-bundler-Ca66Aw3b.js";import{n as r}from"./styleChecker-Cr_azR2Z.js";n();var i=(()=>{let n=t(!1);return e(()=>{n.value=r()}),n});export{i as t};

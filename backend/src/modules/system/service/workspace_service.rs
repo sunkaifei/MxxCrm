@@ -22,6 +22,9 @@ use crate::modules::system::service::{admin_service, dashboard_card_service};
 /// 当前用户可见工作台（方案 5.3-M3：仅需登录；status=1 且未删除，按 sort 升序）
 /// - 管理员（user_type=1）：返回全部启用工作台（设计器需可为任意工作台布局）
 /// - 普通用户：仅返回其可见卡片所在的工作台（无权限工作台不可见、空工作台不出现）
+///   - v2.2 修订：拥有任一专属工作台（sales/warehouse/finance/hr…）时**剔除通用底座
+///     （default）**——通用卡本就随专属工作台一并渲染，default 对该用户是冗余子集；
+///     仅当用户只有通用卡（无任何专属卡）时才返回 default
 pub async fn list_visible(db: &DbConn, user_id: i64) -> Result<Vec<WorkspaceVO>> {
     let list = WorkspaceModel::find_all_enabled(db)
         .await
@@ -40,12 +43,18 @@ pub async fn list_visible(db: &DbConn, user_id: i64) -> Result<Vec<WorkspaceVO>>
         .filter_map(|c| c.page_key.clone())
         .filter(|k| !k.trim().is_empty())
         .collect();
+    // 拥有专属工作台卡 → 通用底座（default）不再单列（冗余子集）
+    let has_dedicated = page_keys.iter().any(|k| k != "default");
     Ok(list
         .into_iter()
         .filter(|w| {
-            w.workspace_code
-                .as_ref()
-                .map_or(false, |code| page_keys.contains(code))
+            let Some(code) = w.workspace_code.as_ref() else {
+                return false;
+            };
+            if code == "default" {
+                return !has_dedicated && page_keys.contains(code);
+            }
+            page_keys.contains(code)
         })
         .map(vo_from_model)
         .collect())

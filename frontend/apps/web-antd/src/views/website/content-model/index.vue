@@ -24,6 +24,7 @@ import {
 
 import ContentModelDrawer from './drawer.vue';
 import ContentModelFieldDrawer from './field-drawer.vue';
+import LayoutDesigner from './layout-designer.vue';
 
 const fieldTypeMap: Record<number, string> = {
   1: '单行文本',
@@ -36,6 +37,7 @@ const fieldTypeMap: Record<number, string> = {
   8: '多选',
   9: '图片',
   10: '文件',
+  11: '用户',
 };
 
 const formOptions: VbenFormProps = {
@@ -236,6 +238,22 @@ const fieldModalVisible = ref(false);
 const currentModel = ref<any>(null);
 const fieldList = ref<any[]>([]);
 const fieldLoading = ref(false);
+// 表单布局设计器
+const layoutDesignerOpen = ref(false);
+
+function handleOpenLayoutDesigner() {
+  layoutDesignerOpen.value = true;
+}
+
+async function handleLayoutSaved() {
+  // 布局保存在模型行上：拉最新行覆盖 currentModel，并刷新列表
+  const res: any = await getContentModelListApi({ page: 1, pageSize: 999 });
+  const list = res?.items || res?.rows || [];
+  const fresh = list.find((m: any) => m.id === currentModel.value?.id);
+  if (fresh) currentModel.value = fresh;
+  message.success('布局已更新');
+  gridApi.query();
+}
 
 async function loadFieldList(modelId: number) {
   fieldLoading.value = true;
@@ -416,6 +434,14 @@ const fieldColumns: TableColumnsType = [
       :footer="null"
     >
       <template #extra>
+        <Button
+          type="link"
+          size="small"
+          class="mr-2"
+          @click="handleOpenLayoutDesigner"
+        >
+          布局设计
+        </Button>
         <Button type="link" size="small" @click="toggleFieldFullscreen">
           {{ fieldFullscreen ? '还原' : '最大化' }}
         </Button>
@@ -424,6 +450,9 @@ const fieldColumns: TableColumnsType = [
         <Button type="primary" :icon="h(LucidePlus)" @click="handleFieldAdd">
           新增字段
         </Button>
+        <span class="ml-3 text-xs" style="color: hsl(var(--foreground) / 50%)">
+          提示：id、状态、创建时间等系统字段在创建模型时已自动生成，无需手动添加
+        </span>
       </div>
       <Table
         :columns="fieldColumns"
@@ -460,6 +489,22 @@ const fieldColumns: TableColumnsType = [
           </template>
         </template>
       </Table>
+    </AntDrawer>
+
+    <!-- 表单布局设计器（选项卡/列数/字段摆放） -->
+    <AntDrawer
+      v-model:open="layoutDesignerOpen"
+      :title="`布局设计 - ${currentModel?.modelName || ''}`"
+      width="60%"
+      :footer="null"
+      :z-index="2600"
+    >
+      <LayoutDesigner
+        v-model:open="layoutDesignerOpen"
+        :model="currentModel"
+        :fields="fieldList"
+        @saved="handleLayoutSaved"
+      />
     </AntDrawer>
 
     <FieldDrawer />

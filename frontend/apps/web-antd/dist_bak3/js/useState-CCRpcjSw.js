@@ -1,0 +1,1 @@
+import{St as e,t}from"./vue.runtime.esm-bundler-Ca66Aw3b.js";t();function n(t){let n=e(typeof t==`function`?t():t);function r(e){n.value=e}return[n,r]}export{n as t};

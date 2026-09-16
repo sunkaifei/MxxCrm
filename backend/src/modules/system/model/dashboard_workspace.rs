@@ -23,6 +23,19 @@ pub struct WorkspaceSummaryVO {
     pub hr_todo: HrTodoSummary,
     pub sales_performance: SalesPerformanceSummary,
     pub announcement: AnnouncementSummary,
+    /// 本次实际生效的数据视角（方案 v2.1 §7.2.1）
+    ///
+    /// 取值与项目既有口径一致：`my` / `subordinate` / `all`
+    /// —— **禁止新造枚举**（既有 30+ 列表页 Tab 已用这套词汇，见
+    /// `composables/use-data-scope-tabs.ts`）。
+    pub scope: String,
+    /// 本次是否成功应用了请求的视角
+    ///
+    /// `false` 表示请求范围超出用户数据权限，已**静默降级**为最大允许范围
+    /// （吸收 Pipedrive/Salesforce 机制，不返回 403）。
+    pub scope_applied: bool,
+    /// 当前用户可用的视角列表（供前端渲染切换器；仅 1 项时不显示切换器）
+    pub scope_options: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

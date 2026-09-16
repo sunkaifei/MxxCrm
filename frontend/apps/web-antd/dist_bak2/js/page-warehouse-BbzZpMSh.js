@@ -1,0 +1,1 @@
+var e={title:`Warehouse`},t={warehouse:e};export{t as default,e as warehouse};

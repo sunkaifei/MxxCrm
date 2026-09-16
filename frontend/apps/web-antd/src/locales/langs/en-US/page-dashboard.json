@@ -72,13 +72,19 @@
     "successTag": "Processed",
     "rejectTag": "Rejected",
     "canvas": {
+      "edit": "Customize Layout",
+      "editDone": "Done",
+      "editTip": "Editing: drag cards to move, drag the corner to resize. Click \"Done\" to lock the layout",
       "hiddenTip": "{n} card(s) hidden",
       "hide": "Hide card",
       "reset": "Reset Layout",
       "resetDone": "Layout reset to default",
       "restore": "Restore",
       "saveFailed": "Failed to save layout",
-      "tip": "Drag to move, drag the corner to resize"
+      "tip": "Drag to move, drag the corner to resize",
+      "addCard": "Add card",
+      "addCards": "Add cards ({n} hidden)",
+      "noHiddenCards": "All cards are shown, none hidden"
     },
     "workspace": {
       "switch": "Workspace",
@@ -211,6 +217,13 @@
       "previewNoticeTitle": "[Sample] Welcome aboard, please complete your onboarding info"
     },
     "workspaceEmptyCards": "No workspace cards configured for this role. Please contact the administrator",
-    "workspaceGoConfig": "Configure"
+    "workspaceGoConfig": "Configure",
+    "workspaceCurrent": "Current workspace",
+    "wsEmptyTitle": "\"{name}\" is empty",
+    "wsEmptyReason": "You have not been assigned any cards in this workspace. Switch to another workspace, or ask an administrator to configure it for you.",
+    "wsEmptyTitleAdmin": "\"{name}\" has no cards",
+    "wsEmptyReasonAdmin": "This workspace has not been configured with any cards yet. Add cards to it in the designer, or change the cards' owning workspace in card management.",
+    "wsEmptyGoCardManage": "Card management",
+    "wsEmptyGoDefault": "Go to default workspace"
   }
 }

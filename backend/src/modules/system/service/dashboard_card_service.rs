@@ -96,6 +96,7 @@ pub async fn get_by_page(db: &DbConn, query: DashboardCardListQuery) -> Result<R
             default_h: c.default_h,
             status: c.status,
             remark: c.remark,
+            card_config: c.card_config,
             role_ids: role_map.get(&c.id).cloned().unwrap_or_default(),
             create_time: c.create_time,
             update_time: c.update_time,
@@ -372,6 +373,7 @@ fn vo_from_model(c: dashboard_card::Model) -> DashboardCardVO {
         default_h: c.default_h,
         status: c.status,
         remark: c.remark,
+        card_config: c.card_config,
         role_ids: vec![],
         create_time: c.create_time,
         update_time: c.update_time,
@@ -411,8 +413,11 @@ fn validate_layout_items(items: &[CardLayoutItem]) -> Result<()> {
 }
 
 /// 设计器模板布局（管理员维护；含停用卡片置灰展示，方案 5.2）
+///
+/// 内容模型（方案 v2.2 修订）：返回 通用卡(page_key='default') ∪ 本工作台专属卡，
+/// 与运行端 `get_user_layout` 对齐——设计器即运行端布局的真实预览。
 pub async fn get_card_layout(db: &DbConn, page_key: &str) -> Result<Vec<CardLayoutVO>> {
-    let cards = DashboardCardModel::find_by_page_key(db, page_key)
+    let cards = DashboardCardModel::find_by_page_key_with_default(db, page_key)
         .await
         .map_err(|e| Error::from(e.to_string()))?;
     Ok(cards
@@ -481,9 +486,20 @@ pub async fn get_user_layout(db: &DbConn, user_id: i64, page_key: &str) -> Resul
         }
     }
     // 交叉场景（方案 5.4-3）：停用/不可见卡片记录保留不返回，角色恢复自动回来
+    //
+    // 内容模型（方案 v2.2 修订）：专属工作台 = 通用卡(page_key='default') ∪ 本工作台专属卡。
+    // v2.1 时期专属工作台只含专属卡（sales 仅 1 张），用户反馈"每个角色的
+    // 工作台应显示其全部可见卡片"，故通用卡随每个工作台一并下发；
+    // 各卡坐标已在 d40 错开（专属卡 y=28~46 位于通用卡流下方），无需迁移。
+    // default 工作台行为不变；个人布局唯一键 (admin_id, page_key, card_code)
+    // 天然支持同一通用卡在不同工作台各自记忆布局。
     Ok(cards
         .into_iter()
-        .filter(|c| c.page_key.as_ref().map_or(false, |pk| pk == page_key))
+        .filter(|c| {
+            c.page_key
+                .as_ref()
+                .map_or(false, |pk| pk == page_key || pk == "default")
+        })
         .map(|c| {
             let code = c.card_code.clone().unwrap_or_default();
             let o = override_map.get(&code);

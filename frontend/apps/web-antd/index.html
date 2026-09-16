@@ -16,7 +16,18 @@
     <link rel="icon" href="/favicon.ico" />
   </head>
   <body>
+    <!--
+      首屏 loading 不写在 index.html 里：
+      @vben/vite-config 的 inject-app-loading 插件会向 <body> 注入它自己的
+      loading 节点（z-index 9999），写在 #app 里的骨架会被完全遮住。
+      因此改为提供 `loading.html` 自定义模板来接管该节点，详见该文件。
+    -->
     <div id="app"></div>
+    <noscript>
+      <div style="padding: 24px; text-align: center">
+        当前浏览器禁用了 JavaScript，请启用后访问本系统。
+      </div>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -186,7 +186,17 @@ async function loadApplicationPlugins(
         const compressPlugins: PluginOption[] = [];
         if (compressTypes?.includes('brotli')) {
           compressPlugins.push(
-            viteCompressPlugin({ deleteOriginFile: false, ext: '.br' }),
+            // threshold: 0 —— 默认阈值（1025B）会让小文件漏压，
+            // 服务端现已能正确协商 brotli，这里让所有静态资源都产出 .br 版本
+            // algorithm 必须显式指定：vite-plugin-compression@0.5 默认 gzip，
+            // 且枚举值是 'brotliCompress'（不是 'brotli'，传错会静默回退 gzip），
+            // 漏传/传错都会用 gzip 算法产出 .br 文件，浏览器 brotli 解码全部失败
+            viteCompressPlugin({
+              algorithm: 'brotliCompress',
+              deleteOriginFile: false,
+              ext: '.br',
+              threshold: 0,
+            }),
           );
         }
         if (compressTypes?.includes('gzip')) {

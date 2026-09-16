@@ -26,7 +26,10 @@ use crate::modules::purchase::service::purchase_requisition_service;
 use crate::modules::system::model::dashboard_card::DashboardCardModel;
 use crate::modules::system::model::dashboard_workspace::*;
 use crate::modules::system::model::notice::ListQuery;
-use crate::modules::system::service::{admin_service, dashboard_card_service, notice_service};
+use crate::modules::system::service::{
+    admin_service, dashboard_card_service, data_scope_service, notice_service, role_service,
+    subordinate_service,
+};
 
 pub const CARD_STOCK_ALERT: &str = "workspace_stock_alert";
 pub const CARD_STOCK_DOC_TODO: &str = "workspace_stock_doc_todo";
@@ -43,22 +46,65 @@ const SUMMARY_ITEM_LIMIT: usize = 6;
 ///
 /// - 仅返回当前用户可见卡片的摘要，不可见卡片返回空数据（数据兜底，手册硬性规则）
 /// - 单卡数据源异常时降级为空摘要，不影响其余卡片
-pub async fn get_workspace_summary(db: &DbConn, user_id: i64) -> Result<WorkspaceSummaryVO> {
-    let visible = get_visible_codes(db, user_id).await;
+///
+/// ## 数据视角（方案 v2.1 §7.2.1「接通既有统一层」）
+///
+/// 本函数**不再让数据卡各自硬编码 `user_id` 过滤**（"我的审批/待办"类任务卡
+/// 除外——其口径是任务队列，与数据视角正交）。scope 解析委托既有统一层
+/// `data_scope_service` / `subordinate_service`。
+///
+/// **兼容硬承诺**：不传 `scope` 时进入遗留模式（`ScopeCtx.legacy`），
+/// 各数据卡严格保持改造前取数行为（sales_performance 连超管也仅本人、
+/// payment_reminder 超管全部/他人本人），保证既有验收逐字段一致。
+///
+/// `scope` 取值与既有列表页 Tab 一致：`my` / `subordinate` / `all`。
+pub async fn get_workspace_summary(
+    db: &DbConn,
+    user_id: i64,
+    scope_req: Option<&str>,
+    time_range_req: Option<&str>,
+) -> Result<WorkspaceSummaryVO> {
+    let visible_cards = dashboard_card_service::get_visible_cards(db, user_id)
+        .await
+        .unwrap_or_default();
+    let visible: Vec<String> = visible_cards
+        .iter()
+        .filter_map(|c| c.card_code.clone())
+        .collect();
     let is_admin = admin_service::get_by_detail(db, &Some(user_id))
         .await
         .map(|a| a.user_type == Some(1))
         .unwrap_or(false);
 
+    // 解析数据视角（含越权静默降级），得到本次生效范围
+    let scope_ctx = resolve_scope(db, user_id, is_admin, scope_req).await?;
+
     let has = |code: &str| visible.iter().any(|c| c == code);
 
-    let stock_alert = build_stock_alert(db, user_id, has(CARD_STOCK_ALERT)).await;
-    let stock_doc_todo = build_stock_doc_todo(db, has(CARD_STOCK_DOC_TODO)).await;
-    let purchase_approval = build_purchase_approval(db, user_id, has(CARD_PURCHASE_APPROVAL)).await;
-    let payment_reminder = build_payment_reminder(db, user_id, is_admin, has(CARD_PAYMENT_REMINDER)).await;
+    // 卡片配置（card_config JSON）解析：当前支持 timeRange / displayForm，
+    // 卡级配置覆盖全局 time_range_req
+    let card_config_of = |code: &str| -> Option<serde_json::Value> {
+        visible_cards
+            .iter()
+            .find(|c| c.card_code.as_deref() == Some(code))
+            .and_then(|c| c.card_config.as_deref())
+            .and_then(|s| serde_json::from_str(s).ok())
+    };
+    let sp_config = card_config_of(CARD_SALES_PERFORMANCE);
+    let sp_time_range = sp_config
+        .as_ref()
+        .and_then(|c| c.get("timeRange"))
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .or_else(|| time_range_req.map(String::from));
+
+    let stock_alert = build_stock_alert(db, &scope_ctx, has(CARD_STOCK_ALERT)).await;
+    let stock_doc_todo = build_stock_doc_todo(db, &scope_ctx, has(CARD_STOCK_DOC_TODO)).await;
+    let purchase_approval = build_purchase_approval(db, &scope_ctx, has(CARD_PURCHASE_APPROVAL)).await;
+    let payment_reminder = build_payment_reminder(db, &scope_ctx, has(CARD_PAYMENT_REMINDER)).await;
     let payslip_stat = build_payslip_stat(db, has(CARD_PAYSLIP_STAT)).await;
-    let hr_todo = build_hr_todo(db, user_id, has(CARD_HR_TODO)).await;
-    let sales_performance = build_sales_performance(db, user_id, has(CARD_SALES_PERFORMANCE)).await;
+    let hr_todo = build_hr_todo(db, &scope_ctx, has(CARD_HR_TODO)).await;
+    let sales_performance = build_sales_performance(db, &scope_ctx, has(CARD_SALES_PERFORMANCE), sp_time_range.as_deref()).await;
     let announcement = build_announcement(db, user_id, has(CARD_ANNOUNCEMENT)).await;
 
     Ok(WorkspaceSummaryVO {
@@ -70,8 +116,134 @@ pub async fn get_workspace_summary(db: &DbConn, user_id: i64) -> Result<Workspac
         hr_todo,
         sales_performance,
         announcement,
+        scope: scope_ctx.scope.clone(),
+        scope_applied: scope_ctx.applied,
+        scope_options: scope_ctx.options.clone(),
     })
 }
+
+/// 数据视角上下文（方案 v2.1 §7.2.1）
+///
+/// 由既有 `data_scope_service` 统一产出，各卡**只消费不判断**。
+#[derive(Debug, Clone)]
+pub struct ScopeCtx {
+    /// 本次实际生效的视角：my / subordinate / all
+    pub scope: String,
+    /// 请求的视角是否被成功应用（false = 已静默降级）
+    pub applied: bool,
+    /// 当前用户可用的视角列表
+    pub options: Vec<String>,
+    /// 当前用户本人 ID（"my" 口径直接使用）
+    pub user_id: i64,
+    /// 可见用户 ID 集合；`None` = 不限（全部数据权限）
+    pub user_ids: Option<Vec<i64>>,
+    /// 是否为「未传 scope」的遗留模式
+    ///
+    /// **为真时各数据卡严格保持改造前的取数行为**（验收硬承诺：
+    /// "不传 scope 与改造前逐字段一致"）。这是因为旧实现中各卡默认口径
+    /// 并不一致（如 sales_performance 连超管也只看本人，而 payment_reminder
+    /// 超管看全部），无法用单一 scope 复原，故遗留模式下各卡走自己的旧逻辑。
+    pub legacy: bool,
+}
+
+impl ScopeCtx {
+    /// 是否不限范围（全量）
+    pub fn is_unbounded(&self) -> bool {
+        self.user_ids.is_none()
+    }
+}
+
+/// 解析数据视角（复用既有统一层，不新造范围语义）
+///
+/// ## 可用视角判定（与 `use-data-scope-tabs.ts` 前端判定对齐）
+/// - 超管（user_type=1）：`all` / `subordinate` / `my` 全可用
+/// - data_scope = 1（全部）：`all` / `my`
+/// - data_scope = 2/3/4（部门级）：`subordinate` / `my`
+/// - data_scope = 5 / 未设置：仅 `my`
+///
+/// ## 静默降级（吸收 B2）
+/// 请求的视角不可用时，降级为**该用户可用列表中的第一个**并置 `applied=false`，
+/// **不返回错误**，避免用户切视角就弹错误框。
+async fn resolve_scope(
+    db: &DbConn,
+    user_id: i64,
+    is_admin: bool,
+    requested: Option<&str>,
+) -> Result<ScopeCtx> {
+    // 数据权限五档（既有统一层的判定依据，此处仅用于推导"可用视角列表"）
+    let data_scope = if is_admin {
+        1
+    } else {
+        let roles = role_service::select_by_admin_id(db, &Some(user_id)).await?;
+        let scopes: Vec<i32> = roles.iter().filter_map(|r| r.data_scope).collect();
+        // 多角色：取最宽（数值最小即最宽，1 > 2 > 3/4 > 5），对齐统一层"任一为 1 即全量"的策略
+        scopes.iter().copied().min().unwrap_or(5)
+    };
+
+    // 可用视角：优先级 all > subordinate > my
+    let mut options: Vec<String> = Vec::new();
+    let can_all = is_admin || data_scope == 1;
+    let can_subordinate = is_admin || matches!(data_scope, 2 | 3 | 4);
+    if can_all {
+        options.push("all".to_string());
+    }
+    if can_subordinate {
+        options.push("subordinate".to_string());
+    }
+    options.push("my".to_string());
+
+    // 请求视角解析 + 降级
+    let req = requested.map(|s| s.trim().to_ascii_lowercase());
+    let (scope, applied, legacy) = match req.as_deref() {
+        // 不传 = 遗留模式（各卡保持改造前行为），保证既有验收不变。
+        // 生效视角仅作描述性返回：超管历史上看全部，其余人仅本人。
+        None => (
+            if is_admin { "all" } else { "my" }.to_string(),
+            true,
+            true,
+        ),
+        Some(s) if s.is_empty() => ("my".to_string(), true, false),
+        Some(s) if options.iter().any(|o| o == s) => (s.to_string(), true, false),
+        // 越权/未知 → 静默降级到可用列表首项
+        Some(_) => (
+            options.first().cloned().unwrap_or_else(|| "my".to_string()),
+            false,
+            false,
+        ),
+    };
+
+    // 按生效视角计算可见用户集合（委托既有统一层）
+    //
+    // 遗留模式的 user_ids 语义 = 旧 payment_reminder 的手写规则：
+    // 超管 None（不限）/ 其他人 Some([本人])——数据卡在遗留模式下各走旧逻辑，
+    // 该集合仅保证 is_unbounded() 判定与旧行为一致。
+    let user_ids: Option<Vec<i64>> = if legacy {
+        if is_admin {
+            None
+        } else {
+            Some(vec![user_id])
+        }
+    } else {
+        match scope.as_str() {
+            // 仅本人：不查库，直接本人（零额外开销）
+            "my" => Some(vec![user_id]),
+            // 下属：既有 subordinate_service（数据权限 ∪ 汇报线，已剔除本人）
+            "subordinate" => subordinate_service::get_subordinate_scope_ids(db, user_id).await?,
+            // 全部：走统一层（全量权限返回 None 表示不限）
+            _ => data_scope_service::get_accessible_user_ids(db, user_id).await?,
+        }
+    };
+
+    Ok(ScopeCtx {
+        scope,
+        applied,
+        options,
+        user_id,
+        user_ids,
+        legacy,
+    })
+}
+
 
 /// 当前用户可见卡片编码集合（get_visible_cards 异常时降级为全部启用卡，保证降级方向为"全部可见"）
 async fn get_visible_codes(db: &DbConn, user_id: i64) -> Vec<String> {
@@ -84,11 +256,13 @@ async fn get_visible_codes(db: &DbConn, user_id: i64) -> Vec<String> {
     }
 }
 
-async fn build_stock_alert(db: &DbConn, user_id: i64, visible: bool) -> StockAlertSummary {
+async fn build_stock_alert(db: &DbConn, ctx: &ScopeCtx, visible: bool) -> StockAlertSummary {
     if !visible {
         return StockAlertSummary::default();
     }
-    match inventory_service::get_alert_list(db, None, None, None, 1, SUMMARY_ITEM_LIMIT as u64, None, user_id).await {
+    // 库存预警为仓储公共数据（无负责人维度），沿用既有的 user_id 参数语义：
+    // 传本人即可（底层按仓库权限过滤，与视角无关）
+    match inventory_service::get_alert_list(db, None, None, None, 1, SUMMARY_ITEM_LIMIT as u64, None, ctx.user_id).await {
         Ok(data) => StockAlertSummary {
             total: data.total as i64,
             items: data
@@ -109,7 +283,12 @@ async fn build_stock_alert(db: &DbConn, user_id: i64, visible: bool) -> StockAle
 }
 
 /// 待办出入库单：status 0=草稿 1=审核中（各查一次后合并，total 相加）
-async fn build_stock_doc_todo(db: &DbConn, visible: bool) -> StockDocTodoSummary {
+///
+/// **任务型口径，不随数据视角变化**（与采购审批/人事待办同理）：
+/// "待办"语义是"流程里停着的单"，对仓储/制单岗位是工作队列而非个人数据，
+/// 旧实现即为全局视角（底层 `get_list` 在 scope=None 时不过滤用户），
+/// 本方案保持该行为不变。
+async fn build_stock_doc_todo(db: &DbConn, ctx: &ScopeCtx, visible: bool) -> StockDocTodoSummary {
     if !visible {
         return StockDocTodoSummary::default();
     }
@@ -127,6 +306,7 @@ async fn build_stock_doc_todo(db: &DbConn, visible: bool) -> StockDocTodoSummary
             warehouse_id: None,
             status: Some(st),
         };
+        // user_id 传 0：与旧实现一致；底层 scope=None 路径不使用该参数（全局视角）
         if let Ok(vo) = inbound_service::get_list(db, &in_query, 0).await {
             inbound_total += vo.total as i64;
             for it in vo.list {
@@ -178,11 +358,13 @@ async fn build_stock_doc_todo(db: &DbConn, visible: bool) -> StockDocTodoSummary
     }
 }
 
-async fn build_purchase_approval(db: &DbConn, user_id: i64, visible: bool) -> PurchaseApprovalSummary {
+async fn build_purchase_approval(db: &DbConn, ctx: &ScopeCtx, visible: bool) -> PurchaseApprovalSummary {
     if !visible {
         return PurchaseApprovalSummary::default();
     }
-    match purchase_requisition_service::get_my_approval_list(db, user_id, 1, SUMMARY_ITEM_LIMIT as i64).await {
+    // "待我审批"是任务型口径（签核流到我这儿的），与数据视角正交：
+    // 无论何种视角，都应展示"需要我处理的审批"，故固定传本人
+    match purchase_requisition_service::get_my_approval_list(db, ctx.user_id, 1, SUMMARY_ITEM_LIMIT as i64).await {
         Ok((list, total)) => PurchaseApprovalSummary {
             total: total as i64,
             items: list
@@ -203,11 +385,21 @@ async fn build_purchase_approval(db: &DbConn, user_id: i64, visible: bool) -> Pu
 }
 
 /// 待收款提醒：进行中的回款计划（status 0=未开始 1=部分回款），按 plan_date 升序
-async fn build_payment_reminder(db: &DbConn, user_id: i64, is_admin: bool, visible: bool) -> PaymentReminderSummary {
+///
+/// 视角处理（方案 v2.1 §7.2.1）：**本条是"接通既有统一层"的核心示例**。
+/// 原实现手写 `if is_admin { None } else { Some(vec![user_id]) }`，
+/// 只区分"超管看全部 / 其他人看自己"，无法支持"主管看下属"。
+/// 现改为统一消费 `ScopeCtx`：`my` 看自己、`subordinate` 看下属、`all` 看全部。
+async fn build_payment_reminder(db: &DbConn, ctx: &ScopeCtx, visible: bool) -> PaymentReminderSummary {
     if !visible {
         return PaymentReminderSummary::default();
     }
-    let owner: Option<Vec<i64>> = if is_admin { None } else { Some(vec![user_id]) };
+    // 统一层产出：None = 不限（全部数据权限），Some(ids) = 限定负责人集合
+    let owner: Option<Vec<i64>> = if ctx.is_unbounded() {
+        None
+    } else {
+        Some(ctx.user_ids.clone().unwrap_or_default())
+    };
     let mut total = 0i64;
     let mut rows: Vec<Vec<crate::modules::crm::entity::contract_payment_plan::Model>> = Vec::new();
 
@@ -259,10 +451,13 @@ async fn build_payslip_stat(db: &DbConn, visible: bool) -> PayslipStatSummary {
 }
 
 /// 人事待办：待我审批的入职（business_type=user）与离职（resign）在途实例（status 1/2）
-async fn build_hr_todo(db: &DbConn, user_id: i64, visible: bool) -> HrTodoSummary {
+///
+/// 与采购审批同理，"待我审批"是任务型口径，固定传本人（不随数据视角变化）
+async fn build_hr_todo(db: &DbConn, ctx: &ScopeCtx, visible: bool) -> HrTodoSummary {
     if !visible {
         return HrTodoSummary::default();
     }
+    let user_id = ctx.user_id;
     let mut total = 0i64;
     let mut onboarding = 0i64;
     let mut resign = 0i64;
@@ -301,56 +496,98 @@ async fn build_hr_todo(db: &DbConn, user_id: i64, visible: bool) -> HrTodoSummar
 }
 
 /// 销售业绩：当前用户当月新增客户/跟进/商机与成交合同金额（签署后状态）
-async fn build_sales_performance(db: &DbConn, user_id: i64, visible: bool) -> SalesPerformanceSummary {
+///
+/// 视角处理（方案 v2.1 §7.2.1）：**本条是硬编码 `user_id` 最集中的地方（原 4 处）**。
+/// 原实现全部 `AssignedTo.eq(user_id)` / `CreatedBy.eq(user_id)`，
+/// 主管无法看团队业绩。现统一改为按 `ScopeCtx.user_ids` 过滤。
+/// 统计时间边界：month=本月（既有行为）/ quarter=本季 / year=本年；未知值回落 month
+fn resolve_time_bounds(range: &str) -> (chrono::NaiveDateTime, chrono::NaiveDateTime) {
+    use chrono::{Datelike, Months};
+    let today = chrono::Local::now().date_naive();
+    let start_day = match range {
+        "quarter" => {
+            let month_start = today.with_day(1).unwrap_or(today);
+            let quarter_first_month = ((month_start.month() - 1) / 3) * 3 + 1;
+            today
+                .with_month(quarter_first_month)
+                .and_then(|d| d.with_day(1))
+                .unwrap_or(month_start)
+        }
+        "year" => today
+            .with_month(1)
+            .and_then(|d| d.with_day(1))
+            .unwrap_or(today),
+        // month 与未知值均回落本月（兼容既有口径）
+        _ => today.with_day(1).unwrap_or(today),
+    };
+    let end_day = match range {
+        "quarter" => start_day + Months::new(3),
+        "year" => start_day + Months::new(12),
+        _ => start_day + Months::new(1),
+    };
+    (
+        start_day.and_hms_opt(0, 0, 0).unwrap_or_default(),
+        end_day.and_hms_opt(0, 0, 0).unwrap_or_default(),
+    )
+}
+
+async fn build_sales_performance(
+    db: &DbConn,
+    ctx: &ScopeCtx,
+    visible: bool,
+    time_range: Option<&str>,
+) -> SalesPerformanceSummary {
     if !visible {
         return SalesPerformanceSummary::default();
     }
-    let today = chrono::Local::now().date_naive();
-    let month_start = today.with_day(1).unwrap_or(today);
-    let next_month_start = month_start + Months::new(1);
-    let start_dt = month_start.and_hms_opt(0, 0, 0).unwrap_or_default();
-    let end_dt = next_month_start.and_hms_opt(0, 0, 0).unwrap_or_default();
+    let (start_dt, end_dt) = resolve_time_bounds(time_range.unwrap_or("month"));
 
-    let new_customers = customer::Entity::find()
+    // 负责人集合：
+    // - 遗留模式（未传 scope）：严格保持旧行为——**所有角色（含超管）只看本人**
+    //   （旧实现 4 处全部 .eq(user_id)，超管也不例外）；
+    // - 显式视角：按统一层集合过滤，None = 全量不过滤。
+    let owner_ids: Option<Vec<i64>> = if ctx.legacy {
+        Some(vec![ctx.user_id])
+    } else {
+        ctx.user_ids.clone()
+    };
+
+    // 四张表的负责人字段名不同（AssignedTo / CreatedBy），故分别构造查询；
+    // 仅当 owner_ids 为 Some 时才追加 is_in 条件（None 表示全量，不过滤）
+    let mut q_customer = customer::Entity::find()
         .filter(customer::Column::Deleted.eq(0))
-        .filter(customer::Column::AssignedTo.eq(user_id))
         .filter(customer::Column::CreateTime.gte(start_dt))
-        .filter(customer::Column::CreateTime.lt(end_dt))
-        .count(db)
-        .await
-        .unwrap_or(0) as i64;
-
-    let follow_ups = followup::Entity::find()
+        .filter(customer::Column::CreateTime.lt(end_dt));
+    let mut q_followup = followup::Entity::find()
         .filter(followup::Column::Deleted.eq(0))
-        .filter(followup::Column::CreatedBy.eq(user_id))
         .filter(followup::Column::CreateTime.gte(start_dt))
-        .filter(followup::Column::CreateTime.lt(end_dt))
-        .count(db)
-        .await
-        .unwrap_or(0) as i64;
-
-    let new_opportunities = opportunity::Entity::find()
+        .filter(followup::Column::CreateTime.lt(end_dt));
+    let mut q_opportunity = opportunity::Entity::find()
         .filter(opportunity::Column::Deleted.eq(0))
-        .filter(opportunity::Column::AssignedTo.eq(user_id))
         .filter(opportunity::Column::CreateTime.gte(start_dt))
-        .filter(opportunity::Column::CreateTime.lt(end_dt))
-        .count(db)
-        .await
-        .unwrap_or(0) as i64;
-
-    let deal_amount = match contract::Entity::find()
+        .filter(opportunity::Column::CreateTime.lt(end_dt));
+    let mut q_contract = contract::Entity::find()
         .filter(contract::Column::Deleted.eq(0))
-        .filter(contract::Column::AssignedTo.eq(user_id))
-        .filter(contract::Column::SignDate.gte(month_start))
-        .filter(contract::Column::SignDate.lt(next_month_start))
+        .filter(contract::Column::SignDate.gte(start_dt))
+        .filter(contract::Column::SignDate.lt(end_dt))
         .filter(contract::Column::Status.is_in([
             ContractStatus::Signed,
             ContractStatus::Executing,
             ContractStatus::Completed,
-        ]))
-        .all(db)
-        .await
-    {
+        ]));
+
+    if let Some(ids) = &owner_ids {
+        q_customer = q_customer.filter(customer::Column::AssignedTo.is_in(ids.clone()));
+        q_followup = q_followup.filter(followup::Column::CreatedBy.is_in(ids.clone()));
+        q_opportunity = q_opportunity.filter(opportunity::Column::AssignedTo.is_in(ids.clone()));
+        q_contract = q_contract.filter(contract::Column::AssignedTo.is_in(ids.clone()));
+    }
+
+    let new_customers = q_customer.count(db).await.unwrap_or(0) as i64;
+    let follow_ups = q_followup.count(db).await.unwrap_or(0) as i64;
+    let new_opportunities = q_opportunity.count(db).await.unwrap_or(0) as i64;
+
+    let deal_amount = match q_contract.all(db).await {
         Ok(rows) => rows.iter().filter_map(|c| c.total_amount).sum::<Decimal>(),
         Err(_) => Decimal::ZERO,
     };

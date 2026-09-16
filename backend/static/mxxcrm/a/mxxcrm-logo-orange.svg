@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="118" height="33" viewBox="0 0 118 33" role="img" aria-label="迈客 MxxCRM">
+  <defs>
+    <linearGradient id="mboxo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff704f"/>
+      <stop offset="1" stop-color="#ff9326"/>
+    </linearGradient>
+    <linearGradient id="tinto" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff704f"/>
+      <stop offset="1" stop-color="#ff9326"/>
+    </linearGradient>
+    <filter id="softo" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#ff704f" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <!-- 带框 M：立即提交按钮同族橙渐变（#ff704f → #ff9326，中值 #FF8000） -->
+  <rect x="0.5" y="0.5" width="32" height="32" rx="8" fill="url(#mboxo)" filter="url(#softo)"/>
+  <path d="M 9 23.5 L 9 10 L 16.5 18.5 L 24 10 L 24 23.5"
+        fill="none" stroke="#ffffff" stroke-width="3.2"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="41" y="17" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif"
+        font-size="16.5" font-weight="600" fill="#181C25"
+        textLength="44" lengthAdjust="spacing">迈客</text>
+  <text x="41" y="28.5" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif"
+        font-size="8" font-weight="700"
+        textLength="44" lengthAdjust="spacing"
+        fill="url(#tinto)">MxxCRM</text>
+</svg>

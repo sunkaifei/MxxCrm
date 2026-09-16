@@ -7,7 +7,7 @@ import type {
 } from '#/api/core/website/notification';
 import type { SiteVO } from '#/api/core/website/site';
 
-import { computed, h, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, h, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import {
@@ -53,7 +53,10 @@ import {
 import { uploadFileApi } from '#/api/core/attachment/file';
 import { useAssetDomain } from '#/composables/use-asset-domain';
 import { normalizeAssetDomain } from '#/utils/asset-url';
-import CodeEditor from '#/components/CodeEditor/index.vue';
+// Monaco 体积约 13MB（含 worker），异步加载避免拖慢本页打开速度
+const CodeEditor = defineAsyncComponent(
+  () => import('#/components/CodeEditor/index.vue'),
+);
 
 // ============ 加载状态 ============
 const loading = ref(false);

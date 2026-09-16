@@ -16,10 +16,11 @@
   },
   "type": "module",
   "scripts": {
-    "build": "pnpm vite build --mode production",
-    "build:analyze": "pnpm vite build --mode analyze",
+    "build": "node scripts/gen-lucide-subset.mjs && pnpm vite build --mode production",
+    "build:analyze": "node scripts/gen-lucide-subset.mjs && pnpm vite build --mode analyze",
     "check:i18n": "node scripts/check-i18n.mjs",
     "dev": "pnpm vite --mode development",
+    "gen:icons": "node scripts/gen-lucide-subset.mjs",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
@@ -49,6 +50,7 @@
     "gridstack": "^13.2.0",
     "lucide-vue-next": "catalog:",
     "monaco-editor": "catalog:",
+    "pdfjs-dist": "catalog:",
     "pinia": "catalog:",
     "vue": "catalog:",
     "vue-advanced-cropper": "catalog:",

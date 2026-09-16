@@ -402,6 +402,7 @@
         "pay": "Pay",
         "batchApprove": "Batch Approve",
         "batchPay": "Batch Pay",
+        "batchRevert": "Revert to Approval",
         "config": "Base Salary Config",
         "calcLog": "Calc Log",
         "pendingConfirm": "Pending Appeals",
@@ -504,6 +505,7 @@
       },
       "tooltip": {
         "calculate": "Manually calculate salary for a specified month (system also auto-calculates last month's salary on the 1st at 02:00)",
+        "batchRevert": "Revert approved/paid records to pending: with selection reverts selected rows, otherwise the whole month; enables recalculation",
         "refreshSummary": "Refresh salary summary data",
         "refreshList": "Refresh salary list"
       },
@@ -577,6 +579,10 @@
         "batchPaySelectRequired": "Please select salary records to pay",
         "batchPaySuccess": "Batch pay succeeded",
         "batchPayFailed": "Batch pay failed",
+        "revertConfirmSelected": "Revert {count} selected approved/paid salary record(s) to pending? Linked payslips will be deleted and running approval flows will be withdrawn.",
+        "revertConfirmWholeMonth": "No records selected. Revert ALL approved/paid salary records of {year}-{month} to pending? Linked payslips will be deleted and running approval flows will be withdrawn. You can then recalculate.",
+        "revertSuccess": "Reverted to pending, ready for recalculation",
+        "revertFailed": "Revert failed",
         "recalcRequested": "Recalculation request submitted",
         "recalcSubmitted": "Recalculation request submitted. Please wait for finance review.",
         "submitFailed": "Submit failed",

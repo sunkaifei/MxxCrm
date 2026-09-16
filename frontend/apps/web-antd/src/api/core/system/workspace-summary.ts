@@ -114,6 +114,12 @@ export interface StockDocTodoSummary {
   outboundTotal: number;
 }
 
+/** 数据视角（与项目既有列表页 Tab 口径一致，禁止新造枚举） */
+export type WorkspaceScope = 'all' | 'my' | 'subordinate';
+
+/** 统计时间范围（工作台卡片配置项：month=本月 / quarter=本季 / year=本年） */
+export type WorkspaceTimeRange = 'month' | 'quarter' | 'year';
+
 /** 工作台聚合摘要（对齐后端 WorkspaceSummaryVO） */
 export interface WorkspaceSummaryVO {
   announcement: AnnouncementSummary;
@@ -124,37 +130,62 @@ export interface WorkspaceSummaryVO {
   salesPerformance: SalesPerformanceSummary;
   stockAlert: StockAlertSummary;
   stockDocTodo: StockDocTodoSummary;
+  /** 本次实际生效的数据视角 */
+  scope: WorkspaceScope;
+  /** 请求视角是否被成功应用（false = 已静默降级为最大允许范围） */
+  scopeApplied: boolean;
+  /** 当前用户可用的视角列表（仅 1 项时前端不显示切换器） */
+  scopeOptions: WorkspaceScope[];
 }
 
 /** 工作台聚合摘要（仅需登录；单卡数据异常时后端已降级为空摘要） */
-export const getWorkspaceSummaryApi = async (): Promise<WorkspaceSummaryVO> => {
-  return requestClient.get('/api/system/dashboard/workspace/summary');
+export const getWorkspaceSummaryApi = async (
+  scope?: WorkspaceScope,
+  timeRange?: WorkspaceTimeRange,
+): Promise<WorkspaceSummaryVO> => {
+  const params: Record<string, string> = {};
+  if (scope) params.scope = scope;
+  if (timeRange) params.timeRange = timeRange;
+  return requestClient.get('/api/system/dashboard/workspace/summary', {
+    params: Object.keys(params).length > 0 ? params : undefined,
+  });
 };
 
 // ===== 首屏请求合并（方案 11.4：首屏请求数不随卡片数线性增长） =====
 // 8 张三期卡挂载时并发调用 getWorkspaceSummaryShared，TTL 内共享同一份在途请求，
 // 仅发出一次 HTTP；reload 传 force=true 强制刷新，失败不缓存以便下次重试
+//
+// v2.1：合并键需带上 scope —— 不同视角必须发不同请求，否则切视角会读到旧缓存
+//
+// 卡片配置化：合并键同时带上 timeRange（切时间范围即拉对应统计数据）
 const SUMMARY_TTL = 30_000;
-let summaryAt = 0;
-let summaryPromise: null | Promise<WorkspaceSummaryVO> = null;
+const summaryCache = new Map<string, { at: number; promise: Promise<WorkspaceSummaryVO> }>();
 
 export async function getWorkspaceSummaryShared(
   force = false,
+  scope?: WorkspaceScope,
+  timeRange?: WorkspaceTimeRange,
 ): Promise<WorkspaceSummaryVO> {
+  const key = `${scope || 'default'}|${timeRange || 'month'}`;
   const now = Date.now();
-  if (!force && summaryPromise && now - summaryAt < SUMMARY_TTL) {
-    return summaryPromise;
+  const hit = summaryCache.get(key);
+  if (!force && hit && now - hit.at < SUMMARY_TTL) {
+    return hit.promise;
   }
-  summaryAt = now;
-  const promise: Promise<WorkspaceSummaryVO> = getWorkspaceSummaryApi().catch(
+  const promise: Promise<WorkspaceSummaryVO> = getWorkspaceSummaryApi(scope, timeRange).catch(
     (error) => {
-      if (summaryPromise === promise) {
-        summaryAt = 0;
-        summaryPromise = null;
+      // 失败不缓存，便于下次重试
+      if (summaryCache.get(key)?.promise === promise) {
+        summaryCache.delete(key);
       }
       throw error;
     },
   );
-  summaryPromise = promise;
+  summaryCache.set(key, { at: now, promise });
   return promise;
+}
+
+/** 视角切换后清空全部合并缓存（各卡下次挂载即拉新视角数据） */
+export function clearWorkspaceSummaryCache() {
+  summaryCache.clear();
 }

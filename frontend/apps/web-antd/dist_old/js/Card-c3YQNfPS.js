@@ -1,0 +1,1 @@
+import{Lt as e,Q as t,S as n,Y as r,jt as i,k as a,t as o}from"./vue.runtime.esm-bundler-Ca66Aw3b.js";import{U as s,n as c}from"./utils-CcGGKmyx.js";o(),c();var l=a({__name:`Card`,props:{class:{}},setup(a){let o=a;return(a,c)=>(r(),n(`div`,{class:e(i(s)(`border-border bg-card text-card-foreground rounded-xl border`,o.class))},[t(a.$slots,`default`)],2))}});export{l as t};

@@ -11,11 +11,28 @@
 //! 个税计算服务，实现累计预扣法
 
 use sea_orm::*;
-use chrono::Utc;
+use chrono::{Utc, Datelike};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::{ToPrimitive, FromPrimitive};
 
 use crate::modules::finance::entity::{tax_rate, employee_tax_config, salary_tax_detail};
+use crate::modules::system::entity::admin;
+
+/// 累计减除费用的任职月份数（国家税务总局公告2018年第61号：
+/// 5000元/月 × 纳税人当年截至本月**在本单位**的任职受雇月份数）。
+/// - hire_date 为空视为老员工：按整年任职（= 日历月份数）
+/// - 入职当年：入职当月即算 1 个月（如 8/9 入职，8月份数=1）
+/// - 入职前年份任职：当年整年任职（= 日历月份数）
+/// 注意：财政部 税务总局公告2020年第13号允许"年内首次取得工资薪金者"
+/// 按日历月份数计算（对年中入职更优惠），如需支持可加员工级开关。
+fn employed_months_in_year(hire_date: Option<chrono::NaiveDate>, year: i32, month: i32) -> i32 {
+    match hire_date {
+        None => month,
+        Some(hd) if hd.year() < year => month,
+        Some(hd) if hd.year() > year => 1,
+        Some(hd) => std::cmp::max(month - hd.month() as i32 + 1, 1),
+    }
+}
 
 // ==================== DTO ====================
 
@@ -59,6 +76,9 @@ pub struct MonthlyTaxResult {
     pub cumulative_tax_should: Decimal,
     pub cumulative_tax_paid: Decimal,
     pub monthly_threshold: Decimal,
+    /// 累计减除费用（= 月减除 × 本单位任职月份数），save_tax_detail 直接落库，
+    /// 避免落库侧再用"日历月数"重算导致与计税口径不一致
+    pub cumulative_threshold: Decimal,
     pub monthly_special_deduction: Decimal,
     pub monthly_other_deduction: Decimal,
 }
@@ -298,6 +318,15 @@ pub(crate) async fn calculate_monthly_tax<C: ConnectionTrait>(
     let income = to_dec(monthly_income);
     let monthly_threshold = config.tax_threshold;
 
+    // 累计减除费用按"本单位任职月份数"（61号公告），非日历月份数——
+    // 年中入职者入职当月起才有额度，首月即可能产生个税
+    let hire_date = admin::Entity::find_by_id(employee_id)
+        .one(conn)
+        .await
+        .map_err(|e| e.to_string())?
+        .and_then(|e| e.hire_date);
+    let threshold_months = employed_months_in_year(hire_date, year, month);
+
     // P2-1: 外籍员工津补贴免税处理（财税〔1994〕148号、财税〔2018〕164号）
     // 外籍员工（含港澳台）可在"专项附加扣除"与"津补贴免税"中二选一，互斥：
     //   - 选择"津补贴免税"时：津补贴部分（住房/伙食/洗衣/搬迁/语言培训/子女教育津贴等）
@@ -332,7 +361,7 @@ pub(crate) async fn calculate_monthly_tax<C: ConnectionTrait>(
 
     // 累计值 = 配置中已累计（截至上月）+ 当月
     let cumulative_income = config.cumulative_income + monthly_taxable_income;
-    let cumulative_threshold = monthly_threshold * Decimal::from(month); // 5000 * 月数
+    let cumulative_threshold = monthly_threshold * Decimal::from(threshold_months);
     let cumulative_special = config.cumulative_special_deduction + monthly_special_deduction;
     let cumulative_other = config.cumulative_other_deduction + monthly_other_deduction;
 
@@ -353,6 +382,7 @@ pub(crate) async fn calculate_monthly_tax<C: ConnectionTrait>(
             cumulative_tax_should: Decimal::ZERO,
             cumulative_tax_paid,
             monthly_threshold,
+            cumulative_threshold,
             monthly_special_deduction,
             monthly_other_deduction,
         });
@@ -377,6 +407,7 @@ pub(crate) async fn calculate_monthly_tax<C: ConnectionTrait>(
         cumulative_tax_should,
         cumulative_tax_paid,
         monthly_threshold,
+        cumulative_threshold,
         monthly_special_deduction,
         monthly_other_deduction,
     })
@@ -452,8 +483,7 @@ pub(crate) async fn save_tax_detail_in_conn<C: ConnectionTrait>(
     // 更新员工个税配置的累计值（截至当月的累计）
     let mut active: employee_tax_config::ActiveModel = config.into();
     active.cumulative_income = Set(result.cumulative_income);
-    active.cumulative_threshold_deduction =
-        Set(result.monthly_threshold * Decimal::from(month));
+    active.cumulative_threshold_deduction = Set(result.cumulative_threshold);
     active.cumulative_special_deduction =
         Set(prev_cumulative_special + result.monthly_special_deduction);
     active.cumulative_other_deduction =

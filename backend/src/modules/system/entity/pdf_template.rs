@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 
+use rust_decimal::Decimal;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -61,6 +62,24 @@ pub struct Model {
     pub update_time: Option<DateTime>,
     /// 删除标志（0未删除 1已删除）
     pub deleted: Option<i32>,
+    // ===================== v89 可视化设计器（设计文档 §4.1） =====================
+    /// 渲染引擎：html=旧 HTML 模板（legacy）；layout=可视化设计器
+    pub engine: Option<String>,
+    /// 设计器版式 JSON（schema v1），见设计文档 §2
+    pub layout_json: Option<Json>,
+    /// 底图附件 id（套打）
+    pub base_pdf_id: Option<i64>,
+    /// 自定义纸张宽（mm）
+    pub width_mm: Option<Decimal>,
+    /// 自定义纸张高（mm）
+    pub height_mm: Option<Decimal>,
+    /// 模板业务版本（乐观锁 + 版本历史）
+    #[sea_orm(default_value = "1")]
+    pub version: i32,
+    /// 复制来源模板 id
+    pub parent_id: Option<i64>,
+    /// 缩略图 URL
+    pub preview_url: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

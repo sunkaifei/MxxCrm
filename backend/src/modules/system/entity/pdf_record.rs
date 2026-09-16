@@ -43,6 +43,8 @@ pub struct Model {
     pub status: Option<i32>,
     /// 失败原因
     pub error_msg: Option<String>,
+    /// PDF 文件 SHA-256（防篡改校验，设计文档 §20.3）
+    pub file_hash: Option<String>,
     /// 创建人ID
     pub create_by: Option<i64>,
     /// 创建时间

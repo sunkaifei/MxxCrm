@@ -106,8 +106,22 @@ const cardModeEnabled = ref(true);
 const visibleCodes = ref<null | string[]>(null);
 /** cardCode -> pageKey（方案 5.3-M3：page_key 即工作台码，用于按当前工作台过滤卡片） */
 const cardPageKeys = ref<Record<string, string>>({});
+/** cardCode -> 卡片配置（JSON 解析：displayForm/timeRange/dataScope 等，卡片形态参数化 8.1/8.2） */
+const cardConfigs = ref<Record<string, any>>({});
 const cardsLoaded = ref(false);
 const cardsLoading = ref(false);
+
+// ===== 工作台统计时间范围（卡片配置化 K10 全局筛选：month/quarter/year） =====
+// 模块级单例：顶部切换控件写入，卡片组件读取后按范围拉取聚合数据
+const workspaceTimeRange = ref<'month' | 'quarter' | 'year'>('month');
+function setWorkspaceTimeRange(range: 'month' | 'quarter' | 'year') {
+  workspaceTimeRange.value = range;
+}
+
+/** 读取某卡配置字段（如 displayForm / timeRange），未配置返回 undefined */
+function cardConfigOf(code: string): any {
+  return cardConfigs.value[code];
+}
 
 // ===== 多工作台状态（方案 5.3-M3：list_visible 已按用户过滤 + 最近使用记忆） =====
 const WORKSPACE_LAST_KEY = 'workspace:last-used';
@@ -215,6 +229,7 @@ export function useWorkspaceCards() {
         const list: any = await getVisibleDashboardCardsApi();
         const codes: string[] = [];
         const pageKeys: Record<string, string> = {};
+        const configs: Record<string, any> = {};
         for (const c of list || []) {
           const code = c?.cardCode;
           if (typeof code !== 'string' || code.length === 0) continue;
@@ -222,9 +237,17 @@ export function useWorkspaceCards() {
           if (typeof c?.pageKey === 'string' && c.pageKey.length > 0) {
             pageKeys[code] = c.pageKey;
           }
+          if (typeof c?.cardConfig === 'string' && c.cardConfig.length > 0) {
+            try {
+              configs[code] = JSON.parse(c.cardConfig);
+            } catch {
+              /* 配置非法时按未配置处理 */
+            }
+          }
         }
         visibleCodes.value = codes;
         cardPageKeys.value = pageKeys;
+        cardConfigs.value = configs;
       } catch {
         visibleCodes.value = null;
       }
@@ -239,9 +262,15 @@ export function useWorkspaceCards() {
     if (visibleCodes.value === null) return true;
     if (!visibleCodes.value.includes(code)) return false;
     // 方案 5.3-M3：卡片 page_key 即工作台码，仅渲染当前工作台卡片；
-    // 接口未返回 pageKey（旧数据兼容）时不拦截
+    // 接口未返回 pageKey（旧数据兼容）时不拦截。
+    // 方案 v2.2 内容模型：通用卡(page_key='default')随每个工作台一并渲染
+    // （专属工作台 = 通用卡 ∪ 专属卡，与后端 get_user_layout 过滤口径一致）
     const pk = cardPageKeys.value[code];
-    return pk === undefined || pk === currentWorkspaceCode.value;
+    return (
+      pk === undefined ||
+      pk === currentWorkspaceCode.value ||
+      pk === 'default'
+    );
   }
 
   return {
@@ -256,5 +285,9 @@ export function useWorkspaceCards() {
     workspacesLoaded,
     loadWorkspaces,
     switchWorkspace,
+    cardConfigs,
+    cardConfigOf,
+    workspaceTimeRange,
+    setWorkspaceTimeRange,
   };
 }

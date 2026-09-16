@@ -3,15 +3,7 @@ import type { VbenFormProps } from '@vben/common-ui';
 
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h } from 'vue';
-
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import {
-  LucideFilePenLine,
-  LucideSend,
-  LucideTrash2,
-  LucideUndo2,
-} from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
 
@@ -170,7 +162,7 @@ const gridOptions: VxeGridProps = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 200,
+      width: 180,
     },
   ],
 };
@@ -292,7 +284,6 @@ async function handleRevoke(row: any) {
             v-if="accessStore.hasAccessCode('system:notice:update')"
             type="link"
             size="small"
-            :icon="h(LucideFilePenLine)"
             @click="handleEdit(row)"
           >
             {{ row.publishStatus === 1 ? '查看' : '编辑' }}
@@ -309,7 +300,7 @@ async function handleRevoke(row: any) {
             cancel-text="取消"
             @confirm="handlePublish(row)"
           >
-            <Button type="link" size="small" :icon="h(LucideSend)">
+            <Button type="link" size="small">
               发布
             </Button>
           </Popconfirm>
@@ -325,7 +316,7 @@ async function handleRevoke(row: any) {
             cancel-text="取消"
             @confirm="handleRevoke(row)"
           >
-            <Button type="link" size="small" danger :icon="h(LucideUndo2)">
+            <Button type="link" size="small" danger>
               撤回
             </Button>
           </Popconfirm>
@@ -346,8 +337,9 @@ async function handleRevoke(row: any) {
               type="link"
               size="small"
               danger
-              :icon="h(LucideTrash2)"
-            />
+            >
+              删除
+            </Button>
           </Popconfirm>
         </div>
       </template>

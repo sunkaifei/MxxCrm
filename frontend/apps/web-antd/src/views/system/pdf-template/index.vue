@@ -2,6 +2,7 @@
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import {
@@ -37,7 +38,6 @@ import {
 import { $t } from '#/locales';
 import { statusList } from '#/store';
 
-import EditorDrawer from './editor.vue';
 
 // 单据类型选项
 const docTypeOptions = [
@@ -179,22 +179,24 @@ function handleReset() {
   gridApi.query();
 }
 
-// ==================== 编辑抽屉 ====================
-const editorVisible = ref(false);
-const editorData = ref<any>(null);
+// ==================== 新建（§37 入口统一：新建直接进可视化设计器） ====================
 
 function handleCreate() {
-  editorData.value = null;
-  editorVisible.value = true;
+  router.push({ path: '/system/pdf-designer', query: { docType: activeTab.value } });
 }
 
-function handleEdit(row: any) {
-  editorData.value = row;
-  editorVisible.value = true;
-}
+// ==================== 可视化设计器 ====================
+const router = useRouter();
 
-function handleEditorSaved() {
-  gridApi.query();
+/** 进入可视化设计器（隐藏页，通过路由参数传 templateId / docType） */
+function handleDesign(row: any) {
+  router.push({
+    path: '/system/pdf-designer',
+    query: {
+      templateId: row.id,
+      docType: row.docType ?? activeTab.value,
+    },
+  });
 }
 
 // 设为默认
@@ -372,11 +374,14 @@ function handlePreviewClose() {
         >
           {{ $t('page.system.pdfTemplate.button.setDefault') }}
         </Button>
+        <!-- 入口统一（§37）：所有模板只有一个设计入口——可视化设计器；
+             「编辑」按钮不再打开旧 HTML 编辑抽屉，同样进入设计器 -->
         <Button
           type="primary"
           link
           :icon="h(LucideFilePenLine)"
-          @click="() => handleEdit(row)"
+          title="可视化设计"
+          @click="() => handleDesign(row)"
         />
         <Popconfirm
           :title="
@@ -394,13 +399,6 @@ function handlePreviewClose() {
     </Grid>
 
     <!-- 模板编辑抽屉 -->
-    <EditorDrawer
-      v-model:visible="editorVisible"
-      :data="editorData"
-      :default-doc-type="activeTab"
-      @saved="handleEditorSaved"
-    />
-
     <!-- 演示预览抽屉 -->
     <Drawer
       v-model:open="previewVisible"

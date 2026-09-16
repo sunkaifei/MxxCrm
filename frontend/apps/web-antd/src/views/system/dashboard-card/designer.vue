@@ -6,15 +6,15 @@
  */
 import type { GridStack, GridStackElement } from 'gridstack';
 
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
-import { IconifyIcon } from '@vben/icons';
 
 import {
   Button,
   Modal,
+  Popover,
   Select,
   Switch,
   Tag,
@@ -25,6 +25,7 @@ import {
 import {
   getCardLayoutApi,
   saveCardLayoutApi,
+  updateDashboardCardApi,
 } from '#/api/core/system/dashboard-card';
 import { getWorkspaceListApi } from '#/api/core/system/workspace';
 import { $t } from '#/locales';
@@ -32,9 +33,58 @@ import { $t } from '#/locales';
 import { WORKSPACE_CANVAS_CARDS } from '../../dashboard/workspace/canvas';
 import { workspaceDisplayName } from '../../dashboard/workspace/config';
 
+// ===== 单卡配置（调研文档 8.2 第二档：显示形态 / 统计时间范围） =====
+interface CardConfigEdit {
+  displayForm: 'bar' | 'line' | 'pie' | 'value';
+  timeRange: 'month' | 'quarter' | 'year';
+}
+const cardConfigDrafts = reactive<Record<string, CardConfigEdit>>({});
+const configSavingCode = ref('');
+/** 每张卡配置弹层的独立开合状态 */
+const configPopVisible = reactive<Record<string, boolean>>({});
+
+function configDraftOf(card: CardLayoutVO): CardConfigEdit {
+  const code = String(card.cardCode || '');
+  if (!cardConfigDrafts[code]) {
+    let parsed: any = {};
+    try {
+      parsed = card.cardConfig ? JSON.parse(card.cardConfig) : {};
+    } catch {
+      parsed = {};
+    }
+    cardConfigDrafts[code] = {
+      displayForm: ['bar', 'line', 'pie', 'value'].includes(parsed.displayForm)
+        ? parsed.displayForm
+        : 'value',
+      timeRange: ['month', 'quarter', 'year'].includes(parsed.timeRange)
+        ? parsed.timeRange
+        : 'month',
+    };
+  }
+  return cardConfigDrafts[code]!;
+}
+
+async function saveCardConfig(card: CardLayoutVO) {
+  const code = String(card.cardCode || '');
+  const draft = cardConfigDrafts[code];
+  if (!draft) return;
+  configSavingCode.value = code;
+  try {
+    // update 接口为分支式部分更新：仅传 id + card_config 不会覆盖其他字段
+    await updateDashboardCardApi({ id: card.id, cardConfig: JSON.stringify(draft) });
+    card.cardConfig = JSON.stringify(draft);
+    message.success(`「${card.cardName || code}」卡片配置已保存`);
+  } catch {
+    message.error('卡片配置保存失败');
+  } finally {
+    configSavingCode.value = '';
+  }
+}
+
 interface CardLayoutVO {
   cardCode?: null | string;
   cardName?: null | string;
+  cardConfig?: null | string;
   h?: number;
   id?: number;
   pageKey?: null | string;
@@ -77,6 +127,28 @@ let gridStack: GridStack | null = null;
 
 function cardConstraint(code: string) {
   return WORKSPACE_CANVAS_CARDS.find((c) => c.code === code);
+}
+
+/** 按画布约束（canvas.ts min/max）钳制后的实际尺寸，用于卡片库/画布的尺寸徽标 */
+function clampSize(
+  w: number,
+  h: number,
+  code: string,
+): { h: number; w: number } {
+  const c = cardConstraint(code);
+  return {
+    h: Math.min(Math.max(h, c?.minH ?? 1), c?.maxH ?? 24),
+    w: Math.min(Math.max(w, c?.minW ?? 1), c?.maxW ?? 12),
+  };
+}
+
+/** 卡片库落位尺寸：按画布约束钳制，保证卡片库徽标/拖入尺寸与画布实际尺寸一致 */
+function paletteSize(card: CardLayoutVO): { h: number; w: number } {
+  return clampSize(
+    defaultColWidth.value,
+    Math.max(1, Number(card.h) || 6),
+    String(card.cardCode || ''),
+  );
 }
 
 function refreshInCanvas() {
@@ -180,7 +252,12 @@ function buildItemEl(card: CardLayoutVO): HTMLElement {
   // 尺寸标签（编辑时随拖拽缩放由 refreshSizeTags 同步）
   const size = document.createElement('span');
   size.className = 'designer-item-size';
-  size.textContent = `${Math.max(1, Number(card.w) || 12)}×${Math.max(1, Number(card.h) || 6)}`;
+  const init = clampSize(
+    Math.max(1, Number(card.w) || 12),
+    Math.max(1, Number(card.h) || 6),
+    code,
+  );
+  size.textContent = `${init.w}×${init.h}`;
   head.appendChild(size);
 
   // 1/2/3 栏宽快捷按钮（12 列栅格：12/6/4 列）
@@ -197,6 +274,10 @@ function buildItemEl(card: CardLayoutVO): HTMLElement {
     btn.dataset.w = String(w);
     btn.title = $t('page.system.dashboardDesigner.colTip', { n });
     btn.textContent = String(n);
+    btn.addEventListener('mousedown', (e) => {
+      // 卡片头是拖拽手柄（draggable.handle），不拦截 mousedown 会顺手拖走卡片
+      e.stopPropagation();
+    });
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
@@ -210,7 +291,10 @@ function buildItemEl(card: CardLayoutVO): HTMLElement {
   removeBtn.type = 'button';
   removeBtn.className = 'designer-item-remove';
   removeBtn.title = $t('page.system.dashboardDesigner.removeCard');
-  removeBtn.textContent = '×';
+  removeBtn.textContent = $t('page.system.dashboardDesigner.removeText');
+  removeBtn.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+  });
   removeBtn.addEventListener('click', () => removeCard(code));
   head.appendChild(removeBtn);
 
@@ -235,19 +319,24 @@ function addCardNode(card: CardLayoutVO, widthOverride?: number) {
   if (!code || inCanvasCodes.value.has(code)) return;
   const c = cardConstraint(code);
   const el = buildItemEl(card);
+  const size = clampSize(
+    widthOverride ?? Math.min(12, Math.max(1, Number(card.w) || 12)),
+    Math.max(1, Number(card.h) || 6),
+    code,
+  );
   // 错峰入场动画
   const item = el.querySelector<HTMLElement>('.designer-item');
   if (item) {
     item.style.animationDelay = `${Math.min((gridStack.engine.nodes.length || 0) * 45, 360)}ms`;
   }
   gridStack.makeWidget(el as GridStackElement, {
-    h: Math.max(1, Number(card.h) || 6),
+    h: size.h,
     id: code,
     maxH: c?.maxH,
     maxW: c?.maxW,
     minH: c?.minH,
     minW: c?.minW,
-    w: widthOverride ?? Math.min(12, Math.max(1, Number(card.w) || 12)),
+    w: size.w,
     x: Math.max(0, Number(card.x) || 0),
     y: Math.max(0, Number(card.y) || 0),
   });
@@ -341,6 +430,9 @@ async function initGrid(cards: CardLayoutVO[]) {
   }
   bindGridEvents();
   refreshInCanvas();
+  // 首屏必须补一次：makeWidget 早于 bindGridEvents，且 gridstack 会按 min/max 钳制尺寸，
+  // 徽标需回读节点实际 w/h（否则显示的是入库值，与画布不一致）
+  refreshSizeTags();
   applyEditMode();
   await nextTick();
   GS.setupDragIn('.designer-palette-item', {
@@ -469,7 +561,6 @@ onBeforeUnmount(() => {
         class="designer-toolbar flex flex-wrap items-center gap-2 rounded-lg border p-2"
       >
         <Button size="small" @click="handleBack">
-          <IconifyIcon icon="lucide:arrow-left" class="size-4" />
           {{ $t('page.system.dashboardDesigner.back') }}
         </Button>
         <div class="flex items-center gap-1">
@@ -537,9 +628,13 @@ onBeforeUnmount(() => {
             :class="{
               'designer-palette-item-disabled': Number(card.status) === 0,
             }"
-            :gs-h="card.h || 6"
+            :gs-h="paletteSize(card).h"
             :gs-id="card.cardCode"
-            :gs-w="defaultColWidth"
+            :gs-max-h="cardConstraint(String(card.cardCode))?.maxH"
+            :gs-max-w="cardConstraint(String(card.cardCode))?.maxW"
+            :gs-min-h="cardConstraint(String(card.cardCode))?.minH"
+            :gs-min-w="cardConstraint(String(card.cardCode))?.minW"
+            :gs-w="paletteSize(card).w"
             :style="{
               '--designer-accent': cardAccentColor(String(card.cardCode || '')),
             }"
@@ -551,6 +646,15 @@ onBeforeUnmount(() => {
                   {{ card.cardName || card.cardCode }}
                 </span>
               </span>
+              <Tag
+                v-if="
+                  String(card.pageKey) === 'default' && pageKey !== 'default'
+                "
+                class="shrink-0"
+                color="geekblue"
+              >
+                {{ $t('page.system.dashboardDesigner.sharedTag') }}
+              </Tag>
               <Tooltip
                 v-if="Number(card.status) === 0"
                 :title="$t('page.system.dashboardDesigner.disabledTip')"
@@ -571,18 +675,74 @@ onBeforeUnmount(() => {
               <span class="truncate text-xs opacity-60">
                 {{ card.cardCode }}
                 <span class="ml-1 opacity-80">
-                  {{ defaultColWidth }}×{{ card.h || 6 }}
+                  {{ paletteSize(card).w }}×{{ paletteSize(card).h }}
                 </span>
               </span>
-              <Button
-                v-if="Number(card.status) !== 0"
-                :disabled="inCanvasCodes.has(String(card.cardCode))"
-                size="small"
-                type="link"
-                @click="addFromPalette(card)"
-              >
-                {{ $t('page.system.dashboardDesigner.add') }}
-              </Button>
+              <span class="flex shrink-0 items-center">
+                <!-- 单卡配置（调研文档 8.2：显示形态/统计时间范围，存 card_config） -->
+                <Popover
+                  v-model:open="configPopVisible[String(card.cardCode || '')]"
+                  placement="bottomRight"
+                  trigger="click"
+                >
+                  <template #content>
+                    <div
+                      v-if="configDraftOf(card)"
+                      class="flex flex-col gap-2 p-1"
+                      style="min-width: 220px"
+                    >
+                      <div class="text-sm font-medium">
+                        {{ card.cardName || card.cardCode }} · 单卡配置
+                      </div>
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs">显示形态</span>
+                        <Select
+                          v-model:value="configDraftOf(card)!.displayForm"
+                          :options="[
+                            { label: '数值', value: 'value' },
+                            { label: '柱状图', value: 'bar' },
+                            { label: '折线图', value: 'line' },
+                            { label: '饼图', value: 'pie' },
+                          ]"
+                          size="small"
+                          style="width: 110px"
+                        />
+                      </div>
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs">统计范围</span>
+                        <Select
+                          v-model:value="configDraftOf(card)!.timeRange"
+                          :options="[
+                            { label: '本月', value: 'month' },
+                            { label: '本季', value: 'quarter' },
+                            { label: '本年', value: 'year' },
+                          ]"
+                          size="small"
+                          style="width: 110px"
+                        />
+                      </div>
+                      <Button
+                        size="small"
+                        type="primary"
+                        :loading="configSavingCode === String(card.cardCode)"
+                        @click="saveCardConfig(card)"
+                      >
+                        保存配置
+                      </Button>
+                    </div>
+                  </template>
+                  <Button size="small" type="link">配置</Button>
+                </Popover>
+                <Button
+                  v-if="Number(card.status) !== 0"
+                  :disabled="inCanvasCodes.has(String(card.cardCode))"
+                  size="small"
+                  type="link"
+                  @click="addFromPalette(card)"
+                >
+                  {{ $t('page.system.dashboardDesigner.add') }}
+                </Button>
+              </span>
             </div>
           </div>
           <div

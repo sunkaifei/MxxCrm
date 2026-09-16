@@ -17,7 +17,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use std::collections::{HashMap, HashSet};
 
-use crate::modules::finance::entity::{commission_tier, salary_record, commission_rule};
+use crate::modules::finance::entity::{commission_tier, salary_record, commission_rule, salary_tax_detail};
 use crate::modules::crm::entity::{contract, contract_payment_plan};
 use crate::modules::system::entity::{admin, admin_post_merge, post};
 use crate::modules::finance::service::tax_service;
@@ -478,20 +478,60 @@ pub async fn calc_monthly_settlement(
 
         // 个税重算：以新应发工资为基数
         // T2.8: 重算失败不再静默按原值保留（会导致实发虚高），整体报错回滚本轮结算
-        let new_tax_amount: Decimal = tax_service::calculate_monthly_tax(
-            db,
+        // 团队提成归集必须同步维护个税明细与累计配置，否则记录税额与个税明细脱节
+        // （明细/导出仍显示归集前税额，且次月累计预扣基数失真）。完整链路：
+        //   删旧明细 → 明细重放回滚累计到上月末 → 按新税基重算 → 写新明细并推进累计。
+        // 税基取原明细的当月计税收入（主核算写入，已含社保公积金与自定义项口径），
+        // 团队提成全额应税，直接叠加差额；无明细时退回"应发-个人社保-公积金"标准口径。
+        let old_detail = salary_tax_detail::Entity::find()
+            .filter(salary_tax_detail::Column::SalaryRecordId.eq(record.id))
+            .one(&txn)
+            .await
+            .map_err(|e| e.to_string())?;
+        let fallback_base = record.total_salary
+            - record.social_insurance_personal
+            - record.housing_fund_personal;
+        let old_tax_base = old_detail
+            .as_ref()
+            .and_then(|d| d.monthly_income)
+            .unwrap_or(fallback_base);
+        let new_tax_base = old_tax_base + delta;
+        salary_tax_detail::Entity::delete_many()
+            .filter(salary_tax_detail::Column::SalaryRecordId.eq(record.id))
+            .exec(&txn)
+            .await
+            .map_err(|e| e.to_string())?;
+        tax_service::rollback_tax_config_in_conn(&txn, manager_id, record.year, record.month)
+            .await
+            .map_err(|e| {
+                format!("员工 {} {}年{}月 个税累计回滚失败，本次团队提成结算已整体回滚: {}", manager_id, year, month, e)
+            })?;
+        let tax_result = tax_service::calculate_monthly_tax(
+            &txn,
             manager_id,
             record.year,
             record.month,
-            new_total.to_f64().unwrap_or(0.0),
+            new_tax_base.to_f64().unwrap_or(0.0),
         )
         .await
-        .map(|result| result.monthly_tax)
         .map_err(|e| {
             format!(
                 "员工 {} {}年{}月 个税重算失败，本次团队提成结算已整体回滚: {}",
                 manager_id, year, month, e
             )
+        })?;
+        let new_tax_amount = tax_result.monthly_tax;
+        tax_service::save_tax_detail_in_conn(
+            &txn,
+            record.id,
+            manager_id,
+            record.year,
+            record.month,
+            tax_result,
+        )
+        .await
+        .map_err(|e| {
+            format!("员工 {} {}年{}月 个税明细保存失败，本次团队提成结算已整体回滚: {}", manager_id, year, month, e)
         })?;
         // 增量法更新实发工资：原 net_salary + 团队提成差额 - 个税差额
         let tax_delta = new_tax_amount - record.tax_amount;

@@ -1,10 +1,13 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { defineAsyncComponent, ref, watch } from 'vue';
 
 import { Button, List, message, Modal, Spin, Tag } from 'ant-design-vue';
 
 import { getTemplateRevisionListApi } from '#/api';
-import CodeEditor from '#/components/CodeEditor/index.vue';
+// Monaco 体积约 13MB（含 worker），异步加载避免拖慢本页打开速度
+const CodeEditor = defineAsyncComponent(
+  () => import('#/components/CodeEditor/index.vue'),
+);
 
 const props = defineProps<{
   templateDataId: null | number;

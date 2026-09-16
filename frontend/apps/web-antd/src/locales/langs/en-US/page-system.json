@@ -488,7 +488,9 @@
       "resetConfirm": "This will discard all unsaved changes and reload the saved template layout. Continue?",
       "saveSuccess": "Template layout saved. Users without personal layouts see it immediately.",
       "removeCard": "Remove",
+      "removeText": "Delete",
       "disabledTag": "Disabled",
+      "sharedTag": "Shared",
       "unsavedTip": "You have unsaved changes",
       "colWidth": "Columns",
       "colWidthTip": "New cards are added with the selected column width; use the 1/2/3 buttons on a card header to adjust it on canvas",
@@ -632,6 +634,92 @@
       "downloadIp": "IP Address",
       "downloadTime": "Downloaded At",
       "reDownload": "Download Again"
+    },
+    "pdfDesigner": {
+      "title": "PDF Template Designer",
+      "pageTitle": "Template Design",
+      "module": "PDF Designer",
+      "button": {
+        "publish": "Set as Default",
+        "save": "Save",
+        "saveAs": "Save As",
+        "undo": "Undo",
+        "redo": "Redo",
+        "precisePreview": "Precise Preview",
+        "pagePreview": "Page Preview",
+        "importPdf": "Import PDF",
+        "exportBundle": "Export Bundle",
+        "importBundle": "Import Bundle",
+        "back": "Back",
+        "enterDesign": "Visual Design"
+      },
+      "dataMode": {
+        "placeholder": "Placeholder",
+        "sample": "Sample Data",
+        "real": "Real Data",
+        "outline": "Outline"
+      },
+      "preset": {
+        "typical": "Typical",
+        "long": "Overlong",
+        "empty": "Empty",
+        "zero": "Zero",
+        "mixed": "Mixed",
+        "unicode": "Special Chars",
+        "longlist": "Long List"
+      },
+      "panel": {
+        "elements": "Elements",
+        "datasource": "Data Source",
+        "layers": "Layers",
+        "templates": "Templates",
+        "page": "Page",
+        "element": "Element",
+        "data": "Data",
+        "style": "Style"
+      },
+      "status": {
+        "designSheet": "Design · Single Page Master",
+        "zoom": "Zoom",
+        "selected": "Selected",
+        "none": "None",
+        "dirty": "Unsaved"
+      },
+      "msg": {
+        "loading": "Loading…",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "saveFailed": "Save failed",
+        "locked": "This template is being edited by {user}. Force takeover?",
+        "takeover": "Take Over",
+        "draftFound": "An unsaved draft was found. Restore it?",
+        "draftRestore": "Restore",
+        "draftDiscard": "Discard",
+        "outOfPaper": "Some elements are outside the paper and will be clipped. Continue?",
+        "needBindings": "Cannot publish in placeholder/sample mode",
+        "upgradeUnsupported": "This template version is newer than the system and cannot be loaded"
+      }
+    },
+    "pdfAsset": {
+      "title": "PDF Assets",
+      "name": "Asset Name",
+      "code": "Asset Code",
+      "type": "Asset Type",
+      "typeImage": "Image",
+      "typeBarcode": "Barcode",
+      "typeQrcode": "QR Code",
+      "file": "File",
+      "preview": "Preview",
+      "size": "File Size",
+      "usage": "References",
+      "sort": "Sort",
+      "upload": "Upload Asset",
+      "button": {
+        "create": "New Asset",
+        "edit": "Edit Asset",
+        "delete": "Delete Asset",
+        "copyCode": "Copy"
+      }
     },
     "hrArchive": {
       "title": "Employee Archive",

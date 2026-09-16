@@ -1,0 +1,5 @@
+
+/* v68: 二维码弹层仅悬停"微信咨询"时显示 */
+.fx-w-toolbar .online-qw-wrapper{display:none !important;}
+.fx-w-toolbar a.toolbar-item.service:hover .online-qw-wrapper,
+.fx-w-toolbar .toolbar-item.service:hover .online-qw-wrapper{display:block !important;}

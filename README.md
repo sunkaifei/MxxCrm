@@ -215,13 +215,18 @@ npm install
 npm run build
 ```
 
-**2. 导入数据库**
+**2. 导入数据库（手动导入）**
+
+> ⚠️ **注意：数据库需手动导入**。程序启动时不会自动建库、建表或初始化数据，必须由运维人员按下述步骤手工完成，否则启动后无法登录。
 
 ```bash
-# 创建数据库
+# 1) 创建数据库
 createdb -U postgres -E UTF8 mxxcrm_data
 
-# 导入完整数据库备份（包含表结构、初始数据、菜单、角色、用户等）
+# 2) 安装 pgcrypto 扩展（必须在导入数据前执行，否则导入报错）
+psql -U postgres -d mxxcrm_data -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+# 3) 导入完整数据库备份（包含表结构、初始数据、菜单、角色、用户等）
 pg_restore -U postgres -d mxxcrm_data --clean --if-exists --no-owner --no-privileges -v sql/mxxcrm_data_full.dump
 ```
 
@@ -299,15 +304,40 @@ cargo watch -x run
 
 生产部署流程：**导入数据库 → 编译前端 → 编译后端 → 新建运行目录 → 复制文件 → 运行**。
 
-### 1. 导入数据库
+### 1. 导入数据库（手动导入 / 替换为最新备份）
+
+> ⚠️ **注意：数据库需手动导入**。程序不会自动建库或初始化数据，首次部署、迁移、恢复备份均需手工执行本节步骤。
+>
+> ⚠️ **Linux 下 peer 认证限制**：`local` 连接要求操作系统用户与 PG 用户一致，root 下直接执行 `-U postgres` 会报
+> `FATAL: Peer authentication failed for user "postgres"`。以下命令统一使用 `sudo -u postgres` 执行，并把 dump
+> 先复制到 `/tmp`（postgres 用户对 `/home/web` 目录可能无权限穿越）。
+
+**数据库已存在时，用最新备份替换（覆盖更新）：**
 
 ```bash
-# 创建数据库
-createdb -U postgres -E UTF8 mxxcrm_data
+# 0) 停止后端服务（避免数据库被占用导致 dropdb 失败），并把 dump 放到 postgres 用户可读的位置
+pkill mxx-crm                      # 或 kill $(cat mxx-crm.pid)
+cp sql/mxxcrm_data_full.dump /tmp/mxxcrm_data_full.dump
+chmod 644 /tmp/mxxcrm_data_full.dump
 
-# 导入完整数据库备份（包含表结构、初始数据、菜单、角色、用户等）
-pg_restore -U postgres -d mxxcrm_data --clean --if-exists --no-owner --no-privileges -v sql/mxxcrm_data_full.dump
+# 1) 删旧库 + 建新库（以 postgres 系统用户执行，peer 认证直接通过）
+sudo -u postgres dropdb --force mxxcrm_data
+sudo -u postgres createdb -E UTF8 mxxcrm_data
+
+# 2) 安装 pgcrypto 扩展（必须在导入前执行）
+sudo -u postgres psql -d mxxcrm_data -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+# 3) 导入完整备份（包含表结构、初始数据、菜单、角色、用户等）
+sudo -u postgres pg_restore -d mxxcrm_data --no-owner --no-privileges /tmp/mxxcrm_data_full.dump
+
+# 4) 校验：确认无 error、表数量与备份一致（当前约 200+ 张表）
+sudo -u postgres psql -d mxxcrm_data -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';"
+
+# 5) 重新启动后端服务
+nohup ./mxx-crm > mxx-crm.log 2>&1 &
 ```
+
+> 若导入过程出现大量 `already exists` / `multiple primary keys` 报错，说明目标库非空（未删库重建或重复导入），需回到第 1 步删除重建后重新导入一次。
 
 ### 2. 编译前端
 

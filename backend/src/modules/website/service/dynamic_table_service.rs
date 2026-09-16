@@ -13,7 +13,7 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, Value};
 
 /// 内容模型字段类型枚举（与前端 field-drawer 一致）
 /// 1 单行文本 / 2 多行文本 / 3 富文本 / 4 数字 / 5 日期
-/// 6 下拉 / 7 单选 / 8 多选 / 9 图片 / 10 文件
+/// 6 下拉 / 7 单选 / 8 多选 / 9 图片 / 10 文件 / 11 用户（存 user_id）
 pub const FT_SINGLE_TEXT: i32 = 1;
 pub const FT_MULTI_TEXT: i32 = 2;
 pub const FT_RICH_TEXT: i32 = 3;
@@ -24,6 +24,7 @@ pub const FT_RADIO: i32 = 7;
 pub const FT_CHECKBOX: i32 = 8;
 pub const FT_IMAGE: i32 = 9;
 pub const FT_FILE: i32 = 10;
+pub const FT_USER: i32 = 11;
 
 /// 校验 SQL 标识符：首字符字母/下划线，其余字母数字下划线，长度 ≤ 60
 pub fn is_valid_identifier(name: &str) -> bool {
@@ -42,7 +43,7 @@ pub fn is_valid_identifier(name: &str) -> bool {
 pub fn field_type_to_col_sql(field_type: i32) -> &'static str {
     match field_type {
         FT_MULTI_TEXT | FT_RICH_TEXT => "TEXT",
-        FT_NUMBER => "BIGINT",
+        FT_NUMBER | FT_USER => "BIGINT",
         FT_DATE => "TIMESTAMP",
         FT_CHECKBOX => "VARCHAR(1000)",
         FT_IMAGE | FT_FILE => "VARCHAR(1000)",
@@ -69,6 +70,30 @@ const FIXED_COLUMNS: &[(&str, &str)] = &[
     ("status", "status"),
     ("create_time", "createTime"),
     ("update_time", "updateTime"),
+    // 创建者（关联用户 id）：新增时由服务端按当前登录用户注入
+    ("create_user_id", "createUserId"),
+];
+
+/// 系统保留字段名（= 固定列名）：用户在字段管理里不允许创建同名字段，
+/// 这些列建表时自动生成，手动创建会与固定列重名或语义冲突
+pub const RESERVED_FIELD_NAMES: &[&str] = &[
+    "id",
+    "title",
+    "short_url",
+    "category_id",
+    "cover_image",
+    "author",
+    "summary",
+    "content",
+    "seo_title",
+    "seo_keywords",
+    "seo_description",
+    "sort",
+    "status",
+    "deleted",
+    "create_time",
+    "update_time",
+    "create_user_id",
 ];
 
 /// 固定列 camelCase 入参键 → snake_case 列名
@@ -80,6 +105,7 @@ fn camel_to_snake_key(key: &str) -> String {
         "seoTitle" => "seo_title".into(),
         "seoKeywords" => "seo_keywords".into(),
         "seoDescription" => "seo_description".into(),
+        "createUserId" => "create_user_id".into(),
         _ => key.to_string(),
     }
 }
@@ -89,7 +115,30 @@ fn is_internal_key(key: &str) -> bool {
     matches!(
         key,
         "id" | "createTime" | "updateTime" | "deleted" | "create_time" | "update_time"
+        | "createUserId" | "create_user_id"
     )
+}
+
+/// 时间段筛选条件：列名 + 起止值（用于创建时间与日期类型自定义字段）
+#[derive(Debug, Clone)]
+pub struct DateRange {
+    pub column: String,
+    pub from: Option<String>,
+    pub to: Option<String>,
+}
+
+impl DateRange {
+    pub fn new(column: impl Into<String>, from: Option<String>, to: Option<String>) -> Self {
+        Self { column: column.into(), from, to }
+    }
+}
+
+/// 字段值筛选条件（isSearchable 字段）：文本类 LIKE、数字/用户类等值
+#[derive(Debug, Clone)]
+pub struct FieldFilter {
+    pub column: String,
+    pub field_type: i32,
+    pub value: String,
 }
 
 /// 动态表服务
@@ -100,6 +149,54 @@ impl DynamicTableService {
     /// 字段名是否与固定列同名（建表/加列时跳过，数据落在固定列上）
     pub fn is_fixed_column(name: &str) -> bool {
         FIXED_COLUMNS.iter().any(|(k, _)| *k == name)
+    }
+
+    /// 动态表是否存在某列
+    pub async fn column_exists(
+        db: &DatabaseConnection,
+        model_code: &str,
+        column_name: &str,
+    ) -> bool {
+        let sql = "SELECT count(*) FROM information_schema.columns \
+                   WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2";
+        let stmt = sea_orm::Statement::from_sql_and_values(
+            db.get_database_backend(),
+            sql,
+            [Self::get_table_name(model_code).into(), column_name.into()],
+        );
+        match db.query_one_raw(stmt).await {
+            Ok(Some(row)) => {
+                matches!(row.try_get::<i64>("", "count"), Ok(n) if n > 0)
+                    || matches!(row.try_get::<i32>("", "count"), Ok(n) if n > 0)
+            }
+            _ => false,
+        }
+    }
+
+    /// 动态表全部列类型：小写列名 → data_type
+    pub async fn get_column_types(
+        db: &DatabaseConnection,
+        model_code: &str,
+    ) -> std::collections::HashMap<String, String> {
+        let mut map = std::collections::HashMap::new();
+        let sql = "SELECT column_name, data_type FROM information_schema.columns \
+                   WHERE table_schema = 'public' AND table_name = $1";
+        let stmt = sea_orm::Statement::from_sql_and_values(
+            db.get_database_backend(),
+            sql,
+            [Self::get_table_name(model_code).into()],
+        );
+        if let Ok(rows) = db.query_all_raw(stmt).await {
+            for row in rows {
+                if let (Ok(name), Ok(dtype)) = (
+                    row.try_get::<String>("", "column_name"),
+                    row.try_get::<String>("", "data_type"),
+                ) {
+                    map.insert(name.to_lowercase(), dtype);
+                }
+            }
+        }
+        map
     }
 
     /// 获取动态表名
@@ -136,6 +233,7 @@ impl DynamicTableService {
             "sort INTEGER DEFAULT 0".to_string(),
             "status INTEGER DEFAULT 1".to_string(),
             "deleted INTEGER DEFAULT 0".to_string(),
+            "create_user_id BIGINT".to_string(),
             "create_time TIMESTAMP".to_string(),
             "update_time TIMESTAMP".to_string(),
         ];
@@ -197,6 +295,43 @@ impl DynamicTableService {
         Ok(())
     }
 
+    /// 为字段创建唯一约束索引（幂等，索引名含表名与字段名）
+    /// 用于字段设置勾选「唯一」时同步物理约束；已有重复数据时会报错并上抛
+    pub async fn add_unique_index_if_not_exists(
+        db: &DatabaseConnection,
+        model_code: &str,
+        field_name: &str,
+    ) -> Result<()> {
+        if !is_valid_identifier(model_code) || !is_valid_identifier(field_name) {
+            return Err(Error::from(format!(
+                "非法标识符: model_code={}, field_name={}",
+                model_code, field_name
+            )));
+        }
+        let index_name = format!("idx_mxx_model_{}_{}_uniq", model_code, field_name);
+        let sql = format!(
+            "CREATE UNIQUE INDEX IF NOT EXISTS \"{}\" ON \"mxx_model_{}\" (\"{}\")",
+            index_name, model_code, field_name
+        );
+        db.execute_unprepared(&sql)
+            .await
+            .map_err(|e| Error::from(format!("创建唯一索引失败（检查该字段是否已有重复值）: {:?}", e)))?;
+        Ok(())
+    }
+
+    /// 确保系统列存在（存量动态表升级：create_user_id 等后续新增的系统列在此补齐）
+    pub async fn ensure_system_columns(db: &DatabaseConnection, model_code: &str) -> Result<()> {
+        if !is_valid_identifier(model_code) {
+            return Err(Error::from(format!("非法模型编码: {}", model_code)));
+        }
+        let sql = format!(
+            "ALTER TABLE \"mxx_model_{}\" ADD COLUMN IF NOT EXISTS create_user_id BIGINT",
+            model_code
+        );
+        db.execute_unprepared(&sql).await?;
+        Ok(())
+    }
+
     /// 删除动态表（DROP TABLE）
     pub async fn drop_table(db: &DatabaseConnection, model_code: &str) -> Result<()> {
         if !is_valid_identifier(model_code) {
@@ -219,6 +354,8 @@ impl DynamicTableService {
             return Err(Error::from(format!("非法模型编码: {}", model_code)));
         }
         if Self::table_exists(db, model_code).await.unwrap_or(false) {
+            // 存量表升级：补齐后续新增的系统列（幂等）
+            let _ = Self::ensure_system_columns(db, model_code).await;
             return Ok(());
         }
 
@@ -287,6 +424,7 @@ impl DynamicTableService {
         db: &DatabaseConnection,
         model_code: &str,
         data: &serde_json::Value,
+        creator_id: Option<i64>,
     ) -> Result<i64> {
         if !is_valid_identifier(model_code) {
             return Err(Error::from(format!("非法模型编码: {}", model_code)));
@@ -297,6 +435,15 @@ impl DynamicTableService {
         let mut columns: Vec<String> = Vec::new();
         let mut placeholders: Vec<String> = Vec::new();
         let mut values: Vec<Value> = Vec::new();
+
+        // 创建者：服务端注入（覆盖客户端同名键），列不存在时忽略（老表未升级）
+        if let Some(uid) = creator_id {
+            if uid > 0 && Self::column_exists(db, model_code, "create_user_id").await {
+                columns.push("\"create_user_id\"".to_string());
+                placeholders.push(format!("${}", values.len() + 1));
+                values.push(Value::BigInt(Some(uid)));
+            }
+        }
 
         for (key, val) in obj {
             if is_internal_key(key) || key == "delete_by" || key == "delete_time" {
@@ -310,6 +457,9 @@ impl DynamicTableService {
             placeholders.push(format!("${}", values.len() + 1));
             values.push(Self::json_to_sea_value(val));
         }
+
+        // 日期/时间列：字符串 → chrono 时间绑定（按表列类型），避免 text 绑 timestamp 类型错
+        Self::convert_datetime_binds(db, model_code, &columns, &mut values).await;
 
         // 时间戳
         columns.push("create_time".to_string());
@@ -395,6 +545,7 @@ impl DynamicTableService {
     }
 
     /// 分页查询
+    /// 时间段筛选：列必须真实存在（防注入/防拼错），日期到值缺时间部分时补到当天 23:59:59
     pub async fn paginate(
         db: &DatabaseConnection,
         model_code: &str,
@@ -402,6 +553,8 @@ impl DynamicTableService {
         page_size: u64,
         category_id: Option<i64>,
         keywords: Option<&str>,
+        date_ranges: &[DateRange],
+        field_filters: &[FieldFilter],
     ) -> Result<(Vec<serde_json::Value>, u64)> {
         if !is_valid_identifier(model_code) {
             return Err(Error::from(format!("非法模型编码: {}", model_code)));
@@ -424,6 +577,72 @@ impl DynamicTableService {
                 conditions.push(format!("title LIKE ${}", param_idx));
                 values.push(format!("%{}%", kw).into());
                 param_idx += 1;
+            }
+        }
+        // 时间段筛选：列必须真实存在（防注入/防拼错），日期到值缺时间部分时补到当天 23:59:59
+        let col_types = Self::get_column_types(db, model_code).await;
+        for dr in date_ranges {
+            if !is_valid_identifier(&dr.column) {
+                continue;
+            }
+            let dtype = col_types.get(&dr.column.to_lowercase());
+            let Some(dtype) = dtype else { continue };
+            let is_ts = dtype.contains("timestamp");
+            if let Some(from) = dr.from.as_deref().filter(|s| !s.is_empty()) {
+                conditions.push(format!("\"{}\" >= ${}", dr.column, param_idx));
+                if is_ts {
+                    if let Some(dt) = Self::parse_naive_datetime(from) {
+                        values.push(Value::ChronoDateTime(Some(dt)));
+                    } else {
+                        values.push(from.into());
+                    }
+                } else {
+                    values.push(from.into());
+                }
+                param_idx += 1;
+            }
+            if let Some(to) = dr.to.as_deref().filter(|s| !s.is_empty()) {
+                let to_full = if to.len() == 10 { format!("{} 23:59:59", to) } else { to.to_string() };
+                conditions.push(format!("\"{}\" <= ${}", dr.column, param_idx));
+                if is_ts {
+                    if let Some(dt) = Self::parse_naive_datetime(&to_full) {
+                        values.push(Value::ChronoDateTime(Some(dt)));
+                    } else {
+                        values.push(to_full.into());
+                    }
+                } else {
+                    values.push(to_full.into());
+                }
+                param_idx += 1;
+            }
+        }
+        // 字段值筛选（isSearchable）：文本类模糊匹配，数字/用户/下拉单选精确匹配
+        for ff in field_filters {
+            if !is_valid_identifier(&ff.column) || ff.value.is_empty() {
+                continue;
+            }
+            if !Self::column_exists(db, model_code, &ff.column).await {
+                continue;
+            }
+            match ff.field_type {
+                FT_NUMBER | FT_USER => {
+                    if let Ok(num) = ff.value.parse::<i64>() {
+                        conditions.push(format!("\"{}\" = ${}", ff.column, param_idx));
+                        values.push(num.into());
+                        param_idx += 1;
+                    }
+                }
+                FT_SINGLE_TEXT | FT_MULTI_TEXT | FT_RICH_TEXT | FT_SELECT => {
+                    conditions.push(format!("\"{}\" LIKE ${}", ff.column, param_idx));
+                    values.push(format!("%{}%", ff.value).into());
+                    param_idx += 1;
+                }
+                _ => {
+                    // 单选/图片/文件等：精确匹配
+                    conditions.push(format!("\"{}\" = ${}", ff.column, param_idx));
+                    values.push(ff.value.clone().into());
+                    param_idx += 1;
+                }
             }
         }
         let where_clause = conditions.join(" AND ");
@@ -480,6 +699,7 @@ impl DynamicTableService {
 
         let mut set_clauses: Vec<String> = Vec::new();
         let mut values: Vec<Value> = Vec::new();
+        let mut set_columns: Vec<String> = Vec::new();
 
         for (key, val) in obj {
             if is_internal_key(key) || key == "delete_by" || key == "delete_time" {
@@ -491,7 +711,10 @@ impl DynamicTableService {
             }
             set_clauses.push(format!("\"{}\" = ${}", col, values.len() + 1));
             values.push(Self::json_to_sea_value(val));
+            set_columns.push(col);
         }
+        // 日期/时间列：字符串 → chrono 时间绑定
+        Self::convert_datetime_binds(db, model_code, &set_columns, &mut values).await;
         set_clauses.push("update_time = CURRENT_TIMESTAMP".to_string());
 
         let set_clause = set_clauses.join(", ");
@@ -546,6 +769,81 @@ impl DynamicTableService {
             }
             serde_json::Value::String(s) => Value::String(Some(s.clone())),
             _ => Value::String(Some(val.to_string())),
+        }
+    }
+
+    /// 日期/时间字符串 → chrono（insert/update 绑定与筛选参数共用）
+    fn parse_naive_datetime(s: &str) -> Option<chrono::NaiveDateTime> {
+        const FMTS: [&str; 4] = [
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d %H:%M",
+            "%Y-%m-%d",
+        ];
+        for f in FMTS {
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, f) {
+                return Some(dt);
+            }
+        }
+        chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+            .ok()
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+    }
+
+    /// 按动态表实际列类型转换绑定值：
+    /// JSON 里日期是字符串，直接绑 text 到 TIMESTAMP 列会被 PG 拒绝
+    /// （"类型为 timestamp 但表达式的类型为 text"），这里按列类型转为 chrono 时间。
+    /// `columns` 与 `values` 前段一一对应（占位符绑定列）。
+    async fn convert_datetime_binds(
+        db: &DatabaseConnection,
+        model_code: &str,
+        columns: &[String],
+        values: &mut Vec<Value>,
+    ) {
+        if columns.is_empty() || values.is_empty() {
+            return;
+        }
+        let quoted: Vec<String> = columns
+            .iter()
+            .map(|c| format!("'{}'", c.trim_matches('"').replace('\'', "")))
+            .collect();
+        let sql = format!(
+            "SELECT column_name, data_type FROM information_schema.columns \
+             WHERE table_schema='public' AND table_name='{}' AND column_name IN ({})",
+            Self::get_table_name(model_code),
+            quoted.join(",")
+        );
+        let stmt = sea_orm::Statement::from_string(db.get_database_backend(), sql);
+        let Ok(rows) = db.query_all_raw(stmt).await else {
+            return;
+        };
+        let mut ts_cols: Vec<String> = Vec::new();
+        for row in rows {
+            if let (Ok(name), Ok(dtype)) = (
+                row.try_get::<String>("", "column_name"),
+                row.try_get::<String>("", "data_type"),
+            ) {
+                if dtype.contains("timestamp") {
+                    ts_cols.push(name);
+                }
+            }
+        }
+        if ts_cols.is_empty() {
+            return;
+        }
+        for (i, col_raw) in columns.iter().enumerate() {
+            if i >= values.len() {
+                break;
+            }
+            let col = col_raw.trim_matches('"');
+            if !ts_cols.contains(&col.to_string()) {
+                continue;
+            }
+            if let Value::String(Some(s)) = &values[i] {
+                if let Some(dt) = Self::parse_naive_datetime(s) {
+                    values[i] = Value::ChronoDateTime(Some(dt));
+                }
+            }
         }
     }
 

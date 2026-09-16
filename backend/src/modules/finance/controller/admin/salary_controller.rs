@@ -18,7 +18,7 @@ use crate::core::web::entity::common::InfoId;
 use crate::core::web::response::{MetaResp, MPACK};
 use crate::modules::finance::model::salary::{
     SalaryQuery, SalaryCalculateDTO, SalaryCalculateSingleDTO, SalaryUpdateDTO, SalaryBatchDTO,
-    SalaryTrendQuery,
+    SalaryBatchRevertDTO, SalaryTrendQuery,
 };
 use crate::modules::finance::service::salary_service;
 use crate::modules::finance::service::salary_export_service;
@@ -203,6 +203,38 @@ pub async fn batch_pay(
     match salary_service::batch_pay(db, dto.ids).await {
         Ok(_) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::success("批量发放成功".to_string(), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
+/// 批量返审批：已审核/已发放回退为待审核（优先按 ids，空则按年月整月）
+pub async fn batch_revert(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    form_data: web::Json<SalaryBatchRevertDTO>,
+) -> HttpResponse {
+    let db = &state.db;
+    let mut dto = form_data.0;
+
+    let (operator_id, username) = get_current_user(&req);
+    let operator_name: &str = if username.is_empty() { "财务人员" } else { &username };
+    dto.updated_by = Some(operator_id);
+
+    match salary_service::batch_revert(db, dto, operator_id, operator_name).await {
+        Ok((reverted, cancelled, payslips)) => {
+            let msg = format!(
+                "返审批成功：{} 条工资记录已退回待审核，撤销进行中审批流 {} 条，删除关联工资条 {} 条，可重新核算",
+                reverted, cancelled, payslips
+            );
+            HttpResponse::Ok().content_type(MPACK)
+                .body(MetaResp::success(serde_json::json!({
+                    "reverted": reverted,
+                    "cancelledInstances": cancelled,
+                    "deletedPayslips": payslips,
+                    "message": msg,
+                }), "local"))
+        }
         Err(e) => HttpResponse::Ok().content_type(MPACK)
             .body(MetaResp::<String>::fail(400, &e, "local")),
     }
@@ -609,6 +641,7 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/batch-approve", web::post().to(batch_approve).wrap(require_permission("finance:salary:manage")))
             .route("/pay", web::post().to(pay).wrap(require_permission("finance:salary:manage")))
             .route("/batch-pay", web::post().to(batch_pay).wrap(require_permission("finance:salary:manage")))
+            .route("/batch-revert", web::post().to(batch_revert).wrap(require_permission("finance:salary:manage")))
             .route("/summary", web::get().to(summary).wrap(require_permission("finance:salary:list")))
             .route("/config/list", web::get().to(config_list).wrap(require_permission("finance:salary:list")))
             .route("/config/upsert", web::post().to(config_upsert).wrap(require_permission("finance:salary:manage")))

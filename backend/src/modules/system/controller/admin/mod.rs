@@ -31,6 +31,7 @@ pub mod mail_controller;
 pub mod scheduler_controller;
 pub mod backup_controller;
 pub mod pdf_controller;
+pub mod pdf_designer_controller;
 pub mod setting_admin_controller;
 pub mod exchange_rate_controller;
 pub mod integration_config_controller;

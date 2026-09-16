@@ -70,11 +70,17 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: 'modelCode',
       label: '模型编码',
       formItemClass: 'cm-field-code',
+      help: '作为数据表名的一部分（mxx_model_编码），建议全小写英文；保存后不可修改',
       componentProps: () => ({
-        placeholder: '如 article（保存后不可修改）',
+        placeholder: '如 case（小写字母/数字/下划线）',
         disabled: !isCreate.value,
       }),
-      rules: z.string().min(1, { message: '请输入模型编码' }),
+      rules: z
+        .string()
+        .min(1, { message: '请输入模型编码' })
+        .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, {
+          message: '编码须为英文标识符（字母开头，仅含字母、数字、下划线），中文或特殊字符会导致数据表创建失败',
+        }),
     },
     {
       component: 'Input',

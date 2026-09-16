@@ -131,6 +131,10 @@ typst-assets = { version = "0.15.1", features = ["fonts"] }
 ecow = "0.2"
 comemo = "0.5"
 
+# 可视化 PDF 模板设计器：精确预览（Typst → SVG）与二维码元素
+typst-svg = "0.15.1"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+
 [features]
 default = []
 enable-es = ["elasticsearch"]

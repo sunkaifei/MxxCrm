@@ -140,6 +140,9 @@ pub struct QuotationSaveRequest {
     pub owner_user_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub dept_id: Option<i64>,
+    /// PDF 模板（docType=quotation 的可视化设计器模板，空=用默认模板）
+    #[serde(default, deserialize_with = "crate::utils::string_utils::deserialize_string_to_u64")]
+    pub pdf_template_id: Option<i64>,
     /// 自定义字段（键值对）
     pub custom_fields: Option<serde_json::Value>,
 }
@@ -150,6 +153,7 @@ impl From<QuotationSaveRequest> for QuotationSaveDTO {
             id: None,
             quotation_no: None,
             customer_id: item.customer_id,
+            pdf_template_id: item.pdf_template_id,
             customer_name: item.customer_name,
             contact_id: item.contact_id,
             contact_name: item.contact_name,
@@ -225,6 +229,9 @@ pub struct QuotationUpdateRequest {
     pub owner_user_id: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_string_to_u64")]
     pub dept_id: Option<i64>,
+    /// PDF 模板（docType=quotation 的可视化设计器模板，空=用默认模板）
+    #[serde(default, deserialize_with = "crate::utils::string_utils::deserialize_string_to_u64")]
+    pub pdf_template_id: Option<i64>,
     /// 自定义字段（键值对）
     pub custom_fields: Option<serde_json::Value>,
 }
@@ -235,6 +242,7 @@ impl From<QuotationUpdateRequest> for QuotationSaveDTO {
             id: item.id,
             quotation_no: None,
             customer_id: item.customer_id,
+            pdf_template_id: item.pdf_template_id,
             customer_name: item.customer_name,
             contact_id: item.contact_id,
             contact_name: item.contact_name,
@@ -311,6 +319,9 @@ pub struct QuotationSaveDTO {
     pub create_time: Option<DateTime>,
     pub update_by: Option<String>,
     pub update_time: Option<DateTime>,
+    /// PDF 模板（docType=quotation 的可视化设计器模板，空=用默认模板）
+    #[serde(default, deserialize_with = "crate::utils::string_utils::deserialize_string_to_u64")]
+    pub pdf_template_id: Option<i64>,
     /// 自定义字段（键值对）
     pub custom_fields: Option<serde_json::Value>,
 }
@@ -354,6 +365,9 @@ pub struct QuotationDetailVO {
     pub update_time: Option<DateTime>,
     pub items: Option<Vec<QuotationItemSaveDTO>>,
     pub approvals: Option<Vec<QuotationApprovalVO>>,
+    /// PDF 模板（docType=quotation 的可视化设计器模板，空=用默认模板）
+    #[serde(default, deserialize_with = "crate::utils::string_utils::deserialize_string_to_u64")]
+    pub pdf_template_id: Option<i64>,
     /// 自定义字段（键值对）
     pub custom_fields: Option<serde_json::Value>,
 }
@@ -362,6 +376,7 @@ impl From<quotation::Model> for QuotationDetailVO {
     fn from(item: quotation::Model) -> Self {
         QuotationDetailVO {
             id: Option::from(item.id),
+            pdf_template_id: item.pdf_template_id,
             quotation_no: item.quotation_no,
             customer_id: item.customer_id,
             customer_name: item.customer_name,
@@ -428,6 +443,9 @@ pub struct QuotationListVO {
     pub valid_until: Option<Date>,
     pub owner_user_id: Option<i64>,
     pub owner_user_name: Option<String>,
+    /// PDF 模板（docType=quotation 的可视化设计器模板，空=用默认模板）
+    #[serde(default, deserialize_with = "crate::utils::string_utils::deserialize_string_to_u64")]
+    pub pdf_template_id: Option<i64>,
     /// 自定义字段（键值对）
     pub custom_fields: Option<serde_json::Value>,
     pub create_time: Option<DateTime>,
@@ -437,6 +455,7 @@ impl From<quotation::Model> for QuotationListVO {
     fn from(item: quotation::Model) -> Self {
         QuotationListVO {
             id: Option::from(item.id),
+            pdf_template_id: item.pdf_template_id,
             quotation_no: item.quotation_no,
             customer_id: item.customer_id,
             customer_name: item.customer_name,
@@ -506,6 +525,7 @@ impl QuotationModel {
             remark: Set(req.remark.clone()),
             owner_user_id: Set(req.owner_user_id),
             dept_id: Set(req.dept_id),
+            pdf_template_id: Set(req.pdf_template_id),
             custom_fields: Set(req.custom_fields.clone()),
             create_by: Set(req.create_by.clone()),
             create_time: Set(Some(now)),
@@ -555,6 +575,11 @@ impl QuotationModel {
             remark: Set(req.remark.clone()),
             owner_user_id: Set(req.owner_user_id),
             dept_id: Set(req.dept_id),
+            // PDF 模板：显式传入才更新（未传不动，防覆盖既有选择）
+            pdf_template_id: match req.pdf_template_id.clone() {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
             // 7.3 合并写：未提交时不动该列（防置 NULL 丢存量）；提交时由校验器按 key 与旧值合并
             custom_fields: match req.custom_fields.clone() {
                 Some(v) => Set(Some(v)),

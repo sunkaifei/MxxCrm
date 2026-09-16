@@ -440,7 +440,8 @@ const headerSlots = computed(() => {
           @clear-preferences-and-logout="clearPreferencesAndLogout"
         />
       </template>
-      <VbenBackTop />
+      <!-- bottom 抬高：默认 20 会与工作台画布卡片右下角的 gridstack 缩放手柄重叠 -->
+      <VbenBackTop :bottom="64" :right="28" />
     </template>
   </VbenAdminLayout>
 </template>

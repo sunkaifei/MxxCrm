@@ -42,6 +42,8 @@ pub struct DashboardCardSaveRequest {
     pub status: Option<i32>,
     /// 备注
     pub remark: Option<String>,
+    /// 卡片配置（JSON：显示形态 displayForm / 时间范围 timeRange / 数据口径 dataScope / 图例等）
+    pub card_config: Option<String>,
 }
 
 /// 卡片-角色分配请求
@@ -131,6 +133,8 @@ pub struct DashboardCardVO {
     pub default_h: Option<i32>,
     pub status: Option<i32>,
     pub remark: Option<String>,
+    /// 卡片配置（JSON）
+    pub card_config: Option<String>,
     /// 已分配可见角色ID集合
     pub role_ids: Vec<i64>,
     pub create_time: Option<DateTime>,
@@ -166,6 +170,7 @@ impl DashboardCardModel {
             default_h: Set(req.default_h.or(Some(6))),
             status: Set(req.status.or(Some(1))),
             remark: Set(req.remark.clone()),
+            card_config: Set(req.card_config.clone()),
             deleted: Set(Some(0)),
             create_by: Set(create_by.clone()),
             create_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
@@ -217,6 +222,9 @@ impl DashboardCardModel {
         }
         if let Some(v) = req.remark.clone() {
             payload.remark = Set(Some(v));
+        }
+        if let Some(v) = req.card_config.clone() {
+            payload.card_config = Set(Some(v));
         }
         if let Some(v) = update_by.clone() {
             payload.update_by = Set(Some(v));
@@ -271,11 +279,22 @@ impl DashboardCardModel {
             .await
     }
 
-    /// 查询某页全部卡片（含停用，设计器模板布局用）
-    pub async fn find_by_page_key(db: &DbConn, page_key: &str) -> Result<Vec<dashboard_card::Model>, DbErr> {
+    /// 查询某页可布局卡片（含停用，设计器模板布局用）
+    ///
+    /// 内容模型（方案 v2.2 修订）：专属工作台 = 通用卡(page_key='default') ∪ 本工作台专属卡。
+    /// 过滤语义必须与运行端 `get_user_layout` 一致，否则设计器选中专属工作台时只剩专属卡
+    /// （sales/hr/finance 各 1 张、warehouse 3 张），通用卡无法编排位置。
+    pub async fn find_by_page_key_with_default(
+        db: &DbConn,
+        page_key: &str,
+    ) -> Result<Vec<dashboard_card::Model>, DbErr> {
         DashboardCard::find()
             .filter(dashboard_card::Column::Deleted.eq(0))
-            .filter(dashboard_card::Column::PageKey.eq(page_key))
+            .filter(
+                dashboard_card::Column::PageKey
+                    .eq(page_key)
+                    .or(dashboard_card::Column::PageKey.eq("default")),
+            )
             .order_by_asc(dashboard_card::Column::SortOrder)
             .order_by_asc(dashboard_card::Column::Id)
             .all(db)

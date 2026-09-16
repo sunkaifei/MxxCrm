@@ -31,6 +31,13 @@ function showAuthErrorOnce(errorMessage: string) {
   message.error(errorMessage);
 }
 
+// 登出进行中标记：登出会让在途请求批量 401，期间不再弹任何错误提示，
+// 避免出现「退出成功 + 内部服务器错误」双提示（登出成功后由 logout 流程延迟复位）
+let loggingOut = false;
+export function setLoggingOut(value: boolean) {
+  loggingOut = value;
+}
+
 // 重新认证单飞：并发 401 时只执行一次登出/弹出过期弹窗
 let reAuthPromise: null | Promise<void> = null;
 
@@ -299,11 +306,20 @@ function createRequestClient(
       if (error?.config?.silentError) {
         return;
       }
-      const responseData = error?.response?.data ?? {};
+      // 登出过程中在途请求的批量 401 不提示（会看到「内部服务器错误」假警报）
+      if (loggingOut) {
+        return;
+      }
+      // 优先展示后端原始信息（如「缺少权限: xxx」），便于定位真实原因
+      // 注意：刷新失败时 RequestClient 包装层会剥离 response（request-client.ts
+      // `throw error.response ? error.response.data : error`），错误变成裸的
+      // msgpack 响应体 {code:401,...}，此时数据就在 error 本身上
+      const responseData = error?.response?.data ?? error ?? {};
       const errorMessage =
         responseData?.error ?? responseData?.message ?? responseData?.msg ?? '';
-      // 登录过期只提示一次，避免刷新页面时并发请求各弹一个错
-      if (error?.response?.status === 401) {
+      // 登录过期只提示一次，避免刷新页面时并发请求各弹一个错；
+      // 含刷新失败被剥离成 {code:401} 裸对象的场景（无 response，靠 code 识别）
+      if (error?.response?.status === 401 || (!error?.response && error?.code === 401)) {
         showAuthErrorOnce(errorMessage || msg);
         return;
       }

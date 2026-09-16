@@ -13,10 +13,22 @@ use crate::core::errors::error::{Error, Result};
 use crate::core::web::response::ResultPage;
 use crate::modules::website::model::content_model::{ListQuery, PageWhere, ContentModelDetailVO, ContentModelListVO, ContentModelModel, ContentModelSaveDTO};
 use crate::modules::website::entity::content_model_field;
-use crate::modules::website::service::dynamic_table_service::DynamicTableService;
+use crate::modules::website::service::dynamic_table_service::{is_valid_identifier, DynamicTableService};
 use crate::utils::string_utils::convert_vec_option_string_to_vec_u64;
 
-/// 添加模型后自动创建菜单+授权（对齐帝国CMS/WordPress：模型即菜单）
+/// 按钮（增删改查）权限定义：每个模型菜单下自动生成
+const MODEL_MENU_BUTTONS: &[(&str, &str)] = &[
+    ("查询", "content:data:list"),
+    ("详情", "content:data:view"),
+    ("新增", "content:data:add"),
+    ("编辑", "content:data:update"),
+    ("删除", "content:data:delete"),
+];
+
+/// 添加模型后自动创建菜单+按钮权限+授权（对齐帝国CMS/WordPress：模型即菜单）
+///
+/// 生成结构：MENU 行（网站 345 下）+ BUTTON×5 子节点（查询/详情/新增/编辑/删除），
+/// 全部自动授权给已拥有 content:model:list 的角色。
 async fn auto_create_model_menu(db: &DbConn, model_id: i64, model_code: &str, model_name: &str) -> Result<()> {
     use crate::modules::system::entity::menu;
     use sea_orm::QueryOrder;
@@ -55,17 +67,39 @@ async fn auto_create_model_menu(db: &DbConn, model_id: i64, model_code: &str, mo
     let inserted = menu::Entity::insert(payload).exec(db).await?;
     let menu_id = inserted.last_insert_id;
 
-    // 自动授权给已拥有 content:model:list 的角色（父链已通，子码自动生效）
-    let raw_sql = format!(
-        "INSERT INTO mxx_system_role_menu_merge (role_id, menu_id, status, create_time, update_time) \
-         SELECT rm.role_id, {}, 0, now(), now() \
-         FROM mxx_system_role_menu_merge rm \
-         JOIN mxx_system_menu m ON m.id = rm.menu_id \
-         WHERE m.perm = 'content:model:list' \
-         AND NOT EXISTS (SELECT 1 FROM mxx_system_role_menu_merge r2 WHERE r2.role_id = rm.role_id AND r2.menu_id = {})",
-        menu_id, menu_id
-    );
-    db.execute_unprepared(&raw_sql).await?;
+    // 增删改查等按钮子节点：权限管理树里按模型粒度勾选
+    let mut grant_menu_ids: Vec<i64> = vec![menu_id];
+    for (idx, (btn_name, perm)) in MODEL_MENU_BUTTONS.iter().enumerate() {
+        let btn = menu::ActiveModel {
+            parent_id: Set(menu_id),
+            name: Set(Some(format!("{}{}", model_name, btn_name))),
+            perm: Set(Some(perm.to_string())),
+            r#type: Set(Some("BUTTON".to_string())),
+            sort: Set(Some(100 + idx as i32)),
+            status: Set(1),
+            deleted: Set(Some(0)),
+            create_time: Set(Some(now)),
+            update_time: Set(Some(now)),
+            ..Default::default()
+        };
+        let res = menu::Entity::insert(btn).exec(db).await?;
+        grant_menu_ids.push(res.last_insert_id);
+    }
+
+    // 自动授权：模型菜单行 + 全部按钮行，授权给已拥有 content:model:list 的角色
+    //（父链 345 已通，按钮权限码生效）
+    for target_menu_id in grant_menu_ids {
+        let raw_sql = format!(
+            "INSERT INTO mxx_system_role_menu_merge (role_id, menu_id, status, create_time, update_time) \
+             SELECT rm.role_id, {}, 0, now(), now() \
+             FROM mxx_system_role_menu_merge rm \
+             JOIN mxx_system_menu m ON m.id = rm.menu_id \
+             WHERE m.perm = 'content:model:list' \
+             AND NOT EXISTS (SELECT 1 FROM mxx_system_role_menu_merge r2 WHERE r2.role_id = rm.role_id AND r2.menu_id = {})",
+            target_menu_id, target_menu_id
+        );
+        db.execute_unprepared(&raw_sql).await?;
+    }
     Ok(())
 }
 
@@ -98,17 +132,28 @@ async fn auto_sync_model_menu_status(db: &DbConn, model_code: &str, status: i32)
 }
 
 pub async fn insert(db: &DbConn, form_data: &ContentModelSaveDTO) -> Result<i64> {
+    // 编码前置校验：建物理表依赖合法编码（表名 mxx_model_{code}），非法直接报错
+    let model_code = form_data.model_code.as_ref().ok_or_else(|| Error::from("模型编码不能为空"))?;
+    if !is_valid_identifier(model_code) {
+        return Err(Error::from(
+            "模型编码不合法：仅允许英文字母、数字、下划线，且以字母开头（建议全小写）",
+        ));
+    }
+    // 先建物理表再写模型记录：建表失败（如表已存在冲突）直接报错返回，
+    // 不产生「模型有了、表没建」的半成品（此前失败仅记日志被吞，用户误以为表已建）
+    DynamicTableService::create_table(&db, model_code, &[]).await?;
+
     let result = ContentModelModel::insert(&db, form_data).await?;
-
-    // 创建动态表（T-P0.1：带上该模型已定义的字段；新建模型时通常为空，
-    // 后续「加字段」由 content_model_field_service 负责 ALTER 加列）
     if result > 0 {
-        let model_code = form_data.model_code.as_ref().ok_or_else(|| Error::from("模型编码不能为空"))?;
-
+        // 新建模型通常无字段定义；后续「加字段」由 content_model_field_service 负责 ALTER 加列
         let field_rows = content_model_field::Entity::find()
             .filter(content_model_field::Column::ModelId.eq(result))
             .filter(content_model_field::Column::Deleted.eq(0))
-            .filter(content_model_field::Column::Status.eq(1))
+            .filter(
+                sea_orm::Condition::any()
+                    .add(content_model_field::Column::Status.eq(1))
+                    .add(content_model_field::Column::Status.is_null()),
+            )
             .all(db)
             .await
             .unwrap_or_default();
@@ -120,11 +165,16 @@ pub async fn insert(db: &DbConn, form_data: &ContentModelSaveDTO) -> Result<i64>
             })
             .collect();
 
-        if let Err(e) = DynamicTableService::create_table(&db, model_code, &fields).await {
-            log::warn!("创建动态表失败（不影响模型创建）: {:?}", e);
+        // 复制/导入场景可能带字段定义：逐列补齐（幂等）
+        for (name, ftype, _req) in &fields {
+            if let Err(e) =
+                DynamicTableService::add_column_if_not_exists(&db, model_code, name, *ftype).await
+            {
+                log::warn!("[content_model] 补列失败: {:?}", e);
+            }
         }
 
-        // 自动创建菜单+授权（模型即菜单，对齐帝国CMS/WordPress）
+        // 自动创建菜单+按钮权限+授权（模型即菜单，对齐帝国CMS/WordPress）
         let model_name = form_data.model_name.as_deref().unwrap_or(model_code);
         if let Err(e) = auto_create_model_menu(&db, result, model_code, model_name).await {
             log::warn!("自动创建模型菜单失败: {:?}", e);

@@ -19,10 +19,11 @@ use crate::modules::finance::entity::{
     salary_record, salary_config, salary_calc_log, salary_adjustment,
     commission_detail, commission_rule, commission_tier,
     salary_tax_detail, salary_item_value, employee_insurance_config,
-    social_insurance_policy,
+    social_insurance_policy, payslip,
 };
 use crate::modules::finance::model::salary::{
     SalaryRecordDTO, SalaryDetailDTO, CommissionDetailDTO, SalaryQuery, SalaryUpdateDTO, SalarySummaryDTO,
+    SalaryBatchRevertDTO,
     SalaryTrendQuery, SalaryTrendMonthlyPointDTO, SalaryTrendDeptPointDTO,
     SalaryTrendEmployeePointDTO, SalaryTrendSummaryDTO, SalaryItemValueVO,
 };
@@ -1719,6 +1720,126 @@ pub async fn batch_pay(db: &DatabaseConnection, ids: Vec<i64>) -> Result<(), Str
     Ok(())
 }
 
+/// 批量返审批：将已审核(status=1)/已发放(status=2)的工资记录回退为待审核(status=0)，
+/// 为重新核算解锁（核算守卫只放行全部待审核的月份）。
+/// 优先按 dto.ids 回退；ids 为空时按 year+month 整月回退。
+/// 返回 (回退记录数, 撤销审批实例数, 删除工资条数)。
+/// 同步处理关联数据：
+///   1. 撤销进行中(status=1/2)的 salary 审批实例（置5=已撤回并写审批日志）——
+///      否则待办残留，且旧实例指向的记录ID在重算后不复存在
+///   2. 删除关联工资条——重算"先删后建"会更换记录ID，旧工资条不删会变孤儿
+///   3. 重置员工确认标记，重算发放后需重新确认
+/// 个税累计不在此处回滚：重算与手工调整两条路径都会先按明细重放回滚到上月末
+/// （rollback_tax_config_in_conn），返审批只负责打开状态闸门。
+pub async fn batch_revert(
+    db: &DatabaseConnection,
+    dto: SalaryBatchRevertDTO,
+    operator_id: i64,
+    operator_name: &str,
+) -> Result<(usize, usize, usize), String> {
+    let mut query = salary_record::Entity::find()
+        .filter(salary_record::Column::Deleted.eq(0))
+        .filter(salary_record::Column::Status.is_in(vec![1, 2]));
+    match (&dto.ids, dto.year, dto.month) {
+        (Some(ids), _, _) if !ids.is_empty() => {
+            query = query.filter(salary_record::Column::Id.is_in(ids.clone()));
+        }
+        _ => {
+            let (year, month) = dto
+                .year
+                .zip(dto.month)
+                .ok_or_else(|| "请指定要返审批的工资记录，或指定年月进行整月回退".to_string())?;
+            query = query
+                .filter(salary_record::Column::Year.eq(year))
+                .filter(salary_record::Column::Month.eq(month));
+        }
+    }
+    let records: Vec<salary_record::Model> = query
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    if records.is_empty() {
+        return Err("没有可返审批的工资记录（仅已审核/已发放状态可回退）".to_string());
+    }
+    let record_ids: Vec<i64> = records.iter().map(|r| r.id).collect();
+
+    let now = Utc::now().naive_utc();
+    let reason = dto.reason.clone().unwrap_or_else(|| {
+        format!(
+            "{}年{}月工资返审批（操作人：{}）",
+            dto.year.unwrap_or_default(),
+            dto.month.unwrap_or_default(),
+            operator_name
+        )
+    });
+
+    let txn = db.begin().await.map_err(|e| e.to_string())?;
+
+    // 1. 撤销进行中的工资审批实例，避免残留待办与后续 sync 误同步
+    let active_instances = approval_instance::Entity::find()
+        .filter(approval_instance::Column::BusinessType.eq(SALARY_APPROVAL_BUSINESS_TYPE))
+        .filter(approval_instance::Column::BusinessId.is_in(record_ids.clone()))
+        .filter(approval_instance::Column::Status.is_in(vec![1, 2]))
+        .all(&txn)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut cancelled = 0usize;
+    for inst in &active_instances {
+        let node_key = inst.current_node_key.clone().unwrap_or_default();
+        crate::modules::approval::model::approval::ApprovalModel::insert_log_with_target(
+            &txn,
+            inst.id,
+            &node_key,
+            &node_key,
+            operator_id,
+            Some(operator_name.to_string()),
+            7, // action=7 取消（撤回）
+            Some(reason.clone()),
+            None, None, None, None,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        crate::modules::approval::model::approval::ApprovalModel::update_cancel_reason(
+            &txn, inst.id, &reason,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        crate::modules::approval::model::approval::ApprovalModel::finish_instance(&txn, inst.id, 5)
+            .await
+            .map_err(|e| e.to_string())?;
+        cancelled += 1;
+    }
+
+    // 2. 删除关联工资条（重算会重建记录ID，旧工资条会变孤儿）
+    let payslip_count = payslip::Entity::find()
+        .filter(payslip::Column::SalaryRecordId.is_in(record_ids.clone()))
+        .count(&txn)
+        .await
+        .map_err(|e| e.to_string())?;
+    if payslip_count > 0 {
+        payslip::Entity::delete_many()
+            .filter(payslip::Column::SalaryRecordId.is_in(record_ids.clone()))
+            .exec(&txn)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
+    // 3. 状态回退为待审核，并重置员工确认标记
+    salary_record::Entity::update_many()
+        .filter(salary_record::Column::Id.is_in(record_ids.clone()))
+        .col_expr(salary_record::Column::Status, Expr::value(0))
+        .col_expr(salary_record::Column::EmployeeConfirmed, Expr::value(0))
+        .col_expr(salary_record::Column::UpdatedBy, Expr::value(operator_id))
+        .col_expr(salary_record::Column::UpdateTime, Expr::value(now))
+        .exec(&txn)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    txn.commit().await.map_err(|e| e.to_string())?;
+
+    Ok((records.len(), cancelled, payslip_count as usize))
+}
+
 /// 汇总
 pub async fn get_summary(
     db: &DatabaseConnection,
@@ -2496,7 +2617,7 @@ pub async fn submit_salary_approval(
 /// 同步工资审批状态到工资记录
 ///
 /// - 查询指定年月所有 business_type="salary" 的审批实例
-/// - 审批通过（status=2）：更新对应工资记录为已审核（status=1）
+/// - 审批通过（status=3）：更新对应工资记录为已审核（status=1）
 /// - 审批驳回（status=4）：保持待审核，记录驳回原因到 remark
 /// - 返回 (同步通过数, 同步驳回数)
 pub async fn sync_salary_approval_status(
@@ -2504,10 +2625,10 @@ pub async fn sync_salary_approval_status(
     year: i32,
     month: i32,
 ) -> Result<(usize, usize), String> {
-    // 查询该月份所有工资审批实例
+    // 查询该月份所有工资审批实例（实例状态：1/2=进行中，3=已通过，4=已驳回，5=已撤回）
     let instances = approval_instance::Entity::find()
         .filter(approval_instance::Column::BusinessType.eq(SALARY_APPROVAL_BUSINESS_TYPE))
-        .filter(approval_instance::Column::Status.is_in(vec![2, 4])) // 2=通过, 4=驳回
+        .filter(approval_instance::Column::Status.is_in(vec![3, 4])) // 3=已通过, 4=已驳回
         .all(db)
         .await
         .map_err(|e| e.to_string())?;
@@ -2548,7 +2669,7 @@ pub async fn sync_salary_approval_status(
         }
 
         let inst_status = inst.status.unwrap_or(0);
-        if inst_status == 2 {
+        if inst_status == 3 {
             // 审批通过：更新工资为已审核
             let mut model: salary_record::ActiveModel = record.into();
             model.status = Set(Some(1));

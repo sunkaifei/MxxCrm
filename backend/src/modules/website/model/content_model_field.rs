@@ -41,6 +41,8 @@ pub struct FieldSaveRequest {
     pub is_list_show: Option<i32>,
     // 详情是否显示
     pub is_detail_show: Option<i32>,
+    // 是否唯一约束
+    pub is_unique: Option<i32>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -62,6 +64,7 @@ impl From<FieldSaveRequest> for FieldSaveDTO {
             is_searchable: form_data.is_searchable,
             is_list_show: form_data.is_list_show,
             is_detail_show: form_data.is_detail_show,
+            is_unique: form_data.is_unique,
             sort: form_data.sort,
             status: form_data.status,
             create_time: None,
@@ -99,6 +102,8 @@ pub struct FieldUpdateRequest {
     pub is_list_show: Option<i32>,
     // 详情是否显示
     pub is_detail_show: Option<i32>,
+    // 是否唯一约束
+    pub is_unique: Option<i32>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -120,6 +125,7 @@ impl From<FieldUpdateRequest> for FieldSaveDTO {
             is_searchable: form_data.is_searchable,
             is_list_show: form_data.is_list_show,
             is_detail_show: form_data.is_detail_show,
+            is_unique: form_data.is_unique,
             sort: form_data.sort,
             status: form_data.status,
             create_time: None,
@@ -153,6 +159,8 @@ pub struct FieldSaveDTO {
     pub is_list_show: Option<i32>,
     // 详情是否显示
     pub is_detail_show: Option<i32>,
+    // 是否唯一约束
+    pub is_unique: Option<i32>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -191,6 +199,8 @@ pub struct FieldListVO {
     pub is_list_show: Option<i32>,
     // 详情是否显示
     pub is_detail_show: Option<i32>,
+    // 是否唯一约束
+    pub is_unique: Option<i32>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -214,6 +224,7 @@ impl From<content_model_field::Model> for FieldListVO {
             is_searchable: model.is_searchable,
             is_list_show: model.is_list_show,
             is_detail_show: model.is_detail_show,
+            is_unique: model.is_unique,
             sort: model.sort,
             status: model.status,
             create_time: model.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
@@ -251,6 +262,8 @@ pub struct FieldDetailVO {
     pub is_list_show: Option<i32>,
     // 详情是否显示
     pub is_detail_show: Option<i32>,
+    // 是否唯一约束
+    pub is_unique: Option<i32>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常
@@ -274,6 +287,7 @@ impl From<content_model_field::Model> for FieldDetailVO {
             is_searchable: model.is_searchable,
             is_list_show: model.is_list_show,
             is_detail_show: model.is_detail_show,
+            is_unique: model.is_unique,
             sort: model.sort,
             status: model.status,
             create_time: model.create_time.map(|s| s.format("%Y-%m-%d %H:%M:%S").to_string()),
@@ -343,6 +357,7 @@ impl ContentModelFieldModel {
             is_searchable: Set(dto.is_searchable.to_owned()),
             is_list_show: Set(dto.is_list_show.to_owned()),
             is_detail_show: Set(dto.is_detail_show.to_owned()),
+            is_unique: Set(dto.is_unique.to_owned()),
             sort: Set(dto.sort.to_owned()),
             status: Set(dto.status.to_owned()),
             create_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
@@ -379,6 +394,7 @@ impl ContentModelFieldModel {
             is_searchable: Set(dto.is_searchable.to_owned()),
             is_list_show: Set(dto.is_list_show.to_owned()),
             is_detail_show: Set(dto.is_detail_show.to_owned()),
+            is_unique: Set(dto.is_unique.to_owned()),
             sort: Set(dto.sort.to_owned()),
             status: Set(dto.status.to_owned()),
             ..Default::default()

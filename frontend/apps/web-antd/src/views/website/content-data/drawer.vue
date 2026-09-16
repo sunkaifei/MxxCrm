@@ -13,10 +13,13 @@ import {
   InputNumber,
   message,
   Select,
+  TabPane,
+  Tabs,
   Textarea,
 } from 'ant-design-vue';
 
 import { contentDataApi } from '#/api/core/website/content-data';
+import { getUserListApi } from '#/api/core/system/user';
 
 const AInput = Input;
 const ATextarea = Textarea;
@@ -25,6 +28,8 @@ const ASelect = Select;
 const ADatePicker = DatePicker;
 const AForm = Form;
 const AFormItem = FormItem;
+const ATabs = Tabs;
+const ATabPane = TabPane;
 
 const data = ref<any>();
 const isCreate = computed(() => data.value?.create);
@@ -55,7 +60,7 @@ function parseOptions(raw?: string): { label: string; value: any }[] {
   return [];
 }
 
-/** 自定义字段类型（int 1-10）→ 控件 */
+/** 自定义字段类型（int 1-11）→ 控件 */
 function customWidget(fieldType: number): string {
   switch (fieldType) {
     case 1:
@@ -73,11 +78,68 @@ function customWidget(fieldType: number): string {
       return 'select';
     case 8:
       return 'multiselect';
+    case 11:
+      return 'user';
     case 9:
     case 10:
       return 'input';
     default:
       return 'input';
+  }
+}
+
+// ===== 表单布局（模型上配置的 formLayout：列数/选项卡/字段摆放） =====
+interface LayoutTab {
+  fields: string[];
+  key: string;
+  name: string;
+}
+interface FormGroup {
+  items: RenderField[];
+  key: string;
+  name: string;
+}
+const layout = ref<{ columns: number; tabs: LayoutTab[] } | null>(null);
+const activeLayoutTab = ref('');
+
+function parseLayout(m: any) {
+  try {
+    if (m?.formLayout) {
+      const parsed = JSON.parse(m.formLayout);
+      layout.value = {
+        columns: [1, 2, 3].includes(Number(parsed.columns))
+          ? Number(parsed.columns)
+          : 2,
+        tabs: Array.isArray(parsed.tabs)
+          ? parsed.tabs.map((t: any, i: number) => ({
+              key: t.key || `tab${i + 1}`,
+              name: t.name || `选项卡${i + 1}`,
+              fields: Array.isArray(t.fields) ? t.fields : [],
+            }))
+          : [],
+      };
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
+  layout.value = null;
+}
+
+// ===== 用户选项（字段类型 11=用户：下拉选择系统用户，存 user_id） =====
+const userOptions = ref<{ label: string; value: number }[]>([]);
+
+async function loadUserOptions() {
+  if (userOptions.value.length > 0) return;
+  try {
+    const res: any = await getUserListApi({ page: 1, pageSize: 999 });
+    const list = res?.items || res?.rows || [];
+    userOptions.value = list.map((u: any) => ({
+      label: u.realName || u.nickname || u.username || String(u.id),
+      value: Number(u.id ?? u.userId),
+    }));
+  } catch {
+    userOptions.value = [];
   }
 }
 
@@ -89,6 +151,36 @@ interface RenderField {
   required?: boolean;
   placeholder?: string;
 }
+
+/** 按模型布局（formLayout）分组成选项卡；未配置则单组平铺 */
+const formGroups = computed<FormGroup[]>(() => {
+  const all = renderFields.value;
+  const L = layout.value;
+  if (!L || L.tabs.length === 0) {
+    return [{ key: 'default', name: '默认', items: all }];
+  }
+  const byKey = new Map(all.map((f) => [f.key, f]));
+  const groups: FormGroup[] = L.tabs.map((t) => ({
+    key: t.key,
+    name: t.name,
+    items: (t.fields || [])
+      .map((k) => byKey.get(k))
+      .filter((f): f is RenderField => !!f),
+  }));
+  // 未分配字段追加到最后一个选项卡，保证不丢
+  const used = new Set(L.tabs.flatMap((t) => t.fields || []));
+  const rest = all.filter((f) => !used.has(f.key));
+  if (rest.length > 0 && groups.length > 0) {
+    groups[groups.length - 1]!.items.push(...rest);
+  }
+  return groups;
+});
+
+const gridStyle = computed(() => ({
+  display: 'grid',
+  gap: '0 16px',
+  gridTemplateColumns: `repeat(${layout.value?.columns ?? 2}, minmax(0, 1fr))`,
+}));
 
 const renderFields = computed<RenderField[]>(() => {
   const list: RenderField[] = [];
@@ -121,6 +213,9 @@ const renderFields = computed<RenderField[]>(() => {
     let options: any[] | undefined;
     if (widget === 'select' || widget === 'multiselect') {
       options = parseOptions(f.fieldOptions);
+    }
+    if (widget === 'user') {
+      options = userOptions.value;
     }
     list.push({
       key: f.fieldName,
@@ -183,6 +278,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (!isOpen) return;
     data.value = drawerApi.getData<Record<string, any>>();
     resetForm();
+    parseLayout(data.value?.model);
+    activeLayoutTab.value = formGroups.value[0]?.key || '';
+    // 用户类型字段需要用户选项
+    if (fields.value.some((f) => Number(f.fieldType) === 11)) {
+      await loadUserOptions();
+    }
 
     if (!isCreate.value && data.value?.row?.id) {
       try {
@@ -230,53 +331,75 @@ function setLoading(loading: boolean) {
 <template>
   <Drawer :title="getTitle">
     <AForm layout="vertical">
-      <AFormItem
-        v-for="f in renderFields"
-        :key="f.key"
-        :label="f.label"
-        :required="f.required"
+      <ATabs
+        v-model:activeKey="activeLayoutTab"
+        :class="{ 'no-tab-bar': formGroups.length === 1 }"
       >
-        <AInput
-          v-if="f.widget === 'input'"
-          v-model:value="formState[f.key]"
-          :placeholder="f.placeholder"
-          allow-clear
-        />
-        <ATextarea
-          v-else-if="f.widget === 'textarea'"
-          v-model:value="formState[f.key]"
-          :rows="4"
-          :placeholder="f.placeholder"
-          allow-clear
-        />
-        <AInputNumber
-          v-else-if="f.widget === 'number'"
-          v-model:value="formState[f.key]"
-          class="w-full"
-        />
-        <ADatePicker
-          v-else-if="f.widget === 'date'"
-          v-model:value="formState[f.key]"
-          class="w-full"
-          show-time
-          value-format="YYYY-MM-DD HH:mm:ss"
-        />
-        <ASelect
-          v-else-if="f.widget === 'select'"
-          v-model:value="formState[f.key]"
-          :options="f.options"
-          :placeholder="f.placeholder"
-          allow-clear
-        />
-        <ASelect
-          v-else-if="f.widget === 'multiselect'"
-          v-model:value="formState[f.key]"
-          mode="multiple"
-          :options="f.options"
-          :placeholder="f.placeholder"
-          allow-clear
-        />
-      </AFormItem>
+        <ATabPane
+          v-for="g in formGroups"
+          :key="g.key"
+          :tab="g.name"
+        >
+          <div class="form-grid" :style="gridStyle">
+            <AFormItem
+              v-for="f in g.items"
+              :key="f.key"
+              :label="f.label"
+              :required="f.required"
+            >
+              <AInput
+                v-if="f.widget === 'input'"
+                v-model:value="formState[f.key]"
+                :placeholder="f.placeholder"
+                allow-clear
+              />
+              <ATextarea
+                v-else-if="f.widget === 'textarea'"
+                v-model:value="formState[f.key]"
+                :rows="4"
+                :placeholder="f.placeholder"
+                allow-clear
+              />
+              <AInputNumber
+                v-else-if="f.widget === 'number'"
+                v-model:value="formState[f.key]"
+                class="w-full"
+              />
+              <ADatePicker
+                v-else-if="f.widget === 'date'"
+                v-model:value="formState[f.key]"
+                class="w-full"
+                show-time
+                value-format="YYYY-MM-DD HH:mm:ss"
+              />
+              <ASelect
+                v-else-if="f.widget === 'select'"
+                v-model:value="formState[f.key]"
+                :options="f.options"
+                :placeholder="f.placeholder"
+                allow-clear
+              />
+              <ASelect
+                v-else-if="f.widget === 'user'"
+                v-model:value="formState[f.key]"
+                :options="f.options"
+                show-search
+                option-filter-prop="label"
+                :placeholder="f.placeholder || '请选择用户'"
+                allow-clear
+              />
+              <ASelect
+                v-else-if="f.widget === 'multiselect'"
+                v-model:value="formState[f.key]"
+                mode="multiple"
+                :options="f.options"
+                :placeholder="f.placeholder"
+                allow-clear
+              />
+            </AFormItem>
+          </div>
+        </ATabPane>
+      </ATabs>
     </AForm>
   </Drawer>
 </template>
@@ -285,5 +408,14 @@ function setLoading(loading: boolean) {
 .ant-picker-dropdown,
 .ant-select-dropdown {
   z-index: 3000 !important;
+}
+
+/* 平铺布局（未配置选项卡）时隐藏标签栏，仅保留网格表单 */
+.no-tab-bar > .ant-tabs-nav {
+  display: none;
+}
+
+.form-grid {
+  row-gap: 4px;
 }
 </style>

@@ -47,7 +47,18 @@ async fn serve_admin_frontend(req: HttpRequest) -> HttpResponse {
         None => "index.html".to_string(),
     };
 
-    crate::serve_frontend_asset(&rel)
+    let accept_encoding = req
+        .headers()
+        .get("accept-encoding")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    let if_none_match = req
+        .headers()
+        .get("if-none-match")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    crate::serve_frontend_asset_with_headers(&rel, accept_encoding.as_deref(), if_none_match.as_deref())
 }
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {

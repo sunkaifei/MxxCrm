@@ -47,6 +47,8 @@ pub struct Model {
     pub list_template_id: Option<i64>,
     // 详情模板ID
     pub detail_template_id: Option<i64>,
+    // 内容表单布局（JSON：列数/选项卡/字段摆放），NULL=默认单卡布局
+    pub form_layout: Option<String>,
     // 排序
     pub sort: Option<i32>,
     // 状态：0停用，1正常

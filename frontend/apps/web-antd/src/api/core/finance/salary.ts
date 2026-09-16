@@ -46,6 +46,16 @@ export const batchPaySalaryApi = async (ids: number[]) => {
   return requestClient.post('/api/system/finance/salary/batch-pay', { ids });
 };
 
+// 批量返审批：已审核/已发放回退为待审核（ids 为空时按年月整月回退）
+export const batchRevertSalaryApi = async (data: {
+  ids?: number[];
+  year?: number;
+  month?: number;
+  reason?: string;
+}) => {
+  return requestClient.post('/api/system/finance/salary/batch-revert', data);
+};
+
 export const getSalarySummaryApi = async (params: {
   month: number;
   year: number;

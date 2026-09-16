@@ -1,34 +1,64 @@
 <script lang="ts" setup>
-import type { VbenFormProps } from '@vben/common-ui';
-
 import type { VxeGridProps } from '#/adapter/vxe-table';
 import type { ContentModelFieldVO } from '#/api/core/website/content-model';
 
-import { computed, h, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { h, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { LucidePlus, LucideTrash2 } from '@vben/icons';
 
-import { Button, message, Modal, Select, Tag } from 'ant-design-vue';
+import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getContentModelFieldListApi, getContentModelListApi } from '#/api';
 import { contentDataApi } from '#/api/core/website/content-data';
+import { getUserListApi } from '#/api/core/system/user';
 
 import ContentDataDrawer from './drawer.vue';
 
 const route = useRoute();
-const router = useRouter();
+
+/** 按钮权限码（与自动菜单下的 BUTTON 节点对应，按模型粒度授权） */
+const perms = {
+  add: ['content:data:add'],
+  update: ['content:data:update'],
+  remove: ['content:data:delete'],
+};
+
+/** 用户名映射（字段类型 11=用户：列表渲染 id → 姓名） */
+const userNameMap = ref<Record<number, string>>({});
+
+async function loadUserNameMap() {
+  try {
+    const res: any = await getUserListApi({ page: 1, pageSize: 999 });
+    const list = res?.items || res?.rows || [];
+    const map: Record<number, string> = {};
+    for (const u of list) {
+      const id = Number(u.id ?? u.userId);
+      if (id) map[id] = u.realName || u.nickname || u.username || String(id);
+    }
+    userNameMap.value = map;
+    rebuildSearchSchema();
+  } catch {
+    /* 权限不足等情况静默 */
+  }
+}
+
+function formatUserCell(value: any): string {
+  if (value === undefined || value === null || value === '') return '';
+  return userNameMap.value[Number(value)] || String(value);
+}
 
 /** 模型编码（菜单路由 /website/content-data/{code}，或「管理内容」按钮跳入） */
 const modelCode = ref<string>('');
 const model = ref<any>({});
 const fields = ref<ContentModelFieldVO[]>([]);
 
-const formOptions: VbenFormProps = {
-  collapsed: false,
-  showCollapseButton: false,
+/** 搜索卡片：关键词 + 创建时间范围 + 「可搜索」字段（isSearchable）动态生成 */
+const formOptions = reactive({
+  collapsed: true,
+  showCollapseButton: true,
   submitOnEnter: true,
   schema: [
     {
@@ -37,8 +67,127 @@ const formOptions: VbenFormProps = {
       label: '关键词',
       componentProps: { placeholder: '标题', allowClear: true },
     },
+    {
+      component: 'RangePicker',
+      fieldName: 'createTimeRange',
+      label: '创建时间',
+      componentProps: {
+        style: 'width:100%',
+        valueFormat: 'YYYY-MM-DD',
+      },
+    },
   ],
-};
+} as any);
+
+// 用户类型字段的下拉选项（由 userNameMap 生成）
+function userSelectOptions() {
+  return Object.entries(userNameMap.value).map(([id, name]) => ({
+    label: name,
+    value: Number(id),
+  }));
+}
+
+/** 依据「可搜索」字段定义重建搜索表单（fields 加载后调用） */
+function rebuildSearchSchema() {
+  const schema: any[] = [
+    {
+      component: 'Input',
+      fieldName: 'keywords',
+      label: '关键词',
+      componentProps: { placeholder: '标题', allowClear: true },
+    },
+    {
+      component: 'RangePicker',
+      fieldName: 'createTimeRange',
+      label: '创建时间',
+      componentProps: { style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+    },
+  ];
+  for (const f of fields.value) {
+    if (f.isSearchable !== 1) continue;
+    const name = f.fieldName;
+    const label = f.fieldLabel || f.fieldName;
+    switch (Number(f.fieldType)) {
+      case 4: {
+        schema.push({
+          component: 'InputNumber',
+          fieldName: `sf_${name}`,
+          label,
+          componentProps: { class: 'w-full' },
+        });
+        break;
+      }
+      case 5: {
+        schema.push({
+          component: 'RangePicker',
+          fieldName: `df_${name}`,
+          label,
+          componentProps: { style: 'width:100%', valueFormat: 'YYYY-MM-DD' },
+        });
+        break;
+      }
+      case 6:
+      case 7: {
+        schema.push({
+          component: 'Select',
+          fieldName: `sf_${name}`,
+          label,
+          componentProps: {
+            options: parseFieldOptions(f.fieldOptions),
+            allowClear: true,
+          },
+        });
+        break;
+      }
+      case 11: {
+        schema.push({
+          component: 'Select',
+          fieldName: `sf_${name}`,
+          label,
+          componentProps: {
+            options: userSelectOptions(),
+            showSearch: true,
+            optionFilterProp: 'label',
+            allowClear: true,
+          },
+        });
+        break;
+      }
+      default: {
+        schema.push({
+          component: 'Input',
+          fieldName: `sf_${name}`,
+          label,
+          componentProps: { placeholder: `输入${label}关键词`, allowClear: true },
+        });
+      }
+    }
+  }
+  // vxe grid 的 formOptions watch 合并方向会让旧 schema 胜出，
+  // 这里用 formApi.setState 直接替换 schema（grid 挂载后可用）
+  try {
+    (gridApi as any)?.formApi?.setState?.({ schema });
+  } catch {
+    /* grid 未挂载时忽略 */
+  }
+}
+
+function parseFieldOptions(raw?: string): { label: string; value: any }[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) {
+      return arr.map((o: any) =>
+        typeof o === 'object'
+          ? { label: o.label ?? o.value, value: o.value }
+          : { label: String(o), value: o },
+      );
+    }
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
 
 /** 依据字段定义构造列表列 */
 function buildColumns(): any[] {
@@ -50,6 +199,11 @@ function buildColumns(): any[] {
         title: f.fieldLabel || f.fieldName,
         field: f.fieldName,
         minWidth: 120,
+        // 用户类型字段：id → 姓名显示
+        formatter:
+          Number(f.fieldType) === 11
+            ? ({ cellValue }: any) => formatUserCell(cellValue)
+            : undefined,
       });
     }
   }
@@ -75,12 +229,37 @@ const gridOptions: VxeGridProps = {
   proxyConfig: {
     autoLoad: false,
     ajax: {
-      query: async ({ page }, formValues) =>
-        await contentDataApi.list(modelCode.value, {
+      query: async ({ page }, formValues) => {
+        // 搜索卡片 → 后端参数：
+        // - keywords 直接透传
+        // - createTimeRange [起, 止] → createTimeFrom/createTimeTo
+        // - sf_{field} 字段值筛选（文本模糊/数字用户等值）
+        // - df_{field} [起, 止] → df_{field}_from/df_{field}_to 时间段
+        const params: any = {
           page: page.currentPage,
           pageSize: page.pageSize,
-          keywords: formValues.keywords,
-        }),
+        };
+        const kv: Record<string, any> = formValues || {};
+        for (const [key, value] of Object.entries(kv)) {
+          if (value === undefined || value === null) continue;
+          if (key === 'keywords') {
+            params.keywords = value;
+          } else if (key === 'createTimeRange') {
+            if (Array.isArray(value) && value.length === 2) {
+              params.createTimeFrom = value[0];
+              params.createTimeTo = value[1];
+            }
+          } else if (key.startsWith('df_')) {
+            if (Array.isArray(value) && value.length === 2) {
+              params[`${key}_from`] = value[0];
+              params[`${key}_to`] = value[1];
+            }
+          } else if (key.startsWith('sf_')) {
+            params[key] = value;
+          }
+        }
+        return await contentDataApi.list(modelCode.value, params);
+      },
     },
   },
 };
@@ -97,13 +276,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
-/** 全部模型清单（工作台顶部的模型切换下拉用） */
-const modelList = ref<any[]>([]);
-
 function loadModelAndFields() {
   return getContentModelListApi({ page: 1, pageSize: 999 }).then(async (res: any) => {
     const list = res?.items || res?.rows || [];
-    modelList.value = list;
     model.value = list.find((m: any) => m.modelCode === modelCode.value) || {};
     if (model.value.id) {
       const fres: any = await getContentModelFieldListApi({
@@ -115,42 +290,14 @@ function loadModelAndFields() {
     } else {
       fields.value = [];
     }
-  });
-}
-
-/** 有专属管理模块的模型编码（文章/产品走各自模块，不共用动态表） */
-const DEDICATED_MODULE_CODES = new Set(['article', 'product']);
-
-/** 工作台顶部下拉的可选模型：无专属模块的模型（含下载等内置）都可管理 */
-const modelOptions = computed(() =>
-  modelList.value.map((m: any) => ({
-    label: Number(m.isSystem) === 1 ? `${m.modelName}（内置）` : m.modelName,
-    value: m.modelCode,
-    disabled: DEDICATED_MODULE_CODES.has(String(m.modelCode || '')),
-  })),
-);
-
-/** 切换模型：刷新字段/列头/数据，并同步 URL 方便分享 */
-async function handleSwitchModel(code: string) {
-  modelCode.value = code;
-  router.replace({ path: `/website/content-data/${code}` });
-  await loadModelAndFields();
-  (gridApi as any)?.setGridOptions?.({ columns: buildColumns() });
-  gridApi.query();
-}
-
-/** 去模型管理：新建模型 / 给当前模型配字段（fields 深链直达字段弹窗） */
-function goModelManage() {
-  router.push('/website/content-model');
-}
-function goFieldManage() {
-  router.push({
-    path: '/website/content-model',
-    query: { fields: modelCode.value },
+    // 按「可搜索」字段重建搜索卡片
+    rebuildSearchSchema();
   });
 }
 
 onMounted(async () => {
+  // 用户名映射（字段类型 11=用户 的列渲染用），失败不影响页面
+  loadUserNameMap();
   // 兼容三种入口：菜单字面路径 /content-data/{code}（无 :param，需从 path 解析）、query 旧链接、裸路径
   const fromPath = route.path.match(/\/content-data\/([A-Za-z][\w-]*)/)?.[1];
   modelCode.value =
@@ -160,12 +307,12 @@ onMounted(async () => {
     '';
   if (!modelCode.value) {
     // 从菜单直接进入（无 ?code=）：默认定位到第一个自定义模型，没有则回退第一个模型
-    await loadModelAndFields();
+    const res: any = await getContentModelListApi({ page: 1, pageSize: 999 });
+    const all = res?.items || res?.rows || [];
     const first =
-      modelList.value.find((m: any) => Number(m.isSystem) === 0) ||
-      modelList.value[0];
+      all.find((m: any) => Number(m.isSystem) === 0) || all[0];
     if (!first?.modelCode) {
-      message.warning('暂无内容模型，请点击右上角「模型管理」新建模型');
+      message.warning('暂无内容模型，请进入「模型管理」新建模型');
       return;
     }
     modelCode.value = first.modelCode;
@@ -237,23 +384,22 @@ function handleBatchDelete() {
 
 <template>
   <Page auto-content-height>
-    <Grid :table-title="`内容管理 - ${model.modelName || modelCode}`">
+    <Grid :table-title="model.modelName || modelCode">
       <template #toolbar-tools>
-        <Select
-          :value="modelCode"
-          :options="modelOptions"
-          show-search
-          option-filter-prop="label"
-          style="width: 180px"
-          placeholder="切换模型"
-          @change="(v: any) => handleSwitchModel(String(v))"
-        />
-        <Button @click="goFieldManage">字段管理</Button>
-        <Button @click="goModelManage">新建模型</Button>
-        <Button type="primary" :icon="h(LucidePlus)" @click="handleAdd">
+        <Button
+          v-access:code="perms.add"
+          type="primary"
+          :icon="h(LucidePlus)"
+          @click="handleAdd"
+        >
           新增内容
         </Button>
-        <Button danger :icon="h(LucideTrash2)" @click="handleBatchDelete">
+        <Button
+          v-access:code="perms.remove"
+          danger
+          :icon="h(LucideTrash2)"
+          @click="handleBatchDelete"
+        >
           批量删除
         </Button>
       </template>
@@ -264,13 +410,41 @@ function handleBatchDelete() {
       </template>
 
       <template #action="{ row }">
-        <Button type="primary" link @click="() => handleEdit(row)">编辑</Button>
-        <Button type="primary" link danger @click="() => handleDelete(row)">
+        <a
+          v-access:code="perms.update"
+          class="text-action-link"
+          @click="() => handleEdit(row)"
+        >
+          编辑
+        </a>
+        <a
+          v-access:code="perms.remove"
+          class="text-action-link text-action-danger"
+          @click="() => handleDelete(row)"
+        >
           删除
-        </Button>
+        </a>
       </template>
     </Grid>
 
     <Drawer />
   </Page>
 </template>
+
+<style scoped>
+/* 操作列纯文字链接（无图标、非表单按钮） */
+.text-action-link {
+  color: #2185eb;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 10px;
+}
+
+.text-action-link:hover {
+  text-decoration: underline;
+}
+
+.text-action-danger {
+  color: #e54545;
+}
+</style>
