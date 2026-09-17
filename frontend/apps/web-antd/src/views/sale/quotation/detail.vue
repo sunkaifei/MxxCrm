@@ -17,6 +17,7 @@ import {
 } from 'ant-design-vue';
 
 import { getQuotationInfoApi } from '#/api';
+import { fetchFormLayout } from '#/components/FormLayoutManager';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { formatQty } from '#/components/UnitSelect';
 
@@ -176,21 +177,45 @@ async function fetchDetail() {
 }
 
 // 自定义字段明细展示：拉取 schema，仅展示有值的键（选项/成员/附件按类型格式化）
+// 一期布局：详情布局（layout_type=2）驱动顺序/列宽/显示判断（布局编排∩字段权限，schema 已按角色过滤）
 const fieldSchema = useFieldSchema('sale_quotation');
 fieldSchema.loadSchema();
-const cfRows = computed(() =>
-  fieldSchema.items.value
-    .map((item) => ({
+const detailLayout = ref<Awaited<ReturnType<typeof fetchFormLayout>>>(
+  null,
+);
+const cfRows = computed(() => {
+  const layout = detailLayout.value;
+  const orderMap = new Map((layout?.fields ?? []).map((f, i) => [f.key, i]));
+  const rows = fieldSchema.items.value.map((item) => {
+    const hit = layout?.fields.find((f) => f.key === item.fieldKey);
+    return {
+      key: item.fieldKey,
       label: item.fieldLabel,
       value: fieldSchema.formatFieldValue(
         item,
         (detail.value as any)?.customFields?.[item.fieldKey],
       ),
-    }))
-    .filter((r) => r.value !== ''),
-);
+      span: hit?.span === 2 ? 2 : 1,
+      inLayout: Boolean(hit),
+    };
+  });
+  // 布局内字段按布局序在前，未编排字段保持原相对顺序追加（unassignedPolicy=append）
+  rows.sort((a, b) => {
+    const oa = orderMap.get(a.key);
+    const ob = orderMap.get(b.key);
+    if (oa !== undefined && ob !== undefined) return oa - ob;
+    if (oa !== undefined) return -1;
+    if (ob !== undefined) return 1;
+    return 0;
+  });
+  // 展示条件：布局编排内的恒显示（空值显示 '-'）；未编排的仅有值时显示
+  return rows.filter((r) => r.inLayout || r.value !== '');
+});
 
-onMounted(() => fetchDetail());
+onMounted(async () => {
+  detailLayout.value = await fetchFormLayout('sale_quotation', 2);
+  fetchDetail();
+});
 </script>
 
 <template>
@@ -340,11 +365,12 @@ onMounted(() => fetchDetail());
         <Descriptions.Item label="创建时间">
           {{ formatDateTime(detail.createTime) }}
         </Descriptions.Item>
-        <!-- 自定义字段：仅展示有值的键 -->
+        <!-- 自定义字段：详情布局驱动（顺序/列宽），无布局时有值才显示 -->
         <Descriptions.Item
           v-for="row in cfRows"
           :key="row.label"
           :label="row.label"
+          :span="row.span"
         >
           {{ row.value }}
         </Descriptions.Item>

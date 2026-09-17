@@ -72,5 +72,4 @@ export * from './system/tag';
 export * from './system/tag_group';
 export * from './system/user';
 export * from './user';
-export * from './user/user-manage';
 export * from './website';

@@ -42,6 +42,7 @@ pub mod mail_config;
 pub mod mail_template;
 pub mod mail_log;
 pub mod scheduler_job;
+pub mod scheduler_alert;
 pub mod audit_event;
 pub mod scheduler_log;
 pub mod backup_log;
@@ -72,4 +73,5 @@ pub mod onboarding_step;
 pub mod onboarding_config;
 pub mod field_def;
 pub mod field_perm;
+pub mod form_layout;
 

@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 
+import { useRoute } from 'vue-router';
+
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h, ref } from 'vue';
@@ -57,10 +59,16 @@ const statusOptions = [
   { label: '停用', value: 0 },
 ];
 
+const route = useRoute();
 const formOptions: VbenFormProps = {
   collapsed: false,
   showCollapseButton: false,
   submitOnEnter: true,
+  // 字段设置入口（系统模型页跳转携带 ?module=）：预设模块过滤
+  initialValues: (() => {
+    const m = route.query.module as string | undefined;
+    return m ? { module: m } : {};
+  })(),
   schema: [
     {
       component: 'Select',
@@ -305,7 +313,7 @@ async function handleDelete(row: any) {
         <Switch
           :checked="Number(row.status)"
           :checked-value="1"
-          :disabled="!accessStore.hasAccessCode('system:field:status')"
+          :disabled="Number(row.isSystem) === 1 || !accessStore.hasAccessCode('system:field:status')"
           :loading="row.pending"
           :un-checked-value="0"
           checked-children="启用"
@@ -322,6 +330,7 @@ async function handleDelete(row: any) {
           @click="openDrawer(false, row)"
         />
         <Popconfirm
+          v-if="Number(row.isSystem) !== 1"
           title="删除后同名同类型可重建，历史数据保留在库中，确认删除？"
           :ok-text="$t('ui.button.ok')"
           :cancel-text="$t('ui.button.cancel')"

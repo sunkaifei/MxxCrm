@@ -27,7 +27,8 @@ use crate::modules::system::service::sales_flow_config_service;
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
-use sea_orm::{ActiveModelTrait, DbConn, TransactionTrait, EntityTrait, ColumnTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, DbConn, Order, TransactionTrait, EntityTrait, ColumnTrait, QueryFilter, Set};
+use sea_orm::sea_query::SimpleExpr;
 use std::collections::{HashMap, HashSet};
 
 fn calculate_product_amount(items: &Vec<OrderItemSaveDTO>) -> Decimal {
@@ -449,6 +450,33 @@ pub async fn get_detail(db: &DbConn, id: i64) -> Result<OrderDetailVO> {
     }
 }
 
+
+/// 构造订单列表的自定义字段筛选/排序表达式（G3，与客户列表 build_cf_query_parts 同款）
+/// 经 field_def_service::build_filter_expr/build_order_expr 生成，参数绑定防注入
+async fn build_cf_query_parts(
+    db: &DbConn,
+    query: &OrderListQuery,
+) -> Result<(Option<SimpleExpr>, Option<(SimpleExpr, Order)>)> {
+    let cf_filter = match (&query.cf_key, &query.cf_op) {
+        (Some(key), Some(op)) => {
+            let val = query.cf_val.clone().unwrap_or(serde_json::Value::Null);
+            Some(field_def_service::build_filter_expr(db, "sale_order", key, op, &val).await?)
+        }
+        _ => None,
+    };
+    let cf_order = match &query.cf_sort {
+        Some(key) => {
+            let desc = !query.cf_sort_order.as_deref().unwrap_or("desc").eq_ignore_ascii_case("asc");
+            Some((
+                field_def_service::build_order_expr(db, "sale_order", key).await?,
+                if desc { Order::Desc } else { Order::Asc },
+            ))
+        }
+        None => None,
+    };
+    Ok((cf_filter, cf_order))
+}
+
 pub async fn get_list(db: &DbConn, query: &OrderListQuery, current_user_id: i64) -> Result<ResultPage<Vec<OrderListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
@@ -486,6 +514,8 @@ pub async fn get_list(db: &DbConn, query: &OrderListQuery, current_user_id: i64)
         }
     };
 
+    let (cf_filter, cf_order) = build_cf_query_parts(db, query).await?;
+
     let (list, total) = if list_type == "my" {
         OrderModel::select_in_page(
             db,
@@ -498,6 +528,8 @@ pub async fn get_list(db: &DbConn, query: &OrderListQuery, current_user_id: i64)
             Some(current_user_id),
             query.start_date.clone(),
             query.end_date.clone(),
+            cf_filter,
+            cf_order,
         ).await?
     } else {
         OrderModel::select_in_page_by_owner_user_ids(
@@ -511,6 +543,8 @@ pub async fn get_list(db: &DbConn, query: &OrderListQuery, current_user_id: i64)
             query.start_date.clone(),
             query.end_date.clone(),
             owner_user_ids_opt,
+            cf_filter,
+            cf_order,
         ).await?
     };
 
@@ -790,7 +824,12 @@ pub async fn create_contract_from_order(db: &DbConn, order_id: i64, operator_id:
         their_signer_phone: None,
         order_id: Some(order_id),
         // 订单转合同：跨模块字段定义不同，不继承 custom_fields
-        custom_fields: None,
+        custom_fields: field_def_service::filter_transferable_custom_fields(
+            db,
+            "crm_contract",
+            order.custom_fields.as_ref(),
+        )
+        .await,
         deleted: Some(0),
         created_by: Some(operator_id),
         create_time: None,

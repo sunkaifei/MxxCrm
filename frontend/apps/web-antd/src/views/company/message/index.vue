@@ -35,6 +35,7 @@ import {
   getNotificationListApi,
   getNotificationUnreadCountApi,
   readAllNotificationApi,
+  readNotificationApi,
 } from '#/api/core/message/notification';
 import {
   getMyNoticeListApi,
@@ -96,7 +97,7 @@ async function openFromRouteQuery() {
   }
 }
 
-type LeftTab = 'colleague' | 'notification';
+type LeftTab = 'chat' | 'colleague' | 'notification';
 
 const CONTENT_TYPE_TEXT = 1;
 const CONTENT_TYPE_IMAGE = 2;
@@ -130,13 +131,35 @@ const searchKeyword = ref('');
 const notificationList = ref<any[]>([]);
 const notificationUnread = ref(0);
 
+// ===== 通知（来自 my-notification）列表交互 =====
+// 点击通知项：展开/收起详情；未读时调用单项已读接口并联动顶部铃铛
+const expandedNotifId = ref<null | number>(null);
+
+function toggleNotifExpand(item: any) {
+  const itemId = Number(item.id);
+  if (expandedNotifId.value === itemId) {
+    expandedNotifId.value = null;
+    return;
+  }
+  expandedNotifId.value = itemId;
+  if (!item.isRead) {
+    item.isRead = 1; // 本地立即更新 → 列表徽标/侧栏计数即时减少
+    readNotificationApi({ id: itemId }) // 后端 ReadNotificationRequest.id 为 i64，必须传数字
+      .then(() => notifyBellRefresh()) // 后端已读落库 → 顶部铃铛重拉未读数
+      .catch((error) => {
+        console.error('[Notification] 标记通知已读失败', error);
+        item.isRead = 0; // 失败回滚本地状态
+      });
+  }
+}
+
 // ===== 公告（来自 notice 模块，独立于消息通知） =====
 const noticeList = ref<any[]>([]);
 const noticeLoading = ref(false);
 const expandedNoticeId = ref<null | number>(null);
 
 const noticeUnreadCount = computed(
-  () => noticeList.value.filter((n: any) => n.is_read !== 1).length,
+  () => noticeList.value.filter((n: any) => n.isRead !== 1).length,
 );
 
 // 公告按发布时间倒序排列（最新在前）
@@ -438,6 +461,14 @@ const filteredNotifications = computed(() => {
   if (activeNotifType.value === 0) return notificationList.value;
   return notificationList.value.filter((n) => n.type === activeNotifType.value);
 });
+
+// 聊天未读合计（与会话列表各会话 unreadCount 同源，供侧栏「聊天消息」分类显示）
+const chatUnreadTotal = computed(() =>
+  sessionList.value.reduce(
+    (sum: number, s: any) => sum + (Number(s.unreadCount) || 0),
+    0,
+  ),
+);
 
 const chatList = computed(() => {
   const users = [...allUsers.value];
@@ -819,8 +850,8 @@ async function toggleNoticeExpand(item: any) {
   }
   expandedNoticeId.value = itemId;
   // 未读公告：本地立即标记已读 → 左侧徽标减1 + 顶部铃铛减1
-  if (item.is_read !== 1) {
-    item.is_read = 1; // 本地立即更新，noticeUnreadCount 立即减1 → 左侧徽标减1
+  if (item.isRead !== 1) {
+    item.isRead = 1; // 本地立即更新，noticeUnreadCount 立即减1 → 左侧徽标减1
     try {
       await readNoticeApi(itemId);
       // API 成功后再通知顶部铃铛刷新 → 顶部未读数减1
@@ -828,7 +859,7 @@ async function toggleNoticeExpand(item: any) {
     } catch (error) {
       console.error('[Notice] 标记公告已读失败', error);
       // 失败时回滚本地状态
-      item.is_read = 0;
+      item.isRead = 0;
     }
   }
 }
@@ -836,7 +867,7 @@ async function toggleNoticeExpand(item: any) {
 async function handleReadAllNotices() {
   try {
     await readAllNoticeApi();
-    noticeList.value.forEach((n: any) => (n.is_read = 1));
+    noticeList.value.forEach((n: any) => (n.isRead = 1));
     notifyBellRefresh();
   } catch (error) {
     console.error('公告全部已读失败', error);
@@ -950,6 +981,27 @@ function ensureString(val: any): string {
                 }"
               />
             </div>
+            <!-- 聊天消息分类：与右上角铃铛同口径（铃铛 = 通知 + 公告 + 聊天未读总和） -->
+            <div
+              class="notif-type-item"
+              :class="{ active: (leftTab as string) === 'chat' }"
+              @click="leftTab = 'chat'"
+            >
+              <span
+                class="notif-type-dot"
+                style="background-color: #52c41a"
+              ></span>
+              <span class="notif-type-name">聊天消息</span>
+              <Badge
+                v-if="chatUnreadTotal > 0"
+                :count="chatUnreadTotal"
+                size="small"
+                :number-style="{
+                  backgroundColor: '#ff4d4f',
+                  transform: 'scale(0.8)',
+                }"
+              />
+            </div>
           </div>
         </div>
 
@@ -1040,7 +1092,7 @@ function ensureString(val: any): string {
                   :key="item.id"
                   class="notice-card"
                   :class="{
-                    'is-unread': item.is_read !== 1,
+                    'is-unread': item.isRead !== 1,
                     'is-expanded': expandedNoticeId === Number(item.id),
                   }"
                 >
@@ -1050,7 +1102,7 @@ function ensureString(val: any): string {
                   >
                     <div class="notice-card-title-row">
                       <span
-                        v-if="item.is_read !== 1"
+                        v-if="item.isRead !== 1"
                         class="notice-unread-dot"
                       ></span>
                       <span class="notice-card-title">{{
@@ -1111,38 +1163,62 @@ function ensureString(val: any): string {
                   v-for="item in filteredNotifications"
                   :key="item.id"
                   class="notification-item"
+                  :class="{
+                    'is-unread': !item.isRead,
+                    'is-expanded': expandedNotifId === item.id,
+                  }"
                 >
                   <div
-                    class="notif-icon"
-                    :style="{
-                      backgroundColor: `${getNotifTypeColor(item.type)}20`,
-                      color: getNotifTypeColor(item.type),
-                    }"
+                    class="notification-item-header"
+                    @click="toggleNotifExpand(item)"
                   >
-                    <SvgBellIcon :size="16" />
-                  </div>
-                  <div class="notif-body">
-                    <div class="notif-title-row">
-                      <span class="notif-title">{{ item.title }}</span>
-                      <Badge v-if="!item.isRead" color="red" size="small" />
-                      <span class="notif-time">{{
-                        formatTime(item.createTime)
-                      }}</span>
-                    </div>
-                    <div class="notif-content">{{ item.content }}</div>
                     <div
-                      class="notif-type-tag"
+                      class="notif-icon"
                       :style="{
+                        backgroundColor: `${getNotifTypeColor(item.type)}20`,
                         color: getNotifTypeColor(item.type),
-                        backgroundColor: `${getNotifTypeColor(item.type)}15`,
                       }"
                     >
-                      {{ getNotifTypeName(item.type) }}
+                      <SvgBellIcon :size="16" />
                     </div>
-                    <div v-if="item.linkUrl" class="notif-link">
-                      <a :href="item.linkUrl" target="_blank">查看详情 →</a>
+                    <div class="notif-body">
+                      <div class="notif-title-row">
+                        <span
+                          v-if="!item.isRead"
+                          class="notif-unread-dot"
+                        ></span>
+                        <span class="notif-title">{{ item.title }}</span>
+                        <span class="notif-expand-text">
+                          {{ expandedNotifId === item.id ? '收起' : '查看' }}
+                        </span>
+                      </div>
+                      <div class="notif-meta-row">
+                        <span
+                          class="notif-type-tag"
+                          :style="{
+                            color: getNotifTypeColor(item.type),
+                            backgroundColor: `${getNotifTypeColor(item.type)}15`,
+                          }"
+                        >
+                          {{ getNotifTypeName(item.type) }}
+                        </span>
+                        <span class="notif-time">{{
+                          formatTime(item.createTime)
+                        }}</span>
+                      </div>
                     </div>
                   </div>
+                  <transition name="notice-expand">
+                    <div
+                      v-show="expandedNotifId === item.id"
+                      class="notif-expand-body"
+                    >
+                      <div class="notif-content">{{ item.content }}</div>
+                      <div v-if="item.linkUrl" class="notif-link">
+                        <a :href="item.linkUrl" target="_blank">查看详情 →</a>
+                      </div>
+                    </div>
+                  </transition>
                 </div>
                 <Empty
                   v-if="filteredNotifications.length === 0"
@@ -1707,16 +1783,87 @@ function ensureString(val: any): string {
 
 .notification-item {
   display: flex;
-  gap: 12px;
-  padding: 14px 16px;
+  flex-direction: column;
+  gap: 0;
+  padding: 12px 14px;
   margin-bottom: 10px;
   background: #f7f7f7;
   border-radius: 8px;
-  transition: background 0.12s;
+  border-left: 3px solid transparent;
+  transition:
+    background 0.15s,
+    border-color 0.2s;
 }
 
 .notification-item:hover {
   background: #f0f0f0;
+}
+
+/* 未读：类型色左边条 + 更高的视觉权重 */
+.notification-item.is-unread {
+  border-left-color: #2185eb;
+  background: #f4f8ff;
+}
+
+.notification-item.is-unread:hover {
+  background: #ecf3ff;
+}
+
+/* 展开态：保持左侧边条并加深背景区分 */
+.notification-item.is-expanded {
+  border-left-color: #2185eb;
+  background: #f4f8ff;
+}
+
+.notification-item-header {
+  display: flex;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.notif-unread-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  background: #2185eb;
+  border-radius: 50%;
+}
+
+.notif-expand-text {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12px;
+  color: #2185eb;
+  cursor: pointer;
+}
+
+.notif-meta-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.notif-expand-body {
+  padding: 10px 2px 2px 48px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #444;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 未读：标题加重；已读：整体降权重 */
+.notification-item.is-unread .notif-title {
+  font-weight: 600;
+}
+
+.notification-item:not(.is-unread) .notif-title {
+  font-weight: 400;
+  color: #6b6b6b;
+}
+
+.notification-item:not(.is-unread) .notif-icon {
+  opacity: 0.55;
 }
 
 .notif-icon {

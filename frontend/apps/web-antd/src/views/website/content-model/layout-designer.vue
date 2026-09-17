@@ -6,6 +6,7 @@ import { computed, ref, watch } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { Button, Input, message, Select, Tabs, TabPane } from 'ant-design-vue';
+import draggable from 'vuedraggable';
 
 import { updateContentModelApi } from '#/api';
 
@@ -216,30 +217,27 @@ async function save() {
           <div v-if="t.fields.length === 0" class="ld-empty">
             该选项卡还没有字段，从下方「未分配字段」点击加入
           </div>
-          <div
-            v-for="(k, fi) in t.fields"
-            :key="k"
-            class="ld-field-chip"
+          <draggable
+            :list="t.fields"
+            item-key="(el) => el"
+            group="cmsLayoutFields"
+            :animation="200"
+            class="ld-field-drag"
           >
-            <span>{{ allFieldLabels[k] || k }}</span>
-            <span class="ld-chip-actions">
-              <IconifyIcon
-                icon="lucide:arrow-left"
-                class="size-3.5"
-                @click="moveField(t, fi, -1)"
-              />
-              <IconifyIcon
-                icon="lucide:arrow-right"
-                class="size-3.5"
-                @click="moveField(t, fi, 1)"
-              />
-              <IconifyIcon
-                icon="lucide:x"
-                class="size-3.5"
-                @click="removeField(t, fi)"
-              />
-            </span>
-          </div>
+            <template #item="{ element: k, index: fi }">
+              <div class="ld-field-chip">
+                <IconifyIcon icon="lucide:grip-vertical" class="ld-chip-drag" />
+                <span>{{ allFieldLabels[k] || k }}</span>
+                <span class="ld-chip-actions">
+                  <IconifyIcon
+                    icon="lucide:x"
+                    class="size-3.5"
+                    @click="removeField(t, fi)"
+                  />
+                </span>
+              </div>
+            </template>
+          </draggable>
         </div>
         <div
           v-if="i === tabs.map((x) => x.key).indexOf(activeTab)"
@@ -295,6 +293,18 @@ async function save() {
   padding: 10px;
   border: 1px dashed hsl(var(--primary) / 40%);
   border-radius: 8px;
+}
+.ld-field-drag {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 40px;
+}
+.ld-chip-drag {
+  width: 14px;
+  height: 14px;
+  color: hsl(var(--muted-foreground));
+  cursor: grab;
 }
 .ld-field-chip {
   display: inline-flex;

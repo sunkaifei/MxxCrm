@@ -2,6 +2,7 @@
 import type { FieldSchemaItem, OptionItem } from '#/components/FieldSchemaAdapter';
 
 import { computed, onMounted, ref } from 'vue';
+import dayjs from 'dayjs';
 
 import { DatePicker, Input, InputNumber, Select, Switch } from 'ant-design-vue';
 
@@ -16,11 +17,14 @@ interface Props {
   item: FieldSchemaItem;
   value?: any;
   disabled?: boolean;
+  /** 新建模式：值为空时按 options 预填默认值（固定值 / 当前时间）；编辑回显不触发 */
+  prefill?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   value: undefined,
   disabled: false,
+  prefill: false,
 });
 
 const emit = defineEmits<{ 'update:value': [value: any] }>();
@@ -28,6 +32,21 @@ const emit = defineEmits<{ 'update:value': [value: any] }>();
 const userOptions = ref<OptionItem[]>([]);
 const fileOptions = ref<OptionItem[]>([]);
 onMounted(async () => {
+  // 默认值预填（仅新建模式、值为空时）：固定值 / 当前时间（defaultMode='now'）
+  if (
+    props.prefill &&
+    (props.value === undefined || props.value === null || props.value === '')
+  ) {
+    const opts: any = props.item.options ?? {};
+    const dv = opts.defaultValue;
+    if (dv !== undefined && dv !== null && dv !== '') {
+      emit('update:value', dv);
+    } else if (opts.defaultMode === 'now') {
+      const t = Number(props.item.fieldType);
+      if (t === 4) emit('update:value', dayjs().format('YYYY-MM-DD'));
+      else if (t === 5) emit('update:value', dayjs().format('YYYY-MM-DD HH:mm:ss'));
+    }
+  }
   // 成员/附件选项模块级缓存，schema 加载时已预拉，此处兜底幂等
   if (Number(props.item.fieldType) === 10) {
     userOptions.value = getUserOptions();
@@ -43,6 +62,11 @@ onMounted(async () => {
   }
 });
 
+// G4：占位提示支持 options.placeholder 自定义，按控件类型给默认文案
+const phText = computed(() => props.item.options?.placeholder || '请输入');
+const phSelect = computed(() => props.item.options?.placeholder || '请选择');
+const phDate = computed(() => props.item.options?.placeholder || '请选择日期');
+
 const choiceOptions = computed(() =>
   (props.item.options?.choices ?? [])
     .filter((c) => Number(c.active) === 1)
@@ -56,7 +80,7 @@ const choiceOptions = computed(() =>
     :value="value"
     :disabled="disabled"
     :maxlength="500"
-    placeholder="请输入"
+    :placeholder="phText"
     allow-clear
     @update:value="(v: string) => emit('update:value', v)"
   />
@@ -64,9 +88,9 @@ const choiceOptions = computed(() =>
     v-else-if="item.fieldType === 2"
     :value="value"
     :disabled="disabled"
-    :rows="3"
+    :rows="Number(item.options?.rows) || 3"
     :maxlength="2000"
-    placeholder="请输入"
+    :placeholder="phText"
     @update:value="(v: string) => emit('update:value', v)"
   />
   <InputNumber
@@ -79,7 +103,7 @@ const choiceOptions = computed(() =>
     :disabled="disabled"
     :precision="item.options?.precision"
     style="width: 100%"
-    placeholder="请输入"
+    :placeholder="phText"
     @update:value="(v: any) => emit('update:value', v)"
   />
   <DatePicker
@@ -88,7 +112,7 @@ const choiceOptions = computed(() =>
     value-format="YYYY-MM-DD"
     :disabled="disabled"
     style="width: 100%"
-    placeholder="请选择日期"
+    :placeholder="phDate"
     @update:value="(v: any) => emit('update:value', v)"
   />
   <DatePicker
@@ -98,7 +122,7 @@ const choiceOptions = computed(() =>
     show-time
     :disabled="disabled"
     style="width: 100%"
-    placeholder="请选择时间"
+    :placeholder="phDate"
     @update:value="(v: any) => emit('update:value', v)"
   />
   <Select
@@ -106,7 +130,7 @@ const choiceOptions = computed(() =>
     :value="value === undefined || value === null ? undefined : String(value)"
     :options="choiceOptions"
     :disabled="disabled"
-    placeholder="请选择"
+    :placeholder="phSelect"
     allow-clear
     style="width: 100%"
     @update:value="(v: any) => emit('update:value', v)"
@@ -117,7 +141,7 @@ const choiceOptions = computed(() =>
     :options="choiceOptions"
     :disabled="disabled"
     mode="multiple"
-    placeholder="请选择（可多选）"
+    :placeholder="props.item.options?.placeholder || '请选择（可多选）'"
     style="width: 100%"
     @update:value="(v: any) => emit('update:value', v)"
   />

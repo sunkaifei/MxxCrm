@@ -1735,7 +1735,10 @@
         "annual": "Annual Adjustment",
         "promotion": "Promotion",
         "transfer": "Transfer",
-        "special": "Special Adjustment"
+        "special": "Special Adjustment",
+        "personal": "Personal Application",
+        "supervisor": "Supervisor Proposal",
+        "performance": "Performance Raise"
       },
       "status": {
         "pending": "Pending",

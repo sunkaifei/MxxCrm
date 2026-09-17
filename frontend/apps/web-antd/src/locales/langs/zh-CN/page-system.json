@@ -539,7 +539,7 @@
         "fieldPermSave": "保存字段权限",
         "status": "启用/停用"
       },
-      "title": "自定义字段"
+      "title": "字段设置"
     },
     "pdfRecord": {
       "title": "PDF生成记录",
@@ -1046,13 +1046,29 @@
         }
       },
       "logEmpty": "暂无执行日志",
+      "alertTitle": "调度告警日志",
+      "alertEmpty": "暂无调度告警",
+      "clearAlertsConfirm": "确认清空全部调度告警记录？",
+      "alert": {
+        "createTime": "告警时间",
+        "jobCode": "任务编码",
+        "jobName": "任务名称",
+        "alertType": "告警类型",
+        "message": "告警内容",
+        "type1": "执行失败",
+        "type2": "执行中断",
+        "type3": "漏跑提醒",
+        "cleared": "告警已清空"
+      },
       "button": {
         "manage": "管理",
         "create": "新增",
         "edit": "编辑",
         "toggle": "启用/禁用",
         "trigger": "手动触发",
-        "viewLog": "日志"
+        "viewLog": "日志",
+        "alertLog": "告警记录",
+        "clearAlerts": "清空告警"
       },
       "column": {
         "jobCode": "任务编码",
@@ -1164,6 +1180,20 @@
       },
       "button": {
         "update": "更新"
+      }
+    },
+    "formLayout": {
+      "title": "表单/详情布局设计器",
+      "button": {
+        "manage": "管理"
+      }
+    },
+    "model": {
+      "title": "系统模型",
+      "action": {
+        "formSettings": "表单设置",
+        "detailSettings": "详情设置",
+        "fieldSettings": "字段设置"
       }
     }
   }

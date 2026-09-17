@@ -47,6 +47,16 @@
       "clickNeedAll": "请按顺序点击全部文字",
       "clickVerifyFail": "验证未通过"
     },
-    "ssoCallback": "SSO回调"
+    "ssoCallback": "SSO回调",
+    "testAccounts": {
+      "trigger": "测试账号速登",
+      "title": "测试账号一览",
+      "hint": "点击任意一行，自动填充账号密码",
+      "passwordNote": "演示环境密码统一为 admin123",
+      "colAccount": "账号",
+      "colRole": "角色",
+      "colDept": "部门",
+      "colPerm": "权限说明"
+    }
   }
 }

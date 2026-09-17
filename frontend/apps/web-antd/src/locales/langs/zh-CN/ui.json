@@ -50,8 +50,8 @@
   "disabled": "禁用",
   "unknown": "未知",
   "button": {
-    "ok": "是的",
-    "cancel": "不要",
+    "ok": "确定",
+    "cancel": "取消",
     "edit": "编辑",
     "save": "保存",
     "add": "新增",

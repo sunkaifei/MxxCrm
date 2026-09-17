@@ -34,6 +34,13 @@ import {
   updateOrderApi,
 } from '#/api';
 import { getQuotationInfoApi } from '#/api/core/sale/quotation';
+import CustomFieldsLayoutBlock from '#/components/CustomFieldsLayoutBlock.vue';
+import {
+  buildLabelMap,
+  fetchFormLayout,
+  type ParsedFormLayout,
+  applyDrawerWidth,
+} from '#/components/FormLayoutManager';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { formatQty, useProductUnits } from '#/components/UnitSelect';
 import ContactSelectModal from '../../crm/components/ContactSelectModal.vue';
@@ -55,6 +62,10 @@ const drawerData = ref<{ create: boolean; row: any }>({
 
 // 自定义字段适配器（销售订单模块），用于动态表单 schema 注入、列表列生成与提交值归一
 const fieldSchema = useFieldSchema('sale_order');
+// 自定义字段值容器（CustomFieldsLayoutBlock 布局渲染）+ 系统字段布局
+const cfModel = reactive<Record<string, any>>({});
+const formLayout = ref<ParsedFormLayout | null>(null);
+const labelMap = computed(() => buildLabelMap(fieldSchema.items.value));
 
 const isEdit = computed(() => !drawerData.value.create);
 const activeTab = ref('basic');
@@ -863,10 +874,13 @@ async function loadOrderDetail(orderId: number) {
       currency: data.currency ?? 1,
       deliveryDate: data.deliveryDate,
       remark: data.remark,
-      // 自定义字段回显：列表行 customFields 兜底，详情接口 customFields 覆盖（两级合并）
-      ...(drawerData.value.row?.customFields ?? {}),
-      ...(data.customFields ?? {}),
     });
+    // 自定义字段回显：列表行 customFields 兜底，详情接口 customFields 覆盖（两级合并）
+    Object.assign(
+      cfModel,
+      drawerData.value.row?.customFields ?? {},
+      data.customFields ?? {},
+    );
     // 发货仓库（直接赋值 ref，不触发清空明细）
     warehouseId.value = data.warehouseId ?? undefined;
     // 报价单信息
@@ -1052,7 +1066,7 @@ async function handleSubmit() {
 
     // 自定义字段剥离：动态键从业务 payload 剔除，统一并入 customFields 提交
     // （空值归一为 null=清空语义；停用键不提交，由后端合并保留存量）
-    const customFields = fieldSchema.buildSubmitPayload(basicValues);
+    const customFields = fieldSchema.buildSubmitPayload({ ...basicValues, ...cfModel });
     const dynamicKeys = new Set(
       fieldSchema.items.value.map((i) => i.fieldKey),
     );
@@ -1141,14 +1155,36 @@ const [Drawer, drawerApi] = useVbenDrawer({
       // 加载自定义字段 schema，并幂等注入到基本信息表单尾部
       // （必须放在所有 resetForm/setValues 之前：vben setValues 默认 filterFields=true 会丢弃 schema 外字段的值）
       await fieldSchema.loadSchema();
+      // 自定义字段：值容器走 CustomFieldsLayoutBlock（布局驱动），系统字段应用布局（显示名/顺序/列宽）
+      formLayout.value = await fetchFormLayout('sale_order', 1);
+  applyDrawerWidth(drawerApi, formLayout.value);
       basicFormApi.setState((prev: any) => {
         const dynamicKeys = new Set(
           fieldSchema.items.value.map((i) => i.fieldKey),
         );
-        const base = (prev.schema ?? []).filter(
+        let base = (prev.schema ?? []).filter(
           (s: any) => !dynamicKeys.has(s.fieldName),
         );
-        return { schema: [...base, ...fieldSchema.toFormSchema({ weakRequired: !drawerData.value.create })] };
+        base = base.map((s: any) => {
+          const label = labelMap.value.get(s.fieldName);
+          const hit = formLayout.value?.fields.find((f) => f.key === s.fieldName);
+          if (!label && !hit) return s;
+          return {
+            ...s,
+            label: label ?? s.label,
+            formItemClass: hit
+              ? `${String(s.formItemClass ?? '').replace(/col-span-\d+/g, '').trim()} ${hit.span === 2 ? 'col-span-2' : ''}`.trim()
+              : s.formItemClass,
+          };
+        });
+        if (formLayout.value && formLayout.value.fields.length > 0) {
+          const orderMap = new Map(formLayout.value.fields.map((f, i) => [f.key, i]));
+          const head = base.filter((s: any) => orderMap.has(s.fieldName));
+          head.sort((a: any, b: any) => orderMap.get(a.fieldName)! - orderMap.get(b.fieldName)!);
+          const tail = base.filter((s: any) => !orderMap.has(s.fieldName));
+          base = [...head, ...tail];
+        }
+        return { schema: base };
       });
       if (props.fromQuotation) {
         // 从报价单创建订单，预填充报价单信息
@@ -1468,6 +1504,14 @@ watch(submitting, (val) => {
         </div>
 
         <BasicForm />
+        <CustomFieldsLayoutBlock
+          class="mt-2"
+          :module="'sale_order'"
+          :items="fieldSchema.items.value"
+          :values="cfModel"
+          :prefill="!!drawerData.create"
+          :disabled="(i: any) => !fieldSchema.isRoleEditable(i)"
+        />
 
         <!-- 合同信息（只读，仅编辑时显示） -->
         <div v-if="contractInfo.id" class="source-select-row">

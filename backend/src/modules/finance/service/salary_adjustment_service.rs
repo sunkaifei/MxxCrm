@@ -12,6 +12,7 @@
 //!
 
 use sea_orm::*;
+use sea_orm::sea_query::Expr;
 use chrono::Utc;
 use chrono::Datelike;
 use rust_decimal::Decimal;
@@ -56,6 +57,7 @@ pub struct RejectDTO {
 pub async fn get_adjustment_list(
     db: &DatabaseConnection,
     employee_id: Option<i64>,
+    emp_status: Option<String>,
     page: i64,
     page_size: i64,
 ) -> Result<(Vec<serde_json::Value>, i64), String> {
@@ -63,6 +65,41 @@ pub async fn get_adjustment_list(
     if let Some(eid) = employee_id {
         stmt = stmt.filter(salary_adjustment::Column::EmployeeId.eq(eid));
     }
+
+    // 员工身份过滤（G-全量）：
+    //   基线（所有视图生效）：正常员工 = 非超管(user_type≠1) + 已审核(audit_status=1) + 已入职(hire_date 为空视为老员工或 ≤ 今天)
+    //   active：在职 = 基线 + status=1 + 未离职(leave_date 为空)
+    //   resigned：离职 = 基线 + 已离职(leave_date 非空)
+    // 超管/未入职/无档案账号的调薪记录在任何视图都不出现
+    let mode = emp_status.as_deref().unwrap_or("all");
+    let mut cond = Condition::all()
+        .add(Expr::col((admin::Entity, admin::Column::Deleted)).eq(0))
+        .add(Expr::col((admin::Entity, admin::Column::AuditStatus)).eq(1))
+        .add(Condition::any()
+            .add(Expr::col((admin::Entity, admin::Column::UserType)).ne(1))
+            .add(Expr::col((admin::Entity, admin::Column::UserType)).is_null()))
+        .add(Condition::any()
+            .add(Expr::col((admin::Entity, admin::Column::HireDate)).is_null())
+            .add(Expr::col((admin::Entity, admin::Column::HireDate))
+                .lte(Expr::current_date())));
+    match mode {
+        "active" => {
+            cond = cond
+                .add(Expr::col((admin::Entity, admin::Column::Status)).eq(1))
+                .add(Expr::col((admin::Entity, admin::Column::LeaveDate)).is_null());
+        }
+        "resigned" => {
+            cond = cond.add(Expr::col((admin::Entity, admin::Column::LeaveDate)).is_not_null());
+        }
+        _ => {}
+    }
+    let emp_sub = sea_query::Query::select()
+        .column(admin::Column::Id)
+        .from(admin::Entity)
+        .cond_where(cond)
+        .to_owned();
+    stmt = stmt.filter(salary_adjustment::Column::EmployeeId.in_subquery(emp_sub));
+
     stmt = stmt
         .order_by_desc(salary_adjustment::Column::AdjustmentDate)
         .order_by_desc(salary_adjustment::Column::CreateTime);
@@ -100,6 +137,25 @@ pub async fn get_adjustment_list(
         })
         .collect();
 
+    // 员工在职状态（是否在职列）：active=在职 resigned=离职 none=非员工/未入职/异常档案
+    let today = chrono::Local::now().date_naive();
+    let mut emp_state_map: HashMap<i64, &str> = HashMap::new();
+    for a in &admins {
+        let state = if a.user_type == Some(1) {
+            "none"
+        } else if a.leave_date.is_some() {
+            "resigned"
+        } else if a.status == Some(1)
+            && a.audit_status == Some(1)
+            && a.hire_date.map(|h| h <= today).unwrap_or(true)
+        {
+            "active"
+        } else {
+            "none"
+        };
+        emp_state_map.insert(a.id, state);
+    }
+
     // 批量补岗位名称（一人多岗取第一个）
     let merges = admin_post_merge::Entity::find()
         .filter(admin_post_merge::Column::AdminId.is_in(employee_ids))
@@ -130,6 +186,16 @@ pub async fn get_adjustment_list(
     for r in items {
         let mut v = serde_json::to_value(&r).map_err(|e| e.to_string())?;
         if let Some(obj) = v.as_object_mut() {
+            obj.insert(
+                "empStatus".to_string(),
+                serde_json::Value::String(
+                    emp_state_map
+                        .get(&r.employee_id)
+                        .copied()
+                        .unwrap_or("none")
+                        .to_string(),
+                ),
+            );
             obj.insert(
                 "employeeName".to_string(),
                 serde_json::Value::String(

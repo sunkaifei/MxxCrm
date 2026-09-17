@@ -328,8 +328,24 @@ impl ReceiptItemModel {
     }
 }
 
-/// 生成收货单号：SH{yyyyMMdd}{0001}
-pub fn generate_receipt_no(seq: i32) -> String {
+/// 生成收货单号：SH + yyyyMMdd + 4位流水号（查当日最大序号递增，避免同号）
+pub async fn generate_receipt_no<C: ConnectionTrait>(db: &C) -> Result<String, DbErr> {
     let today = chrono::Local::now().format("%Y%m%d").to_string();
-    format!("SH{}{:04}", today, seq)
+    let prefix = format!("SH{}", today);
+
+    let max_no = PurchaseReceipt::find()
+        .filter(purchase_receipt::Column::ReceiptNo.starts_with(&prefix))
+        .order_by_desc(purchase_receipt::Column::ReceiptNo)
+        .one(db)
+        .await?;
+
+    let seq = match max_no {
+        Some(m) => {
+            let no = m.receipt_no.unwrap_or_default();
+            no.trim_start_matches(&prefix).parse::<i32>().unwrap_or(0) + 1
+        }
+        None => 1,
+    };
+
+    Ok(format!("{}{:04}", prefix, seq))
 }

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { TableColumnsType } from 'ant-design-vue';
 
-import { computed, h, ref, watch } from 'vue';
+import { computed, h, onMounted, ref, watch } from 'vue';
 
 import { useUserStore } from '@vben/stores';
 import { formatDateTime } from '@vben/utils';
@@ -34,6 +34,7 @@ import {
   updateOrderStatusApi,
 } from '#/api';
 import { searchUsersApi } from '#/api/core/message/chat';
+import { fetchFormLayout } from '#/components/FormLayoutManager';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { formatQty } from '#/components/UnitSelect';
 
@@ -76,17 +77,35 @@ const currentUserId = computed(() => userStore.userInfo?.userId);
 // 自定义字段明细展示：拉取 schema，仅展示有值的键（选项/成员/附件按类型格式化）
 const fieldSchema = useFieldSchema('sale_order');
 fieldSchema.loadSchema();
-const cfRows = computed(() =>
-  fieldSchema.items.value
-    .map((item) => ({
+// 详情布局（layout_type=2）：顺序/列宽/显示判断；无布局回落"有值才显示"
+const detailLayout = ref<Awaited<ReturnType<typeof fetchFormLayout>>>(null);
+fetchFormLayout('sale_order', 2).then((l) => (detailLayout.value = l));
+const cfRows = computed(() => {
+  const layout = detailLayout.value;
+  const orderMap = new Map((layout?.fields ?? []).map((f, i) => [f.key, i]));
+  const rows = fieldSchema.items.value.map((item) => {
+    const hit = layout?.fields.find((f) => f.key === item.fieldKey);
+    return {
+      key: item.fieldKey,
       label: item.fieldLabel,
       value: fieldSchema.formatFieldValue(
         item,
         (detail.value as any)?.customFields?.[item.fieldKey],
       ),
-    }))
-    .filter((r) => r.value !== ''),
-);
+      span: hit?.span === 2 ? 2 : 1,
+      inLayout: Boolean(hit),
+    };
+  });
+  rows.sort((a, b) => {
+    const oa = orderMap.get(a.key);
+    const ob = orderMap.get(b.key);
+    if (oa !== undefined && ob !== undefined) return oa - ob;
+    if (oa !== undefined) return -1;
+    if (ob !== undefined) return 1;
+    return 0;
+  });
+  return rows.filter((r) => r.inLayout || r.value !== '');
+});
 
 // 审批实例（撤销/抄送判断用）
 const apprInstance = ref<any>(null);
@@ -802,6 +821,7 @@ watch(
                 v-for="row in cfRows"
                 :key="row.label"
                 :label="row.label"
+                :span="row.span"
               >
                 {{ row.value }}
               </DescriptionsItem>

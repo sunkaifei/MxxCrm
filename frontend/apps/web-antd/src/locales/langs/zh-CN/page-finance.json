@@ -1735,7 +1735,10 @@
         "annual": "年度调薪",
         "promotion": "晋升",
         "transfer": "调岗",
-        "special": "特殊调薪"
+        "special": "特殊调薪",
+        "personal": "个人申请",
+        "supervisor": "主管推荐",
+        "performance": "绩效调薪"
       },
       "status": {
         "pending": "待审批",

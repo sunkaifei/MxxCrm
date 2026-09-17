@@ -31,12 +31,18 @@ import {
   updateOrderStatusApi,
 } from '#/api';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+import CustomFieldFilterBar from '#/components/CustomFieldFilterBar.vue';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { $t } from '#/locales';
 
 import CustomerDetail from '../../crm/customer/detail.vue';
 import SalesProcessGuide from '../components/SalesProcessGuide.vue';
 import ShipmentDrawer from '../shipment/drawer.vue';
+import {
+  orderStatusColorMap,
+  orderStatusLabelMap,
+  orderStatusOptions,
+} from './constants';
 import OrderDrawer from './drawer.vue';
 import OrderViewDrawer from './view-drawer.vue';
 
@@ -70,54 +76,12 @@ function handleTabChange(key: number | string) {
   gridApi.query();
 }
 
-const orderStatusOptions = [
-  { label: '草稿', value: 1 },
-  { label: '待确认', value: 2 },
-  { label: '已确认', value: 3 },
-  { label: '备货中', value: 4 },
-  { label: '部分发货', value: 5 },
-  { label: '已发货', value: 6 },
-  { label: '已取消', value: 7 },
-  { label: '已交付', value: 8 },
-  { label: '已签收', value: 9 },
-  { label: '已完成', value: 10 },
-  { label: '已作废', value: 11 },
-];
-
 const paymentStatusOptions = [
   { label: '未支付', value: 1 },
   { label: '部分支付', value: 2 },
   { label: '已支付', value: 3 },
   { label: '已退款', value: 4 },
 ];
-
-const orderStatusColorMap: Record<number, string> = {
-  1: 'default',
-  2: 'blue',
-  3: 'blue',
-  4: 'orange',
-  5: 'cyan',
-  6: 'purple',
-  7: 'red',
-  8: 'cyan',
-  9: 'green',
-  10: 'blue',
-  11: 'red',
-};
-
-const orderStatusLabelMap: Record<number, string> = {
-  1: '草稿',
-  2: '待确认',
-  3: '已确认',
-  4: '备货中',
-  5: '部分发货',
-  6: '已发货',
-  7: '已取消',
-  8: '已交付',
-  9: '已签收',
-  10: '已完成',
-  11: '已作废',
-};
 
 const paymentStatusColorMap: Record<number, string> = {
   1: 'default',
@@ -228,6 +192,7 @@ const gridOptions: VxeGridProps = {
           page: page.currentPage,
           pageSize: page.pageSize,
           listType: activeTab.value,
+          ...(cfBarRef?.getParams?.() ?? {}),
         };
         if (formValues.keywords) params.keywords = formValues.keywords;
         if (formValues.orderStatus) params.orderStatus = formValues.orderStatus;
@@ -371,8 +336,12 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 // 自定义字段适配器（销售订单模块），用于列表动态列注入
 const fieldSchema = useFieldSchema('sale_order');
+// G3：自定义字段列表筛选/排序（字段清单在 loadSchema 后填充）
+const cfFields = ref<any[]>([]);
+const cfBarRef = ref();
 // 动态列注入：把启用列表展示的自定义字段列插到固定列之后、操作列（固定最右）之前
 fieldSchema.loadSchema().then(() => {
+  cfFields.value = fieldSchema.getFilterFields();
   const cols = [...(gridOptions.columns ?? [])];
   const action = cols.pop(); // 操作列固定最右
   gridApi.setGridOptions({
@@ -685,6 +654,12 @@ function closeCustomerDetail() {
 <template>
   <Page>
     <SalesProcessGuide current-step="order" />
+    <CustomFieldFilterBar
+      v-if="cfFields.length"
+      ref="cfBarRef"
+      :fields="cfFields"
+      @change="gridApi.query()"
+    />
     <Grid table-title="">
       <template #form-header>
         <Tabs

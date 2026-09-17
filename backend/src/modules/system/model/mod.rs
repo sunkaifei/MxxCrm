@@ -57,5 +57,6 @@ pub mod onboarding;
 pub mod resign;
 pub mod dashboard_workspace;
 pub mod field_def;
+pub mod form_layout;
 pub mod field_perm;
 

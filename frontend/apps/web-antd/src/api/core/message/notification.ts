@@ -29,7 +29,7 @@ export const getNotificationListApi = async (params: {
   );
 };
 
-export const readNotificationApi = async (data: { id: string }) => {
+export const readNotificationApi = async (data: { id: number }) => {
   return requestClient.post('/api/system/my-notification/read', data);
 };
 

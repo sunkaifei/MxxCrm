@@ -92,6 +92,7 @@ import {
 import { addCustomerToPoolApi } from '#/api/core/crm/customer-pool';
 import { createFollowupApi } from '#/api/core/crm/followup';
 import { requestClient } from '#/api/request';
+import CustomFieldsLayoutBlock from '#/components/CustomFieldsLayoutBlock.vue';
 import DynamicFieldControl from '#/components/DynamicFieldControl.vue';
 import {
   fieldLayoutSpan,
@@ -2668,21 +2669,15 @@ watch(
                         />
                       </Form.Item>
                     </Col>
-                    <Col
-                      v-for="item in cfItems"
-                      :key="item.fieldKey"
-                      :span="fieldLayoutSpan(item)"
-                    >
-                      <Form.Item
-                        :label="item.fieldLabel"
-                        :required="Number(item.required) === 1"
-                      >
-                        <DynamicFieldControl
-                          v-model:value="cfValues[item.fieldKey]"
-                          :item="item"
-                          :disabled="!fieldSchema.isRoleEditable(item)"
-                        />
-                      </Form.Item>
+                    <!-- 自定义字段布局块：选项卡/列宽/顺序由模板设置驱动 -->
+                    <Col :span="24">
+                      <CustomFieldsLayoutBlock
+                        :module="'crm_customer'"
+                        :items="cfItems"
+                        :values="cfValues"
+                        :prefill="isCreate"
+                        :disabled="(i: any) => !fieldSchema.isRoleEditable(i)"
+                      />
                     </Col>
                   </Row>
                 </Form>

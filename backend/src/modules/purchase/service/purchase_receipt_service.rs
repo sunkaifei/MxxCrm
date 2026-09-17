@@ -20,9 +20,9 @@ use sea_orm::{DbConn, TransactionTrait};
 
 /// 创建收货单
 pub async fn insert(db: &DbConn, req: &ReceiptSaveRequest, operator: i64) -> Result<i64> {
-    let today = chrono::Local::now().format("%Y%m%d").to_string();
-    let _prefix = format!("SH{}", today);
-    let receipt_no = generate_receipt_no(1);
+    let receipt_no = generate_receipt_no(db)
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
 
     let dto = ReceiptSaveDTO {
         id: None,

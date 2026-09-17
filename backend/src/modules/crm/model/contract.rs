@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 use sea_orm::*;
+use sea_orm::sea_query::SimpleExpr;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use std::str::FromStr;
 use crate::core::kit::global::{Deserialize, Serialize};
@@ -655,9 +656,35 @@ impl From<contract::Model> for ContractListVO {
 }
 
 /// 合同列表查询参数
+/// 自定义字段筛选值反序列化（P1-2 同款）：query string 一律为字符串，
+/// 先按 JSON 字面量解析（数字/布尔/JSON 数组），失败回退纯字符串；
+/// 未传与空串均视为 None。serde_urlencoded 不支持 serde_json::Value 直接反序列化，必须经此转换
+fn deserialize_cf_val<'de, D>(de: D) -> Result<Option<serde_json::Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw: Option<String> = Option::deserialize(de)?;
+    match raw {
+        None => Ok(None),
+        Some(s) if s.trim().is_empty() => Ok(None),
+        Some(s) => Ok(Some(
+            serde_json::from_str(&s).unwrap_or(serde_json::Value::String(s)),
+        )),
+    }
+}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+
+
 pub struct ContractListQuery {
+    // 自定义字段筛选/排序（G3，与客户列表同款）
+    pub cf_key: Option<String>,
+    pub cf_op: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_cf_val")]
+    pub cf_val: Option<serde_json::Value>,
+    pub cf_sort: Option<String>,
+    pub cf_sort_order: Option<String>,
+
     /// 页码
     #[serde(rename = "page")]
     pub page_num: Option<i64>,
@@ -965,6 +992,8 @@ impl ContractModel {
         keywords: Option<String>,
         status: Option<ContractStatus>,
         customer_id: Option<i64>,
+        cf_filter: Option<SimpleExpr>,
+        cf_order: Option<(SimpleExpr, Order)>,
     ) -> Result<(Vec<contract::Model>, i64), DbErr> {
         let mut query = Contract::find()
             .filter(contract::Column::Deleted.eq(0));
@@ -983,6 +1012,13 @@ impl ContractModel {
             query = query.filter(contract::Column::CustomerId.eq(c));
         }
 
+        // G3：自定义字段筛选与排序（服务层经 build_filter_expr/build_order_expr 生成，参数绑定防注入）
+        if let Some(cond) = cf_filter {
+            query = query.filter(cond);
+        }
+        if let Some((expr, ord)) = cf_order {
+            query = query.order_by(expr, ord);
+        }
         let paginator = query.order_by_desc(contract::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
 
@@ -997,6 +1033,8 @@ impl ContractModel {
         status: Option<ContractStatus>,
         customer_id: Option<i64>,
         assigned_tos: Option<Vec<i64>>,
+        cf_filter: Option<SimpleExpr>,
+        cf_order: Option<(SimpleExpr, Order)>,
     ) -> Result<(Vec<contract::Model>, i64), DbErr> {
         let mut query = Contract::find()
             .filter(contract::Column::Deleted.eq(0));
@@ -1021,6 +1059,13 @@ impl ContractModel {
             query = query.filter(contract::Column::AssignedTo.is_in(ids));
         }
 
+        // G3：自定义字段筛选与排序（服务层经 build_filter_expr/build_order_expr 生成，参数绑定防注入）
+        if let Some(cond) = cf_filter {
+            query = query.filter(cond);
+        }
+        if let Some((expr, ord)) = cf_order {
+            query = query.order_by(expr, ord);
+        }
         let paginator = query.order_by_desc(contract::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
         paginator.fetch_page((page - 1) as u64).await.map(|p| (p, total))

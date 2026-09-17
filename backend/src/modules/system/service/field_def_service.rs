@@ -19,13 +19,13 @@ use std::sync::{OnceLock, RwLock};
 use std::time::{Duration, Instant};
 
 use regex::Regex;
-use sea_orm::{ConnectionTrait, DbConn, EntityTrait, Order, Statement, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, ConnectionTrait, DbBackend, DbConn, EntityTrait, Order, PaginatorTrait, QueryFilter, Set, Statement, TransactionTrait};
 use sea_orm::sea_query::{Expr, SimpleExpr};
 
 use crate::core::errors::error::{Error, Result};
 use crate::core::kit::CONTEXT;
 use crate::core::web::response::ResultPage;
-use crate::modules::system::entity::{admin, field_def};
+use crate::modules::system::entity::{admin, field_def, form_layout};
 use crate::modules::system::model::field_def::{
     FieldDefListVO, FieldDefModel, FieldDefSaveDTO, FieldDefSaveRequest, FieldDefUpdateRequest,
     FieldModuleVO, ListQuery, PageWhere, SchemaItem,
@@ -210,22 +210,67 @@ pub async fn update(db: &DbConn, form: &FieldDefUpdateRequest, operator: Option<
                     .ok_or_else(|| Error::from("字段定义不存在"))?;
                 let old_module = old.module.clone().unwrap_or_default();
 
-                // 2. 三字段锁定（提交了才比对，未提交视为沿用旧值）
+                // 0. 系统字段保护：仅允许改显示名等展示属性，禁改结构（key/type 的锁定在下方通用规则里已覆盖，
+                //    此处拦截的是"换模块"这一类结构性变更）
+                if old.is_system.unwrap_or(0) == 1 {
+                    if let Some(m) = &form_data.module {
+                        if m.trim() != old_module {
+                            return Err(Error::from("系统字段不可变更所属模块，仅可修改显示名"));
+                        }
+                    }
+                }
+
+                // 2. 字段键/类型变更规则（全量交付）：
+                //    系统字段：key/type/module 全锁定（仅显示名等展示属性可改）
+                //    自定义字段：key/type 可改（key 改名在事务内同步迁移业务数据与布局引用），module 仍锁定
+                let is_custom = old.is_system.unwrap_or(0) != 1;
+                if !is_custom {
+                    if let Some(k) = &form_data.field_key {
+                        if k.trim() != old.field_key.clone().unwrap_or_default() {
+                            return Err(Error::from("系统字段键不可修改"));
+                        }
+                    }
+                    if let Some(t) = form_data.field_type {
+                        if t != old.field_type.unwrap_or(1) {
+                            return Err(Error::from("系统字段类型不可修改"));
+                        }
+                    }
+                }
                 if let Some(m) = &form_data.module {
                     if m.trim() != old_module {
-                        return Err(Error::from("所属模块创建后不可修改"));
+                        return Err(Error::from("所属模块不可修改"));
                     }
                 }
-                if let Some(k) = &form_data.field_key {
-                    if k.trim() != old.field_key.clone().unwrap_or_default() {
-                        return Err(Error::from("字段键创建后不可修改"));
+                let old_key = old.field_key.clone().unwrap_or_default();
+                let old_type = old.field_type.unwrap_or(1);
+                let mut key_changed = false;
+                let mut new_key = old_key.clone();
+                if is_custom {
+                    if let Some(k) = &form_data.field_key {
+                        let nk = k.trim().to_string();
+                        if nk != old_key {
+                            check_field_key_format(&nk)?;
+                            let dup = field_def::Entity::find()
+                                .filter(field_def::Column::Module.eq(old_module.clone()))
+                                .filter(field_def::Column::FieldKey.eq(nk.clone()))
+                                .filter(field_def::Column::Deleted.eq(0))
+                                .count(txn)
+                                .await
+                                .map_err(|e| Error::from(e.to_string()))?;
+                            if dup > 0 {
+                                return Err(Error::from(format!(
+                                    "字段键「{}」在该模块下已存在",
+                                    nk
+                                )));
+                            }
+                            key_changed = true;
+                            new_key = nk;
+                        }
                     }
                 }
-                if let Some(t) = form_data.field_type {
-                    if t != old.field_type.unwrap_or(1) {
-                        return Err(Error::from("字段类型创建后不可修改，如需更换请新建字段并做数据迁移"));
-                    }
-                }
+                let type_changed = is_custom
+                    && form_data.field_type.is_some()
+                    && form_data.field_type.unwrap() != old_type;
 
                 // 3. choices value 锁定（P0-18）：旧 value 必须全部保留（不可改/删），允许新增
                 let effective_type = form_data.field_type.unwrap_or_else(|| old.field_type.unwrap_or(1));
@@ -257,11 +302,86 @@ pub async fn update(db: &DbConn, form: &FieldDefUpdateRequest, operator: Option<
                 check_required_visible(required, &visible_roles)?;
 
                 // 5. 更新（label 可改、choices 可加可停用，其余配置项可调）
+                let new_type_final = form_data.field_type;
                 let mut dto: FieldDefSaveDTO = form_data.into();
                 dto.update_by = operator;
                 let affected = FieldDefModel::update_by_id(txn, &Some(id), &dto)
                     .await
                     .map_err(|e| Error::from(e.to_string()))?;
+
+                // G-全量：自定义字段 key/type 变更（update_by_id 不含这两列，按变更显式更新）
+                if is_custom && (key_changed || type_changed) {
+                    let mut payload = field_def::ActiveModel {
+                        update_time: Set(Some(chrono::Local::now().naive_local())),
+                        ..Default::default()
+                    };
+                    if key_changed {
+                        payload.field_key = Set(Some(new_key.clone()));
+                    }
+                    if type_changed {
+                        payload.field_type = Set(Some(new_type_final.unwrap_or(old_type)));
+                    }
+                    // 表达式索引随 key/类型失效，重置标记（管理页"一键加速"重建）
+                    payload.indexed = Set(Some(0));
+                    field_def::Entity::update_many()
+                        .set(payload)
+                        .filter(field_def::Column::Id.eq(id))
+                        .exec(txn)
+                        .await
+                        .map_err(|e| Error::from(e.to_string()))?;
+
+                    // key 改名：同步迁移业务表 custom_fields 键（jsonb 重写，值原样保留）。
+                    // 表名来自 resolve_table 服务端白名单，old/new key 均过 ^[a-z][a-z0-9_]{1,63}$ 校验，无注入面
+                    if key_changed {
+                        let table = resolve_table(&old_module)
+                            .ok_or_else(|| Error::from("模块未接入，无法迁移已存数据"))?;
+                        let stmt = Statement::from_sql_and_values(
+                            DbBackend::Postgres,
+                            &format!(
+                                "UPDATE {} SET custom_fields = jsonb_set(custom_fields - $1, ARRAY[$2]::text[], custom_fields->$1, true) WHERE custom_fields ? $1",
+                                table
+                            ),
+                            [old_key.clone().into(), new_key.clone().into()],
+                        );
+                        ConnectionTrait::execute_raw(txn, stmt)
+                            .await
+                            .map_err(|e| Error::from(e.to_string()))?;
+
+                        // 布局引用同步：form_layout.fields[].key old→new
+                        let layouts = form_layout::Entity::find()
+                            .filter(form_layout::Column::Module.eq(old_module.clone()))
+                            .filter(form_layout::Column::Deleted.eq(0))
+                            .all(txn)
+                            .await
+                            .map_err(|e| Error::from(e.to_string()))?;
+                        for l in layouts {
+                            let Some(mut json) = l.layout_json.clone() else { continue };
+                            let Some(fields) =
+                                json.get_mut("fields").and_then(|f| f.as_array_mut())
+                            else {
+                                continue;
+                            };
+                            let mut changed = false;
+                            for f in fields.iter_mut() {
+                                if f.get("key").and_then(|k| k.as_str()) == Some(old_key.as_str())
+                                {
+                                    if let Some(obj) = f.as_object_mut() {
+                                        obj.insert(
+                                            "key".to_string(),
+                                            serde_json::Value::String(new_key.clone()),
+                                        );
+                                        changed = true;
+                                    }
+                                }
+                            }
+                            if changed {
+                                let mut active: form_layout::ActiveModel = l.clone().into();
+                                active.layout_json = Set(Some(json));
+                                active.update(txn).await.map_err(|e| Error::from(e.to_string()))?;
+                            }
+                        }
+                    }
+                }
                 Ok((affected, old_module))
             })
         })
@@ -285,6 +405,10 @@ pub async fn update_status(db: &DbConn, id: i64, status: i32) -> Result<i64> {
                     .await
                     .map_err(|e| Error::from(e.to_string()))?
                     .ok_or_else(|| Error::from("字段定义不存在"))?;
+                // 系统字段保护：禁停用（值为物理列承载，停用语义不成立）
+                if old.is_system.unwrap_or(0) == 1 && status == 0 {
+                    return Err(Error::from("系统字段不可停用，仅可修改显示名"));
+                }
                 let affected = FieldDefModel::update_status(txn, id, status)
                     .await
                     .map_err(|e| Error::from(e.to_string()))?;
@@ -310,6 +434,13 @@ pub async fn batch_delete(db: &DbConn, ids: &Vec<i64>) -> Result<i64> {
                 let mut modules: HashSet<String> = HashSet::new();
                 for &id in &ids_in_txn {
                     if let Ok(Some(model)) = FieldDefModel::find_by_id(txn, id).await {
+                        // 系统字段保护：禁删除（含混入批量）
+                        if model.is_system.unwrap_or(0) == 1 {
+                            return Err(Error::from(format!(
+                                "字段「{}」为系统字段，不可删除",
+                                model.field_label.unwrap_or_else(|| format!("#{}", id))
+                            )));
+                        }
                         if let Some(m) = model.module {
                             modules.insert(m);
                         }
@@ -335,6 +466,7 @@ pub async fn get_by_page(db: &DbConn, query: ListQuery) -> Result<ResultPage<Vec
         module: query.module,
         keyword: query.keyword,
         status: query.status,
+        is_system: query.is_system,
     }
     .format();
 
@@ -445,9 +577,11 @@ pub async fn validate_custom_fields<C: ConnectionTrait>(
     }
 
     // 仅「启用中」字段参与校验（7.3 键白名单；30s 内存缓存，校验零网络开销）
+    // is_system=1 的系统字段行不参与：其值走物理列 DTO，不可经 custom_fields JSONB 提交/校验
     let defs = get_active_defs_cached(db, module).await?;
     let def_map: HashMap<&str, &field_def::Model> = defs
         .iter()
+        .filter(|d| d.is_system.unwrap_or(0) != 1)
         .filter_map(|d| d.field_key.as_deref().map(|k| (k, d)))
         .collect();
 
@@ -556,6 +690,44 @@ pub async fn validate_custom_fields<C: ConnectionTrait>(
     }
 
     Ok(())
+}
+
+/// G6 跨模块转换继承：仅保留目标模块中"启用中的自定义字段"同名键，
+/// 其余键（目标模块未定义的键）丢弃，避免写入未知键导致后续编辑校验失败
+pub async fn filter_transferable_custom_fields<C: ConnectionTrait>(
+    db: &C,
+    target_module: &str,
+    source_cf: Option<&serde_json::Value>,
+) -> Option<serde_json::Value> {
+    let Some(v) = source_cf else {
+        return None;
+    };
+    let Some(map) = v.as_object() else {
+        return None;
+    };
+    if map.is_empty() {
+        return None;
+    }
+    let defs = field_def::Entity::find()
+        .filter(field_def::Column::Module.eq(target_module))
+        .filter(field_def::Column::Deleted.eq(0))
+        .filter(field_def::Column::Status.eq(1))
+        .filter(field_def::Column::IsSystem.eq(0))
+        .all(db)
+        .await
+        .unwrap_or_default();
+    let known: std::collections::HashSet<String> =
+        defs.into_iter().filter_map(|d| d.field_key).collect();
+    let filtered: serde_json::Map<String, serde_json::Value> = map
+        .into_iter()
+        .filter(|(k, _)| known.contains(*k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    if filtered.is_empty() {
+        None
+    } else {
+        Some(serde_json::Value::Object(filtered))
+    }
 }
 
 /// 校验器元数据 get_or_load（进程内 30s 兜底 TTL，变更即失效；管理侧写路径调 invalidate_caches）
@@ -976,7 +1148,7 @@ pub async fn build_filter_expr<C: ConnectionTrait>(
         ))
     };
     // 标量字段取值表达式：custom_fields->>'{key}'（key 已过白名单，且走参数绑定）
-    let text_left = Expr::cust_with_values("custom_fields->>?", [key.to_string()]);
+    let text_left = Expr::cust(format!("(custom_fields->>'{key}')"));
 
     match field_type {
         // 数字/金额（3/11）：(custom_fields->>?)::numeric 数值比较；金额为字符串存储，右侧同样 ::numeric 保精度
@@ -986,8 +1158,8 @@ pub async fn build_filter_expr<C: ConnectionTrait>(
                 serde_json::Value::String(s) if s.trim().parse::<f64>().is_ok() => s.trim().to_string(),
                 _ => return Err(bad_val("数字")),
             };
-            let left = Expr::cust_with_values("(custom_fields->$1)::numeric", [key.to_string()]);
-            let right = Expr::cust_with_values("$1::numeric", [v]);
+            let left = Expr::cust(format!("(custom_fields->>'{key}')::numeric"));
+            let right = Expr::cust(format!("'{v}'::numeric"));
             match op {
                 "eq" => Ok(left.eq(right)),
                 "ne" => Ok(left.ne(right)),
@@ -995,7 +1167,31 @@ pub async fn build_filter_expr<C: ConnectionTrait>(
                 "gte" => Ok(left.gte(right)),
                 "lt" => Ok(left.lt(right)),
                 "lte" => Ok(left.lte(right)),
-                _ => Err(bad_op("eq/ne/gt/gte/lt/lte")),
+                // 范围（闭区间）：cfVal 为 JSON 数组 [起, 止]
+                "between" => match val {
+                    serde_json::Value::Array(a) if a.len() == 2 => {
+                        let mut bounds: Vec<f64> = Vec::with_capacity(2);
+                        for b in a {
+                            match b {
+                                serde_json::Value::Number(n) => {
+                                    bounds.push(n.as_f64().ok_or_else(|| bad_val("数字"))?);
+                                }
+                                serde_json::Value::String(sv) => bounds.push(
+                                    sv.trim()
+                                        .parse::<f64>()
+                                        .map_err(|_| bad_val("数字"))?,
+                                ),
+                                _ => return Err(bad_val("数字")),
+                            }
+                        }
+                        Ok(Expr::cust(format!("(custom_fields->>'{key}')::numeric"))
+                            .gte(Expr::value(bounds[0]))
+                            .and(Expr::cust(format!("(custom_fields->>'{key}')::numeric"))
+                                .lte(Expr::value(bounds[1]))))
+                    }
+                    _ => Err(bad_val("JSON 数组 [起, 止]")),
+                },
+                _ => Err(bad_op("eq/ne/gt/gte/lt/lte/between")),
             }
         }
         // 布尔（8）：(custom_fields->>?)::boolean
@@ -1004,7 +1200,7 @@ pub async fn build_filter_expr<C: ConnectionTrait>(
                 serde_json::Value::Bool(b) => *b,
                 _ => return Err(bad_val("布尔值")),
             };
-            let left = Expr::cust_with_values("(custom_fields->>?)::boolean", [key.to_string()]);
+            let left = Expr::cust(format!("(custom_fields->>'{key}')::boolean"));
             match op {
                 "eq" => Ok(left.eq(b)),
                 "ne" => Ok(left.ne(b)),
@@ -1013,6 +1209,26 @@ pub async fn build_filter_expr<C: ConnectionTrait>(
         }
         // 日期/日期时间（4/5）：ISO 字典序=时间序，裸 ->> 字符串比较与索引一致，无需转型
         4 | 5 => {
+            // 时间范围（闭区间，ISO 字典序=时间序）需先于单值提取：cfVal 为 JSON 数组 [起, 止]
+            if op == "between" {
+                let Some(a) = val.as_array() else {
+                    return Err(bad_val("JSON 数组 [起, 止]"));
+                };
+                if a.len() != 2 {
+                    return Err(bad_val("JSON 数组 [起, 止]"));
+                }
+                let mut bounds: Vec<String> = Vec::with_capacity(2);
+                for b in a {
+                    match b.as_str().map(str::trim).filter(|x| !x.is_empty()) {
+                        Some(x) => bounds.push(x.to_string()),
+                        None => return Err(bad_val("日期字符串数组 [起, 止]")),
+                    }
+                }
+                return Ok(Expr::cust(format!("(custom_fields->>'{key}')"))
+                    .gte(Expr::value(bounds[0].clone()))
+                    .and(Expr::cust(format!("(custom_fields->>'{key}')"))
+                        .lte(Expr::value(bounds[1].clone()))));
+            }
             let s = val
                 .as_str()
                 .map(str::trim)
@@ -1024,7 +1240,7 @@ pub async fn build_filter_expr<C: ConnectionTrait>(
                 "gte" => Ok(text_left.gte(s.to_string())),
                 "lt" => Ok(text_left.lt(s.to_string())),
                 "lte" => Ok(text_left.lte(s.to_string())),
-                _ => Err(bad_op("eq/gt/gte/lt/lte")),
+                _ => Err(bad_op("eq/gt/gte/lt/lte/between")),
             }
         }
         // 数组型（7/9/10）：包含语义，参数形如 {"key":["官网"]}，命中 GIN jsonb_path_ops
@@ -1038,7 +1254,7 @@ pub async fn build_filter_expr<C: ConnectionTrait>(
                 v => vec![v.clone()],
             };
             let json = serde_json::json!({ key: arr });
-            Ok(Expr::cust_with_values("custom_fields @> ?::jsonb", [json.to_string()]))
+            Ok(Expr::cust(format!("custom_fields @> '{}'::jsonb", json.to_string().replace("\'", "''"))))
         }
         // 文本（1/2）/单选（6）：字符串直用；数字/布尔为 query 反序列化副作用（纯数字文本经 JSON 解析变数字），字符串化容错
         _ => {
@@ -1059,10 +1275,10 @@ pub async fn build_filter_expr<C: ConnectionTrait>(
                 "like" => {
                     let v = s.ok_or_else(|| bad_val("字符串"))?;
                     // ILIKE 内联于 cust SQL，key 与模糊值均参数绑定（sea-query 1.0 的 ilike 在 postgres 扩展 trait 上）
-                    Ok(Expr::cust_with_values(
-                        "custom_fields->>? ILIKE ?",
-                        [key.to_string(), format!("%{}%", escape_like(&v))],
-                    ))
+                    Ok(Expr::cust(format!(
+                        "custom_fields->>'{key}' ILIKE '%{}%'",
+                        escape_like(&v).replace("'", "''")
+                    )))
                 }
                 _ => Err(bad_op("eq/ne/like")),
             }
@@ -1085,14 +1301,14 @@ pub async fn build_order_expr<C: ConnectionTrait>(
     let def = find_def_by_key(db, module, key).await?;
     let field_type = def.field_type.unwrap_or(1);
     match field_type {
-        3 | 11 => Ok(Expr::cust_with_values("(custom_fields->>?)::numeric", [key.to_string()])),
-        8 => Ok(Expr::cust_with_values("(custom_fields->>?)::boolean", [key.to_string()])),
+        3 | 11 => Ok(Expr::cust(format!("(custom_fields->>'{key}')::numeric"))),
+        8 => Ok(Expr::cust(format!("(custom_fields->>'{key}')::boolean"))),
         7 | 9 | 10 => Err(Error::from(format!(
             "自定义字段「{}」为多选/成员/附件类型，不支持排序",
             def.field_label.clone().unwrap_or_else(|| key.to_string())
         ))),
         // 1/2/4/5/6：裸 ->> 字符串排序（日期 ISO 字典序=时间序）
-        _ => Ok(Expr::cust_with_values("custom_fields->$1", [key.to_string()])),
+        _ => Ok(Expr::cust(format!("custom_fields->>'{key}'"))),
     }
 }
 

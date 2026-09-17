@@ -15,6 +15,7 @@ import {
   InputNumber,
   message,
   Modal,
+  Popconfirm,
   Select,
   Switch,
   Table,
@@ -23,8 +24,10 @@ import {
 } from 'ant-design-vue';
 
 import {
+  getSchedulerAlertListApi,
   getSchedulerJobListApi,
   getSchedulerLogListApi,
+  clearSchedulerAlertApi,
   toggleSchedulerJobApi,
   triggerSchedulerJobApi,
   updateSchedulerJobApi,
@@ -473,6 +476,85 @@ function openLogs(record: any) {
   loadLogs(record.id);
 }
 
+// ===== 告警抽屉（调度告警独立表，仅管理员可见） =====
+const alertVisible = ref(false);
+const alertList = ref<any[]>([]);
+const alertLoading = ref(false);
+const alertTotal = ref(0);
+const alertPage = reactive({ page: 1, pageSize: 15 });
+
+const ALERT_TYPE_MAP: Record<number, { color: string; i18nKey: string }> = {
+  1: { color: 'red', i18nKey: 'page.system.scheduler.alert.type1' },
+  2: { color: 'orange', i18nKey: 'page.system.scheduler.alert.type2' },
+  3: { color: 'purple', i18nKey: 'page.system.scheduler.alert.type3' },
+};
+
+const alertColumns = [
+  {
+    title: $t('page.system.scheduler.alert.createTime'),
+    dataIndex: 'createTime',
+    width: 170,
+  },
+  {
+    title: $t('page.system.scheduler.alert.jobCode'),
+    dataIndex: 'jobCode',
+    width: 160,
+  },
+  {
+    title: $t('page.system.scheduler.alert.jobName'),
+    dataIndex: 'jobName',
+    width: 140,
+  },
+  {
+    title: $t('page.system.scheduler.alert.alertType'),
+    dataIndex: 'alertType',
+    width: 100,
+  },
+  {
+    title: $t('page.system.scheduler.alert.message'),
+    dataIndex: 'message',
+    ellipsis: true,
+  },
+];
+
+async function loadAlerts() {
+  alertLoading.value = true;
+  try {
+    const res: any = await getSchedulerAlertListApi({
+      page: alertPage.page,
+      pageSize: alertPage.pageSize,
+    });
+    const data = res?.data || res;
+    alertList.value = Array.isArray(data)
+      ? data
+      : data?.items || data?.list || [];
+    // 后端 ResultPage 的 total 在 meta 中
+    alertTotal.value = res?.meta?.total ?? alertList.value.length;
+  } catch {
+    alertList.value = [];
+    alertTotal.value = 0;
+  } finally {
+    alertLoading.value = false;
+  }
+}
+
+function openAlerts() {
+  alertVisible.value = true;
+  alertPage.page = 1;
+  loadAlerts();
+}
+
+async function handleClearAlerts() {
+  try {
+    await clearSchedulerAlertApi();
+    message.success($t('page.system.scheduler.alert.cleared'));
+    alertPage.page = 1;
+    await loadAlerts();
+  } catch (error: any) {
+    message.error(error?.message || $t('page.system.scheduler.message.loadFailed'));
+  }
+}
+
 onMounted(() => {
   loadList();
 });
@@ -513,12 +595,20 @@ onMounted(() => {
           <span class="text-base font-semibold">{{
             $t('page.system.scheduler.listTitle')
           }}</span>
-          <Button @click="loadList">
-            <template #icon>
-              <IconifyIcon icon="lucide:refresh-cw" />
-            </template>
-            {{ $t('page.system.common.refresh') }}
-          </Button>
+          <div class="flex items-center gap-2">
+            <Button @click="openAlerts">
+              <template #icon>
+                <IconifyIcon icon="lucide:bell-ring" />
+              </template>
+              {{ $t('page.system.scheduler.button.alertLog') }}
+            </Button>
+            <Button @click="loadList">
+              <template #icon>
+                <IconifyIcon icon="lucide:refresh-cw" />
+              </template>
+              {{ $t('page.system.common.refresh') }}
+            </Button>
+          </div>
         </div>
         <Table
           :data-source="list"
@@ -812,6 +902,60 @@ onMounted(() => {
           </template>
           <template #emptyText>
             <Empty :description="$t('page.system.scheduler.logEmpty')" />
+          </template>
+        </Table>
+      </Drawer>
+
+      <!-- 告警抽屉（独立告警表，管理员专属） -->
+      <Drawer
+        v-model:open="alertVisible"
+        :title="$t('page.system.scheduler.alertTitle')"
+        width="min(900px, 92vw)"
+        :body-style="{ padding: '16px' }"
+      >
+        <template #extra>
+          <Popconfirm
+            :title="$t('page.system.scheduler.clearAlertsConfirm')"
+            :ok-text="$t('page.system.common.confirm')"
+            :cancel-text="$t('page.system.common.cancel')"
+            @confirm="handleClearAlerts"
+          >
+            <Button danger size="small">
+              {{ $t('page.system.scheduler.button.clearAlerts') }}
+            </Button>
+          </Popconfirm>
+        </template>
+        <Table
+          :data-source="alertList"
+          :columns="alertColumns"
+          :loading="alertLoading"
+          row-key="id"
+          :pagination="{
+            current: alertPage.page,
+            pageSize: alertPage.pageSize,
+            total: alertTotal,
+            showSizeChanger: false,
+            onChange: (p: number) => {
+              alertPage.page = p;
+              loadAlerts();
+            },
+          }"
+          size="small"
+          :scroll="{ x: 800 }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.dataIndex === 'alertType'">
+              <Tag :color="ALERT_TYPE_MAP[record.alertType]?.color || 'default'">
+                {{
+                  ALERT_TYPE_MAP[record.alertType]
+                    ? $t(ALERT_TYPE_MAP[record.alertType]!.i18nKey)
+                    : record.alertType
+                }}
+              </Tag>
+            </template>
+          </template>
+          <template #emptyText>
+            <Empty :description="$t('page.system.scheduler.alertEmpty')" />
           </template>
         </Table>
       </Drawer>

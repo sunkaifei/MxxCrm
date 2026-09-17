@@ -8,6 +8,7 @@
 //! 版权所有，侵权必究！
 //!
 use sea_orm::*;
+use sea_orm::sea_query::SimpleExpr;
 use sea_orm::prelude::{DateTime, Decimal, Date};
 use crate::core::kit::global::{Deserialize, Serialize};
 use crate::core::r#enum::currency_code_enum::CurrencyCode;
@@ -518,9 +519,35 @@ impl From<opportunity::Model> for OpportunityListVO {
 }
 
 /// 商机列表查询参数
+/// 自定义字段筛选值反序列化（P1-2 同款）：query string 一律为字符串，
+/// 先按 JSON 字面量解析（数字/布尔/JSON 数组），失败回退纯字符串；
+/// 未传与空串均视为 None。serde_urlencoded 不支持 serde_json::Value 直接反序列化，必须经此转换
+fn deserialize_cf_val<'de, D>(de: D) -> Result<Option<serde_json::Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw: Option<String> = Option::deserialize(de)?;
+    match raw {
+        None => Ok(None),
+        Some(s) if s.trim().is_empty() => Ok(None),
+        Some(s) => Ok(Some(
+            serde_json::from_str(&s).unwrap_or(serde_json::Value::String(s)),
+        )),
+    }
+}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+
+
 pub struct OpportunityListQuery {
+    // 自定义字段筛选/排序（G3，与客户列表同款）
+    pub cf_key: Option<String>,
+    pub cf_op: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_cf_val")]
+    pub cf_val: Option<serde_json::Value>,
+    pub cf_sort: Option<String>,
+    pub cf_sort_order: Option<String>,
+
     /// 页码
     #[serde(rename = "page")]
     pub page_num: Option<i64>,
@@ -643,12 +670,32 @@ impl OpportunityModel {
             update_time: Set(Option::from(chrono::Local::now().naive_local().to_owned())),
             requirement_summary: Set(req.requirement_summary.clone()),
             solution_summary: Set(req.solution_summary.clone()),
-            quote_status: Set(req.quote_status),
-            order_status: Set(req.order_status),
-            contract_status: Set(req.contract_status),
-            shipment_status: Set(req.shipment_status),
-            payment_status: Set(req.payment_status),
-            invoice_status: Set(req.invoice_status),
+            // 6 个流程状态字段由业务动作（转报价/转订单/转合同等）维护，普通编辑不携带时不动该列，
+            // 防止被置 NULL（例：quote_status 被清空会让"已转报价"守卫失效，二次转报价生成重复 QT 号）
+            quote_status: match req.quote_status {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
+            order_status: match req.order_status {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
+            contract_status: match req.contract_status {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
+            shipment_status: match req.shipment_status {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
+            payment_status: match req.payment_status {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
+            invoice_status: match req.invoice_status {
+                Some(v) => Set(Some(v)),
+                None => ActiveValue::NotSet,
+            },
             // 7.3 合并写：custom_fields 未提交时不动该列（防置 NULL 丢存量）；提交时由校验器按 key 与旧值合并
             custom_fields: match req.custom_fields.clone() {
                 Some(v) => Set(Some(v)),
@@ -730,6 +777,8 @@ impl OpportunityModel {
         stage: Option<i32>,
         assigned_to: Option<i64>,
         customer_id: Option<i64>,
+        cf_filter: Option<SimpleExpr>,
+        cf_order: Option<(SimpleExpr, Order)>,
     ) -> Result<(Vec<opportunity::Model>, i64), DbErr> {
         let mut query = Opportunity::find()
             .filter(opportunity::Column::Deleted.eq(0));
@@ -751,6 +800,13 @@ impl OpportunityModel {
             query = query.filter(opportunity::Column::CustomerId.eq(c));
         }
 
+        // G3：自定义字段筛选与排序（服务层经 build_filter_expr/build_order_expr 生成，参数绑定防注入）
+        if let Some(cond) = cf_filter {
+            query = query.filter(cond);
+        }
+        if let Some((expr, ord)) = cf_order {
+            query = query.order_by(expr, ord);
+        }
         let paginator = query.order_by_desc(opportunity::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
 
@@ -766,6 +822,8 @@ impl OpportunityModel {
         stage: Option<i32>,
         assigned_ids: Option<Vec<i64>>,
         customer_id: Option<i64>,
+        cf_filter: Option<SimpleExpr>,
+        cf_order: Option<(SimpleExpr, Order)>,
     ) -> Result<(Vec<opportunity::Model>, i64), DbErr> {
         let mut query = Opportunity::find()
             .filter(opportunity::Column::Deleted.eq(0));
@@ -791,6 +849,13 @@ impl OpportunityModel {
             query = query.filter(opportunity::Column::CustomerId.eq(c));
         }
 
+        // G3：自定义字段筛选与排序（服务层经 build_filter_expr/build_order_expr 生成，参数绑定防注入）
+        if let Some(cond) = cf_filter {
+            query = query.filter(cond);
+        }
+        if let Some((expr, ord)) = cf_order {
+            query = query.order_by(expr, ord);
+        }
         let paginator = query.order_by_desc(opportunity::Column::CreateTime).paginate(db, per_page as u64);
         let total = paginator.num_items().await? as i64;
 

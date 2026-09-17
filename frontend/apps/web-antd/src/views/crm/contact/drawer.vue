@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
@@ -15,6 +15,8 @@ import {
   updateContactApi,
 } from '#/api';
 import { requestClient } from '#/api/request';
+import CustomFieldsLayoutBlock from '#/components/CustomFieldsLayoutBlock.vue';
+import { applyDrawerWidth, fetchFormLayout } from '#/components/FormLayoutManager';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { $t } from '#/locales';
 
@@ -22,6 +24,10 @@ const data = ref();
 
 // 自定义字段：schema 适配器（表单尾部注入 + 提交剥离合并 customFields）
 const fieldSchema = useFieldSchema('crm_contact');
+// 自定义字段值容器（CustomFieldsLayoutBlock 布局渲染）
+const cfModel = reactive<Record<string, any>>({});
+// 新建/编辑模式（默认值预填仅在新建生效）
+const isCreateMode = ref(false);
 
 const currentCompanyName = ref<string>('');
 const currentCustomerId = ref<null | number>(null);
@@ -496,7 +502,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       // 自定义字段剥离：动态键从标准字段剔除，统一并入 customFields 提交
       // （空值归一为 null=清空语义；停用键不提交，由后端合并保留存量）
-      const customFields = fieldSchema.buildSubmitPayload(values);
+      const customFields = fieldSchema.buildSubmitPayload({ ...values, ...cfModel });
       const dynamicKeys = new Set(
         fieldSchema.items.value.map((i) => i.fieldKey),
       );
@@ -541,26 +547,17 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
       const row = data.value?.row ? { ...data.value.row } : {};
-      // 动态字段回显兜底：先展开列表行 customFields（详情加载成功后会被最新值覆盖）
+      // 自定义字段回显：行 customFields 进布局块值容器（详情加载成功后覆盖）
+      Object.keys(cfModel).forEach((k) => delete cfModel[k]);
       if (row.customFields && typeof row.customFields === 'object') {
-        Object.assign(row, row.customFields);
+        Object.assign(cfModel, row.customFields);
       }
+      isCreateMode.value = !!data.value?.create;
       setLoading(false);
 
-      const isCreate = data.value?.create;
-
-      // 动态字段注入：拉取 schema 并幂等追加到表单尾部
-      // （须先于 resetForm/setValues 执行：vben setValues 默认过滤 schema 外字段）
+      // 动态字段：值容器走 CustomFieldsLayoutBlock（布局驱动），不再注入 vben schema
       await fieldSchema.loadSchema();
-      baseFormApi.setState((prev: any) => {
-        const dynamicKeys = new Set(
-          fieldSchema.items.value.map((i) => i.fieldKey),
-        );
-        const base = (prev.schema ?? []).filter(
-          (s: any) => !dynamicKeys.has(s.fieldName),
-        );
-        return { schema: [...base, ...fieldSchema.toFormSchema({ weakRequired: !isCreate })] };
-      });
+      applyDrawerWidth(drawerApi, await fetchFormLayout('crm_contact', 1));
 
       // 编辑模式下所属企业禁止修改
       baseFormApi.updateSchema([
@@ -612,9 +609,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 currentCustomerId.value = d.currentCompany.customerId;
               }
             }
-            // 动态字段：详情接口的 customFields 覆盖列表行旧值
+            // 动态字段：详情接口的 customFields 覆盖列表行旧值（进布局块容器）
             if (d.customFields && typeof d.customFields === 'object') {
-              Object.assign(row, d.customFields);
+              Object.assign(cfModel, d.customFields);
             }
           }
         } catch {
@@ -645,5 +642,13 @@ function setLoading(loading: boolean) {
 <template>
   <Drawer :title="getTitle" :class="drawerClass">
     <BaseForm />
+    <CustomFieldsLayoutBlock
+      class="mt-2"
+      :module="'crm_contact'"
+      :items="fieldSchema.items.value"
+      :values="cfModel"
+      :prefill="isCreateMode"
+      :disabled="(i: any) => !fieldSchema.isRoleEditable(i)"
+    />
   </Drawer>
 </template>

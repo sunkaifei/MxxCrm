@@ -106,6 +106,31 @@ pub async fn log_list(
     }
 }
 
+pub async fn alert_list(
+    state: web::Data<AppState>,
+    query: web::Query<scheduler_service::SchedulerAlertQuery>,
+) -> HttpResponse {
+    let db = &state.db;
+    let q = query.0;
+    let page = q.page.unwrap_or(1) as u32;
+    match scheduler_service::get_alert_list(db, q).await {
+        Ok((list, total)) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::success_with_page(list, "local", page, total as u32)),
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
+pub async fn alert_clear(state: web::Data<AppState>) -> HttpResponse {
+    let db = &state.db;
+    match scheduler_service::clear_alerts(db).await {
+        Ok(count) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::success(format!("已清空 {} 条告警", count), "local")),
+        Err(e) => HttpResponse::Ok().content_type(MPACK)
+            .body(MetaResp::<String>::fail(400, &e, "local")),
+    }
+}
+
 pub fn register(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/scheduler")
@@ -114,6 +139,8 @@ pub fn register(cfg: &mut web::ServiceConfig) {
             .route("/update", web::post().to(update).wrap(require_permission("system:scheduler:manage")))
             .route("/toggle", web::post().to(toggle).wrap(require_permission("system:scheduler:manage")))
             .route("/trigger", web::post().to(trigger).wrap(require_permission("system:scheduler:manage")))
-            .route("/log/list", web::get().to(log_list).wrap(require_permission("system:scheduler:list"))),
+            .route("/log/list", web::get().to(log_list).wrap(require_permission("system:scheduler:list")))
+            .route("/alert/list", web::get().to(alert_list).wrap(require_permission("system:scheduler:list")))
+            .route("/alert/clear", web::post().to(alert_clear).wrap(require_permission("system:scheduler:manage"))),
     );
 }

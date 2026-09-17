@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
@@ -35,6 +35,13 @@ import {
 import { getOrderInfoApi } from '#/api/core/sale/order';
 import { getUserListApi } from '#/api/core/system/user';
 import { requestClient } from '#/api/request';
+import CustomFieldsLayoutBlock from '#/components/CustomFieldsLayoutBlock.vue';
+import {
+  buildLabelMap,
+  fetchFormLayout,
+  type ParsedFormLayout,
+  applyDrawerWidth,
+} from '#/components/FormLayoutManager';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { formatQty } from '#/components/UnitSelect';
 import { $t } from '#/locales';
@@ -55,6 +62,10 @@ const isMaximized = ref(false);
 
 // 自定义字段：schema 适配器（表单尾部注入 + 提交剥离合并 customFields）
 const fieldSchema = useFieldSchema('crm_contract');
+// 自定义字段值容器（CustomFieldsLayoutBlock 布局渲染）+ 系统字段布局
+const cfModel = reactive<Record<string, any>>({});
+const formLayout = ref<ParsedFormLayout | null>(null);
+const labelMap = computed(() => buildLabelMap(fieldSchema.items.value));
 
 // 是否为只读模式（由外部传入或根据行数据判断）
 const isReadonly = computed(() => {
@@ -749,7 +760,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     // 自定义字段剥离：动态键从标准字段剔除，统一并入 customFields 提交
     // （空值归一为 null=清空语义；停用键不提交，由后端合并保留存量）
-    const customFields = fieldSchema.buildSubmitPayload(values);
+    const customFields = fieldSchema.buildSubmitPayload({ ...values, ...cfModel });
     const dynamicKeys = new Set(
       fieldSchema.items.value.map((i) => i.fieldKey),
     );
@@ -925,10 +936,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
       const row = data.value?.row ? { ...data.value.row } : {};
-      // 动态字段回显兜底：展开行数据 customFields（本抽屉无独立详情请求，以传入行为准）
-      if (row.customFields && typeof row.customFields === 'object') {
-        Object.assign(row, row.customFields);
-      }
 
       // 重置
       paymentPlans.value = [];
@@ -1028,15 +1035,42 @@ const [Drawer, drawerApi] = useVbenDrawer({
       // 动态字段注入：拉取 schema 并幂等追加到表单尾部
       // （须先于 setValues 执行：vben setValues 默认过滤 schema 外字段）
       await fieldSchema.loadSchema();
+      // 自定义字段：值容器走 CustomFieldsLayoutBlock（布局驱动），系统字段应用布局（显示名/顺序/列宽）
+      formLayout.value = await fetchFormLayout('crm_contract', 1);
+  applyDrawerWidth(drawerApi, formLayout.value);
       baseFormApi.setState((prev: any) => {
         const dynamicKeys = new Set(
           fieldSchema.items.value.map((i) => i.fieldKey),
         );
-        const base = (prev.schema ?? []).filter(
+        let base = (prev.schema ?? []).filter(
           (s: any) => !dynamicKeys.has(s.fieldName),
         );
-        return { schema: [...base, ...fieldSchema.toFormSchema({ weakRequired: !data.value?.create })] };
+        base = base.map((s: any) => {
+          const label = labelMap.value.get(s.fieldName);
+          const hit = formLayout.value?.fields.find((f) => f.key === s.fieldName);
+          if (!label && !hit) return s;
+          return {
+            ...s,
+            label: label ?? s.label,
+            formItemClass: hit
+              ? `${String(s.formItemClass ?? '').replace(/col-span-\d+/g, '').trim()} ${hit.span === 2 ? 'col-span-2' : ''}`.trim()
+              : s.formItemClass,
+          };
+        });
+        if (formLayout.value && formLayout.value.fields.length > 0) {
+          const orderMap = new Map(formLayout.value.fields.map((f, i) => [f.key, i]));
+          const head = base.filter((s: any) => orderMap.has(s.fieldName));
+          head.sort((a: any, b: any) => orderMap.get(a.fieldName)! - orderMap.get(b.fieldName)!);
+          const tail = base.filter((s: any) => !orderMap.has(s.fieldName));
+          base = [...head, ...tail];
+        }
+        return { schema: base };
       });
+      // 自定义字段回显：行数据 customFields 进布局块值容器
+      Object.keys(cfModel).forEach((k) => delete cfModel[k]);
+      if (row.customFields && typeof row.customFields === 'object') {
+        Object.assign(cfModel, row.customFields);
+      }
 
       baseFormApi.setValues(row);
       setLoading(false);
@@ -1148,6 +1182,15 @@ function toggleMaximize() {
             </div>
           </template>
         </BaseForm>
+
+        <CustomFieldsLayoutBlock
+          class="mt-2"
+          :module="'crm_contract'"
+          :items="fieldSchema.items.value"
+          :values="cfModel"
+          :prefill="!!(data && data.create)"
+          :disabled="(i: any) => isReadonly || !fieldSchema.isRoleEditable(i)"
+        />
 
         <!-- 订单商品明细（从订单创建合同时展示） -->
         <div v-if="orderItems.length > 0" class="order-items-section">

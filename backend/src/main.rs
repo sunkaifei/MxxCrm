@@ -453,6 +453,9 @@ async fn main() -> std::io::Result<()> {
     // 初始化 DB session 表（mem 缓存模式重启后降级验证用，防止重启丢登录态）
     crate::modules::system::service::session_service::ensure_session_table(&conn).await;
 
+    // 初始化调度告警日志表（幂等；调度告警不再写公告表 mxx_notice）
+    crate::modules::system::service::scheduler_service::ensure_alert_table(&conn).await;
+
     // 一次性数据迁移：ai_config / mail_config → 统一配置表（幂等，已迁移则跳过）
     match crate::modules::system::service::integration_config_service::migrate_legacy_configs(
         &conn,

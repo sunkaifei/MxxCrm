@@ -30,3 +30,12 @@ export const triggerSchedulerJobApi = async (data: { id: number }) => {
 export const getSchedulerLogListApi = async (params?: any) => {
   return requestClient.get(`${BASE}/log/list`, { params });
 };
+
+// 调度告警日志（独立表，仅管理员可见；不含公告表数据）
+export const getSchedulerAlertListApi = async (params?: any) => {
+  return requestClient.get(`${BASE}/alert/list`, { params });
+};
+
+export const clearSchedulerAlertApi = async () => {
+  return requestClient.post(`${BASE}/alert/clear`);
+};

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { VbenFormSchema } from '@vben/common-ui';
 
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, reactive, ref } from 'vue';
 
 import { useVbenForm } from '@vben/common-ui';
 
@@ -28,6 +28,13 @@ import {
   updateQuotationApi,
   getPdfTemplateListApi,
 } from '#/api';
+import CustomFieldsLayoutBlock from '#/components/CustomFieldsLayoutBlock.vue';
+import {
+  buildLabelMap,
+  fetchFormLayout,
+  type ParsedFormLayout,
+  applyDrawerWidth,
+} from '#/components/FormLayoutManager';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 import { formatQty, useProductUnits } from '#/components/UnitSelect';
 
@@ -40,10 +47,15 @@ const drawerData = ref<{
   needRefresh?: boolean;
   row?: any;
 }>({ create: true });
-// 自定义字段：schema 适配器（表单尾部注入 + 提交剥离合并 customFields）
+// 自定义字段：schema 适配器（值容器走布局块，提交剥离合并 customFields）
 const fieldSchema = useFieldSchema('sale_quotation');
 // 自定义字段回显缓存：列表行 customFields 先兜底，详情接口加载后覆盖
 const pendingCustomFields = ref<Record<string, any>>({});
+// 自定义字段值容器（CustomFieldsLayoutBlock 布局渲染）
+const cfModel = reactive<Record<string, any>>({});
+// 系统字段布局：显示名覆盖 + 顺序 + 半行/整行
+const formLayout = ref<ParsedFormLayout | null>(null);
+const labelMap = computed(() => buildLabelMap(fieldSchema.items.value));
 const isEdit = computed(() => !drawerData.value.create);
 const isReadOnly = ref(false);
 
@@ -776,8 +788,8 @@ async function loadDetail(id: number) {
         data.ownerUserId === null || data.ownerUserId === undefined
           ? undefined
           : Number(data.ownerUserId),
-      ...customFieldsData,
     });
+    Object.assign(cfModel, customFieldsData);
     tradeFormApi.setValues({
       paymentTerms: data.paymentTerms,
       deliveryTerms: data.deliveryTerms,
@@ -875,7 +887,7 @@ async function handleSubmit() {
 
   // 自定义字段剥离：动态键从标准字段剔除，统一并入 customFields 提交
   // （空值归一为 null=清空语义；停用键不提交，由后端合并保留存量）
-  const customFields = fieldSchema.buildSubmitPayload(values);
+  const customFields = fieldSchema.buildSubmitPayload({ ...values, ...cfModel });
   const dynamicKeys = new Set(fieldSchema.items.value.map((i) => i.fieldKey));
   const standardValues: Record<string, any> = {};
   for (const [key, val] of Object.entries(values)) {
@@ -992,17 +1004,41 @@ const [Drawer, drawerApi] = useVbenDrawer({
     contactOptions.value = [];
     // 清空上次的动态字段回显缓存，避免串数据
     pendingCustomFields.value = {};
-    // 动态字段注入：拉取 schema 并幂等追加到表单尾部
-    // （须先于 resetForm/setValues 执行：vben setValues 默认过滤 schema 外字段）
+    Object.keys(cfModel).forEach((k) => delete cfModel[k]);
+    // 动态字段：值容器走 CustomFieldsLayoutBlock（布局驱动：选项卡/半行整行/拖拽序），不再注入 vben schema
     await fieldSchema.loadSchema();
+    // 系统字段布局：显示名覆盖 + 顺序 + 半行/整行（未编排字段保持原样，保证"现用设计不变"）
+    formLayout.value = await fetchFormLayout('sale_quotation', 1);
+  applyDrawerWidth(drawerApi, formLayout.value);
     basicFormApi.setState((prev: any) => {
       const dynamicKeys = new Set(
         fieldSchema.items.value.map((i) => i.fieldKey),
       );
-      const base = (prev.schema ?? []).filter(
+      let base = (prev.schema ?? []).filter(
         (s: any) => !dynamicKeys.has(s.fieldName),
       );
-      return { schema: [...base, ...fieldSchema.toFormSchema({ weakRequired: !drawerData.value.create })] };
+      // 显示名覆盖 + 布局列宽
+      base = base.map((s: any) => {
+        const label = labelMap.value.get(s.fieldName);
+        const hit = formLayout.value?.fields.find((f) => f.key === s.fieldName);
+        if (!label && !hit) return s;
+        return {
+          ...s,
+          label: label ?? s.label,
+          formItemClass: hit
+            ? `${String(s.formItemClass ?? '').replace(/col-span-\d+/g, '').trim()} ${hit.span === 2 ? 'col-span-2' : ''}`.trim()
+            : s.formItemClass,
+        };
+      });
+      // 顺序：布局内字段按布局序提前，未编排字段保持原相对顺序
+      if (formLayout.value && formLayout.value.fields.length > 0) {
+        const orderMap = new Map(formLayout.value.fields.map((f, i) => [f.key, i]));
+        const head = base.filter((s: any) => orderMap.has(s.fieldName));
+        head.sort((a: any, b: any) => orderMap.get(a.fieldName)! - orderMap.get(b.fieldName)!);
+        const tail = base.filter((s: any) => !orderMap.has(s.fieldName));
+        base = [...head, ...tail];
+      }
+      return { schema: base };
     });
     basicFormApi.resetForm();
     tradeFormApi.resetForm();
@@ -1085,6 +1121,14 @@ const [Drawer, drawerApi] = useVbenDrawer({
     <Tabs v-model:active-key="activeTab">
       <TabPane key="basic" tab="基本信息">
         <BasicForm />
+        <CustomFieldsLayoutBlock
+          class="mt-2"
+          :module="'sale_quotation'"
+          :items="fieldSchema.items.value"
+          :values="cfModel"
+          :prefill="!!drawerData.create"
+          :disabled="(i: any) => isReadOnly || !fieldSchema.isRoleEditable(i)"
+        />
       </TabPane>
 
       <TabPane key="items" tab="商品明细">

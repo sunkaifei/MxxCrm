@@ -84,6 +84,8 @@ export const calculateAttendanceDeductionApi = async (params: {
 // ===== 调薪记录 =====
 export const getSalaryAdjustmentListApi = async (params?: any) =>
   requestClient.get('/api/system/finance/salary-adjustment/list', { params });
+export const submitAdjustmentApprovalApi = async (id: number) =>
+  requestClient.post('/api/system/finance/salary-adjustment/submit-approval', { id });
 export const getSalaryAdjustmentHistoryApi = async (employeeId: number) =>
   requestClient.get('/api/system/finance/salary-adjustment/history', {
     params: { employeeId },

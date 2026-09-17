@@ -37,7 +37,8 @@ import {
   updateOpportunityApi,
 } from '#/api';
 
-import DynamicFieldControl from '#/components/DynamicFieldControl.vue';
+import CustomFieldsDetailBlock from '#/components/CustomFieldsDetailBlock.vue';
+import CustomFieldsLayoutBlock from '#/components/CustomFieldsLayoutBlock.vue';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
 
 const props = defineProps<{
@@ -330,6 +331,12 @@ const baseForm = reactive({
 
 // 自定义字段（P0-14/P1-5）：schema 加载 + 表单值容器（键=fieldKey，值随控件双向绑定）
 const fieldSchema = useFieldSchema('crm_opportunity');
+
+// 系统字段显示名覆盖（G1）：field_def 系统行改名后全端生效；schema 未加载时回落默认文案
+function sysLabel(key: string, fallback: string): string {
+  const hit = fieldSchema.items.value.find((i: any) => i.fieldKey === key);
+  return hit?.fieldLabel || fallback;
+}
 fieldSchema.loadSchema();
 const cfValues = reactive<Record<string, any>>({});
 
@@ -1153,6 +1160,14 @@ watch(
             <div class="opp-info-detail-value">12次</div>
           </div>
         </div>
+        <!-- 自定义字段详情布局块（显示判断=布局编排∩字段权限） -->
+        <CustomFieldsDetailBlock
+          class="mt-3"
+          :module="'crm_opportunity'"
+          :items="fieldSchema.items.value"
+          :values="opp?.customFields ?? {}"
+          :formatter="(i: any, v: any) => fieldSchema.formatFieldValue(i, v)"
+        />
       </div>
       <div class="opp-info-extra">
         <div class="opp-info-amount-label">预计金额</div>
@@ -1245,7 +1260,7 @@ watch(
             class="opp-form"
           >
             <Form.Item
-              label="商机名称"
+              :label="sysLabel('title', '商机名称')"
               name="title"
               :rules="[{ required: true, message: '请输入商机名称' }]"
             >
@@ -1256,7 +1271,7 @@ watch(
             </Form.Item>
             <div class="opp-form-row">
               <Form.Item
-                label="客户名称"
+                :label="sysLabel('customerId', '客户名称')"
                 name="customerId"
                 class="opp-form-item"
                 :rules="[{ required: true, message: '请选择客户名称' }]"
@@ -1294,7 +1309,7 @@ watch(
                 </div>
               </Form.Item>
               <Form.Item
-                label="联系人"
+                :label="sysLabel('contactId', '联系人')"
                 name="contactId"
                 class="opp-form-item"
                 :rules="[{ required: true, message: '请选择联系人' }]"
@@ -1333,7 +1348,7 @@ watch(
               </Form.Item>
             </div>
             <div class="opp-form-row">
-              <Form.Item label="商机金额" name="amount" class="opp-form-item">
+              <Form.Item :label="sysLabel('amount', '商机金额')" name="amount" class="opp-form-item">
                 <InputNumber
                   v-model:value="baseForm.amount"
                   :min="0"
@@ -1342,7 +1357,7 @@ watch(
                   style="width: 100%"
                 />
               </Form.Item>
-              <Form.Item label="币种" name="currency" class="opp-form-item">
+              <Form.Item :label="sysLabel('currency', '币种')" name="currency" class="opp-form-item">
                 <Select
                   v-model:value="baseForm.currency"
                   :options="currencyOptions"
@@ -1351,7 +1366,7 @@ watch(
             </div>
             <div class="opp-form-row">
               <Form.Item
-                label="赢单概率"
+                :label="sysLabel('probability', '赢单概率')"
                 name="probability"
                 class="opp-form-item"
               >
@@ -1365,7 +1380,7 @@ watch(
                   <template #addonAfter>%</template>
                 </InputNumber>
               </Form.Item>
-              <Form.Item label="商机来源" name="source" class="opp-form-item">
+              <Form.Item :label="sysLabel('source', '商机来源')" name="source" class="opp-form-item">
                 <Select
                   v-model:value="baseForm.source"
                   placeholder="请选择来源"
@@ -1374,7 +1389,7 @@ watch(
                 />
               </Form.Item>
             </div>
-            <Form.Item label="预计成交日期" name="expectedCloseDate">
+            <Form.Item :label="sysLabel('expectedCloseDate', '预计成交日期')" name="expectedCloseDate">
               <DatePicker
                 v-model:value="baseForm.expectedCloseDate"
                 placeholder="请选择预计成交日期"
@@ -1382,7 +1397,7 @@ watch(
                 value-format="YYYY-MM-DD"
               />
             </Form.Item>
-            <Form.Item label="商机描述" name="description">
+            <Form.Item :label="sysLabel('description', '商机描述')" name="description">
               <Input.TextArea
                 v-model:value="baseForm.description"
                 placeholder="详细描述商机背景、客户需求、价值主张等"
@@ -1391,19 +1406,14 @@ watch(
                 show-count
               />
             </Form.Item>
-            <!-- 自定义字段动态渲染（P0-14/P1-5）：编辑角色软约束禁用，硬约束由后端 400 拦截 -->
-            <Form.Item
-              v-for="item in fieldSchema.items.value"
-              :key="item.fieldKey"
-              :label="item.fieldLabel"
-              :required="Number(item.required) === 1"
-            >
-              <DynamicFieldControl
-                v-model:value="cfValues[item.fieldKey]"
-                :item="item"
-                :disabled="!fieldSchema.isRoleEditable(item)"
-              />
-            </Form.Item>
+            <!-- 自定义字段布局块（一期）：选项卡/半行整行/拖拽序由布局元数据驱动；值仍走 cfValues -->
+            <CustomFieldsLayoutBlock
+              :module="'crm_opportunity'"
+              :items="fieldSchema.items.value"
+              :values="cfValues"
+              :prefill="isCreate"
+              :disabled="(i: any) => !fieldSchema.isRoleEditable(i)"
+            />
           </Form>
           <div class="opp-form-footer">
             <Button type="primary" :loading="saving" @click="handleSaveBase">

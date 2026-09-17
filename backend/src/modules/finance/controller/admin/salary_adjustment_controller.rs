@@ -24,6 +24,8 @@ use crate::modules::finance::service::salary_adjustment_service;
 #[serde(rename_all = "camelCase")]
 pub struct ListQuery {
     pub employee_id: Option<i64>,
+    /// 员工在职状态：all=全部（仍排除超管/未入职） active=在职 resigned=离职
+    pub emp_status: Option<String>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
 }
@@ -51,7 +53,14 @@ pub async fn list(
     let page = q.page.unwrap_or(1).max(1);
     let page_size = q.page_size.unwrap_or(20).max(1);
 
-    match salary_adjustment_service::get_adjustment_list(db, q.employee_id, page, page_size).await {
+    match salary_adjustment_service::get_adjustment_list(
+        db,
+        q.employee_id,
+        q.emp_status,
+        page,
+        page_size,
+    )
+    .await {
         Ok((list, total)) => HttpResponse::Ok()
             .content_type(MPACK)
             .body(MetaResp::success_with_page(list, "local", page as u32, total as u32)),

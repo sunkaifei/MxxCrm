@@ -54,7 +54,8 @@
     "pinia": "catalog:",
     "vue": "catalog:",
     "vue-advanced-cropper": "catalog:",
-    "vue-router": "catalog:"
+    "vue-router": "catalog:",
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@iconify/json": "catalog:"

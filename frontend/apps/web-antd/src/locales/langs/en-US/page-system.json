@@ -606,7 +606,7 @@
         "fieldPermSave": "Save Field Permissions",
         "status": "Toggle Status"
       },
-      "title": "Custom Fields"
+      "title": "Field Settings"
     },
     "pdfRecord": {
       "title": "PDF Generation Records",
@@ -1015,7 +1015,9 @@
         "edit": "Edit",
         "toggle": "Enable/Disable",
         "trigger": "Run Now",
-        "viewLog": "Logs"
+        "viewLog": "Logs",
+        "alertLog": "Alerts",
+        "clearAlerts": "Clear Alerts"
       },
       "status": {
         "enabled": "Enabled",
@@ -1068,6 +1070,20 @@
         }
       },
       "logEmpty": "No execution logs yet",
+      "alertTitle": "Scheduler Alert Log",
+      "alertEmpty": "No scheduler alerts",
+      "clearAlertsConfirm": "Clear all scheduler alert records?",
+      "alert": {
+        "createTime": "Alert Time",
+        "jobCode": "Job Code",
+        "jobName": "Job Name",
+        "alertType": "Alert Type",
+        "message": "Alert Message",
+        "type1": "Execution Failed",
+        "type2": "Interrupted",
+        "type3": "Missed Run",
+        "cleared": "Alerts cleared"
+      },
       "column": {
         "jobCode": "Job Code",
         "jobName": "Job Name",
@@ -1164,6 +1180,20 @@
       },
       "button": {
         "update": "Update"
+      }
+    },
+    "formLayout": {
+      "title": "Form & Detail Layout Designer",
+      "button": {
+        "manage": "Manage"
+      }
+    },
+    "model": {
+      "title": "System Models",
+      "action": {
+        "formSettings": "Form Settings",
+        "detailSettings": "Detail Settings",
+        "fieldSettings": "Field Settings"
       }
     }
   }

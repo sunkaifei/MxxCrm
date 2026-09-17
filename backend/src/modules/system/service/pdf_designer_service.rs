@@ -506,6 +506,32 @@ pub async fn template_detail(db: &DbConn, id: i64) -> Result<Value> {
         pdf_layout_schema::migrate_layout(&mut v, None).map_err(Error::from)?;
         layout = Some(v);
     }
+    // P2-5：html 引擎模板无 layout_json → 从 content 迁移出 layout **草稿**
+    // （仅随本次响应下发，不落库；用户在设计器校正后「另存为」才生成 layout 模板）
+    let migrated_from_html;
+    if layout.is_none() && t.engine.as_deref() == Some("html") {
+        let page = pdf_layout_schema::PageConfig {
+            size: t.paper_size.clone().unwrap_or_else(|| "A4".to_string()),
+            width: 210.0,
+            height: 297.0,
+            orientation: t.orientation.clone().unwrap_or_else(|| "portrait".to_string()),
+            margin: pdf_layout_schema::Margin {
+                top: t.margin_top.map(|v| v as f64).unwrap_or(12.0),
+                right: t.margin_right.map(|v| v as f64).unwrap_or(12.0),
+                bottom: t.margin_bottom.map(|v| v as f64).unwrap_or(12.0),
+                left: t.margin_left.map(|v| v as f64).unwrap_or(12.0),
+            },
+            ..Default::default()
+        };
+        let draft = crate::modules::system::service::pdf_html_migrate::migrate_content_to_layout(
+            t.content.as_deref().unwrap_or(""),
+            page,
+        );
+        migrated_from_html = Some(draft);
+        layout = migrated_from_html.clone();
+    } else {
+        migrated_from_html = None;
+    }
 
     Ok(json!({
         "id": t.id.to_string(),

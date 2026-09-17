@@ -185,39 +185,6 @@ async fn init_registry(registry: &SchedulerRegistry) {
         )
         .await;
 
-    // 网站产品定时上下架处理器（每分钟扫描 list_at/unlist_at 到点的清单行）
-    registry
-        .register(
-            "website_product_scheduled",
-            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
-                Box::pin(async move {
-                    let (up, down) =
-                        crate::modules::website::service::website_product_service::run_scheduled_status(&db)
-                            .await
-                            .map_err(|e| e.to_string())?;
-                    Ok(format!("定时上下架完成：上架 {} / 下架 {}", up, down))
-                })
-            }),
-        )
-        .await;
-
-    // 网站产品库存预警处理器（每日扫描生效展示数量低于阈值的清单行）
-    registry
-        .register(
-            "website_product_stock_warn",
-            Arc::new(|db: DatabaseConnection, _params: Option<Json>| {
-                Box::pin(async move {
-                    let (warned, notified) =
-                        crate::modules::website::service::website_product_service::run_stock_warn(&db)
-                            .await
-                            .map_err(|e| e.to_string())?;
-                    Ok(format!("库存预警完成：{} 行触发预警，发送 {} 条通知", warned, notified))
-                })
-            }),
-        )
-        .await;
-
-
     // G-2.7: 注册内容采集处理器
     // 根据 mxx_website_collect_rule 表中启用的规则，定时采集外部内容
     registry
@@ -602,18 +569,6 @@ async fn add_job_to_scheduler(
                 }
             };
 
-            // D-4: 两阶段日志——进入闭包先记录"运行中"(status=2)
-            // 任务执行中进程退出/调度器重载时该记录保持 status=2，
-            // 由下次启动时的 mark_interrupted_runs 标记为中断(status=3)
-            let log_id = match scheduler_service::start_run_log(&db, job_id, &job_code, 0, 0, "系统定时任务").await
-            {
-                Ok(id) => Some(id),
-                Err(e) => {
-                    log::warn!("[定时任务] {} 记录运行日志失败: {}", job_code, e);
-                    None
-                }
-            };
-
             // P2-6: 带指数退避重试的执行
             // 策略：首次失败后按 base * 2^attempt 秒间隔重试，最多 max_retries 次
             // 全部失败后记录最终错误并发送告警
@@ -701,16 +656,23 @@ async fn add_job_to_scheduler(
                     attempt,
                     error_msg.as_deref().unwrap_or_default()
                 );
-                // P2-6: 重试耗尽后发送告警通知（站内信）
+                // P2-6: 重试耗尽后写入调度告警表（仅管理员在调度管理页可见）
                 if max_retries > 0 && attempt >= max_retries {
                     let alert_msg = format!(
-                        "定时任务 [{}] 在 {} 重试 {} 次后仍失败：{}",
-                        job_code,
+                        "任务在 {} 重试 {} 次后仍失败：{}",
                         chrono::Utc::now().with_timezone(&BEIJING_TZ).format("%Y-%m-%d %H:%M:%S"),
                         attempt,
                         error_msg.as_deref().unwrap_or_default()
                     );
-                    send_job_failure_alert(&db, &job_code, &alert_msg).await;
+                    scheduler_service::insert_alert(
+                        &db,
+                        Some(job_id),
+                        &job_code,
+                        Some(&current_job.job_name),
+                        scheduler_service::ALERT_TYPE_RETRY_EXHAUSTED,
+                        &alert_msg,
+                    )
+                    .await;
                 }
             }
         })
@@ -719,38 +681,8 @@ async fn add_job_to_scheduler(
     Ok(())
 }
 
-/// P2-6: 定时任务重试耗尽后的告警通知
-/// 通过系统通知（notice）发布告警，目标为全体管理员
-async fn send_job_failure_alert(db: &DatabaseConnection, job_code: &str, message: &str) {
-    use crate::modules::system::model::notice::{NoticeSaveDTO, NoticeSaveRequest};
-    use crate::modules::system::service::notice_service;
-
-    let now = chrono::Utc::now().naive_utc();
-    let req = NoticeSaveRequest {
-        title: Some(format!("定时任务 [{}] 执行失败告警", job_code)),
-        content: Some(message.to_string()),
-        r#type: Some(2), // 2=系统通知（按现有 notice_type 字典约定）
-        level: Some("high".to_string()),
-        target_type: Some(1), // 1=全体
-        target_user_ids: None,
-        publisher_id: Some(0), // 0=系统
-        publish_status: Some(1), // 1=已发布
-        publish_time: Some(now),
-        revoke_time: None,
-        create_by: Some(0),
-    };
-    let dto: NoticeSaveDTO = req.into();
-
-    // 失败不影响主流程，仅记录日志
-    if let Err(e) = notice_service::insert(db, &dto).await {
-        log::error!(
-            "[定时任务] {} 告警通知发送失败：{}；原始消息：{}",
-            job_code,
-            e,
-            message
-        );
-    }
-}
+// 告警入口已迁移：调度告警统一写 mxx_system_scheduler_alert（scheduler_service::insert_alert），
+// 不再写入公告表 mxx_notice——公告仅承载人工发布的公司公告。
 
 /// 根据处理器代码执行
 /// V7-3: 优先从 SCHEDULER_REGISTRY 查找；未注册时回退到内置 match（向后兼容）
@@ -866,20 +798,21 @@ async fn scan_and_recover(db: &DatabaseConnection, check_missed: bool) {
                     interrupted.len(),
                     total
                 );
-                let detail: Vec<String> = interrupted
-                    .iter()
-                    .map(|(code, c)| format!("{} x{}", code, c))
-                    .collect();
-                send_job_failure_alert(
-                    db,
-                    "scheduler_scan",
-                    &format!(
-                        "调度器检测到进程退出/重载导致 {} 条任务执行中断（已标记为中断状态）：{}",
-                        total,
-                        detail.join("、")
-                    ),
-                )
-                .await;
+                // 按任务逐条落告警（同任务同类型 30 分钟抑制窗口内去重）
+                for (code, count) in &interrupted {
+                    scheduler_service::insert_alert(
+                        db,
+                        None,
+                        code,
+                        None,
+                        scheduler_service::ALERT_TYPE_INTERRUPTED,
+                        &format!(
+                            "进程退出/调度器重载导致 {} 条执行记录中断（已标记为中断状态）",
+                            count
+                        ),
+                    )
+                    .await;
+                }
             }
         }
         Err(e) => log::error!("[调度器] 启动扫描中断任务失败: {}", e),
@@ -905,13 +838,13 @@ async fn scan_and_recover(db: &DatabaseConnection, check_missed: bool) {
             rerun_job(db, job).await;
         } else {
             log::warn!("[调度器] {} 检测到漏跑（不自动补跑，仅告警）", job_code);
-            send_job_failure_alert(
+            scheduler_service::insert_alert(
                 db,
+                Some(job.id),
                 &job_code,
-                &format!(
-                    "定时任务 [{}] 在进程离线/关闭期间错过了一次执行，请检查是否需要手动执行",
-                    job_code
-                ),
+                Some(&job.job_name),
+                scheduler_service::ALERT_TYPE_MISSED,
+                "任务在进程离线/关闭期间错过了一次执行，请检查是否需要手动执行",
             )
             .await;
         }
@@ -973,10 +906,13 @@ async fn rerun_job(db: &DatabaseConnection, job: &scheduler_job::Model) {
                 .await;
             }
             log::error!("[调度器] {} 补跑失败：{}", job_code, e);
-            send_job_failure_alert(
+            scheduler_service::insert_alert(
                 db,
+                Some(job_id),
                 &job_code,
-                &format!("定时任务 [{}] 漏跑自动补跑失败：{}", job_code, e),
+                Some(&job.job_name),
+                scheduler_service::ALERT_TYPE_RETRY_EXHAUSTED,
+                &format!("漏跑自动补跑失败：{}", e),
             )
             .await;
         }

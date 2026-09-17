@@ -21,7 +21,8 @@ use crate::modules::system::model::dept::DeptModel;
 use crate::modules::system::service::field_def_service;
 use crate::modules::system::service::field_perm_service;
 use crate::modules::system::service::role_service;
-use sea_orm::{DbConn, TransactionTrait, Set, IntoActiveModel, ActiveModelTrait, EntityTrait, ColumnTrait, QueryFilter, QueryOrder, QuerySelect, Condition};
+use sea_orm::{DbConn, TransactionTrait, Set, IntoActiveModel, ActiveModelTrait, EntityTrait, ColumnTrait, QueryFilter, QueryOrder, QuerySelect, Condition, Order};
+use sea_orm::sea_query::SimpleExpr;
 use std::collections::{HashMap, HashSet};
 use sea_orm::prelude::Decimal;
 use crate::modules::sale::entity::{invoice, order};
@@ -230,6 +231,33 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<ContractDetailVO> {
     }
 }
 
+
+/// 构造合同列表的自定义字段筛选/排序表达式（G3，与客户列表 build_cf_query_parts 同款）
+/// 经 field_def_service::build_filter_expr/build_order_expr 生成，参数绑定防注入
+async fn build_cf_query_parts(
+    db: &DbConn,
+    query: &ContractListQuery,
+) -> Result<(Option<SimpleExpr>, Option<(SimpleExpr, Order)>)> {
+    let cf_filter = match (&query.cf_key, &query.cf_op) {
+        (Some(key), Some(op)) => {
+            let val = query.cf_val.clone().unwrap_or(serde_json::Value::Null);
+            Some(field_def_service::build_filter_expr(db, "crm_contract", key, op, &val).await?)
+        }
+        _ => None,
+    };
+    let cf_order = match &query.cf_sort {
+        Some(key) => {
+            let desc = !query.cf_sort_order.as_deref().unwrap_or("desc").eq_ignore_ascii_case("asc");
+            Some((
+                field_def_service::build_order_expr(db, "crm_contract", key).await?,
+                if desc { Order::Desc } else { Order::Asc },
+            ))
+        }
+        None => None,
+    };
+    Ok((cf_filter, cf_order))
+}
+
 pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) -> Result<ResultPage<Vec<ContractListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
@@ -252,6 +280,8 @@ pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) 
         }
     };
 
+    let (cf_filter, cf_order) = build_cf_query_parts(db, query).await?;
+
     let result = if list_type == "my" {
         ContractModel::select_in_page_by_assigned_tos(
             &db,
@@ -261,6 +291,8 @@ pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) 
             query.status.clone(),
             query.customer_id,
             Some(vec![current_user_id]),
+            cf_filter,
+            cf_order,
         ).await?
     } else {
         ContractModel::select_in_page_by_assigned_tos(
@@ -271,6 +303,8 @@ pub async fn list(db: &DbConn, query: &ContractListQuery, current_user_id: i64) 
             query.status.clone(),
             query.customer_id,
             assigned_tos_opt,
+            cf_filter,
+            cf_order,
         ).await?
     };
     let list = result.0;
@@ -371,6 +405,8 @@ pub async fn select_list(db: &DbConn, query: &ContractSelectQuery, current_user_
         None,
         None,
         Some(vec![current_user_id]),
+        None,
+        None,
     ).await?;
 
     // 批量查询客户名称

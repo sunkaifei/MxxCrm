@@ -47,6 +47,16 @@
       "clickNeedAll": "Click all characters in order",
       "clickVerifyFail": "Verification failed"
     },
-    "ssoCallback": "SSO Callback"
+    "ssoCallback": "SSO Callback",
+    "testAccounts": {
+      "trigger": "Test Accounts",
+      "title": "Test Accounts",
+      "hint": "Click any row to auto-fill credentials",
+      "passwordNote": "Shared demo password: admin123",
+      "colAccount": "Account",
+      "colRole": "Role",
+      "colDept": "Dept.",
+      "colPerm": "Permissions"
+    }
   }
 }

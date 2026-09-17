@@ -1,5 +1,7 @@
 <script lang="ts" setup>
 import { computed, h, onMounted, reactive, ref } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
+import { IconifyIcon } from '@vben/icons';
 
 import { useAccess } from '@vben/access';
 import { Page } from '@vben/common-ui';
@@ -33,6 +35,7 @@ import {
   createSalaryAdjustmentApi,
   getSalaryAdjustmentHistoryApi,
   getSalaryAdjustmentListApi,
+  submitAdjustmentApprovalApi,
   rejectSalaryAdjustmentApi,
 } from '#/api/core/finance';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
@@ -81,6 +84,18 @@ const adjustmentTypeMap: Record<number, { color: string; label: string }> = {
     label: $t('page.finance.adjustment.adjustmentType.special'),
     color: 'purple',
   },
+  6: {
+    label: $t('page.finance.adjustment.adjustmentType.personal'),
+    color: 'geekblue',
+  },
+  7: {
+    label: $t('page.finance.adjustment.adjustmentType.supervisor'),
+    color: 'blue',
+  },
+  8: {
+    label: $t('page.finance.adjustment.adjustmentType.performance'),
+    color: 'volcano',
+  },
 };
 
 const adjustmentTypeOptions = [
@@ -92,16 +107,22 @@ const adjustmentTypeOptions = [
   { value: 3, label: $t('page.finance.adjustment.adjustmentType.promotion') },
   { value: 4, label: $t('page.finance.adjustment.adjustmentType.transfer') },
   { value: 5, label: $t('page.finance.adjustment.adjustmentType.special') },
+  { value: 6, label: $t('page.finance.adjustment.adjustmentType.personal') },
+  { value: 7, label: $t('page.finance.adjustment.adjustmentType.supervisor') },
+  { value: 8, label: $t('page.finance.adjustment.adjustmentType.performance') },
 ];
 
 const statusMap: Record<number, { color: string; label: string }> = {
   0: { label: $t('page.finance.adjustment.status.pending'), color: 'blue' },
   1: { label: $t('page.finance.adjustment.status.approved'), color: 'green' },
   2: { label: $t('page.finance.adjustment.status.rejected'), color: 'red' },
+  // 历史演示数据中的已生效记录（不在 0/1/2 枚举内，避免裸数字展示）
+  3: { label: $t('page.finance.adjustment.status.approved'), color: 'green' },
 };
 
 // ===== 搜索栏 =====
 const searchForm = reactive({
+  empStatus: 'all' as 'all' | 'active' | 'resigned',
   employeeId: undefined as number | undefined,
 });
 
@@ -123,6 +144,7 @@ const columns = computed(() => [
   {
     title: $t('page.finance.adjustment.column.postName'),
     dataIndex: 'postName',
+    responsive: ['md'] as any,
     width: 110,
     customRender: ({ text }: any) => text || '-',
   },
@@ -156,12 +178,14 @@ const columns = computed(() => [
   {
     title: $t('page.finance.adjustment.column.oldPositionAllowance'),
     dataIndex: 'oldPositionAllowance',
+    responsive: ['md'] as any,
     align: 'right' as const,
     customRender: ({ text }: any) => formatMoney(text),
   },
   {
     title: $t('page.finance.adjustment.column.newPositionAllowance'),
     dataIndex: 'newPositionAllowance',
+    responsive: ['md'] as any,
     align: 'right' as const,
     customRender: ({ text }: any) => formatMoney(text),
   },
@@ -172,6 +196,20 @@ const columns = computed(() => [
     customRender: ({ text }: any) => {
       const m = statusMap[text as number];
       return m ? h(Tag, { color: m.color }, () => m.label) : text;
+    },
+  },
+  {
+    title: '是否在职',
+    dataIndex: 'empStatus',
+    width: 90,
+    customRender: ({ text }: any) => {
+      const map: Record<string, { color: string; label: string }> = {
+        active: { color: 'green', label: '在职' },
+        resigned: { color: 'default', label: '离职' },
+        none: { color: 'red', label: '非员工' },
+      };
+      const m = map[text as string];
+      return m ? h(Tag, { color: m.color }, () => m.label) : '-';
     },
   },
   {
@@ -187,6 +225,7 @@ async function loadData() {
   try {
     const res: any = await getSalaryAdjustmentListApi({
       employeeId: searchForm.employeeId,
+      empStatus: searchForm.empStatus,
     });
     const data = res?.data || res;
     tableData.value = Array.isArray(data) ? data : data?.items || [];
@@ -316,7 +355,25 @@ async function submitReject() {
 }
 
 // ===== 详情弹窗 =====
+// 移动端（<768px）：次要列隐藏、抽屉加宽
+const isMobile = useMediaQuery('(max-width: 767px)');
 const detailVisible = ref(false);
+const detailMaximized = ref(false);
+const detailWidth = computed(() => (isMobile.value ? '100%' : detailMaximized.value ? '100%' : '75%'));
+const submittingApproval = ref(false);
+function toggleDetailMaximize() {
+  detailMaximized.value = !detailMaximized.value;
+}
+async function handleSubmitApproval(record: any) {
+  try {
+    const res: any = await submitAdjustmentApprovalApi(record.id);
+    const d = res?.data ?? res;
+    message.success(`已提交审批流（实例 #${d?.instanceId ?? ''}）`);
+    loadData();
+  } catch (error: any) {
+    message.error(error?.message || '提交审批失败');
+  }
+}
 const detailRecord = ref<any>(null);
 
 function openDetailModal(record: any) {
@@ -381,6 +438,16 @@ onMounted(() => {
           v-model:value="searchForm.employeeId"
           style="width: 160px"
         />
+        <Select
+          v-model:value="searchForm.empStatus"
+          class="w-32"
+          :options="[
+            { label: '全部（不含非员工）', value: 'all' },
+            { label: '在职员工', value: 'active' },
+            { label: '已离职员工', value: 'resigned' },
+          ]"
+          @change="loadData"
+        />
         <Button type="primary" @click="loadData">
           {{ $t('page.finance.common.query') }}
         </Button>
@@ -407,26 +474,13 @@ onMounted(() => {
             <Button type="link" size="small" @click="openDetailModal(record)">
               {{ $t('page.finance.adjustment.button.detail') }}
             </Button>
-            <Button type="link" size="small" @click="openHistoryDrawer(record)">
-              {{ $t('page.finance.adjustment.button.history') }}
-            </Button>
-            <Popconfirm
-              v-if="canManage && record.status === 0"
-              :title="$t('page.finance.adjustment.modal.approveConfirm')"
-              @confirm="handleApprove(record.id)"
-            >
-              <Button type="link" size="small">
-                {{ $t('page.finance.adjustment.button.approveAction') }}
-              </Button>
-            </Popconfirm>
             <Button
               v-if="canManage && record.status === 0"
               type="link"
               size="small"
-              danger
-              @click="openRejectModal(record)"
+              @click="openDetailModal(record)"
             >
-              {{ $t('page.finance.adjustment.button.reject') }}
+              {{ $t('page.finance.adjustment.button.approveAction') }}
             </Button>
           </template>
         </template>
@@ -592,9 +646,18 @@ onMounted(() => {
       </div>
     </Modal>
 
-    <!-- 详情弹窗 -->
-    <Modal
+    <!-- 详情抽屉 -->
+    <Drawer
       v-model:open="detailVisible"
+      :extra="
+        h(Button, {
+          type: 'text',
+          size: 'small',
+          onClick: toggleDetailMaximize,
+          title: detailMaximized ? '还原' : '最大化',
+        }, () => h(IconifyIcon, { icon: detailMaximized ? 'lucide:minimize-2' : 'lucide:maximize-2' }))
+      "
+      :width="detailWidth"
       :title="$t('page.finance.adjustment.modal.titleDetail')"
       :footer="null"
       width="640px"
@@ -670,8 +733,50 @@ onMounted(() => {
             {{ detailRecord.rejectReason }}
           </DescriptionsItem>
         </Descriptions>
+
+        <!-- 审批操作区：待审批 + 有管理权时展示 -->
+        <div
+          v-if="canManage && detailRecord.status === 0"
+          class="mt-4 rounded-lg border border-border bg-muted/30 p-3"
+        >
+          <div class="mb-2 text-sm font-medium">审批操作</div>
+          <div class="flex flex-wrap items-center gap-2">
+            <Popconfirm
+              :title="$t('page.finance.adjustment.modal.approveConfirm')"
+              @confirm="handleApprove(detailRecord.id)"
+            >
+              <Button type="primary" size="small">
+                {{ $t('page.finance.adjustment.button.approveAction') }}
+              </Button>
+            </Popconfirm>
+            <Button danger size="small" @click="openRejectModal(detailRecord)">
+              {{ $t('page.finance.adjustment.button.reject') }}
+            </Button>
+            <Button
+              v-if="detailRecord.approvalStatus === 0 && !detailRecord.instanceId"
+              size="small"
+              :loading="submittingApproval"
+              @click="handleSubmitApproval(detailRecord)"
+            >
+              提交审批流
+            </Button>
+            <Tag
+              v-if="detailRecord.approvalStatus === 1 || detailRecord.approvalStatus === 2"
+              color="processing"
+            >
+              审批流处理中，请到审批中心处理
+            </Tag>
+          </div>
+        </div>
+
+        <!-- 调薪历史入口 -->
+        <div class="mt-3">
+          <Button size="small" @click="openHistoryDrawer(detailRecord)">
+            {{ $t('page.finance.adjustment.button.history') }}
+          </Button>
+        </div>
       </div>
-    </Modal>
+    </Drawer>
 
     <!-- 历史时间轴抽屉 -->
     <Drawer

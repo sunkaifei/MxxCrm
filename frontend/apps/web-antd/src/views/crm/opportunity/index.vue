@@ -33,6 +33,7 @@ import {
   voidOpportunityApi,
 } from '#/api';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+import CustomFieldFilterBar from '#/components/CustomFieldFilterBar.vue';
 import { PageUsageGuide } from '#/components/PageUsageGuide';
 import { useDataScopeTabs } from '#/composables/use-data-scope-tabs';
 import { useSuperAdminGuard } from '#/composables/use-super-admin-guard';
@@ -297,6 +298,7 @@ const gridOptions: VxeGridProps = {
           pageSize: page.pageSize,
           listType: activeTab.value,
           ...formValues,
+          ...(cfBarRef?.getParams?.() ?? {}),
         });
         // 高度规则：无数据固定 600px；有数据时仍保持 600px，
         // 仅当内容超出 600px 才按内容自适应（先解除固定量实测内容高，不足则补回 600px）
@@ -412,7 +414,11 @@ const [Grid, gridApi] = useVbenVxeGrid({ gridOptions, formOptions });
 
 // 自定义字段动态列（P1-2）：schema 加载完成后插到固定列与操作列之间（不阻塞首屏）
 const fieldSchema = useFieldSchema('crm_opportunity');
+// G3：自定义字段列表筛选/排序（字段清单在 loadSchema 后填充）
+const cfFields = ref<any[]>([]);
+const cfBarRef = ref();
 fieldSchema.loadSchema().then(() => {
+  cfFields.value = fieldSchema.getFilterFields();
   const cols = [...(gridOptions.columns ?? [])];
   const action = cols.pop(); // 操作列固定最右
   gridApi.setGridOptions({
@@ -564,6 +570,12 @@ loadFlowMode();
       show-icon
       message="您当前是超级管理员，仅可查看数据。创建商机等业务操作请使用业务账号登录。"
       style="margin-bottom: 12px"
+    />
+    <CustomFieldFilterBar
+      v-if="cfFields.length"
+      ref="cfBarRef"
+      :fields="cfFields"
+      @change="gridApi.query()"
     />
     <Grid
       v-show="activeTab !== 'recycle'"

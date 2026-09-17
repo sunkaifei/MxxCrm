@@ -13,7 +13,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::modules::system::entity::{scheduler_job, scheduler_log};
+use crate::modules::system::entity::{scheduler_alert, scheduler_job, scheduler_log};
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -423,6 +423,158 @@ pub async fn get_log_list(
     let items = paginator.fetch_page((page - 1) as u64).await.map_err(|e| e.to_string())?;
     let vo_list: Vec<SchedulerLogVO> = items.into_iter().map(SchedulerLogVO::from).collect();
     Ok((vo_list, total))
+}
+
+// ==================== 调度告警日志（独立表，仅管理员可见） ====================
+
+/// 告警类型：1=重试耗尽失败, 2=执行中断(进程退出/重载), 3=漏跑提醒
+pub const ALERT_TYPE_RETRY_EXHAUSTED: i32 = 1;
+pub const ALERT_TYPE_INTERRUPTED: i32 = 2;
+pub const ALERT_TYPE_MISSED: i32 = 3;
+
+/// 同一任务同一类型告警的抑制窗口：窗口内重复告警只落一条，防止高频任务刷屏
+const ALERT_SUPPRESS_MINUTES: i64 = 30;
+
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SchedulerAlertVO {
+    pub id: i64,
+    pub job_id: Option<i64>,
+    pub job_code: Option<String>,
+    pub job_name: Option<String>,
+    pub alert_type: Option<i32>,
+    pub message: Option<String>,
+    pub create_time: Option<String>,
+}
+
+impl From<scheduler_alert::Model> for SchedulerAlertVO {
+    fn from(m: scheduler_alert::Model) -> Self {
+        Self {
+            id: m.id,
+            job_id: m.job_id,
+            job_code: m.job_code,
+            job_name: m.job_name,
+            alert_type: m.alert_type,
+            message: m.message,
+            create_time: m.create_time.map(|t| t.to_string()),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchedulerAlertQuery {
+    pub job_code: Option<String>,
+    pub alert_type: Option<i32>,
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
+}
+
+/// 写入一条调度告警（同任务同类型在抑制窗口内去重）
+/// 失败仅记日志，绝不向上抛错——告警写入不得影响任务执行主流程
+pub async fn insert_alert(
+    db: &DatabaseConnection,
+    job_id: Option<i64>,
+    job_code: &str,
+    job_name: Option<&str>,
+    alert_type: i32,
+    message: &str,
+) {
+    // 抑制窗口检查：同 job_code + 同类型 + 窗口内已存在则跳过
+    let cutoff = (Utc::now() - chrono::Duration::minutes(ALERT_SUPPRESS_MINUTES)).naive_utc();
+    let suppressed = scheduler_alert::Entity::find()
+        .filter(scheduler_alert::Column::JobCode.eq(job_code))
+        .filter(scheduler_alert::Column::AlertType.eq(alert_type))
+        .filter(scheduler_alert::Column::CreateTime.gt(cutoff))
+        .one(db)
+        .await;
+    if matches!(suppressed, Ok(Some(_))) {
+        log::info!("[调度告警] {} 类型 {} 在抑制窗口内，跳过重复告警", job_code, alert_type);
+        return;
+    }
+
+    let now = Utc::now().naive_utc();
+    let active = scheduler_alert::ActiveModel {
+        job_id: Set(job_id),
+        job_code: Set(Some(job_code.to_string())),
+        job_name: Set(job_name.map(|s| s.to_string())),
+        alert_type: Set(Some(alert_type)),
+        message: Set(Some(message.to_string())),
+        create_time: Set(Some(now)),
+        ..Default::default()
+    };
+    if let Err(e) = active.insert(db).await {
+        log::error!("[调度告警] {} 告警写入失败: {}；原始消息: {}", job_code, e, message);
+    }
+}
+
+/// 告警分页列表（时间倒序）
+pub async fn get_alert_list(
+    db: &DatabaseConnection,
+    query: SchedulerAlertQuery,
+) -> Result<(Vec<SchedulerAlertVO>, i64), String> {
+    let mut stmt = scheduler_alert::Entity::find()
+        .order_by_desc(scheduler_alert::Column::Id);
+
+    if let Some(code) = &query.job_code {
+        if !code.is_empty() {
+            stmt = stmt.filter(scheduler_alert::Column::JobCode.contains(code));
+        }
+    }
+    if let Some(alert_type) = query.alert_type {
+        stmt = stmt.filter(scheduler_alert::Column::AlertType.eq(alert_type));
+    }
+
+    let page = std::cmp::max(query.page.unwrap_or(1), 1);
+    let page_size = std::cmp::max(query.page_size.unwrap_or(20), 1);
+    let paginator = stmt.paginate(db, page_size as u64);
+    let total = paginator.num_items().await.map_err(|e| e.to_string())? as i64;
+    let items = paginator.fetch_page((page - 1) as u64).await.map_err(|e| e.to_string())?;
+    let vo_list: Vec<SchedulerAlertVO> = items.into_iter().map(SchedulerAlertVO::from).collect();
+    Ok((vo_list, total))
+}
+
+/// 清空全部告警
+pub async fn clear_alerts(db: &DatabaseConnection) -> Result<u64, String> {
+    let result = scheduler_alert::Entity::delete_many()
+        .exec(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(result.rows_affected)
+}
+
+/// 启动时幂等建表（老库兼容；新库由 d79 脚本与运行时兜底双保险）
+pub async fn ensure_alert_table(db: &DbConn) {
+    const MIGRATION: &str = "scheduler_alert_table_v1";
+    if let Ok(true) = crate::core::db_migration::migration_applied(db, MIGRATION).await {
+        return;
+    }
+    if let Ok(true) = crate::core::db_migration::table_exists(db, "mxx_system_scheduler_alert").await {
+        let _ = crate::core::db_migration::mark_migration_applied(db, MIGRATION).await;
+        return;
+    }
+
+    let create_table_sql = "CREATE TABLE IF NOT EXISTS mxx_system_scheduler_alert (
+        id BIGSERIAL PRIMARY KEY,
+        job_id BIGINT,
+        job_code VARCHAR(128),
+        job_name VARCHAR(128),
+        alert_type INTEGER NOT NULL DEFAULT 1,
+        message TEXT,
+        create_time TIMESTAMP NOT NULL DEFAULT NOW()
+    )";
+    let create_idx = "CREATE INDEX IF NOT EXISTS idx_scheduler_alert_code_type ON mxx_system_scheduler_alert(job_code, alert_type, create_time)";
+
+    match db.execute_unprepared(create_table_sql).await {
+        Ok(_) => {
+            if let Err(e) = db.execute_unprepared(create_idx).await {
+                log::error!("[调度告警] 创建索引失败: {:?}", e);
+            }
+            let _ = crate::core::db_migration::mark_migration_applied(db, MIGRATION).await;
+            log::info!("[调度告警] 告警日志表 mxx_system_scheduler_alert 就绪");
+        }
+        Err(e) => log::error!("[调度告警] 建表失败: {:?}", e),
+    }
 }
 
 /// 执行处理器（根据 handler 标识分发）

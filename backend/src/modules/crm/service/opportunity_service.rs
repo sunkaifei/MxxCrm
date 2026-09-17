@@ -21,7 +21,8 @@ use crate::modules::system::service::field_def_service;
 use crate::modules::system::service::sales_flow_config_service;
 use crate::modules::sale::entity::{quotation, quotation::Entity as Quotation};
 use crate::modules::sale::model::order::{OrderModel, OrderSaveDTO};
-use sea_orm::{ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, QueryFilter, QuerySelect, Set, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, Order, QueryFilter, QuerySelect, Set, TransactionTrait};
+use sea_orm::sea_query::SimpleExpr;
 use std::collections::HashMap;
 
 pub async fn insert(db: &DbConn, form_data: &OpportunitySaveRequest, created_by: i64) -> Result<i64> {
@@ -251,6 +252,33 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<OpportunityDetailVO> {
     }
 }
 
+
+/// 构造商机列表的自定义字段筛选/排序表达式（G3，与客户列表 build_cf_query_parts 同款）
+/// 经 field_def_service::build_filter_expr/build_order_expr 生成，参数绑定防注入
+async fn build_cf_query_parts(
+    db: &DbConn,
+    query: &OpportunityListQuery,
+) -> Result<(Option<SimpleExpr>, Option<(SimpleExpr, Order)>)> {
+    let cf_filter = match (&query.cf_key, &query.cf_op) {
+        (Some(key), Some(op)) => {
+            let val = query.cf_val.clone().unwrap_or(serde_json::Value::Null);
+            Some(field_def_service::build_filter_expr(db, "crm_opportunity", key, op, &val).await?)
+        }
+        _ => None,
+    };
+    let cf_order = match &query.cf_sort {
+        Some(key) => {
+            let desc = !query.cf_sort_order.as_deref().unwrap_or("desc").eq_ignore_ascii_case("asc");
+            Some((
+                field_def_service::build_order_expr(db, "crm_opportunity", key).await?,
+                if desc { Order::Desc } else { Order::Asc },
+            ))
+        }
+        None => None,
+    };
+    Ok((cf_filter, cf_order))
+}
+
 pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i64) -> Result<ResultPage<Vec<OpportunityListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
@@ -275,6 +303,8 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
         }
     };
 
+    let (cf_filter, cf_order) = build_cf_query_parts(db, query).await?;
+
     let (list, total) = if list_type == "my" {
         // my：直接用 select_in_page，按 assigned_to = current_user_id 过滤
         OpportunityModel::select_in_page(
@@ -285,6 +315,8 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
             query.stage.clone(),
             Some(current_user_id),
             query.customer_id,
+            cf_filter,
+            cf_order,
         ).await?
     } else if list_type == "customer" {
         // customer：客户详情页使用，不过滤数据权限，按 customer_id 查询该客户下所有商机
@@ -296,6 +328,8 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
             query.stage.clone(),
             None,
             query.customer_id,
+            cf_filter,
+            cf_order,
         ).await?
     } else {
         // subordinate / all：按 assigned_ids 过滤
@@ -307,6 +341,8 @@ pub async fn list(db: &DbConn, query: &OpportunityListQuery, current_user_id: i6
             query.stage.clone(),
             assigned_ids_opt,
             query.customer_id,
+            cf_filter,
+            cf_order,
         ).await?
     };
 
@@ -590,7 +626,12 @@ pub async fn convert_to_order(db: &DbConn, opportunity_id: i64, user_id: i64) ->
         create_by: Some(user_id),
         update_by: None,
         // 商机转订单：跨模块字段定义不同，不继承 custom_fields
-        custom_fields: None,
+        custom_fields: field_def_service::filter_transferable_custom_fields(
+            db,
+            "sale_order",
+            opp.custom_fields.as_ref(),
+        )
+        .await,
     };
 
     let order_id = OrderModel::insert(&txn, &order_dto).await?;

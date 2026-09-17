@@ -29,7 +29,8 @@ use crate::modules::system::service::field_def_service;
 use crate::modules::system::service::role_service;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
-use sea_orm::{DbConn, Set, TransactionTrait, ActiveModelTrait, IntoActiveModel, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{DbConn, Order, Set, TransactionTrait, ActiveModelTrait, IntoActiveModel, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::sea_query::SimpleExpr;
 use std::collections::HashMap;
 
 pub async fn insert(db: &DbConn, form_data: &QuotationSaveRequest, created_by: String) -> Result<i64> {
@@ -196,6 +197,33 @@ pub async fn find_by_id(db: &DbConn, id: i64) -> Result<QuotationDetailVO> {
     Ok((main, items, approvals).into())
 }
 
+
+/// 构造报价单列表的自定义字段筛选/排序表达式（G3，与客户列表 build_cf_query_parts 同款）
+/// 经 field_def_service::build_filter_expr/build_order_expr 生成，参数绑定防注入
+async fn build_cf_query_parts(
+    db: &DbConn,
+    query: &QuotationListQuery,
+) -> Result<(Option<SimpleExpr>, Option<(SimpleExpr, Order)>)> {
+    let cf_filter = match (&query.cf_key, &query.cf_op) {
+        (Some(key), Some(op)) => {
+            let val = query.cf_val.clone().unwrap_or(serde_json::Value::Null);
+            Some(field_def_service::build_filter_expr(db, "sale_quotation", key, op, &val).await?)
+        }
+        _ => None,
+    };
+    let cf_order = match &query.cf_sort {
+        Some(key) => {
+            let desc = !query.cf_sort_order.as_deref().unwrap_or("desc").eq_ignore_ascii_case("asc");
+            Some((
+                field_def_service::build_order_expr(db, "sale_quotation", key).await?,
+                if desc { Order::Desc } else { Order::Asc },
+            ))
+        }
+        None => None,
+    };
+    Ok((cf_filter, cf_order))
+}
+
 pub async fn list(db: &DbConn, query: &QuotationListQuery, current_user_id: i64) -> Result<ResultPage<Vec<QuotationListVO>>> {
     let page = query.page_num.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
@@ -233,6 +261,8 @@ pub async fn list(db: &DbConn, query: &QuotationListQuery, current_user_id: i64)
         }
     };
 
+    let (cf_filter, cf_order) = build_cf_query_parts(db, query).await?;
+
     let (list, total) = QuotationModel::select_in_page_by_owner_user_ids(
         db,
         page,
@@ -244,6 +274,8 @@ pub async fn list(db: &DbConn, query: &QuotationListQuery, current_user_id: i64)
         query.start_date.clone(),
         query.end_date.clone(),
         owner_user_ids_opt,
+        cf_filter,
+        cf_order,
     ).await?;
 
     let mut customer_map: HashMap<i64, String> = HashMap::new();
@@ -550,7 +582,12 @@ pub async fn convert_to_order(db: &DbConn, quotation_id: i64, created_by: String
         create_by: Some(created_by_i64),
         update_by: None,
         // 报价单转订单：跨模块字段定义不同，不继承 custom_fields
-        custom_fields: None,
+        custom_fields: field_def_service::filter_transferable_custom_fields(
+            db,
+            "sale_order",
+            detail.custom_fields.as_ref(),
+        )
+        .await,
     };
 
     let order_id = OrderModel::insert(&txn, &order_dto).await?;

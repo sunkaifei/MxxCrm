@@ -28,6 +28,7 @@ const CF_OP_LABELS: Record<string, string> = {
   gte: '大于等于',
   lt: '小于',
   lte: '小于等于',
+  between: '介于',
   contains: '包含',
 };
 
@@ -326,7 +327,7 @@ export function useFieldSchema(module: string) {
             ? []
             : opItems(
                 [3, 11, 4, 5].includes(type)
-                  ? ['eq', 'gt', 'gte', 'lt', 'lte']
+                  ? ['eq', 'between', 'gt', 'gte', 'lt', 'lte']
                   : ['like', 'eq', 'ne'],
               ),
           fixedOp: isArrayType ? 'contains' : type === 8 ? 'eq' : undefined,

@@ -30,6 +30,7 @@ import {
 
 import DynamicFieldControl from '#/components/DynamicFieldControl.vue';
 import { useFieldSchema } from '#/components/FieldSchemaAdapter';
+import CustomFieldsLayoutBlock from '#/components/CustomFieldsLayoutBlock.vue';
 
 import TagSelector from '../components/TagSelector.vue';
 
@@ -1065,19 +1066,14 @@ function resetForm() {
                     />
                   </Form.Item>
 
-                  <!-- 自定义字段动态渲染（P0-14/P1-5）：编辑角色软约束禁用，硬约束由后端 400 拦截 -->
-                  <Form.Item
-                    v-for="item in fieldSchema.items.value"
-                    :key="item.fieldKey"
-                    :label="item.fieldLabel"
-                    :required="Number(item.required) === 1"
-                  >
-                    <DynamicFieldControl
-                      v-model:value="cfValues[item.fieldKey]"
-                      :item="item"
-                      :disabled="!fieldSchema.isRoleEditable(item)"
-                    />
-                  </Form.Item>
+                  <!-- 自定义字段布局块：选项卡/列宽/顺序由模板设置驱动 -->
+                  <CustomFieldsLayoutBlock
+                    :module="'crm_lead'"
+                    :items="fieldSchema.items.value"
+                    :values="cfValues"
+                    :prefill="isCreate"
+                    :disabled="(i: any) => !fieldSchema.isRoleEditable(i)"
+                  />
 
                   <!-- 标签（仅编辑模式） -->
                   <div v-if="!isCreate" class="lead-section-divider">

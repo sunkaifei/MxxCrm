@@ -13,7 +13,6 @@ pub mod string_utils;
 pub mod encryption_utils;
 pub mod file_utils;
 pub mod time_utils;
-pub mod auth;
 pub mod domain_utils;
 pub mod snowflake_id_utils;
 pub mod snowflake;

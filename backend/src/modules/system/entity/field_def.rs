@@ -21,6 +21,8 @@ pub struct Model {
     pub id: i64,
     /// 业务模块标识（crm_customer/crm_lead/crm_opportunity/crm_contact/crm_contract/sale_quotation/sale_order）
     pub module: Option<String>,
+    /// 系统字段标记：1=模块固定列字段（仅允许改 field_label，禁删/禁停用/禁改 key 与类型）；0=自定义字段
+    pub is_system: Option<i32>,
     /// 字段键：同模块唯一，正则 ^[a-z][a-z0-9_]{1,63}$，创建后不可修改
     pub field_key: Option<String>,
     /// 显示名

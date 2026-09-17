@@ -39,6 +39,7 @@ pub mod profile_controller;
 pub mod hr_archive_controller;
 pub mod resign_controller;
 pub mod dashboard_card_admin_controller;
+pub mod form_layout_admin_controller;
 pub mod workspace_admin_controller;
 pub mod onboarding_controller;
 pub mod dashboard_workspace_controller;

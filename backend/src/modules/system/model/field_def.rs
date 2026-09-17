@@ -151,6 +151,9 @@ pub struct FieldDefListVO {
     #[serde(serialize_with = "serialize_option_u64_to_string")]
     pub id: Option<i64>,
     pub module: Option<String>,
+    /// 系统字段标记：1=模块固定列字段（前端禁删/禁停用/禁改结构，仅可改显示名）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_system: Option<i32>,
     pub field_key: Option<String>,
     pub field_label: Option<String>,
     pub field_type: Option<i32>,
@@ -175,6 +178,7 @@ impl From<field_def::Model> for FieldDefListVO {
         FieldDefListVO {
             id: Option::from(item.id),
             module: item.module,
+            is_system: item.is_system,
             field_key: item.field_key,
             field_label: item.field_label,
             field_type: item.field_type,
@@ -197,10 +201,14 @@ impl From<field_def::Model> for FieldDefListVO {
 }
 
 /// 运行侧 schema 项（仅返回 status=1 且未删除的字段定义）
+/// rename_all 双向：缓存走 JSON 字符串回读，serialize-only 会导致缓存命中时反序列化全 None
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all(serialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct SchemaItem {
     pub field_key: Option<String>,
+    /// 系统字段标记：1=模块固定列字段（仅可改显示名，布局编排用）；0/None=自定义字段
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_system: Option<i32>,
     pub field_label: Option<String>,
     pub field_type: Option<i32>,
     pub options: Option<serde_json::Value>,
@@ -216,6 +224,7 @@ impl From<field_def::Model> for SchemaItem {
     fn from(item: field_def::Model) -> Self {
         SchemaItem {
             field_key: item.field_key,
+            is_system: item.is_system,
             field_label: item.field_label,
             field_type: item.field_type,
             options: item.options,
@@ -287,6 +296,8 @@ pub struct ListQuery {
     /// field_label/field_key 模糊
     pub keyword: Option<String>,
     pub status: Option<i32>,
+    /// 系统字段过滤：1=仅系统 0=仅自定义
+    pub is_system: Option<i32>,
 }
 
 /// 运行侧 schema 查询参数（GET /field/schema?module=xxx）
@@ -302,6 +313,8 @@ pub struct PageWhere {
     pub module: Option<String>,
     pub keyword: Option<String>,
     pub status: Option<i32>,
+    /// 系统字段标记过滤：None=不过滤；Some(0)=仅自定义；Some(1)=仅系统
+    pub is_system: Option<i32>,
 }
 
 impl PageWhere {
@@ -317,10 +330,16 @@ impl PageWhere {
             status = self.status;
         }
 
+        let mut is_system = None;
+        if self.is_system == Some(1) || self.is_system == Some(0) {
+            is_system = self.is_system;
+        }
+
         Self {
             module: self.module.clone(),
             keyword,
             status,
+            is_system,
         }
     }
 }
@@ -491,6 +510,9 @@ impl FieldDefModel {
             .apply_if(wheres.status, |query, v| {
                 query.filter(field_def::Column::Status.eq(v))
             })
+            .apply_if(wheres.is_system, |query, v| {
+                query.filter(field_def::Column::IsSystem.eq(v))
+            })
             .filter(field_def::Column::Deleted.eq(0))
             .count(db)
             .await
@@ -512,6 +534,9 @@ impl FieldDefModel {
             })
             .apply_if(wheres.status, |query, v| {
                 query.filter(field_def::Column::Status.eq(v))
+            })
+            .apply_if(wheres.is_system, |query, v| {
+                query.filter(field_def::Column::IsSystem.eq(v))
             })
             .filter(field_def::Column::Deleted.eq(0))
             .order_by_asc(field_def::Column::Module)
